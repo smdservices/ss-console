@@ -14,7 +14,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "typecheck": "astro check",
-    "verify": "npm run typecheck && npm run format:check && npm run lint && npm run test",
+    "verify": "npm run typecheck && npm run format:check && npm run lint && npm run build && npm run test",
     "prepare": "node -e \"if(process.env.CI)process.exit(0)\" && husky"
   },
   "dependencies": {
