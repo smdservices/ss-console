@@ -46,9 +46,11 @@ describe('component existence', () => {
 })
 
 describe('content integrity', () => {
-  it('Pricing.astro contains $3,500', () => {
+  it('Pricing.astro does not publish a specific dollar amount', () => {
     const content = readComponent('Pricing.astro')
-    expect(content).toContain('$3,500')
+    expect(content).not.toContain('$3,500')
+    expect(content).not.toContain('$2,500')
+    expect(content).toContain('Book Your Assessment Call')
   })
 
   it('$2,500 does not appear anywhere in src/', () => {
