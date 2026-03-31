@@ -62,13 +62,16 @@ describe('cloudflare SSR scaffolding', () => {
     expect(existsSync(resolve('src/pages/api/health.ts'))).toBe(true)
   })
 
-  it('existing pages are marked for prerendering', () => {
-    const index = readFileSync(resolve('src/pages/index.astro'), 'utf-8')
+  it('static pages are marked for prerendering', () => {
     const book = readFileSync(resolve('src/pages/book.astro'), 'utf-8')
     const notFound = readFileSync(resolve('src/pages/404.astro'), 'utf-8')
-    expect(index).toContain('export const prerender = true')
     expect(book).toContain('export const prerender = true')
     expect(notFound).toContain('export const prerender = true')
+  })
+
+  it('index page is SSR for portal subdomain routing', () => {
+    const index = readFileSync(resolve('src/pages/index.astro'), 'utf-8')
+    expect(index).toContain('export const prerender = false')
   })
 
   it('deploy workflow targets ss-web project', () => {
