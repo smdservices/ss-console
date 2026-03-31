@@ -10,6 +10,11 @@ export default defineConfig({
     platformProxy: {
       enabled: true,
     },
+    routes: {
+      extend: {
+        include: [{ pattern: '/' }],
+      },
+    },
   }),
   integrations: [sitemap()],
   vite: {

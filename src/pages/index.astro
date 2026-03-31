@@ -1,5 +1,7 @@
 ---
-export const prerender = true
+// SSR required: middleware needs to intercept portal.smd.services requests to this path
+// and rewrite them to /portal. The prerendered static file would bypass the Worker entirely.
+export const prerender = false
 
 import Base from '../layouts/Base.astro'
 import Nav from '../components/Nav.astro'
