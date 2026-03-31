@@ -42,6 +42,9 @@ const errorMessages: Record<string, string> = {
   server: 'Something went wrong. Please try again.',
   invalid_transition: 'That status transition is not allowed.',
   client_not_found: 'Client not found.',
+  no_sow: 'Generate a SOW PDF first before sending for signature.',
+  already_sent: 'This quote has already been sent for signature.',
+  no_contact_email: 'No contact email found. Add a contact with an email address first.',
 }
 
 const errorMessage = errorParam ? (errorMessages[errorParam] ?? 'An error occurred.') : ''
@@ -49,7 +52,11 @@ const errorMessage = errorParam ? (errorMessages[errorParam] ?? 'An error occurr
 // Status helpers
 const currentStatus = quote.status as QuoteStatus
 const isDraft = currentStatus === 'draft'
+const isSent = currentStatus === 'sent'
 const hasSow = !!quote.sow_path
+const hasSignwell = !!quote.signwell_doc_id
+const hasSignedSow = !!quote.signed_sow_path
+const canSendForSignature = hasSow && !hasSignwell && (isDraft || isSent)
 
 // Status badge colors
 const statusColorMap: Record<string, string> = {
@@ -190,7 +197,7 @@ const getProblemLabel = (problem: string) => {
           )
         }
         {
-          isDraft && hasSow && (
+          isDraft && hasSow && !hasSignwell && (
             <form method="POST" action={`/api/admin/quotes/${quote.id}`} class="inline">
               <input type="hidden" name="action" value="send" />
               <button
@@ -198,6 +205,23 @@ const getProblemLabel = (problem: string) => {
                 class="px-4 py-2 rounded-md text-sm font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700"
               >
                 Send to Client
+              </button>
+            </form>
+          )
+        }
+        {
+          canSendForSignature && (
+            <form
+              method="POST"
+              action={`/api/admin/quotes/${quote.id}/sign`}
+              class="inline"
+              data-signwell-sign
+            >
+              <button
+                type="submit"
+                class="px-4 py-2 rounded-md text-sm font-medium transition-colors bg-indigo-600 text-white hover:bg-indigo-700"
+              >
+                Send for Signature
               </button>
             </form>
           )
@@ -229,6 +253,73 @@ const getProblemLabel = (problem: string) => {
           )
         }
       </div>
+
+      <!-- SignWell Status -->
+      {
+        isSent && hasSignwell && !hasSignedSow && (
+          <div
+            class="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg"
+            data-signwell-status="awaiting"
+          >
+            <div class="flex items-center gap-3">
+              <svg
+                class="w-5 h-5 text-indigo-600 flex-shrink-0 animate-pulse"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                />
+              </svg>
+              <div class="flex-1">
+                <p class="text-sm font-medium text-indigo-800">Awaiting Signature</p>
+                <p class="text-xs text-indigo-600">
+                  Sent via SignWell — waiting for client to sign
+                </p>
+              </div>
+            </div>
+          </div>
+        )
+      }
+      {
+        hasSignedSow && (
+          <div
+            class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg"
+            data-signwell-status="signed"
+          >
+            <div class="flex items-center gap-3">
+              <svg
+                class="w-5 h-5 text-green-600 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <div class="flex-1">
+                <p class="text-sm font-medium text-green-800">Signed SOW</p>
+                <p class="text-xs text-green-600 truncate">{quote.signed_sow_path}</p>
+              </div>
+              <a
+                href={`/api/admin/quotes/${quote.id}/signed-sow`}
+                class="text-sm font-medium text-green-700 hover:text-green-900 underline"
+                data-signed-sow-link
+              >
+                View Signed SOW
+              </a>
+            </div>
+          </div>
+        )
+      }
 
       <!-- SOW PDF Section -->
       {
