@@ -15,6 +15,7 @@ type CfEnv = {
   STORAGE: R2Bucket
   SESSIONS: KVNamespace
   RESEND_API_KEY?: string
+  ANTHROPIC_API_KEY?: string
 }
 
 type Runtime = import('@astrojs/cloudflare').Runtime<CfEnv>
