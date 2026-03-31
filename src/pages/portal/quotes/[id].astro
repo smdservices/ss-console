@@ -1,0 +1,408 @@
+---
+import '../../../styles/global.css'
+import { getPortalClient } from '../../../lib/portal/session'
+import { getQuoteForClient } from '../../../lib/db/quotes'
+import type { LineItem } from '../../../lib/db/quotes'
+import { PROBLEM_LABELS } from '../../../portal/assessments/extraction-schema'
+import type { ProblemId } from '../../../portal/assessments/extraction-schema'
+
+/**
+ * Portal quote detail — shows scope, project price, payment terms, signing.
+ *
+ * CRITICAL: No hourly breakdown, no per-item pricing (Decision #16).
+ * Client sees total project price only, never hours or rates.
+ */
+
+const session = Astro.locals.session!
+const env = Astro.locals.runtime.env
+const { id: quoteId } = Astro.params
+
+if (!quoteId) {
+  return Astro.redirect('/portal/quotes')
+}
+
+// Resolve client from session
+const portalData = await getPortalClient(env.DB, session.userId)
+if (!portalData) {
+  return Astro.redirect('/auth/portal-login?error=no_account')
+}
+
+const { client } = portalData
+
+// Get quote scoped to this client
+const quote = await getQuoteForClient(env.DB, client.id, quoteId)
+if (!quote) {
+  return Astro.redirect('/portal/quotes')
+}
+
+const lineItems: LineItem[] = JSON.parse(quote.line_items)
+
+// Helpers
+const formatCurrency = (amount: number) =>
+  `$${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+
+const formatDate = (d: string) =>
+  new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+
+const getProblemLabel = (problem: string) => PROBLEM_LABELS[problem as ProblemId] ?? problem
+
+const statusColorMap: Record<string, string> = {
+  sent: 'bg-blue-100 text-blue-800',
+  accepted: 'bg-green-100 text-green-800',
+  declined: 'bg-red-100 text-red-800',
+  expired: 'bg-amber-100 text-amber-800',
+}
+
+const statusLabelMap: Record<string, string> = {
+  sent: 'Pending Review',
+  accepted: 'Accepted',
+  declined: 'Declined',
+  expired: 'Expired',
+}
+
+// Payment terms calculation
+const depositAmount = quote.deposit_amount ?? quote.total_price * quote.deposit_pct
+const balanceAmount = quote.total_price - depositAmount
+const depositPctDisplay = Math.round(quote.deposit_pct * 100)
+const balancePctDisplay = 100 - depositPctDisplay
+
+// Determine if 3-milestone payment (40+ hours — Decision #14)
+const isThreeMilestone = quote.total_hours >= 40
+
+// Expiration
+let expirationText = ''
+if (quote.status === 'sent' && quote.expires_at) {
+  const diffMs = new Date(quote.expires_at).getTime() - Date.now()
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+  expirationText =
+    diffDays > 0 ? `Expires in ${diffDays} day${diffDays !== 1 ? 's' : ''}` : 'Expired'
+}
+
+// SignWell signing
+const hasSignWell = !!quote.signwell_doc_id
+const hasSow = !!quote.sow_path
+const isSent = quote.status === 'sent'
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <title>Proposal — Portal — SMD Services</title>
+  </head>
+  <body class="min-h-screen bg-slate-50">
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <a href="/portal" class="text-lg font-bold text-slate-900 hover:text-slate-700"
+            >SMD Services</a
+          >
+          <span class="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">Portal</span>
+        </div>
+        <div class="flex items-center gap-4">
+          <span class="text-sm text-slate-600 hidden sm:inline">{session.email}</span>
+          <form method="POST" action="/api/auth/logout">
+            <button
+              type="submit"
+              class="text-sm text-slate-500 hover:text-slate-700 transition-colors"
+            >
+              Sign out
+            </button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-4 py-6 sm:py-8">
+      <!-- Breadcrumb -->
+      <nav class="mb-6">
+        <ol class="flex items-center gap-2 text-sm text-slate-500">
+          <li><a href="/portal" class="hover:text-slate-700">Dashboard</a></li>
+          <li class="text-slate-300">/</li>
+          <li><a href="/portal/quotes" class="hover:text-slate-700">Proposals</a></li>
+          <li class="text-slate-300">/</li>
+          <li class="text-slate-900 font-medium">Proposal Details</li>
+        </ol>
+      </nav>
+
+      <!-- Header -->
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+        <div class="flex-1">
+          <div class="flex items-center gap-3 mb-1">
+            <h1 class="text-xl sm:text-2xl font-bold text-slate-900">Your Proposal</h1>
+            <span
+              class={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColorMap[quote.status] ?? 'bg-slate-100 text-slate-600'}`}
+            >
+              {statusLabelMap[quote.status] ?? quote.status}
+            </span>
+          </div>
+          {
+            expirationText && (
+              <p
+                class={`text-sm ${expirationText === 'Expired' ? 'text-red-500' : 'text-amber-500'}`}
+              >
+                {expirationText}
+              </p>
+            )
+          }
+        </div>
+      </div>
+
+      <!-- Scope Table -->
+      <div class="bg-white rounded-lg border border-slate-200 p-5 sm:p-6 mb-6">
+        <h2 class="text-base font-semibold text-slate-900 mb-4">Scope of Work</h2>
+
+        <div class="space-y-4">
+          {
+            lineItems.map((item, index) => (
+              <div class="pb-4 border-b border-slate-100 last:border-0 last:pb-0">
+                <div class="flex items-start gap-3">
+                  <span class="flex-shrink-0 w-6 h-6 bg-slate-100 rounded-full flex items-center justify-center text-xs font-medium text-slate-500">
+                    {index + 1}
+                  </span>
+                  <div>
+                    <p class="text-sm font-medium text-slate-900">
+                      {getProblemLabel(item.problem)}
+                    </p>
+                    {item.description && (
+                      <p class="text-sm text-slate-600 mt-1">{item.description}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+
+      <!-- Project Price -->
+      <div class="bg-white rounded-lg border border-slate-200 p-5 sm:p-6 mb-6">
+        <h2 class="text-base font-semibold text-slate-900 mb-4">Investment</h2>
+
+        <div class="mb-4 pb-4 border-b border-slate-200">
+          <p class="text-sm text-slate-500 mb-1">Project Price</p>
+          <p class="text-2xl sm:text-3xl font-bold text-slate-900">
+            {formatCurrency(quote.total_price)}
+          </p>
+        </div>
+
+        <h3 class="text-sm font-medium text-slate-700 mb-3">Payment Terms</h3>
+
+        {
+          isThreeMilestone ? (
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between p-3 bg-slate-50 rounded-lg">
+                <span class="text-slate-600">Deposit at signing</span>
+                <span class="font-medium text-slate-900">{formatCurrency(depositAmount)}</span>
+              </div>
+              <div class="flex justify-between p-3 bg-slate-50 rounded-lg">
+                <span class="text-slate-600">Milestone payments</span>
+                <span class="font-medium text-slate-900">{formatCurrency(balanceAmount)}</span>
+              </div>
+              <p class="text-xs text-slate-400 mt-2">
+                Milestone payments are billed as project phases are completed.
+              </p>
+            </div>
+          ) : (
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between p-3 bg-slate-50 rounded-lg">
+                <span class="text-slate-600">Deposit at signing ({depositPctDisplay}%)</span>
+                <span class="font-medium text-slate-900">{formatCurrency(depositAmount)}</span>
+              </div>
+              <div class="flex justify-between p-3 bg-slate-50 rounded-lg">
+                <span class="text-slate-600">Balance at completion ({balancePctDisplay}%)</span>
+                <span class="font-medium text-slate-900">{formatCurrency(balanceAmount)}</span>
+              </div>
+            </div>
+          )
+        }
+      </div>
+
+      <!-- SOW Download -->
+      {
+        hasSow && (
+          <div class="bg-white rounded-lg border border-slate-200 p-5 sm:p-6 mb-6">
+            <h2 class="text-base font-semibold text-slate-900 mb-3">Statement of Work</h2>
+            <p class="text-sm text-slate-600 mb-4">
+              Download the full Statement of Work for your records.
+            </p>
+            <a
+              href={`/api/portal/quotes/${quote.id}/sow`}
+              class="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors min-h-[44px]"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+              Download SOW (PDF)
+            </a>
+          </div>
+        )
+      }
+
+      <!-- Signing Section -->
+      {
+        isSent && (
+          <div
+            class="bg-white rounded-lg border border-blue-200 p-5 sm:p-6 mb-6"
+            id="signing-section"
+          >
+            <h2 class="text-base font-semibold text-slate-900 mb-3">Review & Sign</h2>
+
+            {hasSignWell ? (
+              <div>
+                <p class="text-sm text-slate-600 mb-4">
+                  Review the statement of work below and sign to get started.
+                </p>
+                <div
+                  class="rounded-lg border border-slate-200 overflow-hidden"
+                  style="min-height: 600px;"
+                >
+                  <iframe
+                    src={`https://app.signwell.com/sign/${quote.signwell_doc_id}`}
+                    class="w-full border-0"
+                    style="min-height: 600px;"
+                    title="Sign Statement of Work"
+                    allow="clipboard-write"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div class="text-center py-8">
+                <svg
+                  class="w-12 h-12 text-slate-300 mx-auto mb-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <p class="text-slate-600 font-medium">Your proposal is being prepared</p>
+                <p class="text-sm text-slate-400 mt-1">
+                  The signing document is being finalized. You will receive an email when it is
+                  ready.
+                </p>
+              </div>
+            )}
+          </div>
+        )
+      }
+
+      <!-- Accepted Confirmation -->
+      {
+        quote.status === 'accepted' && (
+          <div class="bg-green-50 border border-green-200 rounded-lg p-5 sm:p-6 mb-6">
+            <div class="flex items-start gap-3">
+              <svg
+                class="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <div>
+                <p class="font-medium text-green-900">Proposal accepted</p>
+                {quote.accepted_at && (
+                  <p class="text-sm text-green-700 mt-1">
+                    Signed on {formatDate(quote.accepted_at)}
+                  </p>
+                )}
+                <p class="text-sm text-green-700 mt-1">
+                  Our team will be in touch to schedule the kickoff.
+                </p>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      <!-- Declined / Expired States -->
+      {
+        quote.status === 'declined' && (
+          <div class="bg-slate-50 border border-slate-200 rounded-lg p-5 sm:p-6 mb-6">
+            <p class="text-sm text-slate-600">
+              This proposal was declined. If you would like to discuss a revised proposal, please
+              reach out to our team.
+            </p>
+          </div>
+        )
+      }
+
+      {
+        quote.status === 'expired' && (
+          <div class="bg-amber-50 border border-amber-200 rounded-lg p-5 sm:p-6 mb-6">
+            <p class="text-sm text-amber-800">
+              This proposal has expired. Please reach out to our team if you would like to discuss a
+              new proposal.
+            </p>
+          </div>
+        )
+      }
+
+      <!-- Timeline -->
+      <div class="bg-white rounded-lg border border-slate-200 p-5 sm:p-6 mb-6">
+        <h2 class="text-base font-semibold text-slate-900 mb-4">Timeline</h2>
+        <div class="space-y-3 text-sm">
+          {
+            quote.sent_at && (
+              <div class="flex justify-between">
+                <span class="text-slate-500">Proposal sent</span>
+                <span class="text-slate-900">{formatDate(quote.sent_at)}</span>
+              </div>
+            )
+          }
+          {
+            quote.expires_at && quote.status === 'sent' && (
+              <div class="flex justify-between">
+                <span class="text-slate-500">Expires</span>
+                <span class={expirationText === 'Expired' ? 'text-red-500' : 'text-slate-900'}>
+                  {formatDate(quote.expires_at)}
+                </span>
+              </div>
+            )
+          }
+          {
+            quote.accepted_at && (
+              <div class="flex justify-between">
+                <span class="text-slate-500">Signed</span>
+                <span class="text-green-600 font-medium">{formatDate(quote.accepted_at)}</span>
+              </div>
+            )
+          }
+        </div>
+      </div>
+
+      <!-- Back link -->
+      <div class="pt-2">
+        <a
+          href="/portal/quotes"
+          class="text-sm text-slate-500 hover:text-slate-700 transition-colors"
+        >
+          Back to Proposals
+        </a>
+      </div>
+    </main>
+  </body>
+</html>

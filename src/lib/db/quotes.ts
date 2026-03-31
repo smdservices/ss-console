@@ -277,6 +277,50 @@ export async function updateQuote(
  * - draft -> sent: sets sent_at and expires_at (sent_at + 5 days)
  * - sent -> accepted: sets accepted_at
  */
+/**
+ * Portal-facing statuses visible to clients.
+ * Draft and superseded quotes are internal-only.
+ */
+const PORTAL_VISIBLE_STATUSES = ['sent', 'accepted', 'declined', 'expired'] as const
+
+/**
+ * List quotes for a specific client (portal access).
+ *
+ * Scoped by client_id (NOT org_id) — portal users access via their client_id.
+ * Only returns quotes visible to clients (sent, accepted, declined, expired).
+ */
+export async function listQuotesForClient(db: D1Database, clientId: string): Promise<Quote[]> {
+  const placeholders = PORTAL_VISIBLE_STATUSES.map(() => '?').join(', ')
+  const sql = `SELECT * FROM quotes WHERE client_id = ? AND status IN (${placeholders}) ORDER BY updated_at DESC`
+
+  const result = await db
+    .prepare(sql)
+    .bind(clientId, ...PORTAL_VISIBLE_STATUSES)
+    .all<Quote>()
+  return result.results
+}
+
+/**
+ * Get a single quote for a client (portal access).
+ *
+ * Scoped by client_id (NOT org_id) — same status filter as list.
+ */
+export async function getQuoteForClient(
+  db: D1Database,
+  clientId: string,
+  quoteId: string
+): Promise<Quote | null> {
+  const placeholders = PORTAL_VISIBLE_STATUSES.map(() => '?').join(', ')
+  const sql = `SELECT * FROM quotes WHERE id = ? AND client_id = ? AND status IN (${placeholders})`
+
+  const result = await db
+    .prepare(sql)
+    .bind(quoteId, clientId, ...PORTAL_VISIBLE_STATUSES)
+    .first<Quote>()
+
+  return result ?? null
+}
+
 export async function updateQuoteStatus(
   db: D1Database,
   orgId: string,
