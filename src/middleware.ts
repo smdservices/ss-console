@@ -5,10 +5,11 @@ import { parseSessionToken, validateSession, renewSession } from './lib/auth/ses
  * Astro middleware — handles auth for protected routes.
  *
  * Route protection:
- *   /admin/*      → requires role='admin', redirects to /auth/login
- *   /api/admin/*  → requires role='admin', returns 401 JSON
- *   /portal/*     → requires role='client', redirects to /auth/portal-login
- *   /auth/*       → public (login pages)
+ *   /admin/*       → requires role='admin', redirects to /auth/login
+ *   /api/admin/*   → requires role='admin', returns 401 JSON
+ *   /portal/*      → requires role='client', redirects to /auth/portal-login
+ *   /api/portal/*  → requires role='client', returns 401 JSON
+ *   /auth/*        → public (login pages)
  *   everything else → public
  *
  * On valid session: renews expiration (sliding window) and attaches session to locals.
@@ -23,7 +24,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const isAdminRoute = pathname.startsWith('/admin')
   const isAdminApiRoute = pathname.startsWith('/api/admin')
   const isPortalRoute = pathname.startsWith('/portal')
-  const isProtectedRoute = isAdminRoute || isAdminApiRoute || isPortalRoute
+  const isPortalApiRoute = pathname.startsWith('/api/portal')
+  const isProtectedRoute = isAdminRoute || isAdminApiRoute || isPortalRoute || isPortalApiRoute
 
   if (!isProtectedRoute) {
     return next()
@@ -34,7 +36,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const token = parseSessionToken(cookieHeader)
 
   if (!token) {
-    if (isAdminApiRoute) {
+    if (isAdminApiRoute || isPortalApiRoute) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
@@ -51,7 +53,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const sessionData = await validateSession(env.DB, env.SESSIONS, token)
 
   if (!sessionData) {
-    if (isAdminApiRoute) {
+    if (isAdminApiRoute || isPortalApiRoute) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
@@ -66,7 +68,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // Role-based access control
   const requiredRole = isAdminRoute || isAdminApiRoute ? 'admin' : 'client'
   if (sessionData.role !== requiredRole) {
-    if (isAdminApiRoute) {
+    if (isAdminApiRoute || isPortalApiRoute) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), {
         status: 403,
         headers: { 'Content-Type': 'application/json' },

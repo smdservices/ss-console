@@ -1,14 +1,115 @@
 ---
 import '../../styles/global.css'
+import { getPortalClient } from '../../lib/portal/session'
+import { listQuotesForClient } from '../../lib/db/quotes'
+import type { Quote } from '../../lib/db/quotes'
 
 /**
  * Client portal dashboard — protected by auth middleware (role=client).
  *
- * If you're seeing this page, the session is valid and the user has client role.
- * Session data is available via Astro.locals.session.
+ * Shows:
+ * - Welcome message with client business name
+ * - Active engagement status (if any)
+ * - Pending quotes requiring action
+ * - Recent activity feed
+ * - Quick links to sections
  */
 
 const session = Astro.locals.session!
+const env = Astro.locals.runtime.env
+
+// Resolve client from session
+const portalData = await getPortalClient(env.DB, session.userId)
+if (!portalData) {
+  return Astro.redirect('/auth/portal-login?error=no_account')
+}
+
+const { client } = portalData
+
+// Load quotes for this client
+const quotes = await listQuotesForClient(env.DB, client.id)
+const pendingQuotes = quotes.filter((q: Quote) => q.status === 'sent')
+
+// Load active engagement (if any)
+interface EngagementRow {
+  id: string
+  status: string
+  scope_summary: string | null
+  start_date: string | null
+  estimated_end: string | null
+}
+
+interface MilestoneRow {
+  id: string
+  name: string
+  status: string
+  sort_order: number
+}
+
+const activeEngagement = await env.DB.prepare(
+  `SELECT id, status, scope_summary, start_date, estimated_end FROM engagements WHERE client_id = ? AND status IN ('scheduled', 'active', 'handoff', 'safety_net') ORDER BY created_at DESC LIMIT 1`
+)
+  .bind(client.id)
+  .first<EngagementRow>()
+
+// Load milestones for active engagement
+let currentMilestone: MilestoneRow | null = null
+if (activeEngagement) {
+  currentMilestone =
+    (await env.DB.prepare(
+      `SELECT id, name, status, sort_order FROM milestones WHERE engagement_id = ? AND status IN ('pending', 'in_progress') ORDER BY sort_order ASC LIMIT 1`
+    )
+      .bind(activeEngagement.id)
+      .first<MilestoneRow>()) ?? null
+}
+
+// Build recent activity
+interface ActivityItem {
+  description: string
+  date: string
+  type: 'quote' | 'engagement'
+}
+
+const recentActivity: ActivityItem[] = []
+for (const q of quotes.slice(0, 5)) {
+  if (q.sent_at) {
+    recentActivity.push({
+      description: 'Proposal sent',
+      date: q.sent_at,
+      type: 'quote',
+    })
+  }
+  if (q.accepted_at) {
+    recentActivity.push({
+      description: 'Proposal signed',
+      date: q.accepted_at,
+      type: 'quote',
+    })
+  }
+}
+recentActivity.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+// Helpers
+const formatDate = (d: string) =>
+  new Date(d).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+
+const engagementStatusLabels: Record<string, string> = {
+  scheduled: 'Scheduled',
+  active: 'In Progress',
+  handoff: 'Handoff',
+  safety_net: 'Support',
+}
+
+const engagementStatusColors: Record<string, string> = {
+  scheduled: 'bg-slate-100 text-slate-600',
+  active: 'bg-blue-100 text-blue-800',
+  handoff: 'bg-amber-100 text-amber-800',
+  safety_net: 'bg-green-100 text-green-800',
+}
 ---
 
 <!doctype html>
@@ -32,7 +133,7 @@ const session = Astro.locals.session!
           <span class="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">Portal</span>
         </div>
         <div class="flex items-center gap-4">
-          <span class="text-sm text-slate-600">{session.email}</span>
+          <span class="text-sm text-slate-600 hidden sm:inline">{session.email}</span>
           <form method="POST" action="/api/auth/logout">
             <button
               type="submit"
@@ -45,12 +146,160 @@ const session = Astro.locals.session!
       </div>
     </header>
 
-    <main class="max-w-5xl mx-auto px-4 py-8">
-      <h2 class="text-xl font-semibold text-slate-900 mb-4">Welcome</h2>
-      <div class="bg-white rounded-lg border border-slate-200 p-6">
-        <p class="text-slate-600">
-          Your client portal is ready. Proposals, project updates, and documents will appear here.
-        </p>
+    <main class="max-w-5xl mx-auto px-4 py-6 sm:py-8">
+      <!-- Welcome -->
+      <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mb-1">
+        Welcome, {client.business_name}
+      </h2>
+      <p class="text-sm text-slate-500 mb-6">Your client portal for SMD Services</p>
+
+      <!-- Pending Quotes Alert -->
+      {
+        pendingQuotes.length > 0 && (
+          <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div class="flex-1">
+                <p class="text-sm font-medium text-blue-900">
+                  {pendingQuotes.length === 1
+                    ? 'You have a proposal ready for review'
+                    : `You have ${pendingQuotes.length} proposals ready for review`}
+                </p>
+                <p class="text-xs text-blue-700 mt-0.5">Review the scope and sign to get started</p>
+              </div>
+              <a
+                href="/portal/quotes"
+                class="inline-flex items-center justify-center px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors min-h-[44px]"
+              >
+                Review Proposals
+              </a>
+            </div>
+          </div>
+        )
+      }
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Main Column -->
+        <div class="lg:col-span-2 space-y-6">
+          <!-- Active Engagement -->
+          {
+            activeEngagement && (
+              <div class="bg-white rounded-lg border border-slate-200 p-5 sm:p-6">
+                <div class="flex items-center gap-3 mb-4">
+                  <h3 class="text-base font-semibold text-slate-900">Current Engagement</h3>
+                  <span
+                    class={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${engagementStatusColors[activeEngagement.status] ?? 'bg-slate-100 text-slate-600'}`}
+                  >
+                    {engagementStatusLabels[activeEngagement.status] ?? activeEngagement.status}
+                  </span>
+                </div>
+                {activeEngagement.scope_summary && (
+                  <p class="text-sm text-slate-600 mb-3">{activeEngagement.scope_summary}</p>
+                )}
+                {currentMilestone && (
+                  <div class="p-3 bg-slate-50 rounded-lg">
+                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
+                      Current Milestone
+                    </p>
+                    <p class="text-sm font-medium text-slate-900">{currentMilestone.name}</p>
+                  </div>
+                )}
+                {activeEngagement.estimated_end && (
+                  <p class="text-xs text-slate-400 mt-3">
+                    Estimated completion: {formatDate(activeEngagement.estimated_end)}
+                  </p>
+                )}
+              </div>
+            )
+          }
+
+          <!-- Recent Activity -->
+          <div class="bg-white rounded-lg border border-slate-200 p-5 sm:p-6">
+            <h3 class="text-base font-semibold text-slate-900 mb-4">Recent Activity</h3>
+            {
+              recentActivity.length > 0 ? (
+                <ul class="space-y-3">
+                  {recentActivity.slice(0, 5).map((activity) => (
+                    <li class="flex items-start gap-3">
+                      <div
+                        class={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${activity.type === 'quote' ? 'bg-blue-400' : 'bg-green-400'}`}
+                      />
+                      <div>
+                        <p class="text-sm text-slate-700">{activity.description}</p>
+                        <p class="text-xs text-slate-400">{formatDate(activity.date)}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p class="text-sm text-slate-500">No recent activity to show.</p>
+              )
+            }
+          </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-6">
+          <!-- Quick Links -->
+          <div class="bg-white rounded-lg border border-slate-200 p-5 sm:p-6">
+            <h3 class="text-base font-semibold text-slate-900 mb-4">Quick Links</h3>
+            <nav class="space-y-2">
+              <a
+                href="/portal/quotes"
+                class="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors min-h-[44px]"
+              >
+                <svg
+                  class="w-5 h-5 text-slate-400 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  ></path>
+                </svg>
+                <div>
+                  <p class="text-sm font-medium text-slate-900">Proposals</p>
+                  <p class="text-xs text-slate-500">View and sign proposals</p>
+                </div>
+                {
+                  pendingQuotes.length > 0 && (
+                    <span class="ml-auto bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-full">
+                      {pendingQuotes.length}
+                    </span>
+                  )
+                }
+              </a>
+            </nav>
+          </div>
+
+          <!-- Quotes Summary -->
+          {
+            quotes.length > 0 && (
+              <div class="bg-white rounded-lg border border-slate-200 p-5 sm:p-6">
+                <h3 class="text-base font-semibold text-slate-900 mb-3">Proposal Summary</h3>
+                <div class="space-y-2 text-sm">
+                  {pendingQuotes.length > 0 && (
+                    <div class="flex justify-between">
+                      <span class="text-slate-500">Pending review</span>
+                      <span class="font-medium text-blue-600">{pendingQuotes.length}</span>
+                    </div>
+                  )}
+                  {quotes.filter((q: Quote) => q.status === 'accepted').length > 0 && (
+                    <div class="flex justify-between">
+                      <span class="text-slate-500">Accepted</span>
+                      <span class="font-medium text-green-600">
+                        {quotes.filter((q: Quote) => q.status === 'accepted').length}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          }
+        </div>
       </div>
     </main>
   </body>
