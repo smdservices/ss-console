@@ -39,6 +39,7 @@ if (!assessment) {
 
 const url = Astro.url
 const saved = url.searchParams.get('saved') === '1'
+const extracted = url.searchParams.get('extracted') === '1'
 const errorParam = url.searchParams.get('error') || ''
 const warningParam = url.searchParams.get('warning') || ''
 
@@ -46,9 +47,32 @@ const errorMessages: Record<string, string> = {
   server: 'Something went wrong. Please try again.',
   invalid_status: 'Invalid status selection.',
   invalid_transition: 'That status transition is not allowed.',
+  no_transcript: 'Upload a transcript before running extraction.',
+  no_api_key: 'Anthropic API key is not configured. Contact an administrator.',
+  transcript_missing: 'Transcript file could not be found in storage.',
+  extraction_failed: 'Extraction failed. Check the server logs for details.',
 }
 
 const errorMessage = errorParam ? (errorMessages[errorParam] ?? 'An error occurred.') : ''
+
+// Parse extraction JSON for structured display
+let extractionData:
+  | import('../../../../../portal/assessments/extraction-schema').AssessmentExtraction
+  | null = null
+if (assessment.extraction) {
+  try {
+    extractionData = JSON.parse(assessment.extraction)
+  } catch {
+    // If the JSON is malformed, leave extractionData as null
+  }
+}
+
+// Check if API key is configured for the extract button state
+const hasApiKey = !!Astro.locals.runtime.env.ANTHROPIC_API_KEY
+
+// Determine if the extract button should be shown:
+// transcript exists AND extraction is empty/null
+const showExtractButton = !!assessment.transcript_path && !assessment.extraction
 
 // Parse JSON fields
 const problems: ProblemId[] = assessment.problems ? JSON.parse(assessment.problems) : []
@@ -145,6 +169,14 @@ const booksBehind = disqualifiers?.soft?.books_behind === true
         saved && (
           <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
             Assessment updated successfully.
+          </div>
+        )
+      }
+
+      {
+        extracted && (
+          <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+            Extraction completed successfully. Review the results below.
           </div>
         )
       }
@@ -319,7 +351,282 @@ const booksBehind = disqualifiers?.soft?.books_behind === true
               Accepts .txt, .md, .srt, .vtt, or .json from MacWhisper.
             </p>
           </div>
+
+          {/* Extract with Claude button */}
+          {
+            showExtractButton && (
+              <div class="pt-2 border-t border-slate-100">
+                {hasApiKey ? (
+                  <form
+                    method="POST"
+                    action={`/api/admin/assessments/${assessment.id}`}
+                    id="extract-form"
+                  >
+                    <input type="hidden" name="action" value="extract" />
+                    <button
+                      type="submit"
+                      class="inline-flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M13 10V3L4 14h7v7l9-11h-7z"
+                        />
+                      </svg>
+                      Extract with Claude
+                    </button>
+                    <p class="mt-1 text-xs text-slate-400">
+                      Sends the transcript to Claude for automated extraction into structured data.
+                    </p>
+                  </form>
+                ) : (
+                  <div>
+                    <button
+                      type="button"
+                      disabled
+                      class="inline-flex items-center gap-2 bg-slate-300 text-slate-500 px-4 py-2 rounded-md text-sm font-medium cursor-not-allowed"
+                      title="Anthropic API key is not configured"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M13 10V3L4 14h7v7l9-11h-7z"
+                        />
+                      </svg>
+                      Extract with Claude
+                    </button>
+                    <p class="mt-1 text-xs text-amber-500">
+                      API key not configured. Contact an administrator.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )
+          }
         </div>
+
+        <!-- Extraction Result Display -->
+        {
+          extractionData && (
+            <div
+              class="bg-white rounded-lg border border-slate-200 p-6 space-y-5"
+              id="extraction-result"
+            >
+              <div class="flex items-center justify-between">
+                <h2 class="text-base font-semibold text-slate-900">Extraction Results</h2>
+                <span class="text-xs text-slate-400">
+                  Extracted{' '}
+                  {new Date(extractionData.extracted_at).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                  })}
+                </span>
+              </div>
+
+              {/* Executive Summary */}
+              <div>
+                <h3 class="text-sm font-medium text-slate-700 mb-1">Executive Summary</h3>
+                <p class="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg">
+                  {extractionData.executive_summary}
+                </p>
+              </div>
+
+              {/* Business Profile */}
+              <div class="grid grid-cols-3 gap-3 text-sm">
+                <div class="bg-slate-50 p-3 rounded-lg">
+                  <span class="text-xs font-medium text-slate-400 uppercase tracking-wide">
+                    Business
+                  </span>
+                  <p class="text-slate-900 mt-0.5">{extractionData.business_name}</p>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-lg">
+                  <span class="text-xs font-medium text-slate-400 uppercase tracking-wide">
+                    Vertical
+                  </span>
+                  <p class="text-slate-900 mt-0.5">{extractionData.business_type}</p>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-lg">
+                  <span class="text-xs font-medium text-slate-400 uppercase tracking-wide">
+                    Employees
+                  </span>
+                  <p class="text-slate-900 mt-0.5">{extractionData.employee_count ?? 'Unknown'}</p>
+                </div>
+              </div>
+
+              {/* Problems Identified */}
+              <div>
+                <h3 class="text-sm font-medium text-slate-700 mb-2">Problems Identified</h3>
+                <div class="space-y-3">
+                  {extractionData.identified_problems.map((problem) => (
+                    <div class="border border-slate-100 rounded-lg p-3">
+                      <div class="flex items-center gap-2 mb-1">
+                        <span
+                          class:list={[
+                            'inline-block px-2 py-0.5 rounded text-xs font-medium',
+                            problem.severity === 'high' && 'bg-red-100 text-red-700',
+                            problem.severity === 'medium' && 'bg-amber-100 text-amber-700',
+                            problem.severity === 'low' && 'bg-slate-100 text-slate-600',
+                          ]}
+                        >
+                          {problem.severity}
+                        </span>
+                        <span class="text-sm font-medium text-slate-900">
+                          {PROBLEM_LABELS[problem.problem_id as ProblemId] ?? problem.problem_id}
+                        </span>
+                      </div>
+                      <p class="text-sm text-slate-600">{problem.summary}</p>
+                      {problem.owner_quotes.length > 0 && (
+                        <div class="mt-2 space-y-1">
+                          {problem.owner_quotes.map((quote) => (
+                            <p class="text-xs text-slate-500 italic pl-3 border-l-2 border-slate-200">
+                              "{quote}"
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Champion Candidate */}
+              {extractionData.champion_candidate && (
+                <div>
+                  <h3 class="text-sm font-medium text-slate-700 mb-2">Champion Candidate</h3>
+                  <div class="bg-slate-50 p-3 rounded-lg text-sm">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="font-medium text-slate-900">
+                        {extractionData.champion_candidate.name ?? 'Unknown'}
+                      </span>
+                      {extractionData.champion_candidate.role && (
+                        <span class="text-slate-500">
+                          — {extractionData.champion_candidate.role}
+                        </span>
+                      )}
+                      <span
+                        class:list={[
+                          'inline-block px-2 py-0.5 rounded text-xs font-medium',
+                          extractionData.champion_candidate.confidence === 'strong' &&
+                            'bg-green-100 text-green-700',
+                          extractionData.champion_candidate.confidence === 'moderate' &&
+                            'bg-amber-100 text-amber-700',
+                          extractionData.champion_candidate.confidence === 'weak' &&
+                            'bg-red-100 text-red-700',
+                        ]}
+                      >
+                        {extractionData.champion_candidate.confidence}
+                      </span>
+                    </div>
+                    <p class="text-slate-600">{extractionData.champion_candidate.evidence}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Disqualification Flags */}
+              {(extractionData.disqualification_flags.hard.not_decision_maker ||
+                extractionData.disqualification_flags.hard.scope_exceeds_sprint ||
+                extractionData.disqualification_flags.hard.no_tech_baseline ||
+                extractionData.disqualification_flags.soft.no_champion ||
+                extractionData.disqualification_flags.soft.books_behind ||
+                extractionData.disqualification_flags.soft.no_willingness_to_change) && (
+                <div>
+                  <h3 class="text-sm font-medium text-slate-700 mb-2">Disqualification Flags</h3>
+                  <div class="space-y-1 text-sm">
+                    {extractionData.disqualification_flags.hard.not_decision_maker && (
+                      <p class="text-red-700 flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+                        Hard: Not speaking to the decision maker
+                      </p>
+                    )}
+                    {extractionData.disqualification_flags.hard.scope_exceeds_sprint && (
+                      <p class="text-red-700 flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+                        Hard: Scope exceeds engagement
+                      </p>
+                    )}
+                    {extractionData.disqualification_flags.hard.no_tech_baseline && (
+                      <p class="text-red-700 flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+                        Hard: No tech baseline
+                      </p>
+                    )}
+                    {extractionData.disqualification_flags.soft.no_champion && (
+                      <p class="text-amber-700 flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
+                        Soft: No champion identified
+                      </p>
+                    )}
+                    {extractionData.disqualification_flags.soft.books_behind && (
+                      <p class="text-amber-700 flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
+                        Soft: Books more than 30 days behind
+                      </p>
+                    )}
+                    {extractionData.disqualification_flags.soft.no_willingness_to_change && (
+                      <p class="text-amber-700 flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
+                        Soft: No willingness to change
+                      </p>
+                    )}
+                    {extractionData.disqualification_flags.notes && (
+                      <p class="text-slate-500 text-xs mt-1">
+                        {extractionData.disqualification_flags.notes}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Quote Drivers */}
+              <div>
+                <h3 class="text-sm font-medium text-slate-700 mb-2">Quote Drivers</h3>
+                <div class="grid grid-cols-2 gap-3 text-sm">
+                  <div class="bg-slate-50 p-3 rounded-lg">
+                    <span class="text-xs font-medium text-slate-400 uppercase tracking-wide">
+                      Complexity
+                    </span>
+                    <p
+                      class:list={[
+                        'mt-0.5 font-medium',
+                        extractionData.quote_drivers.estimated_complexity === 'high' &&
+                          'text-red-700',
+                        extractionData.quote_drivers.estimated_complexity === 'medium' &&
+                          'text-amber-700',
+                        extractionData.quote_drivers.estimated_complexity === 'low' &&
+                          'text-green-700',
+                      ]}
+                    >
+                      {extractionData.quote_drivers.estimated_complexity}
+                    </p>
+                  </div>
+                  <div class="bg-slate-50 p-3 rounded-lg">
+                    <span class="text-xs font-medium text-slate-400 uppercase tracking-wide">
+                      Recommended
+                    </span>
+                    <p class="text-slate-900 mt-0.5">
+                      {extractionData.quote_drivers.recommended_problems
+                        .map((pid) => PROBLEM_LABELS[pid as ProblemId] ?? pid)
+                        .join(', ')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional Notes */}
+              {extractionData.additional_notes && (
+                <div>
+                  <h3 class="text-sm font-medium text-slate-700 mb-1">Additional Notes</h3>
+                  <p class="text-sm text-slate-600">{extractionData.additional_notes}</p>
+                </div>
+              )}
+            </div>
+          )
+        }
 
         <!-- Extraction JSON -->
         <div class="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
