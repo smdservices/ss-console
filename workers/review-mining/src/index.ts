@@ -66,12 +66,19 @@ export default {
     summary.discovered = allBusinesses.length
     console.log(`Discovery: ${summary.queries} queries, ${summary.discovered} unique businesses`)
 
-    // Phase 2: Fetch reviews in batches of 10
+    // Phase 2: Fetch reviews (one Outscraper call per business)
+    // Cap at 50 businesses per run to manage Outscraper costs (~$1/run at $2/1000 reviews)
+    const MAX_REVIEW_CHECKS = 50
     const BATCH_SIZE = 10
+    const businessesToCheck = allBusinesses.slice(0, MAX_REVIEW_CHECKS)
     const businessesWithReviews = []
 
-    for (let i = 0; i < allBusinesses.length; i += BATCH_SIZE) {
-      const batch = allBusinesses.slice(i, i + BATCH_SIZE)
+    console.log(
+      `Checking reviews for ${businessesToCheck.length} of ${allBusinesses.length} businesses`
+    )
+
+    for (let i = 0; i < businessesToCheck.length; i += BATCH_SIZE) {
+      const batch = businessesToCheck.slice(i, i + BATCH_SIZE)
       try {
         const results = await fetchReviews(batch, env.OUTSCRAPER_API_KEY)
         businessesWithReviews.push(...results)
