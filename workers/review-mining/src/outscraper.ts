@@ -113,60 +113,47 @@ export async function fetchReviews(
   businesses: DiscoveredBusiness[],
   apiKey: string
 ): Promise<BusinessWithReviews[]> {
-  const placeIds = businesses.map((b) => b.place_id)
-
-  const response = await fetch('https://api.app.outscraper.com/maps/reviews-v3', {
-    method: 'GET',
-    headers: {
-      'X-API-KEY': apiKey,
-    },
-  })
-
-  // Outscraper's batch endpoint uses query params
-  const params = new URLSearchParams({
-    query: placeIds.join(','),
-    reviewsLimit: '10',
-    sort: 'newest',
-    language: 'en',
-    async: 'false',
-  })
-
-  const batchResponse = await fetch(
-    `https://api.app.outscraper.com/maps/reviews-v3?${params.toString()}`,
-    {
-      headers: { 'X-API-KEY': apiKey },
-    }
-  )
-
-  if (!batchResponse.ok) {
-    console.error(`Outscraper ${batchResponse.status}`)
-    return []
-  }
-
-  const data = (await batchResponse.json()) as {
-    data?: Array<
-      Array<{
-        place_id?: string
-        name?: string
-        reviews_data?: Array<{
-          author_title?: string
-          review_rating?: number
-          review_text?: string
-          review_datetime_utc?: string
-        }>
-      }>
-    >
-  }
-
-  if (!data.data) return []
-
   const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
   const results: BusinessWithReviews[] = []
 
-  for (const group of data.data) {
-    for (const place of group) {
-      const business = businesses.find((b) => b.place_id === place.place_id)
-      if (!business || !place.reviews_data) continue
+  // Outscraper requires one request per place_id (comma-separated is treated as one query)
+  for (const business of businesses) {
+    try {
+      const params = new URLSearchParams({
+        query: business.place_id,
+        reviewsLimit: '10',
+        sort: 'newest',
+        language: 'en',
+        async: 'false',
+      })
+
+      const response = await fetch(
+        `https://api.app.outscraper.com/maps/reviews-v3?${params.toString()}`,
+        {
+          headers: { 'X-API-KEY': apiKey },
+        }
+      )
+
+      if (!response.ok) {
+        console.error(`Outscraper ${response.status} for "${business.name}"`)
+        continue
+      }
+
+      const data = (await response.json()) as {
+        data?: Array<{
+          google_id?: string
+          name?: string
+          reviews_data?: Array<{
+            author_title?: string
+            review_rating?: number
+            review_text?: string
+            review_datetime_utc?: string
+          }>
+        }>
+      }
+
+      const place = data.data?.[0]
+      if (!place?.reviews_data) continue
 
       const recentReviews = place.reviews_data
         .filter((r) => r.review_text && new Date(r.review_datetime_utc ?? '') >= cutoff)
@@ -189,6 +176,10 @@ export async function fetchReviews(
           reviews: recentReviews,
         })
       }
+    } catch (err) {
+      console.error(
+        `Outscraper error for "${business.name}": ${err instanceof Error ? err.message : String(err)}`
+      )
     }
   }
 
