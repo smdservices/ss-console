@@ -8,6 +8,9 @@ import { analyzeWebsite } from '../../../../../lib/enrichment/website-analyzer'
 import { lookupYelp } from '../../../../../lib/enrichment/yelp'
 import { lookupAcc } from '../../../../../lib/enrichment/acc'
 import { lookupRoc } from '../../../../../lib/enrichment/roc'
+import { analyzeReviewPatterns } from '../../../../../lib/enrichment/review-analysis'
+import { benchmarkCompetitors } from '../../../../../lib/enrichment/competitors'
+import { searchNews } from '../../../../../lib/enrichment/news'
 
 /**
  * POST /api/admin/entities/[id]/promote
@@ -198,11 +201,94 @@ export const POST: APIRoute = async ({ params, locals, redirect }) => {
       }
     }
 
+    // --- Tier 3: Deeper intelligence ---
+
+    // 3a. Review response analysis
+    if (env.ANTHROPIC_API_KEY) {
+      try {
+        const signalContext = await assembleEntityContext(env.DB, entityId, {
+          maxBytes: 8_000,
+          typeFilter: ['signal'],
+        })
+        if (signalContext) {
+          const reviewAnalysis = await analyzeReviewPatterns(
+            signalContext,
+            env.ANTHROPIC_API_KEY as string
+          )
+          if (reviewAnalysis) {
+            await appendContext(env.DB, session.orgId, {
+              entity_id: entityId,
+              type: 'enrichment',
+              content: `Review patterns: ${reviewAnalysis.response_pattern} responses, ${reviewAnalysis.engagement_level} engagement. ${reviewAnalysis.owner_accessible ? 'Owner appears accessible.' : ''} ${reviewAnalysis.insights}`,
+              source: 'review_analysis',
+              metadata: reviewAnalysis as unknown as Record<string, unknown>,
+            })
+            enrichmentResults.push('review_analysis')
+          }
+        }
+      } catch (err) {
+        console.error('[promote] Review analysis failed:', err)
+      }
+    }
+
+    // 3b. Competitor benchmarking
+    if (env.GOOGLE_PLACES_API_KEY) {
+      try {
+        const benchmark = await benchmarkCompetitors(
+          entity.name,
+          entity.vertical,
+          entity.area,
+          entity.pain_score,
+          null,
+          env.GOOGLE_PLACES_API_KEY as string
+        )
+        if (benchmark) {
+          await appendContext(env.DB, session.orgId, {
+            entity_id: entityId,
+            type: 'enrichment',
+            content: `Competitor benchmarking: ${benchmark.summary} Top competitors: ${benchmark.competitors.map((c) => `${c.name} (${c.rating}★, ${c.review_count} reviews)`).join(', ')}.`,
+            source: 'competitors',
+            metadata: benchmark as unknown as Record<string, unknown>,
+          })
+          enrichmentResults.push('competitors')
+        }
+      } catch (err) {
+        console.error('[promote] Competitor benchmarking failed:', err)
+      }
+    }
+
+    // 3c. News/press search
+    if (env.SERPAPI_API_KEY && env.ANTHROPIC_API_KEY) {
+      try {
+        const news = await searchNews(
+          entity.name,
+          entity.area,
+          env.SERPAPI_API_KEY as string,
+          env.ANTHROPIC_API_KEY as string
+        )
+        if (news) {
+          await appendContext(env.DB, session.orgId, {
+            entity_id: entityId,
+            type: 'enrichment',
+            content: `News/press: ${news.summary} (${news.mentions.length} mentions found)`,
+            source: 'news_search',
+            metadata: {
+              mentions: news.mentions,
+              summary: news.summary,
+            },
+          })
+          enrichmentResults.push('news_search')
+        }
+      } catch (err) {
+        console.error('[promote] News search failed:', err)
+      }
+    }
+
     console.log(
       `[promote] Enrichment complete for ${entity.name}: ${enrichmentResults.join(', ') || 'none'}`
     )
 
-    // 3. Generate outreach draft (best-effort, uses enriched context)
+    // 4. Generate outreach draft (best-effort, uses enriched context)
     try {
       if (env.ANTHROPIC_API_KEY) {
         const context = await assembleEntityContext(env.DB, entityId, { maxBytes: 16_000 })
