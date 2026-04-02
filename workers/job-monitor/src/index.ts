@@ -11,7 +11,9 @@
  */
 
 import { ORG_ID } from '../../../src/lib/constants.js'
-import { computeDedupKey, createLeadSignal } from '../../../src/lib/db/lead-signals.js'
+import { findOrCreateEntity } from '../../../src/lib/db/entities.js'
+import { appendContext } from '../../../src/lib/db/context.js'
+import { computeSlug } from '../../../src/lib/entities/slug.js'
 import { searchJobs, JOB_QUERIES } from './serpapi.js'
 import { qualifyJob, derivePainScore } from './qualify.js'
 import { sendFailureAlert, type RunSummary } from './alert.js'
@@ -71,11 +73,9 @@ async function run(env: Env): Promise<RunSummary> {
 
   for (const { job, query } of uniqueJobs) {
     try {
-      const dedupKey = computeDedupKey(job.company_name, null, job.location)
-      const existing = await env.DB.prepare(
-        "SELECT 1 FROM lead_signals WHERE org_id = ? AND dedup_key = ? AND source_pipeline = 'job_monitor'"
-      )
-        .bind(ORG_ID, dedupKey)
+      const slug = computeSlug(job.company_name, job.location)
+      const existing = await env.DB.prepare('SELECT 1 FROM entities WHERE org_id = ? AND slug = ?')
+        .bind(ORG_ID, slug)
         .first()
 
       if (existing) continue
@@ -96,29 +96,49 @@ async function run(env: Env): Promise<RunSummary> {
 
       summary.qualified++
 
-      const result = await createLeadSignal(env.DB, ORG_ID, {
-        business_name: qualification.company,
-        category: null,
+      // Find or create entity
+      const { entity } = await findOrCreateEntity(env.DB, ORG_ID, {
+        name: qualification.company,
         area: job.location,
         source_pipeline: 'job_monitor',
-        pain_score: derivePainScore(qualification),
-        top_problems: qualification.problems_signaled,
-        evidence_summary: qualification.evidence,
-        outreach_angle: qualification.outreach_angle,
-        source_metadata: {
-          job_hash: job.job_id,
-          job_url: job.apply_options?.[0]?.link ?? null,
-          job_title: job.title,
-          query_term: query,
-          confidence: qualification.confidence,
-          company_size_estimate: qualification.company_size_estimate,
-        },
-        date_found: new Date().toISOString().split('T')[0],
       })
 
-      if (result.status === 'created') {
-        summary.written++
+      // Build context content
+      const contentParts: string[] = []
+      if (qualification.evidence) contentParts.push(qualification.evidence)
+      if (qualification.outreach_angle) {
+        contentParts.push(`**Outreach angle:** ${qualification.outreach_angle}`)
       }
+      const content = contentParts.join('\n\n') || 'Signal from job_monitor.'
+
+      // Build metadata
+      const dateFound = new Date().toISOString().split('T')[0]
+      const painScore = derivePainScore(qualification)
+      const metadata: Record<string, unknown> = {
+        job_hash: job.job_id,
+        job_url: job.apply_options?.[0]?.link ?? null,
+        job_title: job.title,
+        query_term: query,
+        confidence: qualification.confidence,
+        company_size_estimate: qualification.company_size_estimate,
+        ...(painScore != null ? { pain_score: painScore } : {}),
+        ...(qualification.problems_signaled
+          ? { top_problems: qualification.problems_signaled }
+          : {}),
+        ...(qualification.outreach_angle ? { outreach_angle: qualification.outreach_angle } : {}),
+        date_found: dateFound,
+      }
+
+      // Append context
+      await appendContext(env.DB, ORG_ID, {
+        entity_id: entity.id,
+        type: 'signal',
+        content,
+        source: 'job_monitor',
+        metadata,
+      })
+
+      summary.written++
     } catch (err) {
       summary.errors++
       const msg = err instanceof Error ? err.message : String(err)
