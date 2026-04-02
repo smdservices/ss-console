@@ -3,7 +3,7 @@ import '../../styles/global.css'
 import { listFollowUps } from '../../lib/db/follow-ups'
 import { getPipelineConversion } from '../../lib/db/analytics'
 import { listEngagements } from '../../lib/db/engagements'
-import { countNewSignals } from '../../lib/db/lead-signals'
+import { countEntitiesByStage } from '../../lib/db/entities'
 
 /**
  * Admin dashboard — protected by auth middleware.
@@ -22,7 +22,7 @@ const [upcomingFollowUps, overdueFollowUps, pipeline, allEngagements, newSignalC
     listFollowUps(env.DB, session.orgId, { overdue: true }),
     getPipelineConversion(env.DB, session.orgId),
     listEngagements(env.DB, session.orgId),
-    countNewSignals(env.DB, session.orgId),
+    countEntitiesByStage(env.DB, session.orgId, 'signal'),
   ])
 
 const upcomingCount = upcomingFollowUps.length
@@ -83,42 +83,33 @@ const pipelineConversionRate =
       <h2 class="text-xl font-semibold text-slate-900 mb-4">Dashboard</h2>
       <div class="grid gap-4">
         <a
-          href="/admin/clients"
-          class="bg-white rounded-lg border border-slate-200 p-6 hover:border-slate-300 transition-colors group"
-        >
-          <h3
-            class="text-base font-semibold text-slate-900 group-hover:text-primary transition-colors"
-          >
-            Clients
-          </h3>
-          <p class="text-sm text-slate-500 mt-1">
-            Manage your client pipeline — create, edit, and track clients through the engagement
-            lifecycle.
-          </p>
-        </a>
-
-        <a
-          href="/admin/leads"
+          href="/admin/entities"
           class="bg-white rounded-lg border border-slate-200 p-6 hover:border-slate-300 transition-colors group"
         >
           <div class="flex items-center justify-between">
             <h3
               class="text-base font-semibold text-slate-900 group-hover:text-primary transition-colors"
             >
-              Lead Inbox
+              Entities
             </h3>
             <div class="flex items-center gap-2">
               {
                 newSignalCount > 0 && (
                   <span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
-                    {newSignalCount} new
+                    {newSignalCount} signals
                   </span>
                 )
               }
+              <span
+                class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium"
+              >
+                {totalClients} total
+              </span>
             </div>
           </div>
           <p class="text-sm text-slate-500 mt-1">
-            Review and triage lead signals from automated pipelines — promote to clients or dismiss.
+            Every business in one place — from pipeline signals through active engagements and
+            repeat clients. Triage, promote, and track the full lifecycle.
           </p>
         </a>
 
