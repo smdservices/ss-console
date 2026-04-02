@@ -25,7 +25,7 @@ export interface Env {
 export default {
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     const summary: RunSummary = {
-      sources: 3,
+      sources: 5,
       totalPermits: 0,
       newPermits: 0,
       qualified: 0,
