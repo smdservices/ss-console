@@ -11,6 +11,7 @@ export interface RunSummary {
   written: number
   errors: number
   errorDetails: string[]
+  existingAppended: number
 }
 
 /**
@@ -23,6 +24,7 @@ export async function sendFailureAlert(summary: RunSummary, resendApiKey: string
     `Queries run: ${summary.queries}`,
     `Total results: ${summary.totalResults}`,
     `New jobs (not deduped): ${summary.newJobs}`,
+    `Existing entities seen again: ${summary.existingAppended}`,
     `Qualified: ${summary.qualified}`,
     `Disqualified: ${summary.disqualified}`,
     `Written to D1: ${summary.written}`,
