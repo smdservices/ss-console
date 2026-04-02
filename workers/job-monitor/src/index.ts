@@ -37,6 +37,7 @@ async function run(env: Env): Promise<RunSummary> {
     written: 0,
     errors: 0,
     errorDetails: [],
+    existingAppended: 0,
   }
 
   const allJobs: Array<{ job: SerpApiJob; query: string }> = []
@@ -78,7 +79,11 @@ async function run(env: Env): Promise<RunSummary> {
         .bind(ORG_ID, slug)
         .first()
 
-      if (existing) continue
+      if (existing) {
+        // Track repeat postings from known entities (full signal append in future iteration)
+        summary.existingAppended++
+        continue
+      }
 
       summary.newJobs++
 
@@ -148,8 +153,9 @@ async function run(env: Env): Promise<RunSummary> {
   }
 
   console.log(
-    `Run complete: ${summary.newJobs} new, ${summary.qualified} qualified, ` +
-      `${summary.disqualified} disqualified, ${summary.written} written, ${summary.errors} errors`
+    `Run complete: ${summary.newJobs} new, ${summary.existingAppended} existing, ` +
+      `${summary.qualified} qualified, ${summary.disqualified} disqualified, ` +
+      `${summary.written} written, ${summary.errors} errors`
   )
 
   return summary
