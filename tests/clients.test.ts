@@ -312,9 +312,9 @@ describe('clients: detail/edit page', () => {
 })
 
 describe('clients: admin dashboard integration', () => {
-  it('admin dashboard links to clients page', () => {
+  it('admin dashboard links to entities page', () => {
     const code = readFileSync(resolve('src/pages/admin/index.astro'), 'utf-8')
-    expect(code).toContain('/admin/clients')
-    expect(code).toContain('Clients')
+    expect(code).toContain('/admin/entities')
+    expect(code).toContain('Entities')
   })
 })
