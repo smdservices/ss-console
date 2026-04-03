@@ -10,6 +10,8 @@
 import { renderDocument } from '@formepdf/core'
 import { SOWTemplate } from './sow-template'
 import type { SOWTemplateProps } from './sow-template'
+import { ScorecardReportTemplate } from './scorecard-template'
+import type { ScorecardReportProps } from './scorecard-template'
 
 /**
  * Render a Statement of Work PDF from quote/client/contact data.
@@ -19,5 +21,16 @@ import type { SOWTemplateProps } from './sow-template'
  */
 export async function renderSow(props: SOWTemplateProps): Promise<Uint8Array> {
   const pdf = await renderDocument(SOWTemplate(props))
+  return pdf
+}
+
+/**
+ * Render an Operations Health Scorecard report PDF.
+ *
+ * @param props - Scorecard results data (see ScorecardReportProps)
+ * @returns PDF binary as Uint8Array — suitable for email attachment
+ */
+export async function renderScorecardReport(props: ScorecardReportProps): Promise<Uint8Array> {
+  const pdf = await renderDocument(ScorecardReportTemplate(props))
   return pdf
 }

@@ -5,7 +5,7 @@
  * Scans context entries and extracts structured values from metadata.
  *
  * Attributes recomputed:
- *   pain_score     — max across all signal entries
+ *   pain_score     — max across all signal/scorecard entries
  *   vertical       — latest non-null from signal/extraction metadata
  *   area           — latest non-null
  *   employee_count — latest non-null (extraction > enrichment > signal)
@@ -44,8 +44,8 @@ export async function recomputeDeterministicCache(
       continue
     }
 
-    // Signal count for tier computation
-    if (entry.type === 'signal') signalCount++
+    // Signal/scorecard count for tier computation
+    if (entry.type === 'signal' || entry.type === 'scorecard') signalCount++
 
     // Pain score: max across all signals
     if (typeof meta.pain_score === 'number' && meta.pain_score >= 1 && meta.pain_score <= 10) {
