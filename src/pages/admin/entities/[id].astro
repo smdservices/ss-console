@@ -242,28 +242,34 @@ function renderSimpleMarkdown(md: string): string {
   // Headings: ## -> h4 (sized for card context)
   html = html.replace(
     /^## (.+)$/gm,
-    '<h4 class="font-semibold text-sm text-slate-900 mt-4 mb-1">$1</h4>'
+    (_m, t) => `<h4 class="font-semibold text-sm text-slate-900 mt-4 mb-1">${t}</h4>`
   )
   // Bold
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  html = html.replace(/\*\*(.+?)\*\*/g, (_m, t) => `<strong>${t}</strong>`)
   // Unordered list items
-  html = html.replace(/^- (.+)$/gm, '<li class="ml-4 list-disc text-sm text-slate-700">$1</li>')
+  html = html.replace(
+    /^- (.+)$/gm,
+    (_m, t) => `<li class="ml-4 list-disc text-sm text-slate-700">${t}</li>`
+  )
   // Numbered list items
   html = html.replace(
     /^\d+\. (.+)$/gm,
-    '<li class="ml-4 list-decimal text-sm text-slate-700">$1</li>'
+    (_m, t) => `<li class="ml-4 list-decimal text-sm text-slate-700">${t}</li>`
   )
   // Wrap consecutive <li> in <ul>/<ol>
   html = html.replace(
     /((?:<li class="ml-4 list-disc[^>]*>[^<]*<\/li>\n?)+)/g,
-    '<ul class="mb-2">$1</ul>'
+    (_m, t) => `<ul class="mb-2">${t}</ul>`
   )
   html = html.replace(
     /((?:<li class="ml-4 list-decimal[^>]*>[^<]*<\/li>\n?)+)/g,
-    '<ol class="mb-2">$1</ol>'
+    (_m, t) => `<ol class="mb-2">${t}</ol>`
   )
   // Paragraphs: non-empty lines that aren't already wrapped
-  html = html.replace(/^(?!<[hulo])(.+)$/gm, '<p class="text-sm text-slate-700 mb-2">$1</p>')
+  html = html.replace(
+    /^(?!<[hulo])(.+)$/gm,
+    (_m, t) => `<p class="text-sm text-slate-700 mb-2">${t}</p>`
+  )
   // Clean up empty paragraphs
   html = html.replace(/<p class="text-sm text-slate-700 mb-2"><\/p>/g, '')
 
