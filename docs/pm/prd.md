@@ -293,7 +293,7 @@ As the admin, I want to paste the Claude extraction output into the assessment a
 Acceptance Criteria:
 
 - `extraction` field stores valid JSON with: `problems`, `complexity_signals`, `champion_candidate`, and `disqualification_flags`.
-- Each `problems` value must be one of: `owner_bottleneck`, `lead_leakage`, `financial_blindness`, `scheduling_chaos`, `manual_communication`, `team_invisibility`.
+- Each `problems` value must be one of: `owner_bottleneck`, `lead_leakage`, `financial_blindness`, `scheduling_chaos`, `manual_communication`, `employee_retention`.
 - Invalid problem identifiers are rejected with a validation error.
 - Identified problems are available to be selected as line items in the quote builder.
 
@@ -979,14 +979,14 @@ CREATE INDEX idx_magic_links_email_created ON magic_links (email, created_at);
 
 ### JSON Column Contracts
 
-| Table           | Column          | Schema                                                                                                                                                       |
-| --------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `organizations` | `branding`      | `{ logo_url: string \| null, primary_color: string, secondary_color: string }`                                                                               |
-| `organizations` | `settings`      | `{ current_rate: number, deposit_pct_default: number }`                                                                                                      |
-| `assessments`   | `extraction`    | Raw Claude API response, stored verbatim                                                                                                                     |
-| `assessments`   | `problems`      | `Array<'owner_bottleneck' \| 'lead_leakage' \| 'financial_blindness' \| 'scheduling_chaos' \| 'manual_communication' \| 'team_invisibility'>` -- max 3 items |
-| `assessments`   | `disqualifiers` | `{ hard: string[], soft: string[] }`                                                                                                                         |
-| `quotes`        | `line_items`    | `Array<{ problem: string, description: string, estimated_hours: number }>`                                                                                   |
+| Table           | Column          | Schema                                                                                                                                                        |
+| --------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `organizations` | `branding`      | `{ logo_url: string \| null, primary_color: string, secondary_color: string }`                                                                                |
+| `organizations` | `settings`      | `{ current_rate: number, deposit_pct_default: number }`                                                                                                       |
+| `assessments`   | `extraction`    | Raw Claude API response, stored verbatim                                                                                                                      |
+| `assessments`   | `problems`      | `Array<'owner_bottleneck' \| 'lead_leakage' \| 'financial_blindness' \| 'scheduling_chaos' \| 'manual_communication' \| 'employee_retention'>` -- max 3 items |
+| `assessments`   | `disqualifiers` | `{ hard: string[], soft: string[] }`                                                                                                                          |
+| `quotes`        | `line_items`    | `Array<{ problem: string, description: string, estimated_hours: number }>`                                                                                    |
 
 ---
 

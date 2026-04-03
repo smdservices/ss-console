@@ -37,7 +37,7 @@ describe('extraction schema constants', () => {
     expect(PROBLEM_IDS).toContain('financial_blindness')
     expect(PROBLEM_IDS).toContain('scheduling_chaos')
     expect(PROBLEM_IDS).toContain('manual_communication')
-    expect(PROBLEM_IDS).toContain('team_invisibility')
+    expect(PROBLEM_IDS).toContain('employee_retention')
   })
 
   it('defines verticals matching Decision #3', () => {
@@ -57,7 +57,7 @@ describe('extraction prompt construction', () => {
     expect(EXTRACTION_SYSTEM_PROMPT).toContain('Financial blindness')
     expect(EXTRACTION_SYSTEM_PROMPT).toContain('Scheduling chaos')
     expect(EXTRACTION_SYSTEM_PROMPT).toContain('Manual communication')
-    expect(EXTRACTION_SYSTEM_PROMPT).toContain('Team invisibility')
+    expect(EXTRACTION_SYSTEM_PROMPT).toContain('Employee retention')
   })
 
   it('system prompt references disqualification criteria from Decision #4', () => {

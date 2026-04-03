@@ -49,7 +49,7 @@ New businesses almost always face several of these from day one:
 3. **financial_blindness** — Books not set up properly, no job costing, pricing based on gut feel.
 4. **scheduling_chaos** — No centralized scheduling, manual calendar management, double-bookings.
 5. **manual_communication** — Every customer message is manual, no templates, no automation.
-6. **team_invisibility** — No onboarding process, no task tracking, no accountability system for new hires.
+6. **employee_retention** — No onboarding process, no task tracking, no accountability system for new hires.
 
 ## Outreach Timing Guidance
 

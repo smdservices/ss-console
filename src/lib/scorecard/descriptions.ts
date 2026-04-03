@@ -62,7 +62,7 @@ export const SCORE_DESCRIPTIONS: Record<DimensionId, Record<ScoreLabel, string>>
       "Routine communication runs on autopilot. Your team's time goes to conversations that actually need a human.",
   },
 
-  team_invisibility: {
+  employee_retention: {
     needs_attention:
       "You don't have a clear picture of what your team is doing day-to-day. Issues surface late, usually when something breaks.",
     room_to_grow:

@@ -18,7 +18,7 @@ export type DimensionId =
   | 'financial_blindness'
   | 'scheduling_chaos'
   | 'manual_communication'
-  | 'team_invisibility'
+  | 'employee_retention'
 
 export interface Dimension {
   id: DimensionId
@@ -59,10 +59,10 @@ export const DIMENSIONS: Dimension[] = [
     sectionHeader: 'Staying in touch with customers',
   },
   {
-    id: 'team_invisibility',
-    label: 'Team Visibility',
-    icon: 'groups',
-    sectionHeader: 'Knowing what your team is doing',
+    id: 'employee_retention',
+    label: 'Employee Retention',
+    icon: 'group_remove',
+    sectionHeader: 'Your team',
   },
 ]
 
@@ -360,10 +360,10 @@ export const QUESTIONS: ScoredQuestion[] = [
     ],
   },
 
-  // --- Team Invisibility ---
+  // --- Employee Retention ---
   {
     id: 'q16',
-    dimension: 'team_invisibility',
+    dimension: 'employee_retention',
     text: 'How do you know what your team accomplished today?',
     options: [
       { key: 'a', score: 0, text: "I don't, unless I was there watching or they told me" },
@@ -382,7 +382,7 @@ export const QUESTIONS: ScoredQuestion[] = [
   },
   {
     id: 'q17',
-    dimension: 'team_invisibility',
+    dimension: 'employee_retention',
     text: 'When you onboard a new hire, how do they learn the job?',
     options: [
       { key: 'a', score: 0, text: 'They shadow someone and figure it out — trial by fire' },
@@ -401,7 +401,7 @@ export const QUESTIONS: ScoredQuestion[] = [
   },
   {
     id: 'q18',
-    dimension: 'team_invisibility',
+    dimension: 'employee_retention',
     text: "How do you handle it when someone on the team isn't performing?",
     options: [
       {

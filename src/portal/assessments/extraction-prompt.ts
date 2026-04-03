@@ -40,7 +40,7 @@ Every small business has 3–4 of these. Your job is to identify which 2–3 are
 3. **Financial blindness** — "I have no idea if we're making money." Books behind, pricing based on gut feel.
 4. **Scheduling chaos** — "Double-bookings happen all the time." No centralized scheduling, no automated reminders.
 5. **Manual communication** — "I personally text every customer." Every message is manual, one-off, no templates or automation.
-6. **Team invisibility** — "I don't know what my team is doing." No task tracking, no accountability systems, no quality checklists.
+6. **Employee retention** — "I don't know what my team is doing." No task tracking, no accountability systems, no quality checklists.
 
 ## Disqualification Criteria
 
@@ -111,7 +111,7 @@ Produce a single JSON object with these fields:
 
   "identified_problems": [
     {
-      "problem_id": "<owner_bottleneck | lead_leakage | financial_blindness | scheduling_chaos | manual_communication | team_invisibility>",
+      "problem_id": "<owner_bottleneck | lead_leakage | financial_blindness | scheduling_chaos | manual_communication | employee_retention>",
       "severity": "<high | medium | low>",
       "summary": "<one sentence>",
       "owner_quotes": ["<direct quote from transcript>"],
@@ -258,7 +258,7 @@ export function validateExtraction(data: unknown): {
       'financial_blindness',
       'scheduling_chaos',
       'manual_communication',
-      'team_invisibility',
+      'employee_retention',
     ]
     for (let i = 0; i < d.identified_problems.length; i++) {
       const p = d.identified_problems[i] as Record<string, unknown>
