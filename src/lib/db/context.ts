@@ -43,6 +43,7 @@ export type ContextType =
   | 'parking_lot'
   | 'stage_change'
   | 'intake'
+  | 'scorecard'
 
 export const CONTEXT_TYPES: { value: ContextType; label: string }[] = [
   { value: 'signal', label: 'Pipeline Signal' },
@@ -57,6 +58,7 @@ export const CONTEXT_TYPES: { value: ContextType; label: string }[] = [
   { value: 'parking_lot', label: 'Parking Lot' },
   { value: 'stage_change', label: 'Stage Change' },
   { value: 'intake', label: 'Intake' },
+  { value: 'scorecard', label: 'Scorecard' },
 ]
 
 export interface AppendContextData {
