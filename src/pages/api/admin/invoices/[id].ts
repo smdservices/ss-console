@@ -41,13 +41,13 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
   try {
     const existing = await getInvoice(env.DB, session.orgId, invoiceId)
     if (!existing) {
-      return redirect('/admin/clients?error=not_found', 302)
+      return redirect('/admin/entities?error=not_found', 302)
     }
 
     const formData = await request.formData()
     const action = formData.get('action')
     const redirectUrl = formData.get('redirect_url')
-    const target = typeof redirectUrl === 'string' ? redirectUrl : '/admin/clients'
+    const target = typeof redirectUrl === 'string' ? redirectUrl : '/admin/entities'
 
     // ----- ACTION: send -----
     if (action === 'send') {
@@ -65,13 +65,13 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
       const clientEmail = contact?.email
 
       // Look up client business name
-      const clientRow = await env.DB.prepare(
-        'SELECT business_name FROM clients WHERE id = ? AND org_id = ?'
+      const entityRow = await env.DB.prepare(
+        'SELECT name FROM entities WHERE id = ? AND org_id = ?'
       )
         .bind(existing.entity_id, session.orgId)
-        .first<{ business_name: string }>()
+        .first<{ name: string }>()
 
-      const clientName = clientRow?.business_name ?? 'there'
+      const clientName = entityRow?.name ?? 'there'
 
       try {
         // Create in Stripe (or dev-mode stub)
@@ -207,6 +207,6 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
     return redirect(`${target}?error=missing`, 302)
   } catch (err) {
     console.error('[api/admin/invoices/[id]] Action error:', err)
-    return redirect('/admin/clients?error=server', 302)
+    return redirect('/admin/entities?error=server', 302)
   }
 }

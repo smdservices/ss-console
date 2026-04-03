@@ -31,7 +31,7 @@ async function getInvoiceByStripeId(
 ): Promise<{
   id: string
   org_id: string
-  client_id: string
+  entity_id: string
   engagement_id: string | null
   type: string
   amount: number
@@ -39,13 +39,13 @@ async function getInvoiceByStripeId(
 } | null> {
   const result = await db
     .prepare(
-      'SELECT id, org_id, client_id, engagement_id, type, amount, status FROM invoices WHERE stripe_invoice_id = ?'
+      'SELECT id, org_id, entity_id, engagement_id, type, amount, status FROM invoices WHERE stripe_invoice_id = ?'
     )
     .bind(stripeInvoiceId)
     .first<{
       id: string
       org_id: string
-      client_id: string
+      entity_id: string
       engagement_id: string | null
       type: string
       amount: number
@@ -56,37 +56,33 @@ async function getInvoiceByStripeId(
 }
 
 /**
- * Look up the primary contact email for a client.
+ * Look up the primary contact email for an entity.
  */
-async function getClientPrimaryEmail(
+async function getEntityPrimaryEmail(
   db: D1Database,
   orgId: string,
-  clientId: string
+  entityId: string
 ): Promise<string | null> {
   const contact = await db
     .prepare(
-      'SELECT email FROM contacts WHERE org_id = ? AND client_id = ? AND email IS NOT NULL ORDER BY created_at ASC LIMIT 1'
+      'SELECT email FROM contacts WHERE org_id = ? AND entity_id = ? AND email IS NOT NULL ORDER BY created_at ASC LIMIT 1'
     )
-    .bind(orgId, clientId)
+    .bind(orgId, entityId)
     .first<{ email: string }>()
 
   return contact?.email ?? null
 }
 
 /**
- * Look up the business name for a client.
+ * Look up the business name for an entity.
  */
-async function getClientBusinessName(
-  db: D1Database,
-  orgId: string,
-  clientId: string
-): Promise<string> {
-  const client = await db
-    .prepare('SELECT business_name FROM clients WHERE id = ? AND org_id = ?')
-    .bind(clientId, orgId)
-    .first<{ business_name: string }>()
+async function getEntityName(db: D1Database, orgId: string, entityId: string): Promise<string> {
+  const entity = await db
+    .prepare('SELECT name FROM entities WHERE id = ? AND org_id = ?')
+    .bind(entityId, orgId)
+    .first<{ name: string }>()
 
-  return client?.business_name ?? 'there'
+  return entity?.name ?? 'there'
 }
 
 /**
@@ -164,9 +160,9 @@ export async function handleInvoicePaid(
   // --- Phase 2: Side effects (best-effort) ---
 
   try {
-    const clientEmail = await getClientPrimaryEmail(db, invoice.org_id, invoice.client_id)
+    const clientEmail = await getEntityPrimaryEmail(db, invoice.org_id, invoice.entity_id)
     if (clientEmail) {
-      const clientName = await getClientBusinessName(db, invoice.org_id, invoice.client_id)
+      const clientName = await getEntityName(db, invoice.org_id, invoice.entity_id)
       const formattedAmount = `$${invoice.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
       await sendEmail(resendApiKey, {

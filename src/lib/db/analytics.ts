@@ -70,7 +70,7 @@ export async function getQuoteAccuracy(db: D1Database, orgId: string): Promise<Q
     .prepare(
       `SELECT
          e.id AS engagement_id,
-         en.business_name AS client_name,
+         en.name AS client_name,
          e.estimated_hours,
          e.actual_hours
        FROM engagements e

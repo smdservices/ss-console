@@ -55,9 +55,9 @@ describe('portal quotes: session helper', () => {
     expect(code).toContain('export async function getPortalClient')
   })
 
-  it('resolves client via users.client_id', () => {
+  it('resolves client via users.entity_id', () => {
     const code = readFileSync(resolve('src/lib/portal/session.ts'), 'utf-8')
-    expect(code).toContain('client_id')
+    expect(code).toContain('entity_id')
     expect(code).toContain("role = 'client'")
   })
 })
@@ -69,8 +69,8 @@ describe('portal quotes: dashboard', () => {
     expect(existsSync(resolve('src/pages/portal/index.astro'))).toBe(true)
   })
 
-  it('shows client business name', () => {
-    expect(source()).toContain('client.business_name')
+  it('shows client name', () => {
+    expect(source()).toContain('client.name')
   })
 
   it('shows pending quotes section', () => {

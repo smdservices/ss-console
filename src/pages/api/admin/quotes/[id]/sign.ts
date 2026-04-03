@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro'
 import { getQuote } from '../../../../../lib/db/quotes'
-import { getClient } from '../../../../../lib/db/clients'
+import { getEntity } from '../../../../../lib/db/entities'
 import { listContacts } from '../../../../../lib/db/contacts'
 import { getPdf } from '../../../../../lib/storage/r2'
 import { createSignatureRequest } from '../../../../../lib/signwell/client'
@@ -49,14 +49,14 @@ export const POST: APIRoute = async ({ locals, redirect, params, url }) => {
   const apiKey = env.SIGNWELL_API_KEY
   if (!apiKey) {
     console.error('[api/admin/quotes/[id]/sign] SIGNWELL_API_KEY not configured')
-    return redirect(`/admin/clients?error=server`, 302)
+    return redirect(`/admin/entities?error=server`, 302)
   }
 
   try {
     // 1. Get quote and verify preconditions
     const quote = await getQuote(env.DB, session.orgId, quoteId)
     if (!quote) {
-      return redirect('/admin/clients?error=not_found', 302)
+      return redirect('/admin/entities?error=not_found', 302)
     }
 
     if (quote.status !== 'draft' && quote.status !== 'sent') {
@@ -88,8 +88,8 @@ export const POST: APIRoute = async ({ locals, redirect, params, url }) => {
     const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)))
 
     // 3. Get client and primary contact for signer details
-    const client = await getClient(env.DB, session.orgId, quote.entity_id)
-    if (!client) {
+    const entity = await getEntity(env.DB, session.orgId, quote.entity_id)
+    if (!entity) {
       return redirect(
         `/admin/entities/${quote.entity_id}/quotes/${quoteId}?error=client_not_found`,
         302
@@ -113,7 +113,7 @@ export const POST: APIRoute = async ({ locals, redirect, params, url }) => {
     const signerId = crypto.randomUUID()
 
     const signRequest: SignWellCreateDocumentRequest = {
-      name: `SOW — ${client.business_name}`,
+      name: `SOW — ${entity.name}`,
       file_base64: pdfBase64,
       original_filename: 'sow.pdf',
       signers: [
@@ -150,7 +150,7 @@ export const POST: APIRoute = async ({ locals, redirect, params, url }) => {
       ],
       draft: false,
       custom_requester_name: 'SMD Services',
-      subject: `SOW for Signature — ${client.business_name}`,
+      subject: `SOW for Signature — ${entity.name}`,
       message: `Hi ${primaryContact.name}, please review and sign the attached Statement of Work. If you have any questions, reply directly to this email.`,
     }
 
@@ -183,6 +183,6 @@ export const POST: APIRoute = async ({ locals, redirect, params, url }) => {
     return redirect(`/admin/entities/${quote.entity_id}/quotes/${quoteId}?saved=1`, 302)
   } catch (err) {
     console.error('[api/admin/quotes/[id]/sign] Error:', err)
-    return redirect('/admin/clients?error=server', 302)
+    return redirect('/admin/entities?error=server', 302)
   }
 }

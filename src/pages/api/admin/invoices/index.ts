@@ -41,18 +41,18 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
       !amountStr ||
       typeof amountStr !== 'string'
     ) {
-      const target = typeof redirectUrl === 'string' ? redirectUrl : '/admin/clients'
+      const target = typeof redirectUrl === 'string' ? redirectUrl : '/admin/entities'
       return redirect(`${target}?error=missing`, 302)
     }
 
     if (!VALID_TYPES.includes(type as InvoiceType)) {
-      const target = typeof redirectUrl === 'string' ? redirectUrl : '/admin/clients'
+      const target = typeof redirectUrl === 'string' ? redirectUrl : '/admin/entities'
       return redirect(`${target}?error=invalid_type`, 302)
     }
 
     const amount = parseFloat(amountStr)
     if (isNaN(amount) || amount <= 0) {
-      const target = typeof redirectUrl === 'string' ? redirectUrl : '/admin/clients'
+      const target = typeof redirectUrl === 'string' ? redirectUrl : '/admin/entities'
       return redirect(`${target}?error=invalid_amount`, 302)
     }
 
@@ -66,10 +66,10 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
       due_date: typeof dueDate === 'string' && dueDate.trim() ? dueDate.trim() : null,
     })
 
-    const target = typeof redirectUrl === 'string' ? redirectUrl : '/admin/clients'
+    const target = typeof redirectUrl === 'string' ? redirectUrl : '/admin/entities'
     return redirect(`${target}?created=1`, 302)
   } catch (err) {
     console.error('[api/admin/invoices] Create error:', err)
-    return redirect('/admin/clients?error=server', 302)
+    return redirect('/admin/entities?error=server', 302)
   }
 }

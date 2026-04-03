@@ -118,13 +118,13 @@ export async function handleDocumentCompleted(
         )
         .bind(now, now, quote.id, quote.org_id),
 
-      // 2. Update client status to 'active'
+      // 2. Update entity stage to 'engaged'
       db
         .prepare(
-          `UPDATE clients SET status = 'active', updated_at = ?
+          `UPDATE entities SET stage = 'engaged', stage_changed_at = ?, updated_at = ?
          WHERE id = ? AND org_id = ?`
         )
-        .bind(now, quote.entity_id, quote.org_id),
+        .bind(now, now, quote.entity_id, quote.org_id),
 
       // 3. Create engagement from quote data
       db
@@ -194,10 +194,10 @@ export async function handleDocumentCompleted(
     try {
       const clientEmail = await getClientPrimaryEmail(db, quote.org_id, quote.entity_id)
       if (clientEmail) {
-        const client = await db
-          .prepare('SELECT business_name FROM clients WHERE id = ? AND org_id = ?')
+        const entity = await db
+          .prepare('SELECT name FROM entities WHERE id = ? AND org_id = ?')
           .bind(quote.entity_id, quote.org_id)
-          .first<{ business_name: string }>()
+          .first<{ name: string }>()
 
         await fetch('https://api.resend.com/emails', {
           method: 'POST',
@@ -209,7 +209,7 @@ export async function handleDocumentCompleted(
             from: 'SMD Services <noreply@smd.services>',
             to: clientEmail,
             subject: 'SOW Signed — Next Steps',
-            html: signatureConfirmationEmailHtml(client?.business_name ?? 'there'),
+            html: signatureConfirmationEmailHtml(entity?.name ?? 'there'),
           }),
         })
       }

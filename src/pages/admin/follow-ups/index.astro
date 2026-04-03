@@ -37,20 +37,18 @@ const [upcoming, overdue, completed] = await Promise.all([
 const allFollowUps = [...upcoming, ...overdue, ...completed]
 const clientIds = [...new Set(allFollowUps.map((f) => f.entity_id))]
 
-interface ClientRow {
+interface EntityRow {
   id: string
-  business_name: string
+  name: string
 }
 
 const clientMap: Record<string, string> = {}
 for (const id of clientIds) {
-  const client = await env.DB.prepare(
-    'SELECT id, business_name FROM clients WHERE id = ? AND org_id = ?'
-  )
+  const entity = await env.DB.prepare('SELECT id, name FROM entities WHERE id = ? AND org_id = ?')
     .bind(id, session.orgId)
-    .first<ClientRow>()
-  if (client) {
-    clientMap[id] = client.business_name
+    .first<EntityRow>()
+  if (entity) {
+    clientMap[id] = entity.name
   }
 }
 
