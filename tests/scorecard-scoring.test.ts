@@ -79,6 +79,34 @@ describe('computeDimensionScores', () => {
     expect(ownerDim.scaled).toBe(33)
     expect(ownerDim.scoreLabel).toBe('room_to_grow')
   })
+
+  it('handles skipped questions (-1) by extrapolating', () => {
+    const answers: Record<string, number> = {}
+    // Owner bottleneck: q1=2, q2=2, q3=skipped → avg 2, extrapolated raw 6 → scaled 67
+    answers['q1'] = 2
+    answers['q2'] = 2
+    answers['q3'] = -1
+    for (const q of QUESTIONS) {
+      if (!(q.id in answers)) answers[q.id] = 2
+    }
+    const dims = computeDimensionScores(answers)
+    const ownerDim = dims.find((d) => d.id === 'owner_bottleneck')!
+    expect(ownerDim.scaled).toBe(67) // extrapolated from 2 answered questions
+  })
+
+  it('marks fully-skipped dimension as Skipped', () => {
+    const answers: Record<string, number> = {}
+    answers['q1'] = -1
+    answers['q2'] = -1
+    answers['q3'] = -1
+    for (const q of QUESTIONS) {
+      if (!(q.id in answers)) answers[q.id] = 2
+    }
+    const dims = computeDimensionScores(answers)
+    const ownerDim = dims.find((d) => d.id === 'owner_bottleneck')!
+    expect(ownerDim.displayLabel).toBe('Skipped')
+    expect(ownerDim.scaled).toBe(0)
+  })
 })
 
 describe('computeOverallScore', () => {

@@ -59,18 +59,32 @@ export function getThreshold(scaled: number): ScoreThreshold {
 export function computeDimensionScores(answers: Record<string, number>): DimensionScore[] {
   return DIMENSIONS.map((dim) => {
     const dimQuestions = QUESTIONS.filter((q) => q.dimension === dim.id)
-    const raw = dimQuestions.reduce((sum, q) => sum + (answers[q.id] ?? 0), 0)
-    const scaled = SCALED_SCORES[raw] ?? 0
-    const threshold = getThreshold(scaled)
+    const answered = dimQuestions.filter((q) => (answers[q.id] ?? -1) >= 0)
+    const raw = answered.reduce((sum, q) => sum + (answers[q.id] ?? 0), 0)
+
+    // Scale based on answered questions only (skipped = -1 are excluded)
+    let scaled: number
+    if (answered.length === 0) {
+      scaled = -1 // entire dimension skipped
+    } else if (answered.length === dimQuestions.length) {
+      scaled = SCALED_SCORES[raw] ?? 0
+    } else {
+      // Extrapolate: avg per answered question, projected to full dimension
+      const avgPerQuestion = raw / answered.length
+      const extrapolatedRaw = Math.round(avgPerQuestion * dimQuestions.length)
+      scaled = SCALED_SCORES[extrapolatedRaw] ?? 0
+    }
+
+    const threshold = getThreshold(Math.max(scaled, 0))
 
     return {
       id: dim.id,
       label: dim.label,
       raw,
-      scaled,
+      scaled: Math.max(scaled, 0),
       scoreLabel: threshold.label,
-      displayLabel: threshold.displayLabel,
-      color: threshold.color,
+      displayLabel: scaled === -1 ? 'Skipped' : threshold.displayLabel,
+      color: scaled === -1 ? '#94a3b8' : threshold.color,
     }
   })
 }
@@ -80,9 +94,10 @@ export function computeDimensionScores(answers: Record<string, number>): Dimensi
 // ---------------------------------------------------------------------------
 
 export function computeOverallScore(dimensions: DimensionScore[]): number {
-  if (dimensions.length === 0) return 0
-  const sum = dimensions.reduce((total, d) => total + d.scaled, 0)
-  return Math.round(sum / dimensions.length)
+  const scored = dimensions.filter((d) => d.displayLabel !== 'Skipped')
+  if (scored.length === 0) return 0
+  const sum = scored.reduce((total, d) => total + d.scaled, 0)
+  return Math.round(sum / scored.length)
 }
 
 // ---------------------------------------------------------------------------

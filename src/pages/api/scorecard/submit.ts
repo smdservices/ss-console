@@ -69,7 +69,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const questionIds = QUESTIONS.map((q) => q.id)
   for (const qid of questionIds) {
     const val = answers[qid]
-    if (typeof val !== 'number' || val < 0 || val > 3) {
+    if (typeof val !== 'number' || val < -1 || val > 3) {
       return jsonResponse(400, { error: `Invalid or missing answer for ${qid}` })
     }
   }

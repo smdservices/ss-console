@@ -68,12 +68,19 @@ for (const [i, q] of QUESTIONS.entries()) {
   <Nav />
 
   <!-- Progress bar (hidden on landing and results) -->
-  <div id="progress-bar" class="fixed left-0 top-16 z-50 hidden h-1 w-full bg-slate-200">
-    <div id="progress-fill" class="h-1 bg-primary transition-all duration-300" style="width: 0%">
+  <div id="progress-wrapper" class="fixed left-0 top-16 z-50 hidden w-full">
+    <div id="progress-bar" class="h-1.5 w-full bg-slate-200">
+      <div
+        id="progress-fill"
+        class="h-1.5 bg-primary transition-all duration-300"
+        style="width: 0%"
+      >
+      </div>
     </div>
-  </div>
-  <div id="progress-bar-text" class="fixed left-0 top-[68px] z-50 hidden w-full">
-    <p id="progress-text" class="px-6 pt-1 text-right text-sm text-slate-400"></p>
+    <div class="mx-auto flex max-w-2xl items-center justify-between px-6 pt-2">
+      <p id="progress-text" class="text-sm font-medium text-slate-500"></p>
+      <p id="progress-pct" class="text-sm text-slate-400"></p>
+    </div>
   </div>
 
   <!-- ============================================================ -->
@@ -144,7 +151,7 @@ for (const [i, q] of QUESTIONS.entries()) {
   <!-- QUIZ -->
   <!-- ============================================================ -->
   <section id="quiz" class="hidden">
-    <div class="mx-auto max-w-2xl px-6 pb-24 pt-16">
+    <div class="mx-auto max-w-2xl px-6 pb-24 pt-20">
       {
         steps.map((step) => (
           <div data-step={step.num} class="hidden">
@@ -165,6 +172,14 @@ for (const [i, q] of QUESTIONS.entries()) {
                   {opt.text}
                 </button>
               ))}
+              {step.type === 'scored' && (
+                <button
+                  data-answer="-1"
+                  class="block w-full cursor-pointer rounded-lg border border-dashed border-slate-200 px-5 py-3 text-left text-sm text-slate-400 transition-colors hover:bg-slate-50"
+                >
+                  Doesn't apply to my business
+                </button>
+              )}
             </div>
           </div>
         ))

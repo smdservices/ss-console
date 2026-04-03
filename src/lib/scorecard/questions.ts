@@ -124,8 +124,8 @@ export const CONTEXT_QUESTIONS: ContextQuestion[] = [
 // ---------------------------------------------------------------------------
 
 export interface QuestionOption {
-  key: 'a' | 'b' | 'c' | 'd'
-  score: 0 | 1 | 2 | 3
+  key: 'a' | 'b' | 'c' | 'd' | 'skip'
+  score: 0 | 1 | 2 | 3 | -1
   text: string
 }
 
@@ -199,12 +199,12 @@ export const QUESTIONS: ScoredQuestion[] = [
   {
     id: 'q5',
     dimension: 'lead_leakage',
-    text: 'If I asked you how many leads came in last month and how many became customers, could you tell me?',
+    text: 'How well do you know your lead numbers (how many came in last month, how many converted)?',
     options: [
-      { key: 'a', score: 0, text: "Honestly, no — I don't track that" },
+      { key: 'a', score: 0, text: "I don't track that" },
       { key: 'b', score: 1, text: "I could guess, but I don't have real numbers" },
-      { key: 'c', score: 2, text: 'I have a rough idea from email/calls but nothing centralized' },
-      { key: 'd', score: 3, text: 'Yes — I can pull that up and tell you our close rate' },
+      { key: 'c', score: 2, text: 'I have a rough idea but nothing centralized' },
+      { key: 'd', score: 3, text: 'I can pull up our numbers and close rate anytime' },
     ],
   },
   {
@@ -265,12 +265,12 @@ export const QUESTIONS: ScoredQuestion[] = [
   {
     id: 'q9',
     dimension: 'financial_blindness',
-    text: 'Could you tell me right now which of your services or jobs are most profitable?',
+    text: 'How well do you know which services or jobs are most profitable?',
     options: [
       { key: 'a', score: 0, text: 'Not really — revenue comes in and bills go out' },
       { key: 'b', score: 1, text: "I have a sense, but I've never run the numbers" },
       { key: 'c', score: 2, text: 'I know broadly, but the details are fuzzy' },
-      { key: 'd', score: 3, text: 'Yes — I track profitability by service/job type' },
+      { key: 'd', score: 3, text: 'I track profitability by service or job type' },
     ],
   },
 
@@ -347,7 +347,7 @@ export const QUESTIONS: ScoredQuestion[] = [
   {
     id: 'q15',
     dimension: 'manual_communication',
-    text: 'If a customer from 6 months ago called right now, could your team pull up their full history?',
+    text: "How easy is it for your team to pull up a past customer's full history?",
     options: [
       { key: 'a', score: 0, text: "We'd have to piece it together from texts, emails, and memory" },
       { key: 'b', score: 1, text: 'I could probably find it, but nobody else could' },
@@ -355,7 +355,7 @@ export const QUESTIONS: ScoredQuestion[] = [
       {
         key: 'd',
         score: 3,
-        text: 'Yes — their full history is in one place anyone on the team can access',
+        text: 'Full history is in one place anyone on the team can access',
       },
     ],
   },
