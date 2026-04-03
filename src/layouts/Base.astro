@@ -44,6 +44,7 @@ const ogImageUrl = new URL('/og-image.png', 'https://smd.services')
 
     <title>{title}</title>
     <JsonLd />
+    <slot name="head" />
   </head>
   <body>
     <slot />
