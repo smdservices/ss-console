@@ -1,54 +1,68 @@
-<!DOCTYPE html>
+<!doctype html>
 
-<html class="light" lang="en"><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>SMD Services - Operations Assessment</title>
-<!-- Fonts -->
-<link href="https://fonts.googleapis.com" rel="preconnect"/>
-<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@700;800&amp;display=swap" rel="stylesheet"/>
-<!-- Material Symbols -->
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script id="tailwind-config">
+<html class="light" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>SMD Services - Operations Assessment</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@700;800&amp;display=swap"
+      rel="stylesheet"
+    />
+    <!-- Material Symbols -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
       tailwind.config = {
-        darkMode: "class",
+        darkMode: 'class',
         theme: {
           extend: {
             colors: {
               primary: {
-                DEFAULT: "#1e40af",
-                hover: "#1e3a8a",
-                container: "#dbeafe",
-                onContainer: "#1e3a8a"
+                DEFAULT: '#1e40af',
+                hover: '#1e3a8a',
+                container: '#dbeafe',
+                onContainer: '#1e3a8a',
               },
               status: {
-                green: "#16a34a",
-                amber: "#d97706",
-                red: "#dc2626",
-                blue: "#2563eb"
-              }
+                green: '#16a34a',
+                amber: '#d97706',
+                red: '#dc2626',
+                blue: '#2563eb',
+              },
             },
             borderRadius: {
-              "DEFAULT": "0.25rem",
-              "lg": "0.5rem",
-              "xl": "0.75rem",
-              "full": "9999px"
+              DEFAULT: '0.25rem',
+              lg: '0.5rem',
+              xl: '0.75rem',
+              full: '9999px',
             },
             fontFamily: {
-              headline: ["Plus Jakarta Sans", "sans-serif"],
-              body: ["Inter", "sans-serif"],
-              label: ["Inter", "sans-serif"]
-            }
+              headline: ['Plus Jakarta Sans', 'sans-serif'],
+              body: ['Inter', 'sans-serif'],
+              label: ['Inter', 'sans-serif'],
+            },
           },
         },
       }
     </script>
-<style>
+    <style>
       .material-symbols-outlined {
-        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        font-variation-settings:
+          'FILL' 0,
+          'wght' 400,
+          'GRAD' 0,
+          'opsz' 24;
         display: inline-block;
         line-height: 1;
         text-transform: none;
@@ -61,101 +75,141 @@
         font-family: 'Inter', sans-serif;
         -webkit-font-smoothing: antialiased;
       }
-      .font-plus-jakarta { font-family: 'Plus Jakarta Sans', sans-serif; }
+      .font-plus-jakarta {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+      }
     </style>
-<style>
-    body {
-      min-height: max(884px, 100dvh);
-    }
-  </style>
+    <style>
+      body {
+        min-height: max(884px, 100dvh);
+      }
+    </style>
   </head>
-<body class="bg-white text-slate-900 min-h-screen flex flex-col">
-<!-- Progress Bar (At absolute top) -->
-<div class="fixed top-0 left-0 w-full h-1 bg-slate-200 z-[60]">
-<div class="h-full bg-primary w-[19%]"></div>
-</div>
-<!-- Top Navigation Anchor (Shared Component: TopAppBar) -->
-<header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center px-4 h-16 w-full fixed top-1 left-0 z-50">
-<div class="flex items-center gap-3">
-<button class="p-2 transition-colors duration-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-slate-500">
-<span class="material-symbols-outlined" data-icon="close">close</span>
-</button>
-<h1 class="font-plus-jakarta font-bold text-slate-900 dark:text-slate-50">Operations Assessment</h1>
-</div>
-<div class="text-lg font-bold text-blue-800 dark:text-blue-400">
-            SMD
-        </div>
-</header>
-<!-- Main Content Canvas -->
-<main class="flex-grow pt-24 pb-32 max-w-2xl mx-auto w-full">
-<!-- Progress Text -->
-<div class="text-sm text-slate-400 px-6 pt-3 text-right">
-            Question 4 of 21
-        </div>
-<!-- Section Header -->
-<div class="mt-10 px-6">
-<span class="text-xs font-semibold uppercase tracking-wider text-slate-500 font-label">
-                Let's start with your day-to-day
-            </span>
-</div>
-<!-- Question Text -->
-<div class="mt-4 px-6">
-<h2 class="text-xl font-bold text-slate-900 font-headline leading-tight">
-                When a team member needs to make a decision that's outside their normal routine, what happens?
-            </h2>
-</div>
-<!-- Answer Cards Container -->
-<div class="mt-8 px-6 space-y-3">
-<!-- Option A -->
-<button class="w-full text-left bg-white border border-slate-200 rounded-lg py-4 px-5 transition-colors duration-200 hover:bg-slate-50 group">
-<div class="flex items-start gap-4">
-<span class="flex-shrink-0 w-6 h-6 rounded-full border border-slate-300 flex items-center justify-center text-xs font-semibold text-slate-400 group-hover:border-primary group-hover:text-primary">A</span>
-<span class="text-slate-700 text-base leading-relaxed">They wait for me — I make most of the calls</span>
-</div>
-</button>
-<!-- Option B -->
-<button class="w-full text-left bg-white border border-slate-200 rounded-lg py-4 px-5 transition-colors duration-200 hover:bg-slate-50 group">
-<div class="flex items-start gap-4">
-<span class="flex-shrink-0 w-6 h-6 rounded-full border border-slate-300 flex items-center justify-center text-xs font-semibold text-slate-400 group-hover:border-primary group-hover:text-primary">B</span>
-<span class="text-slate-700 text-base leading-relaxed">They text or call me and I handle it when I can</span>
-</div>
-</button>
-<!-- Option C (SELECTED STATE) -->
-<button class="w-full text-left bg-blue-50 border border-slate-200 border-l-4 border-l-primary rounded-lg py-4 px-5 transition-colors duration-200 group">
-<div class="flex items-start gap-4">
-<span class="flex-shrink-0 w-6 h-6 rounded-full bg-primary flex items-center justify-center text-xs font-semibold text-white">C</span>
-<span class="text-primary font-medium text-base leading-relaxed">A few senior people can handle it, but anything big comes to me</span>
-</div>
-</button>
-<!-- Option D -->
-<button class="w-full text-left bg-white border border-slate-200 rounded-lg py-4 px-5 transition-colors duration-200 hover:bg-slate-50 group">
-<div class="flex items-start gap-4">
-<span class="flex-shrink-0 w-6 h-6 rounded-full border border-slate-300 flex items-center justify-center text-xs font-semibold text-slate-400 group-hover:border-primary group-hover:text-primary">D</span>
-<span class="text-slate-700 text-base leading-relaxed">We have clear guidelines for who decides what — I rarely get pulled in</span>
-</div>
-</button>
-</div>
-<!-- Decorative Brand Element -->
-<div class="mt-12 px-6 flex justify-center">
-<div class="w-16 h-1 bg-slate-100 rounded-full"></div>
-</div>
-</main>
-<!-- Navigation Footer (Shared Component: BottomNavBar Logic) -->
-<nav class="fixed bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center px-6 py-4 z-50">
-<!-- Back Action -->
-<button class="flex items-center gap-2 text-slate-500 hover:text-slate-700 font-medium transition-colors active:scale-95 duration-150">
-<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
-<span class="font-label text-sm uppercase tracking-wider">Back</span>
-</button>
-<!-- Next Action -->
-<button class="bg-primary hover:bg-primary-hover text-white px-8 py-2.5 rounded-lg font-medium shadow-sm transition-all active:scale-95 duration-150 flex items-center gap-2">
-<span class="font-label text-sm uppercase tracking-wider">Next</span>
-<span class="material-symbols-outlined" data-icon="arrow_forward">arrow_forward</span>
-</button>
-</nav>
-<!-- Visual Polish Backdrop for Mobile -->
-<div class="fixed top-0 left-0 w-full h-full -z-10 opacity-20 pointer-events-none">
-<div class="absolute top-1/4 right-0 w-64 h-64 bg-blue-100 rounded-full blur-3xl"></div>
-<div class="absolute bottom-1/4 left-0 w-64 h-64 bg-slate-100 rounded-full blur-3xl"></div>
-</div>
-</body></html>
+  <body class="bg-white text-slate-900 min-h-screen flex flex-col">
+    <!-- Progress Bar (At absolute top) -->
+    <div class="fixed top-0 left-0 w-full h-1 bg-slate-200 z-[60]">
+      <div class="h-full bg-primary w-[19%]"></div>
+    </div>
+    <!-- Top Navigation Anchor (Shared Component: TopAppBar) -->
+    <header
+      class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center px-4 h-16 w-full fixed top-1 left-0 z-50"
+    >
+      <div class="flex items-center gap-3">
+        <button
+          class="p-2 transition-colors duration-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-slate-500"
+        >
+          <span class="material-symbols-outlined" data-icon="close">close</span>
+        </button>
+        <h1 class="font-plus-jakarta font-bold text-slate-900 dark:text-slate-50">
+          Operations Assessment
+        </h1>
+      </div>
+      <div class="text-lg font-bold text-blue-800 dark:text-blue-400">SMD</div>
+    </header>
+    <!-- Main Content Canvas -->
+    <main class="flex-grow pt-24 pb-32 max-w-2xl mx-auto w-full">
+      <!-- Progress Text -->
+      <div class="text-sm text-slate-400 px-6 pt-3 text-right">Question 4 of 21</div>
+      <!-- Section Header -->
+      <div class="mt-10 px-6">
+        <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 font-label">
+          Let's start with your day-to-day
+        </span>
+      </div>
+      <!-- Question Text -->
+      <div class="mt-4 px-6">
+        <h2 class="text-xl font-bold text-slate-900 font-headline leading-tight">
+          When a team member needs to make a decision that's outside their normal routine, what
+          happens?
+        </h2>
+      </div>
+      <!-- Answer Cards Container -->
+      <div class="mt-8 px-6 space-y-3">
+        <!-- Option A -->
+        <button
+          class="w-full text-left bg-white border border-slate-200 rounded-lg py-4 px-5 transition-colors duration-200 hover:bg-slate-50 group"
+        >
+          <div class="flex items-start gap-4">
+            <span
+              class="flex-shrink-0 w-6 h-6 rounded-full border border-slate-300 flex items-center justify-center text-xs font-semibold text-slate-400 group-hover:border-primary group-hover:text-primary"
+              >A</span
+            >
+            <span class="text-slate-700 text-base leading-relaxed"
+              >They wait for me — I make most of the calls</span
+            >
+          </div>
+        </button>
+        <!-- Option B -->
+        <button
+          class="w-full text-left bg-white border border-slate-200 rounded-lg py-4 px-5 transition-colors duration-200 hover:bg-slate-50 group"
+        >
+          <div class="flex items-start gap-4">
+            <span
+              class="flex-shrink-0 w-6 h-6 rounded-full border border-slate-300 flex items-center justify-center text-xs font-semibold text-slate-400 group-hover:border-primary group-hover:text-primary"
+              >B</span
+            >
+            <span class="text-slate-700 text-base leading-relaxed"
+              >They text or call me and I handle it when I can</span
+            >
+          </div>
+        </button>
+        <!-- Option C (SELECTED STATE) -->
+        <button
+          class="w-full text-left bg-blue-50 border border-slate-200 border-l-4 border-l-primary rounded-lg py-4 px-5 transition-colors duration-200 group"
+        >
+          <div class="flex items-start gap-4">
+            <span
+              class="flex-shrink-0 w-6 h-6 rounded-full bg-primary flex items-center justify-center text-xs font-semibold text-white"
+              >C</span
+            >
+            <span class="text-primary font-medium text-base leading-relaxed"
+              >A few senior people can handle it, but anything big comes to me</span
+            >
+          </div>
+        </button>
+        <!-- Option D -->
+        <button
+          class="w-full text-left bg-white border border-slate-200 rounded-lg py-4 px-5 transition-colors duration-200 hover:bg-slate-50 group"
+        >
+          <div class="flex items-start gap-4">
+            <span
+              class="flex-shrink-0 w-6 h-6 rounded-full border border-slate-300 flex items-center justify-center text-xs font-semibold text-slate-400 group-hover:border-primary group-hover:text-primary"
+              >D</span
+            >
+            <span class="text-slate-700 text-base leading-relaxed"
+              >We have clear guidelines for who decides what — I rarely get pulled in</span
+            >
+          </div>
+        </button>
+      </div>
+      <!-- Decorative Brand Element -->
+      <div class="mt-12 px-6 flex justify-center">
+        <div class="w-16 h-1 bg-slate-100 rounded-full"></div>
+      </div>
+    </main>
+    <!-- Navigation Footer (Shared Component: BottomNavBar Logic) -->
+    <nav
+      class="fixed bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center px-6 py-4 z-50"
+    >
+      <!-- Back Action -->
+      <button
+        class="flex items-center gap-2 text-slate-500 hover:text-slate-700 font-medium transition-colors active:scale-95 duration-150"
+      >
+        <span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+        <span class="font-label text-sm uppercase tracking-wider">Back</span>
+      </button>
+      <!-- Next Action -->
+      <button
+        class="bg-primary hover:bg-primary-hover text-white px-8 py-2.5 rounded-lg font-medium shadow-sm transition-all active:scale-95 duration-150 flex items-center gap-2"
+      >
+        <span class="font-label text-sm uppercase tracking-wider">Next</span>
+        <span class="material-symbols-outlined" data-icon="arrow_forward">arrow_forward</span>
+      </button>
+    </nav>
+    <!-- Visual Polish Backdrop for Mobile -->
+    <div class="fixed top-0 left-0 w-full h-full -z-10 opacity-20 pointer-events-none">
+      <div class="absolute top-1/4 right-0 w-64 h-64 bg-blue-100 rounded-full blur-3xl"></div>
+      <div class="absolute bottom-1/4 left-0 w-64 h-64 bg-slate-100 rounded-full blur-3xl"></div>
+    </div>
+  </body>
+</html>
