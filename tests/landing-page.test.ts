@@ -106,6 +106,17 @@ describe('decision compliance', () => {
     }
   })
 
+  it('no deprecated "team_invisibility" in src/', () => {
+    const files = readAllSrcFiles()
+    for (const filePath of files) {
+      const content = readFileSync(filePath, 'utf-8')
+      expect(content, `"team_invisibility" found in ${filePath}`).not.toContain('team_invisibility')
+      expect(content.toLowerCase(), `"team invisibility" found in ${filePath}`).not.toContain(
+        'team invisibility'
+      )
+    }
+  })
+
   it('no "the consultant" language in marketing components', () => {
     const files = readAllSrcFiles()
     for (const filePath of files) {

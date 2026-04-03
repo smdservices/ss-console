@@ -67,7 +67,7 @@
 --
 --   assessments.problems (TEXT, JSON):
 --     Array of ProblemId strings from the 6 universal SMB operations problems:
---     ["owner_bottleneck", "lead_leakage", "financial_blindness", "scheduling_chaos", "manual_communication", "team_invisibility"]
+--     ["owner_bottleneck", "lead_leakage", "financial_blindness", "scheduling_chaos", "manual_communication", "employee_retention"]
 --
 --   assessments.disqualifiers (TEXT, JSON):
 --     DisqualificationFlags from extraction-schema.ts:

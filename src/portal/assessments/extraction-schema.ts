@@ -19,7 +19,7 @@ export const PROBLEM_IDS = [
   'financial_blindness',
   'scheduling_chaos',
   'manual_communication',
-  'team_invisibility',
+  'employee_retention',
 ] as const
 
 export type ProblemId = (typeof PROBLEM_IDS)[number]
@@ -30,7 +30,7 @@ export const PROBLEM_LABELS: Record<ProblemId, string> = {
   financial_blindness: 'Financial blindness',
   scheduling_chaos: 'Scheduling chaos',
   manual_communication: 'Manual communication',
-  team_invisibility: 'Team invisibility',
+  employee_retention: 'Employee retention',
 }
 
 // ---------------------------------------------------------------------------

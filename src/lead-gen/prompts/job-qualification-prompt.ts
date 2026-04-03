@@ -37,7 +37,7 @@ Map job posting signals to these canonical problem types:
 3. **financial_blindness** — Books behind, no visibility. Signals: "bring books current," "organize financial records," "QuickBooks cleanup."
 4. **scheduling_chaos** — No centralized scheduling. Signals: "coordinate schedules," "dispatch," "manage appointments," "double-bookings."
 5. **manual_communication** — Every message is manual. Signals: "respond to all customer inquiries," "send appointment reminders," "personal follow-up with every client."
-6. **team_invisibility** — No task tracking, no accountability. Signals: "create processes," "document procedures," "implement tracking," "nobody knows who's doing what."
+6. **employee_retention** — No task tracking, no accountability. Signals: "create processes," "document procedures," "implement tracking," "nobody knows who's doing what."
 
 ## Qualification Criteria
 
@@ -177,7 +177,7 @@ export function validateJobQualification(data: unknown): {
     'financial_blindness',
     'scheduling_chaos',
     'manual_communication',
-    'team_invisibility',
+    'employee_retention',
   ]
   if (!Array.isArray(d.problems_signaled)) {
     errors.push('problems_signaled must be an array')

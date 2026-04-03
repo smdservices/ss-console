@@ -107,7 +107,7 @@ Add these if the base 8 aren't generating enough volume:
 | 9   | `bookkeeper`               | Financial blindness — business is behind on books |
 | 10  | `administrative assistant` | Owner bottleneck at smaller companies             |
 | 11  | `receptionist`             | Manual communication — phone chaos                |
-| 12  | `project coordinator`      | Contractor/trades — team invisibility             |
+| 12  | `project coordinator`      | Contractor/trades — employee retention            |
 
 ---
 

@@ -228,7 +228,7 @@ Labels are NOT shown to the user. The options are written as natural description
 
 ---
 
-### Section 6: Team Visibility
+### Section 6: Employee Retention
 
 **Header:** "Knowing what your team is doing"
 
@@ -290,7 +290,7 @@ Default weights (equal):
 | Financial visibility | 1.0    |
 | Scheduling           | 1.0    |
 | Communication        | 1.0    |
-| Team visibility      | 1.0    |
+| Employee Retention   | 1.0    |
 
 **Future enhancement:** Adjust weights by vertical using the pain cluster table. For example, home services could weight scheduling and lead leakage higher. Ship v1 with equal weights.
 
@@ -321,7 +321,7 @@ Sort dimensions by score ascending. The bottom 2-3 (lowest scores) are highlight
 │  Financial visibility ██████████░░  67            │
 │  Scheduling           ████████████  89            │
 │  Communication        ██████░░░░░░  33  ⚠️       │
-│  Team visibility      ████████░░░░  56            │
+│  Employee Retention      ████████░░░░  56            │
 │                                                  │
 ├─────────────────────────────────────────────────┤
 │  Where we'd start                                │
@@ -397,7 +397,7 @@ Each dimension needs a one-liner for each score range, written in second person,
 - Blue: "Some communication is automated, but there are still gaps where things depend on a person."
 - Green: "Routine communication runs on autopilot. Your team's time goes to conversations that actually need a human."
 
-**Team visibility:**
+**Employee Retention:**
 
 - Red: "You don't have a clear picture of what your team is doing day-to-day. Issues surface late, usually when something breaks."
 - Amber: "You check in with people individually, but there's no system giving you the full picture."
