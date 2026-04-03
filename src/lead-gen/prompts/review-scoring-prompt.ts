@@ -41,7 +41,7 @@ Your job is to analyze Google and Yelp reviews and score businesses for OPERATIO
 - "The owner had to come out personally because nobody else could help" → owner_bottleneck
 - "Got a bill 3 months later with no explanation" → financial_blindness
 - "No confirmation text, no reminder, had to call to verify" → manual_communication
-- "Different tech every time, none of them knew what the last one did" → team_invisibility
+- "Different tech every time, none of them knew what the last one did" → employee_retention
 
 **SERVICE QUALITY complaints (NOT what we care about — ignore these):**
 - "The plumber was rude" — personality, not operations
@@ -53,7 +53,7 @@ Your job is to analyze Google and Yelp reviews and score businesses for OPERATIO
 
 **Gray area (score only if the root cause is operational):**
 - "Waited 2 hours past my appointment" — could be scheduling_chaos (operational) or just running behind (service)
-- "They lost my paperwork" — team_invisibility (operational) if systemic, one-off if isolated
+- "They lost my paperwork" — employee_retention (operational) if systemic, one-off if isolated
 - "Nobody knew the status of my order" — manual_communication (operational) if pattern
 
 ## The 6 Universal SMB Operations Problems
@@ -63,7 +63,7 @@ Your job is to analyze Google and Yelp reviews and score businesses for OPERATIO
 3. **financial_blindness** — Billing chaos. Signals: "surprise charges," "couldn't give me a quote," "billing error," "invoice months later."
 4. **scheduling_chaos** — No centralized scheduling. Signals: "double-booked," "missed appointment," "showed up on the wrong day," "couldn't get scheduled for weeks."
 5. **manual_communication** — No automated touchpoints. Signals: "no confirmation," "no reminder," "had to call to verify," "never received an update."
-6. **team_invisibility** — No accountability or tracking. Signals: "different person every time," "left hand doesn't know what the right is doing," "nobody knew the status."
+6. **employee_retention** — No accountability or tracking. Signals: "different person every time," "left hand doesn't know what the right is doing," "nobody knew the status."
 
 ## Scoring Calibration
 
@@ -213,7 +213,7 @@ export function validateReviewScoring(data: unknown): {
     'financial_blindness',
     'scheduling_chaos',
     'manual_communication',
-    'team_invisibility',
+    'employee_retention',
   ]
   if (!Array.isArray(d.top_problems)) {
     errors.push('top_problems must be an array')

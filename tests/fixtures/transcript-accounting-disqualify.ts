@@ -6,7 +6,7 @@
  *
  * Exercises:
  * - Business profile: professional_services vertical, 12 employees, 10 years
- * - Problems: owner_bottleneck (high), financial_blindness (medium), team_invisibility (medium)
+ * - Problems: owner_bottleneck (high), financial_blindness (medium), employee_retention (medium)
  * - No champion candidate identified
  * - Soft disqualifiers: books_behind, no_champion, no_willingness_to_change
  * - High complexity (resistance to change, no champion, books behind)
@@ -14,8 +14,8 @@
  *
  * Writing notes:
  * - Owner explicitly resists change ("tried that before", "my team won't learn")
- * - team_invisibility symptoms: no task tracking, no accountability, no quality checks
- *   (NOT employee turnover/retention — schema uses team_invisibility, not employee_retention)
+ * - employee_retention symptoms: no task tracking, no accountability, no quality checks
+ *   (NOT employee turnover/retention — schema uses employee_retention, not employee_retention)
  * - financial_blindness is ironic for an accountant — their CLIENT books are fine,
  *   but their OWN firm's books are 60+ days behind
  *
@@ -141,7 +141,7 @@ export const ACCOUNTING_EXPECTED_EXTRACTION: Record<string, unknown> = {
         'Admin who was handling firm books got overwhelmed and fell behind. No one else assigned to pick it up. Harvest time tracking has poor adoption (~60%), making profitability analysis impossible. Owner relies on bank balance intuition rather than actual financial data for his own firm.',
     },
     {
-      problem_id: 'team_invisibility',
+      problem_id: 'employee_retention',
       severity: 'medium',
       summary:
         'No task tracking system in use — owner cannot determine the status of any engagement without walking over and asking. Previous spreadsheet tracker was abandoned for months without anyone noticing. No quality checklists exist.',
@@ -204,7 +204,7 @@ export const ACCOUNTING_EXPECTED_EXTRACTION: Record<string, unknown> = {
   },
 
   quote_drivers: {
-    recommended_problems: ['owner_bottleneck', 'team_invisibility', 'financial_blindness'],
+    recommended_problems: ['owner_bottleneck', 'employee_retention', 'financial_blindness'],
     estimated_complexity: 'high',
     upward_pressures: [
       'Two prior failed tool implementations create significant adoption risk',

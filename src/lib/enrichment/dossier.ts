@@ -31,7 +31,7 @@ Generate a structured dossier in markdown format with these sections:
   3. Financial blindness
   4. Scheduling chaos
   5. Manual communication
-  6. Team invisibility
+  6. Employee retention
 
 ## Engagement Opportunity
 - Top 2-3 problems we can address (with confidence level and evidence)
