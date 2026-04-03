@@ -136,17 +136,19 @@ function goToStep(step: number) {
   // Hide all question steps
   document.querySelectorAll('[data-step]').forEach((el) => el.classList.add('hidden'))
 
-  const progressBar = document.getElementById('progress-fill')
+  const progressWrapper = document.getElementById('progress-wrapper')
+  const progressFill = document.getElementById('progress-fill')
   const progressText = document.getElementById('progress-text')
+  const progressPct = document.getElementById('progress-pct')
   const quizNav = document.getElementById('quiz-nav')
 
   if (step === 0) {
     document.getElementById('landing')?.classList.remove('hidden')
-    progressBar?.parentElement?.classList.add('hidden')
+    progressWrapper?.classList.add('hidden')
     quizNav?.classList.add('hidden')
   } else if (step >= 1 && step <= TOTAL_STEPS) {
     document.getElementById('quiz')?.classList.remove('hidden')
-    progressBar?.parentElement?.classList.remove('hidden')
+    progressWrapper?.classList.remove('hidden')
     quizNav?.classList.remove('hidden')
 
     const stepEl = document.querySelector(`[data-step="${step}"]`)
@@ -154,8 +156,9 @@ function goToStep(step: number) {
 
     // Update progress
     const pct = Math.round((step / TOTAL_STEPS) * 100)
-    if (progressBar) progressBar.style.width = `${pct}%`
+    if (progressFill) progressFill.style.width = `${pct}%`
     if (progressText) progressText.textContent = `Question ${step} of ${TOTAL_STEPS}`
+    if (progressPct) progressPct.textContent = `${pct}%`
 
     // Update Next button state
     updateNextButton(step)
@@ -165,12 +168,13 @@ function goToStep(step: number) {
     if (backBtn) backBtn.classList.toggle('invisible', step === 1)
   } else if (step === 22) {
     document.getElementById('email-gate')?.classList.remove('hidden')
-    if (progressBar) progressBar.style.width = '100%'
-    if (progressText) progressText.textContent = `${TOTAL_STEPS} of ${TOTAL_STEPS}`
+    if (progressFill) progressFill.style.width = '100%'
+    if (progressText) progressText.textContent = 'Done!'
+    if (progressPct) progressPct.textContent = '100%'
     quizNav?.classList.add('hidden')
   } else if (step === 23) {
     document.getElementById('results')?.classList.remove('hidden')
-    progressBar?.parentElement?.classList.add('hidden')
+    progressWrapper?.classList.add('hidden')
     quizNav?.classList.add('hidden')
   }
 
@@ -237,28 +241,41 @@ function computeClientScores(): {
 } {
   const dimensions: DimensionResult[] = data.dimensions.map((dim) => {
     const dimQuestions = data.questions.filter((q) => q.dimension === dim.id)
-    const raw = dimQuestions.reduce((sum, q) => sum + ((answers[q.id] as number) ?? 0), 0)
-    const scaled = data.scaledScores[raw] ?? 0
+    const answered = dimQuestions.filter((q) => ((answers[q.id] as number) ?? -1) >= 0)
+    const raw = answered.reduce((sum, q) => sum + ((answers[q.id] as number) ?? 0), 0)
+
+    let scaled: number
+    if (answered.length === 0) {
+      scaled = -1
+    } else if (answered.length === dimQuestions.length) {
+      scaled = data.scaledScores[raw] ?? 0
+    } else {
+      const avgPerQuestion = raw / answered.length
+      const extrapolatedRaw = Math.round(avgPerQuestion * dimQuestions.length)
+      scaled = data.scaledScores[extrapolatedRaw] ?? 0
+    }
+
+    const effectiveScaled = Math.max(scaled, 0)
     const threshold =
-      data.scoreThresholds.find((t) => scaled >= t.min && scaled <= t.max) ||
+      data.scoreThresholds.find((t) => effectiveScaled >= t.min && effectiveScaled <= t.max) ||
       data.scoreThresholds[0]
-    const description = data.descriptions[dim.id]?.[threshold.label as keyof Description] ?? ''
+    const description =
+      scaled === -1 ? '' : (data.descriptions[dim.id]?.[threshold.label as keyof Description] ?? '')
 
     return {
       id: dim.id,
       label: dim.label,
-      scaled,
+      scaled: effectiveScaled,
       scoreLabel: threshold.label,
-      displayLabel: threshold.displayLabel,
-      color: threshold.color,
+      displayLabel: scaled === -1 ? 'Skipped' : threshold.displayLabel,
+      color: scaled === -1 ? '#94a3b8' : threshold.color,
       description,
     }
   })
 
+  const scored = dimensions.filter((d) => d.displayLabel !== 'Skipped')
   const overall =
-    dimensions.length > 0
-      ? Math.round(dimensions.reduce((s, d) => s + d.scaled, 0) / dimensions.length)
-      : 0
+    scored.length > 0 ? Math.round(scored.reduce((s, d) => s + d.scaled, 0) / scored.length) : 0
 
   const overallThreshold =
     data.scoreThresholds.find((t) => overall >= t.min && overall <= t.max) ||
