@@ -72,6 +72,6 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
     return redirect(`/admin/entities/${entityId}/quotes/${quote.id}?saved=1`, 302)
   } catch (err) {
     console.error('[api/admin/quotes] Create error:', err)
-    return redirect('/admin/clients?error=server', 302)
+    return redirect('/admin/entities?error=server', 302)
   }
 }

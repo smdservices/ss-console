@@ -26,7 +26,7 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
     const clientId = formData.get('client_id')
 
     if (!clientId || typeof clientId !== 'string' || !clientId.trim()) {
-      return redirect('/admin/clients?error=missing', 302)
+      return redirect('/admin/entities?error=missing', 302)
     }
 
     const env = locals.runtime.env
@@ -50,6 +50,6 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
     if (clientId && typeof clientId === 'string') {
       return redirect(`/admin/entities/${clientId}/assessments/new?error=server`, 302)
     }
-    return redirect('/admin/clients?error=server', 302)
+    return redirect('/admin/entities?error=server', 302)
   }
 }

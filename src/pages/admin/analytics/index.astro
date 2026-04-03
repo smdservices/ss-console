@@ -7,7 +7,7 @@ import {
   getEngagementHealth,
   getFollowUpCompliance,
 } from '../../../lib/db/analytics'
-import { CLIENT_VERTICALS } from '../../../lib/db/clients'
+import { ENTITY_VERTICALS } from '../../../lib/db/entities'
 
 /**
  * Admin analytics dashboard — business intelligence views.
@@ -83,7 +83,7 @@ function formatCurrency(amount: number): string {
 }
 
 function getVerticalLabel(value: string): string {
-  return CLIENT_VERTICALS.find((v) => v.value === value)?.label ?? value
+  return ENTITY_VERTICALS.find((v) => v.value === value)?.label ?? value
 }
 
 function formatMonthLabel(yyyymm: string): string {
