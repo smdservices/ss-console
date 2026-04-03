@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+
+<html class="scroll-smooth" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Operations Health Scorecard | SMD Services</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              navy: {
+                700: '#1e40af',
+                800: '#1e3a8a',
+              },
+              slate: {
+                50: '#f8fafc',
+                100: '#f1f5f9',
+                200: '#e2e8f0',
+                400: '#94a3b8',
+                500: '#64748b',
+                800: '#1e293b',
+                900: '#0f172a',
+              }
+            },
+            borderRadius: {
+              "DEFAULT": "0.25rem",
+              "lg": "0.5rem",
+              "xl": "0.75rem",
+              "full": "9999px"
+            },
+            fontFamily: {
+              headline: ["Plus Jakarta Sans", "sans-serif"],
+              body: ["Inter", "sans-serif"],
+              label: ["Inter", "sans-serif"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 font-body text-slate-900 antialiased">
+<!-- TopNavBar -->
+<nav class="bg-white/95 backdrop-blur-sm fixed top-0 w-full z-50 border-b border-slate-200 shadow-sm">
+<div class="flex justify-between items-center h-16 px-6 max-w-5xl mx-auto">
+<div class="text-xl font-bold tracking-tight text-slate-900 font-headline">
+                SMD Services
+            </div>
+<div class="hidden md:flex items-center gap-8 font-label text-sm font-medium">
+<a class="text-slate-500 hover:text-navy-700 transition-colors" href="#">Home</a>
+<a class="text-slate-500 hover:text-navy-700 transition-colors" href="#">Process</a>
+<a class="text-slate-500 hover:text-navy-700 transition-colors" href="#">Pricing</a>
+</div>
+<div class="flex items-center">
+<button class="bg-navy-700 text-white px-5 py-2 rounded-lg font-medium hover:opacity-80 transition-all duration-200 active:scale-95">
+                    Book Assessment
+                </button>
+</div>
+</div>
+</nav>
+<main class="pt-16">
+<!-- Hero Section -->
+<section class="py-24 px-6">
+<div class="max-w-5xl mx-auto text-center">
+<div class="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-navy-700 rounded-full text-xs font-semibold uppercase tracking-wider mb-6">
+<span class="material-symbols-outlined text-sm">analytics</span>
+                    Free Operations Audit
+                </div>
+<h1 class="text-5xl md:text-6xl font-extrabold font-headline text-slate-900 tracking-tight leading-[1.1] mb-6">
+                    See where your operations stand
+                </h1>
+<p class="text-xl text-slate-500 max-w-2xl mx-auto mb-10 leading-relaxed">
+                    Take our 3-minute diagnostic and receive a personalized report identifying the bottlenecks preventing your Phoenix business from scaling.
+                </p>
+<div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
+<button class="bg-navy-700 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:opacity-80 transition-all duration-200 active:scale-95 shadow-lg shadow-navy-700/20 w-full sm:w-auto">
+                        Start your free assessment
+                    </button>
+</div>
+<!-- Trust Signals -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-3xl mx-auto pt-8 border-t border-slate-200">
+<div class="flex items-center justify-center gap-3">
+<div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-navy-700">
+<span class="material-symbols-outlined">schedule</span>
+</div>
+<span class="text-sm font-semibold text-slate-600">3 minutes</span>
+</div>
+<div class="flex items-center justify-center gap-3">
+<div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-navy-700">
+<span class="material-symbols-outlined">verified_user</span>
+</div>
+<span class="text-sm font-semibold text-slate-600">No sales pitch</span>
+</div>
+<div class="flex items-center justify-center gap-3">
+<div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-navy-700">
+<span class="material-symbols-outlined">bolt</span>
+</div>
+<span class="text-sm font-semibold text-slate-600">Instant results</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Dimensions Preview (Bento Grid Style) -->
+<section class="py-24 bg-white">
+<div class="max-w-5xl mx-auto px-6">
+<div class="text-center mb-16">
+<h2 class="text-3xl font-bold font-headline text-slate-900 mb-4">6 Key Dimensions of Health</h2>
+<p class="text-slate-500">We analyze your business across these critical operational pillars.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Owner Independence -->
+<div class="p-8 bg-slate-50 rounded-xl border border-slate-200 hover:shadow-md transition-shadow">
+<div class="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-navy-700 shadow-sm mb-6">
+<span class="material-symbols-outlined">person_pin</span>
+</div>
+<h3 class="font-bold text-lg mb-2">Owner Independence</h3>
+<p class="text-sm text-slate-500 leading-relaxed">Can the business run for a week without you? We measure your delegation systems.</p>
+</div>
+<!-- Lead Follow-up -->
+<div class="p-8 bg-slate-50 rounded-xl border border-slate-200 hover:shadow-md transition-shadow">
+<div class="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-navy-700 shadow-sm mb-6">
+<span class="material-symbols-outlined">call</span>
+</div>
+<h3 class="font-bold text-lg mb-2">Lead Follow-up</h3>
+<p class="text-sm text-slate-500 leading-relaxed">The speed and consistency of your sales response determines your growth rate.</p>
+</div>
+<!-- Financial Visibility -->
+<div class="p-8 bg-slate-50 rounded-xl border border-slate-200 hover:shadow-md transition-shadow">
+<div class="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-navy-700 shadow-sm mb-6">
+<span class="material-symbols-outlined">payments</span>
+</div>
+<h3 class="font-bold text-lg mb-2">Financial Visibility</h3>
+<p class="text-sm text-slate-500 leading-relaxed">Know your numbers. Real-time access to margins, overhead, and cash flow.</p>
+</div>
+<!-- Scheduling -->
+<div class="p-8 bg-slate-50 rounded-xl border border-slate-200 hover:shadow-md transition-shadow">
+<div class="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-navy-700 shadow-sm mb-6">
+<span class="material-symbols-outlined">calendar_month</span>
+</div>
+<h3 class="font-bold text-lg mb-2">Scheduling</h3>
+<p class="text-sm text-slate-500 leading-relaxed">Efficiency starts with how you manage time and resource allocation.</p>
+</div>
+<!-- Communication -->
+<div class="p-8 bg-slate-50 rounded-xl border border-slate-200 hover:shadow-md transition-shadow">
+<div class="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-navy-700 shadow-sm mb-6">
+<span class="material-symbols-outlined">forum</span>
+</div>
+<h3 class="font-bold text-lg mb-2">Communication</h3>
+<p class="text-sm text-slate-500 leading-relaxed">Internal and external loops that ensure no client ever feels ignored.</p>
+</div>
+<!-- Team Visibility -->
+<div class="p-8 bg-slate-50 rounded-xl border border-slate-200 hover:shadow-md transition-shadow">
+<div class="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-navy-700 shadow-sm mb-6">
+<span class="material-symbols-outlined">groups</span>
+</div>
+<h3 class="font-bold text-lg mb-2">Team Visibility</h3>
+<p class="text-sm text-slate-500 leading-relaxed">Clear KPIs and accountability for every member of your organization.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Secondary CTA -->
+<section class="py-24 px-6 bg-slate-900 text-white relative overflow-hidden">
+<!-- Subtle background texture/pattern -->
+<div class="absolute inset-0 opacity-10">
+<img class="w-full h-full object-cover grayscale" data-alt="smooth gradient flowing from deep navy to soft lavender with subtle grain texture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBeCw2ZzTyX1qcdqF7sHP19GLxO5CHn1M1w5wst20OEzUrTprOggWQiVOjEjQeAOLqjMi8VLKhUDXGMEGN3glmgRCZ44OQWHXsXl30qCOloVL2uievbBc9iM-JmGOZE0k6jNejdBOUWLLPEEBDMgOcOAd8bU9wlcluh-bITXO4KllcIJUfNK_fdR8ndsWR608sPTe33sVhPR6sYZfw0q6DhJPWCQBcOPKwgSboLJsGHrrJfskQx06EpuEj-sE8HR2zr09aOTmRk9BON"/>
+</div>
+<div class="max-w-5xl mx-auto text-center relative z-10">
+<h2 class="text-4xl font-bold font-headline mb-6">Ready to see where you stand?</h2>
+<p class="text-slate-400 text-lg mb-10 max-w-xl mx-auto">
+                    Get your free Scorecard and stop guessing about your operational efficiency.
+                </p>
+<button class="bg-navy-700 text-white px-10 py-4 rounded-lg font-bold text-lg hover:bg-navy-800 transition-all duration-200 active:scale-95 shadow-xl">
+                    Take the Scorecard now
+                </button>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-slate-50 w-full py-12 border-t border-slate-200">
+<div class="flex flex-col md:flex-row justify-between items-center px-6 max-w-5xl mx-auto gap-4">
+<div class="text-lg font-bold text-slate-900 font-headline">
+                SMD Services
+            </div>
+<div class="flex gap-8 font-body text-sm text-slate-500">
+<a class="hover:underline hover:text-navy-700 transition-all" href="#">Privacy Policy</a>
+<a class="hover:underline hover:text-navy-700 transition-all" href="#">Terms of Service</a>
+<a class="hover:underline hover:text-navy-700 transition-all" href="#">Contact</a>
+</div>
+<div class="font-body text-sm text-slate-500">
+                © 2024 SMD Services. Phoenix-area small business consulting.
+            </div>
+</div>
+</footer>
+</body></html>

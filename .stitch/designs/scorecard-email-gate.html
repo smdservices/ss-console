@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Assessment Complete | SMD Services</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            DEFAULT: '#1e40af',
+                            hover: '#1e3a8a',
+                        },
+                        surface: '#f8fafc',
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        headline: ["Plus Jakarta Sans", "sans-serif"],
+                        body: ["Inter", "sans-serif"],
+                        label: ["Inter", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-white font-body text-slate-900 antialiased min-h-screen flex flex-col">
+<!-- Progress Bar -->
+<div class="fixed top-0 left-0 w-full z-50">
+<div class="h-1 w-full bg-slate-200">
+<div class="h-full bg-primary w-full transition-all duration-1000"></div>
+</div>
+<div class="flex justify-end px-6 pt-3">
+<span class="text-sm text-slate-400 font-medium">21 of 21</span>
+</div>
+</div>
+<!-- Main Content Canvas -->
+<main class="flex-grow flex flex-col items-center px-6">
+<!-- Celebratory Header -->
+<header class="text-center mt-20 md:mt-24 max-w-2xl">
+<div class="flex justify-center mb-4">
+<span class="material-symbols-outlined text-5xl text-emerald-500" style="font-variation-settings: 'FILL' 1;">
+                    check_circle
+                </span>
+</div>
+<h2 class="font-headline text-2xl md:text-4xl font-bold text-slate-900 tracking-tight">
+                Your report is ready
+            </h2>
+<p class="text-base md:text-lg text-slate-600 mt-3 font-medium">
+                Where should we send the full breakdown?
+            </p>
+</header>
+<!-- Form Card -->
+<section class="w-full max-w-md mx-auto mt-10 mb-12">
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 md:p-8">
+<form action="#" class="space-y-5" method="POST">
+<!-- First Name -->
+<div>
+<label class="block text-sm font-semibold text-slate-700 mb-1.5" for="first-name">
+                            First name <span class="text-red-500">*</span>
+</label>
+<input class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-slate-900 focus:ring-2 focus:ring-primary focus:border-primary transition-all outline-none" id="first-name" name="first-name" placeholder="Alex" required="" type="text"/>
+</div>
+<!-- Email -->
+<div>
+<label class="block text-sm font-semibold text-slate-700 mb-1.5" for="email">
+                            Email <span class="text-red-500">*</span>
+</label>
+<input class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-slate-900 focus:ring-2 focus:ring-primary focus:border-primary transition-all outline-none" id="email" name="email" placeholder="alex@company.com" required="" type="email"/>
+</div>
+<!-- Business Name -->
+<div>
+<label class="block text-sm font-semibold text-slate-700 mb-1.5" for="business-name">
+                            Business name <span class="text-red-500">*</span>
+</label>
+<input class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-slate-900 focus:ring-2 focus:ring-primary focus:border-primary transition-all outline-none" id="business-name" name="business-name" placeholder="Phoenix Ops Ltd." required="" type="text"/>
+</div>
+<!-- Phone -->
+<div>
+<label class="block text-sm font-semibold text-slate-700 mb-1.5" for="phone">
+                            Phone
+                        </label>
+<input class="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-slate-900 focus:ring-2 focus:ring-primary focus:border-primary transition-all outline-none" id="phone" name="phone" placeholder="(480) 000-0000" type="tel"/>
+<p class="mt-2 text-xs text-slate-400 leading-relaxed">
+                            In case you'd rather talk through your results
+                        </p>
+</div>
+<!-- CTA Button -->
+<button class="w-full mt-2 bg-primary hover:bg-primary-hover text-white font-semibold py-3.5 rounded-lg shadow-md hover:shadow-lg transform active:scale-[0.98] transition-all duration-200 text-base" type="submit">
+                        See my results
+                    </button>
+</form>
+</div>
+<!-- Trust Text -->
+<p class="mt-6 text-center text-sm text-slate-400 font-medium">
+                We'll send your detailed PDF report to this email. No spam, ever.
+            </p>
+</section>
+</main>
+<!-- Footer Shared Component -->
+<footer class="w-full py-8 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 mt-auto">
+<div class="flex flex-col items-center justify-center space-y-4 max-w-5xl mx-auto px-6">
+<div class="flex items-center space-x-6">
+<a class="text-slate-500 dark:text-slate-400 text-sm font-['Inter'] hover:text-blue-800 dark:hover:text-blue-300 transition-colors cursor-pointer" href="#">Privacy Policy</a>
+<a class="text-slate-500 dark:text-slate-400 text-sm font-['Inter'] hover:text-blue-800 dark:hover:text-blue-300 transition-colors cursor-pointer" href="#">Terms of Service</a>
+</div>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-['Inter']">
+                © 2024 SMD Services. All rights reserved.
+            </p>
+<div class="font-['Plus_Jakarta_Sans'] font-bold text-blue-800 dark:text-blue-300">
+                SMD Services
+            </div>
+</div>
+</footer>
+</body></html>

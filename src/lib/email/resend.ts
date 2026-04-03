@@ -10,10 +10,17 @@
 const RESEND_API_URL = 'https://api.resend.com/emails'
 const SENDER = 'SMD Services <team@smd.services>'
 
+export interface EmailAttachment {
+  filename: string
+  content: string // base64-encoded
+  content_type?: string
+}
+
 export interface EmailPayload {
   to: string
   subject: string
   html: string
+  attachments?: EmailAttachment[]
 }
 
 export interface SendResult {
@@ -37,7 +44,25 @@ export async function sendEmail(
     console.log(`  To: ${payload.to}`)
     console.log(`  Subject: ${payload.subject}`)
     console.log(`  Body length: ${payload.html.length} chars`)
+    if (payload.attachments?.length) {
+      console.log(`  Attachments: ${payload.attachments.map((a) => a.filename).join(', ')}`)
+    }
     return { success: true, id: 'dev-mode' }
+  }
+
+  const apiPayload: Record<string, unknown> = {
+    from: SENDER,
+    to: [payload.to],
+    subject: payload.subject,
+    html: payload.html,
+  }
+
+  if (payload.attachments?.length) {
+    apiPayload.attachments = payload.attachments.map((a) => ({
+      filename: a.filename,
+      content: a.content,
+      ...(a.content_type ? { content_type: a.content_type } : {}),
+    }))
   }
 
   const response = await fetch(RESEND_API_URL, {
@@ -46,12 +71,7 @@ export async function sendEmail(
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      from: SENDER,
-      to: [payload.to],
-      subject: payload.subject,
-      html: payload.html,
-    }),
+    body: JSON.stringify(apiPayload),
   })
 
   if (!response.ok) {
