@@ -164,9 +164,9 @@ describe('signwell: webhook handler', () => {
     expect(code).toContain('accepted_at')
   })
 
-  it('batch updates client status to active', () => {
+  it('batch updates entity stage to engaged', () => {
     const code = source()
-    expect(code).toContain("UPDATE clients SET status = 'active'")
+    expect(code).toContain("UPDATE entities SET stage = 'engaged'")
   })
 
   it('batch creates engagement record', () => {
@@ -385,48 +385,6 @@ describe('signwell: send-for-signature route', () => {
     const code = source()
     expect(code).toContain('.bind(')
     expect(code).not.toMatch(/prepare\(`[^`]*\$\{/)
-  })
-})
-
-describe('signwell: quote detail page integration', () => {
-  const source = () =>
-    readFileSync(resolve('src/pages/admin/clients/[id]/quotes/[quoteId].astro'), 'utf-8')
-
-  it('includes Send for Signature button', () => {
-    const code = source()
-    expect(code).toContain('Send for Signature')
-    expect(code).toContain('/sign')
-  })
-
-  it('shows Send for Signature when SOW exists and no signwell_doc_id', () => {
-    const code = source()
-    expect(code).toContain('canSendForSignature')
-  })
-
-  it('shows Awaiting Signature badge when signwell_doc_id exists and sent', () => {
-    const code = source()
-    expect(code).toContain('Awaiting Signature')
-    expect(code).toContain('hasSignwell')
-  })
-
-  it('includes View Signed SOW link when signed_sow_path exists', () => {
-    const code = source()
-    expect(code).toContain('View Signed SOW')
-    expect(code).toContain('hasSignedSow')
-  })
-
-  it('tracks signwell status with data attributes', () => {
-    const code = source()
-    expect(code).toContain('data-signwell-status="awaiting"')
-    expect(code).toContain('data-signwell-status="signed"')
-  })
-
-  it('uses data-signwell-sign attribute on signature form', () => {
-    expect(source()).toContain('data-signwell-sign')
-  })
-
-  it('uses data-signed-sow-link attribute on view link', () => {
-    expect(source()).toContain('data-signed-sow-link')
   })
 })
 

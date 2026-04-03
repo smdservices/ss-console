@@ -39,15 +39,15 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
       !clientId ||
       typeof clientId !== 'string'
     ) {
-      return redirect('/admin/clients?error=missing', 302)
+      return redirect('/admin/entities?error=missing', 302)
     }
 
     const engagement = await getEngagement(env.DB, session.orgId, engagementId.trim())
     if (!engagement) {
-      return redirect('/admin/clients?error=not_found', 302)
+      return redirect('/admin/entities?error=not_found', 302)
     }
 
-    const timeUrl = `/admin/clients/${clientId.trim()}/engagements/${engagementId.trim()}/time`
+    const timeUrl = `/admin/entities/${clientId.trim()}/engagements/${engagementId.trim()}/time`
 
     const date = formData.get('date')
     const hours = formData.get('hours')
@@ -85,6 +85,6 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
     return redirect(`${timeUrl}?saved=1`, 302)
   } catch (err) {
     console.error('[api/admin/time-entries] Create error:', err)
-    return redirect('/admin/clients?error=server', 302)
+    return redirect('/admin/entities?error=server', 302)
   }
 }

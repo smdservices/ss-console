@@ -4,9 +4,9 @@ import { getFollowUpTemplate } from '../../../../lib/email/follow-up-templates'
 import type { FollowUpEmailData } from '../../../../lib/email/follow-up-templates'
 import { sendEmail } from '../../../../lib/email/resend'
 
-interface ClientRow {
+interface EntityRow {
   id: string
-  business_name: string
+  name: string
 }
 
 interface ContactRow {
@@ -65,12 +65,12 @@ export const POST: APIRoute = async ({ request, locals, redirect, params, url })
     }
 
     if (action === 'send_email') {
-      // Look up client info
+      // Look up entity info
       const client = await env.DB.prepare(
-        'SELECT id, business_name FROM clients WHERE id = ? AND org_id = ?'
+        'SELECT id, name FROM entities WHERE id = ? AND org_id = ?'
       )
         .bind(followUp.entity_id, session.orgId)
-        .first<ClientRow>()
+        .first<EntityRow>()
 
       if (!client) {
         return redirect('/admin/follow-ups?error=client_not_found', 302)
@@ -99,7 +99,7 @@ export const POST: APIRoute = async ({ request, locals, redirect, params, url })
 
       const emailData: FollowUpEmailData = {
         clientName: contact.name,
-        businessName: client.business_name,
+        businessName: client.name,
         portalUrl,
       }
 

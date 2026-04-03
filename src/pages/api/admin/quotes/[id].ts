@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro'
 import { getQuote, updateQuote, updateQuoteStatus } from '../../../../lib/db/quotes'
 import type { LineItem, QuoteStatus } from '../../../../lib/db/quotes'
-import { getClient } from '../../../../lib/db/clients'
+import { getEntity } from '../../../../lib/db/entities'
 import { listContacts } from '../../../../lib/db/contacts'
 import { uploadPdf } from '../../../../lib/storage/r2'
 import { renderSow } from '../../../../lib/pdf/render'
@@ -41,7 +41,7 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
   try {
     const existing = await getQuote(env.DB, session.orgId, quoteId)
     if (!existing) {
-      return redirect('/admin/clients?error=not_found', 302)
+      return redirect('/admin/entities?error=not_found', 302)
     }
 
     const formData = await request.formData()
@@ -49,8 +49,8 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
 
     // ----- ACTION: generate-pdf -----
     if (action === 'generate-pdf') {
-      const client = await getClient(env.DB, session.orgId, existing.entity_id)
-      if (!client) {
+      const entity = await getEntity(env.DB, session.orgId, existing.entity_id)
+      if (!entity) {
         return redirect(
           `/admin/entities/${existing.entity_id}/quotes/${quoteId}?error=client_not_found`,
           302
@@ -104,7 +104,7 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
 
       const templateProps: SOWTemplateProps = {
         client: {
-          businessName: client.business_name,
+          businessName: entity.name,
           contactName: primaryContact?.name ?? 'Business Owner',
           contactTitle: primaryContact?.title ?? undefined,
         },
@@ -189,6 +189,6 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
     return redirect(`/admin/entities/${existing.entity_id}/quotes/${quoteId}?saved=1`, 302)
   } catch (err) {
     console.error('[api/admin/quotes/[id]] Update error:', err)
-    return redirect('/admin/clients?error=server', 302)
+    return redirect('/admin/entities?error=server', 302)
   }
 }

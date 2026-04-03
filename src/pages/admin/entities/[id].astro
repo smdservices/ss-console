@@ -540,24 +540,16 @@ function parseMetadata(json: string | null): Record<string, unknown> | null {
             </summary>
             <div class="px-6 pb-4 divide-y divide-slate-100">
               {assessments.map((a) => (
-                <div class="py-2 flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <span class={`text-xs px-2 py-0.5 rounded ${statusBadgeClass(a.status)}`}>
-                      {a.status}
-                    </span>
-                    {a.scheduled_at && (
-                      <span class="text-sm text-slate-700">{formatDate(a.scheduled_at)}</span>
-                    )}
-                    {a.duration_minutes && (
-                      <span class="text-xs text-slate-400">{a.duration_minutes} min</span>
-                    )}
-                  </div>
-                  <a
-                    href={`/admin/clients/${entity.id}/assessments/${a.id}`}
-                    class="text-xs text-primary hover:underline"
-                  >
-                    View
-                  </a>
+                <div class="py-2 flex items-center gap-2">
+                  <span class={`text-xs px-2 py-0.5 rounded ${statusBadgeClass(a.status)}`}>
+                    {a.status}
+                  </span>
+                  {a.scheduled_at && (
+                    <span class="text-sm text-slate-700">{formatDate(a.scheduled_at)}</span>
+                  )}
+                  {a.duration_minutes && (
+                    <span class="text-xs text-slate-400">{a.duration_minutes} min</span>
+                  )}
                 </div>
               ))}
             </div>
@@ -573,26 +565,18 @@ function parseMetadata(json: string | null): Record<string, unknown> | null {
             </summary>
             <div class="px-6 pb-4 divide-y divide-slate-100">
               {engagements.map((e) => (
-                <div class="py-2 flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <span class={`text-xs px-2 py-0.5 rounded ${statusBadgeClass(e.status)}`}>
-                      {e.status}
+                <div class="py-2 flex items-center gap-2">
+                  <span class={`text-xs px-2 py-0.5 rounded ${statusBadgeClass(e.status)}`}>
+                    {e.status}
+                  </span>
+                  {e.start_date && (
+                    <span class="text-sm text-slate-700">{formatDate(e.start_date)}</span>
+                  )}
+                  {e.estimated_hours && (
+                    <span class="text-xs text-slate-400">
+                      {e.actual_hours}/{e.estimated_hours} hrs
                     </span>
-                    {e.start_date && (
-                      <span class="text-sm text-slate-700">{formatDate(e.start_date)}</span>
-                    )}
-                    {e.estimated_hours && (
-                      <span class="text-xs text-slate-400">
-                        {e.actual_hours}/{e.estimated_hours} hrs
-                      </span>
-                    )}
-                  </div>
-                  <a
-                    href={`/admin/clients/${entity.id}/engagements/${e.id}`}
-                    class="text-xs text-primary hover:underline"
-                  >
-                    View
-                  </a>
+                  )}
                 </div>
               ))}
             </div>
@@ -608,23 +592,15 @@ function parseMetadata(json: string | null): Record<string, unknown> | null {
             </summary>
             <div class="px-6 pb-4 divide-y divide-slate-100">
               {quotes.map((q) => (
-                <div class="py-2 flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <span class={`text-xs px-2 py-0.5 rounded ${statusBadgeClass(q.status)}`}>
-                      {q.status}
-                    </span>
-                    <span class="text-sm font-medium text-slate-700">
-                      ${q.total_price.toLocaleString()}
-                    </span>
-                    <span class="text-xs text-slate-400">{q.total_hours} hrs</span>
-                    <span class="text-xs text-slate-400">v{q.version}</span>
-                  </div>
-                  <a
-                    href={`/admin/clients/${entity.id}/quotes/${q.id}`}
-                    class="text-xs text-primary hover:underline"
-                  >
-                    View
-                  </a>
+                <div class="py-2 flex items-center gap-2">
+                  <span class={`text-xs px-2 py-0.5 rounded ${statusBadgeClass(q.status)}`}>
+                    {q.status}
+                  </span>
+                  <span class="text-sm font-medium text-slate-700">
+                    ${q.total_price.toLocaleString()}
+                  </span>
+                  <span class="text-xs text-slate-400">{q.total_hours} hrs</span>
+                  <span class="text-xs text-slate-400">v{q.version}</span>
                 </div>
               ))}
             </div>

@@ -42,13 +42,13 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
   try {
     const entry = await getTimeEntry(env.DB, entryId)
     if (!entry) {
-      return redirect('/admin/clients?error=not_found', 302)
+      return redirect('/admin/entities?error=not_found', 302)
     }
 
     // Verify the engagement belongs to this org
     const engagement = await getEngagement(env.DB, session.orgId, entry.engagement_id)
     if (!engagement) {
-      return redirect('/admin/clients?error=not_found', 302)
+      return redirect('/admin/entities?error=not_found', 302)
     }
 
     const formData = await request.formData()
@@ -89,6 +89,6 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
     return redirect(`${timeUrl}?saved=1`, 302)
   } catch (err) {
     console.error('[api/admin/time-entries/[id]] Error:', err)
-    return redirect('/admin/clients?error=server', 302)
+    return redirect('/admin/entities?error=server', 302)
   }
 }

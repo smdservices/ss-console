@@ -44,7 +44,7 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
       typeof quoteId !== 'string' ||
       !quoteId.trim()
     ) {
-      return redirect(`/admin/clients?error=missing`, 302)
+      return redirect(`/admin/entities?error=missing`, 302)
     }
 
     const env = locals.runtime.env
@@ -109,6 +109,6 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
     if (clientId && typeof clientId === 'string') {
       return redirect(`/admin/entities/${clientId}/engagements/new?error=server`, 302)
     }
-    return redirect('/admin/clients?error=server', 302)
+    return redirect('/admin/entities?error=server', 302)
   }
 }

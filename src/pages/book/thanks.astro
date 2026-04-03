@@ -3,7 +3,7 @@ export const prerender = false
 
 import Base from '../../layouts/Base.astro'
 import Footer from '../../components/Footer.astro'
-import { CLIENT_VERTICALS } from '../../lib/db/clients'
+import { ENTITY_VERTICALS } from '../../lib/db/entities'
 ---
 
 <Base
@@ -113,7 +113,7 @@ import { CLIENT_VERTICALS } from '../../lib/db/clients'
                   class="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:ring-1 focus:ring-primary"
                 >
                   <option value="">Select one</option>
-                  {CLIENT_VERTICALS.map((v) => <option value={v.value}>{v.label}</option>)}
+                  {ENTITY_VERTICALS.map((v) => <option value={v.value}>{v.label}</option>)}
                 </select>
               </div>
               <div>

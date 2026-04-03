@@ -54,7 +54,7 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
   try {
     const engagement = await getEngagement(env.DB, session.orgId, engagementId)
     if (!engagement) {
-      return redirect('/admin/clients?error=not_found', 302)
+      return redirect('/admin/entities?error=not_found', 302)
     }
 
     const formData = await request.formData()
@@ -136,6 +136,6 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
     return redirect(`${detailUrl}?milestone_added=1`, 302)
   } catch (err) {
     console.error('[api/admin/engagements/[id]/milestones] Error:', err)
-    return redirect('/admin/clients?error=server', 302)
+    return redirect('/admin/entities?error=server', 302)
   }
 }

@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro'
-import { createClient } from '../../../lib/db/clients'
+import { findOrCreateEntity } from '../../../lib/db/entities'
+import { appendContext } from '../../../lib/db/context'
 import { createContact } from '../../../lib/db/contacts'
 import { createAssessment } from '../../../lib/db/assessments'
 import { ORG_ID } from '../../../lib/constants'
@@ -61,32 +62,47 @@ export const POST: APIRoute = async ({ request, locals }) => {
       return jsonResponse(200, { ok: true, client_id: existing.entity_id })
     }
 
-    // Build notes from intake answers
-    const noteParts: string[] = []
-    if (biggestChallenge) noteParts.push(`What they're trying to accomplish: ${biggestChallenge}`)
-    if (howHeard) noteParts.push(`How they found us: ${howHeard}`)
-    const notes = noteParts.length > 0 ? noteParts.join('\n\n') : null
-
-    // Create client record
-    const client = await createClient(env.DB, ORG_ID, {
-      business_name: businessName,
-      vertical,
-      employee_count: employeeCount,
-      years_in_business: yearsInBusiness,
-      source: 'Website Booking',
-      notes,
+    // Find or create entity record
+    const { entity } = await findOrCreateEntity(env.DB, ORG_ID, {
+      name: businessName,
+      stage: 'prospect',
+      source_pipeline: 'website_booking',
     })
 
+    // Append intake data as context
+    const intakeParts: string[] = []
+    if (vertical) intakeParts.push(`Vertical: ${vertical}`)
+    if (employeeCount) intakeParts.push(`Employees: ${employeeCount}`)
+    if (yearsInBusiness) intakeParts.push(`Years in business: ${yearsInBusiness}`)
+    if (biggestChallenge) intakeParts.push(`What they're trying to accomplish: ${biggestChallenge}`)
+    if (howHeard) intakeParts.push(`How they found us: ${howHeard}`)
+
+    if (intakeParts.length > 0) {
+      await appendContext(env.DB, ORG_ID, {
+        entity_id: entity.id,
+        type: 'intake',
+        content: intakeParts.join('\n'),
+        source: 'website_booking',
+        metadata: {
+          vertical,
+          employee_count: employeeCount,
+          years_in_business: yearsInBusiness,
+          biggest_challenge: biggestChallenge,
+          how_heard: howHeard,
+        },
+      })
+    }
+
     // Create contact record
-    await createContact(env.DB, ORG_ID, client.id, {
+    await createContact(env.DB, ORG_ID, entity.id, {
       name,
       email,
     })
 
     // Create assessment record (status defaults to 'scheduled')
-    await createAssessment(env.DB, ORG_ID, client.id, {})
+    await createAssessment(env.DB, ORG_ID, entity.id, {})
 
-    return jsonResponse(201, { ok: true, client_id: client.id })
+    return jsonResponse(201, { ok: true, client_id: entity.id })
   } catch (err) {
     console.error('[api/booking/intake] Error:', err)
     return jsonResponse(500, { error: 'Internal server error' })

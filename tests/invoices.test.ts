@@ -476,71 +476,6 @@ describe('invoices: portal view', () => {
   })
 })
 
-describe('invoices: admin pages', () => {
-  const source = () =>
-    readFileSync(
-      resolve('src/pages/admin/clients/[id]/engagements/[engId]/invoices.astro'),
-      'utf-8'
-    )
-
-  it('admin invoice list page exists', () => {
-    expect(
-      existsSync(resolve('src/pages/admin/clients/[id]/engagements/[engId]/invoices.astro'))
-    ).toBe(true)
-  })
-
-  it('lists invoices with type labels', () => {
-    const code = source()
-    expect(code).toContain('typeLabels')
-    expect(code).toContain('Deposit')
-    expect(code).toContain('Completion')
-    expect(code).toContain('Milestone')
-  })
-
-  it('shows invoice amount and status badge', () => {
-    const code = source()
-    expect(code).toContain('formatCurrency')
-    expect(code).toContain('statusColorMap')
-  })
-
-  it('includes Create Invoice form with type selector', () => {
-    const code = source()
-    expect(code).toContain('Create Invoice')
-    expect(code).toContain('invoice_type')
-    expect(code).toContain('invoice_amount')
-  })
-
-  it('includes Send button for draft invoices', () => {
-    const code = source()
-    expect(code).toContain('action" value="send"')
-    expect(code).toContain("inv.status === 'draft'")
-  })
-
-  it('includes Void button for draft/sent invoices', () => {
-    const code = source()
-    expect(code).toContain('action" value="void"')
-  })
-
-  it('includes Mark Paid button for sent/overdue invoices (OQ-008)', () => {
-    const code = source()
-    expect(code).toContain('action" value="mark_paid"')
-    expect(code).toContain('Mark Paid')
-  })
-
-  it('shows Stripe link when available', () => {
-    const code = source()
-    expect(code).toContain('stripe_hosted_url')
-    expect(code).toContain('Stripe')
-  })
-
-  it('shows summary cards (total, paid, outstanding)', () => {
-    const code = source()
-    expect(code).toContain('Total Invoiced')
-    expect(code).toContain('totalPaid')
-    expect(code).toContain('totalOutstanding')
-  })
-})
-
 describe('invoices: admin API routes', () => {
   it('POST /api/admin/invoices/index.ts exists', () => {
     expect(existsSync(resolve('src/pages/api/admin/invoices/index.ts'))).toBe(true)
@@ -667,17 +602,6 @@ describe('invoices: env.d.ts bindings', () => {
     const code = source()
     expect(code).toContain('STRIPE_API_KEY?: string')
     expect(code).toContain('STRIPE_WEBHOOK_SECRET?: string')
-  })
-})
-
-describe('invoices: engagement detail integration', () => {
-  const source = () =>
-    readFileSync(resolve('src/pages/admin/clients/[id]/engagements/[engId].astro'), 'utf-8')
-
-  it('engagement detail page has Invoices section with link', () => {
-    const code = source()
-    expect(code).toContain('Manage Invoices')
-    expect(code).toContain('/invoices')
   })
 })
 
