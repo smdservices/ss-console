@@ -14,6 +14,13 @@
 --
 -- Tables are empty for the affected columns — verified before migration.
 -- ALTER TABLE DROP COLUMN requires SQLite 3.35.0+ (D1 supports this).
+-- Indexes on client_id must be dropped first or the DROP COLUMN fails.
+
+DROP INDEX IF EXISTS idx_contacts_client_id;
+DROP INDEX IF EXISTS idx_assessments_client_id;
+DROP INDEX IF EXISTS idx_quotes_client_id;
+DROP INDEX IF EXISTS idx_engagements_client_id;
+DROP INDEX IF EXISTS idx_invoices_client_id;
 
 ALTER TABLE contacts DROP COLUMN client_id;
 ALTER TABLE contacts DROP COLUMN notes;
