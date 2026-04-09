@@ -72,7 +72,16 @@ CREATE TABLE engagements_bak AS SELECT * FROM engagements;
 -- Skip backup for these; Phase 4 creates them fresh (empty).
 CREATE TABLE milestones_bak AS SELECT * FROM milestones;
 CREATE TABLE invoices_bak AS SELECT * FROM invoices;
-CREATE TABLE follow_ups_bak AS SELECT * FROM follow_ups;
+-- follow_ups: explicit column list. notes was dropped out-of-band on remote,
+-- and entity_id/client_id vary by environment. Use common columns only.
+CREATE TABLE follow_ups_bak (
+  id TEXT, org_id TEXT, engagement_id TEXT, quote_id TEXT, type TEXT,
+  scheduled_for TEXT, completed_at TEXT, status TEXT, created_at TEXT
+);
+INSERT INTO follow_ups_bak
+SELECT id, org_id, engagement_id, quote_id, type,
+  scheduled_for, completed_at, status, created_at
+FROM follow_ups;
 CREATE TABLE time_entries_bak AS SELECT * FROM time_entries;
 
 -- ---- Phase 2: Drop indexes ----
@@ -323,9 +332,9 @@ SELECT id, org_id, engagement_id, type, amount, description,
 FROM invoices_bak;
 
 INSERT INTO follow_ups (id, org_id, engagement_id, quote_id, type,
-  scheduled_for, completed_at, status, notes, created_at)
+  scheduled_for, completed_at, status, created_at)
 SELECT id, org_id, engagement_id, quote_id, type,
-  scheduled_for, completed_at, status, notes, created_at
+  scheduled_for, completed_at, status, created_at
 FROM follow_ups_bak;
 
 INSERT INTO time_entries (id, org_id, engagement_id, date, hours,
