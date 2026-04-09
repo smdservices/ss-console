@@ -51,20 +51,19 @@
 
 -- ---- Phase 1: Backup data (no constraints) ----
 
--- assessments: explicit column list WITHOUT entity_id. entity_id was added
--- out-of-band (not in any migration) so it may or may not exist. The target
--- schema includes entity_id (as NULL); any existing values must be restored
--- from the pre-migration snapshot if needed.
+-- assessments: explicit column list. entity_id was added out-of-band on
+-- production and formalized in migration 0010. Captured here so the restore
+-- preserves entity-assessment links.
 CREATE TABLE assessments_bak (
   id TEXT, org_id TEXT, scheduled_at TEXT, completed_at TEXT,
   duration_minutes INTEGER, transcript_path TEXT, extraction TEXT,
   problems TEXT, disqualifiers TEXT, champion_name TEXT, champion_role TEXT,
-  status TEXT, notes TEXT, created_at TEXT
+  status TEXT, notes TEXT, created_at TEXT, entity_id TEXT
 );
 INSERT INTO assessments_bak
 SELECT id, org_id, scheduled_at, completed_at, duration_minutes,
   transcript_path, extraction, problems, disqualifiers,
-  champion_name, champion_role, status, notes, created_at
+  champion_name, champion_role, status, notes, created_at, entity_id
 FROM assessments;
 CREATE TABLE quotes_bak AS SELECT * FROM quotes;
 CREATE TABLE engagements_bak AS SELECT * FROM engagements;
@@ -72,15 +71,16 @@ CREATE TABLE engagements_bak AS SELECT * FROM engagements;
 -- Skip backup for these; Phase 4 creates them fresh (empty).
 CREATE TABLE milestones_bak AS SELECT * FROM milestones;
 CREATE TABLE invoices_bak AS SELECT * FROM invoices;
--- follow_ups: explicit column list. notes was dropped out-of-band on remote,
--- and entity_id/client_id vary by environment. Use common columns only.
+-- follow_ups: explicit column list. notes was dropped out-of-band on remote.
+-- entity_id formalized in migration 0010.
 CREATE TABLE follow_ups_bak (
   id TEXT, org_id TEXT, engagement_id TEXT, quote_id TEXT, type TEXT,
-  scheduled_for TEXT, completed_at TEXT, status TEXT, created_at TEXT
+  scheduled_for TEXT, completed_at TEXT, status TEXT, created_at TEXT,
+  entity_id TEXT
 );
 INSERT INTO follow_ups_bak
 SELECT id, org_id, engagement_id, quote_id, type,
-  scheduled_for, completed_at, status, created_at
+  scheduled_for, completed_at, status, created_at, entity_id
 FROM follow_ups;
 CREATE TABLE time_entries_bak AS SELECT * FROM time_entries;
 
@@ -166,7 +166,8 @@ CREATE TABLE quotes (
   signwell_doc_id TEXT,
   notes           TEXT,
   created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  entity_id       TEXT
 );
 
 CREATE TABLE engagements (
@@ -187,7 +188,8 @@ CREATE TABLE engagements (
   actual_hours    REAL DEFAULT 0,
   notes           TEXT,
   created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  entity_id       TEXT
 );
 
 CREATE TABLE engagement_contacts (
@@ -253,7 +255,8 @@ CREATE TABLE invoices (
   payment_method  TEXT,
   notes           TEXT,
   created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  entity_id       TEXT
 );
 
 CREATE TABLE follow_ups (
@@ -272,10 +275,11 @@ CREATE TABLE follow_ups (
   scheduled_for   TEXT NOT NULL,
   completed_at    TEXT,
   status          TEXT NOT NULL DEFAULT 'scheduled' CHECK (status IN (
-                    'scheduled', 'completed', 'skipped'
+                    'scheduled', 'completed', 'skipped', 'sent', 'surfaced'
                   )),
   notes           TEXT,
-  created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  entity_id       TEXT
 );
 
 CREATE TABLE time_entries (
@@ -293,28 +297,28 @@ CREATE TABLE time_entries (
 
 INSERT INTO assessments (id, org_id, scheduled_at, completed_at, duration_minutes,
   transcript_path, extraction, problems, disqualifiers, champion_name, champion_role,
-  status, notes, created_at)
+  status, notes, created_at, entity_id)
 SELECT id, org_id, scheduled_at, completed_at, duration_minutes,
   transcript_path, extraction, problems, disqualifiers, champion_name, champion_role,
-  status, notes, created_at
+  status, notes, created_at, entity_id
 FROM assessments_bak;
 
 INSERT INTO quotes (id, org_id, assessment_id, version, parent_quote_id,
   line_items, total_hours, rate, total_price, deposit_pct, deposit_amount,
   status, sent_at, expires_at, accepted_at, sow_path, signed_sow_path,
-  signwell_doc_id, notes, created_at, updated_at)
+  signwell_doc_id, notes, created_at, updated_at, entity_id)
 SELECT id, org_id, assessment_id, version, parent_quote_id,
   line_items, total_hours, rate, total_price, deposit_pct, deposit_amount,
   status, sent_at, expires_at, accepted_at, sow_path, signed_sow_path,
-  signwell_doc_id, notes, created_at, updated_at
+  signwell_doc_id, notes, created_at, updated_at, entity_id
 FROM quotes_bak;
 
 INSERT INTO engagements (id, org_id, quote_id, scope_summary, start_date,
   estimated_end, actual_end, handoff_date, safety_net_end, status,
-  estimated_hours, actual_hours, notes, created_at, updated_at)
+  estimated_hours, actual_hours, notes, created_at, updated_at, entity_id)
 SELECT id, org_id, quote_id, scope_summary, start_date,
   estimated_end, actual_end, handoff_date, safety_net_end, status,
-  estimated_hours, actual_hours, notes, created_at, updated_at
+  estimated_hours, actual_hours, notes, created_at, updated_at, entity_id
 FROM engagements_bak;
 
 -- engagement_contacts: no backup to restore (table may not have existed)
@@ -328,16 +332,16 @@ FROM milestones_bak;
 
 INSERT INTO invoices (id, org_id, engagement_id, type, amount, description,
   status, stripe_invoice_id, stripe_hosted_url, due_date, sent_at, paid_at,
-  payment_method, notes, created_at, updated_at)
+  payment_method, notes, created_at, updated_at, entity_id)
 SELECT id, org_id, engagement_id, type, amount, description,
   status, stripe_invoice_id, stripe_hosted_url, due_date, sent_at, paid_at,
-  payment_method, notes, created_at, updated_at
+  payment_method, notes, created_at, updated_at, entity_id
 FROM invoices_bak;
 
 INSERT INTO follow_ups (id, org_id, engagement_id, quote_id, type,
-  scheduled_for, completed_at, status, created_at)
+  scheduled_for, completed_at, status, created_at, entity_id)
 SELECT id, org_id, engagement_id, quote_id, type,
-  scheduled_for, completed_at, status, created_at
+  scheduled_for, completed_at, status, created_at, entity_id
 FROM follow_ups_bak;
 
 INSERT INTO time_entries (id, org_id, engagement_id, date, hours,
@@ -370,15 +374,9 @@ CREATE INDEX idx_follow_ups_quote_id ON follow_ups(quote_id);
 CREATE INDEX idx_time_entries_engagement ON time_entries(engagement_id);
 CREATE INDEX idx_time_entries_org_date ON time_entries(org_id, date);
 
--- ---- Phase 7: Drop backup tables ----
-
-DROP TABLE assessments_bak;
-DROP TABLE quotes_bak;
-DROP TABLE engagements_bak;
-DROP TABLE milestones_bak;
-DROP TABLE invoices_bak;
-DROP TABLE follow_ups_bak;
-DROP TABLE time_entries_bak;
+-- Phase 7 (backup table cleanup) moved to migration 0012. This allows
+-- verification to run between 0011 and 0012, and provides a rollback point
+-- if the migration partially applies (_bak tables remain intact).
 
 
 -- ============================================================================

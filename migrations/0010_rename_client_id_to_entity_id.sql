@@ -30,3 +30,12 @@ ALTER TABLE assessments DROP COLUMN client_id;
 ALTER TABLE quotes DROP COLUMN client_id;
 ALTER TABLE engagements DROP COLUMN client_id;
 ALTER TABLE invoices DROP COLUMN client_id;
+
+-- Add entity_id to tables that reference entities. This was previously done
+-- out-of-band on production; formalizing it here so the migration chain is
+-- complete and migration 0011 can safely back up/restore entity_id.
+ALTER TABLE assessments ADD COLUMN entity_id TEXT;
+ALTER TABLE quotes ADD COLUMN entity_id TEXT;
+ALTER TABLE engagements ADD COLUMN entity_id TEXT;
+ALTER TABLE invoices ADD COLUMN entity_id TEXT;
+ALTER TABLE follow_ups ADD COLUMN entity_id TEXT;
