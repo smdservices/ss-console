@@ -152,3 +152,80 @@ export async function markScheduleGoogleError(
     .bind(error, scheduleId)
     .run()
 }
+
+/**
+ * Look up a schedule by its manage_token_hash. Used by the manage endpoints
+ * to resolve the raw token from the URL into a schedule row.
+ */
+export async function getScheduleByManageToken(
+  db: D1Database,
+  tokenHash: string
+): Promise<AssessmentSchedule | null> {
+  return (
+    (await db
+      .prepare('SELECT * FROM assessment_schedule WHERE manage_token_hash = ?')
+      .bind(tokenHash)
+      .first<AssessmentSchedule>()) ?? null
+  )
+}
+
+/**
+ * Check whether a manage token has expired. The token is valid until
+ * `manage_token_expires_at` (set to slot_end + TTL hours at booking time).
+ */
+export function isManageTokenExpired(schedule: AssessmentSchedule): boolean {
+  if (!schedule.manage_token_expires_at) return false
+  return new Date(schedule.manage_token_expires_at).getTime() < Date.now()
+}
+
+/**
+ * Mark a schedule as cancelled. Sets cancelled_at, cancelled_by, and
+ * cancelled_reason. Also marks Google sync state as 'cancelled'.
+ */
+export async function cancelSchedule(
+  db: D1Database,
+  scheduleId: string,
+  cancelledBy: 'guest' | 'admin' | 'system',
+  reason: string | null
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE assessment_schedule SET
+        cancelled_at = datetime('now'),
+        cancelled_by = ?,
+        cancelled_reason = ?,
+        google_sync_state = 'cancelled',
+        updated_at = datetime('now')
+      WHERE id = ?`
+    )
+    .bind(cancelledBy, reason, scheduleId)
+    .run()
+}
+
+/**
+ * Update a schedule for a reschedule. Stores the old slot in previous_slot_utc,
+ * sets new slot times, increments reschedule_count, and updates the manage
+ * token expiry for the new slot.
+ */
+export async function updateScheduleForReschedule(
+  db: D1Database,
+  scheduleId: string,
+  newSlotStartUtc: string,
+  newSlotEndUtc: string,
+  newManageTokenExpiresAt: string
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE assessment_schedule SET
+        previous_slot_utc = slot_start_utc,
+        slot_start_utc = ?,
+        slot_end_utc = ?,
+        manage_token_expires_at = ?,
+        reschedule_count = reschedule_count + 1,
+        google_sync_state = 'pending',
+        updated_at = datetime('now')
+      WHERE id = ?`
+    )
+    .bind(newSlotStartUtc, newSlotEndUtc, newManageTokenExpiresAt, scheduleId)
+    .run()
+}
