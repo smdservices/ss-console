@@ -1,0 +1,453 @@
+---
+export const prerender = false
+
+import Base from '../../../layouts/Base.astro'
+import Nav from '../../../components/Nav.astro'
+import Footer from '../../../components/Footer.astro'
+---
+
+<Base
+  title="Manage Your Booking | SMD Services"
+  description="View, reschedule, or cancel your assessment call with SMD Services."
+>
+  <Nav />
+  <main>
+    <section class="bg-slate-50 px-6 py-16 sm:py-24">
+      <div class="mx-auto max-w-2xl">
+        <!-- Loading state -->
+        <div id="loading" class="text-center">
+          <div
+            class="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-primary"
+          >
+          </div>
+          <p class="mt-4 text-sm text-slate-500">Loading your booking...</p>
+        </div>
+
+        <!-- Error state -->
+        <div id="error-state" class="hidden text-center">
+          <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+            <svg
+              class="h-8 w-8 text-red-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="2"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"></path>
+            </svg>
+          </div>
+          <h1 class="mt-6 text-2xl font-bold text-slate-900" id="error-title">
+            Something went wrong
+          </h1>
+          <p class="mt-3 text-slate-600" id="error-message">
+            Please try again or contact us directly.
+          </p>
+          <a
+            href="/book"
+            class="mt-6 inline-block rounded-lg bg-primary px-6 py-3 text-sm font-medium text-white hover:bg-primary/90"
+          >
+            Book a new time
+          </a>
+        </div>
+
+        <!-- Cancelled state -->
+        <div id="cancelled-state" class="hidden text-center">
+          <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+            <svg
+              class="h-8 w-8 text-slate-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="2"
+              stroke="currentColor"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </div>
+          <h1 class="mt-6 text-2xl font-bold text-slate-900">This booking was cancelled</h1>
+          <p class="mt-3 text-slate-600">Whenever you're ready, you can book a new time.</p>
+          <a
+            href="/book"
+            class="mt-6 inline-block rounded-lg bg-primary px-6 py-3 text-sm font-medium text-white hover:bg-primary/90"
+          >
+            Book a new time
+          </a>
+        </div>
+
+        <!-- Booking details -->
+        <div id="booking-details" class="hidden">
+          <div class="text-center">
+            <div
+              class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-100"
+            >
+              <svg
+                class="h-8 w-8 text-blue-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
+                ></path>
+              </svg>
+            </div>
+            <h1 class="mt-6 text-2xl font-bold text-slate-900">Your Booking</h1>
+            <p class="mt-1 text-sm text-slate-500" id="meeting-label"></p>
+          </div>
+
+          <div class="mt-8 rounded-xl bg-white p-6 shadow-sm">
+            <div class="space-y-4">
+              <div>
+                <p class="text-xs font-medium uppercase tracking-wide text-slate-400">When</p>
+                <p class="mt-1 text-lg font-semibold text-slate-900" id="slot-label"></p>
+              </div>
+              <div>
+                <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Guest</p>
+                <p class="mt-1 text-slate-700" id="guest-name"></p>
+              </div>
+              <div id="meet-link-container" class="hidden">
+                <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Video call</p>
+                <a
+                  id="meet-link"
+                  href=""
+                  class="mt-1 inline-block text-sm text-blue-600 hover:text-blue-800"
+                  target="_blank"
+                  rel="noopener"></a>
+              </div>
+            </div>
+
+            <div class="mt-8 flex flex-col gap-3 sm:flex-row">
+              <button
+                id="reschedule-btn"
+                class="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                Reschedule
+              </button>
+              <button
+                id="cancel-btn"
+                class="flex-1 rounded-lg border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+              >
+                Cancel Booking
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reschedule panel -->
+        <div id="reschedule-panel" class="hidden">
+          <div class="text-center">
+            <h2 class="text-2xl font-bold text-slate-900">Pick a new time</h2>
+            <p class="mt-2 text-sm text-slate-500">Choose an available slot below.</p>
+          </div>
+
+          <div id="slots-loading" class="mt-8 text-center">
+            <div
+              class="mx-auto h-6 w-6 animate-spin rounded-full border-4 border-slate-200 border-t-primary"
+            >
+            </div>
+            <p class="mt-3 text-sm text-slate-500">Loading available times...</p>
+          </div>
+
+          <div id="slots-container" class="mt-8 hidden space-y-6"></div>
+
+          <div id="slots-empty" class="mt-8 hidden text-center">
+            <p class="text-slate-600">
+              No available times found. Please check back later or contact us.
+            </p>
+          </div>
+
+          <div class="mt-6 text-center">
+            <button id="back-to-details-btn" class="text-sm text-slate-500 hover:text-slate-700">
+              Back to booking details
+            </button>
+          </div>
+        </div>
+
+        <!-- Cancel dialog -->
+        <div
+          id="cancel-dialog"
+          class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4"
+        >
+          <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h3 class="text-lg font-bold text-slate-900">Cancel your booking?</h3>
+            <p class="mt-2 text-sm text-slate-600">
+              This will cancel your assessment call. You can always book a new time later.
+            </p>
+            <div class="mt-4">
+              <label for="cancel-reason" class="block text-sm font-medium text-slate-700"
+                >Reason (optional)</label
+              >
+              <textarea
+                id="cancel-reason"
+                rows="2"
+                class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-primary focus:ring-1 focus:ring-primary"
+                placeholder="Let us know why you're cancelling..."></textarea>
+            </div>
+            <div class="mt-6 flex gap-3">
+              <button
+                id="cancel-dialog-dismiss"
+                class="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >Keep Booking</button
+              >
+              <button
+                id="cancel-dialog-confirm"
+                class="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700"
+                >Yes, Cancel</button
+              >
+            </div>
+          </div>
+        </div>
+
+        <!-- Success state -->
+        <div id="success-state" class="hidden text-center">
+          <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+            <svg
+              class="h-8 w-8 text-green-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="2"
+              stroke="currentColor"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"></path>
+            </svg>
+          </div>
+          <h1 class="mt-6 text-2xl font-bold text-slate-900" id="success-title"></h1>
+          <p class="mt-3 text-slate-600" id="success-message"></p>
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+
+  <script is:inline>
+    const token =
+      new URLSearchParams(window.location.search).get('token') ||
+      window.location.pathname.split('/').pop()
+    if (!token) {
+      showError('Invalid link', 'This booking link appears to be broken.')
+    } else {
+      loadBooking(token)
+    }
+
+    let bookingData = null
+
+    function loadBooking(tkn) {
+      fetch('/api/booking/manage/' + tkn)
+        .then(function (res) {
+          return res.json().then(function (d) {
+            return { status: res.status, data: d }
+          })
+        })
+        .then(function (result) {
+          hide('loading')
+          if (result.status === 404) {
+            showError('Booking not found', result.data.message || 'This link is not valid.')
+            return
+          }
+          if (result.status === 410) {
+            showError('Link expired', result.data.message || 'This manage link has expired.')
+            return
+          }
+          if (result.status >= 400) {
+            showError('Something went wrong', result.data.message || 'Please try again.')
+            return
+          }
+
+          bookingData = result.data
+          if (bookingData.cancelled_at) {
+            show('cancelled-state')
+            return
+          }
+
+          document.getElementById('meeting-label').textContent = bookingData.meeting_label
+          document.getElementById('slot-label').textContent = bookingData.slot_label
+          document.getElementById('guest-name').textContent = bookingData.guest_name
+          if (bookingData.google_meet_url) {
+            const ml = document.getElementById('meet-link')
+            ml.href = bookingData.google_meet_url
+            ml.textContent = bookingData.google_meet_url
+            show('meet-link-container')
+          }
+          show('booking-details')
+        })
+        .catch(function () {
+          hide('loading')
+          showError('Something went wrong', "We couldn't load your booking. Please try again.")
+        })
+    }
+
+    document.getElementById('cancel-btn').addEventListener('click', function () {
+      const d = document.getElementById('cancel-dialog')
+      d.classList.remove('hidden')
+      d.classList.add('flex')
+    })
+    document.getElementById('cancel-dialog-dismiss').addEventListener('click', function () {
+      const d = document.getElementById('cancel-dialog')
+      d.classList.add('hidden')
+      d.classList.remove('flex')
+    })
+    document.getElementById('cancel-dialog-confirm').addEventListener('click', function () {
+      const btn = document.getElementById('cancel-dialog-confirm')
+      btn.disabled = true
+      btn.textContent = 'Cancelling...'
+      const reason = document.getElementById('cancel-reason').value.trim()
+      fetch('/api/booking/manage/' + token + '/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: reason ? JSON.stringify({ reason: reason }) : '{}',
+      })
+        .then(function (r) {
+          return r.json()
+        })
+        .then(function (d) {
+          if (d.ok) {
+            hide('cancel-dialog')
+            hide('booking-details')
+            showSuccess(
+              'Booking cancelled',
+              "Your assessment call has been cancelled. We'll send a confirmation email shortly."
+            )
+          } else {
+            btn.disabled = false
+            btn.textContent = 'Yes, Cancel'
+            alert(d.message || 'Failed to cancel.')
+          }
+        })
+        .catch(function () {
+          btn.disabled = false
+          btn.textContent = 'Yes, Cancel'
+          alert('Something went wrong.')
+        })
+    })
+
+    document.getElementById('reschedule-btn').addEventListener('click', function () {
+      hide('booking-details')
+      show('reschedule-panel')
+      loadSlots()
+    })
+    document.getElementById('back-to-details-btn').addEventListener('click', function () {
+      hide('reschedule-panel')
+      show('booking-details')
+    })
+
+    function loadSlots() {
+      show('slots-loading')
+      hide('slots-container')
+      hide('slots-empty')
+      const tz = bookingData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
+      fetch('/api/booking/slots?tz=' + encodeURIComponent(tz))
+        .then(function (r) {
+          return r.json()
+        })
+        .then(function (data) {
+          hide('slots-loading')
+          if (!data.days || data.days.length === 0) {
+            show('slots-empty')
+            return
+          }
+          const c = document.getElementById('slots-container')
+          c.innerHTML = ''
+          data.days.forEach(function (day) {
+            const div = document.createElement('div')
+            const dateObj = new Date(day.date + 'T12:00:00')
+            const lbl = dateObj.toLocaleDateString('en-US', {
+              weekday: 'long',
+              month: 'long',
+              day: 'numeric',
+            })
+            const h = document.createElement('h3')
+            h.className = 'text-sm font-semibold text-slate-700'
+            h.textContent = lbl
+            div.appendChild(h)
+            const g = document.createElement('div')
+            g.className = 'mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4'
+            day.slots.forEach(function (slot) {
+              const b = document.createElement('button')
+              b.className =
+                'rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary'
+              b.textContent = slot.label
+              b.dataset.startUtc = slot.start_utc
+              b.addEventListener('click', function () {
+                confirmReschedule(slot.start_utc, slot.label, lbl)
+              })
+              g.appendChild(b)
+            })
+            div.appendChild(g)
+            c.appendChild(div)
+          })
+          show('slots-container')
+        })
+        .catch(function () {
+          hide('slots-loading')
+          show('slots-empty')
+        })
+    }
+
+    function confirmReschedule(startUtc, timeLabel, dayLabel) {
+      if (!confirm('Reschedule to ' + dayLabel + ' at ' + timeLabel + '?')) return
+      const btns = document.querySelectorAll('#slots-container button')
+      btns.forEach(function (b) {
+        b.disabled = true
+        b.classList.add('opacity-50')
+      })
+      fetch('/api/booking/manage/' + token + '/reschedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slot_start_utc: startUtc }),
+      })
+        .then(function (r) {
+          return r.json().then(function (d) {
+            return { status: r.status, data: d }
+          })
+        })
+        .then(function (result) {
+          if (result.data.ok) {
+            hide('reschedule-panel')
+            showSuccess(
+              'Booking rescheduled',
+              'Your call has been moved to ' +
+                result.data.slot_label +
+                ". We'll send a confirmation email with the updated details."
+            )
+          } else {
+            btns.forEach(function (b) {
+              b.disabled = false
+              b.classList.remove('opacity-50')
+            })
+            alert(result.data.message || 'Failed to reschedule.')
+          }
+        })
+        .catch(function () {
+          btns.forEach(function (b) {
+            b.disabled = false
+            b.classList.remove('opacity-50')
+          })
+          alert('Something went wrong.')
+        })
+    }
+
+    function show(id) {
+      const e = document.getElementById(id)
+      if (e) e.classList.remove('hidden')
+    }
+    function hide(id) {
+      const e = document.getElementById(id)
+      if (e) e.classList.add('hidden')
+    }
+    function showError(t, m) {
+      document.getElementById('error-title').textContent = t
+      document.getElementById('error-message').textContent = m
+      show('error-state')
+    }
+    function showSuccess(t, m) {
+      document.getElementById('success-title').textContent = t
+      document.getElementById('success-message').textContent = m
+      show('success-state')
+    }
+  </script>
+</Base>
