@@ -40,7 +40,7 @@ export type FollowUpType =
   | 'feedback_30day'
   | 'custom'
 
-export type FollowUpStatus = 'scheduled' | 'completed' | 'skipped'
+export type FollowUpStatus = 'scheduled' | 'completed' | 'skipped' | 'sent' | 'surfaced'
 
 export const FOLLOW_UP_TYPES: { value: FollowUpType; label: string }[] = [
   { value: 'initial_outreach', label: 'Initial Outreach' },
