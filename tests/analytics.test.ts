@@ -293,15 +293,15 @@ describe('analytics: admin dashboard integration', () => {
     expect(code).toContain('/admin/analytics')
   })
 
-  it('admin dashboard shows total clients metric', () => {
-    expect(source()).toContain('totalClients')
+  it('admin dashboard shows pipeline total metric', () => {
+    expect(source()).toContain('totalPipeline')
   })
 
   it('admin dashboard shows active engagements metric', () => {
     expect(source()).toContain('activeEngagements')
   })
 
-  it('admin dashboard shows pipeline conversion rate', () => {
-    expect(source()).toContain('pipelineConversionRate')
+  it('admin dashboard shows revenue report', () => {
+    expect(source()).toContain('getRevenueReport')
   })
 })
