@@ -50,15 +50,28 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const isPortalApiRoute = pathname.startsWith('/api/portal')
   const isProtectedRoute = isAdminRoute || isAdminApiRoute || isPortalRoute || isPortalApiRoute
 
+  // Always try to resolve session from cookie (even on unprotected routes)
+  // so endpoints like /api/auth/google/connect can read locals.session
+  const cookieHeader = context.request.headers.get('cookie')
+  const token = parseSessionToken(cookieHeader)
+
+  if (token) {
+    const env = context.locals.runtime.env
+    const sessionData = await validateSession(env.DB, env.SESSIONS, token)
+    if (sessionData) {
+      context.locals.session = sessionData
+      // Renew session (sliding window) — fire and forget
+      renewSession(env.DB, env.SESSIONS, token, sessionData).catch(() => {})
+    }
+  }
+
+  // Unprotected routes: session is attached if valid, but not required
   if (!isProtectedRoute) {
     return next()
   }
 
-  // Extract session token from cookie
-  const cookieHeader = context.request.headers.get('cookie')
-  const token = parseSessionToken(cookieHeader)
-
-  if (!token) {
+  // Protected routes: enforce session + role
+  if (!context.locals.session) {
     if (isAdminApiRoute || isPortalApiRoute) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
@@ -71,46 +84,19 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return context.redirect('/auth/login')
   }
 
-  // Validate session
-  const env = context.locals.runtime.env
-  const sessionData = await validateSession(env.DB, env.SESSIONS, token)
-
-  if (!sessionData) {
-    if (isAdminApiRoute || isPortalApiRoute) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    }
-    if (isPortalRoute) {
-      return context.redirect('/auth/portal-login')
-    }
-    return context.redirect('/auth/login')
-  }
-
-  // Role-based access control
   const requiredRole = isAdminRoute || isAdminApiRoute ? 'admin' : 'client'
-  if (sessionData.role !== requiredRole) {
+  if (context.locals.session.role !== requiredRole) {
     if (isAdminApiRoute || isPortalApiRoute) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), {
         status: 403,
         headers: { 'Content-Type': 'application/json' },
       })
     }
-    // Wrong role — redirect to appropriate login
     if (isPortalRoute) {
       return context.redirect('/auth/portal-login')
     }
     return context.redirect('/auth/login')
   }
-
-  // Renew session (sliding window) — fire and forget to avoid blocking
-  renewSession(env.DB, env.SESSIONS, token, sessionData).catch(() => {
-    // Session renewal failure is non-critical — log but don't block
-  })
-
-  // Attach session to locals for downstream pages
-  context.locals.session = sessionData
 
   return next()
 })
