@@ -48,7 +48,7 @@ id = "4570dcc1e154476f889bc9fcfc28b2b9"
 # Create with: npx wrangler kv:namespace create BOOKING_CACHE
 [[kv_namespaces]]
 binding = "BOOKING_CACHE"
-id = "REPLACE_ME_AFTER_CREATION"
+id = "daf6a3220f8f42f28f3da7e82f663088"
 
 # ---------- Secrets (set via wrangler secret put) ----------
 # All secrets are set per-project. Workers have their own copies.
