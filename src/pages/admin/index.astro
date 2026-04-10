@@ -54,7 +54,7 @@ const [
   env.DB.prepare(
     `SELECT source_pipeline, MAX(created_at) as last_signal
      FROM entities
-     WHERE org_id = ? AND source_pipeline IS NOT NULL
+     WHERE org_id = ? AND source_pipeline IS NOT NULL AND source_pipeline != 'system'
      GROUP BY source_pipeline`
   )
     .bind(session.orgId)
