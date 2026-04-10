@@ -5,6 +5,7 @@ import {
   getMilestone,
   updateMilestone,
   updateMilestoneStatus,
+  completeMilestoneWithInvoicing,
   deleteMilestone,
 } from '../../../../../lib/db/milestones'
 import type { MilestoneStatus } from '../../../../../lib/db/milestones'
@@ -116,7 +117,24 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
       }
 
       try {
-        await updateMilestoneStatus(env.DB, milestoneId.trim(), newStatus as MilestoneStatus)
+        if (newStatus === 'completed' && milestone.payment_trigger) {
+          // Look up customer email for Stripe invoicing
+          const contact = await env.DB.prepare(
+            'SELECT email FROM contacts WHERE org_id = ? AND entity_id = ? AND email IS NOT NULL ORDER BY created_at ASC LIMIT 1'
+          )
+            .bind(session.orgId, engagement.entity_id)
+            .first<{ email: string }>()
+
+          await completeMilestoneWithInvoicing({
+            db: env.DB,
+            orgId: session.orgId,
+            milestoneId: milestoneId.trim(),
+            stripeApiKey: env.STRIPE_API_KEY,
+            customerEmail: contact?.email ?? null,
+          })
+        } else {
+          await updateMilestoneStatus(env.DB, milestoneId.trim(), newStatus as MilestoneStatus)
+        }
       } catch (err) {
         console.error('[api/admin/engagements/[id]/milestones] Status transition error:', err)
         return redirect(`${detailUrl}?error=invalid_transition`, 302)
