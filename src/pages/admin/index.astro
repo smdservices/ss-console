@@ -50,7 +50,7 @@ const [
   listAssessments(env.DB, session.orgId),
   listInvoices(env.DB, session.orgId, { status: 'sent' }),
   listEntities(env.DB, session.orgId, { stage: 'signal' }),
-  getIntegration(env.DB, session.orgId, 'google', { includeInactive: true }),
+  getIntegration(env.DB, session.orgId, 'google_calendar', { includeInactive: true }),
   env.DB.prepare(
     `SELECT source_pipeline, MAX(created_at) as last_signal
      FROM entities
