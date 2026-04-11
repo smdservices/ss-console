@@ -13,7 +13,6 @@
 import { ORG_ID } from '../../../src/lib/constants.js'
 import { findOrCreateEntity } from '../../../src/lib/db/entities.js'
 import { appendContext } from '../../../src/lib/db/context.js'
-import { computeSlug } from '../../../src/lib/entities/slug.js'
 import { searchJobs, JOB_QUERIES } from './serpapi.js'
 import { qualifyJob, derivePainScore } from './qualify.js'
 import { sendFailureAlert, type RunSummary } from './alert.js'
@@ -74,13 +73,14 @@ async function run(env: Env): Promise<RunSummary> {
 
   for (const { job, query } of uniqueJobs) {
     try {
-      const slug = computeSlug(job.company_name, job.location)
-      const existing = await env.DB.prepare('SELECT 1 FROM entities WHERE org_id = ? AND slug = ?')
-        .bind(ORG_ID, slug)
+      // Dedup on source_ref (job_id) — skip if we already have this exact signal
+      const alreadyProcessed = await env.DB.prepare(
+        `SELECT 1 FROM context WHERE org_id = ? AND source = 'job_monitor' AND source_ref = ?`
+      )
+        .bind(ORG_ID, job.job_id)
         .first()
 
-      if (existing) {
-        // Track repeat postings from known entities (full signal append in future iteration)
+      if (alreadyProcessed) {
         summary.existingAppended++
         continue
       }
@@ -135,12 +135,13 @@ async function run(env: Env): Promise<RunSummary> {
         date_found: dateFound,
       }
 
-      // Append context
+      // Append context (source_ref = job_id for dedup across runs)
       await appendContext(env.DB, ORG_ID, {
         entity_id: entity.id,
         type: 'signal',
         content,
         source: 'job_monitor',
+        source_ref: job.job_id,
         metadata,
       })
 
