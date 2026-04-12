@@ -56,8 +56,15 @@ export interface SignWellCreateDocumentRequest {
   /**
    * Field placements — 2D array: outer = per file, inner = fields.
    * Each field uses recipient_id to link to a recipient.
+   * Omit when using text_tags (fields are detected from the PDF).
    */
-  fields: (SignWellField & { recipient_id: string })[][]
+  fields?: (SignWellField & { recipient_id: string })[][]
+  /**
+   * Enable text tag detection. When true, SignWell scans the PDF for
+   * {{signature:N:y}}, {{date:N:y}} etc. and places fields automatically.
+   * Eliminates hardcoded coordinate-based field placement.
+   */
+  text_tags?: boolean
   /** Whether to send the signing request via email immediately */
   draft?: boolean
   /** Enable test mode (no real signatures) */
@@ -79,6 +86,8 @@ export interface SignWellDocument {
   name: string
   status: 'draft' | 'pending' | 'completed' | 'cancelled' | 'expired'
   signers: SignWellSigner[]
+  /** Recipients with detected fields (populated when text_tags is used) */
+  recipients?: { id: string; fields?: { type: string; api_id?: string }[] }[]
   completed_at: string | null
   created_at: string
   updated_at: string
