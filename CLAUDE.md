@@ -199,11 +199,11 @@ npm run format          # Format with Prettier
 
 Fetch the relevant module when working in that domain.
 
-| Module              | Key Rule                                      | Fetch for details                             |
-| ------------------- | --------------------------------------------- | --------------------------------------------- |
-| `secrets.md`        | Verify secret VALUES, not just key existence  | Infisical, vault, API keys                    |
-| `content-policy.md` | Never auto-save to VCMS; agents ARE the voice | VCMS tags, storage rules, editorial, style    |
-| `team-workflow.md`  | All changes through PRs; never push to main   | Full workflow, QA grades, escalation triggers |
+| Module              | Key Rule                                      | Fetch for details                          |
+| ------------------- | --------------------------------------------- | ------------------------------------------ |
+| `secrets.md`        | Verify secret VALUES, not just key existence  | Infisical, vault, API keys                 |
+| `content-policy.md` | Never auto-save to VCMS; agents ARE the voice | VCMS tags, storage rules, editorial, style |
+| `team-workflow.md`  | All changes through PRs; never push to main   | Full workflow, escalation triggers         |
 
 Fetch with: `crane_doc('global', '<module>')`
 
