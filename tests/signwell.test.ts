@@ -360,9 +360,9 @@ describe('signwell: send-for-signature route', () => {
     expect(code).toContain('fields')
   })
 
-  it('places signature fields on page 2 in AGREEMENT section', () => {
+  it('uses field config for signing page coordinates', () => {
     const code = source()
-    expect(code).toContain('page: 2')
+    expect(code).toContain('getSowSigningFields')
     expect(code).toContain('client_signature')
     expect(code).toContain('client_date')
   })
