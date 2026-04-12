@@ -1,6 +1,12 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference path="../.astro/types.d.ts" />
 
+/** WASM module imports — handled by Cloudflare adapter at build time */
+declare module '*.wasm' {
+  const module: WebAssembly.Module
+  export default module
+}
+
 /**
  * Cloudflare bindings available via Astro.locals.runtime.env
  *
