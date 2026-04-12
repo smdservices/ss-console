@@ -39,24 +39,29 @@ export interface SignWellField {
 export interface SignWellCreateDocumentRequest {
   /** Display name for the document in SignWell */
   name: string
-  /** Base64-encoded file content */
-  file_base64?: string
-  /** Public URL to the file (alternative to file_base64) */
-  file_url?: string
-  /** Original filename */
-  original_filename?: string
-  /** Signer details */
-  signers: {
+  /** Document files — each with file_base64 or file_url */
+  files: {
+    file_base64?: string
+    file_url?: string
+    name?: string
+  }[]
+  /** Recipients (signers) */
+  recipients: {
     id: string
     name: string
     email: string
   }[]
   /** Webhook callback URL for completion events */
   callback_url?: string
-  /** Field placements for signature blocks */
-  fields: (SignWellField & { signer_id: string })[]
+  /**
+   * Field placements — 2D array: outer = per file, inner = fields.
+   * Each field uses recipient_id to link to a recipient.
+   */
+  fields: (SignWellField & { recipient_id: string })[][]
   /** Whether to send the signing request via email immediately */
   draft?: boolean
+  /** Enable test mode (no real signatures) */
+  test_mode?: boolean
   /** Custom message to include in the signing email */
   custom_requester_name?: string
   custom_requester_email?: string
