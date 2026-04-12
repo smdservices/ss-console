@@ -125,32 +125,7 @@ export const POST: APIRoute = async ({ locals, redirect, params }) => {
         },
       ],
       callback_url: callbackUrl,
-      fields: [
-        [
-          {
-            type: 'signature',
-            required: true,
-            page: 1,
-            x: 72,
-            y: 680,
-            width: 200,
-            height: 40,
-            recipient_id: signerId,
-            api_id: 'client_signature',
-          },
-          {
-            type: 'date',
-            required: true,
-            page: 1,
-            x: 72,
-            y: 730,
-            width: 120,
-            height: 20,
-            recipient_id: signerId,
-            api_id: 'client_date',
-          },
-        ],
-      ],
+      text_tags: true,
       draft: false,
       custom_requester_name: 'SMD Services',
       subject: `SOW for Signature — ${entity.name}`,
@@ -158,6 +133,15 @@ export const POST: APIRoute = async ({ locals, redirect, params }) => {
     }
 
     const signwellDoc = await createSignatureRequest(apiKey, signRequest)
+
+    // Validate that SignWell detected the text tags in the PDF
+    if (!signwellDoc.recipients?.[0]?.fields?.length) {
+      console.error('[api/admin/quotes/[id]/sign] SignWell detected no fields from text tags')
+      return redirect(
+        `/admin/entities/${quote.entity_id}/quotes/${quoteId}?error=no_fields_detected`,
+        302
+      )
+    }
 
     // 6. Update quote with signwell_doc_id
     const now = new Date().toISOString()
