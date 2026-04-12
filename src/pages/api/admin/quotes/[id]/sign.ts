@@ -116,9 +116,8 @@ export const POST: APIRoute = async ({ locals, redirect, params }) => {
 
     const signRequest: SignWellCreateDocumentRequest = {
       name: `SOW — ${entity.name}`,
-      file_base64: pdfBase64,
-      original_filename: 'sow.pdf',
-      signers: [
+      files: [{ file_base64: pdfBase64, name: 'sow.pdf' }],
+      recipients: [
         {
           id: signerId,
           name: primaryContact.name,
@@ -127,28 +126,30 @@ export const POST: APIRoute = async ({ locals, redirect, params }) => {
       ],
       callback_url: callbackUrl,
       fields: [
-        {
-          type: 'signature',
-          required: true,
-          page: 1,
-          x: 72,
-          y: 680,
-          width: 200,
-          height: 40,
-          signer_id: signerId,
-          api_id: 'client_signature',
-        },
-        {
-          type: 'date',
-          required: true,
-          page: 1,
-          x: 72,
-          y: 730,
-          width: 120,
-          height: 20,
-          signer_id: signerId,
-          api_id: 'client_date',
-        },
+        [
+          {
+            type: 'signature',
+            required: true,
+            page: 1,
+            x: 72,
+            y: 680,
+            width: 200,
+            height: 40,
+            recipient_id: signerId,
+            api_id: 'client_signature',
+          },
+          {
+            type: 'date',
+            required: true,
+            page: 1,
+            x: 72,
+            y: 730,
+            width: 120,
+            height: 20,
+            recipient_id: signerId,
+            api_id: 'client_date',
+          },
+        ],
       ],
       draft: false,
       custom_requester_name: 'SMD Services',
@@ -184,7 +185,11 @@ export const POST: APIRoute = async ({ locals, redirect, params }) => {
 
     return redirect(`/admin/entities/${quote.entity_id}/quotes/${quoteId}?saved=1`, 302)
   } catch (err) {
-    console.error('[api/admin/quotes/[id]/sign] Error:', err)
-    return redirect('/admin/entities?error=server', 302)
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[api/admin/quotes/[id]/sign] Error:', msg, err instanceof Error ? err.stack : '')
+    return redirect(
+      `/admin/entities?error=server&detail=${encodeURIComponent(msg.slice(0, 200))}`,
+      302
+    )
   }
 }
