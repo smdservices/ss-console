@@ -30,9 +30,9 @@ describe('signwell: types', () => {
     expect(code).toContain('file_base64')
   })
 
-  it('SignWellCreateDocumentRequest includes signers array', () => {
+  it('SignWellCreateDocumentRequest includes recipients array', () => {
     const code = source()
-    expect(code).toContain('signers')
+    expect(code).toContain('recipients')
   })
 
   it('SignWellCreateDocumentRequest includes callback_url for webhooks', () => {
@@ -353,10 +353,10 @@ describe('signwell: send-for-signature route', () => {
     expect(code).toContain('primaryContact')
   })
 
-  it('calls createSignatureRequest with signer and field placements', () => {
+  it('calls createSignatureRequest with recipients and field placements', () => {
     const code = source()
     expect(code).toContain('createSignatureRequest')
-    expect(code).toContain('signers')
+    expect(code).toContain('recipients')
     expect(code).toContain('fields')
   })
 
