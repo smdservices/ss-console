@@ -6,6 +6,7 @@ import { listContacts } from '../../../../../lib/db/contacts'
 import { getPdf } from '../../../../../lib/storage/r2'
 import { createSignatureRequest } from '../../../../../lib/signwell/client'
 import type { SignWellCreateDocumentRequest } from '../../../../../lib/signwell/types'
+import { getSowSigningFields } from '../../../../../lib/signwell/field-config'
 
 /**
  * POST /api/admin/quotes/:id/sign
@@ -114,10 +115,10 @@ export const POST: APIRoute = async ({ locals, redirect, params }) => {
     // 5. Create signature request in SignWell
     const signerId = crypto.randomUUID()
 
-    // SignWell field coordinates for page 2 AGREEMENT section.
-    // Derived from rendered PDF analysis: CLIENT signature space runs
-    // from y≈553 to y≈630 (top-left origin, US Letter 792pt).
-    // Date field overlays the "Date: _______________" text at y≈658.
+    // Field coordinates come from signing-layout.ts (measured from rendered PDF).
+    // See src/lib/pdf/signing-layout.ts for measurement methodology.
+    const signingFields = getSowSigningFields()
+
     const signRequest: SignWellCreateDocumentRequest = {
       name: `SOW — ${entity.name}`,
       files: [{ file_base64: pdfBase64, name: 'sow.pdf' }],
@@ -132,24 +133,14 @@ export const POST: APIRoute = async ({ locals, redirect, params }) => {
       fields: [
         [
           {
-            type: 'signature',
+            ...signingFields.signature,
             required: true,
-            page: 2,
-            x: 72,
-            y: 570,
-            width: 200,
-            height: 40,
             recipient_id: signerId,
             api_id: 'client_signature',
           },
           {
-            type: 'date',
+            ...signingFields.date,
             required: true,
-            page: 2,
-            x: 72,
-            y: 650,
-            width: 120,
-            height: 20,
             recipient_id: signerId,
             api_id: 'client_date',
           },

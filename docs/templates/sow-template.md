@@ -12,7 +12,7 @@
 | Property        | Value                                              |
 | --------------- | -------------------------------------------------- |
 | Page size       | US Letter (8.5" x 11" / 612 x 792 pt)              |
-| Page count      | 2 pages max (hard limit)                           |
+| Page count      | 3 pages (dedicated signing page)                   |
 | Orientation     | Portrait                                           |
 | Margins         | Top: 0.75in, Bottom: 0.75in, Left: 1in, Right: 1in |
 | Printable width | 6.5in (468pt)                                      |
@@ -318,12 +318,20 @@ Standard engagement terms. Kept short and readable — this is not a legal contr
 - Numbered list: Inter 400 9pt `#334155`, 8pt between items
 - Terms are static text. Term 1 reflects Decision #18 (5-day confirmation deadline). Term 3 reflects Decision #27 (2-week safety net, Day 24 cutoff). The word "stabilization" is used instead of "safety net" or "support window" for client-facing language.
 
-### 5.4 Signature Block
+### 5.4 Signature Block — Dedicated Signing Page (Page 3)
 
-Two-column signature layout for SignWell integration.
+The AGREEMENT section lives on its own dedicated page (page 3). This eliminates content-dependent coordinate drift — the signing page has zero variable content, making SignWell field placement deterministic.
+
+Page 3 includes a brief "Next Steps" section above the signature block so the page reads as intentional document design, not empty whitespace.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
+│  NEXT STEPS                                                  │
+│                                                              │
+│  Once both parties sign below, we will send a deposit        │
+│  invoice. Work begins after the deposit is received.         │
+│  We will confirm the kickoff date within one business day.   │
+│                                                              │
 │  AGREEMENT                                                   │
 │                                                              │
 │  By signing below, both parties agree to the scope,          │
@@ -353,15 +361,14 @@ Two-column signature layout for SignWell integration.
 - Signature line: 1pt `#334155` rule, full column width
 - Name and title below line: Inter 400 9pt `#334155`
 - Date field: Inter 400 8pt `#64748b`
-- This block must be positioned in the lower third of page 2 with enough white space above to avoid feeling crowded.
 
-**SignWell integration notes:**
+**SignWell field placement architecture:**
 
-- SignWell uses absolute positioning to place signature fields over the PDF
-- The template must render placeholder areas at predictable coordinates
-- Forme generates the PDF; SignWell overlays the interactive signature fields when the document is sent for signing
-- Required SignWell field types per signer: signature (required), date_signed (auto-filled)
-- Two signers: client contact (primary), SMD Services representative (secondary)
+- Field coordinates are defined in `src/lib/pdf/signing-layout.ts` (single source of truth)
+- Both the Forme template and SignWell field config import from this module
+- Coordinates are measured from the actual rendered PDF, not calculated from font metrics
+- To re-measure: generate a test PDF, open in Preview > Inspector, update `signing-layout.ts`
+- See `src/lib/signwell/field-config.ts` for the SignWell API integration
 
 **Placeholder fields:**
 | Field | Source |
@@ -377,11 +384,11 @@ Two-column signature layout for SignWell integration.
 
 ### 5.5 Footer
 
-Present on both pages.
+Present on all three pages.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  SMD Services | smd.services           {{document.sow_number}} | Page X of 2  │
+│  SMD Services | smd.services           {{document.sow_number}} | Page X of 3  │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -457,7 +464,7 @@ The logo must work at 120pt x 40pt on a white background. If no formal logo exis
 The Forme template will be a JSX component at `src/lib/pdf/sow-template.tsx` (per PRD directory structure). It receives a typed props object matching the field map in Section 6.
 
 ```
-SOWTemplate(props: SOWTemplateProps) → PDF document (2 pages)
+SOWTemplate(props: SOWTemplateProps) → PDF document (3 pages)
 ```
 
 ### 9.2 Props Interface (TypeScript)
