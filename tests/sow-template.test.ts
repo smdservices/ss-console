@@ -117,7 +117,7 @@ describe('sow-template: no hourly rates in output (Decision #16)', () => {
     // Payment section should NOT show any hourly breakdown
     const investmentSection = code.substring(
       code.indexOf('PROJECT INVESTMENT'),
-      code.indexOf('Page 1 of 2')
+      code.indexOf('Page 1 of 3')
     )
     expect(investmentSection).not.toContain('per hour')
     expect(investmentSection).not.toContain('hourly')
@@ -265,5 +265,44 @@ describe('sow-template: signature block', () => {
 
   it('includes agreement text', () => {
     expect(source()).toContain('By signing below, both parties agree')
+  })
+})
+
+describe('sow-template: 3-page structure', () => {
+  const source = () => readFileSync(resolve('src/lib/pdf/sow-template.tsx'), 'utf-8')
+
+  it('has 3 pages (dedicated signing page)', () => {
+    const code = source()
+    const pageMatches = code.match(/<Page/g) || []
+    expect(pageMatches.length).toBe(3)
+  })
+
+  it('page footers show correct page count', () => {
+    const code = source()
+    expect(code).toContain('Page 1 of 3')
+    expect(code).toContain('Page 2 of 3')
+    expect(code).toContain('Page 3 of 3')
+  })
+
+  it('imports signing layout constants', () => {
+    const code = source()
+    expect(code).toContain("from './signing-layout'")
+    expect(code).toContain('SIGNING_PAGE')
+  })
+
+  it('uses signing layout constant for signature space height', () => {
+    const code = source()
+    expect(code).toContain('SIGNING_PAGE.signingSpaceHeight')
+  })
+
+  it('uses signing layout constant for column gap', () => {
+    const code = source()
+    expect(code).toContain('SIGNING_PAGE.columnGap')
+  })
+
+  it('includes Next Steps section on signing page', () => {
+    const code = source()
+    expect(code).toContain('NEXT STEPS')
+    expect(code).toContain('deposit invoice')
   })
 })

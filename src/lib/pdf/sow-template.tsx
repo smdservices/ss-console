@@ -15,6 +15,7 @@
 
 import React from 'react'
 import { Document, Page, View, Text } from '@formepdf/react'
+import { SIGNING_PAGE } from './signing-layout'
 
 // ---------------------------------------------------------------------------
 // Props interface (matches Section 9.2 of sow-template.md)
@@ -437,7 +438,7 @@ export function SOWTemplate(props: SOWTemplateProps) {
           <View style={{ height: 1, backgroundColor: colors.border, marginBottom: 8 }} />
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <Text style={finePrintStyle}>SMD Services | smd.services</Text>
-            <Text style={finePrintStyle}>{doc.sowNumber} | Page 1 of 2</Text>
+            <Text style={finePrintStyle}>{doc.sowNumber} | Page 1 of 3</Text>
           </View>
         </View>
       </Page>
@@ -542,13 +543,47 @@ export function SOWTemplate(props: SOWTemplateProps) {
           </Text>
         </View>
 
+        {/* Footer */}
+        <View
+          style={{
+            position: 'absolute',
+            bottom: pageMargins.bottom,
+            left: pageMargins.left,
+            right: pageMargins.right,
+          }}
+        >
+          <View style={{ height: 1, backgroundColor: colors.border, marginBottom: 8 }} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={finePrintStyle}>SMD Services | smd.services</Text>
+            <Text style={finePrintStyle}>{doc.sowNumber} | Page 2 of 3</Text>
+          </View>
+        </View>
+      </Page>
+
+      {/* ===== PAGE 3 — SIGNING PAGE ===== */}
+      <Page
+        size="Letter"
+        margin={{
+          top: pageMargins.top,
+          bottom: pageMargins.bottom,
+          left: pageMargins.left,
+          right: pageMargins.right,
+        }}
+      >
+        {/* Next Steps */}
+        <Text style={sectionHeadingStyle}>NEXT STEPS</Text>
+        <Text style={{ ...bodyTextStyle, marginBottom: 24 }}>
+          Once both parties sign below, we will send a deposit invoice. Work begins after the
+          deposit is received. We will confirm the kickoff date within one business day.
+        </Text>
+
         {/* Signature Block */}
         <Text style={sectionHeadingStyle}>AGREEMENT</Text>
         <Text style={{ ...bodyTextStyle, marginBottom: 16 }}>
           By signing below, both parties agree to the scope, timeline, and terms described in this
           document.
         </Text>
-        <View style={{ flexDirection: 'row', gap: 36 }}>
+        <View style={{ flexDirection: 'row', gap: SIGNING_PAGE.columnGap }}>
           {/* Client side — signs via SignWell (fields placed by API coordinates) */}
           <View style={{ flex: 1 }}>
             <Text
@@ -557,7 +592,7 @@ export function SOWTemplate(props: SOWTemplateProps) {
                 fontWeight: 600,
                 fontSize: 9,
                 color: colors.textPrimary,
-                marginBottom: 60,
+                marginBottom: SIGNING_PAGE.signingSpaceHeight,
               }}
             >
               CLIENT
@@ -605,7 +640,7 @@ export function SOWTemplate(props: SOWTemplateProps) {
                 fontWeight: 600,
                 fontSize: 9,
                 color: colors.textPrimary,
-                marginBottom: 60,
+                marginBottom: SIGNING_PAGE.signingSpaceHeight,
               }}
             >
               SMD SERVICES
@@ -657,7 +692,7 @@ export function SOWTemplate(props: SOWTemplateProps) {
           <View style={{ height: 1, backgroundColor: colors.border, marginBottom: 8 }} />
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <Text style={finePrintStyle}>SMD Services | smd.services</Text>
-            <Text style={finePrintStyle}>{doc.sowNumber} | Page 2 of 2</Text>
+            <Text style={finePrintStyle}>{doc.sowNumber} | Page 3 of 3</Text>
           </View>
         </View>
       </Page>
