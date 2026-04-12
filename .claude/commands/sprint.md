@@ -102,7 +102,6 @@ gh issue view {N} --repo {REPO} --json number,title,body,labels,state
 For each issue, extract from labels:
 
 - **Priority**: `prio:*` label (P0/P1/P2/P3)
-- **QA grade**: `qa-grade:*` or `qa:*` label
 - **Component**: `component:*` label
 - **Type**: `type:*` label
 - **Status**: `status:*` label

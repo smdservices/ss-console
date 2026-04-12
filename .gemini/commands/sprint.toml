@@ -42,7 +42,7 @@ If not in a git repo, stop: "Not in a recognized repo. Run /sprint from a ventur
 
 For each issue number, fetch: `gh issue view {N} --repo {REPO} --json number,title,body,labels,state`
 
-Extract from labels: Priority (prio:*), QA grade (qa-grade:*), Component (component:*), Type (type:*), Status (status:*).
+Extract from labels: Priority (prio:*), Component (component:*), Type (type:*), Status (status:*).
 Extract from body: AC count (checkbox items), body word count.
 
 Validation:

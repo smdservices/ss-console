@@ -58,7 +58,6 @@ gh issue view {N} --repo {REPO} --json number,title,body,labels,state
 For each issue, extract from labels:
 
 - **Priority**: `prio:*` label (P0/P1/P2/P3)
-- **QA grade**: `qa-grade:*` label
 - **Component**: `component:*` label
 
 Also extract dependencies from body (same logic as `/sprint`):
