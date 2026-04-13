@@ -91,35 +91,35 @@ export const SIGNING_PAGE = {
   // These are the same measured positions used for tag injection.
   // ---------------------------------------------------------------------------
 
-  /** CLIENT signature field (left column) — fallback coordinates */
+  /** CLIENT signature field (left column) */
   clientSignature: {
     x: PAGE_MARGINS.left,
-    y: 205, // Measured: CLIENT label bottom at 204.5pt from page top
+    y: 218, // Below CLIENT label (bottom at 204.5pt), inside the 60pt signing space
     width: 200,
-    height: 50,
+    height: 40, // 40pt tall to fit within the 60pt space before the signature line
   },
 
-  /** CLIENT date field (left column) — fallback coordinates */
+  /** CLIENT date field (left column) */
   clientDate: {
     x: PAGE_MARGINS.left,
-    y: 300, // Measured: "Date: ___" text top at 302.1pt from page top
+    y: 302, // At the "Date: ___" text (measured at 302.1pt from page top)
     width: 120,
-    height: 20,
+    height: 16,
   },
 
   /** SMD SERVICES signature field (right column) — reserved for future use */
   smdSignature: {
     x: PAGE_MARGINS.left + COLUMN_WIDTH + COLUMN_GAP,
-    y: 205,
+    y: 218,
     width: 200,
-    height: 50,
+    height: 40,
   },
 
   /** SMD SERVICES date field (right column) — reserved for future use */
   smdDate: {
     x: PAGE_MARGINS.left + COLUMN_WIDTH + COLUMN_GAP,
-    y: 300,
+    y: 302,
     width: 120,
-    height: 20,
+    height: 16,
   },
 } as const
