@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro'
 import { streamDocument } from '../../../../lib/storage/r2'
 import { listEngagements } from '../../../../lib/db/engagements'
+import { getPortalClient } from '../../../../lib/portal/session'
 
 /**
  * GET /api/portal/documents/:key
@@ -10,6 +11,7 @@ import { listEngagements } from '../../../../lib/db/engagements'
  *
  * Security:
  * - Requires valid client session (middleware ensures role=client)
+ * - Resolves entity via getPortalClient() (users.entity_id)
  * - Verifies the R2 key belongs to this client's org/engagement
  * - Prevents path traversal by checking key prefix
  *
@@ -17,11 +19,6 @@ import { listEngagements } from '../../../../lib/db/engagements'
  * - PDFs: inline (view in browser)
  * - Everything else: attachment (download)
  */
-
-interface UserRow {
-  id: string
-  client_id: string | null
-}
 
 const CONTENT_TYPES: Record<string, string> = {
   '.pdf': 'application/pdf',
@@ -60,12 +57,9 @@ export const GET: APIRoute = async ({ locals, params }) => {
 
   const env = locals.runtime.env
 
-  // Look up client_id from users table
-  const user = await env.DB.prepare('SELECT id, client_id FROM users WHERE id = ?')
-    .bind(session.userId)
-    .first<UserRow>()
-
-  if (!user?.client_id) {
+  // Resolve client entity from session
+  const portalData = await getPortalClient(env.DB, session.userId)
+  if (!portalData) {
     return new Response(JSON.stringify({ error: 'Forbidden' }), {
       status: 403,
       headers: { 'Content-Type': 'application/json' },
@@ -89,7 +83,7 @@ export const GET: APIRoute = async ({ locals, params }) => {
   }
 
   // Verify the key belongs to this client's engagement
-  const engagements = await listEngagements(env.DB, session.orgId, user.client_id)
+  const engagements = await listEngagements(env.DB, session.orgId, portalData.client.id)
   const engagementIds = engagements.map((e) => e.id)
   const quoteIds = engagements.map((e) => e.quote_id)
 

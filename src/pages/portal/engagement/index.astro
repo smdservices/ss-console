@@ -1,5 +1,6 @@
 ---
 import '../../../styles/global.css'
+import { CLIENT_STATUS_LABELS, CLIENT_STATUS_COLORS } from '../../../lib/portal/constants'
 import { getPortalClient } from '../../../lib/portal/session'
 import { listEngagements } from '../../../lib/db/engagements'
 import { listMilestones } from '../../../lib/db/milestones'
@@ -40,15 +41,6 @@ const statusIcon: Record<string, { color: string; icon: string; label: string }>
   in_progress: { color: 'text-blue-600 bg-blue-50', icon: '&#8635;', label: 'In Progress' },
   completed: { color: 'text-green-600 bg-green-50', icon: '&#10003;', label: 'Completed' },
   skipped: { color: 'text-slate-400 bg-slate-50', icon: '&#8212;', label: 'Skipped' },
-}
-
-const engagementStatusLabel: Record<string, string> = {
-  scheduled: 'Scheduled',
-  active: 'Active',
-  handoff: 'Handoff',
-  safety_net: 'Support Window',
-  completed: 'Completed',
-  cancelled: 'Cancelled',
 }
 
 function formatDate(iso: string | null): string {
@@ -121,8 +113,10 @@ function formatDate(iso: string | null): string {
             <div class="bg-white rounded-lg border border-slate-200 p-6">
               <div class="flex items-center justify-between mb-4">
                 <h3 class="text-base font-semibold text-slate-900">Overview</h3>
-                <span class="text-sm font-medium text-blue-700 bg-blue-50 px-3 py-1 rounded-full">
-                  {engagementStatusLabel[engagement.status] ?? engagement.status}
+                <span
+                  class={`text-sm font-medium px-3 py-1 rounded-full ${CLIENT_STATUS_COLORS[engagement.status] ?? 'bg-slate-100 text-slate-600'}`}
+                >
+                  {CLIENT_STATUS_LABELS[engagement.status] ?? engagement.status}
                 </span>
               </div>
 
@@ -142,7 +136,7 @@ function formatDate(iso: string | null): string {
                 <div>
                   <span class="text-slate-500">Current Phase</span>
                   <p class="font-medium text-slate-900">
-                    {engagementStatusLabel[engagement.status] ?? engagement.status}
+                    {CLIENT_STATUS_LABELS[engagement.status] ?? engagement.status}
                   </p>
                 </div>
               </div>
