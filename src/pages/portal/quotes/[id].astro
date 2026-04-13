@@ -8,7 +8,6 @@ import {
   LEGACY_PROBLEM_LABELS,
 } from '../../../portal/assessments/extraction-schema'
 import type { ProblemId, LegacyProblemId } from '../../../portal/assessments/extraction-schema'
-import { getSOWStateForQuote } from '../../../lib/sow/service'
 
 /**
  * Portal quote detail — shows scope, project price, payment terms, signing.
@@ -38,8 +37,6 @@ const quote = await getQuoteForEntity(env.DB, client.id, quoteId)
 if (!quote) {
   return Astro.redirect('/portal/quotes')
 }
-
-const sowState = await getSOWStateForQuote(env.DB, session.orgId, quote.id)
 
 const lineItems: LineItem[] = JSON.parse(quote.line_items)
 
@@ -88,8 +85,8 @@ if (quote.status === 'sent' && quote.expires_at) {
 }
 
 // SignWell signing
-const hasSignWell = !!sowState.openSignatureRequest?.provider_request_id
-const hasSow = !!sowState.downloadableRevision
+const hasSignWell = !!quote.signwell_doc_id
+const hasSow = !!quote.sow_path
 const isSent = quote.status === 'sent'
 ---
 
@@ -279,7 +276,7 @@ const isSent = quote.status === 'sent'
                   style="min-height: 600px;"
                 >
                   <iframe
-                    src={`https://app.signwell.com/sign/${sowState.openSignatureRequest!.provider_request_id}`}
+                    src={`https://app.signwell.com/sign/${quote.signwell_doc_id}`}
                     class="w-full border-0"
                     style="min-height: 600px;"
                     title="Sign Statement of Work"
