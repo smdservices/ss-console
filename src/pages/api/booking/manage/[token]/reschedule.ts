@@ -133,7 +133,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
         await updateScheduleGoogleSync(env.DB, schedule.id, {
           googleEventId: updatedEvent.id,
           googleEventLink: updatedEvent.htmlLink ?? null,
-          googleMeetUrl: updatedEvent.hangoutLink ?? null,
+          googleMeetUrl: BOOKING_CONFIG.meeting_url,
         })
       } catch (err) {
         console.error('[api/booking/manage/reschedule] Google Calendar update failed:', err)
