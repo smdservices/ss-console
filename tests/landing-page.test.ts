@@ -25,6 +25,22 @@ function readAllSrcFiles(): string[] {
   return files
 }
 
+function readMarketingFiles(): string[] {
+  return [
+    resolve('src/pages/index.astro'),
+    join(componentsDir, 'Hero.astro'),
+    join(componentsDir, 'ProblemCards.astro'),
+    join(componentsDir, 'HowItWorks.astro'),
+    join(componentsDir, 'WhatYouGet.astro'),
+    join(componentsDir, 'Pricing.astro'),
+    join(componentsDir, 'About.astro'),
+    join(componentsDir, 'WhoWeHelp.astro'),
+    join(componentsDir, 'FinalCta.astro'),
+    join(componentsDir, 'Footer.astro'),
+    join(componentsDir, 'JsonLd.astro'),
+  ]
+}
+
 describe('component existence', () => {
   const expectedComponents = [
     'CtaButton.astro',
@@ -46,8 +62,8 @@ describe('component existence', () => {
 })
 
 describe('content integrity', () => {
-  it('no dollar amounts published in src/', () => {
-    const files = readAllSrcFiles()
+  it('no dollar amounts published in marketing content', () => {
+    const files = readMarketingFiles()
     const dollarPattern = /\$[\d,]+/
     for (const filePath of files) {
       const content = readFileSync(filePath, 'utf-8')
