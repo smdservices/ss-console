@@ -1,4 +1,5 @@
 ---
+import '../../../styles/global.css'
 import { statusBadgeClass } from '../../../lib/ui/status-badge'
 import { getEngagement, VALID_TRANSITIONS } from '../../../lib/db/engagements'
 import type { EngagementStatus } from '../../../lib/db/engagements'
@@ -110,7 +111,6 @@ function fileSize(bytes: number): string {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Engagement - {entity?.name ?? 'Unknown'} | Admin</title>
-    <link rel="stylesheet" href="/global.css" />
   </head>
   <body class="bg-slate-50 text-slate-900">
     <header class="bg-white border-b border-slate-200 px-6 py-3 flex items-center gap-4">
