@@ -49,6 +49,8 @@ export interface BookingConfig {
    * for this many hours after their assessment slot before the token expires.
    */
   manage_token_ttl_hours_after_slot: number
+  /** Static video call URL used for all booking events. */
+  meeting_url: string
 }
 
 export const BOOKING_CONFIG: BookingConfig = {
@@ -75,4 +77,5 @@ export const BOOKING_CONFIG: BookingConfig = {
   google_call_timeout_ms: 8_000,
   google_call_retries: 1,
   manage_token_ttl_hours_after_slot: 48,
+  meeting_url: 'https://zoom.us/j/4284801619',
 }

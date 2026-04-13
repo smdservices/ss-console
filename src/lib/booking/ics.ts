@@ -40,7 +40,7 @@ export interface BuildIcsInput {
   title: string
   /** Plain text description. URLs allowed; HTML is not. */
   description: string
-  /** Optional location string (Google Meet URL works fine here). */
+  /** Optional location string (video call URL). */
   location?: string
   organizerName: string
   organizerEmail: string

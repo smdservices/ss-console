@@ -4,8 +4,8 @@
  * Uses fetch() for all calls (Workers-compatible). Handles event CRUD,
  * free/busy queries, and access token refresh.
  *
- * Events include Google Meet conferencing via `conferenceData` and
- * store the assessment_id in `extendedProperties.private`.
+ * Video call URLs are configured separately (see BOOKING_CONFIG.meeting_url).
+ * Events store the assessment_id in `extendedProperties.private`.
  */
 
 import { BOOKING_CONFIG } from './config.js'
@@ -29,7 +29,6 @@ export interface CalendarEventInput {
 export interface CalendarEvent {
   id: string
   htmlLink: string
-  hangoutLink?: string
   summary: string
   start: { dateTime: string; timeZone: string }
   end: { dateTime: string; timeZone: string }
@@ -84,12 +83,6 @@ function buildEventBody(event: CalendarEventInput): Record<string, unknown> {
     description: event.description,
     start: event.start,
     end: event.end,
-    conferenceData: {
-      createRequest: {
-        requestId: crypto.randomUUID(),
-        conferenceSolutionKey: { type: 'hangoutsMeet' },
-      },
-    },
   }
 
   if (event.attendees?.length) {
@@ -110,14 +103,14 @@ function buildEventBody(event: CalendarEventInput): Record<string, unknown> {
 // ---------------------------------------------------------------------------
 
 /**
- * Create a Google Calendar event with Google Meet conferencing.
+ * Create a Google Calendar event.
  */
 export async function createCalendarEvent(
   accessToken: string,
   calendarId: string,
   event: CalendarEventInput
 ): Promise<CalendarEvent> {
-  const url = `${BASE_URL}/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1&sendUpdates=all`
+  const url = `${BASE_URL}/calendars/${encodeURIComponent(calendarId)}/events?sendUpdates=all`
   const body = buildEventBody(event)
 
   const response = await googleFetch(url, accessToken, {
@@ -142,7 +135,7 @@ export async function updateCalendarEvent(
   eventId: string,
   event: Partial<CalendarEventInput>
 ): Promise<CalendarEvent> {
-  const url = `${BASE_URL}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}?conferenceDataVersion=1&sendUpdates=all`
+  const url = `${BASE_URL}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}?sendUpdates=all`
 
   const body: Record<string, unknown> = {}
   if (event.summary) body.summary = event.summary

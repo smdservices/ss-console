@@ -247,6 +247,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   try {
     const slotLabel = formatSlotLabelLong(slotStartUtc, BOOKING_CONFIG.consultant.timezone)
 
+    const meetUrl = BOOKING_CONFIG.meeting_url
     const eventResult = await createGoogleCalendarEvent(accessToken, calendarId, {
       summary: `Assessment: ${businessName} (${name})`,
       description: buildEventDescription(name, email, businessName, intakeLines),
@@ -258,13 +259,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     googleEventId = eventResult.eventId
     googleEventLink = eventResult.htmlLink
-    googleMeetUrl = eventResult.meetUrl
+    googleMeetUrl = meetUrl
 
     // Update schedule with Google sync data
     await updateScheduleGoogleSync(env.DB, scheduleId, {
       googleEventId: eventResult.eventId,
       googleEventLink: eventResult.htmlLink,
-      googleMeetUrl: eventResult.meetUrl,
+      googleMeetUrl: meetUrl,
     })
   } catch (err) {
     // Google sync failed — compensating rollback
@@ -403,7 +404,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
 interface CreateEventResult {
   eventId: string
   htmlLink: string | null
-  meetUrl: string | null
 }
 
 async function createGoogleCalendarEvent(
@@ -423,7 +423,7 @@ async function createGoogleCalendarEvent(
 
   try {
     const response = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1&sendUpdates=all`,
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?sendUpdates=all`,
       {
         method: 'POST',
         headers: {
@@ -436,12 +436,6 @@ async function createGoogleCalendarEvent(
           start: { dateTime: params.startUtc, timeZone: 'UTC' },
           end: { dateTime: params.endUtc, timeZone: 'UTC' },
           attendees: [{ email: params.guestEmail }],
-          conferenceData: {
-            createRequest: {
-              requestId: params.assessmentId,
-              conferenceSolutionKey: { type: 'hangoutsMeet' },
-            },
-          },
           extendedProperties: {
             private: {
               assessmentId: params.assessmentId,
@@ -467,23 +461,11 @@ async function createGoogleCalendarEvent(
     const data = (await response.json()) as {
       id: string
       htmlLink?: string
-      hangoutLink?: string
-      conferenceData?: {
-        entryPoints?: Array<{ entryPointType: string; uri: string }>
-      }
-    }
-
-    // Extract Meet URL from conferenceData or hangoutLink
-    let meetUrl: string | null = data.hangoutLink ?? null
-    if (!meetUrl && data.conferenceData?.entryPoints) {
-      const videoEntry = data.conferenceData.entryPoints.find((ep) => ep.entryPointType === 'video')
-      if (videoEntry) meetUrl = videoEntry.uri
     }
 
     return {
       eventId: data.id,
       htmlLink: data.htmlLink ?? null,
-      meetUrl,
     }
   } finally {
     clearTimeout(timeout)

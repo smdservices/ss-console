@@ -300,7 +300,7 @@ export interface BookingConfirmationEmailInput {
   businessName: string
   /** Localized slot label, e.g., "Tuesday, April 14 at 9:00 AM (Phoenix)". */
   slotLabel: string
-  /** Google Meet URL or null if Meet creation failed. */
+  /** Video call URL (e.g. Zoom personal meeting link). */
   meetUrl: string | null
   manageUrl: string
   meetingLabel: string
@@ -341,7 +341,7 @@ export function bookingConfirmationEmailHtml(input: BookingConfirmationEmailInpu
               <p style="font-size:13px;color:#1e40af;margin:0 0 8px;font-weight:600;">Join the call</p>
               <a href="${escapeBookingHtml(input.meetUrl)}" style="font-size:14px;color:#1e40af;word-break:break-all;">${escapeBookingHtml(input.meetUrl)}</a>
             </div>`
-          : `<p style="font-size:13px;color:#64748b;margin:0 0 24px;">We'll send the video call link shortly.</p>`
+          : ''
       }
 
       <p style="font-size:14px;color:#334155;margin:0 0 8px;">
