@@ -25,6 +25,7 @@ pages_build_output_dir = "dist"
 APP_BASE_URL = "https://smd.services"
 PORTAL_BASE_URL = "https://portal.smd.services"
 PUBLIC_TURNSTILE_SITE_KEY = ""
+MEETING_URL = "https://zoom.us/j/4284801619"
 
 # ---------- D1 (structured data) ----------
 [[d1_databases]]

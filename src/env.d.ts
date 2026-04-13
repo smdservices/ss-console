@@ -62,6 +62,8 @@ type CfEnv = {
   BOOKING_ENCRYPTION_KEY?: string
   /** Cloudflare Turnstile secret key (paired with PUBLIC_TURNSTILE_SITE_KEY). */
   TURNSTILE_SECRET_KEY?: string
+  /** Static video call URL for booking events (e.g. Zoom personal meeting link). */
+  MEETING_URL?: string
 }
 
 type Runtime = import('@astrojs/cloudflare').Runtime<CfEnv>
