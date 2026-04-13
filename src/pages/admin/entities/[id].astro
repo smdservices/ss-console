@@ -1,5 +1,6 @@
 ---
 import '../../../styles/global.css'
+import { statusBadgeClass } from '../../../lib/ui/status-badge'
 import { getEntity, ENTITY_STAGES } from '../../../lib/db/entities'
 import type { EntityStage } from '../../../lib/db/entities'
 import { listContext, CONTEXT_TYPES } from '../../../lib/db/context'
@@ -179,28 +180,6 @@ function formatDateTime(iso: string): string {
     hour: 'numeric',
     minute: '2-digit',
   })
-}
-
-function statusBadgeClass(status: string): string {
-  const map: Record<string, string> = {
-    scheduled: 'bg-blue-100 text-blue-700',
-    active: 'bg-green-100 text-green-700',
-    completed: 'bg-emerald-100 text-emerald-700',
-    handoff: 'bg-teal-100 text-teal-700',
-    safety_net: 'bg-amber-100 text-amber-700',
-    cancelled: 'bg-slate-100 text-slate-500',
-    draft: 'bg-slate-100 text-slate-600',
-    sent: 'bg-blue-100 text-blue-700',
-    accepted: 'bg-green-100 text-green-700',
-    declined: 'bg-red-100 text-red-700',
-    expired: 'bg-slate-100 text-slate-500',
-    paid: 'bg-green-100 text-green-700',
-    overdue: 'bg-red-100 text-red-700',
-    void: 'bg-slate-100 text-slate-400',
-    disqualified: 'bg-red-100 text-red-600',
-    converted: 'bg-green-100 text-green-700',
-  }
-  return map[status] ?? 'bg-slate-100 text-slate-600'
 }
 
 function parseMetadata(json: string | null): Record<string, unknown> | null {
