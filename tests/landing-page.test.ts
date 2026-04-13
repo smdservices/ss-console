@@ -49,9 +49,10 @@ describe('content integrity', () => {
   it('no dollar amounts published in src/', () => {
     const files = readAllSrcFiles()
     const dollarPattern = /\$[\d,]+/
-    // Exclude internal AI prompts — they contain revenue ranges ($750k-$5M)
-    // for Claude's ICP qualification. These are not client-facing content.
-    const excludeDirs = ['/lead-gen/', '/lib/claude/']
+    // Exclude internal AI prompts (revenue ranges for ICP qualification)
+    // and scorecard context questions (revenue range selector labels).
+    // These are not pricing — they're classification and qualification.
+    const excludeDirs = ['/lead-gen/', '/lib/claude/', '/lib/scorecard/']
     for (const filePath of files) {
       if (excludeDirs.some((d) => filePath.includes(d))) continue
       const content = readFileSync(filePath, 'utf-8')
