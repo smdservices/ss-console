@@ -56,6 +56,9 @@ Output ONLY the subject line and email. No commentary, no markdown fences.`
  * @param assembledContext - Formatted context from assembleEntityContext()
  * @returns The generated outreach email draft
  */
+const MAX_RETRIES = 2
+const RETRY_DELAY_MS = 2_000
+
 export async function generateOutreachDraft(
   apiKey: string,
   entityName: string,
@@ -69,34 +72,60 @@ Business: ${entityName}
 
 ${assembledContext}`
 
-  const response = await fetch(ANTHROPIC_API_URL, {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': ANTHROPIC_VERSION,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
-      system: OUTREACH_SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userPrompt }],
-    }),
+  const body = JSON.stringify({
+    model: MODEL,
+    max_tokens: MAX_TOKENS,
+    system: OUTREACH_SYSTEM_PROMPT,
+    messages: [{ role: 'user', content: userPrompt }],
   })
 
-  if (!response.ok) {
-    const body = await response.text().catch(() => '<unreadable>')
-    throw new Error(`Claude API returned ${response.status}: ${body.slice(0, 200)}`)
+  let lastError: Error | null = null
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      console.log(`[outreach] Retry ${attempt}/${MAX_RETRIES} after transient failure`)
+      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * attempt))
+    }
+
+    try {
+      const response = await fetch(ANTHROPIC_API_URL, {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': ANTHROPIC_VERSION,
+          'content-type': 'application/json',
+        },
+        body,
+      })
+
+      if (response.status >= 500) {
+        const text = await response.text().catch(() => '<unreadable>')
+        lastError = new Error(`Claude API returned ${response.status}: ${text.slice(0, 200)}`)
+        continue
+      }
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => '<unreadable>')
+        throw new Error(`Claude API returned ${response.status}: ${text.slice(0, 200)}`)
+      }
+
+      const result = (await response.json()) as {
+        content?: Array<{ type: string; text?: string }>
+      }
+
+      const textBlock = result?.content?.find((block) => block.type === 'text')
+      if (!textBlock?.text) {
+        throw new Error('Claude API returned empty content for outreach draft')
+      }
+
+      return textBlock.text.trim()
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith('Claude API returned 5')) {
+        lastError = err
+        continue
+      }
+      throw err
+    }
   }
 
-  const result = (await response.json()) as {
-    content?: Array<{ type: string; text?: string }>
-  }
-
-  const textBlock = result?.content?.find((block) => block.type === 'text')
-  if (!textBlock?.text) {
-    throw new Error('Claude API returned empty content for outreach draft')
-  }
-
-  return textBlock.text.trim()
+  throw lastError ?? new Error('Outreach generation failed after retries')
 }
