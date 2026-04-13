@@ -1,5 +1,6 @@
 ---
 import '../../../../../styles/global.css'
+import { statusBadgeClass } from '../../../../../lib/ui/status-badge'
 import { getEntity } from '../../../../../lib/db/entities'
 import { getQuote, QUOTE_STATUSES, VALID_TRANSITIONS } from '../../../../../lib/db/quotes'
 import type { LineItem, QuoteStatus } from '../../../../../lib/db/quotes'
@@ -60,18 +61,6 @@ const depositPct = quote.deposit_pct
 // URL params
 const saved = Astro.url.searchParams.get('saved')
 const error = Astro.url.searchParams.get('error')
-
-function statusBadgeClass(s: string): string {
-  const map: Record<string, string> = {
-    draft: 'bg-slate-100 text-slate-600',
-    sent: 'bg-blue-100 text-blue-700',
-    accepted: 'bg-green-100 text-green-700',
-    declined: 'bg-red-100 text-red-700',
-    expired: 'bg-slate-100 text-slate-500',
-    superseded: 'bg-slate-100 text-slate-400',
-  }
-  return map[s] ?? 'bg-slate-100 text-slate-600'
-}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', {
