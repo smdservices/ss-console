@@ -280,7 +280,18 @@ const contextSubtext = touchpointText
       showSms={Boolean(smsHref)}
       smsHref={smsHref ?? undefined}
       smsLabel={`Text ${consultantFirst}`}
-    />
+    >
+      <form method="POST" action="/api/auth/logout">
+        <button
+          type="submit"
+          aria-label="Sign out"
+          title="Sign out"
+          class="inline-flex items-center justify-center w-9 h-9 rounded-full text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text-primary)] hover:bg-[color:var(--color-primary)]/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2 transition-colors"
+        >
+          <span class="material-symbols-outlined text-[20px]">logout</span>
+        </button>
+      </form>
+    </PortalHeader>
 
     <main class="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
       <!-- Desktop: two-column grid. Mobile: single column, action-first. -->
