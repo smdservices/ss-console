@@ -243,9 +243,10 @@ describe('portal quotes: quote detail page', () => {
 
   it('displays payment terms with deposit and balance', () => {
     const code = source()
-    expect(code).toContain('depositAmount')
-    expect(code).toContain('balanceAmount')
-    expect(code).toContain('Payment Terms')
+    expect(code).toContain('paymentSplitText')
+    expect(code).toContain('depositPctDisplay')
+    expect(code).toContain('balancePctDisplay')
+    expect(code).toContain('at signing')
   })
 
   it('handles 3-milestone payment for 40+ hour engagements', () => {
@@ -258,7 +259,7 @@ describe('portal quotes: quote detail page', () => {
     const code = source()
     expect(code).toContain('/api/portal/quotes/')
     expect(code).toContain('/sow')
-    expect(code).toContain('Download SOW')
+    expect(code).toContain('View the full PDF')
   })
 
   it('shows signing iframe when an open signature request exists', () => {
@@ -275,13 +276,13 @@ describe('portal quotes: quote detail page', () => {
 
   it('shows Review & Sign section for sent quotes', () => {
     const code = source()
-    expect(code).toContain('Review & Sign')
+    expect(code).toContain('Review and sign')
     expect(code).toContain('isSent')
   })
 
   it('shows accepted confirmation state', () => {
     const code = source()
-    expect(code).toContain('Proposal accepted')
+    expect(code).toContain('Signed')
     expect(code).toContain("quote.status === 'accepted'")
   })
 
