@@ -1,5 +1,8 @@
 ---
 import '../../../styles/global.css'
+import PortalHeader from '../../../components/portal/PortalHeader.astro'
+import MoneyDisplay from '../../../components/portal/MoneyDisplay.astro'
+import ConsultantBlock from '../../../components/portal/ConsultantBlock.astro'
 import { getPortalClient } from '../../../lib/portal/session'
 import { getQuoteForEntity } from '../../../lib/db/quotes'
 import type { LineItem } from '../../../lib/db/quotes'
@@ -11,10 +14,14 @@ import {
 import type { ProblemId, LegacyProblemId } from '../../../portal/assessments/extraction-schema'
 
 /**
- * Portal quote detail — shows scope, project price, payment terms, signing.
+ * Portal quote detail — C-hybrid proposal landing.
  *
- * CRITICAL: No hourly breakdown, no per-item pricing (Decision #16).
- * Client sees total project price only, never hours or rates.
+ * Preserves existing SignWell integration. Never exposes hourly breakdown
+ * or per-item pricing (Decision #16). Client sees total project price only.
+ *
+ * TODO(#363): source deliverables and week-by-week schedule from quote
+ * columns once fields land on the quotes table. For now we fall back to
+ * parsed line items and a sensible 3-week default schedule.
  */
 
 const session = Astro.locals.session!
@@ -25,7 +32,6 @@ if (!quoteId) {
   return Astro.redirect('/portal/quotes')
 }
 
-// Resolve client from session
 const portalData = await getPortalClient(env.DB, session.userId)
 if (!portalData) {
   return Astro.redirect('/auth/portal-login?error=no_account')
@@ -33,7 +39,6 @@ if (!portalData) {
 
 const { client } = portalData
 
-// Get quote scoped to this client
 const quote = await getQuoteForEntity(env.DB, client.id, quoteId)
 if (!quote) {
   return Astro.redirect('/portal/quotes')
@@ -45,10 +50,6 @@ const downloadableRevision = sowState.downloadableRevision
 
 const lineItems: LineItem[] = JSON.parse(quote.line_items)
 
-// Helpers
-const formatCurrency = (amount: number) =>
-  `$${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-
 const formatDate = (d: string) =>
   new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
@@ -57,41 +58,45 @@ const getProblemLabel = (problem: string) =>
   LEGACY_PROBLEM_LABELS[problem as LegacyProblemId] ??
   problem
 
-const statusColorMap: Record<string, string> = {
-  sent: 'bg-blue-100 text-blue-800',
-  accepted: 'bg-green-100 text-green-800',
-  declined: 'bg-red-100 text-red-800',
-  expired: 'bg-amber-100 text-amber-800',
-}
-
-const statusLabelMap: Record<string, string> = {
-  sent: 'Pending Review',
-  accepted: 'Accepted',
-  declined: 'Declined',
-  expired: 'Expired',
-}
-
-// Payment terms calculation
-const depositAmount = quote.deposit_amount ?? quote.total_price * quote.deposit_pct
-const balanceAmount = quote.total_price - depositAmount
 const depositPctDisplay = Math.round(quote.deposit_pct * 100)
 const balancePctDisplay = 100 - depositPctDisplay
-
-// Determine if 3-milestone payment (40+ hours — Decision #14)
 const isThreeMilestone = quote.total_hours >= 40
 
-// Expiration
-let expirationText = ''
-if (quote.status === 'sent' && quote.expires_at) {
-  const diffMs = new Date(quote.expires_at).getTime() - Date.now()
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
-  expirationText =
-    diffDays > 0 ? `Expires in ${diffDays} day${diffDays !== 1 ? 's' : ''}` : 'Expired'
-}
+const totalCents = Math.round(quote.total_price * 100)
 
-// SignWell signing
-const hasSow = !!downloadableRevision
+const paymentSplitText = isThreeMilestone
+  ? `${depositPctDisplay}% at signing, balance across milestones.`
+  : `${depositPctDisplay}% at signing, ${balancePctDisplay}% at completion.`
+
+const startWindowText = 'Work begins within two weeks of signing.'
+
+const deliverables = lineItems.map((item) => ({
+  title: getProblemLabel(item.problem),
+  body: item.description ?? '',
+}))
+
+const schedule = [
+  { label: 'Week 1', body: 'We shadow and observe.' },
+  { label: 'Week 2', body: 'We redesign together. You approve every change.' },
+  { label: 'Week 3', body: 'Training and handoff.' },
+]
+
+const engagementTitle = deliverables[0]?.title ?? 'Your engagement'
+const engagementSubtitle =
+  deliverables.length > 1
+    ? `A focused scope across ${deliverables.length} work areas tailored to your operation.`
+    : 'A focused scope of work tailored to your operation.'
+
+const isSigned = quote.status === 'accepted'
 const isSent = quote.status === 'sent'
+const isDeclined = quote.status === 'declined'
+const isExpired = quote.status === 'expired'
+const hasSow = !!downloadableRevision
+const hasActiveSignature = isSent && !!activeSignatureRequest
+const pdfHref = hasSow ? `/api/portal/quotes/${quote.id}/sow` : null
+
+const consultantName = 'Scott Durgan'
+const consultantFirst = consultantName.split(/\s+/)[0]
 ---
 
 <!doctype html>
@@ -105,182 +110,214 @@ const isSent = quote.status === 'sent'
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&family=Inter:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+      rel="stylesheet"
+    />
     <title>Proposal — Portal — SMD Services</title>
   </head>
-  <body class="min-h-screen bg-slate-50">
-    <header class="bg-white border-b border-slate-200">
-      <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <a href="/portal" class="text-lg font-bold text-slate-900 hover:text-slate-700"
-            >SMD Services</a
-          >
-          <span class="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">Portal</span>
-        </div>
-        <div class="flex items-center gap-4">
-          <span class="text-sm text-slate-600 hidden sm:inline">{session.email}</span>
-          <form method="POST" action="/api/auth/logout">
-            <button
-              type="submit"
-              class="text-sm text-slate-500 hover:text-slate-700 transition-colors"
-            >
-              Sign out
-            </button>
-          </form>
-        </div>
-      </div>
-    </header>
+  <body class="min-h-screen bg-[color:var(--color-background)]">
+    <PortalHeader clientName={client.name}>
+      <span class="text-sm text-[color:var(--color-text-secondary)] hidden sm:inline"
+        >{session.email}</span
+      >
+      <form method="POST" action="/api/auth/logout">
+        <button
+          type="submit"
+          class="text-sm text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text-primary)] transition-colors"
+        >
+          Sign out
+        </button>
+      </form>
+    </PortalHeader>
 
-    <main class="max-w-3xl mx-auto px-4 py-6 sm:py-8">
-      <!-- Breadcrumb -->
-      <nav class="mb-6">
-        <ol class="flex items-center gap-2 text-sm text-slate-500">
-          <li><a href="/portal" class="hover:text-slate-700">Dashboard</a></li>
-          <li class="text-slate-300">/</li>
-          <li><a href="/portal/quotes" class="hover:text-slate-700">Proposals</a></li>
-          <li class="text-slate-300">/</li>
-          <li class="text-slate-900 font-medium">Proposal Details</li>
-        </ol>
-      </nav>
-
-      <!-- Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
-        <div class="flex-1">
-          <div class="flex items-center gap-3 mb-1">
-            <h1 class="text-xl sm:text-2xl font-bold text-slate-900">Your Proposal</h1>
+    <main class="max-w-[1120px] mx-auto px-4 sm:px-6 py-8 sm:py-12">
+      <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,720px)_340px] gap-8 lg:gap-16">
+        <!-- Main column -->
+        <section class="min-w-0 space-y-12">
+          <!-- Hero -->
+          <div>
             <span
-              class={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColorMap[quote.status] ?? 'bg-slate-100 text-slate-600'}`}
+              class="inline-flex items-center rounded-full bg-[color:var(--color-meta)]/10 px-3 py-1 text-[13px] leading-[18px] font-medium tracking-[0.01em] text-[color:var(--color-meta)]"
             >
-              {statusLabelMap[quote.status] ?? quote.status}
+              Proposal
             </span>
-          </div>
-          {
-            expirationText && (
-              <p
-                class={`text-sm ${expirationText === 'Expired' ? 'text-red-500' : 'text-amber-500'}`}
-              >
-                {expirationText}
-              </p>
-            )
-          }
-        </div>
-      </div>
-
-      <!-- Scope Table -->
-      <div class="bg-white rounded-lg border border-slate-200 p-5 sm:p-6 mb-6">
-        <h2 class="text-base font-semibold text-slate-900 mb-4">Scope of Work</h2>
-
-        <div class="space-y-4">
-          {
-            lineItems.map((item, index) => (
-              <div class="pb-4 border-b border-slate-100 last:border-0 last:pb-0">
-                <div class="flex items-start gap-3">
-                  <span class="flex-shrink-0 w-6 h-6 bg-slate-100 rounded-full flex items-center justify-center text-xs font-medium text-slate-500">
-                    {index + 1}
-                  </span>
-                  <div>
-                    <p class="text-sm font-medium text-slate-900">
-                      {getProblemLabel(item.problem)}
-                    </p>
-                    {item.description && (
-                      <p class="text-sm text-slate-600 mt-1">{item.description}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))
-          }
-        </div>
-      </div>
-
-      <!-- Project Price -->
-      <div class="bg-white rounded-lg border border-slate-200 p-5 sm:p-6 mb-6">
-        <h2 class="text-base font-semibold text-slate-900 mb-4">Investment</h2>
-
-        <div class="mb-4 pb-4 border-b border-slate-200">
-          <p class="text-sm text-slate-500 mb-1">Project Price</p>
-          <p class="text-2xl sm:text-3xl font-bold text-slate-900">
-            {formatCurrency(quote.total_price)}
-          </p>
-        </div>
-
-        <h3 class="text-sm font-medium text-slate-700 mb-3">Payment Terms</h3>
-
-        {
-          isThreeMilestone ? (
-            <div class="space-y-2 text-sm">
-              <div class="flex justify-between p-3 bg-slate-50 rounded-lg">
-                <span class="text-slate-600">Deposit at signing</span>
-                <span class="font-medium text-slate-900">{formatCurrency(depositAmount)}</span>
-              </div>
-              <div class="flex justify-between p-3 bg-slate-50 rounded-lg">
-                <span class="text-slate-600">Milestone payments</span>
-                <span class="font-medium text-slate-900">{formatCurrency(balanceAmount)}</span>
-              </div>
-              <p class="text-xs text-slate-400 mt-2">
-                Milestone payments are billed as project phases are completed.
-              </p>
-            </div>
-          ) : (
-            <div class="space-y-2 text-sm">
-              <div class="flex justify-between p-3 bg-slate-50 rounded-lg">
-                <span class="text-slate-600">Deposit at signing ({depositPctDisplay}%)</span>
-                <span class="font-medium text-slate-900">{formatCurrency(depositAmount)}</span>
-              </div>
-              <div class="flex justify-between p-3 bg-slate-50 rounded-lg">
-                <span class="text-slate-600">Balance at completion ({balancePctDisplay}%)</span>
-                <span class="font-medium text-slate-900">{formatCurrency(balanceAmount)}</span>
-              </div>
-            </div>
-          )
-        }
-      </div>
-
-      <!-- SOW Download -->
-      {
-        hasSow && (
-          <div class="bg-white rounded-lg border border-slate-200 p-5 sm:p-6 mb-6">
-            <h2 class="text-base font-semibold text-slate-900 mb-3">Statement of Work</h2>
-            <p class="text-sm text-slate-600 mb-4">
-              Download the full Statement of Work for your records.
-            </p>
-            <a
-              href={`/api/portal/quotes/${quote.id}/sow`}
-              class="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors min-h-[44px]"
+            <h1
+              class="mt-5 font-['Plus_Jakarta_Sans'] font-extrabold text-[32px] sm:text-[42px] leading-tight tracking-[-0.02em] text-[color:var(--color-text-primary)]"
             >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-              Download SOW (PDF)
-            </a>
+              {engagementTitle}
+            </h1>
+            <p
+              class="mt-5 text-[18px] leading-[28px] text-[color:var(--color-text-secondary)] max-w-2xl"
+            >
+              {engagementSubtitle}
+            </p>
           </div>
-        )
-      }
 
-      <!-- Signing Section -->
-      {
-        isSent && (
-          <div
-            class="bg-white rounded-lg border border-blue-200 p-5 sm:p-6 mb-6"
-            id="signing-section"
-          >
-            <h2 class="text-base font-semibold text-slate-900 mb-3">Review & Sign</h2>
+          <!-- Mobile action block (hidden on desktop — right rail handles it there) -->
+          <div class="lg:hidden">
+            <div
+              class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-6"
+            >
+              <p
+                class="text-[13px] leading-[18px] font-medium tracking-[0.01em] text-[color:var(--color-text-muted)] uppercase"
+              >
+                Total engagement
+              </p>
+              <div class="mt-2">
+                <MoneyDisplay amountCents={totalCents} size="display" />
+              </div>
+              <p class="mt-3 text-[13px] leading-[18px] text-[color:var(--color-text-secondary)]">
+                {paymentSplitText}
+              </p>
 
-            {activeSignatureRequest ? (
-              <div>
-                <p class="text-sm text-slate-600 mb-4">
-                  Review the statement of work below and sign to get started.
+              {
+                isSigned ? (
+                  <div class="mt-6 flex items-start gap-3 rounded-lg bg-[color:var(--color-complete)]/10 p-4">
+                    <span class="material-symbols-outlined text-[20px] text-[color:var(--color-complete)] mt-0.5">
+                      check_circle
+                    </span>
+                    <div>
+                      <p class="text-sm font-semibold text-[color:var(--color-text-primary)]">
+                        Signed{quote.accepted_at ? ` ${formatDate(quote.accepted_at)}` : ''}.
+                      </p>
+                      <p class="mt-1 text-sm text-[color:var(--color-text-secondary)]">
+                        Here's what happens next: we'll reach out to schedule kickoff.
+                      </p>
+                    </div>
+                  </div>
+                ) : isDeclined ? (
+                  <p class="mt-6 text-sm text-[color:var(--color-text-secondary)]">
+                    This proposal was declined. Text {consultantFirst} if you'd like to talk through
+                    a revision.
+                  </p>
+                ) : isExpired ? (
+                  <p class="mt-6 text-sm text-[color:var(--color-text-secondary)]">
+                    This proposal has expired. Text {consultantFirst} to pick it back up.
+                  </p>
+                ) : hasActiveSignature ? (
+                  <a
+                    href="#sign-surface"
+                    class="mt-6 inline-flex w-full items-center justify-center min-h-[44px] px-6 py-3 rounded-lg bg-[color:var(--color-primary)] hover:bg-[color:var(--color-primary-hover)] text-white text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
+                  >
+                    Review and sign
+                  </a>
+                ) : (
+                  <p class="mt-6 text-sm text-[color:var(--color-text-secondary)]">
+                    Your proposal is being prepared. You'll get an email when it's ready to sign.
+                  </p>
+                )
+              }
+
+              {
+                pdfHref && (
+                  <a
+                    href={pdfHref}
+                    class="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-[color:var(--color-meta)] hover:text-[color:var(--color-primary)] transition-colors"
+                  >
+                    View the full PDF
+                    <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+                  </a>
+                )
+              }
+            </div>
+          </div>
+
+          <!-- What you'll get -->
+          <div class="pt-2">
+            <div class="h-px bg-[color:var(--color-border)] mb-8"></div>
+            <h2
+              class="font-['Plus_Jakarta_Sans'] font-bold text-[22px] leading-[28px] text-[color:var(--color-text-primary)] mb-6"
+            >
+              What you'll get
+            </h2>
+            <ul class="space-y-5">
+              {
+                deliverables.map((d) => (
+                  <li class="flex items-start gap-4">
+                    <span
+                      class="material-symbols-outlined text-[color:var(--color-meta)] mt-0.5"
+                      style="font-variation-settings: 'FILL' 1"
+                    >
+                      check_circle
+                    </span>
+                    <div class="min-w-0">
+                      <p class="text-base font-semibold text-[color:var(--color-text-primary)]">
+                        {d.title}
+                      </p>
+                      {d.body && (
+                        <p class="mt-1 text-[15px] leading-[22px] text-[color:var(--color-text-secondary)]">
+                          {d.body}
+                        </p>
+                      )}
+                    </div>
+                  </li>
+                ))
+              }
+            </ul>
+          </div>
+
+          <!-- How we'll work -->
+          <div class="pt-2">
+            <div class="h-px bg-[color:var(--color-border)] mb-8"></div>
+            <h2
+              class="font-['Plus_Jakarta_Sans'] font-bold text-[22px] leading-[28px] text-[color:var(--color-text-primary)] mb-6"
+            >
+              How we'll work
+            </h2>
+            <div class="space-y-8">
+              {
+                schedule.map((row) => (
+                  <div class="flex gap-4">
+                    <div class="w-[72px] shrink-0">
+                      <span class="text-[13px] leading-[18px] font-semibold tracking-[0.01em] text-[color:var(--color-meta)] uppercase">
+                        {row.label}
+                      </span>
+                    </div>
+                    <p class="flex-1 text-[15px] leading-[22px] text-[color:var(--color-text-secondary)]">
+                      {row.body}
+                    </p>
+                  </div>
+                ))
+              }
+            </div>
+          </div>
+
+          <!-- Terms -->
+          <div class="pt-2">
+            <div class="h-px bg-[color:var(--color-border)] mb-8"></div>
+            <h2
+              class="font-['Plus_Jakarta_Sans'] font-bold text-[22px] leading-[28px] text-[color:var(--color-text-primary)] mb-6"
+            >
+              Terms
+            </h2>
+            <div class="space-y-3 text-[15px] leading-[22px]">
+              <p class="text-[color:var(--color-text-primary)]">
+                <span class="font-semibold">Total:</span>{' '}
+                <MoneyDisplay amountCents={totalCents} size="body" emphasize />
+              </p>
+              <p class="text-[color:var(--color-text-secondary)]">{paymentSplitText}</p>
+              <p class="text-[color:var(--color-text-secondary)]">{startWindowText}</p>
+            </div>
+          </div>
+
+          <!-- Sign surface (anchor target; visible on all sizes when active) -->
+          {
+            hasActiveSignature && (
+              <div id="sign-surface" class="pt-2">
+                <div class="h-px bg-[color:var(--color-border)] mb-8" />
+                <h2 class="font-['Plus_Jakarta_Sans'] font-bold text-[22px] leading-[28px] text-[color:var(--color-text-primary)] mb-4">
+                  Review and sign
+                </h2>
+                <p class="text-[15px] leading-[22px] text-[color:var(--color-text-secondary)] mb-5">
+                  The full Statement of Work is below. Sign when you're ready.
                 </p>
                 <div
-                  class="rounded-lg border border-slate-200 overflow-hidden"
+                  class="rounded-lg border border-[color:var(--color-border)] overflow-hidden bg-[color:var(--color-surface)]"
                   style="min-height: 600px;"
                 >
                   <iframe
-                    src={`https://app.signwell.com/sign/${activeSignatureRequest.provider_request_id}`}
+                    src={`https://app.signwell.com/sign/${activeSignatureRequest!.provider_request_id}`}
                     class="w-full border-0"
                     style="min-height: 600px;"
                     title="Sign Statement of Work"
@@ -288,130 +325,130 @@ const isSent = quote.status === 'sent'
                   />
                 </div>
               </div>
-            ) : (
-              <div class="text-center py-8">
-                <svg
-                  class="w-12 h-12 text-slate-300 mx-auto mb-3"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="1.5"
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <p class="text-slate-600 font-medium">Your proposal is being prepared</p>
-                <p class="text-sm text-slate-400 mt-1">
-                  The signing document is being finalized. You will receive an email when it is
-                  ready.
-                </p>
-              </div>
-            )}
-          </div>
-        )
-      }
+            )
+          }
 
-      <!-- Accepted Confirmation -->
-      {
-        quote.status === 'accepted' && (
-          <div class="bg-green-50 border border-green-200 rounded-lg p-5 sm:p-6 mb-6">
-            <div class="flex items-start gap-3">
-              <svg
-                class="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+          <!-- Consultant block (mobile — above footer; desktop hides here, shown in rail) -->
+          <div class="lg:hidden pt-2">
+            <div class="h-px bg-[color:var(--color-border)] mb-8"></div>
+            <ConsultantBlock
+              name={consultantName}
+              photoUrl={null}
+              role="Your consultant"
+              phone={null}
+            />
+            <p class="mt-4 text-[13px] leading-[18px] text-[color:var(--color-text-muted)]">
+              Text {consultantFirst} with questions.
+            </p>
+          </div>
+
+          <!-- Back link -->
+          <div class="pt-4">
+            <a
+              href="/portal/quotes"
+              class="text-sm text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text-primary)] transition-colors"
+            >
+              Back to proposals
+            </a>
+          </div>
+        </section>
+
+        <!-- Right rail (desktop only) -->
+        <aside class="hidden lg:block">
+          <div class="sticky top-8 space-y-6">
+            <!-- Sign card -->
+            <div
+              class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-6"
+            >
+              <span
+                class="inline-flex items-center rounded-full bg-[color:var(--color-meta)]/10 px-3 py-1 text-[13px] leading-[18px] font-medium tracking-[0.01em] text-[color:var(--color-meta)]"
               >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <div>
-                <p class="font-medium text-green-900">Proposal accepted</p>
-                {quote.accepted_at && (
-                  <p class="text-sm text-green-700 mt-1">
-                    Signed on {formatDate(quote.accepted_at)}
-                  </p>
-                )}
-                <p class="text-sm text-green-700 mt-1">
-                  Our team will be in touch to schedule the kickoff.
+                {
+                  isSigned
+                    ? 'Signed'
+                    : isDeclined
+                      ? 'Declined'
+                      : isExpired
+                        ? 'Expired'
+                        : hasActiveSignature
+                          ? 'Ready to sign'
+                          : 'Being prepared'
+                }
+              </span>
+              <div class="mt-5">
+                <p
+                  class="text-[13px] leading-[18px] font-medium tracking-[0.01em] text-[color:var(--color-text-muted)] uppercase"
+                >
+                  Total engagement
+                </p>
+                <div class="mt-2">
+                  <MoneyDisplay amountCents={totalCents} size="display" />
+                </div>
+                <p class="mt-2 text-[13px] leading-[18px] text-[color:var(--color-text-secondary)]">
+                  {paymentSplitText}
                 </p>
               </div>
+
+              {
+                isSigned ? (
+                  <div class="mt-6 rounded-lg bg-[color:var(--color-complete)]/10 p-4">
+                    <div class="flex items-start gap-3">
+                      <span class="material-symbols-outlined text-[20px] text-[color:var(--color-complete)] mt-0.5">
+                        check_circle
+                      </span>
+                      <div>
+                        <p class="text-sm font-semibold text-[color:var(--color-text-primary)]">
+                          Signed{quote.accepted_at ? ` ${formatDate(quote.accepted_at)}` : ''}.
+                        </p>
+                        <p class="mt-1 text-sm text-[color:var(--color-text-secondary)]">
+                          We'll reach out to schedule kickoff.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : isDeclined || isExpired ? (
+                  <p class="mt-6 text-sm text-[color:var(--color-text-secondary)]">
+                    Text {consultantFirst} to talk through next steps.
+                  </p>
+                ) : hasActiveSignature ? (
+                  <a
+                    href="#sign-surface"
+                    class="mt-6 inline-flex w-full items-center justify-center min-h-[44px] px-6 py-3 rounded-lg bg-[color:var(--color-primary)] hover:bg-[color:var(--color-primary-hover)] text-white text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
+                  >
+                    Review and sign
+                  </a>
+                ) : (
+                  <p class="mt-6 text-sm text-[color:var(--color-text-secondary)]">
+                    Your proposal is being prepared. You'll get an email when it's ready.
+                  </p>
+                )
+              }
+
+              {
+                pdfHref && (
+                  <a
+                    href={pdfHref}
+                    class="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-[color:var(--color-meta)] hover:text-[color:var(--color-primary)] transition-colors"
+                  >
+                    View the full PDF
+                    <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+                  </a>
+                )
+              }
             </div>
-          </div>
-        )
-      }
 
-      <!-- Declined / Expired States -->
-      {
-        quote.status === 'declined' && (
-          <div class="bg-slate-50 border border-slate-200 rounded-lg p-5 sm:p-6 mb-6">
-            <p class="text-sm text-slate-600">
-              This proposal was declined. If you would like to discuss a revised proposal, please
-              reach out to our team.
+            <!-- Consultant card -->
+            <ConsultantBlock
+              name={consultantName}
+              photoUrl={null}
+              role="Your consultant"
+              phone={null}
+            />
+            <p class="text-[13px] leading-[18px] text-[color:var(--color-text-muted)] px-1">
+              Text {consultantFirst} with questions.
             </p>
           </div>
-        )
-      }
-
-      {
-        quote.status === 'expired' && (
-          <div class="bg-amber-50 border border-amber-200 rounded-lg p-5 sm:p-6 mb-6">
-            <p class="text-sm text-amber-800">
-              This proposal has expired. Please reach out to our team if you would like to discuss a
-              new proposal.
-            </p>
-          </div>
-        )
-      }
-
-      <!-- Timeline -->
-      <div class="bg-white rounded-lg border border-slate-200 p-5 sm:p-6 mb-6">
-        <h2 class="text-base font-semibold text-slate-900 mb-4">Timeline</h2>
-        <div class="space-y-3 text-sm">
-          {
-            quote.sent_at && (
-              <div class="flex justify-between">
-                <span class="text-slate-500">Proposal sent</span>
-                <span class="text-slate-900">{formatDate(quote.sent_at)}</span>
-              </div>
-            )
-          }
-          {
-            quote.expires_at && quote.status === 'sent' && (
-              <div class="flex justify-between">
-                <span class="text-slate-500">Expires</span>
-                <span class={expirationText === 'Expired' ? 'text-red-500' : 'text-slate-900'}>
-                  {formatDate(quote.expires_at)}
-                </span>
-              </div>
-            )
-          }
-          {
-            quote.accepted_at && (
-              <div class="flex justify-between">
-                <span class="text-slate-500">Signed</span>
-                <span class="text-green-600 font-medium">{formatDate(quote.accepted_at)}</span>
-              </div>
-            )
-          }
-        </div>
-      </div>
-
-      <!-- Back link -->
-      <div class="pt-2">
-        <a
-          href="/portal/quotes"
-          class="text-sm text-slate-500 hover:text-slate-700 transition-colors"
-        >
-          Back to Proposals
-        </a>
+        </aside>
       </div>
     </main>
   </body>
