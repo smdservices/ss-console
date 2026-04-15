@@ -20,9 +20,9 @@ import type { ProblemId, LegacyProblemId } from '../../../portal/assessments/ext
  * Preserves existing SignWell integration. Never exposes hourly breakdown
  * or per-item pricing (Decision #16). Client sees total project price only.
  *
- * TODO(#363): source deliverables and week-by-week schedule from quote
- * columns once fields land on the quotes table. For now we fall back to
- * parsed line items and a sensible 3-week default schedule.
+ * No schedule, milestones, or activities are rendered here. The signed SOW
+ * is the source of truth for engagement structure. See #377: client-facing
+ * pages must not synthesize commitments the business has not authored.
  */
 
 const session = Astro.locals.session!
@@ -75,12 +75,6 @@ const deliverables = lineItems.map((item) => ({
   title: getProblemLabel(item.problem),
   body: item.description ?? '',
 }))
-
-const schedule = [
-  { label: 'Week 1', body: 'We shadow and observe.' },
-  { label: 'Week 2', body: 'We redesign together. You approve every change.' },
-  { label: 'Week 3', body: 'Training and handoff.' },
-]
 
 const engagementTitle = deliverables[0]?.title ?? 'Your engagement'
 const engagementSubtitle =
@@ -338,32 +332,6 @@ const headerSmsHref = consultantPhone ? `sms:${consultantPhone.replace(/[^+\d]/g
                 ))
               }
             </ul>
-          </div>
-
-          <!-- How we'll work -->
-          <div class="pt-2">
-            <div class="h-px bg-[color:var(--color-border)] mb-8"></div>
-            <h2
-              class="font-['Plus_Jakarta_Sans'] font-bold text-[22px] leading-[28px] text-[color:var(--color-text-primary)] mb-6"
-            >
-              How we'll work
-            </h2>
-            <div class="space-y-8">
-              {
-                schedule.map((row) => (
-                  <div class="flex gap-4">
-                    <div class="w-[72px] shrink-0">
-                      <span class="text-[13px] leading-[18px] font-semibold tracking-[0.01em] text-[color:var(--color-meta)] uppercase">
-                        {row.label}
-                      </span>
-                    </div>
-                    <p class="flex-1 text-[15px] leading-[22px] text-[color:var(--color-text-secondary)]">
-                      {row.body}
-                    </p>
-                  </div>
-                ))
-              }
-            </div>
           </div>
 
           <!-- Terms -->
