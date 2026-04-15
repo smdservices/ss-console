@@ -193,6 +193,12 @@ describe('lifecycle invariant guards', () => {
         assessmentId: 'assess-1',
         lineItems: [{ problem: 'Test', description: 'Test item', estimated_hours: 10 }],
         rate: 150,
+        // #377: send-gating requires authored schedule + deliverables before
+        // a draft quote can transition to 'sent'. The acceptance guard tests
+        // below only care about the 'sent -> accepted' edge, so populate the
+        // minimum that satisfies the gate.
+        schedule: [{ label: 'Test phase', body: 'Test body.' }],
+        deliverables: [{ title: 'Test deliverable', body: 'Test body.' }],
       })
       quoteId = quote.id
 

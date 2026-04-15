@@ -9,6 +9,7 @@
 
 import { buildAppUrl } from '../config/app-url'
 import type { Quote } from '../db/quotes'
+import { getMissingAuthoredContent } from '../db/quotes'
 import type { SOWTemplateProps } from '../pdf/sow-template'
 import {
   createSOWSendAuthorization,
@@ -166,6 +167,19 @@ export async function authorizeAndSendSOW(args: {
   const openRequest = await getOpenSignatureRequestForQuote(db, orgId, quote.id)
   if (openRequest) {
     throw new Error('SOW already sent for signature.')
+  }
+
+  // Send-gating: a draft quote must have authored schedule + deliverables
+  // before it can be sent for signature. Without these the proposal page
+  // would render an empty "How we'll work" / deliverables surface or (pre-#377)
+  // synthesize fabricated commitments. Mirrors the guard in updateQuoteStatus.
+  if (quote.status === 'draft') {
+    const missing = getMissingAuthoredContent(quote)
+    if (missing.length > 0) {
+      throw new Error(
+        `Cannot send quote for signature: missing authored client-facing content (${missing.join(', ')}). Author the schedule and deliverables in the quote builder before sending.`
+      )
+    }
   }
 
   const revision = await getLatestRenderableSOWRevisionForQuote(db, orgId, quote.id)
