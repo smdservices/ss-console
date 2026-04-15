@@ -30,6 +30,12 @@ export interface Quote {
   sent_at: string | null
   expires_at: string | null
   accepted_at: string | null
+  // Authored client-facing content (#377). NULL until populated by the admin.
+  // Render code falls back to rendering nothing — never to synthesized defaults.
+  schedule: string | null // JSON array of ScheduleRow
+  deliverables: string | null // JSON array of DeliverableRow
+  engagement_overview: string | null
+  milestone_label: string | null
   created_at: string
   updated_at: string
 }
@@ -38,6 +44,25 @@ export interface LineItem {
   problem: string
   description: string
   estimated_hours: number
+}
+
+/**
+ * A row in the per-quote "How we'll work" schedule rendered on the proposal
+ * page. Authored by the admin; never synthesized.
+ */
+export interface ScheduleRow {
+  label: string
+  body: string
+}
+
+/**
+ * A row in the per-quote deliverables list rendered on the proposal page and
+ * the SOW PDF "Items" section. Authored by the admin; never derived from line
+ * items at render time.
+ */
+export interface DeliverableRow {
+  title: string
+  body: string
 }
 
 export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'declined' | 'expired' | 'superseded'
@@ -76,12 +101,80 @@ export interface CreateQuoteData {
   lineItems: LineItem[]
   rate: number
   depositPct?: number
+  schedule?: ScheduleRow[]
+  deliverables?: DeliverableRow[]
+  engagementOverview?: string
+  milestoneLabel?: string
 }
 
 export interface UpdateQuoteData {
   lineItems?: LineItem[]
   rate?: number
   depositPct?: number
+  schedule?: ScheduleRow[] | null
+  deliverables?: DeliverableRow[] | null
+  engagementOverview?: string | null
+  milestoneLabel?: string | null
+}
+
+/**
+ * Parse the persisted JSON schedule into typed rows. Returns an empty array
+ * when the column is null, missing, or malformed — callers should treat
+ * "empty" the same as "not authored yet" and render nothing.
+ */
+export function parseSchedule(quote: Pick<Quote, 'schedule'>): ScheduleRow[] {
+  if (!quote.schedule) return []
+  try {
+    const parsed = JSON.parse(quote.schedule)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(
+      (row): row is ScheduleRow =>
+        row != null &&
+        typeof row === 'object' &&
+        typeof row.label === 'string' &&
+        typeof row.body === 'string'
+    )
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Parse the persisted JSON deliverables into typed rows. Returns an empty
+ * array when the column is null, missing, or malformed — see parseSchedule.
+ */
+export function parseDeliverables(quote: Pick<Quote, 'deliverables'>): DeliverableRow[] {
+  if (!quote.deliverables) return []
+  try {
+    const parsed = JSON.parse(quote.deliverables)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(
+      (row): row is DeliverableRow =>
+        row != null &&
+        typeof row === 'object' &&
+        typeof row.title === 'string' &&
+        typeof row.body === 'string'
+    )
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Validate authored client-facing content before a draft quote can be sent.
+ * Returns the list of missing fields; empty array means the quote is ready
+ * to send. See #377: a quote without authored schedule + deliverables would
+ * be re-rendered with synthesized commitments downstream.
+ */
+export function getMissingAuthoredContent(quote: Quote): string[] {
+  const missing: string[] = []
+  if (parseSchedule(quote).length === 0) {
+    missing.push('schedule')
+  }
+  if (parseDeliverables(quote).length === 0) {
+    missing.push('deliverables')
+  }
+  return missing
 }
 
 /**
@@ -145,10 +238,17 @@ export async function createQuote(
   const depositPct = data.depositPct ?? 0.5
   const depositAmount = totalPrice * depositPct
 
+  const scheduleJson =
+    data.schedule && data.schedule.length > 0 ? JSON.stringify(data.schedule) : null
+  const deliverablesJson =
+    data.deliverables && data.deliverables.length > 0 ? JSON.stringify(data.deliverables) : null
+  const engagementOverview = data.engagementOverview ?? null
+  const milestoneLabel = data.milestoneLabel ?? null
+
   await db
     .prepare(
-      `INSERT INTO quotes (id, org_id, entity_id, assessment_id, version, line_items, total_hours, rate, total_price, deposit_pct, deposit_amount, status, created_at, updated_at)
-     VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, 'draft', ?, ?)`
+      `INSERT INTO quotes (id, org_id, entity_id, assessment_id, version, line_items, total_hours, rate, total_price, deposit_pct, deposit_amount, status, schedule, deliverables, engagement_overview, milestone_label, created_at, updated_at)
+     VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       id,
@@ -161,6 +261,10 @@ export async function createQuote(
       totalPrice,
       depositPct,
       depositAmount,
+      scheduleJson,
+      deliverablesJson,
+      engagementOverview,
+      milestoneLabel,
       now,
       now
     )
@@ -214,6 +318,30 @@ export async function updateQuote(
     params.push(data.depositPct)
   }
 
+  if (data.schedule !== undefined) {
+    fields.push('schedule = ?')
+    params.push(data.schedule && data.schedule.length > 0 ? JSON.stringify(data.schedule) : null)
+  }
+
+  if (data.deliverables !== undefined) {
+    fields.push('deliverables = ?')
+    params.push(
+      data.deliverables && data.deliverables.length > 0 ? JSON.stringify(data.deliverables) : null
+    )
+  }
+
+  if (data.engagementOverview !== undefined) {
+    fields.push('engagement_overview = ?')
+    const trimmed = data.engagementOverview?.trim() ?? null
+    params.push(trimmed && trimmed.length > 0 ? trimmed : null)
+  }
+
+  if (data.milestoneLabel !== undefined) {
+    fields.push('milestone_label = ?')
+    const trimmed = data.milestoneLabel?.trim() ?? null
+    params.push(trimmed && trimmed.length > 0 ? trimmed : null)
+  }
+
   // Recalculate totals if line items or rate changed
   if (lineItems !== undefined || rate !== undefined) {
     const effectiveItems = lineItems ?? (JSON.parse(existing.line_items) as LineItem[])
@@ -239,7 +367,15 @@ export async function updateQuote(
     return existing
   }
 
-  if (data.lineItems !== undefined || data.rate !== undefined || data.depositPct !== undefined) {
+  if (
+    data.lineItems !== undefined ||
+    data.rate !== undefined ||
+    data.depositPct !== undefined ||
+    data.schedule !== undefined ||
+    data.deliverables !== undefined ||
+    data.engagementOverview !== undefined ||
+    data.milestoneLabel !== undefined
+  ) {
     fields.push('version = version + 1')
   }
 
@@ -331,6 +467,18 @@ export async function updateQuoteStatus(
 
   const updates: string[] = ['status = ?']
   const params: (string | number | null)[] = [newStatus]
+
+  // Send-gating: a draft quote can only be sent once schedule + deliverables
+  // are authored. Without these, downstream rendering would either show empty
+  // sections or (pre-#377) synthesize fabricated content. See #377.
+  if (newStatus === 'sent') {
+    const missing = getMissingAuthoredContent(existing)
+    if (missing.length > 0) {
+      throw new Error(
+        `Cannot send quote: missing authored client-facing content (${missing.join(', ')}). Author the schedule and deliverables in the quote builder before sending.`
+      )
+    }
+  }
 
   if (newStatus === 'sent' && !existing.sent_at) {
     const sentAt = new Date()

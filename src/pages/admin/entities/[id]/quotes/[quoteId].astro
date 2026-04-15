@@ -2,8 +2,20 @@
 import AdminLayout from '../../../../../layouts/AdminLayout.astro'
 import { statusBadgeClass } from '../../../../../lib/ui/status-badge'
 import { getEntity } from '../../../../../lib/db/entities'
-import { getQuote, QUOTE_STATUSES, VALID_TRANSITIONS } from '../../../../../lib/db/quotes'
-import type { LineItem, QuoteStatus } from '../../../../../lib/db/quotes'
+import {
+  getQuote,
+  parseSchedule,
+  parseDeliverables,
+  getMissingAuthoredContent,
+  QUOTE_STATUSES,
+  VALID_TRANSITIONS,
+} from '../../../../../lib/db/quotes'
+import type {
+  LineItem,
+  QuoteStatus,
+  ScheduleRow,
+  DeliverableRow,
+} from '../../../../../lib/db/quotes'
 import { listContacts } from '../../../../../lib/db/contacts'
 import { getSOWStateForQuote } from '../../../../../lib/sow/service'
 
@@ -40,6 +52,13 @@ const status = quote.status as QuoteStatus
 const validTransitions = VALID_TRANSITIONS[status] ?? []
 const isDraft = status === 'draft'
 const isTerminal = validTransitions.length === 0
+
+// Authored client-facing content (#377). NULL/empty until populated.
+const schedule: ScheduleRow[] = parseSchedule(quote)
+const deliverables: DeliverableRow[] = parseDeliverables(quote)
+const engagementOverview = quote.engagement_overview ?? ''
+const milestoneLabel = quote.milestone_label ?? ''
+const missingAuthored = getMissingAuthoredContent(quote)
 
 const sowState = await getSOWStateForQuote(env.DB, session.orgId, quoteId)
 const latestSowRevision = sowState.latestRevision
@@ -323,6 +342,217 @@ function formatCurrency(amount: number): string {
     </div>
   </div>
 
+  {/* Authored client-facing content (#377) */}
+  <div class="bg-white rounded-lg border border-slate-200 p-6 mb-6">
+    <div class="flex items-start justify-between mb-1">
+      <h3 class="text-lg font-semibold text-slate-900">Client-facing content</h3>
+      {
+        missingAuthored.length > 0 ? (
+          <span class="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-medium">
+            Required to send: {missingAuthored.join(', ')}
+          </span>
+        ) : (
+          <span class="text-xs px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-medium">
+            Ready to send
+          </span>
+        )
+      }
+    </div>
+    <p class="text-sm text-slate-500 mb-5">
+      Authored per engagement. Renders on the client proposal page and SOW PDF. Quotes cannot be
+      sent until the schedule and deliverables are populated.
+    </p>
+
+    {/* Schedule */}
+    <div class="mb-6">
+      <div class="flex items-center justify-between mb-2">
+        <label class="text-sm font-semibold text-slate-700"> How we'll work (schedule) </label>
+        {
+          isDraft && (
+            <button
+              type="button"
+              id="add-schedule-row-btn"
+              class="text-xs text-primary hover:text-primary-hover transition-colors font-medium"
+            >
+              + Add row
+            </button>
+          )
+        }
+      </div>
+      <p class="text-xs text-slate-500 mb-2">
+        One row per phase. The label sits in the left gutter (e.g. "Discovery", "Build").
+      </p>
+      <div id="schedule-rows" data-empty-text="No schedule rows authored yet.">
+        {
+          schedule.length === 0 ? (
+            <div class="text-sm text-slate-500 italic py-2 schedule-empty-state">
+              No schedule rows authored yet.
+            </div>
+          ) : (
+            schedule.map((row) => (
+              <div class="flex gap-2 mb-2 schedule-row">
+                {isDraft ? (
+                  <>
+                    <input
+                      type="text"
+                      class="w-32 border border-slate-200 rounded px-2 py-1 text-sm schedule-label"
+                      value={row.label}
+                      placeholder="Label"
+                    />
+                    <input
+                      type="text"
+                      class="flex-1 border border-slate-200 rounded px-2 py-1 text-sm schedule-body"
+                      value={row.body}
+                      placeholder="What happens in this phase"
+                    />
+                    <button
+                      type="button"
+                      class="text-slate-400 hover:text-red-500 transition-colors remove-schedule-row-btn px-2"
+                      title="Remove"
+                    >
+                      &times;
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span class="w-32 text-sm font-medium text-slate-600">{row.label}</span>
+                    <span class="flex-1 text-sm text-slate-700">{row.body}</span>
+                  </>
+                )}
+              </div>
+            ))
+          )
+        }
+      </div>
+    </div>
+
+    {/* Deliverables */}
+    <div class="mb-6">
+      <div class="flex items-center justify-between mb-2">
+        <label class="text-sm font-semibold text-slate-700"> What you'll get (deliverables) </label>
+        {
+          isDraft && (
+            <button
+              type="button"
+              id="add-deliverable-row-btn"
+              class="text-xs text-primary hover:text-primary-hover transition-colors font-medium"
+            >
+              + Add row
+            </button>
+          )
+        }
+      </div>
+      <p class="text-xs text-slate-500 mb-2">
+        Authored deliverables replace the line-item-derived list on the proposal page.
+      </p>
+      <div id="deliverable-rows" data-empty-text="No deliverables authored yet.">
+        {
+          deliverables.length === 0 ? (
+            <div class="text-sm text-slate-500 italic py-2 deliverable-empty-state">
+              No deliverables authored yet.
+            </div>
+          ) : (
+            deliverables.map((row) => (
+              <div class="mb-3 deliverable-row">
+                {isDraft ? (
+                  <div class="flex gap-2">
+                    <div class="flex-1 space-y-1">
+                      <input
+                        type="text"
+                        class="w-full border border-slate-200 rounded px-2 py-1 text-sm deliverable-title"
+                        value={row.title}
+                        placeholder="Title"
+                      />
+                      <textarea
+                        class="w-full border border-slate-200 rounded px-2 py-1 text-sm deliverable-body"
+                        rows="2"
+                        placeholder="Description"
+                      >
+                        {row.body}
+                      </textarea>
+                    </div>
+                    <button
+                      type="button"
+                      class="text-slate-400 hover:text-red-500 transition-colors remove-deliverable-row-btn px-2"
+                      title="Remove"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <p class="text-sm font-semibold text-slate-700">{row.title}</p>
+                    <p class="text-sm text-slate-600">{row.body}</p>
+                  </div>
+                )}
+              </div>
+            ))
+          )
+        }
+      </div>
+    </div>
+
+    {/* Engagement overview (SOW PDF) */}
+    <div class="mb-6">
+      <label
+        class="block text-sm font-semibold text-slate-700 mb-1"
+        for="engagement-overview-input"
+      >
+        Engagement overview (SOW PDF)
+      </label>
+      <p class="text-xs text-slate-500 mb-2">
+        Renders on the SOW PDF "Engagement overview" page. Required before generating the SOW PDF.
+      </p>
+      {
+        isDraft ? (
+          <textarea
+            id="engagement-overview-input"
+            class="w-full border border-slate-200 rounded px-3 py-2 text-sm"
+            rows="3"
+            placeholder="What this engagement is about, in one or two sentences."
+          >
+            {engagementOverview}
+          </textarea>
+        ) : (
+          <p class="text-sm text-slate-700 whitespace-pre-wrap">
+            {engagementOverview || <span class="italic text-slate-400">Not authored.</span>}
+          </p>
+        )
+      }
+    </div>
+
+    {/* Milestone label (three-milestone only) */}
+    {
+      isThreeMilestone && (
+        <div class="mb-2">
+          <label
+            class="block text-sm font-semibold text-slate-700 mb-1"
+            for="milestone-label-input"
+          >
+            Mid-engagement milestone label
+          </label>
+          <p class="text-xs text-slate-500 mb-2">
+            Per-engagement label for the 30% mid-engagement milestone (e.g. "First-pass review",
+            "Pilot rollout"). Optional; the SOW renders neutral wording when empty.
+          </p>
+          {isDraft ? (
+            <input
+              id="milestone-label-input"
+              type="text"
+              class="w-full border border-slate-200 rounded px-3 py-2 text-sm"
+              value={milestoneLabel}
+              placeholder="Optional label for the mid-engagement milestone"
+            />
+          ) : (
+            <p class="text-sm text-slate-700">
+              {milestoneLabel || <span class="italic text-slate-400">Not authored.</span>}
+            </p>
+          )}
+        </div>
+      )
+    }
+  </div>
+
   {/* SOW PDF Status */}
   {
     hasSow && (
@@ -360,6 +590,30 @@ function formatCurrency(amount: number): string {
               name="deposit_pct"
               id="save-deposit-pct"
               value={String(depositPct)}
+            />
+            <input
+              type="hidden"
+              name="schedule"
+              id="save-schedule"
+              value={JSON.stringify(schedule)}
+            />
+            <input
+              type="hidden"
+              name="deliverables"
+              id="save-deliverables"
+              value={JSON.stringify(deliverables)}
+            />
+            <input
+              type="hidden"
+              name="engagement_overview"
+              id="save-engagement-overview"
+              value={engagementOverview}
+            />
+            <input
+              type="hidden"
+              name="milestone_label"
+              id="save-milestone-label"
+              value={milestoneLabel}
             />
             <button
               type="submit"
@@ -467,6 +721,16 @@ function formatCurrency(amount: number): string {
       const depositSelect = document.getElementById('deposit-pct-select')
       const saveLineItemsInput = document.getElementById('save-line-items')
       const saveDepositPctInput = document.getElementById('save-deposit-pct')
+      const saveScheduleInput = document.getElementById('save-schedule')
+      const saveDeliverablesInput = document.getElementById('save-deliverables')
+      const saveEngagementOverviewInput = document.getElementById('save-engagement-overview')
+      const saveMilestoneLabelInput = document.getElementById('save-milestone-label')
+      const scheduleRowsContainer = document.getElementById('schedule-rows')
+      const deliverableRowsContainer = document.getElementById('deliverable-rows')
+      const addScheduleRowBtn = document.getElementById('add-schedule-row-btn')
+      const addDeliverableRowBtn = document.getElementById('add-deliverable-row-btn')
+      const engagementOverviewInput = document.getElementById('engagement-overview-input')
+      const milestoneLabelInput = document.getElementById('milestone-label-input')
       const generatePdfBtn = document.getElementById('generate-pdf-btn')
       const signBtn = document.getElementById('sign-btn')
 
@@ -535,6 +799,127 @@ function formatCurrency(amount: number): string {
         renumberRows()
       }
 
+      // ---- Authored client-facing content (#377) ----
+
+      function clearEmptyState(container) {
+        if (!container) return
+        const empty = container.querySelector('.schedule-empty-state, .deliverable-empty-state')
+        if (empty) empty.remove()
+      }
+
+      function maybeShowEmptyState(container, isDeliverable) {
+        if (!container) return
+        const rows = container.querySelectorAll(
+          isDeliverable ? '.deliverable-row' : '.schedule-row'
+        )
+        if (rows.length === 0) {
+          const div = document.createElement('div')
+          div.className =
+            'text-sm text-slate-500 italic py-2 ' +
+            (isDeliverable ? 'deliverable-empty-state' : 'schedule-empty-state')
+          div.textContent = container.getAttribute('data-empty-text') ?? ''
+          container.appendChild(div)
+        }
+      }
+
+      function getScheduleRows() {
+        if (!scheduleRowsContainer) return []
+        const rows = scheduleRowsContainer.querySelectorAll('.schedule-row')
+        const out = []
+        rows.forEach((row) => {
+          const label = row.querySelector('.schedule-label')?.value?.trim() ?? ''
+          const bodyText = row.querySelector('.schedule-body')?.value?.trim() ?? ''
+          if (label.length > 0 || bodyText.length > 0) {
+            out.push({ label, body: bodyText })
+          }
+        })
+        return out
+      }
+
+      function getDeliverableRows() {
+        if (!deliverableRowsContainer) return []
+        const rows = deliverableRowsContainer.querySelectorAll('.deliverable-row')
+        const out = []
+        rows.forEach((row) => {
+          const title = row.querySelector('.deliverable-title')?.value?.trim() ?? ''
+          const bodyText = row.querySelector('.deliverable-body')?.value?.trim() ?? ''
+          if (title.length > 0 || bodyText.length > 0) {
+            out.push({ title, body: bodyText })
+          }
+        })
+        return out
+      }
+
+      function syncAuthoredContentInputs() {
+        if (saveScheduleInput) saveScheduleInput.value = JSON.stringify(getScheduleRows())
+        if (saveDeliverablesInput) {
+          saveDeliverablesInput.value = JSON.stringify(getDeliverableRows())
+        }
+        if (saveEngagementOverviewInput && engagementOverviewInput) {
+          saveEngagementOverviewInput.value = engagementOverviewInput.value
+        }
+        if (saveMilestoneLabelInput && milestoneLabelInput) {
+          saveMilestoneLabelInput.value = milestoneLabelInput.value
+        }
+      }
+
+      function addScheduleRow() {
+        if (!scheduleRowsContainer) return
+        clearEmptyState(scheduleRowsContainer)
+        const div = document.createElement('div')
+        div.className = 'flex gap-2 mb-2 schedule-row'
+        div.innerHTML = `
+          <input type="text" class="w-32 border border-slate-200 rounded px-2 py-1 text-sm schedule-label" placeholder="Label" />
+          <input type="text" class="flex-1 border border-slate-200 rounded px-2 py-1 text-sm schedule-body" placeholder="What happens in this phase" />
+          <button type="button" class="text-slate-400 hover:text-red-500 transition-colors remove-schedule-row-btn px-2" title="Remove">&times;</button>
+        `
+        scheduleRowsContainer.appendChild(div)
+      }
+
+      function addDeliverableRow() {
+        if (!deliverableRowsContainer) return
+        clearEmptyState(deliverableRowsContainer)
+        const div = document.createElement('div')
+        div.className = 'mb-3 deliverable-row'
+        div.innerHTML = `
+          <div class="flex gap-2">
+            <div class="flex-1 space-y-1">
+              <input type="text" class="w-full border border-slate-200 rounded px-2 py-1 text-sm deliverable-title" placeholder="Title" />
+              <textarea class="w-full border border-slate-200 rounded px-2 py-1 text-sm deliverable-body" rows="2" placeholder="Description"></textarea>
+            </div>
+            <button type="button" class="text-slate-400 hover:text-red-500 transition-colors remove-deliverable-row-btn px-2" title="Remove">&times;</button>
+          </div>
+        `
+        deliverableRowsContainer.appendChild(div)
+      }
+
+      if (addScheduleRowBtn) addScheduleRowBtn.addEventListener('click', addScheduleRow)
+      if (addDeliverableRowBtn) addDeliverableRowBtn.addEventListener('click', addDeliverableRow)
+
+      if (scheduleRowsContainer) {
+        scheduleRowsContainer.addEventListener('click', (e) => {
+          if (e.target.classList.contains('remove-schedule-row-btn')) {
+            const row = e.target.closest('.schedule-row')
+            if (row) {
+              row.remove()
+              maybeShowEmptyState(scheduleRowsContainer, false)
+            }
+          }
+        })
+      }
+
+      if (deliverableRowsContainer) {
+        deliverableRowsContainer.addEventListener('click', (e) => {
+          if (e.target.classList.contains('remove-deliverable-row-btn')) {
+            const row = e.target.closest('.deliverable-row')
+            if (row) {
+              row.remove()
+              maybeShowEmptyState(deliverableRowsContainer, true)
+            }
+          }
+        })
+      }
+
       function renumberRows() {
         const rows = body.querySelectorAll('.line-item-row')
         rows.forEach((row, i) => {
@@ -584,11 +969,12 @@ function formatCurrency(amount: number): string {
       body.addEventListener('input', recalculate)
       if (depositSelect) depositSelect.addEventListener('change', recalculate)
 
-      // Before form submit, sync line items to hidden field
+      // Before form submit, sync line items + authored content to hidden fields
       const saveForm = document.getElementById('save-form')
       if (saveForm) {
         saveForm.addEventListener('submit', () => {
           recalculate()
+          syncAuthoredContentInputs()
         })
       }
 

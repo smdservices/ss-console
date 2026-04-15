@@ -4,8 +4,8 @@ import PortalHeader from '../../../components/portal/PortalHeader.astro'
 import MoneyDisplay from '../../../components/portal/MoneyDisplay.astro'
 import ConsultantBlock from '../../../components/portal/ConsultantBlock.astro'
 import { getPortalClient } from '../../../lib/portal/session'
-import { getQuoteForEntity } from '../../../lib/db/quotes'
-import type { LineItem } from '../../../lib/db/quotes'
+import { getQuoteForEntity, parseSchedule, parseDeliverables } from '../../../lib/db/quotes'
+import type { LineItem, ScheduleRow, DeliverableRow } from '../../../lib/db/quotes'
 import { getSOWStateForQuote } from '../../../lib/sow/service'
 import { resolveProposalState } from '../../../lib/portal/states'
 import {
@@ -20,9 +20,11 @@ import type { ProblemId, LegacyProblemId } from '../../../portal/assessments/ext
  * Preserves existing SignWell integration. Never exposes hourly breakdown
  * or per-item pricing (Decision #16). Client sees total project price only.
  *
- * No schedule, milestones, or activities are rendered here. The signed SOW
- * is the source of truth for engagement structure. See #377: client-facing
- * pages must not synthesize commitments the business has not authored.
+ * "How we'll work" and deliverables are rendered ONLY when authored on the
+ * quote (`quotes.schedule`, `quotes.deliverables`). When either field is null
+ * or empty the section renders nothing — never a synthesized default. See
+ * #377 and the empty-state pattern: missing data is missing data, not an
+ * invitation to invent commitments.
  */
 
 const session = Astro.locals.session!
@@ -71,10 +73,23 @@ const paymentSplitText = isThreeMilestone
 
 const startWindowText = 'Work begins within two weeks of signing.'
 
-const deliverables = lineItems.map((item) => ({
-  title: getProblemLabel(item.problem),
-  body: item.description ?? '',
-}))
+// Deliverables prefer the authored `quotes.deliverables` rows. If none have
+// been authored we fall back to deriving from line items so legacy quotes
+// (pre-#377) keep rendering a list. The send-gate added in this issue
+// prevents NEW quotes from going out without authored deliverables; the
+// fallback exists only for the migration window. TODO(#377-followon):
+// once existing quotes have been backfilled or marked, drop the fallback
+// and require authored deliverables on every visible quote.
+const authoredDeliverables: DeliverableRow[] = parseDeliverables(quote)
+const schedule: ScheduleRow[] = parseSchedule(quote)
+
+const deliverables: DeliverableRow[] =
+  authoredDeliverables.length > 0
+    ? authoredDeliverables
+    : lineItems.map((item) => ({
+        title: getProblemLabel(item.problem),
+        body: item.description ?? '',
+      }))
 
 const engagementTitle = deliverables[0]?.title ?? 'Your engagement'
 const engagementSubtitle =
@@ -333,6 +348,32 @@ const headerSmsHref = consultantPhone ? `sms:${consultantPhone.replace(/[^+\d]/g
               }
             </ul>
           </div>
+
+          <!-- How we'll work (only when authored — never synthesized; #377) -->
+          {
+            schedule.length > 0 && (
+              <div class="pt-2">
+                <div class="h-px bg-[color:var(--color-border)] mb-8" />
+                <h2 class="font-['Plus_Jakarta_Sans'] font-bold text-[22px] leading-[28px] text-[color:var(--color-text-primary)] mb-6">
+                  How we'll work
+                </h2>
+                <div class="space-y-8">
+                  {schedule.map((row) => (
+                    <div class="flex gap-4">
+                      <div class="w-[72px] shrink-0">
+                        <span class="text-[13px] leading-[18px] font-semibold tracking-[0.01em] text-[color:var(--color-meta)] uppercase">
+                          {row.label}
+                        </span>
+                      </div>
+                      <p class="flex-1 text-[15px] leading-[22px] text-[color:var(--color-text-secondary)]">
+                        {row.body}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          }
 
           <!-- Terms -->
           <div class="pt-2">
