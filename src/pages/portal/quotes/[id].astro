@@ -1,6 +1,7 @@
 ---
 import '../../../styles/global.css'
 import PortalHeader from '../../../components/portal/PortalHeader.astro'
+import PortalTabs from '../../../components/portal/PortalTabs.astro'
 import SkipToMain from '../../../components/SkipToMain.astro'
 import MoneyDisplay from '../../../components/portal/MoneyDisplay.astro'
 import ConsultantBlock from '../../../components/portal/ConsultantBlock.astro'
@@ -208,7 +209,13 @@ const consultantPhone = engagement?.consultant_phone ?? null
       </form>
     </PortalHeader>
 
-    <main id="main" role="main" class="max-w-[1120px] mx-auto px-4 sm:px-6 py-8 sm:py-12">
+    <PortalTabs pathname={Astro.url.pathname} />
+
+    <main
+      id="main"
+      role="main"
+      class="max-w-[1120px] mx-auto px-4 sm:px-6 py-8 sm:py-12 pb-24 md:pb-12"
+    >
       <a
         href="/portal/quotes"
         aria-label="All quotes"

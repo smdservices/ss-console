@@ -5,6 +5,7 @@ import { getPortalClient } from '../../../lib/portal/session'
 import { listInvoicesForEntity, INVOICE_STATUSES } from '../../../lib/db/invoices'
 import type { Invoice } from '../../../lib/db/invoices'
 import PortalHeader from '../../../components/portal/PortalHeader.astro'
+import PortalTabs from '../../../components/portal/PortalTabs.astro'
 import SkipToMain from '../../../components/SkipToMain.astro'
 
 /**
@@ -90,7 +91,9 @@ function formatDate(iso: string | null): string {
       </form>
     </PortalHeader>
 
-    <main id="main" role="main" class="max-w-5xl mx-auto px-4 py-8">
+    <PortalTabs pathname={Astro.url.pathname} />
+
+    <main id="main" role="main" class="max-w-5xl mx-auto px-4 py-8 pb-24 md:pb-8">
       <a
         href="/portal"
         aria-label="Home"
@@ -100,7 +103,7 @@ function formatDate(iso: string | null): string {
         Home
       </a>
 
-      <h2 class="text-xl font-semibold text-slate-900 mb-6">Invoices</h2>
+      <h1 class="text-xl font-semibold text-slate-900 mb-6">Invoices</h1>
 
       {
         invoices.length === 0 ? (

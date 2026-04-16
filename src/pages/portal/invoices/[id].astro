@@ -8,6 +8,7 @@ import {
   type InvoiceLineItem,
 } from '../../../lib/db/invoices'
 import PortalHeader from '../../../components/portal/PortalHeader.astro'
+import PortalTabs from '../../../components/portal/PortalTabs.astro'
 import SkipToMain from '../../../components/SkipToMain.astro'
 import MoneyDisplay from '../../../components/portal/MoneyDisplay.astro'
 import ActionCard from '../../../components/portal/ActionCard.astro'
@@ -235,7 +236,9 @@ const consultantFirstName = consultantName
       </form>
     </PortalHeader>
 
-    <main id="main" role="main" class="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+    <PortalTabs pathname={Astro.url.pathname} />
+
+    <main id="main" role="main" class="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12 pb-24 md:pb-12">
       <a
         href="/portal/invoices"
         aria-label="All invoices"

@@ -7,6 +7,7 @@ import { listEngagements } from '../../../lib/db/engagements'
 import { listMilestones } from '../../../lib/db/milestones'
 import type { Milestone } from '../../../lib/db/milestones'
 import PortalHeader from '../../../components/portal/PortalHeader.astro'
+import PortalTabs from '../../../components/portal/PortalTabs.astro'
 import SkipToMain from '../../../components/SkipToMain.astro'
 
 /**
@@ -96,7 +97,9 @@ function formatDate(iso: string | null): string {
       </form>
     </PortalHeader>
 
-    <main id="main" role="main" class="max-w-5xl mx-auto px-4 py-8">
+    <PortalTabs pathname={Astro.url.pathname} />
+
+    <main id="main" role="main" class="max-w-5xl mx-auto px-4 py-8 pb-24 md:pb-8">
       <a
         href="/portal"
         aria-label="Home"
@@ -106,7 +109,7 @@ function formatDate(iso: string | null): string {
         Home
       </a>
 
-      <h2 class="text-xl font-semibold text-slate-900 mb-6">Engagement Progress</h2>
+      <h1 class="text-xl font-semibold text-slate-900 mb-6">Engagement Progress</h1>
 
       {
         !engagement ? (
@@ -120,7 +123,7 @@ function formatDate(iso: string | null): string {
             {/* Status and Timeline */}
             <div class="bg-white rounded-lg border border-slate-200 p-6">
               <div class="flex items-center justify-between mb-4">
-                <h3 class="text-base font-semibold text-slate-900">Overview</h3>
+                <h2 class="text-base font-semibold text-slate-900">Overview</h2>
                 <span
                   class={`text-sm font-medium px-3 py-1 rounded-full ${CLIENT_STATUS_COLORS[engagement.status] ?? 'bg-slate-100 text-slate-600'}`}
                 >
@@ -142,7 +145,7 @@ function formatDate(iso: string | null): string {
                   <p class="font-medium text-slate-900">{formatDate(engagement.estimated_end)}</p>
                 </div>
                 <div>
-                  <span class="text-slate-500">Current Phase</span>
+                  <span class="text-slate-500">Current Milestone</span>
                   <p class="font-medium text-slate-900">
                     {CLIENT_STATUS_LABELS[engagement.status] ?? engagement.status}
                   </p>
@@ -152,7 +155,7 @@ function formatDate(iso: string | null): string {
 
             {/* Milestones */}
             <div class="bg-white rounded-lg border border-slate-200 p-6">
-              <h3 class="text-base font-semibold text-slate-900 mb-4">Milestones</h3>
+              <h2 class="text-base font-semibold text-slate-900 mb-4">Milestones</h2>
 
               {milestones.length === 0 ? (
                 <p class="text-sm text-slate-500">
