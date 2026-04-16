@@ -6,6 +6,7 @@ import { listDocuments } from '../../../lib/storage/r2'
 import { getPortalClient } from '../../../lib/portal/session'
 import { getSOWStateForQuote } from '../../../lib/sow/service'
 import PortalHeader from '../../../components/portal/PortalHeader.astro'
+import PortalTabs from '../../../components/portal/PortalTabs.astro'
 import SkipToMain from '../../../components/SkipToMain.astro'
 
 /**
@@ -112,7 +113,9 @@ function formatDate(iso: string): string {
       </form>
     </PortalHeader>
 
-    <main id="main" role="main" class="max-w-5xl mx-auto px-4 py-8">
+    <PortalTabs pathname={Astro.url.pathname} />
+
+    <main id="main" role="main" class="max-w-5xl mx-auto px-4 py-8 pb-24 md:pb-8">
       <a
         href="/portal"
         aria-label="Home"
@@ -122,7 +125,7 @@ function formatDate(iso: string): string {
         Home
       </a>
 
-      <h2 class="text-xl font-semibold text-slate-900 mb-6">Documents</h2>
+      <h1 class="text-xl font-semibold text-slate-900 mb-6">Documents</h1>
 
       {
         documents.length === 0 ? (

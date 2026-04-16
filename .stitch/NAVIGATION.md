@@ -1,16 +1,19 @@
 ---
-spec-version: 2
-nav-spec-skill-version: 2.0.0
+spec-version: 3.1
+nav-spec-skill-version: 3.0.0
+evidence-mode: provisional
+provisional-review-date: '2026-07-16'
 design-md-sha: absent
 stitch-project-id: '17873719980790683333'
 phase-0-compliance:
   categorical: '93%'
   strict: '87%'
   date: '2026-04-15'
-enforcement: 'injection-first + required validator (nav-spec/validate.py R1–R24)'
-approval-state: 'v2 authoring complete; audit findings drive follow-up PRs'
+enforcement: 'injection-first + required validator (nav-spec/validate.py R1–R26)'
+approval-state: 'v3 authoring complete; R25 fired on session-auth-client/dashboard — see §4.4 for migration decision'
 injection-budgets:
-  session-auth-client/dashboard/mobile/hub-and-spoke: { essential: 482, extended: 287, total: 769 }
+  session-auth-client/dashboard/mobile/persistent-tabs:
+    { essential: 482, extended: 287, total: 769 }
   session-auth-client/list/mobile/master-detail: { essential: 421, extended: 156, total: 577 }
   session-auth-client/detail/mobile/master-detail: { essential: 437, extended: 218, total: 655 }
   session-auth-admin/dashboard/desktop/hub-and-spoke-tabs:
@@ -44,6 +47,51 @@ revisions:
           'v1 §9 → v2 §11',
           'v1 §10 → merged into v2 §12',
           'v1 §11 (refactor checklist) → archived',
+        ],
+    }
+  - {
+      from: 2.0,
+      to: 3.0,
+      date: '2026-04-16',
+      kind: 'v2→v3 migration',
+      added:
+        [
+          'evidence_source + return_locus columns on §1.4 task table (session-auth-client)',
+          'Section 4.4 decision-log format (chosen + runner-up + defense + algorithm inputs)',
+          'evidence-mode front matter (provisional, review-date 2026-07-16)',
+          'Pattern Fitness enforcement (R25) + Authoring-direction lint (R26)',
+        ],
+      pattern-changes:
+        [
+          'session-auth-client/dashboard: hub-and-spoke → persistent-tabs. R25 D1 fired: 2 of 3 top-by-frequency tasks (pay-invoice, review-sign-proposal) have return_locus=external (Stripe, SignWell), contradicting NN/g §1.1 hub-return premise.',
+        ],
+      remediation-pending: [],
+    }
+  - {
+      from: 3.0,
+      to: 3.1,
+      date: '2026-04-16',
+      kind: 'portal chrome migration',
+      added:
+        [
+          'src/components/portal/PortalTabs.astro (persistent nav affordance)',
+          'Persistent tabs wired into all 7 portal surfaces',
+        ],
+      changed:
+        [
+          'Matrix rows in §3.2: Mechanism "Section card" → "Persistent nav"; Pattern "Hub-and-spoke" → "Persistent-tabs"',
+          'Task-to-surface mapping in §1.4.1: "section card on home" entries → "persistent nav" tab labels',
+          'Appendix C.1.1: section-card grid requirement → persistent-tabs requirement',
+          'C.2: "Global nav tabs forbidden" rescinded for portal (tabs are the pattern)',
+          'Front-matter injection-budgets key: .../hub-and-spoke → .../persistent-tabs',
+          'Section card grid removed from src/pages/portal/index.astro',
+          'List page primary headings promoted from <h2> to <h1> (quotes, invoices, documents, engagement)',
+          'Engagement page: sub-section <h3> demoted to <h2> to preserve hierarchy',
+        ],
+      taxonomy-fixes:
+        [
+          '"Project price" → "Engagement price" (src/pages/portal/quotes/index.astro)',
+          '"Current Phase" → "Current Milestone" (src/pages/portal/engagement/index.astro)',
         ],
     }
 ---
@@ -95,14 +143,18 @@ Entry exclusively via email deep-link. No prior session assumed.
 
 ### 1.4 Surface class: `session-auth-client` (portal)
 
-**Primary tasks** (ranked by frequency × criticality):
+**Tasks (v3 — required columns: evidence_source, return_locus, return_locus_evidence):**
 
-1. **Pay a pending invoice** — trigger: email received; completion: Stripe payment confirmed; frequency: 1–5 per engagement; criticality: blocking
-2. **Review and sign a proposal** — trigger: email received; completion: SignWell signature; frequency: 1–3 per engagement; criticality: blocking
-3. **See what's happening** — trigger: weekly check-in; completion: scan of Recent Activity; frequency: weekly; criticality: medium
-4. **Find a document** — trigger: user wants a specific deliverable; completion: document open/downloaded; frequency: weekly (active), rare (post); criticality: medium
-5. **Check engagement progress** — trigger: milestone review; completion: status scanned; frequency: weekly; criticality: medium
-6. **Contact consultant** — trigger: ad hoc question; completion: message sent via preferred channel; frequency: variable; criticality: high (trust)
+| Task                 | Frequency | Criticality | Evidence source                                                                 | return_locus         | return_locus_evidence                                                                                                                        |
+| -------------------- | --------- | ----------- | ------------------------------------------------------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pay invoice          | high      | blocking    | `provisional:SOW-scope` (deposit / milestone payment structure per SOW §4)      | external             | vendor URL `https://checkout.stripe.com/*` — Stripe-hosted checkout terminates externally per SOW §4.2                                       |
+| Review/sign proposal | high      | blocking    | `provisional:SOW-scope` (proposal-to-signed-engagement gate per SOW §3)         | external             | vendor URL `https://app.signwell.com/*` — SignWell signing flow terminates externally per SOW §3.1                                           |
+| See what's happening | high      | medium      | `provisional:design-hypothesis` (engagement visibility is core product promise) | hub                  | redirect_to /portal cited: src/pages/portal/index.astro:332 (login-landing renders Recent Activity at `/portal`; structural evidence type 1) |
+| Find document        | medium    | medium      | `provisional:SOW-scope` (deliverable retention per SOW §2.3)                    | last-visited-surface | no auto-return after download; user remains on document list                                                                                 |
+| Check progress       | medium    | medium      | `provisional:design-hypothesis` (milestone visibility is core product promise)  | hub                  | redirect_to /portal cited: src/pages/portal/engagement/index.astro:101 (back button returns to hub; structural evidence type 1)              |
+| Contact consultant   | variable  | high        | `provisional:SOW-scope` (support commitments per SOW §6)                        | external             | mailto/tel/sms schemes (unambiguous vendor terminals)                                                                                        |
+
+**Evidence-mode note.** All primary-task evidence sources are `provisional:*` because SMD Services is pre-launch (no shipped product, no user analytics, no support tickets). Per `evidence-mode: provisional` in the front matter, these citations are accepted. The provisional-review-date (2026-07-16) gates revalidation within 90 days of first client. On post-launch migration to `evidence-mode: validated`, each task must re-source against real evidence (SOW hashes, analytics events, interview transcripts, ticket IDs).
 
 **Secondary tasks:**
 
@@ -112,16 +164,16 @@ Entry exclusively via email deep-link. No prior session assumed.
 
 ### 1.4.1 Task-to-surface mapping (portal)
 
-| Task                  | Primary surface         | Surfaces touched                                  | Entry point                |
-| --------------------- | ----------------------- | ------------------------------------------------- | -------------------------- |
-| Pay invoice           | `/portal/invoices/[id]` | home → list → detail → Stripe                     | Email, home ActionCard     |
-| Review/sign proposal  | `/portal/quotes/[id]`   | home → list → detail → SignWell                   | Email, home timeline entry |
-| See what's happening  | `/portal`               | home                                              | Login, bookmark            |
-| Find document         | `/portal/documents`     | home → section card → list → document             | Section card on home       |
-| Check progress        | `/portal/engagement`    | home → section card → engagement                  | Section card on home       |
-| Contact consultant    | any                     | three-icon contact control in header + right rail | Header icons               |
-| Review past proposals | `/portal/quotes`        | home → section card → list                        | Section card on home       |
-| Review past invoices  | `/portal/invoices`      | home → section card → list                        | Section card on home       |
+| Task                  | Primary surface         | Surfaces touched                                  | Entry point                    |
+| --------------------- | ----------------------- | ------------------------------------------------- | ------------------------------ |
+| Pay invoice           | `/portal/invoices/[id]` | home → list → detail → Stripe                     | Email, home ActionCard         |
+| Review/sign proposal  | `/portal/quotes/[id]`   | home → list → detail → SignWell                   | Email, home timeline entry     |
+| See what's happening  | `/portal`               | home                                              | Login, bookmark                |
+| Find document         | `/portal/documents`     | home → tab → list → document                      | Documents tab (persistent nav) |
+| Check progress        | `/portal/engagement`    | home → tab → engagement                           | Progress tab (persistent nav)  |
+| Contact consultant    | any                     | three-icon contact control in header + right rail | Header icons                   |
+| Review past proposals | `/portal/quotes`        | home → tab → list                                 | Proposals tab (persistent nav) |
+| Review past invoices  | `/portal/invoices`      | home → tab → list                                 | Invoices tab (persistent nav)  |
 
 ### 1.5 Surface class: `session-auth-admin`
 
@@ -257,26 +309,26 @@ The central IA artifact. Declares which destinations are reachable from which su
 | `/auth/portal-login` (form)                      | `/auth/verify`                          | Magic-link submit           | Yes                               | —                       |
 | `/auth/verify` (transient)                       | `/portal`                               | Success redirect            | Yes                               | —                       |
 | `/auth/verify` (transient)                       | `/auth/portal-login`                    | Failure fallback            | Yes                               | Recovery-path           |
-| `/portal` (dashboard)                            | `/portal/quotes`                        | Section card                | Yes                               | Hub-and-spoke           |
-| `/portal` (dashboard)                            | `/portal/invoices`                      | Section card                | Yes                               | Hub-and-spoke           |
-| `/portal` (dashboard)                            | `/portal/documents`                     | Section card                | Yes                               | Hub-and-spoke           |
-| `/portal` (dashboard)                            | `/portal/engagement`                    | Section card                | Yes                               | Hub-and-spoke           |
+| `/portal` (dashboard)                            | `/portal/quotes`                        | Persistent nav              | Yes                               | Persistent-tabs         |
+| `/portal` (dashboard)                            | `/portal/invoices`                      | Persistent nav              | Yes                               | Persistent-tabs         |
+| `/portal` (dashboard)                            | `/portal/documents`                     | Persistent nav              | Yes                               | Persistent-tabs         |
+| `/portal` (dashboard)                            | `/portal/engagement`                    | Persistent nav              | Yes                               | Persistent-tabs         |
 | `/portal` (dashboard)                            | `/portal/invoices/[id]`                 | ActionCard                  | Conditional (hasPendingInvoice)   | Dominant-action variant |
 | `/portal` (dashboard)                            | `mailto:<consultant_email>`             | Contact icon                | Conditional (consultant assigned) | Contact-control         |
 | `/portal` (dashboard)                            | `sms:<consultant_phone>`                | Contact icon                | Conditional                       | Contact-control         |
 | `/portal` (dashboard)                            | `tel:<consultant_phone>`                | Contact icon                | Conditional                       | Contact-control         |
 | `/portal` (dashboard)                            | `/api/auth/logout`                      | Logout button               | Yes                               | —                       |
 | `/portal/quotes` (list)                          | `/portal/quotes/[id]`                   | Row click                   | Yes                               | Master-detail           |
-| `/portal/quotes` (list)                          | `/portal`                               | Back button                 | Yes                               | Hub-and-spoke           |
+| `/portal/quotes` (list)                          | `/portal`                               | Persistent nav              | Yes                               | Persistent-tabs         |
 | `/portal/quotes/[id]` (detail)                   | `/portal/quotes`                        | Back button                 | Yes                               | Master-detail           |
 | `/portal/quotes/[id]` (detail)                   | `<signwell>`                            | Review & Sign CTA           | Conditional (status=sent)         | External                |
 | `/portal/invoices` (list)                        | `/portal/invoices/[id]`                 | Row click                   | Yes                               | Master-detail           |
-| `/portal/invoices` (list)                        | `/portal`                               | Back button                 | Yes                               | Hub-and-spoke           |
+| `/portal/invoices` (list)                        | `/portal`                               | Persistent nav              | Yes                               | Persistent-tabs         |
 | `/portal/invoices/[id]` (detail)                 | `/portal/invoices`                      | Back button                 | Yes                               | Master-detail           |
 | `/portal/invoices/[id]` (detail)                 | `<stripe>`                              | Pay Now CTA                 | Conditional (status≠paid)         | External                |
 | `/portal/documents` (list)                       | `/api/portal/documents/[key]`           | Row click                   | Yes                               | Master-detail           |
-| `/portal/documents` (list)                       | `/portal`                               | Back button                 | Yes                               | Hub-and-spoke           |
-| `/portal/engagement` (detail)                    | `/portal`                               | Back button                 | Yes                               | Hub-and-spoke           |
+| `/portal/documents` (list)                       | `/portal`                               | Persistent nav              | Yes                               | Persistent-tabs         |
+| `/portal/engagement` (detail)                    | `/portal`                               | Persistent nav              | Yes                               | Persistent-tabs         |
 | `/admin` (dashboard)                             | `/admin/entities`                       | Nav tab                     | Yes                               | Hub-and-spoke (tabs)    |
 | `/admin` (dashboard)                             | `/admin/follow-ups`                     | Nav tab                     | Yes                               | Hub-and-spoke (tabs)    |
 | `/admin` (dashboard)                             | `/admin/analytics`                      | Nav tab                     | Yes                               | Hub-and-spoke (tabs)    |
@@ -339,19 +391,52 @@ Every `{surface class × archetype}` selects a named pattern from [pattern-catal
 | ------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------- |
 | detail (`/book/manage/[token]`) | Master-detail simplified + Contact-control | Cold email arrival; no back target; three-icon contact control is the primary secondary affordance |
 
-### 4.4 Surface class: `session-auth-client` (portal)
+### 4.4 `session-auth-client × dashboard` — pattern decision (v3 format)
 
-| Archetype                                                                     | Pattern                                                                                   | Rationale                                                                                                                                               |
-| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| dashboard (`/portal`)                                                         | **Hub-and-spoke** (NN/g §1.1) + **Dominant-action variant** + **Recent-activity variant** | Bounded task set (6 primary tasks); user returns to hub between tasks; mobile-first; ActionCard surfaces contextually urgent task when state demands it |
-| list (`/portal/quotes`, `/portal/invoices`, `/portal/documents`)              | Master-detail                                                                             | Back to hub; row click to detail                                                                                                                        |
-| detail (`/portal/quotes/[id]`, `/portal/invoices/[id]`, `/portal/engagement`) | Master-detail with right-rail ActionCard / ConsultantBlock on desktop                     | Primary action (Sign / Pay) prominent; consultant and status alongside                                                                                  |
+**Chosen pattern:** persistent-tabs
+**Runner-up pattern:** hub-and-spoke
+**Defense:** Per §1.4, the top-3-by-frequency tasks are pay-invoice, review-sign-proposal, and see-what's-happening (all frequency=high). Pay-invoice and review-sign-proposal carry `return_locus=external` (Stripe, SignWell) — only see-what's-happening returns to the hub. NN/g's hub-and-spoke definition (catalog §1.1) requires "users return to the hub after completing each task." With 2 of 3 high-frequency tasks exiting externally, R25 D1 disqualifies hub-and-spoke on this surface — the pattern's core premise is contradicted by the task model's declared return_locus distribution.
 
-**Required elements for hub-and-spoke (from catalog §1.1):**
+Persistent-tabs (Material Design 3 §2.2 bottom navigation / §2.5 tabs) satisfies the task model: 4 destinations ≤ 5 (D3 threshold for mobile), `task_ordering=independent` (not mandatory_sequence, so D5 does not fire), and supports the `mid_sequence_switch` hypothesis (users routinely combine "find document" with "check progress" in the same session — `provisional:design-hypothesis`).
 
-- Hub surface with visible entry points to every spoke → Section cards on `/portal` to all 4 sibling lists (enforced by R16)
-- Each spoke has back affordance to canonical hub URL → Back button with href=`/portal` (enforced by R5, R16)
-- No sibling-to-sibling links in base nav (e.g., no link from `/portal/quotes` to `/portal/invoices`)
+**Algorithm inputs (from §1.4 task table + §3 matrix):**
+
+- `destination_count`: 4 (quotes, invoices, documents, engagement)
+- `primary_task_count`: 6 (all with frequency ≥ medium OR criticality = blocking per structural definition)
+- `top-3-by-frequency`: [pay-invoice external, review-sign-proposal external, see-what's-happening hub]
+- `return_locus` counts in top-3: `{ hub: 1, external: 2 }`
+- `task_ordering`: independent
+- `viewport`: mobile (primary); desktop via tabs transform
+
+**R25 disqualifier evaluation (hub-and-spoke):**
+
+- D1 (≥2 of top-3 tasks with return_locus ≠ hub): **FIRES** — 2 tasks (pay-invoice, review-sign-proposal) are external.
+- D2 (destination_count > 7): does not fire (4 ≤ 7).
+
+**R25 disqualifier evaluation (persistent-tabs):**
+
+- D3 (destination_count > 5 AND viewport=mobile): does not fire (4 ≤ 5).
+- D4 (destination_count > 7 AND viewport=desktop): does not fire.
+- D5 (task_ordering = mandatory_sequence): does not fire (independent).
+
+### 4.4.1 `session-auth-client × list` and `session-auth-client × detail`
+
+| Archetype                                                                     | Pattern                                                               | Rationale                                                                                  |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| list (`/portal/quotes`, `/portal/invoices`, `/portal/documents`)              | Master-detail                                                         | Back to parent (hub or tab); row click to detail. Unchanged from v2.                       |
+| detail (`/portal/quotes/[id]`, `/portal/invoices/[id]`, `/portal/engagement`) | Master-detail with right-rail ActionCard / ConsultantBlock on desktop | Primary action (Sign / Pay) prominent; consultant and status alongside. Unchanged from v2. |
+
+**Required elements for persistent-tabs (from pattern-catalog.md §2 + pattern-disqualifiers.md):**
+
+- Persistent nav affordance visible on every portal surface — bottom nav on mobile (Material 3 §2.2), top tabs on desktop (Material 3 §2.5 / HIG Tab bars)
+- 4 labeled destinations: Proposals (`/portal/quotes`), Invoices (`/portal/invoices`), Documents (`/portal/documents`), Progress (`/portal/engagement`)
+- `aria-current="page"` on the active destination
+- Tap target ≥ 44px (mobile)
+- Active indicator per Section 8 state colors
+
+**Implementation migration from v2 hub-and-spoke.** The section-card affordance carried forward from v2 will be replaced by persistent-tabs chrome on every portal surface. Matrix rows in §3.2 with `Mechanism: Section card` will update to `Mechanism: Persistent nav`. See §6 chrome contracts for the tab component specification (the specific component filenames and file-level edit paths are scoped to the follow-up PR and kept out of §1–4 per R26).
+
+**Validation metric (post-migration):** median taps from one portal detail to a sibling section drops from 3 (back → back → tap section card) to 1 (tap destination).
 
 ### 4.5 Surface class: `session-auth-admin`
 
@@ -971,26 +1056,27 @@ Default contract from Section 6. Inside `<main>` above content.
 
 Shipped: `src/components/portal/ConsultantBlock.astro`. Photo placeholder: SVG silhouette per `.stitch/portal-ux-brief.md`.
 
-### C.1.1 Section card grid requirement (R16)
+### C.1.1 Persistent tabs (v3)
 
-Portal home (`/portal`) MUST render section cards to all four sibling list routes: `/portal/quotes`, `/portal/invoices`, `/portal/documents`, `/portal/engagement`. This is the specialization of hub-and-spoke required for this venture. Omission triggers R16 violation.
+Every portal surface MUST render the persistent nav affordance (`src/components/portal/PortalTabs.astro`). Four destinations: Proposals, Invoices, Documents, Progress. Mobile: fixed bottom navigation bar (Material 3 §2.2). Desktop: top tabs rendered below the header band as a sticky row (Material 3 §2.5 / Apple HIG Tab bars). Active destination carries `aria-current="page"`. Omission triggers R17 (pattern conformance) once that rule gains a `persistent-tabs` entry in `PATTERN_REQUIRED_ELEMENTS` (follow-up skill work).
 
-Grid: 1 column mobile (`grid-cols-1`), 2 columns desktop (`md:grid-cols-2`). Placement: in the main column, between hero/eyebrow and Recent Activity.
+Replaces the v2-era section card grid shipped in PR #396. The grid was a hub-and-spoke specialization; v3 (R25 D1 fire) moved portal to persistent-tabs. Section cards were removed from `/portal` because they're redundant with tabs on every surface.
 
 ## C.2 Chrome forbidden
 
 Universal anti-patterns. Additionally:
 
 - Breadcrumbs — never
-- Global nav tabs — never (portal is narrow)
 - Sticky-bottom action bar — primary action in ActionCard above the fold
 - Logo in header — client name identifies context
 
+(Note: v2 forbade "Global nav tabs" on portal. v3 rescinds this: persistent tabs are the pattern on portal per §4.4. Nav tabs remain forbidden on `token-auth` and `public` surfaces.)
+
 ## C.3 Archetype-specific notes
 
-- `dashboard` = `/portal`. No back. Section cards + Recent Activity + right rail (desktop).
-- `list` = `/portal/invoices`, `/portal/quotes`, `/portal/documents`. Back → `/portal`. Filter bar below header.
-- `detail` = `/portal/*/[id]`, `/portal/engagement`. Back → canonical parent. ActionCard mobile-above / desktop-rail.
+- `dashboard` = `/portal`. No back. Persistent tabs (sitewide) + Recent Activity + right rail (desktop).
+- `list` = `/portal/invoices`, `/portal/quotes`, `/portal/documents`. Persistent tabs visible. Back via tab → section home, not a separate back chevron.
+- `detail` = `/portal/*/[id]`, `/portal/engagement`. Persistent tabs visible. Back chevron → canonical parent list. ActionCard mobile-above / desktop-rail.
 - `form` — rare; none currently live. Cancel → origin.
 - `empty` — inside list views; no CTA (user doesn't create these records).
 - `error` — three-icon contact control is recovery.
