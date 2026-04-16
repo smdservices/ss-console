@@ -5,6 +5,7 @@ import { getPortalClient } from '../../../lib/portal/session'
 import { listQuotesForEntity } from '../../../lib/db/quotes'
 import type { Quote } from '../../../lib/db/quotes'
 import PortalHeader from '../../../components/portal/PortalHeader.astro'
+import PortalTabs from '../../../components/portal/PortalTabs.astro'
 import SkipToMain from '../../../components/SkipToMain.astro'
 
 /**
@@ -78,7 +79,9 @@ const statusLabelMap: Record<string, string> = {
       </form>
     </PortalHeader>
 
-    <main id="main" role="main" class="max-w-5xl mx-auto px-4 py-6 sm:py-8">
+    <PortalTabs pathname={Astro.url.pathname} />
+
+    <main id="main" role="main" class="max-w-5xl mx-auto px-4 py-6 sm:py-8 pb-24 md:pb-8">
       <a
         href="/portal"
         aria-label="Home"
@@ -88,7 +91,7 @@ const statusLabelMap: Record<string, string> = {
         Home
       </a>
 
-      <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mb-6">Your Proposals</h2>
+      <h1 class="text-xl sm:text-2xl font-bold text-slate-900 mb-6">Your Proposals</h1>
 
       {
         quotes.length === 0 ? (
@@ -150,7 +153,7 @@ const statusLabelMap: Record<string, string> = {
                       <p class="text-lg font-bold text-slate-900">
                         {formatCurrency(quote.total_price)}
                       </p>
-                      <p class="text-xs text-slate-400">Project price</p>
+                      <p class="text-xs text-slate-400">Engagement price</p>
                     </div>
 
                     {quote.status === 'sent' ? (
