@@ -249,9 +249,24 @@ any file with count ≥ 2.
 - WCAG 2.2 SC 1.3.1 (Info and Relationships, Level A): headings must convey document structure. https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html
 - NN/g on heading hierarchy: "Screen readers and scanning both rely on ordered heading levels to convey structure." https://www.nngroup.com/articles/html-headings/
 
-**Anti-pattern.** None surfaced by the audit at `.stitch/audits/ui-drift-2026-04-16.md` — but detection is a known false-negative for composed headings (a page including `<PortalHeader>` that internally renders an `<h1>` is invisible to the source-level grep). Rule 4 remediation will start with a manual pass over composed headers before the automated gate lands.
+**Anti-pattern.** None found. The audit returns zero in-file skips.
+Composed-component headings were verified manually:
 
-**Detection.** `ui-drift-audit` H-skips column, plus a manual audit of components that render headings internally.
+- Marketing components (`Hero`, `About`, `CaseStudies`, `HowItWorks`,
+  `Pricing`, `ProblemCards`, `WhatYouGet`, `WhoWeHelp`, `FinalCta`):
+  `Hero` emits h1; all other sections emit h2 then h3 where nested. No
+  skip within any component, no skip in `src/pages/index.astro` where
+  they compose together.
+- Portal components (`PortalHeader`, `PortalTabs`, `ActionCard`,
+  `ArtifactChip`, `ConsultantBlock`, `MoneyDisplay`, `TimelineEntry`):
+  none render headings internally, so portal page hierarchy is
+  entirely file-local. Portal pages' own h1/h2/h3 sequences are
+  compliant.
+
+**Detection.** `ui-drift-audit` H-skips column covers in-file hierarchy.
+Composed-component hierarchy is verified by a manual pass when a new
+component that emits headings is added; add the component to the Rule 4
+component-inventory note in this file and re-verify.
 
 ---
 
