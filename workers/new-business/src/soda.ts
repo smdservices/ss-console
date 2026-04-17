@@ -25,22 +25,46 @@ export interface PermitRecord {
   permit_number?: string
 }
 
+export type SodaCity = 'phoenix' | 'scottsdale_licenses' | 'scottsdale_permits' | 'mesa' | 'tempe'
+
 /**
  * Fetch all permits from all sources for the past 7 days.
+ * `enabledCities` (if provided) filters which feeds run — skipped feeds
+ * are not fetched, keeping API quota usage proportional to what's on.
  */
-export async function fetchAllPermits(): Promise<PermitRecord[]> {
+export async function fetchAllPermits(enabledCities?: SodaCity[]): Promise<PermitRecord[]> {
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
   const results: PermitRecord[] = []
+  const allCities: SodaCity[] = [
+    'phoenix',
+    'scottsdale_licenses',
+    'scottsdale_permits',
+    'mesa',
+    'tempe',
+  ]
+  const active = new Set<SodaCity>(enabledCities ?? allCities)
 
-  const fetchers = [
-    { name: 'Phoenix Permits', fn: () => fetchPhoenixPermits(since) },
-    { name: 'Scottsdale Licenses', fn: () => fetchScottsdaleLicenses(since) },
-    { name: 'Scottsdale Permits', fn: () => fetchScottsdalePermits(since) },
-    { name: 'Mesa Permits', fn: () => fetchMesaPermits(since) },
-    { name: 'Tempe Permits', fn: () => fetchTempePermits(since) },
+  const fetchers: Array<{ city: SodaCity; name: string; fn: () => Promise<PermitRecord[]> }> = [
+    { city: 'phoenix', name: 'Phoenix Permits', fn: () => fetchPhoenixPermits(since) },
+    {
+      city: 'scottsdale_licenses',
+      name: 'Scottsdale Licenses',
+      fn: () => fetchScottsdaleLicenses(since),
+    },
+    {
+      city: 'scottsdale_permits',
+      name: 'Scottsdale Permits',
+      fn: () => fetchScottsdalePermits(since),
+    },
+    { city: 'mesa', name: 'Mesa Permits', fn: () => fetchMesaPermits(since) },
+    { city: 'tempe', name: 'Tempe Permits', fn: () => fetchTempePermits(since) },
   ]
 
-  for (const { name, fn } of fetchers) {
+  for (const { city, name, fn } of fetchers) {
+    if (!active.has(city)) {
+      console.log(`${name}: skipped (disabled in config)`)
+      continue
+    }
     try {
       const records = await fn()
       results.push(...records)

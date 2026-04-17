@@ -1,153 +1,163 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro'
+import {
+  getGeneratorConfig,
+  recordGeneratorRun,
+  upsertGeneratorConfig,
+} from '../../../lib/db/generators'
+import {
+  PIPELINE_IDS,
+  PIPELINE_LABELS,
+  VERTICALS,
+  type JobMonitorConfig,
+  type NewBusinessConfig,
+  type PipelineId,
+  type ReviewMiningConfig,
+  type SocialListeningConfig,
+  type Vertical,
+} from '../../../lib/generators/types'
 
 /**
- * Generator detail — per-pipeline inspector.
+ * Generator detail — per-pipeline inspector + editor + Run-now.
  *
- * Read-only in Phase 1. Shows:
- *   - Current parameters (hardcoded in worker source today)
- *   - 30-day signal volume by day
+ * Shows:
+ *   - Edit form (save config, toggle enabled)
+ *   - Last-run status (the liveness indicator)
+ *   - 30-day signal volume
  *   - Last 50 signals with raw metadata JSON expandable
  *
- * Phase 2 will add an edit form above the parameters panel and a Run-now button.
+ * Handles POST actions:
+ *   - save_config: validate + upsert, redirect with banner
+ *   - run_now: invoke worker fetch handler (bearer-authed via LEAD_INGEST_API_KEY)
  *
  * Protected by auth middleware (requires admin role).
  */
 
 const session = Astro.locals.session!
 const env = Astro.locals.runtime.env
-const type = Astro.params.type!
+const type = Astro.params.type as PipelineId
 
-const PIPELINE_DEFS: Record<
-  string,
-  {
-    label: string
-    description: string
-    params: Array<{ label: string; value: string | string[]; note?: string }>
-  }
-> = {
-  new_business: {
-    label: 'New Business Detection',
-    description:
-      'Daily pull from Phoenix-metro permit + license feeds. Claude-Haiku qualifies each record.',
-    params: [
-      {
-        label: 'Data sources',
-        value: [
-          'Phoenix ArcGIS (planning permits) — SCOPE_DESC LIKE "%COMM%"',
-          'Scottsdale ArcGIS (business licenses) — AcctStatus=Active',
-          'Scottsdale ArcGIS (building permits) — permit_type_desc LIKE "%TENANT%"',
-          'Mesa Socrata SODA — permit_type=COM',
-          'Tempe ArcGIS (building permits) — Type LIKE "%Commercial%"',
-        ],
-      },
-      { label: 'Lookback', value: '7 days', note: 'from workers/new-business/src/soda.ts' },
-      { label: 'Target revenue', value: '$750k–$5M', note: 'inlined in LLM prompt' },
-      {
-        label: 'Target verticals',
-        value: [
-          'home_services',
-          'professional_services',
-          'contractor_trades',
-          'healthcare',
-          'technology',
-          'manufacturing',
-          'retail_salon (secondary)',
-          'restaurant_food (secondary)',
-        ],
-      },
-      { label: 'Cron', value: 'Daily 07:00 MST' },
-    ],
-  },
-  job_monitor: {
-    label: 'Job Posting Monitor',
-    description: 'SerpAPI Google Jobs search for operational roles. Claude-Sonnet qualifies.',
-    params: [
-      {
-        label: 'Search queries',
-        value: [
-          'office manager',
-          'operations manager',
-          'dispatcher',
-          'scheduling coordinator',
-          'customer service coordinator',
-          'office administrator',
-          'front desk manager',
-          'service coordinator',
-          'Director of Operations',
-          'IT Manager',
-          'Systems Administrator',
-          'Technology Coordinator',
-        ],
-      },
-      { label: 'Location', value: 'Phoenix, Arizona, United States' },
-      { label: 'Time filter', value: 'date_posted:week' },
-      { label: 'Target revenue', value: '$750k–$5M' },
-      { label: 'Cron', value: 'Daily 06:00 MST' },
-    ],
-  },
-  review_mining: {
-    label: 'Review Mining',
-    description:
-      'Google Places discovery → Outscraper review fetch. Claude scores operational pain.',
-    params: [
-      {
-        label: 'Discovery queries',
-        value: [
-          'plumber Phoenix AZ',
-          'HVAC contractor Phoenix AZ',
-          'electrician Phoenix AZ',
-          'landscaping company Scottsdale AZ',
-          'auto repair shop Phoenix AZ',
-          'dental office Phoenix AZ',
-          'accounting firm Scottsdale AZ',
-          'law firm Phoenix AZ',
-          'cleaning service Phoenix AZ',
-          'roofing contractor Phoenix AZ',
-          'pest control Phoenix AZ',
-          'moving company Phoenix AZ',
-          'veterinary clinic Phoenix AZ',
-          'physical therapy Phoenix AZ',
-        ],
-      },
-      { label: 'Geo center', value: '33.4484, -112.074 (Phoenix)' },
-      { label: 'Geo radius', value: '50 km' },
-      { label: 'Review lookback', value: '7 days' },
-      { label: 'Max review checks per run', value: '50' },
-      { label: 'Pain threshold', value: '>= 7 / 10' },
-      { label: 'Cron', value: 'Weekly Mon 08:00 MST' },
-    ],
-  },
-  social_listening: {
-    label: 'Social Listening',
-    description: 'Reddit search on pain-keyword phrases. Context-only — no entity creation.',
-    params: [
-      {
-        label: 'Search queries',
-        value: [
-          'small business Phoenix operations',
-          'business owner overwhelmed scheduling',
-          'CRM recommendation small business',
-          'hiring office manager Phoenix',
-          'small business spreadsheet chaos',
-        ],
-      },
-      { label: 'Subreddit scope', value: 'all subreddits' },
-      { label: 'Time filter', value: 'past 24h' },
-      { label: 'Post limit', value: '10 per query' },
-      { label: 'Deployment', value: 'Not deployed to production' },
-    ],
-  },
-}
-
-const def = PIPELINE_DEFS[type]
-if (!def) {
+if (!PIPELINE_IDS.includes(type)) {
   return Astro.redirect('/admin/generators?error=not_found')
 }
 
+const PIPELINE_DESCRIPTIONS: Record<PipelineId, string> = {
+  new_business:
+    'Daily pull from Phoenix-metro permit + license feeds. Claude-Haiku qualifies each record.',
+  job_monitor: 'SerpAPI Google Jobs search for operational roles. Claude-Sonnet qualifies.',
+  review_mining:
+    'Google Places discovery → Outscraper review fetch. Claude scores operational pain.',
+  social_listening: 'Reddit search on pain-keyword phrases. Context-only — no entity creation.',
+}
+
+const WORKER_URLS: Record<PipelineId, string | undefined> = {
+  new_business: env.NEW_BUSINESS_WORKER_URL,
+  job_monitor: env.JOB_MONITOR_WORKER_URL,
+  review_mining: env.REVIEW_MINING_WORKER_URL,
+  social_listening: env.SOCIAL_LISTENING_WORKER_URL,
+}
+
 // ---------------------------------------------------------------------------
-// Data: last-50 signals with their most recent signal-type context row
+// POST handlers — save config, run now
 // ---------------------------------------------------------------------------
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  const action = form.get('action')
+
+  if (action === 'save_config') {
+    const config = buildConfigFromForm(type, form)
+    const enabled = form.get('enabled') === 'on'
+    const result = await upsertGeneratorConfig(env.DB, session.orgId, type, config, enabled)
+    if (!result.ok) {
+      const params = new URLSearchParams({ error: result.errors.join(' · ') })
+      return Astro.redirect(`/admin/generators/${type}?${params.toString()}`, 302)
+    }
+    return Astro.redirect(`/admin/generators/${type}?saved=1`, 302)
+  }
+
+  if (action === 'run_now') {
+    const url = WORKER_URLS[type]
+    const key = env.LEAD_INGEST_API_KEY
+    if (!url || !key) {
+      return Astro.redirect(`/admin/generators/${type}?error=run_not_configured`, 302)
+    }
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${key}` },
+      })
+      if (!res.ok) {
+        const params = new URLSearchParams({
+          error: `Worker returned ${res.status}`,
+        })
+        return Astro.redirect(`/admin/generators/${type}?${params.toString()}`, 302)
+      }
+      const summary = (await res.json()) as { written?: number; qualified?: number }
+      const signals = summary.written ?? summary.qualified ?? 0
+      return Astro.redirect(`/admin/generators/${type}?ran=1&signals=${signals}`, 302)
+    } catch (e) {
+      const params = new URLSearchParams({
+        error: e instanceof Error ? e.message : 'Worker unreachable',
+      })
+      return Astro.redirect(`/admin/generators/${type}?${params.toString()}`, 302)
+    }
+  }
+}
+
+function buildConfigFromForm(pipeline: PipelineId, form: FormData): unknown {
+  const target_verticals = form.getAll('target_verticals').map(String) as Vertical[]
+  const revenue_range = {
+    min_usd: Number(form.get('revenue_min_usd')),
+    max_usd: Number(form.get('revenue_max_usd')),
+  }
+  const geos = String(form.get('geos') ?? '')
+    .split('\n')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+
+  switch (pipeline) {
+    case 'new_business': {
+      const sodaCities = ['phoenix', 'scottsdale_licenses', 'scottsdale_permits', 'mesa', 'tempe']
+      const soda_sources = sodaCities.map((city) => ({
+        city,
+        enabled: form.get(`soda_${city}`) === 'on',
+      }))
+      return { target_verticals, revenue_range, geos, soda_sources }
+    }
+    case 'job_monitor':
+    case 'social_listening': {
+      const search_queries = String(form.get('search_queries') ?? '')
+        .split('\n')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+      return { target_verticals, revenue_range, geos, search_queries }
+    }
+    case 'review_mining': {
+      const discovery_queries = String(form.get('discovery_queries') ?? '')
+        .split('\n')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+      return {
+        target_verticals,
+        revenue_range,
+        geos,
+        discovery_queries,
+        geo_center: {
+          lat: Number(form.get('geo_lat')),
+          lon: Number(form.get('geo_lon')),
+        },
+        geo_radius_km: Number(form.get('geo_radius_km')),
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// GET: load config + signals
+// ---------------------------------------------------------------------------
+
+const configRow = await getGeneratorConfig(env.DB, session.orgId, type)
 
 interface SignalRow {
   id: string
@@ -177,8 +187,6 @@ const signals = await env.DB.prepare(
   .bind(session.orgId, type)
   .all<SignalRow>()
 
-// Because LEFT JOIN can produce multiple rows per entity if multiple signal
-// contexts exist, dedupe by entity id keeping the first (latest) context.
 const seen = new Set<string>()
 const signalRows: SignalRow[] = []
 for (const row of signals.results ?? []) {
@@ -186,10 +194,6 @@ for (const row of signals.results ?? []) {
   seen.add(row.id)
   signalRows.push(row)
 }
-
-// ---------------------------------------------------------------------------
-// Data: 30-day volume by day
-// ---------------------------------------------------------------------------
 
 interface DayRow {
   day: string
@@ -223,6 +227,15 @@ function formatDate(iso: string): string {
   })
 }
 
+function formatRelative(iso: string | null): string {
+  if (!iso) return 'Never'
+  const diff = Date.now() - new Date(iso).getTime()
+  const hours = Math.round(diff / (1000 * 60 * 60))
+  if (hours < 1) return 'Just now'
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.round(hours / 24)}d ago`
+}
+
 function prettyJson(raw: string | null): string {
   if (!raw) return ''
   try {
@@ -246,51 +259,342 @@ function tierClass(tier: string | null): string {
       return 'bg-slate-100 text-slate-500'
   }
 }
+
+const nb = configRow.config as NewBusinessConfig
+const jm = configRow.config as JobMonitorConfig
+const rm = configRow.config as ReviewMiningConfig
+const sl = configRow.config as SocialListeningConfig
+
+const url = new URL(Astro.request.url)
+const saved = url.searchParams.get('saved')
+const ran = url.searchParams.get('ran')
+const ranSignals = url.searchParams.get('signals')
+const errorParam = url.searchParams.get('error')
+
+const runConfigured = !!(WORKER_URLS[type] && env.LEAD_INGEST_API_KEY)
 ---
 
 <AdminLayout
-  title={`${def.label} — Generators — SMD Services`}
+  title={`${PIPELINE_LABELS[type]} — Generators — SMD Services`}
   breadcrumbs={[
     { label: 'Dashboard', href: '/admin' },
     { label: 'Generators', href: '/admin/generators' },
-    { label: def.label },
+    { label: PIPELINE_LABELS[type] },
   ]}
 >
   <div class="mb-6">
-    <h2 class="text-xl font-semibold text-slate-900">{def.label}</h2>
-    <p class="text-sm text-slate-600 mt-1">{def.description}</p>
+    <h2 class="text-xl font-semibold text-slate-900">{PIPELINE_LABELS[type]}</h2>
+    <p class="text-sm text-slate-600 mt-1">{PIPELINE_DESCRIPTIONS[type]}</p>
   </div>
 
-  <section aria-labelledby="current-params" class="mb-8">
-    <h3 id="current-params" class="text-base font-semibold text-slate-900 mb-3">
-      Current parameters
-    </h3>
+  {
+    saved && (
+      <div class="mb-6 p-stack bg-green-50 border border-green-200 rounded-lg">
+        <p class="text-sm text-green-800">Configuration saved.</p>
+      </div>
+    )
+  }
+  {
+    ran && (
+      <div class="mb-6 p-stack bg-green-50 border border-green-200 rounded-lg">
+        <p class="text-sm text-green-800">
+          Run complete. {ranSignals} signal{ranSignals === '1' ? '' : 's'} written.
+        </p>
+      </div>
+    )
+  }
+  {
+    errorParam && (
+      <div class="mb-6 p-stack bg-red-50 border border-red-200 rounded-lg">
+        <p class="text-sm text-red-800">
+          {errorParam === 'run_not_configured'
+            ? `Run-now is not configured. Set ${type.toUpperCase()}_WORKER_URL and LEAD_INGEST_API_KEY on this Pages project.`
+            : errorParam}
+        </p>
+      </div>
+    )
+  }
+  {
+    configRow.parseError.length > 0 && (
+      <div class="mb-6 p-stack bg-yellow-50 border border-yellow-200 rounded-lg">
+        <p class="text-sm text-yellow-800 font-medium mb-1">
+          Stored configuration failed validation. Showing defaults.
+        </p>
+        <ul class="text-xs text-yellow-800 list-disc pl-4 space-y-0.5">
+          {configRow.parseError.map((e) => (
+            <li>{e}</li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
+
+  <section aria-labelledby="liveness" class="mb-8">
     <div class="bg-white rounded-lg border border-slate-200 p-card">
-      <p class="text-xs text-slate-500 mb-4">
-        Hardcoded in worker source. Editable configuration lands in Phase 2.
-      </p>
-      <dl class="grid grid-cols-1 gap-stack text-sm">
-        {
-          def.params.map((p) => (
-            <div class="grid grid-cols-[9rem_1fr] gap-4">
-              <dt class="text-slate-500 text-xs pt-1">{p.label}</dt>
-              <dd class="text-slate-900">
-                {Array.isArray(p.value) ? (
-                  <ul class="space-y-0.5">
-                    {p.value.map((v) => (
-                      <li class="text-xs font-mono">{v}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <span>{p.value}</span>
-                )}
-                {p.note && <span class="block text-xs text-slate-400 mt-0.5">{p.note}</span>}
-              </dd>
-            </div>
-          ))
-        }
-      </dl>
+      <div class="flex items-center justify-between gap-4 flex-wrap">
+        <div class="flex items-center gap-row">
+          <div
+            class={`w-3 h-3 rounded-full ${configRow.enabled ? 'bg-green-500' : 'bg-slate-300'}`}
+          >
+          </div>
+          <span class="text-sm font-medium text-slate-900">
+            {configRow.enabled ? 'Enabled' : 'Disabled'}
+          </span>
+          <span class="text-xs text-slate-400">·</span>
+          <span class="text-sm text-slate-600">
+            Last run: {formatRelative(configRow.last_run_at)}
+          </span>
+          {
+            configRow.last_run_signals_count !== null && (
+              <>
+                <span class="text-xs text-slate-400">·</span>
+                <span class="text-sm text-slate-600">
+                  {configRow.last_run_signals_count} signal
+                  {configRow.last_run_signals_count === 1 ? '' : 's'}
+                </span>
+              </>
+            )
+          }
+          {
+            configRow.last_run_error && (
+              <>
+                <span class="text-xs text-slate-400">·</span>
+                <span class="text-sm text-red-600">Error: {configRow.last_run_error}</span>
+              </>
+            )
+          }
+        </div>
+        <form method="POST">
+          <input type="hidden" name="action" value="run_now" />
+          <button
+            type="submit"
+            disabled={!runConfigured}
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors"
+            title={runConfigured
+              ? 'Invoke worker now'
+              : 'Worker URL or LEAD_INGEST_API_KEY not set'}
+          >
+            <span class="material-symbols-outlined text-base">play_arrow</span>
+            Run now
+          </button>
+        </form>
+      </div>
     </div>
+  </section>
+
+  <section aria-labelledby="config-form" class="mb-8">
+    <h3 id="config-form" class="text-base font-semibold text-slate-900 mb-3">Configuration</h3>
+    <form method="POST" class="bg-white rounded-lg border border-slate-200 p-card space-y-stack">
+      <input type="hidden" name="action" value="save_config" />
+
+      <div class="flex items-center gap-row">
+        <input
+          type="checkbox"
+          id="enabled"
+          name="enabled"
+          checked={configRow.enabled}
+          class="w-4 h-4 rounded border-slate-300"
+        />
+        <label for="enabled" class="text-sm font-medium text-slate-900">
+          Enabled — when unchecked, worker returns early and writes no signals
+        </label>
+      </div>
+
+      <div>
+        <label class="text-sm font-medium text-slate-900 block mb-2">Target verticals</label>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+          {
+            VERTICALS.map((v) => (
+              <label class="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="target_verticals"
+                  value={v}
+                  checked={(configRow.config as NewBusinessConfig).target_verticals.includes(v)}
+                  class="w-4 h-4 rounded border-slate-300"
+                />
+                <span class="capitalize">{v.replace(/_/g, ' ')}</span>
+              </label>
+            ))
+          }
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label for="revenue_min_usd" class="text-sm font-medium text-slate-900 block mb-1">
+            Revenue min (USD)
+          </label>
+          <input
+            type="number"
+            id="revenue_min_usd"
+            name="revenue_min_usd"
+            value={(configRow.config as NewBusinessConfig).revenue_range.min_usd}
+            min="0"
+            step="50000"
+            class="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label for="revenue_max_usd" class="text-sm font-medium text-slate-900 block mb-1">
+            Revenue max (USD)
+          </label>
+          <input
+            type="number"
+            id="revenue_max_usd"
+            name="revenue_max_usd"
+            value={(configRow.config as NewBusinessConfig).revenue_range.max_usd}
+            min="0"
+            step="50000"
+            class="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label for="geos" class="text-sm font-medium text-slate-900 block mb-1">
+          Geographies <span class="text-xs text-slate-500">(one per line)</span>
+        </label>
+        <textarea
+          id="geos"
+          name="geos"
+          rows="2"
+          class="w-full border border-slate-300 rounded px-3 py-2 text-sm font-mono"
+          >{(configRow.config as NewBusinessConfig).geos.join('\n')}</textarea
+        >
+      </div>
+
+      {
+        type === 'new_business' && (
+          <div>
+            <label class="text-sm font-medium text-slate-900 block mb-2">Data sources</label>
+            <div class="space-y-1">
+              {nb.soda_sources.map((s) => (
+                <label class="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    name={`soda_${s.city}`}
+                    checked={s.enabled}
+                    class="w-4 h-4 rounded border-slate-300"
+                  />
+                  <span class="font-mono text-xs">{s.city.replace(/_/g, ' ')}</span>
+                </label>
+              ))}
+            </div>
+            <p class="text-xs text-slate-500 mt-1">
+              Per-city toggles. Unchecking skips that feed entirely on the next run.
+            </p>
+          </div>
+        )
+      }
+
+      {
+        type === 'job_monitor' && (
+          <div>
+            <label for="search_queries" class="text-sm font-medium text-slate-900 block mb-1">
+              Search queries <span class="text-xs text-slate-500">(one per line)</span>
+            </label>
+            <textarea
+              id="search_queries"
+              name="search_queries"
+              rows="8"
+              class="w-full border border-slate-300 rounded px-3 py-2 text-sm font-mono"
+            >
+              {jm.search_queries.join('\n')}
+            </textarea>
+          </div>
+        )
+      }
+
+      {
+        type === 'review_mining' && (
+          <>
+            <div>
+              <label for="discovery_queries" class="text-sm font-medium text-slate-900 block mb-1">
+                Discovery queries <span class="text-xs text-slate-500">(one per line)</span>
+              </label>
+              <textarea
+                id="discovery_queries"
+                name="discovery_queries"
+                rows="10"
+                class="w-full border border-slate-300 rounded px-3 py-2 text-sm font-mono"
+              >
+                {rm.discovery_queries.join('\n')}
+              </textarea>
+            </div>
+            <div class="grid grid-cols-3 gap-4">
+              <div>
+                <label for="geo_lat" class="text-sm font-medium text-slate-900 block mb-1">
+                  Geo center lat
+                </label>
+                <input
+                  type="number"
+                  id="geo_lat"
+                  name="geo_lat"
+                  value={rm.geo_center.lat}
+                  step="0.0001"
+                  class="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label for="geo_lon" class="text-sm font-medium text-slate-900 block mb-1">
+                  Geo center lon
+                </label>
+                <input
+                  type="number"
+                  id="geo_lon"
+                  name="geo_lon"
+                  value={rm.geo_center.lon}
+                  step="0.0001"
+                  class="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label for="geo_radius_km" class="text-sm font-medium text-slate-900 block mb-1">
+                  Radius (km)
+                </label>
+                <input
+                  type="number"
+                  id="geo_radius_km"
+                  name="geo_radius_km"
+                  value={rm.geo_radius_km}
+                  min="1"
+                  max="500"
+                  class="w-full border border-slate-300 rounded px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+          </>
+        )
+      }
+
+      {
+        type === 'social_listening' && (
+          <div>
+            <label for="search_queries" class="text-sm font-medium text-slate-900 block mb-1">
+              Search queries <span class="text-xs text-slate-500">(one per line)</span>
+            </label>
+            <textarea
+              id="search_queries"
+              name="search_queries"
+              rows="5"
+              class="w-full border border-slate-300 rounded px-3 py-2 text-sm font-mono"
+            >
+              {sl.search_queries.join('\n')}
+            </textarea>
+          </div>
+        )
+      }
+
+      <div>
+        <button
+          type="submit"
+          class="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors"
+        >
+          Save configuration
+        </button>
+      </div>
+    </form>
   </section>
 
   <section aria-labelledby="volume" class="mb-8">

@@ -1,11 +1,17 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro'
+import { listGeneratorConfigs } from '../../../lib/db/generators'
+import { PIPELINE_LABELS, type PipelineId } from '../../../lib/generators/types'
 
 /**
  * Generators index — per-pipeline summary cards.
- * Read-only in Phase 1. Metric rows that are <50% populated are hidden,
- * since most current signals have null pain_score / vertical / etc. and
- * shipping a card dominated by "unknown" undercuts the point of the view.
+ *
+ * Metric rows that are <50% populated are hidden, since most current
+ * signals have null pain_score / vertical / etc. and shipping a card
+ * dominated by "unknown" undercuts the point of the view.
+ *
+ * The enabled state + last-run status come from `generator_config`.
+ * D1 is the source of truth for enabled — not the cron schedule.
  *
  * Protected by auth middleware (requires admin role).
  */
@@ -14,33 +20,31 @@ const session = Astro.locals.session!
 const env = Astro.locals.runtime.env
 
 interface PipelineDef {
-  id: string
-  label: string
+  id: PipelineId
   description: string
 }
 
 const PIPELINES: PipelineDef[] = [
   {
     id: 'new_business',
-    label: 'New Business Detection',
     description: 'Phoenix-metro permit + license feeds (Phoenix, Scottsdale, Mesa, Tempe).',
   },
   {
     id: 'job_monitor',
-    label: 'Job Posting Monitor',
     description: 'SerpAPI Google Jobs search for operational roles (ops manager, dispatcher).',
   },
   {
     id: 'review_mining',
-    label: 'Review Mining',
     description: 'Google Places discovery + Outscraper review fetch, scored for operational pain.',
   },
   {
     id: 'social_listening',
-    label: 'Social Listening',
     description: 'Reddit search across pain-keyword phrases. Currently not deployed.',
   },
 ]
+
+const configRows = await listGeneratorConfigs(env.DB, session.orgId)
+const configByPipeline = Object.fromEntries(configRows.map((r) => [r.pipeline, r]))
 
 interface PipelineMetrics {
   total_signals: number
@@ -135,6 +139,16 @@ function formatRelative(iso: string | null): string {
   return `${days}d ago`
 }
 
+function lastRun(pipelineId: PipelineId): string {
+  const cfg = configByPipeline[pipelineId]
+  if (!cfg) return 'Never run'
+  return formatRelative(cfg.last_run_at)
+}
+
+function isEnabled(pipelineId: PipelineId): boolean {
+  return configByPipeline[pipelineId]?.enabled ?? true
+}
+
 function vlabel(v: string): string {
   return v.replace(/_/g, ' ')
 }
@@ -163,6 +177,7 @@ function vlabel(v: string): string {
         const empPct = coveragePct(m.has_employee_count, m.total_signals)
         const areaPct = coveragePct(m.has_area, m.total_signals)
         const avgPain = painByPipeline[pipeline.id]
+        const enabled = isEnabled(pipeline.id)
 
         return (
           <a
@@ -170,13 +185,19 @@ function vlabel(v: string): string {
             class="block bg-white rounded-lg border border-slate-200 p-card hover:border-slate-300 hover:shadow-sm transition-all"
           >
             <div class="flex items-start justify-between mb-3 gap-2">
-              <div>
-                <h3 class="text-base font-semibold text-slate-900">{pipeline.label}</h3>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 mb-0.5">
+                  <div
+                    class={`w-2 h-2 rounded-full shrink-0 ${enabled ? 'bg-green-500' : 'bg-slate-300'}`}
+                    title={enabled ? 'Enabled' : 'Disabled'}
+                  />
+                  <h3 class="text-base font-semibold text-slate-900 truncate">
+                    {PIPELINE_LABELS[pipeline.id]}
+                  </h3>
+                </div>
                 <p class="text-xs text-slate-500 mt-0.5">{pipeline.description}</p>
               </div>
-              <span class="text-xs text-slate-400 whitespace-nowrap">
-                {formatRelative(m.latest_signal_at)}
-              </span>
+              <span class="text-xs text-slate-400 whitespace-nowrap">{lastRun(pipeline.id)}</span>
             </div>
 
             <dl class="grid grid-cols-2 gap-row text-sm">
