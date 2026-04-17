@@ -271,6 +271,23 @@ export async function updateInvoiceStatus(
     params.push(new Date().toISOString())
   }
 
+  // Send-gate: a draft invoice can only be sent once it has at least one
+  // authored line item. Without line items, the portal "What's included"
+  // section renders empty — and historically fell back to fabricated copy
+  // borrowed from non-authoritative fields. See CLAUDE.md "No fabricated
+  // client-facing content" (#398).
+  if (newStatus === 'sent') {
+    const count = await db
+      .prepare('SELECT COUNT(*) AS c FROM invoice_line_items WHERE invoice_id = ?')
+      .bind(invoiceId)
+      .first<{ c: number }>()
+    if (!count || count.c === 0) {
+      throw new Error(
+        'Cannot send invoice: missing authored line items. Author at least one line item before sending.'
+      )
+    }
+  }
+
   if (newStatus === 'sent' && !existing.sent_at) {
     updates.push('sent_at = ?')
     params.push(new Date().toISOString())

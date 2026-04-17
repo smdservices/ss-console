@@ -511,7 +511,20 @@ export function SOWTemplate(props: SOWTemplateProps) {
           we&apos;ll propose a separate scope and estimate.
         </Text>
 
-        {/* Terms */}
+        {/*
+          Terms are authored template language describing standard engagement
+          mechanics (quote validity, start-date confirmation workflow, the
+          existence of a stabilization period, termination notice). The SOW
+          is a signed contractual document, so this is NOT Pattern A/B
+          fabrication under CLAUDE.md's "no fabricated client-facing content"
+          policy — parallel to CLAUDE.md Rule 3's explicit exemption for
+          signed contracts. See docs/templates/sow-template.md for the full
+          rationale and #398 for the audit that confirmed this read.
+
+          What still matters: no fixed durations (the 2-week stabilization
+          phrasing and the "within 1 business day" SLAs were removed). Per-
+          engagement specifics (scope, pricing, milestones) remain authored.
+        */}
         <Text style={sectionHeadingStyle}>TERMS</Text>
         <View style={{ marginBottom: 16 }}>
           <Text

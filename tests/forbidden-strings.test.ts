@@ -66,6 +66,28 @@ const FORBIDDEN_PATTERNS: Array<{ label: string; pattern: RegExp | string }> = [
     pattern: 'within one business day',
   },
   {
+    label: 'Pattern A: hardcoded "will reach out" consultant outreach promise',
+    // 2026-04-17 audit finding: dashboard fallback rendered
+    // `${consultantFirst} will reach out to schedule the next check-in.` as
+    // fabricated next-step copy when no authored touchpoint existed.
+    pattern: /will reach out/i,
+  },
+  {
+    label: 'Pattern B: synthesized "Kickoff next:" next-step copy',
+    // 2026-04-17 audit finding: signed-state copy synthesized
+    // `Kickoff next: ${engagement.scope_summary}.` when next_touchpoint_label
+    // was missing. scope_summary is not an authored next-step field.
+    pattern: /Kickoff next:/,
+  },
+  {
+    label: 'Pattern B: fabricated "Engagement work" invoice line-item fallback',
+    // 2026-04-17 audit finding: invoice line-item fallback fabricated
+    // 'Engagement work' when no line items existed. Send-gate now blocks
+    // sending an invoice without line items; this guards re-introduction
+    // of a client-facing placeholder.
+    pattern: /['"]Engagement work['"]/,
+  },
+  {
     label: 'Pattern B: hardcoded "Scott" fallback in portal render paths',
     // Match ?? 'Scott' or : 'Scott' (ternary / nullish) in portal pages and components.
     // Does not flag 'Scott' in test fixtures, variable names, or email author strings.

@@ -144,11 +144,10 @@ const typeLabelMap: Record<string, string> = {
   retainer: 'Retainer invoice',
 }
 const invoiceTitle = typeLabelMap[invoice.type] ?? 'Invoice'
-const periodSubtitle = invoice.description
-  ? `For ${invoice.description}`
-  : engagement?.scope_summary
-    ? `For ${engagement.scope_summary}`
-    : null
+// Subtitle comes only from the invoice's own authored description. We never
+// borrow `engagement.scope_summary` — that is an internal operations field,
+// not client-facing authored content. Pattern B per CLAUDE.md (#398).
+const periodSubtitle = invoice.description ? `For ${invoice.description}` : null
 
 const dueCaption = formatDueCaption(invoice.due_date)
 const daysRemaining = daysUntil(invoice.due_date)

@@ -114,6 +114,15 @@ describe('invoices: data layer', () => {
     expect(code).toContain('sent_at')
   })
 
+  it('updateInvoiceStatus send-gate requires at least one line item (#398)', () => {
+    const code = source()
+    // Draft -> sent must count invoice_line_items and throw when none exist.
+    // Mirrors the quote send-gate that prevents sending a quote without
+    // authored schedule + deliverables.
+    expect(code).toContain('SELECT COUNT(*) AS c FROM invoice_line_items')
+    expect(code).toContain('Cannot send invoice: missing authored line items')
+  })
+
   it('exports listInvoicesForEntity for portal access, scoped by entity and org (#399)', () => {
     const code = source()
     expect(code).toContain('export async function listInvoicesForEntity')
