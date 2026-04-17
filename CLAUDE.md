@@ -283,7 +283,34 @@ npm run lint            # Run linter
 npm run typecheck       # TypeScript validation
 npm run verify          # Full verification
 npm run format          # Format with Prettier
+npm run sync:pages-secrets  # Push Infisical /ss secrets to Cloudflare Pages
 ```
+
+## Pages secrets are not persistent by default
+
+**Read before debugging "this secret is empty at runtime".**
+
+Cloudflare Pages treats `wrangler.toml`'s `[vars]` block as the authoritative source of deployment bindings. Every `wrangler pages deploy` run (including every CI deploy from this repo's `.github/workflows/deploy.yml`) silently overrides the deployment's bindings so any secret set via `wrangler pages secret put` or the dashboard reaches the runtime as an **empty string**.
+
+The effect is invisible:
+
+- `RESEND_API_KEY` empty → `src/lib/email/resend.ts` falls back to `console.log`, so magic links and portal invitations stop arriving but the app logs success
+- `ANTHROPIC_API_KEY` empty → Claude calls 401 and look like upstream flakes
+- `LEAD_INGEST_API_KEY` empty → admin "Run now" on `/admin/generators/*` silently disables
+- `BOOKING_ENCRYPTION_KEY` empty → Google Calendar OAuth callback errors out at encryption time
+- `STRIPE_*`, `SIGNWELL_*`, `TURNSTILE_SECRET_KEY`, `GOOGLE_CLIENT_*` all suffer the same fate
+
+**Source of truth is Infisical `/ss` at `env=prod`.** After any Pages deploy, run:
+
+```
+npm run sync:pages-secrets
+```
+
+The script reads every secret at that path and re-binds each to the Pages production deployment via `wrangler pages secret put`. CI does this automatically **only when** the repo var `INFISICAL_SYNC_ENABLED=true` AND the repo secret `INFISICAL_TOKEN` (Infisical machine identity) are set — otherwise the deploy job emits a `::warning::` and the next operator has to run the sync manually.
+
+If you add a new env-backed secret to `src/env.d.ts`, add it to Infisical `/ss` at the same time — otherwise the sync step won't know about it.
+
+Enterprise note: this same gotcha is latent in every Pages project across ventures. See `docs/infra/secrets-management.md` in `crane-console` for the enterprise-level write-up.
 
 ## Instruction Modules
 
