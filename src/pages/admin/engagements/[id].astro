@@ -24,7 +24,7 @@ const entity = await getEntity(env.DB, session.orgId, engagement.entity_id)
 const quote = engagement.quote_id
   ? await getQuote(env.DB, session.orgId, engagement.quote_id)
   : null
-const milestones = await listMilestones(env.DB, engagementId)
+const milestones = await listMilestones(env.DB, session.orgId, engagementId)
 const invoices = await listInvoices(env.DB, session.orgId, { engagementId })
 const contextEntries = await listContext(env.DB, engagement.entity_id, {
   engagement_id: engagementId,
