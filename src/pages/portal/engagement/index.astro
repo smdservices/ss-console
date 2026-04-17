@@ -36,7 +36,7 @@ if (entityId) {
   engagement = engagements.find((e) => e.status !== 'completed' && e.status !== 'cancelled') ?? null
 
   if (engagement) {
-    milestones = await listMilestones(env.DB, engagement.id)
+    milestones = await listMilestones(env.DB, session.orgId, engagement.id)
   }
 }
 

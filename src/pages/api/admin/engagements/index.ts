@@ -86,7 +86,7 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
       const dueDate = dueDates[i]
       const paymentTrigger = paymentTriggers[i]
 
-      await createMilestone(env.DB, engagement.id, {
+      await createMilestone(env.DB, session.orgId, engagement.id, {
         name: name.trim(),
         description:
           description && typeof description === 'string' && description.trim()
