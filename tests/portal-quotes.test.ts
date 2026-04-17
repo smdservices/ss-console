@@ -104,8 +104,8 @@ describe('portal quotes: dashboard', () => {
   it('shows active engagement context', () => {
     const code = source()
     expect(code).toContain('activeEngagement')
-    // Guide voice: "Your engagement is in flight." replaces "Current Engagement".
-    expect(code).toMatch(/engagement is in flight/i)
+    // Guide voice: "Engagement in flight." replaces "Current Engagement".
+    expect(code).toMatch(/engagement in flight/i)
   })
 
   it('surfaces completed milestones in the timeline', () => {
