@@ -13,9 +13,12 @@ import { resolve } from 'path'
  */
 
 const CANONICAL_H1_CLASS = 'text-xl font-semibold text-slate-900 mb-6'
-const CANONICAL_LIST_CONTAINER = 'space-y-3'
+// space-y-row (spacing-row token = 12px, generated from --spacing-row) —
+// replaces the former literal space-y-3 after UI-PATTERNS Rule 6 landed.
+const CANONICAL_LIST_CONTAINER = 'space-y-row'
+// p-stack (spacing-stack = 16px) replaces literal p-4 per Rule 6.
 const CANONICAL_ROW_CARD =
-  'block bg-white rounded-lg border border-slate-200 p-4 hover:border-slate-300 hover:shadow-sm transition-all'
+  'block bg-white rounded-lg border border-slate-200 p-stack hover:border-slate-300 hover:shadow-sm transition-all'
 
 const PAGES = [
   { name: 'Proposals', path: 'src/pages/portal/quotes/index.astro' },

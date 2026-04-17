@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Invoices | Precision Plumbing AZ</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed": "#001453",
+                        "on-tertiary-container": "#3fd298",
+                        "on-tertiary-fixed": "#002113",
+                        "on-secondary-fixed": "#07006c",
+                        "surface-container-high": "#e6e8ea",
+                        "error": "#ba1a1a",
+                        "tertiary": "#003d27",
+                        "on-secondary-fixed-variant": "#2f2ebe",
+                        "surface-variant": "#e0e3e5",
+                        "primary-container": "#1e40af",
+                        "surface-bright": "#f7f9fb",
+                        "on-error": "#ffffff",
+                        "on-primary-container": "#a8b8ff",
+                        "on-background": "#191c1e",
+                        "primary-fixed-dim": "#b8c4ff",
+                        "on-tertiary-fixed-variant": "#005236",
+                        "inverse-primary": "#b8c4ff",
+                        "secondary-container": "#6063ee",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-highest": "#e0e3e5",
+                        "secondary-fixed-dim": "#c0c1ff",
+                        "surface": "#f7f9fb",
+                        "background": "#f7f9fb",
+                        "surface-dim": "#d8dadc",
+                        "error-container": "#ffdad6",
+                        "on-secondary-container": "#fffbff",
+                        "inverse-surface": "#2d3133",
+                        "surface-tint": "#3755c3",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed-dim": "#4edea3",
+                        "tertiary-fixed": "#6ffbbe",
+                        "on-surface-variant": "#444653",
+                        "surface-container": "#eceef0",
+                        "outline-variant": "#c4c5d5",
+                        "on-primary-fixed-variant": "#173bab",
+                        "secondary": "#4648d4",
+                        "primary": "#00288e",
+                        "secondary-fixed": "#e1e0ff",
+                        "outline": "#757684",
+                        "surface-container-low": "#f2f4f6",
+                        "on-secondary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "tertiary-container": "#00563a",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed": "#dde1ff",
+                        "inverse-on-surface": "#eff1f3",
+                        "on-surface": "#191c1e"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .header-anchor { font-family: 'Plus Jakarta Sans', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-[color:var(--color-background)] text-[color:var(--color-text-primary)] min-h-screen flex flex-col">
+<!-- TopAppBar Navigation Shell -->
+<header class="fixed top-0 w-full z-50 bg-slate-50 dark:bg-slate-900 shadow-none">
+<nav class="flex justify-between items-center h-16 px-6 w-full max-w-full">
+<div class="flex items-center gap-stack">
+<span class="text-body font-bold tracking-tight text-slate-900 dark:text-white uppercase font-['Plus_Jakarta_Sans'] antialiased">Precision Plumbing AZ</span>
+</div>
+<div class="flex items-center gap-card">
+<div class="hidden md:flex items-center gap-section">
+<a class="text-slate-500 dark:text-slate-400 text-caption font-medium hover:text-blue-600 dark:hover:text-blue-300 transition-all duration-200" href="#">Proposals</a>
+<a class="text-blue-700 dark:text-blue-400 font-bold text-caption hover:text-blue-600 dark:hover:text-blue-300 transition-all duration-200" href="#">Invoices</a>
+<a class="text-slate-500 dark:text-slate-400 text-caption font-medium hover:text-blue-600 dark:hover:text-blue-300 transition-all duration-200" href="#">Documents</a>
+<a class="text-slate-500 dark:text-slate-400 text-caption font-medium hover:text-blue-600 dark:hover:text-blue-300 transition-all duration-200" href="#">Progress</a>
+</div>
+<button class="text-slate-900 dark:text-white font-['Plus_Jakarta_Sans'] antialiased text-body tracking-tight active:opacity-70 transition-opacity">Sign out</button>
+</div>
+</nav>
+</header>
+<main class="flex-grow pt-24 pb-32 px-6 max-w-4xl mx-auto w-full">
+<!-- Back Affordance -->
+<div class="mb-6">
+<a class="inline-flex items-center gap-1 text-caption font-medium tracking-[0.01em] text-secondary hover:underline transition-all" href="#">
+<span class="material-symbols-outlined text-body">arrow_back</span>
+                Home
+            </a>
+</div>
+<!-- Page Heading -->
+<header class="mb-10">
+<h1 class="text-title font-bold leading-7 text-[color:var(--color-text-primary)] font-body">Invoices</h1>
+</header>
+<!-- Invoices List -->
+<div class="space-y-stack">
+<!-- Entry 1: Completion (Overdue) -->
+<div class="bg-[color:var(--color-surface)] rounded-xl shadow-[0_12px_32px_rgba(30,64,175,0.06)] p-card transition-all border border-transparent hover:border-[color:var(--color-border)]-variant/15">
+<div class="flex justify-between items-center gap-stack">
+<div class="flex flex-col gap-2">
+<div class="flex items-center gap-row">
+<span class="text-body font-medium leading-6 text-[color:var(--color-text-primary)]">Completion</span>
+<span class="px-2.5 py-0.5 rounded-full bg-[color:var(--color-error)]/10 text-white-container text-label font-semibold uppercase tracking-[0.08em]">Overdue</span>
+</div>
+<div class="text-body-lg font-semibold leading-7 text-primary font-body">$4,250.00</div>
+<div class="text-caption font-medium leading-[18px] tracking-[0.01em] text-error">Due Apr 18</div>
+</div>
+<button class="bg-primary hover:bg-[color:var(--color-primary)]/10 text-white px-5 py-2.5 rounded-lg text-body font-semibold shadow-sm active:scale-95 transition-all">
+                        Pay
+                    </button>
+</div>
+</div>
+<!-- Entry 2: Milestone (Sent) -->
+<div class="bg-[color:var(--color-surface)] rounded-xl shadow-[0_12px_32px_rgba(30,64,175,0.06)] p-card transition-all border border-transparent hover:border-[color:var(--color-border)]-variant/15">
+<div class="flex justify-between items-center gap-stack">
+<div class="flex flex-col gap-2">
+<div class="flex items-center gap-row">
+<span class="text-body font-medium leading-6 text-[color:var(--color-text-primary)]">Milestone</span>
+<span class="px-2.5 py-0.5 rounded-full bg-[color:var(--color-surface)]-highest text-[color:var(--color-text-secondary)] text-label font-semibold uppercase tracking-[0.08em]">Sent</span>
+</div>
+<div class="text-body-lg font-semibold leading-7 text-primary font-body">$1,250.00</div>
+<div class="text-caption font-medium leading-[18px] tracking-[0.01em] text-[color:var(--color-text-muted)]">Due May 5</div>
+</div>
+<button class="bg-primary hover:bg-[color:var(--color-primary)]/10 text-white px-5 py-2.5 rounded-lg text-body font-semibold shadow-sm active:scale-95 transition-all">
+                        Pay
+                    </button>
+</div>
+</div>
+<!-- Entry 3: Deposit (Paid) -->
+<div class="bg-[color:var(--color-surface)] rounded-xl shadow-[0_12px_32px_rgba(30,64,175,0.06)] p-card transition-all border border-transparent hover:border-[color:var(--color-border)]-variant/15">
+<div class="flex justify-between items-center gap-stack">
+<div class="flex flex-col gap-2">
+<div class="flex items-center gap-row">
+<span class="text-body font-medium leading-6 text-[color:var(--color-text-primary)]">Deposit</span>
+<span class="px-2.5 py-0.5 rounded-full bg-on-tertiary-container/10 text-on-tertiary-container text-label font-semibold uppercase tracking-[0.08em]">Paid</span>
+</div>
+<div class="text-body-lg font-semibold leading-7 text-primary font-body">$2,625.00</div>
+<div class="text-caption font-medium leading-[18px] tracking-[0.01em] text-on-tertiary-container">Apr 2</div>
+</div>
+<button class="bg-transparent hover:bg-[color:var(--color-surface)] text-secondary px-5 py-2.5 rounded-lg text-body font-semibold transition-all">
+                        View details
+                    </button>
+</div>
+</div>
+</div>
+<!-- Ledger Context Summary (Bento Grid Style) -->
+<section class="mt-16 grid grid-cols-1 md:grid-cols-2 gap-card">
+<div class="bg-[color:var(--color-surface)] rounded-xl p-card">
+<span class="text-label font-semibold uppercase tracking-[0.08em] text-[color:var(--color-text-muted)] mb-2 block">Total Outstanding</span>
+<p class="text-display font-bold leading-10 text-[color:var(--color-text-primary)] font-headline">$5,500.00</p>
+<div class="mt-4 flex gap-2">
+<div class="h-1.5 flex-grow bg-[color:var(--color-error)]/10 rounded-full overflow-hidden">
+<div class="bg-error h-full" style="width: 77%"></div>
+</div>
+</div>
+<p class="mt-2 text-caption text-[color:var(--color-text-secondary)]">77% of outstanding balance is overdue</p>
+</div>
+<div class="bg-primary rounded-xl p-card text-white relative overflow-hidden">
+<!-- Abstract visual element -->
+<div class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16"></div>
+<span class="text-label font-semibold uppercase tracking-[0.08em] text-[color:var(--color-primary)] mb-2 block">Payment Methods</span>
+<p class="text-body-lg font-semibold leading-7 mb-4">Auto-pay is disabled</p>
+<button class="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-2 rounded-lg text-caption font-medium backdrop-blur-sm transition-all">
+                    Configure Auto-pay
+                </button>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center px-4 py-3 pb-safe bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl shadow-[0_-4px_12px_rgba(30,64,175,0.04)] z-50">
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-slate-600 transition-all">
+<span class="material-symbols-outlined mb-1" data-icon="request_quote">request_quote</span>
+<span class="font-['Inter'] text-label font-semibold uppercase tracking-widest">Proposals</span>
+</div>
+<div class="flex flex-col items-center justify-center text-blue-700 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20 rounded-xl px-4 py-1 active:scale-95 transition-transform duration-150">
+<span class="material-symbols-outlined mb-1" data-icon="receipt_long">receipt_long</span>
+<span class="font-['Inter'] text-label font-semibold uppercase tracking-widest">Invoices</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-slate-600 transition-all">
+<span class="material-symbols-outlined mb-1" data-icon="folder_open">folder_open</span>
+<span class="font-['Inter'] text-label font-semibold uppercase tracking-widest">Documents</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-slate-600 transition-all">
+<span class="material-symbols-outlined mb-1" data-icon="trending_up">trending_up</span>
+<span class="font-['Inter'] text-label font-semibold uppercase tracking-widest">Progress</span>
+</div>
+</nav>
+</body></html>

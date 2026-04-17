@@ -139,6 +139,46 @@ If the validator reports structural violations: retry once with the violation re
 
 If `.stitch/NAVIGATION.md` does NOT exist, skip validation.
 
+### 3c. Token normalization (when UI-PATTERNS.md present)
+
+After nav validation, run the token-normalize pass. Deterministic codemod that rewrites class attributes to use the project's named typography and spacing tokens instead of Stitch's raw-Tailwind + Material-3 vocabulary. Covers the adoption gap the UI CONTRACT cannot fully close.
+
+```bash
+python3 .agents/skills/ui-drift-audit/normalize.py <path-to-generated-html>
+```
+
+Mappings cover arbitrary typography (`text-[Npx]` → scale tokens), raw Tailwind sizes (`text-sm/lg/xl` → scale), spacing (`p-4/6/8`, `gap-3/4/6/8` → rhythm tokens), and Material 3 color idioms (`bg-surface-container-lowest`, `text-on-primary`, `bg-primary-container`, …) → our semantic color roles. Icons on `material-symbols-outlined` preserved.
+
+Skip if `docs/style/UI-PATTERNS.md` absent.
+
+### 3d. Hallucination strip pass
+
+After normalize, strip elements Stitch produced despite the UI CONTRACT forbidding them:
+
+```bash
+python3 .agents/skills/ui-drift-audit/strip.py <path-to-generated-html>
+```
+
+Removes hero imagery, decorative `<figure>` blocks, `<footer>` copyright rows, testimonial blockquotes, marketing CTAs ("Schedule a call", "Book a demo"), announcement banners. Mechanical.
+
+### 3e. Embellishment evaluation (when source exists)
+
+After strip, flag Stitch-generated elements that look like genuine product features Stitch invented (aggregate stat cards, progress widgets, auto-pay banners, filter bars, support widgets). These are NOT hallucinations — they're product suggestions. Humans decide ship / defer / reject.
+
+```bash
+python3 .agents/skills/ui-drift-audit/evaluate-embellishments.py \
+  --stitch-dir .stitch/designs/<run-dir> \
+  --source-dir <source path, e.g. src/pages/portal>
+```
+
+Writes `EMBELLISHMENTS.md` next to the generated HTML. Each candidate has its category, matched phrase, and a code snippet. Review before implementing.
+
+### 3f. Viewport default — BOTH viewports
+
+Generate BOTH mobile AND desktop for every surface by default. Mobile (`deviceType: "MOBILE"`, 390×844) establishes primary design. Desktop (`deviceType: "DESKTOP"`, ~1440×900) is an expansion with explicit right-rail or two-column guidance in the prompt. "Desktop later" is not an option — single-viewport designs drift when the other viewport lands.
+
+Fire both generations in parallel.
+
 ### 4. Present AI Insights
 
 After any tool call, always surface the `outputComponents` (Text Description and Suggestions) to the user.

@@ -107,13 +107,13 @@ function formatDate(iso: string | null): string {
 
       {
         invoices.length === 0 ? (
-          <div class="bg-white rounded-lg border border-slate-200 p-6">
+          <div class="bg-white rounded-lg border border-slate-200 p-card">
             <p class="text-slate-600">
               No invoices yet. When invoices are created for your engagement, they will appear here.
             </p>
           </div>
         ) : (
-          <div class="space-y-3">
+          <div class="space-y-row">
             {invoices.map((inv: Invoice) => {
               const isPayable =
                 inv.status !== 'paid' &&
@@ -123,7 +123,7 @@ function formatDate(iso: string | null): string {
               return (
                 <a
                   href={`/portal/invoices/${inv.id}`}
-                  class="block bg-white rounded-lg border border-slate-200 p-4 hover:border-slate-300 hover:shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
+                  class="block bg-white rounded-lg border border-slate-200 p-stack hover:border-slate-300 hover:shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
                 >
                   <div class="flex items-center justify-between">
                     <div class="flex-1 min-w-0">
@@ -141,10 +141,12 @@ function formatDate(iso: string | null): string {
                       <p class="text-lg font-semibold text-slate-900">
                         {formatCurrency(inv.amount)}
                       </p>
-                      <div class="flex items-center gap-3 mt-1 text-xs text-slate-400">
-                        {inv.due_date && <span>Due: {formatDate(inv.due_date)}</span>}
+                      <div class="flex items-center gap-row mt-1 text-xs text-slate-400">
+                        {inv.due_date && !inv.paid_at && (
+                          <span>Due {formatDate(inv.due_date)}</span>
+                        )}
                         {inv.paid_at && (
-                          <span class="text-green-600">Paid: {formatDate(inv.paid_at)}</span>
+                          <span class="text-green-600">{formatDate(inv.paid_at)}</span>
                         )}
                       </div>
                       {inv.description && (

@@ -104,17 +104,17 @@ function complianceBarWidth(pct: number): string {
 >
   <h2 class="text-xl font-semibold text-slate-900 mb-6">Analytics</h2>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-card">
     {/* ── Pipeline Funnel ──────────────────────────────── */}
-    <div class="bg-white rounded-lg border border-slate-200 p-6">
+    <div class="bg-white rounded-lg border border-slate-200 p-card">
       <h3 class="text-base font-semibold text-slate-900 mb-4">Pipeline Funnel</h3>
       {
         totalClients === 0 ? (
           <p class="text-sm text-slate-500">No clients yet.</p>
         ) : (
-          <div class="space-y-3">
+          <div class="space-y-row">
             {pipelineStages.map((stage) => (
-              <div class="flex items-center gap-3">
+              <div class="flex items-center gap-row">
                 <span class="text-sm text-slate-600 w-24 shrink-0">{stage.label}</span>
                 <div class="flex-1 bg-slate-100 rounded-full h-6 overflow-hidden">
                   <div
@@ -142,14 +142,14 @@ function complianceBarWidth(pct: number): string {
     </div>
 
     {/* ── Engagement Health ────────────────────────────── */}
-    <div class="bg-white rounded-lg border border-slate-200 p-6">
+    <div class="bg-white rounded-lg border border-slate-200 p-card">
       <h3 class="text-base font-semibold text-slate-900 mb-4">Engagement Health</h3>
       {
         health.total_engagements === 0 ? (
           <p class="text-sm text-slate-500">No completed engagements yet.</p>
         ) : (
-          <div class="space-y-4">
-            <div class="grid grid-cols-2 gap-4">
+          <div class="space-y-stack">
+            <div class="grid grid-cols-2 gap-stack">
               <div>
                 <p class="text-2xl font-bold text-slate-900">
                   {health.avg_days_to_completion.toLocaleString()}
@@ -191,14 +191,14 @@ function complianceBarWidth(pct: number): string {
     </div>
 
     {/* ── Revenue Summary ─────────────────────────────── */}
-    <div class="bg-white rounded-lg border border-slate-200 p-6">
+    <div class="bg-white rounded-lg border border-slate-200 p-card">
       <h3 class="text-base font-semibold text-slate-900 mb-4">Revenue Summary</h3>
       {
         revenue.total_revenue === 0 ? (
           <p class="text-sm text-slate-500">No invoices yet.</p>
         ) : (
-          <div class="space-y-4">
-            <div class="grid grid-cols-3 gap-4">
+          <div class="space-y-stack">
+            <div class="grid grid-cols-3 gap-stack">
               <div>
                 <p class="text-lg font-bold text-slate-900">
                   {formatCurrency(revenue.total_invoiced)}
@@ -220,7 +220,7 @@ function complianceBarWidth(pct: number): string {
                 <h4 class="text-sm font-medium text-slate-700 mb-2">Monthly Revenue</h4>
                 <div class="space-y-2">
                   {revenue.by_month.map((m) => (
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-row">
                       <span class="text-xs text-slate-600 w-20 shrink-0">
                         {formatMonthLabel(m.month)}
                       </span>
@@ -261,18 +261,18 @@ function complianceBarWidth(pct: number): string {
     </div>
 
     {/* ── Follow-up Compliance ────────────────────────── */}
-    <div class="bg-white rounded-lg border border-slate-200 p-6">
+    <div class="bg-white rounded-lg border border-slate-200 p-card">
       <h3 class="text-base font-semibold text-slate-900 mb-4">Follow-up Compliance</h3>
       {
         compliance.total === 0 ? (
           <p class="text-sm text-slate-500">No follow-ups yet.</p>
         ) : (
-          <div class="space-y-4">
+          <div class="space-y-stack">
             <div class="text-center">
               <p class="text-4xl font-bold text-slate-900">{compliance.compliance_pct}%</p>
               <p class="text-sm text-slate-500">Compliance rate</p>
             </div>
-            <div class="grid grid-cols-3 gap-4 text-center">
+            <div class="grid grid-cols-3 gap-stack text-center">
               <div>
                 <p class="text-lg font-bold text-green-700">
                   {compliance.completed_on_time.toLocaleString()}
@@ -311,7 +311,7 @@ function complianceBarWidth(pct: number): string {
     </div>
 
     {/* ── Quote Accuracy ──────────────────────────────── */}
-    <div class="bg-white rounded-lg border border-slate-200 p-6 md:col-span-2">
+    <div class="bg-white rounded-lg border border-slate-200 p-card md:col-span-2">
       <h3 class="text-base font-semibold text-slate-900 mb-4">Quote Accuracy</h3>
       {
         quoteAccuracy.length === 0 ? (

@@ -114,7 +114,7 @@ function fileSize(bytes: number): string {
     { label: 'Engagement' },
   ]}
 >
-  <div class="space-y-6">
+  <div class="space-y-card">
     {
       saved && (
         <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-2 rounded text-sm">
@@ -151,10 +151,10 @@ function fileSize(bytes: number): string {
     }
 
     <!-- Header -->
-    <div class="bg-white rounded-lg border border-slate-200 p-6">
+    <div class="bg-white rounded-lg border border-slate-200 p-card">
       <div class="flex items-start justify-between">
         <div>
-          <div class="flex items-center gap-3 mb-2">
+          <div class="flex items-center gap-row mb-2">
             <h1 class="text-2xl font-semibold text-slate-900">
               {entity?.name ?? 'Unknown Entity'}
             </h1>
@@ -164,7 +164,7 @@ function fileSize(bytes: number): string {
               {engagement.status}
             </span>
           </div>
-          <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-500">
+          <div class="flex flex-wrap gap-x-card gap-y-1 text-sm text-slate-500">
             <span>Start: {formatDate(engagement.start_date)}</span>
             <span>Est. End: {formatDate(engagement.estimated_end)}</span>
             {engagement.handoff_date && <span>Handoff: {formatDate(engagement.handoff_date)}</span>}
@@ -209,7 +209,7 @@ function fileSize(bytes: number): string {
       {
         quote && (
           <div class="mt-4 pt-4 border-t border-slate-100">
-            <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+            <div class="flex flex-wrap gap-x-card gap-y-1 text-sm">
               <span class="text-slate-500">
                 Quote:{' '}
                 <span class="font-medium text-slate-700">
@@ -259,7 +259,7 @@ function fileSize(bytes: number): string {
     <details class="bg-white rounded-lg border border-slate-200">
       <summary class="px-6 py-4 cursor-pointer font-medium text-slate-900"> Edit Details </summary>
       <div class="px-6 pb-6">
-        <form method="POST" action={`/api/admin/engagements/${engagementId}`} class="space-y-4">
+        <form method="POST" action={`/api/admin/engagements/${engagementId}`} class="space-y-stack">
           <div>
             <label for="scope_summary" class="block text-sm font-medium text-slate-700 mb-1">
               Scope Summary
@@ -272,7 +272,7 @@ function fileSize(bytes: number): string {
               >{engagement.scope_summary ?? ''}</textarea
             >
           </div>
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-2 gap-stack">
             <div>
               <label for="start_date" class="block text-sm font-medium text-slate-700 mb-1">
                 Start Date
@@ -298,7 +298,7 @@ function fileSize(bytes: number): string {
               />
             </div>
           </div>
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-2 gap-stack">
             <div>
               <label for="estimated_hours" class="block text-sm font-medium text-slate-700 mb-1">
                 Estimated Hours
@@ -354,7 +354,7 @@ function fileSize(bytes: number): string {
             const msStatus = ms.status as MilestoneStatus
             const msNext = MS_TRANSITIONS[msStatus] ?? []
             return (
-              <div class="px-6 py-4 flex items-center justify-between gap-4">
+              <div class="px-6 py-4 flex items-center justify-between gap-stack">
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2">
                     <span class={`text-xs px-2 py-0.5 rounded ${msBadgeClass(ms.status)}`}>
@@ -457,9 +457,9 @@ function fileSize(bytes: number): string {
           <form
             method="POST"
             action={`/api/admin/engagements/${engagementId}/milestones`}
-            class="space-y-3"
+            class="space-y-row"
           >
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-2 gap-row">
               <div>
                 <label for="ms_name" class="block text-xs font-medium text-slate-600 mb-1">
                   Name *
@@ -495,7 +495,7 @@ function fileSize(bytes: number): string {
                 class="w-full border border-slate-300 rounded px-3 py-1.5 text-sm"
               />
             </div>
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-stack">
               <label class="flex items-center gap-2 text-sm text-slate-600">
                 <input type="checkbox" name="payment_trigger" value="1" />
                 Payment trigger
@@ -640,7 +640,7 @@ function fileSize(bytes: number): string {
         }
         <div
           id="upload-area"
-          class="border-2 border-dashed border-slate-200 rounded-lg p-6 text-center"
+          class="border-2 border-dashed border-slate-200 rounded-lg p-card text-center"
         >
           <p class="text-sm text-slate-500 mb-2">Drag files here or click to upload</p>
           <input type="file" id="file-input" class="hidden" multiple />
@@ -666,13 +666,13 @@ function fileSize(bytes: number): string {
           <div class="divide-y divide-slate-100">
             {invoices.map((inv) => (
               <div class="px-6 py-3 flex items-center justify-between text-sm">
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-row">
                   <span class={`text-xs px-2 py-0.5 rounded ${invoiceBadgeClass(inv.status)}`}>
                     {inv.status}
                   </span>
                   <span class="text-slate-700 capitalize">{inv.type}</span>
                 </div>
-                <div class="flex items-center gap-4 text-slate-500">
+                <div class="flex items-center gap-stack text-slate-500">
                   <span class="font-medium text-slate-700">${inv.amount.toLocaleString()}</span>
                   {inv.due_date && <span>Due: {formatDate(inv.due_date)}</span>}
                   {inv.paid_at && <span>Paid: {formatDate(inv.paid_at)}</span>}

@@ -486,7 +486,7 @@ describe('invoices: portal view', () => {
   it('shows paid date for paid invoices', () => {
     const code = source()
     expect(code).toContain('paid_at')
-    expect(code).toContain('Paid')
+    expect(code).toMatch(/formatDate\(inv\.paid_at\)/)
   })
 
   it('handles empty state when no invoices exist', () => {
