@@ -129,18 +129,18 @@ function formatDate(iso: string): string {
 
       {
         documents.length === 0 ? (
-          <div class="bg-white rounded-lg border border-slate-200 p-6">
+          <div class="bg-white rounded-lg border border-slate-200 p-card">
             <p class="text-slate-600">Documents will appear here as your engagement progresses.</p>
           </div>
         ) : (
-          <div class="space-y-3">
+          <div class="space-y-row">
             {documents.map((doc) => (
               <a
                 href={`/api/portal/documents/${doc.key}`}
-                class="block bg-white rounded-lg border border-slate-200 p-4 hover:border-slate-300 hover:shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
+                class="block bg-white rounded-lg border border-slate-200 p-stack hover:border-slate-300 hover:shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
               >
                 <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-3 min-w-0 flex-1">
+                  <div class="flex items-center gap-row min-w-0 flex-1">
                     <span
                       class={`material-symbols-outlined text-[20px] ${doc.isPdf ? 'text-red-500' : 'text-slate-400'}`}
                       aria-hidden="true"

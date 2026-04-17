@@ -143,10 +143,10 @@ function contextTypeBadge(type: string): string {
   }
 
   {/* Entity + Assessment Info */}
-  <div class="bg-white rounded-lg border border-slate-200 p-6 mb-6">
-    <div class="flex items-start justify-between gap-4 mb-4">
+  <div class="bg-white rounded-lg border border-slate-200 p-card mb-6">
+    <div class="flex items-start justify-between gap-stack mb-4">
       <div>
-        <div class="flex items-center gap-3 mb-2">
+        <div class="flex items-center gap-row mb-2">
           <h2 class="text-xl font-semibold text-slate-900">{entity.name}</h2>
           <span class={`text-xs px-2 py-0.5 rounded ${stageBadgeClass(entity.stage)}`}>
             {ENTITY_STAGES.find((s) => s.value === entity.stage)?.label ?? entity.stage}
@@ -160,7 +160,7 @@ function contextTypeBadge(type: string): string {
           }
         </div>
 
-        <div class="flex items-center gap-4 text-sm text-slate-500 flex-wrap">
+        <div class="flex items-center gap-stack text-sm text-slate-500 flex-wrap">
           {
             entity.pain_score != null && (
               <span>
@@ -180,7 +180,7 @@ function contextTypeBadge(type: string): string {
     {/* Schedule details */}
     {
       schedule && (
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-stack text-sm">
           <div>
             <span class="text-slate-500">Scheduled:</span>
             <span class="ml-1 text-slate-900 font-medium">
@@ -232,7 +232,7 @@ function contextTypeBadge(type: string): string {
   </div>
 
   {/* Live Notes */}
-  <div class="bg-white rounded-lg border border-slate-200 p-6 mb-6">
+  <div class="bg-white rounded-lg border border-slate-200 p-card mb-6">
     <div class="flex items-center justify-between mb-3">
       <h3 class="text-base font-semibold text-slate-900">Live Notes</h3>
       <span id="save-status" class="text-xs text-slate-400">Saved</span>
@@ -270,7 +270,7 @@ function contextTypeBadge(type: string): string {
         method="POST"
         action={`/api/admin/assessments/${assessmentId}/complete`}
         enctype="multipart/form-data"
-        class="space-y-6 pt-4"
+        class="space-y-card pt-4"
       >
         {/* Problems identified */}
         <div>
@@ -308,7 +308,7 @@ function contextTypeBadge(type: string): string {
         </div>
 
         {/* Disqualifiers */}
-        <div class="border border-slate-200 rounded-lg p-4">
+        <div class="border border-slate-200 rounded-lg p-stack">
           <label class="flex items-center gap-2 text-sm text-slate-700 mb-2">
             <input
               type="checkbox"
@@ -372,7 +372,7 @@ function contextTypeBadge(type: string): string {
         </div>
 
         {/* Submit */}
-        <div class="flex items-center gap-3 pt-2">
+        <div class="flex items-center gap-row pt-2">
           <button
             type="submit"
             class="text-sm bg-green-600 text-white px-6 py-2.5 rounded-lg hover:bg-green-700 transition-colors font-medium"
@@ -388,7 +388,7 @@ function contextTypeBadge(type: string): string {
   </div>
 
   {/* Entity Context Timeline */}
-  <div class="bg-white rounded-lg border border-slate-200 p-6">
+  <div class="bg-white rounded-lg border border-slate-200 p-card">
     <h3 class="text-base font-semibold text-slate-900 mb-4">
       Entity Context Timeline
       <span class="text-sm font-normal text-slate-400 ml-1">({contextEntries.length} entries)</span>
@@ -396,10 +396,10 @@ function contextTypeBadge(type: string): string {
 
     {timelineEntries.length === 0 && <p class="text-sm text-slate-400">No context entries yet.</p>}
 
-    <div class="space-y-3">
+    <div class="space-y-row">
       {
         timelineEntries.map((entry) => (
-          <div class="border border-slate-100 rounded-lg p-3">
+          <div class="border border-slate-100 rounded-lg p-row">
             <div class="flex items-center gap-2 mb-1">
               <span class={`text-xs px-1.5 py-0.5 rounded ${contextTypeBadge(entry.type)}`}>
                 {entry.type.replace(/_/g, ' ')}

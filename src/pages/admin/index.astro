@@ -142,14 +142,14 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
 ---
 
 <AdminLayout title="Dashboard — SMD Services" maxWidth="max-w-6xl">
-  <div class="space-y-6">
+  <div class="space-y-card">
     <!-- Card 1: Today's Work -->
-    <section class="bg-white rounded-lg border border-slate-200 p-6">
+    <section class="bg-white rounded-lg border border-slate-200 p-card">
       <h2 class="text-base font-semibold text-slate-900 mb-4">Today's Work</h2>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-stack">
         <a
           href="/admin/entities?stage=signal"
-          class="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors"
+          class="flex items-center gap-row p-row rounded-lg hover:bg-slate-50 transition-colors"
         >
           <div
             class:list={[
@@ -165,7 +165,7 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
           </div>
         </a>
 
-        <div class="flex items-center gap-3 p-3 rounded-lg">
+        <div class="flex items-center gap-row p-row rounded-lg">
           <div
             class:list={[
               'w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold',
@@ -200,7 +200,7 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
 
         <a
           href="/admin/follow-ups?filter=overdue"
-          class="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors"
+          class="flex items-center gap-row p-row rounded-lg hover:bg-slate-50 transition-colors"
         >
           <div
             class:list={[
@@ -221,7 +221,7 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
     </section>
 
     <!-- Card 2: Pipeline State -->
-    <section class="bg-white rounded-lg border border-slate-200 p-6">
+    <section class="bg-white rounded-lg border border-slate-200 p-card">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-base font-semibold text-slate-900">Pipeline</h2>
         <a href="/admin/entities" class="text-xs text-slate-500 hover:text-slate-700"
@@ -253,7 +253,7 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
         )
       }
 
-      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-row">
         {
           pipelineStages.map((s) => (
             <a
@@ -288,11 +288,11 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
       }
     </section>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-card">
       <!-- Card 3: Revenue -->
-      <section class="bg-white rounded-lg border border-slate-200 p-6">
+      <section class="bg-white rounded-lg border border-slate-200 p-card">
         <h2 class="text-base font-semibold text-slate-900 mb-4">Revenue</h2>
-        <div class="space-y-3">
+        <div class="space-y-row">
           <div class="flex justify-between items-baseline">
             <span class="text-sm text-slate-500">Invoiced</span>
             <span class="text-lg font-semibold text-slate-900">
@@ -337,14 +337,14 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
       </section>
 
       <!-- Card 4: Follow-up Health -->
-      <section class="bg-white rounded-lg border border-slate-200 p-6">
+      <section class="bg-white rounded-lg border border-slate-200 p-card">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-base font-semibold text-slate-900">Follow-up Health</h2>
           <a href="/admin/follow-ups" class="text-xs text-slate-500 hover:text-slate-700"
             >View all</a
           >
         </div>
-        <div class="space-y-3">
+        <div class="space-y-row">
           <div class="flex justify-between items-baseline">
             <span class="text-sm text-slate-500">On-time rate</span>
             <span
@@ -400,7 +400,7 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
     </div>
 
     <!-- Card 5: Automations -->
-    <section class="bg-white rounded-lg border border-slate-200 p-6">
+    <section class="bg-white rounded-lg border border-slate-200 p-card">
       <h2 class="text-base font-semibold text-slate-900 mb-4">Automations</h2>
       <div class="divide-y divide-slate-100">
         <!-- Google Calendar -->

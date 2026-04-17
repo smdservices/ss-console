@@ -56,7 +56,7 @@ const errorMessages: Record<string, string> = {
 
   {
     successParam === 'connected' && (
-      <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+      <div class="mb-6 p-stack bg-green-50 border border-green-200 rounded-lg">
         <p class="text-sm text-green-800">Google Calendar connected successfully.</p>
       </div>
     )
@@ -64,7 +64,7 @@ const errorMessages: Record<string, string> = {
 
   {
     successParam === 'disconnected' && (
-      <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+      <div class="mb-6 p-stack bg-blue-50 border border-blue-200 rounded-lg">
         <p class="text-sm text-blue-800">Google Calendar disconnected.</p>
       </div>
     )
@@ -72,7 +72,7 @@ const errorMessages: Record<string, string> = {
 
   {
     errorParam && (
-      <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+      <div class="mb-6 p-stack bg-red-50 border border-red-200 rounded-lg">
         <p class="text-sm text-red-800">
           {errorMessages[errorParam] ?? `Something went wrong (${errorParam}). Please try again.`}
         </p>
@@ -80,15 +80,15 @@ const errorMessages: Record<string, string> = {
     )
   }
 
-  <div class="bg-white rounded-lg border border-slate-200 p-6">
+  <div class="bg-white rounded-lg border border-slate-200 p-card">
     {
       isConnected ? (
         <div>
-          <div class="flex items-center gap-3 mb-4">
+          <div class="flex items-center gap-row mb-4">
             <div class="w-3 h-3 rounded-full bg-green-500" />
             <span class="text-sm font-medium text-slate-900">Connected</span>
           </div>
-          <dl class="grid grid-cols-1 gap-3 text-sm mb-6">
+          <dl class="grid grid-cols-1 gap-row text-sm mb-6">
             <div>
               <dt class="text-slate-500">Account</dt>
               <dd class="text-slate-900 font-medium">{integration.account_email}</dd>
@@ -127,7 +127,7 @@ const errorMessages: Record<string, string> = {
         </div>
       ) : (
         <div>
-          <div class="flex items-center gap-3 mb-4">
+          <div class="flex items-center gap-row mb-4">
             <div class="w-3 h-3 rounded-full bg-slate-300" />
             <span class="text-sm font-medium text-slate-900">Not connected</span>
           </div>

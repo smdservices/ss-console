@@ -36,7 +36,7 @@ const turnstileSiteKey = resolveTurnstileConfig(Astro.locals.runtime?.env ?? {})
         <!-- Booking flow container -->
         <div class="mx-auto mt-10 max-w-3xl">
           <!-- Step 1: Pick a time -->
-          <div class="rounded-xl bg-white p-6 shadow-sm sm:p-8">
+          <div class="rounded-xl bg-white p-card shadow-sm sm:p-section">
             <h2 class="mb-1 text-lg font-bold text-slate-900">Pick a time</h2>
             <p class="mb-6 text-sm text-slate-500">Choose a date and time that works for you.</p>
             <SlotPicker />
@@ -53,7 +53,7 @@ const turnstileSiteKey = resolveTurnstileConfig(Astro.locals.runtime?.env ?? {})
           <!-- Step 2: Intake form (appears after slot selection) -->
           <div
             id="intake-section"
-            class="mt-6 rounded-xl bg-white p-6 shadow-sm transition-opacity duration-300 sm:p-8"
+            class="mt-6 rounded-xl bg-white p-card shadow-sm transition-opacity duration-300 sm:p-section"
             style="display: none;"
           >
             <h2 class="text-lg font-bold text-slate-900">Tell us about your business</h2>
@@ -297,7 +297,10 @@ const turnstileSiteKey = resolveTurnstileConfig(Astro.locals.runtime?.env ?? {})
           </div>
 
           <!-- Confirmation panel (replaces the form on success) -->
-          <div id="confirmation-panel" class="mt-6 hidden rounded-xl bg-white p-6 shadow-sm sm:p-8">
+          <div
+            id="confirmation-panel"
+            class="mt-6 hidden rounded-xl bg-white p-card shadow-sm sm:p-section"
+          >
             <div class="text-center">
               <div
                 class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100"
@@ -327,8 +330,8 @@ const turnstileSiteKey = resolveTurnstileConfig(Astro.locals.runtime?.env ?? {})
               </p>
             </div>
 
-            <div class="mt-6 space-y-3 rounded-md bg-slate-50 p-4">
-              <div class="flex items-start gap-3">
+            <div class="mt-6 space-y-row rounded-md bg-slate-50 p-stack">
+              <div class="flex items-start gap-row">
                 <svg
                   class="mt-0.5 h-5 w-5 flex-shrink-0 text-slate-400"
                   fill="none"
@@ -344,7 +347,7 @@ const turnstileSiteKey = resolveTurnstileConfig(Astro.locals.runtime?.env ?? {})
                 </svg>
                 <span id="conf-slot" class="text-sm font-medium text-slate-900"></span>
               </div>
-              <div id="conf-meet-row" class="hidden flex items-start gap-3">
+              <div id="conf-meet-row" class="hidden flex items-start gap-row">
                 <svg
                   class="mt-0.5 h-5 w-5 flex-shrink-0 text-slate-400"
                   fill="none"
@@ -368,7 +371,7 @@ const turnstileSiteKey = resolveTurnstileConfig(Astro.locals.runtime?.env ?? {})
                   Join Video Call
                 </a>
               </div>
-              <div id="conf-manage-row" class="hidden flex items-start gap-3">
+              <div id="conf-manage-row" class="hidden flex items-start gap-row">
                 <svg
                   class="mt-0.5 h-5 w-5 flex-shrink-0 text-slate-400"
                   fill="none"
@@ -400,7 +403,7 @@ const turnstileSiteKey = resolveTurnstileConfig(Astro.locals.runtime?.env ?? {})
           <!-- 503 email fallback panel -->
           <div
             id="email-fallback-panel"
-            class="mt-6 hidden rounded-xl bg-white p-6 text-center shadow-sm sm:p-8"
+            class="mt-6 hidden rounded-xl bg-white p-card text-center shadow-sm sm:p-section"
           >
             <p class="text-sm text-slate-600">Online booking is temporarily unavailable.</p>
             <p class="mt-2 text-sm text-slate-500">
@@ -424,7 +427,7 @@ const turnstileSiteKey = resolveTurnstileConfig(Astro.locals.runtime?.env ?? {})
         <h2 class="mb-12 text-center text-3xl font-bold text-slate-900">
           What Happens on the Call
         </h2>
-        <div class="mx-auto grid max-w-3xl gap-8 sm:grid-cols-3">
+        <div class="mx-auto grid max-w-3xl gap-section sm:grid-cols-3">
           <div class="text-center">
             <div
               class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary text-lg font-bold text-white"
@@ -469,7 +472,7 @@ const turnstileSiteKey = resolveTurnstileConfig(Astro.locals.runtime?.env ?? {})
     <section class="bg-slate-50 px-6 py-16 sm:py-24">
       <div class="mx-auto max-w-5xl">
         <h2 class="mb-12 text-center text-3xl font-bold text-slate-900">Common Questions</h2>
-        <dl class="mx-auto max-w-2xl space-y-8">
+        <dl class="mx-auto max-w-2xl space-y-section">
           <div>
             <dt class="font-semibold text-slate-900">Does the call cost anything?</dt>
             <dd class="mt-2 text-slate-600">

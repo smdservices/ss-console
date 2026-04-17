@@ -322,12 +322,12 @@ const contextSubtext =
     <main id="main" role="main" class="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10 pb-24 md:pb-10">
       {
         dashboardError ? (
-          <div class="flex flex-col gap-6">
+          <div class="flex flex-col gap-card">
             <section
-              class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-attention)]/30 p-6 sm:p-8"
+              class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-attention)]/30 p-card sm:p-section"
               aria-live="polite"
             >
-              <div class="flex items-start gap-3">
+              <div class="flex items-start gap-row">
                 <span class="material-symbols-outlined text-[24px] text-[color:var(--color-attention)] mt-0.5">
                   error
                 </span>
@@ -340,7 +340,7 @@ const contextSubtext =
                       ? `Give it a moment and try again. If it keeps happening, ${consultantFirst} can help.`
                       : 'Give it a moment and try again.'}
                   </p>
-                  <div class="mt-5 flex flex-wrap gap-3">
+                  <div class="mt-5 flex flex-wrap gap-row">
                     <a
                       href="/portal"
                       class="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded-lg bg-[color:var(--color-primary)] hover:bg-[color:var(--color-primary-hover)] text-white text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
@@ -373,7 +373,7 @@ const contextSubtext =
       >
         <!-- On mobile, dominant action (right-rail content) renders FIRST.
              On desktop it moves to the right column via md:order-2. -->
-        <aside class="md:order-2 md:sticky md:top-10 space-y-6">
+        <aside class="md:order-2 md:sticky md:top-10 space-y-card">
           {
             pendingInvoice && invoicePillLabel ? (
               <ActionCard
@@ -386,7 +386,7 @@ const contextSubtext =
               />
             ) : touchpointText ? (
               <section
-                class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-6 sm:p-8"
+                class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-card sm:p-section"
                 aria-label="Next check-in"
               >
                 <p class="text-label uppercase text-[color:var(--color-primary)]">Next check-in</p>
@@ -401,7 +401,7 @@ const contextSubtext =
               </section>
             ) : (
               <section
-                class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-6 sm:p-8"
+                class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-card sm:p-section"
                 aria-label="Engagement status"
               >
                 <p class="text-label uppercase text-[color:var(--color-primary)]">In flight</p>
@@ -468,7 +468,7 @@ const contextSubtext =
             </h2>
             {
               timelineEntries.length > 0 ? (
-                <div class="mt-6 flex flex-col gap-6">
+                <div class="mt-6 flex flex-col gap-card">
                   {timelineEntries.map((entry) => (
                     <TimelineEntry
                       date={entry.date}

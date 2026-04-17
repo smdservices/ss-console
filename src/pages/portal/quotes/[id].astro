@@ -198,7 +198,7 @@ const consultantPhone = engagement?.consultant_phone ?? null
         <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
         All quotes
       </a>
-      <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,720px)_340px] gap-8 lg:gap-16">
+      <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,720px)_340px] gap-section lg:gap-16">
         <!-- Main column -->
         <section class="min-w-0 space-y-12">
           <!-- Hero -->
@@ -217,7 +217,7 @@ const consultantPhone = engagement?.consultant_phone ?? null
           <!-- Mobile action block (hidden on desktop — right rail handles it there) -->
           <div class="lg:hidden">
             <div
-              class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-6"
+              class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-card"
             >
               <p
                 class="text-caption font-medium tracking-[0.01em] text-[color:var(--color-text-muted)] uppercase"
@@ -233,7 +233,7 @@ const consultantPhone = engagement?.consultant_phone ?? null
 
               {
                 isSigned ? (
-                  <div class="mt-6 flex items-start gap-3 rounded-lg bg-[color:var(--color-complete)]/10 p-4">
+                  <div class="mt-6 flex items-start gap-row rounded-lg bg-[color:var(--color-complete)]/10 p-stack">
                     <span class="material-symbols-outlined text-[20px] text-[color:var(--color-complete)] mt-0.5">
                       check_circle
                     </span>
@@ -249,7 +249,7 @@ const consultantPhone = engagement?.consultant_phone ?? null
                     </div>
                   </div>
                 ) : isSuperseded ? (
-                  <div class="mt-6 rounded-lg border border-[color:var(--color-attention)]/30 bg-[color:var(--color-attention)]/5 p-4">
+                  <div class="mt-6 rounded-lg border border-[color:var(--color-attention)]/30 bg-[color:var(--color-attention)]/5 p-stack">
                     <p class="text-sm font-semibold text-[color:var(--color-text-primary)]">
                       A revised version is available.
                     </p>
@@ -314,7 +314,7 @@ const consultantPhone = engagement?.consultant_phone ?? null
                 </h2>
                 <ul class="space-y-5">
                   {deliverables.map((d) => (
-                    <li class="flex items-start gap-4">
+                    <li class="flex items-start gap-stack">
                       <span
                         class="material-symbols-outlined text-[color:var(--color-meta)] mt-0.5"
                         style="font-variation-settings: 'FILL' 1"
@@ -346,9 +346,9 @@ const consultantPhone = engagement?.consultant_phone ?? null
                 <h2 class="font-['Plus_Jakarta_Sans'] font-bold text-title text-[color:var(--color-text-primary)] mb-6">
                   How we'll work
                 </h2>
-                <div class="space-y-8">
+                <div class="space-y-section">
                   {schedule.map((row) => (
-                    <div class="flex gap-4">
+                    <div class="flex gap-stack">
                       <div class="w-[72px] shrink-0">
                         <span class="text-caption font-semibold tracking-[0.01em] text-[color:var(--color-meta)] uppercase">
                           {row.label}
@@ -372,7 +372,7 @@ const consultantPhone = engagement?.consultant_phone ?? null
             >
               Terms
             </h2>
-            <div class="space-y-3 text-body">
+            <div class="space-y-row text-body">
               <p class="text-[color:var(--color-text-primary)]">
                 <span class="font-semibold">Total:</span>{' '}
                 <MoneyDisplay amountCents={totalCents} size="body" emphasize />
@@ -443,10 +443,10 @@ const consultantPhone = engagement?.consultant_phone ?? null
 
         <!-- Right rail (desktop only) -->
         <aside class="hidden lg:block">
-          <div class="sticky top-8 space-y-6">
+          <div class="sticky top-8 space-y-card">
             <!-- Sign card -->
             <div
-              class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-6"
+              class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-card"
             >
               <div>
                 <p
@@ -464,8 +464,8 @@ const consultantPhone = engagement?.consultant_phone ?? null
 
               {
                 isSigned ? (
-                  <div class="mt-6 rounded-lg bg-[color:var(--color-complete)]/10 p-4">
-                    <div class="flex items-start gap-3">
+                  <div class="mt-6 rounded-lg bg-[color:var(--color-complete)]/10 p-stack">
+                    <div class="flex items-start gap-row">
                       <span class="material-symbols-outlined text-[20px] text-[color:var(--color-complete)] mt-0.5">
                         check_circle
                       </span>
@@ -482,7 +482,7 @@ const consultantPhone = engagement?.consultant_phone ?? null
                     </div>
                   </div>
                 ) : isSuperseded ? (
-                  <div class="mt-6 rounded-lg border border-[color:var(--color-attention)]/30 bg-[color:var(--color-attention)]/5 p-4">
+                  <div class="mt-6 rounded-lg border border-[color:var(--color-attention)]/30 bg-[color:var(--color-attention)]/5 p-stack">
                     <p class="text-sm font-semibold text-[color:var(--color-text-primary)]">
                       A revised version is available.
                     </p>

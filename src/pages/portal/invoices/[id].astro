@@ -236,9 +236,9 @@ const consultantFirstName: string | null = consultantName
         <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
         All invoices
       </a>
-      <div class="grid grid-cols-1 md:grid-cols-[720px_1fr] gap-8 md:gap-12 items-start">
+      <div class="grid grid-cols-1 md:grid-cols-[720px_1fr] gap-section md:gap-12 items-start">
         <!-- Main column -->
-        <section class="flex flex-col gap-8 min-w-0">
+        <section class="flex flex-col gap-section min-w-0">
           <!-- Eyebrow + title + subtitle -->
           <div>
             <p
@@ -288,10 +288,10 @@ const consultantFirstName: string | null = consultantName
             {
               isErrorState && (
                 <div
-                  class="mt-6 rounded-lg border border-[color:var(--color-attention)]/30 bg-[color:var(--color-attention)]/5 p-4"
+                  class="mt-6 rounded-lg border border-[color:var(--color-attention)]/30 bg-[color:var(--color-attention)]/5 p-stack"
                   role="status"
                 >
-                  <div class="flex items-start gap-3">
+                  <div class="flex items-start gap-row">
                     <span class="material-symbols-outlined text-[20px] text-[color:var(--color-attention)] mt-0.5">
                       error
                     </span>
@@ -351,7 +351,7 @@ const consultantFirstName: string | null = consultantName
             <ul class="flex flex-col">
               {
                 lineItems.map((li) => (
-                  <li class="flex justify-between items-baseline gap-6 py-5 border-b border-[color:var(--color-border)]/60">
+                  <li class="flex justify-between items-baseline gap-card py-5 border-b border-[color:var(--color-border)]/60">
                     <span class="text-body text-[color:var(--color-text-primary)] max-w-[480px]">
                       {li.description}
                     </span>
@@ -370,7 +370,7 @@ const consultantFirstName: string | null = consultantName
 
           <!-- Payment details -->
           <div
-            class="rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-6 sm:p-8"
+            class="rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-card sm:p-section"
           >
             <h2
               class="font-['Plus_Jakarta_Sans'] font-bold text-body-lg text-[color:var(--color-text-primary)]"
@@ -378,11 +378,11 @@ const consultantFirstName: string | null = consultantName
               Payment details
             </h2>
             <ul
-              class="mt-4 flex flex-col gap-3 text-[15px] text-[color:var(--color-text-secondary)]"
+              class="mt-4 flex flex-col gap-row text-[15px] text-[color:var(--color-text-secondary)]"
             >
               {
                 dueShortDate && !isPaid && (
-                  <li class="flex items-center gap-3">
+                  <li class="flex items-center gap-row">
                     <span class="material-symbols-outlined text-[20px] text-[color:var(--color-text-muted)]">
                       event
                     </span>
@@ -392,7 +392,7 @@ const consultantFirstName: string | null = consultantName
               }
               {
                 isPaid && paidShortDate && (
-                  <li class="flex items-center gap-3">
+                  <li class="flex items-center gap-row">
                     <span class="material-symbols-outlined text-[20px] text-[color:var(--color-complete)]">
                       check_circle
                     </span>
@@ -400,7 +400,7 @@ const consultantFirstName: string | null = consultantName
                   </li>
                 )
               }
-              <li class="flex items-center gap-3">
+              <li class="flex items-center gap-row">
                 <span
                   class="material-symbols-outlined text-[20px] text-[color:var(--color-text-muted)]"
                 >
@@ -410,7 +410,7 @@ const consultantFirstName: string | null = consultantName
               </li>
               {
                 depositNote && (
-                  <li class="flex items-center gap-3">
+                  <li class="flex items-center gap-row">
                     <span class="material-symbols-outlined text-[20px] text-[color:var(--color-text-muted)]">
                       history
                     </span>
@@ -448,10 +448,10 @@ const consultantFirstName: string | null = consultantName
         </section>
 
         <!-- Desktop right rail (sticky) -->
-        <aside class="hidden md:flex md:flex-col gap-6 md:sticky md:top-8">
+        <aside class="hidden md:flex md:flex-col gap-card md:sticky md:top-8">
           {
             isPaid ? (
-              <div class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-6 sm:p-8">
+              <div class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-card sm:p-section">
                 <MoneyDisplay amountCents={amountCents} size="display" />
                 {paidShortDate && (
                   <p class="mt-4 text-caption font-medium text-[color:var(--color-complete)]">
@@ -460,7 +460,7 @@ const consultantFirstName: string | null = consultantName
                 )}
               </div>
             ) : isLinkExpired ? (
-              <div class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-6 sm:p-8">
+              <div class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-card sm:p-section">
                 <p class="text-label uppercase text-[color:var(--color-attention)]">Link expired</p>
                 <div class="mt-3">
                   <MoneyDisplay amountCents={amountCents} size="display" />
@@ -474,10 +474,10 @@ const consultantFirstName: string | null = consultantName
               <>
                 {isErrorState && (
                   <div
-                    class="rounded-lg border border-[color:var(--color-attention)]/30 bg-[color:var(--color-attention)]/5 p-4"
+                    class="rounded-lg border border-[color:var(--color-attention)]/30 bg-[color:var(--color-attention)]/5 p-stack"
                     role="status"
                   >
-                    <div class="flex items-start gap-3">
+                    <div class="flex items-start gap-row">
                       <span class="material-symbols-outlined text-[20px] text-[color:var(--color-attention)] mt-0.5">
                         error
                       </span>
@@ -511,7 +511,7 @@ const consultantFirstName: string | null = consultantName
                   />
                 ) : (
                   <section
-                    class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-6 sm:p-8"
+                    class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-card sm:p-section"
                     aria-label="Payment link pending"
                   >
                     <p class="text-label uppercase text-[color:var(--color-text-muted)]">
