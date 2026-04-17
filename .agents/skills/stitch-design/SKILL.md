@@ -56,6 +56,7 @@ Before any Stitch tool call, resolve the venture's persistent project:
 
 - **Design System**: Check for `.stitch/DESIGN.md`. If it exists, incorporate its tokens (colors, typography). If not, suggest the `generate-design-md` workflow.
 - **Navigation Spec**: Check for `.stitch/NAVIGATION.md`. If it exists, nav-contract injection is available (see step 1b and step 3). If not, proceed without — the skill gracefully degrades. Consider suggesting `/nav-spec` if the user is generating portal or admin surfaces.
+- **UI Patterns Spec**: Check for `docs/style/UI-PATTERNS.md`. If it exists, UI-contract injection is available (see step 3). If not, proceed without — skill gracefully degrades.
 - **Freshness check**: Before generating, compare `design-spec.md` freshness (via `crane_doc` metadata) against `.stitch/DESIGN.md`. If the spec is newer, warn and suggest running the sync-design-spec workflow first.
 
 ### 1b. Classification tags (when NAVIGATION.md present)
@@ -109,6 +110,45 @@ Built from the classification tags: read the matching surface-class appendix
 - Platform: [Web/Mobile], [Desktop/Mobile]-first
 - Palette: [Primary Name] (#hex for role), [Secondary Name] (#hex for role)
 - Styles: [Roundness description], [Shadow/Elevation style]
+
+**UI CONTRACT (REQUIRED):**
+
+[Only if docs/style/UI-PATTERNS.md exists — inject the six-rule contract
+below. Six rules cited to NN/g / Material 3 / WCAG 2.2 / Polaris / Carbon.
+If UI-PATTERNS.md absent, omit this block entirely.]
+
+Apply the six rules in `docs/style/UI-PATTERNS.md`. Summary:
+
+1. **Status by context.** Pill = scan-time, dense list row ONLY. Eyebrow (small-caps muted label) = category above a title. Dot or prose = single-item state. NEVER use a pill as a category label on a detail page.
+
+2. **One signal per fact.** No pill adjacent to prose stating the same thing. If a confirmation block ("Signed Apr 13, 2026") renders the state, drop the pill. No triple-stacked confirmations.
+
+3. **One primary per view.** Primary = solid `bg-[color:var(--color-primary)]` with `text-white` + button padding. Secondary = border + primary text. Tertiary = ghost/link. Exactly one primary per rendered state.
+
+4. **Heading hierarchy.** h1 → h2 → h3, no skips. Eyebrows are NOT headings.
+
+5. **Typography — use named scale tokens, never inline pixel sizes:**
+   - `text-display` (32/40 bold, -0.02em) — page hero
+   - `text-title` (20/28 bold, -0.005em) — section/card title
+   - `text-heading` (16/22 semibold) — sub-section heading
+   - `text-body-lg` (18/28 regular) — lead paragraph
+   - `text-body` (15/24 regular) — default body
+   - `text-caption` (13/18 medium, 0.01em) — metadata, dates, status prose
+   - `text-label` (12/16 semibold, 0.08em uppercase) — eyebrow
+
+   Icons (on `material-symbols-outlined`) may use `text-[Npx]` for icon sizing; that is the only exemption.
+
+6. **Spacing — use named rhythm tokens on cards/sections/lists:**
+   - `p-section` / `gap-section` / `space-y-section` (32px) — between major sections
+   - `p-card` / `gap-card` (24px) — card internal padding
+   - `p-stack` / `space-y-stack` (16px) — sibling vertical stack
+   - `p-row` / `gap-row` / `space-y-row` (12px) — list row gaps
+
+   `px-*` / `py-*` axis-specific padding for buttons and inputs is exempt from the rename (it's not rhythm).
+
+**Pills only when earned.** `rounded-full` + tinted bg (e.g., `bg-[color:var(--color-primary)]/10`) is reserved for scan-time status in list rows. Not for categories, not for decoration, not for every slightly-important thing.
+
+**Restraint is the feature.** Linear, Stripe, Shopify admin — they remove components rather than add them. Negative space, type-scale contrast, and consistent rhythm do more work than pills and bordered badges. When in doubt, subtract.
 
 **PAGE STRUCTURE:**
 

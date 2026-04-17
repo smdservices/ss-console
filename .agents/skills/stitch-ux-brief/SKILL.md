@@ -397,6 +397,15 @@ NAV CONTRACT (REQUIRED):
  If NAVIGATION.md absent: OMIT this entire block. Describe header/footer
  inline in PAGE STRUCTURE as before (legacy behavior).]
 
+UI CONTRACT (REQUIRED):
+[Only if docs/style/UI-PATTERNS.md exists. Inject the six-rule summary
+ block (same as stitch-design skill step 3) here. Six rules cited to
+ NN/g, Material 3, WCAG 2.2, Polaris, Carbon. Governs status display,
+ redundancy ban, button hierarchy, heading skip, typography scale
+ (named tokens: text-display/title/heading/body-lg/body/caption/label),
+ spacing rhythm (named tokens: p-section/card/stack/row), and pill
+ restraint. If UI-PATTERNS.md absent: OMIT this entire block.]
+
 DESIGN SYSTEM (REQUIRED):
 - Platform: Web, mobile-first, 390x844 viewport only (or desktop 1280px)
 - Palette: <hex values from the brief's Appendix>
