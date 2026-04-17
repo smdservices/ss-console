@@ -36,7 +36,7 @@ The product being specified is an internal operations platform and client-facing
 The value is two-sided:
 
 - **For the admin:** It replaces a fragile combination of spreadsheets, email threads, and memory that cannot scale past 2-3 concurrent engagements and does not project the operational maturity the business is selling.
-- **For the client:** It delivers the professional experience the engagement promises before a single deliverable is in their hands. As one target client put it: "A $5,000-$9,000 engagement should come with a client experience that matches it. The portal is a trust signal. It either reinforces the price or undermines it. There is no neutral."
+- **For the client:** It delivers the professional experience the engagement promises before a single deliverable is in their hands. As one target client put it: "Any engagement, from a focused automation script to a full implementation, should come with a client experience that matches it. The portal is a trust signal. It either reinforces the price or undermines it. There is no neutral."
 
 The MVP must be live and functional before the first assessment call. That is the forcing function. Everything else sequences from that constraint.
 
