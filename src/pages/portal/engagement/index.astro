@@ -1,7 +1,7 @@
 ---
 import '../../../styles/global.css'
 import { BRAND_NAME } from '../../../lib/config/brand'
-import { CLIENT_STATUS_LABELS, CLIENT_STATUS_COLORS } from '../../../lib/portal/constants'
+import { CLIENT_STATUS_LABELS } from '../../../lib/portal/constants'
 import { getPortalClient } from '../../../lib/portal/session'
 import { listEngagements } from '../../../lib/db/engagements'
 import { listMilestones } from '../../../lib/db/milestones'
@@ -119,14 +119,7 @@ function formatDate(iso: string | null): string {
           <div class="space-y-6">
             {/* Status and Timeline */}
             <div class="bg-white rounded-lg border border-slate-200 p-6">
-              <div class="flex items-center justify-between mb-4">
-                <h2 class="text-base font-semibold text-slate-900">Overview</h2>
-                <span
-                  class={`text-sm font-medium px-3 py-1 rounded-full ${CLIENT_STATUS_COLORS[engagement.status] ?? 'bg-slate-100 text-slate-600'}`}
-                >
-                  {CLIENT_STATUS_LABELS[engagement.status] ?? engagement.status}
-                </span>
-              </div>
+              <h2 class="text-base font-semibold text-slate-900 mb-4">Overview</h2>
 
               {engagement.scope_summary && (
                 <p class="text-sm text-slate-600 mb-4">{engagement.scope_summary}</p>

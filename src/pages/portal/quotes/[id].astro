@@ -454,24 +454,7 @@ const consultantPhone = engagement?.consultant_phone ?? null
             <div
               class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-6"
             >
-              <span
-                class="inline-flex items-center rounded-full bg-[color:var(--color-meta)]/10 px-3 py-1 text-[13px] leading-[18px] font-medium tracking-[0.01em] text-[color:var(--color-meta)]"
-              >
-                {
-                  isSigned
-                    ? 'Signed'
-                    : isSuperseded
-                      ? 'Superseded'
-                      : isDeclined
-                        ? 'Declined'
-                        : isExpired
-                          ? 'Expired'
-                          : hasActiveSignature
-                            ? 'Ready to sign'
-                            : 'Being prepared'
-                }
-              </span>
-              <div class="mt-5">
+              <div>
                 <p
                   class="text-[13px] leading-[18px] font-medium tracking-[0.01em] text-[color:var(--color-text-muted)] uppercase"
                 >

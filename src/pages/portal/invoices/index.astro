@@ -142,9 +142,11 @@ function formatDate(iso: string | null): string {
                         {formatCurrency(inv.amount)}
                       </p>
                       <div class="flex items-center gap-3 mt-1 text-xs text-slate-400">
-                        {inv.due_date && <span>Due: {formatDate(inv.due_date)}</span>}
+                        {inv.due_date && !inv.paid_at && (
+                          <span>Due {formatDate(inv.due_date)}</span>
+                        )}
                         {inv.paid_at && (
-                          <span class="text-green-600">Paid: {formatDate(inv.paid_at)}</span>
+                          <span class="text-green-600">{formatDate(inv.paid_at)}</span>
                         )}
                       </div>
                       {inv.description && (

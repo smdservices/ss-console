@@ -278,9 +278,13 @@ const consultantFirstName: string | null = consultantName
                The right rail ActionCard covers this on desktop. -->
           <div class="md:hidden">
             <MoneyDisplay amountCents={amountCents} size="display" />
-            <p class="mt-2 text-[13px] leading-[18px] text-[color:var(--color-text-muted)]">
-              {isPaid ? 'Paid in full' : 'Remaining balance'}
-            </p>
+            {
+              !isPaid && (
+                <p class="mt-2 text-[13px] leading-[18px] text-[color:var(--color-text-muted)]">
+                  Remaining balance
+                </p>
+              )
+            }
             {
               isErrorState && (
                 <div
@@ -448,17 +452,9 @@ const consultantFirstName: string | null = consultantName
           {
             isPaid ? (
               <div class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-6 sm:p-8">
-                <span class="inline-flex items-center rounded-full bg-[color:var(--color-complete)]/10 px-3 py-1 text-[13px] leading-[18px] font-medium tracking-[0.01em] text-[color:var(--color-complete)]">
-                  Paid
-                </span>
-                <div class="mt-5">
-                  <MoneyDisplay amountCents={amountCents} size="display" />
-                  <p class="mt-2 text-[13px] leading-[18px] font-medium tracking-[0.01em] text-[color:var(--color-text-muted)]">
-                    Paid in full
-                  </p>
-                </div>
+                <MoneyDisplay amountCents={amountCents} size="display" />
                 {paidShortDate && (
-                  <p class="mt-6 text-[13px] text-[color:var(--color-text-muted)]">
+                  <p class="mt-4 text-[13px] leading-[18px] font-medium text-[color:var(--color-complete)]">
                     Paid {paidShortDate}.
                   </p>
                 )}
