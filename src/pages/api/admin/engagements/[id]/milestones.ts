@@ -72,12 +72,12 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
         return redirect(`${detailUrl}?error=missing`, 302)
       }
 
-      const milestone = await getMilestone(env.DB, milestoneId.trim())
+      const milestone = await getMilestone(env.DB, session.orgId, milestoneId.trim())
       if (!milestone || milestone.engagement_id !== engagementId) {
         return redirect(`${detailUrl}?error=not_found`, 302)
       }
 
-      await deleteMilestone(env.DB, milestoneId.trim())
+      await deleteMilestone(env.DB, session.orgId, milestoneId.trim())
       return redirect(`${detailUrl}?milestone_deleted=1`, 302)
     }
 
@@ -87,11 +87,11 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
       if (!milestoneId || typeof milestoneId !== 'string') {
         return redirect(`${detailUrl}?error=missing`, 302)
       }
-      const milestone = await getMilestone(env.DB, milestoneId.trim())
+      const milestone = await getMilestone(env.DB, session.orgId, milestoneId.trim())
       if (!milestone || milestone.engagement_id !== engagementId) {
         return redirect(`${detailUrl}?error=not_found`, 302)
       }
-      await updateMilestone(env.DB, milestoneId.trim(), {
+      await updateMilestone(env.DB, session.orgId, milestoneId.trim(), {
         payment_trigger: !milestone.payment_trigger,
       })
       return redirect(`${detailUrl}?saved=1`, 302)
@@ -111,7 +111,7 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
         return redirect(`${detailUrl}?error=invalid_status`, 302)
       }
 
-      const milestone = await getMilestone(env.DB, milestoneId.trim())
+      const milestone = await getMilestone(env.DB, session.orgId, milestoneId.trim())
       if (!milestone || milestone.engagement_id !== engagementId) {
         return redirect(`${detailUrl}?error=not_found`, 302)
       }
@@ -133,7 +133,12 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
             customerEmail: contact?.email ?? null,
           })
         } else {
-          await updateMilestoneStatus(env.DB, milestoneId.trim(), newStatus as MilestoneStatus)
+          await updateMilestoneStatus(
+            env.DB,
+            session.orgId,
+            milestoneId.trim(),
+            newStatus as MilestoneStatus
+          )
         }
       } catch (err) {
         console.error('[api/admin/engagements/[id]/milestones] Status transition error:', err)
@@ -154,7 +159,7 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
     const paymentTrigger = formData.get('payment_trigger')
     const sortOrder = formData.get('sort_order')
 
-    await createMilestone(env.DB, engagementId, {
+    await createMilestone(env.DB, session.orgId, engagementId, {
       name: name.trim(),
       description:
         description && typeof description === 'string' && description.trim()
