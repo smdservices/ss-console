@@ -64,7 +64,7 @@ const statusLabelMap: Record<string, string> = {
       href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
       rel="stylesheet"
     />
-    <title>Proposals — Portal — {BRAND_NAME}</title>
+    <title>Proposals — {BRAND_NAME}</title>
   </head>
   <body class="min-h-screen bg-slate-50">
     <SkipToMain />
@@ -91,7 +91,7 @@ const statusLabelMap: Record<string, string> = {
         Home
       </a>
 
-      <h1 class="text-xl sm:text-2xl font-bold text-slate-900 mb-6">Your Proposals</h1>
+      <h1 class="text-xl font-semibold text-slate-900 mb-6">Proposals</h1>
 
       {
         quotes.length === 0 ? (
@@ -115,11 +115,11 @@ const statusLabelMap: Record<string, string> = {
             </p>
           </div>
         ) : (
-          <div class="space-y-4">
+          <div class="space-y-3">
             {quotes.map((quote: Quote) => (
               <a
                 href={`/portal/quotes/${quote.id}`}
-                class="block bg-white rounded-lg border border-slate-200 p-5 sm:p-6 hover:border-slate-300 hover:shadow-sm transition-all"
+                class="block bg-white rounded-lg border border-slate-200 p-4 hover:border-slate-300 hover:shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
               >
                 <div class="flex flex-col sm:flex-row sm:items-center gap-3">
                   <div class="flex-1 min-w-0">
@@ -150,7 +150,7 @@ const statusLabelMap: Record<string, string> = {
 
                   <div class="flex items-center gap-4">
                     <div class="text-right">
-                      <p class="text-lg font-bold text-slate-900">
+                      <p class="text-lg font-semibold text-slate-900">
                         {formatCurrency(quote.total_price)}
                       </p>
                       <p class="text-xs text-slate-400">Engagement price</p>
