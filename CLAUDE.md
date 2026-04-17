@@ -12,7 +12,7 @@ This file provides guidance for Claude Code agents working in this repository.
 
 **Geography:** Phoenix-based, in-person default for Phase 1 (first 5 clients), remote-capable.
 
-**Positioning:** The client is the hero, we are the guide. Collaborative, objectives-first. The value is enterprise operational discipline applied to businesses that have never had access to it, delivered at speed and pricing that works for their stage. Not "AI-powered" anything. A chef isn't hired for his knife.
+**Positioning:** The client is the hero, we are the guide. Collaborative, objectives-first. The value is enterprise operational discipline applied to businesses that have never had access to it, delivered at speed and pricing that works for their stage. AI & automation is a named capability. We do AI work when AI is the right answer, and we say so plainly. We do not brand the firm, the method, or non-AI engagements as "AI-powered." A chef isn't hired for his knife, but he names the knife when it matters.
 
 ## What This Repo Is For
 
@@ -129,15 +129,26 @@ We use a three-layer model to connect research to delivery:
 
 These are representative, not exhaustive. The assessment listens for whatever comes up.
 
-**3. Five solution categories** (delivery taxonomy):
+**3. Six solution categories** (delivery taxonomy):
 
 - Process design
 - Custom internal tools
 - Systems integration
 - Operational visibility
 - Vendor/platform selection
+- AI & automation
 
 No dollar ranges are attached to solution categories. Pricing comes from scope estimation per engagement.
+
+**AI & automation sub-capabilities** (for agent reference when authoring copy or scoping engagements, not a list to publish verbatim):
+
+- AI strategy conversations and readiness assessment
+- AI tool selection and rollout
+- Custom AI and agent implementations
+- Team training and enablement on AI tools
+- Non-AI workflow automation (scripts, integrations that don't require AI)
+
+**Taxonomy divergence note.** The six-category taxonomy above is the marketing and doctrinal source of truth. Internal lead-generation code still operates on the earlier five-category list (`tests/extraction-prompt.test.ts`, `src/lib/enrichment/review-synthesis.ts`, `src/lead-gen/prompts/job-qualification-prompt.ts`, `docs/collateral/lead-automation-blueprint.md`). Closing that gap is tracked as a follow-on issue. Agents editing either side of the divergence must not silently change the other. Doctrine changes here do not retroactively rewrite extraction prompts, and lead-gen changes there do not dictate the external taxonomy.
 
 ### Pain Clusters by Vertical
 
@@ -161,10 +172,12 @@ These suggest where to lead the conversation, not which problems to look for. Th
 | Training         | Hands-on walkthrough, practice, deliver "how to" docs, identify internal champion |
 | Handoff + polish | Handle feedback, adjust based on real use, final handoff                          |
 
+**Phases scale per engagement.** Every engagement includes every phase. What changes is how heavy each one is. Training may be a three-day program or a single "on Tuesdays you click this button." Implementation may be a multi-week build or a one-afternoon script. Scope determines depth, not presence.
+
 ### Pricing
 
 - **Internal rate:** $175/hr at launch, then $200/hr after first case study, then $250/hr, then $300/hr with volume
-- **Engagement range:** $5,000-$15,000+ depending on scope
+- **Engagement range:** scoped per engagement. Smallest engagements (targeted automation scripts, AI pilots) start around $2,500. Below that, assessment overhead exceeds delivery value. Largest engagements have no fixed ceiling. Nothing published externally.
 - **Paid Assessment:** $250, applied toward engagement if they proceed. First 3 assessments free.
 - **Retainer (post-delivery):** $200-500/mo for ongoing support and optimization. Model holds but we define the details after the first delivery.
 - **No dollar amounts published externally.** Client sees a project price, not hourly rate.
@@ -186,7 +199,7 @@ We are in the **pre-launch phase**. Nothing has been sold yet. The immediate pri
 
 - [ ] Assessment call script (structured conversation guide, objectives-first)
 - [ ] Proposal/SOW template (what gets sent after the assessment, reflecting full solution range)
-- [ ] Pricing framework (scope estimation across all 5 solution categories)
+- [ ] Pricing framework (scope estimation across all 6 solution categories)
 - [ ] One-pager / leave-behind (physical or PDF for networking, guide positioning)
 
 ### Priority 2: Go-to-Market
@@ -199,7 +212,7 @@ We are in the **pre-launch phase**. Nothing has been sold yet. The immediate pri
 
 ### Priority 3: Delivery Readiness
 
-- [ ] Tool and solution matrix (across all 5 solution categories, including custom internal tools and integrations)
+- [ ] Tool and solution matrix (across all 6 solution categories, including custom internal tools, integrations, and AI & automation)
 - [ ] SOP templates (reusable frameworks filled in per client)
 - [ ] Client onboarding checklist (what we need from them before Day 1)
 - [ ] Quality checklist templates (reusable across engagements)

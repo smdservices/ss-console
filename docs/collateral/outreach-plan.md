@@ -133,6 +133,12 @@ Once channels are open, the weekly cadence looks like:
 
 **ROI hook:** "If your team is copying data between three spreadsheets and two apps, that's not a people problem. The tools just aren't connected."
 
+### AI & Automation
+
+> We help growing businesses figure out what to actually do with AI. Sometimes the answer is an AI tool. Sometimes it's a simple automation. Sometimes it's neither. Either way we talk it through before anyone writes a check.
+
+**ROI hook:** "Most owners we talk to have been pitched five AI things this year. We help you tell which one is worth the time and which one would have been a better spreadsheet formula."
+
 ---
 
 ## Tracking
@@ -177,7 +183,7 @@ The value proposition for the chair: you bring a practical session their members
 Keep it practical. No slides if you can help it.
 
 1. Open with a question: "What's the one thing in your business that would break if you took two weeks off?"
-2. Walk through 2-3 of the five solution categories with real examples (anonymized client stories when available)
+2. Walk through 2-3 of the six solution categories (process design, custom internal tools, systems integration, operational visibility, vendor/platform selection, AI & automation) with real examples (anonymized client stories when available)
 3. Give each person one concrete thing to look at this week
 4. Close with an open offer: "If any of this sounds familiar, we start with a conversation. No charge for that."
 
