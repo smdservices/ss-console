@@ -298,12 +298,12 @@ Standard engagement terms. Kept short and readable — this is not a legal contr
 │                                                              │
 │  2. The engagement start date is tentative until the         │
 │     deposit is received. We will confirm the start date      │
-│     within 1 business day of receiving the deposit.          │
+│     after the deposit clears.                                │
 │                                                              │
-│  3. A 2-week stabilization period follows the final          │
-│     handoff. During this period, we will address questions   │
-│     and minor adjustments related to the work delivered.     │
-│     New scope requires a separate engagement.                │
+│  3. A stabilization period follows the final handoff.        │
+│     During this period, we will address questions and minor  │
+│     adjustments related to the work delivered. New scope     │
+│     requires a separate engagement.                          │
 │                                                              │
 │  4. Either party may terminate this agreement with 3         │
 │     business days' written notice. Work completed to date    │
@@ -316,7 +316,8 @@ Standard engagement terms. Kept short and readable — this is not a legal contr
 
 - Section heading: same style
 - Numbered list: Inter 400 9pt `#334155`, 8pt between items
-- Terms are static text. Term 1 reflects Decision #18 (5-day confirmation deadline). Term 3 reflects Decision #27 (2-week safety net, Day 24 cutoff). The word "stabilization" is used instead of "safety net" or "support window" for client-facing language.
+- Terms are static text. Term 1 reflects Decision #18 (5-day confirmation deadline). Term 3 references a stabilization period without a fixed duration — specific duration is the product of the engagement conversation and is captured in Decision #27 for internal planning but not committed in the client-facing template. The word "stabilization" is used instead of "safety net" or "support window" for client-facing language.
+- The SOW's post-signing commitments (start date confirmation after deposit, stabilization period existence, deposit-invoice workflow) are authored template language describing standard engagement mechanics. They are exempt from the "no fabricated client-facing content" policy because the SOW is a signed contractual document, not marketing copy — parallel to CLAUDE.md Rule 3's exemption for signed contracts.
 
 ### 5.4 Signature Block — Dedicated Signing Page (Page 3)
 
@@ -330,7 +331,7 @@ Page 3 includes a brief "Next Steps" section above the signature block so the pa
 │                                                              │
 │  Once you sign below, we will send a deposit invoice.        │
 │  Work begins after the deposit is received. We will          │
-│  confirm the kickoff date within one business day.           │
+│  confirm the kickoff date after the deposit clears.          │
 │                                                              │
 │  AGREEMENT                                                   │
 │                                                              │
