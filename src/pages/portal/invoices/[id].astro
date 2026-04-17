@@ -461,10 +461,8 @@ const consultantFirstName: string | null = consultantName
               </div>
             ) : isLinkExpired ? (
               <div class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-6 sm:p-8">
-                <span class="inline-flex items-center rounded-full bg-[color:var(--color-attention)]/10 px-3 py-1 text-[13px] leading-[18px] font-medium tracking-[0.01em] text-[color:var(--color-attention)]">
-                  Link expired
-                </span>
-                <div class="mt-5">
+                <p class="text-label uppercase text-[color:var(--color-attention)]">Link expired</p>
+                <div class="mt-3">
                   <MoneyDisplay amountCents={amountCents} size="display" />
                   <p class="mt-2 text-[13px] leading-[18px] font-medium tracking-[0.01em] text-[color:var(--color-text-muted)]">
                     Remaining balance
@@ -516,10 +514,10 @@ const consultantFirstName: string | null = consultantName
                     class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-6 sm:p-8"
                     aria-label="Payment link pending"
                   >
-                    <span class="inline-flex items-center rounded-full bg-[color:var(--color-surface-muted)] px-3 py-1 text-[13px] leading-[18px] font-medium tracking-[0.01em] text-[color:var(--color-text-muted)]">
+                    <p class="text-label uppercase text-[color:var(--color-text-muted)]">
                       Payment link pending
-                    </span>
-                    <div class="mt-5">
+                    </p>
+                    <div class="mt-3">
                       <MoneyDisplay amountCents={amountCents} size="display" />
                       <p class="mt-2 text-[13px] leading-[18px] font-medium tracking-[0.01em] text-[color:var(--color-text-muted)]">
                         Remaining balance
