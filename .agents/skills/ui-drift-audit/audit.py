@@ -57,9 +57,21 @@ SPACING_TOKEN_RX = re.compile(r"\b(?:p[xytrbl]?|gap(?:-x|-y)?)-[0-9]+(?:\.5)?\b"
 HEADING_RX = re.compile(r"<h([1-6])\b", re.IGNORECASE)
 
 # Primary-CTA indicators. Rule 3: one primary per view.
-# Recognize explicit primary bg and the common var-reference.
+#
+# Heuristic: bg-primary (or the var-reference equivalent) as a standalone
+# class — NOT as a tinted background (bg-primary/5, bg-primary/90) and NOT
+# as a compound modifier (bg-primary-hover). The element must also look
+# button-shaped — paired with button-like padding (px-N or py-N) on the
+# same line. This excludes:
+#   - tinted backgrounds (bg-primary/5, bg-primary/10)
+#   - hover/alternate colors (bg-primary-hover)
+#   - progress bars (bg-primary on h-N or w-N elements without px/py)
+#   - decorative icon circles (bg-primary text-white without px/py)
+#
+# Still a heuristic — state-branch conditional CTAs in a single file can
+# inflate the count. Manual review required when count > 1.
 PRIMARY_CTA_RX = re.compile(
-    r"(?:bg-\[color:var\(--color-primary\)\](?!/)|bg-primary(?![-/\w]))"
+    r"(?:bg-\[color:var\(--color-primary\)\](?!/)|bg-primary(?![-/\w]))[^\"]*?\bp[xy]?-[0-9]"
 )
 
 # --- Redundancy detection --------------------------------------------------

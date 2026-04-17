@@ -210,21 +210,33 @@ The label is the same value twice, rendered as a pill in one spot and as prose i
 | **Tertiary (ghost)** | Text-only primary color                              | Low-stakes inline actions (links, "view more") |
 | **Destructive**      | Solid `bg-[color:var(--color-error)]` + white text   | Irreversible or data-loss actions              |
 
-**Anti-pattern — multiple primary actions in one view.**
+**Anti-pattern — multiple primary actions rendered simultaneously.**
 
-Audit surfaced 7 files with primary-CTA count > 1. Manual review required
-for each: some genuinely have conditional branches (state machine where only
-one renders per state — legitimate), others render multiple primaries
-simultaneously (violation).
+The audit counts `bg-primary` + button-shaped padding per file. A count > 1
+is a signal to review, not a verdict: **state-branch conditional CTAs
+(the same slot rendering Start / Continue / Submit depending on state)
+are compliant.** Only co-rendered primaries on the same screen are
+violations.
 
-Known violators that need review:
+After the refined heuristic (ignoring tinted backgrounds, hover colors,
+decorative progress bars and icon badges), remaining count-≥2 files:
 
-- `src/pages/scorecard.astro` — 5 primary CTAs counted. Public marketing page; multiple calls-to-action are common but one should dominate.
-- `src/pages/book.astro` — 3 primaries. Booking flow should have one "next action" per step.
-- `src/components/booking/SlotPicker.astro` — 4 primaries. Button for each slot likely overqualifies as primary styling.
-- `src/pages/portal/quotes/[id].astro` — 2 primaries. Likely conditional (sign button vs revised-version link) — verify.
+- `src/pages/scorecard.astro` — 4. Verified state-branch: Start / Start
+  (summary) / Next / Submit. Only one renders per assessment phase.
+  Compliant.
+- `src/pages/book.astro` — 2. Booking-flow state branches. Compliant.
+- `src/pages/book/manage/[token].astro` — 2. Manage-booking state
+  branches. Compliant.
+- `src/components/booking/SlotPicker.astro` — 3. Slot-selection state
+  (selected / available / confirm). Compliant.
 
-**Detection.** `ui-drift-audit` Primary CTAs column. A file with count > 1 needs human review to distinguish state-machine branching from simultaneous rendering.
+No simultaneous-primary violations found. When one is introduced, it
+will show up as a count-≥2 file with all primaries rendering in the
+same top-level block (no `{condition ? <a/> : <b/>}` wrapping the second
+primary). This pattern is what reviewers should look for.
+
+**Detection.** `ui-drift-audit` Primary CTAs column + manual review of
+any file with count ≥ 2.
 
 ---
 
