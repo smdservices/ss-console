@@ -139,16 +139,16 @@ function formatCurrency(amount: number): string {
   }
 
   {/* Header */}
-  <div class="bg-white rounded-lg border border-slate-200 p-6 mb-6">
-    <div class="flex items-start justify-between gap-4">
+  <div class="bg-white rounded-lg border border-slate-200 p-card mb-6">
+    <div class="flex items-start justify-between gap-stack">
       <div>
-        <div class="flex items-center gap-3 mb-2">
+        <div class="flex items-center gap-row mb-2">
           <h2 class="text-xl font-semibold text-slate-900">{entity.name}</h2>
           <span class={`text-xs px-2 py-0.5 rounded ${statusBadgeClass(status)}`}>
             {QUOTE_STATUSES.find((s) => s.value === status)?.label ?? status}
           </span>
         </div>
-        <div class="flex items-center gap-4 text-sm text-slate-500">
+        <div class="flex items-center gap-stack text-sm text-slate-500">
           <span>Created {formatDate(quote.created_at)}</span>
           {
             expiresAt && (
@@ -165,7 +165,7 @@ function formatCurrency(amount: number): string {
   </div>
 
   {/* Line Item Editor */}
-  <div class="bg-white rounded-lg border border-slate-200 p-6 mb-6">
+  <div class="bg-white rounded-lg border border-slate-200 p-card mb-6">
     <div class="flex items-center justify-between mb-4">
       <h3 class="text-lg font-semibold text-slate-900">Line Items</h3>
       <div id="line-item-warning" class="hidden text-sm text-amber-600 font-medium">
@@ -272,11 +272,11 @@ function formatCurrency(amount: number): string {
   </div>
 
   {/* Payment Structure */}
-  <div class="bg-white rounded-lg border border-slate-200 p-6 mb-6">
+  <div class="bg-white rounded-lg border border-slate-200 p-card mb-6">
     <h3 class="text-lg font-semibold text-slate-900 mb-4">Payment Structure</h3>
 
-    <div class="space-y-3">
-      <div class="flex items-center gap-4">
+    <div class="space-y-row">
+      <div class="flex items-center gap-stack">
         <label class="text-sm text-slate-600 w-36">Deposit percentage:</label>
         {
           isDraft ? (
@@ -343,7 +343,7 @@ function formatCurrency(amount: number): string {
   </div>
 
   {/* Authored client-facing content (#377) */}
-  <div class="bg-white rounded-lg border border-slate-200 p-6 mb-6">
+  <div class="bg-white rounded-lg border border-slate-200 p-card mb-6">
     <div class="flex items-start justify-between mb-1">
       <h3 class="text-lg font-semibold text-slate-900">Client-facing content</h3>
       {
@@ -556,7 +556,7 @@ function formatCurrency(amount: number): string {
   {/* SOW PDF Status */}
   {
     hasSow && (
-      <div class="bg-white rounded-lg border border-slate-200 p-6 mb-6">
+      <div class="bg-white rounded-lg border border-slate-200 p-card mb-6">
         <h3 class="text-lg font-semibold text-slate-900 mb-2">SOW PDF</h3>
         <div class="text-sm text-slate-600 space-y-1">
           <div>
@@ -571,9 +571,9 @@ function formatCurrency(amount: number): string {
   }
 
   {/* Actions */}
-  <div class="bg-white rounded-lg border border-slate-200 p-6">
+  <div class="bg-white rounded-lg border border-slate-200 p-card">
     <h3 class="text-lg font-semibold text-slate-900 mb-4">Actions</h3>
-    <div class="flex flex-wrap gap-3">
+    <div class="flex flex-wrap gap-row">
       {/* Save Draft */}
       {
         isDraft && (

@@ -322,25 +322,25 @@ const contextSubtext =
     <main id="main" role="main" class="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10 pb-24 md:pb-10">
       {
         dashboardError ? (
-          <div class="flex flex-col gap-6">
+          <div class="flex flex-col gap-card">
             <section
-              class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-attention)]/30 p-6 sm:p-8"
+              class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-attention)]/30 p-card sm:p-section"
               aria-live="polite"
             >
-              <div class="flex items-start gap-3">
+              <div class="flex items-start gap-row">
                 <span class="material-symbols-outlined text-[24px] text-[color:var(--color-attention)] mt-0.5">
                   error
                 </span>
                 <div class="min-w-0">
-                  <h1 class="font-['Plus_Jakarta_Sans'] font-bold text-[22px] leading-[28px] text-[color:var(--color-text-primary)]">
+                  <h1 class="font-['Plus_Jakarta_Sans'] font-bold text-title text-[color:var(--color-text-primary)]">
                     Something went wrong loading your portal.
                   </h1>
-                  <p class="mt-2 text-[15px] leading-[22px] text-[color:var(--color-text-secondary)]">
+                  <p class="mt-2 text-body text-[color:var(--color-text-secondary)]">
                     {consultantFirst
                       ? `Give it a moment and try again. If it keeps happening, ${consultantFirst} can help.`
                       : 'Give it a moment and try again.'}
                   </p>
-                  <div class="mt-5 flex flex-wrap gap-3">
+                  <div class="mt-5 flex flex-wrap gap-row">
                     <a
                       href="/portal"
                       class="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded-lg bg-[color:var(--color-primary)] hover:bg-[color:var(--color-primary-hover)] text-white text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
@@ -373,7 +373,7 @@ const contextSubtext =
       >
         <!-- On mobile, dominant action (right-rail content) renders FIRST.
              On desktop it moves to the right column via md:order-2. -->
-        <aside class="md:order-2 md:sticky md:top-10 space-y-6">
+        <aside class="md:order-2 md:sticky md:top-10 space-y-card">
           {
             pendingInvoice && invoicePillLabel ? (
               <ActionCard
@@ -386,30 +386,26 @@ const contextSubtext =
               />
             ) : touchpointText ? (
               <section
-                class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-6 sm:p-8"
+                class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-card sm:p-section"
                 aria-label="Next check-in"
               >
-                <span class="inline-flex items-center rounded-full bg-[color:var(--color-primary)]/10 px-3 py-1 text-[13px] leading-[18px] font-medium tracking-[0.01em] text-[color:var(--color-primary)]">
-                  Next check-in
-                </span>
-                <p class="mt-5 font-['Plus_Jakarta_Sans'] font-extrabold text-[28px] leading-[34px] tracking-[-0.02em] text-[color:var(--color-text-primary)]">
+                <p class="text-label uppercase text-[color:var(--color-primary)]">Next check-in</p>
+                <p class="mt-3 font-['Plus_Jakarta_Sans'] font-extrabold text-display tracking-[-0.02em] text-[color:var(--color-text-primary)]">
                   {touchpointText}
                 </p>
                 {consultantFirst && (
-                  <p class="mt-2 text-[13px] leading-[18px] font-medium tracking-[0.01em] text-[color:var(--color-text-muted)]">
+                  <p class="mt-2 text-caption font-medium tracking-[0.01em] text-[color:var(--color-text-muted)]">
                     with {consultantFirst}
                   </p>
                 )}
               </section>
             ) : (
               <section
-                class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-6 sm:p-8"
+                class="bg-[color:var(--color-surface)] rounded-lg border border-[color:var(--color-border)] p-card sm:p-section"
                 aria-label="Engagement status"
               >
-                <span class="inline-flex items-center rounded-full bg-[color:var(--color-primary)]/10 px-3 py-1 text-[13px] leading-[18px] font-medium tracking-[0.01em] text-[color:var(--color-primary)]">
-                  In flight
-                </span>
-                <p class="mt-5 text-base leading-6 text-[color:var(--color-text-secondary)]">
+                <p class="text-label uppercase text-[color:var(--color-primary)]">In flight</p>
+                <p class="mt-3 text-base leading-6 text-[color:var(--color-text-secondary)]">
                   Nothing needs your attention right now.
                 </p>
               </section>
@@ -441,7 +437,7 @@ const contextSubtext =
               Client Portal
             </p>
             <h1
-              class="mt-3 font-['Plus_Jakarta_Sans'] font-extrabold text-[32px] leading-[36px] tracking-[-0.02em] text-[color:var(--color-text-primary)]"
+              class="mt-3 font-['Plus_Jakarta_Sans'] font-extrabold text-display tracking-[-0.02em] text-[color:var(--color-text-primary)]"
             >
               {contextHeadline}
             </h1>
@@ -466,13 +462,13 @@ const contextSubtext =
             class="mt-8 md:mt-0 pt-8 md:pt-0 border-t md:border-t-0 border-[color:var(--color-border)]"
           >
             <h2
-              class="font-['Plus_Jakarta_Sans'] font-bold text-[18px] leading-[24px] text-[color:var(--color-text-primary)]"
+              class="font-['Plus_Jakarta_Sans'] font-bold text-body-lg text-[color:var(--color-text-primary)]"
             >
               Recent activity
             </h2>
             {
               timelineEntries.length > 0 ? (
-                <div class="mt-6 flex flex-col gap-6">
+                <div class="mt-6 flex flex-col gap-card">
                   {timelineEntries.map((entry) => (
                     <TimelineEntry
                       date={entry.date}

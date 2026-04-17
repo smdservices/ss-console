@@ -184,7 +184,7 @@ function formatDate(iso: string): string {
   {/* Entity list */}
   {
     entities.length === 0 ? (
-      <div class="bg-white rounded-lg border border-slate-200 p-6">
+      <div class="bg-white rounded-lg border border-slate-200 p-card">
         <p class="text-slate-500 text-sm">
           No entities at the <strong>{filterStage}</strong> stage.
         </p>
@@ -193,7 +193,7 @@ function formatDate(iso: string): string {
       <div class="bg-white rounded-lg border border-slate-200 divide-y divide-slate-100">
         {entities.map((e: Entity) => (
           <div class="px-6 py-4">
-            <div class="flex items-start justify-between gap-4">
+            <div class="flex items-start justify-between gap-stack">
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-2 mb-1 flex-wrap">
                   <a
@@ -230,7 +230,7 @@ function formatDate(iso: string): string {
                   </p>
                 )}
 
-                <div class="flex items-center gap-3 text-xs text-slate-400 mt-1">
+                <div class="flex items-center gap-row text-xs text-slate-400 mt-1">
                   <span>{formatDate(e.created_at)}</span>
                   {e.area && <span>{e.area}</span>}
                   {e.vertical && <span class="capitalize">{e.vertical.replace(/_/g, ' ')}</span>}

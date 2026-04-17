@@ -1,7 +1,7 @@
 ---
 import '../../../styles/global.css'
 import { BRAND_NAME } from '../../../lib/config/brand'
-import { CLIENT_STATUS_LABELS, CLIENT_STATUS_COLORS } from '../../../lib/portal/constants'
+import { CLIENT_STATUS_LABELS } from '../../../lib/portal/constants'
 import { getPortalClient } from '../../../lib/portal/session'
 import { listEngagements } from '../../../lib/db/engagements'
 import { listMilestones } from '../../../lib/db/milestones'
@@ -110,29 +110,22 @@ function formatDate(iso: string | null): string {
 
       {
         !engagement ? (
-          <div class="bg-white rounded-lg border border-slate-200 p-6">
+          <div class="bg-white rounded-lg border border-slate-200 p-card">
             <p class="text-slate-600">
               No active engagement. When your engagement begins, progress will appear here.
             </p>
           </div>
         ) : (
-          <div class="space-y-6">
+          <div class="space-y-card">
             {/* Status and Timeline */}
-            <div class="bg-white rounded-lg border border-slate-200 p-6">
-              <div class="flex items-center justify-between mb-4">
-                <h2 class="text-base font-semibold text-slate-900">Overview</h2>
-                <span
-                  class={`text-sm font-medium px-3 py-1 rounded-full ${CLIENT_STATUS_COLORS[engagement.status] ?? 'bg-slate-100 text-slate-600'}`}
-                >
-                  {CLIENT_STATUS_LABELS[engagement.status] ?? engagement.status}
-                </span>
-              </div>
+            <div class="bg-white rounded-lg border border-slate-200 p-card">
+              <h2 class="text-base font-semibold text-slate-900 mb-4">Overview</h2>
 
               {engagement.scope_summary && (
                 <p class="text-sm text-slate-600 mb-4">{engagement.scope_summary}</p>
               )}
 
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-stack text-sm">
                 <div>
                   <span class="text-slate-500">Started</span>
                   <p class="font-medium text-slate-900">{formatDate(engagement.start_date)}</p>
@@ -151,7 +144,7 @@ function formatDate(iso: string | null): string {
             </div>
 
             {/* Milestones */}
-            <div class="bg-white rounded-lg border border-slate-200 p-6">
+            <div class="bg-white rounded-lg border border-slate-200 p-card">
               <h2 class="text-base font-semibold text-slate-900 mb-4">Milestones</h2>
 
               {milestones.length === 0 ? (
@@ -159,11 +152,11 @@ function formatDate(iso: string | null): string {
                   Milestones will appear here as your engagement progresses.
                 </p>
               ) : (
-                <div class="space-y-3">
+                <div class="space-y-row">
                   {milestones.map((m) => {
                     const indicator = statusIcon[m.status] ?? statusIcon.pending
                     return (
-                      <div class="flex items-start gap-3 py-2">
+                      <div class="flex items-start gap-row py-2">
                         <span
                           class={`inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-medium shrink-0 mt-0.5 ${indicator.color}`}
                           set:html={indicator.icon}
@@ -173,7 +166,7 @@ function formatDate(iso: string | null): string {
                           {m.description && (
                             <p class="text-sm text-slate-500 mt-0.5">{m.description}</p>
                           )}
-                          <div class="flex items-center gap-3 mt-1 text-xs text-slate-400">
+                          <div class="flex items-center gap-row mt-1 text-xs text-slate-400">
                             <span>{indicator.label}</span>
                             {m.due_date && <span>Due: {formatDate(m.due_date)}</span>}
                             {m.completed_at && <span>Completed: {formatDate(m.completed_at)}</span>}

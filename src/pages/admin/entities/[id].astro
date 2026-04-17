@@ -323,10 +323,10 @@ function confidenceColor(confidence: string): string {
   }
 
   {/* Entity Summary */}
-  <div class="bg-white rounded-lg border border-slate-200 p-6 mb-6">
-    <div class="flex items-start justify-between gap-4">
+  <div class="bg-white rounded-lg border border-slate-200 p-card mb-6">
+    <div class="flex items-start justify-between gap-stack">
       <div>
-        <div class="flex items-center gap-3 mb-2">
+        <div class="flex items-center gap-row mb-2">
           <h2 class="text-xl font-semibold text-slate-900">{entity.name}</h2>
           <span class={`text-xs px-2 py-0.5 rounded ${stageBadgeClass(entity.stage)}`}>
             {ENTITY_STAGES.find((s) => s.value === entity.stage)?.label ?? entity.stage}
@@ -350,7 +350,7 @@ function confidenceColor(confidence: string): string {
           }
         </div>
 
-        <div class="flex items-center gap-4 text-sm text-slate-500 mb-2 flex-wrap">
+        <div class="flex items-center gap-stack text-sm text-slate-500 mb-2 flex-wrap">
           {
             entity.pain_score && (
               <span>
@@ -363,7 +363,7 @@ function confidenceColor(confidence: string): string {
           {entity.employee_count && <span>~{entity.employee_count} employees</span>}
         </div>
 
-        <div class="flex items-center gap-3 text-xs text-slate-400">
+        <div class="flex items-center gap-row text-xs text-slate-400">
           {
             entity.source_pipeline && (
               <span>Source: {entity.source_pipeline.replace(/_/g, ' ')}</span>
@@ -437,8 +437,8 @@ function confidenceColor(confidence: string): string {
   </div>
 
   {/* Add Note */}
-  <div class="bg-white rounded-lg border border-slate-200 p-4 mb-6">
-    <form method="POST" action={`/api/admin/entities/${entity.id}/context`} class="flex gap-3">
+  <div class="bg-white rounded-lg border border-slate-200 p-stack mb-6">
+    <form method="POST" action={`/api/admin/entities/${entity.id}/context`} class="flex gap-row">
       <input type="hidden" name="type" value="note" />
       <textarea
         name="content"
@@ -458,13 +458,13 @@ function confidenceColor(confidence: string): string {
   {/* Dossier Summary */}
   {
     hasDossier && (
-      <div class="bg-white rounded-lg border border-slate-200 p-6 mb-6">
+      <div class="bg-white rounded-lg border border-slate-200 p-card mb-6">
         <h3 class="text-base font-semibold text-slate-900 mb-4">Dossier Summary</h3>
 
         {/* Zone 1: Quick Stats */}
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-stack mb-5">
           {reviewMeta?.unified_rating != null && (
-            <div class="bg-slate-50 rounded-lg p-3">
+            <div class="bg-slate-50 rounded-lg p-row">
               <div class="text-2xl font-bold text-slate-900">
                 {reviewMeta.unified_rating.toFixed(1)}
                 <span class="text-sm font-normal text-slate-400"> / 5</span>
@@ -475,7 +475,7 @@ function confidenceColor(confidence: string): string {
             </div>
           )}
           {reviewMeta?.sentiment_trend && reviewMeta.sentiment_trend !== 'insufficient_data' && (
-            <div class="bg-slate-50 rounded-lg p-3">
+            <div class="bg-slate-50 rounded-lg p-row">
               <div
                 class={`text-sm font-semibold px-2 py-0.5 rounded inline-block ${sentimentColor(reviewMeta.sentiment_trend)}`}
               >
@@ -485,7 +485,7 @@ function confidenceColor(confidence: string): string {
             </div>
           )}
           {websiteMeta?.digital_maturity?.score != null && (
-            <div class="bg-slate-50 rounded-lg p-3">
+            <div class="bg-slate-50 rounded-lg p-row">
               <div class="text-2xl font-bold text-slate-900">
                 {websiteMeta.digital_maturity.score}
                 <span class="text-sm font-normal text-slate-400"> / 10</span>
@@ -495,7 +495,7 @@ function confidenceColor(confidence: string): string {
           )}
           {competitorMeta?.entity_rank_by_rating != null &&
             competitorMeta?.total_competitors != null && (
-              <div class="bg-slate-50 rounded-lg p-3">
+              <div class="bg-slate-50 rounded-lg p-row">
                 <div class="text-2xl font-bold text-slate-900">
                   #{competitorMeta.entity_rank_by_rating}
                   <span class="text-sm font-normal text-slate-400">
@@ -560,7 +560,7 @@ function confidenceColor(confidence: string): string {
             </div>
             <pre
               id="outreach-content"
-              class="text-sm text-slate-700 whitespace-pre-wrap bg-slate-50 rounded-lg p-4 border border-slate-100"
+              class="text-sm text-slate-700 whitespace-pre-wrap bg-slate-50 rounded-lg p-stack border border-slate-100"
             >
               {outreachEntry.content}
             </pre>
@@ -602,11 +602,11 @@ function confidenceColor(confidence: string): string {
     {/* Timeline entries */}
     {
       filteredEntries.length === 0 ? (
-        <div class="bg-white rounded-lg border border-slate-200 p-4">
+        <div class="bg-white rounded-lg border border-slate-200 p-stack">
           <p class="text-slate-500 text-sm">No context entries yet.</p>
         </div>
       ) : (
-        <div class="space-y-3">
+        <div class="space-y-row">
           {filteredEntries.map((entry: ContextEntry) => {
             const meta = parseMetadata(entry.metadata)
             const problems = meta?.top_problems as string[] | undefined
@@ -666,7 +666,7 @@ function confidenceColor(confidence: string): string {
                   </span>
                 )}
               </div>
-              <div class="text-xs text-slate-400 flex gap-3">
+              <div class="text-xs text-slate-400 flex gap-row">
                 {c.email && <span>{c.email}</span>}
                 {c.phone && <span>{c.phone}</span>}
               </div>

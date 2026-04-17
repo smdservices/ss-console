@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Invoice Detail - Precision Plumbing AZ</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-tertiary-container": "#ffa583",
+                      "surface-variant": "#e0e3e5",
+                      "on-secondary-fixed": "#07006c",
+                      "on-primary": "#ffffff",
+                      "outline-variant": "#c4c5d5",
+                      "secondary-fixed-dim": "#c0c1ff",
+                      "surface-dim": "#d8dadc",
+                      "secondary-container": "#6063ee",
+                      "primary": "#00288e",
+                      "secondary": "#4648d4",
+                      "inverse-surface": "#2d3133",
+                      "primary-fixed-dim": "#b8c4ff",
+                      "on-surface-variant": "#444653",
+                      "surface-container-lowest": "#ffffff",
+                      "primary-fixed": "#dde1ff",
+                      "error-container": "#ffdad6",
+                      "secondary-fixed": "#e1e0ff",
+                      "inverse-on-surface": "#eff1f3",
+                      "on-surface": "#191c1e",
+                      "background": "#f7f9fb",
+                      "outline": "#757684",
+                      "tertiary-fixed": "#ffdbce",
+                      "on-primary-fixed-variant": "#173bab",
+                      "tertiary": "#611e00",
+                      "on-error-container": "#93000a",
+                      "surface-tint": "#3755c3",
+                      "surface-bright": "#f7f9fb",
+                      "on-tertiary-fixed": "#380d00",
+                      "on-background": "#191c1e",
+                      "on-tertiary-fixed-variant": "#802a00",
+                      "surface-container-low": "#f2f4f6",
+                      "on-primary-fixed": "#001453",
+                      "on-secondary-fixed-variant": "#2f2ebe",
+                      "tertiary-fixed-dim": "#ffb59a",
+                      "surface": "#f7f9fb",
+                      "error": "#ba1a1a",
+                      "primary-container": "#1e40af",
+                      "surface-container": "#eceef0",
+                      "inverse-primary": "#b8c4ff",
+                      "on-secondary": "#ffffff",
+                      "on-primary-container": "#a8b8ff",
+                      "on-tertiary": "#ffffff",
+                      "on-error": "#ffffff",
+                      "tertiary-container": "#872d00",
+                      "surface-container-high": "#e6e8ea",
+                      "surface-container-highest": "#e0e3e5",
+                      "on-secondary-container": "#fffbff"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "fontFamily": {
+                      "headline": ["Plus Jakarta Sans"],
+                      "body": ["Inter"],
+                      "label": ["Inter"]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .brand-font { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-[color:var(--color-background)] text-on-background min-h-screen pb-24">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 w-full z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md shadow-sm dark:shadow-none flex justify-between items-center px-6 py-4 w-full">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-blue-800 dark:text-blue-400" data-icon="precision_manufacturing">precision_manufacturing</span>
+<h1 class="font-['Plus_Jakarta_Sans'] font-bold text-body-lg text-blue-800 dark:text-blue-400 tracking-tight">Precision Plumbing AZ</h1>
+</div>
+<button class="text-slate-500 dark:text-slate-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors active:opacity-70 font-['Plus_Jakarta_Sans'] font-bold text-body-lg">Sign out</button>
+</header>
+<main class="pt-24 px-6 max-w-[390px] mx-auto space-y-section">
+<!-- Back Affordance -->
+<a class="flex items-center gap-1 text-secondary text-body font-medium hover:opacity-80 transition-opacity" href="#">
+<span class="material-symbols-outlined text-body">chevron_left</span>
+            &lt; All invoices
+        </a>
+<!-- Hero Section -->
+<section class="space-y-2">
+<span class="block text-label font-bold tracking-[0.08em] uppercase text-[color:var(--color-text-secondary)] font-label">INVOICE</span>
+<h2 class="text-display font-bold leading-tight text-primary">Deposit invoice</h2>
+<p class="text-[color:var(--color-text-secondary)] text-body-lg">Initial assessment and solution design</p>
+<div class="flex items-center gap-2 pt-2 text-[color:var(--color-text-secondary)]/70 text-body">
+<span class="material-symbols-outlined text-body">calendar_today</span>
+<span>Due Friday</span>
+</div>
+</section>
+<!-- Payment Block -->
+<section class="bg-[color:var(--color-surface)] rounded-xl p-card shadow-[0_20px_40px_rgba(0,40,142,0.06)] relative overflow-hidden">
+<div class="absolute left-0 top-0 h-full w-1 bg-secondary"></div>
+<div class="space-y-1 mb-6">
+<div class="text-display font-bold text-primary tracking-tight">$2,625.00</div>
+<div class="text-label font-bold tracking-[0.08em] uppercase text-[color:var(--color-text-secondary)]">Remaining balance</div>
+</div>
+<button class="w-full bg-gradient-to-r from-primary to-primary-container text-white py-4 rounded-lg font-bold text-body shadow-lg active:scale-[0.98] transition-transform">
+                Pay invoice
+            </button>
+</section>
+<!-- What's included -->
+<section class="space-y-stack">
+<h3 class="text-title font-bold text-[color:var(--color-text-primary)]">What's included</h3>
+<div class="space-y-stack">
+<div class="flex justify-between items-center py-2">
+<span class="text-[color:var(--color-text-primary)]">System Audit</span>
+<span class="font-medium text-[color:var(--color-text-primary)]">$1,500.00</span>
+</div>
+<div class="h-[1px] bg-[color:var(--color-border)]-variant/15"></div>
+<div class="flex justify-between items-center py-2">
+<span class="text-[color:var(--color-text-primary)]">Intake Design</span>
+<span class="font-medium text-[color:var(--color-text-primary)]">$1,125.00</span>
+</div>
+<div class="h-[1px] bg-[color:var(--color-border)]-variant/15"></div>
+<div class="flex justify-between items-center pt-2">
+<span class="text-body-lg font-semibold text-primary">Total</span>
+<span class="text-body-lg font-bold text-primary">$2,625.00</span>
+</div>
+</div>
+</section>
+<!-- Payment details card -->
+<section class="bg-[color:var(--color-surface)] rounded-xl p-card space-y-stack">
+<h3 class="text-body-lg font-bold text-[color:var(--color-text-primary)]">Payment details</h3>
+<ul class="space-y-row">
+<li class="flex items-center gap-row">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-body text-[color:var(--color-text-secondary)]">Secure payment via Stripe</span>
+</li>
+<li class="flex items-center gap-row">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-body text-[color:var(--color-text-secondary)]">Card or bank transfer accepted</span>
+</li>
+</ul>
+</section>
+<!-- Consultant block -->
+<section class="flex items-center gap-stack bg-[color:var(--color-surface)] p-stack rounded-xl shadow-sm border border-[color:var(--color-border)]-variant/15">
+<div class="w-12 h-12 rounded-full bg-primary-fixed text-white-fixed flex items-center justify-center font-bold text-body-lg">
+                SD
+            </div>
+<div class="flex-1">
+<h4 class="font-bold text-[color:var(--color-text-primary)]">Scott Durgan</h4>
+<p class="text-caption text-[color:var(--color-text-secondary)] font-medium uppercase tracking-wider">Lead Consultant</p>
+</div>
+<a class="w-10 h-10 rounded-full bg-[color:var(--color-surface)] flex items-center justify-center text-primary hover:bg-primary-fixed transition-colors" href="tel:+1000000000">
+<span class="material-symbols-outlined">call</span>
+</a>
+</section>
+<!-- Footer link -->
+
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 w-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-slate-100/50 dark:border-slate-800/50 shadow-[0_-10px_30px_rgba(30,64,175,0.04)] rounded-t-xl flex justify-around items-center px-4 py-3 pb-safe z-50">
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 active:scale-95 transition-all">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+<span class="font-['Inter'] text-label font-bold tracking-widest uppercase mt-1">Proposals</span>
+</div>
+<div class="flex flex-col items-center justify-center text-blue-800 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-xl px-4 py-2 active:scale-95 transition-all">
+<span class="material-symbols-outlined" data-icon="receipt_long">receipt_long</span>
+<span class="font-['Inter'] text-label font-bold tracking-widest uppercase mt-1">Invoices</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 active:scale-95 transition-all">
+<span class="material-symbols-outlined" data-icon="folder_open">folder_open</span>
+<span class="font-['Inter'] text-label font-bold tracking-widest uppercase mt-1">Documents</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 active:scale-95 transition-all">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span class="font-['Inter'] text-label font-bold tracking-widest uppercase mt-1">Progress</span>
+</div>
+</nav>
+</body></html>

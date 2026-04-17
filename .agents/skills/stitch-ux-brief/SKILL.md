@@ -450,6 +450,22 @@ Save each response to `/tmp/stitch-screen-<concept>.json`. Extract:
 
 Download HTML and PNG for each to `.stitch/designs/<target>-v1/concept-<letter>.{html,png}`.
 
+**Run the full post-generation pipeline on every downloaded HTML.** All three passes are mechanical:
+
+```bash
+for f in .stitch/designs/<target>-v1/*.html; do
+  python3 .agents/skills/ui-drift-audit/normalize.py "$f"  # token vocabulary
+  python3 .agents/skills/ui-drift-audit/strip.py "$f"       # forbidden chrome
+done
+python3 .agents/skills/ui-drift-audit/evaluate-embellishments.py \
+  --stitch-dir .stitch/designs/<target>-v1 \
+  --source-dir <source path the generation is for>
+```
+
+Skip individual steps if the corresponding spec is absent (UI-PATTERNS.md for normalize; NAVIGATION.md governs strip's FORBIDDEN list).
+
+**Viewport default: both mobile AND desktop.** Fire both generations in parallel. Mobile establishes the primary design; desktop is an explicit right-rail / two-column expansion specified in the prompt.
+
 ---
 
 ## Phase 8 — Convergence check
