@@ -135,7 +135,10 @@ function formatDate(iso: string): string {
         ) : (
           <div class="bg-white rounded-lg border border-slate-200 divide-y divide-slate-100">
             {documents.map((doc) => (
-              <div class="flex items-center justify-between px-6 py-4">
+              <a
+                href={`/api/portal/documents/${doc.key}`}
+                class="flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:bg-slate-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--color-action)]"
+              >
                 <div class="flex items-center gap-3 min-w-0">
                   <span
                     class={`material-symbols-outlined text-[20px] ${doc.isPdf ? 'text-red-500' : 'text-slate-400'}`}
@@ -148,13 +151,10 @@ function formatDate(iso: string): string {
                     <p class="text-xs text-slate-400">{formatDate(doc.uploaded)}</p>
                   </div>
                 </div>
-                <a
-                  href={`/api/portal/documents/${doc.key}`}
-                  class="text-sm text-primary hover:text-primary/80 font-medium transition-colors shrink-0 ml-4"
-                >
+                <span class="text-sm text-primary font-medium shrink-0 ml-4">
                   {doc.isPdf ? 'View' : 'Download'}
-                </a>
-              </div>
+                </span>
+              </a>
             ))}
           </div>
         )
