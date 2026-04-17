@@ -269,13 +269,11 @@ const touchpointText: string | null = (() => {
   })
 })()
 
-const contextHeadline = activeEngagement
-  ? 'Your engagement is in flight.'
-  : 'Welcome to your portal.'
+const contextHeadline = activeEngagement ? 'Engagement in flight.' : 'Welcome.'
 const contextSubtext = consultantFirst
   ? touchpointText
     ? `Next check-in ${touchpointText} with ${consultantFirst}.`
-    : `${consultantFirst} will reach out to schedule your next check-in.`
+    : `${consultantFirst} will reach out to schedule the next check-in.`
   : null
 ---
 
