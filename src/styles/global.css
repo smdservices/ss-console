@@ -10,6 +10,7 @@
   /* ---------- Color roles ---------- */
   --color-background: #f9f7f1;
   --color-surface: #ffffff;
+  --color-surface-inverse: #2a2520; /* warm umber, softer than graphite for dark-section backgrounds */
   --color-border: #d8d4c8;
   --color-border-subtle: #ece8dd;
 

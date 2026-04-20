@@ -10,22 +10,23 @@
 
 Semantic roles. Downstream components reference tokens by role, not by hex.
 
-| Role             | Hex       | Usage                                                   |
-| ---------------- | --------- | ------------------------------------------------------- |
-| `background`     | `#F9F7F1` | Warm paper, slight cream                                |
-| `surface`        | `#FFFFFF` | Card and panel backgrounds                              |
-| `border`         | `#D8D4C8` | Hairline card edges                                     |
-| `border-subtle`  | `#ECE8DD` | Interior rules, row dividers                            |
-| `text-primary`   | `#1A1A1A` | Graphite ink; slightly softer than true black for serif |
-| `text-secondary` | `#52514C` | Captions, meta values                                   |
-| `text-muted`     | `#8E8C85` | Labels, placeholders, timestamps                        |
-| `meta`           | `#52514C` | Eyebrow labels, non-primary accent text                 |
-| `primary`        | `#2C5282` | Primary buttons, focus rings, single accent (deep navy) |
-| `primary-hover`  | `#1F3A62` | Primary button hover state                              |
-| `action`         | `#2C5282` | Focus ring outline color                                |
-| `attention`      | `#2C5282` | Status indicators needing action — same as primary      |
-| `complete`       | `#2F6E42` | Completed / paid status — deep forest green             |
-| `error`          | `#A02A2A` | Destructive states, validation failures — warm red      |
+| Role              | Hex       | Usage                                                     |
+| ----------------- | --------- | --------------------------------------------------------- |
+| `background`      | `#F9F7F1` | Warm paper, slight cream                                  |
+| `surface`         | `#FFFFFF` | Card and panel backgrounds                                |
+| `surface-inverse` | `#2A2520` | Warm umber — dark-section backgrounds (Pricing, FinalCta) |
+| `border`          | `#D8D4C8` | Hairline card edges                                       |
+| `border-subtle`   | `#ECE8DD` | Interior rules, row dividers                              |
+| `text-primary`    | `#1A1A1A` | Graphite ink; slightly softer than true black for serif   |
+| `text-secondary`  | `#52514C` | Captions, meta values                                     |
+| `text-muted`      | `#8E8C85` | Labels, placeholders, timestamps                          |
+| `meta`            | `#52514C` | Eyebrow labels, non-primary accent text                   |
+| `primary`         | `#2C5282` | Primary buttons, focus rings, single accent (deep navy)   |
+| `primary-hover`   | `#1F3A62` | Primary button hover state                                |
+| `action`          | `#2C5282` | Focus ring outline color                                  |
+| `attention`       | `#2C5282` | Status indicators needing action — same as primary        |
+| `complete`        | `#2F6E42` | Completed / paid status — deep forest green               |
+| `error`           | `#A02A2A` | Destructive states, validation failures — warm red        |
 
 **Single-accent discipline.** `primary` / `action` / `attention` all resolve to the same navy. `complete` is the deliberate complement (forest), reserved for success states. `error` reads as a distinct warm red.
 
