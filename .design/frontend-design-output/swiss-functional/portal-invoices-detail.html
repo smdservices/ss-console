@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Portal / Invoice 1023 — SMD Services (Swiss Functional)</title>
+    <link
+      href="https://api.fontshare.com/v2/css?f[]=switzer@400,500,600,700,800&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ===================================================================
+       * SMD Services — Swiss Functional identity
+       * Hero surface 2: portal-invoices-detail / unpaid state
+       * Tokens match portal-home.html.
+       * =================================================================== */
+
+      :root {
+        --color-background: #f8f8f6;
+        --color-surface: #ffffff;
+        --color-border: #d1d1ce;
+        --color-border-subtle: #e5e4e1;
+        --color-text-primary: #0a0a0a;
+        --color-text-secondary: #4a4a47;
+        --color-text-muted: #8e8e8a;
+        --color-primary: #7a2323;
+        --color-primary-hover: #5d1a1a;
+        --color-action: #7a2323;
+        --color-attention: #7a2323;
+        --color-complete: #2c6e3f;
+        --color-error: #8b1a1a;
+
+        --font-display: 'Switzer', system-ui, sans-serif;
+        --font-body: 'Switzer', system-ui, sans-serif;
+        --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+
+        --text-display-size: 2.25rem;
+        --text-display-lh: 2.5rem;
+        --text-display-weight: 700;
+        --text-display-tracking: -0.015em;
+        --text-title-size: 1.375rem;
+        --text-title-lh: 1.75rem;
+        --text-title-weight: 600;
+        --text-heading-size: 1rem;
+        --text-heading-lh: 1.375rem;
+        --text-heading-weight: 600;
+        --text-body-lg-size: 1.0625rem;
+        --text-body-lg-lh: 1.625rem;
+        --text-body-size: 0.9375rem;
+        --text-body-lh: 1.5rem;
+        --text-body-weight: 400;
+        --text-caption-size: 0.8125rem;
+        --text-caption-lh: 1.125rem;
+        --text-caption-weight: 500;
+        --text-label-size: 0.75rem;
+        --text-label-lh: 1rem;
+        --text-label-weight: 500;
+        --text-label-tracking: 0.05em;
+        --text-money-size: 2rem;
+        --text-money-lh: 2.25rem;
+        --text-money-weight: 500;
+
+        --space-section: 3rem;
+        --space-card: 1.5rem;
+        --space-stack: 1rem;
+        --space-row: 0.75rem;
+
+        --radius-card: 0;
+        --radius-button: 0;
+        --radius-badge: 0;
+
+        --motion-default: 120ms ease;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        background: var(--color-background);
+      }
+
+      body {
+        color: var(--color-text-primary);
+        font-family: var(--font-body);
+        font-size: var(--text-body-size);
+        line-height: var(--text-body-lh);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .shell {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem 5rem;
+      }
+
+      @media (min-width: 768px) {
+        .shell {
+          padding: 3rem 2.5rem 6rem;
+        }
+      }
+
+      .masthead {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: baseline;
+        gap: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid var(--color-text-primary);
+      }
+
+      .masthead__brand {
+        font-family: var(--font-display);
+        font-size: var(--text-heading-size);
+        font-weight: var(--text-heading-weight);
+        letter-spacing: -0.005em;
+      }
+
+      .masthead__meta {
+        font-family: var(--font-mono);
+        font-size: var(--text-label-size);
+        letter-spacing: var(--text-label-tracking);
+        text-transform: uppercase;
+        font-weight: var(--text-label-weight);
+        color: var(--color-text-secondary);
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* Breadcrumb */
+      .breadcrumb {
+        margin-top: 1.5rem;
+        font-family: var(--font-mono);
+        font-size: var(--text-label-size);
+        letter-spacing: var(--text-label-tracking);
+        text-transform: uppercase;
+        color: var(--color-text-muted);
+        font-weight: var(--text-label-weight);
+      }
+
+      .breadcrumb a {
+        color: var(--color-text-muted);
+        text-decoration: none;
+        transition: color var(--motion-default);
+      }
+
+      .breadcrumb a:hover {
+        color: var(--color-text-primary);
+      }
+
+      .breadcrumb__sep {
+        display: inline-block;
+        margin: 0 0.5rem;
+      }
+
+      /* Hero */
+      .hero {
+        margin-top: 1rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid var(--color-text-primary);
+      }
+
+      .hero__eyebrow {
+        font-family: var(--font-mono);
+        font-size: var(--text-label-size);
+        letter-spacing: var(--text-label-tracking);
+        text-transform: uppercase;
+        font-weight: var(--text-label-weight);
+        color: var(--color-text-secondary);
+      }
+
+      .hero__title {
+        margin-top: 0.25rem;
+        font-family: var(--font-display);
+        font-size: var(--text-display-size);
+        line-height: var(--text-display-lh);
+        font-weight: var(--text-display-weight);
+        letter-spacing: var(--text-display-tracking);
+      }
+
+      @media (max-width: 640px) {
+        .hero__title {
+          font-size: 1.75rem;
+          line-height: 2.125rem;
+        }
+      }
+
+      .hero__subtitle {
+        margin-top: 0.5rem;
+        font-family: var(--font-body);
+        font-size: var(--text-body-lg-size);
+        line-height: var(--text-body-lg-lh);
+        color: var(--color-text-secondary);
+      }
+
+      .hero__status {
+        display: inline-block;
+        margin-top: 0.75rem;
+        font-family: var(--font-mono);
+        font-size: var(--text-label-size);
+        letter-spacing: var(--text-label-tracking);
+        text-transform: uppercase;
+        font-weight: var(--text-label-weight);
+        color: var(--color-attention);
+      }
+
+      .hero__status::before {
+        content: '—';
+        margin-right: 0.5rem;
+      }
+
+      /* Content grid */
+      .content {
+        margin-top: var(--space-section);
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: var(--space-section);
+      }
+
+      @media (min-width: 960px) {
+        .content {
+          grid-template-columns: minmax(0, 1fr) 280px;
+          gap: 3rem;
+          align-items: start;
+        }
+      }
+
+      /* Section numbering */
+      .section-number {
+        display: inline-flex;
+        gap: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--color-border);
+        margin-bottom: 1rem;
+        font-family: var(--font-mono);
+        font-size: var(--text-label-size);
+        letter-spacing: var(--text-label-tracking);
+        text-transform: uppercase;
+        font-weight: var(--text-label-weight);
+      }
+
+      .section-number__index {
+        color: var(--color-text-muted);
+      }
+
+      /* Amount hero */
+      .amount-block__label {
+        font-family: var(--font-mono);
+        font-size: var(--text-label-size);
+        letter-spacing: var(--text-label-tracking);
+        text-transform: uppercase;
+        font-weight: var(--text-label-weight);
+        color: var(--color-text-muted);
+      }
+
+      .amount-block__value {
+        margin-top: 0.25rem;
+        font-family: var(--font-mono);
+        font-size: 2.75rem;
+        line-height: 3rem;
+        font-weight: var(--text-money-weight);
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.01em;
+      }
+
+      @media (max-width: 640px) {
+        .amount-block__value {
+          font-size: var(--text-money-size);
+          line-height: var(--text-money-lh);
+        }
+      }
+
+      .amount-block__currency {
+        display: inline-block;
+        margin-left: 0.5rem;
+        font-family: var(--font-mono);
+        font-size: var(--text-label-size);
+        letter-spacing: var(--text-label-tracking);
+        text-transform: uppercase;
+        color: var(--color-text-muted);
+        vertical-align: 0.8rem;
+      }
+
+      .meta-rows {
+        margin-top: 1.25rem;
+        display: grid;
+        gap: 0.5rem;
+      }
+
+      .meta-row {
+        display: grid;
+        grid-template-columns: 8rem 1fr;
+        gap: 1rem;
+        align-items: baseline;
+        font-family: var(--font-mono);
+        font-size: var(--text-caption-size);
+        color: var(--color-text-primary);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .meta-row__label {
+        text-transform: uppercase;
+        letter-spacing: var(--text-label-tracking);
+        font-size: var(--text-label-size);
+        font-weight: var(--text-label-weight);
+        color: var(--color-text-muted);
+      }
+
+      .meta-row__value--attention {
+        color: var(--color-attention);
+      }
+
+      /* Button row */
+      .btn-row {
+        margin-top: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.625rem;
+      }
+
+      @media (min-width: 640px) {
+        .btn-row {
+          flex-direction: row;
+        }
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0 1.25rem;
+        font-family: var(--font-body);
+        font-size: var(--text-body-size);
+        font-weight: 600;
+        line-height: 1;
+        border: 1px solid transparent;
+        border-radius: var(--radius-button);
+        background: var(--color-primary);
+        color: #ffffff;
+        cursor: pointer;
+        transition: background-color var(--motion-default);
+        text-decoration: none;
+        white-space: nowrap;
+      }
+
+      .btn:hover {
+        background: var(--color-primary-hover);
+      }
+
+      .btn:focus-visible {
+        outline: 2px solid var(--color-action);
+        outline-offset: 2px;
+      }
+
+      .btn--ghost {
+        background: transparent;
+        color: var(--color-text-primary);
+        border-color: var(--color-text-primary);
+      }
+
+      .btn--ghost:hover {
+        background: var(--color-text-primary);
+        color: var(--color-surface);
+      }
+
+      /* Schedule table */
+      .schedule-head,
+      .schedule-row,
+      .schedule-total {
+        display: grid;
+        grid-template-columns: 1fr 4rem 7rem;
+        gap: 1rem;
+      }
+
+      .schedule-head {
+        padding: 0.5rem 0;
+        border-top: 1px solid var(--color-text-primary);
+        border-bottom: 1px solid var(--color-text-primary);
+        font-family: var(--font-mono);
+        font-size: var(--text-label-size);
+        letter-spacing: var(--text-label-tracking);
+        text-transform: uppercase;
+        font-weight: var(--text-label-weight);
+        color: var(--color-text-primary);
+      }
+
+      .schedule-head__right {
+        text-align: right;
+      }
+
+      .schedule-row {
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--color-border-subtle);
+        align-items: baseline;
+      }
+
+      .schedule-row__description {
+        font-family: var(--font-body);
+        font-size: var(--text-body-size);
+        line-height: 1.5rem;
+      }
+
+      .schedule-row__num {
+        font-family: var(--font-mono);
+        font-size: var(--text-body-size);
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .schedule-total {
+        padding-top: 0.75rem;
+        margin-top: 0.25rem;
+        border-top: 1px solid var(--color-text-primary);
+        align-items: baseline;
+      }
+
+      .schedule-total__label {
+        font-family: var(--font-mono);
+        font-size: var(--text-label-size);
+        letter-spacing: var(--text-label-tracking);
+        text-transform: uppercase;
+        font-weight: var(--text-label-weight);
+      }
+
+      .schedule-total__amount {
+        grid-column: 3;
+        font-family: var(--font-mono);
+        font-size: var(--text-heading-size);
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+      }
+
+      /* Side rail */
+      .rail {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-stack);
+      }
+
+      .consultant-rail {
+        padding: var(--space-card);
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+      }
+
+      .consultant-rail__photo {
+        width: 88px;
+        height: 112px;
+        background: var(--color-border-subtle);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 0.5rem;
+        font-family: var(--font-mono);
+        font-size: 9px;
+        line-height: 1.3;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--color-text-muted);
+      }
+
+      .consultant-rail__name {
+        margin-top: 0.875rem;
+        font-family: var(--font-display);
+        font-size: var(--text-heading-size);
+        font-weight: var(--text-heading-weight);
+      }
+
+      .consultant-rail__role {
+        margin-top: 0.125rem;
+        font-family: var(--font-mono);
+        font-size: var(--text-label-size);
+        letter-spacing: var(--text-label-tracking);
+        text-transform: uppercase;
+        font-weight: var(--text-label-weight);
+        color: var(--color-text-muted);
+      }
+
+      .consultant-rail__next {
+        margin-top: 0.75rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid var(--color-border-subtle);
+        font-family: var(--font-mono);
+        font-size: var(--text-caption-size);
+        color: var(--color-text-primary);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .consultant-rail__channel {
+        margin-top: 0.5rem;
+        font-family: var(--font-body);
+        font-size: var(--text-caption-size);
+        line-height: 1.375rem;
+        color: var(--color-text-secondary);
+      }
+
+      .consultant-rail__channel a {
+        color: var(--color-primary);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+
+      /* Colophon */
+      .colophon {
+        margin-top: 5rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--color-border);
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+        font-family: var(--font-mono);
+        font-size: var(--text-label-size);
+        letter-spacing: var(--text-label-tracking);
+        text-transform: uppercase;
+        color: var(--color-text-muted);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="masthead">
+        <div class="masthead__brand">SMD Services</div>
+        <div class="masthead__meta">2026.04.19</div>
+      </header>
+
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="#home">Portal</a>
+        <span class="breadcrumb__sep">/</span>
+        <a href="#invoices">Invoices</a>
+        <span class="breadcrumb__sep">/</span>
+        <span>1023</span>
+      </nav>
+
+      <section class="hero" aria-labelledby="invoice-title">
+        <div class="hero__eyebrow">Invoice 1023 / Delgado Plumbing</div>
+        <h1 id="invoice-title" class="hero__title">April 2026 engagement</h1>
+        <p class="hero__subtitle">Operations assessment — intake, dispatch, and follow-up.</p>
+        <div class="hero__status" role="status">Due Apr 24</div>
+      </section>
+
+      <div class="content">
+        <article>
+          <div class="section-number">
+            <span class="section-number__index">01</span>
+            <span>Statement</span>
+          </div>
+
+          <section aria-labelledby="statement-heading">
+            <div class="amount-block__label">Amount due</div>
+            <div class="amount-block__value" id="statement-heading">
+              $4,250.00<span class="amount-block__currency">USD</span>
+            </div>
+            <dl class="meta-rows">
+              <div class="meta-row">
+                <span class="meta-row__label">Issued</span>
+                <span>2026-04-15</span>
+              </div>
+              <div class="meta-row">
+                <span class="meta-row__label">Due date</span>
+                <span class="meta-row__value--attention">2026-04-24 · Friday</span>
+              </div>
+              <div class="meta-row">
+                <span class="meta-row__label">Method</span>
+                <span>Stripe (card or ACH)</span>
+              </div>
+              <div class="meta-row">
+                <span class="meta-row__label">Terms</span>
+                <span>Net 9</span>
+              </div>
+            </dl>
+            <div class="btn-row">
+              <a class="btn" href="#pay">Pay invoice</a>
+              <a class="btn btn--ghost" href="#download">Download PDF</a>
+            </div>
+          </section>
+
+          <div class="section-number" style="margin-top: var(--space-section)">
+            <span class="section-number__index">02</span>
+            <span>Line items</span>
+          </div>
+
+          <section aria-labelledby="line-items-heading">
+            <h2 id="line-items-heading" class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Line items</h2>
+            <div class="schedule-head" role="row">
+              <span>Item</span>
+              <span class="schedule-head__right">Hours</span>
+              <span class="schedule-head__right">Amount</span>
+            </div>
+            <div class="schedule-row" role="row">
+              <span class="schedule-row__description">On-site assessment: intake, dispatch, invoicing tour</span>
+              <span class="schedule-row__num">8.0</span>
+              <span class="schedule-row__num">$1,400.00</span>
+            </div>
+            <div class="schedule-row" role="row">
+              <span class="schedule-row__description">Call-intake script rewrite and dispatcher training</span>
+              <span class="schedule-row__num">6.5</span>
+              <span class="schedule-row__num">$1,137.50</span>
+            </div>
+            <div class="schedule-row" role="row">
+              <span class="schedule-row__description">After-hours routing audit and forwarding fix</span>
+              <span class="schedule-row__num">4.0</span>
+              <span class="schedule-row__num">$700.00</span>
+            </div>
+            <div class="schedule-row" role="row">
+              <span class="schedule-row__description">Warranty-question intake checklist, documented for Maria</span>
+              <span class="schedule-row__num">5.75</span>
+              <span class="schedule-row__num">$1,012.50</span>
+            </div>
+            <div class="schedule-total" role="row">
+              <span class="schedule-total__label">Total due</span>
+              <span class="schedule-total__amount">$4,250.00</span>
+            </div>
+          </section>
+
+          <div class="section-number" style="margin-top: var(--space-section)">
+            <span class="section-number__index">03</span>
+            <span>Prior payments</span>
+          </div>
+
+          <dl class="meta-rows">
+            <div class="meta-row">
+              <span class="meta-row__label">2026-03-22</span>
+              <span>Deposit · $2,000.00 · Paid</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-row__label">After this</span>
+              <span>Remaining $2,000.00 at final handoff</span>
+            </div>
+          </dl>
+        </article>
+
+        <aside class="rail">
+          <div class="consultant-rail">
+            <div class="consultant-rail__photo" aria-hidden="true">Consultant photo</div>
+            <div class="consultant-rail__name">Scott Durgan</div>
+            <div class="consultant-rail__role">Consultant</div>
+            <div class="consultant-rail__next">Next check-in · Wed 2026-04-22 · 10:00 MST</div>
+            <div class="consultant-rail__channel">
+              Questions about this invoice? SMS <a href="sms:+16025550100">(602) 555-0100</a>.
+              Replies within 1 business day.
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <footer class="colophon">
+        <span>SMD Services / Client portal</span>
+        <span>v1 · 2026.04.19</span>
+      </footer>
+    </main>
+  </body>
+</html>

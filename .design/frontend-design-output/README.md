@@ -1,61 +1,61 @@
-# frontend-design output — SMD Services portal
+# frontend-design output — SMD Services
 
-Aesthetic direction chosen by Captain on 2026-04-19: **Architect's Studio**.
+Aesthetic direction chosen by Captain on 2026-04-19: **Swiss Functional**.
 
-Thesis: the portal reads like the project file from a small design studio.
-Monospace for data, geometric sans for prose, hairline structure, a reference
-number on everything. Authority through precision, not decoration.
+Thesis: modernist craft. Disciplined grid, neutral grotesque type + tabular
+mono, restrained palette, single deep accent (oxblood). Authority through
+design rigor, not decoration. Müller-Brockmann / Vignelli tradition.
+
+An earlier Architect's Studio direction (ochre + Cabinet Grotesk + Satoshi +
+JetBrains Mono) was explored and initially taken forward across three PRs
+(#455, #456, #457) before the Captain clarified that direction had not been
+confirmed. Swiss Functional replaces it end to end via a tokens-only swap —
+components and surfaces are aesthetic-direction-agnostic.
 
 ## Files
 
-- `portal-home.html` — hero surface 1. Dashboard in invoice-pending state.
-  Shows: masthead, dominant action card, consultant block with photo placeholder,
-  activity log, engagement summary, ledger. Responsive 390px / 1280px.
-- `portal-invoices-detail.html` — hero surface 2. Invoice deep-link, unpaid.
-  Shows: breadcrumb, status badge, invoice body with line items, pay CTA,
-  consultant block, download affordance. Responsive 390px / 1280px.
+- `swiss-functional/portal-home.html` — hero surface 1. Dashboard in invoice-
+  pending state. Masthead, section numbering, dominant invoice block, flat
+  consultant block, activity log, engagement summary, ledger.
+- `swiss-functional/portal-invoices-detail.html` — hero surface 2. Invoice
+  deep-link, unpaid. Breadcrumb, status, amount hero, line-items table,
+  prior payments, side-rail consultant.
 
-Both files are self-contained HTML with `<style>` blocks declaring CSS custom
-properties. `/design-brief --extract-identity` reads them directly.
+Both files are self-contained HTML with `<style>` blocks declaring CSS
+custom properties. `/design-brief --extract-identity` can re-parse them.
 
-## Token stack (summary; authoritative values live in each file's `:root`)
+## Token stack (authoritative values live in `.design/DESIGN.md` and
+
+`.design/theme.css`)
 
 ### Color
 
-- Background `#FAFAF9` (warm near-white)
+- Background `#F8F8F6` (pure paper)
 - Surface `#FFFFFF`
-- Border hairline `#E5E5E4`
-- Border subtle `#F0EFED`
-- Text primary `#0A0A0A` (graphite)
-- Text secondary `#52525B`
-- Text muted `#A1A1AA`
-- Primary / attention `#B45309` (deep ochre, amber 700)
-- Primary hover `#92400E`
-- Complete `#15803D`
-- Error `#991B1B`
+- Border hairline `#D1D1CE`
+- Border subtle `#E5E4E1`
+- Text primary `#0A0A0A`
+- Text secondary `#4A4A47`
+- Text muted `#8E8E8A`
+- Primary / action / attention `#7A2323` (oxblood — single accent)
+- Primary hover `#5D1A1A`
+- Complete `#2C6E3F` (deep forest, success-state only)
+- Error `#8B1A1A`
 
 ### Typography
 
-- Display — **Cabinet Grotesk** (Fontshare, free) 700, tracking -0.02em
-- Body — **Satoshi** (Fontshare, free) 400/500
-- Data / labels — **JetBrains Mono** (Google, OFL) 500, tabular-nums
-- No Inter anywhere. No PJS anywhere.
+- Display + body — **Switzer** (Fontshare, free) 400/500/600/700
+- Data / labels — **IBM Plex Mono** (Google OFL) 400/500/600
 
 ### Spacing rhythm
 
-- section 40px, card 28px, stack 16px, row 12px
+- section 48px, card 24px, stack 16px, row 12px
 
 ### Shape
 
-- Card radius 2px, button radius 2px, badge radius 2px. Sharp by intent.
+- Card radius 0, button radius 0, badge radius 0. Swiss discipline.
 
 ### Motion
 
 - Hover color transitions: 120ms ease
-- No scroll-driven animations, no page-transition flourishes. Print logic.
-
-## Next
-
-Step 2 of the pipeline: `/design-brief --extract-identity /Users/scottdurgan/dev/ss-console/.design/frontend-design-output/`
-
-That emits `.design/DESIGN.md` + `.design/theme.css` from these files.
+- No scroll-driven animations, no page-transition flourishes. Modernist restraint.
