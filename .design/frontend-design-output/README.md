@@ -1,61 +1,55 @@
 # frontend-design output — SMD Services
 
-Aesthetic direction chosen by Captain on 2026-04-19: **Swiss Functional**.
+Aesthetic direction chosen by Captain on 2026-04-19 (third iteration): **Modern Institutional**, navy accent `#2C5282`.
 
-Thesis: modernist craft. Disciplined grid, neutral grotesque type + tabular
-mono, restrained palette, single deep accent (petrol blue). Authority through
-design rigor, not decoration. Müller-Brockmann / Vignelli tradition.
+Thesis: classical serif display paired with a humanist sans, hairline structure, restrained palette, single deep-navy accent. Reads like a well-designed university publication, a think tank, or a quiet foundation. Thoughtful, credentialed, measured.
 
-An earlier Architect's Studio direction (ochre + Cabinet Grotesk + Satoshi +
-JetBrains Mono) was explored and initially taken forward across three PRs
-(#455, #456, #457) before the Captain clarified that direction had not been
-confirmed. Swiss Functional replaces it end to end via a tokens-only swap —
-components and surfaces are aesthetic-direction-agnostic.
+## Exploration history
+
+Three directions taken before Modern Institutional landed:
+
+1. **Architect's Studio** (ochre + Cabinet Grotesk + Satoshi + JetBrains Mono + 2px radii) — taken through three PRs (#455 portal, #456 admin, #457 marketing) before Captain clarified direction hadn't been confirmed.
+2. **Swiss Functional** (petrol / oxblood + Switzer + IBM Plex Mono + 0 radii) — rendered and partially applied via PR #458; color disliked.
+3. **Modern Institutional** (navy + Crimson Pro + Public Sans + IBM Plex Mono + 0 radii) — current, applied via PR #458.
+
+Earlier exploration HTMLs have been removed; the chosen direction's reference lives at `exploration-v2/b-modern-institutional.html`.
 
 ## Files
 
-- `swiss-functional/portal-home.html` — hero surface 1. Dashboard in invoice-
-  pending state. Masthead, section numbering, dominant invoice block, flat
-  consultant block, activity log, engagement summary, ledger.
-- `swiss-functional/portal-invoices-detail.html` — hero surface 2. Invoice
-  deep-link, unpaid. Breadcrumb, status, amount hero, line-items table,
-  prior payments, side-rail consultant.
+- `exploration-v2/a-workshop-utility.html` — Archivo Black industrial direction (not chosen, kept as reference)
+- `exploration-v2/b-modern-institutional.html` — **chosen direction** reference render
+- `exploration-v2/c-soft-contemporary.html` — Cormorant Garamond hospitality direction (not chosen, kept as reference)
 
-Both files are self-contained HTML with `<style>` blocks declaring CSS
-custom properties. `/design-brief --extract-identity` can re-parse them.
-
-## Token stack (authoritative values live in `.design/DESIGN.md` and
-
-`.design/theme.css`)
+## Token stack (authoritative values live in `.design/DESIGN.md` and `.design/theme.css`)
 
 ### Color
 
-- Background `#F8F8F6` (pure paper)
+- Background `#F9F7F1` (warm paper, slight cream)
 - Surface `#FFFFFF`
-- Border hairline `#D1D1CE`
-- Border subtle `#E5E4E1`
-- Text primary `#0A0A0A`
-- Text secondary `#4A4A47`
-- Text muted `#8E8E8A`
-- Primary / action / attention `#1E4F5C` (petrol blue — single accent)
-- Primary hover `#163E48`
-- Complete `#2C6E3F` (deep forest, success-state only)
-- Error `#8B1A1A`
+- Border hairline `#D8D4C8`
+- Border subtle `#ECE8DD`
+- Text primary `#1A1A1A` (graphite)
+- Text secondary `#52514C`
+- Text muted `#8E8C85`
+- Primary / action / attention `#2C5282` (deep navy — single accent)
+- Primary hover `#1F3A62`
+- Complete `#2F6E42` (deep forest, success-state only)
+- Error `#A02A2A` (warm red)
 
 ### Typography
 
-- Display + body — **Switzer** (Fontshare, free) 400/500/600/700
-- Data / labels — **IBM Plex Mono** (Google OFL) 400/500/600
+- Display — **Crimson Pro** (Google, free) — classical serif
+- Body — **Public Sans** (Google, free, USWDS) — humanist sans
+- Data / tabular — **IBM Plex Mono** (Google OFL) for reference IDs and ISO timestamps
 
 ### Spacing rhythm
 
-- section 48px, card 24px, stack 16px, row 12px
+- section 48px, card 32px, stack 16px, row 12px
 
 ### Shape
 
-- Card radius 0, button radius 0, badge radius 0. Swiss discipline.
+- Card radius 0, button radius 0, badge radius 0. Flat institutional chrome.
 
 ### Motion
 
-- Hover color transitions: 120ms ease
-- No scroll-driven animations, no page-transition flourishes. Modernist restraint.
+- Hover color transitions: 120ms ease. No scroll-driven animations.
