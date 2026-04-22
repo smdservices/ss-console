@@ -1,0 +1,41 @@
+name: Dependabot auto-merge
+
+# Auto-enable squash-merge on Dependabot PRs when the bump is low-risk:
+#   - any patch bump (semver says backwards-compatible)
+#   - dev-dep minor bumps (tooling, can't reach production)
+#   - security patch updates (CVE-driven, usually a patch anyway)
+#
+# GitHub's native auto-merge means the PR lands only after every required
+# check passes — there's no "skip CI" path. If CI goes red, the PR just
+# stays open for manual review, same as today.
+#
+# Runtime-dep minors and any major bumps never match these conditions and
+# always require explicit review.
+
+on: pull_request_target
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge for safe bumps
+        if: |
+          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-security' ||
+          (steps.metadata.outputs.update-type == 'version-update:semver-minor' &&
+           steps.metadata.outputs.dependency-type == 'direct:development')
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
