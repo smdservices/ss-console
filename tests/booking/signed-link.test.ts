@@ -128,7 +128,11 @@ describe('verifyBookingLink', () => {
       duration_minutes: 30,
     })
     const [payload, sig] = token.split('.')
-    const tamperedSig = sig.slice(0, -1) + (sig.slice(-1) === 'A' ? 'B' : 'A')
+    // Tamper the FIRST char (high-order bits of the signature). Tampering the
+    // LAST char of a base64url-encoded signature is not guaranteed to change
+    // the decoded byte value because base64 pads out to a 6-bit boundary and
+    // the trailing bits may not map to meaningful bytes.
+    const tamperedSig = (sig.charAt(0) === 'A' ? 'B' : 'A') + sig.slice(1)
     const result = await verifyBookingLink(`${payload}.${tamperedSig}`)
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error).toBe('bad_signature')
