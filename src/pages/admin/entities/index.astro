@@ -1,9 +1,18 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro'
-import { listEntities, countEntitiesByStage, ENTITY_STAGES } from '../../../lib/db/entities'
-import type { Entity, EntityStage } from '../../../lib/db/entities'
+import {
+  listEntities,
+  countEntitiesByStage,
+  getSignalMetadataForEntities,
+  ENTITY_STAGES,
+} from '../../../lib/db/entities'
+import type { Entity, EntityStage, EntitySignalMetadata } from '../../../lib/db/entities'
 import { PIPELINE_LABELS } from '../../../lead-gen/schemas/lead-scoring-schema'
 import type { PipelineId } from '../../../lead-gen/schemas/lead-scoring-schema'
+import {
+  PROBLEM_LABELS,
+  LEGACY_PROBLEM_LABELS,
+} from '../../../portal/assessments/extraction-schema'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -21,6 +30,19 @@ const entities = await listEntities(env.DB, session.orgId, {
   stage: filterStage,
   ...(filterPipeline ? { source_pipeline: filterPipeline } : {}),
 })
+
+// For the Signal tab we hydrate per-row evidence from the latest pipeline
+// signal context entry + last-activity timestamp. Other stages don't render
+// this data today (Prospect redesign ships in #463), so we only pay the
+// query cost when it's needed.
+const signalMetadata: Map<string, EntitySignalMetadata> =
+  filterStage === 'signal' && entities.length > 0
+    ? await getSignalMetadataForEntities(
+        env.DB,
+        session.orgId,
+        entities.map((e) => e.id)
+      )
+    : new Map()
 
 const signalCount = await countEntitiesByStage(env.DB, session.orgId, 'signal')
 
@@ -108,6 +130,36 @@ function formatDate(iso: string): string {
     day: 'numeric',
   })
 }
+
+/**
+ * Resolve a problem ID (current or legacy schema) to its human label.
+ * Returns null when the id matches neither schema — callers must skip
+ * rendering rather than display the raw id.
+ */
+function problemLabel(id: string): string | null {
+  if (id in PROBLEM_LABELS) return PROBLEM_LABELS[id as keyof typeof PROBLEM_LABELS]
+  if (id in LEGACY_PROBLEM_LABELS)
+    return LEGACY_PROBLEM_LABELS[id as keyof typeof LEGACY_PROBLEM_LABELS]
+  return null
+}
+
+/**
+ * Format a website URL for display: strip protocol and trailing slash.
+ * Returns null when the value is not a parseable http(s) URL so callers
+ * skip rendering the link rather than show a raw string.
+ */
+function displayWebsite(raw: string | null): { href: string; label: string } | null {
+  if (!raw) return null
+  let url: URL
+  try {
+    url = new URL(raw.includes('://') ? raw : `https://${raw}`)
+  } catch {
+    return null
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+  const label = (url.hostname + url.pathname).replace(/^www\./, '').replace(/\/$/, '')
+  return { href: url.toString(), label }
+}
 ---
 
 <AdminLayout
@@ -190,89 +242,175 @@ function formatDate(iso: string): string {
       </div>
     ) : (
       <div class="bg-white rounded-[var(--radius-card)] border border-[color:var(--color-border)] divide-y divide-[color:var(--color-border-subtle)]">
-        {entities.map((e: Entity) => (
-          <div class="px-6 py-4">
-            <div class="flex items-start justify-between gap-stack">
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2 mb-1 flex-wrap">
-                  <a
-                    href={`/admin/entities/${e.id}`}
-                    class="text-sm font-medium text-[color:var(--color-text-primary)] hover:text-primary transition-colors"
-                  >
-                    {e.name}
-                  </a>
-                  {e.source_pipeline && (
-                    <span
-                      class={`text-xs px-2 py-0.5 rounded ${pipelineBadgeClass(e.source_pipeline)}`}
+        {entities.map((e: Entity) => {
+          const meta = signalMetadata.get(e.id)
+          const problems = (meta?.top_problems ?? [])
+            .map((id) => ({ id, label: problemLabel(id) }))
+            .filter((p): p is { id: string; label: string } => p.label !== null)
+          const outreachAngle = meta?.outreach_angle ?? null
+          const lastActivity = meta?.last_activity_at ?? null
+          const website = displayWebsite(e.website)
+          const isSignal = e.stage === 'signal'
+          return (
+            <div class="group relative px-6 py-4 hover:bg-[color:var(--color-background)] transition-colors">
+              {/* Stretched link — makes the whole row clickable. Interactive
+                  elements below (website/phone/action buttons) sit at z-10
+                  so they stay independently clickable per HTML convention. */}
+              {isSignal && (
+                <a
+                  href={`/admin/entities/${e.id}`}
+                  class="absolute inset-0 z-0 rounded-[var(--radius-card)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary)]"
+                  aria-label={`Open ${e.name}`}
+                  tabindex="0"
+                />
+              )}
+              <div class="flex items-start justify-between gap-stack">
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2 mb-1 flex-wrap">
+                    {isSignal ? (
+                      <span class="text-sm font-medium text-[color:var(--color-text-primary)] group-hover:text-primary transition-colors">
+                        {e.name}
+                      </span>
+                    ) : (
+                      <a
+                        href={`/admin/entities/${e.id}`}
+                        class="text-sm font-medium text-[color:var(--color-text-primary)] hover:text-primary transition-colors"
+                      >
+                        {e.name}
+                      </a>
+                    )}
+                    {e.source_pipeline && (
+                      <span
+                        class={`text-xs px-2 py-0.5 rounded ${pipelineBadgeClass(e.source_pipeline)}`}
+                      >
+                        {PIPELINE_LABELS[e.source_pipeline as PipelineId] ?? e.source_pipeline}
+                      </span>
+                    )}
+                    {e.pain_score && (
+                      <span class={`text-xs ${painScoreClass(e.pain_score)}`}>
+                        Pain: {e.pain_score}/10
+                      </span>
+                    )}
+                    {e.tier && (
+                      <span class={`text-xs px-1.5 py-0.5 rounded ${tierBadgeClass(e.tier)}`}>
+                        {e.tier}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Top-problem chips — only rendered when pipeline metadata
+                      supplied them. No placeholder chips. */}
+                  {isSignal && problems.length > 0 && (
+                    <div class="flex flex-wrap items-center gap-1 mb-1.5">
+                      {problems.map((p) => (
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-[color:var(--color-background)] text-[color:var(--color-text-secondary)] border border-[color:var(--color-border-subtle)]">
+                          {p.label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Outreach angle preview — the pipeline-generated opener,
+                      truncated to two lines. Shown only on signal stage, and
+                      only when the pipeline authored one. */}
+                  {isSignal && outreachAngle && (
+                    <p class="text-xs text-[color:var(--color-text-secondary)] mb-1 line-clamp-2 italic">
+                      {outreachAngle}
+                    </p>
+                  )}
+
+                  {!isSignal && e.summary && (
+                    <p class="text-xs text-[color:var(--color-text-secondary)] mb-1 line-clamp-2">
+                      {e.summary}
+                    </p>
+                  )}
+
+                  {e.next_action && (
+                    <p class="text-xs text-amber-600 mb-1">
+                      <span class="font-medium">Next:</span> {e.next_action}
+                      {e.next_action_at && ` — ${formatDate(e.next_action_at)}`}
+                    </p>
+                  )}
+
+                  <div class="flex items-center gap-row text-xs text-[color:var(--color-text-muted)] mt-1 flex-wrap">
+                    {isSignal && lastActivity ? (
+                      <span>Last activity {formatDate(lastActivity)}</span>
+                    ) : (
+                      <span>{formatDate(e.created_at)}</span>
+                    )}
+                    {e.area && <span>{e.area}</span>}
+                    {e.vertical && <span class="capitalize">{e.vertical.replace(/_/g, ' ')}</span>}
+                    {e.employee_count && <span>~{e.employee_count} employees</span>}
+                    {isSignal && website && (
+                      <a
+                        href={website.href}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        class="relative z-10 inline-flex items-center gap-1 text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-primary)] transition-colors"
+                        title={website.label}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="w-3 h-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          aria-hidden="true"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                          />
+                        </svg>
+                        <span class="truncate max-w-[16ch]">{website.label}</span>
+                      </a>
+                    )}
+                    {isSignal && e.phone && (
+                      <a
+                        href={`tel:${e.phone}`}
+                        class="relative z-10 text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-primary)] transition-colors"
+                      >
+                        {e.phone}
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                <div class="relative z-10 flex items-center gap-2 shrink-0">
+                  {isSignal ? (
+                    <>
+                      <form method="POST" action={`/api/admin/entities/${e.id}/promote`}>
+                        <button
+                          type="submit"
+                          class="text-xs bg-primary text-white px-3 py-1.5 rounded-[var(--radius-card)] hover:bg-primary/90 transition-colors"
+                        >
+                          Promote
+                        </button>
+                      </form>
+                      <form method="POST" action={`/api/admin/entities/${e.id}/dismiss`}>
+                        <button
+                          type="submit"
+                          class="text-xs bg-[color:var(--color-background)] text-[color:var(--color-text-secondary)] px-3 py-1.5 rounded-[var(--radius-card)] hover:bg-[color:var(--color-border-subtle)] transition-colors"
+                        >
+                          Dismiss
+                        </button>
+                      </form>
+                    </>
+                  ) : (
+                    <a
+                      href={`/admin/entities/${e.id}`}
+                      class="text-xs bg-[color:var(--color-background)] text-[color:var(--color-text-primary)] px-3 py-1.5 rounded-[var(--radius-card)] hover:bg-[color:var(--color-border-subtle)] transition-colors"
                     >
-                      {PIPELINE_LABELS[e.source_pipeline as PipelineId] ?? e.source_pipeline}
-                    </span>
-                  )}
-                  {e.pain_score && (
-                    <span class={`text-xs ${painScoreClass(e.pain_score)}`}>
-                      Pain: {e.pain_score}/10
-                    </span>
-                  )}
-                  {e.tier && (
-                    <span class={`text-xs px-1.5 py-0.5 rounded ${tierBadgeClass(e.tier)}`}>
-                      {e.tier}
-                    </span>
+                      View
+                    </a>
                   )}
                 </div>
-
-                {e.summary && (
-                  <p class="text-xs text-[color:var(--color-text-secondary)] mb-1 line-clamp-2">
-                    {e.summary}
-                  </p>
-                )}
-
-                {e.next_action && (
-                  <p class="text-xs text-amber-600 mb-1">
-                    <span class="font-medium">Next:</span> {e.next_action}
-                    {e.next_action_at && ` — ${formatDate(e.next_action_at)}`}
-                  </p>
-                )}
-
-                <div class="flex items-center gap-row text-xs text-[color:var(--color-text-muted)] mt-1">
-                  <span>{formatDate(e.created_at)}</span>
-                  {e.area && <span>{e.area}</span>}
-                  {e.vertical && <span class="capitalize">{e.vertical.replace(/_/g, ' ')}</span>}
-                  {e.employee_count && <span>~{e.employee_count} employees</span>}
-                </div>
-              </div>
-
-              <div class="flex items-center gap-2 shrink-0">
-                {e.stage === 'signal' ? (
-                  <>
-                    <form method="POST" action={`/api/admin/entities/${e.id}/promote`}>
-                      <button
-                        type="submit"
-                        class="text-xs bg-primary text-white px-3 py-1.5 rounded-[var(--radius-card)] hover:bg-primary/90 transition-colors"
-                      >
-                        Promote
-                      </button>
-                    </form>
-                    <form method="POST" action={`/api/admin/entities/${e.id}/dismiss`}>
-                      <button
-                        type="submit"
-                        class="text-xs bg-[color:var(--color-background)] text-[color:var(--color-text-secondary)] px-3 py-1.5 rounded-[var(--radius-card)] hover:bg-[color:var(--color-border-subtle)] transition-colors"
-                      >
-                        Dismiss
-                      </button>
-                    </form>
-                  </>
-                ) : (
-                  <a
-                    href={`/admin/entities/${e.id}`}
-                    class="text-xs bg-[color:var(--color-background)] text-[color:var(--color-text-primary)] px-3 py-1.5 rounded-[var(--radius-card)] hover:bg-[color:var(--color-border-subtle)] transition-colors"
-                  >
-                    View
-                  </a>
-                )}
               </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     )
   }
