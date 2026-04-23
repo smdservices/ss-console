@@ -4,8 +4,8 @@ import Base from '../../../layouts/Base.astro'
 
 <Base title="Contact — SMD Services (Modern Institutional preview)">
   <header class="site-header">
-    <a href="/design-preview/modern-institutional/" class="brand">
-      <img src="/design-preview/modern-institutional/wordmark.svg" alt="SMD Services" />
+    <a href="/design-preview/modern-institutional/" class="brand" aria-label="SMD Services">
+      <span class="wordmark"><span>SMD</span> <em>Services</em></span>
     </a>
     <nav class="site-nav" aria-label="Primary">
       <ul>
@@ -87,8 +87,18 @@ import Base from '../../../layouts/Base.astro'
     align-items: center;
     text-decoration: none;
   }
-  .brand img {
-    height: 28px;
+  .brand .wordmark {
+    font-family: var(--font-display);
+    font-size: 22px;
+    line-height: 1;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--color-text-primary);
+  }
+  .brand .wordmark em {
+    color: var(--color-primary);
+    font-style: italic;
+    font-weight: 500;
   }
   .site-nav ul {
     list-style: none;
