@@ -8,7 +8,7 @@ import type { ContextEntry } from '../../../lib/db/context'
 import { listContacts } from '../../../lib/db/contacts'
 import { listAssessments } from '../../../lib/db/assessments'
 import { listEngagements } from '../../../lib/db/engagements'
-import { listQuotes } from '../../../lib/db/quotes'
+import { listQuotes, hasOpenQuoteForEntity } from '../../../lib/db/quotes'
 import { listInvoices } from '../../../lib/db/invoices'
 import { env } from 'cloudflare:workers'
 
@@ -65,6 +65,21 @@ const dossierStages: string[] = [
   'ongoing',
 ]
 const showDossierButton = dossierStages.includes(entity.stage)
+
+// "New quote" action (#472): enabled when entity is in Proposing or earlier,
+// no open (draft/sent) quote exists, and at least one assessment is on file
+// (schema requires assessment_id NOT NULL on quotes).
+const newQuoteStages: string[] = ['signal', 'prospect', 'assessing', 'proposing']
+const hasOpenQuote = await hasOpenQuoteForEntity(env.DB, session.orgId, entityId)
+const showNewQuoteButton =
+  newQuoteStages.includes(entity.stage) && !hasOpenQuote && assessments.length > 0
+
+// Prior quotes eligible for an explicit supersede link — terminal-status
+// quotes the admin might be replacing with v2. We do NOT auto-select one;
+// default is "none" so supersede stays an explicit opt-in.
+const supersedeCandidates = showNewQuoteButton
+  ? quotes.filter((q) => q.status === 'declined' || q.status === 'expired')
+  : []
 
 // Stage transitions
 const TRANSITIONS: Record<
@@ -488,6 +503,39 @@ function confidenceColor(confidence: string): string {
                 class="text-xs px-3 py-1.5 rounded-[var(--radius-card)] transition-colors bg-cyan-600 text-white hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Generate Dossier
+              </button>
+            </form>
+          )
+        }
+        {
+          showNewQuoteButton && (
+            <form
+              method="POST"
+              action={`/api/admin/entities/${entity.id}/quotes`}
+              class="flex items-center gap-2"
+            >
+              {supersedeCandidates.length > 0 && (
+                <label class="text-xs text-[color:var(--color-text-secondary)] flex items-center gap-1">
+                  <span class="sr-only">Supersede prior quote</span>
+                  <select
+                    name="parent_quote_id"
+                    class="text-xs border border-[color:var(--color-border)] rounded-[var(--radius-card)] px-2 py-1 bg-white"
+                    title="Optional: link to a prior quote this one supersedes"
+                  >
+                    <option value="">No supersede link</option>
+                    {supersedeCandidates.map((q) => (
+                      <option value={q.id}>
+                        Supersede v{q.version} ({q.status})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <button
+                type="submit"
+                class="text-xs px-3 py-1.5 rounded-[var(--radius-card)] transition-colors bg-[color:var(--color-primary)] text-white hover:bg-[color:var(--color-primary-hover)]"
+              >
+                New quote
               </button>
             </form>
           )
