@@ -2,35 +2,38 @@
 
 @theme {
   /* ------------------------------------------------------------------
-   * SMD Services — Modern Institutional identity
-   * Cut over from .design/theme.css on 2026-04-19.
+   * SMD Services — Desert Functional identity
+   * Migrated from Modern Institutional on 2026-04-23 (issue #516 PR 1).
    * Full token documentation: .design/DESIGN.md
    * ------------------------------------------------------------------ */
 
   /* ---------- Color roles ---------- */
-  --color-background: #f9f7f1;
-  --color-surface: #ffffff;
-  --color-surface-inverse: #2a2520; /* warm umber, softer than graphite for dark-section backgrounds */
-  --color-border: #d8d4c8;
-  --color-border-subtle: #ece8dd;
+  --color-background: #ede6d6; /* warm sand */
+  --color-surface: #f6f1e4; /* soft cream card */
+  --color-surface-inverse: #22201c; /* umber, slightly warmer than MI graphite */
+  --color-border: rgba(34, 32, 28, 0.14);
+  --color-border-subtle: rgba(34, 32, 28, 0.08);
 
-  --color-text-primary: #1a1a1a;
-  --color-text-secondary: #52514c;
-  --color-text-muted: #8e8c85;
+  --color-text-primary: #22201c;
+  --color-text-secondary: #5c564d;
+  --color-text-muted: #928a7c;
 
-  --color-meta: #52514c;
+  --color-meta: #5c564d;
 
-  --color-primary: #2c5282;
-  --color-primary-hover: #1f3a62;
-  --color-action: #2c5282;
-  --color-attention: #2c5282;
-  --color-complete: #2f6e42;
+  --color-primary: #b8852a; /* ochre */
+  --color-primary-hover: #96701f;
+  --color-action: #b8852a;
+  --color-attention: #b8852a;
+  --color-complete: #6a7a68; /* sage */
   --color-error: #a02a2a;
 
+  --color-status-sage: #6a7a68;
+
   /* ---------- Typography families ---------- */
-  --font-display: 'Crimson Pro', Georgia, 'Times New Roman', serif;
-  --font-body: 'Public Sans', system-ui, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+  --font-display: 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-accent-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* ---------- Typography scale ---------- */
   --text-display: 3rem; /* 48px */
