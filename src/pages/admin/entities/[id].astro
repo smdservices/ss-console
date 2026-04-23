@@ -89,8 +89,10 @@ const stageUpdated = Astro.url.searchParams.get('stage_updated')
 const dossierGenerated = Astro.url.searchParams.get('dossier')
 const error = Astro.url.searchParams.get('error')
 
-// Dossier available for prospect stage and beyond (not signal or lost)
-const dossierStages: string[] = [
+// Re-enrich available for prospect stage and beyond (not signal or lost).
+// Full enrichment now runs automatically at signal ingest — this button is
+// for refreshing the cheap (reviews + news) slice when the data goes stale.
+const reEnrichStages: string[] = [
   'prospect',
   'meetings',
   'proposing',
@@ -98,7 +100,7 @@ const dossierStages: string[] = [
   'delivered',
   'ongoing',
 ]
-const showDossierButton = dossierStages.includes(entity.stage)
+const showReEnrichButton = reEnrichStages.includes(entity.stage)
 
 // "New quote" action (#472): enabled when entity is in Proposing or earlier,
 // no open (draft/sent) quote exists, and at least one meeting is on file
@@ -417,7 +419,8 @@ function confidenceColor(confidence: string): string {
   {
     dossierGenerated && (
       <div class="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-3 rounded-[var(--radius-card)] mb-4">
-        Intelligence dossier generated. See enrichment entries in the timeline.
+        Re-enrichment complete. Refreshed reviews, synthesis, news, and outreach draft — see
+        timeline below.
       </div>
     )
   }
@@ -602,18 +605,19 @@ function confidenceColor(confidence: string): string {
           )
         }
         {
-          showDossierButton && (
+          showReEnrichButton && (
             <form
               method="POST"
               action={`/api/admin/entities/${entity.id}/dossier`}
-              id="dossier-form"
+              id="re-enrich-form"
             >
               <button
                 type="submit"
-                id="dossier-btn"
+                id="re-enrich-btn"
                 class="text-xs px-3 py-1.5 rounded-[var(--radius-card)] transition-colors bg-cyan-600 text-white hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Refresh reviews and news — cheap, safe to re-run"
               >
-                Generate Dossier
+                Re-enrich (reviews + news)
               </button>
             </form>
           )
@@ -1215,12 +1219,12 @@ function confidenceColor(confidence: string): string {
     }
   </style>
   <script>
-    const form = document.getElementById('dossier-form')
-    const btn = document.getElementById('dossier-btn') as HTMLButtonElement | null
+    const form = document.getElementById('re-enrich-form')
+    const btn = document.getElementById('re-enrich-btn') as HTMLButtonElement | null
     if (form && btn) {
       form.addEventListener('submit', () => {
         btn.disabled = true
-        btn.textContent = 'Generating...'
+        btn.textContent = 'Re-enriching...'
       })
     }
 
