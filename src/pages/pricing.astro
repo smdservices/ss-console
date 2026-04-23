@@ -1,0 +1,241 @@
+---
+export const prerender = false
+
+import Base from '../layouts/Base.astro'
+import Nav from '../components/Nav.astro'
+import Footer from '../components/Footer.astro'
+import CtaButton from '../components/CtaButton.astro'
+---
+
+<Base
+  title="Pricing | SMD Services"
+  description="Scope drives price. Three ranges to orient you before we talk: assessment, a bounded pilot, or a full-scope engagement. The specific number comes out of the conversation."
+>
+  <Nav />
+  <main id="main" role="main">
+    <!-- Hero -->
+    <section class="px-6 pb-16 pt-24">
+      <div class="mx-auto max-w-4xl text-center">
+        <h1
+          class="mb-6 text-4xl font-extrabold leading-[1.1] tracking-tight text-[color:var(--color-text-primary)] sm:text-5xl md:text-6xl"
+        >
+          Scope drives price.
+        </h1>
+        <p
+          class="mx-auto max-w-2xl text-lg leading-relaxed text-[color:var(--color-text-secondary)] sm:text-xl"
+        >
+          Every engagement is different because every business is. Below are the ranges we work in,
+          so you can tell whether we're in the ballpark before we talk. The specific number comes
+          out of the conversation about what you're trying to achieve.
+        </p>
+      </div>
+    </section>
+
+    <!-- Three bands -->
+    <section class="bg-[color:var(--color-background)] px-6 py-16 sm:py-20">
+      <div class="mx-auto max-w-5xl">
+        <div class="grid gap-6 md:grid-cols-3">
+          <!-- Assessment -->
+          <article class="flex flex-col rounded-[var(--radius-card)] bg-white p-card sm:p-section">
+            <h2
+              class="text-sm font-semibold uppercase tracking-wide text-[color:var(--color-text-muted)]"
+            >
+              Assessment
+            </h2>
+            <p class="mt-3 text-3xl font-bold text-[color:var(--color-text-primary)] sm:text-4xl">
+              $250
+            </p>
+            <p class="mt-2 text-sm text-[color:var(--color-text-secondary)]">
+              First three are on us. Applied toward your engagement if we keep working together.
+            </p>
+            <p class="mt-6 text-base leading-relaxed text-[color:var(--color-text-secondary)]">
+              The conversation that identifies where you're trying to go and what's in the way. You
+              walk us through your day. We listen. By the end you have a clearer picture of what to
+              do next, whether we work together or not.
+            </p>
+          </article>
+
+          <!-- Pilot engagement -->
+          <article
+            class="flex flex-col rounded-[var(--radius-card)] border-2 border-primary bg-white p-card sm:p-section"
+          >
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-primary">
+              Pilot engagement
+            </h2>
+            <p class="mt-3 text-3xl font-bold text-[color:var(--color-text-primary)] sm:text-4xl">
+              $5,250 to $10,500
+            </p>
+            <p class="mt-2 text-sm text-[color:var(--color-text-secondary)]">
+              A bounded scope with a real deliverable.
+            </p>
+            <p class="mt-6 text-base leading-relaxed text-[color:var(--color-text-secondary)]">
+              Enough room to ship a real solution. A documented process, a tool configured the way
+              your team actually works, an integration that stops the copy-paste, a small internal
+              tool, whatever fits what you're trying to do. You see the scope before you commit.
+            </p>
+          </article>
+
+          <!-- Full-scope engagement -->
+          <article class="flex flex-col rounded-[var(--radius-card)] bg-white p-card sm:p-section">
+            <h2
+              class="text-sm font-semibold uppercase tracking-wide text-[color:var(--color-text-muted)]"
+            >
+              Full-scope engagement
+            </h2>
+            <p class="mt-3 text-3xl font-bold text-[color:var(--color-text-primary)] sm:text-4xl">
+              $10,500 and up
+            </p>
+            <p class="mt-2 text-sm text-[color:var(--color-text-secondary)]">
+              Open ceiling. Priced to the problem.
+            </p>
+            <p class="mt-6 text-base leading-relaxed text-[color:var(--color-text-secondary)]">
+              Deeper work that spans more than one solution area. Process plus tooling plus
+              integration, or a custom internal tool that changes how a team operates. We scope it
+              with you, break it into milestones, and you see what each piece costs before we start.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- How pricing actually works -->
+    <section class="bg-white px-6 py-20 sm:py-24">
+      <div class="mx-auto max-w-3xl">
+        <h2
+          class="mb-10 text-center text-3xl font-bold text-[color:var(--color-text-primary)] sm:text-4xl"
+        >
+          How the number gets to a number
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--color-text-secondary)]">
+          <p>
+            <span class="font-semibold text-[color:var(--color-text-primary)]">
+              We start with what you're trying to achieve.
+            </span>
+            Not a problem list. A conversation about where the business is going and what's keeping it
+            from getting there faster. The right scope falls out of that.
+          </p>
+          <p>
+            <span class="font-semibold text-[color:var(--color-text-primary)]">
+              Then we scope the work together.
+            </span>
+            Sometimes the answer is a three-page process document and an afternoon of training. Sometimes
+            it's a custom internal tool that takes weeks. The ranges on this page exist to orient you,
+            not to package the service.
+          </p>
+          <p>
+            <span class="font-semibold text-[color:var(--color-text-primary)]">
+              You see a fixed price before work starts.
+            </span>
+            No hourly billing, no open-ended retainer. If scope changes, we tell you what that costs before
+            we do it.
+          </p>
+          <p>
+            <span class="font-semibold text-[color:var(--color-text-primary)]">
+              Payment is split.
+            </span>
+            Half at signing, half on completion for most engagements. Larger engagements move to three
+            milestones so your money moves with the work.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- What shapes the price -->
+    <section class="bg-[color:var(--color-background)] px-6 py-20 sm:py-24">
+      <div class="mx-auto max-w-4xl">
+        <h2
+          class="mb-10 text-center text-3xl font-bold text-[color:var(--color-text-primary)] sm:text-4xl"
+        >
+          What shapes the price
+        </h2>
+        <div class="grid gap-6 md:grid-cols-2">
+          <div class="rounded-[var(--radius-card)] bg-white p-card">
+            <h3 class="mb-2 font-bold text-[color:var(--color-text-primary)]">How deep we go</h3>
+            <p class="text-[color:var(--color-text-secondary)]">
+              Documenting one critical process sits in a different zip code than rebuilding how
+              three teams hand off work to each other.
+            </p>
+          </div>
+          <div class="rounded-[var(--radius-card)] bg-white p-card">
+            <h3 class="mb-2 font-bold text-[color:var(--color-text-primary)]">
+              How many solution areas
+            </h3>
+            <p class="text-[color:var(--color-text-secondary)]">
+              Process design alone is lighter than process plus tool configuration plus a custom
+              tool and an integration between two platforms.
+            </p>
+          </div>
+          <div class="rounded-[var(--radius-card)] bg-white p-card">
+            <h3 class="mb-2 font-bold text-[color:var(--color-text-primary)]">
+              Custom build vs. configure
+            </h3>
+            <p class="text-[color:var(--color-text-secondary)]">
+              Configuring a tool you already own is one thing. Writing an internal tool that doesn't
+              exist yet is another.
+            </p>
+          </div>
+          <div class="rounded-[var(--radius-card)] bg-white p-card">
+            <h3 class="mb-2 font-bold text-[color:var(--color-text-primary)]">
+              How much your team takes on
+            </h3>
+            <p class="text-[color:var(--color-text-secondary)]">
+              If someone on your team owns a chunk of the work, the engagement gets smaller. If you
+              want us to handle it end to end, it gets bigger.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- What's not on this page -->
+    <section class="bg-white px-6 py-20 sm:py-24">
+      <div class="mx-auto max-w-3xl">
+        <h2
+          class="mb-8 text-center text-3xl font-bold text-[color:var(--color-text-primary)] sm:text-4xl"
+        >
+          A few honest notes
+        </h2>
+        <div class="space-y-6 text-lg leading-relaxed text-[color:var(--color-text-secondary)]">
+          <p>
+            <span class="font-semibold text-[color:var(--color-text-primary)]">
+              These are ranges, not tiers.
+            </span>
+            We don't have packages. The bands above exist so you can tell whether this is in your ballpark
+            before you book a call.
+          </p>
+          <p>
+            <span class="font-semibold text-[color:var(--color-text-primary)]">
+              Below the pilot range we usually point you elsewhere.
+            </span>
+            A one-off script or a narrow AI pilot sometimes fits under that number, and when it does we'll
+            tell you. Most of the time though, the right answer for very small work is a tool you can
+            buy, not a consultant.
+          </p>
+          <p>
+            <span class="font-semibold text-[color:var(--color-text-primary)]">
+              Ongoing support is a separate conversation.
+            </span>
+            After a delivery, some owners want us on a light monthly retainer for optimization and questions.
+            We set that up after the first engagement ships, not before.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTAs -->
+    <section class="bg-[color:var(--color-surface-inverse)] px-6 py-20 sm:py-24">
+      <div class="mx-auto max-w-3xl text-center">
+        <h2 class="text-3xl font-bold text-white sm:text-4xl">Not sure which band fits?</h2>
+        <p class="mx-auto mt-4 max-w-2xl text-lg text-[color:var(--color-text-muted)]">
+          Take the scorecard and get a read on where your operations stand. Or skip straight to a
+          conversation about what you're trying to build.
+        </p>
+        <div class="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+          <CtaButton href="/scorecard">Take the Scorecard</CtaButton>
+          <CtaButton variant="outline-white" href="/book">Book a Call</CtaButton>
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Base>

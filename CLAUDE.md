@@ -94,9 +94,16 @@ Timeframes are scoped per engagement, just like pricing. Do not publish specific
 
 **Applies to marketing content only.** This rule does not apply to signed contractual documents (SOW PDFs, invoices, countersigned agreements). A signed SOW is a contract where specific timeframes are the product of the conversation, not marketing copy. Timeframes in signed documents stay as authored.
 
-### 4. No published dollar amounts
+### 4. Dollar amounts only on /pricing
 
-No dollar amounts appear on the website or in marketing materials. The client sees a project price in their proposal — never on a public page.
+Ranges are published on the dedicated `/pricing` page only. Every other marketing surface stays dollar-free: the home page, `/ai`, `/scorecard`, `/book`, `/contact`, collateral, outreach, and anything else a prospect sees before they've had a conversation with us.
+
+Specific project prices still only appear in a client's proposal or SOW. The `/pricing` page publishes bands so a buyer can tell whether we're in their ballpark before they book a call. It does not publish the number they will pay.
+
+Rationale: April 2026 persona review found pricing opacity blocked Mike-archetype buyers (HVAC, general contractor). Scoped ranges on one page fix that without turning the service into packages. See issue #486 / epic #483.
+
+- **Do:** Publish the three bands on `/pricing`. Keep dollar amounts off every other page.
+- **Don't:** Sprinkle prices into hero copy, `/ai`, the scorecard result, or the booking page. Don't treat the bands as tiers or plans.
 
 ### 5. "Solution" not "systems" in marketing contexts
 
@@ -177,10 +184,11 @@ These suggest where to lead the conversation, not which problems to look for. Th
 ### Pricing
 
 - **Internal rate:** $175/hr at launch, then $200/hr after first case study, then $250/hr, then $300/hr with volume
-- **Engagement range:** scoped per engagement. Smallest engagements (targeted automation scripts, AI pilots) start around $2,500. Below that, assessment overhead exceeds delivery value. Largest engagements have no fixed ceiling. Nothing published externally.
+- **Engagement range:** scoped per engagement. Smallest engagements (targeted automation scripts, AI pilots) start around $2,500. Below that, assessment overhead exceeds delivery value. Largest engagements have no fixed ceiling.
+- **Published bands (on `/pricing` only):** assessment $250; pilot engagement $5,250 to $10,500; full-scope engagement $10,500 and up. Rule 4 governs where these appear.
 - **Paid Assessment:** $250, applied toward engagement if they proceed. First 3 assessments free.
 - **Retainer (post-delivery):** $200-500/mo for ongoing support and optimization. Model holds but we define the details after the first delivery.
-- **No dollar amounts published externally.** Client sees a project price, not hourly rate.
+- **Client-specific price:** the number in a client's proposal or SOW is never on a public page. Ranges orient, proposals price.
 
 ### The Assessment Call Is the Product
 
