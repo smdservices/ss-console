@@ -126,7 +126,8 @@ const TRANSITIONS: Record<
     // row in `scheduled` status and signs a booking URL, then transitions the
     // stage. #504's "Start Meeting" button is not needed; the booking flow
     // already produces a meeting row and moves the entity to `meetings`.
-
+    {
+      label: 'Lost',
       stage: 'lost',
       style:
         'bg-[color:var(--color-border-subtle)] text-[color:var(--color-text-secondary)] hover:bg-[color:var(--color-border)]',
