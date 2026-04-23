@@ -511,7 +511,10 @@ export async function getActiveQuotesForEntities(
   const result = new Map<string, Quote>()
   if (entityIds.length === 0) return result
 
-  const placeholders = entityIds.map(() => '?').join(', ')
+  // D1 caps bound parameters at 100 per statement; pass entity-id list as
+  // a single JSON parameter via json_each() so large Proposing tabs don't
+  // trip the limit. See https://developers.cloudflare.com/d1/sql-api/query-json/.
+  const entityIdsJson = JSON.stringify(entityIds)
   // Priority: sent (0) > accepted (1) > draft (2). We order by priority then by
   // `sent_at` DESC (for sent), else `updated_at` DESC. One row per entity via
   // the ROW_NUMBER() window function. D1 supports SQLite window functions.
@@ -536,16 +539,13 @@ export async function getActiveQuotesForEntities(
         ) AS rn
       FROM quotes q
       WHERE q.org_id = ?
-        AND q.entity_id IN (${placeholders})
+        AND q.entity_id IN (SELECT value FROM json_each(?))
         AND q.status IN ('sent', 'accepted', 'draft')
     )
     WHERE rn = 1
   `
 
-  const rows = await db
-    .prepare(sql)
-    .bind(orgId, ...entityIds)
-    .all<Quote>()
+  const rows = await db.prepare(sql).bind(orgId, entityIdsJson).all<Quote>()
 
   for (const row of rows.results) {
     result.set(row.entity_id, row)

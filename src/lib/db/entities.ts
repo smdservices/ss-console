@@ -288,7 +288,11 @@ export async function getSignalMetadataForEntities(
   const out = new Map<string, EntitySignalMetadata>()
   if (entityIds.length === 0) return out
 
-  const placeholders = entityIds.map(() => '?').join(', ')
+  // D1 caps bound parameters at 100 per statement. Pass the entity-id list
+  // as a single JSON-encoded parameter and let SQLite's json_each() unpack
+  // it, so we stay at 2 bound params regardless of list size. See
+  // https://developers.cloudflare.com/d1/sql-api/query-json/#use-json_each.
+  const entityIdsJson = JSON.stringify(entityIds)
 
   // Latest signal/scorecard metadata per entity.
   // Picks the most recent row via the correlated subquery on created_at.
@@ -296,7 +300,7 @@ export async function getSignalMetadataForEntities(
     SELECT c.entity_id, c.metadata
     FROM context c
     WHERE c.org_id = ?
-      AND c.entity_id IN (${placeholders})
+      AND c.entity_id IN (SELECT value FROM json_each(?))
       AND c.type IN ('signal', 'scorecard')
       AND c.created_at = (
         SELECT MAX(c2.created_at)
@@ -307,7 +311,7 @@ export async function getSignalMetadataForEntities(
   `
   const signalRows = await db
     .prepare(signalSql)
-    .bind(orgId, ...entityIds)
+    .bind(orgId, entityIdsJson)
     .all<{ entity_id: string; metadata: string | null }>()
 
   for (const row of signalRows.results) {
@@ -344,12 +348,12 @@ export async function getSignalMetadataForEntities(
     SELECT entity_id, MAX(created_at) AS last_activity_at
     FROM context
     WHERE org_id = ?
-      AND entity_id IN (${placeholders})
+      AND entity_id IN (SELECT value FROM json_each(?))
     GROUP BY entity_id
   `
   const activityRows = await db
     .prepare(activitySql)
-    .bind(orgId, ...entityIds)
+    .bind(orgId, entityIdsJson)
     .all<{ entity_id: string; last_activity_at: string | null }>()
 
   for (const row of activityRows.results) {
@@ -694,9 +698,10 @@ export async function getLatestLostReasonsByEntity(
   const result = new Map<string, { code: LostReasonCode; detail: string | null }>()
   if (entityIds.length === 0) return result
 
-  const placeholders = entityIds.map(() => '?').join(', ')
-  // For each entity, pick the newest stage_change row whose metadata
-  // marks a transition INTO lost. D1/SQLite supports json_extract.
+  // D1 caps bound parameters at 100 per statement; pass entity-id list as
+  // a single JSON parameter via json_each() so large Lost tabs don't trip
+  // the limit. See https://developers.cloudflare.com/d1/sql-api/query-json/.
+  const entityIdsJson = JSON.stringify(entityIds)
   const rows = await db
     .prepare(
       `SELECT c.entity_id,
@@ -705,7 +710,7 @@ export async function getLatestLostReasonsByEntity(
          FROM context c
         WHERE c.org_id = ?
           AND c.type = 'stage_change'
-          AND c.entity_id IN (${placeholders})
+          AND c.entity_id IN (SELECT value FROM json_each(?))
           AND json_extract(c.metadata, '$.to') = 'lost'
           AND c.created_at = (
             SELECT MAX(c2.created_at) FROM context c2
@@ -715,7 +720,7 @@ export async function getLatestLostReasonsByEntity(
                AND json_extract(c2.metadata, '$.to') = 'lost'
           )`
     )
-    .bind(orgId, ...entityIds)
+    .bind(orgId, entityIdsJson)
     .all<{ entity_id: string; lost_reason: string | null; lost_detail: string | null }>()
 
   for (const row of rows.results) {
