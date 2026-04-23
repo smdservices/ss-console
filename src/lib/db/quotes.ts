@@ -130,6 +130,13 @@ export interface CreateQuoteData {
   deliverables?: DeliverableRow[]
   engagementOverview?: string
   milestoneLabel?: string
+  /**
+   * Optional reference to a prior quote this one supersedes. Used by the
+   * repeat-quote flow (#472) to link v2 → v1 after a decline/expiry. The
+   * caller is responsible for explicitly transitioning the parent to
+   * `superseded` — createQuote does not mutate the parent record.
+   */
+  parentQuoteId?: string | null
 }
 
 export interface UpdateQuoteData {
@@ -203,6 +210,33 @@ export function getMissingAuthoredContent(quote: Quote): string[] {
 }
 
 /**
+ * Quote statuses that block a new draft from being created on the same entity.
+ * Draft and sent are "open" — actively in play in the sales flow. Other
+ * statuses (accepted, declined, expired, superseded) are terminal and do not
+ * block a repeat quote (#472).
+ */
+export const OPEN_QUOTE_STATUSES: QuoteStatus[] = ['draft', 'sent']
+
+/**
+ * Return true if the entity has at least one draft or sent quote.
+ * Used by the repeat-quote flow (#472) to gate the "New quote" action on the
+ * entity detail page — admins shouldn't be creating v2 while v1 is still live.
+ */
+export async function hasOpenQuoteForEntity(
+  db: D1Database,
+  orgId: string,
+  entityId: string
+): Promise<boolean> {
+  const placeholders = OPEN_QUOTE_STATUSES.map(() => '?').join(', ')
+  const sql = `SELECT 1 FROM quotes WHERE entity_id = ? AND org_id = ? AND status IN (${placeholders}) LIMIT 1`
+  const result = await db
+    .prepare(sql)
+    .bind(entityId, orgId, ...OPEN_QUOTE_STATUSES)
+    .first<{ '1': number }>()
+  return result !== null
+}
+
+/**
  * List quotes for an organization, optionally filtered by entity.
  */
 export async function listQuotes(
@@ -269,6 +303,21 @@ export async function createQuote(
     data.deliverables && data.deliverables.length > 0 ? JSON.stringify(data.deliverables) : null
   const engagementOverview = data.engagementOverview ?? null
   const milestoneLabel = data.milestoneLabel ?? null
+  const parentQuoteId = data.parentQuoteId ?? null
+
+  // Derive the next version number when superseding a prior quote so the
+  // portal's "latest version" lookup (parent_quote_id OR assessment_id + version)
+  // still resolves correctly. Standalone new quotes start at version 1.
+  let version = 1
+  if (parentQuoteId) {
+    const parent = await db
+      .prepare('SELECT version FROM quotes WHERE id = ? AND org_id = ?')
+      .bind(parentQuoteId, orgId)
+      .first<{ version: number }>()
+    if (parent) {
+      version = (parent.version ?? 1) + 1
+    }
+  }
 
   // meeting_id mirrors assessment_id by construction (meetings preserve the
   // assessment primary key) unless the caller passes an explicit meetingId.
@@ -276,8 +325,8 @@ export async function createQuote(
 
   await db
     .prepare(
-      `INSERT INTO quotes (id, org_id, entity_id, assessment_id, meeting_id, version, line_items, total_hours, rate, total_price, deposit_pct, deposit_amount, status, schedule, deliverables, engagement_overview, milestone_label, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO quotes (id, org_id, entity_id, assessment_id, meeting_id, version, parent_quote_id, line_items, total_hours, rate, total_price, deposit_pct, deposit_amount, status, schedule, deliverables, engagement_overview, milestone_label, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       id,
@@ -285,6 +334,8 @@ export async function createQuote(
       data.entityId,
       data.assessmentId,
       meetingIdValue,
+      version,
+      parentQuoteId,
       JSON.stringify(data.lineItems),
       totalHours,
       data.rate,
