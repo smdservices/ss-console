@@ -13,11 +13,13 @@ const {
   'data-ev': dataEv,
 } = Astro.props
 
-const base = 'inline-flex items-center justify-center font-semibold transition-all'
+const base =
+  "inline-flex items-center justify-center font-bold uppercase tracking-[0.08em] font-['Archivo'] transition-colors"
 const variants = {
-  primary: 'px-8 py-4 bg-primary text-white rounded-[var(--radius-card)] hover:bg-primary-hover',
+  primary:
+    'px-8 py-4 border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-primary)] text-white hover:bg-[color:var(--color-primary-hover)]',
   'outline-white':
-    'px-8 py-4 border-2 border-white text-white rounded-[var(--radius-card)] hover:bg-white hover:text-[color:var(--color-text-primary)]',
+    'px-8 py-4 border-[3px] border-white bg-transparent text-white hover:bg-white hover:text-[color:var(--color-text-primary)]',
 }
 ---
 
