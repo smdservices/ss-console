@@ -1,5 +1,16 @@
 .claude/
+# Skill bundles are spec/adapter docs — they carry JSX and pseudo-code
+# fences that prettier-plugin-astro can't parse. Format skill files by
+# hand; don't let repo prettier touch them. Mirrors the .claude/ ignore.
+.agents/
 wrangler.toml
 coverage/
 # Generated design baselines — preserve as-is for reference
 .design/designs/
+# Documentation / spec files with embedded JSX, SQL, or pseudo-code
+# blocks that prettier-plugin-astro tries to parse as syntactically-valid
+# source and errors on. Format these files by hand.
+.design/NAVIGATION.md
+docs/reviews/
+docs/spikes/
+docs/style/UI-PATTERNS.md
