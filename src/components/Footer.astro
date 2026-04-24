@@ -1,16 +1,8 @@
----
-const navLinks = [
-  { href: '/ai', label: 'AI' },
-  { href: '/contact', label: 'Contact' },
-]
----
-
 <footer
   class="border-t-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-surface-inverse)] text-white"
 >
   <div class="mx-auto w-full max-w-5xl px-6">
-    <!-- Region 1: Masthead — brand block. Present today; future: can grow a
-         tagline, brand statement, or secondary mark. -->
+    <!-- Region 1: Masthead — brand mark. -->
     <div class="py-12 md:py-14">
       <a
         href="/"
@@ -26,38 +18,12 @@ const navLinks = [
 
     <div class="h-px bg-[color:rgba(245,240,227,0.16)]"></div>
 
-    <!-- Region 2: Sitemap. Architected as a grid with room for future nav
-         categories (Legal, Resources, Social, etc.). Today renders the one
-         existing Primary column + the Book a Call CTA aligned to the end.
-         Additional columns slot into the grid without a redesign. -->
-    <nav
-      aria-label="Footer primary"
-      class="py-10 md:py-14 grid grid-cols-1 gap-y-10 md:grid-cols-[1fr_auto] md:gap-x-12 md:items-start"
-    >
-      <ul class="flex flex-col gap-4">
-        {
-          navLinks.map((item) => (
-            <li>
-              <a
-                class="inline-flex items-center min-h-11 font-['Archivo'] text-base font-semibold uppercase tracking-[0.04em] text-white hover:text-[color:var(--color-primary)]"
-                href={item.href}
-              >
-                {item.label}
-              </a>
-            </li>
-          ))
-        }
-      </ul>
-      <a
-        class="inline-flex items-center justify-center w-full md:w-auto whitespace-nowrap border-[3px] border-white bg-[color:var(--color-primary)] hover:bg-[color:var(--color-primary-hover)] px-6 py-3 font-['Archivo'] text-sm font-bold uppercase tracking-[0.08em] text-white transition-colors"
-        href="/book">Book a Call</a
-      >
-    </nav>
-
-    <div class="h-px bg-[color:rgba(245,240,227,0.16)]"></div>
-
-    <!-- Region 3: Colophon — split left/right. Today: legal + location.
-         Future: can host social icons, privacy/terms links, or sister marks. -->
+    <!-- Region 2: Colophon — legal left, location right. Nav and CTA are not
+         repeated here because they already live in the sticky header (mobile
+         menu overlay + desktop inline) and in the FinalCta section directly
+         above the footer. Repeating them was visual noise. When dedicated
+         footer content exists (Legal, Privacy, Terms, Social), it slots in
+         as a third region above this colophon. -->
     <div
       class="py-6 md:py-7 flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-0 font-['Archivo_Narrow'] text-xs uppercase tracking-[0.12em] text-[color:var(--color-text-muted)]"
     >
