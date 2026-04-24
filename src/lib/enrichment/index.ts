@@ -194,6 +194,16 @@ async function runReviewsAndNews(
   await tryReviewAnalysis(env, orgId, entity, result)
   await tryReviewSynthesis(env, orgId, entity, result)
   await tryNews(env, orgId, entity, result)
+  // Backfill a missing intelligence_brief. Entities whose initial full
+  // pipeline crashed mid-run (Error 1101 era, Goodman's Landscape et al)
+  // ended up at `prospect` with partial enrichment and no brief; Re-enrich
+  // is the natural place to heal that. Only runs when a brief doesn't
+  // already exist, so repeat Re-enrich clicks don't re-bill Claude.
+  const existingBrief = await listContext(env.DB, entity.id, { type: 'enrichment' })
+  const hasBrief = existingBrief.some((e) => e.source === 'intelligence_brief')
+  if (!hasBrief) {
+    await tryIntelligenceBrief(env, orgId, entity, result)
+  }
 }
 
 // ---------------------------------------------------------------------------
