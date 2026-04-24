@@ -267,6 +267,20 @@ const outreachFromDossier = outreachMeta?.trigger === 'dossier'
 
 const hasDossier = !!dossierBrief
 
+// --- Outreach mail target (H18) ---
+// First contact with an email becomes the default recipient when the
+// admin clicks "Send outreach" — opens mailto: with the outreach draft
+// pre-populated. Multi-contact entities can edit the recipient in the
+// mail client. We don't impose a "primary" rule on contacts; first-with-
+// email is good enough for the unblock.
+const outreachContact = contacts.find((c) => c.email && c.email.trim().length > 0) ?? null
+const outreachMailto =
+  outreachEntry && outreachContact?.email
+    ? `mailto:${encodeURIComponent(outreachContact.email)}` +
+      `?subject=${encodeURIComponent(`Reaching out — ${entity.name}`)}` +
+      `&body=${encodeURIComponent(outreachEntry.content)}`
+    : null
+
 // --- Freshness indicators (H8) ---
 // Latest enrichment context entry — surfaces "Last enriched {relative}" near
 // the Re-enrich button so the operator can tell if the data is stale before
@@ -568,7 +582,52 @@ function confidenceColor(confidence: string): string {
           )
         }
         {
-          TRANSITIONS[entity.stage]?.map((t) =>
+          /* H17 — Draft proposal from meeting, surfaced into the top toolbar
+             on meetings-stage when a draftable meeting exists. The endpoint
+             auto-transitions the entity to proposing on success, so this
+             single click does the work that "Mark as Proposing" + creating
+             a quote separately would have done. */
+          entity.stage === 'meetings' && mostRecentDraftableMeeting && (
+            <form
+              method="POST"
+              action={`/api/admin/entities/${entity.id}/meetings/${mostRecentDraftableMeeting.id}/draft-quote`}
+            >
+              <button
+                type="submit"
+                class={adminActionButtonClass('primary')}
+                title="Create a draft quote from the most recent completed meeting's notes"
+              >
+                Draft proposal from meeting
+              </button>
+            </form>
+          )
+        }
+        {
+          /* H18 — Send outreach via mailto: when an outreach_draft context
+             entry exists and at least one contact has an email. Pre-populates
+             subject + body; admin can edit recipient in their mail client.
+             The "Copy" affordance on the dossier outreach block stays as a
+             fallback for entities without a contact email. */
+          outreachMailto && (
+            <a
+              href={outreachMailto}
+              class={adminActionButtonClass('ghost')}
+              title={`Open mail to ${outreachContact?.email ?? ''} with the draft pre-filled`}
+            >
+              Send outreach
+            </a>
+          )
+        }
+        {
+          /* On meetings-stage with a draftable meeting we surface "Draft
+             proposal from meeting" as the primary (above) and the draft
+             endpoint auto-transitions to proposing on success. The "Mark
+             as Proposing" transition becomes redundant — filter it out
+             so we keep "one primary per view" (Rule 3). Lost stays. */
+          (entity.stage === 'meetings' && mostRecentDraftableMeeting
+            ? TRANSITIONS[entity.stage]?.filter((t) => t.stage !== 'proposing')
+            : TRANSITIONS[entity.stage]
+          )?.map((t) =>
             t.stage === 'lost' ? (
               <details class="relative lost-picker">
                 <summary class={`list-none ${adminActionButtonClass(t.variant)}`}>
@@ -1106,23 +1165,8 @@ function confidenceColor(confidence: string): string {
         class="bg-white rounded-[var(--radius-card)] border border-[color:var(--color-border)] mb-4"
         open
       >
-        <summary class="px-6 py-4 cursor-pointer font-medium text-[color:var(--color-text-primary)] flex items-center justify-between">
-          <span>Meetings ({meetings.length})</span>
-          {mostRecentDraftableMeeting && (
-            <form
-              method="POST"
-              action={`/api/admin/entities/${entity.id}/meetings/${mostRecentDraftableMeeting.id}/draft-quote`}
-              onclick="event.stopPropagation()"
-            >
-              <button
-                type="submit"
-                class="text-xs px-3 py-1.5 rounded-[var(--radius-card)] transition-colors bg-[color:var(--color-primary)] text-white hover:bg-[color:var(--color-primary-hover)]"
-                title="Create a draft quote from the most recent completed meeting's notes"
-              >
-                Draft proposal from meeting
-              </button>
-            </form>
-          )}
+        <summary class="px-6 py-4 cursor-pointer font-medium text-[color:var(--color-text-primary)]">
+          Meetings ({meetings.length})
         </summary>
         <div class="px-6 pb-4 divide-y divide-[color:var(--color-border-subtle)]">
           {meetings.map((m) => (
