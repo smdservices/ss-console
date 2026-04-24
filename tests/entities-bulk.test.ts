@@ -135,7 +135,13 @@ describe('admin/entities/index.astro: bulk UI wiring', () => {
   const source = () => readFileSync(resolve('src/pages/admin/entities/index.astro'), 'utf-8')
 
   it('imports LOST_REASONS from the canonical module', () => {
-    expect(source()).toContain("import { LOST_REASONS } from '../../../lib/db/lost-reasons'")
+    // The same import line may also pull sibling exports (lost-reason
+    // label / chip helpers used to render the structured reason chip on
+    // Lost-tab rows) — match the symbol and module path rather than a
+    // literal one-symbol form.
+    expect(source()).toMatch(
+      /import\s*\{[^}]*\bLOST_REASONS\b[^}]*\}\s*from\s*['"]\.\.\/\.\.\/\.\.\/lib\/db\/lost-reasons['"]/
+    )
   })
 
   it('defines BULK_ENABLED_STAGES = signal/prospect/assessing only', () => {
