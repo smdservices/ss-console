@@ -4,6 +4,7 @@ import LogReplyDialog from '../../../components/admin/LogReplyDialog.astro'
 import {
   listEntities,
   countEntitiesPerStage,
+  getLatestLostReasonsByEntity,
   getSignalMetadataForEntities,
   ENTITY_STAGES,
 } from '../../../lib/db/entities'
@@ -12,7 +13,12 @@ import { getActiveQuotesForEntities, getQuotesForEntities } from '../../../lib/d
 import type { Quote } from '../../../lib/db/quotes'
 import { getMeetingsForEntities } from '../../../lib/db/meetings'
 import type { Meeting } from '../../../lib/db/meetings'
-import { LOST_REASONS } from '../../../lib/db/lost-reasons'
+import { getActiveEngagementForEntities } from '../../../lib/db/engagements'
+import type { Engagement } from '../../../lib/db/engagements'
+import { getInvoiceRollupForEntities } from '../../../lib/db/invoices'
+import type { InvoiceRollup } from '../../../lib/db/invoices'
+import { LOST_REASONS, lostReasonLabel, lostReasonChipClass } from '../../../lib/db/lost-reasons'
+import type { LostReasonCode } from '../../../lib/db/lost-reasons'
 import { getLatestOutreachDraftForEntities } from '../../../lib/db/context'
 import type { ContextEntry } from '../../../lib/db/context'
 import { getFirstContactWithEmailForEntities } from '../../../lib/db/contacts'
@@ -119,6 +125,33 @@ if (filterStage === 'meetings' && entities.length > 0) {
     getMeetingsForEntities(env.DB, session.orgId, ids),
     getQuotesForEntities(env.DB, session.orgId, ids),
   ])
+}
+
+// Engaged-stage row hydration. Two batch queries — the active
+// engagement per entity (powers progress: actual / estimated hours,
+// status pill) and the invoice rollup per entity (outstanding count +
+// amount + overdue flag). Both gated to engaged stage; no effect on
+// other tabs.
+let activeEngagementByEntityId = new Map<string, Engagement>()
+let invoiceRollupByEntityId = new Map<string, InvoiceRollup>()
+if (filterStage === 'engaged' && entities.length > 0) {
+  const ids = entities.map((e) => e.id)
+  ;[activeEngagementByEntityId, invoiceRollupByEntityId] = await Promise.all([
+    getActiveEngagementForEntities(env.DB, session.orgId, ids),
+    getInvoiceRollupForEntities(env.DB, session.orgId, ids),
+  ])
+}
+
+// Lost-stage row hydration. The structured lost-reason rollup that
+// already powers the detail page's lost-reason chip — surface it on
+// the row so the operator can scan "why" without clicking through.
+let lostReasonByEntityId = new Map<string, { code: LostReasonCode; detail: string | null }>()
+if (filterStage === 'lost' && entities.length > 0) {
+  lostReasonByEntityId = await getLatestLostReasonsByEntity(
+    env.DB,
+    session.orgId,
+    entities.map((e) => e.id)
+  )
 }
 
 // Per-stage display order. Hydrators above feed the in-memory re-sorts
@@ -475,6 +508,21 @@ function displayWebsite(raw: string | null): { href: string; label: string } | n
             const rowDraftableMeeting = isMeetings
               ? findDraftableMeeting(rowMeetings, rowQuotes)
               : null
+            const isEngaged = e.stage === 'engaged'
+            const rowEngagement = isEngaged ? (activeEngagementByEntityId.get(e.id) ?? null) : null
+            const rowInvoiceRollup = isEngaged ? (invoiceRollupByEntityId.get(e.id) ?? null) : null
+            const isLost = e.stage === 'lost'
+            const rowLostReason = isLost ? (lostReasonByEntityId.get(e.id) ?? null) : null
+            // Days since the entity transitioned to delivered. Stabilization
+            // tradition is a 2-week window after handoff; the day count keeps
+            // the operator aware of how far in we are without needing to
+            // open the engagement.
+            const isDelivered = e.stage === 'delivered'
+            const stabilizationDays = isDelivered
+              ? Math.floor(
+                  (Date.now() - new Date(e.stage_changed_at).getTime()) / (1000 * 60 * 60 * 24)
+                )
+              : null
             const activeQuote =
               filterStage === 'proposing' ? (activeQuoteByEntityId.get(e.id) ?? null) : null
             const quoteTimestamp =
@@ -544,6 +592,24 @@ function displayWebsite(raw: string | null): { href: string; label: string } | n
                           {MEETING_SUBSTATE_LABEL[rowSubstate]}
                         </span>
                       )}
+                      {rowEngagement && (
+                        <span class={statusBadgeClass(rowEngagement.status)}>
+                          {rowEngagement.status}
+                        </span>
+                      )}
+                      {rowInvoiceRollup && rowInvoiceRollup.has_overdue && (
+                        <span class="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">
+                          Invoice overdue
+                        </span>
+                      )}
+                      {rowLostReason && (
+                        <span
+                          class={`text-xs px-2 py-0.5 rounded ${lostReasonChipClass(rowLostReason.code)}`}
+                          title={rowLostReason.detail ?? undefined}
+                        >
+                          {lostReasonLabel(rowLostReason.code) ?? rowLostReason.code}
+                        </span>
+                      )}
                     </div>
 
                     {isSignal && problems.length > 0 && (
@@ -597,6 +663,21 @@ function displayWebsite(raw: string | null): { href: string; label: string } | n
                       )}
                       {rowNextMeeting && rowNextMeeting.scheduled_at && (
                         <span>Next meeting {formatDate(rowNextMeeting.scheduled_at)}</span>
+                      )}
+                      {rowEngagement && rowEngagement.estimated_hours != null && (
+                        <span>
+                          {rowEngagement.actual_hours}/{rowEngagement.estimated_hours} hrs
+                        </span>
+                      )}
+                      {rowInvoiceRollup && (
+                        <span>
+                          ${rowInvoiceRollup.outstanding_amount.toLocaleString()} outstanding
+                          {rowInvoiceRollup.outstanding_count > 1 &&
+                            ` (${rowInvoiceRollup.outstanding_count})`}
+                        </span>
+                      )}
+                      {stabilizationDays != null && (
+                        <span>Day {stabilizationDays + 1} of stabilization</span>
                       )}
                       {e.area && <span>{e.area}</span>}
                       {e.vertical && (

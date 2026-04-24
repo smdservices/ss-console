@@ -86,6 +86,63 @@ export interface InvoiceFilters {
 }
 
 /**
+ * For a batch of entity ids, return per-entity invoice rollup used by
+ * the Engaged-stage list rows: outstanding count + sum of outstanding
+ * amount, plus an `overdue` flag if any of those outstanding invoices
+ * has status='overdue'.
+ *
+ * "Outstanding" = status IN ('sent', 'overdue'). Drafts and voids are
+ * not yet a payment expectation; paid is settled. Returns Map values
+ * only for entities with at least one outstanding invoice.
+ *
+ * Empty input returns an empty Map without touching the DB.
+ */
+export interface InvoiceRollup {
+  outstanding_count: number
+  outstanding_amount: number
+  has_overdue: boolean
+}
+
+export async function getInvoiceRollupForEntities(
+  db: D1Database,
+  orgId: string,
+  entityIds: string[]
+): Promise<Map<string, InvoiceRollup>> {
+  const result = new Map<string, InvoiceRollup>()
+  if (entityIds.length === 0) return result
+
+  const entityIdsJson = JSON.stringify(entityIds)
+  const rows = await db
+    .prepare(
+      `SELECT entity_id,
+              COUNT(*)              AS outstanding_count,
+              COALESCE(SUM(amount), 0) AS outstanding_amount,
+              SUM(CASE WHEN status = 'overdue' THEN 1 ELSE 0 END) AS overdue_count
+       FROM invoices
+       WHERE org_id = ?
+         AND status IN ('sent', 'overdue')
+         AND entity_id IN (SELECT value FROM json_each(?))
+       GROUP BY entity_id`
+    )
+    .bind(orgId, entityIdsJson)
+    .all<{
+      entity_id: string
+      outstanding_count: number
+      outstanding_amount: number
+      overdue_count: number
+    }>()
+
+  for (const row of rows.results ?? []) {
+    result.set(row.entity_id, {
+      outstanding_count: row.outstanding_count,
+      outstanding_amount: row.outstanding_amount,
+      has_overdue: row.overdue_count > 0,
+    })
+  }
+  return result
+}
+
+/**
  * List invoices for an organization, optionally filtered by entity, engagement, or status.
  */
 export async function listInvoices(

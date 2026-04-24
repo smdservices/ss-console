@@ -95,6 +95,46 @@ export interface UpdateEngagementData {
 }
 
 /**
+ * For a batch of entity ids, return a Map keyed by entity_id whose
+ * value is the most recent non-terminal engagement (status NOT IN
+ * 'completed', 'cancelled'). Used by the Engaged-stage list to render
+ * engagement progress (`actual / estimated hours`) on each row without
+ * an N+1.
+ *
+ * If an entity has no active engagement (e.g. it's at engaged stage
+ * but the engagement was just cancelled), it's absent from the Map.
+ *
+ * Empty input returns an empty Map without touching the DB.
+ */
+export async function getActiveEngagementForEntities(
+  db: D1Database,
+  orgId: string,
+  entityIds: string[]
+): Promise<Map<string, Engagement>> {
+  const result = new Map<string, Engagement>()
+  if (entityIds.length === 0) return result
+
+  const entityIdsJson = JSON.stringify(entityIds)
+  const rows = await db
+    .prepare(
+      `SELECT * FROM engagements
+       WHERE org_id = ?
+         AND status NOT IN ('completed', 'cancelled')
+         AND entity_id IN (SELECT value FROM json_each(?))
+       ORDER BY entity_id ASC, created_at DESC`
+    )
+    .bind(orgId, entityIdsJson)
+    .all<Engagement>()
+
+  for (const row of rows.results ?? []) {
+    if (!result.has(row.entity_id)) {
+      result.set(row.entity_id, row)
+    }
+  }
+  return result
+}
+
+/**
  * List engagements for an organization, optionally filtered by entity.
  */
 export async function listEngagements(
