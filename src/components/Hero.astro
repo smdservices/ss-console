@@ -2,14 +2,14 @@
 import CtaButton from './CtaButton.astro'
 ---
 
-<section class="bg-[color:var(--color-background)]">
+<section class="bg-[color:var(--color-background)] px-6">
   <div class="mx-auto max-w-5xl">
     <div class="grid grid-cols-1 md:grid-cols-12">
       <div
-        class="md:col-span-8 px-6 md:px-10 py-12 md:py-20 border-b-[3px] md:border-b-0 border-[color:var(--color-text-primary)]"
+        class="md:col-span-8 py-16 md:py-24 md:pr-10 border-b-[3px] md:border-b-0 border-[color:var(--color-text-primary)]"
       >
         <h1
-          class="font-['Archivo'] font-black uppercase text-[clamp(2rem,9vw,4.5rem)] leading-[0.92] tracking-[-0.03em] text-[color:var(--color-text-primary)]"
+          class="font-['Archivo'] font-black uppercase text-[clamp(2rem,7vw,3.75rem)] leading-[0.92] tracking-[-0.03em] text-[color:var(--color-text-primary)]"
         >
           <span class="block">Your&nbsp;Business</span>
           <span class="block">Has&nbsp;Outgrown</span>
@@ -30,15 +30,15 @@ import CtaButton from './CtaButton.astro'
           </CtaButton>
         </div>
       </div>
-      <div class="md:col-span-4 flex items-center px-6 md:px-0 py-10 md:py-14">
-        <div class="md:border-l-[3px] md:border-[color:var(--color-text-primary)] md:pl-10">
-          <p
-            class="font-['Archivo'] text-lg md:text-xl leading-relaxed text-[color:var(--color-text-secondary)]"
-          >
-            You know where you want to go. We help you figure out what needs to change and build it
-            with you.
-          </p>
-        </div>
+      <div
+        class="md:col-span-4 flex items-center py-10 md:py-14 md:pl-10 md:border-l-[3px] md:border-[color:var(--color-text-primary)]"
+      >
+        <p
+          class="font-['Archivo'] text-lg md:text-xl leading-relaxed text-[color:var(--color-text-secondary)]"
+        >
+          You know where you want to go. We help you figure out what needs to change and build it
+          with you.
+        </p>
       </div>
     </div>
   </div>
