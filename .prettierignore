@@ -14,3 +14,5 @@ coverage/
 docs/reviews/
 docs/spikes/
 docs/style/UI-PATTERNS.md
+# Playwright MCP output (screenshots, console dumps, snapshots)
+.playwright-mcp/

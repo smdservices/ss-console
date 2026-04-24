@@ -33,3 +33,6 @@ coverage/
 
 # Ephemeral agent worktrees (created by EnterWorktree tool)
 .claude/worktrees/
+
+# Playwright MCP output (screenshots, console dumps, snapshots)
+.playwright-mcp/
