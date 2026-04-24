@@ -308,7 +308,7 @@ const showSignButton = isSent
           {
             consultantFirstName && (
               <p class="mt-stack text-caption text-[color:var(--color-text-muted)]">
-                Text {consultantFirstName} with questions.
+                Questions? Reach us using the contacts in the header.
               </p>
             )
           }
@@ -323,7 +323,7 @@ const showSignButton = isSent
                 class="inline-flex sm:hidden items-center gap-2 text-sm font-medium text-[color:var(--color-primary)] hover:text-[color:var(--color-primary-hover)]"
               >
                 <span class="material-symbols-outlined text-[18px]">sms</span>
-                Text {consultantFirstName} with questions
+                Text the team
               </a>
               <a
                 href={`tel:${consultant.phone!.replace(/[^+\d]/g, '')}`}
@@ -456,7 +456,7 @@ const showSignButton = isSent
         {
           consultantFirstName && (
             <p class="text-caption text-[color:var(--color-text-muted)] px-1">
-              Text {consultantFirstName} with questions.
+              Questions? Reach us using the contacts in the header.
             </p>
           )
         }

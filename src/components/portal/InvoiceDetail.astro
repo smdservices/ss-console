@@ -94,7 +94,7 @@ const errorBody = isDeclined
   ? 'Your payment was not processed. Please try again or use a different card.'
   : isCardExpired
     ? 'The card on file has expired. Update your payment method to complete this invoice.'
-    : 'This payment link is no longer active. Your consultant will send a new one.'
+    : 'This payment link is no longer active. We will send a new one.'
 
 // Contact-consultant fallback href for link-expired state
 const consultantContactHref = consultant?.phone
@@ -246,7 +246,7 @@ const pathname = `/portal/invoices/${invoice.id}`
                   </>
                 ) : (
                   <p class="text-body text-[color:var(--color-text-secondary)]">
-                    Payment link pending — your consultant will send it shortly.
+                    Payment link pending — we will send it shortly.
                   </p>
                 )}
               </div>
@@ -261,11 +261,11 @@ const pathname = `/portal/invoices/${invoice.id}`
                     href={consultantContactHref}
                     class="inline-flex w-full items-center justify-center gap-2 min-h-[52px] px-6 py-4 rounded-[var(--radius-button)] bg-[color:var(--color-primary)] hover:bg-[color:var(--color-primary-hover)] text-white font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
                   >
-                    Contact consultant
+                    Contact the team
                   </a>
                 ) : (
                   <p class="text-body text-[color:var(--color-text-secondary)]">
-                    Contact your consultant for a new payment link.
+                    Reach us for a new payment link using the contacts in the header.
                   </p>
                 )}
               </div>
@@ -520,7 +520,7 @@ const pathname = `/portal/invoices/${invoice.id}`
               <MoneyDisplay amountCents={invoice.amountCents} size="display" />
             </div>
             <p class="mt-4 text-body text-[color:var(--color-text-secondary)]">
-              Payment link pending — your consultant will send it shortly.
+              Payment link pending — we will send it shortly.
             </p>
           </section>
         )

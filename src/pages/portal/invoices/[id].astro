@@ -5,9 +5,9 @@ import { getPortalClient } from '../../../lib/portal/session'
 import { getInvoiceForEntity, listLineItemsForInvoice } from '../../../lib/db/invoices'
 import PortalHeader from '../../../components/portal/PortalHeader.astro'
 import PortalTabs from '../../../components/portal/PortalTabs.astro'
+import PortalPageHead from '../../../components/portal/PortalPageHead.astro'
 import SkipToMain from '../../../components/SkipToMain.astro'
 import MoneyDisplay from '../../../components/portal/MoneyDisplay.astro'
-import ActionCard from '../../../components/portal/ActionCard.astro'
 import ConsultantBlock from '../../../components/portal/ConsultantBlock.astro'
 import { resolveInvoiceState } from '../../../lib/portal/states'
 import { formatShortDate } from '../../../lib/portal/formatters'
@@ -224,29 +224,29 @@ const consultantFirstName: string | null = consultantName
 
     <PortalTabs pathname={Astro.url.pathname} />
 
-    <main id="main" role="main" class="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12 pb-24 md:pb-12">
-      <a
-        href="/portal/invoices"
-        aria-label="All invoices"
-        class="inline-flex items-center gap-1 min-h-11 px-2 -mx-2 mb-4 text-label uppercase font-semibold text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)] active:text-[color:var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2 rounded-lg"
-      >
-        <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
-        All invoices
-      </a>
-      <div class="grid grid-cols-1 md:grid-cols-[720px_1fr] gap-section md:gap-12 items-start">
+    <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
+      <PortalPageHead
+        crumbHref="/portal/invoices"
+        crumbLabel="All invoices"
+        tag={`Invoice № ${invoice.id.slice(0, 2).toUpperCase()}${isPaid ? ' · Paid' : ''}`}
+        h1={invoiceTitle}
+        meta={[
+          invoice.sent_at ? `Issued ${formatShortDate(invoice.sent_at)}` : null,
+          isPaid && invoice.paid_at ? `Paid ${formatShortDate(invoice.paid_at)}` : null,
+          !isPaid && invoice.due_date ? `Due ${formatShortDate(invoice.due_date)}` : null,
+        ]
+          .filter(Boolean)
+          .join('\n') || null}
+      />
+
+      <div class="mt-10 grid grid-cols-1 md:grid-cols-[720px_1fr] gap-10 md:gap-12 items-start">
         <!-- Main column -->
-        <section class="flex flex-col gap-section min-w-0">
-          <!-- Eyebrow + title + subtitle -->
+        <section class="flex flex-col gap-8 min-w-0">
+          <!-- Subtitle -->
           <div>
-            <p class="text-label uppercase text-[color:var(--color-text-secondary)]">Invoice</p>
-            <h1
-              class="mt-3 font-['Archivo'] font-extrabold text-display tracking-[-0.02em] text-[color:var(--color-text-primary)]"
-            >
-              {invoiceTitle}
-            </h1>
             {
               periodSubtitle && (
-                <p class="mt-3 text-body-lg text-[color:var(--color-text-secondary)]">
+                <p class="text-body-lg text-[color:var(--color-text-secondary)]">
                   {periodSubtitle}
                 </p>
               )
@@ -480,6 +480,7 @@ const consultantFirstName: string | null = consultantName
             consultantName && (
               <div class="md:hidden">
                 <ConsultantBlock
+                  variant="trade-card"
                   name={consultantName}
                   photoUrl={consultantPhotoUrl}
                   role={consultantRole}
@@ -604,6 +605,7 @@ const consultantFirstName: string | null = consultantName
           {
             consultantName && (
               <ConsultantBlock
+                variant="trade-card"
                 name={consultantName}
                 photoUrl={consultantPhotoUrl}
                 role={consultantRole}

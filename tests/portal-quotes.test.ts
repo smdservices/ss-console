@@ -155,9 +155,13 @@ describe('portal quotes: dashboard', () => {
 
   it('gates next-check-in subtext on an authored touchpoint', () => {
     const code = source()
-    // The subtext renders only when both consultantFirst and touchpointText
-    // exist. No fallback phrasing when either is missing.
-    expect(code).toContain('consultantFirst && touchpointText')
+    // The subtext renders only when an authored touchpoint exists. No
+    // fallback phrasing when absent. Post-Plainspoken (PR B) the hub
+    // flows the touchpoint through `PortalPageHead meta={...}` rather
+    // than a standalone `contextSubtext` variable, so the regression
+    // guard now checks that the gate on `touchpointText` is still in
+    // place (the page renders nothing in meta if touchpointText is null).
+    expect(code).toMatch(/touchpointText\s*\?/)
   })
 })
 
@@ -179,10 +183,11 @@ describe('portal quotes: quote list page', () => {
   it('resolves status via portal status helpers (R7 registry)', () => {
     const code = source()
     // After UI-PATTERNS R7: the list page delegates status rendering to
-    // PortalListItem + StatusPill via tone/label resolvers. It no longer
-    // carries its own statusColorMap / raw bg-*-100 classes.
+    // PortalListItem + StatusPill via tone/label resolvers. Post-
+    // Plainspoken (PR B) the label resolves through the stamp-vocabulary
+    // helper. Either resolver satisfies the registry contract.
     expect(code).toContain('resolveQuoteTone')
-    expect(code).toContain('resolveQuoteLabel')
+    expect(code).toMatch(/resolveQuoteStampLabel|resolveQuoteLabel/)
   })
 
   it('displays total price for each quote', () => {

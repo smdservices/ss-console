@@ -475,10 +475,14 @@ describe('invoices: portal view', () => {
     expect(code).toContain('amountCents={Math.round(inv.amount * 100)}')
   })
 
-  it('resolves status tone + label via shared helpers (R7 registry)', () => {
+  it('resolves status tone + stamp label via shared helpers (R7 registry)', () => {
     const code = source()
     expect(code).toContain('resolveInvoiceTone')
-    expect(code).toContain('resolveInvoiceLabel')
+    // Post-Plainspoken (2026-04-23, PR B) the pill renders the stamp
+    // vocabulary via `resolveInvoiceStampLabel`. The descriptive-label
+    // resolver (`resolveInvoiceLabel`) still exists for detail-page
+    // prose but list rows use the stamp form.
+    expect(code).toMatch(/resolveInvoiceStampLabel|resolveInvoiceLabel/)
   })
 
   it('links each row to the invoice detail page', () => {
@@ -500,7 +504,11 @@ describe('invoices: portal view', () => {
   it('surfaces paid / due dates via shared formatter', () => {
     const code = source()
     expect(code).toContain('formatShortDate')
-    expect(code).toMatch(/resolveMetaCaption/)
+    // Post-Plainspoken (PR B) the page composes the date cell inline via
+    // `resolveDateLabel` + `resolveDateValue` helpers instead of a single
+    // `resolveMetaCaption`. Both patterns satisfy the R7 contract: dates
+    // come from the shared formatter, not a local string template.
+    expect(code).toMatch(/resolveMetaCaption|resolveDateValue/)
   })
 
   it('handles empty state when no invoices exist', () => {
