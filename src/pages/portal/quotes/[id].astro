@@ -2,6 +2,7 @@
 import '../../../styles/global.css'
 import PortalHeader from '../../../components/portal/PortalHeader.astro'
 import PortalTabs from '../../../components/portal/PortalTabs.astro'
+import PortalPageHead from '../../../components/portal/PortalPageHead.astro'
 import SkipToMain from '../../../components/SkipToMain.astro'
 import MoneyDisplay from '../../../components/portal/MoneyDisplay.astro'
 import ConsultantBlock from '../../../components/portal/ConsultantBlock.astro'
@@ -70,10 +71,6 @@ const deliverables: DeliverableRow[] = parseDeliverables(quote)
 const schedule: ScheduleRow[] = parseSchedule(quote)
 
 const engagementTitle = deliverables[0]?.title ?? 'Engagement'
-const engagementSubtitle =
-  deliverables.length > 1
-    ? `A focused scope across ${deliverables.length} work areas tailored to your operation.`
-    : 'A focused scope of work tailored to your operation.'
 
 // Attribution comes from the engagement row (below). Quotes that aren't
 // yet attached to an engagement render a blank attribution block per #377
@@ -184,171 +181,188 @@ const consultantPhone = engagement?.consultant_phone ?? null
 
     <PortalTabs pathname={Astro.url.pathname} />
 
-    <main id="main" role="main" class="max-w-[1120px] mx-auto px-6 py-8 sm:py-12 pb-24 md:pb-12">
-      <a
-        href="/portal/quotes"
-        aria-label="All proposals"
-        class="inline-flex items-center gap-2 min-h-11 -mx-2 px-2 mb-8 text-caption font-medium text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)] active:text-[color:var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2 rounded-lg transition-colors"
-      >
-        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
-        All proposals
-      </a>
-      <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-section lg:gap-12">
+    <main id="main" role="main" class="max-w-[1120px] mx-auto px-4 md:px-6 pb-24 md:pb-12">
+      <PortalPageHead
+        crumbHref="/portal/quotes"
+        crumbLabel="All proposals"
+        tag={`Proposal № ${quote.id.slice(0, 2).toUpperCase()}`}
+        h1={engagementTitle}
+        meta={quote.sent_at
+          ? `Issued ${formatShortDate(quote.sent_at)}${quote.accepted_at ? `\nSigned ${formatShortDate(quote.accepted_at)}` : ''}`
+          : null}
+      />
+
+      <div class="mt-10 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-10 lg:gap-12">
         <!-- Main column -->
         <section class="min-w-0 max-w-3xl">
-          <!-- Hero -->
-          <div class="mb-section">
-            <p class="text-label uppercase text-[color:var(--color-meta)]">Proposal</p>
-            <h1
-              class="mt-3 text-display font-extrabold tracking-[-0.02em] text-[color:var(--color-text-primary)]"
-            >
-              {engagementTitle}
-            </h1>
-            <p class="mt-stack text-body-lg text-[color:var(--color-text-secondary)] max-w-xl">
-              {engagementSubtitle}
-            </p>
-          </div>
-
           <!-- Mobile action block (hidden on desktop — right rail handles it there) -->
-          <div class="lg:hidden mb-section">
+          <!-- Mobile summary card (hidden on lg+ — right rail takes over there) -->
+          <div class="lg:hidden mb-8">
             <div
-              class="bg-[color:var(--color-surface)] rounded-xl border border-[color:var(--color-border)] p-card flex flex-col gap-stack"
+              class="border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]"
             >
-              <div class="flex flex-col gap-row">
-                <p class="text-label uppercase text-[color:var(--color-text-secondary)]">
-                  Total engagement
+              <div
+                class="flex items-center justify-between gap-3 bg-[color:var(--color-text-primary)] text-[color:var(--color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold"
+              >
+                <span>Engagement total</span>
+                <span class="text-[color:var(--color-primary)]">
+                  № {quote.id.slice(0, 2).toUpperCase()}
+                </span>
+              </div>
+              <div class="px-5 py-5">
+                <MoneyDisplay amountCents={totalCents} size="hero" />
+                <p
+                  class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--color-text-secondary)]"
+                >
+                  Fixed · USD
                 </p>
-                <MoneyDisplay amountCents={totalCents} size="display" />
-                <p class="text-caption text-[color:var(--color-text-secondary)]">
+                <p class="mt-4 text-sm text-[color:var(--color-text-secondary)]">
                   {paymentSplitText}
                 </p>
               </div>
 
               {
                 isSigned ? (
-                  <div class="flex items-start gap-row rounded-lg border border-[color:var(--color-complete)]/30 bg-[color:var(--color-complete)]/10 p-stack">
-                    <span
-                      class="material-symbols-outlined text-[20px] text-[color:var(--color-complete)] mt-0.5"
-                      style="font-variation-settings: 'FILL' 1"
-                    >
-                      check_circle
+                  <div class="border-t-[2px] border-[color:var(--color-text-primary)] bg-[color:var(--color-border-subtle)] px-5 py-4 flex items-center justify-between gap-3">
+                    <span class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--color-complete)] flex items-center gap-2">
+                      <span
+                        aria-hidden="true"
+                        class="inline-flex items-center justify-center w-5 h-5 bg-[color:var(--color-complete)] text-[color:var(--color-background)] font-['Archivo'] font-black text-xs"
+                      >
+                        ✓
+                      </span>
+                      Signed
                     </span>
-                    <div class="min-w-0">
-                      <p class="text-caption font-semibold text-[color:var(--color-text-primary)]">
-                        Signed{quote.accepted_at ? ` ${formatShortDate(quote.accepted_at)}` : ''}.
-                      </p>
-                      {surface.next && (
-                        <p class="mt-1 text-caption text-[color:var(--color-text-secondary)]">
-                          {surface.next}
-                        </p>
-                      )}
-                    </div>
+                    {quote.accepted_at && (
+                      <span class="font-mono text-xs text-[color:var(--color-text-secondary)] tracking-[0.04em]">
+                        {formatShortDate(quote.accepted_at)}
+                      </span>
+                    )}
                   </div>
                 ) : isSuperseded ? (
-                  <div class="rounded-lg border border-[color:var(--color-attention)]/30 bg-[color:var(--color-attention)]/5 p-stack">
-                    <p class="text-caption font-semibold text-[color:var(--color-text-primary)]">
-                      A revised version is available.
-                    </p>
-                    <p class="mt-1 text-caption text-[color:var(--color-text-secondary)]">
-                      This proposal has been replaced by a newer version.
+                  <div class="border-t-[2px] border-[color:var(--color-text-primary)] px-5 py-4">
+                    <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--color-primary)]">
+                      A revised version is available
                     </p>
                     {supersedingQuoteId && (
                       <a
                         href={`/portal/quotes/${supersedingQuoteId}`}
-                        class="mt-3 inline-flex items-center gap-1.5 text-caption font-semibold text-[color:var(--color-primary)] hover:text-[color:var(--color-primary-hover)]"
+                        class="mt-3 inline-flex items-center gap-2 font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--color-primary)] hover:text-[color:var(--color-primary-hover)]"
                       >
                         Go to the latest proposal
-                        <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+                        <span aria-hidden="true" class="font-['Archivo'] font-black">
+                          →
+                        </span>
                       </a>
                     )}
                   </div>
                 ) : isDeclined ? (
-                  <p class="text-caption text-[color:var(--color-text-secondary)]">
+                  <p class="border-t-[2px] border-[color:var(--color-text-primary)] px-5 py-4 text-sm text-[color:var(--color-text-secondary)]">
                     This proposal was declined.{surface.next ? ` ${surface.next}` : ''}
                   </p>
                 ) : isExpired ? (
                   surface.next ? (
-                    <p class="text-caption text-[color:var(--color-text-secondary)]">
+                    <p class="border-t-[2px] border-[color:var(--color-text-primary)] px-5 py-4 text-sm text-[color:var(--color-text-secondary)]">
                       {surface.next}
                     </p>
                   ) : null
                 ) : hasActiveSignature ? (
                   <a
                     href="#sign-surface"
-                    class="inline-flex w-full items-center justify-center min-h-[44px] px-6 py-3 rounded-lg bg-[color:var(--color-primary)] hover:bg-[color:var(--color-primary-hover)] text-white text-body font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
+                    class="border-t-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-primary)] hover:bg-[color:var(--color-primary-hover)] flex items-center justify-between gap-3 px-5 py-4 font-['Archivo'] text-sm font-bold uppercase tracking-[0.08em] text-[color:var(--color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-inset"
                   >
-                    Review and sign
+                    <span>Review and sign</span>
+                    <span aria-hidden="true" class="font-black">
+                      →
+                    </span>
                   </a>
                 ) : (
-                  <p class="text-caption text-[color:var(--color-text-secondary)]">
+                  <p class="border-t-[2px] border-[color:var(--color-text-primary)] px-5 py-4 text-sm text-[color:var(--color-text-secondary)]">
                     Your proposal is being prepared. You'll get an email when it's ready to sign.
                   </p>
                 )
               }
-
-              {
-                pdfHref && (
-                  <a
-                    href={pdfHref}
-                    class="inline-flex items-center gap-1.5 text-caption font-semibold text-[color:var(--color-primary)] hover:text-[color:var(--color-primary-hover)] transition-colors"
-                  >
-                    View the full PDF
-                    <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
-                  </a>
-                )
-              }
             </div>
+
+            {
+              pdfHref && (
+                <a
+                  href={pdfHref}
+                  class="mt-4 flex items-center justify-between border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)] hover:bg-[color:var(--color-border-subtle)] px-5 py-3 font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--color-text-primary)] transition-colors"
+                >
+                  <span>View the full PDF</span>
+                  <span
+                    aria-hidden="true"
+                    class="font-['Archivo'] font-black text-[color:var(--color-primary)]"
+                  >
+                    ↓
+                  </span>
+                </a>
+              )
+            }
           </div>
 
-          <!-- Section stack -->
-          <div class="space-y-section">
-            <!-- What you'll get — rendered only when deliverables are authored. -->
+          <!-- Section stack — § block chrome per Plainspoken register -->
+          <div class="space-y-8">
+            <!-- § 01 What you'll get — rendered only when deliverables are authored. -->
             {
               deliverables.length > 0 && (
-                <section class="border-t border-[color:var(--color-border)] pt-section">
-                  <h2 class="text-title text-[color:var(--color-text-primary)] mb-card">
-                    What you'll get
-                  </h2>
-                  <ul class="space-y-card">
-                    {deliverables.map((d) => (
-                      <li class="flex items-start gap-stack">
+                <section class="border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]">
+                  <div class="flex items-center justify-between gap-3 bg-[color:var(--color-text-primary)] text-[color:var(--color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
+                    <span>What you'll get</span>
+                    <span class="text-[color:var(--color-primary)]">§ 01</span>
+                  </div>
+                  <ol class="px-5 md:px-7 py-2">
+                    {deliverables.map((d, i) => (
+                      <li
+                        class:list={[
+                          'grid grid-cols-[48px_1fr] gap-4 py-5',
+                          i !== 0 ? 'border-t-[2px] border-[color:var(--color-text-primary)]' : '',
+                        ]}
+                      >
                         <span
-                          class="material-symbols-outlined text-[color:var(--color-complete)] mt-0.5"
-                          style="font-variation-settings: 'FILL' 1"
+                          aria-hidden="true"
+                          class="font-['Archivo'] text-2xl font-black text-[color:var(--color-primary)] tracking-[-0.02em] leading-none"
                         >
-                          check_circle
+                          {String(i + 1).padStart(2, '0')}.
                         </span>
                         <div class="min-w-0">
-                          <h3 class="text-heading text-[color:var(--color-text-primary)]">
+                          <h3 class="font-['Archivo'] text-lg md:text-xl font-black uppercase tracking-[-0.01em] text-[color:var(--color-text-primary)] m-0 leading-tight">
                             {d.title}
                           </h3>
                           {d.body && (
-                            <p class="mt-1 text-body text-[color:var(--color-text-secondary)]">
+                            <p class="mt-2 text-[color:var(--color-text-secondary)] leading-[1.55]">
                               {d.body}
                             </p>
                           )}
                         </div>
                       </li>
                     ))}
-                  </ul>
+                  </ol>
                 </section>
               )
             }
 
-            <!-- How we'll work (only when authored — never synthesized; #377) -->
+            <!-- § 02 How we'll work (only when authored — never synthesized; #377) -->
             {
               schedule.length > 0 && (
-                <section class="border-t border-[color:var(--color-border)] pt-section">
-                  <h2 class="text-title text-[color:var(--color-text-primary)] mb-card">
-                    How we'll work
-                  </h2>
-                  <div class="space-y-stack">
-                    {schedule.map((row) => (
-                      <div class="flex items-baseline gap-card">
-                        <span class="w-[96px] shrink-0 text-label uppercase text-[color:var(--color-text-secondary)]">
+                <section class="border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]">
+                  <div class="flex items-center justify-between gap-3 bg-[color:var(--color-text-primary)] text-[color:var(--color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
+                    <span>How we'll work</span>
+                    <span class="text-[color:var(--color-primary)]">§ 02</span>
+                  </div>
+                  <div class="px-5 md:px-7 py-2">
+                    {schedule.map((row, i) => (
+                      <div
+                        class:list={[
+                          'grid grid-cols-1 md:grid-cols-[140px_1fr] gap-3 md:gap-6 py-5',
+                          i !== 0 ? 'border-t-[2px] border-[color:var(--color-text-primary)]' : '',
+                        ]}
+                      >
+                        <span class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--color-primary)]">
                           {row.label}
                         </span>
-                        <p class="flex-1 text-body text-[color:var(--color-text-secondary)]">
+                        <p class="text-[color:var(--color-text-secondary)] leading-[1.55] m-0">
                           {row.body}
                         </p>
                       </div>
@@ -358,46 +372,68 @@ const consultantPhone = engagement?.consultant_phone ?? null
               )
             }
 
-            <!-- Terms -->
-            <section class="border-t border-[color:var(--color-border)] pt-section">
-              <h2 class="text-title text-[color:var(--color-text-primary)] mb-card">Terms</h2>
+            <!-- § 03 Terms -->
+            <section
+              class="border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]"
+            >
               <div
-                class="bg-[color:var(--color-surface)] rounded-xl border border-[color:var(--color-border)] p-card space-y-row"
+                class="flex items-center justify-between gap-3 bg-[color:var(--color-text-primary)] text-[color:var(--color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold"
               >
-                <p class="text-body text-[color:var(--color-text-primary)]">
-                  <span class="font-semibold">Total:</span>{' '}
-                  <MoneyDisplay amountCents={totalCents} size="body" emphasize />
-                </p>
-                <p class="text-body text-[color:var(--color-text-secondary)]">
-                  {paymentSplitText}
-                </p>
+                <span>Terms</span>
+                <span class="text-[color:var(--color-primary)]">§ 03</span>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2">
+                <div
+                  class="px-5 py-5 md:border-r-[2px] md:border-[color:var(--color-text-primary)] border-b-[2px] md:border-b-0 border-[color:var(--color-text-primary)]"
+                >
+                  <p
+                    class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--color-text-secondary)]"
+                  >
+                    Total
+                  </p>
+                  <div class="mt-3">
+                    <MoneyDisplay amountCents={totalCents} size="total" />
+                  </div>
+                </div>
+                <div class="px-5 py-5">
+                  <p
+                    class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--color-text-secondary)]"
+                  >
+                    Payment schedule
+                  </p>
+                  <p class="mt-3 text-[color:var(--color-text-primary)] leading-[1.55]">
+                    {paymentSplitText}
+                  </p>
+                </div>
               </div>
             </section>
 
             <!-- Sign surface (anchor target; visible on all sizes when active) -->
             {
               hasActiveSignature && (
-                <section
-                  id="sign-surface"
-                  class="border-t border-[color:var(--color-border)] pt-section"
-                >
-                  <h2 class="text-title text-[color:var(--color-text-primary)] mb-stack">
-                    Review and sign
-                  </h2>
-                  <p class="text-body text-[color:var(--color-text-secondary)] mb-stack">
-                    The full Statement of Work is below. Sign when you're ready.
-                  </p>
-                  <div
-                    class="rounded-xl border border-[color:var(--color-border)] overflow-hidden bg-[color:var(--color-surface)]"
-                    style="min-height: 600px;"
-                  >
-                    <iframe
-                      src={`https://app.signwell.com/sign/${activeSignatureRequest!.provider_request_id}`}
-                      class="w-full border-0"
-                      style="min-height: 600px;"
-                      title="Sign Statement of Work"
-                      allow="clipboard-write"
-                    />
+                <section id="sign-surface" class="mt-8">
+                  <div class="border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]">
+                    <div class="flex items-center justify-between gap-3 bg-[color:var(--color-text-primary)] text-[color:var(--color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
+                      <span>Review and sign</span>
+                      <span class="text-[color:var(--color-primary)]">§ 04</span>
+                    </div>
+                    <div class="px-5 py-5">
+                      <p class="text-[color:var(--color-text-secondary)] mb-5">
+                        The full Statement of Work is below. Sign when you're ready.
+                      </p>
+                      <div
+                        class="border-[2px] border-[color:var(--color-text-primary)] overflow-hidden bg-[color:var(--color-surface)]"
+                        style="min-height: 600px;"
+                      >
+                        <iframe
+                          src={`https://app.signwell.com/sign/${activeSignatureRequest!.provider_request_id}`}
+                          class="w-full border-0"
+                          style="min-height: 600px;"
+                          title="Sign Statement of Work"
+                          allow="clipboard-write"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </section>
               )
@@ -406,8 +442,9 @@ const consultantPhone = engagement?.consultant_phone ?? null
             <!-- Consultant block (mobile — above footer; desktop hides here, shown in rail) -->
             {
               consultantName && (
-                <section class="lg:hidden border-t border-[color:var(--color-border)] pt-section">
+                <section class="lg:hidden mt-10 pt-10 border-t-[3px] border-[color:var(--color-text-primary)]">
                   <ConsultantBlock
+                    variant="trade-card"
                     name={consultantName}
                     photoUrl={engagement?.consultant_photo_url ?? null}
                     role={engagement?.consultant_role ?? null}
@@ -415,11 +452,9 @@ const consultantPhone = engagement?.consultant_phone ?? null
                     nextTouchpointLabel={engagement?.next_touchpoint_label ?? null}
                     phone={engagement?.consultant_phone ?? null}
                   />
-                  {consultantFirst && (
-                    <p class="mt-stack text-caption text-[color:var(--color-text-muted)]">
-                      Text {consultantFirst} with questions.
-                    </p>
-                  )}
+                  <p class="mt-stack text-caption text-[color:var(--color-text-muted)]">
+                    Questions? Reach us using the contacts in the header.
+                  </p>
                 </section>
               )
             }
@@ -428,93 +463,113 @@ const consultantPhone = engagement?.consultant_phone ?? null
 
         <!-- Right rail (desktop only) -->
         <aside class="hidden lg:block">
-          <div class="sticky top-8 space-y-card">
-            <!-- Sign card -->
+          <div class="sticky top-40 space-y-6">
+            <!-- Sign card — Plainspoken ticket chrome -->
             <div
-              class="bg-[color:var(--color-surface)] rounded-xl border border-[color:var(--color-border)] p-card"
+              class="border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]"
             >
-              <div>
-                <MoneyDisplay amountCents={totalCents} size="display" />
-                <p class="mt-2 text-body text-[color:var(--color-text-secondary)]">
+              <div
+                class="flex items-center justify-between gap-3 bg-[color:var(--color-text-primary)] text-[color:var(--color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold"
+              >
+                <span>Engagement total</span>
+                <span class="text-[color:var(--color-primary)]"
+                  >№ {quote.id.slice(0, 2).toUpperCase()}</span
+                >
+              </div>
+              <div class="px-5 py-5">
+                <MoneyDisplay amountCents={totalCents} size="hero" />
+                <p
+                  class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--color-text-secondary)]"
+                >
+                  Fixed · USD
+                </p>
+                <p class="mt-4 text-sm text-[color:var(--color-text-secondary)]">
                   {paymentSplitText}
                 </p>
               </div>
 
               {
                 isSigned ? (
-                  <div class="mt-card rounded-lg border border-[color:var(--color-complete)]/30 bg-[color:var(--color-complete)]/10 p-stack">
-                    <div class="flex items-start gap-row">
+                  <div class="border-t-[2px] border-[color:var(--color-text-primary)] bg-[color:var(--color-border-subtle)] px-5 py-4 flex items-center justify-between gap-3">
+                    <span class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--color-complete)] flex items-center gap-2">
                       <span
-                        class="material-symbols-outlined text-[20px] text-[color:var(--color-complete)] mt-0.5"
-                        style="font-variation-settings: 'FILL' 1"
+                        aria-hidden="true"
+                        class="inline-flex items-center justify-center w-5 h-5 bg-[color:var(--color-complete)] text-[color:var(--color-background)] font-['Archivo'] font-black text-xs"
                       >
-                        check_circle
+                        ✓
                       </span>
-                      <div class="min-w-0">
-                        <p class="text-caption font-semibold text-[color:var(--color-text-primary)]">
-                          Signed{quote.accepted_at ? ` ${formatShortDate(quote.accepted_at)}` : ''}.
-                        </p>
-                        {surface.next && (
-                          <p class="mt-1 text-caption text-[color:var(--color-text-secondary)]">
-                            {surface.next}
-                          </p>
-                        )}
-                      </div>
-                    </div>
+                      Signed
+                    </span>
+                    {quote.accepted_at && (
+                      <span class="font-mono text-xs text-[color:var(--color-text-secondary)] tracking-[0.04em]">
+                        {formatShortDate(quote.accepted_at)}
+                      </span>
+                    )}
                   </div>
                 ) : isSuperseded ? (
-                  <div class="mt-card rounded-lg border border-[color:var(--color-attention)]/30 bg-[color:var(--color-attention)]/5 p-stack">
-                    <p class="text-caption font-semibold text-[color:var(--color-text-primary)]">
-                      A revised version is available.
+                  <div class="border-t-[2px] border-[color:var(--color-text-primary)] px-5 py-4">
+                    <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--color-primary)]">
+                      A revised version is available
                     </p>
                     {supersedingQuoteId && (
                       <a
                         href={`/portal/quotes/${supersedingQuoteId}`}
-                        class="mt-3 inline-flex items-center gap-1.5 text-caption font-semibold text-[color:var(--color-primary)] hover:text-[color:var(--color-primary-hover)]"
+                        class="mt-3 inline-flex items-center gap-2 font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--color-primary)] hover:text-[color:var(--color-primary-hover)]"
                       >
                         Go to the latest proposal
-                        <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+                        <span aria-hidden="true" class="font-['Archivo'] font-black">
+                          →
+                        </span>
                       </a>
                     )}
                   </div>
                 ) : isDeclined || isExpired ? (
                   surface.next ? (
-                    <p class="mt-card text-caption text-[color:var(--color-text-secondary)]">
+                    <p class="border-t-[2px] border-[color:var(--color-text-primary)] px-5 py-4 text-sm text-[color:var(--color-text-secondary)]">
                       {surface.next}
                     </p>
                   ) : null
                 ) : hasActiveSignature ? (
                   <a
                     href="#sign-surface"
-                    class="mt-card inline-flex w-full items-center justify-center min-h-[44px] px-6 py-3 rounded-lg bg-[color:var(--color-primary)] hover:bg-[color:var(--color-primary-hover)] text-white text-body font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
+                    class="border-t-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-primary)] hover:bg-[color:var(--color-primary-hover)] flex items-center justify-between gap-3 px-5 py-4 font-['Archivo'] text-sm font-bold uppercase tracking-[0.08em] text-[color:var(--color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-inset"
                   >
-                    Review and sign
+                    <span>Review and sign</span>
+                    <span aria-hidden="true" class="font-black">
+                      →
+                    </span>
                   </a>
                 ) : (
-                  <p class="mt-card text-caption text-[color:var(--color-text-secondary)]">
+                  <p class="border-t-[2px] border-[color:var(--color-text-primary)] px-5 py-4 text-sm text-[color:var(--color-text-secondary)]">
                     Your proposal is being prepared. You'll get an email when it's ready.
                   </p>
                 )
               }
-
-              {
-                pdfHref && (
-                  <a
-                    href={pdfHref}
-                    class="mt-stack inline-flex items-center gap-1.5 text-caption font-semibold text-[color:var(--color-primary)] hover:text-[color:var(--color-primary-hover)] transition-colors"
-                  >
-                    View the full PDF
-                    <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
-                  </a>
-                )
-              }
             </div>
+
+            {
+              pdfHref && (
+                <a
+                  href={pdfHref}
+                  class="flex items-center justify-between border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)] hover:bg-[color:var(--color-border-subtle)] px-5 py-3 font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--color-text-primary)] transition-colors"
+                >
+                  <span>View the full PDF</span>
+                  <span
+                    aria-hidden="true"
+                    class="font-['Archivo'] font-black text-[color:var(--color-primary)]"
+                  >
+                    ↓
+                  </span>
+                </a>
+              )
+            }
 
             <!-- Consultant card -->
             {
               consultantName && (
                 <>
                   <ConsultantBlock
+                    variant="trade-card"
                     name={consultantName}
                     photoUrl={engagement?.consultant_photo_url ?? null}
                     role={engagement?.consultant_role ?? null}
@@ -522,11 +577,9 @@ const consultantPhone = engagement?.consultant_phone ?? null
                     nextTouchpointLabel={engagement?.next_touchpoint_label ?? null}
                     phone={engagement?.consultant_phone ?? null}
                   />
-                  {consultantFirst && (
-                    <p class="text-caption text-[color:var(--color-text-muted)] px-1">
-                      Text {consultantFirst} with questions.
-                    </p>
-                  )}
+                  <p class="text-caption text-[color:var(--color-text-muted)] px-1">
+                    Questions? Reach us using the contacts in the header.
+                  </p>
                 </>
               )
             }

@@ -25,30 +25,49 @@
  */
 
 interface Props {
-  crumbHref: string
-  crumbLabel: string
+  crumbHref?: string | null
+  crumbLabel?: string | null
   tag?: string | null
   h1: string
   meta?: string | null
   class?: string
 }
 
-const { crumbHref, crumbLabel, tag = null, h1, meta = null, class: klass = '' } = Astro.props
+const {
+  crumbHref = null,
+  crumbLabel = null,
+  tag = null,
+  h1,
+  meta = null,
+  class: klass = '',
+} = Astro.props
+
+const showCrumb = !!(crumbHref && crumbLabel)
 ---
 
 <header class={`border-b-[3px] border-[color:var(--color-text-primary)] py-6 md:py-10 ${klass}`}>
-  <a
-    href={crumbHref}
-    class="inline-flex items-center gap-2 min-h-11 -mx-1 px-1 font-['Archivo_Narrow'] text-xs md:text-sm font-semibold uppercase tracking-[0.18em] text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)] active:text-[color:var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
-  >
-    <span aria-hidden="true" class="font-['Archivo'] font-black text-[color:var(--color-primary)]"
-      >←</span
-    >
-    {crumbLabel}
-  </a>
+  {
+    showCrumb && (
+      <a
+        href={crumbHref as string}
+        class="inline-flex items-center gap-2 min-h-11 -mx-1 px-1 font-['Archivo_Narrow'] text-xs md:text-sm font-semibold uppercase tracking-[0.18em] text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)] active:text-[color:var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
+      >
+        <span
+          aria-hidden="true"
+          class="font-['Archivo'] font-black text-[color:var(--color-primary)]"
+        >
+          ←
+        </span>
+        {crumbLabel}
+      </a>
+    )
+  }
 
   <div
-    class="mt-5 md:mt-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4 md:gap-10"
+    class:list={[
+      'flex flex-col md:flex-row md:items-end md:justify-between gap-4 md:gap-10',
+      showCrumb ? 'mt-5 md:mt-8' : '',
+    ]}
   >
     <div class="min-w-0 flex-1">
       {

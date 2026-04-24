@@ -97,6 +97,24 @@ const FORBIDDEN_PATTERNS: Array<{ label: string; pattern: RegExp | string }> = [
     label: "Pattern B: hardcoded default consultantFirstName = 'Scott'",
     pattern: /consultantFirstName\s*=\s*['"]Scott['"]/,
   },
+  // --- Decision Stack #20 voice violations — portal surfaces must use
+  //     "we / our team", never a named human or single-person framing.
+  //     Added 2026-04-23 alongside the Plainspoken PR B voice fixes. ---
+  {
+    // "Text {consultantFirst} with questions." routes the client at a
+    // specific person. Prefer "Questions? Reach us using the contacts
+    // in the header." or similar team-voice phrasing.
+    label: 'Decision Stack #20: personalized "Text {firstName} with questions" CTA',
+    pattern: /Text \{?\w+\}? with questions/i,
+  },
+  {
+    // "Your consultant will send…" / "your consultant will…" frames the
+    // engagement as a single-person service relationship. Prefer "we'll
+    // send…" or similar. First flagged in the 2026-04-15 Pattern audit
+    // and fixed in src/components/portal/InvoiceDetail.astro.
+    label: 'Decision Stack #20: "your consultant will …" named-person framing',
+    pattern: /your consultant will/i,
+  },
   // --- Specific phrases removed from CaseStudies.astro (2026-04-22) ---
   // CaseStudies shipped four fabricated case studies with specific
   // quantified results. Real case studies belong in an authored data

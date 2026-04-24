@@ -1,34 +1,33 @@
 ---
 import '../../../styles/global.css'
 import { BRAND_NAME } from '../../../lib/config/brand'
-import { resolveEngagementLabel } from '../../../lib/portal/status'
+import {
+  resolveEngagementLabel,
+  resolveMilestoneStampLabel,
+  type Tone,
+} from '../../../lib/portal/status'
 import { getPortalClient } from '../../../lib/portal/session'
 import { listEngagements } from '../../../lib/db/engagements'
 import { listMilestones } from '../../../lib/db/milestones'
 import type { Milestone } from '../../../lib/db/milestones'
 import PortalHeader from '../../../components/portal/PortalHeader.astro'
 import PortalTabs from '../../../components/portal/PortalTabs.astro'
+import PortalPageHead from '../../../components/portal/PortalPageHead.astro'
 import ConsultantBlock from '../../../components/portal/ConsultantBlock.astro'
+import StatusPill from '../../../components/portal/StatusPill.astro'
 import SkipToMain from '../../../components/SkipToMain.astro'
 import { env } from 'cloudflare:workers'
 
 /**
  * Client portal — engagement progress page.
  *
- * Shows the client's active engagement with milestone progress,
- * scope summary, and timeline. Protected by auth middleware (role=client).
- *
- * Resolves entity via getPortalClient() using users.entity_id.
- *
- * Visual layout follows .design/designs/portal-v2-spec-test/engagement-*:
- * single-column stack on mobile; 8/4 main + right-rail grid on desktop.
- * Right rail renders ConsultantBlock only when authored consultant data
- * exists — no fabricated progress percentages or outreach copy
+ * Shows the client's active engagement with milestone progress, scope
+ * summary, and current state. Protected by auth middleware (role=client).
+ * No fabricated progress percentages or synthesized outreach copy
  * (CLAUDE.md no-fabricated-content policy).
  */
 
 const session = Astro.locals.session!
-// Resolve client entity from session
 const portalData = await getPortalClient(env.DB, session.userId, session.orgId)
 const entityId = portalData?.client.id ?? null
 const clientName = portalData?.client.name ?? ''
@@ -37,22 +36,12 @@ let engagement = null
 let milestones: Milestone[] = []
 
 if (entityId) {
-  // Get active engagement (not completed or cancelled)
   const engagements = await listEngagements(env.DB, session.orgId, entityId)
   engagement = engagements.find((e) => e.status !== 'completed' && e.status !== 'cancelled') ?? null
 
   if (engagement) {
     milestones = await listMilestones(env.DB, session.orgId, engagement.id)
   }
-}
-
-// Status indicator helpers — kept intact so the state map remains the single
-// source of truth for milestone semantics (color/icon/label per state).
-const statusIcon: Record<string, { color: string; icon: string; label: string }> = {
-  pending: { color: 'text-slate-400 bg-slate-100', icon: '&#9675;', label: 'Pending' },
-  in_progress: { color: 'text-blue-600 bg-blue-50', icon: '&#8635;', label: 'In Progress' },
-  completed: { color: 'text-green-600 bg-green-50', icon: '&#10003;', label: 'Completed' },
-  skipped: { color: 'text-slate-400 bg-slate-50', icon: '&#8212;', label: 'Skipped' },
 }
 
 function formatDate(iso: string | null): string {
@@ -62,6 +51,19 @@ function formatDate(iso: string | null): string {
     month: 'short',
     day: 'numeric',
   })
+}
+
+// Explicit state-by-state tone map — every MilestoneStatus value must
+// branch here so the portal-docs regression guard catches a new enum
+// value we forgot to handle. `pending` and `skipped` both render as
+// box-outline stamps; `completed` fills the pill with the olive
+// success tone; `in_progress` uses the warning (burnt) tone.
+function milestoneTone(status: string): Tone {
+  if (status === 'completed') return 'success'
+  if (status === 'in_progress') return 'warning'
+  if (status === 'pending') return 'outline'
+  if (status === 'skipped') return 'outline'
+  return 'outline'
 }
 
 const consultantFirstName = engagement?.consultant_name
@@ -100,7 +102,7 @@ const currentMilestoneLabel = engagement ? resolveEngagementLabel(engagement.sta
           type="submit"
           aria-label="Sign out"
           title="Sign out"
-          class="inline-flex items-center justify-center w-9 h-9 rounded-full text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text-primary)] hover:bg-[color:var(--color-primary)]/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2 transition-colors"
+          class="inline-flex items-center justify-center w-9 h-9 text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2 transition-colors"
         >
           <span class="material-symbols-outlined text-[20px]">logout</span>
         </button>
@@ -109,133 +111,141 @@ const currentMilestoneLabel = engagement ? resolveEngagementLabel(engagement.sta
 
     <PortalTabs pathname={Astro.url.pathname} />
 
-    <main id="main" role="main" class="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10 pb-24 md:pb-10">
-      <a
-        href="/portal"
-        class="inline-flex items-center gap-1 min-h-11 -mx-2 px-2 mb-stack text-label uppercase text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2 rounded transition-colors"
-      >
-        <span class="material-symbols-outlined text-[16px]" aria-hidden="true">arrow_back</span>
-        Home
-      </a>
-
-      <h1 class="font-['Archivo'] text-display text-[color:var(--color-text-primary)] mb-section">
-        Progress
-      </h1>
+    <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
+      <PortalPageHead
+        crumbHref="/portal"
+        crumbLabel="Home"
+        tag={engagement ? `Engagement № ${engagement.id.slice(0, 2).toUpperCase()}` : 'Progress'}
+        h1="Progress"
+        meta={engagement
+          ? [
+              engagement.start_date ? `Started ${formatDate(engagement.start_date)}` : null,
+              engagement.estimated_end
+                ? `Estimated end ${formatDate(engagement.estimated_end)}`
+                : null,
+            ]
+              .filter(Boolean)
+              .join('\n') || null
+          : null}
+      />
 
       {
         !engagement ? (
-          <div class="bg-[color:var(--color-surface)] rounded-card border border-[color:var(--color-border)] p-card">
-            <p class="text-body text-[color:var(--color-text-secondary)]">
-              No active engagement. When your engagement begins, progress will appear here.
+          <div class="mt-10 border-[3px] border-[color:var(--color-text-primary)] p-8 md:p-12 text-center">
+            <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--color-text-primary)]">
+              No active engagement
+            </p>
+            <p class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
+              Progress appears here once your engagement begins.
             </p>
           </div>
         ) : (
-          <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-section lg:items-start">
-            <div class="flex flex-col gap-section min-w-0">
-              {/* Overview card */}
-              <section class="bg-[color:var(--color-surface)] rounded-card border border-[color:var(--color-border)] p-card">
-                <h2 class="font-['Archivo'] text-title text-[color:var(--color-text-primary)]">
-                  Overview
-                </h2>
-
-                {engagement.scope_summary && (
-                  <p class="mt-stack text-body text-[color:var(--color-text-secondary)]">
-                    {engagement.scope_summary}
-                  </p>
-                )}
-
-                <div class="mt-card pt-card border-t border-[color:var(--color-border)] grid grid-cols-1 sm:grid-cols-3 gap-stack">
-                  <div>
-                    <p class="text-label uppercase text-[color:var(--color-text-muted)]">Started</p>
-                    <p class="mt-1 text-body font-medium text-[color:var(--color-text-primary)]">
-                      {formatDate(engagement.start_date)}
+          <div class="mt-10 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-10 lg:gap-12 lg:items-start">
+            <div class="flex flex-col gap-8 min-w-0">
+              {/* § 01 Overview */}
+              <section class="border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]">
+                <div class="flex items-center justify-between gap-3 bg-[color:var(--color-text-primary)] text-[color:var(--color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
+                  <span>Overview</span>
+                  <span class="text-[color:var(--color-primary)]">§ 01</span>
+                </div>
+                <div class="px-5 md:px-7 py-6">
+                  {engagement.scope_summary && (
+                    <p class="text-[color:var(--color-text-secondary)] leading-[1.55]">
+                      {engagement.scope_summary}
                     </p>
-                  </div>
-                  <div>
-                    <p class="text-label uppercase text-[color:var(--color-text-muted)]">
-                      Estimated completion
-                    </p>
-                    <p class="mt-1 text-body font-medium text-[color:var(--color-text-primary)]">
-                      {formatDate(engagement.estimated_end)}
-                    </p>
-                  </div>
-                  <div>
-                    <p class="text-label uppercase text-[color:var(--color-text-muted)]">
-                      Current milestone
-                    </p>
-                    <p class="mt-1 text-body font-semibold text-[color:var(--color-primary)]">
-                      {currentMilestoneLabel}
-                    </p>
+                  )}
+                  <div
+                    class:list={[
+                      'grid grid-cols-1 md:grid-cols-3',
+                      engagement.scope_summary
+                        ? 'mt-6 pt-6 border-t-[2px] border-[color:var(--color-text-primary)]'
+                        : '',
+                    ]}
+                  >
+                    <div class="py-3 md:py-0 md:pr-6 md:border-r-[2px] md:border-[color:var(--color-text-primary)]">
+                      <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--color-text-secondary)]">
+                        Started
+                      </p>
+                      <p class="mt-2 font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--color-text-primary)]">
+                        {formatDate(engagement.start_date)}
+                      </p>
+                    </div>
+                    <div class="py-3 md:py-0 md:px-6 md:border-r-[2px] md:border-[color:var(--color-text-primary)] border-t-[2px] md:border-t-0 border-[color:var(--color-text-primary)]">
+                      <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--color-text-secondary)]">
+                        Estimated completion
+                      </p>
+                      <p class="mt-2 font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--color-text-primary)]">
+                        {formatDate(engagement.estimated_end)}
+                      </p>
+                    </div>
+                    <div class="py-3 md:py-0 md:pl-6 border-t-[2px] md:border-t-0 border-[color:var(--color-text-primary)]">
+                      <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--color-text-secondary)]">
+                        Current state
+                      </p>
+                      <p class="mt-2 font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--color-primary)]">
+                        {currentMilestoneLabel}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </section>
 
-              {/* Milestones card */}
-              <section class="bg-[color:var(--color-surface)] rounded-card border border-[color:var(--color-border)] p-card">
-                <h2 class="font-['Archivo'] text-title text-[color:var(--color-text-primary)]">
-                  Milestones
-                </h2>
+              {/* § 02 Milestones */}
+              <section class="border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]">
+                <div class="flex items-center justify-between gap-3 bg-[color:var(--color-text-primary)] text-[color:var(--color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
+                  <span>Milestones</span>
+                  <span class="text-[color:var(--color-primary)]">§ 02</span>
+                </div>
 
                 {milestones.length === 0 ? (
-                  <p class="mt-stack text-body text-[color:var(--color-text-secondary)]">
-                    Milestones will appear here as your engagement progresses.
-                  </p>
+                  <div class="px-5 md:px-7 py-6">
+                    <p class="text-[color:var(--color-text-secondary)]">
+                      Milestones appear here as your engagement progresses.
+                    </p>
+                  </div>
                 ) : (
-                  <ol class="mt-card relative flex flex-col gap-row">
-                    {/* Vertical rail connecting milestone markers. */}
-                    <span
-                      aria-hidden="true"
-                      class="absolute left-[15px] top-4 bottom-4 w-px bg-[color:var(--color-border)]"
-                    />
+                  <ol class="divide-y-[2px] divide-[color:var(--color-text-primary)]">
                     {milestones.map((m, idx) => {
-                      const indicator = statusIcon[m.status] ?? statusIcon.pending
-                      const isCompleted = m.status === 'completed'
-                      const isInProgress = m.status === 'in_progress'
-                      const isSkipped = m.status === 'skipped'
-                      const isPending = !isCompleted && !isInProgress && !isSkipped
-                      const markerClass = isCompleted
-                        ? 'bg-[color:var(--color-complete)] text-white'
-                        : isInProgress
-                          ? 'bg-[color:var(--color-primary)] text-white ring-4 ring-[color:var(--color-primary)]/10'
-                          : 'bg-[color:var(--color-surface)] text-[color:var(--color-text-muted)] border border-[color:var(--color-border)]'
-                      const nameClass =
-                        isPending || isSkipped
-                          ? 'text-body font-semibold text-[color:var(--color-text-muted)]'
-                          : 'text-body font-semibold text-[color:var(--color-text-primary)]'
+                      const isDone = m.status === 'completed'
+                      const isNow = m.status === 'in_progress'
+                      const markerClass = isDone
+                        ? 'bg-[color:var(--color-text-primary)] text-[color:var(--color-primary)]'
+                        : isNow
+                          ? 'bg-[color:var(--color-primary)] text-[color:var(--color-background)]'
+                          : 'bg-[color:var(--color-background)] text-[color:var(--color-text-primary)]'
                       return (
-                        <li class="relative z-10 flex items-start gap-stack">
-                          <span
+                        <li class="grid grid-cols-[72px_1fr] md:grid-cols-[88px_1fr_auto] items-stretch">
+                          <div
                             class:list={[
-                              'shrink-0 w-8 h-8 rounded-full flex items-center justify-center',
+                              'flex items-center justify-center font-["Archivo"] font-black text-2xl md:text-3xl tracking-[-0.02em] border-r-[2px] border-[color:var(--color-text-primary)]',
                               markerClass,
                             ]}
                             aria-hidden="true"
                           >
-                            {isCompleted ? (
-                              <span class="material-symbols-outlined text-[18px]">check</span>
-                            ) : (
-                              <span class="text-caption font-semibold">{idx + 1}</span>
-                            )}
-                          </span>
-                          <div class="flex-1 min-w-0">
-                            <p class={nameClass}>{m.name}</p>
+                            {String(idx + 1).padStart(2, '0')}
+                          </div>
+                          <div class="px-5 py-5 min-w-0">
+                            <h3 class="font-['Archivo'] text-lg md:text-xl font-black uppercase tracking-[-0.01em] text-[color:var(--color-text-primary)] m-0 leading-tight">
+                              {m.name}
+                            </h3>
                             {m.description && (
-                              <p class="mt-1 text-body text-[color:var(--color-text-secondary)]">
+                              <p class="mt-2 text-[color:var(--color-text-secondary)] leading-[1.55]">
                                 {m.description}
                               </p>
                             )}
-                            <p class="mt-1 text-caption text-[color:var(--color-text-muted)]">
-                              <span class="sr-only">Status: </span>
-                              {isCompleted && m.completed_at
+                            <p class="mt-3 font-mono text-xs uppercase tracking-[0.08em] text-[color:var(--color-text-secondary)]">
+                              {isDone && m.completed_at
                                 ? `Completed ${formatDate(m.completed_at)}`
-                                : isInProgress && m.due_date
+                                : m.due_date
                                   ? `Due ${formatDate(m.due_date)}`
-                                  : isInProgress
-                                    ? indicator.label
-                                    : m.due_date
-                                      ? `${indicator.label} · Due ${formatDate(m.due_date)}`
-                                      : indicator.label}
+                                  : 'Scheduled TBD'}
                             </p>
+                          </div>
+                          <div class="hidden md:flex items-center px-5">
+                            <StatusPill
+                              tone={milestoneTone(m.status)}
+                              label={resolveMilestoneStampLabel(m.status)}
+                            />
                           </div>
                         </li>
                       )
@@ -246,12 +256,11 @@ const currentMilestoneLabel = engagement ? resolveEngagementLabel(engagement.sta
             </div>
 
             {/* Right rail — consultant only. No fabricated progress stats or
-                uncontracted outreach CTAs. Rail is hidden on mobile where it
-                would push the milestones below the fold; on desktop it sticks
-                alongside the main column. */}
+                uncontracted outreach CTAs. */}
             {engagement.consultant_name && (
-              <aside class="hidden lg:block lg:sticky lg:top-10 space-y-card">
+              <aside class="hidden lg:block lg:sticky lg:top-40 space-y-6">
                 <ConsultantBlock
+                  variant="trade-card"
                   name={engagement.consultant_name}
                   photoUrl={engagement.consultant_photo_url ?? null}
                   role={engagement.consultant_role ?? null}
@@ -260,6 +269,21 @@ const currentMilestoneLabel = engagement ? resolveEngagementLabel(engagement.sta
                   phone={engagement.consultant_phone ?? null}
                 />
               </aside>
+            )}
+
+            {/* Mobile consultant block — appears below milestones */}
+            {engagement.consultant_name && (
+              <div class="lg:hidden">
+                <ConsultantBlock
+                  variant="trade-card"
+                  name={engagement.consultant_name}
+                  photoUrl={engagement.consultant_photo_url ?? null}
+                  role={engagement.consultant_role ?? null}
+                  nextTouchpointAt={engagement.next_touchpoint_at ?? null}
+                  nextTouchpointLabel={engagement.next_touchpoint_label ?? null}
+                  phone={engagement.consultant_phone ?? null}
+                />
+              </div>
             )}
           </div>
         )

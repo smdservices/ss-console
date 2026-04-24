@@ -7,7 +7,8 @@ import PortalTabs from '../../components/portal/PortalTabs.astro'
 import SkipToMain from '../../components/SkipToMain.astro'
 import ConsultantBlock from '../../components/portal/ConsultantBlock.astro'
 import TimelineEntry from '../../components/portal/TimelineEntry.astro'
-import ActionCard from '../../components/portal/ActionCard.astro'
+import PortalPageHead from '../../components/portal/PortalPageHead.astro'
+import MoneyDisplay from '../../components/portal/MoneyDisplay.astro'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -268,14 +269,10 @@ const touchpointText: string | null = (() => {
   })
 })()
 
-const contextHeadline = activeEngagement ? 'Engagement in flight.' : 'Welcome.'
 // Only render a check-in sentence when an authored touchpoint exists. We
 // never synthesize consultant outreach copy — that is uncontracted future
-// behavior per CLAUDE.md's no-fabricated-content policy (#398).
-const contextSubtext =
-  consultantFirst && touchpointText
-    ? `Next check-in ${touchpointText} with ${consultantFirst}.`
-    : null
+// behavior per CLAUDE.md's no-fabricated-content policy (#398). The tag
+// + meta on PortalPageHead use these values directly.
 ---
 
 <!doctype html>
@@ -318,95 +315,109 @@ const contextSubtext =
 
     <PortalTabs pathname={Astro.url.pathname} />
 
-    <main id="main" role="main" class="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10 pb-24 md:pb-10">
+    <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
+      <PortalPageHead
+        tag={activeEngagement ? 'Engagement in flight' : 'Welcome'}
+        h1={client.name}
+        meta={touchpointText ? `Next · ${touchpointText}` : null}
+      />
+
       {
         dashboardError ? (
-          <div class="flex flex-col gap-card">
-            <section
-              class="bg-[color:var(--color-surface)] rounded-[var(--radius-card)] border border-[color:var(--color-attention)]/30 p-card sm:p-section"
-              aria-live="polite"
-            >
-              <div class="flex items-start gap-row">
-                <span class="material-symbols-outlined text-[24px] text-[color:var(--color-attention)] mt-0.5">
-                  error
-                </span>
-                <div class="min-w-0">
-                  <h1 class="text-title text-[color:var(--color-text-primary)]">
-                    Something went wrong loading your portal.
-                  </h1>
-                  <p class="mt-2 text-body text-[color:var(--color-text-secondary)]">
-                    {consultantFirst
-                      ? `Give it a moment and try again. If it keeps happening, ${consultantFirst} can help.`
-                      : 'Give it a moment and try again.'}
-                  </p>
-                  <div class="mt-5 flex flex-wrap gap-row">
-                    <a
-                      href="/portal"
-                      class="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded-[var(--radius-button)] bg-[color:var(--color-primary)] hover:bg-[color:var(--color-primary-hover)] text-white text-body font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
-                    >
-                      Retry
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </section>
-            {consultant && (
-              <ConsultantBlock
-                name={consultant.name}
-                photoUrl={consultant.photoUrl}
-                role={consultant.role}
-                nextTouchpointAt={consultant.nextTouchpointAt}
-                nextTouchpointLabel={consultant.nextTouchpointLabel}
-                phone={consultant.phone}
-              />
-            )}
-          </div>
+          <section
+            class="mt-10 border-[3px] border-[color:var(--color-error)] bg-[color:var(--color-background)] p-6 md:p-8"
+            aria-live="polite"
+          >
+            <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--color-error)]">
+              Something broke
+            </p>
+            <h2 class="mt-2 font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--color-text-primary)]">
+              We couldn't load your portal.
+            </h2>
+            <p class="mt-3 text-[color:var(--color-text-secondary)]">
+              Give it a moment and try again. If it keeps happening, reach the team using the
+              contacts in the header.
+            </p>
+            <div class="mt-5">
+              <a
+                href="/portal"
+                class="inline-flex items-center min-h-11 border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-primary)] hover:bg-[color:var(--color-primary-hover)] px-5 py-2.5 font-['Archivo'] text-sm font-bold uppercase tracking-[0.08em] text-[color:var(--color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2"
+              >
+                Retry
+              </a>
+            </div>
+          </section>
         ) : null
       }
-      <!-- Desktop: two-column split (main timeline + sticky 340px right rail).
-           Mobile: single column, action-first above the fold, divider,
-           timeline, then consultant block. -->
+
+      <!--
+        Desktop: two-column split (main timeline + sticky 340px right rail).
+        Mobile: single column, action-first above the fold, timeline after,
+        consultant block last. Plainspoken trade-card + MoneyDisplay hero.
+      -->
       <div
         class:list={[
-          'flex flex-col md:flex-row md:items-start md:gap-section',
+          'mt-8 md:mt-10 flex flex-col md:flex-row md:items-start md:gap-10',
           dashboardError ? 'hidden' : '',
         ]}
       >
-        <!-- On mobile, dominant action (right-rail action card) renders FIRST.
-             On desktop it moves to the right column via md:order-2. -->
-        <aside class="w-full md:order-2 md:w-[340px] md:shrink-0 space-y-card md:sticky md:top-10">
+        <aside class="w-full md:order-2 md:w-[360px] md:shrink-0 space-y-6 md:sticky md:top-40">
           {
             pendingInvoice && invoicePillLabel ? (
-              <ActionCard
-                pillLabel={invoicePillLabel}
-                amountCents={invoiceAmountCents ?? 0}
-                amountLabel={invoiceCaption}
-                ctaLabel="Pay invoice"
-                ctaHref={`/portal/invoices/${pendingInvoice.id}`}
-                ctaSubtext="Secure payment via Stripe."
-              />
+              <section
+                class="border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]"
+                aria-label="Pending invoice"
+              >
+                <div class="flex items-center justify-between gap-3 bg-[color:var(--color-text-primary)] text-[color:var(--color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
+                  <span>{invoicePillLabel}</span>
+                  <span class="text-[color:var(--color-primary)]">
+                    № {pendingInvoice.id.slice(0, 2).toUpperCase()}
+                  </span>
+                </div>
+                <div class="px-5 py-5">
+                  <MoneyDisplay amountCents={invoiceAmountCents ?? 0} size="hero" />
+                  {invoiceCaption && (
+                    <p class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--color-text-secondary)]">
+                      {invoiceCaption}
+                    </p>
+                  )}
+                </div>
+                <a
+                  href={`/portal/invoices/${pendingInvoice.id}`}
+                  class="flex items-center justify-between border-t-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-primary)] hover:bg-[color:var(--color-primary-hover)] px-5 py-4 font-['Archivo'] text-sm font-bold uppercase tracking-[0.08em] text-[color:var(--color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-inset"
+                >
+                  <span>Pay invoice</span>
+                  <span aria-hidden="true" class="font-black">
+                    →
+                  </span>
+                </a>
+              </section>
             ) : touchpointText ? (
               <section
-                class="bg-[color:var(--color-surface)] rounded-[var(--radius-card)] border border-[color:var(--color-border)] p-card sm:p-section"
+                class="border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)] px-5 py-6"
                 aria-label="Next check-in"
               >
-                <p class="text-label uppercase text-[color:var(--color-primary)]">Next check-in</p>
-                <p class="mt-3 text-display text-[color:var(--color-text-primary)]">
+                <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--color-primary)]">
+                  Next check-in
+                </p>
+                <p class="mt-3 font-['Archivo'] text-3xl md:text-[2.5rem] font-black uppercase tracking-[-0.02em] leading-none text-[color:var(--color-text-primary)]">
                   {touchpointText}
                 </p>
                 {consultantFirst && (
-                  <p class="mt-2 text-caption text-[color:var(--color-text-muted)]">
+                  <p class="mt-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
                     with {consultantFirst}
                   </p>
                 )}
               </section>
             ) : (
               <section
-                class="bg-[color:var(--color-surface)] rounded-[var(--radius-card)] border border-[color:var(--color-border)] p-card sm:p-section"
+                class="border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)] px-5 py-6"
                 aria-label="Engagement status"
               >
-                <p class="text-label uppercase text-[color:var(--color-primary)]">In flight</p>
-                <p class="mt-3 text-body text-[color:var(--color-text-secondary)]">
+                <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--color-primary)]">
+                  In flight
+                </p>
+                <p class="mt-3 text-[color:var(--color-text-secondary)]">
                   Nothing needs your attention right now.
                 </p>
               </section>
@@ -416,6 +427,7 @@ const contextSubtext =
           {
             consultant && (
               <ConsultantBlock
+                variant="trade-card"
                 name={consultant.name}
                 photoUrl={consultant.photoUrl}
                 role={consultant.role}
@@ -427,15 +439,21 @@ const contextSubtext =
           }
         </aside>
 
-        <!-- Main column: Recent activity timeline. -->
+        <section class="flex-1 min-w-0 md:order-1 mt-10 md:mt-0">
+          <p
+            class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--color-text-secondary)]"
+          >
+            Recent activity
+          </p>
+          <h2
+            class="mt-2 font-['Archivo'] text-3xl md:text-4xl font-black uppercase tracking-[-0.02em] text-[color:var(--color-text-primary)]"
+          >
+            Log
+          </h2>
 
-        <section
-          class="flex-1 min-w-0 md:order-1 mt-section md:mt-0 pt-section md:pt-0 border-t md:border-t-0 border-[color:var(--color-border)]"
-        >
-          <h2 class="text-title text-[color:var(--color-text-primary)]">Recent activity</h2>
           {
             timelineEntries.length > 0 ? (
-              <div class="mt-stack flex flex-col gap-card">
+              <div class="mt-6 border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)] p-5 md:p-7 space-y-6">
                 {timelineEntries.map((entry) => (
                   <TimelineEntry
                     date={entry.date}
@@ -447,9 +465,11 @@ const contextSubtext =
                 ))}
               </div>
             ) : (
-              <p class="mt-stack text-body text-[color:var(--color-text-secondary)]">
-                Nothing here yet. First entry lands after your next touchpoint.
-              </p>
+              <div class="mt-6 border-[3px] border-[color:var(--color-text-primary)] p-6 md:p-8">
+                <p class="text-[color:var(--color-text-secondary)]">
+                  Nothing here yet. First entry lands after your next touchpoint.
+                </p>
+              </div>
             )
           }
         </section>

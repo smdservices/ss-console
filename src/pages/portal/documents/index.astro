@@ -8,6 +8,7 @@ import { getSOWStateForQuote } from '../../../lib/sow/service'
 import PortalHeader from '../../../components/portal/PortalHeader.astro'
 import PortalTabs from '../../../components/portal/PortalTabs.astro'
 import PortalListItem from '../../../components/portal/PortalListItem.astro'
+import PortalPageHead from '../../../components/portal/PortalPageHead.astro'
 import SkipToMain from '../../../components/SkipToMain.astro'
 import { formatShortDate } from '../../../lib/portal/formatters'
 import { env } from 'cloudflare:workers'
@@ -97,9 +98,29 @@ function iconFor(name: string, isPdf: boolean): string {
   return 'description'
 }
 
-function resolveEyebrow(doc: DocumentEntry): string {
-  const shared = `Shared ${formatShortDate(doc.uploaded)}`
-  return doc.category ? `${doc.category} · ${shared}` : shared
+/**
+ * Upper-case file extension for the Plainspoken ticket thumb. Falls back
+ * to 'DOC' when no extension is parseable — thumb is a visual glyph, not
+ * authored content, so a generic fallback is fine.
+ */
+function fileExtFor(name: string, isPdf: boolean): string {
+  if (isPdf) return 'PDF'
+  const match = name.toLowerCase().match(/\.([a-z0-9]{1,5})$/)
+  if (!match) return 'DOC'
+  const ext = match[1].toUpperCase()
+  if (ext === 'JPEG') return 'JPG'
+  if (ext === 'XLSX') return 'XLS'
+  if (ext === 'DOCX') return 'DOC'
+  if (ext === 'PPTX') return 'PPT'
+  return ext
+}
+
+/**
+ * Upper-case "kind" column. Authored when category is known (e.g. SOW);
+ * otherwise an em-dash placeholder matches the empty-state pattern.
+ */
+function kindFor(doc: DocumentEntry): string {
+  return doc.category ? doc.category.toUpperCase() : '—'
 }
 ---
 
@@ -135,38 +156,54 @@ function resolveEyebrow(doc: DocumentEntry): string {
 
     <PortalTabs pathname={Astro.url.pathname} />
 
-    <main id="main" role="main" class="max-w-5xl mx-auto px-4 py-8 pb-24 md:pb-8">
-      <a
-        href="/portal"
-        aria-label="Home"
-        class="inline-flex items-center gap-1 min-h-11 px-2 -mx-2 mb-4 text-caption font-medium text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)] active:text-[color:var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2 rounded-lg"
-      >
-        <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
-        Home
-      </a>
-
-      <h1 class="text-title text-[color:var(--color-text-primary)] mb-section">Documents</h1>
+    <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
+      <PortalPageHead
+        crumbHref="/portal"
+        crumbLabel="Home"
+        tag="File room"
+        h1="Documents"
+        meta={`${documents.length} total`}
+      />
 
       {
         documents.length === 0 ? (
-          <div class="bg-[color:var(--color-surface)] rounded-[var(--radius-card)] border border-[color:var(--color-border)] p-card">
-            <p class="text-body text-[color:var(--color-text-secondary)]">
+          <div class="mt-10 border-[3px] border-[color:var(--color-text-primary)] p-8 md:p-12 text-center">
+            <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--color-text-primary)]">
+              No documents yet
+            </p>
+            <p class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
               Documents will appear here as your engagement progresses.
             </p>
           </div>
         ) : (
-          <div class="space-y-row">
-            {documents.map((doc) => (
-              <PortalListItem
-                variant="document"
-                href={`/api/portal/documents/${doc.key}`}
-                icon={iconFor(doc.name, doc.isPdf)}
-                title={doc.name}
-                eyebrow={resolveEyebrow(doc)}
-                trailingIcon={doc.isPdf ? 'open_in_new' : 'download'}
-              />
-            ))}
-          </div>
+          <>
+            <p class="mt-8 mb-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--color-text-secondary)]">
+              {documents.length} document{documents.length !== 1 ? 's' : ''}
+            </p>
+            <div class="border-[3px] border-[color:var(--color-text-primary)]">
+              {engagement && (
+                <div class="flex items-center justify-between gap-3 bg-[color:var(--color-text-primary)] text-[color:var(--color-background)] px-4 md:px-5 py-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
+                  <span>Engagement № {engagement.id.slice(0, 2).toUpperCase()}</span>
+                  <span class="text-[color:var(--color-primary)]">
+                    {documents.length} doc{documents.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              )}
+              {documents.map((doc) => (
+                <PortalListItem
+                  chrome="ticket"
+                  variant="document"
+                  href={`/api/portal/documents/${doc.key}`}
+                  icon={iconFor(doc.name, doc.isPdf)}
+                  title={doc.name}
+                  eyebrow={`Shared ${formatShortDate(doc.uploaded)}`}
+                  fileExt={fileExtFor(doc.name, doc.isPdf)}
+                  kind={kindFor(doc)}
+                  trailingIcon={doc.isPdf ? 'open_in_new' : 'download'}
+                />
+              ))}
+            </div>
+          </>
         )
       }
     </main>

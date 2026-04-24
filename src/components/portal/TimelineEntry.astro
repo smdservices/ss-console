@@ -3,23 +3,27 @@
  * Dated narrative entry for the engagement timeline. Past tense, concrete.
  * No status-updated system entries.
  *
- * Architect's Studio identity: log-line format — mono-caps meta row
- * above prose body. Date in ISO format for alignment, actor in uppercase
- * caps. Optional mono-caps artifact link below the body.
+ * Plainspoken log-line format — Archivo Narrow caps meta row above prose
+ * body. Date in short-date format, optional actor in uppercase caps.
+ * Optional artifact link below the body.
  *
  * Format:
- *   2026-04-14 · SCOTT
+ *   APR 14 · TEAM
  *   Sat with your dispatcher. Two issues surfaced…
- *   Notes filed 2026-04-14
+ *
+ * Voice: `actor` defaults to unset — the actor column simply doesn't
+ * render when the caller omits it. Decision Stack #20 forbids hardcoded
+ * "Scott" / "consultant" defaults on portal surfaces, so the component
+ * now refuses to name an actor of its own accord.
  */
 
 import ArtifactChip from './ArtifactChip.astro'
 
 interface Props {
-  /** ISO date string recommended (e.g., `2026-04-14`). Host may format narrative date in body if desired. */
+  /** Short date string (e.g., `Apr 14`). Caller formats. */
   date: string
-  /** Uppercase rendering recommended. Default `Scott`. */
-  actor?: string
+  /** Uppercase actor label. Only renders when explicitly passed. */
+  actor?: string | null
   body: string
   artifactLabel?: string
   artifactHref?: string
@@ -28,7 +32,7 @@ interface Props {
 
 const {
   date,
-  actor = 'Scott',
+  actor = null,
   body,
   artifactLabel,
   artifactHref,
@@ -39,15 +43,18 @@ const {
 <div class="flex flex-col gap-row">
   <div class="flex items-baseline gap-stack">
     <span
-      class="font-mono text-label uppercase tracking-[var(--text-label--letter-spacing)] font-semibold tabular-nums text-[color:var(--color-text-secondary)]"
+      class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold tabular-nums text-[color:var(--color-primary)]"
       >{date}</span
     >
-    <span
-      class="font-mono text-label uppercase tracking-[var(--text-label--letter-spacing)] font-semibold text-[color:var(--color-text-primary)]"
-      >{actor}</span
-    >
+    {
+      actor && (
+        <span class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--color-text-primary)]">
+          · {actor}
+        </span>
+      )
+    }
   </div>
-  <p class="text-body text-[color:var(--color-text-primary)]">{body}</p>
+  <p class="text-body text-[color:var(--color-text-primary)] leading-[1.55]">{body}</p>
   {
     artifactLabel && artifactHref && (
       <div class="mt-row">
