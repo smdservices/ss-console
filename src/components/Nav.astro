@@ -7,7 +7,7 @@ const navLinks = [
 
 <header
   role="banner"
-  class="sticky top-0 z-50 border-b-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]"
+  class="sticky top-0 z-40 border-b-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)]"
 >
   <div
     class="mx-auto flex h-14 md:h-16 w-full max-w-5xl items-center justify-between gap-3 px-4 md:px-6"
@@ -40,32 +40,64 @@ const navLinks = [
         href="/book"
         data-ev="nav-book">Book a Call</a
       >
-      <details class="nav-disclosure md:hidden relative">
-        <summary
-          aria-label="Toggle menu"
-          class="list-none inline-flex items-center justify-center min-w-11 min-h-11 px-3 border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)] font-['Archivo_Narrow'] text-xs font-bold uppercase tracking-[0.14em] text-[color:var(--color-text-primary)] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2 select-none"
-        >
-          <span class="nav-disclosure-label-closed">Menu</span>
-          <span class="nav-disclosure-label-open">Close</span>
-        </summary>
-      </details>
+      <button
+        type="button"
+        aria-label="Open menu"
+        aria-controls="mobile-menu-dialog"
+        aria-haspopup="dialog"
+        data-nav-open
+        class="md:hidden inline-flex items-center justify-center min-w-11 min-h-11 px-3 border-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-background)] font-['Archivo_Narrow'] text-xs font-bold uppercase tracking-[0.14em] text-[color:var(--color-text-primary)] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2 select-none transition-colors"
+      >
+        Menu
+      </button>
     </div>
   </div>
+</header>
 
-  <!-- Mobile disclosure panel: absolute under the bar, only shown when <details> above is open.
-       We use a sibling-state CSS hook via :has() so the panel is a separate block below the bar. -->
-  <div class="nav-mobile-panel md:hidden">
-    <nav
-      aria-label="Mobile primary"
-      class="border-t-[3px] border-[color:var(--color-text-primary)] bg-[color:var(--color-surface-inverse)]"
-    >
+<!-- Mobile menu: true modal overlay via native <dialog> + showModal().
+     Full-viewport ink; scrim via ::backdrop; native scroll lock, focus trap,
+     Escape-to-close. Hidden entirely at md+ where the bar nav is sufficient. -->
+<dialog
+  id="mobile-menu-dialog"
+  aria-label="Mobile navigation"
+  class="nav-dialog md:hidden"
+  data-nav-dialog
+>
+  <div class="flex h-full w-full flex-col bg-[color:var(--color-surface-inverse)] text-white">
+    <!-- Overlay header: mirrors the bar structure so there is no visual jump.
+         Brand on the left, Close on the right. -->
+    <div class="flex h-14 flex-none items-center justify-between px-4 border-b-[3px] border-white">
+      <a
+        href="/"
+        class="inline-flex items-baseline gap-2 font-['Archivo'] text-base font-black uppercase tracking-[-0.01em] text-white"
+        data-nav-link
+      >
+        <span
+          class="inline-block bg-[color:var(--color-primary)] text-white px-2 py-0.5 font-black tracking-[-0.01em]"
+          >SMD</span
+        >
+        <span>Services</span>
+      </a>
+      <button
+        type="button"
+        aria-label="Close menu"
+        data-nav-close
+        class="inline-flex items-center justify-center min-w-11 min-h-11 px-3 border-[3px] border-white bg-transparent font-['Archivo_Narrow'] text-xs font-bold uppercase tracking-[0.14em] text-white cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-surface-inverse)]"
+      >
+        Close
+      </button>
+    </div>
+
+    <!-- Primary menu -->
+    <nav aria-label="Mobile primary" class="flex-1 overflow-y-auto">
       <ul class="flex flex-col divide-y-2 divide-[color:rgba(245,240,227,0.14)]">
         {
           navLinks.map((item, i) => (
             <li>
               <a
                 href={item.href}
-                class="flex items-baseline gap-4 px-5 py-5 min-h-[56px] font-['Archivo'] text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--color-background)] hover:bg-[color:rgba(245,240,227,0.06)]"
+                data-nav-link
+                class="flex items-baseline gap-4 px-5 py-6 min-h-[64px] font-['Archivo'] text-3xl font-black uppercase tracking-[-0.01em] text-white hover:bg-[color:rgba(245,240,227,0.06)]"
                 data-ev={`nav-mobile-${item.label.toLowerCase()}`}
               >
                 <span class="font-['JetBrains_Mono'] text-sm font-semibold tracking-[0.12em] text-[color:var(--color-primary)] min-w-[2.5rem]">
@@ -78,30 +110,67 @@ const navLinks = [
         }
       </ul>
     </nav>
+
+    <!-- Bottom CTA -->
+    <div class="flex-none border-t-[3px] border-white p-5">
+      <a
+        href="/book"
+        data-nav-link
+        data-ev="nav-mobile-book"
+        class="flex w-full items-center justify-center whitespace-nowrap border-[3px] border-white bg-[color:var(--color-primary)] hover:bg-[color:var(--color-primary-hover)] px-5 py-4 font-['Archivo'] text-base font-bold uppercase tracking-[0.08em] text-white transition-colors"
+        >Book a Call</a
+      >
+    </div>
   </div>
-</header>
+</dialog>
 
 <style>
-  .nav-disclosure > summary::-webkit-details-marker {
-    display: none;
+  .nav-dialog[open] {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
   }
-  .nav-disclosure > summary::marker {
-    content: '';
-  }
-  .nav-disclosure-label-open {
-    display: none;
-  }
-  .nav-disclosure[open] .nav-disclosure-label-closed {
-    display: none;
-  }
-  .nav-disclosure[open] .nav-disclosure-label-open {
-    display: inline;
-  }
-
-  .nav-mobile-panel {
-    display: none;
-  }
-  header:has(.nav-disclosure[open]) .nav-mobile-panel {
-    display: block;
+  .nav-dialog::backdrop {
+    background: rgba(26, 21, 18, 0.72);
   }
 </style>
+
+<script is:inline>
+  ;(function () {
+    const dialog = document.querySelector('[data-nav-dialog]')
+    if (!dialog) return
+    const openBtn = document.querySelector('[data-nav-open]')
+    const closeBtn = dialog.querySelector('[data-nav-close]')
+
+    if (openBtn) {
+      openBtn.addEventListener('click', () => {
+        if (typeof dialog.showModal === 'function') dialog.showModal()
+      })
+    }
+
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        dialog.close()
+      })
+    }
+
+    // Close the dialog when a link is activated so the back button does not
+    // leave a stale open state.
+    dialog.querySelectorAll('[data-nav-link]').forEach((link) => {
+      link.addEventListener('click', () => dialog.close())
+    })
+
+    // Tap on the backdrop area (clicks directly on the <dialog> element itself,
+    // not its inner children) closes.
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) dialog.close()
+    })
+  })()
+</script>
