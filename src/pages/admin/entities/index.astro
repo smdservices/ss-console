@@ -187,6 +187,16 @@ function formatDate(iso: string): string {
 }
 
 /**
+ * Past-relative comparison for `next_action_at`. Anything strictly in the
+ * past becomes "Overdue" and renders red rather than the default amber
+ * "scheduled in the future" tone — H7 in the entity-lifecycle UX audit.
+ */
+function isOverdue(iso: string | null): boolean {
+  if (!iso) return false
+  return new Date(iso).getTime() < Date.now()
+}
+
+/**
  * Resolve a problem ID (current or legacy schema) to its human label.
  * Returns null when the id matches neither schema — callers must skip
  * rendering rather than display the raw id.
@@ -435,8 +445,17 @@ function displayWebsite(raw: string | null): { href: string; label: string } | n
                     )}
 
                     {e.next_action && (
-                      <p class="text-xs text-amber-600 mb-1">
-                        <span class="font-medium">Next:</span> {e.next_action}
+                      <p
+                        class={`text-xs mb-1 ${
+                          isOverdue(e.next_action_at)
+                            ? 'text-red-600 font-medium'
+                            : 'text-amber-600'
+                        }`}
+                      >
+                        <span class="font-medium">
+                          {isOverdue(e.next_action_at) ? 'Overdue:' : 'Next:'}
+                        </span>{' '}
+                        {e.next_action}
                         {e.next_action_at && ` — ${formatDate(e.next_action_at)}`}
                       </p>
                     )}
@@ -444,8 +463,13 @@ function displayWebsite(raw: string | null): { href: string; label: string } | n
                     <div class="flex items-center gap-row text-xs text-[color:var(--color-text-muted)] mt-1 flex-wrap">
                       {isSignal && lastActivity ? (
                         <span>Last activity {formatDate(lastActivity)}</span>
-                      ) : (
+                      ) : isSignal ? (
                         <span>{formatDate(e.created_at)}</span>
+                      ) : (
+                        <span>
+                          {ENTITY_STAGES.find((s) => s.value === e.stage)?.label ?? e.stage} since{' '}
+                          {formatDate(e.stage_changed_at)}
+                        </span>
                       )}
                       {e.area && <span>{e.area}</span>}
                       {e.vertical && (
