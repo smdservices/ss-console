@@ -7,9 +7,10 @@ import type { Quote } from '../../../lib/db/quotes'
 import PortalHeader from '../../../components/portal/PortalHeader.astro'
 import PortalTabs from '../../../components/portal/PortalTabs.astro'
 import PortalListItem from '../../../components/portal/PortalListItem.astro'
+import PortalPageHead from '../../../components/portal/PortalPageHead.astro'
 import SkipToMain from '../../../components/SkipToMain.astro'
 import { formatShortDate } from '../../../lib/portal/formatters'
-import { resolveQuoteTone, resolveQuoteLabel } from '../../../lib/portal/status'
+import { resolveQuoteTone, resolveQuoteStampLabel } from '../../../lib/portal/status'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -28,8 +29,16 @@ if (!portalData) {
 const { client } = portalData
 const quotes = await listQuotesForEntity(env.DB, session.orgId, client.id)
 
-function resolveMetaCaption(q: Quote): string {
+function resolveDateValue(q: Quote): string {
   return formatShortDate(q.sent_at ?? q.created_at)
+}
+
+function resolveDateLabel(q: Quote): string {
+  if (q.status === 'sent') return 'Sent'
+  if (q.status === 'accepted') return 'Signed'
+  if (q.status === 'declined') return 'Declined'
+  if (q.status === 'expired') return 'Expired'
+  return 'Updated'
 }
 
 function resolveTrailingCaption(q: Quote): string | null {
@@ -39,6 +48,15 @@ function resolveTrailingCaption(q: Quote): string | null {
   if (diffDays <= 0) return 'Expired'
   return `Expires in ${diffDays} day${diffDays !== 1 ? 's' : ''}`
 }
+
+// Count breakdown for the eyebrow surface (no visual-only filter chips —
+// they imply interactivity we don't wire on 1–5-client scale).
+const openCount = quotes.filter((q) => q.status === 'sent').length
+const closedCount = quotes.length - openCount
+const eyebrowParts = [`${quotes.length} proposal${quotes.length !== 1 ? 's' : ''}`]
+if (openCount > 0) eyebrowParts.push(`${openCount} open`)
+if (closedCount > 0) eyebrowParts.push(`${closedCount} closed`)
+const eyebrowText = eyebrowParts.join(' · ').toUpperCase()
 ---
 
 <!doctype html>
@@ -73,56 +91,48 @@ function resolveTrailingCaption(q: Quote): string | null {
 
     <PortalTabs pathname={Astro.url.pathname} />
 
-    <main id="main" role="main" class="max-w-5xl mx-auto px-4 py-6 sm:py-8 pb-24 md:pb-8">
-      <a
-        href="/portal"
-        aria-label="Home"
-        class="inline-flex items-center gap-1 min-h-11 px-2 -mx-2 mb-4 text-caption font-medium text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-primary)] active:text-[color:var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-action)] focus-visible:ring-offset-2 rounded-lg"
-      >
-        <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
-        Home
-      </a>
-
-      <h1 class="text-title text-[color:var(--color-text-primary)] mb-section">Proposals</h1>
+    <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
+      <PortalPageHead
+        crumbHref="/portal"
+        crumbLabel="Home"
+        tag="Ledger"
+        h1="Proposals"
+        meta={`${quotes.length} total`}
+      />
 
       {
         quotes.length === 0 ? (
-          <div class="bg-[color:var(--color-surface)] rounded-[var(--radius-card)] border border-[color:var(--color-border)] p-section text-center">
-            <svg
-              class="w-12 h-12 text-[color:var(--color-text-muted)] mx-auto mb-stack"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="1.5"
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
-            </svg>
-            <p class="text-body font-medium text-[color:var(--color-text-primary)]">
+          <div class="mt-10 border-[3px] border-[color:var(--color-text-primary)] p-8 md:p-12 text-center">
+            <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--color-text-primary)]">
               No proposals yet
             </p>
-            <p class="text-caption text-[color:var(--color-text-muted)] mt-1">
+            <p class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--color-text-secondary)]">
               Proposals will appear here once they are ready for review.
             </p>
           </div>
         ) : (
-          <div class="space-y-row">
-            {quotes.map((quote: Quote) => (
-              <PortalListItem
-                variant="status"
-                href={`/portal/quotes/${quote.id}`}
-                tone={resolveQuoteTone(quote.status)}
-                toneLabel={resolveQuoteLabel(quote.status)}
-                title={`Proposal #${quote.id.slice(0, 8)}`}
-                amountCents={Math.round(quote.total_price * 100)}
-                metaCaption={resolveMetaCaption(quote)}
-                trailingCaption={resolveTrailingCaption(quote)}
-              />
-            ))}
-          </div>
+          <>
+            <p class="mt-8 mb-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--color-text-secondary)]">
+              {eyebrowText}
+            </p>
+            <div class="border-[3px] border-[color:var(--color-text-primary)]">
+              {quotes.map((quote: Quote) => (
+                <PortalListItem
+                  chrome="ticket"
+                  variant="status"
+                  href={`/portal/quotes/${quote.id}`}
+                  serial={quote.id.slice(0, 2).toUpperCase()}
+                  tone={resolveQuoteTone(quote.status)}
+                  toneLabel={resolveQuoteStampLabel(quote.status)}
+                  title={`Proposal ${quote.id.slice(0, 8)}`}
+                  amountCents={Math.round(quote.total_price * 100)}
+                  metaCaption="Amount"
+                  metaLabel={resolveDateLabel(quote)}
+                  trailingCaption={resolveTrailingCaption(quote) ?? resolveDateValue(quote)}
+                />
+              ))}
+            </div>
+          </>
         )
       }
     </main>
