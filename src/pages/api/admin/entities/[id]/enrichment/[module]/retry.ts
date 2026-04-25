@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro'
-import { runSingleModule } from '../../../../../../lib/enrichment'
-import { isModuleId } from '../../../../../../lib/enrichment/modules'
+import { runSingleModule } from '../../../../../../../lib/enrichment'
+import { isModuleId } from '../../../../../../../lib/enrichment/modules'
 import { env } from 'cloudflare:workers'
 
 /**

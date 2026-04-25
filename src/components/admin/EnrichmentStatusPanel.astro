@@ -73,7 +73,7 @@ const rows: Row[] = MODULES.map((m) => {
     status,
     reason: run?.reason ?? null,
     errorMessage: run?.error_message ?? null,
-    whenLabel: ts ? relativeTime(ts) : '',
+    whenLabel: (ts ? relativeTime(ts) : '') ?? '',
   }
 })
 ---

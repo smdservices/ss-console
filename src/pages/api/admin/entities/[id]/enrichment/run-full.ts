@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro'
-import { enrichEntity } from '../../../../../lib/enrichment'
+import { enrichEntity } from '../../../../../../lib/enrichment'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -30,7 +30,7 @@ export const POST: APIRoute = async ({ params, locals, redirect }) => {
     mode: 'full',
     force: true,
     triggered_by: 'admin:run-full',
-  }).catch((err) => {
+  }).catch((err: unknown) => {
     console.error('[api/admin/entities/enrichment/run-full] background error', { error: err })
   })
   if (locals.cfContext?.waitUntil) {
