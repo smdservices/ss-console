@@ -62,7 +62,7 @@ Pre-flight local scan (run before commit): **0 findings** — codebase was clean
 
 ## CI run — canary removed (GREEN)
 
-**Run:** PLACEHOLDER_GREEN_RUN_URL
+**Run:** https://github.com/venturecrane/ss-console/actions/runs/24942295516 — all 5 security checks pass (npm audit, Secret Detection, TypeScript, Semgrep, nosemgrep Audit); Security Summary aggregates green.
 
 ## Ruleset application
 
