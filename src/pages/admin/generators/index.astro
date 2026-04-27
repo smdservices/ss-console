@@ -187,8 +187,9 @@ function vlabel(v: string): string {
               <div class="min-w-0">
                 <div class="flex items-center gap-2 mb-0.5">
                   <div
-                    class={`w-2 h-2 rounded-full shrink-0 ${enabled ? 'bg-green-500' : 'bg-slate-300'}`}
+                    class={`w-2 h-2 rounded-full shrink-0 ${enabled ? 'bg-[color:var(--ss-color-text-primary)]' : 'bg-[color:var(--ss-color-border)]'}`}
                     title={enabled ? 'Enabled' : 'Disabled'}
+                    aria-hidden="true"
                   />
                   <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] truncate">
                     {PIPELINE_LABELS[pipeline.id]}
