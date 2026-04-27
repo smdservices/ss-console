@@ -190,43 +190,8 @@ const TRANSITIONS: Record<string, Transition[]> = {
   lost: [{ label: 'Re-engage', stage: 'prospect', variant: 'primary' }],
 }
 
-function contextTypeBadge(type: string): string {
-  const map: Record<string, string> = {
-    signal: 'bg-amber-100 text-amber-700',
-    enrichment: 'bg-cyan-100 text-cyan-700',
-    note: 'bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)]',
-    transcript: 'bg-purple-100 text-purple-700',
-    extraction: 'bg-indigo-100 text-indigo-700',
-    outreach_draft: 'bg-blue-100 text-blue-700',
-    engagement_log: 'bg-green-100 text-green-700',
-    follow_up_result: 'bg-teal-100 text-teal-700',
-    feedback: 'bg-emerald-100 text-emerald-700',
-    parking_lot: 'bg-orange-100 text-orange-700',
-    stage_change:
-      'bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-secondary)]',
-    intake: 'bg-pink-100 text-pink-700',
-  }
-  return (
-    map[type] ??
-    'bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)]'
-  )
-}
-
-function stageBadgeClass(stage: string): string {
-  const map: Record<string, string> = {
-    signal: 'bg-amber-100 text-amber-700',
-    prospect: 'bg-blue-100 text-blue-700',
-    meetings: 'bg-purple-100 text-purple-700',
-    proposing: 'bg-indigo-100 text-indigo-700',
-    engaged: 'bg-green-100 text-green-700',
-    delivered: 'bg-emerald-100 text-emerald-700',
-    ongoing: 'bg-teal-100 text-teal-700',
-    lost: 'bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)]',
-  }
-  return (
-    map[stage] ??
-    'bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)]'
-  )
+function contextTypeBadge(_type: string): string {
+  return 'bg-border-subtle text-text-secondary'
 }
 
 function formatDate(iso: string): string {
@@ -378,15 +343,13 @@ function renderSimpleMarkdown(md: string): string {
 }
 
 function sentimentColor(trend: string): string {
-  if (trend === 'improving') return 'text-green-700 bg-green-50'
-  if (trend === 'declining') return 'text-red-700 bg-red-50'
-  return 'text-[color:var(--ss-color-text-secondary)] bg-[color:var(--ss-color-background)]'
+  if (trend === 'improving') return 'text-text-primary bg-surface'
+  if (trend === 'declining') return 'text-error bg-surface'
+  return 'text-text-secondary bg-background'
 }
 
-function confidenceColor(confidence: string): string {
-  if (confidence === 'high') return 'bg-rose-100 text-rose-700'
-  if (confidence === 'medium') return 'bg-amber-100 text-amber-700'
-  return 'bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)]'
+function confidenceColor(_confidence: string): string {
+  return 'bg-border-subtle text-text-secondary'
 }
 ---
 
@@ -415,28 +378,28 @@ function confidenceColor(confidence: string): string {
   </a>
   {
     promoted && (
-      <div class="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-3 rounded-[var(--ss-radius-card)] mb-4">
+      <div class="bg-surface border border-complete text-complete text-sm px-4 py-3 rounded-[var(--ss-radius-card)] mb-4">
         {entity.name} promoted to prospect.
       </div>
     )
   }
   {
     noteAdded && (
-      <div class="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-3 rounded-[var(--ss-radius-card)] mb-4">
+      <div class="bg-surface border border-complete text-complete text-sm px-4 py-3 rounded-[var(--ss-radius-card)] mb-4">
         Note added to {entity.name}.
       </div>
     )
   }
   {
     replyLogged && (
-      <div class="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-3 rounded-[var(--ss-radius-card)] mb-4">
+      <div class="bg-surface border border-complete text-complete text-sm px-4 py-3 rounded-[var(--ss-radius-card)] mb-4">
         Reply logged on {entity.name}.
       </div>
     )
   }
   {
     stageUpdated && (
-      <div class="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-3 rounded-[var(--ss-radius-card)] mb-4">
+      <div class="bg-surface border border-complete text-complete text-sm px-4 py-3 rounded-[var(--ss-radius-card)] mb-4">
         {entity.name} moved to{' '}
         {ENTITY_STAGES.find((s) => s.value === entity.stage)?.label ?? entity.stage}.
       </div>
@@ -444,7 +407,7 @@ function confidenceColor(confidence: string): string {
   }
   {
     dossierGenerated && (
-      <div class="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-3 rounded-[var(--ss-radius-card)] mb-4">
+      <div class="bg-surface border border-complete text-complete text-sm px-4 py-3 rounded-[var(--ss-radius-card)] mb-4">
         Re-enriched {entity.name}. Refreshed reviews, synthesis, news, and outreach draft — see
         timeline below.
       </div>
@@ -452,7 +415,7 @@ function confidenceColor(confidence: string): string {
   }
   {
     error && (
-      <div class="bg-red-50 border border-red-200 text-red-800 text-sm px-4 py-3 rounded-[var(--ss-radius-card)] mb-4">
+      <div class="bg-surface border border-error text-error text-sm px-4 py-3 rounded-[var(--ss-radius-card)] mb-4">
         {decodeURIComponent(error)}
       </div>
     )
@@ -460,7 +423,7 @@ function confidenceColor(confidence: string): string {
 
   {/* Entity Summary */}
   <div
-    class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card mb-6"
+    class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card mb-6"
   >
     <div class="flex items-start justify-between gap-stack">
       <div>
@@ -468,7 +431,7 @@ function confidenceColor(confidence: string): string {
           <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
             {entity.name}
           </h2>
-          <span class={`text-xs px-2 py-0.5 rounded ${stageBadgeClass(entity.stage)}`}>
+          <span class={statusBadgeClass(entity.stage)}>
             {ENTITY_STAGES.find((s) => s.value === entity.stage)?.label ?? entity.stage}
           </span>
           {
@@ -483,17 +446,7 @@ function confidenceColor(confidence: string): string {
           }
           {
             entity.tier && (
-              <span
-                class={`text-xs px-2 py-0.5 rounded ${
-                  entity.tier === 'hot'
-                    ? 'bg-red-100 text-red-700'
-                    : entity.tier === 'warm'
-                      ? 'bg-amber-100 text-amber-700'
-                      : entity.tier === 'cool'
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)]'
-                }`}
-              >
+              <span class="text-xs px-2 py-0.5 rounded bg-border-subtle text-text-secondary">
                 {entity.tier}
               </span>
             )
@@ -544,7 +497,7 @@ function confidenceColor(confidence: string): string {
                   entity.website.startsWith('http') ? entity.website : `https://${entity.website}`
                 }
                 target="_blank"
-                class="text-blue-500 hover:underline"
+                class="text-primary hover:underline"
               >
                 {entity.website}
               </a>
@@ -555,20 +508,18 @@ function confidenceColor(confidence: string): string {
         {
           entity.next_action && (
             <div
-              class={`mt-3 px-3 py-2 rounded text-sm ${
-                isOverdue(entity.next_action_at)
-                  ? 'bg-red-50 border border-red-200'
-                  : 'bg-amber-50 border border-amber-200'
+              class={`mt-3 px-3 py-2 rounded text-sm bg-surface border ${
+                isOverdue(entity.next_action_at) ? 'border-error' : 'border-border'
               }`}
             >
               <span
                 class={`font-medium ${
-                  isOverdue(entity.next_action_at) ? 'text-red-800' : 'text-amber-800'
+                  isOverdue(entity.next_action_at) ? 'text-error' : 'text-text-primary'
                 }`}
               >
                 {isOverdue(entity.next_action_at) ? 'Overdue:' : 'Next:'}
               </span>
-              <span class={isOverdue(entity.next_action_at) ? 'text-red-700' : 'text-amber-700'}>
+              <span class={isOverdue(entity.next_action_at) ? 'text-error' : 'text-text-secondary'}>
                 {' '}
                 {entity.next_action}
                 {entity.next_action_at && ` — ${formatDate(entity.next_action_at)}`}
@@ -646,7 +597,7 @@ function confidenceColor(confidence: string): string {
                 <form
                   method="POST"
                   action={t.action ?? `/api/admin/entities/${entity.id}/stage`}
-                  class="absolute right-0 mt-1 z-10 w-72 bg-white border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] shadow-lg p-3 space-y-2"
+                  class="absolute right-0 mt-1 z-10 w-72 bg-surface border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] shadow-lg p-3 space-y-2"
                 >
                   <input type="hidden" name="stage" value="lost" />
                   <input type="hidden" name="reason" value={`${t.label} by admin.`} />
@@ -655,7 +606,7 @@ function confidenceColor(confidence: string): string {
                     <select
                       name="lost_reason"
                       required
-                      class="mt-1 block w-full text-sm border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] px-2 py-1.5 bg-white text-[color:var(--ss-color-text-primary)]"
+                      class="mt-1 block w-full text-sm border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] px-2 py-1.5 bg-surface text-[color:var(--ss-color-text-primary)]"
                     >
                       <option value="" disabled selected>
                         Select a reason…
@@ -744,7 +695,7 @@ function confidenceColor(confidence: string): string {
                   <span class="sr-only">Supersede prior quote</span>
                   <select
                     name="parent_quote_id"
-                    class="text-xs border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] px-2 py-1 bg-white"
+                    class="text-xs border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] px-2 py-1 bg-surface"
                     title="Optional: link to a prior quote this one supersedes"
                   >
                     <option value="">No supersede link</option>
@@ -778,7 +729,7 @@ function confidenceColor(confidence: string): string {
     entity.stage === 'prospect' && (
       <dialog
         id="send-booking-link-dialog"
-        class="rounded-[var(--ss-radius-card)] p-0 max-w-md w-full backdrop:bg-black/30"
+        class="rounded-[var(--ss-radius-card)] p-0 max-w-md w-full backdrop:bg-surface-inverse/30"
       >
         <form method="dialog" id="send-booking-link-form" class="p-card">
           <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-1">
@@ -828,7 +779,7 @@ function confidenceColor(confidence: string): string {
 
           <div
             id="sbl-error"
-            class="hidden mb-3 rounded-[var(--ss-radius-card)] bg-red-50 border border-red-200 text-red-800 text-xs px-3 py-2"
+            class="hidden mb-3 rounded-[var(--ss-radius-card)] bg-surface border border-error text-error text-xs px-3 py-2"
           />
 
           <div class="flex items-center justify-end gap-2">
@@ -860,7 +811,7 @@ function confidenceColor(confidence: string): string {
       handles the clearing logic. */
   }
   <div
-    class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-stack mb-6"
+    class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-stack mb-6"
   >
     <form method="POST" action={`/api/admin/entities/${entity.id}/context`} class="flex gap-row">
       <input type="hidden" name="type" value="note" />
@@ -892,7 +843,7 @@ function confidenceColor(confidence: string): string {
     <div class="flex gap-1 mb-4 flex-wrap">
       <a
         href={`/admin/entities/${entity.id}`}
-        class={`text-xs px-2.5 py-1 rounded-full transition-colors ${!typeFilter ? 'bg-slate-900 text-white' : 'bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)] hover:bg-[color:var(--ss-color-border)]'}`}
+        class={`text-xs px-2.5 py-1 rounded-full transition-colors ${!typeFilter ? 'bg-surface-inverse text-white' : 'bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)] hover:bg-[color:var(--ss-color-border)]'}`}
       >
         All ({contextEntries.length})
       </a>
@@ -900,7 +851,7 @@ function confidenceColor(confidence: string): string {
         Object.entries(typeCounts).map(([type, count]) => (
           <a
             href={`/admin/entities/${entity.id}?type=${type}`}
-            class={`text-xs px-2.5 py-1 rounded-full transition-colors ${typeFilter === type ? 'bg-slate-900 text-white' : contextTypeBadge(type) + ' hover:opacity-80'}`}
+            class={`text-xs px-2.5 py-1 rounded-full transition-colors ${typeFilter === type ? 'bg-surface-inverse text-white' : contextTypeBadge(type) + ' hover:opacity-80'}`}
           >
             {CONTEXT_TYPES.find((t) => t.value === type)?.label ?? type} ({count})
           </a>
@@ -911,7 +862,7 @@ function confidenceColor(confidence: string): string {
     {/* Timeline entries */}
     {
       filteredEntries.length === 0 ? (
-        <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-stack">
+        <div class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-stack">
           <p class="text-[color:var(--ss-color-text-secondary)] text-sm">No context entries yet.</p>
         </div>
       ) : (
@@ -933,7 +884,7 @@ function confidenceColor(confidence: string): string {
             return (
               <details
                 open={openByDefault}
-                class={`group bg-white rounded-[var(--ss-radius-card)] border px-4 py-3 ${
+                class={`group bg-surface rounded-[var(--ss-radius-card)] border px-4 py-3 ${
                   isReplyLog
                     ? 'border-l-4 border-l-teal-500 border-[color:var(--ss-color-border)]'
                     : 'border-[color:var(--ss-color-border)]'
@@ -941,7 +892,7 @@ function confidenceColor(confidence: string): string {
               >
                 <summary class="flex items-center gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden flex-wrap">
                   {isReplyLog ? (
-                    <span class="text-xs px-2 py-0.5 rounded bg-teal-100 text-teal-700 font-semibold">
+                    <span class="text-xs px-2 py-0.5 rounded bg-border-subtle text-text-secondary font-semibold">
                       Reply
                     </span>
                   ) : (
@@ -1020,7 +971,7 @@ function confidenceColor(confidence: string): string {
   {/* Dossier Summary */}
   {
     hasDossier && (
-      <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card mb-6">
+      <div class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card mb-6">
         <div class="flex items-baseline justify-between gap-2 mb-4 flex-wrap">
           <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)]">
             Dossier Summary
@@ -1162,7 +1113,7 @@ function confidenceColor(confidence: string): string {
   {
     contacts.length > 0 && (
       <details
-        class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] mb-4"
+        class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] mb-4"
         open
       >
         <summary class="px-6 py-4 cursor-pointer font-medium text-[color:var(--ss-color-text-primary)]">
@@ -1195,7 +1146,7 @@ function confidenceColor(confidence: string): string {
   {
     meetings.length > 0 && (
       <details
-        class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] mb-4"
+        class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] mb-4"
         open
       >
         <summary class="px-6 py-4 cursor-pointer font-medium text-[color:var(--ss-color-text-primary)]">
@@ -1232,7 +1183,7 @@ function confidenceColor(confidence: string): string {
 
   {
     engagements.length > 0 && (
-      <details class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] mb-4">
+      <details class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] mb-4">
         <summary class="px-6 py-4 cursor-pointer font-medium text-[color:var(--ss-color-text-primary)]">
           Engagements ({engagements.length})
         </summary>
@@ -1262,7 +1213,7 @@ function confidenceColor(confidence: string): string {
 
   {
     quotes.length > 0 && (
-      <details class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] mb-4">
+      <details class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] mb-4">
         <summary class="px-6 py-4 cursor-pointer font-medium text-[color:var(--ss-color-text-primary)]">
           Quotes ({quotes.length})
         </summary>
@@ -1289,7 +1240,7 @@ function confidenceColor(confidence: string): string {
 
   {
     invoices.length > 0 && (
-      <details class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] mb-4">
+      <details class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] mb-4">
         <summary class="px-6 py-4 cursor-pointer font-medium text-[color:var(--ss-color-text-primary)]">
           Invoices ({invoices.length})
         </summary>
