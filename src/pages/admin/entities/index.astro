@@ -259,53 +259,22 @@ const EMPTY_STATE_COPY: Record<EntityStage, { headline: string; hint: string }> 
 function meetingSubstateBadgeClass(s: MeetingSubstate): string {
   switch (s) {
     case 'completed-awaiting-proposal':
-      return 'bg-green-100 text-green-700'
+      return 'bg-surface border border-complete text-complete'
     case 'past-due':
-      return 'bg-red-100 text-red-700'
+      return 'bg-surface border border-error text-error'
     case 'upcoming':
-      return 'bg-blue-100 text-blue-700'
     case 'awaiting-booking':
     default:
-      return 'bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)]'
+      return 'bg-border-subtle text-text-secondary'
   }
 }
 
-function tierBadgeClass(tier: string | null): string {
-  switch (tier) {
-    case 'hot':
-      return 'bg-red-100 text-red-700'
-    case 'warm':
-      return 'bg-amber-100 text-amber-700'
-    case 'cool':
-      return 'bg-blue-100 text-blue-700'
-    case 'cold':
-      return 'bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)]'
-    default:
-      return ''
-  }
+function tierBadgeClass(_tier: string | null): string {
+  return 'bg-border-subtle text-text-secondary'
 }
 
-function stageBadgeClass(stage: string): string {
-  switch (stage) {
-    case 'signal':
-      return 'border-amber-500 text-amber-600'
-    case 'prospect':
-      return 'border-blue-500 text-blue-600'
-    case 'meetings':
-      return 'border-purple-500 text-purple-600'
-    case 'proposing':
-      return 'border-indigo-500 text-indigo-600'
-    case 'engaged':
-      return 'border-green-500 text-green-600'
-    case 'delivered':
-      return 'border-emerald-500 text-emerald-600'
-    case 'ongoing':
-      return 'border-teal-500 text-teal-600'
-    case 'lost':
-      return 'border-slate-400 text-[color:var(--ss-color-text-secondary)]'
-    default:
-      return 'border-[color:var(--ss-color-border)] text-[color:var(--ss-color-text-secondary)]'
-  }
+function stageBadgeClass(_stage: string): string {
+  return 'border-border text-text-secondary'
 }
 
 function formatDate(iso: string): string {
@@ -370,7 +339,7 @@ function displayWebsite(raw: string | null): { href: string; label: string } | n
   }
   {
     error && (
-      <div class="bg-red-50 border border-red-200 text-red-800 text-sm px-4 py-3 rounded-[var(--ss-radius-card)] mb-4">
+      <div class="bg-surface border border-error text-error text-sm px-4 py-3 rounded-[var(--ss-radius-card)] mb-4">
         {error}
       </div>
     )
@@ -382,7 +351,7 @@ function displayWebsite(raw: string | null): { href: string; label: string } | n
       <input type="hidden" name="stage" value={filterStage} />
       <select
         name="pipeline"
-        class="text-sm border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] px-3 py-1.5 bg-white text-[color:var(--ss-color-text-primary)]"
+        class="text-sm border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] px-3 py-1.5 bg-surface text-[color:var(--ss-color-text-primary)]"
         onchange="this.form.submit()"
       >
         <option value="">All pipelines</option>
@@ -429,7 +398,7 @@ function displayWebsite(raw: string | null): { href: string; label: string } | n
   {/* Entity list */}
   {
     displayEntities.length === 0 ? (
-      <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+      <div class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
         {filterPipeline ? (
           <p class="text-[color:var(--ss-color-text-secondary)] text-sm">
             No <strong>{filterStage}</strong> entities match the selected pipeline.{' '}
@@ -455,7 +424,7 @@ function displayWebsite(raw: string | null): { href: string; label: string } | n
     ) : (
       <div
         id="entity-list"
-        class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)]"
+        class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)]"
         data-bulk-enabled={bulkEnabled ? 'true' : 'false'}
       >
         {bulkEnabled && (
@@ -598,7 +567,7 @@ function displayWebsite(raw: string | null): { href: string; label: string } | n
                         </span>
                       )}
                       {rowInvoiceRollup && rowInvoiceRollup.has_overdue && (
-                        <span class="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">
+                        <span class="text-xs px-1.5 py-0.5 rounded bg-surface border border-error text-error">
                           Invoice overdue
                         </span>
                       )}
@@ -638,8 +607,8 @@ function displayWebsite(raw: string | null): { href: string; label: string } | n
                       <p
                         class={`text-xs mb-1 ${
                           isOverdue(e.next_action_at)
-                            ? 'text-red-600 font-medium'
-                            : 'text-amber-600'
+                            ? 'text-error font-medium'
+                            : 'text-text-secondary'
                         }`}
                       >
                         <span class="font-medium">
@@ -753,7 +722,7 @@ function displayWebsite(raw: string | null): { href: string; label: string } | n
                           >
                             <button
                               type="submit"
-                              class="text-xs bg-primary text-white px-3 py-1.5 rounded-[var(--ss-radius-card)] hover:bg-primary/90 transition-colors"
+                              class="text-xs border border-border bg-surface text-text-primary px-3 py-1.5 rounded-[var(--ss-radius-card)] hover:bg-background transition-colors"
                               title="Create a draft quote from the most recent completed meeting's notes"
                             >
                               Draft proposal
@@ -833,7 +802,7 @@ function displayWebsite(raw: string | null): { href: string; label: string } | n
           <button
             type="button"
             id="bulk-dismiss"
-            class="text-xs bg-red-500/80 hover:bg-red-500 px-3 py-1.5 rounded-[var(--ss-radius-card)] transition-colors"
+            class="text-xs bg-error/80 hover:bg-error px-3 py-1.5 rounded-[var(--ss-radius-card)] transition-colors"
           >
             Dismiss
           </button>
@@ -850,12 +819,12 @@ function displayWebsite(raw: string | null): { href: string; label: string } | n
         {/* Dismiss confirm modal with structured lost-reason selector (#477 contract) */}
         <div
           id="bulk-dismiss-modal"
-          class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 p-4"
+          class="fixed inset-0 z-50 hidden items-center justify-center bg-surface-inverse/40 p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="bulk-dismiss-title"
         >
-          <div class="bg-white rounded-[var(--ss-radius-card)] shadow-lg max-w-md w-full p-6">
+          <div class="bg-surface rounded-[var(--ss-radius-card)] shadow-lg max-w-md w-full p-6">
             <h3
               id="bulk-dismiss-title"
               class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-1"
@@ -874,7 +843,7 @@ function displayWebsite(raw: string | null): { href: string; label: string } | n
             </label>
             <select
               id="bulk-dismiss-reason"
-              class="w-full text-sm border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] px-3 py-2 bg-white text-[color:var(--ss-color-text-primary)] mb-3"
+              class="w-full text-sm border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] px-3 py-2 bg-surface text-[color:var(--ss-color-text-primary)] mb-3"
             >
               {LOST_REASONS.map((r) => (
                 <option value={r.value}>{r.label}</option>
@@ -889,10 +858,10 @@ function displayWebsite(raw: string | null): { href: string; label: string } | n
             <textarea
               id="bulk-dismiss-detail"
               rows="2"
-              class="w-full text-sm border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] px-3 py-2 bg-white text-[color:var(--ss-color-text-primary)] mb-4 resize-none"
+              class="w-full text-sm border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] px-3 py-2 bg-surface text-[color:var(--ss-color-text-primary)] mb-4 resize-none"
               placeholder="Optional context saved with the reason"
             />
-            <div id="bulk-dismiss-error" class="text-xs text-red-600 mb-3 hidden" role="alert" />
+            <div id="bulk-dismiss-error" class="text-xs text-error mb-3 hidden" role="alert" />
             <div class="flex items-center justify-end gap-2">
               <button
                 type="button"
@@ -904,7 +873,7 @@ function displayWebsite(raw: string | null): { href: string; label: string } | n
               <button
                 type="button"
                 id="bulk-dismiss-confirm"
-                class="text-sm px-3 py-1.5 rounded-[var(--ss-radius-card)] bg-red-600 text-white hover:bg-red-700 transition-colors"
+                class="text-sm px-3 py-1.5 rounded-[var(--ss-radius-card)] bg-error text-white hover:bg-error/80 transition-colors"
               >
                 Dismiss entities
               </button>
