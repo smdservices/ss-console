@@ -79,22 +79,26 @@ const overdueCount = overdueFollowUps.length
 const signalCount = signals.length
 
 // Pipeline
-// Single-accent discipline (design-spec §4.6): pipeline progression rendered
-// through ink hierarchy + the burnt-orange accent + olive completion. No
-// per-stage decorative palette.
+// Olive discipline (brief §4.5): admin operational state never uses
+// --ss-color-complete (olive). Olive is reserved for four client-facing
+// hero events on the portal (engagement complete, quote signed, deposit
+// paid, completion invoice paid) and never appears on this dashboard.
+// Single-accent discipline (design-spec §4.6): active stages take the
+// accent; terminal stages take ink; inactive early stages take secondary
+// ink.
 const pipelineStages = [
   { label: 'Signals', count: signalCount, stage: 'signal', tone: 'meta' },
   { label: 'Prospects', count: pipeline.prospect, stage: 'prospect', tone: 'meta' },
   { label: 'Meetings', count: pipeline.meetings, stage: 'meetings', tone: 'primary' },
   { label: 'Proposing', count: pipeline.proposing, stage: 'proposing', tone: 'primary' },
-  { label: 'Engaged', count: pipeline.engaged, stage: 'engaged', tone: 'complete' },
-  { label: 'Delivered', count: pipeline.delivered, stage: 'delivered', tone: 'complete' },
+  { label: 'Engaged', count: pipeline.engaged, stage: 'engaged', tone: 'ink' },
+  { label: 'Delivered', count: pipeline.delivered, stage: 'delivered', tone: 'ink' },
 ] as const
 
 const STAGE_FILL: Record<(typeof pipelineStages)[number]['tone'], string> = {
   meta: 'bg-[color:var(--ss-color-text-secondary)]',
   primary: 'bg-[color:var(--ss-color-primary)]',
-  complete: 'bg-[color:var(--ss-color-complete)]',
+  ink: 'bg-[color:var(--ss-color-text-primary)]',
 }
 const totalPipeline = pipelineStages.reduce((sum, s) => sum + s.count, 0)
 
@@ -144,9 +148,10 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
     label: r.source_pipeline.replace(/_/g, ' '),
   }
   const h = hoursAgo(r.last_signal)
+  // Operational freshness — fresh = ink (not olive, per brief §4.5).
   const color =
     h < thresholds.warn
-      ? 'bg-[color:var(--ss-color-complete)]'
+      ? 'bg-[color:var(--ss-color-text-primary)]'
       : h < thresholds.critical
         ? 'bg-[color:var(--ss-color-attention)]'
         : 'bg-[color:var(--ss-color-error)]'
@@ -333,7 +338,7 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
           </div>
           <div class="flex justify-between items-baseline">
             <span class="text-sm text-[color:var(--ss-color-text-secondary)]">Paid</span>
-            <span class="text-lg font-semibold text-[color:var(--ss-color-complete)]">
+            <span class="text-lg font-semibold text-[color:var(--ss-color-text-primary)]">
               ${revenue.total_paid.toLocaleString('en-US', { minimumFractionDigits: 0 })}
             </span>
           </div>
@@ -397,7 +402,7 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
               class:list={[
                 'text-lg font-semibold',
                 compliance.compliance_pct >= 80
-                  ? 'text-[color:var(--ss-color-complete)]'
+                  ? 'text-[color:var(--ss-color-text-primary)]'
                   : compliance.compliance_pct >= 50
                     ? 'text-[color:var(--ss-color-attention)]'
                     : 'text-[color:var(--ss-color-error)]',
@@ -466,7 +471,7 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
               class:list={[
                 'w-2 h-2',
                 calStatus === 'active'
-                  ? 'bg-[color:var(--ss-color-complete)]'
+                  ? 'bg-[color:var(--ss-color-text-primary)]'
                   : calStatus === 'error' || calStatus === 'revoked'
                     ? 'bg-[color:var(--ss-color-error)]'
                     : 'bg-[color:var(--ss-color-border)]',

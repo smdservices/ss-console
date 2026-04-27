@@ -116,9 +116,10 @@ function formatShortDate(iso: string): string {
 }
 
 // ── Pipeline helpers ─────────────────────────────────────────────
-// Single-accent discipline (design-spec §4.6): no decorative palette per
-// stage. Burnt-orange tracks active progression; olive marks delivered;
-// brick marks lost; secondary ink for early stages.
+// Olive discipline (brief §4.5): admin operational state never uses
+// --ss-color-complete (olive). Single-accent discipline (design-spec §4.6):
+// burnt-orange tracks active progression; ink marks terminal stages; brick
+// marks lost; secondary ink for early stages.
 const pipelineStages = [
   {
     key: 'prospect' as const,
@@ -132,7 +133,11 @@ const pipelineStages = [
   },
   { key: 'proposing' as const, label: 'Proposing', color: 'bg-[color:var(--ss-color-primary)]' },
   { key: 'engaged' as const, label: 'Engaged', color: 'bg-[color:var(--ss-color-primary)]' },
-  { key: 'delivered' as const, label: 'Delivered', color: 'bg-[color:var(--ss-color-complete)]' },
+  {
+    key: 'delivered' as const,
+    label: 'Delivered',
+    color: 'bg-[color:var(--ss-color-text-primary)]',
+  },
   { key: 'lost' as const, label: 'Lost', color: 'bg-[color:var(--ss-color-error)]' },
 ]
 
@@ -147,11 +152,12 @@ function pipelineBarWidth(count: number): string {
 
 // ── Quote accuracy helpers ──────────────────────────────────────
 // Render the accuracy chip flat (no fill) per Pattern 01: this is metadata
-// adjacent to the actual percentage prose, not a status pill. Use semantic
-// ink-on-cream tokens for the variance signal.
+// adjacent to the actual percentage prose, not a status pill. Olive
+// discipline (brief §4.5): on-target accuracy is operational data, not a
+// hero event — use ink, not olive.
 function accuracyColor(pct: number): string {
   const variance = Math.abs(pct - 100)
-  if (variance <= 20) return 'text-[color:var(--ss-color-complete)]'
+  if (variance <= 20) return 'text-[color:var(--ss-color-text-primary)]'
   if (variance <= 40) return 'text-[color:var(--ss-color-attention)]'
   return 'text-[color:var(--ss-color-error)]'
 }
@@ -304,7 +310,7 @@ function complianceBarWidth(pct: number): string {
               </div>
               <div class="bg-[color:var(--ss-color-border-subtle)] h-3 overflow-hidden">
                 <div
-                  class="h-full bg-[color:var(--ss-color-complete)]"
+                  class="h-full bg-[color:var(--ss-color-text-primary)]"
                   style={`width: ${complianceBarWidth(health.on_time_pct)}`}
                 />
               </div>
@@ -334,7 +340,7 @@ function complianceBarWidth(pct: number): string {
                 <p class="text-xs text-[color:var(--ss-color-text-secondary)]">Total invoiced</p>
               </div>
               <div>
-                <p class="text-lg font-bold text-[color:var(--ss-color-complete)]">{formatCurrency(revenue.total_paid)}</p>
+                <p class="text-lg font-bold text-[color:var(--ss-color-text-primary)]">{formatCurrency(revenue.total_paid)}</p>
                 <p class="text-xs text-[color:var(--ss-color-text-secondary)]">Total paid</p>
               </div>
               <div>
@@ -356,7 +362,7 @@ function complianceBarWidth(pct: number): string {
                       </span>
                       <div class="flex-1 bg-[color:var(--ss-color-border-subtle)] h-5 overflow-hidden">
                         <div
-                          class="h-full bg-[color:var(--ss-color-complete)] flex items-center justify-end pr-2"
+                          class="h-full bg-[color:var(--ss-color-text-primary)] flex items-center justify-end pr-2"
                           style={`width: ${revenueBarWidth(m.amount)}`}
                         >
                           {m.amount > 0 && (
@@ -416,7 +422,7 @@ function complianceBarWidth(pct: number): string {
             </div>
             <div class="grid grid-cols-3 gap-stack text-center">
               <div>
-                <p class="text-lg font-bold text-[color:var(--ss-color-complete)]">
+                <p class="text-lg font-bold text-[color:var(--ss-color-text-primary)]">
                   {compliance.completed_on_time.toLocaleString()}
                 </p>
                 <p class="text-xs text-[color:var(--ss-color-text-secondary)]">On time</p>
@@ -439,7 +445,7 @@ function complianceBarWidth(pct: number): string {
               </div>
               <div class="bg-[color:var(--ss-color-border-subtle)] h-3 overflow-hidden">
                 <div
-                  class="h-full bg-[color:var(--ss-color-complete)]"
+                  class="h-full bg-[color:var(--ss-color-text-primary)]"
                   style={`width: ${complianceBarWidth(compliance.compliance_pct)}`}
                 />
               </div>
@@ -648,7 +654,7 @@ function complianceBarWidth(pct: number): string {
                   </span>
                   <div class="flex-1 bg-[color:var(--ss-color-border-subtle)] h-6 overflow-hidden">
                     <div
-                      class="h-full bg-[color:var(--ss-color-complete)] flex items-center justify-end pr-2"
+                      class="h-full bg-[color:var(--ss-color-text-primary)] flex items-center justify-end pr-2"
                       style={`width: ${funnelBarWidth(count)}`}
                     >
                       {count > 0 && (
