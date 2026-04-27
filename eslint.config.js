@@ -51,6 +51,7 @@ export default tseslint.config(
       // surface instead of drowning in noise (#14a from 2026-04-17 audit).
       'coverage/**',
       '.claude/worktrees/**',
+      '.worktrees/**',
     ],
   }
 )

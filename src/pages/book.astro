@@ -525,10 +525,10 @@ if (prefillToken) {
             </p>
             <a
               id="fallback-mailto"
-              href="mailto:scott@smd.services?subject=Assessment%20Call%20Request"
+              href="mailto:team@smd.services?subject=Assessment%20Call%20Request"
               class="mt-4 inline-block rounded-[var(--ss-radius-card)] bg-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
             >
-              Email scott@smd.services
+              Email team@smd.services
             </a>
           </div>
         </div>
@@ -952,7 +952,7 @@ if (prefillToken) {
       }
 
       function showEmailFallback(body) {
-        const fallbackEmail = (body.fallback && body.fallback.email) || 'scott@smd.services'
+        const fallbackEmail = (body.fallback && body.fallback.email) || 'team@smd.services'
         const mailtoEl = document.getElementById('fallback-mailto')
         const nameVal = form.elements.namedItem('name') ? form.elements.namedItem('name').value : ''
         const businessVal = form.elements.namedItem('business_name')

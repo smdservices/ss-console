@@ -10,7 +10,7 @@ const baseInput = {
   title: 'Assessment: Phoenix Plumbing',
   description: 'Operations cleanup intro call.',
   organizerName: 'Scott Durgan',
-  organizerEmail: 'scott@smd.services',
+  organizerEmail: 'team@smd.services',
   guestName: 'Maria Garcia',
   guestEmail: 'maria@example.com',
 }
@@ -71,7 +71,7 @@ describe('buildIcs', () => {
     // before doing string contains, since long names get wrapped.
     const unfolded = ics.replace(/\r?\n[ \t]/g, '')
     expect(unfolded).toContain('Scott Durgan')
-    expect(unfolded).toContain('scott@smd.services')
+    expect(unfolded).toContain('team@smd.services')
     expect(unfolded).toContain('Maria Garcia')
     expect(unfolded).toContain('maria@example.com')
   })

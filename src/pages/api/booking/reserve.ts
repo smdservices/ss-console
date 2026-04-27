@@ -29,7 +29,7 @@ import {
 import { requireAppBaseUrl, buildAdminUrl } from '../../../lib/config/app-url'
 import { env } from 'cloudflare:workers'
 
-const FALLBACK_EMAIL = 'scott@smd.services'
+const FALLBACK_EMAIL = 'team@smd.services'
 const NOTIFY_EMAIL = 'team@smd.services'
 
 /**

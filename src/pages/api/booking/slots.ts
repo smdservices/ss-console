@@ -10,7 +10,7 @@ import type { SlotRange } from '../../../lib/booking/availability'
 import { getIntegration, getGoogleAccessToken } from '../../../lib/db/integrations'
 import { env } from 'cloudflare:workers'
 
-const FALLBACK_EMAIL = 'scott@smd.services'
+const FALLBACK_EMAIL = 'team@smd.services'
 
 /**
  * GET /api/booking/slots

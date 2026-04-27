@@ -32,7 +32,7 @@ export interface BookingAlertDetails {
 // ---------------------------------------------------------------------------
 
 /** Admin receives operational alerts. */
-const ALERT_EMAIL = BOOKING_CONFIG.consultant.email // scott@smd.services
+const ALERT_EMAIL = BOOKING_CONFIG.consultant.email // team@smd.services
 
 /** Only one email per kind in this window. */
 const RATE_LIMIT_MINUTES = 30
