@@ -24,6 +24,12 @@ import { createEntity, getEntity } from '../src/lib/db/entities'
 import { appendContext } from '../src/lib/db/context'
 import { evaluateThinFootprintGate } from '../src/lib/diagnostic'
 import { renderDiagnosticReport } from '../src/lib/diagnostic/render'
+import {
+  guardPlacesByDomain,
+  isStrictDomainMatch,
+  normalizeHost,
+} from '../src/lib/diagnostic/places-guard'
+import type { PlacesEnrichment } from '../src/lib/enrichment/google-places'
 
 const migrationsDir = resolve(process.cwd(), 'migrations')
 const ORG_ID = 'org-test-diagnostic'
@@ -307,5 +313,193 @@ describe('renderDiagnosticReport — anti-fabrication', () => {
     for (const s of r.sections) {
       expect(s.rendered).toBe(false)
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// #612 — strict domain-match guard
+//
+// The bug exemplar: submitting `venturecrane.com` returned Phoenix-area
+// "Sunrise Crane" (sunrisecrane.com) from Google Places. Without a guard,
+// that wrong business's phone + website wrote into the entity row, and
+// every downstream module ran against sunrisecrane.com. We test:
+//
+//   - normalizeHost / isStrictDomainMatch units (the comparator)
+//   - guardPlacesByDomain returns null on a wrong-match Places result
+//   - guardPlacesByDomain passes a strict match through
+//   - guardPlacesByDomain treats www-subdomain as a match
+//   - guardPlacesByDomain treats multi-level subdomain as NOT a match
+//   - the gate trips with reason='no_strict_places_match' when the
+//     orchestrator passes placesStrictMatched=false
+// ---------------------------------------------------------------------------
+
+describe('normalizeHost', () => {
+  it('returns lowercased host for a bare domain', () => {
+    expect(normalizeHost('Example.com')).toBe('example.com')
+  })
+
+  it('strips https:// and trailing path/slash', () => {
+    expect(normalizeHost('https://Example.com/path/?q=1')).toBe('example.com')
+    expect(normalizeHost('http://example.com/')).toBe('example.com')
+  })
+
+  it('strips www. prefix only at the leftmost label', () => {
+    expect(normalizeHost('www.example.com')).toBe('example.com')
+    // wwwfoo is part of the host label, not a leading 'www.' prefix
+    expect(normalizeHost('wwwfoo.example.com')).toBe('wwwfoo.example.com')
+  })
+
+  it('preserves multi-level subdomains', () => {
+    expect(normalizeHost('scan.example.com')).toBe('scan.example.com')
+    expect(normalizeHost('https://www.app.example.com')).toBe('app.example.com')
+  })
+
+  it('returns null for invalid or empty input', () => {
+    expect(normalizeHost('')).toBeNull()
+    expect(normalizeHost(null)).toBeNull()
+    expect(normalizeHost(undefined)).toBeNull()
+    // Single-label "host" — not a real domain
+    expect(normalizeHost('localhost')).toBeNull()
+  })
+})
+
+describe('isStrictDomainMatch', () => {
+  it('matches identical domains', () => {
+    expect(isStrictDomainMatch('venturecrane.com', 'venturecrane.com')).toBe(true)
+    expect(isStrictDomainMatch('venturecrane.com', 'https://venturecrane.com/')).toBe(true)
+  })
+
+  it('matches www-prefixed candidate against bare domain', () => {
+    expect(isStrictDomainMatch('venturecrane.com', 'https://www.venturecrane.com')).toBe(true)
+    expect(isStrictDomainMatch('www.venturecrane.com', 'https://venturecrane.com')).toBe(true)
+  })
+
+  it('does NOT match a different second-level domain', () => {
+    // The bug exemplar: submitted venturecrane.com, Places returned sunrisecrane.com
+    expect(isStrictDomainMatch('venturecrane.com', 'https://sunrisecrane.com')).toBe(false)
+  })
+
+  it('does NOT match multi-level subdomain against apex', () => {
+    expect(isStrictDomainMatch('venturecrane.com', 'https://scan.venturecrane.com')).toBe(false)
+    expect(isStrictDomainMatch('scan.venturecrane.com', 'https://venturecrane.com')).toBe(false)
+  })
+
+  it('returns false when either side is missing', () => {
+    expect(isStrictDomainMatch('venturecrane.com', null)).toBe(false)
+    expect(isStrictDomainMatch('venturecrane.com', '')).toBe(false)
+    expect(isStrictDomainMatch('', 'https://venturecrane.com')).toBe(false)
+    expect(isStrictDomainMatch(null, null)).toBe(false)
+  })
+})
+
+describe('guardPlacesByDomain', () => {
+  function makePlaces(website: string | null): PlacesEnrichment {
+    return {
+      phone: '+1 555 0001',
+      website,
+      rating: 4.5,
+      reviewCount: 27,
+      businessStatus: 'OPERATIONAL',
+      address: '123 Main St, Phoenix, AZ',
+    }
+  }
+
+  it('returns null when Places returned null (no result)', () => {
+    expect(guardPlacesByDomain(null, 'venturecrane.com')).toBeNull()
+  })
+
+  it('returns null when Places result has no website', () => {
+    expect(guardPlacesByDomain(makePlaces(null), 'venturecrane.com')).toBeNull()
+  })
+
+  it('returns null when Places returned a different second-level domain', () => {
+    // The 2026-04-27 bug exemplar
+    const places = makePlaces('https://sunrisecrane.com/')
+    const guarded = guardPlacesByDomain(places, 'venturecrane.com')
+    expect(guarded).toBeNull()
+  })
+
+  it('passes a strict domain match through unchanged', () => {
+    const places = makePlaces('https://venturecrane.com/')
+    const guarded = guardPlacesByDomain(places, 'venturecrane.com')
+    expect(guarded).toBe(places)
+  })
+
+  it('passes a www-prefixed candidate against bare submitted domain', () => {
+    const places = makePlaces('https://www.acme-plumbing.com')
+    const guarded = guardPlacesByDomain(places, 'acme-plumbing.com')
+    expect(guarded).toBe(places)
+  })
+
+  it('rejects a multi-level subdomain match', () => {
+    const places = makePlaces('https://scan.acme-plumbing.com')
+    const guarded = guardPlacesByDomain(places, 'acme-plumbing.com')
+    expect(guarded).toBeNull()
+  })
+})
+
+describe('evaluateThinFootprintGate — #612 strict domain-match enforcement', () => {
+  let db: D1Database
+  beforeEach(async () => {
+    db = await freshDb()
+  })
+
+  it("trips with 'no_strict_places_match' when orchestrator passes placesStrictMatched=false", async () => {
+    // Realistic shape: the placeholder website is set at entity-create time
+    // (`https://${submittedDomain}`), but Places didn't strictly identify
+    // the business by that domain. Even with a website on the entity row,
+    // the gate trips — the website is a placeholder, not a verified
+    // public footprint.
+    const entity = await createEntity(db, ORG_ID, {
+      name: 'Venturecrane',
+      website: 'https://venturecrane.com',
+      area: 'Phoenix, AZ',
+    })
+    const env = { DB: db } as Parameters<typeof evaluateThinFootprintGate>[0]
+    const r = await evaluateThinFootprintGate(env, entity, 'venturecrane.com', {
+      placesStrictMatched: false,
+    })
+    expect(r.thin).toBe(true)
+    expect(r.reason).toBe('no_strict_places_match')
+  })
+
+  it("does not trip with 'no_strict_places_match' when placesStrictMatched=true", async () => {
+    const entity = await createEntity(db, ORG_ID, {
+      name: 'Real Biz',
+      website: 'https://realbiz.com',
+      area: 'Phoenix, AZ',
+    })
+    await appendContext(db, ORG_ID, {
+      entity_id: entity.id,
+      type: 'enrichment',
+      source: 'google_places',
+      content: 'matched',
+      metadata: { reviewCount: 25, rating: 4.5 },
+    })
+    const env = { DB: db } as Parameters<typeof evaluateThinFootprintGate>[0]
+    const r = await evaluateThinFootprintGate(env, entity, 'realbiz.com', {
+      placesStrictMatched: true,
+    })
+    expect(r.thin).toBe(false)
+  })
+
+  it('preserves pre-#612 behavior when placesStrictMatched is unspecified', async () => {
+    // Tests that don't pass the option fall back to detecting Places via
+    // the enrichment row presence. This keeps the existing test suite
+    // (and any callers from before #612) working without changes.
+    const entity = await createEntity(db, ORG_ID, {
+      name: 'Legacy Caller',
+      area: 'Phoenix, AZ',
+    })
+    await appendContext(db, ORG_ID, {
+      entity_id: entity.id,
+      type: 'enrichment',
+      source: 'google_places',
+      content: 'matched',
+      metadata: { reviewCount: 50 },
+    })
+    const env = { DB: db } as Parameters<typeof evaluateThinFootprintGate>[0]
+    const r = await evaluateThinFootprintGate(env, entity, 'legacycaller.com')
+    expect(r.thin).toBe(false)
   })
 })
