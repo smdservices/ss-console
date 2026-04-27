@@ -798,7 +798,12 @@ async function regenerateOutreach(
       result.skipped.push('outreach_draft')
       return
     }
-    const draft = await generateOutreachDraft(env.ANTHROPIC_API_KEY, entity.name, context)
+    const draft = await generateOutreachDraft(
+      env.ANTHROPIC_API_KEY,
+      entity.name,
+      context,
+      entity.vertical
+    )
     await appendContext(env.DB, orgId, {
       entity_id: entity.id,
       type: 'outreach_draft',
@@ -807,6 +812,10 @@ async function regenerateOutreach(
       metadata: {
         model: 'claude-sonnet-4-20250514',
         trigger: result.mode === 'full' ? 'at_ingest' : 're_enrich',
+        // Issue #594 — record which vertical guidance the prompt used so
+        // re-runs and audits can see the variant. Null/unrecognized
+        // verticals record as null and the generic backbone was used.
+        vertical: entity.vertical ?? null,
       },
     })
     result.completed.push('outreach_draft')

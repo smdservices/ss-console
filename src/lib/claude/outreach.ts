@@ -11,6 +11,24 @@
  * - No pricing, no fixed timeframes
  * - No "systems" language — use "solution"
  * - Reference specific evidence from the signals
+ *
+ * Vertical-aware guidance (issue #594):
+ * - One shared backbone (the SYSTEM prompt below).
+ * - When a recognized vertical is supplied, a small per-vertical guidance
+ *   block is appended that names the *general* operational pain areas
+ *   that vertical commonly faces — drawn from CLAUDE.md "Pain Clusters by
+ *   Vertical" and phrased in 5-cat observation vocabulary
+ *   (process_design, customer_pipeline, data_visibility, team_operations,
+ *   tool_systems). Per ADR 0001, outreach speaks observation, not delivery.
+ * - The block is *backbone language only*. It never invents specifics
+ *   (no fake numbers, names, dates, events, or claimed conversations).
+ *   Per-prospect specificity comes exclusively from the assembled
+ *   `enrichment context`, which the model still grounds the email in.
+ * - When the vertical is missing, unknown, or 'other', the block is
+ *   omitted entirely and the generic backbone runs unchanged.
+ *
+ * @see docs/adr/0001-taxonomy-two-layer-model.md
+ * @see CLAUDE.md — "Pain Clusters by Vertical", "No fabricated client-facing content"
  */
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
@@ -31,7 +49,7 @@ The way you stand out: GIVE THEM SOMETHING. An observation about their business 
 1. Use the owner's first name if you know it. If not, use the business name naturally.
 2. Lead with a SPECIFIC, GENUINE insight about their business. Not a compliment, not flattery. A real observation that proves you looked closely. Something like: a gap between their 4.9 rating and the scheduling complaints in their 3-star reviews. Or how their team page lists 3 people but they're hiring for a role that covers 4 different functions. Or that they're ranked #1 locally but their website still doesn't have online booking. Connect real dots.
 3. One sentence connecting that insight to a bigger picture. Not "we can help with that." Instead, name the dynamic at play. The business is growing faster than the operation behind it, or the owner is holding things together that should be running on their own by now. Frame it as a normal phase of growth, not a failure.
-4. End with something low-friction and genuinely useful. NOT "would you be open to a brief conversation" (that's what every sales email says). Instead, offer to send them something specific. A one-page breakdown of what other [their vertical] companies their size have done. A list of tools that might help. Something concrete that costs them nothing and demonstrates value before asking for anything.
+4. End with something low-friction and genuinely useful. NOT "would you be open to a brief conversation" (that's what every sales email says). Instead, offer to send them something specific. A one-page breakdown of what other companies their size have done. A list of tools that might help. Something concrete that costs them nothing and demonstrates value before asking for anything.
 
 ## Hard rules
 - Always "we" / "our team." Never "I" or "the consultant."
@@ -46,7 +64,99 @@ The way you stand out: GIVE THEM SOMETHING. An observation about their business 
 - Maximum 120 words (not counting subject line).
 - Sign off as "-- The SMD Services team"
 
+## Anti-fabrication rule (CRITICAL)
+Every specific detail in the email must trace to the intelligence gathered below. If you do not have evidence for a number, an event, a person's name, a quote, or a date, do not invent one. Phrases like "you mentioned at the trade show", "your three-truck operation", "the conversation we had last month", "your 12-person team" are all forbidden unless those exact facts appear in the intelligence. When you have no specifics, write the generic backbone in our voice instead. Better to be honest and broad than to invent and get caught.
+
 Output ONLY the subject line and email. No commentary, no markdown fences.`
+
+// ---------------------------------------------------------------------------
+// Vertical guidance — backbone language only (no fabricated specifics).
+//
+// Each entry names the general operational pain areas that vertical commonly
+// faces, drawn from CLAUDE.md "Pain Clusters by Vertical". Phrased in 5-cat
+// observation vocabulary per ADR 0001 — never the 6-cat marketing labels.
+//
+// These are HINTS to the model about the language register and which pain
+// areas tend to resonate, not LICENSE to invent prospect-specific details.
+// The model still grounds every concrete claim in the assembled context.
+// ---------------------------------------------------------------------------
+
+export type OutreachVertical =
+  | 'home_services'
+  | 'professional_services'
+  | 'contractor_trades'
+  | 'retail_salon'
+  | 'restaurant_food'
+
+const VERTICAL_GUIDANCE: Record<OutreachVertical, string> = {
+  home_services: `## Vertical context: home services (plumber, HVAC, electrician, etc.)
+Owners in this vertical commonly feel pain in three observation areas:
+- customer_pipeline — leads come in by phone and text, follow-up depends on whoever picks up, jobs slip when the schedule fills
+- process_design — dispatch, intake, and quoting often live in the owner's head; growth past a few crews exposes the gap
+- team_operations — finding and keeping techs is a structural concern, not a recruiting blip
+
+If the intelligence below evidences any of these, lean in. If it doesn't, do not invent specifics. Keep the language grounded in what you can actually point to.`,
+
+  professional_services: `## Vertical context: professional services (accountant, attorney, CPA, consultant, etc.)
+Owners in this vertical commonly feel pain in three observation areas:
+- process_design — the owner is the bottleneck on client-facing work that should be delegable
+- customer_pipeline — manual communication (email threads, phone tag) eats hours that should compound into billable work
+- data_visibility — utilization, realization, pipeline value live in spreadsheets the owner reconciles by hand
+
+If the intelligence below evidences any of these, lean in. If it doesn't, do not invent specifics. Keep the language grounded in what you can actually point to.`,
+
+  retail_salon: `## Vertical context: retail / salon / spa
+Owners in this vertical commonly feel pain in three observation areas:
+- customer_pipeline — booking, no-shows, and rebooking depend on staff remembering to ask, not on a designed flow
+- process_design — front-desk workflows for new clients vs. regulars are inconsistent shift-to-shift
+- data_visibility — revenue per chair, retail attach rate, and product margin are guessed, not measured
+
+If the intelligence below evidences any of these, lean in. If it doesn't, do not invent specifics. Keep the language grounded in what you can actually point to.`,
+
+  contractor_trades: `## Vertical context: contractor / trades (general contractor, remodeler, etc.)
+Owners in this vertical commonly feel pain in three observation areas:
+- process_design — estimating and quoting are the owner's job long after the business should have a repeatable flow
+- customer_pipeline — scheduling subs, crews, and clients across active jobs creates conflicts that get resolved by phone
+- team_operations — keeping experienced field staff through busy and slow seasons is a structural problem, not a hiring blip
+
+If the intelligence below evidences any of these, lean in. If it doesn't, do not invent specifics. Keep the language grounded in what you can actually point to.`,
+
+  restaurant_food: `## Vertical context: restaurant / food service
+Owners in this vertical commonly feel pain in three observation areas:
+- team_operations — communication across shifts (FOH/BOH, AM/PM, owner/manager) breaks down at the seams
+- tool_systems — POS, inventory, and scheduling tools rarely talk to each other, so the same numbers get re-entered
+- data_visibility — food cost, labor percent, and prime cost are reconciled after the month closes, not steered in real time
+
+If the intelligence below evidences any of these, lean in. If it doesn't, do not invent specifics. Keep the language grounded in what you can actually point to.`,
+}
+
+/**
+ * Normalize a free-form vertical string into a recognized OutreachVertical,
+ * or null if it doesn't match. Recognized values come from the canonical
+ * VERTICALS list in src/portal/assessments/extraction-schema.ts.
+ *
+ * Verticals 'healthcare', 'technology', 'manufacturing', 'other', null,
+ * undefined, and any unrecognized string all return null — meaning the
+ * outreach falls back to the generic backbone with no vertical guidance
+ * (per CLAUDE.md no-fabricated-content rule).
+ */
+export function normalizeVertical(value: string | null | undefined): OutreachVertical | null {
+  if (!value) return null
+  if (value in VERTICAL_GUIDANCE) {
+    return value as OutreachVertical
+  }
+  return null
+}
+
+/**
+ * Build the full system prompt with optional vertical guidance appended.
+ * Exported for tests so we can assert the per-vertical content lock without
+ * making real API calls.
+ */
+export function buildOutreachSystemPrompt(vertical: OutreachVertical | null): string {
+  if (!vertical) return OUTREACH_SYSTEM_PROMPT
+  return `${OUTREACH_SYSTEM_PROMPT}\n\n${VERTICAL_GUIDANCE[vertical]}`
+}
 
 /**
  * Generate an outreach email draft from entity context.
@@ -54,6 +164,9 @@ Output ONLY the subject line and email. No commentary, no markdown fences.`
  * @param apiKey - Anthropic API key
  * @param entityName - Business name
  * @param assembledContext - Formatted context from assembleEntityContext()
+ * @param vertical - Optional canonical vertical ID. When recognized, a small
+ *   per-vertical guidance block is appended to the system prompt. When null,
+ *   undefined, or unrecognized, the generic backbone runs unchanged.
  * @returns The generated outreach email draft
  */
 const MAX_RETRIES = 2
@@ -62,8 +175,11 @@ const RETRY_DELAY_MS = 2_000
 export async function generateOutreachDraft(
   apiKey: string,
   entityName: string,
-  assembledContext: string
+  assembledContext: string,
+  vertical?: string | null
 ): Promise<string> {
+  const systemPrompt = buildOutreachSystemPrompt(normalizeVertical(vertical))
+
   const userPrompt = `Write a cold outreach email for this business. Read everything below carefully before writing. The insight you lead with should come from connecting multiple data points, not just restating one fact.
 
 Business: ${entityName}
@@ -75,7 +191,7 @@ ${assembledContext}`
   const body = JSON.stringify({
     model: MODEL,
     max_tokens: MAX_TOKENS,
-    system: OUTREACH_SYSTEM_PROMPT,
+    system: systemPrompt,
     messages: [{ role: 'user', content: userPrompt }],
   })
 
