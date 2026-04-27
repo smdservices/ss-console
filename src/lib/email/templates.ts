@@ -565,3 +565,83 @@ export function bookingCancelledEmailHtml(input: BookingCancelledEmailInput): st
 </body>
 </html>`
 }
+
+// ===========================================================================
+// Admin-issued booking link invitation (#467)
+// ===========================================================================
+
+export interface BookingLinkInviteEmailInput {
+  /**
+   * Display name of the recipient (primary contact). May be null when no
+   * authored name is on file — the template renders a neutral "Hi," in that
+   * case rather than fabricating a placeholder ("Hi Owner," / "Hi there,").
+   */
+  contactName: string | null
+  /**
+   * Recipient business name from the entity record. Used for subject + body
+   * context. Always present (entity.name is required).
+   */
+  businessName: string
+  /**
+   * The signed `/book?t=<token>` URL. Already absolute when APP_BASE_URL is
+   * configured; relative when the build is misconfigured. Tracking pixels
+   * and link rewriting are added by Resend server-side; we do not inject
+   * our own.
+   */
+  bookingUrl: string
+}
+
+/**
+ * HTML email sent by the admin "Send booking link" action.
+ *
+ * Voice: "we" — the SMD Services team is the speaker, never an individual
+ * consultant. CLAUDE.md / Decision #20.
+ *
+ * Forbidden: response-time promises (specific business-day reply windows),
+ * named consultants attributed as the speaker, uncontracted next-step
+ * commitments (proposals, deliverables, post-call behavior). The body is
+ * deliberately narrow — pick a time, link.
+ */
+export function bookingLinkInviteEmailHtml(input: BookingLinkInviteEmailInput): string {
+  const businessName = escapeBookingHtml(input.businessName)
+  const bookingUrl = escapeBookingHtml(input.bookingUrl)
+  const greeting = input.contactName ? `Hi ${escapeBookingHtml(input.contactName)},` : 'Hi,'
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Inter',Arial,sans-serif;">
+  <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;overflow:hidden;">
+    <div style="padding:32px 24px;">
+      <p style="font-size:15px;color:#334155;margin:0 0 16px;">${greeting}</p>
+      <p style="font-size:15px;color:#334155;margin:0 0 16px;">
+        Following up on <strong>${businessName}</strong>. When it works for you, pick a time
+        for a quick call so we can learn how things run and where you're trying to go.
+      </p>
+
+      <p style="margin:24px 0;">
+        <a href="${bookingUrl}"
+           style="display:inline-block;background-color:#1e40af;color:#ffffff;
+                  font-size:14px;font-weight:600;text-decoration:none;
+                  padding:12px 28px;border-radius:6px;">
+          Pick a time
+        </a>
+      </p>
+
+      <p style="font-size:13px;color:#64748b;margin:0 0 16px;word-break:break-all;">
+        Or paste this link into your browser:<br>
+        <a href="${bookingUrl}" style="color:#1e40af;">${bookingUrl}</a>
+      </p>
+
+      <p style="font-size:13px;color:#64748b;margin:24px 0 0;">
+        — ${BRAND_NAME}
+      </p>
+    </div>
+    <div style="background-color:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0;">
+      <p style="font-size:11px;color:#94a3b8;margin:0;">
+        &copy; ${new Date().getFullYear()} ${BRAND_NAME} &middot; Phoenix, AZ
+      </p>
+    </div>
+  </div>
+</body>
+</html>`
+}
