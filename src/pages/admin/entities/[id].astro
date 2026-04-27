@@ -777,6 +777,35 @@ function confidenceColor(_confidence: string): string {
             </select>
           </div>
 
+          {/* Send-mode toggle. Default is "send via email" so the button
+              actually does what its label says (#467). The "copy only"
+              path is preserved for cases where the admin wants to edit
+              the body in their own mail client. */}
+          <fieldset class="mb-4">
+            <legend class="block text-xs font-medium text-[color:var(--ss-color-text-secondary)] mb-1">
+              Delivery
+            </legend>
+            <label class="flex items-start gap-2 text-xs text-[color:var(--ss-color-text-primary)] mb-1.5">
+              <input type="radio" name="send_mode" value="email" checked class="mt-0.5" />
+              <span>
+                Send the email now
+                <span class="block text-[color:var(--ss-color-text-muted)]">
+                  Recorded in the outreach timeline so opens and clicks attribute back to this
+                  prospect.
+                </span>
+              </span>
+            </label>
+            <label class="flex items-start gap-2 text-xs text-[color:var(--ss-color-text-primary)]">
+              <input type="radio" name="send_mode" value="copy" class="mt-0.5" />
+              <span>
+                Copy the body and open mailto
+                <span class="block text-[color:var(--ss-color-text-muted)]">
+                  No tracking. Use when you want to edit the message in your own mail client.
+                </span>
+              </span>
+            </label>
+          </fieldset>
+
           <div
             id="sbl-error"
             class="hidden mb-3 rounded-[var(--ss-radius-card)] bg-surface border border-error text-error text-xs px-3 py-2"
@@ -1343,9 +1372,11 @@ function confidenceColor(_confidence: string): string {
         const formData = new FormData(sblForm)
         const meetingType = (formData.get('meeting_type') ?? '').toString().trim()
         const durationMinutes = (formData.get('duration_minutes') ?? '30').toString()
+        const sendMode = (formData.get('send_mode') ?? 'email').toString()
+        const wantsServerSend = sendMode === 'email'
 
         sblSubmit.disabled = true
-        sblSubmit.textContent = 'Sending...'
+        sblSubmit.textContent = wantsServerSend ? 'Sending...' : 'Preparing...'
         if (sblError) {
           sblError.classList.add('hidden')
           sblError.textContent = ''
@@ -1359,6 +1390,7 @@ function confidenceColor(_confidence: string): string {
             body: JSON.stringify({
               meeting_type: meetingType || null,
               duration_minutes: durationMinutes,
+              send_email: wantsServerSend,
             }),
           })
           const body = (await res.json().catch(() => ({}))) as {
@@ -1366,6 +1398,8 @@ function confidenceColor(_confidence: string): string {
             booking_url?: string
             outreach_template?: string
             mailto_url?: string
+            email_status?: string
+            send_error?: string | null
             error?: string
             message?: string
           }
@@ -1373,7 +1407,35 @@ function confidenceColor(_confidence: string): string {
             throw new Error(body.message ?? body.error ?? `HTTP ${res.status}`)
           }
 
-          // Copy outreach template to clipboard (best-effort)
+          // When the server-side send failed, surface the error and offer
+          // the copy-paste/mailto fallback rather than silently transitioning
+          // — the admin needs to know the prospect did NOT receive the link.
+          if (body.email_status === 'send_failed') {
+            if (sblError) {
+              sblError.textContent =
+                'Email send failed. The booking link is on your clipboard — paste it into mailto or your own mail client.'
+              sblError.classList.remove('hidden')
+            }
+            if (body.outreach_template) {
+              try {
+                await navigator.clipboard.writeText(body.outreach_template)
+              } catch (copyErr) {
+                console.warn('[send-booking-link] clipboard write failed:', copyErr)
+              }
+            }
+            if (body.mailto_url) {
+              window.open(body.mailto_url, '_blank')
+            }
+            // The stage transition still happened on the server, so reload
+            // — but mark the URL so the entity detail can surface a banner
+            // that the send did not complete.
+            window.location.href = `${window.location.pathname}?stage_updated=1&send=failed`
+            return
+          }
+
+          // Copy-paste / mailto path (or no-recipient fallback) — clipboard
+          // + mailto are the deliverable. We still copy on the email path
+          // so the admin has a backup if their mail provider drops it.
           if (body.outreach_template) {
             try {
               await navigator.clipboard.writeText(body.outreach_template)
@@ -1382,10 +1444,13 @@ function confidenceColor(_confidence: string): string {
             }
           }
 
-          // Open mailto in a new window so it doesn't navigate away from the
-          // admin page. If mailto isn't handled by the browser, this is a
-          // no-op — the clipboard already holds the template text.
-          if (body.mailto_url) {
+          // Only open mailto when the server did NOT send. If the email
+          // already went out via Resend, popping a mailto would lead the
+          // admin to send it twice.
+          const skippedServerSend =
+            body.email_status === 'skipped_by_caller' ||
+            body.email_status === 'skipped_no_recipient'
+          if (skippedServerSend && body.mailto_url) {
             window.open(body.mailto_url, '_blank')
           }
 
@@ -1393,7 +1458,8 @@ function confidenceColor(_confidence: string): string {
 
           // Reload so the context timeline shows the new outreach_draft entry
           // and the stage badge reflects the transition.
-          window.location.href = `${window.location.pathname}?stage_updated=1`
+          const sentParam = body.email_status === 'sent' ? '&send=sent' : ''
+          window.location.href = `${window.location.pathname}?stage_updated=1${sentParam}`
         } catch (err) {
           console.error('[send-booking-link] error:', err)
           if (sblError) {
