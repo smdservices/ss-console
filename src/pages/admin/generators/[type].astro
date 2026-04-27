@@ -250,11 +250,11 @@ function prettyJson(raw: string | null): string {
 function tierClass(tier: string | null): string {
   switch (tier) {
     case 'hot':
-      return 'bg-red-100 text-red-700'
+      return 'bg-[color:var(--ss-color-error)]/10 text-[color:var(--ss-color-error)]'
     case 'warm':
-      return 'bg-amber-100 text-amber-700'
+      return 'bg-[color:var(--ss-color-warning)]/10 text-[color:var(--ss-color-warning)]'
     case 'cool':
-      return 'bg-blue-100 text-blue-700'
+      return 'bg-[color:var(--ss-color-action)]/10 text-[color:var(--ss-color-action)]'
     case 'cold':
       return 'bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)]'
     default:
@@ -302,15 +302,15 @@ const runDisabledReason = !runWorkerUrl
 
   {
     saved && (
-      <div class="mb-6 p-stack bg-green-50 border border-green-200 rounded-[var(--ss-radius-card)]">
-        <p class="text-sm text-green-800">Configuration saved.</p>
+      <div class="mb-6 p-stack bg-[color:var(--ss-color-complete)]/10 border border-[color:var(--ss-color-complete)]/30 rounded-[var(--ss-radius-card)]">
+        <p class="text-sm text-[color:var(--ss-color-complete)]">Configuration saved.</p>
       </div>
     )
   }
   {
     ran && (
-      <div class="mb-6 p-stack bg-green-50 border border-green-200 rounded-[var(--ss-radius-card)]">
-        <p class="text-sm text-green-800">
+      <div class="mb-6 p-stack bg-[color:var(--ss-color-complete)]/10 border border-[color:var(--ss-color-complete)]/30 rounded-[var(--ss-radius-card)]">
+        <p class="text-sm text-[color:var(--ss-color-complete)]">
           Run complete. {ranSignals} signal{ranSignals === '1' ? '' : 's'} written.
         </p>
       </div>
@@ -318,8 +318,8 @@ const runDisabledReason = !runWorkerUrl
   }
   {
     errorParam && (
-      <div class="mb-6 p-stack bg-red-50 border border-red-200 rounded-[var(--ss-radius-card)]">
-        <p class="text-sm text-red-800">
+      <div class="mb-6 p-stack bg-[color:var(--ss-color-error)]/10 border border-[color:var(--ss-color-error)]/30 rounded-[var(--ss-radius-card)]">
+        <p class="text-sm text-[color:var(--ss-color-error)]">
           {errorParam === 'run_not_configured'
             ? `Run-now is not configured. Set ${type.toUpperCase()}_WORKER_URL and LEAD_INGEST_API_KEY on this Pages project.`
             : errorParam}
@@ -329,11 +329,11 @@ const runDisabledReason = !runWorkerUrl
   }
   {
     configRow.parseError.length > 0 && (
-      <div class="mb-6 p-stack bg-yellow-50 border border-yellow-200 rounded-[var(--ss-radius-card)]">
-        <p class="text-sm text-yellow-800 font-medium mb-1">
+      <div class="mb-6 p-stack bg-[color:var(--ss-color-warning)]/10 border border-[color:var(--ss-color-warning)]/30 rounded-[var(--ss-radius-card)]">
+        <p class="text-sm text-[color:var(--ss-color-warning)] font-medium mb-1">
           Stored configuration failed validation. Showing defaults.
         </p>
-        <ul class="text-xs text-yellow-800 list-disc pl-4 space-y-0.5">
+        <ul class="text-xs text-[color:var(--ss-color-warning)] list-disc pl-4 space-y-0.5">
           {configRow.parseError.map((e) => (
             <li>{e}</li>
           ))}
@@ -349,7 +349,8 @@ const runDisabledReason = !runWorkerUrl
       <div class="flex items-center justify-between gap-4 flex-wrap">
         <div class="flex items-center gap-row">
           <div
-            class={`w-3 h-3 rounded-full ${configRow.enabled ? 'bg-green-500' : 'bg-slate-300'}`}
+            class={`w-3 h-3 rounded-full ${configRow.enabled ? 'bg-[color:var(--ss-color-text-primary)]' : 'bg-[color:var(--ss-color-border)]'}`}
+            aria-hidden="true"
           >
           </div>
           <span class="text-sm font-medium text-[color:var(--ss-color-text-primary)]">
@@ -374,7 +375,9 @@ const runDisabledReason = !runWorkerUrl
             configRow.last_run_error && (
               <>
                 <span class="text-xs text-[color:var(--ss-color-text-muted)]">·</span>
-                <span class="text-sm text-red-600">Error: {configRow.last_run_error}</span>
+                <span class="text-sm text-[color:var(--ss-color-error)]">
+                  Error: {configRow.last_run_error}
+                </span>
               </>
             )
           }
@@ -384,7 +387,7 @@ const runDisabledReason = !runWorkerUrl
           <button
             type="submit"
             disabled={!runConfigured}
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-primary rounded-[var(--ss-radius-card)] hover:bg-primary/90 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-primary rounded-[var(--ss-radius-card)] hover:bg-primary/90 disabled:bg-[color:var(--ss-color-border)] disabled:cursor-not-allowed transition-colors"
             title={runConfigured ? 'Invoke worker now' : runDisabledReason}
           >
             <span class="material-symbols-outlined text-base">play_arrow</span>
@@ -777,7 +780,7 @@ const runDisabledReason = !runWorkerUrl
                   </p>
                 )}
                 {s.context_metadata ? (
-                  <pre class="text-xs font-mono bg-slate-900 text-slate-100 rounded p-3 overflow-x-auto whitespace-pre-wrap break-all">
+                  <pre class="text-xs font-mono bg-[color:var(--ss-color-surface-inverse)] text-white rounded p-3 overflow-x-auto whitespace-pre-wrap break-all">
                     {prettyJson(s.context_metadata)}
                   </pre>
                 ) : (

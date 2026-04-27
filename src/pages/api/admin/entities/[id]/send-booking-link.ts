@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro'
 import { getEntity, transitionStage } from '../../../../../lib/db/entities'
-import { createAssessment } from '../../../../../lib/db/assessments'
+import { createMeetingWithLegacyAssessment } from '../../../../../lib/db/meetings'
 import { listContacts } from '../../../../../lib/db/contacts'
 import { appendContext } from '../../../../../lib/db/context'
 import {
@@ -9,6 +9,8 @@ import {
 } from '../../../../../lib/booking/signed-link'
 import { BOOKING_CONFIG } from '../../../../../lib/booking/config'
 import { requireAppBaseUrl } from '../../../../../lib/config/app-url'
+import { sendOutreachEmail } from '../../../../../lib/email/resend'
+import { bookingLinkInviteEmailHtml } from '../../../../../lib/email/templates'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -18,20 +20,27 @@ import { env } from 'cloudflare:workers'
  * that actually matches its label (#467).
  *
  * Flow:
- *   1. Create an assessment row in `scheduled` status with no `scheduled_at`
- *      yet — the schedule sidecar row is added by `/api/booking/reserve` when
- *      the prospect actually picks a slot.
- *   2. Transition the entity `prospect → assessing` (stage rename to
- *      `meetings` is tracked separately in #466 and will be adopted then).
+ *   1. Create a canonical meeting row in `scheduled` status with no
+ *      `scheduled_at` yet, and seed the legacy assessment mirror row with the
+ *      same primary key during the monitoring window.
+ *   2. Transition the entity `prospect → meetings`.
  *   3. Sign a booking-link token that carries the entity_id, contact_id,
- *      assessment_id, and admin-chosen duration. TTL defaults to 14 days.
- *   4. Append a context entry noting the link was sent, with a copyable
- *      outreach template and mailto URL.
- *   5. Return JSON with the signed URL and outreach template so the admin
- *      UI can copy-to-clipboard and open the mail client.
+ *      assessment_id, meeting_type, and admin-chosen duration. TTL defaults
+ *      to 14 days.
+ *   4. Send the booking-link email server-side via `sendOutreachEmail` so
+ *      the send is recorded in `outreach_events` (entity-attributed) and
+ *      Resend's tracking pixel + link rewrites attribute downstream
+ *      open/click/bounce/reply events back to this entity (#587 path).
+ *      Skipped when the entity has no contact email — the admin still gets
+ *      a copy-paste template + mailto fallback.
+ *   5. Append a context entry noting the link was sent, with the same
+ *      outreach template the admin gets back in the response.
+ *   6. Return JSON with the signed URL, send status, and outreach template
+ *      so the admin UI can copy-to-clipboard or open mailto when the
+ *      server-side send was skipped.
  *
- * Response is JSON (not a redirect) because the admin UI drives the copy
- * and mailto steps client-side.
+ * Response is JSON (not a redirect) because the admin UI reflects send
+ * status inline rather than navigating away.
  */
 export const POST: APIRoute = async ({ params, request, locals }) => {
   const session = locals.session
@@ -62,6 +71,11 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   const meetingTypeRaw = typeof bodyData.meeting_type === 'string' ? bodyData.meeting_type : null
   const meetingType =
     meetingTypeRaw && meetingTypeRaw.trim().length > 0 ? meetingTypeRaw.trim().slice(0, 100) : null
+  // `send_email` defaults true: the goal of #467 is for clicking the button
+  // to actually send the link. The flag exists so the admin can opt into the
+  // legacy copy-paste / mailto path (e.g. they want to edit the body in
+  // their own mail client) without us inventing a separate endpoint.
+  const sendEmailFlag = parseBoolean(bodyData.send_email, true)
 
   try {
     // --- Load entity --------------------------------------------------------
@@ -85,17 +99,18 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     const contactEmail = primaryContact?.email ?? null
     const contactName = primaryContact?.name ?? null
 
-    // --- 1. Create the assessment row in scheduled status -------------------
+    // --- 1. Create the meeting row and the legacy assessment mirror ---------
     //
     // scheduled_at stays null until the prospect picks a slot via the public
-    // booking flow. The create helper sets status = 'scheduled' by default.
-    const assessment = await createAssessment(env.DB, session.orgId, entityId, {
+    // booking flow.
+    const meeting = await createMeetingWithLegacyAssessment(env.DB, session.orgId, entityId, {
       scheduled_at: null,
+      meeting_type: meetingType,
     })
 
-    // --- 2. Transition entity stage prospect → assessing --------------------
+    // --- 2. Transition entity stage prospect → meetings ---------------------
     //
-    // We do this AFTER creating the assessment row so the acceptance-criteria
+    // We do this AFTER creating the meeting row so the acceptance-criteria
     // invariant (stage transitions only after the meeting row exists) holds
     // even if the caller retries. If the stage transition fails we leave the
     // orphan `scheduled` assessment in place — it is harmless and a subsequent
@@ -122,7 +137,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       token = await signBookingLink({
         entity_id: entityId,
         contact_id: primaryContact?.id ?? null,
-        assessment_id: assessment.id,
+        assessment_id: meeting.id,
         duration_minutes: duration,
         meeting_type: meetingType,
       })
@@ -145,13 +160,67 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     }
     const bookingUrl = `${appBaseUrl}/book?t=${encodeURIComponent(token)}`
 
-    // --- 4. Append context entry with the outreach template ----------------
+    // --- 4. Build outreach template + email body ---------------------------
     const outreachTemplate = buildOutreachTemplate({
       contactName,
       businessName: entity.name,
       bookingUrl,
     })
+    const subject = buildSubject(entity.name)
 
+    // --- 5. Send the email server-side (if requested + recipient exists) ---
+    //
+    // The send goes through `sendOutreachEmail` so the synthetic 'sent' row
+    // in `outreach_events` is attributed to this entity. Downstream Resend
+    // webhooks (open/click/bounce/reply) re-resolve the entity_id from that
+    // row by message_id. Failures in the DB write do not fail the send —
+    // the email is unrecoverable once Resend accepts it. See #587.
+    let emailStatus: 'sent' | 'skipped_no_recipient' | 'skipped_by_caller' | 'send_failed'
+    let messageId: string | null = null
+    let outreachEventId: string | null = null
+    let sendError: string | null = null
+
+    if (!sendEmailFlag) {
+      emailStatus = 'skipped_by_caller'
+    } else if (!contactEmail) {
+      emailStatus = 'skipped_no_recipient'
+    } else {
+      const html = bookingLinkInviteEmailHtml({
+        contactName,
+        businessName: entity.name,
+        bookingUrl,
+      })
+      try {
+        const sendResult = await sendOutreachEmail(
+          env.RESEND_API_KEY,
+          { to: contactEmail, subject, html },
+          { db: env.DB, orgId: session.orgId, entityId }
+        )
+        if (sendResult.success) {
+          emailStatus = 'sent'
+          messageId = sendResult.id ?? null
+          outreachEventId = sendResult.outreach_event_id ?? null
+        } else {
+          emailStatus = 'send_failed'
+          sendError = sendResult.error ?? 'unknown_send_error'
+          console.error(
+            '[api/admin/entities/send-booking-link] email send failed:',
+            sendResult.error
+          )
+        }
+      } catch (err) {
+        emailStatus = 'send_failed'
+        sendError = err instanceof Error ? err.message : 'send_threw'
+        console.error('[api/admin/entities/send-booking-link] email send threw:', err)
+      }
+    }
+
+    // --- 6. Append context entry with the outreach template ----------------
+    //
+    // The metadata captures send status so the entity timeline can render
+    // "Sent to maria@example.com" vs. "Drafted; admin to send manually" vs.
+    // "Send failed" — an admin scanning the timeline never has to guess
+    // whether the prospect actually received the link.
     await appendContext(env.DB, session.orgId, {
       entity_id: entityId,
       type: 'outreach_draft',
@@ -159,28 +228,39 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       source: 'send_booking_link',
       metadata: {
         trigger: 'send_booking_link',
-        assessment_id: assessment.id,
+        assessment_id: meeting.id,
+        meeting_id: meeting.id,
         duration_minutes: duration,
         meeting_type: meetingType,
         token_ttl_days: DEFAULT_BOOKING_LINK_TTL_DAYS,
+        email_status: emailStatus,
+        recipient_email: contactEmail,
+        message_id: messageId,
+        outreach_event_id: outreachEventId,
+        send_error: sendError,
       },
     })
 
-    // --- 5. Return JSON for the client -------------------------------------
+    // --- 7. Return JSON for the client -------------------------------------
     const mailtoUrl = buildMailtoUrl({
       to: contactEmail,
-      subject: `Let's set up a call — ${entity.name}`,
+      subject,
       body: outreachTemplate,
     })
 
     return jsonResponse(200, {
       ok: true,
-      assessment_id: assessment.id,
+      assessment_id: meeting.id,
+      meeting_id: meeting.id,
       booking_url: bookingUrl,
       token_ttl_days: DEFAULT_BOOKING_LINK_TTL_DAYS,
       contact_email: contactEmail,
       outreach_template: outreachTemplate,
       mailto_url: mailtoUrl,
+      email_status: emailStatus,
+      message_id: messageId,
+      outreach_event_id: outreachEventId,
+      send_error: sendError,
     })
   } catch (err) {
     console.error('[api/admin/entities/send-booking-link] Error:', err)
@@ -209,10 +289,34 @@ function parseDuration(raw: unknown): number {
   return ALLOWED_DURATIONS.includes(num) ? num : def
 }
 
+function parseBoolean(raw: unknown, defaultValue: boolean): boolean {
+  if (raw === undefined || raw === null) return defaultValue
+  if (typeof raw === 'boolean') return raw
+  if (typeof raw === 'number') return raw !== 0
+  if (typeof raw === 'string') {
+    const v = raw.trim().toLowerCase()
+    if (v === 'true' || v === '1' || v === 'yes' || v === 'on') return true
+    if (v === 'false' || v === '0' || v === 'no' || v === 'off' || v === '') return false
+  }
+  return defaultValue
+}
+
+function buildSubject(businessName: string): string {
+  return `Quick call about ${businessName}`
+}
+
 /**
- * Outreach template text. Kept deliberately free of specific timeframes,
- * scope language, or business promises (CLAUDE.md "no fabricated client
- * content" rule). The admin is expected to edit before sending.
+ * Plain-text outreach body. Used both as the synced clipboard payload (when
+ * the admin chooses copy-paste rather than server-side send) and as the
+ * stored context entry.
+ *
+ * Voice: "we" only. No consultant names. No response-time promises. No
+ * uncontracted next-step language. CLAUDE.md "no fabricated client content"
+ * rule, Pattern A.
+ *
+ * The signature is the brand name, never an individual — even if a future
+ * field stores a consultant name, surfacing it here would imply ownership
+ * of a single-person reply that we have not contracted to provide.
  */
 function buildOutreachTemplate(params: {
   contactName: string | null
@@ -223,13 +327,11 @@ function buildOutreachTemplate(params: {
   const lines = [
     greeting,
     '',
-    `Following up on ${params.businessName}. When you have time, pick a slot that works for a quick intro call:`,
+    `Following up on ${params.businessName}. When it works for you, pick a time for a quick call so we can learn how things run and where you're trying to go.`,
     '',
     params.bookingUrl,
     '',
-    'Looking forward to talking.',
-    '',
-    'Scott',
+    '— SMD Services',
   ]
   return lines.join('\n')
 }

@@ -93,7 +93,7 @@ const success = Astro.url.searchParams.get('saved')
 >
   {
     success && (
-      <div class="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-3 rounded-[var(--ss-radius-card)] mb-4">
+      <div class="bg-[color:var(--ss-color-complete)]/10 border border-[color:var(--ss-color-complete)]/30 text-[color:var(--ss-color-complete)] text-sm px-4 py-3 rounded-[var(--ss-radius-card)] mb-4">
         Follow-up updated successfully.
       </div>
     )
@@ -138,7 +138,7 @@ const success = Astro.url.searchParams.get('saved')
       href={`/admin/follow-ups?tab=overdue${filterType ? `&type=${filterType}` : ''}`}
       class={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
         activeTab === 'overdue'
-          ? 'border-red-500 text-red-600'
+          ? 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]'
           : 'border-transparent text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)]'
       }`}
     >
@@ -148,7 +148,7 @@ const success = Astro.url.searchParams.get('saved')
       href={`/admin/follow-ups?tab=completed${filterType ? `&type=${filterType}` : ''}`}
       class={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
         activeTab === 'completed'
-          ? 'border-green-500 text-green-600'
+          ? 'border-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-text-primary)]'
           : 'border-transparent text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)]'
       }`}
     >
@@ -194,7 +194,7 @@ const success = Astro.url.searchParams.get('saved')
                       <span
                         class={
                           daysUntil(f.scheduled_for) < 0
-                            ? 'text-red-500 font-medium'
+                            ? 'text-[color:var(--ss-color-error)] font-medium'
                             : 'text-[color:var(--ss-color-text-secondary)]'
                         }
                       >
@@ -220,7 +220,7 @@ const success = Astro.url.searchParams.get('saved')
                       <input type="hidden" name="action" value="complete" />
                       <button
                         type="submit"
-                        class="text-xs bg-green-50 text-green-700 px-3 py-1.5 rounded-[var(--ss-radius-card)] hover:bg-green-100 transition-colors"
+                        class="text-xs bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] border border-[color:var(--ss-color-border)] px-3 py-1.5 rounded-[var(--ss-radius-card)] hover:bg-[color:var(--ss-color-border-subtle)] transition-colors"
                       >
                         Mark Complete
                       </button>

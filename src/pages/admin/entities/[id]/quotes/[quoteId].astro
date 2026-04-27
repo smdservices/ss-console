@@ -17,6 +17,7 @@ import type {
   DeliverableRow,
 } from '../../../../../lib/db/quotes'
 import { listContacts } from '../../../../../lib/db/contacts'
+import { listSignalsForEntity } from '../../../../../lib/db/signal-attribution'
 import { getSOWStateForQuote } from '../../../../../lib/sow/service'
 import { env } from 'cloudflare:workers'
 
@@ -38,11 +39,30 @@ const session = Astro.locals.session!
 const entityId = Astro.params.id!
 const quoteId = Astro.params.quoteId!
 
-const [entity, quote, contacts] = await Promise.all([
+const [entity, quote, contacts, entitySignals] = await Promise.all([
   getEntity(env.DB, session.orgId, entityId),
   getQuote(env.DB, session.orgId, quoteId),
   listContacts(env.DB, session.orgId, entityId),
+  listSignalsForEntity(env.DB, session.orgId, entityId),
 ])
+
+// Format helper for the originating-signal dropdown (#589). Single-line,
+// truncated, with pipeline + date + content snippet so an admin can pick the
+// right signal at a glance.
+function formatSignalLabel(s: {
+  source_pipeline: string
+  created_at: string
+  content: string
+}): string {
+  const date = new Date(s.created_at).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+  const oneLine = s.content.replace(/\s+/g, ' ').trim()
+  const snippet = oneLine.length > 80 ? `${oneLine.slice(0, 79)}…` : oneLine
+  return `[${s.source_pipeline}] ${date} — ${snippet}`
+}
 
 if (!entity) return Astro.redirect('/admin/entities?error=not_found')
 if (!quote) return Astro.redirect(`/admin/entities/${entityId}?error=not_found`)
@@ -105,14 +125,14 @@ function formatCurrency(amount: number): string {
 >
   {
     saved && (
-      <div class="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-3 rounded-[var(--ss-radius-card)] mb-4">
+      <div class="bg-surface border border-complete text-complete text-sm px-4 py-3 rounded-[var(--ss-radius-card)] mb-4">
         Quote saved.
       </div>
     )
   }
   {
     error && (
-      <div class="bg-red-50 border border-red-200 text-red-800 text-sm px-4 py-3 rounded-[var(--ss-radius-card)] mb-4">
+      <div class="bg-surface border border-error text-error text-sm px-4 py-3 rounded-[var(--ss-radius-card)] mb-4">
         {error === 'invalid_transition'
           ? 'Invalid status transition.'
           : error === 'no_sow'
@@ -131,7 +151,7 @@ function formatCurrency(amount: number): string {
   {/* Stale PDF warning (OQ-006) */}
   {
     isSowStale && (
-      <div class="bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3 rounded-[var(--ss-radius-card)] mb-4">
+      <div class="bg-surface border border-border text-text-primary text-sm px-4 py-3 rounded-[var(--ss-radius-card)] mb-4">
         The quote has been modified since the last SOW PDF was generated. Re-generate the PDF before
         sending.
       </div>
@@ -140,7 +160,7 @@ function formatCurrency(amount: number): string {
 
   {/* Header */}
   <div
-    class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card mb-6"
+    class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card mb-6"
   >
     <div class="flex items-start justify-between gap-stack">
       <div>
@@ -158,7 +178,7 @@ function formatCurrency(amount: number): string {
           <span>Created {formatDate(quote.created_at)}</span>
           {
             expiresAt && (
-              <span class={isExpired ? 'text-red-600 font-medium' : ''}>
+              <span class={isExpired ? 'text-error font-medium' : ''}>
                 {isExpired ? 'Expired' : 'Expires'} {formatDate(quote.expires_at!)}
               </span>
             )
@@ -172,11 +192,11 @@ function formatCurrency(amount: number): string {
 
   {/* Line Item Editor */}
   <div
-    class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card mb-6"
+    class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card mb-6"
   >
     <div class="flex items-center justify-between mb-4">
       <h3 class="text-lg font-semibold text-[color:var(--ss-color-text-primary)]">Line Items</h3>
-      <div id="line-item-warning" class="hidden text-sm text-amber-600 font-medium">
+      <div id="line-item-warning" class="hidden text-sm text-error font-medium">
         Consider keeping scope focused — 3+ line items may indicate too broad an engagement (OQ-005)
       </div>
     </div>
@@ -258,7 +278,7 @@ function formatCurrency(amount: number): string {
                   <td class="py-2 px-2 text-center">
                     <button
                       type="button"
-                      class="text-[color:var(--ss-color-text-muted)] hover:text-red-500 transition-colors remove-item-btn"
+                      class="text-[color:var(--ss-color-text-muted)] hover:text-error transition-colors remove-item-btn"
                       title="Remove"
                     >
                       &times;
@@ -302,7 +322,7 @@ function formatCurrency(amount: number): string {
 
   {/* Payment Structure */}
   <div
-    class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card mb-6"
+    class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card mb-6"
   >
     <h3 class="text-lg font-semibold text-[color:var(--ss-color-text-primary)] mb-4">
       Payment Structure
@@ -336,7 +356,7 @@ function formatCurrency(amount: number): string {
 
       {
         isThreeMilestone && (
-          <div class="text-sm text-amber-600 bg-amber-50 border border-amber-200 px-3 py-2 rounded">
+          <div class="text-sm text-text-primary bg-surface border border-border px-3 py-2 rounded">
             40+ hour engagement — 3-milestone payment applies (40% deposit, 30% mid-engagement, 30%
             completion)
           </div>
@@ -384,7 +404,7 @@ function formatCurrency(amount: number): string {
 
   {/* Authored client-facing content (#377) */}
   <div
-    class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card mb-6"
+    class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card mb-6"
   >
     <div class="flex items-start justify-between mb-1">
       <h3 class="text-lg font-semibold text-[color:var(--ss-color-text-primary)]">
@@ -392,11 +412,11 @@ function formatCurrency(amount: number): string {
       </h3>
       {
         missingAuthored.length > 0 ? (
-          <span class="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-medium">
+          <span class="text-xs px-2 py-0.5 rounded bg-surface border border-error text-error font-medium">
             Required to send: {missingAuthored.join(', ')}
           </span>
         ) : (
-          <span class="text-xs px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-medium">
+          <span class="text-xs px-2 py-0.5 rounded bg-border-subtle text-text-secondary font-medium">
             Ready to send
           </span>
         )
@@ -453,7 +473,7 @@ function formatCurrency(amount: number): string {
                     />
                     <button
                       type="button"
-                      class="text-[color:var(--ss-color-text-muted)] hover:text-red-500 transition-colors remove-schedule-row-btn px-2"
+                      class="text-[color:var(--ss-color-text-muted)] hover:text-error transition-colors remove-schedule-row-btn px-2"
                       title="Remove"
                     >
                       &times;
@@ -525,7 +545,7 @@ function formatCurrency(amount: number): string {
                     </div>
                     <button
                       type="button"
-                      class="text-[color:var(--ss-color-text-muted)] hover:text-red-500 transition-colors remove-deliverable-row-btn px-2"
+                      class="text-[color:var(--ss-color-text-muted)] hover:text-error transition-colors remove-deliverable-row-btn px-2"
                       title="Remove"
                     >
                       &times;
@@ -577,6 +597,46 @@ function formatCurrency(amount: number): string {
       }
     </div>
 
+    {/* Originating signal (#589) */}
+    <div class="mb-6">
+      <label
+        class="block text-sm font-semibold text-[color:var(--ss-color-text-primary)] mb-1"
+        for="originating-signal-input"
+      >
+        Originating signal
+      </label>
+      <p class="text-xs text-[color:var(--ss-color-text-secondary)] mb-2">
+        Pipeline signal that produced this engagement. Defaults to the most recent signal on file.
+        Used for ROI-per-pipeline reporting; never rendered to the client.
+      </p>
+      {
+        isDraft ? (
+          <select
+            id="originating-signal-input"
+            class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm"
+          >
+            <option value="__none__" selected={!quote.originating_signal_id}>
+              — Unattributed —
+            </option>
+            {entitySignals.map((s) => (
+              <option value={s.id} selected={quote.originating_signal_id === s.id}>
+                {formatSignalLabel(s)}
+              </option>
+            ))}
+          </select>
+        ) : quote.originating_signal_id ? (
+          <p class="text-sm text-[color:var(--ss-color-text-primary)]">
+            {(() => {
+              const s = entitySignals.find((x) => x.id === quote.originating_signal_id)
+              return s ? formatSignalLabel(s) : 'Attributed (signal no longer visible).'
+            })()}
+          </p>
+        ) : (
+          <p class="text-sm italic text-[color:var(--ss-color-text-muted)]">Unattributed.</p>
+        )
+      }
+    </div>
+
     {/* Milestone label (three-milestone only) */}
     {
       isThreeMilestone && (
@@ -614,7 +674,7 @@ function formatCurrency(amount: number): string {
   {/* SOW PDF Status */}
   {
     hasSow && (
-      <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card mb-6">
+      <div class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card mb-6">
         <h3 class="text-lg font-semibold text-[color:var(--ss-color-text-primary)] mb-2">
           SOW PDF
         </h3>
@@ -623,7 +683,7 @@ function formatCurrency(amount: number): string {
             Generated: {sowGeneratedAt ? formatDate(latestSowRevision!.rendered_at) : 'Unknown'}
           </div>
           {activeSignatureRequest?.provider_request_id && (
-            <div class="text-green-700">Sent for signature via SignWell</div>
+            <div class="text-text-primary">Sent for signature via SignWell</div>
           )}
         </div>
       </div>
@@ -632,7 +692,7 @@ function formatCurrency(amount: number): string {
 
   {/* Actions */}
   <div
-    class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card"
+    class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card"
   >
     <h3 class="text-lg font-semibold text-[color:var(--ss-color-text-primary)] mb-4">Actions</h3>
     <div class="flex flex-wrap gap-row">
@@ -677,6 +737,12 @@ function formatCurrency(amount: number): string {
               id="save-milestone-label"
               value={milestoneLabel}
             />
+            <input
+              type="hidden"
+              name="originating_signal_id"
+              id="save-originating-signal-id"
+              value={quote.originating_signal_id ?? '__none__'}
+            />
             <button
               type="submit"
               class="px-4 py-2 bg-primary text-white rounded hover:bg-primary-hover transition-colors text-sm font-medium"
@@ -694,7 +760,7 @@ function formatCurrency(amount: number): string {
             <input type="hidden" name="action" value="generate-pdf" />
             <button
               type="submit"
-              class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors text-sm font-medium"
+              class="px-4 py-2 border border-border bg-surface text-text-primary rounded hover:bg-background transition-colors text-sm font-medium"
               id="generate-pdf-btn"
             >
               {hasSow ? 'Re-generate SOW PDF' : 'Generate SOW PDF'}
@@ -709,7 +775,7 @@ function formatCurrency(amount: number): string {
           <form method="POST" action={`/api/admin/quotes/${quoteId}/sign`} id="sign-form">
             <select
               name="signer_contact_id"
-              class="px-3 py-2 border border-[color:var(--ss-color-border)] rounded text-sm bg-white"
+              class="px-3 py-2 border border-[color:var(--ss-color-border)] rounded text-sm bg-surface"
               required
             >
               {contacts
@@ -722,7 +788,7 @@ function formatCurrency(amount: number): string {
             </select>
             <button
               type="submit"
-              class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm font-medium"
+              class="px-4 py-2 border border-border bg-surface text-text-primary rounded hover:bg-background transition-colors text-sm font-medium"
               id="sign-btn"
             >
               Send via SignWell
@@ -787,12 +853,14 @@ function formatCurrency(amount: number): string {
       const saveDeliverablesInput = document.getElementById('save-deliverables')
       const saveEngagementOverviewInput = document.getElementById('save-engagement-overview')
       const saveMilestoneLabelInput = document.getElementById('save-milestone-label')
+      const saveOriginatingSignalInput = document.getElementById('save-originating-signal-id')
       const scheduleRowsContainer = document.getElementById('schedule-rows')
       const deliverableRowsContainer = document.getElementById('deliverable-rows')
       const addScheduleRowBtn = document.getElementById('add-schedule-row-btn')
       const addDeliverableRowBtn = document.getElementById('add-deliverable-row-btn')
       const engagementOverviewInput = document.getElementById('engagement-overview-input')
       const milestoneLabelInput = document.getElementById('milestone-label-input')
+      const originatingSignalInput = document.getElementById('originating-signal-input')
       const generatePdfBtn = document.getElementById('generate-pdf-btn')
       const signBtn = document.getElementById('sign-btn')
 
@@ -923,6 +991,12 @@ function formatCurrency(amount: number): string {
         if (saveMilestoneLabelInput && milestoneLabelInput) {
           saveMilestoneLabelInput.value = milestoneLabelInput.value
         }
+        if (saveOriginatingSignalInput && originatingSignalInput) {
+          // Mirror the dropdown value (#589) into the save form. The "__none__"
+          // sentinel is sent verbatim — the API endpoint translates it back to
+          // null. Real signal ids pass through unchanged.
+          saveOriginatingSignalInput.value = originatingSignalInput.value
+        }
       }
 
       function addScheduleRow() {
@@ -933,7 +1007,7 @@ function formatCurrency(amount: number): string {
         div.innerHTML = `
           <input type="text" class="w-32 border border-[color:var(--ss-color-border)] rounded px-2 py-1 text-sm schedule-label" placeholder="Label" />
           <input type="text" class="flex-1 border border-[color:var(--ss-color-border)] rounded px-2 py-1 text-sm schedule-body" placeholder="What happens in this phase" />
-          <button type="button" class="text-[color:var(--ss-color-text-muted)] hover:text-red-500 transition-colors remove-schedule-row-btn px-2" title="Remove">&times;</button>
+          <button type="button" class="text-[color:var(--ss-color-text-muted)] hover:text-error transition-colors remove-schedule-row-btn px-2" title="Remove">&times;</button>
         `
         scheduleRowsContainer.appendChild(div)
       }
@@ -949,7 +1023,7 @@ function formatCurrency(amount: number): string {
               <input type="text" class="w-full border border-[color:var(--ss-color-border)] rounded px-2 py-1 text-sm deliverable-title" placeholder="Title" />
               <textarea class="w-full border border-[color:var(--ss-color-border)] rounded px-2 py-1 text-sm deliverable-body" rows="2" placeholder="Description"></textarea>
             </div>
-            <button type="button" class="text-[color:var(--ss-color-text-muted)] hover:text-red-500 transition-colors remove-deliverable-row-btn px-2" title="Remove">&times;</button>
+            <button type="button" class="text-[color:var(--ss-color-text-muted)] hover:text-error transition-colors remove-deliverable-row-btn px-2" title="Remove">&times;</button>
           </div>
         `
         deliverableRowsContainer.appendChild(div)
@@ -1008,7 +1082,7 @@ function formatCurrency(amount: number): string {
               <input type="number" class="w-20 border border-[color:var(--ss-color-border)] rounded px-2 py-1 text-sm text-right item-hours" value="0" min="0.5" step="0.5" />
             </td>
             <td class="py-2 px-2 text-center">
-              <button type="button" class="text-[color:var(--ss-color-text-muted)] hover:text-red-500 transition-colors remove-item-btn" title="Remove">&times;</button>
+              <button type="button" class="text-[color:var(--ss-color-text-muted)] hover:text-error transition-colors remove-item-btn" title="Remove">&times;</button>
             </td>
           `
         body.appendChild(tr)

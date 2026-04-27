@@ -15,6 +15,8 @@
  * Primary keys use crypto.randomUUID().
  */
 
+import { getDefaultOriginatingSignalId } from './signal-attribution'
+
 export interface Meeting {
   id: string
   org_id: string
@@ -30,6 +32,12 @@ export interface Meeting {
   /** Free-form completion notes written by the admin when the meeting is completed. */
   completion_notes: string | null
   status: MeetingStatus
+  /**
+   * Originating signal attribution (#589). Context-row id (type='signal')
+   * that this meeting is attributed to, or NULL if the meeting was booked
+   * without a triggering signal (inbound, manual entry, pre-migration row).
+   */
+  originating_signal_id: string | null
   created_at: string
 }
 
@@ -59,6 +67,24 @@ export const VALID_TRANSITIONS: Record<MeetingStatus, MeetingStatus[]> = {
 export interface CreateMeetingData {
   scheduled_at?: string | null
   meeting_type?: string | null
+  /**
+   * Originating signal attribution (#589). Same three-state contract used
+   * across the lifecycle: undefined → default to most-recent signal for the
+   * entity, string → explicit override, null → leave unattributed.
+   */
+  originating_signal_id?: string | null
+}
+
+export interface EnsureMeetingForAssessmentData {
+  assessmentId: string
+  scheduled_at?: string | null
+  meeting_type?: string | null
+}
+
+export interface EnsureMeetingForAssessmentResult {
+  meeting: Meeting
+  created: boolean
+  previousScheduledAt: string | null
 }
 
 export interface UpdateMeetingData {
@@ -70,6 +96,8 @@ export interface UpdateMeetingData {
   live_notes?: string | null
   completion_notes?: string | null
   meeting_type?: string | null
+  /** See CreateMeetingData. `null` clears, string sets, omit leaves unchanged. */
+  originating_signal_id?: string | null
 }
 
 /**
@@ -166,12 +194,27 @@ export async function createMeeting(
   const id = crypto.randomUUID()
   const now = new Date().toISOString()
 
+  // Resolve originating-signal attribution (#589). See createEngagement /
+  // createQuote for the same three-state default contract.
+  const originatingSignalId =
+    data.originating_signal_id === undefined
+      ? await getDefaultOriginatingSignalId(db, orgId, entityId)
+      : data.originating_signal_id
+
   await db
     .prepare(
-      `INSERT INTO meetings (id, org_id, entity_id, meeting_type, scheduled_at, status, created_at)
-     VALUES (?, ?, ?, ?, ?, 'scheduled', ?)`
+      `INSERT INTO meetings (id, org_id, entity_id, meeting_type, scheduled_at, status, originating_signal_id, created_at)
+     VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?)`
     )
-    .bind(id, orgId, entityId, data.meeting_type ?? null, data.scheduled_at ?? null, now)
+    .bind(
+      id,
+      orgId,
+      entityId,
+      data.meeting_type ?? null,
+      data.scheduled_at ?? null,
+      originatingSignalId,
+      now
+    )
     .run()
 
   const meeting = await getMeeting(db, orgId, id)
@@ -179,6 +222,167 @@ export async function createMeeting(
     throw new Error('Failed to retrieve created meeting')
   }
   return meeting
+}
+
+/**
+ * Create the canonical meeting row and the legacy assessment mirror row using
+ * the same primary key during the monitoring window.
+ */
+export async function createMeetingWithLegacyAssessment(
+  db: D1Database,
+  orgId: string,
+  entityId: string,
+  data: CreateMeetingData
+): Promise<Meeting> {
+  const id = crypto.randomUUID()
+  const now = new Date().toISOString()
+
+  // Resolve originating-signal attribution (#589). The legacy `assessments`
+  // table is read-only after the meetings backfill so we don't dual-write
+  // attribution there — attribution lives on `meetings` only.
+  const originatingSignalId =
+    data.originating_signal_id === undefined
+      ? await getDefaultOriginatingSignalId(db, orgId, entityId)
+      : data.originating_signal_id
+
+  try {
+    await db.batch([
+      db
+        .prepare(
+          `INSERT INTO meetings (
+            id, org_id, entity_id, meeting_type, scheduled_at, status, originating_signal_id, created_at
+          ) VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?)`
+        )
+        .bind(
+          id,
+          orgId,
+          entityId,
+          data.meeting_type ?? null,
+          data.scheduled_at ?? null,
+          originatingSignalId,
+          now
+        ),
+      db
+        .prepare(
+          `INSERT INTO assessments (
+            id, org_id, entity_id, scheduled_at, status, created_at
+          ) VALUES (?, ?, ?, ?, 'scheduled', ?)`
+        )
+        .bind(id, orgId, entityId, data.scheduled_at ?? null, now),
+    ])
+  } catch (error) {
+    await db.batch([
+      db.prepare('DELETE FROM meetings WHERE id = ? AND org_id = ?').bind(id, orgId),
+      db.prepare('DELETE FROM assessments WHERE id = ? AND org_id = ?').bind(id, orgId),
+    ])
+    throw error
+  }
+
+  const meeting = await getMeeting(db, orgId, id)
+  if (!meeting) {
+    throw new Error('Failed to retrieve created meeting')
+  }
+  return meeting
+}
+
+/**
+ * Ensure a canonical meeting row exists for a legacy assessment id, then keep
+ * its scheduled_at / meeting_type aligned with the booking flow.
+ */
+export async function ensureMeetingForAssessment(
+  db: D1Database,
+  orgId: string,
+  entityId: string,
+  data: EnsureMeetingForAssessmentData
+): Promise<EnsureMeetingForAssessmentResult> {
+  const existing = await getMeeting(db, orgId, data.assessmentId)
+  if (existing) {
+    const updated = await updateMeeting(db, orgId, data.assessmentId, {
+      scheduled_at: data.scheduled_at,
+      ...(data.meeting_type !== undefined ? { meeting_type: data.meeting_type } : {}),
+    })
+    if (!updated) {
+      throw new Error('Failed to update meeting for legacy assessment')
+    }
+    return {
+      meeting: updated,
+      created: false,
+      previousScheduledAt: existing.scheduled_at,
+    }
+  }
+
+  const assessment = await db
+    .prepare(
+      `SELECT entity_id, scheduled_at, status, created_at
+       FROM assessments
+       WHERE id = ? AND org_id = ?`
+    )
+    .bind(data.assessmentId, orgId)
+    .first<{
+      entity_id: string
+      scheduled_at: string | null
+      status: string
+      created_at: string
+    }>()
+
+  if (!assessment) {
+    throw new Error(`Assessment not found: ${data.assessmentId}`)
+  }
+
+  if (assessment.entity_id !== entityId) {
+    throw new Error(`Assessment ${data.assessmentId} does not belong to entity ${entityId}`)
+  }
+
+  // Resolve originating-signal attribution (#589). The legacy assessment row
+  // doesn't have a signal FK so we always default-resolve from context.
+  const originatingSignalId = await getDefaultOriginatingSignalId(db, orgId, entityId)
+
+  try {
+    await db
+      .prepare(
+        `INSERT INTO meetings (
+          id, org_id, entity_id, meeting_type, scheduled_at, status, originating_signal_id, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        data.assessmentId,
+        orgId,
+        entityId,
+        data.meeting_type ?? 'assessment',
+        data.scheduled_at ?? assessment.scheduled_at,
+        assessment.status,
+        originatingSignalId,
+        assessment.created_at
+      )
+      .run()
+  } catch (error) {
+    const raced = await getMeeting(db, orgId, data.assessmentId)
+    if (!raced) throw error
+
+    const updated = await updateMeeting(db, orgId, data.assessmentId, {
+      scheduled_at: data.scheduled_at,
+      ...(data.meeting_type !== undefined ? { meeting_type: data.meeting_type } : {}),
+    })
+    if (!updated) {
+      throw new Error('Failed to update raced meeting for legacy assessment')
+    }
+    return {
+      meeting: updated,
+      created: false,
+      previousScheduledAt: raced.scheduled_at,
+    }
+  }
+
+  const meeting = await getMeeting(db, orgId, data.assessmentId)
+  if (!meeting) {
+    throw new Error('Failed to retrieve meeting for legacy assessment')
+  }
+
+  return {
+    meeting,
+    created: true,
+    previousScheduledAt: null,
+  }
 }
 
 /**
@@ -236,6 +440,11 @@ export async function updateMeeting(
   if (data.meeting_type !== undefined) {
     fields.push('meeting_type = ?')
     params.push(data.meeting_type)
+  }
+
+  if (data.originating_signal_id !== undefined) {
+    fields.push('originating_signal_id = ?')
+    params.push(data.originating_signal_id)
   }
 
   if (fields.length === 0) {
