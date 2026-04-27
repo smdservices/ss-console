@@ -46,6 +46,14 @@ export interface ScanRequest {
    *   - otherwise: null
    */
   scan_status_reason: string | null
+  /**
+   * Cloudflare Workflow instance id (#614). Populated by /api/scan/verify
+   * after env.SCAN_WORKFLOW.create returns. Lets operators look up a
+   * running scan in the Cloudflare dashboard. NULL for rows created on
+   * the old ctx.waitUntil path or for the brief window between
+   * markScanVerified and the create() call returning.
+   */
+  workflow_run_id: string | null
   created_at: string
 }
 
@@ -153,6 +161,7 @@ export interface UpdateScanRequestRunData {
   email_sent_at?: string | null
   error_message?: string | null
   scan_status_reason?: string | null
+  workflow_run_id?: string | null
 }
 
 /**
@@ -198,6 +207,10 @@ export async function updateScanRequestRun(
   if (data.scan_status_reason !== undefined) {
     sets.push('scan_status_reason = ?')
     params.push(data.scan_status_reason)
+  }
+  if (data.workflow_run_id !== undefined) {
+    sets.push('workflow_run_id = ?')
+    params.push(data.workflow_run_id)
   }
   if (sets.length === 0) return
   params.push(id)
