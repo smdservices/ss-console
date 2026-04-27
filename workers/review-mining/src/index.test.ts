@@ -335,3 +335,69 @@ describe('review-mining scheduled handler', () => {
     ).resolves.toBeUndefined()
   })
 })
+
+// ---------------------------------------------------------------------------
+// Tests: per-run cap + Outscraper budget guard (issue #592)
+// ---------------------------------------------------------------------------
+
+describe('review-mining cap and budget guard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
+    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined as never)
+    vi.mocked(fetchReviews).mockResolvedValue([])
+    vi.mocked(findOrCreateEntity).mockResolvedValue({
+      entity: { id: 'entity-001', name: 'Desert HVAC' },
+    } as never)
+    vi.mocked(appendContext).mockResolvedValue(undefined as never)
+  })
+
+  it('respects MAX_REVIEW_CHECKS env override (caps at 5 of 12 discovered)', async () => {
+    const businesses = Array.from({ length: 12 }, (_, i) =>
+      makeDiscoveredBusiness({ place_id: `p-${i}` })
+    )
+    vi.mocked(discoverBusinesses).mockResolvedValue(businesses)
+    const res = await worker.fetch(
+      makeRequest('Bearer sk-test-ingest-key'),
+      makeEnv({ MAX_REVIEW_CHECKS: '5' }),
+      makeCtx()
+    )
+    const body = (await res.json()) as Record<string, unknown>
+    expect(body.discovered).toBe(12)
+    expect(body.reviewChecksAttempted).toBe(5)
+    // 5 places x $0.003 = $0.015
+    expect(body.outscraperSpendUsd).toBeCloseTo(0.015, 5)
+    expect(body.budgetGuardTripped).toBe(false)
+  })
+
+  it('stops early when the Outscraper budget guard would be exceeded', async () => {
+    // 30 discovered, batch size 10, $0.003 each. Budget $0.04 allows
+    // at most 1 batch ($0.030); the 2nd batch would push to $0.060 > $0.040.
+    const businesses = Array.from({ length: 30 }, (_, i) =>
+      makeDiscoveredBusiness({ place_id: `p-${i}` })
+    )
+    vi.mocked(discoverBusinesses).mockResolvedValue(businesses)
+    const res = await worker.fetch(
+      makeRequest('Bearer sk-test-ingest-key'),
+      makeEnv({ OUTSCRAPER_BUDGET_USD_PER_RUN: '0.04' }),
+      makeCtx()
+    )
+    const body = (await res.json()) as Record<string, unknown>
+    expect(body.budgetGuardTripped).toBe(true)
+    expect(body.reviewChecksAttempted).toBe(10)
+    expect(body.outscraperSpendUsd).toBeCloseTo(0.03, 5)
+  })
+
+  it('uses the 200 default when MAX_REVIEW_CHECKS is unset', async () => {
+    const businesses = Array.from({ length: 250 }, (_, i) =>
+      makeDiscoveredBusiness({ place_id: `p-${i}` })
+    )
+    vi.mocked(discoverBusinesses).mockResolvedValue(businesses)
+    const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
+    const body = (await res.json()) as Record<string, unknown>
+    expect(body.discovered).toBe(250)
+    expect(body.reviewChecksAttempted).toBe(200)
+    expect(body.outscraperSpendUsd).toBeCloseTo(0.6, 5)
+    expect(body.budgetGuardTripped).toBe(false)
+  })
+})
