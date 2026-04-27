@@ -56,7 +56,7 @@ export interface BookingConfig {
 export const BOOKING_CONFIG: BookingConfig = {
   consultant: {
     name: 'Scott Durgan',
-    email: 'scott@smd.services',
+    email: 'team@smd.services',
     calendar_id: 'primary',
     timezone: 'America/Phoenix',
   },

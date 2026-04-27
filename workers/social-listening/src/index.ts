@@ -151,7 +151,7 @@ async function sendDigest(env: Env, posts: RedditPost[]): Promise<void> {
     },
     body: JSON.stringify({
       from: 'SMD Services <notifications@smd.services>',
-      to: ['scott@smd.services'],
+      to: ['team@smd.services'],
       subject: `Social Digest: ${posts.length} new signals — ${date}`,
       text: body,
     }),
@@ -185,7 +185,7 @@ async function sendFailureAlert(summary: RunSummary, resendApiKey: string): Prom
     },
     body: JSON.stringify({
       from: 'SMD Services <noreply@smd.services>',
-      to: ['scott@smd.services'],
+      to: ['team@smd.services'],
       subject: `[Social Listening] Pipeline run failed — ${summary.errors} errors`,
       text: body,
     }),
