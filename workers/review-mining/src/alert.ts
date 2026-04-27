@@ -5,6 +5,8 @@
 export interface RunSummary {
   queries: number
   discovered: number
+  /** Number of businesses sent to Outscraper after applying the per-run cap. */
+  reviewChecksAttempted: number
   withReviews: number
   newBusinesses: number
   qualified: number
@@ -12,6 +14,10 @@ export interface RunSummary {
   written: number
   errors: number
   errorDetails: string[]
+  /** Estimated Outscraper spend for the run (USD). */
+  outscraperSpendUsd: number
+  /** True if the run stopped early because the per-run budget was exceeded. */
+  budgetGuardTripped: boolean
 }
 
 export async function sendFailureAlert(summary: RunSummary, resendApiKey: string): Promise<void> {
@@ -20,11 +26,14 @@ export async function sendFailureAlert(summary: RunSummary, resendApiKey: string
     ``,
     `Discovery queries: ${summary.queries}`,
     `Businesses discovered: ${summary.discovered}`,
+    `Review checks attempted: ${summary.reviewChecksAttempted}`,
     `With recent reviews: ${summary.withReviews}`,
     `New (not deduped): ${summary.newBusinesses}`,
     `Qualified (pain >= 7): ${summary.qualified}`,
     `Below threshold: ${summary.belowThreshold}`,
     `Written to D1: ${summary.written}`,
+    `Outscraper spend (est.): $${summary.outscraperSpendUsd.toFixed(2)}`,
+    `Budget guard tripped: ${summary.budgetGuardTripped ? 'YES' : 'no'}`,
     `Errors: ${summary.errors}`,
     ``,
     `Error details:`,

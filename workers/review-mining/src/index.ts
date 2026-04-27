@@ -24,6 +24,28 @@ import type { DiscoveredBusiness } from './outscraper.js'
 
 const PAIN_THRESHOLD = 7
 
+// Per-business Outscraper cost. Reviews extraction is ~$3 per 1,000 place_ids
+// queried regardless of how many reviews come back. Source:
+// docs/lead-automation/specs/outscraper-queries.md ("Outscraper Pricing").
+const OUTSCRAPER_USD_PER_PLACE = 0.003
+
+// Default cap on businesses sent to Outscraper per run. Raised from 50 to 200
+// per issue #592 to lift the artificial top-of-funnel constraint identified
+// in the 2026-04-25 lead-gen audit. At ~$0.003/business that is ~$0.60/run,
+// ~$2.40/month at the weekly cron cadence. Both this cap and PAIN_THRESHOLD
+// will move into admin config under issue #595; until then they are constants
+// here, with `MAX_REVIEW_CHECKS` and `OUTSCRAPER_BUDGET_USD_PER_RUN` env vars
+// available as escape hatches without a code deploy.
+const DEFAULT_MAX_REVIEW_CHECKS = 200
+
+// Hard ceiling on how much a single run may spend on Outscraper. The cap above
+// is the primary constraint; this is a belt-and-suspenders guard so a future
+// change to discovery queries, geo radius, or batch logic can't blow through
+// the budget unobserved. At default settings (200 places, $0.003/place) a run
+// spends ~$0.60, comfortably under the $1.00 default. Override per environment
+// via the `OUTSCRAPER_BUDGET_USD_PER_RUN` env var.
+const DEFAULT_OUTSCRAPER_BUDGET_USD_PER_RUN = 1.0
+
 export interface Env {
   DB: D1Database
   GOOGLE_PLACES_API_KEY: string
@@ -34,12 +56,30 @@ export interface Env {
   // Optional keys used by the at-ingest enrichment pipeline.
   SERPAPI_API_KEY?: string
   PROXYCURL_API_KEY?: string
+  // Optional overrides for the per-run cap and budget guard. Both are strings
+  // because Wrangler vars are strings; parsed at run start with sane fallbacks.
+  // Will be replaced by admin-config in issue #595.
+  MAX_REVIEW_CHECKS?: string
+  OUTSCRAPER_BUDGET_USD_PER_RUN?: string
+}
+
+function parsePositiveInt(value: string | undefined, fallback: number): number {
+  if (!value) return fallback
+  const parsed = Number.parseInt(value, 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
+function parsePositiveFloat(value: string | undefined, fallback: number): number {
+  if (!value) return fallback
+  const parsed = Number.parseFloat(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
 
 async function run(env: Env, ctx?: ExecutionContext): Promise<RunSummary> {
   const summary: RunSummary = {
     queries: 0,
     discovered: 0,
+    reviewChecksAttempted: 0,
     withReviews: 0,
     newBusinesses: 0,
     qualified: 0,
@@ -47,7 +87,18 @@ async function run(env: Env, ctx?: ExecutionContext): Promise<RunSummary> {
     written: 0,
     errors: 0,
     errorDetails: [],
+    outscraperSpendUsd: 0,
+    budgetGuardTripped: false,
   }
+
+  // Resolve the per-run cap and budget guard. Env vars are escape hatches so
+  // we can tune live without a code deploy; defaults are the values that
+  // shipped with #592. Both move into admin config under #595.
+  const maxReviewChecks = parsePositiveInt(env.MAX_REVIEW_CHECKS, DEFAULT_MAX_REVIEW_CHECKS)
+  const budgetUsd = parsePositiveFloat(
+    env.OUTSCRAPER_BUDGET_USD_PER_RUN,
+    DEFAULT_OUTSCRAPER_BUDGET_USD_PER_RUN
+  )
 
   const configRow = await getGeneratorConfig(env.DB, ORG_ID, 'review_mining')
   if (!configRow.enabled) {
@@ -89,19 +140,34 @@ async function run(env: Env, ctx?: ExecutionContext): Promise<RunSummary> {
   summary.discovered = allBusinesses.length
   console.log(`Discovery: ${summary.queries} queries, ${summary.discovered} unique businesses`)
 
-  // Phase 2: Fetch reviews (one Outscraper call per business)
-  // Cap at 50 businesses per run to manage Outscraper costs (~$1/run at $2/1000 reviews)
-  const MAX_REVIEW_CHECKS = 50
+  // Phase 2: Fetch reviews (one Outscraper call per business).
+  // Cap at maxReviewChecks businesses per run AND stop early if the running
+  // estimated Outscraper spend exceeds budgetUsd. Outscraper is the only
+  // metered call in this loop — Google Places and Anthropic are accounted for
+  // outside the budget guard.
   const BATCH_SIZE = 10
-  const businessesToCheck = allBusinesses.slice(0, MAX_REVIEW_CHECKS)
+  const businessesToCheck = allBusinesses.slice(0, maxReviewChecks)
   const businessesWithReviews = []
 
   console.log(
-    `Checking reviews for ${businessesToCheck.length} of ${allBusinesses.length} businesses`
+    `Checking reviews for ${businessesToCheck.length} of ${allBusinesses.length} businesses ` +
+      `(cap=${maxReviewChecks}, budget=$${budgetUsd.toFixed(2)})`
   )
 
   for (let i = 0; i < businessesToCheck.length; i += BATCH_SIZE) {
     const batch = businessesToCheck.slice(i, i + BATCH_SIZE)
+    const projectedSpend = summary.outscraperSpendUsd + batch.length * OUTSCRAPER_USD_PER_PLACE
+    if (projectedSpend > budgetUsd) {
+      summary.budgetGuardTripped = true
+      console.warn(
+        `Outscraper budget guard: projected $${projectedSpend.toFixed(2)} would exceed ` +
+          `$${budgetUsd.toFixed(2)}. Stopping after ${summary.reviewChecksAttempted} of ` +
+          `${businessesToCheck.length} businesses.`
+      )
+      break
+    }
+    summary.reviewChecksAttempted += batch.length
+    summary.outscraperSpendUsd += batch.length * OUTSCRAPER_USD_PER_PLACE
     try {
       const results = await fetchReviews(batch, env.OUTSCRAPER_API_KEY)
       businessesWithReviews.push(...results)
@@ -211,7 +277,9 @@ async function run(env: Env, ctx?: ExecutionContext): Promise<RunSummary> {
 
   console.log(
     `Run complete: ${summary.newBusinesses} new, ${summary.qualified} qualified (pain>=${PAIN_THRESHOLD}), ` +
-      `${summary.belowThreshold} below threshold, ${summary.written} written, ${summary.errors} errors`
+      `${summary.belowThreshold} below threshold, ${summary.written} written, ${summary.errors} errors, ` +
+      `Outscraper spend ~$${summary.outscraperSpendUsd.toFixed(2)}` +
+      (summary.budgetGuardTripped ? ' (budget guard tripped)' : '')
   )
 
   await recordGeneratorRun(env.DB, ORG_ID, 'review_mining', {
