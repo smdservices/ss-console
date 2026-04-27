@@ -340,11 +340,15 @@ function complianceBarWidth(pct: number): string {
                 <p class="text-xs text-[color:var(--ss-color-text-secondary)]">Total invoiced</p>
               </div>
               <div>
-                <p class="text-lg font-bold text-[color:var(--ss-color-text-primary)]">{formatCurrency(revenue.total_paid)}</p>
+                <p class="text-lg font-bold text-[color:var(--ss-color-text-primary)]">
+                  {formatCurrency(revenue.total_paid)}
+                </p>
                 <p class="text-xs text-[color:var(--ss-color-text-secondary)]">Total paid</p>
               </div>
               <div>
-                <p class="text-lg font-bold text-[color:var(--ss-color-attention)]">{formatCurrency(outstanding)}</p>
+                <p class="text-lg font-bold text-[color:var(--ss-color-attention)]">
+                  {formatCurrency(outstanding)}
+                </p>
                 <p class="text-xs text-[color:var(--ss-color-text-secondary)]">Outstanding</p>
               </div>
             </div>
@@ -434,7 +438,9 @@ function complianceBarWidth(pct: number): string {
                 <p class="text-xs text-[color:var(--ss-color-text-secondary)]">Late</p>
               </div>
               <div>
-                <p class="text-lg font-bold text-[color:var(--ss-color-error)]">{compliance.missed.toLocaleString()}</p>
+                <p class="text-lg font-bold text-[color:var(--ss-color-error)]">
+                  {compliance.missed.toLocaleString()}
+                </p>
                 <p class="text-xs text-[color:var(--ss-color-text-secondary)]">Missed</p>
               </div>
             </div>

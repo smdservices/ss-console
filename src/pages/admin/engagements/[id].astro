@@ -198,9 +198,7 @@ function fileSize(bytes: number): string {
             {depositInvoice && (
               <div class="mt-2 text-sm">
                 <span class="text-[color:var(--ss-color-text-secondary)]">Deposit Invoice:</span>{' '}
-                <span class={statusBadgeClass(depositInvoice.status)}>
-                  {depositInvoice.status}
-                </span>
+                <span class={statusBadgeClass(depositInvoice.status)}>{depositInvoice.status}</span>
                 <span class="ml-2 text-[color:var(--ss-color-text-secondary)]">
                   ${depositInvoice.amount.toLocaleString()}
                 </span>
@@ -729,9 +727,7 @@ function fileSize(bytes: number): string {
             {contextEntries.map((entry) => (
               <div class="px-6 py-3">
                 <div class="flex items-center gap-2 mb-1">
-                  <span class={contextTypeEyebrowClass()}>
-                    {entry.type.replace(/_/g, ' ')}
-                  </span>
+                  <span class={contextTypeEyebrowClass()}>{entry.type.replace(/_/g, ' ')}</span>
                   <span class="text-xs text-[color:var(--ss-color-text-muted)]">
                     {formatDate(entry.created_at)}
                   </span>
