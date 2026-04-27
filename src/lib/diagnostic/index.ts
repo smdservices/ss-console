@@ -89,14 +89,19 @@ export interface DiagnosticResult {
   failed_module?: string
 }
 
-const SOURCE_PIPELINE = 'inbound_scan'
+export const SOURCE_PIPELINE = 'inbound_scan'
 
 /**
  * Custom error thrown internally when a module's wrapper catches an
  * exception. Carries the module name so the top-level handler can record
  * it in scan_status_reason and the admin alert.
+ *
+ * Exported so the Cloudflare Workflows orchestrator (`workflow.ts`) can
+ * recognize wrapped errors after Workflows' built-in retries are
+ * exhausted and pull the failing module name out for scan_status_reason
+ * + admin alert.
  */
-class ScanModuleError extends Error {
+export class ScanModuleError extends Error {
   readonly module: string
   readonly cause: unknown
   constructor(module: string, cause: unknown) {
@@ -479,14 +484,14 @@ export async function evaluateThinFootprintGate(
 //      class that produced the 2026-04-27 wrong-match incident.
 // ---------------------------------------------------------------------------
 
-interface PlacesRunResult {
+export interface PlacesRunResult {
   /** True only when Places returned a result AND the strict domain-match
    *  guard accepted it. False covers both "no Places result" and
    *  "Places returned a different business". */
   strictMatched: boolean
 }
 
-async function runPlaces(
+export async function runPlaces(
   env: DiagnosticEnv,
   entity: Entity,
   scanRequest: ScanRequest
@@ -523,7 +528,7 @@ async function runPlaces(
   return { strictMatched: true }
 }
 
-async function runOutscraper(
+export async function runOutscraper(
   env: DiagnosticEnv,
   entity: Entity,
   scanRequest: ScanRequest
@@ -550,7 +555,7 @@ async function runOutscraper(
   }
 }
 
-async function runWebsiteAnalysis(
+export async function runWebsiteAnalysis(
   env: DiagnosticEnv,
   entity: Entity,
   scanRequest: ScanRequest
@@ -573,7 +578,7 @@ async function runWebsiteAnalysis(
   }
 }
 
-async function runReviewSynthesis(
+export async function runReviewSynthesis(
   env: DiagnosticEnv,
   entity: Entity,
   scanRequest: ScanRequest
@@ -601,7 +606,7 @@ async function runReviewSynthesis(
   }
 }
 
-async function runDeepWebsite(
+export async function runDeepWebsite(
   env: DiagnosticEnv,
   entity: Entity,
   scanRequest: ScanRequest
@@ -624,7 +629,7 @@ async function runDeepWebsite(
   }
 }
 
-async function runIntelligenceBrief(
+export async function runIntelligenceBrief(
   env: DiagnosticEnv,
   entity: Entity,
   scanRequest: ScanRequest
@@ -653,7 +658,7 @@ async function runIntelligenceBrief(
 // Email rendering
 // ---------------------------------------------------------------------------
 
-async function sendDiagnosticReportEmail(
+export async function sendDiagnosticReportEmail(
   env: DiagnosticEnv,
   scanRequest: ScanRequest,
   entity: Entity,
@@ -680,7 +685,7 @@ async function sendDiagnosticReportEmail(
   return true
 }
 
-async function sendThinFootprintEmail(
+export async function sendThinFootprintEmail(
   env: DiagnosticEnv,
   scanRequest: ScanRequest,
   entity: Entity,
@@ -722,7 +727,7 @@ function buildBookingUrl(env: DiagnosticEnv): string {
  * Example: `azperfectcomfort.com` -> `Azperfectcomfort`
  *          `home-services-llc.com` -> `Home Services Llc`
  */
-function humanizeDomain(domain: string): string {
+export function humanizeDomain(domain: string): string {
   const label = domain.split('.')[0] ?? domain
   return label
     .split(/[-_]/)

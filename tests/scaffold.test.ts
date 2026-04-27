@@ -38,7 +38,13 @@ describe('cloudflare SSR scaffolding', () => {
     const wrangler = readFileSync(resolve('wrangler.toml'), 'utf-8')
     // Workers mode: `main` entry + `[assets]` block. Pages-specific
     // `pages_build_output_dir` must not be present.
-    expect(wrangler).toContain('main = "@astrojs/cloudflare/entrypoints/server"')
+    //
+    // The `main` field points at `src/worker.ts` (#614) — a custom
+    // entrypoint that re-exports the adapter's fetch handler alongside
+    // the ScanDiagnosticWorkflow class. The default
+    // `@astrojs/cloudflare/entrypoints/server` would only expose
+    // `fetch` and the [[workflows]] binding would have no class to bind.
+    expect(wrangler).toContain('main = "src/worker.ts"')
     expect(wrangler).toContain('[assets]')
     expect(wrangler).toContain('run_worker_first = true')
     expect(wrangler).not.toContain('pages_build_output_dir')
@@ -48,6 +54,10 @@ describe('cloudflare SSR scaffolding', () => {
     expect(wrangler).toContain('binding = "STORAGE"')
     expect(wrangler).toContain('kv_namespaces')
     expect(wrangler).toContain('binding = "SESSIONS"')
+    // Cloudflare Workflows binding (#614).
+    expect(wrangler).toContain('[[workflows]]')
+    expect(wrangler).toContain('binding = "SCAN_WORKFLOW"')
+    expect(wrangler).toContain('class_name = "ScanDiagnosticWorkflow"')
   })
 
   it('env.d.ts declares Cloudflare binding types', () => {

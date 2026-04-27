@@ -8,6 +8,17 @@ declare module '*.wasm' {
 }
 
 /**
+ * Cloudflare Workflows binding shape. The runtime exposes `create()` to
+ * spawn a new instance and `get()` to look up an existing one. The
+ * adapter's auto-generated types don't include Workflows yet (as of
+ * @cloudflare/workers-types 4.20260417), so we declare the minimum
+ * surface we use.
+ */
+interface ScanWorkflowBinding {
+  create(opts: { id?: string; params?: { scanRequestId: string } }): Promise<{ id: string }>
+}
+
+/**
  * Cloudflare Worker bindings and env vars.
  *
  * Accessed via `import { env } from 'cloudflare:workers'` (adapter v13+).
@@ -116,6 +127,14 @@ declare namespace Cloudflare {
      * Any other value keeps the page returning 404.
      */
     ENABLE_PUBLIC_PATTERNS?: string
+    /**
+     * Cloudflare Workflow for the Engine 1 /scan diagnostic pipeline (#614).
+     * Class is `ScanDiagnosticWorkflow`, defined in
+     * `src/lib/diagnostic/workflow.ts` and re-exported from
+     * `src/worker.ts` so the [[workflows]] binding in wrangler.toml can
+     * find it. Dispatched from /api/scan/verify after token verification.
+     */
+    SCAN_WORKFLOW: ScanWorkflowBinding
   }
 }
 
