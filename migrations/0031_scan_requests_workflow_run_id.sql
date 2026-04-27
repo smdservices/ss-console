@@ -1,0 +1,37 @@
+-- Add workflow_run_id column to scan_requests (#614).
+--
+-- Engine 1 /scan orchestrator (#598, hardened in #612) was rewritten in
+-- #614 to run as a Cloudflare Workflow instead of an inline
+-- ctx.waitUntil() async function. Workflows give us per-step
+-- checkpointing, automatic retries, and durable execution that survives
+-- worker isolate kills — the failure mode that lost the
+-- phoenixanimalexterminator.com scan on 2026-04-27 (5/6 modules ran,
+-- intelligence_brief never started, no email sent, no failure marker).
+--
+-- This column stores the Workflow instance id returned by
+-- env.SCAN_WORKFLOW.create({...}) so operators can:
+--
+--   1. Look up a running scan in the Cloudflare dashboard
+--      (Workers & Pages → ss-web → Workflows → scan-diagnostic →
+--       <instance-id>) when a prospect reports a stuck scan
+--   2. Cross-reference scan_request.id to workflow_run_id when
+--      reading Workflow logs
+--   3. Detect orphaned workflow instances (running in CF, no DB row)
+--      vs. orphaned DB rows (DB pending_run, no CF instance) during
+--      ops investigation
+--
+-- Field semantics
+-- ---------------
+-- workflow_run_id         Cloudflare Workflow instance id, set by
+--                         /api/scan/verify after env.SCAN_WORKFLOW.create
+--                         returns. NULL for historical rows that ran on
+--                         the old ctx.waitUntil path. NULL on new rows
+--                         only briefly between markScanVerified and the
+--                         create() call's return.
+--
+-- Migration shape
+-- ---------------
+-- Additive only. New nullable column, no backfill, no index — lookups
+-- by workflow_run_id are an operator-grade tool, not a hot path.
+
+ALTER TABLE scan_requests ADD COLUMN workflow_run_id TEXT;
