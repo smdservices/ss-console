@@ -36,6 +36,16 @@ export interface ScanRequest {
   email_sent_at: string | null
   request_ip: string | null
   error_message: string | null
+  /**
+   * Structured failure-reason. See migrations/0030_scan_status_reason.sql.
+   *
+   *   - scan_status='thin_footprint': gate reason
+   *     ('no_website_no_places' | 'no_website_low_reviews' |
+   *      'no_strict_places_match')
+   *   - scan_status='failed': '<module>: <truncated-error-message>'
+   *   - otherwise: null
+   */
+  scan_status_reason: string | null
   created_at: string
 }
 
@@ -142,6 +152,7 @@ export interface UpdateScanRequestRunData {
   entity_id?: string | null
   email_sent_at?: string | null
   error_message?: string | null
+  scan_status_reason?: string | null
 }
 
 /**
@@ -183,6 +194,10 @@ export async function updateScanRequestRun(
   if (data.error_message !== undefined) {
     sets.push('error_message = ?')
     params.push(data.error_message)
+  }
+  if (data.scan_status_reason !== undefined) {
+    sets.push('scan_status_reason = ?')
+    params.push(data.scan_status_reason)
   }
   if (sets.length === 0) return
   params.push(id)

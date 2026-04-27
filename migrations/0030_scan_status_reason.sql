@@ -1,0 +1,44 @@
+-- Add scan_status_reason column to scan_requests (#612).
+--
+-- Engine 1 /scan orchestrator (#598) needs a structured failure reason
+-- separate from `error_message`. Rationale:
+--
+--   * `error_message` is overloaded — it currently encodes both
+--     'thin_footprint:<gate-reason>' for refused scans and arbitrary thrown
+--     error strings for failed scans. The admin retrospective wants to
+--     answer "which module crashed?" without grepping a free-form blob.
+--
+--   * The 2026-04-27 smoke test exposed two distinct failure modes that
+--     both ended in scan_status='verified' (not 'failed') because the
+--     orchestrator silently caught module errors and continued: the
+--     wrong-match catastrophe (Places fuzzy-matched to a different
+--     business; downstream modules ran against the wrong site) and the
+--     deep_website -> outscraper handoff that stopped without recording a
+--     reason. Both are now caught and recorded in this column.
+--
+-- Field semantics
+-- ---------------
+-- scan_status_reason       Free-form text. Format depends on scan_status:
+--
+--                            scan_status='thin_footprint':
+--                              'no_website_no_places' |
+--                              'no_website_low_reviews' |
+--                              'no_strict_places_match' |
+--                              other gate reasons added later
+--
+--                            scan_status='failed':
+--                              '<module>: <truncated-error-message>'
+--                              e.g. 'outscraper: 503 Service Unavailable'
+--
+--                            scan_status='completed' / others:
+--                              NULL
+--
+-- Migration shape
+-- ---------------
+-- Additive only. Existing rows get NULL — they're historical and can be
+-- back-filled from `error_message` if a forensic question arises. New
+-- rows written by the post-#612 orchestrator populate this column.
+--
+-- Why a new column instead of overloading error_message: see issue #612.
+
+ALTER TABLE scan_requests ADD COLUMN scan_status_reason TEXT;
