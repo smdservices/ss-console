@@ -79,14 +79,23 @@ const overdueCount = overdueFollowUps.length
 const signalCount = signals.length
 
 // Pipeline
+// Single-accent discipline (design-spec §4.6): pipeline progression rendered
+// through ink hierarchy + the burnt-orange accent + olive completion. No
+// per-stage decorative palette.
 const pipelineStages = [
-  { label: 'Signals', count: signalCount, stage: 'signal', color: 'amber' },
-  { label: 'Prospects', count: pipeline.prospect, stage: 'prospect', color: 'blue' },
-  { label: 'Meetings', count: pipeline.meetings, stage: 'meetings', color: 'indigo' },
-  { label: 'Proposing', count: pipeline.proposing, stage: 'proposing', color: 'purple' },
-  { label: 'Engaged', count: pipeline.engaged, stage: 'engaged', color: 'green' },
-  { label: 'Delivered', count: pipeline.delivered, stage: 'delivered', color: 'teal' },
-]
+  { label: 'Signals', count: signalCount, stage: 'signal', tone: 'meta' },
+  { label: 'Prospects', count: pipeline.prospect, stage: 'prospect', tone: 'meta' },
+  { label: 'Meetings', count: pipeline.meetings, stage: 'meetings', tone: 'primary' },
+  { label: 'Proposing', count: pipeline.proposing, stage: 'proposing', tone: 'primary' },
+  { label: 'Engaged', count: pipeline.engaged, stage: 'engaged', tone: 'complete' },
+  { label: 'Delivered', count: pipeline.delivered, stage: 'delivered', tone: 'complete' },
+] as const
+
+const STAGE_FILL: Record<(typeof pipelineStages)[number]['tone'], string> = {
+  meta: 'bg-[color:var(--ss-color-text-secondary)]',
+  primary: 'bg-[color:var(--ss-color-primary)]',
+  complete: 'bg-[color:var(--ss-color-complete)]',
+}
 const totalPipeline = pipelineStages.reduce((sum, s) => sum + s.count, 0)
 
 // Engagements
@@ -136,7 +145,11 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
   }
   const h = hoursAgo(r.last_signal)
   const color =
-    h < thresholds.warn ? 'bg-green-500' : h < thresholds.critical ? 'bg-amber-400' : 'bg-red-500'
+    h < thresholds.warn
+      ? 'bg-[color:var(--ss-color-complete)]'
+      : h < thresholds.critical
+        ? 'bg-[color:var(--ss-color-attention)]'
+        : 'bg-[color:var(--ss-color-error)]'
   return { id: r.source_pipeline, label: thresholds.label, ago: relativeTime(r.last_signal), color }
 })
 ---
@@ -157,9 +170,9 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
         >
           <div
             class:list={[
-              'w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold',
+              'w-10 h-10 rounded-[var(--ss-radius-card)] flex items-center justify-center text-sm font-semibold',
               signalCount > 0
-                ? 'bg-amber-100 text-amber-700'
+                ? 'bg-[color:var(--ss-color-attention)] text-white'
                 : 'bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-muted)]',
             ]}
           >
@@ -178,9 +191,9 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
         <div class="flex items-center gap-row p-row rounded-[var(--ss-radius-card)]">
           <div
             class:list={[
-              'w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold',
+              'w-10 h-10 rounded-[var(--ss-radius-card)] flex items-center justify-center text-sm font-semibold',
               todayAssessments.length > 0
-                ? 'bg-indigo-100 text-indigo-700'
+                ? 'bg-[color:var(--ss-color-primary)] text-white'
                 : 'bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-muted)]',
             ]}
           >
@@ -216,9 +229,9 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
         >
           <div
             class:list={[
-              'w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold',
+              'w-10 h-10 rounded-[var(--ss-radius-card)] flex items-center justify-center text-sm font-semibold',
               overdueCount > 0
-                ? 'bg-red-100 text-red-700'
+                ? 'bg-[color:var(--ss-color-error)] text-white'
                 : 'bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-muted)]',
             ]}
           >
@@ -252,18 +265,11 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
       <!-- Funnel bar -->
       {
         totalPipeline > 0 && (
-          <div class="flex h-3 rounded-full overflow-hidden mb-4 bg-[color:var(--ss-color-border-subtle)]">
+          <div class="flex h-3 overflow-hidden mb-4 bg-[color:var(--ss-color-border-subtle)]">
             {pipelineStages.map((s) =>
               s.count > 0 ? (
                 <div
-                  class:list={[
-                    s.color === 'amber' && 'bg-amber-400',
-                    s.color === 'blue' && 'bg-blue-400',
-                    s.color === 'indigo' && 'bg-indigo-400',
-                    s.color === 'purple' && 'bg-purple-400',
-                    s.color === 'green' && 'bg-green-400',
-                    s.color === 'teal' && 'bg-teal-400',
-                  ]}
+                  class={STAGE_FILL[s.tone]}
                   style={`width: ${(s.count / totalPipeline) * 100}%`}
                   title={`${s.label}: ${s.count}`}
                 />
@@ -327,7 +333,7 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
           </div>
           <div class="flex justify-between items-baseline">
             <span class="text-sm text-[color:var(--ss-color-text-secondary)]">Paid</span>
-            <span class="text-lg font-semibold text-green-600">
+            <span class="text-lg font-semibold text-[color:var(--ss-color-complete)]">
               ${revenue.total_paid.toLocaleString('en-US', { minimumFractionDigits: 0 })}
             </span>
           </div>
@@ -336,7 +342,9 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
             <span
               class:list={[
                 'text-lg font-semibold',
-                outstandingTotal > 0 ? 'text-amber-600' : 'text-[color:var(--ss-color-text-muted)]',
+                outstandingTotal > 0
+                  ? 'text-[color:var(--ss-color-attention)]'
+                  : 'text-[color:var(--ss-color-text-muted)]',
               ]}
             >
               ${outstandingTotal.toLocaleString('en-US', { minimumFractionDigits: 0 })}
@@ -389,10 +397,10 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
               class:list={[
                 'text-lg font-semibold',
                 compliance.compliance_pct >= 80
-                  ? 'text-green-600'
+                  ? 'text-[color:var(--ss-color-complete)]'
                   : compliance.compliance_pct >= 50
-                    ? 'text-amber-600'
-                    : 'text-red-600',
+                    ? 'text-[color:var(--ss-color-attention)]'
+                    : 'text-[color:var(--ss-color-error)]',
               ]}
             >
               {compliance.compliance_pct}%
@@ -410,7 +418,7 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
               class:list={[
                 'text-sm font-medium',
                 compliance.completed_late > 0
-                  ? 'text-amber-600'
+                  ? 'text-[color:var(--ss-color-attention)]'
                   : 'text-[color:var(--ss-color-text-primary)]',
               ]}
             >
@@ -423,7 +431,7 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
               class:list={[
                 'text-sm font-medium',
                 compliance.missed > 0
-                  ? 'text-red-600'
+                  ? 'text-[color:var(--ss-color-error)]'
                   : 'text-[color:var(--ss-color-text-primary)]',
               ]}
             >
@@ -456,12 +464,12 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
           <div class="flex items-center gap-2">
             <div
               class:list={[
-                'w-2 h-2 rounded-full',
+                'w-2 h-2',
                 calStatus === 'active'
-                  ? 'bg-green-500'
+                  ? 'bg-[color:var(--ss-color-complete)]'
                   : calStatus === 'error' || calStatus === 'revoked'
-                    ? 'bg-red-500'
-                    : 'bg-slate-300',
+                    ? 'bg-[color:var(--ss-color-error)]'
+                    : 'bg-[color:var(--ss-color-border)]',
               ]}
             >
             </div>
@@ -471,7 +479,7 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
             class:list={[
               'text-xs',
               calStatus === 'error' || calStatus === 'revoked'
-                ? 'text-red-600'
+                ? 'text-[color:var(--ss-color-error)]'
                 : 'text-[color:var(--ss-color-text-muted)]',
             ]}
           >
@@ -492,12 +500,12 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
           (syncErrors > 0 || syncStuck > 0) && (
             <div class="py-2 pl-4">
               {syncErrors > 0 && (
-                <p class="text-xs text-red-600">
+                <p class="text-xs text-[color:var(--ss-color-error)]">
                   {syncErrors} booking{syncErrors === 1 ? '' : 's'} failed to sync
                 </p>
               )}
               {syncStuck > 0 && (
-                <p class="text-xs text-amber-600">
+                <p class="text-xs text-[color:var(--ss-color-attention)]">
                   {syncStuck} booking{syncStuck === 1 ? '' : 's'} stuck pending
                 </p>
               )}
@@ -511,7 +519,7 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
             pipelineRows.map((p) => (
               <div class="flex items-center justify-between py-2">
                 <div class="flex items-center gap-2">
-                  <div class:list={['w-2 h-2 rounded-full', p.color]} />
+                  <div class:list={['w-2 h-2', p.color]} />
                   <span class="text-sm text-[color:var(--ss-color-text-secondary)]">{p.label}</span>
                 </div>
                 <span class="text-xs text-[color:var(--ss-color-text-muted)]">{p.ago}</span>
