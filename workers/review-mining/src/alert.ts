@@ -48,7 +48,7 @@ export async function sendFailureAlert(summary: RunSummary, resendApiKey: string
     },
     body: JSON.stringify({
       from: 'SMD Services <noreply@smd.services>',
-      to: ['scott@smd.services'],
+      to: ['team@smd.services'],
       subject: `[Review Mining] Pipeline run failed — ${summary.errors} errors, ${summary.written} signals`,
       text: body,
     }),
