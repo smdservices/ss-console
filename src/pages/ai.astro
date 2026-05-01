@@ -6,6 +6,40 @@ import Nav from '../components/Nav.astro'
 import FinalCta from '../components/FinalCta.astro'
 import Footer from '../components/Footer.astro'
 import CtaButton from '../components/CtaButton.astro'
+
+// FAQPage JSON-LD schema. Question H2s match the ones rendered below so
+// retrieval engines (Perplexity, ChatGPT Search, Google AI Overviews) can
+// extract answer-shaped chunks. Per #639 / Move 4d.
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: 'When does an AI engagement actually pay off?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: "A conversation first. We walk through what you're trying to do and where things are getting stuck. Then we figure out together whether AI is the right answer or whether something simpler would serve you better. Dozens of AI tools are marketed at businesses your size every month. We help you tell which ones actually fit your work and which are solving someone else's problem. If we build something custom, whether it's an AI assistant, a script that cleans up a recurring task, or an integration between tools, it fits into how your team already operates instead of asking them to change. A tool nobody uses is worse than no tool at all. We make sure your team can actually run what we build after we're gone.",
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Is AI the right answer for a small business?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: "Sometimes yes. Other times the answer is a simple script, a better process, or just getting two of your tools to talk to each other. And sometimes the answer is not yet. That's the conversation. If you walk out of it thinking AI isn't where you should spend money this quarter, that's a win too. Clarity is the point. When AI is the answer, Claude is usually what we reach for. Different situation, different tool, we'll say so.",
+      },
+    },
+    {
+      '@type': 'Question',
+      name: "What we won't do with AI",
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: "We won't automate judgment. Some decisions should stay with a person who knows your business. We'll build a tool that gets the right information to the right person faster, but not one that makes the call for them and hides how it got there. We won't replace people. The goal is to give your team back the hours they're losing to busywork. If an engagement is really a headcount decision wearing a tech coat, we'll tell you that instead of selling you the tech. We won't hand over a dashboard and call it strategy. A dashboard shows you what's happening. It doesn't tell you what to do about it. You should leave an engagement with a clearer picture and a plan for acting on it.",
+      },
+    },
+  ],
+}
 ---
 
 <Base
@@ -14,8 +48,18 @@ import CtaButton from '../components/CtaButton.astro'
 >
   <Nav />
   <main id="main" role="main">
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+
     <section class="relative overflow-hidden px-6 pb-32 pt-24">
       <div class="mx-auto max-w-4xl text-center">
+        <a
+          href="/#approach"
+          data-ev="ai-eyebrow-approach"
+          class="inline-flex items-center gap-2 mb-8 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)] hover:text-[color:var(--ss-color-primary-hover)]"
+        >
+          <span aria-hidden="true">←</span>
+          <span>One of six capabilities</span>
+        </a>
         <h1
           class="mb-8 text-5xl font-extrabold leading-[1.1] tracking-tight text-[color:var(--ss-color-text-primary)] md:text-7xl"
         >
@@ -25,7 +69,7 @@ import CtaButton from '../components/CtaButton.astro'
           class="mx-auto mb-12 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
         >
           Some of what you're hearing about AI is useful. A lot of it is noise. We help you sort it
-          out and build what fits how your business actually works.
+          out.
         </p>
         <CtaButton href="/book" data-ev="ai-primary-cta">Book a Call</CtaButton>
       </div>
@@ -36,7 +80,7 @@ import CtaButton from '../components/CtaButton.astro'
         <h2
           class="mb-12 text-center text-3xl font-bold text-[color:var(--ss-color-text-primary)] sm:text-4xl"
         >
-          What Working With Us Looks Like
+          When Does an AI Engagement Actually Pay Off?
         </h2>
         <div class="space-y-10 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
@@ -72,14 +116,20 @@ import CtaButton from '../components/CtaButton.astro'
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-3xl text-center">
         <h2 class="mb-8 text-3xl font-bold text-[color:var(--ss-color-text-primary)] sm:text-4xl">
-          Is AI Actually the Right Answer?
+          Is AI the Right Answer for a Small Business?
         </h2>
-        <p class="text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          Sometimes yes. Other times the answer is a simple script, a better process, or just
-          getting two of your tools to talk to each other. And sometimes the answer is not yet.
-          That's the conversation. If you walk out of it thinking AI isn't where you should spend
-          money this quarter, that's a win too. Clarity is the point.
-        </p>
+        <div class="space-y-6 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            Sometimes yes. Other times the answer is a simple script, a better process, or just
+            getting two of your tools to talk to each other. And sometimes the answer is not yet.
+            That's the conversation. If you walk out of it thinking AI isn't where you should spend
+            money this quarter, that's a win too. Clarity is the point.
+          </p>
+          <p>
+            When AI is the answer, Claude is usually what we reach for. Different situation,
+            different tool, we'll say so.
+          </p>
+        </div>
       </div>
     </section>
 
@@ -88,7 +138,7 @@ import CtaButton from '../components/CtaButton.astro'
         <h2
           class="mb-4 text-center text-3xl font-bold text-[color:var(--ss-color-text-primary)] sm:text-4xl"
         >
-          What We Won't Do
+          What We Won't Do With AI
         </h2>
         <p
           class="mx-auto mb-12 max-w-2xl text-center text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
@@ -127,25 +177,6 @@ import CtaButton from '../components/CtaButton.astro'
               with a clearer picture and a plan for acting on it.
             </p>
           </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
-      <div class="mx-auto max-w-3xl text-center">
-        <h2 class="mb-8 text-3xl font-bold text-[color:var(--ss-color-text-primary)] sm:text-4xl">
-          When AI is part of the answer, Claude is our default.
-        </h2>
-        <div class="space-y-6 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            Not every engagement calls for AI. When one does, Claude is what we reach for because
-            it's the best fit for most of the work we do.
-          </p>
-          <p>
-            That's a preference, not a lock-in. If your situation is better served by a different
-            model, a different tool, or no AI at all, we'll say so and build accordingly. What we
-            won't do is bend the answer to match a stack we already like.
-          </p>
         </div>
       </div>
     </section>
