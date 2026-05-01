@@ -277,6 +277,8 @@ describe('quotes: repeat-quote flow (#472)', () => {
     readFileSync(resolve('src/pages/api/admin/entities/[id]/quotes.ts'), 'utf-8')
   const entityPageSource = () =>
     readFileSync(resolve('src/pages/admin/entities/[id].astro'), 'utf-8')
+  const entityLoaderSource = () =>
+    readFileSync(resolve('src/lib/admin/entity-detail-page.ts'), 'utf-8')
 
   it('exports hasOpenQuoteForEntity helper', () => {
     expect(dalSource()).toContain('export async function hasOpenQuoteForEntity')
@@ -345,11 +347,11 @@ describe('quotes: repeat-quote flow (#472)', () => {
     expect(code).not.toContain("'superseded'")
   })
 
-  it('entity detail page computes showNewQuoteButton with correct preconditions', () => {
-    const code = entityPageSource()
+  it('entity detail loader computes showNewQuoteButton with correct preconditions', () => {
+    const code = entityLoaderSource()
     expect(code).toContain('showNewQuoteButton')
     expect(code).toContain('hasOpenQuoteForEntity')
-    expect(code).toContain('newQuoteStages')
+    expect(code).toContain("['signal', 'prospect', 'meetings', 'proposing'].includes(entity.stage)")
     expect(code).toContain("'proposing'")
   })
 

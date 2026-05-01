@@ -1,0 +1,270 @@
+---
+import { ENTITY_VERTICALS } from '../../lib/db/entities'
+import {
+  INTAKE_EMPLOYEE_COUNT_OPTIONS,
+  INTAKE_HOW_HEARD_OPTIONS,
+  INTAKE_YEARS_IN_BUSINESS_OPTIONS,
+  type IntakeQuestionnaireMode,
+} from '../../lib/booking/intake-questionnaire'
+
+interface Props {
+  idPrefix: string
+  mode: IntakeQuestionnaireMode
+  values?: {
+    name?: string
+    email?: string
+    businessName?: string
+    phone?: string
+  }
+}
+
+const { idPrefix, mode, values = {} } = Astro.props
+const includePhone = mode === 'booking'
+---
+
+<div class="space-y-5" data-intake-questionnaire>
+  <div class="grid gap-5 sm:grid-cols-2">
+    <div>
+      <label
+        for={`${idPrefix}-name`}
+        class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
+      >
+        Full name <span class="text-red-500">*</span>
+      </label>
+      <input
+        type="text"
+        id={`${idPrefix}-name`}
+        name="name"
+        required
+        maxlength="200"
+        autocomplete="name"
+        value={values.name ?? ''}
+        class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        placeholder="e.g. Maria Garcia"
+      />
+    </div>
+    <div>
+      <label
+        for={`${idPrefix}-email`}
+        class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
+      >
+        Work email <span class="text-red-500">*</span>
+      </label>
+      <input
+        type="email"
+        id={`${idPrefix}-email`}
+        name="email"
+        required
+        maxlength="254"
+        autocomplete="email"
+        value={values.email ?? ''}
+        class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        placeholder="maria@example.com"
+      />
+    </div>
+  </div>
+
+  {
+    includePhone ? (
+      <div class="grid gap-5 sm:grid-cols-2">
+        <div>
+          <label
+            for={`${idPrefix}-business`}
+            class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
+          >
+            Business name <span class="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            id={`${idPrefix}-business`}
+            name="business_name"
+            required
+            maxlength="200"
+            value={values.businessName ?? ''}
+            class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            placeholder="e.g. Phoenix Plumbing Co."
+          />
+        </div>
+        <div>
+          <label
+            for={`${idPrefix}-phone`}
+            class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
+          >
+            Phone <span class="text-red-500">*</span>
+          </label>
+          <input
+            type="tel"
+            id={`${idPrefix}-phone`}
+            name="phone"
+            required
+            maxlength="30"
+            autocomplete="tel"
+            value={values.phone ?? ''}
+            class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            placeholder="(602) 555-0123"
+          />
+        </div>
+      </div>
+    ) : (
+      <div>
+        <label
+          for={`${idPrefix}-business`}
+          class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
+        >
+          Business name <span class="text-red-500">*</span>
+        </label>
+        <input
+          type="text"
+          id={`${idPrefix}-business`}
+          name="business_name"
+          required
+          maxlength="200"
+          value={values.businessName ?? ''}
+          class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          placeholder="e.g. Phoenix Plumbing Co."
+        />
+      </div>
+    )
+  }
+
+  <div class="grid gap-5 sm:grid-cols-2">
+    <div>
+      <label
+        for={`${idPrefix}-vertical`}
+        class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
+      >
+        What kind of business?
+      </label>
+      <select
+        id={`${idPrefix}-vertical`}
+        name="vertical"
+        data-intake-other-source="vertical"
+        class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+      >
+        <option value="">Select one</option>
+        {
+          ENTITY_VERTICALS.map((vertical) => (
+            <option value={vertical.value}>{vertical.label}</option>
+          ))
+        }
+      </select>
+      <input
+        type="text"
+        id={`${idPrefix}-vertical-other`}
+        name="vertical_other"
+        data-intake-other-input="vertical"
+        class="mt-2 hidden w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        placeholder="Describe your business type"
+      />
+    </div>
+    <div>
+      <label
+        for={`${idPrefix}-employees`}
+        class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
+      >
+        Employee count
+      </label>
+      <select
+        id={`${idPrefix}-employees`}
+        name="employee_count"
+        class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+      >
+        <option value="">Select one</option>
+        {
+          INTAKE_EMPLOYEE_COUNT_OPTIONS.map((option) => (
+            <option value={option.value}>{option.label}</option>
+          ))
+        }
+      </select>
+    </div>
+  </div>
+
+  <div class="sm:w-1/2">
+    <label
+      for={`${idPrefix}-years`}
+      class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
+    >
+      Years in business
+    </label>
+    <select
+      id={`${idPrefix}-years`}
+      name="years_in_business"
+      class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+    >
+      <option value="">Select one</option>
+      {
+        INTAKE_YEARS_IN_BUSINESS_OPTIONS.map((option) => (
+          <option value={option.value}>{option.label}</option>
+        ))
+      }
+    </select>
+  </div>
+
+  <div>
+    <label
+      for={`${idPrefix}-challenge`}
+      class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
+    >
+      What's the single biggest operational challenge right now?
+      <span class="text-red-500">*</span>
+    </label>
+    <p class="mt-0.5 text-xs text-[color:var(--ss-color-text-muted)]">
+      What would make the biggest difference in how your business runs day to day?
+    </p>
+    <textarea
+      id={`${idPrefix}-challenge`}
+      name="biggest_challenge"
+      required
+      rows="3"
+      maxlength="2000"
+      class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+      placeholder="e.g. I want to stop being the bottleneck for every decision..."></textarea>
+  </div>
+
+  <div>
+    <label
+      for={`${idPrefix}-how-heard`}
+      class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
+    >
+      How did you hear about us?
+    </label>
+    <select
+      id={`${idPrefix}-how-heard`}
+      name="how_heard"
+      data-intake-other-source="how_heard"
+      class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+    >
+      <option value="">Select one</option>
+      {
+        INTAKE_HOW_HEARD_OPTIONS.map((option) => (
+          <option value={option.value}>{option.label}</option>
+        ))
+      }
+    </select>
+    <input
+      type="text"
+      id={`${idPrefix}-how-heard-other`}
+      name="how_heard_other"
+      data-intake-other-input="how_heard"
+      class="mt-2 hidden w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+      placeholder="Tell us more"
+    />
+  </div>
+</div>
+
+<script>
+  import { bindIntakeConditionalFields } from '../../lib/booking/intake-questionnaire'
+
+  const init = () => {
+    for (const root of document.querySelectorAll('[data-intake-questionnaire]')) {
+      if (!(root instanceof HTMLElement)) continue
+      bindIntakeConditionalFields(root)
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true })
+  } else {
+    init()
+  }
+</script>

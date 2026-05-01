@@ -218,7 +218,7 @@ describe('EnrichmentWorkflow — idempotency', () => {
       response_pattern: 'responsive',
       engagement_level: 'high',
       owner_accessible: true,
-      insights: 'engaged',
+      evidence_summary: 'The owner responds to public reviews with regular follow-up.',
     } as unknown as Awaited<ReturnType<typeof analyzeReviewPatterns>>)
     vi.mocked(synthesizeReviews).mockResolvedValue({
       customer_sentiment: 'positive',
@@ -385,6 +385,62 @@ describe('EnrichmentWorkflow — outreach instrumentation', () => {
     expect(rows[0].status).toBe('failed')
     expect(rows[0].error_message).toContain('Anthropic 529')
   })
+
+  it('excludes non-authoritative enrichment summaries from outreach prompt assembly', async () => {
+    const entityId = await seedEntity(db, { website: 'https://example.com' })
+
+    await appendContext(db, ORG_ID, {
+      entity_id: entityId,
+      type: 'signal',
+      content:
+        'Signal: customers praise fast response times but complain about scheduling confusion.',
+      source: 'test',
+    })
+    await appendContext(db, ORG_ID, {
+      entity_id: entityId,
+      type: 'enrichment',
+      content: 'Review synthesis: likely owner bottleneck and manual dispatch issues.',
+      source: 'review_synthesis',
+      metadata: {
+        context_authority: 'non_authoritative',
+        evidence_mode: 'model_summary',
+      },
+    })
+    await appendContext(db, ORG_ID, {
+      entity_id: entityId,
+      type: 'enrichment',
+      content:
+        'Deep website analysis:\nServices: Drain cleaning, water heater repair\nEmail: owner@example.com',
+      source: 'deep_website',
+      metadata: {
+        context_authority: 'authoritative',
+        evidence_mode: 'extractive',
+      },
+    })
+
+    vi.mocked(lookupGooglePlaces).mockResolvedValue(null)
+    vi.mocked(analyzeWebsite).mockResolvedValue(null)
+    vi.mocked(analyzeReviewPatterns).mockResolvedValue(null)
+    vi.mocked(synthesizeReviews).mockResolvedValue(null)
+    vi.mocked(searchNews).mockResolvedValue(null)
+    vi.mocked(generateDossier).mockResolvedValue('# Brief\nHypothesis-heavy summary')
+    vi.mocked(generateOutreachDraft).mockResolvedValue('Hi there')
+
+    await runWorkflow(bindings(db), {
+      entityId,
+      orgId: ORG_ID,
+      mode: 'full',
+      triggered_by: 'test',
+    })
+
+    const outreachCall = vi.mocked(generateOutreachDraft).mock.calls.at(-1)
+    expect(outreachCall).toBeDefined()
+    const assembledContext = outreachCall?.[2] ?? ''
+    expect(assembledContext).toContain('Signal: customers praise fast response times')
+    expect(assembledContext).toContain('Services: Drain cleaning, water heater repair')
+    expect(assembledContext).not.toContain('likely owner bottleneck and manual dispatch issues')
+    expect(assembledContext).not.toContain('Hypothesis-heavy summary')
+  })
 })
 
 // ===========================================================================
@@ -429,7 +485,7 @@ describe('EnrichmentWorkflow — no skip-succeeded semantics', () => {
       response_pattern: 'responsive',
       engagement_level: 'high',
       owner_accessible: true,
-      insights: 'engaged',
+      evidence_summary: 'The owner responds to public reviews with regular follow-up.',
     } as unknown as Awaited<ReturnType<typeof analyzeReviewPatterns>>)
     vi.mocked(synthesizeReviews).mockResolvedValue(null)
     vi.mocked(searchNews).mockResolvedValue(null)

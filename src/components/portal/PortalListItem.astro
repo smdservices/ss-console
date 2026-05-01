@@ -177,7 +177,7 @@ const ticketShell = [
       <div class="md:grid md:grid-cols-[56px_1fr_auto_auto_48px] md:items-stretch">
         {/* № cell */}
         <div class="flex md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-primary)] items-center justify-center md:min-h-[88px] py-3 md:py-0 font-['Archivo'] font-black text-num-cell">
-          {props.serial ? `№${props.serial}` : '№ —'}
+          {props.serial ? `№${props.serial}` : '№'}
         </div>
 
         {/* Main */}
@@ -261,7 +261,7 @@ const ticketShell = [
             Kind
           </span>
           <span class="font-mono text-sm text-[color:var(--ss-color-text-primary)]">
-            {props.kind ?? '—'}
+            {props.kind ?? 'FILE'}
           </span>
         </div>
 
@@ -271,7 +271,7 @@ const ticketShell = [
             Shared
           </span>
           <span class="font-mono text-sm text-[color:var(--ss-color-text-primary)]">
-            {props.eyebrow ?? '—'}
+            {props.eyebrow ?? 'Not provided'}
           </span>
         </div>
 

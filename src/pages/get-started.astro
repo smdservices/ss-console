@@ -4,7 +4,7 @@ export const prerender = false
 import Base from '../layouts/Base.astro'
 import Nav from '../components/Nav.astro'
 import Footer from '../components/Footer.astro'
-import { ENTITY_VERTICALS } from '../lib/db/entities'
+import IntakeQuestionnaire from '../components/booking/IntakeQuestionnaire.astro'
 import { resolveTurnstileConfig } from '../lib/booking/turnstile'
 import { env } from 'cloudflare:workers'
 
@@ -93,193 +93,18 @@ const turnstileSiteKey = resolveTurnstileConfig(env).siteKey
           id="intake-form-container"
           class="mt-10 rounded-[var(--ss-radius-card)] bg-white p-6 sm:p-8"
         >
-          <form id="intake-form" class="space-y-5" novalidate>
+          <form
+            id="intake-form"
+            class="space-y-5"
+            novalidate
+            data-turnstile-site-key={turnstileSiteKey}
+          >
             <!-- Honeypot -->
             <div class="absolute -left-[9999px]" aria-hidden="true">
               <input type="text" name="website_url" tabindex="-1" autocomplete="off" />
             </div>
 
-            <!-- Name + Email -->
-            <div class="grid gap-5 sm:grid-cols-2">
-              <div>
-                <label
-                  for="gs-name"
-                  class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-                >
-                  Full name <span class="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="gs-name"
-                  name="name"
-                  required
-                  maxlength="200"
-                  autocomplete="name"
-                  class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  placeholder="e.g. Maria Garcia"
-                />
-              </div>
-              <div>
-                <label
-                  for="gs-email"
-                  class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-                >
-                  Work email <span class="text-red-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  id="gs-email"
-                  name="email"
-                  required
-                  maxlength="254"
-                  autocomplete="email"
-                  class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  placeholder="maria@example.com"
-                />
-              </div>
-            </div>
-
-            <!-- Business name -->
-            <div>
-              <label
-                for="gs-business"
-                class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-              >
-                Business name <span class="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                id="gs-business"
-                name="business_name"
-                required
-                maxlength="200"
-                class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="e.g. Phoenix Plumbing Co."
-              />
-            </div>
-
-            <!-- Vertical + Employee count -->
-            <div class="grid gap-5 sm:grid-cols-2">
-              <div>
-                <label
-                  for="gs-vertical"
-                  class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-                >
-                  What kind of business?
-                </label>
-                <select
-                  id="gs-vertical"
-                  name="vertical"
-                  class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <option value="">Select one</option>
-                  {ENTITY_VERTICALS.map((v) => <option value={v.value}>{v.label}</option>)}
-                </select>
-                <input
-                  type="text"
-                  id="gs-vertical-other"
-                  name="vertical_other"
-                  class="mt-2 hidden w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  placeholder="Describe your business type"
-                />
-              </div>
-              <div>
-                <label
-                  for="gs-employees"
-                  class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-                >
-                  Employee count
-                </label>
-                <select
-                  id="gs-employees"
-                  name="employee_count"
-                  class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <option value="">Select one</option>
-                  <option value="1-5">1 - 5</option>
-                  <option value="6-10">6 - 10</option>
-                  <option value="11-25">11 - 25</option>
-                  <option value="26-50">26 - 50</option>
-                  <option value="50+">50+</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- Years in business -->
-            <div class="sm:w-1/2">
-              <label
-                for="gs-years"
-                class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-              >
-                Years in business
-              </label>
-              <select
-                id="gs-years"
-                name="years_in_business"
-                class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                <option value="">Select one</option>
-                <option value="<1">Less than 1 year</option>
-                <option value="1-3">1 - 3 years</option>
-                <option value="3-5">3 - 5 years</option>
-                <option value="5-10">5 - 10 years</option>
-                <option value="10+">10+ years</option>
-              </select>
-            </div>
-
-            <!-- Biggest challenge -->
-            <div>
-              <label
-                for="gs-challenge"
-                class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-              >
-                What's the single biggest operational challenge right now?
-                <span class="text-red-500">*</span>
-              </label>
-              <p class="mt-0.5 text-xs text-[color:var(--ss-color-text-muted)]">
-                What would make the biggest difference in how your business runs day to day?
-              </p>
-              <textarea
-                id="gs-challenge"
-                name="biggest_challenge"
-                required
-                rows="3"
-                maxlength="2000"
-                class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="e.g. I want to stop being the bottleneck for every decision..."
-              ></textarea>
-            </div>
-
-            <!-- How heard -->
-            <div>
-              <label
-                for="gs-how-heard"
-                class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-              >
-                How did you hear about us?
-              </label>
-              <select
-                id="gs-how-heard"
-                name="how_heard"
-                class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                <option value="">Select one</option>
-                <option value="Google Search">Google Search</option>
-                <option value="Referral">Referral</option>
-                <option value="BNI / Networking group">BNI / Networking group</option>
-                <option value="Chamber of Commerce">Chamber of Commerce</option>
-                <option value="Social Media">Social Media</option>
-                <option value="SCORE / SBA">SCORE / SBA</option>
-                <option value="other">Other</option>
-              </select>
-              <input
-                type="text"
-                id="gs-how-heard-other"
-                name="how_heard_other"
-                class="mt-2 hidden w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="Tell us more"
-              />
-            </div>
+            <IntakeQuestionnaire idPrefix="gs" mode="prep" />
 
             <!-- Turnstile -->
             <div id="turnstile-container"></div>
@@ -357,46 +182,45 @@ const turnstileSiteKey = resolveTurnstileConfig(env).siteKey
     )
   }
 
-  <script is:inline define:vars={{ turnstileSiteKey }}>
-    ;(function () {
-      const form = document.getElementById('intake-form')
-      const formContainer = document.getElementById('intake-form-container')
-      const submitBtn = document.getElementById('gs-submit')
-      const errorBanner = document.getElementById('gs-error')
-      const successPanel = document.getElementById('success-panel')
-      const turnstileContainer = document.getElementById('turnstile-container')
+  <script>
+    import { formDataToObject, normalizeIntakePayload } from '../lib/booking/intake-questionnaire'
 
-      // "Other" toggles
-      const verticalSelect = document.getElementById('gs-vertical')
-      const verticalOther = document.getElementById('gs-vertical-other')
-      const howHeardSelect = document.getElementById('gs-how-heard')
-      const howHeardOther = document.getElementById('gs-how-heard-other')
+    interface IntakeResponse {
+      error?: string
+    }
 
-      verticalSelect.addEventListener('change', function () {
-        if (this.value === 'other') {
-          verticalOther.classList.remove('hidden')
-        } else {
-          verticalOther.classList.add('hidden')
-          verticalOther.value = ''
-        }
-      })
+    ;(() => {
+      const formElement = document.getElementById('intake-form')
+      const formContainerElement = document.getElementById('intake-form-container')
+      const submitBtnElement = document.getElementById('gs-submit')
+      const errorBannerElement = document.getElementById('gs-error')
+      const successPanelElement = document.getElementById('success-panel')
+      const turnstileContainerElement = document.getElementById('turnstile-container')
 
-      howHeardSelect.addEventListener('change', function () {
-        if (this.value === 'other') {
-          howHeardOther.classList.remove('hidden')
-        } else {
-          howHeardOther.classList.add('hidden')
-          howHeardOther.value = ''
-        }
-      })
+      if (
+        !(formElement instanceof HTMLFormElement) ||
+        !(formContainerElement instanceof HTMLElement) ||
+        !(submitBtnElement instanceof HTMLButtonElement) ||
+        !(errorBannerElement instanceof HTMLElement) ||
+        !(successPanelElement instanceof HTMLElement) ||
+        !(turnstileContainerElement instanceof HTMLElement)
+      ) {
+        return
+      }
 
-      // Turnstile
-      let turnstileWidgetId = null
+      const form = formElement
+      const formContainer = formContainerElement
+      const submitBtn = submitBtnElement
+      const errorBanner = errorBannerElement
+      const successPanel = successPanelElement
+      const turnstileContainer = turnstileContainerElement
+      const turnstileSiteKey = form.dataset.turnstileSiteKey || ''
+      let turnstileWidgetId: string | undefined
       let turnstileReady = false
 
       if (turnstileSiteKey) {
         const initTurnstile = function () {
-          if (typeof turnstile !== 'undefined' && turnstileContainer && !turnstileReady) {
+          if (typeof turnstile !== 'undefined' && !turnstileReady) {
             turnstileWidgetId = turnstile.render(turnstileContainer, {
               sitekey: turnstileSiteKey,
               callback: function () {},
@@ -418,31 +242,14 @@ const turnstileSiteKey = resolveTurnstileConfig(env).siteKey
         }
       }
 
-      // Form submission
-      form.addEventListener('submit', async function (e) {
-        e.preventDefault()
+      form.addEventListener('submit', async function (event) {
+        event.preventDefault()
         errorBanner.classList.add('hidden')
         submitBtn.disabled = true
         submitBtn.textContent = 'Sending...'
 
-        const formData = new FormData(form)
-        const data = {}
-        formData.forEach(function (value, key) {
-          data[key] = value
-        })
+        const data = normalizeIntakePayload(formDataToObject(new FormData(form)))
 
-        // Resolve "Other" fields
-        if (data.vertical === 'other' && data.vertical_other) {
-          data.vertical = data.vertical_other
-        }
-        delete data.vertical_other
-
-        if (data.how_heard === 'other' && data.how_heard_other) {
-          data.how_heard = data.how_heard_other
-        }
-        delete data.how_heard_other
-
-        // Add Turnstile token
         if (turnstileSiteKey && typeof turnstile !== 'undefined') {
           data.turnstile_token = turnstile.getResponse(turnstileWidgetId) || ''
         }
@@ -458,12 +265,11 @@ const turnstileSiteKey = resolveTurnstileConfig(env).siteKey
             formContainer.classList.add('hidden')
             successPanel.classList.remove('hidden')
           } else {
-            const body = await res.json()
+            const body = (await res.json()) as IntakeResponse
             errorBanner.textContent = body.error || 'Something went wrong. Please try again.'
             errorBanner.classList.remove('hidden')
             submitBtn.disabled = false
             submitBtn.textContent = 'Send'
-            // Reset Turnstile on error
             if (turnstileSiteKey && typeof turnstile !== 'undefined') {
               turnstile.reset(turnstileWidgetId)
             }

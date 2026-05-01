@@ -1,0 +1,25 @@
+---
+interface Props {
+  kind?: 'success' | 'error' | 'warning'
+  message: string
+  className?: string
+}
+
+const { kind = 'success', message, className } = Astro.props
+
+const kindClasses: Record<NonNullable<Props['kind']>, string> = {
+  success: 'bg-surface border border-complete text-complete',
+  error: 'bg-surface border border-error text-error',
+  warning: 'bg-surface border border-pending text-pending',
+}
+---
+
+<div
+  class:list={[
+    'text-sm px-4 py-3 rounded-[var(--ss-radius-card)] mb-4',
+    kindClasses[kind],
+    className,
+  ]}
+>
+  {message}
+</div>
