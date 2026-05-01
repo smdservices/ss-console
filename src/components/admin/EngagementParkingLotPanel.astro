@@ -1,0 +1,190 @@
+---
+/**
+ * Parking Lot panel for the admin engagement detail page (Decision Stack #11).
+ *
+ * Renders the list of out-of-scope client requests captured during an
+ * engagement, with inline disposition (fold_in / follow_on / dropped + required
+ * rationale note) and an "+ Log parking lot item" form. Per the protocol,
+ * disposition rationale is required at click time — not pencil-edited later.
+ *
+ * Extracted from src/pages/admin/engagements/[id].astro to keep that page
+ * under its concern-boundary line cap (tests/admin-astro-boundaries.test.ts).
+ */
+import { statusBadgeClass } from '../../lib/ui/status-badge'
+import { formatDate } from '../../lib/admin/engagement-detail-page'
+import type { ParkingLotItem } from '../../lib/db/parking-lot'
+
+interface Props {
+  engagementId: string
+  parkingLot: ParkingLotItem[]
+}
+
+const { engagementId, parkingLot } = Astro.props
+---
+
+<div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)]">
+  <div class="px-6 py-4 border-b border-[color:var(--ss-color-border-subtle)]">
+    <h2 class="font-medium text-[color:var(--ss-color-text-primary)]">Parking Lot</h2>
+    <p class="text-xs text-[color:var(--ss-color-text-secondary)] mt-1">
+      Out-of-scope requests captured during the engagement. Disposition each one at the pre-handoff
+      review.
+    </p>
+  </div>
+  <div class="divide-y divide-[color:var(--ss-color-border-subtle)]">
+    {
+      parkingLot.length === 0 && (
+        <div class="px-6 py-8 text-center text-sm text-[color:var(--ss-color-text-muted)]">
+          No parking lot items yet.
+        </div>
+      )
+    }
+    {
+      parkingLot.map((item) => (
+        <div class="px-6 py-4 space-y-row">
+          <div class="flex items-start justify-between gap-stack">
+            <div class="flex-1 min-w-0 space-y-1">
+              <div class="flex items-center gap-2">
+                <span class={statusBadgeClass(item.disposition ?? 'pending')}>
+                  {item.disposition ?? 'pending'}
+                </span>
+                <span class="text-sm font-medium text-[color:var(--ss-color-text-primary)]">
+                  {item.description}
+                </span>
+              </div>
+              <div class="text-xs text-[color:var(--ss-color-text-muted)]">
+                {item.requested_by ? <span>from {item.requested_by} · </span> : null}
+                Logged {formatDate(item.requested_at)}
+                {item.reviewed_at && <span> · Reviewed {formatDate(item.reviewed_at)}</span>}
+              </div>
+              {item.disposition && item.disposition_note && (
+                <p class="text-xs text-[color:var(--ss-color-text-secondary)] whitespace-pre-wrap pt-1">
+                  {item.disposition_note}
+                </p>
+              )}
+            </div>
+            {item.disposition === null && (
+              <form
+                method="POST"
+                action={`/api/admin/engagements/${engagementId}/parking-lot`}
+                class="flex-shrink-0"
+              >
+                <input type="hidden" name="_method" value="DELETE" />
+                <input type="hidden" name="item_id" value={item.id} />
+                <button
+                  type="submit"
+                  class="text-xs px-2 py-1 border border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)] hover:bg-[color:var(--ss-color-background)] transition-colors"
+                  onclick="return confirm('Delete this parking lot item?')"
+                >
+                  Del
+                </button>
+              </form>
+            )}
+          </div>
+          {item.disposition === null && (
+            <details class="border-t border-[color:var(--ss-color-border-subtle)] pt-2">
+              <summary class="cursor-pointer text-xs text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)]">
+                Disposition →
+              </summary>
+              <form
+                method="POST"
+                action={`/api/admin/engagements/${engagementId}/parking-lot`}
+                class="space-y-row mt-2"
+              >
+                <input type="hidden" name="action" value="disposition" />
+                <input type="hidden" name="item_id" value={item.id} />
+                <textarea
+                  name="disposition_note"
+                  required
+                  rows="2"
+                  placeholder="Rationale (required) — what happens with this and why"
+                  class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-1.5 text-sm"
+                />
+                <div class="flex gap-2 flex-wrap">
+                  <button
+                    type="submit"
+                    name="disposition"
+                    value="fold_in"
+                    class="text-xs px-2.5 py-1 border border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)] hover:bg-[color:var(--ss-color-background)] transition-colors"
+                  >
+                    Fold in
+                  </button>
+                  <button
+                    type="submit"
+                    name="disposition"
+                    value="follow_on"
+                    class="text-xs px-2.5 py-1 border border-[color:var(--ss-color-primary)] text-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-background)] transition-colors"
+                  >
+                    Follow-on
+                  </button>
+                  <button
+                    type="submit"
+                    name="disposition"
+                    value="dropped"
+                    class="text-xs px-2.5 py-1 border border-[color:var(--ss-color-border)] text-[color:var(--ss-color-text-secondary)] hover:bg-[color:var(--ss-color-background)] transition-colors"
+                  >
+                    Drop
+                  </button>
+                </div>
+              </form>
+            </details>
+          )}
+        </div>
+      ))
+    }
+  </div>
+
+  <details class="border-t border-[color:var(--ss-color-border-subtle)]">
+    <summary
+      class="px-6 py-3 cursor-pointer text-sm text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)]"
+    >
+      + Log parking lot item
+    </summary>
+    <div class="px-6 pb-4">
+      <form
+        method="POST"
+        action={`/api/admin/engagements/${engagementId}/parking-lot`}
+        class="space-y-row"
+      >
+        <div>
+          <label
+            for="pl_description"
+            class="block text-xs font-medium text-[color:var(--ss-color-text-secondary)] mb-1"
+          >
+            Description *
+          </label>
+          <input
+            type="text"
+            id="pl_description"
+            name="description"
+            required
+            placeholder="What did the client ask for?"
+            class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-1.5 text-sm"
+          />
+        </div>
+        <div>
+          <label
+            for="pl_requested_by"
+            class="block text-xs font-medium text-[color:var(--ss-color-text-secondary)] mb-1"
+          >
+            Requested by
+          </label>
+          <input
+            type="text"
+            id="pl_requested_by"
+            name="requested_by"
+            placeholder="Optional — name of the person who asked"
+            class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-1.5 text-sm"
+          />
+        </div>
+        <div class="flex">
+          <button
+            type="submit"
+            class="ml-auto bg-[color:var(--ss-color-primary)] text-white text-xs px-3 py-1.5 hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
+          >
+            Log item
+          </button>
+        </div>
+      </form>
+    </div>
+  </details>
+</div>

@@ -46,6 +46,11 @@ const TONE: Record<string, string> = {
   pending: 'bg-[color:var(--ss-color-border)] text-[color:var(--ss-color-text-secondary)]',
   in_progress: 'bg-[color:var(--ss-color-primary)] text-white',
   skipped: 'bg-[color:var(--ss-color-border)] text-[color:var(--ss-color-text-secondary)]',
+
+  // Parking lot disposition (Decision #11)
+  fold_in: 'bg-[color:var(--ss-color-complete)] text-white',
+  follow_on: 'bg-[color:var(--ss-color-primary)] text-white',
+  dropped: 'bg-[color:var(--ss-color-border)] text-[color:var(--ss-color-text-secondary)]',
 }
 
 const FALLBACK = 'bg-[color:var(--ss-color-border)] text-[color:var(--ss-color-text-secondary)]'
