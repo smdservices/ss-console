@@ -120,7 +120,7 @@ function fileExtFor(name: string, isPdf: boolean): string {
  * otherwise an em-dash placeholder matches the empty-state pattern.
  */
 function kindFor(doc: DocumentEntry): string {
-  return doc.category ? doc.category.toUpperCase() : '—'
+  return doc.category ? doc.category.toUpperCase() : 'FILE'
 }
 ---
 
@@ -139,7 +139,7 @@ function kindFor(doc: DocumentEntry): string {
       href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
       rel="stylesheet"
     />
-    <title>Documents — {BRAND_NAME}</title>
+    <title>Documents | {BRAND_NAME}</title>
   </head>
   <body class="min-h-screen bg-[color:var(--ss-color-background)]">
     <SkipToMain />

@@ -119,6 +119,16 @@ export type EnrichEnv = {
   SERPAPI_API_KEY?: string
 }
 
+const AUTHORITATIVE_CONTEXT_META = {
+  context_authority: 'authoritative' as const,
+  evidence_mode: 'extractive',
+}
+
+const NON_AUTHORITATIVE_CONTEXT_META = {
+  context_authority: 'non_authoritative' as const,
+  evidence_mode: 'model_summary',
+}
+
 // ---------------------------------------------------------------------------
 // Individual module wrappers — each is best-effort, instruments its own
 // `enrichment_runs` row, and is idempotent (a second run with the same
@@ -385,9 +395,15 @@ export async function tryReviewAnalysis(
       const ce = await appendContext(env.DB, orgId, {
         entity_id: entity.id,
         type: 'enrichment',
-        content: `Review patterns: ${reviewAnalysis.response_pattern} responses, ${reviewAnalysis.engagement_level} engagement. ${reviewAnalysis.owner_accessible ? 'Owner appears accessible.' : ''} ${reviewAnalysis.insights}`,
+        content:
+          `Review response signals: ${reviewAnalysis.response_pattern} response pattern, ${reviewAnalysis.engagement_level} engagement.` +
+          `${reviewAnalysis.owner_accessible ? ' Owner appears reachable through public review responses.' : ''}` +
+          ` Evidence: ${reviewAnalysis.evidence_summary}`,
         source: 'review_analysis',
-        metadata: reviewAnalysis as unknown as Record<string, unknown>,
+        metadata: {
+          ...reviewAnalysis,
+          ...NON_AUTHORITATIVE_CONTEXT_META,
+        },
       })
       return { kind: 'succeeded', context_entry_id: ce.id }
     }
@@ -463,9 +479,13 @@ export async function tryNews(
       const ce = await appendContext(env.DB, orgId, {
         entity_id: entity.id,
         type: 'enrichment',
-        content: `News/press: ${news.summary} (${news.mentions.length} mentions found)`,
+        content: formatNewsEvidence(news),
         source: 'news_search',
-        metadata: { mentions: news.mentions, summary: news.summary },
+        metadata: {
+          mentions: news.mentions,
+          summary: news.summary,
+          ...AUTHORITATIVE_CONTEXT_META,
+        },
       })
       return { kind: 'succeeded', context_entry_id: ce.id }
     }
@@ -498,7 +518,10 @@ export async function tryDeepWebsite(
         type: 'enrichment',
         content: formatDeepWebsite(analysis),
         source: 'deep_website',
-        metadata: analysis as unknown as Record<string, unknown>,
+        metadata: {
+          ...analysis,
+          ...AUTHORITATIVE_CONTEXT_META,
+        },
       })
       return { kind: 'succeeded', context_entry_id: ce.id }
     }
@@ -547,7 +570,10 @@ export async function tryReviewSynthesis(
         type: 'enrichment',
         content: `Review synthesis: ${synthesis.customer_sentiment} Trend: ${synthesis.sentiment_trend}. Themes: ${synthesis.top_themes.join(', ')}. Problems: ${synthesis.operational_problems.map((p) => `${p.problem} (${p.confidence})`).join(', ')}.`,
         source: 'review_synthesis',
-        metadata: synthesis as unknown as Record<string, unknown>,
+        metadata: {
+          ...synthesis,
+          ...NON_AUTHORITATIVE_CONTEXT_META,
+        },
       })
       return { kind: 'succeeded', context_entry_id: ce.id }
     }
@@ -622,7 +648,11 @@ export async function tryIntelligenceBrief(
         type: 'enrichment',
         content: brief,
         source: 'intelligence_brief',
-        metadata: { model: 'claude-sonnet-4-20250514', trigger: 'at_ingest' },
+        metadata: {
+          model: 'claude-sonnet-4-20250514',
+          trigger: 'at_ingest',
+          ...NON_AUTHORITATIVE_CONTEXT_META,
+        },
       })
       return { kind: 'succeeded', context_entry_id: ce.id }
     }
@@ -750,23 +780,32 @@ function formatDeepWebsite(analysis: DeepWebsiteAnalysis): string {
     parts.push(`Owner: ${analysis.owner_profile.name} (${analysis.owner_profile.title ?? 'owner'})`)
   if (analysis.owner_profile.background)
     parts.push(`Background: ${analysis.owner_profile.background}`)
-  if (analysis.team.size_estimate) parts.push(`Team: ~${analysis.team.size_estimate} people`)
   if (analysis.team.named_employees.length > 0)
     parts.push(
       `Named staff: ${analysis.team.named_employees.map((e) => `${e.name} (${e.role})`).join(', ')}`
     )
   if (analysis.business_profile.services.length > 0)
     parts.push(`Services: ${analysis.business_profile.services.join(', ')}`)
+  if (analysis.business_profile.service_areas.length > 0)
+    parts.push(`Service areas: ${analysis.business_profile.service_areas.join(', ')}`)
   if (analysis.business_profile.certifications.length > 0)
     parts.push(`Certifications: ${analysis.business_profile.certifications.join(', ')}`)
   if (analysis.business_profile.awards.length > 0)
     parts.push(`Awards: ${analysis.business_profile.awards.join(', ')}`)
-  parts.push(
-    `Digital maturity: ${analysis.digital_maturity.score}/10 — ${analysis.digital_maturity.reasoning}`
-  )
-  parts.push(
-    `Online booking: ${analysis.digital_maturity.online_booking ? 'Yes' : 'No'}, Chat: ${analysis.digital_maturity.chat_widget ? 'Yes' : 'No'}, Blog active: ${analysis.digital_maturity.blog_active ? 'Yes' : 'No'}`
-  )
+  if (analysis.business_profile.partnerships.length > 0)
+    parts.push(`Partnerships: ${analysis.business_profile.partnerships.join(', ')}`)
   if (analysis.contact_info.email) parts.push(`Email: ${analysis.contact_info.email}`)
+  if (analysis.contact_info.phone) parts.push(`Phone: ${analysis.contact_info.phone}`)
+  if (analysis.contact_info.address) parts.push(`Address: ${analysis.contact_info.address}`)
+  return parts.join('\n')
+}
+
+function formatNewsEvidence(news: {
+  mentions: Array<{ title: string; source: string; snippet: string }>
+}): string {
+  const parts = ['News / press mentions:']
+  for (const mention of news.mentions.slice(0, 3)) {
+    parts.push(`- ${mention.title} (${mention.source}): ${mention.snippet}`)
+  }
   return parts.join('\n')
 }

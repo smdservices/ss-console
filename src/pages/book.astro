@@ -5,7 +5,8 @@ import Base from '../layouts/Base.astro'
 import Nav from '../components/Nav.astro'
 import Footer from '../components/Footer.astro'
 import SlotPicker from '../components/booking/SlotPicker.astro'
-import { ENTITY_VERTICALS, getEntity } from '../lib/db/entities'
+import IntakeQuestionnaire from '../components/booking/IntakeQuestionnaire.astro'
+import { getEntity } from '../lib/db/entities'
 import { getContact } from '../lib/db/contacts'
 import { resolveTurnstileConfig } from '../lib/booking/turnstile'
 import { verifyBookingLink } from '../lib/booking/signed-link'
@@ -83,8 +84,8 @@ if (prefillToken) {
             prefillTokenError && (
               <div class="mb-6 rounded-[var(--ss-radius-card)] bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
                 {prefillTokenError === 'expired'
-                  ? 'This booking link has expired. You can still pick a time below — we will just take a few extra details.'
-                  : 'This booking link is not valid. You can still pick a time below — we will just take a few extra details.'}
+                  ? 'This booking link has expired. You can still pick a time below. We will just take a few extra details.'
+                  : 'This booking link is not valid. You can still pick a time below. We will just take a few extra details.'}
               </div>
             )
           }
@@ -105,7 +106,7 @@ if (prefillToken) {
             <a href="/outside-view" class="font-medium text-primary underline hover:text-primary/80"
               >See what we see</a
             >
-            — drop your URL and we'll send you back an Outside View.
+            . Drop your URL and we'll send you back an Outside View.
           </p>
 
           <!-- Step 2: Intake form (appears after slot selection) -->
@@ -149,7 +150,12 @@ if (prefillToken) {
               </button>
             </div>
 
-            <form id="booking-form" class="mt-6 space-y-5" novalidate>
+            <form
+              id="booking-form"
+              class="mt-6 space-y-5"
+              novalidate
+              data-turnstile-site-key={turnstileSiteKey}
+            >
               {
                 /* Prefill token from admin "Send booking link" action (#467).
                    When present, the reserve endpoint anchors this booking to
@@ -168,211 +174,15 @@ if (prefillToken) {
                 <input type="text" name="website_url" tabindex="-1" autocomplete="off" />
               </div>
 
-              <!-- Name + Email -->
-              <div class="grid gap-5 sm:grid-cols-2">
-                <div>
-                  <label
-                    for="bf-name"
-                    class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-                  >
-                    Full name <span class="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="bf-name"
-                    name="name"
-                    required
-                    maxlength="200"
-                    autocomplete="name"
-                    value={prefillContactName ?? ''}
-                    class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                    placeholder="e.g. Maria Garcia"
-                  />
-                </div>
-                <div>
-                  <label
-                    for="bf-email"
-                    class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-                  >
-                    Work email <span class="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    id="bf-email"
-                    name="email"
-                    required
-                    maxlength="254"
-                    autocomplete="email"
-                    value={prefillEmail ?? ''}
-                    class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                    placeholder="maria@example.com"
-                  />
-                </div>
-              </div>
-
-              <!-- Business name + Phone -->
-              <div class="grid gap-5 sm:grid-cols-2">
-                <div>
-                  <label
-                    for="bf-business"
-                    class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-                  >
-                    Business name <span class="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="bf-business"
-                    name="business_name"
-                    required
-                    maxlength="200"
-                    value={prefillBusinessName ?? ''}
-                    class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                    placeholder="e.g. Phoenix Plumbing Co."
-                  />
-                </div>
-                <div>
-                  <label
-                    for="bf-phone"
-                    class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-                  >
-                    Phone <span class="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    id="bf-phone"
-                    name="phone"
-                    required
-                    maxlength="30"
-                    autocomplete="tel"
-                    class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                    placeholder="(602) 555-0123"
-                  />
-                </div>
-              </div>
-
-              <!-- Vertical + Employee count -->
-              <div class="grid gap-5 sm:grid-cols-2">
-                <div>
-                  <label
-                    for="bf-vertical"
-                    class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-                  >
-                    What kind of business?
-                  </label>
-                  <select
-                    id="bf-vertical"
-                    name="vertical"
-                    class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  >
-                    <option value="">Select one</option>
-                    {ENTITY_VERTICALS.map((v) => <option value={v.value}>{v.label}</option>)}
-                  </select>
-                  <input
-                    type="text"
-                    id="bf-vertical-other"
-                    name="vertical_other"
-                    class="mt-2 hidden w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                    placeholder="Describe your business type"
-                  />
-                </div>
-                <div>
-                  <label
-                    for="bf-employees"
-                    class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-                  >
-                    Employee count
-                  </label>
-                  <select
-                    id="bf-employees"
-                    name="employee_count"
-                    class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  >
-                    <option value="">Select one</option>
-                    <option value="1-5">1 - 5</option>
-                    <option value="6-10">6 - 10</option>
-                    <option value="11-25">11 - 25</option>
-                    <option value="26-50">26 - 50</option>
-                    <option value="50+">50+</option>
-                  </select>
-                </div>
-              </div>
-
-              <!-- Years in business -->
-              <div class="sm:w-1/2">
-                <label
-                  for="bf-years"
-                  class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-                >
-                  Years in business
-                </label>
-                <select
-                  id="bf-years"
-                  name="years_in_business"
-                  class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <option value="">Select one</option>
-                  <option value="<1">Less than 1 year</option>
-                  <option value="1-3">1 - 3 years</option>
-                  <option value="3-5">3 - 5 years</option>
-                  <option value="5-10">5 - 10 years</option>
-                  <option value="10+">10+ years</option>
-                </select>
-              </div>
-
-              <!-- Biggest challenge -->
-              <div>
-                <label
-                  for="bf-challenge"
-                  class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-                >
-                  What's the single biggest operational challenge right now? <span
-                    class="text-red-500">*</span
-                  >
-                </label>
-                <p class="mt-0.5 text-xs text-[color:var(--ss-color-text-muted)]">
-                  What would make the biggest difference in how your business runs day to day?
-                </p>
-                <textarea
-                  id="bf-challenge"
-                  name="biggest_challenge"
-                  required
-                  rows="3"
-                  maxlength="2000"
-                  class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  placeholder="e.g. I want to stop being the bottleneck for every decision..."
-                ></textarea>
-              </div>
-
-              <!-- How heard -->
-              <div>
-                <label
-                  for="bf-how-heard"
-                  class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-                >
-                  How did you hear about us?
-                </label>
-                <select
-                  id="bf-how-heard"
-                  name="how_heard"
-                  class="mt-1 w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <option value="">Select one</option>
-                  <option value="Google Search">Google Search</option>
-                  <option value="Referral">Referral</option>
-                  <option value="BNI / Networking group">BNI / Networking group</option>
-                  <option value="Chamber of Commerce">Chamber of Commerce</option>
-                  <option value="Social Media">Social Media</option>
-                  <option value="SCORE / SBA">SCORE / SBA</option>
-                  <option value="other">Other</option>
-                </select>
-                <input
-                  type="text"
-                  id="bf-how-heard-other"
-                  name="how_heard_other"
-                  class="mt-2 hidden w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  placeholder="Tell us more"
-                />
-              </div>
+              <IntakeQuestionnaire
+                idPrefix="bf"
+                mode="booking"
+                values={{
+                  name: prefillContactName ?? undefined,
+                  email: prefillEmail ?? undefined,
+                  businessName: prefillBusinessName ?? undefined,
+                }}
+              />
 
               <!-- Turnstile -->
               <div id="turnstile-container"></div>
@@ -435,7 +245,7 @@ if (prefillToken) {
                   href="/get-started?booked=1"
                   class="font-medium text-primary underline hover:text-primary/80"
                   data-ev="book-post-confirm-intake">Help us prepare for your call</a
-                > — a few quick questions so we can make the most of our time together.
+                >. A few quick questions will help us make the most of our time together.
               </p>
             </div>
 
@@ -653,54 +463,75 @@ if (prefillToken) {
     )
   }
 
-  <script is:inline define:vars={{ turnstileSiteKey }}>
-    ;(function () {
-      const picker = document.getElementById('slot-picker')
-      const intakeSection = document.getElementById('intake-section')
-      const form = document.getElementById('booking-form')
-      const submitBtn = document.getElementById('bf-submit')
-      const errorBanner = document.getElementById('bf-error')
-      const slotTakenBanner = document.getElementById('bf-slot-taken')
-      const selectedSlotText = document.getElementById('selected-slot-text')
-      const changeSlotBtn = document.getElementById('change-slot-btn')
-      const confirmPanel = document.getElementById('confirmation-panel')
-      const emailFallback = document.getElementById('email-fallback-panel')
-      const turnstileContainer = document.getElementById('turnstile-container')
+  <script>
+    import { formDataToObject, normalizeIntakePayload } from '../lib/booking/intake-questionnaire'
 
-      // "Other" toggles
-      const verticalSelect = document.getElementById('bf-vertical')
-      const verticalOther = document.getElementById('bf-vertical-other')
-      const howHeardSelect = document.getElementById('bf-how-heard')
-      const howHeardOther = document.getElementById('bf-how-heard-other')
+    interface BookingSlot {
+      start_utc: string
+      timezone: string
+      label: string
+    }
 
-      verticalSelect.addEventListener('change', function () {
-        if (this.value === 'other') {
-          verticalOther.classList.remove('hidden')
-        } else {
-          verticalOther.classList.add('hidden')
-          verticalOther.value = ''
-        }
-      })
+    interface BookingResponse {
+      slot_label?: string
+      meet_url?: string | null
+      manage_url?: string | null
+      error?: string
+      message?: string
+      fallback?: {
+        email?: string
+      }
+    }
 
-      howHeardSelect.addEventListener('change', function () {
-        if (this.value === 'other') {
-          howHeardOther.classList.remove('hidden')
-        } else {
-          howHeardOther.classList.add('hidden')
-          howHeardOther.value = ''
-        }
-      })
+    ;(() => {
+      const pickerElement = document.getElementById('slot-picker')
+      const intakeSectionElement = document.getElementById('intake-section')
+      const formElement = document.getElementById('booking-form')
+      const submitBtnElement = document.getElementById('bf-submit')
+      const errorBannerElement = document.getElementById('bf-error')
+      const slotTakenBannerElement = document.getElementById('bf-slot-taken')
+      const selectedSlotTextElement = document.getElementById('selected-slot-text')
+      const changeSlotBtnElement = document.getElementById('change-slot-btn')
+      const confirmPanelElement = document.getElementById('confirmation-panel')
+      const emailFallbackElement = document.getElementById('email-fallback-panel')
+      const turnstileContainerElement = document.getElementById('turnstile-container')
 
-      // Track selected slot
-      let currentSlot = null
-      let turnstileWidgetId = null
+      if (
+        !(pickerElement instanceof HTMLElement) ||
+        !(intakeSectionElement instanceof HTMLElement) ||
+        !(formElement instanceof HTMLFormElement) ||
+        !(submitBtnElement instanceof HTMLButtonElement) ||
+        !(errorBannerElement instanceof HTMLElement) ||
+        !(slotTakenBannerElement instanceof HTMLElement) ||
+        !(selectedSlotTextElement instanceof HTMLElement) ||
+        !(changeSlotBtnElement instanceof HTMLButtonElement) ||
+        !(confirmPanelElement instanceof HTMLElement) ||
+        !(emailFallbackElement instanceof HTMLElement) ||
+        !(turnstileContainerElement instanceof HTMLElement)
+      ) {
+        return
+      }
+
+      const picker = pickerElement as HTMLElement & { refetchSlots?: () => void }
+      const intakeSection = intakeSectionElement
+      const form = formElement
+      const submitBtn = submitBtnElement
+      const errorBanner = errorBannerElement
+      const slotTakenBanner = slotTakenBannerElement
+      const selectedSlotText = selectedSlotTextElement
+      const changeSlotBtn = changeSlotBtnElement
+      const confirmPanel = confirmPanelElement
+      const emailFallback = emailFallbackElement
+      const turnstileContainer = turnstileContainerElement
+      const turnstileSiteKey = form.dataset.turnstileSiteKey || ''
+      let currentSlot: BookingSlot | null = null
+      let turnstileWidgetId: string | undefined
       let turnstileReady = false
       let turnstileTimedOut = false
 
-      // Render Turnstile widget when the script loads
       if (turnstileSiteKey) {
         const initTurnstile = function () {
-          if (typeof turnstile !== 'undefined' && turnstileContainer && !turnstileReady) {
+          if (typeof turnstile !== 'undefined' && !turnstileReady) {
             turnstileWidgetId = turnstile.render(turnstileContainer, {
               sitekey: turnstileSiteKey,
               callback: function () {
@@ -716,14 +547,13 @@ if (prefillToken) {
             turnstileReady = true
           }
         }
-        // Try immediately, retry if script not yet loaded
+
         initTurnstile()
         if (!turnstileReady) {
           const checkInterval = setInterval(function () {
             initTurnstile()
             if (turnstileReady) clearInterval(checkInterval)
           }, 200)
-          // Give up after 10 seconds — if widget never rendered, bypass client gating
           setTimeout(function () {
             clearInterval(checkInterval)
             if (!turnstileReady) {
@@ -744,16 +574,15 @@ if (prefillToken) {
         submitBtn.disabled = !(hasSlot && formValid && turnstileOk)
       }
 
-      // Listen for form input changes to update submit state
       form.addEventListener('input', updateSubmitState)
       form.addEventListener('change', updateSubmitState)
 
-      // Slot selection
-      picker.addEventListener('slot-selected', function (e) {
-        currentSlot = e.detail
+      picker.addEventListener('slot-selected', function (event) {
+        currentSlot = (event as CustomEvent<BookingSlot>).detail
+        if (!currentSlot) return
+
         intakeSection.style.display = ''
 
-        // Build readable label
         const d = new Date(currentSlot.start_utc)
         const dayNames = [
           'Sunday',
@@ -787,24 +616,19 @@ if (prefillToken) {
           ' at ' +
           currentSlot.label
 
-        // Hide any previous error banners
         errorBanner.classList.add('hidden')
         slotTakenBanner.classList.add('hidden')
 
         updateSubmitState()
-
-        // Scroll intake into view
         intakeSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
       })
 
-      // Change slot button
       changeSlotBtn.addEventListener('click', function () {
         picker.scrollIntoView({ behavior: 'smooth', block: 'start' })
       })
 
-      // Form submission
-      form.addEventListener('submit', function (e) {
-        e.preventDefault()
+      form.addEventListener('submit', async function (event) {
+        event.preventDefault()
         if (!currentSlot) return
 
         submitBtn.disabled = true
@@ -812,34 +636,15 @@ if (prefillToken) {
         errorBanner.classList.add('hidden')
         slotTakenBanner.classList.add('hidden')
 
-        const formData = new FormData(form)
-        const data = {}
-        formData.forEach(function (value, key) {
-          data[key] = value
-        })
-
-        // Resolve "Other" fields
-        if (data.vertical === 'other' && data.vertical_other) {
-          data.vertical = data.vertical_other
-        }
-        delete data.vertical_other
-        if (data.how_heard === 'other' && data.how_heard_other) {
-          data.how_heard = data.how_heard_other
-        }
-        delete data.how_heard_other
-
-        // Add slot data
+        const data = normalizeIntakePayload(formDataToObject(new FormData(form)))
         data.slot_start_utc = currentSlot.start_utc
         data.timezone = currentSlot.timezone
 
-        // Add Turnstile token
         if (turnstileSiteKey && typeof turnstile !== 'undefined') {
           data.turnstile_token = turnstile.getResponse(turnstileWidgetId) || ''
         }
 
-        // Honeypot check client-side (quick exit for bots)
         if (data.website_url && data.website_url.trim() !== '') {
-          // Show fake success to bots
           showConfirmation({
             slot_label: 'Your call is booked',
             meet_url: null,
@@ -848,69 +653,59 @@ if (prefillToken) {
           return
         }
 
-        fetch('/api/booking/reserve', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        })
-          .then(function (res) {
-            return res.json().then(function (body) {
-              return { status: res.status, body: body }
-            })
+        try {
+          const res = await fetch('/api/booking/reserve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
           })
-          .then(function (result) {
-            const status = result.status
-            const body = result.body
+          const body = (await res.json()) as BookingResponse
 
-            if (status === 201) {
-              showConfirmation(body)
-              return
-            }
+          if (res.status === 201) {
+            showConfirmation(body)
+            return
+          }
 
-            if (status === 409) {
-              // Slot taken — refetch and show banner
-              slotTakenBanner.classList.remove('hidden')
-              currentSlot = null
-              intakeSection.style.display = 'none'
-              if (picker.refetchSlots) picker.refetchSlots()
-              picker.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              resetSubmit()
-              return
-            }
-
-            if (status === 429) {
-              showError('Too many booking attempts. Please wait a few minutes and try again.')
-              resetSubmit()
-              return
-            }
-
-            if (status === 403 && body.error === 'turnstile_failed') {
-              showError('Security check failed. Please try again.')
-              if (turnstileSiteKey && typeof turnstile !== 'undefined') {
-                turnstile.reset(turnstileWidgetId)
-              }
-              resetSubmit()
-              return
-            }
-
-            if (status === 503) {
-              // Calendar unavailable — show email fallback
-              showEmailFallback(body)
-              return
-            }
-
-            // Generic error
-            showError(body.message || body.error || 'Something went wrong. Please try again.')
+          if (res.status === 409) {
+            slotTakenBanner.classList.remove('hidden')
+            currentSlot = null
+            intakeSection.style.display = 'none'
+            if (picker.refetchSlots) picker.refetchSlots()
+            picker.scrollIntoView({ behavior: 'smooth', block: 'start' })
             resetSubmit()
-          })
-          .catch(function (err) {
-            console.error('[book] reserve error:', err)
-            showError('Could not reach the server. Please check your connection and try again.')
+            return
+          }
+
+          if (res.status === 429) {
+            showError('Too many booking attempts. Please wait a few minutes and try again.')
             resetSubmit()
-          })
+            return
+          }
+
+          if (res.status === 403 && body.error === 'turnstile_failed') {
+            showError('Security check failed. Please try again.')
+            if (turnstileSiteKey && typeof turnstile !== 'undefined') {
+              turnstile.reset(turnstileWidgetId)
+            }
+            resetSubmit()
+            return
+          }
+
+          if (res.status === 503) {
+            showEmailFallback(body)
+            return
+          }
+
+          showError(body.message || body.error || 'Something went wrong. Please try again.')
+          resetSubmit()
+        } catch (err) {
+          console.error('[book] reserve error:', err)
+          showError('Could not reach the server. Please check your connection and try again.')
+          resetSubmit()
+        }
       })
 
-      function showError(msg) {
+      function showError(msg: string) {
         errorBanner.textContent = msg
         errorBanner.classList.remove('hidden')
       }
@@ -921,56 +716,58 @@ if (prefillToken) {
         updateSubmitState()
       }
 
-      function showConfirmation(body) {
-        // Hide picker + form, show confirmation
+      function showConfirmation(body: BookingResponse) {
         const pickerCard = document.querySelector('[data-component="slot-picker"]')
-        if (pickerCard) {
+        if (pickerCard instanceof HTMLElement) {
           const card = pickerCard.closest('.rounded-[var(--ss-radius-card)]')
-          if (card) card.style.display = 'none'
+          if (card instanceof HTMLElement) card.style.display = 'none'
         }
         intakeSection.style.display = 'none'
 
-        // Populate confirmation details
         const confSlot = document.getElementById('conf-slot')
-        confSlot.textContent = body.slot_label || 'Your call is booked'
+        if (confSlot instanceof HTMLElement) {
+          confSlot.textContent = body.slot_label || 'Your call is booked'
+        }
 
         if (body.meet_url) {
           const meetRow = document.getElementById('conf-meet-row')
           const meetLink = document.getElementById('conf-meet-link')
-          meetRow.classList.remove('hidden')
-          meetLink.href = body.meet_url
+          if (meetRow instanceof HTMLElement) meetRow.classList.remove('hidden')
+          if (meetLink instanceof HTMLAnchorElement) meetLink.href = body.meet_url
         }
 
         if (body.manage_url) {
           const manageRow = document.getElementById('conf-manage-row')
           const manageLink = document.getElementById('conf-manage-link')
-          manageRow.classList.remove('hidden')
-          manageLink.href = body.manage_url
+          if (manageRow instanceof HTMLElement) manageRow.classList.remove('hidden')
+          if (manageLink instanceof HTMLAnchorElement) manageLink.href = body.manage_url
         }
 
         confirmPanel.classList.remove('hidden')
         confirmPanel.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }
 
-      function showEmailFallback(body) {
-        const fallbackEmail = (body.fallback && body.fallback.email) || 'team@smd.services'
+      function showEmailFallback(body: BookingResponse) {
+        const fallbackEmail = body.fallback?.email || 'team@smd.services'
         const mailtoEl = document.getElementById('fallback-mailto')
-        const nameVal = form.elements.namedItem('name') ? form.elements.namedItem('name').value : ''
-        const businessVal = form.elements.namedItem('business_name')
-          ? form.elements.namedItem('business_name').value
-          : ''
+        const nameField = form.elements.namedItem('name')
+        const businessField = form.elements.namedItem('business_name')
+        const nameVal = nameField instanceof HTMLInputElement ? nameField.value : ''
+        const businessVal = businessField instanceof HTMLInputElement ? businessField.value : ''
         const subject = encodeURIComponent('Assessment Call Request')
         const bodyText = encodeURIComponent(
           "Hi, I'd like to schedule an assessment call.\n\n" +
             (nameVal ? 'Name: ' + nameVal + '\n' : '') +
             (businessVal ? 'Business: ' + businessVal + '\n' : '')
         )
-        mailtoEl.href = 'mailto:' + fallbackEmail + '?subject=' + subject + '&body=' + bodyText
-        mailtoEl.textContent = 'Email ' + fallbackEmail
 
-        // Hide picker + form, show fallback
-        const pickerEl = picker.closest('.rounded-[var(--ss-radius-card)]')
-        if (pickerEl) pickerEl.style.display = 'none'
+        if (mailtoEl instanceof HTMLAnchorElement) {
+          mailtoEl.href = 'mailto:' + fallbackEmail + '?subject=' + subject + '&body=' + bodyText
+          mailtoEl.textContent = 'Email ' + fallbackEmail
+        }
+
+        const pickerCard = picker.closest('.rounded-[var(--ss-radius-card)]')
+        if (pickerCard instanceof HTMLElement) pickerCard.style.display = 'none'
         intakeSection.style.display = 'none'
         emailFallback.classList.remove('hidden')
         emailFallback.scrollIntoView({ behavior: 'smooth', block: 'start' })

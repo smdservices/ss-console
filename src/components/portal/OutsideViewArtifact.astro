@@ -62,7 +62,7 @@ const visibleSections: RenderedSection[] = rendered.sections.filter(
       class="font-['Archivo_Narrow'] text-sm md:text-base text-[color:var(--ss-color-text-primary)] m-0"
     >
       Here's what we read from your public footprint. Each section below comes from a specific
-      signal we found — when we couldn't find enough to back something up, we say so rather than
+      signal we found. When we couldn't find enough to back something up, we say so rather than
       guessing.
     </p>
   </div>
@@ -97,7 +97,7 @@ const visibleSections: RenderedSection[] = rendered.sections.filter(
               </>
             ) : (
               <p class="mt-4 text-sm md:text-base italic text-[color:var(--ss-color-text-secondary)] m-0">
-                Insufficient data — {section.insufficientDataNote}
+                Insufficient data: {section.insufficientDataNote}
               </p>
             )}
           </article>
@@ -107,7 +107,7 @@ const visibleSections: RenderedSection[] = rendered.sections.filter(
       <div class="mt-6 border-[3px] border-[color:var(--ss-color-text-primary)] p-6 md:p-8">
         <p class="text-base md:text-lg text-[color:var(--ss-color-text-primary)] m-0">
           We tried to read your public digital footprint and couldn't find enough to produce a
-          useful report. That's actually informative on its own — a thin public footprint is often a
+          useful report. That's actually informative on its own. A thin public footprint is often a
           sign of where we'd start. The most useful next step is a short conversation.
         </p>
       </div>
@@ -122,14 +122,14 @@ const visibleSections: RenderedSection[] = rendered.sections.filter(
       Want a deeper look?
     </h2>
     <p class="mt-3 text-base md:text-lg text-[color:var(--ss-color-text-primary)] m-0">
-      Talk through this with our agent and we'll dig past what we can see from outside. Or talk
-      through it with us directly. Both are coming soon.
+      Talk through this with us and we'll dig past what we can see from outside. Use the booking
+      link in your email when you're ready.
     </p>
     <p
       class="mt-2 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] m-0"
     >
       In the meantime: this Outside View is yours to keep. Come back any time. Sharing with a
-      co-owner or partner? Send them the link from your email — same view, same session.
+      co-owner or partner? Send them the link from your email. Same view, same session.
     </p>
   </div>
 

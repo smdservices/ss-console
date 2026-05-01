@@ -1,6 +1,6 @@
 /**
- * Deep website analysis using Claude Sonnet for comprehensive business intelligence.
- * Fetches homepage + discoverable subpages, extracts detailed profile.
+ * Deep website analysis using Claude Sonnet for extractive website facts.
+ * Fetches homepage + discoverable subpages, extracts observable business data.
  */
 
 import { ModuleError } from './instrument'
@@ -10,16 +10,16 @@ const ANTHROPIC_VERSION = '2023-06-01'
 const MODEL = 'claude-sonnet-4-20250514'
 const MAX_TOKENS = 2048
 
-const DEEP_ANALYSIS_PROMPT = `You are analyzing a small business website for comprehensive intelligence. Extract ALL available information. Return ONLY valid JSON:
+const DEEP_ANALYSIS_PROMPT = `You are extracting observable facts from a small business website. Use only information explicitly supported by the supplied pages. Do not infer owner personality, company trajectory, internal capacity, hidden tooling, or unstated operational problems. Use null, false, or [] when the site does not support a field. Return ONLY valid JSON:
 
 {
   "owner_profile": {
     "name": "string or null",
     "title": "string or null",
-    "background": "string or null — bio, education, career history mentioned"
+    "background": "string or null — only if bio, education, or career history is explicitly stated"
   },
   "team": {
-    "size_estimate": "number or null",
+    "size_estimate": "number or null — only when the site explicitly states a headcount or shows a complete named team",
     "named_employees": ["array of {name, role} objects"],
     "departments_visible": ["array of department names"]
   },
@@ -38,8 +38,8 @@ const DEEP_ANALYSIS_PROMPT = `You are analyzing a small business website for com
     "pricing_visible": "boolean"
   },
   "digital_maturity": {
-    "score": "1-10 integer",
-    "reasoning": "1 sentence explanation",
+    "score": "1-10 integer based only on visible website features",
+    "reasoning": "1 sentence citing the visible website features behind the score",
     "online_booking": "boolean",
     "chat_widget": "boolean",
     "blog_active": "boolean — true if blog has posts within last 6 months",

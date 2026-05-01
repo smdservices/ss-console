@@ -41,8 +41,8 @@ import Footer from '../../components/Footer.astro'
         See what we see
       </h1>
       <p class="mt-4 text-lg text-[color:var(--ss-color-text-secondary)]">
-        Drop your URL and email. We read your public footprint and send you back an Outside View —
-        what an experienced outsider sees when they look at your business. Yours to keep.
+        Drop your URL and email. We read your public footprint and send you back an Outside View.
+        It's what an experienced outsider sees when they look at your business. Yours to keep.
       </p>
 
       <div id="form-status" class="mt-8" aria-live="polite"></div>
@@ -198,7 +198,7 @@ import Footer from '../../components/Footer.astro'
 
           if (res.ok) {
             status.innerHTML =
-              '<div class="rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-complete)]/30 bg-[color:var(--ss-color-complete)]/5 px-4 py-3 text-sm text-[color:var(--ss-color-complete)]"><strong>Started.</strong> Check your email — we sent a confirmation link to verify your inbox. Click it and we\'ll send your Outside View.</div>'
+              '<div class="rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-complete)]/30 bg-[color:var(--ss-color-complete)]/5 px-4 py-3 text-sm text-[color:var(--ss-color-complete)]"><strong>Started.</strong> Check your email. We sent a confirmation link to verify your inbox. Click it and we\'ll send your Outside View.</div>'
             form.reset()
             form.style.display = 'none'
           } else if (res.status === 429) {

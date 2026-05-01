@@ -15,6 +15,17 @@ import { readdirSync, readFileSync, statSync } from 'fs'
 import { resolve, join, extname } from 'path'
 
 const SRC_ROOT = resolve('src')
+const PAGES_ROOT = resolve('src/pages')
+const COMPONENTS_ROOT = resolve('src/components')
+const LAYOUTS_ROOT = resolve('src/layouts')
+
+const USER_FACING_EXCLUDED_DIRS = [
+  resolve('src/pages/admin'),
+  resolve('src/pages/api'),
+  resolve('src/pages/design-preview'),
+  resolve('src/pages/dev'),
+  resolve('src/components/admin'),
+]
 
 /** Collect all .astro, .ts, .tsx files under src/ (excluding test files and dev harness) */
 function collectSourceFiles(dir: string): string[] {
@@ -38,6 +49,35 @@ function collectSourceFiles(dir: string): string[] {
     }
   }
   return files
+}
+
+function isWithinDir(path: string, dir: string): boolean {
+  return path === dir || path.startsWith(`${dir}/`)
+}
+
+function collectAstroFiles(dir: string): string[] {
+  const files: string[] = []
+  for (const entry of readdirSync(dir)) {
+    const fullPath = join(dir, entry)
+    if (USER_FACING_EXCLUDED_DIRS.some((excludedDir) => isWithinDir(fullPath, excludedDir))) {
+      continue
+    }
+
+    const stat = statSync(fullPath)
+    if (stat.isDirectory()) {
+      files.push(...collectAstroFiles(fullPath))
+    } else if (extname(entry) === '.astro') {
+      files.push(fullPath)
+    }
+  }
+  return files
+}
+
+function stripComments(content: string): string {
+  return content
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/^\s*\/\/.*$/gm, '')
 }
 
 const FORBIDDEN_PATTERNS: Array<{ label: string; pattern: RegExp | string }> = [
@@ -153,6 +193,22 @@ const FORBIDDEN_PATTERNS: Array<{ label: string; pattern: RegExp | string }> = [
 ]
 
 const sourceFiles = collectSourceFiles(SRC_ROOT)
+const userFacingSurfaceFiles = [
+  ...collectAstroFiles(PAGES_ROOT),
+  ...collectAstroFiles(COMPONENTS_ROOT),
+  ...collectAstroFiles(LAYOUTS_ROOT),
+]
+
+const USER_FACING_COPY_GUARDS: Array<{ label: string; pattern: RegExp }> = [
+  {
+    label: 'no em dashes in shipped user-facing surfaces',
+    pattern: /—/,
+  },
+  {
+    label: 'no "coming soon" placeholder copy in shipped user-facing surfaces',
+    pattern: /\bcoming soon\b/i,
+  },
+]
 
 describe('forbidden-strings: Pattern A/B violations must not appear in shipped source', () => {
   for (const { label, pattern } of FORBIDDEN_PATTERNS) {
@@ -166,6 +222,25 @@ describe('forbidden-strings: Pattern A/B violations must not appear in shipped s
           // Compute a relative path for readable failure messages
           const rel = file.replace(SRC_ROOT, 'src')
           violations.push(rel)
+        }
+      }
+      expect(violations).toEqual([])
+    })
+  }
+})
+
+describe('user-facing copy guardrails', () => {
+  it('finds shipped user-facing Astro surfaces to check (sanity)', () => {
+    expect(userFacingSurfaceFiles.length).toBeGreaterThan(0)
+  })
+
+  for (const { label, pattern } of USER_FACING_COPY_GUARDS) {
+    it(`must enforce: ${label}`, () => {
+      const violations: string[] = []
+      for (const file of userFacingSurfaceFiles) {
+        const content = stripComments(readFileSync(file, 'utf-8'))
+        if (pattern.test(content)) {
+          violations.push(file.replace(SRC_ROOT, 'src'))
         }
       }
       expect(violations).toEqual([])

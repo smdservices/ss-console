@@ -89,6 +89,8 @@ export interface ContextFilters {
   engagement_id?: string
 }
 
+export type ContextAuthority = 'authoritative' | 'non_authoritative'
+
 // ---------------------------------------------------------------------------
 // Append
 // ---------------------------------------------------------------------------
@@ -307,6 +309,36 @@ interface AssembleOptions {
   includeTranscripts?: boolean
   /** Filter to specific context types. */
   typeFilter?: ContextType[]
+  /**
+   * Include model-authored, non-authoritative summaries. Default false.
+   * Downstream prompt assembly should read extractive facts by default.
+   */
+  includeNonAuthoritative?: boolean
+}
+
+const LEGACY_NON_AUTHORITATIVE_SOURCES = new Set([
+  'intelligence_brief',
+  'review_analysis',
+  'review_synthesis',
+])
+
+function parseMetadataJson(metadata: string | null): Record<string, unknown> | null {
+  if (!metadata) return null
+  try {
+    const parsed = JSON.parse(metadata)
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null
+  } catch {
+    return null
+  }
+}
+
+function getContextAuthority(entry: ContextEntry): ContextAuthority {
+  const metadata = parseMetadataJson(entry.metadata)
+  const explicit = metadata?.context_authority
+  if (explicit === 'authoritative' || explicit === 'non_authoritative') {
+    return explicit
+  }
+  return LEGACY_NON_AUTHORITATIVE_SOURCES.has(entry.source) ? 'non_authoritative' : 'authoritative'
 }
 
 /**
@@ -326,7 +358,10 @@ export async function assembleEntityContext(
     filters.types = opts.typeFilter
   }
 
-  const entries = await listContext(db, entityId, filters)
+  const listed = await listContext(db, entityId, filters)
+  const entries = opts?.includeNonAuthoritative
+    ? listed
+    : listed.filter((entry) => getContextAuthority(entry) === 'authoritative')
   if (entries.length === 0) return ''
 
   const parts: string[] = []

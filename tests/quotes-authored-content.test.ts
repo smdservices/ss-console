@@ -473,58 +473,62 @@ describe('portal proposal page: render gating', () => {
 })
 
 describe('admin quote builder: authoring UI + send gate', () => {
-  const source = () =>
+  const pageSource = () =>
     readFileSync(resolve('src/pages/admin/entities/[id]/quotes/[quoteId].astro'), 'utf-8')
+  const loaderSource = () => readFileSync(resolve('src/lib/admin/quote-builder-page.ts'), 'utf-8')
+  const clientSource = () => readFileSync(resolve('src/lib/admin/quote-builder-client.ts'), 'utf-8')
 
-  it('imports parsing helpers', () => {
-    const code = source()
+  it('routes authored-content parsing through the extracted loader', () => {
+    expect(pageSource()).toContain('loadQuoteBuilderPage')
+    const code = loaderSource()
     expect(code).toContain('parseSchedule')
     expect(code).toContain('parseDeliverables')
     expect(code).toContain('getMissingAuthoredContent')
   })
 
   it('renders schedule row editor', () => {
-    const code = source()
+    const code = pageSource()
     expect(code).toContain('add-schedule-row-btn')
     expect(code).toContain('schedule-label')
     expect(code).toContain('schedule-body')
   })
 
   it('renders deliverable row editor', () => {
-    const code = source()
+    const code = pageSource()
     expect(code).toContain('add-deliverable-row-btn')
     expect(code).toContain('deliverable-title')
     expect(code).toContain('deliverable-body')
   })
 
   it('renders engagement-overview textarea', () => {
-    const code = source()
+    const code = pageSource()
     expect(code).toContain('engagement-overview-input')
     expect(code).toContain('Engagement overview')
   })
 
   it('renders milestone-label input behind isThreeMilestone gate', () => {
-    const code = source()
+    const code = pageSource()
     expect(code).toContain('milestone-label-input')
     expect(code).toContain('isThreeMilestone &&')
   })
 
   it('shows missing-authored-content banner when fields are empty', () => {
-    const code = source()
+    const code = pageSource()
     expect(code).toContain('missingAuthored')
     expect(code).toContain('Required to send')
   })
 
   it('hidden fields submit schedule, deliverables, overview, milestone_label', () => {
-    const code = source()
+    const code = pageSource()
     expect(code).toContain('save-schedule')
     expect(code).toContain('save-deliverables')
     expect(code).toContain('save-engagement-overview')
     expect(code).toContain('save-milestone-label')
   })
 
-  it('serializes authored rows into hidden inputs before submit', () => {
-    const code = source()
+  it('serializes authored rows into hidden inputs in the extracted client module', () => {
+    expect(pageSource()).toContain('initQuoteBuilderPage')
+    const code = clientSource()
     expect(code).toContain('syncAuthoredContentInputs')
     expect(code).toContain('getScheduleRows')
     expect(code).toContain('getDeliverableRows')

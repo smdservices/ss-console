@@ -609,7 +609,11 @@ export async function runReviewSynthesis(
       type: 'enrichment',
       source: 'review_synthesis',
       content: `Review synthesis: ${synthesis.customer_sentiment} Trend: ${synthesis.sentiment_trend}.`,
-      metadata: synthesis as unknown as Record<string, unknown>,
+      metadata: {
+        ...synthesis,
+        context_authority: 'non_authoritative',
+        evidence_mode: 'model_summary',
+      },
       source_ref: scanRequest.id,
     })
     return true
@@ -631,8 +635,12 @@ export async function runDeepWebsite(
       entity_id: entity.id,
       type: 'enrichment',
       source: 'deep_website',
-      content: `Deep website analysis. Digital maturity score: ${analysis.digital_maturity?.score ?? 'n/a'}/10.`,
-      metadata: analysis as unknown as Record<string, unknown>,
+      content: formatDiagnosticDeepWebsiteEvidence(analysis),
+      metadata: {
+        ...analysis,
+        context_authority: 'authoritative',
+        evidence_mode: 'extractive',
+      },
       source_ref: scanRequest.id,
     })
     return true
@@ -657,13 +665,58 @@ export async function runIntelligenceBrief(
       type: 'enrichment',
       source: 'intelligence_brief',
       content: brief,
-      metadata: { trigger: 'inbound_scan' },
+      metadata: {
+        trigger: 'inbound_scan',
+        context_authority: 'non_authoritative',
+        evidence_mode: 'model_summary',
+      },
       source_ref: scanRequest.id,
     })
     return brief
   } catch (err) {
     throw new ScanModuleError('intelligence_brief', err)
   }
+}
+
+function formatDiagnosticDeepWebsiteEvidence(
+  analysis: Awaited<ReturnType<typeof deepWebsiteAnalysis>>
+) {
+  if (!analysis) return 'Deep website analysis.'
+
+  const ownerProfile =
+    analysis.owner_profile && typeof analysis.owner_profile === 'object'
+      ? analysis.owner_profile
+      : null
+  const businessProfile =
+    analysis.business_profile && typeof analysis.business_profile === 'object'
+      ? analysis.business_profile
+      : null
+  const contactInfo =
+    analysis.contact_info && typeof analysis.contact_info === 'object'
+      ? analysis.contact_info
+      : null
+  const parts = ['Deep website analysis:']
+  if (ownerProfile && typeof ownerProfile.name === 'string' && ownerProfile.name.trim()) {
+    parts.push(`Owner: ${ownerProfile.name} (${ownerProfile.title ?? 'owner'})`)
+  }
+  const services = Array.isArray(businessProfile?.services) ? businessProfile.services : []
+  if (services.length > 0) {
+    parts.push(`Services: ${services.join(', ')}`)
+  }
+  const certifications = Array.isArray(businessProfile?.certifications)
+    ? businessProfile.certifications
+    : []
+  if (certifications.length > 0) {
+    parts.push(`Certifications: ${certifications.join(', ')}`)
+  }
+  if (contactInfo && typeof contactInfo.email === 'string' && contactInfo.email.trim()) {
+    parts.push(`Email: ${contactInfo.email}`)
+  }
+  if (contactInfo && typeof contactInfo.phone === 'string' && contactInfo.phone.trim()) {
+    parts.push(`Phone: ${contactInfo.phone}`)
+  }
+
+  return parts.join('\n')
 }
 
 // ---------------------------------------------------------------------------
