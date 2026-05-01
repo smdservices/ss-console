@@ -1,10 +1,54 @@
 ---
-const items = [
+// What we do — six-capability layout per CLAUDE.md "Problem Framework".
+//
+// V1 ships six cards with one-line descriptions only. AI card alone has a
+// "Read more →" affordance because /ai is the only capability with a real
+// URL. The other five carry no outbound or in-page anchor in v1; detail
+// blocks land in v2 once #597 evidence justifies promoting any to its own
+// page (per ADR 0002 cleanup, issue #639).
+//
+// "How we deliver" subsection holds the deliverables list (formerly the
+// entire WhatYouGet section, mixed capabilities with deliverables — now
+// taxonomically separated).
+const capabilities = [
+  {
+    title: 'Process design',
+    description:
+      "We document what's working, fix what isn't, and write it down so your team can run without you.",
+  },
+  {
+    title: 'Custom internal tools',
+    description:
+      "Built when off-the-shelf doesn't fit how you work. A script, a small app, or a workflow inside something you already use.",
+  },
+  {
+    title: 'Systems integration',
+    description:
+      "Getting the tools you already pay for to talk to each other, so the same data doesn't live in five places.",
+  },
+  {
+    title: 'Operational visibility',
+    description:
+      "Knowing what's actually happening across your business without piecing it together every Friday.",
+  },
+  {
+    title: 'Vendor and platform selection',
+    description:
+      'When you need a new tool, we help you pick the one that fits where your business is now.',
+  },
+  {
+    title: 'AI and automation',
+    description:
+      'When AI fits the work, we use it. When a simpler script does the job, we use that instead.',
+    href: '/ai',
+  },
+]
+
+const deliverables = [
   'Documented SOPs for your critical processes',
   'Tool selection, configuration, and integration',
   'Custom internal tools and dashboards built for how you work',
   'System integrations that eliminate manual data entry',
-  "AI and automation where it actually helps, nothing where it doesn't",
   'Vendor evaluation and selection when off-the-shelf fits better',
   'Data migration and setup',
   'Hands-on team training and walkthrough',
@@ -14,6 +58,7 @@ const items = [
 ---
 
 <section
+  id="approach"
   class="bg-[color:var(--ss-color-background)] px-6 py-24 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
 >
   <div class="mx-auto max-w-5xl">
@@ -25,36 +70,85 @@ const items = [
       <h2
         class="font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
       >
-        What You Get
+        What We Do
       </h2>
     </div>
+
     <div
-      class="grid grid-cols-1 gap-0 md:grid-cols-2 border-t border-[color:var(--ss-color-border)]"
+      class="grid grid-cols-1 gap-0 md:grid-cols-3 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
     >
       {
-        items.map((item, i) => (
+        capabilities.map((c, i) => (
           <div
             class:list={[
-              'flex items-start gap-4 py-5 px-1 border-b border-[color:var(--ss-color-border)]',
-              i % 2 === 0 && 'md:border-r md:pr-8 md:border-[color:var(--ss-color-border)]',
-              i % 2 === 1 && 'md:pl-8',
+              'flex flex-col gap-4 bg-[color:var(--ss-color-background)] p-8 min-h-[14rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
+              i % 3 !== 2 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
             ]}
           >
-            <span class="mt-2 inline-block w-3 h-3 shrink-0 bg-[color:var(--ss-color-primary)]" />
-            <span class="font-['Archivo'] text-lg text-[color:var(--ss-color-text-primary)]">
-              {item}
-            </span>
+            <p class="font-['JetBrains_Mono'] text-sm font-semibold tracking-[0.08em] text-[color:var(--ss-color-primary)]">
+              {String(i + 1).padStart(2, '0')}.
+            </p>
+            <h3 class="font-['Archivo'] text-xl font-bold uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
+              {c.title}
+            </h3>
+            <p class="font-['Archivo'] leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+              {c.description}
+            </p>
+            {c.href && (
+              <a
+                href={c.href}
+                data-ev={`approach-card-${c.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+                class="mt-auto pt-4 font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)] hover:text-[color:var(--ss-color-primary-hover)]"
+              >
+                Read more →
+              </a>
+            )}
           </div>
         ))
       }
     </div>
+
     <p
       class="mt-10 max-w-3xl font-['Archivo'] text-[color:var(--ss-color-text-secondary)] leading-relaxed"
     >
       This is how we deliver. It is not a checklist we run against your business. We start by
-      understanding where you are trying to go, then figure out together which of these moves — and
-      in what shape — actually gets you there. The right solution might be one of these, several of
+      understanding where you are trying to go, then figure out together which of these moves, and
+      in what shape, actually gets you there. The right solution might be one of these, several of
       these, or something we have not listed at all.
     </p>
+
+    <p
+      class="mt-6 max-w-3xl font-['Archivo'] text-[color:var(--ss-color-text-secondary)] leading-relaxed"
+    >
+      When AI is the right tool, we use it well and we say so. When it isn't, we say that too.
+    </p>
+
+    <div class="mt-16 pt-12 border-t-[3px] border-[color:var(--ss-color-text-primary)]">
+      <h3
+        class="mb-8 font-['Archivo'] text-2xl font-bold uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]"
+      >
+        What You Get
+      </h3>
+      <div
+        class="grid grid-cols-1 gap-0 md:grid-cols-2 border-t border-[color:var(--ss-color-border)]"
+      >
+        {
+          deliverables.map((item, i) => (
+            <div
+              class:list={[
+                'flex items-start gap-4 py-5 px-1 border-b border-[color:var(--ss-color-border)]',
+                i % 2 === 0 && 'md:border-r md:pr-8 md:border-[color:var(--ss-color-border)]',
+                i % 2 === 1 && 'md:pl-8',
+              ]}
+            >
+              <span class="mt-2 inline-block w-3 h-3 shrink-0 bg-[color:var(--ss-color-primary)]" />
+              <span class="font-['Archivo'] text-lg text-[color:var(--ss-color-text-primary)]">
+                {item}
+              </span>
+            </div>
+          ))
+        }
+      </div>
+    </div>
   </div>
 </section>
