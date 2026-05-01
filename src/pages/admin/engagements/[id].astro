@@ -1,87 +1,47 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro'
+import AdminFlashNotice from '../../../components/admin/AdminFlashNotice.astro'
 import { statusBadgeClass } from '../../../lib/ui/status-badge'
-import { getEngagement, VALID_TRANSITIONS } from '../../../lib/db/engagements'
-import type { EngagementStatus } from '../../../lib/db/engagements'
-import { getEntity } from '../../../lib/db/entities'
-import { getQuote } from '../../../lib/db/quotes'
-import { listMilestones, VALID_TRANSITIONS as MS_TRANSITIONS } from '../../../lib/db/milestones'
-import type { MilestoneStatus } from '../../../lib/db/milestones'
-import { listInvoices } from '../../../lib/db/invoices'
-import { listContext } from '../../../lib/db/context'
-import { listSignalsForEntity } from '../../../lib/db/signal-attribution'
-import { listDocuments } from '../../../lib/storage/r2'
+import {
+  contextTypeEyebrowClass,
+  fileSize,
+  formatDate,
+  formatSignalLabel,
+  loadEngagementDetailPage,
+  type MilestoneStatus,
+} from '../../../lib/admin/engagement-detail-page'
 import { env } from 'cloudflare:workers'
-
-// Context-entry type → flat eyebrow class. Per Pattern 01 these are
-// category labels above a record, not state — render as ink-on-cream
-// uppercase eyebrow, no fill, no rounded shape.
-function contextTypeEyebrowClass(): string {
-  return 'text-label uppercase font-mono text-[color:var(--ss-color-text-secondary)] tracking-[var(--ss-text-letter-spacing-label)]'
-}
 
 const session = Astro.locals.session!
 if (session.role !== 'admin') return Astro.redirect('/login')
 
 const engagementId = Astro.params.id!
-const engagement = await getEngagement(env.DB, session.orgId, engagementId)
-if (!engagement) return Astro.redirect('/admin/entities?error=not_found')
-
-const entity = await getEntity(env.DB, session.orgId, engagement.entity_id)
-const quote = engagement.quote_id
-  ? await getQuote(env.DB, session.orgId, engagement.quote_id)
-  : null
-const milestones = await listMilestones(env.DB, session.orgId, engagementId)
-const invoices = await listInvoices(env.DB, session.orgId, { engagementId })
-const contextEntries = await listContext(env.DB, engagement.entity_id, {
-  engagement_id: engagementId,
+const pageData = await loadEngagementDetailPage({
+  db: env.DB,
+  storage: env.STORAGE,
+  orgId: session.orgId,
+  engagementId,
+  url: Astro.url,
 })
+if (!pageData) return Astro.redirect('/admin/entities?error=not_found')
 
-// Signals on file for this entity, most-recent first (#589). Powers the
-// originating-signal dropdown in the Edit Details form.
-const entitySignals = await listSignalsForEntity(env.DB, session.orgId, engagement.entity_id)
-
-function truncateSignal(content: string, max = 80): string {
-  const oneLine = content.replace(/\s+/g, ' ').trim()
-  return oneLine.length <= max ? oneLine : `${oneLine.slice(0, max - 1)}…`
-}
-
-function formatSignalLabel(s: { source_pipeline: string; created_at: string; content: string }) {
-  const date = new Date(s.created_at).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-  return `[${s.source_pipeline}] ${date} — ${truncateSignal(s.content)}`
-}
-
-const depositInvoice = invoices.find((i) => i.type === 'deposit')
-
-const prefix = `${session.orgId}/engagements/${engagementId}/docs/`
-const documents = await listDocuments(env.STORAGE, prefix)
-
-const status = engagement.status as EngagementStatus
-const nextStatuses = VALID_TRANSITIONS[status] ?? []
-
-const saved = Astro.url.searchParams.get('saved')
-const error = Astro.url.searchParams.get('error')
-const milestoneAdded = Astro.url.searchParams.get('milestone_added')
-const milestoneDeleted = Astro.url.searchParams.get('milestone_deleted')
-
-function formatDate(d: string | null): string {
-  if (!d) return '--'
-  return new Date(d).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
-
-function fileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
+const {
+  engagement,
+  entity,
+  quote,
+  milestones,
+  invoices,
+  contextEntries,
+  entitySignals,
+  documents,
+  nextStatuses,
+  depositInvoice,
+  milestoneTransitions,
+  saved,
+  error,
+  milestoneAdded,
+  milestoneDeleted,
+} = pageData
 ---
 
 <AdminLayout
@@ -92,39 +52,24 @@ function fileSize(bytes: number): string {
     { label: 'Engagement' },
   ]}
 >
-  <div class="space-y-card">
-    {
-      saved && (
-        <div class="border-l-4 border-[color:var(--ss-color-complete)] bg-[color:var(--ss-color-surface)] text-[color:var(--ss-color-text-primary)] px-4 py-2 text-sm">
-          Changes saved.
-        </div>
-      )
-    }
-    {
-      milestoneAdded && (
-        <div class="border-l-4 border-[color:var(--ss-color-complete)] bg-[color:var(--ss-color-surface)] text-[color:var(--ss-color-text-primary)] px-4 py-2 text-sm">
-          Milestone added.
-        </div>
-      )
-    }
-    {
-      milestoneDeleted && (
-        <div class="border-l-4 border-[color:var(--ss-color-complete)] bg-[color:var(--ss-color-surface)] text-[color:var(--ss-color-text-primary)] px-4 py-2 text-sm">
-          Milestone deleted.
-        </div>
-      )
-    }
+  <div id="engagement-page" data-engagement-id={engagementId} class="space-y-card">
+    {saved && <AdminFlashNotice message="Changes saved." />}
+    {milestoneAdded && <AdminFlashNotice message="Milestone added." />}
+    {milestoneDeleted && <AdminFlashNotice message="Milestone deleted." />}
     {
       error && (
-        <div class="border-l-4 border-[color:var(--ss-color-error)] bg-[color:var(--ss-color-surface)] text-[color:var(--ss-color-text-primary)] px-4 py-2 text-sm">
-          {error === 'invalid_status'
-            ? 'Invalid status transition.'
-            : error === 'invalid_transition'
-              ? 'Invalid transition.'
-              : error === 'not_found'
-                ? 'Resource not found.'
-                : 'An error occurred.'}
-        </div>
+        <AdminFlashNotice
+          kind="error"
+          message={
+            error === 'invalid_status'
+              ? 'Invalid status transition.'
+              : error === 'invalid_transition'
+                ? 'Invalid transition.'
+                : error === 'not_found'
+                  ? 'Resource not found.'
+                  : 'An error occurred.'
+          }
+        />
       )
     }
 
@@ -388,7 +333,7 @@ function fileSize(bytes: number): string {
         {
           milestones.map((ms) => {
             const msStatus = ms.status as MilestoneStatus
-            const msNext = MS_TRANSITIONS[msStatus] ?? []
+            const msNext = milestoneTransitions[msStatus] ?? []
             return (
               <div class="px-6 py-4 flex items-center justify-between gap-stack">
                 <div class="flex-1 min-w-0">
@@ -793,196 +738,10 @@ function fileSize(bytes: number): string {
     </div>
   </div>
 
-  <script define:vars={{ engagementId }}>
-    const fileInput = document.getElementById('file-input')
-    const uploadBtn = document.getElementById('upload-btn')
-    const uploadArea = document.getElementById('upload-area')
-    const uploadStatus = document.getElementById('upload-status')
+  <script>
+    import { initEngagementDetailPage } from '../../../lib/admin/engagement-detail-client'
 
-    uploadBtn.addEventListener('click', () => fileInput.click())
-    fileInput.addEventListener('change', () => uploadFiles(fileInput.files))
-
-    uploadArea.addEventListener('dragover', (e) => {
-      e.preventDefault()
-      uploadArea.classList.add('drag-active')
-    })
-    uploadArea.addEventListener('dragleave', () => {
-      uploadArea.classList.remove('drag-active')
-    })
-    uploadArea.addEventListener('drop', (e) => {
-      e.preventDefault()
-      uploadArea.classList.remove('drag-active')
-      uploadFiles(e.dataTransfer.files)
-    })
-
-    async function uploadFiles(files) {
-      if (!files || files.length === 0) return
-      uploadStatus.classList.remove('hidden')
-
-      for (const file of files) {
-        uploadStatus.textContent = `Uploading ${file.name}...`
-        const form = new FormData()
-        form.append('file', file)
-        try {
-          const res = await fetch(`/api/admin/engagements/${engagementId}/deliverables`, {
-            method: 'POST',
-            body: form,
-          })
-          if (!res.ok) {
-            const data = await res.json().catch(() => ({}))
-            uploadStatus.textContent = `Failed: ${data.error || res.statusText}`
-          } else {
-            uploadStatus.textContent = `Uploaded ${file.name}`
-          }
-        } catch (err) {
-          uploadStatus.textContent = `Error: ${err.message}`
-        }
-      }
-      setTimeout(() => location.reload(), 800)
-    }
-  </script>
-
-  <script define:vars={{ engagementId }}>
-    // Consultant photo: client-side square-crop and WebP encode, then upload.
-    // We crop in the browser to avoid a WASM image pipeline on the Worker — the
-    // server accepts pre-processed WebP/JPEG/PNG under 5 MB and stores to R2.
-    const photoInput = document.getElementById('photo-input')
-    const photoChoose = document.getElementById('photo-choose')
-    const photoUpload = document.getElementById('photo-upload')
-    const photoCancel = document.getElementById('photo-cancel')
-    const photoRemove = document.getElementById('photo-remove')
-    const photoPreview = document.getElementById('photo-preview')
-    const photoStatus = document.getElementById('photo-status')
-
-    let pendingBlob = null
-    const TARGET_SIZE = 400
-    const PREVIEW_SIZE = 160
-    const MAX_BYTES = 5 * 1024 * 1024
-
-    function setStatus(msg, isError) {
-      if (!photoStatus) return
-      photoStatus.textContent = msg
-      photoStatus.className = isError
-        ? 'mt-2 text-xs text-[color:var(--ss-color-error)]'
-        : 'mt-2 text-xs text-[color:var(--ss-color-text-secondary)]'
-    }
-
-    async function cropToSquareWebp(file) {
-      if (file.size > MAX_BYTES) {
-        throw new Error('Original file exceeds 5 MB. Please pick a smaller image.')
-      }
-      const bitmap = await createImageBitmap(file)
-      const side = Math.min(bitmap.width, bitmap.height)
-      const sx = Math.round((bitmap.width - side) / 2)
-      const sy = Math.round((bitmap.height - side) / 2)
-
-      const canvas = document.createElement('canvas')
-      canvas.width = TARGET_SIZE
-      canvas.height = TARGET_SIZE
-      const ctx = canvas.getContext('2d')
-      ctx.drawImage(bitmap, sx, sy, side, side, 0, 0, TARGET_SIZE, TARGET_SIZE)
-
-      if (photoPreview) {
-        photoPreview.width = PREVIEW_SIZE
-        photoPreview.height = PREVIEW_SIZE
-        const pctx = photoPreview.getContext('2d')
-        pctx.drawImage(canvas, 0, 0, PREVIEW_SIZE, PREVIEW_SIZE)
-        photoPreview.classList.remove('hidden')
-      }
-
-      const blob = await new Promise((resolve, reject) => {
-        canvas.toBlob(
-          (b) => (b ? resolve(b) : reject(new Error('Encoding failed'))),
-          'image/webp',
-          0.9
-        )
-      })
-      if (blob.size > MAX_BYTES) {
-        throw new Error('Encoded photo still exceeds 5 MB. Try a smaller source image.')
-      }
-      return blob
-    }
-
-    if (photoChoose && photoInput) {
-      photoChoose.addEventListener('click', () => photoInput.click())
-    }
-
-    if (photoInput) {
-      photoInput.addEventListener('change', async () => {
-        const file = photoInput.files && photoInput.files[0]
-        if (!file) return
-        try {
-          setStatus('Processing image...', false)
-          pendingBlob = await cropToSquareWebp(file)
-          setStatus(`Ready to upload (${(pendingBlob.size / 1024).toFixed(1)} KB WebP)`, false)
-          photoUpload.classList.remove('hidden')
-          photoCancel.classList.remove('hidden')
-        } catch (err) {
-          pendingBlob = null
-          setStatus(err.message || 'Could not process image', true)
-        }
-      })
-    }
-
-    if (photoCancel) {
-      photoCancel.addEventListener('click', () => {
-        pendingBlob = null
-        if (photoInput) photoInput.value = ''
-        if (photoPreview) photoPreview.classList.add('hidden')
-        photoUpload.classList.add('hidden')
-        photoCancel.classList.add('hidden')
-        setStatus('', false)
-      })
-    }
-
-    if (photoUpload) {
-      photoUpload.addEventListener('click', async () => {
-        if (!pendingBlob) return
-        photoUpload.disabled = true
-        photoCancel.disabled = true
-        setStatus('Uploading...', false)
-        const form = new FormData()
-        form.append('photo', new File([pendingBlob], 'consultant.webp', { type: 'image/webp' }))
-        try {
-          const res = await fetch(`/api/admin/engagements/${engagementId}/consultant-photo`, {
-            method: 'POST',
-            body: form,
-          })
-          if (!res.ok) {
-            const data = await res.json().catch(() => ({}))
-            throw new Error(data.error || res.statusText)
-          }
-          setStatus('Photo uploaded. Reloading...', false)
-          setTimeout(() => location.reload(), 500)
-        } catch (err) {
-          setStatus(err.message || 'Upload failed', true)
-          photoUpload.disabled = false
-          photoCancel.disabled = false
-        }
-      })
-    }
-
-    if (photoRemove) {
-      photoRemove.addEventListener('click', async () => {
-        if (!confirm('Remove the current consultant photo?')) return
-        photoRemove.disabled = true
-        setStatus('Removing...', false)
-        try {
-          const res = await fetch(`/api/admin/engagements/${engagementId}/consultant-photo`, {
-            method: 'DELETE',
-          })
-          if (!res.ok) {
-            const data = await res.json().catch(() => ({}))
-            throw new Error(data.error || res.statusText)
-          }
-          setStatus('Photo removed. Reloading...', false)
-          setTimeout(() => location.reload(), 500)
-        } catch (err) {
-          setStatus(err.message || 'Remove failed', true)
-          photoRemove.disabled = false
-        }
-      })
-    }
+    initEngagementDetailPage()
   </script>
 
   <style>

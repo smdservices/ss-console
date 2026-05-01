@@ -1,6 +1,6 @@
 /**
- * Review response pattern analysis.
- * Reads existing signal context for review evidence, analyzes owner engagement patterns.
+ * Review-response pattern analysis.
+ * Reads review signals and extracts observable response behavior only.
  */
 
 import { ModuleError } from './instrument'
@@ -10,19 +10,19 @@ const ANTHROPIC_VERSION = '2023-06-01'
 const MODEL = 'claude-haiku-4-5-20251001'
 const MAX_TOKENS = 512
 
-const ANALYSIS_PROMPT = `Analyze these business review signals for owner engagement patterns. Return ONLY valid JSON:
+const ANALYSIS_PROMPT = `Analyze these business review signals for observable review-response behavior only. Do NOT infer management style, personality, communication preference, or private business conditions. Return ONLY valid JSON:
 {
   "response_pattern": "responsive | sporadic | unresponsive | unknown",
   "engagement_level": "high | medium | low | unknown",
   "owner_accessible": true/false,
-  "insights": "1-2 sentence summary of what review patterns reveal about the owner's management style"
+  "evidence_summary": "1-2 sentence summary of the observable review-response behavior"
 }`
 
 export interface ReviewAnalysis {
   response_pattern: string
   engagement_level: string
   owner_accessible: boolean
-  insights: string
+  evidence_summary: string
 }
 
 export async function analyzeReviewPatterns(
@@ -67,6 +67,6 @@ export async function analyzeReviewPatterns(
     response_pattern: parsed.response_pattern ?? 'unknown',
     engagement_level: parsed.engagement_level ?? 'unknown',
     owner_accessible: parsed.owner_accessible ?? false,
-    insights: parsed.insights ?? '',
+    evidence_summary: parsed.evidence_summary ?? '',
   }
 }

@@ -1,6 +1,8 @@
 /**
  * Intelligence brief (dossier) generation using Claude Sonnet.
- * Synthesizes all accumulated context into a structured 2-3 page assessment.
+ * Produces a human-readable brief from authoritative context, but the
+ * output itself is non-authoritative and must not be fed back into later
+ * prompt assembly by default.
  */
 
 import { ModuleError } from './instrument'
@@ -10,43 +12,39 @@ const ANTHROPIC_VERSION = '2023-06-01'
 const MODEL = 'claude-sonnet-4-20250514'
 const MAX_TOKENS = 4096
 
-const DOSSIER_PROMPT = `You are generating a comprehensive intelligence brief for a consulting team (SMD Services) that sells operations cleanup engagements to Phoenix-area small businesses. Use "we" voice.
+const DOSSIER_PROMPT = `You are generating an evidence-bound intelligence brief for a consulting team (SMD Services) that sells operations cleanup engagements to Phoenix-area small businesses. Use "we" voice.
+
+Rules:
+- Use only facts present in the supplied context.
+- Do not infer management style, communication preference, personality, likely objections, or private business conditions.
+- When evidence is incomplete, label it as an open question instead of guessing.
+- Distinguish verified facts from hypotheses we should test on the call.
 
 Generate a structured dossier in markdown format with these sections:
 
 ## Business Overview
-- Name, vertical, location, estimated size, founding year
-- Growth trajectory (growing/stable/declining, with evidence)
-- Competitive position (vs. local peers)
+- Name, vertical, location, size indicators, founding year
+- Visible offerings, service area, notable credentials, public reputation signals
 
-## Owner / Decision-Maker Profile
-- Name, role, management style (inferred from review responses, hiring patterns)
-- Likely concerns and priorities
-- Communication preference (responsive to digital, prefers phone, etc.)
+## Verified Operating Signals
+- Specific operational patterns visible in reviews, website facts, tooling, hiring, or public materials
+- Cite the evidence inline for each signal
 
-## Technology & Operations Assessment
-- Current tools detected (and what's missing)
-- Digital maturity score with reasoning
-- Key operational gaps mapped to the 6 universal SMB problems:
-  1. Owner bottleneck
-  2. Lead leakage
-  3. Financial blindness
-  4. Scheduling chaos
-  5. Manual communication
-  6. Employee retention
+## Engagement Hypotheses
+- 2-3 hypotheses worth testing on the call
+- Each item must include:
+  - Confidence: high | medium | low
+  - Evidence: specific supporting facts
+  - What we still need to confirm
 
-## Engagement Opportunity
-- Top 2-3 problems we can address (with confidence level and evidence)
-- Estimated engagement complexity (low/medium/high)
-- Recommended approach and talking points for the assessment call
-- Potential objections and responses
+## Questions For The Call
+- 3-5 targeted questions that would confirm or disprove the hypotheses
 
-## Conversation Starters
-- 3-4 specific, evidence-based opening lines for the assessment call
-- Reference specific things we know about their business
-- Collaborative tone — objectives over problems
+## Outreach Hooks
+- 2-3 evidence-based opening lines grounded in verified facts
+- No fabricated specifics, no objections handling, no personality reads
 
-Keep it concise but thorough. 800-1200 words.`
+Keep it concise but thorough. 600-900 words.`
 
 export async function generateDossier(
   assembledContext: string,

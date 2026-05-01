@@ -67,6 +67,18 @@ Any information displayed to a client (timelines, schedules, deliverables, prici
 
 **Enforcement.** Violations are P0. Merge gate is `.github/workflows/scope-deferred-todo.yml` (blocks TODO-deferred ACs without the `scope-deferred` label). Issue-close gate is `.github/workflows/unmet-ac-on-close.yml` (reopens issues closed with unchecked ACs).
 
+**Fabrication and drift guardrails.** Pattern A/B is not the full policy. The repo also blocks three adjacent failure modes:
+
+- Shipped user-facing copy must not pick up banned style markers or placeholder copy. No em dashes. No "coming soon" on prospect or client surfaces.
+- Enrichment prompts must stay extractive and evidence-bound. They must not ask for management style, personality, communication preferences, likely objections, or other private-condition inference.
+- Shared product flows must stay shared once canonicalized. If `/book` and `/get-started` drift back into duplicate intake implementations, that is a regression.
+
+**Tests linked to this policy**
+
+- `tests/forbidden-strings.test.ts` - historical Pattern A/B phrases, user-facing style-marker checks, and portal registry guardrails
+- `tests/enrichment-prompt-contracts.test.ts` - source-level prompt-contract checks for dossier, review-analysis, and deep-website
+- `tests/intake-questionnaire.test.ts` - shared-surface regression coverage for the canonical intake questionnaire
+
 ## Tone & Positioning Standard
 
 **These rules apply to ALL external-facing content: website copy, outreach, proposals, collateral, and any client-facing language. They also apply to internal content that may inform external copy (e.g., one-liners, scripts).**
