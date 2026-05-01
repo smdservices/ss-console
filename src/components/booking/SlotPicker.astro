@@ -200,61 +200,54 @@
       show(el)
     }
 
-    function fetchSlots() {
+    async function fetchSlots() {
       showOnly(loadingEl)
       hide(staleEl)
       selectedSlot = null
 
-      fetch('/api/booking/slots?tz=' + encodeURIComponent(guestTz))
-        .then(function (res) {
-          if (res.status === 503) {
-            return res.json().then(function (body) {
-              showOnly(unavailableEl)
-              if (body.fallback && body.fallback.email) {
-                const mailto =
-                  'mailto:' + body.fallback.email + '?subject=Assessment%20Call%20Request'
-                const link = unavailableEl.querySelector('a')
-                if (link) {
-                  link.href = mailto
-                  link.textContent = 'Email ' + body.fallback.email
-                }
-              }
-              throw new Error('__handled__')
-            })
+      try {
+        const res = await fetch('/api/booking/slots?tz=' + encodeURIComponent(guestTz))
+        if (res.status === 503) {
+          const body = await res.json()
+          showOnly(unavailableEl)
+          if (body.fallback && body.fallback.email) {
+            const mailto = 'mailto:' + body.fallback.email + '?subject=Assessment%20Call%20Request'
+            const link = unavailableEl.querySelector('a')
+            if (link) {
+              link.href = mailto
+              link.textContent = 'Email ' + body.fallback.email
+            }
           }
-          if (!res.ok) {
-            return res.text().then(function (t) {
-              throw new Error('API ' + res.status + ': ' + t)
-            })
-          }
-          return res.json()
-        })
-        .then(function (data) {
-          allDays = (data.days || []).filter(function (d) {
-            return d.slots && d.slots.length > 0
-          })
-          fetchedAt = Date.now()
+          return
+        }
+        if (!res.ok) {
+          throw new Error('API ' + res.status + ': ' + (await res.text()))
+        }
 
-          if (allDays.length === 0) {
-            showOnly(emptyEl)
-            return
-          }
+        const data = await res.json()
+        allDays = (data.days || []).filter(function (d) {
+          return d.slots && d.slots.length > 0
+        })
+        fetchedAt = Date.now()
 
-          tzLabel.textContent = 'Times shown in ' + guestTz.replace(/_/g, ' ')
-          const firstAvailDate = parseLocalDate(allDays[0].date)
-          viewingYear = firstAvailDate.getFullYear()
-          viewingMonth = firstAvailDate.getMonth()
-          selectedDate = allDays[0].date
-          renderDates()
-          renderSlots()
-          showOnly(mainEl)
-        })
-        .catch(function (err) {
-          if (err.message === '__handled__') return
-          console.error('[SlotPicker] fetch failed:', err)
-          errorMsg.textContent = 'Could not load available times. Please try again.'
-          showOnly(errorEl)
-        })
+        if (allDays.length === 0) {
+          showOnly(emptyEl)
+          return
+        }
+
+        tzLabel.textContent = 'Times shown in ' + guestTz.replace(/_/g, ' ')
+        const firstAvailDate = parseLocalDate(allDays[0].date)
+        viewingYear = firstAvailDate.getFullYear()
+        viewingMonth = firstAvailDate.getMonth()
+        selectedDate = allDays[0].date
+        renderDates()
+        renderSlots()
+        showOnly(mainEl)
+      } catch (err) {
+        console.error('[SlotPicker] fetch failed:', err)
+        errorMsg.textContent = 'Could not load available times. Please try again.'
+        showOnly(errorEl)
+      }
     }
 
     function makeDateClickHandler(dateStr) {

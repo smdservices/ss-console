@@ -3,7 +3,8 @@
  *
  * Source of truth for status rendering on all portal surfaces. Admin uses
  * src/lib/ui/status-badge.ts (raw Tailwind hex-family classes); portal uses
- * this module (semantic var(--ss-color-*) tokens). They remain separate by
+ * this module (semantic CSS color tokens such as `var(--ss-color-primary)`).
+ * They remain separate by
  * design — the portal is the drift surface and stays tone-based.
  *
  * Contract (UI-PATTERNS.md R7):

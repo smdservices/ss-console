@@ -68,8 +68,13 @@ if (Astro.request.method === 'POST') {
   })
 
   if (!result.ok) {
-    const params = new URLSearchParams({ error: result.errors.join(' · '), pipeline })
-    return Astro.redirect(`/admin/settings/pipelines?${params.toString()}`, 302)
+    return Astro.redirect(
+      `/admin/settings/pipelines?${new URLSearchParams({
+        error: result.errors.join(' · '),
+        pipeline,
+      }).toString()}`,
+      302
+    )
   }
 
   return Astro.redirect(

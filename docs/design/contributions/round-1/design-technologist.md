@@ -319,7 +319,7 @@ This maps motion tokens into Tailwind v4's `duration-*` and `ease-*` utility nam
 
 **Primary:** Utility-first via Tailwind v4. All styling is accomplished through utility classes that resolve to `--ss-*` token values via the `@theme inline` mapping.
 
-**Token references in source:** Components reference tokens directly as `var(--ss-color-*)` inside `[color:var(--ss-color-*)]` bracket syntax and as bare Tailwind utilities (`bg-primary`, `text-caption`, `p-card`, `rounded-card`). Both patterns are valid; new code should prefer the Tailwind utility form where the token map exists.
+**Token references in source:** Components reference color tokens directly via CSS custom properties and via Tailwind arbitrary-value utilities such as `[color:var(--ss-color-text-primary)]`, alongside bare Tailwind utilities (`bg-primary`, `text-caption`, `p-card`, `rounded-card`). Both patterns are valid; new code should prefer the Tailwind utility form where the token map exists.
 
 **`@layer base`:** Establishes body defaults — background, text color, font family, font smoothing. H1/H2/H3 use `--ss-font-display`. No other base overrides.
 

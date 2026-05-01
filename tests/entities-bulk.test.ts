@@ -59,7 +59,7 @@ describe('entities-bulk: DAL', () => {
 
   it('validates the reason enum before doing any work', () => {
     const code = source()
-    expect(code).toContain('isLostReason(options.reason)')
+    expect(code).toContain('isLostReasonCode(options.reason)')
   })
 
   it('listEntitiesForExport uses parameterized IN query with per-id placeholders', () => {
@@ -103,8 +103,8 @@ describe('api/admin/entities/bulk: endpoint', () => {
     expect(source()).toContain('batch size capped')
   })
 
-  it('validates reason via canonical isLostReason', () => {
-    expect(source()).toContain('isLostReason(reason)')
+  it('validates reason via canonical isLostReasonCode', () => {
+    expect(source()).toContain('isLostReasonCode(reason)')
   })
 
   it('returns 207 when some entities fail (partial success)', () => {

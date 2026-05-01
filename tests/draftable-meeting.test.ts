@@ -15,7 +15,6 @@ type M = {
   completed_at: string | null
   created_at: string
 }
-type Q = { meeting_id: string | null; assessment_id: string }
 
 const completed = (id: string, completedAt: string | null = null, createdAt = '2026-01-01'): M => ({
   id,

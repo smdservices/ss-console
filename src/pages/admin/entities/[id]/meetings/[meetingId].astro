@@ -437,7 +437,7 @@ const isMeetingTerminal =
       }
     </div>
   </div>
-  <script define:vars={{ entityId, meetingId }}>
+  <script is:inline define:vars={{ entityId, meetingId }}>
     // Live notes auto-save
     const textarea = document.getElementById('live-notes')
     const saveStatus = document.getElementById('save-status')
