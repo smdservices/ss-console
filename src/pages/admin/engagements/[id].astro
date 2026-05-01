@@ -1,6 +1,7 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro'
 import AdminFlashNotice from '../../../components/admin/AdminFlashNotice.astro'
+import EngagementParkingLotPanel from '../../../components/admin/EngagementParkingLotPanel.astro'
 import { statusBadgeClass } from '../../../lib/ui/status-badge'
 import {
   contextTypeEyebrowClass,
@@ -32,6 +33,7 @@ const {
   milestones,
   invoices,
   contextEntries,
+  parkingLot,
   entitySignals,
   documents,
   nextStatuses,
@@ -41,6 +43,9 @@ const {
   error,
   milestoneAdded,
   milestoneDeleted,
+  parkingLotAdded,
+  parkingLotDispositioned,
+  parkingLotDeleted,
 } = pageData
 ---
 
@@ -56,6 +61,9 @@ const {
     {saved && <AdminFlashNotice message="Changes saved." />}
     {milestoneAdded && <AdminFlashNotice message="Milestone added." />}
     {milestoneDeleted && <AdminFlashNotice message="Milestone deleted." />}
+    {parkingLotAdded && <AdminFlashNotice message="Parking lot item logged." />}
+    {parkingLotDispositioned && <AdminFlashNotice message="Parking lot item dispositioned." />}
+    {parkingLotDeleted && <AdminFlashNotice message="Parking lot item deleted." />}
     {
       error && (
         <AdminFlashNotice
@@ -65,9 +73,15 @@ const {
               ? 'Invalid status transition.'
               : error === 'invalid_transition'
                 ? 'Invalid transition.'
-                : error === 'not_found'
-                  ? 'Resource not found.'
-                  : 'An error occurred.'
+                : error === 'invalid_disposition'
+                  ? 'Invalid disposition.'
+                  : error === 'missing_note'
+                    ? 'Disposition note is required.'
+                    : error === 'cannot_delete_dispositioned'
+                      ? 'Cannot delete a dispositioned parking lot item.'
+                      : error === 'not_found'
+                        ? 'Resource not found.'
+                        : 'An error occurred.'
           }
         />
       )
@@ -511,6 +525,8 @@ const {
         </div>
       </details>
     </div>
+
+    <EngagementParkingLotPanel engagementId={engagementId} parkingLot={parkingLot} />
 
     <!-- Consultant photo -->
     <div

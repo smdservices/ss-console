@@ -6,6 +6,7 @@ import { listMilestones, VALID_TRANSITIONS as MILESTONE_TRANSITIONS } from '../d
 import type { MilestoneStatus } from '../db/milestones'
 import { listInvoices } from '../db/invoices'
 import { listContext } from '../db/context'
+import { listParkingLot } from '../db/parking-lot'
 import { listSignalsForEntity } from '../db/signal-attribution'
 import { listDocuments } from '../storage/r2'
 
@@ -70,6 +71,7 @@ export async function loadEngagementDetailPage(params: {
   const contextEntries = await listContext(params.db, engagement.entity_id, {
     engagement_id: params.engagementId,
   })
+  const parkingLot = await listParkingLot(params.db, params.orgId, params.engagementId)
   const entitySignals = await listSignalsForEntity(params.db, params.orgId, engagement.entity_id)
   const documents = await listDocuments(
     params.storage,
@@ -87,6 +89,7 @@ export async function loadEngagementDetailPage(params: {
     milestones,
     invoices,
     contextEntries,
+    parkingLot,
     entitySignals,
     documents,
     status,
@@ -97,6 +100,9 @@ export async function loadEngagementDetailPage(params: {
     error: params.url.searchParams.get('error'),
     milestoneAdded: params.url.searchParams.get('milestone_added'),
     milestoneDeleted: params.url.searchParams.get('milestone_deleted'),
+    parkingLotAdded: params.url.searchParams.get('parking_lot_added'),
+    parkingLotDispositioned: params.url.searchParams.get('parking_lot_dispositioned'),
+    parkingLotDeleted: params.url.searchParams.get('parking_lot_deleted'),
   }
 }
 
