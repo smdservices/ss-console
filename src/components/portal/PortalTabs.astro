@@ -47,7 +47,7 @@ interface Props {
   role?: string
 }
 
-const { pathname, role = 'client' } = Astro.props
+const { pathname, role = 'client' } = Astro.props as Props
 
 interface TabDef {
   href: string

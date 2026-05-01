@@ -115,14 +115,3 @@ export function lostReasonChipClass(code: string | null | undefined): string {
       return 'bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)]'
   }
 }
-
-/** @deprecated Use LostReasonCode. Back-compat alias for #508 bulk endpoint. */
-export type LostReason = LostReasonCode
-
-/** @deprecated Use isLostReasonCode. Back-compat alias for #508 bulk endpoint. */
-export const isLostReason = isLostReasonCode
-
-/** @deprecated Use lostReasonLabel. Back-compat alias for #508 bulk endpoint. */
-export function labelForLostReason(value: LostReason): string {
-  return lostReasonLabel(value) ?? value
-}

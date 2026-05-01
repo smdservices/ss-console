@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
-import { LOST_REASONS, isLostReason, labelForLostReason } from '../src/lib/db/lost-reasons'
+import { LOST_REASONS, isLostReasonCode, lostReasonLabel } from '../src/lib/db/lost-reasons'
 
 describe('lost-reasons: canonical enum (shared with #477)', () => {
   it('module exists', () => {
@@ -30,17 +30,17 @@ describe('lost-reasons: canonical enum (shared with #477)', () => {
     }
   })
 
-  it('isLostReason narrows unknown input', () => {
-    expect(isLostReason('not-a-fit')).toBe(true)
-    expect(isLostReason('no-budget')).toBe(true)
-    expect(isLostReason('bogus')).toBe(false)
-    expect(isLostReason(null)).toBe(false)
-    expect(isLostReason(42)).toBe(false)
+  it('isLostReasonCode narrows unknown input', () => {
+    expect(isLostReasonCode('not-a-fit')).toBe(true)
+    expect(isLostReasonCode('no-budget')).toBe(true)
+    expect(isLostReasonCode('bogus')).toBe(false)
+    expect(isLostReasonCode(null)).toBe(false)
+    expect(isLostReasonCode(42)).toBe(false)
   })
 
-  it('labelForLostReason returns the canonical label', () => {
-    expect(labelForLostReason('not-a-fit')).toBe('Not a fit')
-    expect(labelForLostReason('declined-quote')).toBe('Declined quote')
+  it('lostReasonLabel returns the canonical label', () => {
+    expect(lostReasonLabel('not-a-fit')).toBe('Not a fit')
+    expect(lostReasonLabel('declined-quote')).toBe('Declined quote')
   })
 
   it('source does not invent extra values (single source of truth)', () => {

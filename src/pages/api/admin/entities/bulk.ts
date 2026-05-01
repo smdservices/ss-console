@@ -5,7 +5,7 @@ import {
   listEntitiesForExport,
   type BulkActionResult,
 } from '../../../../lib/db/entities-bulk'
-import { isLostReason, type LostReason } from '../../../../lib/db/lost-reasons'
+import { isLostReasonCode, type LostReasonCode } from '../../../../lib/db/lost-reasons'
 
 /**
  * POST /api/admin/entities/bulk
@@ -14,7 +14,7 @@ import { isLostReason, type LostReason } from '../../../../lib/db/lost-reasons'
  *   {
  *     ids: string[],
  *     action: 'dismiss' | 'export',
- *     reason?: LostReason,              // required when action='dismiss'
+ *     reason?: LostReasonCode,          // required when action='dismiss'
  *     reasonDetail?: string | null      // optional when action='dismiss'
  *   }
  *
@@ -70,7 +70,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   try {
     if (action === 'dismiss') {
-      if (!isLostReason(reason)) {
+      if (!isLostReasonCode(reason)) {
         return jsonResponse(
           {
             error:
@@ -83,7 +83,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         typeof reasonDetail === 'string' && reasonDetail.trim() ? reasonDetail.trim() : null
 
       const result: BulkActionResult = await bulkDismissEntities(env.DB, session.orgId, stringIds, {
-        reason: reason as LostReason,
+        reason: reason as LostReasonCode,
         detail,
       })
       return jsonResponse(result, result.failed.length === 0 ? 200 : 207)

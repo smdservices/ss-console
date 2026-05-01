@@ -287,49 +287,45 @@ import Footer from '../../../components/Footer.astro'
 
     let bookingData = null
 
-    function loadBooking(tkn) {
-      fetch('/api/booking/manage/' + tkn)
-        .then(function (res) {
-          return res.json().then(function (d) {
-            return { status: res.status, data: d }
-          })
-        })
-        .then(function (result) {
-          hide('loading')
-          if (result.status === 404) {
-            showError('Booking not found', result.data.message || 'This link is not valid.')
-            return
-          }
-          if (result.status === 410) {
-            showError('Link expired', result.data.message || 'This manage link has expired.')
-            return
-          }
-          if (result.status >= 400) {
-            showError('Something went wrong', result.data.message || 'Please try again.')
-            return
-          }
+    async function loadBooking(tkn) {
+      try {
+        const res = await fetch('/api/booking/manage/' + tkn)
+        const data = await res.json()
 
-          bookingData = result.data
-          if (bookingData.cancelled_at) {
-            show('cancelled-state')
-            return
-          }
+        hide('loading')
+        if (res.status === 404) {
+          showError('Booking not found', data.message || 'This link is not valid.')
+          return
+        }
+        if (res.status === 410) {
+          showError('Link expired', data.message || 'This manage link has expired.')
+          return
+        }
+        if (res.status >= 400) {
+          showError('Something went wrong', data.message || 'Please try again.')
+          return
+        }
 
-          document.getElementById('meeting-label').textContent = bookingData.meeting_label
-          document.getElementById('slot-label').textContent = bookingData.slot_label
-          document.getElementById('guest-name').textContent = bookingData.guest_name
-          if (bookingData.google_meet_url) {
-            const ml = document.getElementById('meet-link')
-            ml.href = bookingData.google_meet_url
-            ml.textContent = bookingData.google_meet_url
-            show('meet-link-container')
-          }
-          show('booking-details')
-        })
-        .catch(function () {
-          hide('loading')
-          showError('Something went wrong', "We couldn't load your booking. Please try again.")
-        })
+        bookingData = data
+        if (bookingData.cancelled_at) {
+          show('cancelled-state')
+          return
+        }
+
+        document.getElementById('meeting-label').textContent = bookingData.meeting_label
+        document.getElementById('slot-label').textContent = bookingData.slot_label
+        document.getElementById('guest-name').textContent = bookingData.guest_name
+        if (bookingData.google_meet_url) {
+          const ml = document.getElementById('meet-link')
+          ml.href = bookingData.google_meet_url
+          ml.textContent = bookingData.google_meet_url
+          show('meet-link-container')
+        }
+        show('booking-details')
+      } catch {
+        hide('loading')
+        showError('Something went wrong', "We couldn't load your booking. Please try again.")
+      }
     }
 
     document.getElementById('cancel-btn').addEventListener('click', function () {
@@ -439,47 +435,42 @@ import Footer from '../../../components/Footer.astro'
         })
     }
 
-    function confirmReschedule(startUtc, timeLabel, dayLabel) {
+    async function confirmReschedule(startUtc, timeLabel, dayLabel) {
       if (!confirm('Reschedule to ' + dayLabel + ' at ' + timeLabel + '?')) return
       const btns = document.querySelectorAll('#slots-container button')
       btns.forEach(function (b) {
         b.disabled = true
         b.classList.add('opacity-50')
       })
-      fetch('/api/booking/manage/' + token + '/reschedule', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slot_start_utc: startUtc }),
-      })
-        .then(function (r) {
-          return r.json().then(function (d) {
-            return { status: r.status, data: d }
-          })
+      try {
+        const r = await fetch('/api/booking/manage/' + token + '/reschedule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slot_start_utc: startUtc }),
         })
-        .then(function (result) {
-          if (result.data.ok) {
-            hide('reschedule-panel')
-            showSuccess(
-              'Booking rescheduled',
-              'Your call has been moved to ' +
-                result.data.slot_label +
-                ". We'll send a confirmation email with the updated details."
-            )
-          } else {
-            btns.forEach(function (b) {
-              b.disabled = false
-              b.classList.remove('opacity-50')
-            })
-            alert(result.data.message || 'Failed to reschedule.')
-          }
-        })
-        .catch(function () {
+        const data = await r.json()
+        if (data.ok) {
+          hide('reschedule-panel')
+          showSuccess(
+            'Booking rescheduled',
+            'Your call has been moved to ' +
+              data.slot_label +
+              ". We'll send a confirmation email with the updated details."
+          )
+        } else {
           btns.forEach(function (b) {
             b.disabled = false
             b.classList.remove('opacity-50')
           })
-          alert('Something went wrong.')
+          alert(data.message || 'Failed to reschedule.')
+        }
+      } catch {
+        btns.forEach(function (b) {
+          b.disabled = false
+          b.classList.remove('opacity-50')
         })
+        alert('Something went wrong.')
+      }
     }
 
     function show(id) {
