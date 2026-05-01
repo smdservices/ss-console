@@ -76,57 +76,141 @@ describe('PR-A: prospect role migration', () => {
   const up = existsSync(resolve('migrations/0033_add_prospect_role.sql'))
     ? readFileSync(resolve('migrations/0033_add_prospect_role.sql'), 'utf-8')
     : ''
-  const down = existsSync(resolve('migrations/0033_add_prospect_role_down.sql'))
-    ? readFileSync(resolve('migrations/0033_add_prospect_role_down.sql'), 'utf-8')
+  // Down migration is in migrations/rollbacks/ so wrangler does NOT auto-apply
+  // it. The original 0033 had it in migrations/, which would have reverted
+  // the up immediately. See migrations/rollbacks/README.md.
+  const down = existsSync(resolve('migrations/rollbacks/0033_add_prospect_role_down.sql'))
+    ? readFileSync(resolve('migrations/rollbacks/0033_add_prospect_role_down.sql'), 'utf-8')
     : ''
 
   it('up migration exists', () => {
     expect(existsSync(resolve('migrations/0033_add_prospect_role.sql'))).toBe(true)
   })
 
-  it('rollback migration exists alongside up migration', () => {
-    expect(existsSync(resolve('migrations/0033_add_prospect_role_down.sql'))).toBe(true)
+  it('rollback migration exists in migrations/rollbacks/ (manual-only)', () => {
+    expect(existsSync(resolve('migrations/rollbacks/0033_add_prospect_role_down.sql'))).toBe(true)
   })
 
-  it('up migration widens role CHECK to admin/client/prospect', () => {
-    expect(up).toMatch(
-      /role\s+TEXT\s+NOT NULL\s+CHECK\s*\(\s*role\s+IN\s*\(\s*'admin',\s*'client',\s*'prospect'\s*\)/
-    )
+  it('rollback migration is NOT in top-level migrations/ (no auto-apply)', () => {
+    expect(existsSync(resolve('migrations/0033_add_prospect_role_down.sql'))).toBe(false)
   })
 
-  it('up migration uses rename-recreate-copy-drop pattern', () => {
+  it('up migration removes role CHECK constraint entirely', () => {
+    // Captain decision: drop the CHECK; validate role at the application
+    // layer. Future role additions become zero-migration code-only changes.
+    // The users_new CREATE block must declare role as `TEXT NOT NULL,` with
+    // no CHECK clause attached.
+    const usersNewBlock = up.match(/CREATE TABLE users_new \([\s\S]*?\n\);/)
+    expect(usersNewBlock).toBeTruthy()
+    if (usersNewBlock) {
+      expect(usersNewBlock[0]).toMatch(/role\s+TEXT\s+NOT NULL,/)
+      expect(usersNewBlock[0]).not.toMatch(/CHECK\s*\(\s*role\s+IN/)
+    }
+  })
+
+  it('up migration uses rename-recreate-copy-drop pattern for users', () => {
     expect(up).toMatch(/CREATE TABLE users_new/)
     expect(up).toMatch(/INSERT INTO users_new[\s\S]*FROM users/)
     expect(up).toMatch(/DROP TABLE users/)
     expect(up).toMatch(/ALTER TABLE users_new RENAME TO users/)
   })
 
-  it('up migration recreates idx_users_entity index', () => {
-    expect(up).toMatch(/CREATE INDEX idx_users_entity ON users\(org_id, entity_id\)/)
+  it('up migration uses FK chain dance: rebuilds sessions and magic_links twice', () => {
+    // Step 1+4: sessions rebuilt without FK to users (sessions_tmp), then
+    // rebuilt with FK restored (sessions_new) after users is recreated.
+    expect(up).toMatch(/CREATE TABLE sessions_tmp/)
+    expect(up).toMatch(/CREATE TABLE sessions_new/)
+    expect(up).toMatch(/ALTER TABLE sessions_tmp RENAME TO sessions/)
+    expect(up).toMatch(/ALTER TABLE sessions_new RENAME TO sessions/)
+
+    // Step 2+5: magic_links same pattern.
+    expect(up).toMatch(/CREATE TABLE magic_links_tmp/)
+    expect(up).toMatch(/CREATE TABLE magic_links_new/)
+    expect(up).toMatch(/ALTER TABLE magic_links_tmp RENAME TO magic_links/)
+    expect(up).toMatch(/ALTER TABLE magic_links_new RENAME TO magic_links/)
   })
 
-  it('up migration documents D1 transaction limitations', () => {
-    expect(up).toMatch(/D1 does not transaction-wrap/i)
+  it('up migration sets PRAGMA defer_foreign_keys = ON', () => {
+    expect(up).toMatch(/PRAGMA defer_foreign_keys\s*=\s*ON/i)
   })
 
-  it('up migration does NOT add prospect_engaged to the CHECK constraint', () => {
-    // Comments explain why prospect_engaged is excluded; the constraint itself
-    // must not include it. Match the role CHECK constraint and verify only
-    // admin/client/prospect appear.
-    const checkMatch = up.match(/role\s+TEXT\s+NOT NULL\s+CHECK\s*\(\s*role\s+IN\s*\(([^)]+)\)/)
-    expect(checkMatch).toBeTruthy()
-    if (checkMatch) {
-      expect(checkMatch[1]).not.toMatch(/prospect_engaged/)
+  it('up migration preserves org_id REFERENCES organizations(id) on rebuilt sessions', () => {
+    // Both the FK-removed (sessions_tmp) and FK-restored (sessions_new) blocks
+    // must keep the org_id FK to organizations. Only user_id loses + restores
+    // its FK; org_id is untouched.
+    const tmpBlock = up.match(/CREATE TABLE sessions_tmp \([\s\S]*?\n\);/)
+    const newBlock = up.match(/CREATE TABLE sessions_new \([\s\S]*?\n\);/)
+    expect(tmpBlock).toBeTruthy()
+    expect(newBlock).toBeTruthy()
+    if (tmpBlock)
+      expect(tmpBlock[0]).toMatch(/org_id\s+TEXT NOT NULL REFERENCES organizations\(id\)/)
+    if (newBlock)
+      expect(newBlock[0]).toMatch(/org_id\s+TEXT NOT NULL REFERENCES organizations\(id\)/)
+  })
+
+  it('up migration preserves org_id REFERENCES organizations(id) on rebuilt magic_links', () => {
+    const tmpBlock = up.match(/CREATE TABLE magic_links_tmp \([\s\S]*?\n\);/)
+    const newBlock = up.match(/CREATE TABLE magic_links_new \([\s\S]*?\n\);/)
+    expect(tmpBlock).toBeTruthy()
+    expect(newBlock).toBeTruthy()
+    if (tmpBlock)
+      expect(tmpBlock[0]).toMatch(/org_id\s+TEXT NOT NULL REFERENCES organizations\(id\)/)
+    if (newBlock)
+      expect(newBlock[0]).toMatch(/org_id\s+TEXT NOT NULL REFERENCES organizations\(id\)/)
+  })
+
+  it('up migration restores FK from sessions_new and magic_links_new to users(id)', () => {
+    const sessionsNew = up.match(/CREATE TABLE sessions_new \([\s\S]*?\n\);/)
+    const magicNew = up.match(/CREATE TABLE magic_links_new \([\s\S]*?\n\);/)
+    expect(sessionsNew).toBeTruthy()
+    expect(magicNew).toBeTruthy()
+    if (sessionsNew)
+      expect(sessionsNew[0]).toMatch(/user_id\s+TEXT NOT NULL REFERENCES users\(id\)/)
+    if (magicNew) expect(magicNew[0]).toMatch(/user_id\s+TEXT NOT NULL REFERENCES users\(id\)/)
+  })
+
+  it('up migration uses explicit column lists in INSERTs (no SELECT *)', () => {
+    // SELECT * is fragile across schema additions. All five INSERT INTO
+    // statements must enumerate columns explicitly.
+    const insertStatements = up.match(/INSERT INTO \w+[\s\S]*?FROM \w+;/g) ?? []
+    expect(insertStatements.length).toBeGreaterThanOrEqual(5)
+    for (const stmt of insertStatements) {
+      expect(stmt).not.toMatch(/SELECT \*/)
     }
   })
 
-  it('rollback narrows CHECK back to admin/client', () => {
+  it('up migration recreates all 7 indexes by name', () => {
+    expect(up).toMatch(/CREATE INDEX idx_users_entity ON users\(org_id, entity_id\)/)
+    expect(up).toMatch(/CREATE INDEX idx_sessions_token ON sessions\(token\)/)
+    expect(up).toMatch(/CREATE INDEX idx_sessions_user_id ON sessions\(user_id\)/)
+    expect(up).toMatch(/CREATE INDEX idx_sessions_expires ON sessions\(expires_at\)/)
+    expect(up).toMatch(/CREATE INDEX idx_magic_links_org_email ON magic_links\(org_id, email\)/)
+    expect(up).toMatch(/CREATE INDEX idx_magic_links_expires ON magic_links\(expires_at\)/)
+    expect(up).toMatch(
+      /CREATE INDEX idx_magic_links_user_expires ON magic_links\(user_id, expires_at\)/
+    )
+  })
+
+  it('up migration documents the FK chain dance rationale', () => {
+    expect(up).toMatch(/defer_foreign_keys/i)
+    expect(up).toMatch(/sessions/i)
+    expect(up).toMatch(/magic_links/i)
+  })
+
+  it('rollback restores narrow CHECK (admin, client only)', () => {
     expect(down).toMatch(/CHECK\s*\(\s*role\s+IN\s*\(\s*'admin',\s*'client'\s*\)/)
   })
 
   it('rollback warns about prospect rows blocking the rollback', () => {
     expect(down).toMatch(/WARNING/i)
     expect(down).toMatch(/prospect/i)
+  })
+
+  it('rollback uses the same FK chain dance as the up', () => {
+    expect(down).toMatch(/PRAGMA defer_foreign_keys\s*=\s*ON/i)
+    expect(down).toMatch(/CREATE TABLE sessions_tmp/)
+    expect(down).toMatch(/CREATE TABLE magic_links_tmp/)
+    expect(down).toMatch(/CREATE TABLE users_old/)
   })
 })
 
