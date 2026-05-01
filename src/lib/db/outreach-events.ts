@@ -57,21 +57,52 @@ export interface RecordEventResult {
 /**
  * Insert an outreach-event row, deduping on provider_event_id when present.
  *
- * The dedupe path is the primary entry point from the Resend webhook —
- * Svix delivers the same envelope id on retry and we must not double-count.
- * Synthetic 'sent' rows from the send wrapper omit `provider_event_id` and
- * always insert.
+ * Two dedup paths:
+ *
+ *   1. Webhook path (provider_event_id non-null): Svix delivers the same
+ *      envelope id on retry. Dedup keyed on provider_event_id.
+ *
+ *   2. Synthetic 'sent' path (PR-2b, message_id non-null, provider_event_id
+ *      null): the workflow's render-and-email step records a synthetic
+ *      'sent' row keyed on the Resend message_id immediately after a
+ *      successful send. Cloudflare Workflows step-result caching can
+ *      replay this insert on retry, producing duplicate rows for the
+ *      same Resend send — observed in production 2026-05-01 as 3 rows
+ *      per scan with identical message_ids. Dedup keyed on
+ *      (org_id, message_id, event_type='sent').
+ *
+ * Other event types (open/click/bounce/reply) without a provider_event_id
+ * fall through to the regular insert. Webhook deliveries always carry one.
  */
 export async function recordEvent(
   db: D1Database,
   input: RecordEventInput
 ): Promise<RecordEventResult> {
-  // Dedupe path: if we already have a row for this provider_event_id,
-  // return that id without inserting.
+  // Dedup path 1: webhook envelope.
   if (input.provider_event_id) {
     const existing = await db
       .prepare('SELECT id FROM outreach_events WHERE provider_event_id = ? LIMIT 1')
       .bind(input.provider_event_id)
+      .first<{ id: string }>()
+
+    if (existing) {
+      return { id: existing.id, inserted: false }
+    }
+  }
+
+  // Dedup path 2: synthetic 'sent' row from the send wrapper / workflow
+  // step. Keyed on (org_id, message_id) for the 'sent' event type only.
+  // Other event types (open/click/etc) without provider_event_id are
+  // unusual and fall through to insert; webhook deliveries always carry
+  // a provider_event_id and are handled by path 1.
+  if (!input.provider_event_id && input.message_id && input.event_type === 'sent') {
+    const existing = await db
+      .prepare(
+        `SELECT id FROM outreach_events
+         WHERE org_id = ? AND message_id = ? AND event_type = 'sent'
+         LIMIT 1`
+      )
+      .bind(input.org_id, input.message_id)
       .first<{ id: string }>()
 
     if (existing) {

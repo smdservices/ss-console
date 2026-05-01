@@ -85,7 +85,14 @@ describe('sendOutreachEmail', () => {
     expect(result.outreach_event_id).toBeDefined()
   })
 
-  it('attributes multiple sends to the same entity timeline', async () => {
+  it('dedupes multiple dev-mode sends to the same entity (PR-2b behavior)', async () => {
+    // Pre-PR-2b: two sends with the same message_id produced two
+    // outreach_events rows. The PR-2b dedup at recordEvent (keyed on
+    // (org_id, message_id) for synthetic 'sent' rows) collapses them
+    // to one. In dev mode every call returns id='dev-mode', so the
+    // dedup fires here. In production each Resend call returns a
+    // unique message_id, so distinct sends still produce distinct rows
+    // — covered by the next test.
     await sendOutreachEmail(
       undefined,
       { to: 'a@e.com', subject: 'A', html: 'a' },
@@ -98,7 +105,41 @@ describe('sendOutreachEmail', () => {
     )
 
     const events = await listEventsByEntity(db, ENTITY_ID)
-    expect(events.length).toBe(2)
-    expect(events.every((e) => e.event_type === 'sent')).toBe(true)
+    expect(events.length).toBe(1)
+    expect(events[0].event_type).toBe('sent')
+    expect(events[0].message_id).toBe('dev-mode')
+  })
+
+  it('records distinct rows for distinct Resend message_ids', async () => {
+    // Mock global fetch so we can return distinct ids per call.
+    const originalFetch = globalThis.fetch
+    let i = 0
+    globalThis.fetch = (async () => {
+      i++
+      return new Response(JSON.stringify({ id: `resend-msg-${i}` }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }) as typeof fetch
+
+    try {
+      await sendOutreachEmail(
+        'rk_test',
+        { to: 'a@e.com', subject: 'A', html: 'a' },
+        { db, orgId: ORG_ID, entityId: ENTITY_ID }
+      )
+      await sendOutreachEmail(
+        'rk_test',
+        { to: 'a@e.com', subject: 'B', html: 'b' },
+        { db, orgId: ORG_ID, entityId: ENTITY_ID }
+      )
+
+      const events = await listEventsByEntity(db, ENTITY_ID)
+      expect(events.length).toBe(2)
+      expect(events.every((e) => e.event_type === 'sent')).toBe(true)
+      expect(new Set(events.map((e) => e.message_id)).size).toBe(2)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
   })
 })

@@ -123,6 +123,16 @@ export interface OutreachSendOptions {
    * lead-gen send queue (#588).
    */
   entityId?: string | null
+  /**
+   * When false (PR-2b), skip the synthetic outreach_events insert. The
+   * caller is responsible for recording the event in a separate, idempotent
+   * step. Used by ScanDiagnosticWorkflow's render-email-send step so the
+   * Resend call and the DB write live in different Workflow steps and
+   * a step retry of record-send-event does not also re-call Resend.
+   *
+   * Default true (existing call sites unchanged).
+   */
+  recordEvent?: boolean
 }
 
 export interface OutreachSendResult extends SendResult {
@@ -154,6 +164,13 @@ export async function sendOutreachEmail(
 ): Promise<OutreachSendResult> {
   const sendResult = await sendEmail(apiKey, payload)
   if (!sendResult.success || !sendResult.id) {
+    return sendResult
+  }
+
+  // PR-2b: skip the DB write when the caller wants to record in a
+  // separate step (so workflow retries of the recording step don't
+  // also re-call Resend).
+  if (options.recordEvent === false) {
     return sendResult
   }
 

@@ -67,6 +67,7 @@ import { getScanRequest, updateScanRequestRun, type ScanRequest } from '../db/sc
 import { createMagicLink, PROSPECT_MAGIC_LINK_EXPIRY_MS } from '../auth/magic-link'
 import { createOutsideView } from '../db/outside-views'
 import { renderedReportToArtifactJsonV1 } from '../db/outside-views/adapter'
+import { recordEvent } from '../db/outreach-events'
 import { renderDiagnosticReport, type RenderedReport } from './render'
 import { sendScanFailureAlert } from './admin-alert'
 import {
@@ -203,8 +204,22 @@ interface GateStepResult {
   emailSent: boolean
 }
 
-interface RenderStepResult {
-  emailSent: boolean
+interface RenderEmailSendResult {
+  /** True iff Resend returned success. False on send failure. */
+  sent: boolean
+  /** Resend's message id, or null on send failure. The string 'dev-mode'
+   *  indicates the apiKey was unset/invalid at runtime — caught by the
+   *  follow-on dev-mode admin alert in `record-send-event`. */
+  messageId: string | null
+  /** Entity id captured here so `record-send-event` does not need to
+   *  re-load the entity. JSON-serializable so Workflows can checkpoint. */
+  entityId: string
+}
+
+interface RecordSendEventResult {
+  /** True iff a new outreach_events row was inserted. False on dedup
+   *  hit (workflow step retry replayed this step body). */
+  inserted: boolean
 }
 
 /**
@@ -612,8 +627,16 @@ export class ScanDiagnosticWorkflow extends WorkflowEntrypoint<
     // but we never hand a 24h auth credential to a client's address via
     // a public, unauthenticated form.
     // ---------------------------------------------------------------
-    const renderResult = await step.do<RenderStepResult>(
-      'render-and-email',
+    // PR-2b step split: render + send Resend live in `render-email-send`
+    // (with `recordEvent: false` so no DB write happens here). The
+    // synthetic `outreach_events` row is written in the follow-on
+    // `record-send-event` step. Workflows step-result caching guarantees
+    // the messageId from step 1 is replayed to step 2 on retry — which
+    // means a step-2 retry never re-calls Resend. Combined with the
+    // `recordEvent` dedup on (org_id, message_id) added in PR-2b, repeat
+    // inserts of the same `sent` row collapse to one.
+    const sendStep = await step.do<RenderEmailSendResult>(
+      'render-email-send',
       { retries: RETRY_INFRA, timeout: TIMEOUT_INFRA },
       async () => {
         const entity = await loadEntity()
@@ -630,51 +653,72 @@ export class ScanDiagnosticWorkflow extends WorkflowEntrypoint<
         const flagOn = isOutsideViewDeliveryOn(this.env.OUTSIDE_VIEW_PORTAL_DELIVERY)
         const useOutsideViewEmail = flagOn && portalLinkUrl !== null
 
-        const sent = useOutsideViewEmail
+        const result = useOutsideViewEmail
           ? await sendOutsideViewReadyEmail(
               env,
               scanRequestSnapshot,
               entity,
               portalLinkUrl as string,
-              rendered.displayName
+              rendered.displayName,
+              { recordEvent: false }
             )
-          : await sendDiagnosticReportEmail(env, scanRequestSnapshot, entity, rendered)
+          : await sendDiagnosticReportEmail(env, scanRequestSnapshot, entity, rendered, {
+              recordEvent: false,
+            })
 
-        // Detection net for the dev-mode silent-failure pattern: if the
-        // RESEND_API_KEY was bound BUT corrupt/revoked, sendEmail's
-        // dev-mode short-circuit at resend.ts fires and the synthetic
-        // outreach_events row gets message_id='dev-mode'. The startup
-        // assertion above only catches the unbound case; this catches
-        // the runtime-failure case. Best-effort, never throws.
-        if (sent) {
-          try {
-            const recent = await env.DB.prepare(
-              `SELECT message_id FROM outreach_events
-               WHERE entity_id = ? AND event_type = 'sent'
-               ORDER BY created_at DESC LIMIT 1`
-            )
-              .bind(entity.id)
-              .first<{ message_id: string | null }>()
-            if (recent?.message_id === 'dev-mode') {
-              console.error(
-                '[scan-workflow] Resend returned dev-mode message_id — RESEND_API_KEY is corrupt/revoked'
-              )
-              await sendScanFailureAlert(env.RESEND_API_KEY, {
-                scanRequestId: scanRequestSnapshot.id,
-                submittedDomain: scanRequestSnapshot.domain,
-                requesterEmail: scanRequestSnapshot.email,
-                failingModule: 'resend-dev-mode',
-                errorMessage: 'sendEmail returned dev-mode in production',
-              }).catch((err) => console.error('[scan-workflow] dev-mode alert failed:', err))
-            }
-          } catch (err) {
-            console.error('[scan-workflow] dev-mode check failed:', err)
-          }
+        return {
+          sent: result.sent,
+          messageId: result.messageId,
+          entityId: entity.id,
         }
-
-        return { emailSent: sent }
       }
     )
+
+    // ---------------------------------------------------------------
+    // Step: record-send-event — idempotent INSERT into outreach_events
+    // keyed on (org_id, message_id) for the synthetic 'sent' row. The
+    // dedup at the recordEvent layer (PR-2b) collapses workflow-retry
+    // replays into a single row.
+    //
+    // The dev-mode admin alert lives here too: if the apiKey was bound
+    // but corrupt/revoked at runtime, sendEmail's dev-mode short-circuit
+    // returns id='dev-mode'. The startup assertion catches only the
+    // unbound case; this catches the corrupt-key case.
+    // ---------------------------------------------------------------
+    if (sendStep.sent && sendStep.messageId) {
+      await step.do<RecordSendEventResult>(
+        'record-send-event',
+        { retries: RETRY_INFRA, timeout: TIMEOUT_INFRA },
+        async () => {
+          const r = await recordEvent(env.DB, {
+            org_id: ORG_ID,
+            entity_id: sendStep.entityId,
+            event_type: 'sent',
+            channel: 'email',
+            message_id: sendStep.messageId!,
+            provider_event_id: null,
+            payload: {
+              to: scanRequestSnapshot.email,
+              recorded_by: 'scan-workflow:record-send-event',
+            },
+          })
+          return { inserted: r.inserted }
+        }
+      )
+
+      if (sendStep.messageId === 'dev-mode') {
+        console.error(
+          '[scan-workflow] Resend returned dev-mode message_id — RESEND_API_KEY is corrupt/revoked'
+        )
+        await sendScanFailureAlert(env.RESEND_API_KEY, {
+          scanRequestId: scanRequestSnapshot.id,
+          submittedDomain: scanRequestSnapshot.domain,
+          requesterEmail: scanRequestSnapshot.email,
+          failingModule: 'resend-dev-mode',
+          errorMessage: 'sendEmail returned dev-mode in production',
+        }).catch((err) => console.error('[scan-workflow] dev-mode alert failed:', err))
+      }
+    }
 
     // ---------------------------------------------------------------
     // Step: mark-completed — flip scan_status='completed' and stamp
@@ -685,7 +729,7 @@ export class ScanDiagnosticWorkflow extends WorkflowEntrypoint<
       await updateScanRequestRun(env.DB, scanRequest.id, {
         scan_status: 'completed',
         scan_completed_at: completedAt,
-        email_sent_at: renderResult.emailSent ? completedAt : null,
+        email_sent_at: sendStep.sent ? completedAt : null,
       })
       return { ok: true }
     })

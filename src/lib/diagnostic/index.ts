@@ -350,7 +350,11 @@ async function runScanInner(
   // omitted or labelled "Insufficient data" — never invented.
   // ---------------------------------------------------------------
   const rendered = await renderDiagnosticReport(env.DB, entity, briefMarkdown)
-  const sent = await sendDiagnosticReportEmail(env, scanRequest, entity, rendered)
+  // Legacy in-process orchestrator (dev/test only). The default
+  // recordEvent: true path still writes the synthetic sent row inline
+  // — the PR-2b step-split only matters in the Workflow path where
+  // step retries can replay the callback.
+  const { sent } = await sendDiagnosticReportEmail(env, scanRequest, entity, rendered)
   result.email_sent = sent
 
   await updateScanRequestRun(env.DB, scanRequest.id, {
@@ -750,12 +754,24 @@ function formatDiagnosticDeepWebsiteEvidence(
 // Email rendering
 // ---------------------------------------------------------------------------
 
+/**
+ * Returned from the diagnostic email helpers (PR-2b). Both the boolean
+ * `sent` flag AND the Resend `messageId` are needed so the caller (the
+ * workflow's render-email-send step) can checkpoint the message id and
+ * a subsequent step can record the synthetic 'sent' row idempotently.
+ */
+export interface DiagnosticEmailResult {
+  sent: boolean
+  messageId: string | null
+}
+
 export async function sendDiagnosticReportEmail(
   env: DiagnosticEnv,
   scanRequest: ScanRequest,
   entity: Entity,
-  rendered: RenderedReport
-): Promise<boolean> {
+  rendered: RenderedReport,
+  options?: { recordEvent?: boolean }
+): Promise<DiagnosticEmailResult> {
   const html = diagnosticReportEmailHtml({
     businessName: entity.name,
     rendered,
@@ -768,13 +784,18 @@ export async function sendDiagnosticReportEmail(
       subject: `Your operational read — ${entity.name}`,
       html,
     },
-    { db: env.DB, orgId: ORG_ID, entityId: entity.id }
+    {
+      db: env.DB,
+      orgId: ORG_ID,
+      entityId: entity.id,
+      recordEvent: options?.recordEvent,
+    }
   )
   if (!r.success) {
     console.error('[diagnostic] failed to send report email:', r.error)
-    return false
+    return { sent: false, messageId: null }
   }
-  return true
+  return { sent: true, messageId: r.id ?? null }
 }
 
 /**
@@ -794,8 +815,9 @@ export async function sendOutsideViewReadyEmail(
   scanRequest: ScanRequest,
   entity: Entity,
   portalLinkUrl: string,
-  renderedDisplayName?: string | null
-): Promise<boolean> {
+  renderedDisplayName?: string | null,
+  options?: { recordEvent?: boolean }
+): Promise<DiagnosticEmailResult> {
   const businessName = (renderedDisplayName && renderedDisplayName.trim()) || entity.name
   const html = outsideViewReadyEmailHtml({
     businessName,
@@ -808,13 +830,18 @@ export async function sendOutsideViewReadyEmail(
       subject: `Your Outside View is ready — ${businessName}`,
       html,
     },
-    { db: env.DB, orgId: ORG_ID, entityId: entity.id }
+    {
+      db: env.DB,
+      orgId: ORG_ID,
+      entityId: entity.id,
+      recordEvent: options?.recordEvent,
+    }
   )
   if (!r.success) {
     console.error('[diagnostic] failed to send Outside View ready email:', r.error)
-    return false
+    return { sent: false, messageId: null }
   }
-  return true
+  return { sent: true, messageId: r.id ?? null }
 }
 
 export async function sendThinFootprintEmail(
