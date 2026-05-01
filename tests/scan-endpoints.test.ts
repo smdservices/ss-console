@@ -12,6 +12,7 @@ import { resolve } from 'path'
 
 const startSrc = () => readFileSync(resolve('src/pages/api/scan/start.ts'), 'utf-8')
 const verifySrc = () => readFileSync(resolve('src/pages/api/scan/verify.ts'), 'utf-8')
+const verifyHandlerSrc = () => readFileSync(resolve('src/lib/scan/verify-handler.ts'), 'utf-8')
 // /scan/index.astro retired in PR-C (ADR 0002 Phase 1) — it's now a 301
 // emitter. The public form lives at /outside-view/index.astro; CLAUDE.md
 // tone-rule guards (no $ amounts, no fixed engagement timeframes,
@@ -74,22 +75,57 @@ describe('/api/scan/verify', () => {
     expect(code).toContain('export const POST')
   })
 
-  it('hashes the inbound token before lookup (never raw)', () => {
-    expect(verifySrc()).toContain('hashScanToken')
+  it('delegates to the shared handleVerify helper (single source of truth)', () => {
+    const code = verifySrc()
+    expect(code).toContain('handleVerify')
+    expect(code).toContain("from '../../../lib/scan/verify-handler'")
   })
 
-  it('uses ctx.waitUntil to fire the diagnostic pipeline', () => {
-    expect(verifySrc()).toContain('waitUntil')
-    expect(verifySrc()).toContain('runDiagnosticScan')
+  it('does not re-implement verify logic inline (lives in the shared helper)', () => {
+    const code = verifySrc()
+    // These are the responsibilities of the shared helper. If they leak
+    // back into the API endpoint, the page and the API will drift again
+    // — which is the bug class that broke the magic-link flow.
+    expect(code).not.toContain('hashScanToken')
+    expect(code).not.toContain('runDiagnosticScan')
+    expect(code).not.toContain('SCAN_WORKFLOW_SERVICE')
+  })
+})
+
+describe('lib/scan/verify-handler (shared helper)', () => {
+  it('file exists', () => {
+    expect(existsSync(resolve('src/lib/scan/verify-handler.ts'))).toBe(true)
+  })
+
+  it('hashes the inbound token before lookup (never raw)', () => {
+    expect(verifyHandlerSrc()).toContain('hashScanToken')
   })
 
   it('checks token freshness before kicking off the scan', () => {
-    const code = verifySrc()
+    const code = verifyHandlerSrc()
     const freshIdx = code.indexOf('isScanTokenFresh')
     const verifyIdx = code.indexOf('markScanVerified')
     expect(freshIdx).toBeGreaterThan(-1)
     expect(verifyIdx).toBeGreaterThan(-1)
     expect(freshIdx).toBeLessThan(verifyIdx)
+  })
+
+  it('dispatches via the SCAN_WORKFLOW_SERVICE binding (production hot path)', () => {
+    const code = verifyHandlerSrc()
+    expect(code).toContain('SCAN_WORKFLOW_SERVICE')
+    expect(code).toContain('/dispatch')
+    expect(code).toContain('workflow_run_id')
+  })
+
+  it('falls back to ctx.waitUntil only when the service binding is unbound', () => {
+    const code = verifyHandlerSrc()
+    expect(code).toContain('waitUntil')
+    expect(code).toContain('runDiagnosticScan')
+    // The fallback must be gated behind the binding check, not unconditional.
+    const guardIdx = code.indexOf('SCAN_WORKFLOW_SERVICE')
+    const fallbackFnIdx = code.indexOf('function runFallback')
+    expect(guardIdx).toBeGreaterThan(-1)
+    expect(fallbackFnIdx).toBeGreaterThan(guardIdx)
   })
 })
 
@@ -142,6 +178,26 @@ describe('/outside-view public form (was /scan, retired ADR 0002 Phase 1 PR-C)',
 describe('/scan/verify/[token] page', () => {
   it('page exists', () => {
     expect(existsSync(resolve('src/pages/scan/verify/[token].astro'))).toBe(true)
+  })
+
+  it('delegates verify+dispatch to the shared handleVerify helper', () => {
+    // Prevents a recurrence of the regression where the page bypassed the
+    // SCAN_WORKFLOW_SERVICE dispatch and ran the legacy in-process pipeline
+    // inside ctx.waitUntil — which the Worker isolate budget kills mid-scan.
+    // Both surfaces (API + page) must share the dispatch path.
+    const code = verifyPageSrc()
+    expect(code).toContain('handleVerify')
+    expect(code).toContain("from '../../../lib/scan/verify-handler'")
+  })
+
+  it('does not import runDiagnosticScan directly (must dispatch via shared helper)', () => {
+    const code = verifyPageSrc()
+    expect(code).not.toContain('runDiagnosticScan')
+  })
+
+  it('does not call markScanVerified directly (the shared helper owns that side-effect)', () => {
+    const code = verifyPageSrc()
+    expect(code).not.toContain('markScanVerified')
   })
 
   it('handles all six terminal states', () => {
