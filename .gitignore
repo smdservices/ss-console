@@ -45,3 +45,7 @@ coverage/
 # Source of truth lives in crane-console/.agents/skills/. Tracking here would
 # produce a 50+ file dirty tree on every session.
 .agents/skills/
+
+# D1 production backups taken before risky migrations. Keep local; do NOT
+# commit (contains tenant data). See migrations/rollbacks/README.md.
+backups/
