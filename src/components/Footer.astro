@@ -18,12 +18,28 @@
 
     <div class="h-px bg-[color:rgba(245,240,227,0.16)]"></div>
 
-    <!-- Region 2: Colophon — legal left, location right. Nav and CTA are not
+    <!-- Region 2: Sitewide links. Routable destinations not otherwise
+         present in the chrome: Outside View (lead artifact), AI (capability
+         page, demoted from primary nav per the ADR 0002 cleanup), Book a Call
+         (also in nav and FinalCta but useful here as a footer fallback),
+         Contact. Brutalist-sparse mono treatment to match the colophon. -->
+    <nav
+      aria-label="Footer"
+      class="py-6 md:py-7 flex flex-wrap gap-x-6 gap-y-2 font-['Archivo_Narrow'] text-xs uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
+    >
+      <a href="/outside-view" class="hover:text-white" data-ev="footer-outside-view">Outside View</a
+      >
+      <a href="/ai" class="hover:text-white" data-ev="footer-ai">AI</a>
+      <a href="/book" class="hover:text-white" data-ev="footer-book">Book a Call</a>
+      <a href="/contact" class="hover:text-white" data-ev="footer-contact">Contact</a>
+    </nav>
+
+    <div class="h-px bg-[color:rgba(245,240,227,0.16)]"></div>
+
+    <!-- Region 3: Colophon — legal left, location right. Nav and CTA are not
          repeated here because they already live in the sticky header (mobile
          menu overlay + desktop inline) and in the FinalCta section directly
-         above the footer. Repeating them was visual noise. When dedicated
-         footer content exists (Legal, Privacy, Terms, Social), it slots in
-         as a third region above this colophon. -->
+         above the footer. -->
     <div
       class="py-6 md:py-7 flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-0 font-['Archivo_Narrow'] text-xs uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
     >
