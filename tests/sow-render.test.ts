@@ -19,42 +19,6 @@ import { describe, it, expect } from 'vitest'
 // import { renderSow } from '../src/lib/pdf/render'
 // import { writeFileSync } from 'fs'
 
-const baseProps = {
-  client: {
-    businessName: 'Desert Bloom Landscaping',
-    contactName: 'Maria Rodriguez',
-    contactTitle: 'Owner',
-  },
-  document: {
-    date: 'April 12, 2026',
-    expirationDate: 'April 17, 2026',
-    sowNumber: 'SOW-202604-001',
-  },
-  engagement: {
-    overview: 'Operations cleanup engagement as discussed during assessment.',
-    startDate: 'TBD upon deposit',
-    endDate: 'TBD based on scope',
-  },
-  items: [
-    {
-      name: 'Owner bottleneck',
-      description:
-        'Document key processes, build SOPs for scheduling and estimates, establish delegation framework',
-    },
-    {
-      name: 'Scheduling chaos',
-      description:
-        'Configure centralized scheduling tool, set up automated reminders, build crew assignment workflow, train team',
-    },
-  ],
-  payment: {
-    schedule: 'two_part' as const,
-    totalPrice: '$2,700',
-    deposit: '$1,350',
-    completion: '$1,350',
-  },
-}
-
 // Skipped: WASM not available in vitest/Node.js environment.
 // Validated via Astro build and live deployment.
 describe.skip('sow-render: PDF generation', () => {

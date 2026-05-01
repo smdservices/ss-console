@@ -65,23 +65,20 @@ await env.DB.prepare(`UPDATE users SET last_login_at = datetime('now') WHERE id 
   .bind(user.id)
   .run()
 
-// Create session
 const sessionToken = await createSession(env.DB, env.SESSIONS, {
   id: user.id,
   orgId: user.org_id,
   role: user.role,
   email: user.email,
 })
+const location = (() => {
+  const portalBaseUrl = getPortalBaseUrl(env)
+  return portalBaseUrl ? `${portalBaseUrl}/` : '/portal'
+})()
+const setCookie = buildSessionCookie(sessionToken, user.role)
+const response = new Response(null, { status: 302 })
+response.headers.set('Location', location)
+response.headers.set('Set-Cookie', setCookie)
 
-// Redirect to portal with session cookie
-const portalBaseUrl = getPortalBaseUrl(env)
-const redirectTo = portalBaseUrl ? `${portalBaseUrl}/` : '/portal'
-
-return new Response(null, {
-  status: 302,
-  headers: {
-    Location: redirectTo,
-    'Set-Cookie': buildSessionCookie(sessionToken, user.role),
-  },
-})
+return response
 ---

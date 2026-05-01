@@ -40,7 +40,7 @@ const {
   h1,
   meta = null,
   class: klass = '',
-} = Astro.props
+} = Astro.props as Props
 
 const showCrumb = !!(crumbHref && crumbLabel)
 ---

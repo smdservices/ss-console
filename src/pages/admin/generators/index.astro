@@ -105,15 +105,15 @@ const metrics = await Promise.all(
   PIPELINES.map(async (p) => ({ pipeline: p, metrics: await getPipelineMetrics(p.id) }))
 )
 
-function avgPainScore(pipeline: string): Promise<number | null> {
-  return env.DB.prepare(
+async function avgPainScore(pipeline: string): Promise<number | null> {
+  const row = await env.DB.prepare(
     `SELECT AVG(pain_score) as avg
      FROM entities
      WHERE stage = 'signal' AND org_id = ? AND source_pipeline = ? AND pain_score IS NOT NULL`
   )
     .bind(session.orgId, pipeline)
     .first<{ avg: number | null }>()
-    .then((r) => r?.avg ?? null)
+  return row?.avg ?? null
 }
 
 const painAvgs = await Promise.all(

@@ -1,10 +1,6 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro'
-import {
-  getGeneratorConfig,
-  recordGeneratorRun,
-  upsertGeneratorConfig,
-} from '../../../lib/db/generators'
+import { getGeneratorConfig, upsertGeneratorConfig } from '../../../lib/db/generators'
 import {
   PIPELINE_IDS,
   PIPELINE_LABELS,
@@ -69,8 +65,10 @@ if (Astro.request.method === 'POST') {
     const enabled = form.get('enabled') === 'on'
     const result = await upsertGeneratorConfig(env.DB, session.orgId, type, config, enabled)
     if (!result.ok) {
-      const params = new URLSearchParams({ error: result.errors.join(' · ') })
-      return Astro.redirect(`/admin/generators/${type}?${params.toString()}`, 302)
+      return Astro.redirect(
+        `/admin/generators/${type}?${new URLSearchParams({ error: result.errors.join(' · ') }).toString()}`,
+        302
+      )
     }
     return Astro.redirect(`/admin/generators/${type}?saved=1`, 302)
   }
@@ -87,19 +85,28 @@ if (Astro.request.method === 'POST') {
         headers: { Authorization: `Bearer ${key}` },
       })
       if (!res.ok) {
-        const params = new URLSearchParams({
-          error: `Worker returned ${res.status}`,
-        })
-        return Astro.redirect(`/admin/generators/${type}?${params.toString()}`, 302)
+        return Astro.redirect(
+          `/admin/generators/${type}?${new URLSearchParams({
+            error: `Worker returned ${res.status}`,
+          }).toString()}`,
+          302
+        )
       }
-      const summary = (await res.json()) as { written?: number; qualified?: number }
-      const signals = summary.written ?? summary.qualified ?? 0
-      return Astro.redirect(`/admin/generators/${type}?ran=1&signals=${signals}`, 302)
+      const resultJson = (await res.json()) as { written?: number; qualified?: number }
+      const redirectUrl = new URL(`/admin/generators/${type}`, Astro.url)
+      redirectUrl.searchParams.set('ran', '1')
+      redirectUrl.searchParams.set(
+        'signals',
+        String(resultJson.written ?? resultJson.qualified ?? 0)
+      )
+      return Astro.redirect(`${redirectUrl.pathname}${redirectUrl.search}`, 302)
     } catch (e) {
-      const params = new URLSearchParams({
-        error: e instanceof Error ? e.message : 'Worker unreachable',
-      })
-      return Astro.redirect(`/admin/generators/${type}?${params.toString()}`, 302)
+      return Astro.redirect(
+        `/admin/generators/${type}?${new URLSearchParams({
+          error: e instanceof Error ? e.message : 'Worker unreachable',
+        }).toString()}`,
+        302
+      )
     }
   }
 }

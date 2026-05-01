@@ -12,7 +12,7 @@
 
 import { transitionStage, type Entity } from './entities.js'
 import { appendContext } from './context.js'
-import { isLostReason, labelForLostReason, type LostReason } from './lost-reasons.js'
+import { isLostReasonCode, lostReasonLabel, type LostReasonCode } from './lost-reasons.js'
 
 export interface BulkActionOk {
   id: string
@@ -29,7 +29,7 @@ export interface BulkActionResult {
 }
 
 export interface BulkDismissOptions {
-  reason: LostReason
+  reason: LostReasonCode
   detail?: string | null
 }
 
@@ -52,13 +52,13 @@ export async function bulkDismissEntities(
   ids: string[],
   options: BulkDismissOptions
 ): Promise<BulkActionResult> {
-  if (!isLostReason(options.reason)) {
+  if (!isLostReasonCode(options.reason)) {
     throw new Error(`Invalid lost reason: ${options.reason}`)
   }
 
   const ok: BulkActionOk[] = []
   const failed: BulkActionFailure[] = []
-  const reasonLabel = labelForLostReason(options.reason)
+  const reasonLabel = lostReasonLabel(options.reason) ?? options.reason
   const reasonText = options.detail?.trim()
     ? `${reasonLabel}: ${options.detail.trim()}`
     : reasonLabel
