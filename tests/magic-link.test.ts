@@ -178,3 +178,38 @@ describe('magic links', () => {
     })
   })
 })
+
+describe('/auth/verify.astro page', () => {
+  // Static-source assertions only — Astro frontmatter is hard to unit-test
+  // without spinning up the full SSR runtime. The fix (nulling
+  // Astro.locals.session before returning) is structural; a regression
+  // would either remove the line or fail to set Set-Cookie correctly.
+  const { readFileSync } = require('fs') as typeof import('fs')
+  const { resolve: resolvePath } = require('path') as typeof import('path')
+  const verifyPageSrc = readFileSync(
+    resolvePath(process.cwd(), 'src/pages/auth/verify.astro'),
+    'utf-8'
+  )
+
+  it('nulls Astro.locals.session before returning so middleware skips refresh of the OLD cookie', () => {
+    // The bug: middleware at src/middleware.ts:194-204 refreshes the inbound
+    // session cookie via Set-Cookie append AFTER the page returns. If a user
+    // arrives at /auth/verify with a pre-existing session cookie (e.g.
+    // Captain testing his prospect link from his client browser), the
+    // middleware's append wins over the page's Set-Cookie. Result: the new
+    // session never takes effect.
+    //
+    // Fix: page sets Astro.locals.session = null before returning so the
+    // middleware's `if (context.locals.session && token)` check fails and
+    // the refresh block is skipped. The page's Set-Cookie (carrying the new
+    // session token) is the only one in the response.
+    expect(verifyPageSrc).toMatch(/Astro\.locals\.session\s*=\s*null/)
+    // The null-assignment must come AFTER the Set-Cookie header is built
+    // (otherwise the page would set null before the response is composed,
+    // which is fine — but we want it adjacent to the return for clarity).
+    const setCookieIdx = verifyPageSrc.indexOf("response.headers.set('Set-Cookie'")
+    const nullIdx = verifyPageSrc.indexOf('Astro.locals.session = null')
+    expect(setCookieIdx).toBeGreaterThan(-1)
+    expect(nullIdx).toBeGreaterThan(setCookieIdx)
+  })
+})

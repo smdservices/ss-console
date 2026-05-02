@@ -80,5 +80,14 @@ const response = new Response(null, { status: 302 })
 response.headers.set('Location', location)
 response.headers.set('Set-Cookie', setCookie)
 
+// Prevent the middleware's sliding-window refresh from appending a second
+// Set-Cookie with the OLD inbound session cookie (src/middleware.ts:194-204).
+// If the prospect/client clicked this magic link from a browser where they
+// were already signed in (e.g. Captain testing his own prospect link from
+// his client browser), the stale cookie would otherwise win. Nulling
+// Astro.locals.session here makes the middleware skip the refresh block;
+// the only Set-Cookie on the response is the new session.
+Astro.locals.session = null
+
 return response
 ---
