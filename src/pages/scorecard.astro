@@ -1,18 +1,15 @@
 ---
 /**
- * /scorecard retired (ADR 0002 Phase 1 PR-C).
- *
- * Replaced by /outside-view as the unified diagnostic front door. The
- * middleware also serves a 301 from /scorecard → /outside-view; this
- * page is the belt-and-suspenders fallback in case the middleware
- * redirect regresses (per /critique 3 Devil's Advocate #3).
+ * /scorecard retired (ADR 0002 Phase 1 PR-C, then doubly retired when
+ * Outside View itself was killed). The middleware serves a 301 from
+ * /scorecard to /; this page is the belt-and-suspenders fallback in
+ * case the middleware redirect regresses.
  *
  * Pre-existing scorecard JS (src/scripts/scorecard.ts), the submit
  * endpoint (/api/scorecard/submit), and the scoring utilities under
- * src/lib/scorecard/ all stay on disk for now — they're load-bearing
- * regression risk to remove in the same PR. The cleanup PR scheduled
- * one week after PR-C ships will remove them once we've confirmed zero
- * 404s on /scorecard or unexpected /api/scorecard/submit traffic.
+ * src/lib/scorecard/ all stay on disk because removing them is
+ * load-bearing regression risk. They're scheduled for the same cleanup
+ * PR coordinated with the conversation-mechanism team.
  */
-return Astro.redirect('/outside-view', 301)
+return Astro.redirect('/', 301)
 ---
