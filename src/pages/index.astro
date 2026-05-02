@@ -7,12 +7,13 @@ import Base from '../layouts/Base.astro'
 import Nav from '../components/Nav.astro'
 import Hero from '../components/Hero.astro'
 import ProblemCards from '../components/ProblemCards.astro'
-import HowItWorks from '../components/HowItWorks.astro'
-import WhatYouGet from '../components/WhatYouGet.astro'
-import Pricing from '../components/Pricing.astro'
-import About from '../components/About.astro'
+import RoiMath from '../components/RoiMath.astro'
+import HowWeEngage from '../components/HowWeEngage.astro'
 import WhoWeHelp from '../components/WhoWeHelp.astro'
+import WhatYouGet from '../components/WhatYouGet.astro'
 import CaseStudies from '../components/CaseStudies.astro'
+import About from '../components/About.astro'
+import WhatWeWontDo from '../components/WhatWeWontDo.astro'
 import FinalCta from '../components/FinalCta.astro'
 import Footer from '../components/Footer.astro'
 ---
@@ -22,33 +23,13 @@ import Footer from '../components/Footer.astro'
   <main id="main" role="main">
     <Hero />
     <ProblemCards />
-    <HowItWorks />
-    <WhatYouGet />
-    <Pricing />
-    <About />
+    <RoiMath />
+    <HowWeEngage />
     <WhoWeHelp />
+    <WhatYouGet />
     <CaseStudies />
-
-    <!-- Scorecard CTA -->
-    <section class="bg-[color:var(--ss-color-background)] px-6 py-20">
-      <div class="mx-auto max-w-5xl text-center">
-        <h2 class="text-2xl font-bold text-[color:var(--ss-color-text-primary)] sm:text-3xl">
-          Not sure where to start?
-        </h2>
-        <p class="mx-auto mt-4 max-w-xl text-lg text-[color:var(--ss-color-text-secondary)]">
-          Drop your URL and we'll send you back an Outside View. It's what we see when an
-          experienced outsider looks at your business. Yours to keep.
-        </p>
-        <a
-          href="/outside-view"
-          class="mt-8 inline-block rounded-[var(--ss-radius-card)] bg-primary px-8 py-3 text-base font-semibold text-white transition-opacity hover:opacity-80"
-          data-ev="home-outside-view-cta"
-        >
-          See what we see
-        </a>
-      </div>
-    </section>
-
+    <About />
+    <WhatWeWontDo />
     <FinalCta />
   </main>
   <Footer />

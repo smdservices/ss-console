@@ -1,0 +1,92 @@
+---
+// The math you're not doing — owner-does-the-math ROI education per
+// Decision #15 (ROI Anchor Math).
+//
+// Doctrine: we provide the formula and the variables. The owner does the
+// multiplication against their own numbers. SMD never asserts a dollar
+// value. This defends CLAUDE.md no-fabrication rule by construction.
+const beats = [
+  {
+    label: 'The owner-bottleneck math',
+    formula: 'Hours per week × what your time is worth',
+    body: 'Hours you spend on decisions and approvals only you can make, multiplied by what your time is actually worth to the business. Most owners undercount both numbers.',
+  },
+  {
+    label: 'The lead-leak math',
+    formula: 'Lost leads per month × average job value × 12',
+    body: 'Inbound leads that go cold or unanswered. Walk this through with your average job value and an annual horizon and the number gets uncomfortable fast.',
+  },
+  {
+    label: 'The scheduling math',
+    formula: 'Missed appointments per month × cost per appointment',
+    body: 'Crews waiting, customers picking up the phone book, the rebook tax. Each missed slot has a real number behind it.',
+  },
+  {
+    label: 'The retention math',
+    formula: 'Replacement cost × people you have lost in the last 18 months',
+    body: 'Cost to hire and train a replacement, multiplied by how many you have lost recently. Owners always undercount this and the number is always painful.',
+  },
+]
+---
+
+<section
+  class="bg-[color:var(--ss-color-background)] px-6 py-24 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
+>
+  <div class="mx-auto max-w-5xl">
+    <div class="mb-16">
+      <span
+        class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+        >§ 02</span
+      >
+      <h2
+        class="font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+      >
+        The Math You're Not Doing
+      </h2>
+      <p
+        class="mt-6 max-w-2xl font-['Archivo'] text-lg text-[color:var(--ss-color-text-secondary)]"
+      >
+        Most owners can name the pain but have not priced it. A few minutes with these usually
+        reframes the question from <em>can we afford to fix this?</em>
+        to <em>can we afford not to?</em>
+      </p>
+    </div>
+
+    <div
+      class="grid grid-cols-1 gap-0 md:grid-cols-2 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
+    >
+      {
+        beats.map((b, i) => (
+          <div
+            class:list={[
+              'flex flex-col gap-4 bg-[color:var(--ss-color-background)] p-8 min-h-[14rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
+              i % 2 === 0 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
+            ]}
+          >
+            <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
+              {b.label}
+            </p>
+            <p class="font-['JetBrains_Mono'] text-base md:text-lg font-semibold text-[color:var(--ss-color-text-primary)]">
+              {b.formula}
+            </p>
+            <p class="font-['Archivo'] leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+              {b.body}
+            </p>
+          </div>
+        ))
+      }
+    </div>
+
+    <div class="mt-12 max-w-3xl">
+      <p class="font-['Archivo'] text-lg leading-relaxed text-[color:var(--ss-color-text-primary)]">
+        Run those numbers against your business. That is the math behind whether a fix pays for
+        itself.
+      </p>
+      <p
+        class="mt-4 font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
+      >
+        Next: whether a fix fits your budget.
+      </p>
+    </div>
+  </div>
+</section>
