@@ -1,19 +1,29 @@
 ---
+// Who We Help — stage-of-business and objective-led, not pain-led. Pain
+// stays only in §01 ProblemCards.
+//
+// Doctrine: every claim here is either an owner-voiced symptom (extractive,
+// safe under the no-fabrication rule) or a capability pointer to §05 (the
+// six-capability grid at /#capabilities). No closeness-of-fix promises, no
+// outcome guarantees, no fabricated assurance.
 const segments = [
   {
     title: 'Outgrowing Your Tools',
-    pain: 'You started with spreadsheets and free apps. They worked fine at first. Now everything takes longer than it should, data lives in five places, and you spend half your week just keeping things from falling apart.',
-    fix: 'The right tools for where you are now, set up to work together. No more re-entering the same data in three places.',
+    where:
+      'You started with spreadsheets and free apps and they got you here. Data lives in five places, the same numbers get retyped across three tools, and you spend a chunk of your week keeping things from falling apart.',
+    starts: 'Vendor and platform selection. Systems integration.',
   },
   {
     title: 'Stuck in Every Decision',
-    pain: "Nothing moves without you. Your team checks with you on things they should be able to handle. You know you need to delegate, but there's no process to delegate to.",
-    fix: 'Documented workflows your team can follow on their own. Clear enough that people stop asking and start doing.',
+    where:
+      "Nothing moves without you. Your team checks with you on things they should be able to handle, and you know it has to change, but there's no documented way of working for them to follow.",
+    starts: 'Process design. Operational visibility.',
   },
   {
-    title: 'Ready to Grow but Afraid Things Will Break',
-    pain: "You could take on more work. You could hire. But you know the way things run right now won't hold. Growth feels risky when you can't see what's happening across the business.",
-    fix: 'Visibility into what matters and processes that hold up under pressure. So growth is exciting, not terrifying.',
+    title: 'Ready to Grow Without Breaking',
+    where:
+      "You could take on more work. You could hire. But you can see that the way things run today won't hold up under more weight, and growth feels riskier than it should.",
+    starts: 'Operational visibility. Process design.',
   },
 ]
 ---
@@ -25,13 +35,19 @@ const segments = [
     <div class="mb-16">
       <span
         class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-        >§ 05</span
+        >§ 04</span
       >
       <h2
         class="font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
       >
         Who We Help
       </h2>
+      <p
+        class="mt-6 max-w-2xl font-['Archivo'] text-lg text-[color:var(--ss-color-text-secondary)]"
+      >
+        Three stages of business we know well. The capabilities we point to are the typical starting
+        point, not a promise of what the work will be.
+      </p>
     </div>
     <div
       class="grid grid-cols-1 gap-0 md:grid-cols-3 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
@@ -49,17 +65,25 @@ const segments = [
             </h3>
             <div class="mt-6">
               <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]">
-                Sound familiar?
+                Where you are
               </p>
               <p class="mt-2 font-['Archivo'] text-[color:var(--ss-color-text-primary)]">
-                {s.pain}
+                {s.where}
               </p>
             </div>
             <div class="mt-6 pt-6 border-t border-[color:var(--ss-color-border)]">
               <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
-                How we help
+                Where an engagement here usually starts
               </p>
-              <p class="mt-2 font-['Archivo'] text-[color:var(--ss-color-text-primary)]">{s.fix}</p>
+              <p class="mt-2 font-['Archivo'] text-[color:var(--ss-color-text-primary)]">
+                <a
+                  href="/#capabilities"
+                  class="underline decoration-[color:var(--ss-color-primary)] decoration-2 underline-offset-4 hover:text-[color:var(--ss-color-primary)]"
+                  data-ev={`segment-capability-${s.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+                >
+                  {s.starts}
+                </a>
+              </p>
             </div>
           </div>
         ))
