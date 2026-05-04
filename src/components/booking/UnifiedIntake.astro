@@ -5,22 +5,32 @@
  * Replaces the old "/talk vs /book" split with one form that captures
  * required identity (name/email/business/phone), optional website, and
  * an optional free-text "tell us about your business" field with voice
- * dictation. Two CTAs: Send (lower intent — server replies with one AI
- * follow-up) and Book a call (high intent — reveals SlotPicker).
+ * dictation. ONE primary CTA: Get in touch.
+ *
+ * Funnel architecture (post-PR-680 fix):
+ * - Initial state shows only the form + a single "Get in touch" CTA.
+ * - On Send success the response slot opens with either an AI reply
+ *   (when the textarea was non-empty) or a brief acknowledgement (when
+ *   it was empty).
+ * - The booking offer ("Pick a time to talk") reveals as a follow-on
+ *   step beneath the response — never as a parallel choice on first
+ *   paint. Cold visitors are lured by the textarea; the booking ask
+ *   arrives only after they have engaged and been heard.
  *
  * The component owns its own form, textarea, and mic JS. The page
- * (book.astro) listens for `unified-send` and `unified-book` CustomEvents
- * and drives the page-level state machine + API calls.
+ * (book.astro) listens for `unified-send` and `unified-pick-time`
+ * CustomEvents and drives the page-level state machine + API calls.
  *
- * Submit buttons are NOT gated by `form.checkValidity()` to avoid the
- * Safari autofill+JS gap (Safari's autofill does not fire `change`
- * events, which can leave the buttons disabled even when fields are
- * filled). Server-side validation surfaces field errors instead.
+ * The Get-in-touch button is NOT gated by `form.checkValidity()` to
+ * avoid the Safari autofill+JS gap (Safari's autofill does not fire
+ * `change` events, which can leave the button disabled even when fields
+ * are filled). Server-side validation surfaces field errors instead.
  *
- * Voice dictation uses the same Web Speech API pattern as /talk:
- * read-only-while-listening prevents typing/recognizer race; final
- * transcripts append at end with leading-space normalization. No
- * interim transcript display.
+ * Voice dictation: read-only-while-listening prevents typing/recognizer
+ * race; final transcripts append at end with leading-space normalization.
+ * No interim transcript display. Recognition halts on every state
+ * transition out of `idle`/`listening` to prevent late `onresult`
+ * mutating textarea content the server already saw.
  */
 
 interface Props {
@@ -42,17 +52,7 @@ const { values } = Astro.props as Props
   data-state="idle"
   class="rounded-[var(--ss-radius-card)] bg-white p-card sm:p-section"
 >
-  <header>
-    <h2 class="text-2xl font-bold text-[color:var(--ss-color-text-primary)] sm:text-3xl">
-      Talk to us about your business.
-    </h2>
-    <p class="mt-3 text-base text-[color:var(--ss-color-text-secondary)]">
-      Tell us where the business is now, where you're trying to take it, and what's in the way.
-      Brief is fine; details help.
-    </p>
-  </header>
-
-  <form id="unified-intake-form" class="mt-8 space-y-5" novalidate autocomplete="on">
+  <form id="unified-intake-form" class="space-y-5" novalidate autocomplete="on">
     <!-- Honeypot — silently rejected server-side -->
     <div class="absolute -left-[9999px]" aria-hidden="true">
       <input type="text" name="website_url" tabindex="-1" autocomplete="off" />
@@ -211,48 +211,51 @@ const { values } = Astro.props as Props
       address bar, then reload this page. You can still type your message above.
     </div>
 
-    <!-- Two CTAs: Send (lower intent) and Book a call (high intent).
-         Both are always clickable. Server validates and surfaces field
-         errors via the #ui-error div. -->
-    <div class="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <!-- Single primary CTA. Booking is offered AFTER Send + AI reply,
+         not as a parallel choice on first paint. -->
+    <div class="flex justify-end">
       <button
         id="ui-send-btn"
         type="button"
         data-ev="intake-send"
-        class="inline-flex items-center justify-center rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-text-secondary)]/30 bg-white px-6 py-3 text-base font-medium text-[color:var(--ss-color-text-primary)] shadow-sm transition-all hover:bg-[color:var(--ss-color-text-secondary)]/5 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        Just send instead
-      </button>
-      <button
-        id="ui-book-btn"
-        type="button"
-        data-ev="intake-book"
         class="inline-flex items-center justify-center rounded-[var(--ss-radius-card)] bg-primary px-6 py-3 text-base font-semibold text-white shadow-sm transition-all hover:opacity-90 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        📅 Book a call
+        Get in touch
       </button>
     </div>
   </form>
 
-  <!-- Send-path AI reply renders here when the server responds. -->
+  <!-- Post-Send response: either an AI reply (with-message) or a brief
+       acknowledgement (empty-message). Either way, the booking offer
+       reveals beneath. -->
   <div id="ui-response-slot" hidden aria-live="polite" class="mt-8">
     <h3
+      id="ui-response-header"
+      hidden
       class="mb-2 text-xs font-semibold uppercase tracking-wide text-[color:var(--ss-color-text-secondary)]"
     >
       We hear you
     </h3>
     <div
       id="ui-response-content"
+      hidden
       class="whitespace-pre-wrap rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-text-secondary)]/20 bg-white px-4 py-3 text-base leading-relaxed text-[color:var(--ss-color-text-primary)] shadow-sm"
     >
     </div>
-    <p
-      id="ui-response-thanks"
-      hidden
-      class="mt-3 text-sm text-[color:var(--ss-color-text-secondary)]"
-    >
-      Thanks. A consultant from our team will pick this up.
+    <p id="ui-empty-ack" hidden class="text-base text-[color:var(--ss-color-text-primary)]">
+      Got it.
     </p>
+    <div id="ui-booking-offer" hidden class="mt-6">
+      <p id="ui-booking-prompt" class="text-base text-[color:var(--ss-color-text-secondary)]"></p>
+      <button
+        id="ui-pick-time-btn"
+        type="button"
+        data-ev="intake-pick-time"
+        class="mt-3 inline-flex items-center justify-center rounded-[var(--ss-radius-card)] bg-primary px-6 py-3 text-base font-semibold text-white shadow-sm transition-all hover:opacity-90 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/40"
+      >
+        Pick a time to talk
+      </button>
+    </div>
   </div>
 </section>
 
@@ -278,23 +281,22 @@ const { values } = Astro.props as Props
 
 <script is:inline>
   ;(() => {
-    // Self-contained voice input + form-level UI helpers.
-    // The page (book.astro) handles submit-button clicks and API calls
-    // by listening for the `unified-send` and `unified-book` CustomEvents.
-
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
     const shell = document.getElementById('unified-intake')
     const form = document.getElementById('unified-intake-form')
     const textInput = document.getElementById('ui-message')
     const micBtn = document.getElementById('ui-mic-btn')
     const sendBtn = document.getElementById('ui-send-btn')
-    const bookBtn = document.getElementById('ui-book-btn')
     const errorDiv = document.getElementById('ui-error')
     const voiceUnsupported = document.getElementById('ui-voice-unsupported')
     const permissionError = document.getElementById('ui-voice-permission-error')
     const responseSlot = document.getElementById('ui-response-slot')
+    const responseHeader = document.getElementById('ui-response-header')
     const responseContent = document.getElementById('ui-response-content')
-    const responseThanks = document.getElementById('ui-response-thanks')
+    const emptyAck = document.getElementById('ui-empty-ack')
+    const bookingOffer = document.getElementById('ui-booking-offer')
+    const bookingPrompt = document.getElementById('ui-booking-prompt')
+    const pickTimeBtn = document.getElementById('ui-pick-time-btn')
 
     let recognition = null
     const supportsVoice = !!SR
@@ -339,13 +341,32 @@ const { values } = Astro.props as Props
       textInput.readOnly = on
     }
 
+    function stopRecognitionIfActive() {
+      if (recognition && shell.dataset.state === 'listening') {
+        try {
+          recognition.stop()
+        } catch (err) {
+          // benign — recognition may already be stopping
+        }
+      }
+    }
+
+    function hidePostSendUi() {
+      responseSlot.hidden = true
+      responseHeader.hidden = true
+      responseContent.hidden = true
+      responseContent.textContent = ''
+      emptyAck.hidden = true
+      bookingOffer.hidden = true
+      bookingPrompt.textContent = ''
+    }
+
     if (supportsVoice && micBtn) {
       micBtn.addEventListener('click', () => {
         if (shell.dataset.state === 'listening') {
           recognition.stop()
           return
         }
-        // Don't start mic in non-idle states (form locked / sending / etc).
         if (shell.dataset.state !== 'idle') return
         permissionError.hidden = true
         setListening(true)
@@ -375,35 +396,51 @@ const { values } = Astro.props as Props
       const data = readFormData()
       shell.dispatchEvent(new CustomEvent('unified-send', { detail: data, bubbles: true }))
     })
-    bookBtn.addEventListener('click', () => {
-      const data = readFormData()
-      shell.dispatchEvent(new CustomEvent('unified-book', { detail: data, bubbles: true }))
+
+    pickTimeBtn.addEventListener('click', () => {
+      shell.dispatchEvent(new CustomEvent('unified-pick-time', { bubbles: true }))
     })
 
     // Page-side state controls. The page calls these via dispatchEvent on #unified-intake.
     shell.addEventListener('unified-set-state', (e) => {
       const next = e.detail?.state
       if (!next) return
+      const prev = shell.dataset.state
+      // Halt any active speech recognition before locking the form so
+      // late-arriving onresult cannot mutate textarea content the server
+      // already saw.
+      if (next !== 'idle' && next !== 'listening' && prev === 'listening') {
+        stopRecognitionIfActive()
+      }
       shell.dataset.state = next
       const fields = form.querySelectorAll('input, textarea')
       const locked = next === 'send_thinking' || next === 'send_done' || next === 'booked'
-      const formDisabled = locked
       fields.forEach((f) => {
-        f.readOnly = formDisabled
+        f.readOnly = locked
       })
       if (next === 'send_thinking') {
         sendBtn.disabled = true
-        bookBtn.disabled = true
         sendBtn.textContent = 'Sending...'
       } else if (next === 'send_done') {
         sendBtn.disabled = true
-        bookBtn.disabled = true
-        sendBtn.textContent = 'Sent'
+        sendBtn.hidden = true
         if (supportsVoice) micBtn.hidden = true
+      } else if (next === 'booked') {
+        sendBtn.disabled = true
+        sendBtn.hidden = true
+        if (supportsVoice) micBtn.hidden = true
+        // Page-level confirmation panel takes over rendering.
       } else if (next === 'idle') {
         sendBtn.disabled = false
-        bookBtn.disabled = false
-        sendBtn.textContent = 'Just send instead'
+        sendBtn.hidden = false
+        sendBtn.textContent = 'Get in touch'
+        if (supportsVoice) {
+          micBtn.hidden = false
+          micBtn.disabled = false
+        }
+        // Recovery from a failed Send: scrub any post-send UI so a
+        // stale booking offer can't appear above a still-editable form.
+        hidePostSendUi()
       }
     })
 
@@ -418,14 +455,29 @@ const { values } = Astro.props as Props
       errorDiv.textContent = ''
     })
 
+    // Two-mode response handler. With-message: render AI reply. Empty-message:
+    // brief acknowledgement. In both, reveal the booking offer below as the
+    // sequential next step.
+    //
+    // Note: no scrollIntoView here. The booking offer is offered passively;
+    // scroll fires only when the user clicks Pick-a-time (page-side), so we
+    // never jump the page while the prospect is mid-read.
     shell.addEventListener('unified-show-ai-reply', (e) => {
-      const reply = e.detail?.reply || ''
+      const reply = (e.detail?.reply || '').trim()
+      responseSlot.hidden = false
       if (reply) {
+        responseHeader.hidden = false
         responseContent.textContent = reply
-        responseSlot.hidden = false
+        responseContent.hidden = false
+        emptyAck.hidden = true
+        bookingPrompt.textContent = 'Want to keep the conversation going?'
+      } else {
+        responseHeader.hidden = true
+        responseContent.hidden = true
+        emptyAck.hidden = false
+        bookingPrompt.textContent = 'Ready to talk?'
       }
-      responseThanks.hidden = false
-      responseSlot.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      bookingOffer.hidden = false
     })
   })()
 </script>

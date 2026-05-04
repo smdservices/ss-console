@@ -69,6 +69,12 @@ if (prefillToken) {
       data-turnstile-site-key={turnstileSiteKey}
     >
       <div class="mx-auto max-w-3xl">
+        <header class="mb-6">
+          <h1 class="text-3xl font-bold text-[color:var(--ss-color-text-primary)] sm:text-4xl">
+            Tell us where you're trying to go.
+          </h1>
+        </header>
+
         {
           prefillTokenError && (
             <div class="mb-6 rounded-[var(--ss-radius-card)] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -577,6 +583,21 @@ if (prefillToken) {
       }
 
       // ----- Send path -----
+      //
+      // After the architectural fix (post-PR-680): there is only one initial
+      // CTA on the page, "Get in touch", which fires `unified-send`. The
+      // booking offer reveals only after Send succeeds — gated by the
+      // `sendSucceeded` flag so a Send failure can never strand a booking
+      // offer above a still-editable form.
+      //
+      // The form values submitted on Send are snapshotted into `submittedData`
+      // so the eventual booking POST uses exactly what was sent (rather than
+      // re-reading the live DOM, which could drift if late voice-recognition
+      // results land or anything else mutates the textarea after Send).
+
+      let sendSucceeded = false
+      let submittedData: UnifiedFormData | null = null
+
       intakeRoot.addEventListener('unified-send', async (event) => {
         const data = (event as CustomEvent<UnifiedFormData>).detail
         clearIntakeError()
@@ -622,6 +643,8 @@ if (prefillToken) {
           const body = (await res.json().catch(() => ({}))) as IntakeSendResponse
 
           if (res.ok && body.ok) {
+            sendSucceeded = true
+            submittedData = { ...data }
             setIntakeState('send_done')
             showAiReply(body.ai_reply ?? null)
             return
@@ -648,30 +671,14 @@ if (prefillToken) {
         }
       })
 
-      // ----- Book path -----
-      let pendingBookData: UnifiedFormData | null = null
+      // ----- Pick-a-time path -----
+      //
+      // Fires only when the user clicks the post-send "Pick a time to talk"
+      // button. Defensively gated on `sendSucceeded` so a stale offer can't
+      // open the slot picker without a captured lead behind it.
 
-      intakeRoot.addEventListener('unified-book', (event) => {
-        const data = (event as CustomEvent<UnifiedFormData>).detail
-        clearIntakeError()
-
-        // Honeypot
-        if (data.website_url && data.website_url.trim() !== '') return
-
-        // Validate required fields before opening the slot picker — no point
-        // letting the prospect spend time picking a slot if they're going to
-        // fail validation.
-        const missing: string[] = []
-        if (!data.name) missing.push('name')
-        if (!data.email) missing.push('email')
-        if (!data.business_name) missing.push('business name')
-        if (!data.phone) missing.push('phone')
-        if (missing.length > 0) {
-          showIntakeError(`Please fill in: ${missing.join(', ')} before booking.`)
-          return
-        }
-
-        pendingBookData = data
+      intakeRoot.addEventListener('unified-pick-time', () => {
+        if (!sendSucceeded || !submittedData) return
         slotPickerSection.hidden = false
         slotPickerSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
       })
@@ -748,7 +755,7 @@ if (prefillToken) {
       const showEmailFallback = (body: BookingResponse): void => {
         const fallbackEmail = body.fallback?.email || 'team@smd.services'
         const mailtoEl = document.getElementById('fallback-mailto')
-        const data = pendingBookData
+        const data = submittedData
         const subject = encodeURIComponent('Assessment Call Request')
         const bodyText = encodeURIComponent(
           "Hi, I'd like to schedule an assessment call.\n\n" +
@@ -766,7 +773,7 @@ if (prefillToken) {
       }
 
       bookSubmitBtn.addEventListener('click', async () => {
-        if (!currentSlot || !pendingBookData) return
+        if (!currentSlot || !submittedData) return
 
         bookSubmitBtn.disabled = true
         bookSubmitBtn.textContent = 'Booking...'
@@ -774,13 +781,18 @@ if (prefillToken) {
         slotTakenBanner.hidden = true
 
         const turnstileToken = getTurnstileToken()
+        // Booking POST. The user message was already persisted by Send
+        // (and the AI reply context row written from /api/intake/send),
+        // so we deliberately pass an empty `message` here. intake-core
+        // skips the context append when the message is empty, avoiding
+        // a duplicate intake row on the entity timeline.
         const payload: Record<string, unknown> = {
-          name: pendingBookData.name,
-          email: pendingBookData.email,
-          business_name: pendingBookData.business_name,
-          phone: pendingBookData.phone,
-          website: pendingBookData.website,
-          message: pendingBookData.message,
+          name: submittedData.name,
+          email: submittedData.email,
+          business_name: submittedData.business_name,
+          phone: submittedData.phone,
+          website: submittedData.website,
+          message: '',
           slot_start_utc: currentSlot.start_utc,
           timezone: currentSlot.timezone,
           turnstile_token: turnstileToken,
