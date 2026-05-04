@@ -113,6 +113,14 @@ const FORBIDDEN_PATTERNS: Array<{ label: string; pattern: RegExp | string }> = [
     pattern: /will reach out/i,
   },
   {
+    label: 'Pattern A: hardcoded "we\'ll be in touch" outbound-contact promise',
+    // 2026-05-04 /book intake architecture review caught this same class
+    // creeping back in as a Send-acknowledgement copy ("Got it. We'll be
+    // in touch.") before merge. Same false-promise shape as `will reach
+    // out` — commits SMD to an outbound action that no system guarantees.
+    pattern: /we'll be in touch/i,
+  },
+  {
     label: 'Pattern B: synthesized "Kickoff next:" next-step copy',
     // 2026-04-17 audit finding: signed-state copy synthesized
     // `Kickoff next: ${engagement.scope_summary}.` when next_touchpoint_label
