@@ -5,8 +5,8 @@ import Footer from '../components/Footer.astro'
 ---
 
 <Base
-  title="Terms | SMD Services"
-  description="Terms of use for the smd.services website. Engagement-specific terms are documented in the Statement of Work for each engagement."
+  title="Terms of Use | SMD Services"
+  description="Terms of use for the SMD Services website. Engagement-specific terms are documented in the Statement of Work for each engagement."
 >
   <Nav />
   <main id="main" role="main" class="bg-[color:var(--ss-color-background)] px-6 py-20 md:py-24">
@@ -14,47 +14,100 @@ import Footer from '../components/Footer.astro'
       <h1
         class="font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
       >
-        Terms
+        Terms of Use
       </h1>
 
-      <div
-        class="mt-10 space-y-6 font-['Archivo'] text-lg leading-relaxed text-[color:var(--ss-color-text-primary)]"
-      >
-        <p>
-          These terms govern your use of the smd.services website. Engagement-specific terms,
-          including scope, deliverables, schedule, pricing, and obligations, are documented in the
-          Statement of Work for each engagement and supersede anything stated here.
-        </p>
-
-        <p>
-          The site is provided as-is. We make no warranty about uninterrupted availability or
-          fitness for any particular purpose.
-        </p>
-
-        <p>
-          Content on this site, including text, design, code, and images, is owned by SMDurgan, LLC.
-          Use beyond personal browsing requires written permission.
-        </p>
-
-        <p>
-          Arizona law governs these terms. Any disputes are resolved in courts in Maricopa County,
-          Arizona.
-        </p>
-
-        <p>
-          Questions: <a
-            href="mailto:team@smd.services"
-            class="underline decoration-[color:var(--ss-color-primary)] decoration-2 underline-offset-4 hover:text-[color:var(--ss-color-primary)]"
-            >team@smd.services</a
-          >.
-        </p>
-      </div>
-
       <p
-        class="mt-12 font-['Archivo_Narrow'] text-xs uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
+        class="mt-3 font-['Archivo_Narrow'] text-xs uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
       >
-        Last updated: 2026-05-04
+        Effective: 2026-05-04
       </p>
+
+      <div
+        class="mt-10 space-y-10 font-['Archivo'] text-lg leading-relaxed text-[color:var(--ss-color-text-primary)]"
+      >
+        <p>
+          These terms apply to your use of the SMD Services website. Engagement-specific terms,
+          including scope, deliverables, schedule, pricing, and obligations, are documented in the
+          Statement of Work signed for each engagement and supersede anything stated here.
+        </p>
+
+        <section>
+          <h2
+            class="mb-3 font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]"
+          >
+            The site
+          </h2>
+          <p>
+            The site is provided as-is. We make no warranty about uninterrupted availability or
+            fitness for any particular purpose. Information presented is general and does not
+            constitute professional advice for your specific situation.
+          </p>
+        </section>
+
+        <section>
+          <h2
+            class="mb-3 font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]"
+          >
+            Intellectual property
+          </h2>
+          <p>
+            Content on this site, including text, design, code, and images, is owned by SMDurgan,
+            LLC. Use beyond personal browsing requires written permission.
+          </p>
+        </section>
+
+        <section>
+          <h2
+            class="mb-3 font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]"
+          >
+            No reliance
+          </h2>
+          <p>
+            Visiting this site does not create a consulting relationship. A relationship begins only
+            when both parties sign a Statement of Work.
+          </p>
+        </section>
+
+        <section>
+          <h2
+            class="mb-3 font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]"
+          >
+            Governing law
+          </h2>
+          <p>
+            Arizona law governs these terms. Any disputes are resolved in the state and federal
+            courts of Maricopa County, Arizona.
+          </p>
+        </section>
+
+        <section>
+          <h2
+            class="mb-3 font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]"
+          >
+            Changes
+          </h2>
+          <p>
+            We may update these terms from time to time. The effective date above reflects the most
+            recent revision.
+          </p>
+        </section>
+
+        <section>
+          <h2
+            class="mb-3 font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]"
+          >
+            Contact
+          </h2>
+          <p>
+            For any question about these terms, <a
+              href="/contact"
+              class="underline decoration-[color:var(--ss-color-primary)] decoration-2 underline-offset-4 hover:text-[color:var(--ss-color-primary)]"
+              >reach out through our contact form</a
+            >.
+          </p>
+        </section>
+      </div>
     </div>
   </main>
   <Footer />

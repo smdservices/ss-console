@@ -6,7 +6,7 @@ import Footer from '../components/Footer.astro'
 
 <Base
   title="Privacy | SMD Services"
-  description="Privacy policy for smd.services. We collect only what you provide directly and use it only to respond to you."
+  description="Privacy policy for the SMD Services website. We collect only what you provide directly and use it only to respond to you."
 >
   <Nav />
   <main id="main" role="main" class="bg-[color:var(--ss-color-background)] px-6 py-20 md:py-24">
@@ -17,35 +17,97 @@ import Footer from '../components/Footer.astro'
         Privacy
       </h1>
 
-      <div
-        class="mt-10 space-y-6 font-['Archivo'] text-lg leading-relaxed text-[color:var(--ss-color-text-primary)]"
-      >
-        <p>
-          smd.services collects only the information you provide directly: form submissions for
-          inquiries, scheduling data when you book a call, and email content when you contact us. We
-          use it only to respond to you and prepare for our conversation. We do not sell, rent, or
-          share this information with third parties.
-        </p>
-
-        <p>
-          The site uses minimal session cookies required for the booking flow. We do not run
-          third-party advertising trackers or behavioral profiling.
-        </p>
-
-        <p>
-          Email <a
-            href="mailto:team@smd.services"
-            class="underline decoration-[color:var(--ss-color-primary)] decoration-2 underline-offset-4 hover:text-[color:var(--ss-color-primary)]"
-            >team@smd.services</a
-          > with any privacy question or to request deletion of your information.
-        </p>
-      </div>
-
       <p
-        class="mt-12 font-['Archivo_Narrow'] text-xs uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
+        class="mt-3 font-['Archivo_Narrow'] text-xs uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
       >
-        Last updated: 2026-05-04
+        Effective: 2026-05-04
       </p>
+
+      <div
+        class="mt-10 space-y-10 font-['Archivo'] text-lg leading-relaxed text-[color:var(--ss-color-text-primary)]"
+      >
+        <p>
+          We collect only what you give us, use it to respond and prepare for our conversation, and
+          never sell or share it with third parties.
+        </p>
+
+        <section>
+          <h2
+            class="mb-3 font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]"
+          >
+            What we collect
+          </h2>
+          <p>
+            Information you submit through forms on this site, including your name, email, and
+            message. Scheduling data when you book a call. Email content when you reach out to us
+            directly.
+          </p>
+        </section>
+
+        <section>
+          <h2
+            class="mb-3 font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]"
+          >
+            How we use it
+          </h2>
+          <p>
+            To respond to your inquiry, prepare for our conversation, and deliver the work if we are
+            engaged. We do not sell, rent, or share this information with third parties.
+          </p>
+        </section>
+
+        <section>
+          <h2
+            class="mb-3 font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]"
+          >
+            Service providers
+          </h2>
+          <p>
+            We use a small set of operational service providers, including web hosting, email
+            delivery, and scheduling, under standard confidentiality terms. They process information
+            only as needed to support the site and our communication with you.
+          </p>
+        </section>
+
+        <section>
+          <h2
+            class="mb-3 font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]"
+          >
+            Cookies and tracking
+          </h2>
+          <p>
+            We use minimal session cookies required for the booking flow. We do not run third-party
+            advertising trackers or behavioral profiling.
+          </p>
+        </section>
+
+        <section>
+          <h2
+            class="mb-3 font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]"
+          >
+            Your rights
+          </h2>
+          <p>
+            You can request a copy of any information we hold about you, or ask us to delete it.
+            Reach out and we will respond within a reasonable time.
+          </p>
+        </section>
+
+        <section>
+          <h2
+            class="mb-3 font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]"
+          >
+            Contact
+          </h2>
+          <p>
+            For any privacy question, <a
+              href="/contact"
+              class="underline decoration-[color:var(--ss-color-primary)] decoration-2 underline-offset-4 hover:text-[color:var(--ss-color-primary)]"
+              >reach out through our contact form</a
+            >.
+          </p>
+        </section>
+      </div>
     </div>
   </main>
   <Footer />
