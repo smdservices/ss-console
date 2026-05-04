@@ -73,6 +73,7 @@ const { values } = Astro.props as Props
           required
           maxlength="200"
           autocomplete="organization"
+          autocapitalize="words"
           value={values?.businessName ?? ''}
           class="mt-1 block w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-text-secondary)]/20 bg-white px-3 py-2 text-base text-[color:var(--ss-color-text-primary)] shadow-sm focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
         />
@@ -92,6 +93,7 @@ const { values } = Astro.props as Props
           required
           maxlength="200"
           autocomplete="name"
+          autocapitalize="words"
           value={values?.name ?? ''}
           class="mt-1 block w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-text-secondary)]/20 bg-white px-3 py-2 text-base text-[color:var(--ss-color-text-primary)] shadow-sm focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
         />
@@ -111,6 +113,9 @@ const { values } = Astro.props as Props
           required
           maxlength="254"
           autocomplete="email"
+          inputmode="email"
+          autocapitalize="none"
+          spellcheck="false"
           value={values?.email ?? ''}
           class="mt-1 block w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-text-secondary)]/20 bg-white px-3 py-2 text-base text-[color:var(--ss-color-text-primary)] shadow-sm focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
         />
@@ -130,6 +135,7 @@ const { values } = Astro.props as Props
           required
           maxlength="30"
           autocomplete="tel"
+          inputmode="tel"
           value={values?.phone ?? ''}
           class="mt-1 block w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-text-secondary)]/20 bg-white px-3 py-2 text-base text-[color:var(--ss-color-text-primary)] shadow-sm focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
         />
@@ -149,6 +155,9 @@ const { values } = Astro.props as Props
         name="website"
         maxlength="500"
         autocomplete="url"
+        inputmode="url"
+        autocapitalize="none"
+        spellcheck="false"
         placeholder="https://"
         value={values?.website ?? ''}
         class="mt-1 block w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-text-secondary)]/20 bg-white px-3 py-2 text-base text-[color:var(--ss-color-text-primary)] shadow-sm focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -212,11 +221,16 @@ const { values } = Astro.props as Props
     </div>
 
     <!-- Single primary CTA. Booking is offered AFTER Send + AI reply,
-         not as a parallel choice on first paint. -->
+         not as a parallel choice on first paint.
+         type="submit" is deliberate: it lets Enter-in-any-field submit and
+         lets Chrome see a real submit event, which is what triggers the
+         per-origin "save form values for autofill" heuristic. With
+         type="button" + a JS click handler, Chrome silently treats the form
+         as non-submitting and never offers to remember the fields. -->
     <div class="flex justify-end">
       <button
         id="ui-send-btn"
-        type="button"
+        type="submit"
         data-ev="intake-send"
         class="inline-flex items-center justify-center rounded-[var(--ss-radius-card)] bg-primary px-6 py-3 text-base font-semibold text-white shadow-sm transition-all hover:opacity-90 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
       >
@@ -392,7 +406,12 @@ const { values } = Astro.props as Props
       }
     }
 
-    sendBtn.addEventListener('click', () => {
+    // Listen on the form, not the button. type="submit" routes button click
+    // and Enter-in-field through the same path, and gives Chrome the submit
+    // event it needs to register form values for future-visit autofill.
+    form.addEventListener('submit', (e) => {
+      e.preventDefault()
+      if (sendBtn.disabled) return
       const data = readFormData()
       shell.dispatchEvent(new CustomEvent('unified-send', { detail: data, bubbles: true }))
     })
