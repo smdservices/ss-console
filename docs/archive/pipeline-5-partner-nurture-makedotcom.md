@@ -1,4 +1,15 @@
-# Make.com Recipe: Pipeline 5 — Referral Partner Nurture
+# [ARCHIVED] Make.com Recipe: Pipeline 5 — Referral Partner Nurture
+
+> **Status: ARCHIVED 2026-05-05.** Make.com is no longer the doctrinal automation
+> platform for SMD agent ops (per `project_lead_gen_worker.md` — Cloudflare
+> Workers is the going-forward pattern). This recipe is preserved as historical
+> reference for the *business pattern* (cadenced partner check-ins, AI-drafted
+> personalization, Gmail-draft-then-human-review). The rebuild is captured in
+> issue #714, gated on first paid engagement.
+>
+> Do not implement this recipe.
+
+---
 
 **Purpose:** Step-by-step guide to build a Make.com scenario that drafts personalized check-in emails for bookkeeper/CPA referral partners, creates Gmail drafts for human review, and tracks check-in cadence in Google Sheets.
 

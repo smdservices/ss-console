@@ -1,5 +1,14 @@
 /**
- * Partner Email Draft Schema — Pipeline 5 Output Types
+ * Partner Email Draft Schema — PARKED for rebuild under #714.
+ *
+ * The Make.com scenario this was originally written for has been retired
+ * (Make.com is no longer the doctrinal automation platform per
+ * `project_lead_gen_worker.md`). The schema is preserved as a starting
+ * point for the Cloudflare Worker rebuild captured in #714, which is
+ * itself gated on first paid engagement.
+ *
+ * No runtime consumer in the current codebase. Lead-gen `PIPELINE_IDS` no
+ * longer includes `partner_nurture`.
  *
  * Defines the structured output contract for the referral partner nurture prompt.
  * When Claude drafts a personalized check-in email for a bookkeeper/CPA referral
