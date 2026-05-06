@@ -30,7 +30,6 @@ export const PIPELINE_IDS = [
   'job_monitor',
   'new_business',
   'social_listening',
-  'partner_nurture',
 ] as const
 
 export type PipelineId = (typeof PIPELINE_IDS)[number]
@@ -40,8 +39,14 @@ export const PIPELINE_LABELS: Record<PipelineId, string> = {
   job_monitor: 'Job Posting Monitor',
   new_business: 'New Business Detection',
   social_listening: 'Social Listening',
-  partner_nurture: 'Referral Partner Nurture',
 }
+
+// `partner_nurture` was previously listed here but never reached parity with
+// the DB layer (`lead_signals.source_pipeline` CHECK has only the four
+// pipelines above). Build is captured under #714, gated on first paid
+// engagement. The dormant prompt + schema files at
+// `src/lead-gen/prompts/partner-nurture-prompt.ts` and
+// `src/lead-gen/schemas/partner-email-draft.ts` are parked for that rebuild.
 
 // ---------------------------------------------------------------------------
 // Shared scoring types
