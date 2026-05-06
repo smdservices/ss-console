@@ -44,10 +44,12 @@ coverage/
 # UI drift audit artifacts (regenerated per run, surfaced via CI)
 .design/audits/
 
-# Enterprise skills synced from crane-console on every `crane ss` launch
+# Enterprise skill triplet synced from crane-console on every `crane ss` launch
 # (see syncVentureSkills in crane-console/packages/crane-mcp/src/cli/launch-lib.ts).
-# Source of truth lives in crane-console/.agents/skills/. Tracking here would
-# produce a 50+ file dirty tree on every session.
+# Source of truth lives in crane-console; tracking here would produce a
+# large dirty tree on every canon update.
+.claude/commands/
+.gemini/commands/
 .agents/skills/
 
 # D1 production backups taken before risky migrations. Keep local; do NOT
