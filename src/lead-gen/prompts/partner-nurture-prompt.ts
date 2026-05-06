@@ -1,5 +1,14 @@
 /**
- * Partner Nurture Prompt — Pipeline 5
+ * Partner Nurture Prompt — PARKED for rebuild under #714.
+ *
+ * The Make.com scenario this was originally written for has been retired
+ * (Make.com is no longer the doctrinal automation platform per
+ * `project_lead_gen_worker.md`). The prompt is preserved as a starting
+ * point for the Cloudflare Worker rebuild captured in #714, which is
+ * itself gated on first paid engagement.
+ *
+ * No runtime consumer in the current codebase. Lead-gen `PIPELINE_IDS` no
+ * longer includes `partner_nurture`.
  *
  * Drafts personalized check-in emails for bookkeeper/CPA referral partners
  * at different relationship stages. The referral partnership is reciprocal:
@@ -7,7 +16,6 @@
  * bookkeeper. When they have a client drowning in operational chaos, they
  * refer to us.
  *
- * Used in: Make.com scenario → Anthropic module → this prompt
  * Input: Partner data from the prospect list (see partner-email-draft.ts)
  * Output: PartnerEmailDraft JSON (see partner-email-draft.ts)
  *
