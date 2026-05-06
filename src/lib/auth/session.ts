@@ -21,6 +21,24 @@ export const CLIENT_SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
 export const SESSION_DURATION_MS = ADMIN_SESSION_DURATION_MS
 
 /**
+ * Closed set of user roles, mirroring the `users.role` CHECK constraint
+ * restored in migration 0035. Defense-in-depth pairing: DB enforces at
+ * write, TS enforces at read.
+ */
+export type UserRole = 'admin' | 'client'
+
+/**
+ * Narrow an unknown role string (e.g. from a raw D1 query) to UserRole.
+ * Throws if the value is unexpected — should never happen with the CHECK
+ * constraint in place, but the throw catches drift if the constraint is
+ * dropped in a future migration without updating this union.
+ */
+export function asUserRole(role: string): UserRole {
+  if (role === 'admin' || role === 'client') return role
+  throw new Error(`Invalid user role: ${role}`)
+}
+
+/**
  * Return session duration based on role.
  *
  * Clients get 30 days — infrequent portal visitors who shouldn't be
@@ -33,7 +51,7 @@ export function getSessionDurationMs(role?: string): number {
 export interface SessionData {
   userId: string
   orgId: string
-  role: string
+  role: UserRole
   email: string
   expiresAt: string
 }
@@ -43,7 +61,7 @@ export interface SessionRow {
   token: string
   user_id: string
   org_id: string
-  role: string
+  role: UserRole
   email: string
   expires_at: string
   created_at: string
@@ -56,7 +74,7 @@ export interface SessionRow {
 export async function createSession(
   db: D1Database,
   kv: KVNamespace,
-  user: { id: string; orgId: string; role: string; email: string }
+  user: { id: string; orgId: string; role: UserRole; email: string }
 ): Promise<string> {
   const token = crypto.randomUUID()
   const sessionId = crypto.randomUUID()
