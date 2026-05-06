@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro'
 import { verifyPassword } from '../../../lib/auth/password'
-import { createSession, buildSessionCookie } from '../../../lib/auth/session'
+import { asUserRole, createSession, buildSessionCookie } from '../../../lib/auth/session'
 import { ORG_ID } from '../../../lib/constants'
 import { rateLimitByIp } from '../../../lib/booking/rate-limit'
 import { env } from 'cloudflare:workers'
@@ -76,7 +76,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
     const token = await createSession(env.DB, env.SESSIONS, {
       id: user.id,
       orgId: user.org_id,
-      role: user.role,
+      role: asUserRole(user.role),
       email: user.email,
     })
 
