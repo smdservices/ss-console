@@ -35,6 +35,9 @@ coverage/
 # Ephemeral agent worktrees (created by EnterWorktree tool)
 .claude/worktrees/
 
+# Claude Code harness session-tracking artifacts
+.claude/parallel-isolation-log/
+
 # Playwright MCP output (screenshots, console dumps, snapshots)
 .playwright-mcp/
 
