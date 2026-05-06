@@ -1,7 +1,7 @@
 ---
 import '../../styles/global.css'
 import { verifyMagicLink } from '../../lib/auth/magic-link'
-import { createSession, buildSessionCookie } from '../../lib/auth/session'
+import { asUserRole, createSession, buildSessionCookie } from '../../lib/auth/session'
 import { getPortalBaseUrl } from '../../lib/config/app-url'
 import { env } from 'cloudflare:workers'
 
@@ -63,7 +63,7 @@ await env.DB.prepare(`UPDATE users SET last_login_at = datetime('now') WHERE id 
 const sessionToken = await createSession(env.DB, env.SESSIONS, {
   id: user.id,
   orgId: user.org_id,
-  role: user.role,
+  role: asUserRole(user.role),
   email: user.email,
 })
 const location = (() => {

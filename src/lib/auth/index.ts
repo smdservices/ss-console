@@ -14,5 +14,6 @@ export {
   SESSION_COOKIE_NAME,
   SESSION_DURATION_MS,
 } from './session'
-export type { SessionData } from './session'
+export type { SessionData, UserRole } from './session'
+export { asUserRole } from './session'
 export { createMagicLink, verifyMagicLink, MAGIC_LINK_EXPIRY_MS } from './magic-link'
