@@ -237,3 +237,54 @@ Five remaining items would lift the overall grade to A:
 3. **`gh pr merge --auto` not enabled at repo level.** Sequential merge with `gh pr update-branch` between each is the working pattern for now. Enabling repo-level auto-merge would let `--auto` queue the cascade, but is a separate governance change.
 
 4. **Shared test helper opportunity.** `ci-and-tests` introduced a small `parseJson<T>(res)` helper in each new test file because lint autofix kept stripping `(await res.json()) as ShapeT` casts. Worth pulling into `tests/_stubs/` if more API-route tests land.
+
+---
+
+## Closure Addendum Round 2 — 2026-05-07
+
+A second 3-agent team executed the path-to-A items the same day. Three more PRs merged to `main` between 05:55 and 06:30 UTC.
+
+### Issues / PRs
+
+| PR | Scope | Lift |
+|----|-------|------|
+| [#738](https://github.com/venturecrane/ss-console/pull/738) | Cleanup bundle (8 fixes): remove `pdf-lib`, `npm audit fix`, document the historical 0027/0028 migration prefix collision (renaming would break D1 idempotency in prod), confirm `workers/scan-workflow/` is already gone, replace `(globalThis as any).navigator` with a typed scoped cast, ADR index pointer to `decision-stack.md`, annotate `/scorecard` route as retired across all four design docs (rounds 1–3 + scorecard spec + workers-migration-validation) | Architecture, Code Quality, Dependencies, Documentation, Golden Path |
+| [#739](https://github.com/venturecrane/ss-console/pull/739) | Decompose `src/pages/admin/index.astro` from 541 → 183 raw lines (-358, ~66%); extract `DashboardTodaysWork`, `DashboardPipeline`, `DashboardRevenue`, `DashboardFollowUpHealth`, `DashboardAutomations` into `src/components/admin/` | Code Quality |
+| [#740](https://github.com/venturecrane/ss-console/pull/740) | Wire `@sentry/cloudflare` via `Sentry.wrapRequestHandler` in `src/middleware.ts`. Gated on `SENTRY_DSN` — true no-op when secret unset. +7 new gating tests. Test count: 1759 → 1766. | Golden Path (pending Captain DSN provisioning) |
+
+### Effective grades after Round 2
+
+| Dimension     | 2026-05-06 | After R1 (05-07) | After R2 (05-07) | Movement |
+| ------------- | ---------- | ---------------- | ---------------- | -------- |
+| Architecture  | B          | B                | **A**            | improved |
+| Security      | C          | A                | A                | stable   |
+| Code Quality  | B          | B                | **A**            | improved |
+| Testing       | B          | A                | A                | stable   |
+| Dependencies  | B          | B                | **A**            | improved |
+| Documentation | B          | B                | **A**            | improved |
+| Golden Path   | B          | B                | **A** *(pending DSN)* | improved |
+| **Overall**   | **B**      | **B+**           | **A** *(pending DSN)* | improved |
+
+### Captain follow-up — required to fully activate the Golden Path A grade
+
+Sentry is wired but inert until `SENTRY_DSN` is provisioned:
+
+1. Create a Sentry project at sentry.io under SMDurgan LLC, named `ss-web`.
+2. Copy the DSN.
+3. Provision as a Cloudflare Worker secret:
+   ```
+   echo $SENTRY_DSN | npx wrangler secret put SENTRY_DSN
+   ```
+   Or via the Infisical → wrangler bulk-secret path documented in `CLAUDE.md`.
+
+Until that lands, errors continue to surface only via `console.error` in Workers logs. The wiring imposes zero overhead when the secret is unset.
+
+### Operational notes carried forward into Round 2
+
+1. **Same harness isolation bug, harder failure mode.** The `Agent({ isolation: "worktree" })` parameter silently dropped all three Round 2 agents into the **primary checkout** (not into `.claude/worktrees/<id>/`). One agent (`cleanup-bundle`) detected this in its first action via `git status` showing the parent's branch state and stopped without modifying anything. Worktrees were created manually via `git worktree add` and re-routed. Update appended to [crane-console#875](https://github.com/venturecrane/crane-console/issues/875) — escalate severity from "isolation can leak" to "isolation can fail entirely."
+
+2. **Prettier check trap.** Round 2 task briefs said `npm run lint && npm run typecheck && npm run test && npm run build` — missing `npm run format:check`. Two of three PRs failed CI on Prettier. Fixed by running `prettier --write` and pushing. The full verify chain is `npm run verify` (which includes `format:check`); future task briefs should require that or list `format:check` explicitly.
+
+3. **Stale-cache merge race.** After `#738` landed, `gh pr update-branch` and `gh api compare` both reported `#739` as up-to-date with main when it was actually 1 commit behind. The merge UI returned `mergeStateStatus: BLOCKED` with no useful error. Forced resolution by `git merge origin/main` locally and pushing the merge commit non-force. Worth raising with GitHub if reproducible — looks like an internal GraphQL cache lag.
+
+4. **Round 2 agent of note.** `cleanup-bundle` made the right call on `dispatch.ts` — instead of `declare const navigator: { userAgent?: string } | undefined`, used `(globalThis as { navigator?: { userAgent?: string } }).navigator` to avoid shadowing the `lib.dom.d.ts` global in any TS env that exposes it. Same call-site semantics, no `any`, no eslint-disable. Preserve this pattern for similar Workers-vs-DOM type escapes.
