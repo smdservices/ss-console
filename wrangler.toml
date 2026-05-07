@@ -143,7 +143,6 @@ name = "ss-web-staging"
 # GOOGLE_CLIENT_ID         — Google Cloud OAuth 2.0 client ID
 # GOOGLE_CLIENT_SECRET     — Google Cloud OAuth 2.0 client secret
 # BOOKING_ENCRYPTION_KEY   — 32-byte base64 random; AES-GCM encryption of refresh tokens
-# TURNSTILE_SECRET_KEY     — Cloudflare Turnstile secret (paired with PUBLIC_TURNSTILE_SITE_KEY)
 #
 # Bulk-load from Infisical:
 #   infisical export --env=prod --path=/ss --format=dotenv \
