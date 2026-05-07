@@ -7,6 +7,7 @@ import {
   buildSessionCookie,
   buildClearSessionCookie,
 } from './lib/auth/session'
+import { withSentryRequestHandler } from './lib/observability/sentry'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -171,7 +172,7 @@ function applySessionCookie(
   }
 }
 
-export const onRequest = defineMiddleware(async (context, next: NextFn) => {
+async function handleRequest(context: APIContext, next: NextFn): Promise<Response> {
   const { pathname } = context.url
   const hostname = context.url.hostname
 
@@ -190,4 +191,8 @@ export const onRequest = defineMiddleware(async (context, next: NextFn) => {
   const response = await next()
   if (token) applySessionCookie(response, context, token, hostname)
   return response
+}
+
+export const onRequest = defineMiddleware(async (context: APIContext, next: NextFn) => {
+  return withSentryRequestHandler(context, () => handleRequest(context, next))
 })
