@@ -138,6 +138,9 @@ name = "ss-web-staging"
 # STRIPE_API_KEY          — Stripe invoicing
 # STRIPE_WEBHOOK_SECRET   — Stripe webhook verification
 # PROXYCURL_API_KEY       — LinkedIn company data (optional, Tier 4 dossier)
+# SENTRY_DSN               — Workers-side Sentry error monitoring (optional —
+#                            integration is a no-op when unset; see
+#                            src/lib/observability/sentry.ts)
 #
 # Booking system (Calendly replacement) — added in migration 0011 era:
 # GOOGLE_CLIENT_ID         — Google Cloud OAuth 2.0 client ID

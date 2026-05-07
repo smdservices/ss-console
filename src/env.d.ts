@@ -124,6 +124,13 @@ declare namespace Cloudflare {
      */
     ENABLE_PUBLIC_PATTERNS?: string
     /**
+     * Sentry DSN for Workers-side error monitoring. Optional — when unset,
+     * the integration is a complete no-op (no SDK init, zero overhead).
+     * Provisioned via `wrangler secret put SENTRY_DSN`. See
+     * src/lib/observability/sentry.ts.
+     */
+    SENTRY_DSN?: string
+    /**
      * Service binding to the `ss-enrichment-workflow` Worker (#631). Hosts
      * the EnrichmentWorkflow class for entity enrichment. Dispatched from
      * lead-gen workers and admin endpoints by POSTing to the binding's
