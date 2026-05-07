@@ -34,7 +34,8 @@ export interface EntityRowView {
   isLost: boolean
   isDelivered: boolean
   problems: Array<{ id: string; label: string }>
-  outreachAngle: string | null
+  signalEvidence: string | null
+  enrichmentSummary: string | null
   lastActivity: string | null
   lastActivityLabel: string
   website: { href: string; label: string } | null
@@ -89,6 +90,28 @@ function resolveProblemLabel(id: string): string | null {
   if (id in LEGACY_PROBLEM_LABELS)
     return LEGACY_PROBLEM_LABELS[id as keyof typeof LEGACY_PROBLEM_LABELS]
   return null
+}
+
+function formatSignalDate(raw: string | null): string | null {
+  if (!raw) return null
+  const parsed = new Date(raw)
+  if (Number.isNaN(parsed.getTime())) return raw
+  return parsed.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+function composeSignalEvidence(meta: EntitySignalMetadata | undefined): string | null {
+  if (!meta) return null
+  const parts = [
+    meta.signal_source_label,
+    meta.signal_subject,
+    meta.signal_location,
+    formatSignalDate(meta.signal_date),
+  ].filter((part): part is string => !!part)
+  return parts.length > 0 ? parts.join(' · ') : null
 }
 
 function buildOutreachMailto(
@@ -294,14 +317,16 @@ function assembleRow(input: RowInput): EntityRowView {
     resolveStageFields(args, e, flags)
 
   const stageEntry = ENTITY_STAGES.find((s) => s.value === e.stage)
-  const outreachAngle = meta ? (meta.outreach_angle ?? null) : null
+  const signalEvidence = composeSignalEvidence(meta)
+  const enrichmentSummary = meta ? (meta.enrichment_summary ?? null) : null
   const lastActivity = meta ? (meta.last_activity_at ?? null) : null
 
   return {
     entity: e,
     ...flags,
     problems,
-    outreachAngle,
+    signalEvidence,
+    enrichmentSummary,
     lastActivity,
     lastActivityLabel: lastActivity ? fmt(lastActivity) : '',
     website: resolveWebsite(e.website),

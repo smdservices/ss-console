@@ -1,14 +1,10 @@
 /**
  * New Business Detection Worker — Pipeline 3
  *
- * Cloudflare Worker cron job that fetches recent commercial permits from
- * Phoenix, Scottsdale, Mesa, and Tempe open data portals, qualifies them
- * with Claude, and writes qualified leads to D1.
- *
- * Schedule: Daily at 7:00 AM MST (14:00 UTC)
- * Trigger: Also via POST /run with Authorization: Bearer <LEAD_INGEST_API_KEY>
- * Flow: City APIs → D1 dedup → Claude qualify → D1 write
- * Cost: Free data sources + Haiku API calls (~$0.001 per permit)
+ * Pulls Arizona city permit/license records, routes business-owned records
+ * through Claude qualification, and treats contractor/unknown records as
+ * enrichment-only permit observations that must resolve to an operating
+ * business at ingest time or be dropped.
  */
 
 import { ORG_ID } from '../../../src/lib/constants.js'
@@ -21,43 +17,129 @@ import { dispatchEnrichmentWorkflow } from '../../../src/lib/enrichment/dispatch
 import { fetchAllPermits, type PermitRecord } from './soda.js'
 import { qualifyNewBusiness, derivePainScore } from './qualify.js'
 import { sendFailureAlert, type RunSummary } from './alert.js'
+import {
+  buildAddressIndex,
+  extractAreaFromAddress,
+  recordAddressCandidate,
+  type AddressCandidate,
+} from './address-index.js'
+import { recoverPermitEntity } from './recovery.js'
 
 export interface Env {
   DB: D1Database
   ANTHROPIC_API_KEY: string
   RESEND_API_KEY: string
   LEAD_INGEST_API_KEY: string
-  // Optional API keys consumed by the at-ingest enrichment pipeline. When any
-  // are missing the corresponding module is skipped — enrichment is
-  // best-effort, never a hard dependency.
   GOOGLE_PLACES_API_KEY?: string
   OUTSCRAPER_API_KEY?: string
   SERPAPI_API_KEY?: string
   PROXYCURL_API_KEY?: string
-  /**
-   * Service binding to ss-enrichment-workflow Worker (#631). Dispatched
-   * via dispatchEnrichmentWorkflow for every newly-created entity; replaces
-   * the legacy inline ctx.waitUntil orchestration that was being killed
-   * by the post-response CPU budget.
-   */
   ENRICHMENT_WORKFLOW_SERVICE?: { fetch: typeof fetch }
+}
+
+function buildSignalContent(parts: Array<string | null | undefined>): string {
+  return parts
+    .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+    .join('\n\n')
+}
+
+type NewBusinessQualification = NonNullable<Awaited<ReturnType<typeof qualifyNewBusiness>>>
+
+function buildBusinessSignalMetadata(
+  permit: PermitRecord,
+  painScore: number,
+  qualification: NewBusinessQualification
+): Record<string, unknown> {
+  const sourceLabel =
+    permit.source === 'scottsdale_license' ? 'New business license' : 'Commercial permit'
+  return {
+    permit_number: permit.permit_number ?? null,
+    permit_type: permit.permit_type ?? null,
+    entity_type: qualification?.entity_type ?? permit.entity_type,
+    filing_date: permit.filing_date,
+    source: qualification?.source ?? permit.source,
+    vertical_match: qualification?.vertical_match ?? 'unknown',
+    size_estimate: qualification?.size_estimate ?? 'unknown',
+    outreach_timing: qualification?.outreach_timing ?? null,
+    pain_score: painScore,
+    actor_role: permit.actor_role,
+    owner_name: permit.owner_name ?? null,
+    signal_source_label: sourceLabel,
+    signal_subject: permit.business_name,
+    signal_location: extractAreaFromAddress(permit.address),
+    signal_date: permit.filing_date,
+    signal_address: permit.address,
+    date_found: new Date().toISOString().split('T')[0],
+  }
+}
+
+function toErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function queueEnrichment(
+  env: Pick<Env, 'DB' | 'ENRICHMENT_WORKFLOW_SERVICE'>,
+  ctx: ExecutionContext | undefined,
+  entityId: string,
+  triggeredBy: string
+): void {
+  if (!ctx) return
+  ctx.waitUntil(
+    dispatchEnrichmentWorkflow(env, {
+      entityId,
+      orgId: ORG_ID,
+      mode: 'full',
+      triggered_by: triggeredBy,
+    }).catch((error: unknown) => {
+      console.error('[new_business] enrichment dispatch failed', {
+        entityId,
+        error: toErrorMessage(error),
+      })
+    })
+  )
+}
+
+async function signalAlreadyProcessed(db: D1Database, sourceRef?: string): Promise<boolean> {
+  if (!sourceRef) return false
+  const existing = await db
+    .prepare(
+      `SELECT 1 FROM context WHERE org_id = ? AND source = 'new_business' AND source_ref = ?`
+    )
+    .bind(ORG_ID, sourceRef)
+    .first()
+  return Boolean(existing)
+}
+
+interface ProcessPermitContext {
+  env: Env
+  ctx?: ExecutionContext
+  summary: RunSummary
+  painThreshold: number
+  addressIndex: Map<string, AddressCandidate[]>
+  weeklyBudgetUsd: number
 }
 
 async function processOnePermit(
   permit: PermitRecord,
-  env: Env,
-  ctx: ExecutionContext | undefined,
-  summary: RunSummary,
-  painThreshold: number
+  context: ProcessPermitContext
 ): Promise<void> {
-  const alreadyProcessed = await env.DB.prepare(
-    `SELECT 1 FROM context WHERE org_id = ? AND source = 'new_business' AND source_ref = ?`
-  )
-    .bind(ORG_ID, permit.permit_number)
-    .first()
-  if (alreadyProcessed) return
+  const { env, ctx, summary, painThreshold, addressIndex, weeklyBudgetUsd } = context
+  if (await signalAlreadyProcessed(env.DB, permit.permit_number)) return
 
   summary.newPermits++
+
+  if (permit.actor_role !== 'business') {
+    summary.droppedByRole++
+    await recoverPermitEntity(permit, {
+      env,
+      ctx,
+      summary,
+      addressIndex,
+      weeklyBudgetUsd,
+    })
+    return
+  }
+
   const qualification = await qualifyNewBusiness(permit, env.ANTHROPIC_API_KEY)
   if (!qualification) {
     summary.errors++
@@ -65,11 +147,6 @@ async function processOnePermit(
     return
   }
 
-  // Apply admin-tunable pain_threshold (issue #595). For new_business we
-  // derive a 0-10 score from `outreach_timing` (immediate=10,
-  // wait_30_days=7, wait_60_days=5, not_recommended=0). Default threshold
-  // is 1 — meaning only `not_recommended` permits are filtered, matching
-  // the prior shipped behavior.
   const painScore = derivePainScore(qualification)
   if (painScore < painThreshold) {
     if (qualification.outreach_timing === 'not_recommended') {
@@ -81,80 +158,65 @@ async function processOnePermit(
   }
 
   summary.qualified++
-  const { entity } = await findOrCreateEntity(env.DB, ORG_ID, {
+  const result = await findOrCreateEntity(env.DB, ORG_ID, {
     name: qualification.business_name,
     area: qualification.area,
     source_pipeline: 'new_business',
   })
 
-  const contentParts: string[] = [
-    `${qualification.entity_type} — ${qualification.source}. ${qualification.notes}`,
-  ]
-  if (qualification.outreach_angle)
-    contentParts.push(`**Outreach angle:** ${qualification.outreach_angle}`)
-  const content = contentParts.join('\n\n') || 'Signal from new_business.'
-
-  const metadata: Record<string, unknown> = {
-    permit_number: permit.permit_number ?? null,
-    permit_type: permit.permit_type ?? null,
-    entity_type: qualification.entity_type,
-    filing_date: permit.filing_date,
-    source: qualification.source,
-    vertical_match: qualification.vertical_match,
-    size_estimate: qualification.size_estimate,
-    outreach_timing: qualification.outreach_timing,
-    pain_score: painScore,
-    ...(qualification.outreach_angle ? { outreach_angle: qualification.outreach_angle } : {}),
-    date_found: new Date().toISOString().split('T')[0],
-  }
+  const content = buildSignalContent([
+    `${qualification.entity_type} · ${qualification.source}`,
+    qualification.notes,
+  ])
 
   await appendContext(env.DB, ORG_ID, {
-    entity_id: entity.id,
+    entity_id: result.entity.id,
     type: 'signal',
-    content,
+    content: content || 'Signal from new_business.',
     source: 'new_business',
     source_ref: permit.permit_number,
-    metadata,
+    metadata: buildBusinessSignalMetadata(permit, painScore, qualification),
   })
   summary.written++
-
-  const dispatchPromise = dispatchEnrichmentWorkflow(env, {
-    entityId: entity.id,
-    orgId: ORG_ID,
-    mode: 'full',
-    triggered_by: 'cron:new-business',
-  }).catch((err) => {
-    console.error('[new_business] enrichment dispatch failed', { entityId: entity.id, error: err })
-  })
-  if (ctx) ctx.waitUntil(dispatchPromise)
+  recordAddressCandidate(addressIndex, permit.address, result.entity)
+  queueEnrichment(env, ctx, result.entity.id, 'cron:new-business')
 }
 
 async function run(env: Env, ctx?: ExecutionContext): Promise<RunSummary> {
   const summary: RunSummary = {
-    sources: 5,
+    sources: 0,
     totalPermits: 0,
     newPermits: 0,
     qualified: 0,
     disqualified: 0,
     belowThreshold: 0,
     written: 0,
+    droppedByRole: 0,
+    droppedOrphan: 0,
+    recoveredTier1: 0,
+    recoveredTier3: 0,
+    budgetSkipped: 0,
     errors: 0,
     errorDetails: [],
   }
 
-  // Resolve admin-tunable pain_threshold at the TOP of every run so the next
-  // cron tick picks up admin changes without a worker restart (issue #595).
   const settings = await getPipelineSettings(env.DB, ORG_ID, 'new_business')
   const painThreshold = settings.pain_threshold
+  const weeklyBudgetUsd = settings.weekly_places_budget_usd
 
   const configRow = await getGeneratorConfig(env.DB, ORG_ID, 'new_business')
   if (!configRow.enabled) {
-    console.log('new_business: disabled by admin config — skipping run')
+    console.log('new_business: disabled by admin config - skipping run')
     await recordGeneratorRun(env.DB, ORG_ID, 'new_business', { signalsCount: 0, error: null })
     return summary
   }
+
   const cfg = configRow.config as NewBusinessConfig
-  const enabledCities = cfg.soda_sources.filter((s) => s.enabled).map((s) => s.city)
+  const enabledCities = cfg.soda_sources
+    .filter((source) => source.enabled)
+    .map((source) => source.city)
+  summary.sources = enabledCities.length
+  const addressIndex = await buildAddressIndex(env.DB)
 
   const permits = await fetchAllPermits(enabledCities)
   summary.totalPermits = permits.length
@@ -164,7 +226,14 @@ async function run(env: Env, ctx?: ExecutionContext): Promise<RunSummary> {
 
   for (const permit of permits) {
     try {
-      await processOnePermit(permit, env, ctx, summary, painThreshold)
+      await processOnePermit(permit, {
+        env,
+        ctx,
+        summary,
+        painThreshold,
+        addressIndex,
+        weeklyBudgetUsd,
+      })
     } catch (err) {
       summary.errors++
       const msg = err instanceof Error ? err.message : String(err)
@@ -173,21 +242,26 @@ async function run(env: Env, ctx?: ExecutionContext): Promise<RunSummary> {
   }
 
   console.log(
-    `Run complete: ${summary.newPermits} new, ${summary.qualified} qualified (pain>=${painThreshold}), ` +
-      `${summary.disqualified} disqualified, ${summary.belowThreshold} below threshold, ` +
+    `Run complete: ${summary.newPermits} new, ${summary.qualified} qualified, ` +
+      `${summary.droppedByRole} diverted by actor role, ${summary.droppedOrphan} dropped orphan, ` +
+      `${summary.recoveredTier1} tier1 recovered, ${summary.recoveredTier3} tier3 recovered, ` +
       `${summary.written} written, ${summary.errors} errors`
   )
 
   await recordGeneratorRun(env.DB, ORG_ID, 'new_business', {
     signalsCount: summary.written,
-    error: summary.errors > 0 ? summary.errorDetails.slice(0, 3).join(' · ') : null,
+    error: summary.errors > 0 ? summary.errorDetails.slice(0, 3).join(' | ') : null,
   })
 
   return summary
 }
 
 export default {
-  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+  async scheduled(
+    _controller: ScheduledController,
+    env: Env,
+    ctx: ExecutionContext
+  ): Promise<void> {
     const summary = await run(env, ctx)
     if (summary.written === 0 && summary.errors > 0 && env.RESEND_API_KEY) {
       ctx.waitUntil(sendFailureAlert(summary, env.RESEND_API_KEY))

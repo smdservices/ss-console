@@ -74,13 +74,6 @@ export interface ScoringResult {
 
   /** Supporting evidence for the scoring. */
   evidence: ProblemEvidence[]
-
-  /**
-   * A suggested outreach angle — how to open the conversation with this prospect.
-   * Written in "we" voice, references their specific pain, never mentions pricing
-   * or fixed timeframes.
-   */
-  outreach_angle: string
 }
 
 // ---------------------------------------------------------------------------
@@ -115,9 +108,6 @@ export interface LeadRecord {
 
   /** Key evidence text (abbreviated for the sheet). */
   evidence_summary: string
-
-  /** Suggested outreach angle. */
-  outreach_angle: string
 
   /** ISO 8601 date when this lead was found. */
   date_found: string

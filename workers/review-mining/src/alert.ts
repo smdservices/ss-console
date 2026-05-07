@@ -11,6 +11,8 @@ export interface RunSummary {
   newBusinesses: number
   qualified: number
   belowThreshold: number
+  droppedClosed: number
+  droppedLikelyChain: number
   written: number
   errors: number
   errorDetails: string[]
@@ -31,6 +33,8 @@ export async function sendFailureAlert(summary: RunSummary, resendApiKey: string
     `New (not deduped): ${summary.newBusinesses}`,
     `Qualified (pain >= 7): ${summary.qualified}`,
     `Below threshold: ${summary.belowThreshold}`,
+    `Dropped closed: ${summary.droppedClosed}`,
+    `Dropped likely chain: ${summary.droppedLikelyChain}`,
     `Written to D1: ${summary.written}`,
     `Outscraper spend (est.): $${summary.outscraperSpendUsd.toFixed(2)}`,
     `Budget guard tripped: ${summary.budgetGuardTripped ? 'YES' : 'no'}`,

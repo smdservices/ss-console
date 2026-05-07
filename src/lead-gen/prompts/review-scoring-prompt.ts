@@ -1,7 +1,7 @@
 /**
  * Review Scoring Prompt — Pipeline 1
  *
- * Analyzes Google/Yelp reviews for Phoenix-based businesses to detect
+ * Analyzes Google/Yelp reviews for Arizona businesses to detect
  * operational pain signals. Distinguishes operational problems (scheduling
  * chaos, never called back) from service quality complaints (rude staff,
  * bad haircut). Only operational signals matter for lead qualification.
@@ -28,9 +28,9 @@ export type { ReviewScoring, BatchReviewScoring, BusinessReviewInput }
 /**
  * System prompt for review-based operational pain scoring.
  */
-export const REVIEW_SCORING_SYSTEM_PROMPT = `You are a review analysis assistant for SMD Services, an operations consulting team that works with Phoenix-based small and mid-size businesses ($750k–$5M revenue).
+export const REVIEW_SCORING_SYSTEM_PROMPT = `You are a review analysis assistant for SMD Services, an operations consulting team that works with Arizona-based operating businesses.
 
-Your job is to analyze Google and Yelp reviews and score businesses for OPERATIONAL pain — problems with how the business runs, not the quality of the service or product itself. This distinction is critical.
+Your job is to analyze Google and Yelp reviews and score businesses for OPERATIONAL pain, problems with how the business runs, not the quality of the service or product itself. This distinction is critical.
 
 ## Operational vs. Service Quality — The Key Distinction
 
@@ -42,7 +42,7 @@ Your job is to analyze Google and Yelp reviews and score businesses for OPERATIO
 - "Their software doesn't work, kept losing my info" → tool_systems
 - "Different tech every time, none of them knew what the last one did" → team_operations
 
-**SERVICE QUALITY complaints (NOT what we care about — ignore these):**
+**SERVICE QUALITY complaints (NOT what we care about, ignore these):**
 - "The plumber was rude" — personality, not operations
 - "Overpriced for the work done" — pricing perception, not operations
 - "The food was cold" — execution quality, not operations
@@ -72,13 +72,18 @@ Your job is to analyze Google and Yelp reviews and score businesses for OPERATIO
 
 **Key calibration rule:** A single complaint is noise. Repeated patterns are signal. Two different customers independently saying "they never called me back" is a pattern. One customer saying it once is an anecdote. Score based on PATTERNS, not individual reviews.
 
+## Structural disqualifications
+
+- Closed, temporarily closed, or otherwise non-operational businesses are not prospects.
+- Enterprise / multi-state corporate buyers are not prospects even when reviews are negative.
+- Likely chains require explicit confirmation from the evidence before they qualify. If total reviews are very high and the category looks chain-like, default to caution unless the evidence clearly points to an autonomous local operator.
+
 ## Output Rules
 
 - Output ONLY valid JSON matching the schema. No markdown, no code fences, no commentary.
 - Only include reviews in the signals array that contain genuine operational signals. Do not include service quality complaints.
-- The outreach_angle must use "we" voice (never "I"). Reference the specific operational pattern found. Never mention pricing or timeframes.
 - Quote reviews exactly — do not paraphrase or clean up language.
-- If a business has zero operational signals, still return a result with pain_score 1-2, empty signals array, and empty outreach_angle.
+- If a business has zero operational signals, still return a result with pain_score 1-2 and an empty signals array.
 
 ## Example
 
@@ -92,7 +97,7 @@ Input reviews:
 - ★★★★★ "Owner came out personally to handle our issue since his techs were all booked. Appreciated the personal touch."
 
 Output:
-{"business_name":"Reliable Rooter Plumbing","place_id":"ChIJ_example123","pain_score":8,"top_problems":["customer_pipeline","process_design"],"signals":[{"problem_id":"customer_pipeline","quote":"I had to call three times before anyone picked up. Left two voicemails that were never returned.","review_rating":3,"severity":8},{"problem_id":"process_design","quote":"They missed our appointment entirely. No call, no text, just didn't show up.","review_rating":2,"severity":9},{"problem_id":"customer_pipeline","quote":"Tried to schedule a repair for 3 weeks. Called multiple times, got bounced around. Finally gave up and called someone else.","review_rating":2,"severity":9},{"problem_id":"process_design","quote":"Owner came out personally to handle our issue since his techs were all booked.","review_rating":5,"severity":5}],"outreach_angle":"Your team clearly does quality work — the 5-star reviews say that. But we noticed a pattern: customers are having trouble reaching you, and appointments are slipping through the cracks. We help businesses like yours fix exactly that — so the phone gets answered and every appointment stays on the books."}`
+{"business_name":"Reliable Rooter Plumbing","place_id":"ChIJ_example123","pain_score":8,"top_problems":["customer_pipeline","process_design"],"chain_status":"not_chain","signals":[{"problem_id":"customer_pipeline","quote":"I had to call three times before anyone picked up. Left two voicemails that were never returned.","review_rating":3,"severity":8},{"problem_id":"process_design","quote":"They missed our appointment entirely. No call, no text, just didn't show up.","review_rating":2,"severity":9},{"problem_id":"customer_pipeline","quote":"Tried to schedule a repair for 3 weeks. Called multiple times, got bounced around. Finally gave up and called someone else.","review_rating":2,"severity":9},{"problem_id":"process_design","quote":"Owner came out personally to handle our issue since his techs were all booked.","review_rating":5,"severity":5}]}`
 
 /**
  * Builds the user prompt for scoring a single business's reviews.
@@ -111,6 +116,9 @@ Business: ${business.business_name}
 Place ID: ${business.place_id}
 Category: ${business.category}
 Area: ${business.area}
+${business.business_status ? `Business status: ${business.business_status}` : ''}
+${business.place_types?.length ? `Place types: ${business.place_types.join(', ')}` : ''}
+${business.likely_chain ? `Likely chain: yes` : ''}
 Overall Rating: ${business.overall_rating}/5
 Total Reviews: ${business.total_review_count}
 
@@ -186,6 +194,12 @@ function validateTopProblems(raw: unknown, errors: string[]): void {
   if (raw.length > 3) errors.push('top_problems should have at most 3 entries')
 }
 
+function validateChainStatus(raw: unknown, errors: string[]): void {
+  if (!['not_chain', 'likely_chain', 'confirmed_local'].includes(raw as string)) {
+    errors.push('chain_status must be "not_chain", "likely_chain", or "confirmed_local"')
+  }
+}
+
 function validateSignalEntry(s: Record<string, unknown>, idx: number, errors: string[]): void {
   const validIds: readonly string[] = PROBLEM_IDS
   if (!validIds.includes(s.problem_id as string)) {
@@ -246,14 +260,8 @@ export function validateReviewScoring(data: unknown): {
   }
 
   validateTopProblems(d.top_problems, errors)
+  validateChainStatus(d.chain_status, errors)
   validateSignals(d.signals, errors)
-
-  if (typeof d.outreach_angle === 'string' && d.outreach_angle.length > 0) {
-    const angle = d.outreach_angle.toLowerCase()
-    if (angle.includes(' i ') || angle.startsWith('i ') || angle.includes(" i'")) {
-      errors.push('outreach_angle must use "we" voice, not "I"')
-    }
-  }
 
   return { valid: errors.length === 0, errors }
 }

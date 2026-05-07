@@ -4,7 +4,8 @@
  * Verifies the file contains the expected redesign markers — stretched
  * anchor wrapping the row, chip-based top-problem rendering sourced from
  * pipeline metadata, and conditional rendering (never placeholder text)
- * for outreach_angle, website, phone, and last_activity_at.
+ * for factual signal evidence, enrichment summary, website, phone, and
+ * last_activity_at.
  *
  * These checks are intentionally string-based rather than DOM-rendered:
  * they defend against accidental Pattern A/B regressions across future
@@ -47,8 +48,9 @@ describe('admin entities index — Signal row redesign (#462)', () => {
     expect(source).toMatch(/problems\.length > 0/)
   })
 
-  it('renders outreach angle with 2-line truncation when present', () => {
-    expect(source).toMatch(/outreachAngle/)
+  it('renders signal evidence and enrichment summary with 2-line truncation when present', () => {
+    expect(source).toMatch(/signalEvidence/)
+    expect(source).toMatch(/enrichmentSummary/)
     expect(source).toMatch(/line-clamp-2/)
   })
 

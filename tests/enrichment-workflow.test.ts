@@ -280,12 +280,15 @@ describe('EnrichmentWorkflow — entity reload per step', () => {
 
     // Places returns a website — `tryPlaces` writes it via updateEntity.
     vi.mocked(lookupGooglePlaces).mockResolvedValue({
+      placeId: 'place-123',
+      name: 'Acme Plumbing',
       phone: '+1 555 0123',
       website: 'https://acmeplumbing.com',
       rating: 4.5,
       reviewCount: 12,
       businessStatus: 'OPERATIONAL',
       address: 'Phoenix, AZ',
+      types: ['plumber'],
     })
 
     // analyzeWebsite is the tier1-website body. It receives the entity

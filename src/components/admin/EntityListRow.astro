@@ -128,9 +128,16 @@ function meetingSubstateBadgeClass(s: string): string {
         )
       }
       {
-        r.isSignal && r.outreachAngle && (
+        r.isSignal && r.signalEvidence && (
+          <p class="text-xs text-[color:var(--ss-color-text-secondary)] mb-1 line-clamp-2">
+            {r.signalEvidence}
+          </p>
+        )
+      }
+      {
+        r.isSignal && r.enrichmentSummary && (
           <p class="text-xs text-[color:var(--ss-color-text-secondary)] mb-1 line-clamp-2 italic">
-            {r.outreachAngle}
+            {r.enrichmentSummary}
           </p>
         )
       }

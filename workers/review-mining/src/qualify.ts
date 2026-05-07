@@ -28,6 +28,15 @@ export async function scoreReviews(
     place_id: business.place_id,
     category: business.category,
     area: business.area,
+    business_status: business.business_status ?? undefined,
+    place_types: business.place_types,
+    likely_chain:
+      business.total_reviews > 200 &&
+      business.place_types.some((type) =>
+        ['gym', 'fast_food_restaurant', 'beauty_salon', 'meal_takeaway', 'meal_delivery'].includes(
+          type
+        )
+      ),
     overall_rating: business.rating,
     total_review_count: business.total_reviews,
     reviews: business.reviews.map((r) => ({

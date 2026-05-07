@@ -28,7 +28,9 @@ export async function qualifyNewBusiness(
     address: permit.address,
     filing_date: permit.filing_date,
     source: permit.source,
+    actor_role: permit.actor_role,
     permit_type: permit.permit_type,
+    owner_name: permit.owner_name,
   }
 
   const userPrompt = buildUserPrompt(input)

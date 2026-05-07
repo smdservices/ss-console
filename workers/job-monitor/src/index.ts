@@ -1,13 +1,9 @@
 /**
  * Job Monitor Worker — Pipeline 2
  *
- * Cloudflare Worker cron job that searches for Phoenix-area job postings
- * signaling operational pain, qualifies them with Claude, and writes
- * qualified leads to D1 for triage in the admin Lead Inbox.
- *
- * Schedule: Daily at 6:00 AM MST (13:00 UTC)
- * Trigger: Also via POST /run with Authorization: Bearer <LEAD_INGEST_API_KEY>
- * Flow: SerpAPI → D1 dedup → Claude qualify → D1 write
+ * Searches Arizona job postings, drops staffing-agency and syndicator noise
+ * before Claude, then writes only direct-employer operating-business signals
+ * to D1.
  */
 
 import { ORG_ID } from '../../../src/lib/constants.js'
@@ -18,7 +14,7 @@ import { getPipelineSettings } from '../../../src/lib/db/pipeline-settings.js'
 import type { JobMonitorConfig } from '../../../src/lib/generators/types.js'
 import { dispatchEnrichmentWorkflow } from '../../../src/lib/enrichment/dispatch.js'
 import { searchJobs } from './serpapi.js'
-import { qualifyJob, derivePainScore } from './qualify.js'
+import { qualifyJob, derivePainScore, inferPostingActorRole } from './qualify.js'
 import { sendFailureAlert, type RunSummary } from './alert.js'
 import type { SerpApiJob } from './serpapi.js'
 
@@ -28,11 +24,9 @@ export interface Env {
   ANTHROPIC_API_KEY: string
   RESEND_API_KEY: string
   LEAD_INGEST_API_KEY: string
-  // Optional API keys consumed by the at-ingest enrichment pipeline.
   GOOGLE_PLACES_API_KEY?: string
   OUTSCRAPER_API_KEY?: string
   PROXYCURL_API_KEY?: string
-  /** Service binding to ss-enrichment-workflow Worker (#631). */
   ENRICHMENT_WORKFLOW_SERVICE?: { fetch: typeof fetch }
 }
 
@@ -52,7 +46,7 @@ async function fetchAllJobs(
       summary.errors++
       summary.errorDetails.push(`Query "${query}": ${msg}`)
       if (msg.includes('401')) {
-        console.error(`Fatal: SerpAPI 401 — aborting run`)
+        console.error('Fatal: SerpAPI 401 - aborting run')
         break
       }
     }
@@ -61,12 +55,8 @@ async function fetchAllJobs(
 }
 
 function buildJobContent(qualification: Awaited<ReturnType<typeof qualifyJob>>): string {
-  if (!qualification) return 'Signal from job_monitor.'
-  const parts: string[] = []
-  if (qualification.evidence) parts.push(qualification.evidence)
-  if (qualification.outreach_angle)
-    parts.push(`**Outreach angle:** ${qualification.outreach_angle}`)
-  return parts.join('\n\n') || 'Signal from job_monitor.'
+  if (!qualification?.evidence) return 'Signal from job_monitor.'
+  return qualification.evidence
 }
 
 function buildJobMetadata(
@@ -83,9 +73,13 @@ function buildJobMetadata(
     query_term: query,
     confidence: qualification?.confidence,
     company_size_estimate: qualification?.company_size_estimate,
+    posting_actor_role: qualification?.posting_actor_role ?? 'unknown',
     ...(painScore != null ? { pain_score: painScore } : {}),
     ...(qualification?.problems_signaled ? { top_problems: qualification.problems_signaled } : {}),
-    ...(qualification?.outreach_angle ? { outreach_angle: qualification.outreach_angle } : {}),
+    signal_source_label: 'Job posting',
+    signal_subject: job.title,
+    signal_location: job.location,
+    signal_date: new Date().toISOString().split('T')[0],
     date_found: new Date().toISOString().split('T')[0],
   }
 }
@@ -109,10 +103,23 @@ async function processOneJob(
   }
 
   summary.newJobs++
-  const qualification = await qualifyJob(job, env.ANTHROPIC_API_KEY)
+
+  const postingActorRole = inferPostingActorRole(job)
+  if (postingActorRole !== 'direct') {
+    summary.disqualified++
+    summary.droppedByActorRole++
+    return
+  }
+
+  const qualification = await qualifyJob(job, env.ANTHROPIC_API_KEY, postingActorRole)
   if (!qualification) {
     summary.errors++
-    summary.errorDetails.push(`Claude failed for "${job.company_name}" — "${job.title}"`)
+    summary.errorDetails.push(`Claude failed for "${job.company_name}" - "${job.title}"`)
+    return
+  }
+  if (qualification.posting_actor_role !== 'direct') {
+    summary.disqualified++
+    summary.droppedByActorRole++
     return
   }
   if (!qualification.qualified) {
@@ -127,7 +134,7 @@ async function processOneJob(
   }
 
   summary.qualified++
-  const { entity } = await findOrCreateEntity(env.DB, ORG_ID, {
+  const result = await findOrCreateEntity(env.DB, ORG_ID, {
     name: qualification.company,
     area: job.location,
     website: job.company_url ?? null,
@@ -135,7 +142,7 @@ async function processOneJob(
   })
 
   await appendContext(env.DB, ORG_ID, {
-    entity_id: entity.id,
+    entity_id: result.entity.id,
     type: 'signal',
     content: buildJobContent(qualification),
     source: 'job_monitor',
@@ -144,15 +151,18 @@ async function processOneJob(
   })
   summary.written++
 
-  const dispatchPromise = dispatchEnrichmentWorkflow(env, {
-    entityId: entity.id,
-    orgId: ORG_ID,
-    mode: 'full',
-    triggered_by: 'cron:job-monitor',
-  }).catch((err) => {
-    console.error('[job_monitor] enrichment dispatch failed for', entity.id, err)
-  })
-  if (ctx) ctx.waitUntil(dispatchPromise)
+  if (ctx) {
+    ctx.waitUntil(
+      dispatchEnrichmentWorkflow(env, {
+        entityId: result.entity.id,
+        orgId: ORG_ID,
+        mode: 'full',
+        triggered_by: 'cron:job-monitor',
+      }).catch((err) => {
+        console.error('[job_monitor] enrichment dispatch failed for', result.entity.id, err)
+      })
+    )
+  }
 }
 
 async function run(env: Env, ctx?: ExecutionContext): Promise<RunSummary> {
@@ -162,6 +172,7 @@ async function run(env: Env, ctx?: ExecutionContext): Promise<RunSummary> {
     newJobs: 0,
     qualified: 0,
     disqualified: 0,
+    droppedByActorRole: 0,
     belowThreshold: 0,
     written: 0,
     errors: 0,
@@ -169,14 +180,12 @@ async function run(env: Env, ctx?: ExecutionContext): Promise<RunSummary> {
     existingAppended: 0,
   }
 
-  // Resolve admin-tunable settings at the TOP of every run so the next cron
-  // tick picks up admin changes without a worker restart (issue #595).
   const settings = await getPipelineSettings(env.DB, ORG_ID, 'job_monitor')
   const painThreshold = settings.pain_threshold
 
   const configRow = await getGeneratorConfig(env.DB, ORG_ID, 'job_monitor')
   if (!configRow.enabled) {
-    console.log('job_monitor: disabled by admin config — skipping run')
+    console.log('job_monitor: disabled by admin config - skipping run')
     await recordGeneratorRun(env.DB, ORG_ID, 'job_monitor', { signalsCount: 0, error: null })
     return summary
   }
@@ -207,20 +216,24 @@ async function run(env: Env, ctx?: ExecutionContext): Promise<RunSummary> {
 
   console.log(
     `Run complete: ${summary.newJobs} new, ${summary.existingAppended} existing, ` +
-      `${summary.qualified} qualified (pain>=${painThreshold}), ${summary.disqualified} disqualified, ` +
-      `${summary.belowThreshold} below threshold, ${summary.written} written, ${summary.errors} errors`
+      `${summary.qualified} qualified, ${summary.disqualified} disqualified, ` +
+      `${summary.droppedByActorRole} dropped by actor role, ${summary.written} written, ${summary.errors} errors`
   )
 
   await recordGeneratorRun(env.DB, ORG_ID, 'job_monitor', {
     signalsCount: summary.written,
-    error: summary.errors > 0 ? summary.errorDetails.slice(0, 3).join(' · ') : null,
+    error: summary.errors > 0 ? summary.errorDetails.slice(0, 3).join(' | ') : null,
   })
 
   return summary
 }
 
 export default {
-  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+  async scheduled(
+    _controller: ScheduledController,
+    env: Env,
+    ctx: ExecutionContext
+  ): Promise<void> {
     const summary = await run(env, ctx)
     if (summary.written === 0 && summary.errors > 0 && env.RESEND_API_KEY) {
       ctx.waitUntil(sendFailureAlert(summary, env.RESEND_API_KEY))

@@ -2,7 +2,7 @@
  * Job Signal Schema — Pipeline 2 Output Types
  *
  * Defines the structured output contract for the job posting qualification prompt.
- * When a Phoenix-area job posting signals operational pain at a small business,
+ * When an Arizona job posting signals operational pain at a small business,
  * the AI produces a JobQualification result matching this schema.
  *
  * @see docs/collateral/lead-automation-blueprint.md — Pipeline 2 architecture
@@ -22,6 +22,9 @@ export { type ProblemEvidence, type ScoringResult }
 export interface JobQualification {
   /** Company name from the job posting. */
   company: string
+
+  /** Who appears to be publishing the posting. */
+  posting_actor_role: 'direct' | 'staffing_agency' | 'syndicator' | 'unknown'
 
   /** Whether this company qualifies as a prospect. */
   qualified: boolean
@@ -43,13 +46,6 @@ export interface JobQualification {
    * Direct quotes or close paraphrases from the posting.
    */
   evidence: string
-
-  /**
-   * Suggested outreach angle — how to approach this company.
-   * Written in "we" voice, references their specific pain.
-   * Never mentions pricing or fixed timeframes.
-   */
-  outreach_angle: string
 
   /**
    * Reason for disqualification, if qualified is false.
@@ -81,4 +77,10 @@ export interface JobPostingInput {
 
   /** URL to the original posting, if available. */
   url?: string
+
+  /** Number of distinct apply URLs seen for this posting. */
+  apply_url_count?: number
+
+  /** Deterministic actor-role hint from pre-filters. */
+  posting_actor_role_hint?: 'direct' | 'staffing_agency' | 'syndicator' | 'unknown'
 }

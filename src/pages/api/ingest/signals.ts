@@ -34,7 +34,6 @@ interface ValidatedSignal {
 
 function buildSignalMetadata(
   body: Record<string, unknown>,
-  outreachAngle: string | null,
   dateFound: string
 ): Record<string, unknown> {
   const painScore =
@@ -52,7 +51,14 @@ function buildSignalMetadata(
     ...sourceMetadata,
     ...(painScore != null && { pain_score: painScore }),
     ...(topProblems && { top_problems: topProblems }),
-    ...(outreachAngle && { outreach_angle: outreachAngle }),
+    ...(stringOrNull(body.signal_source_label) && {
+      signal_source_label: stringOrNull(body.signal_source_label),
+    }),
+    ...(stringOrNull(body.signal_subject) && { signal_subject: stringOrNull(body.signal_subject) }),
+    ...(stringOrNull(body.signal_location) && {
+      signal_location: stringOrNull(body.signal_location),
+    }),
+    ...(stringOrNull(body.signal_date) && { signal_date: stringOrNull(body.signal_date) }),
     date_found: dateFound,
   }
 }
@@ -73,10 +79,8 @@ function validateAndBuildSignal(body: Record<string, unknown>): ValidatedSignal 
   if (errors.length > 0) return jsonResponse(400, { error: 'Validation failed', details: errors })
 
   const evidenceSummary = stringOrNull(body.evidence_summary)
-  const outreachAngle = stringOrNull(body.outreach_angle)
   const contentParts: string[] = []
   if (evidenceSummary) contentParts.push(evidenceSummary)
-  if (outreachAngle) contentParts.push(`**Outreach angle:** ${outreachAngle}`)
   const content = contentParts.join('\n\n') || `Signal from ${sourcePipeline} on ${dateFound}.`
 
   return {
@@ -84,7 +88,7 @@ function validateAndBuildSignal(body: Record<string, unknown>): ValidatedSignal 
     sourcePipeline,
     dateFound,
     content,
-    metadata: buildSignalMetadata(body, outreachAngle, dateFound),
+    metadata: buildSignalMetadata(body, dateFound),
     area: stringOrNull(body.area),
     phone: stringOrNull(body.phone),
     website: stringOrNull(body.website),
