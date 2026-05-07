@@ -74,7 +74,9 @@ function dispatchClearError(root: HTMLElement): void {
 }
 
 function dispatchAiReply(root: HTMLElement, reply: string | null): void {
-  root.dispatchEvent(new CustomEvent('unified-ai-reply', { detail: { reply }, bubbles: false }))
+  root.dispatchEvent(
+    new CustomEvent('unified-show-ai-reply', { detail: { reply }, bubbles: false })
+  )
 }
 
 function showConfirmation(els: BookElements, body: BookingResponse, state: BookState): void {
