@@ -417,7 +417,12 @@ describe('updateQuoteStatus: send-gating on authored content', () => {
 })
 
 describe('portal proposal page: render gating', () => {
-  const source = () => readFileSync(resolve('src/pages/portal/quotes/[id].astro'), 'utf-8')
+  // Schedule/deliverable rendering was extracted to QuoteProposalSections.astro
+  // to keep [id].astro within the 500-line ceiling. Combined source covers both.
+  const source = () =>
+    readFileSync(resolve('src/pages/portal/quotes/[id].astro'), 'utf-8') +
+    '\n' +
+    readFileSync(resolve('src/components/portal/QuoteProposalSections.astro'), 'utf-8')
 
   it('imports parseSchedule and parseDeliverables', () => {
     const code = source()
@@ -473,8 +478,14 @@ describe('portal proposal page: render gating', () => {
 })
 
 describe('admin quote builder: authoring UI + send gate', () => {
+  // Authoring UI was extracted to QuoteClientContent.astro and QuoteActions.astro
+  // to keep [quoteId].astro within the 500-line ceiling. Combined source covers all.
   const pageSource = () =>
-    readFileSync(resolve('src/pages/admin/entities/[id]/quotes/[quoteId].astro'), 'utf-8')
+    readFileSync(resolve('src/pages/admin/entities/[id]/quotes/[quoteId].astro'), 'utf-8') +
+    '\n' +
+    readFileSync(resolve('src/components/admin/QuoteClientContent.astro'), 'utf-8') +
+    '\n' +
+    readFileSync(resolve('src/components/admin/QuoteActions.astro'), 'utf-8')
   const loaderSource = () => readFileSync(resolve('src/lib/admin/quote-builder-page.ts'), 'utf-8')
   const clientSource = () => readFileSync(resolve('src/lib/admin/quote-builder-client.ts'), 'utf-8')
 

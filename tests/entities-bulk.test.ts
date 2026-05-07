@@ -132,15 +132,20 @@ describe('api/admin/entities/bulk: endpoint', () => {
 })
 
 describe('admin/entities/index.astro: bulk UI wiring', () => {
-  const source = () => readFileSync(resolve('src/pages/admin/entities/index.astro'), 'utf-8')
+  // Bulk UI was extracted from index.astro into EntityBulkActions.astro and EntityListRow.astro
+  // to keep index.astro under the 500-line ceiling. Combined source covers both.
+  const source = () =>
+    readFileSync(resolve('src/pages/admin/entities/index.astro'), 'utf-8') +
+    '\n' +
+    readFileSync(resolve('src/components/admin/EntityBulkActions.astro'), 'utf-8') +
+    '\n' +
+    readFileSync(resolve('src/components/admin/EntityListRow.astro'), 'utf-8')
 
   it('imports LOST_REASONS from the canonical module', () => {
-    // The same import line may also pull sibling exports (lost-reason
-    // label / chip helpers used to render the structured reason chip on
-    // Lost-tab rows) — match the symbol and module path rather than a
-    // literal one-symbol form.
+    // Bulk actions were extracted to EntityBulkActions.astro; match the symbol regardless
+    // of relative path depth (../../../ from index.astro vs ../../ from components/).
     expect(source()).toMatch(
-      /import\s*\{[^}]*\bLOST_REASONS\b[^}]*\}\s*from\s*['"]\.\.\/\.\.\/\.\.\/lib\/db\/lost-reasons['"]/
+      /import\s*\{[^}]*\bLOST_REASONS\b[^}]*\}\s*from\s*['"][^'"]*lib\/db\/lost-reasons['"]/
     )
   })
 
@@ -193,7 +198,7 @@ describe('admin/entities/index.astro: bulk UI wiring', () => {
   it('dismiss modal includes reason selector populated from LOST_REASONS', () => {
     const code = source()
     expect(code).toContain('id="bulk-dismiss-reason"')
-    expect(code).toContain('{LOST_REASONS.map((r) => (')
+    expect(code).toContain('{LOST_REASONS.map((r) =>')
   })
 
   it('dismiss modal has an aria-modal role=dialog with labelling', () => {

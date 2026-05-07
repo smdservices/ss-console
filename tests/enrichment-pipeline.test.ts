@@ -15,7 +15,12 @@ import { resolve } from 'path'
  * #631 was filed to escape — `ctx.waitUntil` killing 86% of enrichments.
  */
 describe('enrichment workflow (issue #631)', () => {
-  const enrichmentIndex = () => readFileSync(resolve('src/lib/enrichment/index.ts'), 'utf-8')
+  // tryLinkedIn, tryIntelligenceBrief, tryOutreach were extracted to enrichment-advanced.ts
+  // and re-exported from index.ts to keep it within the 500-line ceiling.
+  const enrichmentIndex = () =>
+    readFileSync(resolve('src/lib/enrichment/index.ts'), 'utf-8') +
+    '\n' +
+    readFileSync(resolve('src/lib/enrichment/enrichment-advanced.ts'), 'utf-8')
   const workflowSrc = () => readFileSync(resolve('src/lib/enrichment/workflow.ts'), 'utf-8')
   const dispatchSrc = () => readFileSync(resolve('src/lib/enrichment/dispatch.ts'), 'utf-8')
 
