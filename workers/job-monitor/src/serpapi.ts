@@ -22,7 +22,7 @@ export async function searchJobs(query: string, apiKey: string): Promise<SerpApi
   const params = new URLSearchParams({
     engine: 'google_jobs',
     q: query,
-    location: 'Phoenix, Arizona, United States',
+    location: 'Arizona, United States',
     chips: 'date_posted:week',
     api_key: apiKey,
   })

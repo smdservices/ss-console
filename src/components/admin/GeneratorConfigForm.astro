@@ -65,43 +65,6 @@ const sl = configRow.config as SocialListeningConfig
     </p>
   </div>
 
-  <div class="grid grid-cols-2 gap-4">
-    <div>
-      <label
-        for="revenue_min_usd"
-        class="text-sm font-medium text-[color:var(--ss-color-text-primary)] block mb-1"
-      >
-        Revenue min (USD)
-      </label>
-      <input
-        type="number"
-        id="revenue_min_usd"
-        name="revenue_min_usd"
-        value={(configRow.config as NewBusinessConfig).revenue_range.min_usd}
-        min="0"
-        step="50000"
-        class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm"
-      />
-    </div>
-    <div>
-      <label
-        for="revenue_max_usd"
-        class="text-sm font-medium text-[color:var(--ss-color-text-primary)] block mb-1"
-      >
-        Revenue max (USD)
-      </label>
-      <input
-        type="number"
-        id="revenue_max_usd"
-        name="revenue_max_usd"
-        value={(configRow.config as NewBusinessConfig).revenue_range.max_usd}
-        min="0"
-        step="50000"
-        class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm"
-      />
-    </div>
-  </div>
-
   <div>
     <label
       for="geos"
@@ -193,8 +156,8 @@ const sl = configRow.config as SocialListeningConfig
             Search area
           </label>
           <p class="text-xs text-[color:var(--ss-color-text-secondary)] mb-2">
-            Google Places biases results near this point. Defaults are Phoenix downtown (33.4484,
-            -112.074) with a 50km radius — covers Scottsdale, Tempe, Mesa, Chandler, Glendale.
+            Google Places biases results near this point. Defaults are the Arizona centroid (34.0,
+            -111.5) with a statewide radius.
           </p>
           <div class="grid grid-cols-3 gap-4">
             <div>
@@ -247,12 +210,8 @@ const sl = configRow.config as SocialListeningConfig
               />
             </div>
           </div>
-          <button
-            type="button"
-            data-phoenix-defaults
-            class="mt-2 text-xs text-primary hover:underline"
-          >
-            Reset to Phoenix metro defaults
+          <button type="button" data-az-defaults class="mt-2 text-xs text-primary hover:underline">
+            Reset to Arizona defaults
           </button>
         </div>
       </>

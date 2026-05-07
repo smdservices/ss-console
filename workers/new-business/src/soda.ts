@@ -1,5 +1,5 @@
 /**
- * Open data API clients for Phoenix metro area permit/license data.
+ * Open data API clients for Arizona city permit/license data.
  *
  * Sources:
  * 1. Phoenix — ArcGIS REST (planning permits)
@@ -23,6 +23,8 @@ export interface PermitRecord {
     | 'tempe_permit'
   permit_type?: string
   permit_number?: string
+  actor_role: 'business' | 'contractor' | 'unknown'
+  owner_name?: string
 }
 
 export type SodaCity = 'phoenix' | 'scottsdale_licenses' | 'scottsdale_permits' | 'mesa' | 'tempe'
@@ -251,6 +253,7 @@ async function fetchPhoenixPermits(since: Date): Promise<PermitRecord[]> {
       address: attrStr(f.attributes.STREET_FULL_NAME),
       filing_date: epochToDate(f.attributes.PER_ISSUE_DATE as string | number | null),
       source: 'phoenix_permit',
+      actor_role: resolved.role,
       permit_type:
         f.attributes.SCOPE_DESC != null
           ? attrStr(f.attributes.SCOPE_DESC)
@@ -258,6 +261,8 @@ async function fetchPhoenixPermits(since: Date): Promise<PermitRecord[]> {
             ? attrStr(f.attributes.PER_TYPE_DESC)
             : undefined,
       permit_number: f.attributes.PER_NUM != null ? attrStr(f.attributes.PER_NUM) : undefined,
+      owner_name:
+        f.attributes.PROFESS_NAME != null ? attrStr(f.attributes.PROFESS_NAME) : undefined,
     })
   }
   if (skipped > 0) console.log(`Phoenix: skipped ${skipped} records (no business name)`)
@@ -295,6 +300,7 @@ async function fetchScottsdaleLicenses(since: Date): Promise<PermitRecord[]> {
         .join(', '),
       filing_date: epochToDate(f.attributes.BusinessStartDate as string | number | null),
       source: 'scottsdale_license',
+      actor_role: resolved.role,
       permit_number: f.attributes.AcctNum != null ? attrStr(f.attributes.AcctNum) : undefined,
     })
   }
@@ -341,6 +347,7 @@ async function fetchMesaPermits(since: Date): Promise<PermitRecord[]> {
       address: typeof r.property_address === 'string' ? r.property_address : '',
       filing_date: typeof r.issued_date === 'string' ? r.issued_date.split('T')[0] : '',
       source: 'mesa_permit',
+      actor_role: resolved.role,
       permit_type:
         typeof r.description_of_work === 'string'
           ? r.description_of_work
@@ -348,6 +355,7 @@ async function fetchMesaPermits(since: Date): Promise<PermitRecord[]> {
             ? r.type_of_work
             : undefined,
       permit_number: typeof r.permit_number === 'string' ? r.permit_number : undefined,
+      owner_name: typeof r.applicant === 'string' ? r.applicant : undefined,
     })
   }
   if (skipped > 0) console.log(`Mesa: skipped ${skipped} records (no business name)`)
@@ -385,6 +393,7 @@ async function fetchTempePermits(since: Date): Promise<PermitRecord[]> {
         .join(', '),
       filing_date: epochToDate(f.attributes.IssuedDateDtm as string | number | null),
       source: 'tempe_permit',
+      actor_role: resolved.role,
       permit_type: f.attributes.Type != null ? attrStr(f.attributes.Type) : undefined,
       permit_number: f.attributes.PermitNum != null ? attrStr(f.attributes.PermitNum) : undefined,
     })

@@ -47,8 +47,8 @@ const RECOGNIZED_VERTICALS: OutreachVertical[] = [
 const BACKBONE_MARKERS = [
   // Voice / Decision Stack #20
   '"we" / "our team."',
-  // Tone & Positioning rule 1 — objectives over problems
-  'GIVE THEM SOMETHING',
+  // Collaborative first-contact posture
+  'It is a short first email that proves we read the available material',
   // Tone & Positioning rule 3 — no timeframes
   'No dollar amounts. No pricing. No timeframes.',
   // Anti-fabrication rule

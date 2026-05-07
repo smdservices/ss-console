@@ -1,7 +1,7 @@
 /**
  * Tests for getSignalMetadataForEntities — the helper that hydrates the
  * Signal list rows with pipeline-generated evidence (top_problems,
- * outreach_angle, last_activity_at).
+ * signal evidence, enrichment summary, last_activity_at).
  *
  * Uses @venturecrane/crane-test-harness for in-memory D1 with the real
  * migration schema so metadata JSON and context-table joins exercise the
@@ -40,7 +40,7 @@ describe('getSignalMetadataForEntities', () => {
     expect(result.size).toBe(0)
   })
 
-  it('extracts top_problems and outreach_angle from latest signal metadata', async () => {
+  it('extracts top_problems and signal evidence fields from latest signal metadata', async () => {
     const entity = await createEntity(db, ORG_ID, {
       name: 'Acme HVAC',
       source_pipeline: 'review_mining',
@@ -54,7 +54,10 @@ describe('getSignalMetadataForEntities', () => {
       metadata: {
         pain_score: 7,
         top_problems: ['customer_pipeline', 'process_design'],
-        outreach_angle: "You're getting great reviews on install quality.",
+        signal_source_label: 'Google reviews',
+        signal_subject: 'HVAC contractor',
+        signal_location: 'Phoenix, AZ',
+        signal_date: '2026-05-07',
       },
     })
 
@@ -62,7 +65,10 @@ describe('getSignalMetadataForEntities', () => {
     const meta = result.get(entity.id)
     expect(meta).toBeDefined()
     expect(meta!.top_problems).toEqual(['customer_pipeline', 'process_design'])
-    expect(meta!.outreach_angle).toBe("You're getting great reviews on install quality.")
+    expect(meta!.signal_source_label).toBe('Google reviews')
+    expect(meta!.signal_subject).toBe('HVAC contractor')
+    expect(meta!.signal_location).toBe('Phoenix, AZ')
+    expect(meta!.signal_date).toBe('2026-05-07')
     expect(meta!.last_activity_at).toBeTruthy()
   })
 
@@ -74,7 +80,11 @@ describe('getSignalMetadataForEntities', () => {
       type: 'signal',
       content: 'Older',
       source: 'review_mining',
-      metadata: { top_problems: ['tool_systems'], outreach_angle: 'old angle' },
+      metadata: {
+        top_problems: ['tool_systems'],
+        signal_source_label: 'Google reviews',
+        signal_subject: 'Old subject',
+      },
     })
     // Ensure created_at ordering by small delay
     await new Promise((r) => setTimeout(r, 10))
@@ -83,13 +93,18 @@ describe('getSignalMetadataForEntities', () => {
       type: 'signal',
       content: 'Newer',
       source: 'job_monitor',
-      metadata: { top_problems: ['team_operations'], outreach_angle: 'new angle' },
+      metadata: {
+        top_problems: ['team_operations'],
+        signal_source_label: 'Job posting',
+        signal_subject: 'Operations Manager',
+      },
     })
 
     const result = await getSignalMetadataForEntities(db, ORG_ID, [entity.id])
     const meta = result.get(entity.id)
     expect(meta!.top_problems).toEqual(['team_operations'])
-    expect(meta!.outreach_angle).toBe('new angle')
+    expect(meta!.signal_source_label).toBe('Job posting')
+    expect(meta!.signal_subject).toBe('Operations Manager')
   })
 
   it('returns null fields when metadata is absent or malformed', async () => {
@@ -107,7 +122,8 @@ describe('getSignalMetadataForEntities', () => {
     const result = await getSignalMetadataForEntities(db, ORG_ID, [entity.id])
     const meta = result.get(entity.id)
     expect(meta!.top_problems).toBeNull()
-    expect(meta!.outreach_angle).toBeNull()
+    expect(meta!.signal_source_label).toBeNull()
+    expect(meta!.signal_subject).toBeNull()
     expect(meta!.last_activity_at).toBeTruthy()
   })
 
@@ -125,8 +141,23 @@ describe('getSignalMetadataForEntities', () => {
     const meta = result.get(entity.id)
     expect(meta).toBeDefined()
     expect(meta!.top_problems).toBeNull()
-    expect(meta!.outreach_angle).toBeNull()
+    expect(meta!.signal_source_label).toBeNull()
+    expect(meta!.signal_subject).toBeNull()
     expect(meta!.last_activity_at).toBeTruthy()
+  })
+
+  it('hydrates enrichment_summary from the latest enrichment entry', async () => {
+    const entity = await createEntity(db, ORG_ID, { name: 'Summary Biz' })
+
+    await appendContext(db, ORG_ID, {
+      entity_id: entity.id,
+      type: 'enrichment',
+      content: 'Google Places: Phone: 602-555-0100. Website: https://example.com.',
+      source: 'google_places',
+    })
+
+    const result = await getSignalMetadataForEntities(db, ORG_ID, [entity.id])
+    expect(result.get(entity.id)?.enrichment_summary).toBe('Google Places: Phone: 602-555-0100.')
   })
 
   it('ignores empty top_problems arrays (renders nothing)', async () => {
@@ -137,13 +168,13 @@ describe('getSignalMetadataForEntities', () => {
       type: 'signal',
       content: 'No problems detected',
       source: 'review_mining',
-      metadata: { top_problems: [], outreach_angle: '' },
+      metadata: { top_problems: [], signal_source_label: '' },
     })
 
     const result = await getSignalMetadataForEntities(db, ORG_ID, [entity.id])
     const meta = result.get(entity.id)
     expect(meta!.top_problems).toBeNull()
-    expect(meta!.outreach_angle).toBeNull()
+    expect(meta!.signal_source_label).toBeNull()
   })
 
   it('scopes by org_id — does not leak metadata across orgs', async () => {
@@ -161,7 +192,7 @@ describe('getSignalMetadataForEntities', () => {
       type: 'signal',
       content: 'cross-org leak test',
       source: 'review_mining',
-      metadata: { top_problems: ['team_operations'], outreach_angle: 'leaked' },
+      metadata: { top_problems: ['team_operations'], signal_source_label: 'leaked' },
     })
 
     const result = await getSignalMetadataForEntities(db, ORG_ID, [myEntity.id, theirEntity.id])

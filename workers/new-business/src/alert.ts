@@ -10,6 +10,11 @@ export interface RunSummary {
   disqualified: number
   belowThreshold: number
   written: number
+  droppedByRole: number
+  droppedOrphan: number
+  recoveredTier1: number
+  recoveredTier3: number
+  budgetSkipped: number
   errors: number
   errorDetails: string[]
 }
@@ -24,6 +29,11 @@ export async function sendFailureAlert(summary: RunSummary, resendApiKey: string
     `Qualified: ${summary.qualified}`,
     `Disqualified: ${summary.disqualified}`,
     `Below pain threshold: ${summary.belowThreshold}`,
+    `Diverted by actor role: ${summary.droppedByRole}`,
+    `Dropped orphan permits: ${summary.droppedOrphan}`,
+    `Recovered via Tier 1: ${summary.recoveredTier1}`,
+    `Recovered via Tier 3: ${summary.recoveredTier3}`,
+    `Skipped by Places budget: ${summary.budgetSkipped}`,
     `Written to D1: ${summary.written}`,
     `Errors: ${summary.errors}`,
     ``,

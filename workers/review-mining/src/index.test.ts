@@ -129,9 +129,9 @@ function makeEnabledConfig() {
   return {
     enabled: true,
     config: {
-      discovery_queries: ['HVAC Phoenix', 'plumber Phoenix'],
-      geo_center: { lat: 33.4484, lng: -112.074 },
-      geo_radius_km: 50,
+      discovery_queries: ['HVAC Arizona', 'plumber Arizona'],
+      geo_center: { lat: 34.0, lon: -111.5 },
+      geo_radius_km: 425,
     },
   }
 }
@@ -146,6 +146,8 @@ function makeDiscoveredBusiness(overrides = {}) {
     category: 'HVAC contractor',
     phone: '602-555-0100',
     website: 'https://deserthvac.com',
+    business_status: 'OPERATIONAL',
+    place_types: ['hvac_contractor'],
     ...overrides,
   }
 }
@@ -154,6 +156,8 @@ function makeBusinessWithReviews(overrides = {}) {
   return {
     ...makeDiscoveredBusiness(),
     area: 'Phoenix',
+    business_status: 'OPERATIONAL',
+    place_types: ['hvac_contractor'],
     reviews: [
       {
         author: 'Jane D',
@@ -171,9 +175,16 @@ function makeScoring(overrides = {}) {
     business_name: 'Desert HVAC',
     place_id: 'place-abc-001',
     pain_score: 8,
-    top_problems: ['scheduling', 'owner_bottleneck'],
-    outreach_angle: 'Help them fix scheduling chaos.',
-    signals: [{ problem_id: 'scheduling', quote: 'Never showed up on time.' }],
+    top_problems: ['process_design', 'customer_pipeline'],
+    chain_status: 'not_chain' as const,
+    signals: [
+      {
+        problem_id: 'process_design',
+        quote: 'Never showed up on time.',
+        review_rating: 2,
+        severity: 8,
+      },
+    ],
     ...overrides,
   }
 }
@@ -473,5 +484,34 @@ describe('review-mining pain_threshold from settings', () => {
     // pain_score=7 with threshold=7 should pass (>=)
     expect(body.qualified).toBe(1)
     expect(body.written).toBe(1)
+  })
+
+  it('drops closed businesses before review fetch', async () => {
+    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings())
+    vi.mocked(discoverBusinesses).mockResolvedValue([
+      makeDiscoveredBusiness({ place_id: 'closed-1', business_status: 'CLOSED_PERMANENTLY' }),
+    ])
+    vi.mocked(fetchReviews).mockResolvedValue([])
+    const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
+    const body: Record<string, unknown> = await res.json()
+    expect(body.droppedClosed).toBe(1)
+    expect(fetchReviews).not.toHaveBeenCalled()
+  })
+
+  it('drops likely-chain businesses after scoring', async () => {
+    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings())
+    vi.mocked(discoverBusinesses).mockResolvedValue([
+      makeDiscoveredBusiness({ total_reviews: 350, place_types: ['gym'] }),
+    ])
+    vi.mocked(fetchReviews).mockResolvedValue([
+      makeBusinessWithReviews({ total_reviews: 350, place_types: ['gym'] }),
+    ])
+    vi.mocked(scoreReviews).mockResolvedValue(
+      makeScoring({ chain_status: 'likely_chain' }) as never
+    )
+    const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
+    const body: Record<string, unknown> = await res.json()
+    expect(body.droppedLikelyChain).toBe(1)
+    expect(body.written).toBe(0)
   })
 })

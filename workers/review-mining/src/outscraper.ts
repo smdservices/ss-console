@@ -15,6 +15,8 @@ export interface DiscoveredBusiness {
   category: string
   phone: string | null
   website: string | null
+  business_status: string | null
+  place_types: string[]
 }
 
 export interface BusinessWithReviews {
@@ -27,6 +29,8 @@ export interface BusinessWithReviews {
   total_reviews: number
   phone: string | null
   website: string | null
+  business_status: string | null
+  place_types: string[]
   reviews: ReviewData[]
 }
 
@@ -53,15 +57,15 @@ export async function discoverBusinesses(
   apiKey: string,
   geo?: GeoBias
 ): Promise<DiscoveredBusiness[]> {
-  const center = geo?.center ?? { lat: 33.4484, lon: -112.074 }
-  const radiusMeters = (geo?.radiusKm ?? 50) * 1000
+  const center = geo?.center ?? { lat: 34.0, lon: -111.5 }
+  const radiusMeters = (geo?.radiusKm ?? 425) * 1000
   const response = await fetch(`https://places.googleapis.com/v1/places:searchText`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-Goog-Api-Key': apiKey,
       'X-Goog-FieldMask':
-        'places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.primaryTypeDisplayName,places.nationalPhoneNumber,places.websiteUri',
+        'places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.primaryTypeDisplayName,places.nationalPhoneNumber,places.websiteUri,places.businessStatus,places.types',
     },
     body: JSON.stringify({
       textQuery: query,
@@ -90,6 +94,8 @@ export async function discoverBusinesses(
     primaryTypeDisplayName?: { text?: string }
     nationalPhoneNumber?: string
     websiteUri?: string
+    businessStatus?: string
+    types?: string[]
   }
   const data: { places?: PlacesApiPlace[] } = await response.json()
 
@@ -102,6 +108,8 @@ export async function discoverBusinesses(
     category: p.primaryTypeDisplayName?.text ?? query.split(' ')[0],
     phone: p.nationalPhoneNumber ?? null,
     website: p.websiteUri ?? null,
+    business_status: p.businessStatus ?? null,
+    place_types: Array.isArray(p.types) ? p.types.filter((entry) => typeof entry === 'string') : [],
   }))
 }
 
@@ -173,6 +181,8 @@ export async function fetchReviews(
           total_reviews: business.total_reviews,
           phone: business.phone,
           website: business.website,
+          business_status: business.business_status,
+          place_types: business.place_types,
           reviews: recentReviews,
         })
       }
@@ -186,25 +196,15 @@ export async function fetchReviews(
   return results
 }
 
-/** Extract Phoenix sub-area from address. */
+/** Extract an Arizona city from the address, falling back to Arizona. */
 function extractArea(address: string): string {
-  const cities = [
-    'Scottsdale',
-    'Chandler',
-    'Gilbert',
-    'Tempe',
-    'Mesa',
-    'Glendale',
-    'Peoria',
-    'Surprise',
-    'Goodyear',
-    'Avondale',
-    'Cave Creek',
-    'Fountain Hills',
-    'Paradise Valley',
-  ]
-  for (const city of cities) {
-    if (address.includes(city)) return `${city}, AZ`
+  const parts = address
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+  if (parts.length >= 2) {
+    const city = parts[parts.length - 2]
+    if (city) return `${city}, AZ`
   }
-  return 'Phoenix, AZ'
+  return 'Arizona'
 }

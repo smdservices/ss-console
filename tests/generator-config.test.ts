@@ -14,14 +14,13 @@ describe('generator config validators', () => {
       expect(errors).toEqual([])
       expect(value.target_verticals.length).toBeGreaterThan(0)
       expect(value.soda_sources.length).toBe(5)
-      expect(value.revenue_range.min_usd).toBe(DEFAULTS.new_business.revenue_range.min_usd)
+      expect(value.geos).toEqual(DEFAULTS.new_business.geos)
     })
 
     it('accepts a valid full config', () => {
       const input = {
         target_verticals: ['home_services', 'healthcare'],
-        revenue_range: { min_usd: 1_000_000, max_usd: 5_000_000 },
-        geos: ['Phoenix metro, AZ'],
+        geos: ['Arizona'],
         soda_sources: [
           { city: 'phoenix', enabled: true },
           { city: 'mesa', enabled: false },
@@ -56,13 +55,6 @@ describe('generator config validators', () => {
       expect(value.soda_sources).toEqual([{ city: 'phoenix', enabled: true }])
     })
 
-    it('flags min > max on revenue range', () => {
-      const { errors } = validateNewBusiness({
-        revenue_range: { min_usd: 10_000_000, max_usd: 1_000_000 },
-      })
-      expect(errors).toContain('revenue_range: min_usd must be <= max_usd')
-    })
-
     it('fills missing fields with defaults and never errors on absent keys', () => {
       // Simulates the schema-evolution case: stored config written before
       // a new field existed. Validator must NOT error on the missing key.
@@ -70,7 +62,7 @@ describe('generator config validators', () => {
       const { value, errors } = validateNewBusiness(partial)
       expect(errors).toEqual([])
       expect(value.soda_sources.length).toBe(5)
-      expect(value.revenue_range).toEqual(DEFAULTS.new_business.revenue_range)
+      expect(value.geos).toEqual(DEFAULTS.new_business.geos)
     })
   })
 
@@ -106,8 +98,8 @@ describe('generator config validators', () => {
 
     it('accepts a valid review-mining config', () => {
       const { errors } = validateReviewMining({
-        discovery_queries: ['plumber Phoenix AZ'],
-        geo_center: { lat: 33.4484, lon: -112.074 },
+        discovery_queries: ['plumber Arizona'],
+        geo_center: { lat: 34.0, lon: -111.5 },
         geo_radius_km: 25,
       })
       expect(errors).toEqual([])

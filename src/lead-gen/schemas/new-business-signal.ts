@@ -3,7 +3,7 @@
  *
  * Defines the structured output contract for the new business qualification prompt.
  * When a new business filing (ACC), TPT license (ADOR), or commercial permit
- * (city SODA API) signals a growing or launching business in the Phoenix area,
+ * (city SODA API) signals a growing or launching business in Arizona,
  * the AI produces a NewBusinessQualification result matching this schema.
  *
  * @see docs/collateral/lead-automation-blueprint.md — Pipeline 3 architecture
@@ -82,12 +82,6 @@ export interface NewBusinessQualification {
    */
   outreach_timing: OutreachTiming
 
-  /**
-   * Suggested outreach angle — how to approach this new business.
-   * Written in "we" voice. Never mentions pricing or fixed timeframes.
-   */
-  outreach_angle: string
-
   /** Additional notes — reasoning, disqualification rationale, or context for the outreach team. */
   notes: string
 }
@@ -113,8 +107,14 @@ export interface NewBusinessInput {
   /** Which public record source this data came from. */
   source: NewBusinessSource
 
+  /** Whether the raw permit record appears to name the business or a filer/contractor. */
+  actor_role?: 'business' | 'contractor' | 'unknown'
+
   /** Permit type, for city permits (e.g., "Commercial TI", "New Construction", "Change of Use"). */
   permit_type?: string
+
+  /** Owner or applicant name when the permit feed exposes it. */
+  owner_name?: string
 
   /** Any additional data from the source (e.g., SIC code, NAICS, business description). */
   additional_data?: string

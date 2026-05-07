@@ -19,7 +19,6 @@ import {
   type NewBusinessConfig,
   type PipelineId,
   type ReviewMiningConfig,
-  type RevenueRange,
   type SocialListeningConfig,
   type SodaCity,
   type SodaSource,
@@ -53,24 +52,6 @@ function validateVerticals(raw: unknown, errors: string[]): string[] {
     }
   }
   return out.length > 0 ? out : [...DEFAULTS.new_business.target_verticals]
-}
-
-function validateRevenueRange(raw: unknown, errors: string[]): RevenueRange {
-  if (!isObject(raw)) {
-    if (raw !== undefined) errors.push('revenue_range must be an object')
-    return { ...DEFAULTS.new_business.revenue_range }
-  }
-  const min = typeof raw.min_usd === 'number' ? raw.min_usd : null
-  const max = typeof raw.max_usd === 'number' ? raw.max_usd : null
-  if (min === null) errors.push('revenue_range.min_usd must be a number')
-  if (max === null) errors.push('revenue_range.max_usd must be a number')
-  if (min !== null && max !== null && min > max) {
-    errors.push('revenue_range: min_usd must be <= max_usd')
-  }
-  return {
-    min_usd: min ?? DEFAULTS.new_business.revenue_range.min_usd,
-    max_usd: max ?? DEFAULTS.new_business.revenue_range.max_usd,
-  }
 }
 
 function validateStringArray(
@@ -125,7 +106,6 @@ export function validateNewBusiness(raw: unknown): ValidationResult<NewBusinessC
   return {
     value: {
       target_verticals: validateVerticals(obj.target_verticals, errors),
-      revenue_range: validateRevenueRange(obj.revenue_range, errors),
       geos: validateStringArray(obj.geos, 'geos', DEFAULTS.new_business.geos, errors),
       soda_sources: validateSodaSources(obj.soda_sources, errors),
     },
@@ -148,7 +128,6 @@ export function validateJobMonitor(raw: unknown): ValidationResult<JobMonitorCon
   return {
     value: {
       target_verticals: validateVerticals(obj.target_verticals, errors),
-      revenue_range: validateRevenueRange(obj.revenue_range, errors),
       geos: validateStringArray(obj.geos, 'geos', DEFAULTS.job_monitor.geos, errors),
       search_queries: queries.length > 0 ? queries : [...DEFAULTS.job_monitor.search_queries],
     },
@@ -201,7 +180,6 @@ export function validateReviewMining(raw: unknown): ValidationResult<ReviewMinin
   return {
     value: {
       target_verticals: validateVerticals(obj.target_verticals, errors),
-      revenue_range: validateRevenueRange(obj.revenue_range, errors),
       geos: validateStringArray(obj.geos, 'geos', DEFAULTS.review_mining.geos, errors),
       discovery_queries:
         queries.length > 0 ? queries : [...DEFAULTS.review_mining.discovery_queries],
@@ -227,7 +205,6 @@ export function validateSocialListening(raw: unknown): ValidationResult<SocialLi
   return {
     value: {
       target_verticals: validateVerticals(obj.target_verticals, errors),
-      revenue_range: validateRevenueRange(obj.revenue_range, errors),
       geos: validateStringArray(obj.geos, 'geos', DEFAULTS.social_listening.geos, errors),
       search_queries: queries.length > 0 ? queries : [...DEFAULTS.social_listening.search_queries],
     },

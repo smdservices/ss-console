@@ -183,6 +183,8 @@ describe('getPipelineSettings', () => {
     const db = makeMockD1(state)
     const settings = await getPipelineSettings(db, ORG, 'new_business')
     expect(settings.pain_threshold).toBe(1)
+    expect(settings.weekly_places_budget_usd).toBe(10.5)
+    expect(settings.dedup_fuzzy_threshold).toBe(0.92)
   })
 
   it('ignores unknown keys silently', async () => {
@@ -369,6 +371,23 @@ describe('updatePipelineSettings write path', () => {
     expect(res.changed).toBe(3)
     expect(state.upserts).toHaveLength(3)
     expect(state.audits).toHaveLength(3)
+  })
+
+  it('accepts the new new_business tuning keys', async () => {
+    const db = makeMockD1(state)
+    const res = await updatePipelineSettings(
+      db,
+      ORG,
+      'new_business',
+      [
+        { key: 'weekly_places_budget_usd', value: 15.5 },
+        { key: 'dedup_fuzzy_threshold', value: 0.94 },
+      ],
+      ACTOR
+    )
+    expect(res.ok).toBe(true)
+    expect(res.changed).toBe(2)
+    expect(state.upserts).toHaveLength(2)
   })
 })
 

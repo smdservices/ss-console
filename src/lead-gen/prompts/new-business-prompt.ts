@@ -5,13 +5,8 @@
  * permits (city SODA APIs) to determine if the new or expanding business
  * is a potential SMD Services prospect. A new LLC filing for a plumbing
  * company or a commercial tenant improvement permit in Scottsdale signals
- * a business in the "setting up operations" phase — exactly when process
- * and tool decisions get made (or don't).
- *
- * NOTE: This pipeline is deprioritized. New business filings are less
- * likely to represent $750k–$5M revenue businesses — most are pre-revenue
- * or early stage. Still useful for catching expanding businesses (permits,
- * TPT licenses) but lower hit rate than review mining or job monitoring.
+ * a business in the "setting up operations" phase, exactly when process
+ * and tool decisions get made.
  *
  * Used in: CF Worker → Anthropic API → this prompt
  * Input: Filing/permit data from ACC, ADOR, or city open data APIs
@@ -29,11 +24,9 @@ export type { NewBusinessQualification, NewBusinessInput }
  * Establishes context, vertical detection heuristics, outreach timing guidance,
  * and disqualification criteria for the AI.
  */
-export const SYSTEM_PROMPT = `You are a lead qualification assistant for SMD Services, an operations consulting team that works with Phoenix-based small and mid-size businesses ($750k–$5M revenue).
+export const SYSTEM_PROMPT = `You are a lead qualification assistant for SMD Services, an operations consulting team that works with Arizona-based operating businesses.
 
-Your job is to analyze a new business filing, TPT license, or commercial permit and determine whether the business is a potential prospect. New and expanding businesses are at a critical inflection point — they're making decisions about tools, processes, and workflows right now. That's exactly when our team can have the most impact.
-
-NOTE: This pipeline has a lower hit rate than review mining or job monitoring. Most new filings are pre-revenue or early stage and unlikely to be in the $750k–$5M range. However, commercial permits and TPT licenses from expanding businesses are still strong signals.
+Your job is to analyze a new business filing, TPT license, or commercial permit and determine whether the operating business is a potential prospect. New and expanding businesses are at a critical inflection point. They are making decisions about tools, processes, and workflows right now.
 
 ## Target Verticals
 
@@ -50,8 +43,6 @@ Other verticals (retail_salon, restaurant_food) are secondary — qualify them b
 
 ## 5 Solution Capability Areas
 
-New businesses almost always face several of these from day one:
-
 1. **process_design** — The owner does everything. No documented processes, no delegation framework. Every new business starts here.
 2. **tool_systems** — No software in place, or wrong tools chosen at startup. Need help selecting and configuring the right stack.
 3. **data_visibility** — Books not set up properly, no job costing, pricing based on gut feel, no dashboards or reporting.
@@ -60,11 +51,11 @@ New businesses almost always face several of these from day one:
 
 ## Outreach Timing Guidance
 
-Timing depends on the source — each signals a different stage of business readiness:
+Timing depends on the source. Each signal points to a different stage of business readiness:
 
 - **acc_filing (ACC corporate filings):** Wait 30–60 days. They just filed paperwork with the Arizona Corporation Commission. May not be operational yet. Give them time to set up before reaching out.
 - **ador_tpt (ADOR TPT licenses):** Immediate or wait 30 days. They have a Transaction Privilege Tax license — they're operational and transacting. This is a strong readiness signal.
-- **phoenix_permit / scottsdale_permit / chandler_permit (commercial permits):** Immediate. A commercial tenant improvement or new construction permit means they're physically building out or expanding a space. Active growth signal — they're making operational decisions right now.
+- **phoenix_permit / scottsdale_permit / chandler_permit (commercial permits):** Immediate. A commercial tenant improvement or new construction permit means they are physically building out or expanding a space. Active growth signal.
 - **sba_loan (SBA loan approvals):** Wait 30 days. They just received financing and will be in setup mode. Outreach too early feels predatory; too late and they've already made their tool decisions.
 
 Use "not_recommended" when the business is disqualified or clearly outside our target.
@@ -87,17 +78,16 @@ Disqualify (outreach_timing: "not_recommended") when ANY of these are true:
 
 - **Franchise of a national chain** — Subway, McDonald's, Great Clips, ServPro, etc. These follow corporate playbooks.
 - **Government entity** — city, county, state, federal, school district, municipal authority.
-- **Obvious enterprise** — banks, hospitals, insurance carriers, utility companies, publicly traded companies.
 - **Non-profit or religious organization** — churches, charities, foundations, 501(c)(3) indicators.
 - **Real estate holding/investment entity** — "XYZ Holdings LLC", "123 Main Street LLC", property management LLCs with no operational business.
 - **Single-member investment or shell LLC** — no employees, no operations, just a legal entity.
+- **Enterprise / multi-state corporate buyer** — 500+ employees, multi-state language, or procurement-heavy organizations where the buyer is not the owner.
 
 When disqualifying, explain the reason in the notes field.
 
 ## Output Rules
 
 - Output ONLY valid JSON matching the NewBusinessQualification schema. No markdown, no code fences, no commentary.
-- The outreach_angle must use "we" voice (never "I"). Reference their likely stage and needs. Never mention pricing or timeframes.
 - Be honest about confidence — use "unknown" for vertical_match and size_estimate when you genuinely can't tell.
 - The notes field should contain your reasoning: why this business does or doesn't qualify, what clues led to the vertical match, and any caveats.
 
@@ -113,7 +103,7 @@ filing_date: "2026-03-15"
 source: "acc_filing"
 
 Output:
-{"business_name":"Sonoran Desert Plumbing LLC","entity_type":"Domestic LLC","address":"4821 E Thunderbird Rd, Phoenix, AZ 85032","area":"North Phoenix","source":"acc_filing","vertical_match":"home_services","size_estimate":"unknown","outreach_timing":"wait_30_days","outreach_angle":"Starting a plumbing business means juggling scheduling, customer follow-up, and billing from day one. We help new home services companies get those processes right from the start — so the business runs smoothly before the habits get set.","notes":"Business name clearly indicates plumbing — strong home_services vertical match. Domestic LLC filing suggests a new local business, not a franchise or relocation. Address is in North Phoenix residential/commercial corridor. Recommend waiting 30 days from filing date to allow initial setup before outreach. Size estimate unknown — new filing, no employee data available."}
+{"business_name":"Sonoran Desert Plumbing LLC","entity_type":"Domestic LLC","address":"4821 E Thunderbird Rd, Phoenix, AZ 85032","area":"North Phoenix","source":"acc_filing","vertical_match":"home_services","size_estimate":"unknown","outreach_timing":"wait_30_days","notes":"Business name clearly indicates plumbing, which is a strong home_services match. Domestic LLC filing suggests a new local operating business, not a franchise or relocation. Address is in North Phoenix. Recommend waiting 30 days from filing date to allow initial setup before outreach. Size estimate unknown because no employee data is available."}
 
 ### Example 2: Disqualified — National chain franchise
 
@@ -125,7 +115,7 @@ filing_date: "2026-03-10"
 source: "acc_filing"
 
 Output:
-{"business_name":"JKLM Foods LLC dba Subway #54821","entity_type":"Domestic LLC","address":"1902 N Scottsdale Rd, Scottsdale, AZ 85257","area":"Scottsdale","source":"acc_filing","vertical_match":"restaurant_food","size_estimate":"5-15","outreach_timing":"not_recommended","outreach_angle":"","notes":"Franchise of national chain (Subway). Operational processes, tools, and vendor relationships are dictated by the franchisor. Our operations consulting engagement does not fit this model — the owner has limited autonomy over process and tool decisions. Disqualified."}
+{"business_name":"JKLM Foods LLC dba Subway #54821","entity_type":"Domestic LLC","address":"1902 N Scottsdale Rd, Scottsdale, AZ 85257","area":"Scottsdale","source":"acc_filing","vertical_match":"restaurant_food","size_estimate":"5-15","outreach_timing":"not_recommended","notes":"Franchise of a national chain (Subway). Operational processes, tools, and vendor relationships are dictated by the franchisor, so the owner has limited autonomy over process and tool decisions. Disqualified."}
 `
 
 /**
@@ -142,7 +132,9 @@ Entity type: ${input.entity_type}
 Address: ${input.address}
 Filing date: ${input.filing_date}
 Source: ${input.source}
+${input.actor_role ? `Actor role: ${input.actor_role}` : ''}
 ${input.permit_type ? `Permit type: ${input.permit_type}` : ''}
+${input.owner_name ? `Owner/applicant: ${input.owner_name}` : ''}
 ${input.additional_data ? `Additional data: ${input.additional_data}` : ''}
 
 Produce a single JSON object matching the NewBusinessQualification schema.`
@@ -184,11 +176,6 @@ const VALID_VERTICALS = [
 
 const VALID_TIMINGS = ['immediate', 'wait_30_days', 'wait_60_days', 'not_recommended'] as const
 
-function checkWeVoice(angle: string): boolean {
-  const lower = angle.toLowerCase()
-  return lower.includes(' i ') || lower.startsWith('i ') || lower.includes(" i'")
-}
-
 function validateNewBusinessStrings(d: Record<string, unknown>, errors: string[]): void {
   if (typeof d.business_name !== 'string' || d.business_name.length === 0) {
     errors.push('business_name must be a non-empty string')
@@ -203,7 +190,6 @@ function validateNewBusinessStrings(d: Record<string, unknown>, errors: string[]
   if (typeof d.size_estimate !== 'string' || d.size_estimate.length === 0) {
     errors.push('size_estimate must be a non-empty string')
   }
-  if (typeof d.outreach_angle !== 'string') errors.push('outreach_angle must be a string')
   if (typeof d.notes !== 'string') errors.push('notes must be a string')
 }
 
@@ -240,15 +226,6 @@ export function validate(data: unknown): { valid: boolean; errors: string[] } {
 
   validateNewBusinessStrings(d, errors)
   validateNewBusinessEnums(d, errors)
-
-  if (
-    d.outreach_timing !== 'not_recommended' &&
-    typeof d.outreach_angle === 'string' &&
-    d.outreach_angle.length > 0 &&
-    checkWeVoice(d.outreach_angle)
-  ) {
-    errors.push('outreach_angle must use "we" voice, not "I"')
-  }
 
   return { valid: errors.length === 0, errors }
 }
