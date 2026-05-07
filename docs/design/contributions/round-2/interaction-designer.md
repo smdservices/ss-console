@@ -40,16 +40,16 @@
 
 ### `smd.services` — Marketing (Public)
 
-| URL                    | Purpose                                                  | Primary Action       | PRD Feature                 | Status |
-| ---------------------- | -------------------------------------------------------- | -------------------- | --------------------------- | ------ |
-| `/`                    | Marketing home — credibility, positioning, guide-persona | Book assessment      | Pre-sales (supports §2)     | Exists |
-| `/get-started`         | Onboarding CTA / warm landing                            | Book assessment      | Pre-sales                   | Exists |
+| URL                    | Purpose                                                  | Primary Action       | PRD Feature                 | Status                                                   |
+| ---------------------- | -------------------------------------------------------- | -------------------- | --------------------------- | -------------------------------------------------------- |
+| `/`                    | Marketing home — credibility, positioning, guide-persona | Book assessment      | Pre-sales (supports §2)     | Exists                                                   |
+| `/get-started`         | Onboarding CTA / warm landing                            | Book assessment      | Pre-sales                   | Exists                                                   |
 | `/scorecard`           | Self-serve assessment wizard                             | Complete & book      | Pre-sales                   | Retired (301 → /) — public route retired in PR #702/#703 |
-| `/book`                | Assessment booking form                                  | Confirm booking      | Pre-sales / US-001 upstream | Exists |
-| `/book/manage/[token]` | Booking management via email token (reschedule/cancel)   | Reschedule or cancel | US-001 upstream             | Exists |
-| `/book/manage/`        | Fallback when no token                                   | Book a call instead  | —                           | Exists |
-| `/contact`             | General inquiry form                                     | Submit inquiry       | Pre-sales                   | Exists |
-| `/404`                 | Not-found, subdomain-aware                               | Back to home         | —                           | Exists |
+| `/book`                | Assessment booking form                                  | Confirm booking      | Pre-sales / US-001 upstream | Exists                                                   |
+| `/book/manage/[token]` | Booking management via email token (reschedule/cancel)   | Reschedule or cancel | US-001 upstream             | Exists                                                   |
+| `/book/manage/`        | Fallback when no token                                   | Book a call instead  | —                           | Exists                                                   |
+| `/contact`             | General inquiry form                                     | Submit inquiry       | Pre-sales                   | Exists                                                   |
+| `/404`                 | Not-found, subdomain-aware                               | Back to home         | —                           | Exists                                                   |
 
 Auth entry points (on `smd.services` domain, redirect to subdomain sessions):
 

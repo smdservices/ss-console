@@ -507,15 +507,15 @@ No illustration anywhere. Empty states render nothing or a "TBD in SOW" marker �
 
 ### 5.1 `smd.services` — Marketing (Public)
 
-| URL                    | Purpose               | Primary Action       | Status |
-| ---------------------- | --------------------- | -------------------- | ------ |
-| `/`                    | Marketing home        | Book assessment      | Exists |
-| `/get-started`         | Warm landing          | Book assessment      | Exists |
+| URL                    | Purpose               | Primary Action       | Status                                                                                                              |
+| ---------------------- | --------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `/`                    | Marketing home        | Book assessment      | Exists                                                                                                              |
+| `/get-started`         | Warm landing          | Book assessment      | Exists                                                                                                              |
 | `/scorecard`           | Self-serve assessment | Complete & book      | Retired (301 → /) — public route retired in PR #702/#703; `POST /api/scorecard/submit` remains as internal endpoint |
-| `/book`                | Booking form          | Confirm booking      | Exists |
-| `/book/manage/[token]` | Booking management    | Reschedule or cancel | Exists |
-| `/contact`             | General inquiry       | Submit inquiry       | Exists |
-| `/404`                 | Not-found             | Back to home         | Exists |
+| `/book`                | Booking form          | Confirm booking      | Exists                                                                                                              |
+| `/book/manage/[token]` | Booking management    | Reschedule or cancel | Exists                                                                                                              |
+| `/contact`             | General inquiry       | Submit inquiry       | Exists                                                                                                              |
+| `/404`                 | Not-found             | Back to home         | Exists                                                                                                              |
 
 **Auth entry points:**
 
