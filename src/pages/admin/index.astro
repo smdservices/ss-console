@@ -1,5 +1,10 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro'
+import DashboardTodaysWork from '../../components/admin/DashboardTodaysWork.astro'
+import DashboardPipeline from '../../components/admin/DashboardPipeline.astro'
+import DashboardRevenue from '../../components/admin/DashboardRevenue.astro'
+import DashboardFollowUpHealth from '../../components/admin/DashboardFollowUpHealth.astro'
+import DashboardAutomations from '../../components/admin/DashboardAutomations.astro'
 import { listFollowUps } from '../../lib/db/follow-ups'
 import {
   getPipelineConversion,
@@ -18,13 +23,14 @@ import { env } from 'cloudflare:workers'
  * Operator dashboard — single pane of glass.
  *
  * Five server-rendered cards. No dynamic JS. Fast load.
+ * This page orchestrates data fetching and composes the cards;
+ * each card lives in its own component under src/components/admin/.
  */
 
 const session = Astro.locals.session!
 const now = new Date()
 const todayStr = now.toISOString().split('T')[0]
 
-// Parallel queries — everything the dashboard needs in one Promise.all
 const [
   overdueFollowUps,
   upcomingFollowUps,
@@ -71,21 +77,12 @@ const [
     .first<{ sync_errors: number; stuck: number }>(),
 ])
 
-// Today's work
 const todayAssessments = allAssessments.filter((a) => {
   return a.status === 'scheduled' && a.scheduled_at?.startsWith(todayStr)
 })
 const overdueCount = overdueFollowUps.length
 const signalCount = signals.length
 
-// Pipeline
-// Olive discipline (brief §4.5): admin operational state never uses
-// --ss-color-complete (olive). Olive is reserved for four client-facing
-// hero events on the portal (engagement complete, quote signed, deposit
-// paid, completion invoice paid) and never appears on this dashboard.
-// Single-accent discipline (design-spec §4.6): active stages take the
-// accent; terminal stages take ink; inactive early stages take secondary
-// ink.
 const pipelineStages = [
   { label: 'Signals', count: signalCount, stage: 'signal', tone: 'meta' },
   { label: 'Prospects', count: pipeline.prospect, stage: 'prospect', tone: 'meta' },
@@ -94,35 +91,24 @@ const pipelineStages = [
   { label: 'Engaged', count: pipeline.engaged, stage: 'engaged', tone: 'ink' },
   { label: 'Delivered', count: pipeline.delivered, stage: 'delivered', tone: 'ink' },
 ] as const
-
-const STAGE_FILL: Record<(typeof pipelineStages)[number]['tone'], string> = {
-  meta: 'bg-[color:var(--ss-color-text-secondary)]',
-  primary: 'bg-[color:var(--ss-color-primary)]',
-  ink: 'bg-[color:var(--ss-color-text-primary)]',
-}
 const totalPipeline = pipelineStages.reduce((sum, s) => sum + s.count, 0)
 
-// Engagements
 const activeEngagements = allEngagements.filter(
   (e) => e.status === 'active' || e.status === 'scheduled' || e.status === 'handoff'
 )
-
-// Revenue
 const outstandingTotal = outstandingInvoices.reduce((sum, inv) => sum + (inv.amount ?? 0), 0)
 
-// Automations health
-const calStatus = googleIntegration?.status ?? null // null = not connected, or 'active'/'error'/'revoked'
+const calStatus = googleIntegration?.status ?? null
 const calEmail = googleIntegration?.account_email ?? null
 const calError = googleIntegration?.last_error ?? null
 const syncErrors = bookingSyncHealth?.sync_errors ?? 0
 const syncStuck = bookingSyncHealth?.stuck ?? 0
 
-// Pipeline freshness — thresholds in hours
 const PIPELINE_THRESHOLDS: Record<string, { warn: number; critical: number; label: string }> = {
   job_monitor: { warn: 36, critical: 72, label: 'Job Posting Monitor' },
-  review_mining: { warn: 216, critical: 336, label: 'Review Mining' }, // 9d / 14d
+  review_mining: { warn: 216, critical: 336, label: 'Review Mining' },
   new_business: { warn: 36, critical: 72, label: 'New Business Detection' },
-  social_listening: { warn: 168, critical: 336, label: 'Social Listening' }, // 7d / 14d
+  social_listening: { warn: 168, critical: 336, label: 'Social Listening' },
   website_scorecard: { warn: 168, critical: 336, label: 'Website Scorecard' },
   website_booking: { warn: 168, critical: 336, label: 'Website Booking' },
   website_intake: { warn: 168, critical: 336, label: 'Website Intake' },
@@ -147,7 +133,6 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
     label: r.source_pipeline.replace(/_/g, ' '),
   }
   const h = hoursAgo(r.last_signal)
-  // Operational freshness — fresh = ink (not olive, per brief §4.5).
   const color =
     h < thresholds.warn
       ? 'bg-[color:var(--ss-color-text-primary)]'
@@ -160,382 +145,39 @@ const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
 
 <AdminLayout title="Dashboard — SMD Services" maxWidth="max-w-6xl">
   <div class="space-y-card">
-    <!-- Card 1: Today's Work -->
-    <section
-      class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card"
-    >
-      <h2 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-4">
-        Today's Work
-      </h2>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-stack">
-        <a
-          href="/admin/entities?stage=signal"
-          class="flex items-center gap-row p-row rounded-[var(--ss-radius-card)] hover:bg-[color:var(--ss-color-background)] transition-colors"
-        >
-          <div
-            class:list={[
-              'w-10 h-10 rounded-[var(--ss-radius-card)] flex items-center justify-center text-sm font-semibold',
-              signalCount > 0
-                ? 'bg-[color:var(--ss-color-attention)] text-white'
-                : 'bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-muted)]',
-            ]}
-          >
-            {signalCount}
-          </div>
-          <div>
-            <div class="text-sm font-medium text-[color:var(--ss-color-text-primary)]">
-              Signals to triage
-            </div>
-            <div class="text-xs text-[color:var(--ss-color-text-secondary)]">
-              Promote or dismiss
-            </div>
-          </div>
-        </a>
+    <DashboardTodaysWork
+      signalCount={signalCount}
+      todayAssessments={todayAssessments}
+      overdueCount={overdueCount}
+    />
 
-        <div class="flex items-center gap-row p-row rounded-[var(--ss-radius-card)]">
-          <div
-            class:list={[
-              'w-10 h-10 rounded-[var(--ss-radius-card)] flex items-center justify-center text-sm font-semibold',
-              todayAssessments.length > 0
-                ? 'bg-[color:var(--ss-color-primary)] text-white'
-                : 'bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-muted)]',
-            ]}
-          >
-            {todayAssessments.length}
-          </div>
-          <div>
-            <div class="text-sm font-medium text-[color:var(--ss-color-text-primary)]">
-              Assessments today
-            </div>
-            <div class="text-xs text-[color:var(--ss-color-text-secondary)]">
-              {
-                todayAssessments.length > 0
-                  ? todayAssessments
-                      .map((a) => {
-                        const time = a.scheduled_at
-                          ? new Date(a.scheduled_at).toLocaleTimeString('en-US', {
-                              hour: 'numeric',
-                              minute: '2-digit',
-                            })
-                          : ''
-                        return time
-                      })
-                      .join(', ')
-                  : 'None scheduled'
-              }
-            </div>
-          </div>
-        </div>
-
-        <a
-          href="/admin/follow-ups?filter=overdue"
-          class="flex items-center gap-row p-row rounded-[var(--ss-radius-card)] hover:bg-[color:var(--ss-color-background)] transition-colors"
-        >
-          <div
-            class:list={[
-              'w-10 h-10 rounded-[var(--ss-radius-card)] flex items-center justify-center text-sm font-semibold',
-              overdueCount > 0
-                ? 'bg-[color:var(--ss-color-error)] text-white'
-                : 'bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-muted)]',
-            ]}
-          >
-            {overdueCount}
-          </div>
-          <div>
-            <div class="text-sm font-medium text-[color:var(--ss-color-text-primary)]">
-              Overdue follow-ups
-            </div>
-            <div class="text-xs text-[color:var(--ss-color-text-secondary)]">
-              {overdueCount > 0 ? 'Needs attention' : 'All clear'}
-            </div>
-          </div>
-        </a>
-      </div>
-    </section>
-
-    <!-- Card 2: Pipeline State -->
-    <section
-      class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card"
-    >
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-base font-semibold text-[color:var(--ss-color-text-primary)]">Pipeline</h2>
-        <a
-          href="/admin/entities"
-          class="text-xs text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)]"
-          >{totalPipeline} total</a
-        >
-      </div>
-
-      <!-- Funnel bar -->
-      {
-        totalPipeline > 0 && (
-          <div class="flex h-3 overflow-hidden mb-4 bg-[color:var(--ss-color-border-subtle)]">
-            {pipelineStages.map((s) =>
-              s.count > 0 ? (
-                <div
-                  class={STAGE_FILL[s.tone]}
-                  style={`width: ${(s.count / totalPipeline) * 100}%`}
-                  title={`${s.label}: ${s.count}`}
-                />
-              ) : null
-            )}
-          </div>
-        )
-      }
-
-      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-row">
-        {
-          pipelineStages.map((s) => (
-            <a
-              href={`/admin/entities?stage=${s.stage}`}
-              class="text-center p-2 rounded-[var(--ss-radius-card)] hover:bg-[color:var(--ss-color-background)] transition-colors"
-            >
-              <div
-                class:list={[
-                  'text-2xl font-bold',
-                  s.count > 0
-                    ? 'text-[color:var(--ss-color-text-primary)]'
-                    : 'text-[color:var(--ss-color-text-muted)]',
-                ]}
-              >
-                {s.count}
-              </div>
-              <div class="text-xs text-[color:var(--ss-color-text-secondary)]">{s.label}</div>
-            </a>
-          ))
-        }
-      </div>
-
-      {
-        pipeline.lost > 0 && (
-          <div class="mt-3 pt-3 border-t border-[color:var(--ss-color-border-subtle)] text-center">
-            <a
-              href="/admin/entities?stage=lost"
-              class="text-xs text-[color:var(--ss-color-text-muted)] hover:text-[color:var(--ss-color-text-secondary)]"
-            >
-              {pipeline.lost} lost
-            </a>
-          </div>
-        )
-      }
-    </section>
+    <DashboardPipeline
+      pipelineStages={pipelineStages}
+      totalPipeline={totalPipeline}
+      pipeline={pipeline}
+    />
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-card">
-      <!-- Card 3: Revenue -->
-      <section
-        class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card"
-      >
-        <h2 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-4">
-          Revenue
-        </h2>
-        <div class="space-y-row">
-          <div class="flex justify-between items-baseline">
-            <span class="text-sm text-[color:var(--ss-color-text-secondary)]">Invoiced</span>
-            <span class="text-lg font-semibold text-[color:var(--ss-color-text-primary)]">
-              ${revenue.total_invoiced.toLocaleString('en-US', { minimumFractionDigits: 0 })}
-            </span>
-          </div>
-          <div class="flex justify-between items-baseline">
-            <span class="text-sm text-[color:var(--ss-color-text-secondary)]">Paid</span>
-            <span class="text-lg font-semibold text-[color:var(--ss-color-text-primary)]">
-              ${revenue.total_paid.toLocaleString('en-US', { minimumFractionDigits: 0 })}
-            </span>
-          </div>
-          <div class="flex justify-between items-baseline">
-            <span class="text-sm text-[color:var(--ss-color-text-secondary)]">Outstanding</span>
-            <span
-              class:list={[
-                'text-lg font-semibold',
-                outstandingTotal > 0
-                  ? 'text-[color:var(--ss-color-attention)]'
-                  : 'text-[color:var(--ss-color-text-muted)]',
-              ]}
-            >
-              ${outstandingTotal.toLocaleString('en-US', { minimumFractionDigits: 0 })}
-            </span>
-          </div>
+      <DashboardRevenue
+        revenue={revenue}
+        outstandingTotal={outstandingTotal}
+        activeEngagementsCount={activeEngagements.length}
+        health={health}
+      />
 
-          <div class="pt-3 border-t border-[color:var(--ss-color-border-subtle)]">
-            <div class="flex justify-between items-baseline">
-              <span class="text-sm text-[color:var(--ss-color-text-secondary)]"
-                >Active engagements</span
-              >
-              <span class="text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-                >{activeEngagements.length}</span
-              >
-            </div>
-            {
-              health.avg_days_to_completion > 0 && (
-                <div class="flex justify-between items-baseline mt-1">
-                  <span class="text-sm text-[color:var(--ss-color-text-secondary)]">
-                    Avg completion
-                  </span>
-                  <span class="text-sm font-medium text-[color:var(--ss-color-text-primary)]">
-                    {health.avg_days_to_completion} days
-                  </span>
-                </div>
-              )
-            }
-          </div>
-        </div>
-      </section>
-
-      <!-- Card 4: Follow-up Health -->
-      <section
-        class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card"
-      >
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-base font-semibold text-[color:var(--ss-color-text-primary)]">
-            Follow-up Health
-          </h2>
-          <a
-            href="/admin/follow-ups"
-            class="text-xs text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)]"
-            >View all</a
-          >
-        </div>
-        <div class="space-y-row">
-          <div class="flex justify-between items-baseline">
-            <span class="text-sm text-[color:var(--ss-color-text-secondary)]">On-time rate</span>
-            <span
-              class:list={[
-                'text-lg font-semibold',
-                compliance.compliance_pct >= 80
-                  ? 'text-[color:var(--ss-color-text-primary)]'
-                  : compliance.compliance_pct >= 50
-                    ? 'text-[color:var(--ss-color-attention)]'
-                    : 'text-[color:var(--ss-color-error)]',
-              ]}
-            >
-              {compliance.compliance_pct}%
-            </span>
-          </div>
-          <div class="flex justify-between items-baseline">
-            <span class="text-sm text-[color:var(--ss-color-text-secondary)]">Sent on time</span>
-            <span class="text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-              >{compliance.completed_on_time}</span
-            >
-          </div>
-          <div class="flex justify-between items-baseline">
-            <span class="text-sm text-[color:var(--ss-color-text-secondary)]">Sent late</span>
-            <span
-              class:list={[
-                'text-sm font-medium',
-                compliance.completed_late > 0
-                  ? 'text-[color:var(--ss-color-attention)]'
-                  : 'text-[color:var(--ss-color-text-primary)]',
-              ]}
-            >
-              {compliance.completed_late}
-            </span>
-          </div>
-          <div class="flex justify-between items-baseline">
-            <span class="text-sm text-[color:var(--ss-color-text-secondary)]">Missed</span>
-            <span
-              class:list={[
-                'text-sm font-medium',
-                compliance.missed > 0
-                  ? 'text-[color:var(--ss-color-error)]'
-                  : 'text-[color:var(--ss-color-text-primary)]',
-              ]}
-            >
-              {compliance.missed}
-            </span>
-          </div>
-
-          <div class="pt-3 border-t border-[color:var(--ss-color-border-subtle)]">
-            <div class="flex justify-between items-baseline">
-              <span class="text-sm text-[color:var(--ss-color-text-secondary)]">Upcoming</span>
-              <span class="text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-                >{upcomingFollowUps.length} scheduled</span
-              >
-            </div>
-          </div>
-        </div>
-      </section>
+      <DashboardFollowUpHealth
+        compliance={compliance}
+        upcomingFollowUpsCount={upcomingFollowUps.length}
+      />
     </div>
 
-    <!-- Card 5: Automations -->
-    <section
-      class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card"
-    >
-      <h2 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-4">
-        Automations
-      </h2>
-      <div class="divide-y divide-[color:var(--ss-color-border-subtle)]">
-        <!-- Google Calendar -->
-        <div class="flex items-center justify-between py-2">
-          <div class="flex items-center gap-2">
-            <div
-              class:list={[
-                'w-2 h-2 rounded-full',
-                calStatus === 'active'
-                  ? 'bg-[color:var(--ss-color-text-primary)]'
-                  : calStatus === 'error' || calStatus === 'revoked'
-                    ? 'bg-[color:var(--ss-color-error)]'
-                    : 'bg-[color:var(--ss-color-border)]',
-              ]}
-            >
-            </div>
-            <span class="text-sm text-[color:var(--ss-color-text-secondary)]">Google Calendar</span>
-          </div>
-          <span
-            class:list={[
-              'text-xs',
-              calStatus === 'error' || calStatus === 'revoked'
-                ? 'text-[color:var(--ss-color-error)]'
-                : 'text-[color:var(--ss-color-text-muted)]',
-            ]}
-          >
-            {
-              calStatus === 'active'
-                ? calEmail
-                : calStatus === 'error'
-                  ? (calError?.slice(0, 40) ?? 'Error')
-                  : calStatus === 'revoked'
-                    ? 'Reconnect required'
-                    : 'Not connected'
-            }
-          </span>
-        </div>
-
-        {/* Booking sync warnings */}
-        {
-          (syncErrors > 0 || syncStuck > 0) && (
-            <div class="py-2 pl-4">
-              {syncErrors > 0 && (
-                <p class="text-xs text-[color:var(--ss-color-error)]">
-                  {syncErrors} booking{syncErrors === 1 ? '' : 's'} failed to sync
-                </p>
-              )}
-              {syncStuck > 0 && (
-                <p class="text-xs text-[color:var(--ss-color-attention)]">
-                  {syncStuck} booking{syncStuck === 1 ? '' : 's'} stuck pending
-                </p>
-              )}
-            </div>
-          )
-        }
-
-        <!-- Lead Pipelines -->
-        {
-          pipelineRows.length > 0 ? (
-            pipelineRows.map((p) => (
-              <div class="flex items-center justify-between py-2">
-                <div class="flex items-center gap-2">
-                  <div class:list={['w-2 h-2 rounded-full', p.color]} />
-                  <span class="text-sm text-[color:var(--ss-color-text-secondary)]">{p.label}</span>
-                </div>
-                <span class="text-xs text-[color:var(--ss-color-text-muted)]">{p.ago}</span>
-              </div>
-            ))
-          ) : (
-            <div class="py-2 text-xs text-[color:var(--ss-color-text-muted)]">
-              No pipeline data yet
-            </div>
-          )
-        }
-      </div>
-    </section>
+    <DashboardAutomations
+      calStatus={calStatus}
+      calEmail={calEmail}
+      calError={calError}
+      syncErrors={syncErrors}
+      syncStuck={syncStuck}
+      pipelineRows={pipelineRows}
+    />
   </div>
 </AdminLayout>
