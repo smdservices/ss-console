@@ -161,8 +161,9 @@ const sl = configRow.config as SocialListeningConfig
           name="search_queries"
           rows="8"
           class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm font-mono"
-          >{jm.search_queries.join('\n')}</textarea
         >
+          {jm.search_queries.join('\n')}
+        </textarea>
       </div>
     )
   }
@@ -183,8 +184,9 @@ const sl = configRow.config as SocialListeningConfig
             name="discovery_queries"
             rows="10"
             class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm font-mono"
-            >{rm.discovery_queries.join('\n')}</textarea
           >
+            {rm.discovery_queries.join('\n')}
+          </textarea>
         </div>
         <div>
           <label class="text-sm font-medium text-[color:var(--ss-color-text-primary)] block mb-1">
@@ -272,8 +274,9 @@ const sl = configRow.config as SocialListeningConfig
           name="search_queries"
           rows="5"
           class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm font-mono"
-          >{sl.search_queries.join('\n')}</textarea
         >
+          {sl.search_queries.join('\n')}
+        </textarea>
       </div>
     )
   }
