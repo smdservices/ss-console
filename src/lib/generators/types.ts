@@ -23,11 +23,6 @@ export type PipelineId = (typeof PIPELINE_IDS)[number]
 // Common fields
 // ---------------------------------------------------------------------------
 
-export interface RevenueRange {
-  min_usd: number
-  max_usd: number
-}
-
 // Canonical verticals (mirror of extraction-schema.VERTICALS).
 export const VERTICALS = [
   'home_services',
@@ -56,21 +51,18 @@ export interface SodaSource {
 
 export interface NewBusinessConfig {
   target_verticals: string[]
-  revenue_range: RevenueRange
   geos: string[]
   soda_sources: SodaSource[]
 }
 
 export interface JobMonitorConfig {
   target_verticals: string[]
-  revenue_range: RevenueRange
   geos: string[]
   search_queries: string[]
 }
 
 export interface ReviewMiningConfig {
   target_verticals: string[]
-  revenue_range: RevenueRange
   geos: string[]
   discovery_queries: string[]
   geo_center: { lat: number; lon: number }
@@ -79,7 +71,6 @@ export interface ReviewMiningConfig {
 
 export interface SocialListeningConfig {
   target_verticals: string[]
-  revenue_range: RevenueRange
   geos: string[]
   search_queries: string[]
 }
@@ -94,11 +85,6 @@ export type PipelineConfig =
 // Defaults — mirror current hardcoded worker values
 // ---------------------------------------------------------------------------
 
-export const DEFAULT_REVENUE_RANGE: RevenueRange = {
-  min_usd: 750_000,
-  max_usd: 10_000_000,
-}
-
 export const DEFAULT_VERTICALS: string[] = [
   'home_services',
   'professional_services',
@@ -110,12 +96,11 @@ export const DEFAULT_VERTICALS: string[] = [
   'restaurant_food',
 ]
 
-export const DEFAULT_GEOS: string[] = ['Phoenix metro, AZ']
+export const DEFAULT_GEOS: string[] = ['Arizona']
 
 export const DEFAULTS = {
   new_business: {
     target_verticals: DEFAULT_VERTICALS,
-    revenue_range: DEFAULT_REVENUE_RANGE,
     geos: DEFAULT_GEOS,
     soda_sources: [
       { city: 'phoenix', enabled: true },
@@ -128,7 +113,6 @@ export const DEFAULTS = {
 
   job_monitor: {
     target_verticals: DEFAULT_VERTICALS,
-    revenue_range: DEFAULT_REVENUE_RANGE,
     geos: DEFAULT_GEOS,
     search_queries: [
       'office manager',
@@ -148,37 +132,36 @@ export const DEFAULTS = {
 
   review_mining: {
     target_verticals: DEFAULT_VERTICALS,
-    revenue_range: DEFAULT_REVENUE_RANGE,
     geos: DEFAULT_GEOS,
     discovery_queries: [
-      'plumber Phoenix AZ',
-      'HVAC contractor Phoenix AZ',
-      'electrician Phoenix AZ',
-      'landscaping company Scottsdale AZ',
-      'auto repair shop Phoenix AZ',
-      'dental office Phoenix AZ',
-      'accounting firm Scottsdale AZ',
-      'law firm Phoenix AZ',
-      'cleaning service Phoenix AZ',
-      'roofing contractor Phoenix AZ',
-      'pest control Phoenix AZ',
-      'moving company Phoenix AZ',
-      'veterinary clinic Phoenix AZ',
-      'physical therapy Phoenix AZ',
+      'plumber Arizona',
+      'HVAC contractor Arizona',
+      'electrician Arizona',
+      'commercial electrical contractor Arizona',
+      'machine shop Arizona',
+      'managed IT services Arizona',
+      'marketing agency Arizona',
+      'landscaping company Arizona',
+      'auto repair shop Arizona',
+      'dental office Arizona',
+      'accounting firm Arizona',
+      'law firm Arizona',
+      'cleaning service Arizona',
+      'roofing contractor Arizona',
+      'physical therapy Arizona',
     ],
-    geo_center: { lat: 33.4484, lon: -112.074 },
-    geo_radius_km: 50,
+    geo_center: { lat: 34.0, lon: -111.5 },
+    geo_radius_km: 425,
   } satisfies ReviewMiningConfig,
 
   social_listening: {
     target_verticals: DEFAULT_VERTICALS,
-    revenue_range: DEFAULT_REVENUE_RANGE,
     geos: DEFAULT_GEOS,
     search_queries: [
-      'small business Phoenix operations',
+      'Arizona small business operations',
       'business owner overwhelmed scheduling',
       'CRM recommendation small business',
-      'hiring office manager Phoenix',
+      'hiring office manager Arizona',
       'small business spreadsheet chaos',
     ],
   } satisfies SocialListeningConfig,

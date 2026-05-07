@@ -104,6 +104,22 @@ export const SETTING_SPECS: Record<PipelineId, Record<string, SettingSpec>> = {
       label: 'Pain threshold',
       help: 'Minimum derived score for a permit to qualify (0-10). Score is derived from Claude outreach_timing: immediate=10, wait_30_days=7, wait_60_days=5, not_recommended=0. Default 1 preserves prior behavior (skip only not_recommended).',
     },
+    weekly_places_budget_usd: {
+      type: 'float',
+      default: 10.5,
+      min: 0.0,
+      max: 250.0,
+      label: 'Weekly Places budget (USD)',
+      help: 'Budget guard for reverse-address Google Places lookups during permit recovery. Fresh API calls stop when projected weekly spend would exceed this cap.',
+    },
+    dedup_fuzzy_threshold: {
+      type: 'float',
+      default: 0.92,
+      min: 0.8,
+      max: 0.99,
+      label: 'Dedup fuzzy threshold',
+      help: 'Jaro-Winkler threshold for logging near-miss entity duplicates in the candidate merge audit trail.',
+    },
   },
   social_listening: {},
 }
@@ -124,6 +140,8 @@ export interface JobMonitorSettings {
 
 export interface NewBusinessSettings {
   pain_threshold: number
+  weekly_places_budget_usd: number
+  dedup_fuzzy_threshold: number
 }
 
 // Reserved — no tunables yet for social_listening.

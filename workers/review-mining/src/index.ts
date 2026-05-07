@@ -1,14 +1,9 @@
 /**
  * Review Mining Worker — Pipeline 1
  *
- * Cloudflare Worker cron job that discovers Phoenix-area businesses via
- * Google Places, fetches recent reviews via Outscraper, scores them with
- * Claude for operational pain signals, and writes high-scoring leads to D1.
- *
- * Schedule: Weekly on Monday at 8:00 AM MST (15:00 UTC)
- * Trigger: Also via POST /run with Authorization: Bearer <LEAD_INGEST_API_KEY>
- * Flow: Google Places discovery → Outscraper reviews → D1 dedup → Claude score → filter pain >= 7 → D1 write
- * Threshold: pain_score >= 7 qualifies for the Lead Inbox
+ * Discovers Arizona businesses via Google Places, filters out closed
+ * businesses and likely chains, scores recent reviews for operational pain,
+ * and writes factual review signals to D1.
  */
 
 import { ORG_ID } from '../../../src/lib/constants.js'
@@ -23,16 +18,7 @@ import { scoreReviews } from './qualify.js'
 import { sendFailureAlert, type RunSummary } from './alert.js'
 import type { DiscoveredBusiness, BusinessWithReviews, GeoBias } from './outscraper.js'
 
-// Per-business Outscraper cost. Reviews extraction is ~$3 per 1,000 place_ids
-// queried regardless of how many reviews come back. Source:
-// docs/lead-automation/specs/outscraper-queries.md ("Outscraper Pricing").
 const OUTSCRAPER_USD_PER_PLACE = 0.003
-
-// Pain threshold + per-run cap + Outscraper budget guard now read from the
-// `pipeline_settings` table at the top of every run (issue #595). Defaults
-// in `src/lib/db/pipeline-settings.ts` match the constants that previously
-// shipped here (pain=7, cap=200, budget=$1.00) so the deploy is a no-op
-// until ops explicitly tunes a value via the admin UI.
 
 export interface Env {
   DB: D1Database
@@ -41,11 +27,34 @@ export interface Env {
   ANTHROPIC_API_KEY: string
   RESEND_API_KEY: string
   LEAD_INGEST_API_KEY: string
-  // Optional keys used by the at-ingest enrichment pipeline.
   SERPAPI_API_KEY?: string
   PROXYCURL_API_KEY?: string
-  /** Service binding to ss-enrichment-workflow Worker (#631). */
   ENRICHMENT_WORKFLOW_SERVICE?: { fetch: typeof fetch }
+}
+
+function toErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function queueEnrichment(
+  env: Pick<Env, 'DB' | 'ENRICHMENT_WORKFLOW_SERVICE'>,
+  ctx: ExecutionContext | undefined,
+  entityId: string
+): void {
+  if (!ctx) return
+  ctx.waitUntil(
+    dispatchEnrichmentWorkflow(env, {
+      entityId,
+      orgId: ORG_ID,
+      mode: 'full',
+      triggered_by: 'cron:review-mining',
+    }).catch((error: unknown) => {
+      console.error('[review_mining] enrichment dispatch failed', {
+        entityId,
+        error: toErrorMessage(error),
+      })
+    })
+  )
 }
 
 async function discoverAllBusinesses(
@@ -60,10 +69,10 @@ async function discoverAllBusinesses(
     summary.queries++
     try {
       const businesses = await discoverBusinesses(query, apiKey, geoBias)
-      for (const b of businesses) {
-        if (!seen.has(b.place_id)) {
-          seen.add(b.place_id)
-          all.push(b)
+      for (const business of businesses) {
+        if (!seen.has(business.place_id)) {
+          seen.add(business.place_id)
+          all.push(business)
         }
       }
     } catch (err) {
@@ -82,20 +91,19 @@ async function fetchAllReviews(
   budgetUsd: number,
   summary: RunSummary
 ): Promise<BusinessWithReviews[]> {
-  const BATCH_SIZE = 10
+  const batchSize = 10
   const withReviews: BusinessWithReviews[] = []
-  for (let i = 0; i < businesses.length; i += BATCH_SIZE) {
-    const batch = businesses.slice(i, i + BATCH_SIZE)
+  for (let i = 0; i < businesses.length; i += batchSize) {
+    const batch = businesses.slice(i, i + batchSize)
     const projected = summary.outscraperSpendUsd + batch.length * OUTSCRAPER_USD_PER_PLACE
     if (projected > budgetUsd) {
       summary.budgetGuardTripped = true
       console.warn(
-        `Outscraper budget guard: projected $${projected.toFixed(2)} would exceed ` +
-          `$${budgetUsd.toFixed(2)}. Stopping after ${summary.reviewChecksAttempted} of ` +
-          `${businesses.length} businesses.`
+        `Outscraper budget guard: projected $${projected.toFixed(2)} would exceed $${budgetUsd.toFixed(2)}.`
       )
       break
     }
+
     summary.reviewChecksAttempted += batch.length
     summary.outscraperSpendUsd += batch.length * OUTSCRAPER_USD_PER_PLACE
     try {
@@ -113,15 +121,14 @@ async function fetchAllReviews(
 
 function buildReviewContent(scoring: Awaited<ReturnType<typeof scoreReviews>>): string {
   if (!scoring) return 'Signal from review_mining.'
-  const evidenceSummary = scoring.signals.map((s) => `${s.problem_id}: "${s.quote}"`).join(' | ')
-  const parts: string[] = []
-  if (evidenceSummary) parts.push(evidenceSummary)
-  if (scoring.outreach_angle) parts.push(`**Outreach angle:** ${scoring.outreach_angle}`)
-  return parts.join('\n\n') || 'Signal from review_mining.'
+  const evidenceSummary = scoring.signals
+    .map((signal) => `${signal.problem_id}: "${signal.quote}"`)
+    .join(' | ')
+  return evidenceSummary || 'Signal from review_mining.'
 }
 
 function buildReviewMetadata(
-  business: DiscoveredBusiness,
+  business: BusinessWithReviews,
   scoring: Awaited<ReturnType<typeof scoreReviews>>
 ): Record<string, unknown> {
   return {
@@ -131,7 +138,13 @@ function buildReviewMetadata(
     signals_count: scoring?.signals.length ?? 0,
     ...(scoring?.pain_score != null ? { pain_score: scoring.pain_score } : {}),
     ...(scoring?.top_problems ? { top_problems: scoring.top_problems } : {}),
-    ...(scoring?.outreach_angle ? { outreach_angle: scoring.outreach_angle } : {}),
+    chain_status: scoring?.chain_status ?? null,
+    business_status: business.business_status,
+    place_types: business.place_types,
+    signal_source_label: 'Google reviews',
+    signal_subject: business.name,
+    signal_location: business.area,
+    signal_date: new Date().toISOString().split('T')[0],
     date_found: new Date().toISOString().split('T')[0],
   }
 }
@@ -157,13 +170,17 @@ async function processOneBusiness(
     summary.errorDetails.push(`Claude failed for "${business.name}"`)
     return
   }
+  if (scoring.chain_status === 'likely_chain') {
+    summary.droppedLikelyChain++
+    return
+  }
   if (scoring.pain_score < painThreshold) {
     summary.belowThreshold++
     return
   }
 
   summary.qualified++
-  const { entity } = await findOrCreateEntity(env.DB, ORG_ID, {
+  const result = await findOrCreateEntity(env.DB, ORG_ID, {
     name: scoring.business_name,
     area: business.area,
     phone: business.phone,
@@ -172,7 +189,7 @@ async function processOneBusiness(
   })
 
   await appendContext(env.DB, ORG_ID, {
-    entity_id: entity.id,
+    entity_id: result.entity.id,
     type: 'signal',
     content: buildReviewContent(scoring),
     source: 'review_mining',
@@ -181,15 +198,7 @@ async function processOneBusiness(
   })
   summary.written++
 
-  const dispatchPromise = dispatchEnrichmentWorkflow(env, {
-    entityId: entity.id,
-    orgId: ORG_ID,
-    mode: 'full',
-    triggered_by: 'cron:review-mining',
-  }).catch((err) => {
-    console.error('[review_mining] enrichment dispatch failed', { entityId: entity.id, error: err })
-  })
-  if (ctx) ctx.waitUntil(dispatchPromise)
+  queueEnrichment(env, ctx, result.entity.id)
 }
 
 async function run(env: Env, ctx?: ExecutionContext): Promise<RunSummary> {
@@ -201,6 +210,8 @@ async function run(env: Env, ctx?: ExecutionContext): Promise<RunSummary> {
     newBusinesses: 0,
     qualified: 0,
     belowThreshold: 0,
+    droppedClosed: 0,
+    droppedLikelyChain: 0,
     written: 0,
     errors: 0,
     errorDetails: [],
@@ -208,8 +219,6 @@ async function run(env: Env, ctx?: ExecutionContext): Promise<RunSummary> {
     budgetGuardTripped: false,
   }
 
-  // Resolve admin-tunable settings at the TOP of every run so the next cron
-  // tick picks up admin changes without a worker restart (issue #595).
   const settings = await getPipelineSettings(env.DB, ORG_ID, 'review_mining')
   const painThreshold = settings.pain_threshold
   const maxReviewChecks = settings.max_review_checks
@@ -217,26 +226,30 @@ async function run(env: Env, ctx?: ExecutionContext): Promise<RunSummary> {
 
   const configRow = await getGeneratorConfig(env.DB, ORG_ID, 'review_mining')
   if (!configRow.enabled) {
-    console.log('review_mining: disabled by admin config — skipping run')
+    console.log('review_mining: disabled by admin config - skipping run')
     await recordGeneratorRun(env.DB, ORG_ID, 'review_mining', { signalsCount: 0, error: null })
     return summary
   }
   const cfg = configRow.config as ReviewMiningConfig
   const geoBias = { center: cfg.geo_center, radiusKm: cfg.geo_radius_km }
 
-  const allBusinesses = await discoverAllBusinesses(
+  const discovered = await discoverAllBusinesses(
     cfg.discovery_queries,
     env.GOOGLE_PLACES_API_KEY,
     geoBias,
     summary
   )
-  summary.discovered = allBusinesses.length
-  console.log(`Discovery: ${summary.queries} queries, ${summary.discovered} unique businesses`)
 
-  const toCheck = allBusinesses.slice(0, maxReviewChecks)
-  console.log(
-    `Checking reviews for ${toCheck.length} of ${allBusinesses.length} businesses (cap=${maxReviewChecks}, budget=$${budgetUsd.toFixed(2)})`
-  )
+  const openBusinesses = discovered.filter((business) => {
+    if (business.business_status === 'OPERATIONAL') return true
+    summary.droppedClosed++
+    return false
+  })
+
+  summary.discovered = openBusinesses.length
+  console.log(`Discovery: ${summary.queries} queries, ${summary.discovered} open businesses`)
+
+  const toCheck = openBusinesses.slice(0, maxReviewChecks)
   const businessesWithReviews = await fetchAllReviews(
     toCheck,
     env.OUTSCRAPER_API_KEY,
@@ -258,22 +271,24 @@ async function run(env: Env, ctx?: ExecutionContext): Promise<RunSummary> {
   }
 
   console.log(
-    `Run complete: ${summary.newBusinesses} new, ${summary.qualified} qualified (pain>=${painThreshold}), ` +
-      `${summary.belowThreshold} below threshold, ${summary.written} written, ${summary.errors} errors, ` +
-      `Outscraper spend ~$${summary.outscraperSpendUsd.toFixed(2)}` +
-      (summary.budgetGuardTripped ? ' (budget guard tripped)' : '')
+    `Run complete: ${summary.qualified} qualified, ${summary.droppedClosed} closed dropped, ` +
+      `${summary.droppedLikelyChain} chain dropped, ${summary.written} written, ${summary.errors} errors`
   )
 
   await recordGeneratorRun(env.DB, ORG_ID, 'review_mining', {
     signalsCount: summary.written,
-    error: summary.errors > 0 ? summary.errorDetails.slice(0, 3).join(' · ') : null,
+    error: summary.errors > 0 ? summary.errorDetails.slice(0, 3).join(' | ') : null,
   })
 
   return summary
 }
 
 export default {
-  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+  async scheduled(
+    _controller: ScheduledController,
+    env: Env,
+    ctx: ExecutionContext
+  ): Promise<void> {
     const summary = await run(env, ctx)
     if (summary.written === 0 && summary.errors > 0 && env.RESEND_API_KEY) {
       ctx.waitUntil(sendFailureAlert(summary, env.RESEND_API_KEY))

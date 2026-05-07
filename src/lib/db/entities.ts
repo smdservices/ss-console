@@ -10,10 +10,16 @@
  * Dedup enforced via UNIQUE(org_id, slug).
  */
 
-import { computeSlug } from '../entities/slug.js'
+import { computeSlug, jaroWinklerSimilarity, normalizeBusinessName } from '../entities/slug.js'
 import { recomputeDeterministicCache } from '../entities/recompute.js'
 import { appendContext } from './context.js'
 import { isLostReasonCode, type LostReasonCode } from './lost-reasons.js'
+import { appendCandidateMergeLog } from './candidate-merge-log.js'
+import { getPipelineSettings } from './pipeline-settings.js'
+export {
+  getSignalMetadataForEntities,
+  type EntitySignalMetadata,
+} from './entity-signal-metadata.js'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -249,136 +255,128 @@ export async function countEntitiesPerStage(
 }
 
 // ---------------------------------------------------------------------------
-// Signal metadata (for Signal list evidence density)
-// ---------------------------------------------------------------------------
-
-/**
- * Per-entity rollup of pipeline-generated signal metadata + last activity,
- * used to render evidence-dense signal rows without loading full context.
- *
- * Values come from the context table: `top_problems` and `outreach_angle`
- * are read from the metadata JSON of the most recent `signal` / `scorecard`
- * context entry; `last_activity_at` is the `created_at` of the most recent
- * context entry of ANY type.
- *
- * Missing fields stay `null` — callers must render nothing (not placeholders)
- * per CLAUDE.md Pattern B.
- */
-export interface EntitySignalMetadata {
-  entity_id: string
-  top_problems: string[] | null
-  outreach_angle: string | null
-  last_activity_at: string | null
-}
-
-function parseSignalMetadataRow(row: {
-  entity_id: string
-  metadata: string | null
-}): EntitySignalMetadata {
-  let topProblems: string[] | null = null
-  let outreachAngle: string | null = null
-  if (row.metadata) {
-    try {
-      const meta = JSON.parse(row.metadata) as Record<string, unknown>
-      if (
-        Array.isArray(meta.top_problems) &&
-        meta.top_problems.every((p) => typeof p === 'string')
-      ) {
-        topProblems = meta.top_problems.length ? meta.top_problems : null
-      }
-      if (typeof meta.outreach_angle === 'string' && meta.outreach_angle.trim()) {
-        outreachAngle = meta.outreach_angle.trim()
-      }
-    } catch {
-      // Malformed JSON — treat as missing metadata.
-    }
-  }
-  return {
-    entity_id: row.entity_id,
-    top_problems: topProblems,
-    outreach_angle: outreachAngle,
-    last_activity_at: null,
-  }
-}
-
-/**
- * Fetch latest signal metadata and last-activity timestamp for a batch of
- * entities in two parameterized queries (no N+1).
- *
- * Returns a Map keyed by entity_id. Entities with no context entries at all
- * are omitted from the map — caller should treat missing as "no metadata".
- */
-export async function getSignalMetadataForEntities(
-  db: D1Database,
-  orgId: string,
-  entityIds: string[]
-): Promise<Map<string, EntitySignalMetadata>> {
-  const out = new Map<string, EntitySignalMetadata>()
-  if (entityIds.length === 0) return out
-
-  // D1 caps bound parameters at 100 per statement. Pass the entity-id list
-  // as a single JSON-encoded parameter and let SQLite's json_each() unpack
-  // it, so we stay at 2 bound params regardless of list size. See
-  // https://developers.cloudflare.com/d1/sql-api/query-json/#use-json_each.
-  const entityIdsJson = JSON.stringify(entityIds)
-
-  // Latest signal/scorecard metadata per entity.
-  // Picks the most recent row via the correlated subquery on created_at.
-  const signalSql = `
-    SELECT c.entity_id, c.metadata
-    FROM context c
-    WHERE c.org_id = ?
-      AND c.entity_id IN (SELECT value FROM json_each(?))
-      AND c.type IN ('signal', 'scorecard')
-      AND c.created_at = (
-        SELECT MAX(c2.created_at)
-        FROM context c2
-        WHERE c2.entity_id = c.entity_id
-          AND c2.type IN ('signal', 'scorecard')
-      )
-  `
-  const signalRows = await db
-    .prepare(signalSql)
-    .bind(orgId, entityIdsJson)
-    .all<{ entity_id: string; metadata: string | null }>()
-
-  for (const row of signalRows.results) {
-    out.set(row.entity_id, parseSignalMetadataRow(row))
-  }
-
-  // Last-activity across all context types.
-  const activitySql = `
-    SELECT entity_id, MAX(created_at) AS last_activity_at
-    FROM context
-    WHERE org_id = ?
-      AND entity_id IN (SELECT value FROM json_each(?))
-    GROUP BY entity_id
-  `
-  const activityRows = await db
-    .prepare(activitySql)
-    .bind(orgId, entityIdsJson)
-    .all<{ entity_id: string; last_activity_at: string | null }>()
-
-  for (const row of activityRows.results) {
-    const existing = out.get(row.entity_id)
-    if (existing) {
-      existing.last_activity_at = row.last_activity_at
-    } else {
-      out.set(row.entity_id, {
-        entity_id: row.entity_id,
-        top_problems: null,
-        outreach_angle: null,
-        last_activity_at: row.last_activity_at,
-      })
-    }
-  }
-
-  return out
-}
-
-// ---------------------------------------------------------------------------
 // Find or Create (for pipeline ingestion)
 // ---------------------------------------------------------------------------
+
+async function maybeUpdateEntityContacts(
+  db: D1Database,
+  orgId: string,
+  existing: Entity,
+  data: CreateEntityData
+): Promise<void> {
+  if (!(data.phone && !existing.phone) && !(data.website && !existing.website)) {
+    return
+  }
+
+  await db
+    .prepare(
+      `UPDATE entities SET
+        phone = COALESCE(?, phone),
+        website = COALESCE(?, website),
+        updated_at = datetime('now')
+      WHERE id = ? AND org_id = ?`
+    )
+    .bind(data.phone ?? null, data.website ?? null, existing.id, orgId)
+    .run()
+}
+
+async function reloadEntity(db: D1Database, orgId: string, entityId: string): Promise<Entity> {
+  const entity = await getEntity(db, orgId, entityId)
+  if (!entity) throw new Error(`Failed to load entity ${entityId}`)
+  return entity
+}
+
+interface FuzzyMatchCandidate {
+  entity: Entity
+  score: number
+}
+
+async function findBestFuzzyAreaMatch(
+  db: D1Database,
+  orgId: string,
+  name: string,
+  area: string,
+  threshold: number
+): Promise<FuzzyMatchCandidate | null> {
+  const candidates = await db
+    .prepare(`SELECT * FROM entities WHERE org_id = ? AND area = ?`)
+    .bind(orgId, area)
+    .all<Entity>()
+
+  const target = normalizeBusinessName(name)
+  let bestMatch: FuzzyMatchCandidate | null = null
+  for (const candidate of candidates.results ?? []) {
+    const score = jaroWinklerSimilarity(target, normalizeBusinessName(candidate.name))
+    if (score >= threshold && (!bestMatch || score > bestMatch.score)) {
+      bestMatch = { entity: candidate, score }
+    }
+  }
+
+  return bestMatch
+}
+
+async function maybeLogFuzzyDuplicate(
+  db: D1Database,
+  orgId: string,
+  data: CreateEntityData,
+  slug: string
+): Promise<void> {
+  if (!data.area) return
+
+  const settings = await getPipelineSettings(db, orgId, 'new_business')
+  const threshold = settings.dedup_fuzzy_threshold
+  const bestMatch = await findBestFuzzyAreaMatch(db, orgId, data.name, data.area, threshold)
+  if (!bestMatch) return
+
+  await appendCandidateMergeLog(db, orgId, {
+    existingEntityId: bestMatch.entity.id,
+    candidateName: data.name,
+    candidateSlug: slug,
+    candidateArea: data.area,
+    matchedName: bestMatch.entity.name,
+    matchedArea: bestMatch.entity.area,
+    sourcePipeline: data.source_pipeline ?? null,
+    reason: 'slug_fuzzy_match',
+    score: Number(bestMatch.score.toFixed(4)),
+    metadata: { threshold },
+  })
+}
+
+interface InsertEntityArgs {
+  id: string
+  slug: string
+  data: CreateEntityData
+  now: string
+}
+
+async function insertEntityIfMissing(
+  db: D1Database,
+  orgId: string,
+  args: InsertEntityArgs
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO entities (
+        id, org_id, name, slug, phone, website, stage, stage_changed_at,
+        source_pipeline, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(org_id, slug) DO NOTHING`
+    )
+    .bind(
+      args.id,
+      orgId,
+      args.data.name,
+      args.slug,
+      args.data.phone ?? null,
+      args.data.website ?? null,
+      args.data.stage ?? 'signal',
+      args.now,
+      args.data.source_pipeline ?? null,
+      args.now,
+      args.now
+    )
+    .run()
+}
 
 /**
  * Find an existing entity by slug, or create a new one.
@@ -391,55 +389,22 @@ export async function findOrCreateEntity(
 ): Promise<FindOrCreateResult> {
   const slug = computeSlug(data.name, data.area)
 
-  // Try to find existing
   const existing = await getEntityBySlug(db, orgId, slug)
   if (existing) {
-    // Update phone/website if we have new info and existing is null
-    if ((data.phone && !existing.phone) || (data.website && !existing.website)) {
-      await db
-        .prepare(
-          `UPDATE entities SET
-            phone = COALESCE(?, phone),
-            website = COALESCE(?, website),
-            updated_at = datetime('now')
-          WHERE id = ? AND org_id = ?`
-        )
-        .bind(data.phone ?? null, data.website ?? null, existing.id, orgId)
-        .run()
-    }
-    const entity = (await getEntity(db, orgId, existing.id))!
+    await maybeUpdateEntityContacts(db, orgId, existing, data)
+    const entity = await reloadEntity(db, orgId, existing.id)
     return { status: 'found', entity }
   }
 
-  // Create new
+  await maybeLogFuzzyDuplicate(db, orgId, data, slug)
+
   const id = crypto.randomUUID()
   const now = new Date().toISOString()
-
-  await db
-    .prepare(
-      `INSERT INTO entities (
-        id, org_id, name, slug, phone, website, stage, stage_changed_at,
-        source_pipeline, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(org_id, slug) DO NOTHING`
-    )
-    .bind(
-      id,
-      orgId,
-      data.name,
-      slug,
-      data.phone ?? null,
-      data.website ?? null,
-      data.stage ?? 'signal',
-      now,
-      data.source_pipeline ?? null,
-      now,
-      now
-    )
-    .run()
+  await insertEntityIfMissing(db, orgId, { id, slug, data, now })
 
   // Handle race condition: another request may have created it
-  const entity = (await getEntityBySlug(db, orgId, slug))!
+  const entity = await getEntityBySlug(db, orgId, slug)
+  if (!entity) throw new Error(`Failed to resolve entity for slug ${slug}`)
   const wasCreated = entity.id === id
   return wasCreated ? { status: 'created', entity } : { status: 'found', entity }
 }
@@ -549,13 +514,14 @@ async function checkTransitionPreconditions(
 ): Promise<void> {
   const { entity, newStage, args } = ctx
   if (newStage === 'lost') {
+    const lostReasonCode = String(args.lostReason?.code ?? '')
     if (!args.lostReason?.code)
       throw new Error(
         'Lost reason is required: provide args.lostReason.code when transitioning to lost.'
       )
     if (!isLostReasonCode(args.lostReason.code))
       throw new Error(
-        `Invalid lost reason code: ${args.lostReason.code}. See src/lib/db/lost-reasons.ts.`
+        `Invalid lost reason code: ${lostReasonCode}. See src/lib/db/lost-reasons.ts.`
       )
   }
   if (entity.stage === 'proposing' && newStage === 'engaged') {

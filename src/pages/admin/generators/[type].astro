@@ -109,10 +109,6 @@ function buildConfigFromForm(pipeline: PipelineId, form: FormData): unknown {
     .split('\n')
     .map((s) => s.trim())
     .filter((s) => s.length > 0)
-  const revenue_range = {
-    min_usd: Number(form.get('revenue_min_usd')),
-    max_usd: Number(form.get('revenue_max_usd')),
-  }
   const geos = String(form.get('geos') ?? '')
     .split('\n')
     .map((s) => s.trim())
@@ -125,7 +121,7 @@ function buildConfigFromForm(pipeline: PipelineId, form: FormData): unknown {
         city,
         enabled: form.get(`soda_${city}`) === 'on',
       }))
-      return { target_verticals, revenue_range, geos, soda_sources }
+      return { target_verticals, geos, soda_sources }
     }
     case 'job_monitor':
     case 'social_listening': {
@@ -133,7 +129,7 @@ function buildConfigFromForm(pipeline: PipelineId, form: FormData): unknown {
         .split('\n')
         .map((s) => s.trim())
         .filter((s) => s.length > 0)
-      return { target_verticals, revenue_range, geos, search_queries }
+      return { target_verticals, geos, search_queries }
     }
     case 'review_mining': {
       const discovery_queries = String(form.get('discovery_queries') ?? '')
@@ -142,7 +138,6 @@ function buildConfigFromForm(pipeline: PipelineId, form: FormData): unknown {
         .filter((s) => s.length > 0)
       return {
         target_verticals,
-        revenue_range,
         geos,
         discovery_queries,
         geo_center: {
@@ -415,15 +410,15 @@ const runDisabledReason = !runWorkerUrl
 </AdminLayout>
 
 <script>
-  const resetBtn = document.querySelector<HTMLButtonElement>('[data-phoenix-defaults]')
+  const resetBtn = document.querySelector<HTMLButtonElement>('[data-az-defaults]')
   if (resetBtn) {
     resetBtn.addEventListener('click', () => {
       const lat = document.getElementById('geo_lat') as HTMLInputElement | null
       const lon = document.getElementById('geo_lon') as HTMLInputElement | null
       const r = document.getElementById('geo_radius_km') as HTMLInputElement | null
-      if (lat) lat.value = '33.4484'
-      if (lon) lon.value = '-112.074'
-      if (r) r.value = '50'
+      if (lat) lat.value = '34.0'
+      if (lon) lon.value = '-111.5'
+      if (r) r.value = '425'
     })
   }
 </script>

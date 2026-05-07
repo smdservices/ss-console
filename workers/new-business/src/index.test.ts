@@ -114,7 +114,7 @@ function makeEnabledConfig() {
     config: {
       soda_sources: [
         { city: 'phoenix', enabled: true },
-        { city: 'scottsdale', enabled: true },
+        { city: 'scottsdale_licenses', enabled: true },
       ],
     },
   }
@@ -129,6 +129,8 @@ function makePermit(overrides = {}) {
     filing_date: '2026-04-01',
     address: '123 Main St, Phoenix, AZ',
     source: 'phoenix_permit' as const,
+    actor_role: 'business' as const,
+    owner_name: 'Desert Bloom Florist',
     ...overrides,
   }
 }
@@ -140,10 +142,9 @@ function makeQualification(overrides = {}) {
     business_name: 'Desert Bloom Florist',
     area: 'Phoenix',
     entity_type: 'retail' as const,
-    source: 'new_commercial_permit' as const,
+    source: 'phoenix_permit' as const,
     notes: 'New retail florist, likely needs operational setup.',
-    outreach_angle: 'Help them build their ops from day one.',
-    vertical_match: 'retail',
+    vertical_match: 'retail_salon',
     size_estimate: '1-5',
     ...overrides,
   }
@@ -156,7 +157,11 @@ function makeQualification(overrides = {}) {
 describe('new-business fetch handler', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 1 })
+    vi.mocked(getPipelineSettings).mockResolvedValue({
+      pain_threshold: 1,
+      weekly_places_budget_usd: 10.5,
+      dedup_fuzzy_threshold: 0.92,
+    })
     vi.mocked(derivePainScore).mockReturnValue(10)
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
     vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
@@ -200,7 +205,11 @@ describe('new-business fetch handler', () => {
 describe('new-business disabled generator', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 1 })
+    vi.mocked(getPipelineSettings).mockResolvedValue({
+      pain_threshold: 1,
+      weekly_places_budget_usd: 10.5,
+      dedup_fuzzy_threshold: 0.92,
+    })
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeDisabledConfig() as never)
     vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
   })
@@ -221,7 +230,11 @@ describe('new-business disabled generator', () => {
 describe('new-business happy path', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 1 })
+    vi.mocked(getPipelineSettings).mockResolvedValue({
+      pain_threshold: 1,
+      weekly_places_budget_usd: 10.5,
+      dedup_fuzzy_threshold: 0.92,
+    })
     vi.mocked(derivePainScore).mockReturnValue(10)
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
     vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
@@ -250,7 +263,11 @@ describe('new-business happy path', () => {
 describe('new-business not_recommended qualification', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 1 })
+    vi.mocked(getPipelineSettings).mockResolvedValue({
+      pain_threshold: 1,
+      weekly_places_budget_usd: 10.5,
+      dedup_fuzzy_threshold: 0.92,
+    })
     // not_recommended → score 0 < threshold 1 → counted under disqualified
     vi.mocked(derivePainScore).mockReturnValue(0)
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
@@ -277,7 +294,11 @@ describe('new-business not_recommended qualification', () => {
 describe('new-business Claude failure', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 1 })
+    vi.mocked(getPipelineSettings).mockResolvedValue({
+      pain_threshold: 1,
+      weekly_places_budget_usd: 10.5,
+      dedup_fuzzy_threshold: 0.92,
+    })
     vi.mocked(derivePainScore).mockReturnValue(10)
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
     vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
@@ -301,7 +322,11 @@ describe('new-business Claude failure', () => {
 describe('new-business scheduled handler', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 1 })
+    vi.mocked(getPipelineSettings).mockResolvedValue({
+      pain_threshold: 1,
+      weekly_places_budget_usd: 10.5,
+      dedup_fuzzy_threshold: 0.92,
+    })
     vi.mocked(derivePainScore).mockReturnValue(10)
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
     vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
@@ -335,7 +360,11 @@ describe('new-business pain_threshold from settings', () => {
   })
 
   it('writes wait_60_days permit (score 5) when threshold is default 1', async () => {
-    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 1 })
+    vi.mocked(getPipelineSettings).mockResolvedValue({
+      pain_threshold: 1,
+      weekly_places_budget_usd: 10.5,
+      dedup_fuzzy_threshold: 0.92,
+    })
     vi.mocked(derivePainScore).mockReturnValue(5)
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
     const body: Record<string, unknown> = await res.json()
@@ -344,12 +373,29 @@ describe('new-business pain_threshold from settings', () => {
   })
 
   it('skips wait_60_days permit (score 5) when admin raises threshold to 6', async () => {
-    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 6 })
+    vi.mocked(getPipelineSettings).mockResolvedValue({
+      pain_threshold: 6,
+      weekly_places_budget_usd: 10.5,
+      dedup_fuzzy_threshold: 0.92,
+    })
     vi.mocked(derivePainScore).mockReturnValue(5)
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
     const body: Record<string, unknown> = await res.json()
     expect(body.belowThreshold).toBe(1)
     expect(body.written).toBe(0)
     expect(appendContext).not.toHaveBeenCalled()
+  })
+
+  it('diverts contractor-role permits away from direct qualification', async () => {
+    vi.mocked(getPipelineSettings).mockResolvedValue({
+      pain_threshold: 1,
+      weekly_places_budget_usd: 0,
+      dedup_fuzzy_threshold: 0.92,
+    })
+    vi.mocked(fetchAllPermits).mockResolvedValue([makePermit({ actor_role: 'contractor' })])
+    const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
+    const body: Record<string, unknown> = await res.json()
+    expect(body.droppedByRole).toBe(1)
+    expect(qualifyNewBusiness).not.toHaveBeenCalled()
   })
 })

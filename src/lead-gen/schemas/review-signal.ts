@@ -2,7 +2,7 @@
  * Review Signal Schema — Pipeline 1 Output Types
  *
  * Defines the structured output contract for the review scoring prompt.
- * When Google/Yelp reviews for a Phoenix-area business reveal operational
+ * When Google/Yelp reviews for an Arizona business reveal operational
  * pain patterns, the AI produces a ReviewScoring result matching this schema.
  *
  * @see docs/collateral/lead-automation-blueprint.md — Pipeline 1 architecture
@@ -53,15 +53,11 @@ export interface ReviewScoring {
   /** The top 1-3 problems detected, by canonical ID. Ordered by severity. */
   top_problems: ProblemId[]
 
+  /** Chain-risk decision for this location. */
+  chain_status: 'not_chain' | 'likely_chain' | 'confirmed_local'
+
   /** Individual review signals supporting the score. */
   signals: ReviewSignal[]
-
-  /**
-   * Suggested outreach angle — how to approach this business.
-   * References their specific pain as seen in reviews.
-   * Written in "we" voice. Never mentions pricing or fixed timeframes.
-   */
-  outreach_angle: string
 }
 
 // ---------------------------------------------------------------------------
@@ -107,8 +103,17 @@ export interface BusinessReviewInput {
   /** Business category (e.g., "plumber", "HVAC", "dentist"). */
   category: string
 
-  /** Phoenix sub-area. */
+  /** Arizona sub-area. */
   area: string
+
+  /** Google Places status for the business. */
+  business_status?: string
+
+  /** Google Places types for the business. */
+  place_types?: string[]
+
+  /** Whether the deterministic pre-filter thinks this looks like a chain. */
+  likely_chain?: boolean
 
   /** Google overall rating (1-5). */
   overall_rating: number

@@ -8,6 +8,7 @@ export interface RunSummary {
   newJobs: number
   qualified: number
   disqualified: number
+  droppedByActorRole: number
   belowThreshold: number
   written: number
   errors: number
@@ -28,6 +29,7 @@ export async function sendFailureAlert(summary: RunSummary, resendApiKey: string
     `Existing entities seen again: ${summary.existingAppended}`,
     `Qualified: ${summary.qualified}`,
     `Disqualified: ${summary.disqualified}`,
+    `Dropped by actor role: ${summary.droppedByActorRole}`,
     `Below pain threshold: ${summary.belowThreshold}`,
     `Written to D1: ${summary.written}`,
     `Errors: ${summary.errors}`,

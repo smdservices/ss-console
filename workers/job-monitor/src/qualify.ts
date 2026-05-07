@@ -1,8 +1,6 @@
 /**
- * Claude qualification caller.
- *
- * Direct fetch to the Anthropic Messages API — no SDK needed.
- * Imports the system prompt and validation from the shared lead-gen code.
+ * Claude qualification caller plus deterministic actor-role filtering for
+ * job postings.
  */
 
 import {
@@ -18,14 +16,82 @@ import type { SerpApiJob } from './serpapi.js'
 
 export type { JobQualification }
 
+const STAFFING_AGENCY_NAMES = [
+  'robert half',
+  'aerotek',
+  'kelly services',
+  'express employment',
+  'adecco',
+  'randstad',
+  'manpowergroup',
+  'appleone',
+  'insight global',
+  'ultimate staffing',
+  'cornerstone staffing',
+  'pridestaff',
+  'labor finders',
+  'staffmark',
+  'teksystems',
+  'jobot',
+  'gpac',
+  'nesco resource',
+  'volt workforce',
+  'peopleready',
+  'spherion',
+  'burnett specialists',
+  'addison group',
+  'creative circle',
+  'kforce',
+  'cybercoders',
+  'motion recruitment',
+  'lhh',
+  'aston carter',
+  'onin staffing',
+] as const
+
+export function inferPostingActorRole(
+  job: SerpApiJob
+): 'direct' | 'staffing_agency' | 'syndicator' | 'unknown' {
+  const company = job.company_name.trim().toLowerCase()
+  if (!company) return 'unknown'
+
+  if (
+    company.includes('confidential') ||
+    company.includes('confidential client') ||
+    company.includes('our client')
+  ) {
+    return 'staffing_agency'
+  }
+
+  if (STAFFING_AGENCY_NAMES.some((name) => company.includes(name))) {
+    return 'staffing_agency'
+  }
+
+  const uniqueApplyUrls = new Set(
+    (job.apply_options ?? [])
+      .map((option) => option.link?.trim())
+      .filter((link): link is string => typeof link === 'string' && link.length > 0)
+  )
+  if (uniqueApplyUrls.size >= 3) return 'syndicator'
+
+  return 'direct'
+}
+
 /**
  * Qualify a job posting using Claude.
  * Returns the qualification result if Claude produces valid JSON, null otherwise.
  */
 export async function qualifyJob(
   job: SerpApiJob,
-  apiKey: string
+  apiKey: string,
+  postingActorRoleHint: 'direct' | 'staffing_agency' | 'syndicator' | 'unknown'
 ): Promise<JobQualification | null> {
+  const uniqueApplyUrls = new Set(
+    (job.apply_options ?? [])
+      .map((option) => option.link?.trim())
+      .filter((link): link is string => typeof link === 'string' && link.length > 0)
+  )
+
   const input: JobPostingInput = {
     title: job.title,
     company: job.company_name,
@@ -33,6 +99,8 @@ export async function qualifyJob(
     description: job.description,
     source: 'google_jobs',
     url: job.apply_options?.[0]?.link,
+    apply_url_count: uniqueApplyUrls.size,
+    posting_actor_role_hint: postingActorRoleHint,
   }
 
   const userPrompt = buildJobQualificationUserPrompt(input)
@@ -66,7 +134,6 @@ export async function qualifyJob(
     return null
   }
 
-  // Strip markdown code fences if present
   const cleaned = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '')
 
   let parsed: unknown
@@ -93,5 +160,5 @@ export function derivePainScore(q: JobQualification): number {
   const problemCount = q.problems_signaled.length
   if (q.confidence === 'high') return problemCount >= 3 ? 9 : 8
   if (q.confidence === 'medium') return problemCount >= 2 ? 7 : 6
-  return 5 // low confidence
+  return 5
 }

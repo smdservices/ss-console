@@ -43,6 +43,7 @@ vi.mock('./serpapi.js', () => ({
 vi.mock('./qualify.js', () => ({
   qualifyJob: vi.fn(),
   derivePainScore: vi.fn().mockReturnValue(8),
+  inferPostingActorRole: vi.fn().mockReturnValue('direct'),
 }))
 
 vi.mock('./alert.js', () => ({
@@ -59,7 +60,7 @@ import { getPipelineSettings } from '../../../src/lib/db/pipeline-settings.js'
 import { findOrCreateEntity } from '../../../src/lib/db/entities.js'
 import { appendContext } from '../../../src/lib/db/context.js'
 import { searchJobs } from './serpapi.js'
-import { qualifyJob, derivePainScore } from './qualify.js'
+import { qualifyJob, derivePainScore, inferPostingActorRole } from './qualify.js'
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -116,7 +117,7 @@ function makeEnabledConfig() {
   return {
     enabled: true,
     config: {
-      search_queries: ['operations manager Phoenix', 'office manager Phoenix'],
+      search_queries: ['operations manager Arizona', 'office manager Arizona'],
     },
   }
 }
@@ -138,10 +139,10 @@ function makeQualification(overrides = {}) {
   return {
     qualified: true,
     company: 'Acme Plumbing',
+    posting_actor_role: 'direct' as const,
     confidence: 'high' as const,
     evidence: 'Owner doing everything themselves.',
-    outreach_angle: 'Help them build ops structure.',
-    problems_signaled: ['founder_ceiling', 'operational_drag'],
+    problems_signaled: ['process_design', 'customer_pipeline'],
     company_size_estimate: '5-15',
     ...overrides,
   }
@@ -156,6 +157,7 @@ describe('job-monitor fetch handler', () => {
     vi.clearAllMocks()
     vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 7 })
     vi.mocked(derivePainScore).mockReturnValue(8)
+    vi.mocked(inferPostingActorRole).mockReturnValue('direct')
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
     vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(searchJobs).mockResolvedValue([])
@@ -200,6 +202,7 @@ describe('job-monitor disabled generator', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 7 })
+    vi.mocked(inferPostingActorRole).mockReturnValue('direct')
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeDisabledConfig() as never)
     vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
   })
@@ -223,6 +226,7 @@ describe('job-monitor happy path', () => {
     vi.clearAllMocks()
     vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 7 })
     vi.mocked(derivePainScore).mockReturnValue(8)
+    vi.mocked(inferPostingActorRole).mockReturnValue('direct')
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
     vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(searchJobs).mockResolvedValue([makeSerpJob()])
@@ -253,6 +257,7 @@ describe('job-monitor SerpAPI failure', () => {
     vi.clearAllMocks()
     vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 7 })
     vi.mocked(derivePainScore).mockReturnValue(8)
+    vi.mocked(inferPostingActorRole).mockReturnValue('direct')
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
     vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(searchJobs).mockRejectedValue(new Error('SerpAPI: 401 Unauthorized'))
@@ -276,6 +281,7 @@ describe('job-monitor Claude failure', () => {
     vi.clearAllMocks()
     vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 7 })
     vi.mocked(derivePainScore).mockReturnValue(8)
+    vi.mocked(inferPostingActorRole).mockReturnValue('direct')
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
     vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(searchJobs).mockResolvedValue([makeSerpJob()])
@@ -301,6 +307,7 @@ describe('job-monitor scheduled handler', () => {
     vi.clearAllMocks()
     vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 7 })
     vi.mocked(derivePainScore).mockReturnValue(8)
+    vi.mocked(inferPostingActorRole).mockReturnValue('direct')
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
     vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(searchJobs).mockResolvedValue([])
@@ -324,6 +331,7 @@ describe('job-monitor pain_threshold from settings', () => {
     vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(searchJobs).mockResolvedValue([makeSerpJob()])
     vi.mocked(qualifyJob).mockResolvedValue(makeQualification() as never)
+    vi.mocked(inferPostingActorRole).mockReturnValue('direct')
     vi.mocked(findOrCreateEntity).mockResolvedValue({
       entity: { id: 'entity-001', name: 'Acme Plumbing' },
     } as never)
@@ -358,5 +366,14 @@ describe('job-monitor pain_threshold from settings', () => {
     // pain_score=7 with threshold=7 should pass (>=)
     expect(body.qualified).toBe(1)
     expect(body.written).toBe(1)
+  })
+
+  it('drops staffing-agency postings before Claude', async () => {
+    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 7 })
+    vi.mocked(inferPostingActorRole).mockReturnValue('staffing_agency')
+    const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
+    const body: Record<string, unknown> = await res.json()
+    expect(body.droppedByActorRole).toBe(1)
+    expect(qualifyJob).not.toHaveBeenCalled()
   })
 })
