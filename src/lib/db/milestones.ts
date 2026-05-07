@@ -6,7 +6,7 @@
  */
 
 import { createInvoice, updateInvoice, updateInvoiceStatus } from './invoices'
-import type { InvoiceType, InvoiceStatus, Invoice } from './invoices'
+import type { InvoiceType, Invoice } from './invoices'
 import { appendContext } from './context'
 import { createStripeInvoice, sendStripeInvoice } from '../stripe/client'
 
@@ -278,98 +278,122 @@ export interface CompleteMilestoneResult {
  *
  * Non-payment milestones pass through to updateMilestoneStatus() unchanged.
  */
+interface QuoteRow {
+  total_price: number
+  rate: number
+  line_items: string
+}
+
+async function calculateInvoiceAmount(
+  db: D1Database,
+  orgId: string,
+  milestone: Milestone,
+  allMilestones: Milestone[],
+  quote: QuoteRow
+): Promise<number> {
+  const maxSortOrder = Math.max(...allMilestones.map((m) => m.sort_order))
+  const isLastMilestone = milestone.sort_order === maxSortOrder
+
+  if (isLastMilestone) {
+    const paidResult = await db
+      .prepare(
+        `SELECT COALESCE(SUM(amount), 0) as total FROM invoices WHERE engagement_id = ? AND org_id = ? AND status IN ('paid', 'sent')`
+      )
+      .bind(milestone.engagement_id, orgId)
+      .first<{ total: number }>()
+    return quote.total_price - (paidResult?.total ?? 0)
+  }
+
+  const paymentMilestones = allMilestones.filter((m) => m.payment_trigger)
+  const lineItems = JSON.parse(quote.line_items) as { estimated_hours: number }[]
+  const milestoneIndex = paymentMilestones.findIndex((m) => m.id === milestone.id)
+
+  if (milestoneIndex >= 0 && milestoneIndex < lineItems.length) {
+    return lineItems[milestoneIndex].estimated_hours * quote.rate
+  }
+  return quote.total_price / paymentMilestones.length
+}
+
+interface StripeInvoiceArgs {
+  db: D1Database
+  orgId: string
+  stripeApiKey: string
+  customerEmail: string
+  invoice: Invoice
+  invoiceType: InvoiceType
+  milestone: Milestone
+  engagement: { id: string; entity_id: string }
+  amount: number
+}
+
+async function sendStripeInvoiceForMilestone(args: StripeInvoiceArgs): Promise<void> {
+  const {
+    db,
+    orgId,
+    stripeApiKey,
+    customerEmail,
+    invoice,
+    invoiceType,
+    milestone,
+    engagement,
+    amount,
+  } = args
+  const desc = invoice.description ?? `SMD Services — ${invoiceType} invoice`
+  const stripeResult = await createStripeInvoice(stripeApiKey, {
+    customer_email: customerEmail,
+    description: desc,
+    line_items: [
+      { amount: Math.round(amount * 100), currency: 'usd', description: desc, quantity: 1 },
+    ],
+    days_until_due: 15,
+    collection_method: 'send_invoice',
+    metadata: {
+      invoice_id: invoice.id,
+      org_id: orgId,
+      type: invoiceType,
+      milestone_id: milestone.id,
+      engagement_id: engagement.id,
+    },
+    payment_settings: { payment_method_types: ['ach_debit', 'card'] },
+  })
+  const sentResult = await sendStripeInvoice(stripeApiKey, stripeResult.id)
+  await updateInvoice(db, orgId, invoice.id, {
+    stripe_invoice_id: stripeResult.id,
+    stripe_hosted_url: sentResult.hosted_invoice_url,
+  })
+  await updateInvoiceStatus(db, orgId, invoice.id, 'sent')
+}
+
 export async function completeMilestoneWithInvoicing(
   opts: CompleteMilestoneOptions
 ): Promise<CompleteMilestoneResult> {
   const { db, orgId, milestoneId, stripeApiKey, customerEmail } = opts
 
-  // Step 1: Transition the milestone
   const milestone = await updateMilestoneStatus(db, orgId, milestoneId, 'completed')
-  if (!milestone) {
-    throw new Error('Milestone not found')
-  }
+  if (!milestone) throw new Error('Milestone not found')
+  if (!milestone.payment_trigger) return { milestone, invoice: null }
 
-  // If no payment trigger, we're done
-  if (!milestone.payment_trigger) {
-    return { milestone, invoice: null }
-  }
-
-  // Step 2: Load engagement and quote for pricing data
   const engagement = await db
     .prepare('SELECT * FROM engagements WHERE id = ? AND org_id = ?')
     .bind(milestone.engagement_id, orgId)
-    .first<{
-      id: string
-      entity_id: string
-      quote_id: string
-      org_id: string
-    }>()
-
-  if (!engagement) {
+    .first<{ id: string; entity_id: string; quote_id: string; org_id: string }>()
+  if (!engagement)
     throw new Error(`Engagement ${milestone.engagement_id} not found for milestone invoicing`)
-  }
 
   const quote = await db
     .prepare('SELECT * FROM quotes WHERE id = ? AND org_id = ?')
     .bind(engagement.quote_id, orgId)
-    .first<{
-      total_price: number
-      rate: number
-      line_items: string
-    }>()
+    .first<QuoteRow>()
+  if (!quote) throw new Error(`Quote ${engagement.quote_id} not found for milestone invoicing`)
 
-  if (!quote) {
-    throw new Error(`Quote ${engagement.quote_id} not found for milestone invoicing`)
-  }
-
-  // Step 3: Determine invoice type — is this the last milestone?
   const allMilestones = await listMilestones(db, orgId, milestone.engagement_id)
-  const maxSortOrder = Math.max(...allMilestones.map((m) => m.sort_order))
-  const isLastMilestone = milestone.sort_order === maxSortOrder
-
+  const isLastMilestone =
+    milestone.sort_order === Math.max(...allMilestones.map((m) => m.sort_order))
   const invoiceType: InvoiceType = isLastMilestone ? 'completion' : 'milestone'
+  const amount = await calculateInvoiceAmount(db, orgId, milestone, allMilestones, quote)
 
-  // Step 4: Calculate amount
-  let amount: number
+  if (amount <= 0) return { milestone, invoice: null }
 
-  if (isLastMilestone) {
-    // Completion: remaining balance = total_price - sum(paid + sent invoices)
-    const paidResult = await db
-      .prepare(
-        `SELECT COALESCE(SUM(amount), 0) as total
-         FROM invoices
-         WHERE engagement_id = ? AND org_id = ? AND status IN ('paid', 'sent')`
-      )
-      .bind(milestone.engagement_id, orgId)
-      .first<{ total: number }>()
-
-    const alreadyBilled = paidResult?.total ?? 0
-    amount = quote.total_price - alreadyBilled
-  } else {
-    // Milestone: pro-rata from milestone's estimated_hours * rate
-    // Find the matching line item by milestone name, or fall back to
-    // equal split across payment-trigger milestones
-    const paymentMilestones = allMilestones.filter((m) => m.payment_trigger)
-    const lineItems = JSON.parse(quote.line_items) as { estimated_hours: number }[]
-
-    // Find milestone's index among payment milestones for line-item mapping
-    const milestoneIndex = paymentMilestones.findIndex((m) => m.id === milestone.id)
-
-    if (milestoneIndex >= 0 && milestoneIndex < lineItems.length) {
-      // Direct mapping: milestone index -> line item
-      amount = lineItems[milestoneIndex].estimated_hours * quote.rate
-    } else {
-      // Fallback: equal split of total across payment milestones
-      amount = quote.total_price / paymentMilestones.length
-    }
-  }
-
-  // Guard against negative or zero amounts
-  if (amount <= 0) {
-    return { milestone, invoice: null }
-  }
-
-  // Step 5: Create local invoice record
   const invoice = await createInvoice(db, orgId, {
     entity_id: engagement.entity_id,
     engagement_id: engagement.id,
@@ -378,50 +402,24 @@ export async function completeMilestoneWithInvoicing(
     description: `${invoiceType === 'completion' ? 'Completion' : 'Milestone'} invoice — ${milestone.name}`,
   })
 
-  // Step 6: Stripe integration (graceful degradation)
   if (stripeApiKey && customerEmail) {
     try {
-      const stripeResult = await createStripeInvoice(stripeApiKey, {
-        customer_email: customerEmail,
-        description: invoice.description ?? `SMD Services — ${invoiceType} invoice`,
-        line_items: [
-          {
-            amount: Math.round(amount * 100), // dollars to cents
-            currency: 'usd',
-            description: invoice.description ?? `SMD Services — ${invoiceType} invoice`,
-            quantity: 1,
-          },
-        ],
-        days_until_due: 15,
-        collection_method: 'send_invoice',
-        metadata: {
-          invoice_id: invoice.id,
-          org_id: orgId,
-          type: invoiceType,
-          milestone_id: milestone.id,
-          engagement_id: engagement.id,
-        },
-        payment_settings: {
-          payment_method_types: ['ach_debit', 'card'],
-        },
+      await sendStripeInvoiceForMilestone({
+        db,
+        orgId,
+        stripeApiKey,
+        customerEmail,
+        invoice,
+        invoiceType,
+        milestone,
+        engagement,
+        amount,
       })
-
-      const sentResult = await sendStripeInvoice(stripeApiKey, stripeResult.id)
-
-      await updateInvoice(db, orgId, invoice.id, {
-        stripe_invoice_id: stripeResult.id,
-        stripe_hosted_url: sentResult.hosted_invoice_url,
-      })
-
-      await updateInvoiceStatus(db, orgId, invoice.id, 'sent' as InvoiceStatus)
     } catch (err) {
-      // Stripe failure is non-fatal — invoice stays at draft
       console.error('[completeMilestoneWithInvoicing] Stripe error:', err)
     }
   }
-  // If no stripeApiKey or no customerEmail, invoice stays at draft (graceful degradation)
 
-  // Step 7: Audit trail
   try {
     await appendContext(db, orgId, {
       entity_id: engagement.entity_id,

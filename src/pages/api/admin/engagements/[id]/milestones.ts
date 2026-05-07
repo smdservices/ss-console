@@ -1,4 +1,4 @@
-import type { APIRoute } from 'astro'
+import type { APIContext, APIRoute } from 'astro'
 import { getEngagement } from '../../../../../lib/db/engagements'
 import {
   createMilestone,
@@ -35,7 +35,141 @@ import { env } from 'cloudflare:workers'
  *   - _method: "DELETE"
  *   - milestone_id (required)
  */
-export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
+
+type Redirect = APIContext['redirect']
+
+function trimStr(v: FormDataEntryValue | null): string | null {
+  return v && typeof v === 'string' && v.trim() ? v.trim() : null
+}
+
+async function handleDelete(
+  redirect: Redirect,
+  orgId: string,
+  engagementId: string,
+  detailUrl: string,
+  formData: FormData
+): Promise<Response> {
+  const milestoneId = formData.get('milestone_id')
+  if (!milestoneId || typeof milestoneId !== 'string') {
+    return redirect(`${detailUrl}?error=missing`, 302)
+  }
+
+  const milestone = await getMilestone(env.DB, orgId, milestoneId.trim())
+  if (!milestone || milestone.engagement_id !== engagementId) {
+    return redirect(`${detailUrl}?error=not_found`, 302)
+  }
+
+  await deleteMilestone(env.DB, orgId, milestoneId.trim())
+  return redirect(`${detailUrl}?milestone_deleted=1`, 302)
+}
+
+async function handleTogglePaymentTrigger(
+  redirect: Redirect,
+  orgId: string,
+  engagementId: string,
+  detailUrl: string,
+  formData: FormData
+): Promise<Response> {
+  const milestoneId = formData.get('milestone_id')
+  if (!milestoneId || typeof milestoneId !== 'string') {
+    return redirect(`${detailUrl}?error=missing`, 302)
+  }
+  const milestone = await getMilestone(env.DB, orgId, milestoneId.trim())
+  if (!milestone || milestone.engagement_id !== engagementId) {
+    return redirect(`${detailUrl}?error=not_found`, 302)
+  }
+  await updateMilestone(env.DB, orgId, milestoneId.trim(), {
+    payment_trigger: !milestone.payment_trigger,
+  })
+  return redirect(`${detailUrl}?saved=1`, 302)
+}
+
+interface TransitionStatusArgs {
+  redirect: Redirect
+  orgId: string
+  engagementId: string
+  entityId: string
+  detailUrl: string
+  formData: FormData
+}
+
+async function handleTransitionStatus(args: TransitionStatusArgs): Promise<Response> {
+  const { redirect, orgId, engagementId, entityId, detailUrl, formData } = args
+  const milestoneId = formData.get('milestone_id')
+  const newStatus = formData.get('new_status')
+
+  if (
+    !milestoneId ||
+    typeof milestoneId !== 'string' ||
+    !newStatus ||
+    typeof newStatus !== 'string'
+  ) {
+    return redirect(`${detailUrl}?error=invalid_status`, 302)
+  }
+
+  const milestone = await getMilestone(env.DB, orgId, milestoneId.trim())
+  if (!milestone || milestone.engagement_id !== engagementId) {
+    return redirect(`${detailUrl}?error=not_found`, 302)
+  }
+
+  try {
+    if (newStatus === 'completed' && milestone.payment_trigger) {
+      const contact = await env.DB.prepare(
+        'SELECT email FROM contacts WHERE org_id = ? AND entity_id = ? AND email IS NOT NULL ORDER BY created_at ASC LIMIT 1'
+      )
+        .bind(orgId, entityId)
+        .first<{ email: string }>()
+
+      await completeMilestoneWithInvoicing({
+        db: env.DB,
+        orgId,
+        milestoneId: milestoneId.trim(),
+        stripeApiKey: env.STRIPE_API_KEY,
+        customerEmail: contact?.email ?? null,
+      })
+    } else {
+      await updateMilestoneStatus(env.DB, orgId, milestoneId.trim(), newStatus as MilestoneStatus)
+    }
+  } catch (err) {
+    console.error('[api/admin/engagements/[id]/milestones] Status transition error:', err)
+    return redirect(`${detailUrl}?error=invalid_transition`, 302)
+  }
+
+  return redirect(`${detailUrl}?saved=1`, 302)
+}
+
+async function handleCreate(
+  redirect: Redirect,
+  orgId: string,
+  engagementId: string,
+  detailUrl: string,
+  formData: FormData
+): Promise<Response> {
+  const name = formData.get('name')
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    return redirect(`${detailUrl}?error=missing`, 302)
+  }
+
+  const description = formData.get('description')
+  const dueDate = formData.get('due_date')
+  const paymentTrigger = formData.get('payment_trigger')
+  const sortOrder = formData.get('sort_order')
+
+  await createMilestone(env.DB, orgId, engagementId, {
+    name: name.trim(),
+    description: trimStr(description),
+    due_date: trimStr(dueDate),
+    payment_trigger: paymentTrigger === 'on' || paymentTrigger === '1',
+    sort_order:
+      sortOrder && typeof sortOrder === 'string' && sortOrder.trim()
+        ? parseInt(sortOrder, 10) || 0
+        : 0,
+  })
+
+  return redirect(`${detailUrl}?milestone_added=1`, 302)
+}
+
+async function handlePost({ request, locals, redirect, params }: APIContext): Promise<Response> {
   const session = locals.session
   if (!session || session.role !== 'admin') {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -64,117 +198,30 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
 
     const detailUrl = `/admin/engagements/${engagementId}`
 
-    // Handle DELETE
     if (method === 'DELETE') {
-      const milestoneId = formData.get('milestone_id')
-      if (!milestoneId || typeof milestoneId !== 'string') {
-        return redirect(`${detailUrl}?error=missing`, 302)
-      }
-
-      const milestone = await getMilestone(env.DB, session.orgId, milestoneId.trim())
-      if (!milestone || milestone.engagement_id !== engagementId) {
-        return redirect(`${detailUrl}?error=not_found`, 302)
-      }
-
-      await deleteMilestone(env.DB, session.orgId, milestoneId.trim())
-      return redirect(`${detailUrl}?milestone_deleted=1`, 302)
+      return handleDelete(redirect, session.orgId, engagementId, detailUrl, formData)
     }
 
-    // Handle payment_trigger toggle
     if (action === 'toggle_payment_trigger') {
-      const milestoneId = formData.get('milestone_id')
-      if (!milestoneId || typeof milestoneId !== 'string') {
-        return redirect(`${detailUrl}?error=missing`, 302)
-      }
-      const milestone = await getMilestone(env.DB, session.orgId, milestoneId.trim())
-      if (!milestone || milestone.engagement_id !== engagementId) {
-        return redirect(`${detailUrl}?error=not_found`, 302)
-      }
-      await updateMilestone(env.DB, session.orgId, milestoneId.trim(), {
-        payment_trigger: !milestone.payment_trigger,
-      })
-      return redirect(`${detailUrl}?saved=1`, 302)
+      return handleTogglePaymentTrigger(redirect, session.orgId, engagementId, detailUrl, formData)
     }
 
-    // Handle status transition
     if (action === 'transition_status') {
-      const milestoneId = formData.get('milestone_id')
-      const newStatus = formData.get('new_status')
-
-      if (
-        !milestoneId ||
-        typeof milestoneId !== 'string' ||
-        !newStatus ||
-        typeof newStatus !== 'string'
-      ) {
-        return redirect(`${detailUrl}?error=invalid_status`, 302)
-      }
-
-      const milestone = await getMilestone(env.DB, session.orgId, milestoneId.trim())
-      if (!milestone || milestone.engagement_id !== engagementId) {
-        return redirect(`${detailUrl}?error=not_found`, 302)
-      }
-
-      try {
-        if (newStatus === 'completed' && milestone.payment_trigger) {
-          // Look up customer email for Stripe invoicing
-          const contact = await env.DB.prepare(
-            'SELECT email FROM contacts WHERE org_id = ? AND entity_id = ? AND email IS NOT NULL ORDER BY created_at ASC LIMIT 1'
-          )
-            .bind(session.orgId, engagement.entity_id)
-            .first<{ email: string }>()
-
-          await completeMilestoneWithInvoicing({
-            db: env.DB,
-            orgId: session.orgId,
-            milestoneId: milestoneId.trim(),
-            stripeApiKey: env.STRIPE_API_KEY,
-            customerEmail: contact?.email ?? null,
-          })
-        } else {
-          await updateMilestoneStatus(
-            env.DB,
-            session.orgId,
-            milestoneId.trim(),
-            newStatus as MilestoneStatus
-          )
-        }
-      } catch (err) {
-        console.error('[api/admin/engagements/[id]/milestones] Status transition error:', err)
-        return redirect(`${detailUrl}?error=invalid_transition`, 302)
-      }
-
-      return redirect(`${detailUrl}?saved=1`, 302)
+      return handleTransitionStatus({
+        redirect,
+        orgId: session.orgId,
+        engagementId,
+        entityId: engagement.entity_id,
+        detailUrl,
+        formData,
+      })
     }
 
-    // Handle create
-    const name = formData.get('name')
-    if (!name || typeof name !== 'string' || !name.trim()) {
-      return redirect(`${detailUrl}?error=missing`, 302)
-    }
-
-    const description = formData.get('description')
-    const dueDate = formData.get('due_date')
-    const paymentTrigger = formData.get('payment_trigger')
-    const sortOrder = formData.get('sort_order')
-
-    await createMilestone(env.DB, session.orgId, engagementId, {
-      name: name.trim(),
-      description:
-        description && typeof description === 'string' && description.trim()
-          ? description.trim()
-          : null,
-      due_date: dueDate && typeof dueDate === 'string' && dueDate.trim() ? dueDate.trim() : null,
-      payment_trigger: paymentTrigger === 'on' || paymentTrigger === '1',
-      sort_order:
-        sortOrder && typeof sortOrder === 'string' && sortOrder.trim()
-          ? parseInt(sortOrder, 10) || 0
-          : 0,
-    })
-
-    return redirect(`${detailUrl}?milestone_added=1`, 302)
+    return handleCreate(redirect, session.orgId, engagementId, detailUrl, formData)
   } catch (err) {
     console.error('[api/admin/engagements/[id]/milestones] Error:', err)
     return redirect('/admin/entities?error=server', 302)
   }
 }
+
+export const POST: APIRoute = (ctx) => handlePost(ctx)

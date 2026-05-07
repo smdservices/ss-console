@@ -57,7 +57,7 @@ describe('migration 0025: meetings table + backfill', () => {
   it('creates the meetings table with a nullable meeting_type column', async () => {
     const entity = await createEntity(db, ORG_ID, {
       name: 'Backfill Co',
-      stage: 'prospect' as EntityStage,
+      stage: 'prospect',
     })
 
     const meeting = await createMeeting(db, ORG_ID, entity.id, { scheduled_at: null })
@@ -76,7 +76,7 @@ describe('migration 0025: meetings table + backfill', () => {
   it('adds meeting_id column on quotes (nullable, backfilled from assessment_id)', async () => {
     const entity = await createEntity(db, ORG_ID, {
       name: 'Quote Co',
-      stage: 'proposing' as EntityStage,
+      stage: 'proposing',
     })
 
     // Seed a legacy assessment + quote pair BEFORE running the backfill idempotently
@@ -123,7 +123,7 @@ describe('migration 0025: meetings table + backfill', () => {
     // used to reference assessment_id now has meeting_id set.
     const entity = await createEntity(db, ORG_ID, {
       name: 'Backfill Q',
-      stage: 'proposing' as EntityStage,
+      stage: 'proposing',
     })
 
     await db
@@ -171,7 +171,7 @@ describe('migration 0026: rename stage assessing → meetings', () => {
 
   it('accepts the new "meetings" stage value in the CHECK constraint', async () => {
     await expect(
-      createEntity(db, ORG_ID, { name: 'Meetings Co', stage: 'meetings' as EntityStage })
+      createEntity(db, ORG_ID, { name: 'Meetings Co', stage: 'meetings' })
     ).resolves.toBeDefined()
   })
 
@@ -255,7 +255,7 @@ describe('meetings DAL', () => {
     await seedOrg(db)
     const entity = await createEntity(db, ORG_ID, {
       name: 'DAL Co',
-      stage: 'meetings' as EntityStage,
+      stage: 'meetings',
     })
     entityId = entity.id
   })
@@ -305,7 +305,7 @@ describe('meetings DAL', () => {
     // Different entity should not surface.
     const other = await createEntity(db, ORG_ID, {
       name: 'Other',
-      stage: 'prospect' as EntityStage,
+      stage: 'prospect',
     })
     await createMeeting(db, ORG_ID, other.id, { scheduled_at: null })
     const listed = await listMeetings(db, ORG_ID, entityId)

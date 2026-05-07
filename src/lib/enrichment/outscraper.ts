@@ -88,66 +88,64 @@ export async function lookupOutscraper(
       return null
     }
 
-    const data = (await response.json()) as {
-      data?: Array<Array<Record<string, unknown>>>
-    }
+    const data: { data?: unknown[][] } = await response.json()
 
     // Outscraper returns nested arrays: data[0][0] is the first result
     const place = data?.data?.[0]?.[0]
-    if (!place) return null
+    if (!place || typeof place !== 'object') return null
 
-    // Basic name similarity check
-    const placeName = String(place.name ?? '').toLowerCase()
-    const searchName = name.toLowerCase().split(' ')[0]
-    if (!placeName.includes(searchName) && !searchName.includes(placeName.split(' ')[0])) {
-      return null
-    }
-
-    return {
-      name: String(place.name ?? name),
-      phone: stringOrNull(place.phone),
-      website: stringOrNull(place.website),
-      address: stringOrNull(place.address),
-
-      owner_name: stringOrNull(place.owner_title),
-      owner_link: stringOrNull(place.owner_link),
-      verified: place.verified === true,
-
-      facebook: stringOrNull(place.Facebook),
-      instagram: stringOrNull(place.Instagram),
-      linkedin: stringOrNull(place.Linkedin),
-      twitter: stringOrNull(place.Twitter),
-      youtube: stringOrNull(place.Youtube),
-
-      emails: extractEmails(place),
-
-      working_hours: stringOrNull(place.working_hours),
-      business_status: stringOrNull(place.business_status),
-      about: stringOrNull(place.about),
-      description: stringOrNull(place.description),
-
-      rating: typeof place.rating === 'number' ? place.rating : null,
-      review_count: typeof place.reviews === 'number' ? place.reviews : null,
-      reviews_per_score:
-        place.reviews_per_score && typeof place.reviews_per_score === 'object'
-          ? (place.reviews_per_score as Record<string, number>)
-          : null,
-
-      booking_link:
-        stringOrNull(place.booking_appointment_link) ?? stringOrNull(place.reservation_links),
-
-      website_generator: stringOrNull(place.website_generator),
-      has_facebook_pixel: place.website_has_fb_pixel === true,
-      has_google_tag_manager: place.website_has_gtm === true,
-
-      photos_count: typeof place.photos_count === 'number' ? place.photos_count : null,
-    }
+    return mapPlace(place as Record<string, unknown>, name)
   } catch (err) {
     console.error('[outscraper] error', {
       name,
       message: err instanceof Error ? err.message : String(err),
     })
     throw err
+  }
+}
+
+/** Map a raw Outscraper place record to our typed struct. Returns null on name mismatch. */
+function mapPlace(place: Record<string, unknown>, searchName: string): OutscraperEnrichment | null {
+  // Basic name similarity check
+  const rawName = typeof place.name === 'string' ? place.name : ''
+  const placeName = rawName.toLowerCase()
+  const firstWord = searchName.toLowerCase().split(' ')[0]
+  if (!placeName.includes(firstWord) && !firstWord.includes(placeName.split(' ')[0])) {
+    return null
+  }
+
+  const reviewsPerScore =
+    place.reviews_per_score && typeof place.reviews_per_score === 'object'
+      ? (place.reviews_per_score as Record<string, number>)
+      : null
+
+  return {
+    name: rawName || searchName,
+    phone: stringOrNull(place.phone),
+    website: stringOrNull(place.website),
+    address: stringOrNull(place.address),
+    owner_name: stringOrNull(place.owner_title),
+    owner_link: stringOrNull(place.owner_link),
+    verified: place.verified === true,
+    facebook: stringOrNull(place.Facebook),
+    instagram: stringOrNull(place.Instagram),
+    linkedin: stringOrNull(place.Linkedin),
+    twitter: stringOrNull(place.Twitter),
+    youtube: stringOrNull(place.Youtube),
+    emails: extractEmails(place),
+    working_hours: stringOrNull(place.working_hours),
+    business_status: stringOrNull(place.business_status),
+    about: stringOrNull(place.about),
+    description: stringOrNull(place.description),
+    rating: typeof place.rating === 'number' ? place.rating : null,
+    review_count: typeof place.reviews === 'number' ? place.reviews : null,
+    reviews_per_score: reviewsPerScore,
+    booking_link:
+      stringOrNull(place.booking_appointment_link) ?? stringOrNull(place.reservation_links),
+    website_generator: stringOrNull(place.website_generator),
+    has_facebook_pixel: place.website_has_fb_pixel === true,
+    has_google_tag_manager: place.website_has_gtm === true,
+    photos_count: typeof place.photos_count === 'number' ? place.photos_count : null,
   }
 }
 

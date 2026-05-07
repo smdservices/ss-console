@@ -123,7 +123,7 @@ export async function createCalendarEvent(
     throw new Error(`Google Calendar create failed (${response.status}): ${text}`)
   }
 
-  return (await response.json()) as CalendarEvent
+  return await response.json()
 }
 
 /**
@@ -159,7 +159,7 @@ export async function updateCalendarEvent(
     throw new Error(`Google Calendar update failed (${response.status}): ${text}`)
   }
 
-  return (await response.json()) as CalendarEvent
+  return await response.json()
 }
 
 /**
@@ -205,9 +205,8 @@ export async function getFreeBusy(
     throw new Error(`Google Calendar freeBusy failed (${response.status}): ${text}`)
   }
 
-  const data = (await response.json()) as {
-    calendars: Record<string, { busy: FreeBusySlot[] }>
-  }
+  const data: { calendars?: Record<string, { busy?: Array<{ start: string; end: string }> }> } =
+    await response.json()
 
   return data.calendars?.[calendarId]?.busy ?? []
 }
@@ -240,7 +239,7 @@ export async function refreshAccessToken(
     throw new Error(`Token refresh failed (${response.status}): ${text}`)
   }
 
-  return (await response.json()) as TokenResponse
+  return await response.json()
 }
 
 // ---------------------------------------------------------------------------
@@ -273,5 +272,5 @@ export async function exchangeAuthCode(
     throw new Error(`Token exchange failed (${response.status}): ${text}`)
   }
 
-  return (await response.json()) as TokenResponse
+  return await response.json()
 }

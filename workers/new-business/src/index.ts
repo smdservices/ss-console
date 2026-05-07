@@ -18,7 +18,7 @@ import { getGeneratorConfig, recordGeneratorRun } from '../../../src/lib/db/gene
 import { getPipelineSettings } from '../../../src/lib/db/pipeline-settings.js'
 import type { NewBusinessConfig } from '../../../src/lib/generators/types.js'
 import { dispatchEnrichmentWorkflow } from '../../../src/lib/enrichment/dispatch.js'
-import { fetchAllPermits, type SodaCity } from './soda.js'
+import { fetchAllPermits, type PermitRecord } from './soda.js'
 import { qualifyNewBusiness, derivePainScore } from './qualify.js'
 import { sendFailureAlert, type RunSummary } from './alert.js'
 
@@ -43,6 +43,92 @@ export interface Env {
   ENRICHMENT_WORKFLOW_SERVICE?: { fetch: typeof fetch }
 }
 
+async function processOnePermit(
+  permit: PermitRecord,
+  env: Env,
+  ctx: ExecutionContext | undefined,
+  summary: RunSummary,
+  painThreshold: number
+): Promise<void> {
+  const alreadyProcessed = await env.DB.prepare(
+    `SELECT 1 FROM context WHERE org_id = ? AND source = 'new_business' AND source_ref = ?`
+  )
+    .bind(ORG_ID, permit.permit_number)
+    .first()
+  if (alreadyProcessed) return
+
+  summary.newPermits++
+  const qualification = await qualifyNewBusiness(permit, env.ANTHROPIC_API_KEY)
+  if (!qualification) {
+    summary.errors++
+    summary.errorDetails.push(`Claude failed for "${permit.business_name}"`)
+    return
+  }
+
+  // Apply admin-tunable pain_threshold (issue #595). For new_business we
+  // derive a 0-10 score from `outreach_timing` (immediate=10,
+  // wait_30_days=7, wait_60_days=5, not_recommended=0). Default threshold
+  // is 1 — meaning only `not_recommended` permits are filtered, matching
+  // the prior shipped behavior.
+  const painScore = derivePainScore(qualification)
+  if (painScore < painThreshold) {
+    if (qualification.outreach_timing === 'not_recommended') {
+      summary.disqualified++
+    } else {
+      summary.belowThreshold++
+    }
+    return
+  }
+
+  summary.qualified++
+  const { entity } = await findOrCreateEntity(env.DB, ORG_ID, {
+    name: qualification.business_name,
+    area: qualification.area,
+    source_pipeline: 'new_business',
+  })
+
+  const contentParts: string[] = [
+    `${qualification.entity_type} — ${qualification.source}. ${qualification.notes}`,
+  ]
+  if (qualification.outreach_angle)
+    contentParts.push(`**Outreach angle:** ${qualification.outreach_angle}`)
+  const content = contentParts.join('\n\n') || 'Signal from new_business.'
+
+  const metadata: Record<string, unknown> = {
+    permit_number: permit.permit_number ?? null,
+    permit_type: permit.permit_type ?? null,
+    entity_type: qualification.entity_type,
+    filing_date: permit.filing_date,
+    source: qualification.source,
+    vertical_match: qualification.vertical_match,
+    size_estimate: qualification.size_estimate,
+    outreach_timing: qualification.outreach_timing,
+    pain_score: painScore,
+    ...(qualification.outreach_angle ? { outreach_angle: qualification.outreach_angle } : {}),
+    date_found: new Date().toISOString().split('T')[0],
+  }
+
+  await appendContext(env.DB, ORG_ID, {
+    entity_id: entity.id,
+    type: 'signal',
+    content,
+    source: 'new_business',
+    source_ref: permit.permit_number,
+    metadata,
+  })
+  summary.written++
+
+  const dispatchPromise = dispatchEnrichmentWorkflow(env, {
+    entityId: entity.id,
+    orgId: ORG_ID,
+    mode: 'full',
+    triggered_by: 'cron:new-business',
+  }).catch((err) => {
+    console.error('[new_business] enrichment dispatch failed', { entityId: entity.id, error: err })
+  })
+  if (ctx) ctx.waitUntil(dispatchPromise)
+}
+
 async function run(env: Env, ctx?: ExecutionContext): Promise<RunSummary> {
   const summary: RunSummary = {
     sources: 5,
@@ -64,14 +150,11 @@ async function run(env: Env, ctx?: ExecutionContext): Promise<RunSummary> {
   const configRow = await getGeneratorConfig(env.DB, ORG_ID, 'new_business')
   if (!configRow.enabled) {
     console.log('new_business: disabled by admin config — skipping run')
-    await recordGeneratorRun(env.DB, ORG_ID, 'new_business', {
-      signalsCount: 0,
-      error: null,
-    })
+    await recordGeneratorRun(env.DB, ORG_ID, 'new_business', { signalsCount: 0, error: null })
     return summary
   }
   const cfg = configRow.config as NewBusinessConfig
-  const enabledCities = cfg.soda_sources.filter((s) => s.enabled).map((s) => s.city as SodaCity)
+  const enabledCities = cfg.soda_sources.filter((s) => s.enabled).map((s) => s.city)
 
   const permits = await fetchAllPermits(enabledCities)
   summary.totalPermits = permits.length
@@ -81,107 +164,7 @@ async function run(env: Env, ctx?: ExecutionContext): Promise<RunSummary> {
 
   for (const permit of permits) {
     try {
-      const alreadyProcessed = await env.DB.prepare(
-        `SELECT 1 FROM context WHERE org_id = ? AND source = 'new_business' AND source_ref = ?`
-      )
-        .bind(ORG_ID, permit.permit_number)
-        .first()
-
-      if (alreadyProcessed) continue
-
-      summary.newPermits++
-
-      const qualification = await qualifyNewBusiness(permit, env.ANTHROPIC_API_KEY)
-      if (!qualification) {
-        summary.errors++
-        summary.errorDetails.push(`Claude failed for "${permit.business_name}"`)
-        continue
-      }
-
-      // Apply admin-tunable pain_threshold (issue #595). For new_business we
-      // derive a 0-10 score from `outreach_timing` (immediate=10,
-      // wait_30_days=7, wait_60_days=5, not_recommended=0). Default threshold
-      // is 1 — meaning only `not_recommended` permits are filtered, matching
-      // the prior shipped behavior. Ops can raise it to 6 to skip
-      // wait_60_days permits, or to 8 to act only on immediate-timing leads.
-      const painScore = derivePainScore(qualification)
-      if (painScore < painThreshold) {
-        if (qualification.outreach_timing === 'not_recommended') {
-          summary.disqualified++
-        } else {
-          summary.belowThreshold++
-        }
-        continue
-      }
-
-      summary.qualified++
-
-      // Find or create entity
-      const { entity } = await findOrCreateEntity(env.DB, ORG_ID, {
-        name: qualification.business_name,
-        area: qualification.area,
-        source_pipeline: 'new_business',
-      })
-
-      // Build context content
-      const evidenceSummary = `${qualification.entity_type} — ${qualification.source}. ${qualification.notes}`
-      const contentParts: string[] = []
-      if (evidenceSummary) contentParts.push(evidenceSummary)
-      if (qualification.outreach_angle) {
-        contentParts.push(`**Outreach angle:** ${qualification.outreach_angle}`)
-      }
-      const content = contentParts.join('\n\n') || 'Signal from new_business.'
-
-      // Build metadata
-      const dateFound = new Date().toISOString().split('T')[0]
-      const metadata: Record<string, unknown> = {
-        permit_number: permit.permit_number ?? null,
-        permit_type: permit.permit_type ?? null,
-        entity_type: qualification.entity_type,
-        filing_date: permit.filing_date,
-        source: qualification.source,
-        vertical_match: qualification.vertical_match,
-        size_estimate: qualification.size_estimate,
-        outreach_timing: qualification.outreach_timing,
-        pain_score: painScore,
-        ...(qualification.outreach_angle ? { outreach_angle: qualification.outreach_angle } : {}),
-        date_found: dateFound,
-      }
-
-      // Append context
-      await appendContext(env.DB, ORG_ID, {
-        entity_id: entity.id,
-        type: 'signal',
-        content,
-        source: 'new_business',
-        source_ref: permit.permit_number,
-        metadata,
-      })
-
-      summary.written++
-
-      // At-ingest enrichment (#631). Dispatches the EnrichmentWorkflow on
-      // the dedicated Worker so the 50-state cron loop is not blocked by
-      // 12 module round-trips, and so the work itself is not killed by
-      // the Workers post-response CPU budget (the bug class the workflow
-      // refactor was chartered to escape). The dispatch call itself is
-      // fast (one fetch to the service binding); we still wrap it in
-      // waitUntil so the cron iteration doesn't await it. Idempotent:
-      // dispatch's pre-check skips entities that already have a brief.
-      const dispatchPromise = dispatchEnrichmentWorkflow(env, {
-        entityId: entity.id,
-        orgId: ORG_ID,
-        mode: 'full',
-        triggered_by: 'cron:new-business',
-      }).catch((err) => {
-        console.error('[new_business] enrichment dispatch failed', {
-          entityId: entity.id,
-          error: err,
-        })
-      })
-      if (ctx) {
-        ctx.waitUntil(dispatchPromise)
-      }
+      await processOnePermit(permit, env, ctx, summary, painThreshold)
     } catch (err) {
       summary.errors++
       const msg = err instanceof Error ? err.message : String(err)

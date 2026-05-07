@@ -72,7 +72,11 @@ export const GET: APIRoute = async ({ url }) => {
     const fetchGoogleBusy = buildGoogleBusyFetcher(accessToken, calendarId)
 
     // 5. Get available slots
-    const slots = await getAvailableSlots(env, ORG_ID, fromUtc, toUtc, fetchGoogleBusy, now)
+    const slots = await getAvailableSlots(
+      env,
+      { orgId: ORG_ID, fromUtc, toUtc, fetchGoogleBusy },
+      now
+    )
 
     // 6. Group by local date and add labels
     const grouped = groupSlotsByLocalDate(slots, viewerTz)
@@ -130,9 +134,8 @@ function buildGoogleBusyFetcher(
         return []
       }
 
-      const data = (await response.json()) as {
-        calendars?: Record<string, { busy?: Array<{ start: string; end: string }> }>
-      }
+      const data: { calendars?: Record<string, { busy?: Array<{ start: string; end: string }> }> } =
+        await response.json()
 
       const calendarBusy = data.calendars?.[calendarId]?.busy ?? []
       return calendarBusy.map((b) => ({

@@ -6,6 +6,7 @@ import PortalPageHead from '../../../components/portal/PortalPageHead.astro'
 import SkipToMain from '../../../components/SkipToMain.astro'
 import MoneyDisplay from '../../../components/portal/MoneyDisplay.astro'
 import ConsultantBlock from '../../../components/portal/ConsultantBlock.astro'
+import QuoteProposalSections from '../../../components/portal/QuoteProposalSections.astro'
 import { BRAND_NAME } from '../../../lib/config/brand'
 import { getPortalClient } from '../../../lib/portal/session'
 import { getQuoteForEntity, parseSchedule, parseDeliverables } from '../../../lib/db/quotes'
@@ -304,77 +305,7 @@ const consultantPhone = engagement?.consultant_phone ?? null
 
           <!-- Section stack — § block chrome per Plainspoken register -->
           <div class="space-y-8">
-            <!-- § 01 What you'll get — rendered only when deliverables are authored. -->
-            {
-              deliverables.length > 0 && (
-                <section class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
-                  <div class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
-                    <span>What you'll get</span>
-                    <span class="text-[color:var(--ss-color-primary)]">§ 01</span>
-                  </div>
-                  <ol class="px-5 md:px-7 py-2">
-                    {deliverables.map((d, i) => (
-                      <li
-                        class:list={[
-                          'grid grid-cols-[48px_1fr] gap-4 py-5',
-                          i !== 0
-                            ? 'border-t-[2px] border-[color:var(--ss-color-text-primary)]'
-                            : '',
-                        ]}
-                      >
-                        <span
-                          aria-hidden="true"
-                          class="font-['Archivo'] text-2xl font-black text-[color:var(--ss-color-primary)] tracking-[-0.02em] leading-none"
-                        >
-                          {String(i + 1).padStart(2, '0')}.
-                        </span>
-                        <div class="min-w-0">
-                          <h3 class="font-['Archivo'] text-lg md:text-xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0 leading-tight">
-                            {d.title}
-                          </h3>
-                          {d.body && (
-                            <p class="mt-2 text-[color:var(--ss-color-text-secondary)] leading-[1.55]">
-                              {d.body}
-                            </p>
-                          )}
-                        </div>
-                      </li>
-                    ))}
-                  </ol>
-                </section>
-              )
-            }
-
-            <!-- § 02 How we'll work (only when authored — never synthesized; #377) -->
-            {
-              schedule.length > 0 && (
-                <section class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
-                  <div class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
-                    <span>How we'll work</span>
-                    <span class="text-[color:var(--ss-color-primary)]">§ 02</span>
-                  </div>
-                  <div class="px-5 md:px-7 py-2">
-                    {schedule.map((row, i) => (
-                      <div
-                        class:list={[
-                          'grid grid-cols-1 md:grid-cols-[140px_1fr] gap-3 md:gap-6 py-5',
-                          i !== 0
-                            ? 'border-t-[2px] border-[color:var(--ss-color-text-primary)]'
-                            : '',
-                        ]}
-                      >
-                        <span class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]">
-                          {row.label}
-                        </span>
-                        <p class="text-[color:var(--ss-color-text-secondary)] leading-[1.55] m-0">
-                          {row.body}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )
-            }
+            <QuoteProposalSections deliverables={deliverables} schedule={schedule} />
 
             <!-- § 03 Terms -->
             <section
@@ -430,7 +361,7 @@ const consultantPhone = engagement?.consultant_phone ?? null
                         style="min-height: 600px;"
                       >
                         <iframe
-                          src={`https://app.signwell.com/sign/${activeSignatureRequest!.provider_request_id}`}
+                          src={`https://app.signwell.com/sign/${activeSignatureRequest.provider_request_id}`}
                           class="w-full border-0"
                           style="min-height: 600px;"
                           title="Sign Statement of Work"

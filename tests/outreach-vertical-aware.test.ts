@@ -369,7 +369,12 @@ describe('outreach: vertical guidance respects ADR 0001 taxonomy boundary', () =
 // the parameter.
 // ---------------------------------------------------------------------------
 describe('outreach: enrichment pipeline threads entity.vertical', () => {
-  const enrichmentSrc = () => readFileSync(resolve('src/lib/enrichment/index.ts'), 'utf-8')
+  // tryOutreach / regenerateOutreach were extracted to enrichment-advanced.ts
+  // and re-exported from index.ts to keep it within the 500-line ceiling.
+  const enrichmentSrc = () =>
+    readFileSync(resolve('src/lib/enrichment/index.ts'), 'utf-8') +
+    '\n' +
+    readFileSync(resolve('src/lib/enrichment/enrichment-advanced.ts'), 'utf-8')
 
   it('regenerateOutreach passes entity.vertical to generateOutreachDraft', () => {
     const src = enrichmentSrc()

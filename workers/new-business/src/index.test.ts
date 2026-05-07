@@ -156,10 +156,10 @@ function makeQualification(overrides = {}) {
 describe('new-business fetch handler', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 1 } as never)
+    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 1 })
     vi.mocked(derivePainScore).mockReturnValue(10)
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
-    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined as never)
+    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(fetchAllPermits).mockResolvedValue([])
     vi.mocked(findOrCreateEntity).mockResolvedValue({
       entity: { id: 'entity-001', name: 'Desert Bloom Florist' },
@@ -185,7 +185,7 @@ describe('new-business fetch handler', () => {
   it('returns 200 JSON summary on valid auth', async () => {
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
     expect(res.status).toBe(200)
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     expect(body).toMatchObject({
       totalPermits: expect.any(Number),
       written: expect.any(Number),
@@ -200,15 +200,15 @@ describe('new-business fetch handler', () => {
 describe('new-business disabled generator', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 1 } as never)
+    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 1 })
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeDisabledConfig() as never)
-    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined as never)
+    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
   })
 
   it('skips run when disabled', async () => {
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
     expect(res.status).toBe(200)
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     expect(body.written).toBe(0)
     expect(fetchAllPermits).not.toHaveBeenCalled()
   })
@@ -221,10 +221,10 @@ describe('new-business disabled generator', () => {
 describe('new-business happy path', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 1 } as never)
+    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 1 })
     vi.mocked(derivePainScore).mockReturnValue(10)
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
-    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined as never)
+    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(fetchAllPermits).mockResolvedValue([makePermit()])
     vi.mocked(qualifyNewBusiness).mockResolvedValue(makeQualification() as never)
     vi.mocked(findOrCreateEntity).mockResolvedValue({
@@ -236,7 +236,7 @@ describe('new-business happy path', () => {
   it('qualifies a permit and writes to D1', async () => {
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
     expect(res.status).toBe(200)
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     expect(body.qualified).toBe(1)
     expect(body.written).toBe(1)
     expect(appendContext).toHaveBeenCalledOnce()
@@ -250,11 +250,11 @@ describe('new-business happy path', () => {
 describe('new-business not_recommended qualification', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 1 } as never)
+    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 1 })
     // not_recommended → score 0 < threshold 1 → counted under disqualified
     vi.mocked(derivePainScore).mockReturnValue(0)
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
-    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined as never)
+    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(fetchAllPermits).mockResolvedValue([makePermit()])
     vi.mocked(qualifyNewBusiness).mockResolvedValue(
       makeQualification({ outreach_timing: 'not_recommended' }) as never
@@ -263,7 +263,7 @@ describe('new-business not_recommended qualification', () => {
 
   it('disqualifies and skips D1 write', async () => {
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     expect(body.disqualified).toBe(1)
     expect(body.written).toBe(0)
     expect(appendContext).not.toHaveBeenCalled()
@@ -277,17 +277,17 @@ describe('new-business not_recommended qualification', () => {
 describe('new-business Claude failure', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 1 } as never)
+    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 1 })
     vi.mocked(derivePainScore).mockReturnValue(10)
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
-    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined as never)
+    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(fetchAllPermits).mockResolvedValue([makePermit()])
     vi.mocked(qualifyNewBusiness).mockResolvedValue(null)
   })
 
   it('records error and skips D1 write', async () => {
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     expect(body.errors).toBeGreaterThan(0)
     expect(body.written).toBe(0)
     expect(appendContext).not.toHaveBeenCalled()
@@ -301,10 +301,10 @@ describe('new-business Claude failure', () => {
 describe('new-business scheduled handler', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 1 } as never)
+    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 1 })
     vi.mocked(derivePainScore).mockReturnValue(10)
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
-    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined as never)
+    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(fetchAllPermits).mockResolvedValue([])
   })
 
@@ -323,7 +323,7 @@ describe('new-business pain_threshold from settings', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
-    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined as never)
+    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(fetchAllPermits).mockResolvedValue([makePermit()])
     vi.mocked(qualifyNewBusiness).mockResolvedValue(
       makeQualification({ outreach_timing: 'wait_60_days' }) as never
@@ -335,19 +335,19 @@ describe('new-business pain_threshold from settings', () => {
   })
 
   it('writes wait_60_days permit (score 5) when threshold is default 1', async () => {
-    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 1 } as never)
+    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 1 })
     vi.mocked(derivePainScore).mockReturnValue(5)
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     expect(body.qualified).toBe(1)
     expect(body.written).toBe(1)
   })
 
   it('skips wait_60_days permit (score 5) when admin raises threshold to 6', async () => {
-    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 6 } as never)
+    vi.mocked(getPipelineSettings).mockResolvedValue({ pain_threshold: 6 })
     vi.mocked(derivePainScore).mockReturnValue(5)
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     expect(body.belowThreshold).toBe(1)
     expect(body.written).toBe(0)
     expect(appendContext).not.toHaveBeenCalled()

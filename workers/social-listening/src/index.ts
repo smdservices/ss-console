@@ -42,22 +42,6 @@ interface RedditPost {
   created_utc: number
 }
 
-interface RedditSearchResponse {
-  data: {
-    children: Array<{
-      data: {
-        id: string
-        title: string
-        subreddit: string
-        permalink: string
-        selftext?: string
-        score: number
-        created_utc: number
-      }
-    }>
-  }
-}
-
 interface RunSummary {
   queries: number
   totalPosts: number
@@ -90,9 +74,12 @@ async function getRedditToken(env: Env): Promise<string> {
     throw new Error(`Reddit OAuth failed: ${res.status} ${res.statusText}`)
   }
 
-  const data = (await res.json()) as { access_token: string; error?: string }
+  const data: { error?: string; access_token?: string } = await res.json()
   if (data.error) {
     throw new Error(`Reddit OAuth error: ${data.error}`)
+  }
+  if (!data.access_token) {
+    throw new Error('Reddit OAuth: no access_token in response')
   }
   return data.access_token
 }
@@ -112,7 +99,18 @@ async function searchReddit(token: string, query: string): Promise<RedditPost[]>
     throw new Error(`Reddit search failed: ${res.status} ${res.statusText}`)
   }
 
-  const data = (await res.json()) as RedditSearchResponse
+  interface RedditChild {
+    data: {
+      id: string
+      title: string
+      subreddit: string
+      permalink: string
+      selftext?: string
+      score: number
+      created_utc: number
+    }
+  }
+  const data: { data: { children: RedditChild[] } } = await res.json()
   return data.data.children.map((c) => ({
     id: c.data.id,
     title: c.data.title,
@@ -200,49 +198,14 @@ async function sendFailureAlert(summary: RunSummary, resendApiKey: string): Prom
 // Main run
 // ---------------------------------------------------------------------------
 
-async function run(env: Env): Promise<RunSummary> {
-  const summary: RunSummary = {
-    queries: 0,
-    totalPosts: 0,
-    newPosts: 0,
-    duplicates: 0,
-    stored: 0,
-    errors: 0,
-    errorDetails: [],
-  }
-
-  const configRow = await getGeneratorConfig(env.DB, ORG_ID, 'social_listening')
-  if (!configRow.enabled) {
-    console.log('social_listening: disabled by admin config — skipping run')
-    await recordGeneratorRun(env.DB, ORG_ID, 'social_listening', {
-      signalsCount: 0,
-      error: null,
-    })
-    return summary
-  }
-  const cfg = configRow.config as SocialListeningConfig
-
-  // Authenticate with Reddit
-  let token: string
-  try {
-    token = await getRedditToken(env)
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    summary.errors++
-    summary.errorDetails.push(`Reddit auth: ${msg}`)
-    console.error(`Fatal: Reddit auth failed — aborting run`)
-    await recordGeneratorRun(env.DB, ORG_ID, 'social_listening', {
-      signalsCount: 0,
-      error: msg,
-    })
-    return summary
-  }
-
-  // Search across all queries, dedup by post ID within this run
+async function fetchAllPosts(
+  token: string,
+  queries: string[],
+  summary: RunSummary
+): Promise<RedditPost[]> {
   const seen = new Set<string>()
   const allPosts: RedditPost[] = []
-
-  for (const query of cfg.search_queries) {
+  for (const query of queries) {
     summary.queries++
     try {
       const posts = await searchReddit(token, query)
@@ -258,51 +221,84 @@ async function run(env: Env): Promise<RunSummary> {
       summary.errorDetails.push(`Query "${query}": ${msg}`)
     }
   }
+  return allPosts
+}
 
+async function storePost(post: RedditPost, db: D1Database, summary: RunSummary): Promise<boolean> {
+  const sourceRef = `reddit_${post.id}`
+  const alreadyProcessed = await db
+    .prepare(
+      `SELECT 1 FROM context WHERE org_id = ? AND source = 'social_listening' AND source_ref = ?`
+    )
+    .bind(ORG_ID, sourceRef)
+    .first()
+  if (alreadyProcessed) {
+    summary.duplicates++
+    return false
+  }
+
+  summary.newPosts++
+  const content = `[r/${post.subreddit}] ${post.title}\n\n${post.selftext}`
+  const metadata: Record<string, unknown> = {
+    reddit_id: post.id,
+    subreddit: post.subreddit,
+    url: post.url,
+    score: post.score,
+    created_utc: post.created_utc,
+    date_found: new Date().toISOString().split('T')[0],
+  }
+  await appendContext(db, ORG_ID, {
+    entity_id: SYSTEM_ENTITY_ID,
+    type: 'signal',
+    content,
+    source: 'social_listening',
+    source_ref: sourceRef,
+    metadata,
+  })
+  summary.stored++
+  return true
+}
+
+async function run(env: Env): Promise<RunSummary> {
+  const summary: RunSummary = {
+    queries: 0,
+    totalPosts: 0,
+    newPosts: 0,
+    duplicates: 0,
+    stored: 0,
+    errors: 0,
+    errorDetails: [],
+  }
+
+  const configRow = await getGeneratorConfig(env.DB, ORG_ID, 'social_listening')
+  if (!configRow.enabled) {
+    console.log('social_listening: disabled by admin config — skipping run')
+    await recordGeneratorRun(env.DB, ORG_ID, 'social_listening', { signalsCount: 0, error: null })
+    return summary
+  }
+  const cfg = configRow.config as SocialListeningConfig
+
+  let token: string
+  try {
+    token = await getRedditToken(env)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    summary.errors++
+    summary.errorDetails.push(`Reddit auth: ${msg}`)
+    console.error(`Fatal: Reddit auth failed — aborting run`)
+    await recordGeneratorRun(env.DB, ORG_ID, 'social_listening', { signalsCount: 0, error: msg })
+    return summary
+  }
+
+  const allPosts = await fetchAllPosts(token, cfg.search_queries, summary)
   summary.totalPosts = allPosts.length
   console.log(`Reddit: ${summary.queries} queries, ${summary.totalPosts} unique posts`)
 
-  // Dedup against D1, store new signals, collect for digest
   const digestPosts: RedditPost[] = []
-
   for (const post of allPosts) {
     try {
-      const sourceRef = `reddit_${post.id}`
-      const alreadyProcessed = await env.DB.prepare(
-        `SELECT 1 FROM context WHERE org_id = ? AND source = 'social_listening' AND source_ref = ?`
-      )
-        .bind(ORG_ID, sourceRef)
-        .first()
-
-      if (alreadyProcessed) {
-        summary.duplicates++
-        continue
-      }
-
-      summary.newPosts++
-
-      // Store as context entry against system entity (no entity creation for discovery)
-      const content = `[r/${post.subreddit}] ${post.title}\n\n${post.selftext}`
-      const metadata: Record<string, unknown> = {
-        reddit_id: post.id,
-        subreddit: post.subreddit,
-        url: post.url,
-        score: post.score,
-        created_utc: post.created_utc,
-        date_found: new Date().toISOString().split('T')[0],
-      }
-
-      await appendContext(env.DB, ORG_ID, {
-        entity_id: SYSTEM_ENTITY_ID,
-        type: 'signal',
-        content,
-        source: 'social_listening',
-        source_ref: sourceRef,
-        metadata,
-      })
-
-      summary.stored++
-      digestPosts.push(post)
+      const stored = await storePost(post, env.DB, summary)
+      if (stored) digestPosts.push(post)
     } catch (err) {
       summary.errors++
       const msg = err instanceof Error ? err.message : String(err)
@@ -315,7 +311,6 @@ async function run(env: Env): Promise<RunSummary> {
       `${summary.stored} stored, ${summary.errors} errors`
   )
 
-  // Send digest email with new posts
   if (digestPosts.length > 0 && env.RESEND_API_KEY) {
     try {
       await sendDigest(env, digestPosts)

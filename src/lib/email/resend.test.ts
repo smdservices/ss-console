@@ -114,13 +114,13 @@ describe('sendOutreachEmail', () => {
     // Mock global fetch so we can return distinct ids per call.
     const originalFetch = globalThis.fetch
     let i = 0
-    globalThis.fetch = (async () => {
+    globalThis.fetch = async () => {
       i++
       return new Response(JSON.stringify({ id: `resend-msg-${i}` }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       })
-    }) as typeof fetch
+    }
 
     try {
       await sendOutreachEmail(

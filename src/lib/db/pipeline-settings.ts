@@ -262,20 +262,12 @@ export interface Actor {
  * (value identical to stored) skip the audit row. Auth/role enforcement
  * is the caller's responsibility (the admin page is behind middleware).
  */
-export async function updatePipelineSettings(
-  db: D1Database,
-  orgId: string,
-  pipeline: PipelineId,
-  inputs: UpdateInput[],
-  actor: Actor
-): Promise<UpdateResult> {
-  const specs = SETTING_SPECS[pipeline]
+function validateInputs(specs: Record<string, SettingSpec>, inputs: UpdateInput[]): string[] {
   const errors: string[] = []
-
   for (const input of inputs) {
     const spec = specs[input.key]
     if (!spec) {
-      errors.push(`Unknown setting "${input.key}" for pipeline ${pipeline}`)
+      errors.push(`Unknown setting "${input.key}"`)
       continue
     }
     if (!Number.isFinite(input.value)) {
@@ -290,13 +282,61 @@ export async function updatePipelineSettings(
       errors.push(`${spec.label}: must be between ${spec.min} and ${spec.max}`)
     }
   }
+  return errors
+}
 
-  if (errors.length > 0) {
-    return { ok: false, errors, changed: 0 }
-  }
+interface UpsertArgs {
+  db: D1Database
+  orgId: string
+  pipeline: PipelineId
+  input: UpdateInput
+  oldValue: string | null
+  actor: Actor
+  now: string
+}
 
-  // Read existing values so we can populate audit `old_value` and skip
-  // no-op writes. One round-trip up front is cheaper than per-key reads.
+async function upsertSettingWithAudit(args: UpsertArgs): Promise<void> {
+  const { db, orgId, pipeline, input, oldValue, actor, now } = args
+  const newVal = String(input.value)
+  await db
+    .prepare(
+      `INSERT INTO pipeline_settings (id, org_id, pipeline, key, value, updated_at, updated_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(org_id, pipeline, key) DO UPDATE SET
+         value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by`
+    )
+    .bind(crypto.randomUUID(), orgId, pipeline, input.key, newVal, now, actor.email ?? actor.userId)
+    .run()
+  await db
+    .prepare(
+      `INSERT INTO pipeline_settings_audit
+         (id, org_id, pipeline, key, old_value, new_value, actor_user_id, actor_email, changed_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      crypto.randomUUID(),
+      orgId,
+      pipeline,
+      input.key,
+      oldValue,
+      newVal,
+      actor.userId,
+      actor.email,
+      now
+    )
+    .run()
+}
+
+export async function updatePipelineSettings(
+  db: D1Database,
+  orgId: string,
+  pipeline: PipelineId,
+  inputs: UpdateInput[],
+  actor: Actor
+): Promise<UpdateResult> {
+  const errors = validateInputs(SETTING_SPECS[pipeline], inputs)
+  if (errors.length > 0) return { ok: false, errors, changed: 0 }
+
   const existingRows = await db
     .prepare(`SELECT key, value FROM pipeline_settings WHERE org_id = ? AND pipeline = ?`)
     .bind(orgId, pipeline)
@@ -308,45 +348,9 @@ export async function updatePipelineSettings(
   let changed = 0
 
   for (const input of inputs) {
-    const newValueStr = String(input.value)
     const oldValue = existingByKey.get(input.key) ?? null
-    if (oldValue === newValueStr) continue
-
-    const id = crypto.randomUUID()
-    await db
-      .prepare(
-        `INSERT INTO pipeline_settings (id, org_id, pipeline, key, value, updated_at, updated_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(org_id, pipeline, key) DO UPDATE SET
-           value = excluded.value,
-           updated_at = excluded.updated_at,
-           updated_by = excluded.updated_by`
-      )
-      .bind(id, orgId, pipeline, input.key, newValueStr, now, actor.email ?? actor.userId)
-      .run()
-
-    const auditId = crypto.randomUUID()
-    await db
-      .prepare(
-        `INSERT INTO pipeline_settings_audit (
-           id, org_id, pipeline, key, old_value, new_value,
-           actor_user_id, actor_email, changed_at
-         )
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .bind(
-        auditId,
-        orgId,
-        pipeline,
-        input.key,
-        oldValue,
-        newValueStr,
-        actor.userId,
-        actor.email,
-        now
-      )
-      .run()
-
+    if (oldValue === String(input.value)) continue
+    await upsertSettingWithAudit({ db, orgId, pipeline, input, oldValue, actor, now })
     changed++
   }
 

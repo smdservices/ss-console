@@ -22,7 +22,7 @@ export const PUT: APIRoute = async ({ request, locals, params }) => {
   }
 
   try {
-    const body = (await request.json()) as Record<string, unknown>
+    const body: { live_notes?: unknown } = await request.json()
     const liveNotes = body.live_notes
 
     if (typeof liveNotes !== 'string') {

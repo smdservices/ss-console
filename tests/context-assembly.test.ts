@@ -14,7 +14,7 @@ import { ORG_ID } from '../src/lib/constants'
 const migrationsDir = resolve(process.cwd(), 'migrations')
 
 async function freshDb(): Promise<D1Database> {
-  const db = createTestD1() as unknown as D1Database
+  const db = createTestD1()
   await runMigrations(db, { files: discoverNumericMigrations(migrationsDir) })
   return db
 }

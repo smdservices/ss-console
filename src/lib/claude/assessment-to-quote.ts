@@ -110,9 +110,7 @@ export async function generateQuoteLineItems(
       return []
     }
 
-    const result = (await response.json()) as {
-      content?: Array<{ type: string; text?: string }>
-    }
+    const result: { content?: Array<{ type: string; text?: string }> } = await response.json()
 
     const textBlock = result?.content?.find((block) => block.type === 'text')
     if (!textBlock?.text) {

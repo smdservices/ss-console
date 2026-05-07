@@ -72,22 +72,29 @@ interface Row {
 }
 
 const now = Date.now()
-const rows: Row[] = MODULES.map((m) => {
-  const run = latest.get(m.id)
+
+function deriveModuleStatus(
+  run: EnrichmentRun | undefined,
+  nowMs: number
+): { status: DisplayStatus; reason: string | null } {
   let status: DisplayStatus = run?.status ?? 'not_yet_run'
   let reason: string | null = run?.reason ?? null
-
   // A `running` row whose started_at is older than the lock window is a
   // dead worker, not an in-flight run. Surface it as timed_out so the
   // operator knows clicking Retry will actually start fresh.
   if (run?.status === 'running' && run.started_at) {
     const startedMs = new Date(run.started_at).getTime()
-    if (Number.isFinite(startedMs) && now - startedMs > STALE_RUNNING_THRESHOLD_MS) {
+    if (Number.isFinite(startedMs) && nowMs - startedMs > STALE_RUNNING_THRESHOLD_MS) {
       status = 'timed_out'
       reason = 'worker_terminated_mid_run'
     }
   }
+  return { status, reason }
+}
 
+const rows: Row[] = MODULES.map((m) => {
+  const run = latest.get(m.id)
+  const { status, reason } = deriveModuleStatus(run, now)
   const ts = run?.completed_at ?? run?.started_at
   return {
     id: m.id,

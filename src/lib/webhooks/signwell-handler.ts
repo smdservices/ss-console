@@ -12,22 +12,18 @@
 import type { SignWellWebhookPayload } from '../signwell/types'
 import { finalizeCompletedSOWSignature } from '../sow/service'
 
+export interface SignWellHandlerConfig {
+  db: D1Database
+  storage: R2Bucket
+  apiKey: string
+  resendApiKey: string | undefined
+  stripeApiKey: string | undefined
+  appBaseUrl: string | undefined
+}
+
 export async function handleDocumentCompleted(
-  db: D1Database,
-  storage: R2Bucket,
-  apiKey: string,
-  resendApiKey: string | undefined,
-  stripeApiKey: string | undefined,
-  appBaseUrl: string | undefined,
+  config: SignWellHandlerConfig,
   payload: SignWellWebhookPayload
 ): Promise<Response> {
-  return finalizeCompletedSOWSignature({
-    db,
-    storage,
-    apiKey,
-    resendApiKey,
-    stripeApiKey,
-    appBaseUrl,
-    payload,
-  })
+  return finalizeCompletedSOWSignature({ ...config, payload })
 }

@@ -1,0 +1,108 @@
+---
+/**
+ * Single timeline entry for the entity detail page.
+ * Extracted from src/pages/admin/entities/[id].astro to keep that page
+ * under the 500 code-line ceiling.
+ */
+import { contextTypeBadge, formatDateTime, parseMetadata } from '../../lib/admin/entity-detail-page'
+import { CONTEXT_TYPES } from '../../lib/db/context'
+import type { ContextEntry } from '../../lib/db/context'
+
+interface Props {
+  entry: ContextEntry
+  openByDefault: boolean
+}
+
+const { entry, openByDefault } = Astro.props
+const meta = parseMetadata(entry.metadata)
+const problems = meta?.top_problems as string[] | undefined
+const isLong = entry.content.length > 500
+const isReplyLog = entry.type === 'note' && entry.source === 'reply_log'
+const replySentiment = isReplyLog ? (meta?.sentiment as string | undefined) : undefined
+const replyNextAction = isReplyLog ? (meta?.next_action as string | undefined) : undefined
+---
+
+<details
+  open={openByDefault}
+  class={`group bg-surface rounded-[var(--ss-radius-card)] border px-4 py-3 ${
+    isReplyLog
+      ? 'border-l-4 border-l-teal-500 border-[color:var(--ss-color-border)]'
+      : 'border-[color:var(--ss-color-border)]'
+  }`}
+>
+  <summary
+    class="flex items-center gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden flex-wrap"
+  >
+    {
+      isReplyLog ? (
+        <span class="text-xs px-2 py-0.5 rounded bg-border-subtle text-text-secondary font-semibold">
+          Reply
+        </span>
+      ) : (
+        <span class={`text-xs px-2 py-0.5 rounded ${contextTypeBadge(entry.type)}`}>
+          {CONTEXT_TYPES.find((t) => t.value === entry.type)?.label ?? entry.type}
+        </span>
+      )
+    }
+    <span class="text-xs text-[color:var(--ss-color-text-muted)]">{entry.source}</span>
+    <span class="text-xs text-[color:var(--ss-color-text-muted)]"
+      >{formatDateTime(entry.created_at)}</span
+    >
+    {
+      replySentiment && (
+        <span class="text-xs px-1.5 py-0.5 rounded bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)] capitalize">
+          {replySentiment.replace(/_/g, ' ')}
+        </span>
+      )
+    }
+    {
+      replyNextAction && (
+        <span class="text-xs text-[color:var(--ss-color-text-secondary)]">
+          Next: <span class="capitalize">{replyNextAction.replace(/_/g, ' ')}</span>
+        </span>
+      )
+    }
+    <svg
+      class="ml-auto h-3.5 w-3.5 shrink-0 text-[color:var(--ss-color-text-muted)] transition-transform group-open:rotate-180"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path
+        fill-rule="evenodd"
+        d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"
+        clip-rule="evenodd"></path>
+    </svg>
+    <span class="sr-only">Toggle entry</span>
+  </summary>
+
+  <div class="mt-1.5">
+    {
+      problems && problems.length > 0 && (
+        <div class="flex gap-1 mb-1.5 flex-wrap">
+          {problems.map((p: string) => (
+            <span class="text-xs bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)] px-1.5 py-0.5 rounded">
+              {p.replace(/_/g, ' ')}
+            </span>
+          ))}
+        </div>
+      )
+    }
+    <div
+      class={`text-sm text-[color:var(--ss-color-text-primary)] whitespace-pre-wrap${isLong ? ' js-truncated' : ''}`}
+      data-long={isLong ? 'true' : 'false'}
+    >
+      {entry.content}
+    </div>
+    {
+      isLong && (
+        <button
+          type="button"
+          class="js-toggle-long text-xs mt-2 text-[color:var(--ss-color-primary)] hover:underline cursor-pointer"
+        >
+          Show more
+        </button>
+      )
+    }
+  </div>
+</details>

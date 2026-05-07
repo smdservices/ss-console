@@ -32,12 +32,6 @@ interface DispatchEnv {
   ENRICHMENT_WORKFLOW_SERVICE?: EnrichmentWorkflowServiceBinding
 }
 
-interface DispatchSuccessResponse {
-  ok: boolean
-  workflow_run_id?: string
-  error?: string
-}
-
 export interface EnrichmentWorkflowDispatchParams {
   entityId: string
   orgId: string
@@ -101,7 +95,8 @@ export async function dispatchEnrichmentWorkflow(
       throw new Error(`[enrichment-dispatch] returned ${dispatchRes.status}: ${text.slice(0, 200)}`)
     }
 
-    const body = (await dispatchRes.json()) as DispatchSuccessResponse
+    const body: { ok?: boolean; workflow_run_id?: string; error?: string } =
+      await dispatchRes.json()
     if (!body.ok || !body.workflow_run_id) {
       throw new Error(
         `[enrichment-dispatch] payload missing workflow_run_id: ${body.error ?? 'no_error'}`

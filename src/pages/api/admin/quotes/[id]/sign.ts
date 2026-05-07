@@ -1,4 +1,4 @@
-import type { APIRoute } from 'astro'
+import type { APIContext, APIRoute } from 'astro'
 import { getQuote } from '../../../../../lib/db/quotes'
 import { getEntity } from '../../../../../lib/db/entities'
 import { getContact } from '../../../../../lib/db/contacts'
@@ -27,7 +27,63 @@ import { env } from 'cloudflare:workers'
  *
  * Protected by auth middleware (requires admin role).
  */
-export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
+
+type Redirect = APIContext['redirect']
+
+async function validateSignPreconditions(
+  redirect: Redirect,
+  orgId: string,
+  quoteId: string,
+  formData: FormData
+) {
+  const quote = await getQuote(env.DB, orgId, quoteId)
+  if (!quote) {
+    return { error: redirect('/admin/entities?error=not_found', 302) }
+  }
+
+  if (quote.status !== 'draft' && quote.status !== 'sent') {
+    return {
+      error: redirect(
+        `/admin/entities/${quote.entity_id}/quotes/${quoteId}?error=invalid_transition`,
+        302
+      ),
+    }
+  }
+
+  const signerContactId = formData.get('signer_contact_id')
+  if (!signerContactId || typeof signerContactId !== 'string') {
+    return {
+      error: redirect(
+        `/admin/entities/${quote.entity_id}/quotes/${quoteId}?error=no_contact_email`,
+        302
+      ),
+    }
+  }
+
+  const entity = await getEntity(env.DB, orgId, quote.entity_id)
+  if (!entity) {
+    return {
+      error: redirect(
+        `/admin/entities/${quote.entity_id}/quotes/${quoteId}?error=client_not_found`,
+        302
+      ),
+    }
+  }
+
+  const signerContact = await getContact(env.DB, orgId, signerContactId)
+  if (!signerContact?.email) {
+    return {
+      error: redirect(
+        `/admin/entities/${quote.entity_id}/quotes/${quoteId}?error=no_contact_email`,
+        302
+      ),
+    }
+  }
+
+  return { quote, entity, signerContact }
+}
+
+async function handlePost({ request, locals, redirect, params }: APIContext): Promise<Response> {
   const session = locals.session
   if (!session || session.role !== 'admin') {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -52,43 +108,11 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
   }
 
   try {
-    // 1. Get quote and verify preconditions
-    const quote = await getQuote(env.DB, session.orgId, quoteId)
-    if (!quote) {
-      return redirect('/admin/entities?error=not_found', 302)
-    }
-
-    if (quote.status !== 'draft' && quote.status !== 'sent') {
-      return redirect(
-        `/admin/entities/${quote.entity_id}/quotes/${quoteId}?error=invalid_transition`,
-        302
-      )
-    }
-
     const formData = await request.formData()
-    const signerContactId = formData.get('signer_contact_id')
-    if (!signerContactId || typeof signerContactId !== 'string') {
-      return redirect(
-        `/admin/entities/${quote.entity_id}/quotes/${quoteId}?error=no_contact_email`,
-        302
-      )
-    }
+    const validation = await validateSignPreconditions(redirect, session.orgId, quoteId, formData)
+    if ('error' in validation) return validation.error as Response
 
-    const entity = await getEntity(env.DB, session.orgId, quote.entity_id)
-    if (!entity) {
-      return redirect(
-        `/admin/entities/${quote.entity_id}/quotes/${quoteId}?error=client_not_found`,
-        302
-      )
-    }
-
-    const signerContact = await getContact(env.DB, session.orgId, signerContactId)
-    if (!signerContact?.email) {
-      return redirect(
-        `/admin/entities/${quote.entity_id}/quotes/${quoteId}?error=no_contact_email`,
-        302
-      )
-    }
+    const { quote, entity, signerContact } = validation
 
     const signatureRequest = await authorizeAndSendSOW({
       db: env.DB,
@@ -101,7 +125,7 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
       signer: {
         contactId: signerContact.id,
         name: signerContact.name,
-        email: signerContact.email,
+        email: signerContact.email!,
         title: signerContact.title,
       },
       callbackBaseEnv: env,
@@ -134,3 +158,5 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
     )
   }
 }
+
+export const POST: APIRoute = (ctx) => handlePost(ctx)

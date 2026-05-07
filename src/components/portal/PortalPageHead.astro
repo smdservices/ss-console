@@ -40,7 +40,7 @@ const {
   h1,
   meta = null,
   class: klass = '',
-} = Astro.props as Props
+} = Astro.props
 
 const showCrumb = !!(crumbHref && crumbLabel)
 ---
@@ -49,7 +49,7 @@ const showCrumb = !!(crumbHref && crumbLabel)
   {
     showCrumb && (
       <a
-        href={crumbHref as string}
+        href={crumbHref}
         class="inline-flex items-center gap-2 min-h-11 -mx-1 px-1 font-['Archivo_Narrow'] text-xs md:text-sm font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)] active:text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
       >
         <span

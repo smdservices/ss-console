@@ -41,51 +41,32 @@ export interface Entity {
   updated_at: string
 }
 
-export type EntityStage =
-  | 'signal'
-  | 'prospect'
-  | 'meetings'
-  | 'proposing'
-  | 'engaged'
-  | 'delivered'
-  | 'ongoing'
-  | 'lost'
-
+// prettier-ignore
+export type EntityStage = 'signal' | 'prospect' | 'meetings' | 'proposing' | 'engaged' | 'delivered' | 'ongoing' | 'lost'
 export type EntityTier = 'hot' | 'warm' | 'cool' | 'cold'
+// prettier-ignore
+export type EntityVertical = 'home_services' | 'professional_services' | 'contractor_trades' | 'retail_salon' | 'restaurant_food' | 'other'
 
-export type EntityVertical =
-  | 'home_services'
-  | 'professional_services'
-  | 'contractor_trades'
-  | 'retail_salon'
-  | 'restaurant_food'
-  | 'other'
-
-export const ENTITY_STAGES: { value: EntityStage; label: string }[] = [
-  { value: 'signal', label: 'Signal' },
-  { value: 'prospect', label: 'Prospect' },
-  { value: 'meetings', label: 'Meetings' },
-  { value: 'proposing', label: 'Proposing' },
-  { value: 'engaged', label: 'Engaged' },
-  { value: 'delivered', label: 'Delivered' },
-  { value: 'ongoing', label: 'Ongoing' },
-  { value: 'lost', label: 'Lost' },
+type StageLabel = { value: EntityStage; label: string }
+type TierLabel = { value: EntityTier; label: string }
+type VerticalLabel = { value: EntityVertical; label: string }
+// prettier-ignore
+export const ENTITY_STAGES: StageLabel[] = [
+  { value: 'signal', label: 'Signal' }, { value: 'prospect', label: 'Prospect' },
+  { value: 'meetings', label: 'Meetings' }, { value: 'proposing', label: 'Proposing' },
+  { value: 'engaged', label: 'Engaged' }, { value: 'delivered', label: 'Delivered' },
+  { value: 'ongoing', label: 'Ongoing' }, { value: 'lost', label: 'Lost' },
 ]
-
-export const ENTITY_TIERS: { value: EntityTier; label: string }[] = [
-  { value: 'hot', label: 'Hot' },
-  { value: 'warm', label: 'Warm' },
-  { value: 'cool', label: 'Cool' },
-  { value: 'cold', label: 'Cold' },
+// prettier-ignore
+export const ENTITY_TIERS: TierLabel[] = [
+  { value: 'hot', label: 'Hot' }, { value: 'warm', label: 'Warm' },
+  { value: 'cool', label: 'Cool' }, { value: 'cold', label: 'Cold' },
 ]
-
-export const ENTITY_VERTICALS: { value: EntityVertical; label: string }[] = [
-  { value: 'home_services', label: 'Home Services' },
-  { value: 'professional_services', label: 'Professional Services' },
-  { value: 'contractor_trades', label: 'Contractor / Trades' },
-  { value: 'retail_salon', label: 'Retail / Salon / Spa' },
-  { value: 'restaurant_food', label: 'Restaurant / Food Service' },
-  { value: 'other', label: 'Other' },
+// prettier-ignore
+export const ENTITY_VERTICALS: VerticalLabel[] = [
+  { value: 'home_services', label: 'Home Services' }, { value: 'professional_services', label: 'Professional Services' },
+  { value: 'contractor_trades', label: 'Contractor / Trades' }, { value: 'retail_salon', label: 'Retail / Salon / Spa' },
+  { value: 'restaurant_food', label: 'Restaurant / Food Service' }, { value: 'other', label: 'Other' },
 ]
 
 /**
@@ -158,6 +139,11 @@ export interface TransitionStageOptions {
     /** Optional operator note. Trimmed. Empty → stored as null. */
     detail?: string | null
   }
+}
+
+/** Combined transition args — reason is required, other fields are optional. */
+export interface TransitionArgs extends TransitionStageOptions {
+  reason: string
 }
 
 // ---------------------------------------------------------------------------
@@ -285,6 +271,36 @@ export interface EntitySignalMetadata {
   last_activity_at: string | null
 }
 
+function parseSignalMetadataRow(row: {
+  entity_id: string
+  metadata: string | null
+}): EntitySignalMetadata {
+  let topProblems: string[] | null = null
+  let outreachAngle: string | null = null
+  if (row.metadata) {
+    try {
+      const meta = JSON.parse(row.metadata) as Record<string, unknown>
+      if (
+        Array.isArray(meta.top_problems) &&
+        meta.top_problems.every((p) => typeof p === 'string')
+      ) {
+        topProblems = meta.top_problems.length ? meta.top_problems : null
+      }
+      if (typeof meta.outreach_angle === 'string' && meta.outreach_angle.trim()) {
+        outreachAngle = meta.outreach_angle.trim()
+      }
+    } catch {
+      // Malformed JSON — treat as missing metadata.
+    }
+  }
+  return {
+    entity_id: row.entity_id,
+    top_problems: topProblems,
+    outreach_angle: outreachAngle,
+    last_activity_at: null,
+  }
+}
+
 /**
  * Fetch latest signal metadata and last-activity timestamp for a batch of
  * entities in two parameterized queries (no N+1).
@@ -327,32 +343,7 @@ export async function getSignalMetadataForEntities(
     .all<{ entity_id: string; metadata: string | null }>()
 
   for (const row of signalRows.results) {
-    let topProblems: string[] | null = null
-    let outreachAngle: string | null = null
-    if (row.metadata) {
-      try {
-        const meta = JSON.parse(row.metadata) as Record<string, unknown>
-        if (
-          Array.isArray(meta.top_problems) &&
-          meta.top_problems.every((p) => typeof p === 'string')
-        ) {
-          topProblems = (meta.top_problems as string[]).length
-            ? (meta.top_problems as string[])
-            : null
-        }
-        if (typeof meta.outreach_angle === 'string' && meta.outreach_angle.trim()) {
-          outreachAngle = meta.outreach_angle.trim()
-        }
-      } catch {
-        // Malformed JSON — treat as missing metadata.
-      }
-    }
-    out.set(row.entity_id, {
-      entity_id: row.entity_id,
-      top_problems: topProblems,
-      outreach_angle: outreachAngle,
-      last_activity_at: null,
-    })
+    out.set(row.entity_id, parseSignalMetadataRow(row))
   }
 
   // Last-activity across all context types.
@@ -465,13 +456,9 @@ export async function createEntity(
   const id = data.id ?? crypto.randomUUID()
   const slug = data.slug ?? computeSlug(data.name, data.area)
   const now = new Date().toISOString()
-
   await db
     .prepare(
-      `INSERT INTO entities (
-        id, org_id, name, slug, phone, website, stage, stage_changed_at,
-        source_pipeline, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO entities (id, org_id, name, slug, phone, website, stage, stage_changed_at, source_pipeline, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       id,
@@ -487,7 +474,6 @@ export async function createEntity(
       now
     )
     .run()
-
   const entity = await getEntity(db, orgId, id)
   if (!entity) throw new Error('Failed to retrieve created entity')
   return entity
@@ -508,44 +494,25 @@ export async function updateEntity(
 
   const fields: string[] = []
   const params: (string | number | null)[] = []
-
-  if (data.name !== undefined) {
-    fields.push('name = ?')
-    params.push(data.name)
+  const append = (col: string, val: string | number | null | undefined) => {
+    if (val !== undefined) {
+      fields.push(`${col} = ?`)
+      params.push(val)
+    }
   }
-  if (data.phone !== undefined) {
-    fields.push('phone = ?')
-    params.push(data.phone)
-  }
-  if (data.website !== undefined) {
-    fields.push('website = ?')
-    params.push(data.website)
-  }
-  if (data.next_action !== undefined) {
-    fields.push('next_action = ?')
-    params.push(data.next_action)
-  }
-  if (data.next_action_at !== undefined) {
-    fields.push('next_action_at = ?')
-    params.push(data.next_action_at)
-  }
-  if (data.tier !== undefined) {
-    fields.push('tier = ?')
-    params.push(data.tier)
-  }
-  if (data.summary !== undefined) {
-    fields.push('summary = ?')
-    params.push(data.summary)
-  }
+  append('name', data.name)
+  append('phone', data.phone)
+  append('website', data.website)
+  append('next_action', data.next_action)
+  append('next_action_at', data.next_action_at)
+  append('tier', data.tier)
+  append('summary', data.summary)
 
   if (fields.length === 0) return existing
-
   fields.push("updated_at = datetime('now')")
-  const sql = `UPDATE entities SET ${fields.join(', ')} WHERE id = ? AND org_id = ?`
   params.push(entityId, orgId)
-
   await db
-    .prepare(sql)
+    .prepare(`UPDATE entities SET ${fields.join(', ')} WHERE id = ? AND org_id = ?`)
     .bind(...params)
     .run()
   return getEntity(db, orgId, entityId)
@@ -568,51 +535,29 @@ export async function updateEntity(
  *
  * Records a stage_change context entry automatically.
  */
-export async function transitionStage(
+interface TransitionContext {
+  entity: Entity
+  newStage: EntityStage
+  args: TransitionArgs
+}
+
+async function checkTransitionPreconditions(
   db: D1Database,
   orgId: string,
   entityId: string,
-  newStage: EntityStage,
-  reason: string,
-  options?: TransitionStageOptions
-): Promise<Entity | null> {
-  const entity = await getEntity(db, orgId, entityId)
-  if (!entity) return null
-
-  const allowed = VALID_TRANSITIONS[entity.stage as EntityStage]
-  if (!allowed?.includes(newStage)) {
-    throw new Error(
-      `Invalid stage transition: ${entity.stage} → ${newStage}. Allowed: ${allowed?.join(', ')}`
-    )
-  }
-
-  // Lost reason is required when transitioning to lost. Captured as
-  // structured metadata on the stage_change context entry so the Lost
-  // tab can filter and "why we lost" rollups are queryable.
-  let lostReasonCode: LostReasonCode | null = null
-  let lostReasonDetail: string | null = null
+  ctx: TransitionContext
+): Promise<void> {
+  const { entity, newStage, args } = ctx
   if (newStage === 'lost') {
-    if (!options?.lostReason?.code) {
+    if (!args.lostReason?.code)
       throw new Error(
-        'Lost reason is required: provide options.lostReason.code when transitioning to lost.'
+        'Lost reason is required: provide args.lostReason.code when transitioning to lost.'
       )
-    }
-    if (!isLostReasonCode(options.lostReason.code)) {
+    if (!isLostReasonCode(args.lostReason.code))
       throw new Error(
-        `Invalid lost reason code: ${options.lostReason.code}. See src/lib/db/lost-reasons.ts.`
+        `Invalid lost reason code: ${args.lostReason.code}. See src/lib/db/lost-reasons.ts.`
       )
-    }
-    lostReasonCode = options.lostReason.code
-    const rawDetail = options.lostReason.detail
-    lostReasonDetail =
-      typeof rawDetail === 'string' && rawDetail.trim().length > 0 ? rawDetail.trim() : null
   }
-
-  // ---------------------------------------------------------------------------
-  // Lifecycle invariant pre-conditions
-  // ---------------------------------------------------------------------------
-
-  // proposing → engaged: must have at least one accepted quote
   if (entity.stage === 'proposing' && newStage === 'engaged') {
     const acceptedQuote = await db
       .prepare(
@@ -620,24 +565,19 @@ export async function transitionStage(
       )
       .bind(entityId, orgId)
       .first()
-    if (!acceptedQuote) {
+    if (!acceptedQuote)
       throw new Error(
-        'Cannot transition to engaged: no accepted quote found. ' +
-          'A quote must be signed and accepted before an engagement can begin.'
+        'Cannot transition to engaged: no accepted quote found. A quote must be signed and accepted before an engagement can begin.'
       )
-    }
   }
-
-  // delivered → ongoing: must have paid completion invoice OR force override
   if (entity.stage === 'delivered' && newStage === 'ongoing') {
-    if (options?.force) {
-      // Log the override reason to context
+    if (args.force) {
       await appendContext(db, orgId, {
         entity_id: entityId,
         type: 'stage_change',
-        content: `Force override: delivered → ongoing. Reason: ${options.force}`,
+        content: `Force override: delivered → ongoing. Reason: ${args.force}`,
         source: 'system',
-        metadata: { override: true, reason: options.force },
+        metadata: { override: true, reason: args.force },
       })
     } else {
       const paidCompletion = await db
@@ -646,33 +586,64 @@ export async function transitionStage(
         )
         .bind(entityId, orgId)
         .first()
-      if (!paidCompletion) {
+      if (!paidCompletion)
         throw new Error(
-          'Cannot transition to ongoing: completion invoice has not been paid. ' +
-            'Either collect payment or provide a force override reason.'
+          'Cannot transition to ongoing: completion invoice has not been paid. Either collect payment or provide a force override reason.'
         )
-      }
     }
   }
+}
+
+export async function transitionStage(
+  db: D1Database,
+  orgId: string,
+  entityId: string,
+  newStage: EntityStage,
+  args: TransitionArgs | string
+): Promise<Entity | null> {
+  // Backward-compat shim: callers that pass reason as a plain string continue to work.
+  const normalizedArgs: TransitionArgs = typeof args === 'string' ? { reason: args } : args
+
+  const entity = await getEntity(db, orgId, entityId)
+  if (!entity) return null
+
+  const allowed = VALID_TRANSITIONS[entity.stage]
+  if (!allowed?.includes(newStage)) {
+    throw new Error(
+      `Invalid stage transition: ${entity.stage} → ${newStage}. Allowed: ${allowed?.join(', ')}`
+    )
+  }
+
+  await checkTransitionPreconditions(db, orgId, entityId, {
+    entity,
+    newStage,
+    args: normalizedArgs,
+  })
+
+  const lostReasonCode =
+    newStage === 'lost' &&
+    normalizedArgs.lostReason?.code &&
+    isLostReasonCode(normalizedArgs.lostReason.code)
+      ? normalizedArgs.lostReason.code
+      : null
+  const rawDetail = normalizedArgs.lostReason?.detail
+  const lostReasonDetail =
+    typeof rawDetail === 'string' && rawDetail.trim().length > 0 ? rawDetail.trim() : null
 
   const now = new Date().toISOString()
-
   await db
     .prepare(
-      `UPDATE entities SET
-        stage = ?, stage_changed_at = ?, updated_at = ?
-      WHERE id = ? AND org_id = ?`
+      `UPDATE entities SET stage = ?, stage_changed_at = ?, updated_at = ? WHERE id = ? AND org_id = ?`
     )
     .bind(newStage, now, now, entityId, orgId)
     .run()
 
-  // Record stage change as context entry
   const contextId = crypto.randomUUID()
-  const content = `Stage: ${entity.stage} → ${newStage}. ${reason}`
+  const content = `Stage: ${entity.stage} → ${newStage}. ${normalizedArgs.reason}`
   const metadata: Record<string, unknown> = {
     from: entity.stage,
     to: newStage,
-    reason,
+    reason: normalizedArgs.reason,
   }
   if (lostReasonCode) {
     metadata.lost_reason = lostReasonCode
@@ -702,106 +673,7 @@ export async function transitionStage(
  * list-rendering. Keep the query tight — it runs on every Lost-tab
  * page render.
  */
-export async function getLatestLostReasonsByEntity(
-  db: D1Database,
-  orgId: string,
-  entityIds: string[]
-): Promise<Map<string, { code: LostReasonCode; detail: string | null }>> {
-  const result = new Map<string, { code: LostReasonCode; detail: string | null }>()
-  if (entityIds.length === 0) return result
-
-  // D1 caps bound parameters at 100 per statement; pass entity-id list as
-  // a single JSON parameter via json_each() so large Lost tabs don't trip
-  // the limit. See https://developers.cloudflare.com/d1/sql-api/query-json/.
-  const entityIdsJson = JSON.stringify(entityIds)
-  const rows = await db
-    .prepare(
-      `SELECT c.entity_id,
-              json_extract(c.metadata, '$.lost_reason') AS lost_reason,
-              json_extract(c.metadata, '$.lost_detail') AS lost_detail
-         FROM context c
-        WHERE c.org_id = ?
-          AND c.type = 'stage_change'
-          AND c.entity_id IN (SELECT value FROM json_each(?))
-          AND json_extract(c.metadata, '$.to') = 'lost'
-          AND c.created_at = (
-            SELECT MAX(c2.created_at) FROM context c2
-             WHERE c2.org_id = c.org_id
-               AND c2.entity_id = c.entity_id
-               AND c2.type = 'stage_change'
-               AND json_extract(c2.metadata, '$.to') = 'lost'
-          )`
-    )
-    .bind(orgId, entityIdsJson)
-    .all<{ entity_id: string; lost_reason: string | null; lost_detail: string | null }>()
-
-  for (const row of rows.results) {
-    if (row.lost_reason && isLostReasonCode(row.lost_reason)) {
-      result.set(row.entity_id, {
-        code: row.lost_reason,
-        detail: row.lost_detail ?? null,
-      })
-    }
-  }
-  return result
-}
-
-// ---------------------------------------------------------------------------
-// Merge
-// ---------------------------------------------------------------------------
-
-/**
- * Merge two entities. All context from `sourceId` moves to `targetId`.
- * The source entity is deleted after merge.
- */
-export async function mergeEntities(
-  db: D1Database,
-  orgId: string,
-  targetId: string,
-  sourceId: string
-): Promise<Entity | null> {
-  const target = await getEntity(db, orgId, targetId)
-  const source = await getEntity(db, orgId, sourceId)
-  if (!target || !source) return null
-
-  // Move all context entries from source to target
-  await db
-    .prepare('UPDATE context SET entity_id = ? WHERE entity_id = ? AND org_id = ?')
-    .bind(targetId, sourceId, orgId)
-    .run()
-
-  // Move contacts
-  await db
-    .prepare('UPDATE contacts SET entity_id = ? WHERE entity_id = ? AND org_id = ?')
-    .bind(targetId, sourceId, orgId)
-    .run()
-
-  // Record the merge in context
-  const contextId = crypto.randomUUID()
-  const content = `Merged entity "${source.name}" (${sourceId}) into this entity.`
-  await db
-    .prepare(
-      `INSERT INTO context (id, entity_id, org_id, type, content, source, content_size, metadata, created_at)
-      VALUES (?, ?, ?, 'note', ?, 'system', ?, ?, datetime('now'))`
-    )
-    .bind(
-      contextId,
-      targetId,
-      orgId,
-      content,
-      content.length,
-      JSON.stringify({ merged_from: sourceId, merged_name: source.name, merged_slug: source.slug })
-    )
-    .run()
-
-  // Delete source entity
-  await db.prepare('DELETE FROM entities WHERE id = ? AND org_id = ?').bind(sourceId, orgId).run()
-
-  // Recompute cache for target
-  await recomputeDeterministicCache(db, orgId, targetId)
-
-  return getEntity(db, orgId, targetId)
-}
-
 // Re-export slug utility for convenience
 export { computeSlug } from '../entities/slug.js'
+// Re-export extended entity queries (extracted to stay within file-line ceiling)
+export { getLatestLostReasonsByEntity, mergeEntities } from './entities-extra.js'

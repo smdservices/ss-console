@@ -14,6 +14,34 @@
  * Summary remains LLM-derived (async/on-demand).
  */
 
+interface Accumulators {
+  painScore: number | null
+  vertical: string | null
+  area: string | null
+  employeeCount: number | null
+}
+
+/** Apply a single metadata record's fields to the running accumulators. */
+function applyMetaToAccumulators(meta: Record<string, unknown>, acc: Accumulators): Accumulators {
+  let { painScore, vertical, area, employeeCount } = acc
+
+  if (typeof meta.pain_score === 'number' && meta.pain_score >= 1 && meta.pain_score <= 10) {
+    painScore = Math.max(painScore ?? 0, meta.pain_score)
+  }
+  if (typeof meta.vertical === 'string' && meta.vertical) vertical = meta.vertical
+  if (typeof meta.vertical_match === 'string' && meta.vertical_match) vertical = meta.vertical_match
+  if (typeof meta.area === 'string' && meta.area) area = meta.area
+  if (typeof meta.employee_count === 'number' && meta.employee_count > 0) {
+    employeeCount = meta.employee_count
+  }
+  if (typeof meta.company_size_estimate === 'string') {
+    const parsed = parseSizeEstimate(meta.company_size_estimate)
+    if (parsed) employeeCount = parsed
+  }
+
+  return { painScore, vertical, area, employeeCount }
+}
+
 export async function recomputeDeterministicCache(
   db: D1Database,
   orgId: string,
@@ -44,35 +72,12 @@ export async function recomputeDeterministicCache(
       continue
     }
 
-    // Signal/scorecard count for tier computation
     if (entry.type === 'signal' || entry.type === 'scorecard') signalCount++
-
-    // Pain score: max across all signals
-    if (typeof meta.pain_score === 'number' && meta.pain_score >= 1 && meta.pain_score <= 10) {
-      painScore = Math.max(painScore ?? 0, meta.pain_score)
-    }
-
-    // Vertical: latest non-null from any context type
-    if (typeof meta.vertical === 'string' && meta.vertical) {
-      vertical = meta.vertical
-    }
-    if (typeof meta.vertical_match === 'string' && meta.vertical_match) {
-      vertical = meta.vertical_match
-    }
-
-    // Area: latest non-null
-    if (typeof meta.area === 'string' && meta.area) {
-      area = meta.area
-    }
-
-    // Employee count: latest non-null (extraction values have higher confidence)
-    if (typeof meta.employee_count === 'number' && meta.employee_count > 0) {
-      employeeCount = meta.employee_count
-    }
-    if (typeof meta.company_size_estimate === 'string') {
-      const parsed = parseSizeEstimate(meta.company_size_estimate)
-      if (parsed) employeeCount = parsed
-    }
+    const updated = applyMetaToAccumulators(meta, { painScore, vertical, area, employeeCount })
+    painScore = updated.painScore
+    vertical = updated.vertical
+    area = updated.area
+    employeeCount = updated.employeeCount
   }
 
   // Tier: derived from pain_score + signal count

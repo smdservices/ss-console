@@ -16,11 +16,6 @@ import type { BusinessWithReviews } from './outscraper.js'
 
 export type { ReviewScoring }
 
-interface AnthropicResponse {
-  content: Array<{ type: string; text: string }>
-  stop_reason: string
-}
-
 /**
  * Score a single business's reviews using Claude.
  */
@@ -67,7 +62,7 @@ export async function scoreReviews(
     return null
   }
 
-  const data = (await response.json()) as AnthropicResponse
+  const data: { content?: Array<{ type: string; text?: string }> } = await response.json()
   const text = data.content?.[0]?.text
   if (!text) return null
 

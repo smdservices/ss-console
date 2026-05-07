@@ -53,7 +53,7 @@ export async function analyzeReviewPatterns(
     )
   }
 
-  const result = (await response.json()) as { content?: Array<{ type: string; text?: string }> }
+  const result: { content?: Array<{ type: string; text?: string }> } = await response.json()
   const text = result?.content?.find((b) => b.type === 'text')?.text?.trim()
   if (!text) return null
 

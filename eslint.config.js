@@ -1,46 +1,194 @@
-import js from '@eslint/js'
-import { defineConfig } from 'eslint/config'
-import tseslint from 'typescript-eslint'
-import astro from 'eslint-plugin-astro'
-import globals from 'globals'
+// ss-console ESLint config — implements the Venture Crane portfolio coding standard.
+// Source of truth for the rule set: docs/instructions/coding-standards.md in
+// venturecrane/crane-console. When the standard changes, update this file to match.
+//
+// This is a self-contained config — no @venturecrane/eslint-config dependency,
+// no private registry auth needed in CI. Drift between ventures is preferred over
+// the cross-repo coupling a shared package would introduce.
 
-export default defineConfig(
+import js from '@eslint/js'
+import tseslint from 'typescript-eslint'
+import globals from 'globals'
+import importPlugin from 'eslint-plugin-import-x'
+import eslintPluginAstro from 'eslint-plugin-astro'
+import { fileURLToPath } from 'node:url'
+import { dirname } from 'node:path'
+
+const tsconfigRootDir = dirname(fileURLToPath(import.meta.url))
+
+const STRUCTURAL_RULES = {
+  'max-lines': ['error', { max: 500, skipBlankLines: true, skipComments: true }],
+  'max-lines-per-function': [
+    'error',
+    { max: 75, skipBlankLines: true, skipComments: true, IIFEs: true },
+  ],
+  complexity: ['error', { max: 15 }],
+  'max-depth': ['error', 4],
+  'max-params': ['error', 5],
+}
+
+const TYPE_SAFETY_RULES = {
+  '@typescript-eslint/no-explicit-any': 'error',
+  '@typescript-eslint/no-unused-vars': [
+    'error',
+    {
+      argsIgnorePattern: '^_',
+      varsIgnorePattern: '^_',
+      caughtErrorsIgnorePattern: '.*',
+      ignoreRestSiblings: true,
+    },
+  ],
+  '@typescript-eslint/no-require-imports': 'error',
+  'no-useless-assignment': 'error',
+  'preserve-caught-error': 'error',
+}
+
+const TYPE_AWARE_ERROR_RULES = {
+  '@typescript-eslint/no-floating-promises': 'error',
+  '@typescript-eslint/no-misused-promises': 'error',
+  '@typescript-eslint/await-thenable': 'error',
+  '@typescript-eslint/switch-exhaustiveness-check': [
+    'error',
+    { considerDefaultExhaustiveForUnions: true },
+  ],
+}
+
+// Sequenced at warn until Zod boundary validation rolls out portfolio-wide.
+const TYPE_AWARE_WARN_RULES = {
+  '@typescript-eslint/no-unsafe-assignment': 'warn',
+  '@typescript-eslint/no-unsafe-member-access': 'warn',
+  '@typescript-eslint/no-unsafe-call': 'warn',
+  '@typescript-eslint/no-unsafe-return': 'warn',
+  '@typescript-eslint/no-unsafe-argument': 'warn',
+  '@typescript-eslint/restrict-template-expressions': [
+    'warn',
+    { allowNumber: true, allowBoolean: true, allowNullish: true },
+  ],
+}
+
+const HYGIENE_RULES = {
+  eqeqeq: ['error', 'always', { null: 'ignore' }],
+  'no-throw-literal': 'error',
+  'import-x/no-default-export': 'error',
+}
+
+const TEST_FILE_OVERRIDES = {
+  '@typescript-eslint/no-explicit-any': 'off',
+  '@typescript-eslint/no-unused-vars': 'off',
+  '@typescript-eslint/no-require-imports': 'off',
+  'preserve-caught-error': 'off',
+  'max-lines': 'off',
+  'max-lines-per-function': 'off',
+  complexity: 'off',
+  'max-depth': 'off',
+  'max-params': 'off',
+  '@typescript-eslint/no-floating-promises': 'off',
+  '@typescript-eslint/no-misused-promises': 'off',
+  '@typescript-eslint/await-thenable': 'off',
+  '@typescript-eslint/no-unsafe-assignment': 'off',
+  '@typescript-eslint/no-unsafe-member-access': 'off',
+  '@typescript-eslint/no-unsafe-call': 'off',
+  '@typescript-eslint/no-unsafe-return': 'off',
+  '@typescript-eslint/no-unsafe-argument': 'off',
+  '@typescript-eslint/restrict-template-expressions': 'off',
+  // Test stubs often declare async to satisfy an interface signature without
+  // needing a real await expression.
+  '@typescript-eslint/require-await': 'off',
+  '@typescript-eslint/no-base-to-string': 'off',
+  // Vitest spy/mock patterns regularly pass bound methods as arguments.
+  '@typescript-eslint/unbound-method': 'off',
+}
+
+const DEFAULT_EXPORT_ALLOW_PATTERNS = [
+  // TypeScript declaration files legitimately use `export default` in module
+  // augmentations (e.g. WASM module imports in env.d.ts).
+  '**/*.d.ts',
+  '**/vitest.config.{ts,js,mjs}',
+  '**/playwright.config.{ts,js,mjs}',
+  '**/astro.config.{ts,js,mjs}',
+  '**/next.config.{ts,js,mjs}',
+  '**/tailwind.config.{ts,js,mjs}',
+  '**/postcss.config.{ts,js,mjs}',
+  '**/eslint.config.{ts,js,mjs}',
+  '**/sentry.{client,server,edge}.config.{ts,js,mjs}',
+  '**/workers/*/src/index.ts',
+  '**/page.{tsx,jsx,ts,js}',
+  '**/layout.{tsx,jsx,ts,js}',
+  '**/loading.{tsx,jsx,ts,js}',
+  '**/error.{tsx,jsx,ts,js}',
+  '**/not-found.{tsx,jsx,ts,js}',
+  '**/route.{ts,js}',
+  '**/template.{tsx,jsx}',
+  '**/default.{tsx,jsx}',
+  '**/middleware.{ts,js}',
+  '**/*.astro',
+]
+
+export default tseslint.config(
   js.configs.recommended,
-  ...tseslint.configs.recommended,
-  ...astro.configs.recommended,
+  ...tseslint.configs.recommendedTypeChecked,
+  ...eslintPluginAstro.configs.recommended,
   {
     languageOptions: {
-      globals: {
-        ...globals.node,
-        ...globals.browser,
-      },
+      globals: { ...globals.node, ...globals.browser },
+      parserOptions: { projectService: true, tsconfigRootDir },
     },
+    plugins: { 'import-x': importPlugin },
     rules: {
-      '@typescript-eslint/no-unused-vars': [
-        'warn',
-        {
-          argsIgnorePattern: '^_',
-          varsIgnorePattern: '^_',
-          caughtErrorsIgnorePattern: '.*',
-          ignoreRestSiblings: true,
-        },
-      ],
-      '@typescript-eslint/no-require-imports': 'warn',
-      '@typescript-eslint/no-explicit-any': 'warn',
+      ...STRUCTURAL_RULES,
+      ...TYPE_SAFETY_RULES,
+      ...TYPE_AWARE_ERROR_RULES,
+      ...TYPE_AWARE_WARN_RULES,
+      ...HYGIENE_RULES,
     },
   },
   {
-    files: ['**/*.test.ts', '**/*.test.tsx', '**/*.spec.ts'],
+    files: [
+      '**/*.test.ts',
+      '**/*.test.tsx',
+      '**/*.spec.ts',
+      '**/*.spec.tsx',
+      '**/test/**/*.ts',
+      '**/test/**/*.tsx',
+      '**/__tests__/**/*.ts',
+      '**/__tests__/**/*.tsx',
+      '**/__fixtures__/**/*.ts',
+    ],
+    rules: TEST_FILE_OVERRIDES,
+  },
+  {
+    files: DEFAULT_EXPORT_ALLOW_PATTERNS,
+    rules: { 'import-x/no-default-export': 'off' },
+  },
+  // astro-eslint-parser does not support projectService; type-aware rules that
+  // require a full TS program crash or produce false positives in .astro files.
+  // Structural and type-safety rules still apply.
+  {
+    files: ['**/*.astro'],
     rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/no-floating-promises': 'off',
+      '@typescript-eslint/no-misused-promises': 'off',
+      '@typescript-eslint/await-thenable': 'off',
+      '@typescript-eslint/switch-exhaustiveness-check': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/restrict-template-expressions': 'off',
+      '@typescript-eslint/no-base-to-string': 'off',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
     },
   },
   {
-    files: ['**/*.js'],
-    rules: {
-      '@typescript-eslint/no-require-imports': 'off',
-    },
+    files: ['**/*.js', '**/*.cjs', '**/*.mjs'],
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
+  // Dev-only component galleries are HTML-heavy template pages with no logic ceiling.
+  // Line limits are a proxy for complexity; markup repetition is not complexity.
+  {
+    files: ['**/pages/dev/**/*.astro'],
+    rules: { 'max-lines': 'off' },
   },
   {
     ignores: [
@@ -48,11 +196,15 @@ export default defineConfig(
       '**/node_modules/**',
       '**/.wrangler/**',
       '**/.astro/**',
-      // Generated / ephemeral artifacts — ignored so real source warnings
-      // surface instead of drowning in noise (#14a from 2026-04-17 audit).
+      '**/.claude/**',
       'coverage/**',
-      '.claude/worktrees/**',
-      '.worktrees/**',
+      'scripts/**',
+      // Worker vitest configs are excluded from the root tsconfig; projectService
+      // cannot resolve them. Each worker has its own tsconfig that covers these.
+      'workers/*/vitest.config.ts',
+      // Public JS files served directly to browsers — not TypeScript-compiled,
+      // type-safety rules produce false positives on the raw DOM/gtag calls.
+      'public/js/**',
     ],
   }
 )

@@ -1,4 +1,4 @@
-import type { APIRoute } from 'astro'
+import type { APIContext, APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 import { ORG_ID } from '../../../lib/constants'
 import { rateLimitByIp } from '../../../lib/booking/rate-limit'
@@ -40,35 +40,16 @@ const MAX_MESSAGE_CHARS = 5000
  */
 const MIN_FORM_FILL_MS = 2000
 
-export const POST: APIRoute = async ({ request, clientAddress }) => {
-  let body: Record<string, unknown>
-  try {
-    body = (await request.json()) as Record<string, unknown>
-  } catch {
-    return jsonResponse(400, { error: 'Invalid JSON' })
-  }
+interface ValidatedSendBody {
+  name: string
+  email: string
+  businessName: string
+  phone: string
+  website: string | null
+  messageRaw: string
+}
 
-  // Render-timestamp check. Reject submissions that arrive too soon after
-  // the form rendered. Missing/invalid timestamps are also rejected — clients
-  // older than this PR will need to refresh.
-  const renderedAt = typeof body.rendered_at === 'number' ? body.rendered_at : NaN
-  if (!Number.isFinite(renderedAt) || Date.now() - renderedAt < MIN_FORM_FILL_MS) {
-    return jsonResponse(200, { ok: true })
-  }
-
-  // Rate limit per IP.
-  const rateResult = await rateLimitByIp(
-    env.BOOKING_CACHE,
-    'intake_send',
-    clientAddress,
-    RATE_LIMIT_PER_HOUR
-  )
-  if (!rateResult.allowed) {
-    return jsonResponse(429, { error: 'Too many submissions. Please try again later.' })
-  }
-
-  // Required identity fields. Phone is required everywhere per Captain — the
-  // consultant cannot follow up without a way to call.
+function validateSendBody(body: Record<string, unknown>): ValidatedSendBody | Response {
   const name = trimString(body.name)
   const email = trimString(body.email)
   const businessName = trimString(body.business_name)
@@ -89,7 +70,6 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
     })
   }
 
-  const website = trimString(body.website)
   const messageRaw = typeof body.message === 'string' ? body.message.trim() : ''
   if (messageRaw.length > MAX_MESSAGE_CHARS) {
     return jsonResponse(400, {
@@ -98,93 +78,113 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
     })
   }
 
-  // Persist entity + contact + intake context (handles all dedup logic).
+  return {
+    name: name!,
+    email: email!,
+    businessName: businessName!,
+    phone: phone!,
+    website: trimString(body.website),
+    messageRaw,
+  }
+}
+
+async function maybeGenerateAiReply(entityId: string, messageRaw: string): Promise<string | null> {
+  if (!messageRaw) return null
+  const apiKey = env.ANTHROPIC_API_KEY
+  if (!apiKey) {
+    console.error('[api/intake/send] ANTHROPIC_API_KEY not configured')
+    return null
+  }
+  try {
+    const aiReply = await generateConversationReply(apiKey, messageRaw, [])
+    try {
+      await appendContext(env.DB, ORG_ID, {
+        entity_id: entityId,
+        type: 'intake',
+        content: aiReply,
+        source: 'website_intake_send_ai_reply',
+        metadata: { model: 'claude', prospect_message: messageRaw },
+      })
+    } catch (ctxErr) {
+      console.error('[api/intake/send] AI reply context append failed:', ctxErr)
+    }
+    return aiReply
+  } catch (err) {
+    if (err instanceof ConversationApiError) {
+      console.error('[api/intake/send] Claude API error:', err.message, {
+        status: err.statusCode,
+        body: err.responseBody?.slice(0, 500),
+      })
+    } else {
+      console.error('[api/intake/send] Unexpected Claude error:', err)
+    }
+    return null
+  }
+}
+
+async function handlePost({ request, clientAddress }: APIContext): Promise<Response> {
+  let body: Record<string, unknown>
+  try {
+    body = await request.json()
+  } catch {
+    return jsonResponse(400, { error: 'Invalid JSON' })
+  }
+
+  const renderedAt = typeof body.rendered_at === 'number' ? body.rendered_at : NaN
+  if (!Number.isFinite(renderedAt) || Date.now() - renderedAt < MIN_FORM_FILL_MS) {
+    return jsonResponse(200, { ok: true })
+  }
+
+  const rateResult = await rateLimitByIp(
+    env.BOOKING_CACHE,
+    'intake_send',
+    clientAddress,
+    RATE_LIMIT_PER_HOUR
+  )
+  if (!rateResult.allowed) {
+    return jsonResponse(429, { error: 'Too many submissions. Please try again later.' })
+  }
+
+  const validated = validateSendBody(body)
+  if (validated instanceof Response) return validated
+
   let intakeResult: Awaited<ReturnType<typeof processIntakeSubmission>>
   try {
     intakeResult = await processIntakeSubmission(
       env.DB,
       ORG_ID,
       {
-        name: name!,
-        email: email!,
-        businessName: businessName!,
-        phone,
-        website,
-        userMessage: messageRaw || null,
+        name: validated.name,
+        email: validated.email,
+        businessName: validated.businessName,
+        phone: validated.phone,
+        website: validated.website,
+        userMessage: validated.messageRaw || null,
       },
-      null, // no scheduledAt — Send path doesn't book a meeting
-      'website_intake_send'
+      { source: 'website_intake_send' }
     )
   } catch (err) {
     console.error('[api/intake/send] processIntakeSubmission failed:', err)
     return jsonResponse(500, { error: 'Internal server error' })
   }
 
-  // Generate AI follow-up if the prospect typed something. Empty message =>
-  // skip the Claude call (no point talking to a void). The lead is still
-  // captured and the admin notification still fires.
-  let aiReply: string | null = null
-  if (messageRaw) {
-    const apiKey = env.ANTHROPIC_API_KEY
-    if (!apiKey) {
-      console.error('[api/intake/send] ANTHROPIC_API_KEY not configured')
-      // Don't fail the whole submission — the lead is captured, AI is bonus.
-    } else {
-      try {
-        aiReply = await generateConversationReply(apiKey, messageRaw, [])
-        // Persist the AI reply so the consultant sees it in the timeline.
-        try {
-          await appendContext(env.DB, ORG_ID, {
-            entity_id: intakeResult.entityId,
-            type: 'intake',
-            content: aiReply,
-            source: 'website_intake_send_ai_reply',
-            metadata: {
-              model: 'claude',
-              prospect_message: messageRaw,
-            },
-          })
-        } catch (ctxErr) {
-          console.error('[api/intake/send] AI reply context append failed:', ctxErr)
-          // Don't fail — the reply still goes back to the prospect.
-        }
-      } catch (err) {
-        if (err instanceof ConversationApiError) {
-          console.error('[api/intake/send] Claude API error:', err.message, {
-            status: err.statusCode,
-            body: err.responseBody?.slice(0, 500),
-          })
-        } else {
-          console.error('[api/intake/send] Unexpected Claude error:', err)
-        }
-        // Soft fail — return success on the lead capture, just no AI reply.
-      }
-    }
-  }
+  const aiReply = await maybeGenerateAiReply(intakeResult.entityId, validated.messageRaw)
 
-  // Admin notification — fire and forget. Closes the lead-leak that this
-  // whole refactor was about: the lead is in the DB AND someone gets pinged.
   try {
     await sendAdminNotification(env, {
-      name: name!,
-      email: email!,
-      businessName: businessName!,
-      phone: phone!,
-      website,
-      message: messageRaw,
+      ...validated,
       aiReply,
       entityId: intakeResult.entityId,
+      message: validated.messageRaw,
     })
   } catch (emailErr) {
     console.error('[api/intake/send] Admin notification failed:', emailErr)
   }
 
-  return jsonResponse(200, {
-    ok: true,
-    entity_id: intakeResult.entityId,
-    ai_reply: aiReply,
-  })
+  return jsonResponse(200, { ok: true, entity_id: intakeResult.entityId, ai_reply: aiReply })
 }
+
+export const POST: APIRoute = (ctx) => handlePost(ctx)
 
 interface AdminNotificationParams {
   name: string

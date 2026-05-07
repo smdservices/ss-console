@@ -1,4 +1,4 @@
-import type { APIRoute } from 'astro'
+import type { APIContext, APIRoute } from 'astro'
 import { getEntity, transitionStage } from '../../../../../lib/db/entities'
 import { createMeetingWithLegacyAssessment } from '../../../../../lib/db/meetings'
 import { listContacts } from '../../../../../lib/db/contacts'
@@ -42,235 +42,9 @@ import { env } from 'cloudflare:workers'
  * Response is JSON (not a redirect) because the admin UI reflects send
  * status inline rather than navigating away.
  */
-export const POST: APIRoute = async ({ params, request, locals }) => {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return jsonResponse(401, { error: 'Unauthorized' })
-  }
-
-  const entityId = params.id
-  if (!entityId) {
-    return jsonResponse(400, { error: 'missing_entity_id' })
-  }
-
-  // --- Parse form data / json body -----------------------------------------
-  let bodyData: Record<string, unknown> = {}
-  const contentType = request.headers.get('content-type') ?? ''
-  try {
-    if (contentType.includes('application/json')) {
-      bodyData = (await request.json()) as Record<string, unknown>
-    } else {
-      const fd = await request.formData()
-      for (const [k, v] of fd.entries()) bodyData[k] = v
-    }
-  } catch {
-    return jsonResponse(400, { error: 'invalid_body' })
-  }
-
-  const duration = parseDuration(bodyData.duration_minutes)
-  const meetingTypeRaw = typeof bodyData.meeting_type === 'string' ? bodyData.meeting_type : null
-  const meetingType =
-    meetingTypeRaw && meetingTypeRaw.trim().length > 0 ? meetingTypeRaw.trim().slice(0, 100) : null
-  // `send_email` defaults true: the goal of #467 is for clicking the button
-  // to actually send the link. The flag exists so the admin can opt into the
-  // legacy copy-paste / mailto path (e.g. they want to edit the body in
-  // their own mail client) without us inventing a separate endpoint.
-  const sendEmailFlag = parseBoolean(bodyData.send_email, true)
-
-  try {
-    // --- Load entity --------------------------------------------------------
-    const entity = await getEntity(env.DB, session.orgId, entityId)
-    if (!entity) {
-      return jsonResponse(404, { error: 'entity_not_found' })
-    }
-
-    // Only issue booking links from the prospect stage. This mirrors the
-    // previous Book Assessment button's reachability.
-    if (entity.stage !== 'prospect') {
-      return jsonResponse(409, {
-        error: 'invalid_stage',
-        message: `Entity must be in the 'prospect' stage; current stage is '${entity.stage}'.`,
-      })
-    }
-
-    // --- Primary contact (for email prefill) --------------------------------
-    const contacts = await listContacts(env.DB, session.orgId, entityId)
-    const primaryContact = contacts.find((c) => c.email) ?? contacts[0] ?? null
-    const contactEmail = primaryContact?.email ?? null
-    const contactName = primaryContact?.name ?? null
-
-    // --- 1. Create the meeting row and the legacy assessment mirror ---------
-    //
-    // scheduled_at stays null until the prospect picks a slot via the public
-    // booking flow.
-    const meeting = await createMeetingWithLegacyAssessment(env.DB, session.orgId, entityId, {
-      scheduled_at: null,
-      meeting_type: meetingType,
-    })
-
-    // --- 2. Transition entity stage prospect → meetings ---------------------
-    //
-    // We do this AFTER creating the meeting row so the acceptance-criteria
-    // invariant (stage transitions only after the meeting row exists) holds
-    // even if the caller retries. If the stage transition fails we leave the
-    // orphan `scheduled` assessment in place — it is harmless and a subsequent
-    // retry will pick it up.
-    try {
-      await transitionStage(
-        env.DB,
-        session.orgId,
-        entityId,
-        'meetings',
-        'Booking link sent to prospect.'
-      )
-    } catch (err) {
-      console.error('[api/admin/entities/send-booking-link] stage transition failed:', err)
-      return jsonResponse(500, {
-        error: 'stage_transition_failed',
-        message: err instanceof Error ? err.message : 'Stage transition failed.',
-      })
-    }
-
-    // --- 3. Sign the booking token -----------------------------------------
-    let token: string
-    try {
-      token = await signBookingLink({
-        entity_id: entityId,
-        contact_id: primaryContact?.id ?? null,
-        assessment_id: meeting.id,
-        duration_minutes: duration,
-        meeting_type: meetingType,
-      })
-    } catch (err) {
-      console.error('[api/admin/entities/send-booking-link] signing failed:', err)
-      return jsonResponse(500, {
-        error: 'signing_failed',
-        message: 'Server is not configured to issue booking links.',
-      })
-    }
-
-    // --- Build the booking URL ---------------------------------------------
-    let appBaseUrl: string
-    try {
-      appBaseUrl = requireAppBaseUrl(env)
-    } catch {
-      // In dev without APP_BASE_URL set, fall back to a relative path so the
-      // URL at least opens correctly when tested from the same host.
-      appBaseUrl = ''
-    }
-    const bookingUrl = `${appBaseUrl}/book?t=${encodeURIComponent(token)}`
-
-    // --- 4. Build outreach template + email body ---------------------------
-    const outreachTemplate = buildOutreachTemplate({
-      contactName,
-      businessName: entity.name,
-      bookingUrl,
-    })
-    const subject = buildSubject(entity.name)
-
-    // --- 5. Send the email server-side (if requested + recipient exists) ---
-    //
-    // The send goes through `sendOutreachEmail` so the synthetic 'sent' row
-    // in `outreach_events` is attributed to this entity. Downstream Resend
-    // webhooks (open/click/bounce/reply) re-resolve the entity_id from that
-    // row by message_id. Failures in the DB write do not fail the send —
-    // the email is unrecoverable once Resend accepts it. See #587.
-    let emailStatus: 'sent' | 'skipped_no_recipient' | 'skipped_by_caller' | 'send_failed'
-    let messageId: string | null = null
-    let outreachEventId: string | null = null
-    let sendError: string | null = null
-
-    if (!sendEmailFlag) {
-      emailStatus = 'skipped_by_caller'
-    } else if (!contactEmail) {
-      emailStatus = 'skipped_no_recipient'
-    } else {
-      const html = bookingLinkInviteEmailHtml({
-        contactName,
-        businessName: entity.name,
-        bookingUrl,
-      })
-      try {
-        const sendResult = await sendOutreachEmail(
-          env.RESEND_API_KEY,
-          { to: contactEmail, subject, html },
-          { db: env.DB, orgId: session.orgId, entityId }
-        )
-        if (sendResult.success) {
-          emailStatus = 'sent'
-          messageId = sendResult.id ?? null
-          outreachEventId = sendResult.outreach_event_id ?? null
-        } else {
-          emailStatus = 'send_failed'
-          sendError = sendResult.error ?? 'unknown_send_error'
-          console.error(
-            '[api/admin/entities/send-booking-link] email send failed:',
-            sendResult.error
-          )
-        }
-      } catch (err) {
-        emailStatus = 'send_failed'
-        sendError = err instanceof Error ? err.message : 'send_threw'
-        console.error('[api/admin/entities/send-booking-link] email send threw:', err)
-      }
-    }
-
-    // --- 6. Append context entry with the outreach template ----------------
-    //
-    // The metadata captures send status so the entity timeline can render
-    // "Sent to maria@example.com" vs. "Drafted; admin to send manually" vs.
-    // "Send failed" — an admin scanning the timeline never has to guess
-    // whether the prospect actually received the link.
-    await appendContext(env.DB, session.orgId, {
-      entity_id: entityId,
-      type: 'outreach_draft',
-      content: outreachTemplate,
-      source: 'send_booking_link',
-      metadata: {
-        trigger: 'send_booking_link',
-        assessment_id: meeting.id,
-        meeting_id: meeting.id,
-        duration_minutes: duration,
-        meeting_type: meetingType,
-        token_ttl_days: DEFAULT_BOOKING_LINK_TTL_DAYS,
-        email_status: emailStatus,
-        recipient_email: contactEmail,
-        message_id: messageId,
-        outreach_event_id: outreachEventId,
-        send_error: sendError,
-      },
-    })
-
-    // --- 7. Return JSON for the client -------------------------------------
-    const mailtoUrl = buildMailtoUrl({
-      to: contactEmail,
-      subject,
-      body: outreachTemplate,
-    })
-
-    return jsonResponse(200, {
-      ok: true,
-      assessment_id: meeting.id,
-      meeting_id: meeting.id,
-      booking_url: bookingUrl,
-      token_ttl_days: DEFAULT_BOOKING_LINK_TTL_DAYS,
-      contact_email: contactEmail,
-      outreach_template: outreachTemplate,
-      mailto_url: mailtoUrl,
-      email_status: emailStatus,
-      message_id: messageId,
-      outreach_event_id: outreachEventId,
-      send_error: sendError,
-    })
-  } catch (err) {
-    console.error('[api/admin/entities/send-booking-link] Error:', err)
-    const message = err instanceof Error ? err.message : 'server'
-    return jsonResponse(500, { error: 'server', message })
-  }
-}
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Helpers (declared first so handler can reference them)
 // ---------------------------------------------------------------------------
 
 /**
@@ -284,7 +58,8 @@ const ALLOWED_DURATIONS = Array.from(new Set([BOOKING_CONFIG.slot_minutes, 30, 4
 function parseDuration(raw: unknown): number {
   const def = BOOKING_CONFIG.slot_minutes
   if (raw == null) return def
-  const num = typeof raw === 'number' ? raw : parseInt(String(raw), 10)
+  const rawStr = typeof raw === 'string' ? raw : typeof raw === 'number' ? String(raw) : null
+  const num = typeof raw === 'number' ? raw : rawStr != null ? parseInt(rawStr, 10) : NaN
   if (!Number.isFinite(num) || num <= 0) return def
   return ALLOWED_DURATIONS.includes(num) ? num : def
 }
@@ -351,3 +126,316 @@ function jsonResponse(status: number, data: unknown): Response {
     headers: { 'Content-Type': 'application/json' },
   })
 }
+
+async function parseRequestBody(request: Request): Promise<Record<string, unknown> | Response> {
+  const contentType = request.headers.get('content-type') ?? ''
+  try {
+    if (contentType.includes('application/json')) {
+      return await request.json()
+    }
+    const fd = await request.formData()
+    const result: Record<string, unknown> = {}
+    for (const [k, v] of fd.entries()) result[k] = v
+    return result
+  } catch {
+    return jsonResponse(400, { error: 'invalid_body' })
+  }
+}
+
+type EmailStatus = 'sent' | 'skipped_no_recipient' | 'skipped_by_caller' | 'send_failed'
+
+interface EmailResult {
+  emailStatus: EmailStatus
+  messageId: string | null
+  outreachEventId: string | null
+  sendError: string | null
+}
+
+interface ProvisionResult {
+  meeting: { id: string }
+  token: string
+  bookingUrl: string
+}
+
+interface ProvisionArgs {
+  orgId: string
+  entityId: string
+  contactId: string | null
+  meetingType: string | null
+  duration: number
+}
+
+async function provisionMeetingAndToken(args: ProvisionArgs): Promise<ProvisionResult | Response> {
+  const { orgId, entityId, contactId, meetingType, duration } = args
+
+  const meeting = await createMeetingWithLegacyAssessment(env.DB, orgId, entityId, {
+    scheduled_at: null,
+    meeting_type: meetingType,
+  })
+
+  try {
+    await transitionStage(env.DB, orgId, entityId, 'meetings', 'Booking link sent to prospect.')
+  } catch (err) {
+    console.error('[api/admin/entities/send-booking-link] stage transition failed:', err)
+    return jsonResponse(500, {
+      error: 'stage_transition_failed',
+      message: err instanceof Error ? err.message : 'Stage transition failed.',
+    })
+  }
+
+  let token: string
+  try {
+    token = await signBookingLink({
+      entity_id: entityId,
+      contact_id: contactId,
+      assessment_id: meeting.id,
+      duration_minutes: duration,
+      meeting_type: meetingType,
+    })
+  } catch (err) {
+    console.error('[api/admin/entities/send-booking-link] signing failed:', err)
+    return jsonResponse(500, {
+      error: 'signing_failed',
+      message: 'Server is not configured to issue booking links.',
+    })
+  }
+
+  let appBaseUrl: string
+  try {
+    appBaseUrl = requireAppBaseUrl(env)
+  } catch {
+    appBaseUrl = ''
+  }
+
+  return { meeting, token, bookingUrl: `${appBaseUrl}/book?t=${encodeURIComponent(token)}` }
+}
+
+interface AppendLinkContextArgs {
+  orgId: string
+  entityId: string
+  meetingId: string
+  duration: number
+  meetingType: string | null
+  outreachTemplate: string
+  emailResult: EmailResult
+  contactEmail: string | null
+}
+
+async function appendLinkContext(args: AppendLinkContextArgs): Promise<void> {
+  const {
+    orgId,
+    entityId,
+    meetingId,
+    duration,
+    meetingType,
+    outreachTemplate,
+    emailResult,
+    contactEmail,
+  } = args
+  await appendContext(env.DB, orgId, {
+    entity_id: entityId,
+    type: 'outreach_draft',
+    content: outreachTemplate,
+    source: 'send_booking_link',
+    metadata: {
+      trigger: 'send_booking_link',
+      assessment_id: meetingId,
+      meeting_id: meetingId,
+      duration_minutes: duration,
+      meeting_type: meetingType,
+      token_ttl_days: DEFAULT_BOOKING_LINK_TTL_DAYS,
+      email_status: emailResult.emailStatus,
+      recipient_email: contactEmail,
+      message_id: emailResult.messageId,
+      outreach_event_id: emailResult.outreachEventId,
+      send_error: emailResult.sendError,
+    },
+  })
+}
+
+interface EntityContactResult {
+  entity: { id: string; name: string; stage: string }
+  contactEmail: string | null
+  contactName: string | null
+  contactId: string | null
+}
+
+async function resolveEntityAndContacts(
+  orgId: string,
+  entityId: string
+): Promise<EntityContactResult | Response> {
+  const entity = await getEntity(env.DB, orgId, entityId)
+  if (!entity) return jsonResponse(404, { error: 'entity_not_found' })
+  if (entity.stage !== 'prospect') {
+    return jsonResponse(409, {
+      error: 'invalid_stage',
+      message: `Entity must be in the 'prospect' stage; current stage is '${entity.stage}'.`,
+    })
+  }
+  const contacts = await listContacts(env.DB, orgId, entityId)
+  const primaryContact = contacts.find((c) => c.email) ?? contacts[0] ?? null
+  return {
+    entity,
+    contactEmail: primaryContact?.email ?? null,
+    contactName: primaryContact?.name ?? null,
+    contactId: primaryContact?.id ?? null,
+  }
+}
+
+async function maybeSendEmail(params: {
+  sendEmailFlag: boolean
+  contactEmail: string | null
+  contactName: string | null
+  businessName: string
+  bookingUrl: string
+  subject: string
+  orgId: string
+  entityId: string
+}): Promise<EmailResult> {
+  const {
+    sendEmailFlag,
+    contactEmail,
+    contactName,
+    businessName,
+    bookingUrl,
+    subject,
+    orgId,
+    entityId,
+  } = params
+
+  if (!sendEmailFlag) {
+    return {
+      emailStatus: 'skipped_by_caller',
+      messageId: null,
+      outreachEventId: null,
+      sendError: null,
+    }
+  }
+  if (!contactEmail) {
+    return {
+      emailStatus: 'skipped_no_recipient',
+      messageId: null,
+      outreachEventId: null,
+      sendError: null,
+    }
+  }
+
+  const html = bookingLinkInviteEmailHtml({ contactName, businessName, bookingUrl })
+  try {
+    const sendResult = await sendOutreachEmail(
+      env.RESEND_API_KEY,
+      { to: contactEmail, subject, html },
+      { db: env.DB, orgId, entityId }
+    )
+    if (sendResult.success) {
+      return {
+        emailStatus: 'sent',
+        messageId: sendResult.id ?? null,
+        outreachEventId: sendResult.outreach_event_id ?? null,
+        sendError: null,
+      }
+    }
+    console.error('[api/admin/entities/send-booking-link] email send failed:', sendResult.error)
+    return {
+      emailStatus: 'send_failed',
+      messageId: null,
+      outreachEventId: null,
+      sendError: sendResult.error ?? 'unknown_send_error',
+    }
+  } catch (err) {
+    console.error('[api/admin/entities/send-booking-link] email send threw:', err)
+    return {
+      emailStatus: 'send_failed',
+      messageId: null,
+      outreachEventId: null,
+      sendError: err instanceof Error ? err.message : 'send_threw',
+    }
+  }
+}
+
+function parseMeetingType(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null
+  const trimmed = raw.trim()
+  return trimmed.length > 0 ? trimmed.slice(0, 100) : null
+}
+
+async function handlePost({ params, request, locals }: APIContext): Promise<Response> {
+  const session = locals.session
+  if (!session || session.role !== 'admin') return jsonResponse(401, { error: 'Unauthorized' })
+  const entityId = params.id
+  if (!entityId) return jsonResponse(400, { error: 'missing_entity_id' })
+
+  const bodyOrError = await parseRequestBody(request)
+  if (bodyOrError instanceof Response) return bodyOrError
+
+  const duration = parseDuration(bodyOrError.duration_minutes)
+  const meetingType = parseMeetingType(bodyOrError.meeting_type)
+  const sendEmailFlag = parseBoolean(bodyOrError.send_email, true)
+
+  try {
+    const resolved = await resolveEntityAndContacts(session.orgId, entityId)
+    if (resolved instanceof Response) return resolved
+    const { entity, contactEmail, contactName, contactId } = resolved
+
+    const provisionResult = await provisionMeetingAndToken({
+      orgId: session.orgId,
+      entityId,
+      contactId,
+      meetingType,
+      duration,
+    })
+    if (provisionResult instanceof Response) return provisionResult
+    const { meeting, bookingUrl } = provisionResult
+
+    const subject = buildSubject(entity.name)
+    const outreachTemplate = buildOutreachTemplate({
+      contactName,
+      businessName: entity.name,
+      bookingUrl,
+    })
+    const emailResult = await maybeSendEmail({
+      sendEmailFlag,
+      contactEmail,
+      contactName,
+      businessName: entity.name,
+      bookingUrl,
+      subject,
+      orgId: session.orgId,
+      entityId,
+    })
+
+    await appendLinkContext({
+      orgId: session.orgId,
+      entityId,
+      meetingId: meeting.id,
+      duration,
+      meetingType,
+      outreachTemplate,
+      emailResult,
+      contactEmail,
+    })
+
+    return jsonResponse(200, {
+      ok: true,
+      assessment_id: meeting.id,
+      meeting_id: meeting.id,
+      booking_url: bookingUrl,
+      token_ttl_days: DEFAULT_BOOKING_LINK_TTL_DAYS,
+      contact_email: contactEmail,
+      outreach_template: outreachTemplate,
+      mailto_url: buildMailtoUrl({ to: contactEmail, subject, body: outreachTemplate }),
+      email_status: emailResult.emailStatus,
+      message_id: emailResult.messageId,
+      outreach_event_id: emailResult.outreachEventId,
+      send_error: emailResult.sendError,
+    })
+  } catch (err) {
+    console.error('[api/admin/entities/send-booking-link] Error:', err)
+    return jsonResponse(500, {
+      error: 'server',
+      message: err instanceof Error ? err.message : 'server',
+    })
+  }
+}
+
+export const POST: APIRoute = (ctx) => handlePost(ctx)

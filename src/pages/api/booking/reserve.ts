@@ -1,4 +1,4 @@
-import type { APIRoute } from 'astro'
+import type { APIContext, APIRoute } from 'astro'
 import { ORG_ID } from '../../../lib/constants'
 import { BOOKING_CONFIG } from '../../../lib/booking/config'
 import { rateLimitByIp } from '../../../lib/booking/rate-limit'
@@ -19,7 +19,6 @@ import {
 } from '../../../lib/booking/meeting-schedule'
 import { getIntegration, getGoogleAccessToken } from '../../../lib/db/integrations'
 import { transitionStage } from '../../../lib/db/entities'
-import { formatInTimeZone } from 'date-fns-tz'
 import { sendEmail } from '../../../lib/email/resend'
 import {
   bookingConfirmationEmailHtml,
@@ -27,6 +26,15 @@ import {
 } from '../../../lib/email/templates'
 import { requireAppBaseUrl, buildAdminUrl } from '../../../lib/config/app-url'
 import { env } from 'cloudflare:workers'
+import {
+  createGoogleCalendarEvent,
+  buildEventDescription,
+  formatSlotLabelLong,
+  trimString,
+  parseOptionalInt,
+  isValidEmail,
+  jsonResponse,
+} from './reserve-helpers'
 
 const FALLBACK_EMAIL = 'team@smd.services'
 const NOTIFY_EMAIL = 'team@smd.services'
@@ -42,33 +50,43 @@ const NOTIFY_EMAIL = 'team@smd.services'
  *
  * Google event creation failure = booking failure. No silent fallback.
  */
-export const POST: APIRoute = async ({ request }) => {
-  // -----------------------------------------------------------------------
-  // Parse body
-  // -----------------------------------------------------------------------
-  let body: Record<string, unknown>
-  try {
-    body = (await request.json()) as Record<string, unknown>
-  } catch {
-    return jsonResponse(400, { error: 'Invalid JSON' })
+
+interface ValidatedInput {
+  name: string
+  email: string
+  businessName: string
+  phone: string | null
+  slotStartUtc: string
+  slotEndUtc: string
+  website: string | null
+  userMessage: string | null
+  vertical: string | null
+  employeeCount: number | null
+  yearsInBusiness: number | null
+  biggestChallenge: string | null
+  howHeard: string | null
+  guestTimezone: string | null
+  prefillTokenRaw: string | null
+}
+
+function validateSlotTiming(slotStartUtc: string): { slotEndUtc: string } | Response {
+  const slotStart = new Date(slotStartUtc)
+  if (isNaN(slotStart.getTime())) {
+    return jsonResponse(400, { error: 'validation_failed', message: 'Invalid slot_start_utc' })
   }
-
-  // -----------------------------------------------------------------------
-  // Phase 1: Preflight
-  // -----------------------------------------------------------------------
-
-  // 1a. IP rate limiting (10/hour). Cloudflare zone-level Bot Fight Mode
-  // runs at the edge before requests reach this Worker.
-  const clientIp = request.headers.get('cf-connecting-ip') ?? undefined
-  const rateLimitResult = await rateLimitByIp(env.BOOKING_CACHE, 'reserve', clientIp)
-  if (!rateLimitResult.allowed) {
-    return jsonResponse(429, {
-      error: 'rate_limited',
-      message: 'Too many booking attempts. Please try again later.',
+  const earliest = Date.now() + BOOKING_CONFIG.min_notice_minutes * 60_000
+  if (slotStart.getTime() < earliest) {
+    return jsonResponse(400, {
+      error: 'slot_unavailable',
+      message: 'This slot is no longer available. Please choose a later time.',
     })
   }
+  return {
+    slotEndUtc: new Date(slotStart.getTime() + BOOKING_CONFIG.slot_minutes * 60_000).toISOString(),
+  }
+}
 
-  // 1c. Input validation
+function validateReserveInput(body: Record<string, unknown>): ValidatedInput | Response {
   const name = trimString(body.name)
   const email = trimString(body.email)
   const businessName = trimString(body.business_name)
@@ -81,6 +99,7 @@ export const POST: APIRoute = async ({ request }) => {
       message: 'name, email, business_name, and slot_start_utc are required',
     })
   }
+
   // Phone is required for new website-driven bookings (the unified intake
   // collects it). Admin "Send booking link" flow may still come through
   // without phone — those carry a prefill_token and we don't want to break
@@ -97,242 +116,246 @@ export const POST: APIRoute = async ({ request }) => {
     return jsonResponse(400, { error: 'validation_failed', message: 'Invalid email address' })
   }
 
-  // Validate slot_start_utc is a valid ISO date
-  const slotStart = new Date(slotStartUtc)
-  if (isNaN(slotStart.getTime())) {
-    return jsonResponse(400, { error: 'validation_failed', message: 'Invalid slot_start_utc' })
+  const slotTiming = validateSlotTiming(slotStartUtc)
+  if (slotTiming instanceof Response) return slotTiming
+
+  return {
+    name,
+    email,
+    businessName,
+    phone,
+    slotStartUtc,
+    slotEndUtc: slotTiming.slotEndUtc,
+    website: trimString(body.website) || null,
+    userMessage: typeof body.message === 'string' ? body.message.trim() : null,
+    vertical: trimString(body.vertical) || null,
+    employeeCount: parseOptionalInt(body.employee_count),
+    yearsInBusiness: parseOptionalInt(body.years_in_business),
+    biggestChallenge: trimString(body.biggest_challenge) || null,
+    howHeard: trimString(body.how_heard) || null,
+    guestTimezone: trimString(body.timezone) || null,
+    prefillTokenRaw: trimString(body.prefill_token),
   }
+}
 
-  // Slot must be in the future (with min notice)
-  const now = new Date()
-  const earliest = now.getTime() + BOOKING_CONFIG.min_notice_minutes * 60_000
-  if (slotStart.getTime() < earliest) {
-    return jsonResponse(400, {
-      error: 'slot_unavailable',
-      message: 'This slot is no longer available. Please choose a later time.',
-    })
-  }
-
-  // Compute slot end
-  const slotEndUtc = new Date(
-    slotStart.getTime() + BOOKING_CONFIG.slot_minutes * 60_000
-  ).toISOString()
-
-  // Optional intake fields. Categorical fields stay supported for the legacy
-  // /get-started prep flow that still uses /api/intake; the new unified intake
-  // on /book sends `message` (free text) and `website` instead.
-  const website = trimString(body.website) || null
-  const userMessage = typeof body.message === 'string' ? body.message.trim() : null
-  const vertical = trimString(body.vertical) || null
-  const employeeCount = parseOptionalInt(body.employee_count)
-  const yearsInBusiness = parseOptionalInt(body.years_in_business)
-  const biggestChallenge = trimString(body.biggest_challenge) || null
-  const howHeard = trimString(body.how_heard) || null
-  const guestTimezone = trimString(body.timezone) || null
-
-  // Optional prefill token (admin "Send booking link" flow — #467).
-  // When present and valid, we anchor this booking to the admin-chosen
-  // entity/assessment rather than running slug dedup. Invalid/expired tokens
-  // are ignored (the booking falls back to the standard flow) — we prefer
-  // silent degradation to failure when a guest's link is stale.
-  const prefillTokenRaw = trimString(body.prefill_token)
-  let preSeeded: PreSeededIntake | null = null
-  if (prefillTokenRaw) {
-    const verify = await verifyBookingLink(prefillTokenRaw)
-    if (verify.ok) {
-      preSeeded = {
-        entityId: verify.payload.entity_id,
-        assessmentId: verify.payload.assessment_id,
-        meetingType: verify.payload.meeting_type,
-        contactId: verify.payload.contact_id,
-      }
-    } else {
-      console.warn(
-        `[api/booking/reserve] prefill token rejected: ${verify.error}; falling back to standard flow`
-      )
+async function resolvePreSeeded(prefillTokenRaw: string | null): Promise<PreSeededIntake | null> {
+  if (!prefillTokenRaw) return null
+  const verify = await verifyBookingLink(prefillTokenRaw)
+  if (verify.ok) {
+    return {
+      entityId: verify.payload.entity_id,
+      assessmentId: verify.payload.assessment_id,
+      meetingType: verify.payload.meeting_type,
+      contactId: verify.payload.contact_id,
     }
   }
+  console.warn(
+    `[api/booking/reserve] prefill token rejected: ${verify.error}; falling back to standard flow`
+  )
+  return null
+}
 
-  // -----------------------------------------------------------------------
-  // Phase 1d: Verify Google integration before doing any DB work
-  // -----------------------------------------------------------------------
-  const integration = await getIntegration(env.DB, ORG_ID, 'google_calendar')
-  if (!integration) {
-    return jsonResponse(503, {
-      error: 'calendar_unavailable',
-      message: 'Online booking is temporarily unavailable.',
-      fallback: {
-        type: 'email',
-        email: FALLBACK_EMAIL,
-        message: `Please email ${FALLBACK_EMAIL} to schedule your call.`,
-      },
-    })
+function calendarUnavailableJson(): Response {
+  return jsonResponse(503, {
+    error: 'calendar_unavailable',
+    message: 'Online booking is temporarily unavailable.',
+    fallback: {
+      type: 'email',
+      email: FALLBACK_EMAIL,
+      message: `Please email ${FALLBACK_EMAIL} to schedule your call.`,
+    },
+  })
+}
+
+interface DbCommitArgs {
+  input: ValidatedInput
+  preSeeded: PreSeededIntake | null
+}
+
+interface DbCommitResult {
+  assessmentId: string
+  meetingId: string
+  entityId: string
+  scheduleId: string
+  meetingScheduleId: string
+  manageToken: string
+  intakeLines: string[]
+  entityCreated: boolean
+  contactCreated: boolean
+  contactId: string | undefined
+  contextId: string | null
+  previousAssessmentScheduledAt: string | null
+  previousMeetingScheduledAt: string | null
+}
+
+interface SidecarParams {
+  assessmentId: string
+  meetingId: string
+  name: string
+  email: string
+  slotStartUtc: string
+  slotEndUtc: string
+  guestTimezone: string | null
+  manageTokenHash: string
+  manageTokenExpiresAt: string
+}
+
+async function seedScheduleSidecars(
+  a: SidecarParams
+): Promise<{ scheduleId: string; meetingScheduleId: string }> {
+  // Both are seeded during the monitoring window so existing manage-token
+  // consumers continue to resolve whichever table they query.
+  // When the drop migration lands the legacy assessment_schedule write goes away.
+  const common = {
+    orgId: ORG_ID,
+    slotStartUtc: a.slotStartUtc,
+    slotEndUtc: a.slotEndUtc,
+    durationMinutes: BOOKING_CONFIG.slot_minutes,
+    timezone: BOOKING_CONFIG.consultant.timezone,
+    guestTimezone: a.guestTimezone,
+    guestName: a.name,
+    guestEmail: a.email,
+    manageTokenHash: a.manageTokenHash,
+    manageTokenExpiresAt: a.manageTokenExpiresAt,
   }
+  const { statement: scheduleStmt, id: scheduleId } = createScheduleStatement(env.DB, {
+    assessmentId: a.assessmentId,
+    ...common,
+  })
+  await scheduleStmt.run()
 
-  const accessToken = await getGoogleAccessToken(env.DB, integration, env)
-  if (!accessToken) {
-    return jsonResponse(503, {
-      error: 'calendar_unavailable',
-      message: 'Online booking is temporarily unavailable.',
-      fallback: {
-        type: 'email',
-        email: FALLBACK_EMAIL,
-        message: `Please email ${FALLBACK_EMAIL} to schedule your call.`,
-      },
-    })
+  const { statement: meetingScheduleStmt, id: meetingScheduleId } = createMeetingScheduleStatement(
+    env.DB,
+    { meetingId: a.meetingId, ...common }
+  )
+  await meetingScheduleStmt.run()
+
+  return { scheduleId, meetingScheduleId }
+}
+
+async function commitBookingToDb(args: DbCommitArgs): Promise<DbCommitResult> {
+  const { input, preSeeded } = args
+  const {
+    name,
+    email,
+    businessName,
+    phone,
+    slotStartUtc,
+    slotEndUtc,
+    website,
+    userMessage,
+    vertical,
+    employeeCount,
+    yearsInBusiness,
+    biggestChallenge,
+    howHeard,
+    guestTimezone,
+  } = input
+
+  const intakeResult = await processIntakeSubmission(
+    env.DB,
+    ORG_ID,
+    {
+      name,
+      email,
+      businessName,
+      phone,
+      website,
+      userMessage,
+      vertical,
+      employeeCount,
+      yearsInBusiness,
+      biggestChallenge,
+      howHeard,
+    },
+    {
+      scheduledAt: slotStartUtc,
+      source: preSeeded ? 'admin_booking_link' : 'website_intake_booking',
+      preSeeded,
+    }
+  )
+
+  // assessmentId is guaranteed non-null when scheduledAt is provided.
+  // By intake-core construction, assessmentId == meetingId — the booking
+  // flow seeds both tables with the same primary key during the
+  // monitoring window (see src/lib/booking/intake-core.ts).
+  const assessmentId = intakeResult.assessmentId!
+  const meetingId = intakeResult.meetingId!
+
+  const manageToken = generateManageToken()
+  const manageTokenHash = await hashManageToken(manageToken)
+  const manageTokenExpiresAt = computeManageTokenExpiry(
+    slotEndUtc,
+    BOOKING_CONFIG.manage_token_ttl_hours_after_slot
+  )
+
+  // Create assessment_schedule (legacy) and meeting_schedule (canonical) sidecars.
+  const { scheduleId, meetingScheduleId } = await seedScheduleSidecars({
+    assessmentId,
+    meetingId,
+    name,
+    email,
+    slotStartUtc,
+    slotEndUtc,
+    guestTimezone,
+    manageTokenHash,
+    manageTokenExpiresAt,
+  })
+
+  return {
+    assessmentId,
+    meetingId,
+    entityId: intakeResult.entityId,
+    scheduleId,
+    meetingScheduleId,
+    manageToken,
+    intakeLines: intakeResult.intakeLines,
+    entityCreated: intakeResult.entityCreated,
+    contactCreated: intakeResult.contactCreated,
+    contactId: intakeResult.contactId,
+    contextId: intakeResult.contextId,
+    previousAssessmentScheduledAt: intakeResult.previousAssessmentScheduledAt,
+    previousMeetingScheduledAt: intakeResult.previousMeetingScheduledAt,
   }
+}
 
-  // -----------------------------------------------------------------------
-  // Phase 2: DB commit (hold + intake + schedule + token)
-  // -----------------------------------------------------------------------
+interface GoogleSyncArgs {
+  accessToken: string
+  calendarId: string
+  input: ValidatedInput
+  dbResult: DbCommitResult
+  holdId: string
+  preSeeded: PreSeededIntake | null
+}
 
-  // 2a. Acquire pessimistic hold on the slot
-  const holdResult = await acquireHold(env.DB, ORG_ID, slotStartUtc, email)
-  if (!holdResult.acquired) {
-    return jsonResponse(409, {
-      error: 'slot_taken',
-      message: 'This time slot was just taken. Please choose another time.',
-    })
-  }
+async function syncGoogleCalendarAndPromote(args: GoogleSyncArgs): Promise<string | Response> {
+  const { accessToken, calendarId, input, dbResult, holdId, preSeeded } = args
+  const { name, email, businessName, slotStartUtc, slotEndUtc } = input
+  // prettier-ignore
+  const { assessmentId, meetingId, entityId, scheduleId, meetingScheduleId, entityCreated, contactCreated, contactId, contextId, previousAssessmentScheduledAt, previousMeetingScheduledAt } = dbResult
 
-  let assessmentId: string
-  let meetingId: string
-  let entityId: string
-  let scheduleId: string
-  let meetingScheduleId: string
-  let manageToken: string
-  let intakeLines: string[]
-  let entityCreated = false
-  let contactCreated = false
-  let contactId: string | undefined
-  let contextId: string | null = null
-  let previousAssessmentScheduledAt: string | null = null
-  let previousMeetingScheduledAt: string | null = null
+  const meetUrl = BOOKING_CONFIG.meeting_url
 
   try {
-    // 2b. Process intake (entity + contact + assessment)
-    const intakeResult = await processIntakeSubmission(
-      env.DB,
-      ORG_ID,
-      {
-        name,
-        email,
-        businessName,
-        phone,
-        website,
-        userMessage,
-        vertical,
-        employeeCount,
-        yearsInBusiness,
-        biggestChallenge,
-        howHeard,
-      },
-      slotStartUtc,
-      preSeeded ? 'admin_booking_link' : 'website_intake_booking',
-      preSeeded
-    )
-
-    // assessmentId is guaranteed non-null when scheduledAt is provided.
-    // By intake-core construction, assessmentId == meetingId — the booking
-    // flow seeds both tables with the same primary key during the
-    // monitoring window (see src/lib/booking/intake-core.ts).
-    assessmentId = intakeResult.assessmentId!
-    meetingId = intakeResult.meetingId!
-    entityId = intakeResult.entityId
-    entityCreated = intakeResult.entityCreated
-    contactCreated = intakeResult.contactCreated
-    contactId = intakeResult.contactId
-    contextId = intakeResult.contextId
-    intakeLines = intakeResult.intakeLines
-    previousAssessmentScheduledAt = intakeResult.previousAssessmentScheduledAt
-    previousMeetingScheduledAt = intakeResult.previousMeetingScheduledAt
-
-    // 2c. Generate manage token + hash
-    manageToken = generateManageToken()
-    const manageTokenHash = await hashManageToken(manageToken)
-    const manageTokenExpiresAt = computeManageTokenExpiry(
-      slotEndUtc,
-      BOOKING_CONFIG.manage_token_ttl_hours_after_slot
-    )
-
-    // 2d. Create assessment_schedule (legacy) and meeting_schedule (canonical)
-    //     sidecars. Both are seeded during the monitoring window so existing
-    //     manage-token consumers (cancel/reschedule endpoints) continue to
-    //     resolve whichever table they query. When the drop migration lands
-    //     the legacy assessment_schedule write goes away.
-    const { statement: scheduleStmt, id: newScheduleId } = createScheduleStatement(env.DB, {
-      assessmentId,
-      orgId: ORG_ID,
-      slotStartUtc,
-      slotEndUtc,
-      durationMinutes: BOOKING_CONFIG.slot_minutes,
-      timezone: BOOKING_CONFIG.consultant.timezone,
-      guestTimezone: guestTimezone,
-      guestName: name,
-      guestEmail: email,
-      manageTokenHash,
-      manageTokenExpiresAt,
-    })
-    scheduleId = newScheduleId
-    await scheduleStmt.run()
-
-    const { statement: meetingScheduleStmt, id: newMeetingScheduleId } =
-      createMeetingScheduleStatement(env.DB, {
-        meetingId,
-        orgId: ORG_ID,
-        slotStartUtc,
-        slotEndUtc,
-        durationMinutes: BOOKING_CONFIG.slot_minutes,
-        timezone: BOOKING_CONFIG.consultant.timezone,
-        guestTimezone: guestTimezone,
-        guestName: name,
-        guestEmail: email,
-        manageTokenHash,
-        manageTokenExpiresAt,
-      })
-    meetingScheduleId = newMeetingScheduleId
-    await meetingScheduleStmt.run()
-  } catch (err) {
-    // DB commit failed — release hold and return error
-    console.error('[api/booking/reserve] DB commit failed:', err)
-    await releaseHold(env.DB, holdResult.id!)
-    return jsonResponse(500, { error: 'Internal server error' })
-  }
-
-  // -----------------------------------------------------------------------
-  // Phase 3: Google Calendar sync
-  // -----------------------------------------------------------------------
-  const calendarId = integration.calendar_id || BOOKING_CONFIG.consultant.calendar_id
-  let googleMeetUrl: string | null = null
-
-  try {
-    const meetUrl = BOOKING_CONFIG.meeting_url
     const eventResult = await createGoogleCalendarEvent(accessToken, calendarId, {
       summary: `Assessment: ${businessName} (${name})`,
-      description: buildEventDescription(name, email, businessName, intakeLines),
+      description: buildEventDescription(name, email, businessName, dbResult.intakeLines),
       startUtc: slotStartUtc,
       endUtc: slotEndUtc,
       guestEmail: email,
       assessmentId,
     })
 
-    googleMeetUrl = meetUrl
-
-    // Update both schedules with Google sync data. See the dual-write rationale
-    // at the sidecar insert above.
-    await updateScheduleGoogleSync(env.DB, scheduleId, {
+    // Update both schedules with Google sync data (dual-write during monitoring window).
+    const syncData = {
       googleEventId: eventResult.eventId,
       googleEventLink: eventResult.htmlLink,
       googleMeetUrl: meetUrl,
-    })
-    await updateMeetingScheduleGoogleSync(env.DB, meetingScheduleId, {
-      googleEventId: eventResult.eventId,
-      googleEventLink: eventResult.htmlLink,
-      googleMeetUrl: meetUrl,
-    })
+    }
+    await updateScheduleGoogleSync(env.DB, scheduleId, syncData)
+    await updateMeetingScheduleGoogleSync(env.DB, meetingScheduleId, syncData)
 
-    // Promote the entity only after Google sync succeeds so a failed booking
-    // never leaves the CRM in a false "meeting scheduled" state.
+    // Promote entity only after Google sync — prevents false "meeting scheduled" CRM state.
     try {
       await transitionStage(
         env.DB,
@@ -344,14 +367,14 @@ export const POST: APIRoute = async ({ request }) => {
     } catch {
       // Entity may already be past prospect. Do not fail the booking.
     }
-  } catch (err) {
-    // Google sync failed — compensating rollback
-    console.error('[api/booking/reserve] Google Calendar event creation failed:', err)
 
+    return meetUrl
+  } catch (err) {
+    console.error('[api/booking/reserve] Google Calendar event creation failed:', err)
     try {
       await rollbackFailedBooking(env.DB, {
         orgId: ORG_ID,
-        holdId: holdResult.id!,
+        holdId,
         scheduleId,
         meetingScheduleId,
         assessmentId,
@@ -368,7 +391,6 @@ export const POST: APIRoute = async ({ request }) => {
     } catch (rollbackErr) {
       console.error('[api/booking/reserve] Rollback failed:', rollbackErr)
     }
-
     return jsonResponse(503, {
       error: 'calendar_sync_failed',
       message: 'We could not create the calendar event. Please try again or email us directly.',
@@ -379,25 +401,24 @@ export const POST: APIRoute = async ({ request }) => {
       },
     })
   }
+}
 
-  // Release the hold — the live assessment row is now the lock
-  await releaseHold(env.DB, holdResult.id!)
+interface SendConfirmationArgs {
+  input: ValidatedInput
+  dbResult: DbCommitResult
+  googleMeetUrl: string
+  manageUrl: string
+}
 
-  // -----------------------------------------------------------------------
-  // Phase 4: Post-commit (confirmation email + admin notification)
-  // -----------------------------------------------------------------------
+async function sendConfirmationEmails(args: SendConfirmationArgs): Promise<void> {
+  const { input, dbResult, googleMeetUrl, manageUrl } = args
+  const { name, email, businessName, slotStartUtc, guestTimezone } = input
+  const { scheduleId, intakeLines, entityId } = dbResult
+
   const displayTz = guestTimezone || BOOKING_CONFIG.consultant.timezone
   const slotLabel = formatSlotLabelLong(slotStartUtc, displayTz)
+  const consultantTzLabel = formatSlotLabelLong(slotStartUtc, BOOKING_CONFIG.consultant.timezone)
 
-  let appBaseUrl: string
-  try {
-    appBaseUrl = requireAppBaseUrl(env)
-  } catch {
-    appBaseUrl = 'https://smd.services'
-  }
-  const manageUrl = `${appBaseUrl}/book/manage?token=${manageToken}`
-
-  // Build ICS attachment
   let icsAttachment: { filename: string; content: string; content_type: string } | null = null
   try {
     const icsResult = buildIcs({
@@ -408,7 +429,7 @@ export const POST: APIRoute = async ({ request }) => {
       durationMinutes: BOOKING_CONFIG.slot_minutes,
       title: `${BOOKING_CONFIG.meeting_label} — SMD Services`,
       description: `Assessment call with SMD Services for ${businessName}.\n\nManage your booking: ${manageUrl}`,
-      location: googleMeetUrl ?? undefined,
+      location: googleMeetUrl,
       organizerName: BOOKING_CONFIG.consultant.name,
       organizerEmail: BOOKING_CONFIG.consultant.email,
       guestName: name,
@@ -421,10 +442,8 @@ export const POST: APIRoute = async ({ request }) => {
     }
   } catch (icsErr) {
     console.error('[api/booking/reserve] ICS generation failed:', icsErr)
-    // ICS failure doesn't block the booking — the event is already in Google Calendar
   }
 
-  // Send confirmation email to guest (fire and forget)
   try {
     const confirmationHtml = bookingConfirmationEmailHtml({
       guestName: name,
@@ -434,7 +453,6 @@ export const POST: APIRoute = async ({ request }) => {
       manageUrl,
       meetingLabel: BOOKING_CONFIG.meeting_label,
     })
-
     await sendEmail(env.RESEND_API_KEY, {
       to: email,
       subject: `Confirmed: ${BOOKING_CONFIG.meeting_label} with SMD Services`,
@@ -445,169 +463,124 @@ export const POST: APIRoute = async ({ request }) => {
     console.error('[api/booking/reserve] Confirmation email failed:', emailErr)
   }
 
-  // Send admin notification (fire and forget)
   try {
     const adminHtml = bookingAdminNotificationEmailHtml({
       guestName: name,
       guestEmail: email,
       businessName,
-      slotLabel: formatSlotLabelLong(slotStartUtc, BOOKING_CONFIG.consultant.timezone),
+      slotLabel: consultantTzLabel,
       intakeLines,
       entityAdminUrl: buildAdminUrl(env, `/admin/entities/${entityId}`),
     })
-
     await sendEmail(env.RESEND_API_KEY, {
       to: NOTIFY_EMAIL,
       reply_to: email,
-      subject: `New booking: ${businessName} — ${formatSlotLabelLong(slotStartUtc, BOOKING_CONFIG.consultant.timezone)}`,
+      subject: `New booking: ${businessName} — ${consultantTzLabel}`,
       html: adminHtml,
     })
   } catch (emailErr) {
     console.error('[api/booking/reserve] Admin notification email failed:', emailErr)
   }
+}
 
-  // -----------------------------------------------------------------------
-  // Response
-  // -----------------------------------------------------------------------
+async function handlePost({ request }: APIContext): Promise<Response> {
+  let body: Record<string, unknown>
+  try {
+    body = await request.json()
+  } catch {
+    return jsonResponse(400, { error: 'Invalid JSON' })
+  }
+
+  // Phase 1a: IP rate limiting
+  const clientIp = request.headers.get('cf-connecting-ip') ?? undefined
+  const rateLimitResult = await rateLimitByIp(env.BOOKING_CACHE, 'reserve', clientIp)
+  if (!rateLimitResult.allowed) {
+    return jsonResponse(429, {
+      error: 'rate_limited',
+      message: 'Too many booking attempts. Please try again later.',
+    })
+  }
+
+  // Phase 1b: Input validation
+  const validated = validateReserveInput(body)
+  if (validated instanceof Response) return validated
+
+  // Optional prefill token (admin "Send booking link" flow — #467).
+  // Invalid/expired tokens fall back to standard flow silently.
+  const preSeeded = await resolvePreSeeded(validated.prefillTokenRaw)
+
+  // Phase 1c: Verify Google integration before doing any DB work
+  const integration = await getIntegration(env.DB, ORG_ID, 'google_calendar')
+  if (!integration) return calendarUnavailableJson()
+
+  const accessToken = await getGoogleAccessToken(env.DB, integration, env)
+  if (!accessToken) return calendarUnavailableJson()
+
+  // Phase 2: DB commit
+  const holdResult = await acquireHold(env.DB, ORG_ID, validated.slotStartUtc, validated.email)
+  if (!holdResult.acquired) {
+    return jsonResponse(409, {
+      error: 'slot_taken',
+      message: 'This time slot was just taken. Please choose another time.',
+    })
+  }
+
+  let dbResult: DbCommitResult
+  try {
+    dbResult = await commitBookingToDb({ input: validated, preSeeded })
+  } catch (err) {
+    console.error('[api/booking/reserve] DB commit failed:', err)
+    await releaseHold(env.DB, holdResult.id!)
+    return jsonResponse(500, { error: 'Internal server error' })
+  }
+
+  // Phase 3: Google Calendar sync + entity stage promotion
+  const calendarId = integration.calendar_id || BOOKING_CONFIG.consultant.calendar_id
+  const googleSyncResult = await syncGoogleCalendarAndPromote({
+    accessToken,
+    calendarId,
+    input: validated,
+    dbResult,
+    holdId: holdResult.id!,
+    preSeeded,
+  })
+  if (googleSyncResult instanceof Response) return googleSyncResult
+  const googleMeetUrl = googleSyncResult
+
+  // Release the hold — the live assessment row is now the lock
+  await releaseHold(env.DB, holdResult.id!)
+
+  const { slotStartUtc, slotEndUtc, guestTimezone } = validated
+  const { assessmentId, meetingId, scheduleId, meetingScheduleId, manageToken } = dbResult
+  const displayTz = guestTimezone || BOOKING_CONFIG.consultant.timezone
+
+  let appBaseUrl: string
+  try {
+    appBaseUrl = requireAppBaseUrl(env)
+  } catch {
+    appBaseUrl = 'https://smd.services'
+  }
+  const manageUrl = `${appBaseUrl}/book/manage?token=${manageToken}`
+
+  // Phase 4: Confirmation emails (best-effort)
+  await sendConfirmationEmails({ input: validated, dbResult, googleMeetUrl, manageUrl })
+
   return jsonResponse(201, {
     ok: true,
     // assessment_id and meeting_id are equal by construction during the
-    // monitoring window — callers can use either. New code should prefer
-    // meeting_id.
+    // monitoring window — callers can use either. New code should prefer meeting_id.
     assessment_id: assessmentId,
     meeting_id: meetingId,
     schedule_id: scheduleId,
     meeting_schedule_id: meetingScheduleId,
     slot_start_utc: slotStartUtc,
     slot_end_utc: slotEndUtc,
-    slot_label: slotLabel,
+    slot_label: formatSlotLabelLong(slotStartUtc, displayTz),
     meet_url: googleMeetUrl,
     manage_url: manageUrl,
   })
 }
 
-// ---------------------------------------------------------------------------
-// Google Calendar event creation
-// ---------------------------------------------------------------------------
-
-interface CreateEventResult {
-  eventId: string
-  htmlLink: string | null
-}
-
-async function createGoogleCalendarEvent(
-  accessToken: string,
-  calendarId: string,
-  params: {
-    summary: string
-    description: string
-    startUtc: string
-    endUtc: string
-    guestEmail: string
-    assessmentId: string
-  }
-): Promise<CreateEventResult> {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), BOOKING_CONFIG.google_call_timeout_ms)
-
-  try {
-    const response = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?sendUpdates=all`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          summary: params.summary,
-          description: params.description,
-          start: { dateTime: params.startUtc, timeZone: 'UTC' },
-          end: { dateTime: params.endUtc, timeZone: 'UTC' },
-          attendees: [{ email: params.guestEmail }],
-          extendedProperties: {
-            private: {
-              assessmentId: params.assessmentId,
-            },
-          },
-          reminders: {
-            useDefault: false,
-            overrides: [
-              { method: 'email', minutes: 60 },
-              { method: 'popup', minutes: 15 },
-            ],
-          },
-        }),
-        signal: controller.signal,
-      }
-    )
-
-    if (!response.ok) {
-      const body = await response.text()
-      throw new Error(`Google Calendar API ${response.status}: ${body}`)
-    }
-
-    const data = (await response.json()) as {
-      id: string
-      htmlLink?: string
-    }
-
-    return {
-      eventId: data.id,
-      htmlLink: data.htmlLink ?? null,
-    }
-  } finally {
-    clearTimeout(timeout)
-  }
-}
+export const POST: APIRoute = (ctx) => handlePost(ctx)
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function buildEventDescription(
-  name: string,
-  email: string,
-  businessName: string,
-  intakeLines: string[]
-): string {
-  const lines = [`Guest: ${name} <${email}>`, `Business: ${businessName}`]
-  if (intakeLines.length > 0) {
-    lines.push('', '--- Intake ---', ...intakeLines)
-  }
-  return lines.join('\n')
-}
-
-function formatSlotLabelLong(slotStartUtc: string, tz: string): string {
-  return formatInTimeZone(new Date(slotStartUtc), tz, "EEEE, MMMM d 'at' h:mm a (zzz)")
-}
-
-function trimString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() ? value.trim() : null
-}
-
-function parseOptionalInt(value: unknown): number | null {
-  if (typeof value === 'number') return Math.floor(value)
-  if (typeof value === 'string') {
-    const parsed = parseInt(value, 10)
-    return isNaN(parsed) ? null : parsed
-  }
-  return null
-}
-
-function isValidEmail(email: string): boolean {
-  if (email.length > 254) return false
-  const parts = email.split('@')
-  if (parts.length !== 2) return false
-  const [local, domain] = parts
-  if (!local || !domain) return false
-  if (domain.indexOf('.') === -1) return false
-  return true
-}
-
-function jsonResponse(status: number, data: unknown): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}

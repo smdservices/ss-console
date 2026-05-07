@@ -1,4 +1,4 @@
-import type { APIRoute } from 'astro'
+import type { APIContext, APIRoute } from 'astro'
 import { getTimeEntry, updateTimeEntry, deleteTimeEntry } from '../../../../lib/db/time-entries'
 import { getEngagement } from '../../../../lib/db/engagements'
 import { env } from 'cloudflare:workers'
@@ -21,7 +21,30 @@ import { env } from 'cloudflare:workers'
  *   - _method: "DELETE"
  *   - client_id (required, for redirect)
  */
-export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
+
+function parseOptionalStr(v: FormDataEntryValue | null): string | null | undefined {
+  if (v === null) return undefined
+  if (typeof v !== 'string') return undefined
+  return v.trim() || null
+}
+
+function parseOptionalFloat(v: FormDataEntryValue | null): number | undefined {
+  if (!v || typeof v !== 'string' || !v.trim()) return undefined
+  return parseFloat(v) || undefined
+}
+
+function buildUpdateFields(formData: FormData) {
+  const date = formData.get('date')
+  const hours = formData.get('hours')
+  return {
+    date: date && typeof date === 'string' && date.trim() ? date.trim() : undefined,
+    hours: parseOptionalFloat(hours),
+    description: parseOptionalStr(formData.get('description')),
+    category: parseOptionalStr(formData.get('category')),
+  }
+}
+
+async function handlePost({ request, locals, redirect, params }: APIContext): Promise<Response> {
   const session = locals.session
   if (!session || session.role !== 'admin') {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -57,38 +80,19 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
       clientId && typeof clientId === 'string' ? clientId.trim() : engagement.entity_id
 
     const timeUrl = `/admin/entities/${clientIdStr}/engagements/${entry.engagement_id}/time`
-
     const method = formData.get('_method')
 
-    // Handle DELETE
     if (method === 'DELETE') {
       await deleteTimeEntry(env.DB, session.orgId, entryId)
       return redirect(`${timeUrl}?deleted=1`, 302)
     }
 
-    // Handle update
-    const date = formData.get('date')
-    const hours = formData.get('hours')
-    const description = formData.get('description')
-    const category = formData.get('category')
-
-    await updateTimeEntry(env.DB, session.orgId, entryId, {
-      date: date && typeof date === 'string' && date.trim() ? date.trim() : undefined,
-      hours:
-        hours && typeof hours === 'string' && hours.trim()
-          ? parseFloat(hours) || undefined
-          : undefined,
-      description:
-        description !== null && typeof description === 'string'
-          ? description.trim() || null
-          : undefined,
-      category:
-        category !== null && typeof category === 'string' ? category.trim() || null : undefined,
-    })
-
+    await updateTimeEntry(env.DB, session.orgId, entryId, buildUpdateFields(formData))
     return redirect(`${timeUrl}?saved=1`, 302)
   } catch (err) {
     console.error('[api/admin/time-entries/[id]] Error:', err)
     return redirect('/admin/entities?error=server', 302)
   }
 }
+
+export const POST: APIRoute = (ctx) => handlePost(ctx)

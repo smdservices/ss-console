@@ -83,20 +83,7 @@ Look for mentions of a team member who could own the solution after we leave. Th
 - Order identified_problems by severity (highest first).
 - recommended_problems in quote_drivers should be the 2-3 most impactful problems to address, which may differ from severity ordering if one problem is easier to fix with high ROI.`
 
-/**
- * Builds the user prompt with the transcript inserted.
- *
- * @param transcript - The full MacWhisper speaker-separated transcript text
- * @returns The complete user prompt to send to Claude
- */
-export function buildExtractionUserPrompt(transcript: string): string {
-  return `Analyze the following assessment call transcript and extract structured data.
-
-## Output Schema
-
-Produce a single JSON object with these fields:
-
-\`\`\`
+const OUTPUT_SCHEMA_BLOCK = `\`\`\`
 {
   "schema_version": "2.0",
   "extracted_at": "<ISO 8601 timestamp>",
@@ -110,11 +97,7 @@ Produce a single JSON object with these fields:
   "geography": "<city or metro area, or null>",
 
   "current_tools": [
-    {
-      "name": "<tool name>",
-      "purpose": "<what they use it for>",
-      "status": "<working | underutilized | failing>"
-    }
+    { "name": "<tool name>", "purpose": "<what they use it for>", "status": "<working | underutilized | failing>" }
   ],
 
   "identified_problems": [
@@ -137,34 +120,20 @@ Produce a single JSON object with these fields:
   },
 
   "champion_candidate": {
-    "name": "<string or null>",
-    "role": "<string or null>",
-    "evidence": "<why this person could be the champion>",
-    "confidence": "<strong | moderate | weak>"
+    "name": "<string or null>", "role": "<string or null>",
+    "evidence": "<why this person could be the champion>", "confidence": "<strong | moderate | weak>"
   } or null,
 
   "call_participants": ["<name, role>"],
 
   "disqualification_flags": {
-    "hard": {
-      "not_decision_maker": <boolean>,
-      "scope_exceeds_phase": <boolean>,
-      "no_tech_baseline": <boolean>,
-      "in_crisis": <boolean>
-    },
-    "soft": {
-      "no_champion": <boolean>,
-      "books_behind": <boolean>,
-      "no_willingness_to_change": <boolean>,
-      "revenue_too_low": <boolean>,
-      "too_many_decision_makers": <boolean>
-    },
+    "hard": { "not_decision_maker": <boolean>, "scope_exceeds_phase": <boolean>, "no_tech_baseline": <boolean>, "in_crisis": <boolean> },
+    "soft": { "no_champion": <boolean>, "books_behind": <boolean>, "no_willingness_to_change": <boolean>, "revenue_too_low": <boolean>, "too_many_decision_makers": <boolean> },
     "notes": "<explanation of any flags triggered>"
   },
 
   "budget_signals": {
-    "employees_on_payroll": <boolean or null>,
-    "years_in_business_3_plus": <boolean or null>,
+    "employees_on_payroll": <boolean or null>, "years_in_business_3_plus": <boolean or null>,
     "in_crisis": <boolean or null>,
     "revenue_signals": ["<observed revenue indicator, e.g. '3 service trucks', '12 chairs'>"],
     "notes": "<relevant observations>"
@@ -181,7 +150,22 @@ Produce a single JSON object with these fields:
   "executive_summary": "<one paragraph summarizing the call and key findings>",
   "additional_notes": "<anything notable not captured above>"
 }
-\`\`\`
+\`\`\``
+
+/**
+ * Builds the user prompt with the transcript inserted.
+ *
+ * @param transcript - The full MacWhisper speaker-separated transcript text
+ * @returns The complete user prompt to send to Claude
+ */
+export function buildExtractionUserPrompt(transcript: string): string {
+  return `Analyze the following assessment call transcript and extract structured data.
+
+## Output Schema
+
+Produce a single JSON object with these fields:
+
+${OUTPUT_SCHEMA_BLOCK}
 
 ## Transcript
 
@@ -206,6 +190,139 @@ export function buildManualExtractionPrompt(transcript: string): string {
 ${buildExtractionUserPrompt(transcript)}`
 }
 
+// ---------------------------------------------------------------------------
+// validateExtraction helpers
+// ---------------------------------------------------------------------------
+
+function validateOneProblem(p: Record<string, unknown>, i: number, errors: string[]): void {
+  const validProblemIds: readonly string[] = PROBLEM_IDS
+  if (typeof p.problem_id !== 'string' || !validProblemIds.includes(p.problem_id)) {
+    errors.push(
+      `identified_problems[${i}].problem_id must be one of: ${validProblemIds.join(', ')}`
+    )
+  }
+  if (!['high', 'medium', 'low'].includes(p.severity as string))
+    errors.push(`identified_problems[${i}].severity must be high, medium, or low`)
+  if (typeof p.summary !== 'string' || p.summary.length === 0)
+    errors.push(`identified_problems[${i}].summary must be a non-empty string`)
+  if (!Array.isArray(p.owner_quotes) || p.owner_quotes.length === 0)
+    errors.push(`identified_problems[${i}].owner_quotes must have at least 1 quote`)
+  if (typeof p.underlying_cause !== 'string' || p.underlying_cause.length === 0)
+    errors.push(`identified_problems[${i}].underlying_cause must be a non-empty string`)
+}
+
+function validateIdentifiedProblems(d: Record<string, unknown>, errors: string[]): void {
+  if (!Array.isArray(d.identified_problems)) {
+    errors.push('identified_problems must be an array')
+    return
+  }
+  for (let i = 0; i < d.identified_problems.length; i++) {
+    const p = d.identified_problems[i] as Record<string, unknown>
+    if (!p || typeof p !== 'object') {
+      errors.push(`identified_problems[${i}] must be an object`)
+      continue
+    }
+    validateOneProblem(p, i, errors)
+  }
+  if (d.identified_problems.length < 1)
+    errors.push('identified_problems must contain at least 1 problem')
+  if (d.identified_problems.length > 5)
+    errors.push('identified_problems should contain at most 5 problems')
+}
+
+function validateCurrentTools(d: Record<string, unknown>, errors: string[]): void {
+  if (!Array.isArray(d.current_tools)) {
+    errors.push('current_tools must be an array')
+    return
+  }
+  for (let i = 0; i < d.current_tools.length; i++) {
+    const t = d.current_tools[i] as Record<string, unknown>
+    if (!t || typeof t !== 'object') {
+      errors.push(`current_tools[${i}] must be an object`)
+      continue
+    }
+    if (typeof t.name !== 'string') errors.push(`current_tools[${i}].name must be a string`)
+    if (typeof t.purpose !== 'string') errors.push(`current_tools[${i}].purpose must be a string`)
+    if (!['working', 'underutilized', 'failing'].includes(t.status as string))
+      errors.push(`current_tools[${i}].status must be working, underutilized, or failing`)
+  }
+}
+
+function validateComplexitySignals(d: Record<string, unknown>, errors: string[]): void {
+  if (typeof d.complexity_signals !== 'object' || d.complexity_signals === null) {
+    errors.push('complexity_signals must be an object')
+    return
+  }
+  const cs = d.complexity_signals as Record<string, unknown>
+  if (typeof cs.location_count !== 'number')
+    errors.push('complexity_signals.location_count must be a number')
+  for (const f of [
+    'tool_migrations',
+    'data_volume_notes',
+    'integration_needs',
+    'additional_factors',
+  ]) {
+    if (!Array.isArray(cs[f])) errors.push(`complexity_signals.${f} must be an array`)
+  }
+}
+
+function validateDisqualificationFlags(d: Record<string, unknown>, errors: string[]): void {
+  if (typeof d.disqualification_flags !== 'object' || d.disqualification_flags === null) {
+    errors.push('disqualification_flags must be an object')
+    return
+  }
+  const df = d.disqualification_flags as Record<string, unknown>
+  if (typeof df.hard !== 'object' || df.hard === null) {
+    errors.push('disqualification_flags.hard must be an object')
+  } else {
+    const hard = df.hard as Record<string, unknown>
+    for (const f of [
+      'not_decision_maker',
+      'scope_exceeds_phase',
+      'no_tech_baseline',
+      'in_crisis',
+    ]) {
+      if (typeof hard[f] !== 'boolean')
+        errors.push(`disqualification_flags.hard.${f} must be a boolean`)
+    }
+  }
+  if (typeof df.soft !== 'object' || df.soft === null) {
+    errors.push('disqualification_flags.soft must be an object')
+  } else {
+    const soft = df.soft as Record<string, unknown>
+    for (const f of [
+      'no_champion',
+      'books_behind',
+      'no_willingness_to_change',
+      'revenue_too_low',
+      'too_many_decision_makers',
+    ]) {
+      if (typeof soft[f] !== 'boolean')
+        errors.push(`disqualification_flags.soft.${f} must be a boolean`)
+    }
+  }
+}
+
+function validateBudgetAndQuoteDrivers(d: Record<string, unknown>, errors: string[]): void {
+  if (typeof d.budget_signals !== 'object' || d.budget_signals === null) {
+    errors.push('budget_signals must be an object')
+  } else {
+    const bs = d.budget_signals as Record<string, unknown>
+    if (!Array.isArray(bs.revenue_signals))
+      errors.push('budget_signals.revenue_signals must be an array')
+  }
+  if (typeof d.quote_drivers !== 'object' || d.quote_drivers === null) {
+    errors.push('quote_drivers must be an object')
+  } else {
+    const qd = d.quote_drivers as Record<string, unknown>
+    if (!Array.isArray(qd.recommended_problems))
+      errors.push('quote_drivers.recommended_problems must be an array')
+    if (!['low', 'medium', 'high'].includes(qd.estimated_complexity as string))
+      errors.push('quote_drivers.estimated_complexity must be low, medium, or high')
+  }
+  if (!Array.isArray(d.call_participants)) errors.push('call_participants must be an array')
+}
+
 /**
  * Validates that a parsed JSON object conforms to the AssessmentExtraction schema.
  *
@@ -216,189 +333,41 @@ ${buildExtractionUserPrompt(transcript)}`
  * @param data - The parsed JSON to validate
  * @returns An object with `valid` boolean and `errors` array of issues found
  */
-export function validateExtraction(data: unknown): {
-  valid: boolean
-  errors: string[]
-} {
-  const errors: string[] = []
-
+export function validateExtraction(data: unknown): { valid: boolean; errors: string[] } {
   if (typeof data !== 'object' || data === null) {
     return { valid: false, errors: ['Root must be a non-null object'] }
   }
-
   const d = data as Record<string, unknown>
+  const errors: string[] = []
 
-  // Schema version
-  if (d.schema_version !== '2.0') {
+  if (d.schema_version !== '2.0')
     errors.push(`schema_version must be "2.0", got "${String(d.schema_version)}"`)
-  }
 
-  // Required strings
-  const requiredStrings = [
+  for (const field of [
     'extracted_at',
     'business_name',
     'vertical',
     'business_type',
     'executive_summary',
-  ]
-  for (const field of requiredStrings) {
-    if (typeof d[field] !== 'string' || (d[field] as string).length === 0) {
+  ]) {
+    const val = d[field]
+    if (typeof val !== 'string' || val.length === 0)
       errors.push(`${field} must be a non-empty string`)
-    }
   }
 
-  // Vertical enum
   const validVerticals: readonly string[] = VERTICALS
-  if (typeof d.vertical === 'string' && !validVerticals.includes(d.vertical)) {
+  if (typeof d.vertical === 'string' && !validVerticals.includes(d.vertical))
     errors.push(`vertical must be one of: ${validVerticals.join(', ')}`)
-  }
 
-  // Revenue range
   const validRevenueRanges: readonly string[] = REVENUE_RANGES
-  if (typeof d.revenue_range === 'string' && !validRevenueRanges.includes(d.revenue_range)) {
+  if (typeof d.revenue_range === 'string' && !validRevenueRanges.includes(d.revenue_range))
     errors.push(`revenue_range must be one of: ${validRevenueRanges.join(', ')}`)
-  }
 
-  // Identified problems
-  if (!Array.isArray(d.identified_problems)) {
-    errors.push('identified_problems must be an array')
-  } else {
-    const validProblemIds: readonly string[] = PROBLEM_IDS
-    for (let i = 0; i < d.identified_problems.length; i++) {
-      const p = d.identified_problems[i] as Record<string, unknown>
-      if (!p || typeof p !== 'object') {
-        errors.push(`identified_problems[${i}] must be an object`)
-        continue
-      }
-      if (typeof p.problem_id !== 'string' || !validProblemIds.includes(p.problem_id)) {
-        errors.push(
-          `identified_problems[${i}].problem_id must be one of: ${validProblemIds.join(', ')}`
-        )
-      }
-      if (!['high', 'medium', 'low'].includes(p.severity as string)) {
-        errors.push(`identified_problems[${i}].severity must be high, medium, or low`)
-      }
-      if (typeof p.summary !== 'string' || (p.summary as string).length === 0) {
-        errors.push(`identified_problems[${i}].summary must be a non-empty string`)
-      }
-      if (!Array.isArray(p.owner_quotes) || p.owner_quotes.length === 0) {
-        errors.push(`identified_problems[${i}].owner_quotes must have at least 1 quote`)
-      }
-      if (typeof p.underlying_cause !== 'string' || (p.underlying_cause as string).length === 0) {
-        errors.push(`identified_problems[${i}].underlying_cause must be a non-empty string`)
-      }
-    }
-    if (d.identified_problems.length < 1) {
-      errors.push('identified_problems must contain at least 1 problem')
-    }
-    if (d.identified_problems.length > 5) {
-      errors.push('identified_problems should contain at most 5 problems')
-    }
-  }
-
-  // Current tools
-  if (!Array.isArray(d.current_tools)) {
-    errors.push('current_tools must be an array')
-  } else {
-    for (let i = 0; i < d.current_tools.length; i++) {
-      const t = d.current_tools[i] as Record<string, unknown>
-      if (!t || typeof t !== 'object') {
-        errors.push(`current_tools[${i}] must be an object`)
-        continue
-      }
-      if (typeof t.name !== 'string') errors.push(`current_tools[${i}].name must be a string`)
-      if (typeof t.purpose !== 'string') errors.push(`current_tools[${i}].purpose must be a string`)
-      if (!['working', 'underutilized', 'failing'].includes(t.status as string)) {
-        errors.push(`current_tools[${i}].status must be working, underutilized, or failing`)
-      }
-    }
-  }
-
-  // Complexity signals
-  if (typeof d.complexity_signals !== 'object' || d.complexity_signals === null) {
-    errors.push('complexity_signals must be an object')
-  } else {
-    const cs = d.complexity_signals as Record<string, unknown>
-    if (typeof cs.location_count !== 'number') {
-      errors.push('complexity_signals.location_count must be a number')
-    }
-    for (const arrField of [
-      'tool_migrations',
-      'data_volume_notes',
-      'integration_needs',
-      'additional_factors',
-    ]) {
-      if (!Array.isArray(cs[arrField])) {
-        errors.push(`complexity_signals.${arrField} must be an array`)
-      }
-    }
-  }
-
-  // Disqualification flags
-  if (typeof d.disqualification_flags !== 'object' || d.disqualification_flags === null) {
-    errors.push('disqualification_flags must be an object')
-  } else {
-    const df = d.disqualification_flags as Record<string, unknown>
-    if (typeof df.hard !== 'object' || df.hard === null) {
-      errors.push('disqualification_flags.hard must be an object')
-    } else {
-      const hard = df.hard as Record<string, unknown>
-      for (const field of [
-        'not_decision_maker',
-        'scope_exceeds_phase',
-        'no_tech_baseline',
-        'in_crisis',
-      ]) {
-        if (typeof hard[field] !== 'boolean') {
-          errors.push(`disqualification_flags.hard.${field} must be a boolean`)
-        }
-      }
-    }
-    if (typeof df.soft !== 'object' || df.soft === null) {
-      errors.push('disqualification_flags.soft must be an object')
-    } else {
-      const soft = df.soft as Record<string, unknown>
-      for (const field of [
-        'no_champion',
-        'books_behind',
-        'no_willingness_to_change',
-        'revenue_too_low',
-        'too_many_decision_makers',
-      ]) {
-        if (typeof soft[field] !== 'boolean') {
-          errors.push(`disqualification_flags.soft.${field} must be a boolean`)
-        }
-      }
-    }
-  }
-
-  // Budget signals
-  if (typeof d.budget_signals !== 'object' || d.budget_signals === null) {
-    errors.push('budget_signals must be an object')
-  } else {
-    const bs = d.budget_signals as Record<string, unknown>
-    if (!Array.isArray(bs.revenue_signals)) {
-      errors.push('budget_signals.revenue_signals must be an array')
-    }
-  }
-
-  // Quote drivers
-  if (typeof d.quote_drivers !== 'object' || d.quote_drivers === null) {
-    errors.push('quote_drivers must be an object')
-  } else {
-    const qd = d.quote_drivers as Record<string, unknown>
-    if (!Array.isArray(qd.recommended_problems)) {
-      errors.push('quote_drivers.recommended_problems must be an array')
-    }
-    if (!['low', 'medium', 'high'].includes(qd.estimated_complexity as string)) {
-      errors.push('quote_drivers.estimated_complexity must be low, medium, or high')
-    }
-  }
-
-  // Call participants
-  if (!Array.isArray(d.call_participants)) {
-    errors.push('call_participants must be an array')
-  }
+  validateIdentifiedProblems(d, errors)
+  validateCurrentTools(d, errors)
+  validateComplexitySignals(d, errors)
+  validateDisqualificationFlags(d, errors)
+  validateBudgetAndQuoteDrivers(d, errors)
 
   return { valid: errors.length === 0, errors }
 }

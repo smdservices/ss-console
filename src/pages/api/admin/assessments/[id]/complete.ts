@@ -1,4 +1,4 @@
-import type { APIRoute } from 'astro'
+import type { APIContext, APIRoute } from 'astro'
 import {
   getAssessment,
   updateAssessment,
@@ -34,7 +34,93 @@ const DEFAULT_RATE = 175
  *
  * Protected by auth middleware (requires admin role).
  */
-export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
+
+type Redirect = APIContext['redirect']
+
+interface ExtractionData {
+  problems: string[]
+  disqualified: boolean
+  disqualify_reason: string | null
+  duration_minutes: number | null
+  notes: string
+  completed_at: string
+}
+
+function buildExtraction(formData: FormData): ExtractionData {
+  const problemKeys = [
+    'process_design',
+    'tool_systems',
+    'data_visibility',
+    'customer_pipeline',
+    'team_operations',
+  ]
+  const problems: string[] = []
+  for (const key of problemKeys) {
+    if (formData.get(key) === 'on') {
+      problems.push(key)
+    }
+  }
+  const otherProblem = formData.get('other_problem')
+  if (otherProblem && typeof otherProblem === 'string' && otherProblem.trim()) {
+    problems.push(`other: ${otherProblem.trim()}`)
+  }
+
+  const disqualified = formData.get('disqualified') === 'on'
+  const disqualifyReason = formData.get('disqualify_reason')
+  const durationStr = formData.get('duration_minutes')
+  const duration =
+    durationStr && typeof durationStr === 'string' ? parseInt(durationStr, 10) || null : null
+  const notes = formData.get('notes')
+  const notesStr = notes && typeof notes === 'string' ? notes.trim() : ''
+
+  return {
+    problems,
+    disqualified,
+    disqualify_reason:
+      disqualified && disqualifyReason && typeof disqualifyReason === 'string'
+        ? disqualifyReason.trim()
+        : null,
+    duration_minutes: duration,
+    notes: notesStr,
+    completed_at: new Date().toISOString(),
+  }
+}
+
+async function maybeUploadTranscript(
+  formData: FormData,
+  orgId: string,
+  assessmentId: string
+): Promise<string | undefined> {
+  const transcriptFile = formData.get('transcript')
+  if (transcriptFile && transcriptFile instanceof File && transcriptFile.size > 0) {
+    return uploadTranscript(env.STORAGE, orgId, assessmentId, transcriptFile)
+  }
+  return undefined
+}
+
+async function handleDisqualified(
+  redirect: Redirect,
+  orgId: string,
+  entityId: string,
+  assessmentId: string,
+  extraction: ExtractionData
+): Promise<Response> {
+  try {
+    await updateAssessmentStatus(env.DB, orgId, assessmentId, 'disqualified')
+    await transitionStage(env.DB, orgId, entityId, 'lost', {
+      reason: `Disqualified during assessment: ${extraction.disqualify_reason ?? 'No reason provided'}`,
+      lostReason: {
+        code: 'not-a-fit',
+        detail: extraction.disqualify_reason ?? null,
+      },
+    })
+  } catch {
+    // Stage transition may fail if already in lost state
+  }
+  return redirect(`/admin/entities/${entityId}?assessment_completed=1`, 302)
+}
+
+async function handlePost({ request, locals, redirect, params }: APIContext): Promise<Response> {
   const session = locals.session
   if (!session || session.role !== 'admin') {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -63,57 +149,8 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
     }
 
     const formData = await request.formData()
-
-    // 1. Build extraction JSON from form data
-    const problemKeys = [
-      'process_design',
-      'tool_systems',
-      'data_visibility',
-      'customer_pipeline',
-      'team_operations',
-    ]
-    const problems: string[] = []
-    for (const key of problemKeys) {
-      if (formData.get(key) === 'on') {
-        problems.push(key)
-      }
-    }
-    const otherProblem = formData.get('other_problem')
-    if (otherProblem && typeof otherProblem === 'string' && otherProblem.trim()) {
-      problems.push(`other: ${otherProblem.trim()}`)
-    }
-
-    const disqualified = formData.get('disqualified') === 'on'
-    const disqualifyReason = formData.get('disqualify_reason')
-    const durationStr = formData.get('duration_minutes')
-    const duration =
-      durationStr && typeof durationStr === 'string' ? parseInt(durationStr, 10) || null : null
-    const notes = formData.get('notes')
-    const notesStr = notes && typeof notes === 'string' ? notes.trim() : ''
-
-    const extraction = {
-      problems,
-      disqualified,
-      disqualify_reason:
-        disqualified && disqualifyReason && typeof disqualifyReason === 'string'
-          ? disqualifyReason.trim()
-          : null,
-      duration_minutes: duration,
-      notes: notesStr,
-      completed_at: new Date().toISOString(),
-    }
-
-    // Handle transcript upload if provided
-    let transcriptPath: string | undefined
-    const transcriptFile = formData.get('transcript')
-    if (transcriptFile && transcriptFile instanceof File && transcriptFile.size > 0) {
-      transcriptPath = await uploadTranscript(
-        env.STORAGE,
-        session.orgId,
-        assessmentId,
-        transcriptFile
-      )
-    }
+    const extraction = buildExtraction(formData)
+    const transcriptPath = await maybeUploadTranscript(formData, session.orgId, assessmentId)
 
     // 2. Update assessment status to completed (auto-sets completed_at)
     await updateAssessmentStatus(env.DB, session.orgId, assessmentId, 'completed')
@@ -121,7 +158,7 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
     // 3. Write extraction JSON and duration to assessment
     await updateAssessment(env.DB, session.orgId, assessmentId, {
       extraction: JSON.stringify(extraction),
-      duration_minutes: duration,
+      duration_minutes: extraction.duration_minutes,
       ...(transcriptPath ? { transcript_path: transcriptPath } : {}),
     })
 
@@ -135,30 +172,8 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
     })
 
     // If disqualified, transition to lost and redirect back.
-    // Disqualification during assessment maps to the `not-a-fit` lost
-    // reason code — see src/lib/db/lost-reasons.ts. The extraction's
-    // free-text explanation is carried in `lost_detail` so the admin
-    // can still read the LLM's reasoning when reviewing the Lost tab.
-    if (disqualified) {
-      try {
-        await updateAssessmentStatus(env.DB, session.orgId, assessmentId, 'disqualified')
-        await transitionStage(
-          env.DB,
-          session.orgId,
-          entity.id,
-          'lost',
-          `Disqualified during assessment: ${extraction.disqualify_reason ?? 'No reason provided'}`,
-          {
-            lostReason: {
-              code: 'not-a-fit',
-              detail: extraction.disqualify_reason ?? null,
-            },
-          }
-        )
-      } catch {
-        // Stage transition may fail if already in lost state
-      }
-      return redirect(`/admin/entities/${entity.id}?assessment_completed=1`, 302)
+    if (extraction.disqualified) {
+      return handleDisqualified(redirect, session.orgId, entity.id, assessmentId, extraction)
     }
 
     // 5. Transition entity stage to proposing
@@ -171,10 +186,6 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
     // 6. Generate quote line items (best-effort, #236 not yet built)
     let lineItems: LineItem[] = []
     try {
-      // generateQuoteLineItems is #236 -- not yet implemented.
-      // When it ships, import and call it here:
-      // const { generateQuoteLineItems } = await import('../../../../../lib/claude/quote-lines')
-      // lineItems = await generateQuoteLineItems(extraction, entityContext)
       lineItems = []
     } catch {
       lineItems = []
@@ -197,3 +208,5 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
     return redirect('/admin/entities?error=server', 302)
   }
 }
+
+export const POST: APIRoute = (ctx) => handlePost(ctx)

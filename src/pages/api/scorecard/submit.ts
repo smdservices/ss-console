@@ -1,4 +1,4 @@
-import type { APIRoute } from 'astro'
+import type { APIContext, APIRoute } from 'astro'
 import { findOrCreateEntity } from '../../../lib/db/entities'
 import { appendContext } from '../../../lib/db/context'
 import { createContact } from '../../../lib/db/contacts'
@@ -14,7 +14,7 @@ import { SCORE_DESCRIPTIONS } from '../../../lib/scorecard/descriptions'
 import { renderScorecardReport } from '../../../lib/pdf/render'
 import { sendEmail } from '../../../lib/email/resend'
 import { scorecardReportEmailHtml } from '../../../lib/email/templates'
-import type { DimensionId } from '../../../lib/scorecard/questions'
+
 import { env } from 'cloudflare:workers'
 
 /**
@@ -28,188 +28,198 @@ import { env } from 'cloudflare:workers'
  * - Minimum completion time check (< 15s = bot)
  * - No auth required (public-facing)
  */
-export const POST: APIRoute = async ({ request }) => {
-  let body: Record<string, unknown>
-  try {
-    body = (await request.json()) as Record<string, unknown>
-  } catch {
-    return jsonResponse(400, { error: 'Invalid JSON' })
-  }
+interface ScorecardSubmission {
+  firstName: string
+  email: string
+  businessName: string
+  phone: string | null
+  vertical: string
+  employeeRange: string
+  role: string
+  answers: Record<string, number>
+}
 
-  // Honeypot check — bots fill this hidden field, humans don't
-  if (typeof body.website_url === 'string' && body.website_url.trim() !== '') {
-    return jsonResponse(200, { ok: true })
-  }
-
-  // Minimum completion time — real humans take > 15 seconds
-  if (typeof body.started_at === 'number' && Date.now() - body.started_at < 15000) {
-    return jsonResponse(200, { ok: true })
-  }
-
-  // Validate required fields
+function validateScorecardBody(body: Record<string, unknown>): ScorecardSubmission | Response {
   const firstName = trimString(body.first_name)
   const email = trimString(body.email)
   const businessName = trimString(body.business_name)
-  const vertical = trimString(body.vertical) || 'other'
-  const employeeRange = trimString(body.employee_range) || '11-25'
-  const role = trimString(body.role) || 'owner'
-  const phone = trimString(body.phone)
 
   if (!firstName || !email || !businessName) {
     return jsonResponse(400, { error: 'first_name, email, and business_name are required' })
   }
 
-  // Validate answers — all 18 question IDs must be present with values 0-3
   const answers = body.answers as Record<string, number> | undefined
   if (!answers || typeof answers !== 'object') {
     return jsonResponse(400, { error: 'answers object is required' })
   }
-
-  const questionIds = QUESTIONS.map((q) => q.id)
-  for (const qid of questionIds) {
+  for (const qid of QUESTIONS.map((q) => q.id)) {
     const val = answers[qid]
     if (typeof val !== 'number' || val < -1 || val > 3) {
       return jsonResponse(400, { error: `Invalid or missing answer for ${qid}` })
     }
   }
 
+  return {
+    firstName,
+    email,
+    businessName,
+    phone: trimString(body.phone),
+    vertical: trimString(body.vertical) || 'other',
+    employeeRange: trimString(body.employee_range) || '11-25',
+    role: trimString(body.role) || 'owner',
+    answers,
+  }
+}
+
+type ComputedScores = ReturnType<typeof computeScores>
+
+async function maybeSendScorecardReport(
+  sub: ScorecardSubmission,
+  scores: ComputedScores
+): Promise<void> {
   try {
-    // Compute scores
-    const scores = computeScores(answers)
+    const dimensions = scores.dimensions.map((d) => ({
+      label: d.label,
+      scaled: d.scaled,
+      displayLabel: d.displayLabel,
+      color: d.color,
+      description: SCORE_DESCRIPTIONS[d.id]?.[d.scoreLabel] ?? '',
+    }))
+    const opportunities = scores.topProblems.map((id) => {
+      const dim = scores.dimensions.find((d) => d.id === id)
+      return {
+        label: dim?.label ?? id,
+        description: SCORE_DESCRIPTIONS[id]?.[dim?.scoreLabel ?? 'needs_attention'] ?? '',
+      }
+    })
+    const pdfBytes = await renderScorecardReport({
+      firstName: sub.firstName,
+      businessName: sub.businessName,
+      vertical: sub.vertical,
+      overallScore: scores.overall,
+      overallDisplayLabel: scores.overallDisplayLabel,
+      overallColor: scores.overallColor,
+      dimensions,
+      opportunities,
+      completedAt: new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      }),
+    })
+    await sendEmail(env.RESEND_API_KEY, {
+      to: sub.email,
+      subject: `Your Operations Health Report — ${scores.overall}/100`,
+      html: scorecardReportEmailHtml(sub.firstName, scores.overall, scores.overallDisplayLabel),
+      attachments: [
+        {
+          filename: 'operations-health-report.pdf',
+          content: uint8ArrayToBase64(pdfBytes),
+          content_type: 'application/pdf',
+        },
+      ],
+    })
+  } catch (pdfErr) {
+    console.error('[api/scorecard/submit] PDF/email error:', pdfErr)
+  }
+}
+
+function buildScorecardMeta(
+  sub: ScorecardSubmission,
+  scores: ReturnType<typeof computeScores>,
+  painScore: number,
+  employeeCount: number | null
+): Record<string, unknown> {
+  return {
+    vertical: sub.vertical,
+    employee_range: sub.employeeRange,
+    role: sub.role,
+    answers: sub.answers,
+    dimension_scores: Object.fromEntries(
+      scores.dimensions.map((d) => [d.id, { raw: d.raw, scaled: d.scaled, label: d.scoreLabel }])
+    ),
+    overall_score: scores.overall,
+    overall_label: scores.overallLabel,
+    top_problems: scores.topProblems,
+    pain_score: painScore,
+    employee_count: employeeCount,
+    first_name: sub.firstName,
+    email: sub.email,
+    business_name: sub.businessName,
+    phone: sub.phone,
+  }
+}
+
+async function handlePost({ request }: APIContext): Promise<Response> {
+  let body: Record<string, unknown>
+  try {
+    body = await request.json()
+  } catch {
+    return jsonResponse(400, { error: 'Invalid JSON' })
+  }
+
+  if (typeof body.website_url === 'string' && body.website_url.trim() !== '')
+    return jsonResponse(200, { ok: true })
+  if (typeof body.started_at === 'number' && Date.now() - body.started_at < 15000)
+    return jsonResponse(200, { ok: true })
+
+  const sub = validateScorecardBody(body)
+  if (sub instanceof Response) return sub
+
+  try {
+    const scores = computeScores(sub.answers)
     const painScore = computePainScore(scores.overall)
     const autoStage = computeAutoStage(painScore)
-    const employeeCount = parseEmployeeCount(employeeRange)
+    const employeeCount = parseEmployeeCount(sub.employeeRange)
 
-    // Find or create entity (deduplicates by business name slug)
     const { entity } = await findOrCreateEntity(env.DB, ORG_ID, {
-      name: businessName,
+      name: sub.businessName,
       stage: autoStage,
       source_pipeline: 'website_scorecard',
     })
 
-    // Check for existing contact by email — skip creation on retakes
     const existingContact = await env.DB.prepare(
       'SELECT id FROM contacts WHERE org_id = ? AND email = ? LIMIT 1'
     )
-      .bind(ORG_ID, email)
+      .bind(ORG_ID, sub.email)
       .first<{ id: string }>()
-
     if (!existingContact) {
       await createContact(env.DB, ORG_ID, entity.id, {
-        name: firstName,
-        email,
-        phone,
+        name: sub.firstName,
+        email: sub.email,
+        phone: sub.phone,
       })
     }
 
-    // Build human-readable summary for context content
-    const topProblemLabels = scores.topProblems.map((id) => {
-      const dim = scores.dimensions.find((d) => d.id === id)
-      return dim?.label ?? id
-    })
+    const topProblemLabels = scores.topProblems.map(
+      (id) => scores.dimensions.find((d) => d.id === id)?.label ?? id
+    )
     const contentLines = [
       `Operations Health Score: ${scores.overall}/100 (${scores.overallDisplayLabel})`,
-      `Vertical: ${vertical} | Team size: ${employeeRange} | Role: ${role}`,
+      `Vertical: ${sub.vertical} | Team size: ${sub.employeeRange} | Role: ${sub.role}`,
       `Top opportunities: ${topProblemLabels.join(', ')}`,
       '',
       ...scores.dimensions.map((d) => `  ${d.label}: ${d.scaled}/100 (${d.displayLabel})`),
     ]
 
-    // Always append scorecard context (supports retakes)
-    // Metadata includes pain_score, vertical, employee_count for recomputeDeterministicCache
+    const scorecardMeta = buildScorecardMeta(sub, scores, painScore, employeeCount)
     await appendContext(env.DB, ORG_ID, {
       entity_id: entity.id,
       type: 'scorecard',
       content: contentLines.join('\n'),
       source: 'website_scorecard',
-      metadata: {
-        vertical,
-        employee_range: employeeRange,
-        role,
-        answers,
-        dimension_scores: Object.fromEntries(
-          scores.dimensions.map((d) => [
-            d.id,
-            { raw: d.raw, scaled: d.scaled, label: d.scoreLabel },
-          ])
-        ),
-        overall_score: scores.overall,
-        overall_label: scores.overallLabel,
-        top_problems: scores.topProblems,
-        pain_score: painScore,
-        employee_count: employeeCount,
-        first_name: firstName,
-        email,
-        business_name: businessName,
-        phone,
-      },
+      metadata: scorecardMeta,
     })
 
-    // Generate PDF and send email (synchronous for v1)
-    try {
-      const dimensions = scores.dimensions.map((d) => ({
-        label: d.label,
-        scaled: d.scaled,
-        displayLabel: d.displayLabel,
-        color: d.color,
-        description: SCORE_DESCRIPTIONS[d.id as DimensionId]?.[d.scoreLabel] ?? '',
-      }))
-
-      const opportunities = scores.topProblems.map((id) => {
-        const dim = scores.dimensions.find((d) => d.id === id)
-        return {
-          label: dim?.label ?? id,
-          description: SCORE_DESCRIPTIONS[id]?.[dim?.scoreLabel ?? 'needs_attention'] ?? '',
-        }
-      })
-
-      const pdfBytes = await renderScorecardReport({
-        firstName,
-        businessName,
-        vertical,
-        overallScore: scores.overall,
-        overallDisplayLabel: scores.overallDisplayLabel,
-        overallColor: scores.overallColor,
-        dimensions,
-        opportunities,
-        completedAt: new Date().toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        }),
-      })
-
-      const pdfBase64 = uint8ArrayToBase64(pdfBytes)
-
-      const emailHtml = scorecardReportEmailHtml(
-        firstName,
-        scores.overall,
-        scores.overallDisplayLabel
-      )
-
-      await sendEmail(env.RESEND_API_KEY, {
-        to: email,
-        subject: `Your Operations Health Report — ${scores.overall}/100`,
-        html: emailHtml,
-        attachments: [
-          {
-            filename: 'operations-health-report.pdf',
-            content: pdfBase64,
-            content_type: 'application/pdf',
-          },
-        ],
-      })
-    } catch (pdfErr) {
-      // PDF/email failure should not block the response
-      console.error('[api/scorecard/submit] PDF/email error:', pdfErr)
-    }
-
+    await maybeSendScorecardReport(sub, scores)
     return jsonResponse(201, { ok: true, entity_id: entity.id })
   } catch (err) {
     console.error('[api/scorecard/submit] Error:', err)
     return jsonResponse(500, { error: 'Internal server error' })
   }
 }
+
+export const POST: APIRoute = (ctx) => handlePost(ctx)
 
 function trimString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null

@@ -1,8 +1,9 @@
-import type { APIRoute } from 'astro'
+import type { APIContext, APIRoute } from 'astro'
 import { createEngagement } from '../../../../lib/db/engagements'
 import { createMilestone } from '../../../../lib/db/milestones'
 import { getSignalById } from '../../../../lib/db/signal-attribution'
 import { env } from 'cloudflare:workers'
+import type { D1Database } from '@cloudflare/workers-types'
 
 /**
  * POST /api/admin/engagements
@@ -24,7 +25,51 @@ import { env } from 'cloudflare:workers'
  *   - milestone_due_date[] (repeatable)
  *   - milestone_payment_trigger[] (repeatable)
  */
-export const POST: APIRoute = async ({ request, locals, redirect }) => {
+
+/** Resolve originating signal id from form value against the DB. */
+async function resolveSignalId(
+  db: D1Database,
+  orgId: string,
+  entityId: string,
+  signalRaw: FormDataEntryValue | null
+): Promise<string | null | undefined> {
+  if (typeof signalRaw !== 'string') return undefined
+  const v = signalRaw.trim()
+  if (v === '__none__') return null
+  if (v === '') return undefined
+  const signal = await getSignalById(db, orgId, v)
+  return signal && signal.entity_id === entityId ? signal.id : undefined
+}
+
+function trimString(value: FormDataEntryValue | null): string | null {
+  return value && typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+async function createFormMilestones(
+  db: D1Database,
+  orgId: string,
+  engagementId: string,
+  formData: FormData
+): Promise<void> {
+  const milestoneNames = formData.getAll('milestone_name')
+  const descriptions = formData.getAll('milestone_description')
+  const dueDates = formData.getAll('milestone_due_date')
+  const paymentTriggers = formData.getAll('milestone_payment_trigger')
+
+  for (let i = 0; i < milestoneNames.length; i++) {
+    const name = milestoneNames[i]
+    if (!name || typeof name !== 'string' || !name.trim()) continue
+    await createMilestone(db, orgId, engagementId, {
+      name: name.trim(),
+      description: trimString(descriptions[i] ?? null),
+      due_date: trimString(dueDates[i] ?? null),
+      payment_trigger: paymentTriggers[i] === 'on' || paymentTriggers[i] === '1',
+      sort_order: i,
+    })
+  }
+}
+
+async function handlePost({ request, locals, redirect }: APIContext): Promise<Response> {
   const session = locals.session
   if (!session || session.role !== 'admin') {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -49,74 +94,28 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
       return redirect(`/admin/entities?error=missing`, 302)
     }
 
-    const startDate = formData.get('start_date')
-    const estimatedEnd = formData.get('estimated_end')
-    const scopeSummary = formData.get('scope_summary')
-    const estimatedHours = formData.get('estimated_hours')
-
-    // Originating signal attribution (#589). Form may pass:
-    //   "" / missing  → defer to DAL default (most-recent signal)
-    //   "__none__"    → explicit unattributed (sentinel; admin chose blank)
-    //   "<id>"        → explicit override; we validate org/entity scoping
-    // Bad ids fall back to default rather than blocking engagement creation.
-    const signalRaw = formData.get('originating_signal_id')
     const entityIdTrimmed = clientId.trim()
-    let originatingSignalId: string | null | undefined
-    if (typeof signalRaw === 'string') {
-      const v = signalRaw.trim()
-      if (v === '__none__') {
-        originatingSignalId = null
-      } else if (v !== '') {
-        const signal = await getSignalById(env.DB, session.orgId, v)
-        originatingSignalId = signal && signal.entity_id === entityIdTrimmed ? signal.id : undefined
-      }
-    }
+    const originatingSignalId = await resolveSignalId(
+      env.DB,
+      session.orgId,
+      entityIdTrimmed,
+      formData.get('originating_signal_id')
+    )
 
     const engagement = await createEngagement(env.DB, session.orgId, {
       entity_id: entityIdTrimmed,
       quote_id: quoteId.trim(),
-      start_date:
-        startDate && typeof startDate === 'string' && startDate.trim() ? startDate.trim() : null,
-      estimated_end:
-        estimatedEnd && typeof estimatedEnd === 'string' && estimatedEnd.trim()
-          ? estimatedEnd.trim()
-          : null,
-      scope_summary:
-        scopeSummary && typeof scopeSummary === 'string' && scopeSummary.trim()
-          ? scopeSummary.trim()
-          : null,
-      estimated_hours:
-        estimatedHours && typeof estimatedHours === 'string' && estimatedHours.trim()
-          ? parseFloat(estimatedHours) || null
-          : null,
+      start_date: trimString(formData.get('start_date')),
+      estimated_end: trimString(formData.get('estimated_end')),
+      scope_summary: trimString(formData.get('scope_summary')),
+      estimated_hours: (() => {
+        const raw = formData.get('estimated_hours')
+        return raw && typeof raw === 'string' && raw.trim() ? parseFloat(raw) || null : null
+      })(),
       ...(originatingSignalId !== undefined && { originating_signal_id: originatingSignalId }),
     })
 
-    // Create default milestones if provided
-    const milestoneNames = formData.getAll('milestone_name')
-    for (let i = 0; i < milestoneNames.length; i++) {
-      const name = milestoneNames[i]
-      if (!name || typeof name !== 'string' || !name.trim()) continue
-
-      const descriptions = formData.getAll('milestone_description')
-      const dueDates = formData.getAll('milestone_due_date')
-      const paymentTriggers = formData.getAll('milestone_payment_trigger')
-
-      const description = descriptions[i]
-      const dueDate = dueDates[i]
-      const paymentTrigger = paymentTriggers[i]
-
-      await createMilestone(env.DB, session.orgId, engagement.id, {
-        name: name.trim(),
-        description:
-          description && typeof description === 'string' && description.trim()
-            ? description.trim()
-            : null,
-        due_date: dueDate && typeof dueDate === 'string' && dueDate.trim() ? dueDate.trim() : null,
-        payment_trigger: paymentTrigger === 'on' || paymentTrigger === '1',
-        sort_order: i,
-      })
-    }
+    await createFormMilestones(env.DB, session.orgId, engagement.id, formData)
 
     return redirect(`/admin/engagements/${engagement.id}`, 302)
   } catch (err) {
@@ -132,3 +131,5 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
     return redirect('/admin/entities?error=server', 302)
   }
 }
+
+export const POST: APIRoute = (ctx) => handlePost(ctx)

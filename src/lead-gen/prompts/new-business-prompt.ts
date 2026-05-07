@@ -163,16 +163,73 @@ export function buildManualPrompt(input: NewBusinessInput): string {
 ${buildUserPrompt(input)}`
 }
 
+const VALID_SOURCES = [
+  'acc_filing',
+  'ador_tpt',
+  'phoenix_permit',
+  'scottsdale_permit',
+  'chandler_permit',
+  'sba_loan',
+] as const
+
+const VALID_VERTICALS = [
+  'home_services',
+  'professional_services',
+  'contractor_trades',
+  'retail_salon_spa',
+  'restaurant_food',
+  'other',
+  'unknown',
+] as const
+
+const VALID_TIMINGS = ['immediate', 'wait_30_days', 'wait_60_days', 'not_recommended'] as const
+
+function checkWeVoice(angle: string): boolean {
+  const lower = angle.toLowerCase()
+  return lower.includes(' i ') || lower.startsWith('i ') || lower.includes(" i'")
+}
+
+function validateNewBusinessStrings(d: Record<string, unknown>, errors: string[]): void {
+  if (typeof d.business_name !== 'string' || d.business_name.length === 0) {
+    errors.push('business_name must be a non-empty string')
+  }
+  if (typeof d.entity_type !== 'string' || d.entity_type.length === 0) {
+    errors.push('entity_type must be a non-empty string')
+  }
+  if (typeof d.address !== 'string' || d.address.length === 0) {
+    errors.push('address must be a non-empty string')
+  }
+  if (d.area !== null && typeof d.area !== 'string') errors.push('area must be a string or null')
+  if (typeof d.size_estimate !== 'string' || d.size_estimate.length === 0) {
+    errors.push('size_estimate must be a non-empty string')
+  }
+  if (typeof d.outreach_angle !== 'string') errors.push('outreach_angle must be a string')
+  if (typeof d.notes !== 'string') errors.push('notes must be a string')
+}
+
+function validateNewBusinessEnums(d: Record<string, unknown>, errors: string[]): void {
+  if (!VALID_SOURCES.includes(d.source as (typeof VALID_SOURCES)[number])) {
+    errors.push(`source must be one of: ${VALID_SOURCES.join(', ')}. Got: "${String(d.source)}"`)
+  }
+  if (!VALID_VERTICALS.includes(d.vertical_match as (typeof VALID_VERTICALS)[number])) {
+    errors.push(
+      `vertical_match must be one of: ${VALID_VERTICALS.join(', ')}. Got: "${String(d.vertical_match)}"`
+    )
+  }
+  if (!VALID_TIMINGS.includes(d.outreach_timing as (typeof VALID_TIMINGS)[number])) {
+    errors.push(
+      `outreach_timing must be one of: ${VALID_TIMINGS.join(', ')}. Got: "${String(d.outreach_timing)}"`
+    )
+  }
+}
+
 /**
  * Validates that a parsed JSON object conforms to the NewBusinessQualification schema.
  *
  * @param data - The parsed JSON to validate
  * @returns An object with `valid` boolean and `errors` array of issues found
  */
-export function validate(data: unknown): {
-  valid: boolean
-  errors: string[]
-} {
+export function validate(data: unknown): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
   if (typeof data !== 'object' || data === null) {
@@ -181,86 +238,16 @@ export function validate(data: unknown): {
 
   const d = data as Record<string, unknown>
 
-  // Required string fields
-  if (typeof d.business_name !== 'string' || d.business_name.length === 0) {
-    errors.push('business_name must be a non-empty string')
-  }
+  validateNewBusinessStrings(d, errors)
+  validateNewBusinessEnums(d, errors)
 
-  if (typeof d.entity_type !== 'string' || d.entity_type.length === 0) {
-    errors.push('entity_type must be a non-empty string')
-  }
-
-  if (typeof d.address !== 'string' || d.address.length === 0) {
-    errors.push('address must be a non-empty string')
-  }
-
-  // Area — string or null
-  if (d.area !== null && typeof d.area !== 'string') {
-    errors.push('area must be a string or null')
-  }
-
-  // Source enum
-  const validSources = [
-    'acc_filing',
-    'ador_tpt',
-    'phoenix_permit',
-    'scottsdale_permit',
-    'chandler_permit',
-    'sba_loan',
-  ]
-  if (!validSources.includes(d.source as string)) {
-    errors.push(`source must be one of: ${validSources.join(', ')}. Got: "${String(d.source)}"`)
-  }
-
-  // Vertical match — valid vertical or "unknown"
-  const validVerticals = [
-    'home_services',
-    'professional_services',
-    'contractor_trades',
-    'retail_salon_spa',
-    'restaurant_food',
-    'other',
-    'unknown',
-  ]
-  if (!validVerticals.includes(d.vertical_match as string)) {
-    errors.push(
-      `vertical_match must be one of: ${validVerticals.join(', ')}. Got: "${String(d.vertical_match)}"`
-    )
-  }
-
-  // Size estimate
-  if (typeof d.size_estimate !== 'string' || d.size_estimate.length === 0) {
-    errors.push('size_estimate must be a non-empty string')
-  }
-
-  // Outreach timing enum
-  const validTimings = ['immediate', 'wait_30_days', 'wait_60_days', 'not_recommended']
-  if (!validTimings.includes(d.outreach_timing as string)) {
-    errors.push(
-      `outreach_timing must be one of: ${validTimings.join(', ')}. Got: "${String(d.outreach_timing)}"`
-    )
-  }
-
-  // Outreach angle — string required
-  if (typeof d.outreach_angle !== 'string') {
-    errors.push('outreach_angle must be a string')
-  }
-
-  // Outreach angle voice check (when not disqualified)
   if (
     d.outreach_timing !== 'not_recommended' &&
     typeof d.outreach_angle === 'string' &&
-    d.outreach_angle.length > 0
+    d.outreach_angle.length > 0 &&
+    checkWeVoice(d.outreach_angle)
   ) {
-    const angle = d.outreach_angle.toLowerCase()
-    if (angle.includes(' i ') || angle.startsWith('i ') || angle.includes(" i'")) {
-      errors.push('outreach_angle must use "we" voice, not "I"')
-    }
-  }
-
-  // Notes — string required
-  if (typeof d.notes !== 'string') {
-    errors.push('notes must be a string')
+    errors.push('outreach_angle must use "we" voice, not "I"')
   }
 
   return { valid: errors.length === 0, errors }

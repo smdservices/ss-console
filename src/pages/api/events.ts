@@ -1,4 +1,4 @@
-import type { APIRoute } from 'astro'
+import type { APIContext, APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -61,10 +61,57 @@ interface IncomingEvent {
   metadata?: Record<string, unknown>
 }
 
-export const POST: APIRoute = async ({ request }) => {
+function resolveSessionId(
+  request: Request,
+  body: Record<string, unknown>
+): {
+  sessionId: string
+  needSetCookie: boolean
+} {
+  const cookieSid = parseCookie(request.headers.get('cookie'), COOKIE_NAME)
+  const clientSid = typeof body.session_id === 'string' ? body.session_id : null
+  const sessionId =
+    (clientSid && UUID_RE.test(clientSid) && clientSid) ||
+    (cookieSid && UUID_RE.test(cookieSid) && cookieSid) ||
+    crypto.randomUUID()
+  return { sessionId, needSetCookie: sessionId !== cookieSid }
+}
+
+interface EventContext {
+  sessionId: string
+  userAgent: string | null
+  referrer: string | null
+  country: string | null
+  now: number
+}
+
+async function persistEventRows(
+  rows: Array<{ id: string; event_name: string; path: string | null; metadata: string | null }>,
+  ctx: EventContext
+): Promise<void> {
+  const stmts = rows.map((row) =>
+    env.DB.prepare(
+      `INSERT INTO events (id, session_id, event_name, path, ts, metadata, user_agent, referrer, country)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(
+      row.id,
+      ctx.sessionId,
+      row.event_name,
+      row.path,
+      ctx.now,
+      row.metadata,
+      ctx.userAgent,
+      ctx.referrer,
+      ctx.country
+    )
+  )
+  await env.DB.batch(stmts)
+}
+
+async function handlePost({ request }: APIContext): Promise<Response> {
   let body: Record<string, unknown>
   try {
-    body = (await request.json()) as Record<string, unknown>
+    body = await request.json()
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
       status: 400,
@@ -80,69 +127,39 @@ export const POST: APIRoute = async ({ request }) => {
     })
   }
 
-  // Resolve session id: client-supplied (if valid UUID) or cookie or new.
-  const cookieSid = parseCookie(request.headers.get('cookie'), COOKIE_NAME)
-  const clientSid = typeof body.session_id === 'string' ? body.session_id : null
-  const sessionId =
-    (clientSid && UUID_RE.test(clientSid) && clientSid) ||
-    (cookieSid && UUID_RE.test(cookieSid) && cookieSid) ||
-    crypto.randomUUID()
-  const needSetCookie = sessionId !== cookieSid
+  const { sessionId, needSetCookie } = resolveSessionId(request, body)
+  const cookieSidOrNull = needSetCookie ? sessionId : null
 
-  // Rate limit per session.
   const allowed = await checkRateLimit(env.DB, sessionId)
   if (!allowed) {
-    return buildResponse(204, needSetCookie ? sessionId : null, request)
+    return buildResponse(204, cookieSidOrNull, request)
   }
 
-  // Cap per-batch size before validation to keep loops bounded.
   const events = rawEvents.slice(0, MAX_EVENTS_PER_BATCH)
+  const eventCtx: EventContext = {
+    sessionId,
+    userAgent: truncate(request.headers.get('user-agent'), MAX_UA_LEN),
+    referrer: truncate(request.headers.get('referer'), MAX_REFERRER_LEN),
+    country: readCfCountry(request),
+    now: Date.now(),
+  }
 
-  const userAgent = truncate(request.headers.get('user-agent'), MAX_UA_LEN)
-  const referrer = truncate(request.headers.get('referer'), MAX_REFERRER_LEN)
-  const country = readCfCountry(request)
-  const now = Date.now()
-
-  const rows: Array<{
-    id: string
-    event_name: string
-    path: string | null
-    metadata: string | null
-  }> = []
-
-  for (const raw of events) {
-    const parsed = validateEvent(raw)
-    if (!parsed) continue
-    rows.push({
+  const rows = events
+    .map((raw: unknown) => validateEvent(raw))
+    .filter((p): p is IncomingEvent => p !== null)
+    .map((parsed) => ({
       id: crypto.randomUUID(),
       event_name: parsed.event_name,
       path: parsed.path ?? null,
       metadata: parsed.metadata ? JSON.stringify(parsed.metadata) : null,
-    })
-  }
+    }))
 
   if (rows.length === 0) {
-    return buildResponse(204, needSetCookie ? sessionId : null, request)
+    return buildResponse(204, cookieSidOrNull, request)
   }
 
   try {
-    const stmts = rows.map((row) =>
-      env.DB.prepare(
-        `INSERT INTO events (id, session_id, event_name, path, ts, metadata, user_agent, referrer, country)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).bind(
-        row.id,
-        sessionId,
-        row.event_name,
-        row.path,
-        now,
-        row.metadata,
-        userAgent,
-        referrer,
-        country
-      )
-    )
-    await env.DB.batch(stmts)
+    await persistEventRows(rows, eventCtx)
   } catch (err) {
     console.error('[api/events] D1 insert failed:', err)
     return new Response(JSON.stringify({ error: 'Failed to persist events' }), {
@@ -151,8 +168,10 @@ export const POST: APIRoute = async ({ request }) => {
     })
   }
 
-  return buildResponse(204, needSetCookie ? sessionId : null, request)
+  return buildResponse(204, cookieSidOrNull, request)
 }
+
+export const POST: APIRoute = (ctx) => handlePost(ctx)
 
 function validateEvent(raw: unknown): IncomingEvent | null {
   if (!raw || typeof raw !== 'object') return null

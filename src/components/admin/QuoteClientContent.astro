@@ -1,0 +1,310 @@
+---
+/**
+ * Client-facing authored content card for the quote builder page.
+ * Covers schedule rows, deliverables, engagement overview, originating signal,
+ * and milestone label (three-milestone engagements only).
+ * Extracted from src/pages/admin/entities/[id]/quotes/[quoteId].astro.
+ */
+import { formatSignalLabel } from '../../lib/admin/quote-builder-page'
+import type { ScheduleRow, DeliverableRow } from '../../lib/db/quotes'
+
+interface EntitySignal {
+  id: string
+  source_pipeline: string
+  created_at: string
+  content: string
+}
+
+interface Props {
+  quoteId: string
+  isDraft: boolean
+  missingAuthored: string[]
+  schedule: ScheduleRow[]
+  deliverables: DeliverableRow[]
+  engagementOverview: string
+  isThreeMilestone: boolean
+  milestoneLabel: string
+  entitySignals: EntitySignal[]
+  originatingSignalId: string | null
+}
+
+const {
+  isDraft,
+  missingAuthored,
+  schedule,
+  deliverables,
+  engagementOverview,
+  isThreeMilestone,
+  milestoneLabel,
+  entitySignals,
+  originatingSignalId,
+} = Astro.props
+---
+
+<div
+  class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card mb-6"
+>
+  <div class="flex items-start justify-between mb-1">
+    <h3 class="text-lg font-semibold text-[color:var(--ss-color-text-primary)]">
+      Client-facing content
+    </h3>
+    {
+      missingAuthored.length > 0 ? (
+        <span class="text-xs px-2 py-0.5 rounded bg-surface border border-error text-error font-medium">
+          Required to send: {missingAuthored.join(', ')}
+        </span>
+      ) : (
+        <span class="text-xs px-2 py-0.5 rounded bg-border-subtle text-text-secondary font-medium">
+          Ready to send
+        </span>
+      )
+    }
+  </div>
+  <p class="text-sm text-[color:var(--ss-color-text-secondary)] mb-5">
+    Authored per engagement. Renders on the client proposal page and SOW PDF. Quotes cannot be sent
+    until the schedule and deliverables are populated.
+  </p>
+
+  {/* Schedule */}
+  <div class="mb-6">
+    <div class="flex items-center justify-between mb-2">
+      <label class="text-sm font-semibold text-[color:var(--ss-color-text-primary)]">
+        How we'll work (schedule)
+      </label>
+      {
+        isDraft && (
+          <button
+            type="button"
+            id="add-schedule-row-btn"
+            class="text-xs text-primary hover:text-primary-hover transition-colors font-medium"
+          >
+            + Add row
+          </button>
+        )
+      }
+    </div>
+    <p class="text-xs text-[color:var(--ss-color-text-secondary)] mb-2">
+      One row per phase. The label sits in the left gutter (e.g. "Discovery", "Build").
+    </p>
+    <div id="schedule-rows" data-empty-text="No schedule rows authored yet.">
+      {
+        schedule.length === 0 ? (
+          <div class="text-sm text-[color:var(--ss-color-text-secondary)] italic py-2 schedule-empty-state">
+            No schedule rows authored yet.
+          </div>
+        ) : (
+          schedule.map((row) => (
+            <div class="flex gap-2 mb-2 schedule-row">
+              {isDraft ? (
+                <>
+                  <input
+                    type="text"
+                    class="w-32 border border-[color:var(--ss-color-border)] rounded px-2 py-1 text-sm schedule-label"
+                    value={row.label}
+                    placeholder="Label"
+                  />
+                  <input
+                    type="text"
+                    class="flex-1 border border-[color:var(--ss-color-border)] rounded px-2 py-1 text-sm schedule-body"
+                    value={row.body}
+                    placeholder="What happens in this phase"
+                  />
+                  <button
+                    type="button"
+                    class="text-[color:var(--ss-color-text-muted)] hover:text-error transition-colors remove-schedule-row-btn px-2"
+                    title="Remove"
+                  >
+                    &times;
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span class="w-32 text-sm font-medium text-[color:var(--ss-color-text-secondary)]">
+                    {row.label}
+                  </span>
+                  <span class="flex-1 text-sm text-[color:var(--ss-color-text-primary)]">
+                    {row.body}
+                  </span>
+                </>
+              )}
+            </div>
+          ))
+        )
+      }
+    </div>
+  </div>
+
+  {/* Deliverables */}
+  <div class="mb-6">
+    <div class="flex items-center justify-between mb-2">
+      <label class="text-sm font-semibold text-[color:var(--ss-color-text-primary)]">
+        What you'll get (deliverables)
+      </label>
+      {
+        isDraft && (
+          <button
+            type="button"
+            id="add-deliverable-row-btn"
+            class="text-xs text-primary hover:text-primary-hover transition-colors font-medium"
+          >
+            + Add row
+          </button>
+        )
+      }
+    </div>
+    <p class="text-xs text-[color:var(--ss-color-text-secondary)] mb-2">
+      Authored deliverables replace the line-item-derived list on the proposal page.
+    </p>
+    <div id="deliverable-rows" data-empty-text="No deliverables authored yet.">
+      {
+        deliverables.length === 0 ? (
+          <div class="text-sm text-[color:var(--ss-color-text-secondary)] italic py-2 deliverable-empty-state">
+            No deliverables authored yet.
+          </div>
+        ) : (
+          deliverables.map((row) => (
+            <div class="mb-3 deliverable-row">
+              {isDraft ? (
+                <div class="flex gap-2">
+                  <div class="flex-1 space-y-1">
+                    <input
+                      type="text"
+                      class="w-full border border-[color:var(--ss-color-border)] rounded px-2 py-1 text-sm deliverable-title"
+                      value={row.title}
+                      placeholder="Title"
+                    />
+                    <textarea
+                      class="w-full border border-[color:var(--ss-color-border)] rounded px-2 py-1 text-sm deliverable-body"
+                      rows="2"
+                      placeholder="Description"
+                    >
+                      {row.body}
+                    </textarea>
+                  </div>
+                  <button
+                    type="button"
+                    class="text-[color:var(--ss-color-text-muted)] hover:text-error transition-colors remove-deliverable-row-btn px-2"
+                    title="Remove"
+                  >
+                    &times;
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <p class="text-sm font-semibold text-[color:var(--ss-color-text-primary)]">
+                    {row.title}
+                  </p>
+                  <p class="text-sm text-[color:var(--ss-color-text-secondary)]">{row.body}</p>
+                </div>
+              )}
+            </div>
+          ))
+        )
+      }
+    </div>
+  </div>
+
+  {/* Engagement overview (SOW PDF) */}
+  <div class="mb-6">
+    <label
+      class="block text-sm font-semibold text-[color:var(--ss-color-text-primary)] mb-1"
+      for="engagement-overview-input"
+    >
+      Engagement overview (SOW PDF)
+    </label>
+    <p class="text-xs text-[color:var(--ss-color-text-secondary)] mb-2">
+      Renders on the SOW PDF "Engagement overview" page. Required before generating the SOW PDF.
+    </p>
+    {
+      isDraft ? (
+        <textarea
+          id="engagement-overview-input"
+          class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm"
+          rows="3"
+          placeholder="What this engagement is about, in one or two sentences."
+        >
+          {engagementOverview}
+        </textarea>
+      ) : (
+        <p class="text-sm text-[color:var(--ss-color-text-primary)] whitespace-pre-wrap">
+          {engagementOverview || (
+            <span class="italic text-[color:var(--ss-color-text-muted)]">Not authored.</span>
+          )}
+        </p>
+      )
+    }
+  </div>
+
+  {/* Originating signal (#589) */}
+  <div class="mb-6">
+    <label
+      class="block text-sm font-semibold text-[color:var(--ss-color-text-primary)] mb-1"
+      for="originating-signal-input"
+    >
+      Originating signal
+    </label>
+    <p class="text-xs text-[color:var(--ss-color-text-secondary)] mb-2">
+      Pipeline signal that produced this engagement. Defaults to the most recent signal on file.
+      Used for ROI-per-pipeline reporting; never rendered to the client.
+    </p>
+    {
+      isDraft ? (
+        <select
+          id="originating-signal-input"
+          class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm"
+        >
+          <option value="__none__" selected={!originatingSignalId}>
+            — Unattributed —
+          </option>
+          {entitySignals.map((s) => (
+            <option value={s.id} selected={originatingSignalId === s.id}>
+              {formatSignalLabel(s)}
+            </option>
+          ))}
+        </select>
+      ) : originatingSignalId ? (
+        <p class="text-sm text-[color:var(--ss-color-text-primary)]">
+          {(() => {
+            const s = entitySignals.find((x) => x.id === originatingSignalId)
+            return s ? formatSignalLabel(s) : 'Attributed (signal no longer visible).'
+          })()}
+        </p>
+      ) : (
+        <p class="text-sm italic text-[color:var(--ss-color-text-muted)]">Unattributed.</p>
+      )
+    }
+  </div>
+
+  {/* Milestone label (three-milestone only) */}
+  {
+    isThreeMilestone && (
+      <div class="mb-2">
+        <label
+          class="block text-sm font-semibold text-[color:var(--ss-color-text-primary)] mb-1"
+          for="milestone-label-input"
+        >
+          Mid-engagement milestone label
+        </label>
+        <p class="text-xs text-[color:var(--ss-color-text-secondary)] mb-2">
+          Per-engagement label for the 30% mid-engagement milestone (e.g. "First-pass review",
+          "Pilot rollout"). Optional; the SOW renders neutral wording when empty.
+        </p>
+        {isDraft ? (
+          <input
+            id="milestone-label-input"
+            type="text"
+            class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm"
+            value={milestoneLabel}
+            placeholder="Optional label for the mid-engagement milestone"
+          />
+        ) : (
+          <p class="text-sm text-[color:var(--ss-color-text-primary)]">
+            {milestoneLabel || (
+              <span class="italic text-[color:var(--ss-color-text-muted)]">Not authored.</span>
+            )}
+          </p>
+        )}
+      </div>
+    )
+  }
+</div>

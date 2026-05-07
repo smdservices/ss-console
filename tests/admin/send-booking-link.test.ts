@@ -124,17 +124,7 @@ describe('POST /api/admin/entities/[id]/send-booking-link (#467)', () => {
     const response = await POST(ctx as unknown as Parameters<typeof POST>[0])
     expect(response.status).toBe(200)
 
-    const body = (await response.json()) as {
-      ok: boolean
-      assessment_id: string
-      meeting_id: string
-      booking_url: string
-      token_ttl_days: number
-      contact_email: string
-      outreach_template: string
-      mailto_url: string
-      email_status: string
-    }
+    const body: Record<string, unknown> = await response.json()
     expect(body.ok).toBe(true)
     expect(body.assessment_id).toMatch(/^[0-9a-f-]+$/)
     expect(body.meeting_id).toBe(body.assessment_id)
@@ -195,7 +185,7 @@ describe('POST /api/admin/entities/[id]/send-booking-link (#467)', () => {
     expect(entity!.stage).toBe('meetings')
 
     // --- AC: signed URL is verifiable and carries the right payload ---------
-    const token = new URL(body.booking_url).searchParams.get('t')
+    const token = new URL(body.booking_url as string).searchParams.get('t')
     expect(token).toBeTruthy()
     const verify = await verifyBookingLink(token!)
     expect(verify.ok).toBe(true)
@@ -245,7 +235,7 @@ describe('POST /api/admin/entities/[id]/send-booking-link (#467)', () => {
     const ctx = buildContext({ session: adminSession, entityId: ENTITY_ID })
     const response = await POST(ctx as unknown as Parameters<typeof POST>[0])
     expect(response.status).toBe(409)
-    const body = (await response.json()) as { error: string }
+    const body: Record<string, unknown> = await response.json()
     expect(body.error).toBe('invalid_stage')
 
     // The guard ran before anything was mutated: no assessment was created.
@@ -272,8 +262,8 @@ describe('POST /api/admin/entities/[id]/send-booking-link (#467)', () => {
     })
     const response = await POST(ctx as unknown as Parameters<typeof POST>[0])
     expect(response.status).toBe(200)
-    const body = (await response.json()) as { booking_url: string }
-    const token = new URL(body.booking_url).searchParams.get('t')
+    const body: Record<string, unknown> = await response.json()
+    const token = new URL(body.booking_url as string).searchParams.get('t')
     const verify = await verifyBookingLink(token!)
     if (!verify.ok) throw new Error('expected ok')
     expect(verify.payload.duration_minutes).toBe(30) // BOOKING_CONFIG.slot_minutes default
@@ -295,14 +285,7 @@ describe('POST /api/admin/entities/[id]/send-booking-link (#467)', () => {
     const response = await POST(ctx as unknown as Parameters<typeof POST>[0])
     expect(response.status).toBe(200)
 
-    const body = (await response.json()) as {
-      ok: boolean
-      booking_url: string
-      contact_email: string
-      email_status: string
-      message_id: string | null
-      outreach_event_id: string | null
-    }
+    const body: Record<string, unknown> = await response.json()
     expect(body.ok).toBe(true)
     expect(body.email_status).toBe('sent')
     expect(body.message_id).toBe('dev-mode')
@@ -345,12 +328,7 @@ describe('POST /api/admin/entities/[id]/send-booking-link (#467)', () => {
     const response = await POST(ctx as unknown as Parameters<typeof POST>[0])
     expect(response.status).toBe(200)
 
-    const body = (await response.json()) as {
-      email_status: string
-      contact_email: string | null
-      booking_url: string
-      mailto_url: string
-    }
+    const body: Record<string, unknown> = await response.json()
     expect(body.email_status).toBe('skipped_no_recipient')
     expect(body.contact_email).toBeNull()
     // Booking link and mailto are still returned so the admin can paste

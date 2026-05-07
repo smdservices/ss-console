@@ -1,4 +1,4 @@
-import type { APIRoute } from 'astro'
+import type { APIContext, APIRoute } from 'astro'
 import { ORG_ID } from '../../../../../lib/constants'
 import { hashManageToken } from '../../../../../lib/booking/tokens'
 import {
@@ -35,7 +35,113 @@ const NOTIFY_EMAIL = 'team@smd.services'
  *   3. Delete Google Calendar event (best effort)
  *   4. Send cancellation email to guest + admin notification
  */
-export const POST: APIRoute = async ({ params, request }) => {
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function jsonResponse(status: number, data: unknown): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+type Schedule = NonNullable<Awaited<ReturnType<typeof getScheduleByManageToken>>>
+
+async function maybeCancelMeetingSchedule(
+  manageTokenHash: string,
+  reason: string | null
+): Promise<void> {
+  try {
+    const meetingSchedule = await getMeetingScheduleByManageToken(env.DB, manageTokenHash)
+    if (meetingSchedule && !meetingSchedule.cancelled_at) {
+      await cancelMeetingSchedule(env.DB, meetingSchedule.id, 'guest', reason)
+    }
+  } catch (err) {
+    console.error('[api/booking/manage/cancel] Meeting schedule cancel failed:', err)
+  }
+}
+
+async function maybeDeleteCalendarEvent(schedule: Schedule): Promise<void> {
+  if (!schedule.google_event_id) return
+  try {
+    const integration = await getIntegration(env.DB, ORG_ID, 'google_calendar')
+    if (!integration) return
+    const accessToken = await getGoogleAccessToken(env.DB, integration, env)
+    if (!accessToken) return
+    const calendarId = integration.calendar_id || BOOKING_CONFIG.consultant.calendar_id
+    await deleteCalendarEvent(accessToken, calendarId, schedule.google_event_id)
+  } catch (err) {
+    console.error('[api/booking/manage/cancel] Google Calendar delete failed:', err)
+  }
+}
+
+function buildIcsAttachment(
+  schedule: Schedule
+): { filename: string; content: string; content_type: string } | null {
+  try {
+    const icsResult = buildIcs({
+      scheduleId: schedule.id,
+      sequence: schedule.reschedule_count + 1,
+      method: 'CANCEL',
+      startUtc: schedule.slot_start_utc,
+      durationMinutes: schedule.duration_minutes,
+      title: `${BOOKING_CONFIG.meeting_label} — SMD Services`,
+      description: 'This event has been cancelled.',
+      organizerName: BOOKING_CONFIG.consultant.name,
+      organizerEmail: BOOKING_CONFIG.consultant.email,
+      guestName: schedule.guest_name,
+      guestEmail: schedule.guest_email,
+    })
+    return {
+      filename: 'cancel.ics',
+      content: icsToBase64(icsResult.ics),
+      content_type: icsResult.contentType,
+    }
+  } catch (icsErr) {
+    console.error('[api/booking/manage/cancel] ICS generation failed:', icsErr)
+    return null
+  }
+}
+
+async function sendCancellationEmails(
+  schedule: Schedule,
+  slotLabel: string,
+  reason: string | null
+): Promise<void> {
+  const icsAttachment = buildIcsAttachment(schedule)
+
+  try {
+    await sendBookingCancellation(env.RESEND_API_KEY, {
+      guestName: schedule.guest_name,
+      guestEmail: schedule.guest_email,
+      businessName: '',
+      slotLabel,
+      rebookUrl: 'https://smd.services/book',
+      icsAttachment,
+    })
+  } catch (emailErr) {
+    console.error('[api/booking/manage/cancel] Cancellation email failed:', emailErr)
+  }
+
+  try {
+    await sendEmail(env.RESEND_API_KEY, {
+      to: NOTIFY_EMAIL,
+      reply_to: schedule.guest_email,
+      subject: `Cancelled: ${schedule.guest_name} — ${slotLabel}`,
+      html: `<p><strong>${escapeHtml(schedule.guest_name)}</strong> cancelled their assessment call scheduled for <strong>${escapeHtml(slotLabel)}</strong>.</p>${reason ? `<p>Reason: ${escapeHtml(reason)}</p>` : ''}`,
+    })
+  } catch (emailErr) {
+    console.error('[api/booking/manage/cancel] Admin notification failed:', emailErr)
+  }
+}
+
+async function handlePost({ params, request }: APIContext): Promise<Response> {
   const rawToken = params.token
 
   if (!rawToken || typeof rawToken !== 'string') {
@@ -45,7 +151,7 @@ export const POST: APIRoute = async ({ params, request }) => {
   // Parse optional reason from body
   let reason: string | null = null
   try {
-    const body = (await request.json()) as Record<string, unknown>
+    const body: { reason?: unknown } = await request.json()
     if (typeof body.reason === 'string' && body.reason.trim()) {
       reason = body.reason.trim().slice(0, 500)
     }
@@ -54,15 +160,11 @@ export const POST: APIRoute = async ({ params, request }) => {
   }
 
   try {
-    // 1. Resolve token
     const tokenHash = await hashManageToken(rawToken)
     const schedule = await getScheduleByManageToken(env.DB, tokenHash)
 
     if (!schedule) {
-      return jsonResponse(404, {
-        error: 'not_found',
-        message: 'This booking link is not valid.',
-      })
+      return jsonResponse(404, { error: 'not_found', message: 'This booking link is not valid.' })
     }
 
     if (isManageTokenExpired(schedule)) {
@@ -79,23 +181,9 @@ export const POST: APIRoute = async ({ params, request }) => {
       })
     }
 
-    // 2. Cancel in DB — mirror the write to both tables (assessments + meetings,
-    //    assessment_schedule + meeting_schedule) during the monitoring window.
-    //    Meeting lookup uses the same manage_token_hash (seeded identically
-    //    by /reserve) and is best-effort; if the row was created before the
-    //    meetings backfill ran there may be no mirror row yet.
+    // Cancel in DB — mirror the write to both tables during the monitoring window.
     await cancelSchedule(env.DB, schedule.id, 'guest', reason)
-    try {
-      const meetingSchedule = await getMeetingScheduleByManageToken(
-        env.DB,
-        schedule.manage_token_hash
-      )
-      if (meetingSchedule && !meetingSchedule.cancelled_at) {
-        await cancelMeetingSchedule(env.DB, meetingSchedule.id, 'guest', reason)
-      }
-    } catch (err) {
-      console.error('[api/booking/manage/cancel] Meeting schedule cancel failed:', err)
-    }
+    await maybeCancelMeetingSchedule(schedule.manage_token_hash, reason)
 
     try {
       await updateAssessmentStatus(env.DB, ORG_ID, schedule.assessment_id, 'cancelled')
@@ -103,29 +191,13 @@ export const POST: APIRoute = async ({ params, request }) => {
       console.error('[api/booking/manage/cancel] Assessment status transition failed:', err)
     }
     try {
-      // meeting.id == assessment.id by construction (see intake-core).
       await updateMeetingStatus(env.DB, ORG_ID, schedule.assessment_id, 'cancelled')
     } catch (err) {
       console.error('[api/booking/manage/cancel] Meeting status transition failed:', err)
     }
 
-    // 3. Delete Google Calendar event (best effort)
-    if (schedule.google_event_id) {
-      try {
-        const integration = await getIntegration(env.DB, ORG_ID, 'google_calendar')
-        if (integration) {
-          const accessToken = await getGoogleAccessToken(env.DB, integration, env)
-          if (accessToken) {
-            const calendarId = integration.calendar_id || BOOKING_CONFIG.consultant.calendar_id
-            await deleteCalendarEvent(accessToken, calendarId, schedule.google_event_id)
-          }
-        }
-      } catch (err) {
-        console.error('[api/booking/manage/cancel] Google Calendar delete failed:', err)
-      }
-    }
+    await maybeDeleteCalendarEvent(schedule)
 
-    // 4. Send emails
     const displayTz = schedule.guest_timezone || schedule.timezone
     const slotLabel = formatInTimeZone(
       new Date(schedule.slot_start_utc),
@@ -133,55 +205,7 @@ export const POST: APIRoute = async ({ params, request }) => {
       "EEEE, MMMM d 'at' h:mm a (zzz)"
     )
 
-    // Build ICS CANCEL attachment
-    let icsAttachment: { filename: string; content: string; content_type: string } | null = null
-    try {
-      const icsResult = buildIcs({
-        scheduleId: schedule.id,
-        sequence: schedule.reschedule_count + 1,
-        method: 'CANCEL',
-        startUtc: schedule.slot_start_utc,
-        durationMinutes: schedule.duration_minutes,
-        title: `${BOOKING_CONFIG.meeting_label} — SMD Services`,
-        description: 'This event has been cancelled.',
-        organizerName: BOOKING_CONFIG.consultant.name,
-        organizerEmail: BOOKING_CONFIG.consultant.email,
-        guestName: schedule.guest_name,
-        guestEmail: schedule.guest_email,
-      })
-      icsAttachment = {
-        filename: 'cancel.ics',
-        content: icsToBase64(icsResult.ics),
-        content_type: icsResult.contentType,
-      }
-    } catch (icsErr) {
-      console.error('[api/booking/manage/cancel] ICS generation failed:', icsErr)
-    }
-
-    try {
-      await sendBookingCancellation(env.RESEND_API_KEY, {
-        guestName: schedule.guest_name,
-        guestEmail: schedule.guest_email,
-        businessName: '',
-        slotLabel,
-        rebookUrl: 'https://smd.services/book',
-        icsAttachment,
-      })
-    } catch (emailErr) {
-      console.error('[api/booking/manage/cancel] Cancellation email failed:', emailErr)
-    }
-
-    // Admin notification
-    try {
-      await sendEmail(env.RESEND_API_KEY, {
-        to: NOTIFY_EMAIL,
-        reply_to: schedule.guest_email,
-        subject: `Cancelled: ${schedule.guest_name} — ${slotLabel}`,
-        html: `<p><strong>${escapeHtml(schedule.guest_name)}</strong> cancelled their assessment call scheduled for <strong>${escapeHtml(slotLabel)}</strong>.</p>${reason ? `<p>Reason: ${escapeHtml(reason)}</p>` : ''}`,
-      })
-    } catch (emailErr) {
-      console.error('[api/booking/manage/cancel] Admin notification failed:', emailErr)
-    }
+    await sendCancellationEmails(schedule, slotLabel, reason)
 
     return jsonResponse(200, { ok: true, cancelled: true })
   } catch (err) {
@@ -190,17 +214,4 @@ export const POST: APIRoute = async ({ params, request }) => {
   }
 }
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-function jsonResponse(status: number, data: unknown): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
+export const POST: APIRoute = (ctx) => handlePost(ctx)

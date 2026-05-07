@@ -275,8 +275,14 @@ describe('quotes: repeat-quote flow (#472)', () => {
   const dalSource = () => readFileSync(resolve('src/lib/db/quotes.ts'), 'utf-8')
   const apiSource = () =>
     readFileSync(resolve('src/pages/api/admin/entities/[id]/quotes.ts'), 'utf-8')
+  // After PR #868-style extraction (max-lines compliance), the entity-detail
+  // page JSX was split into siblings under src/components/admin/. Read the
+  // page + extracted siblings as a single source for pattern assertions.
   const entityPageSource = () =>
-    readFileSync(resolve('src/pages/admin/entities/[id].astro'), 'utf-8')
+    [
+      readFileSync(resolve('src/pages/admin/entities/[id].astro'), 'utf-8'),
+      readFileSync(resolve('src/components/admin/EntityStageActions.astro'), 'utf-8'),
+    ].join('\n')
   const entityLoaderSource = () =>
     readFileSync(resolve('src/lib/admin/entity-detail-page.ts'), 'utf-8')
 

@@ -168,9 +168,7 @@ export async function deepWebsiteAnalysis(
     )
   }
 
-  const result = (await response.json()) as {
-    content?: Array<{ type: string; text?: string }>
-  }
+  const result: { content?: Array<{ type: string; text?: string }> } = await response.json()
   let text = result?.content?.find((b) => b.type === 'text')?.text?.trim()
   if (!text) return null
   if (text.startsWith('```')) text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
@@ -204,4 +202,30 @@ function cleanHtml(html: string): string {
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+export function formatDeepWebsite(analysis: DeepWebsiteAnalysis): string {
+  const parts: string[] = ['Deep website analysis:']
+  if (analysis.owner_profile.name)
+    parts.push(`Owner: ${analysis.owner_profile.name} (${analysis.owner_profile.title ?? 'owner'})`)
+  if (analysis.owner_profile.background)
+    parts.push(`Background: ${analysis.owner_profile.background}`)
+  if (analysis.team.named_employees.length > 0)
+    parts.push(
+      `Named staff: ${analysis.team.named_employees.map((e) => `${e.name} (${e.role})`).join(', ')}`
+    )
+  if (analysis.business_profile.services.length > 0)
+    parts.push(`Services: ${analysis.business_profile.services.join(', ')}`)
+  if (analysis.business_profile.service_areas.length > 0)
+    parts.push(`Service areas: ${analysis.business_profile.service_areas.join(', ')}`)
+  if (analysis.business_profile.certifications.length > 0)
+    parts.push(`Certifications: ${analysis.business_profile.certifications.join(', ')}`)
+  if (analysis.business_profile.awards.length > 0)
+    parts.push(`Awards: ${analysis.business_profile.awards.join(', ')}`)
+  if (analysis.business_profile.partnerships.length > 0)
+    parts.push(`Partnerships: ${analysis.business_profile.partnerships.join(', ')}`)
+  if (analysis.contact_info.email) parts.push(`Email: ${analysis.contact_info.email}`)
+  if (analysis.contact_info.phone) parts.push(`Phone: ${analysis.contact_info.phone}`)
+  if (analysis.contact_info.address) parts.push(`Address: ${analysis.contact_info.address}`)
+  return parts.join('\n')
 }

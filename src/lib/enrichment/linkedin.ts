@@ -31,13 +31,13 @@ export async function lookupLinkedIn(
 
   if (!response.ok) return null
 
-  const data = (await response.json()) as {
+  const data: {
     url?: string
     name?: string
-    company_size?: number[]
+    company_size?: [number, number?]
     industry?: string
     description?: string
-  }
+  } = await response.json()
 
   if (!data.url) return null
 

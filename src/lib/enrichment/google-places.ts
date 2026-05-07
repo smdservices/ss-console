@@ -43,7 +43,7 @@ export async function lookupGooglePlaces(
 
   if (!response.ok) return null
 
-  const data = (await response.json()) as {
+  const data: {
     places?: Array<{
       nationalPhoneNumber?: string
       websiteUri?: string
@@ -52,7 +52,7 @@ export async function lookupGooglePlaces(
       businessStatus?: string
       formattedAddress?: string
     }>
-  }
+  } = await response.json()
 
   const place = data.places?.[0]
   if (!place) return null

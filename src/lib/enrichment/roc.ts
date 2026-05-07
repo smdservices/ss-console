@@ -16,6 +16,29 @@ export interface RocEnrichment {
 
 const ROC_SEARCH_URL = 'https://roc.az.gov/contractor-search'
 
+function matchTrim(html: string, pattern: RegExp): string | null {
+  const m = html.match(pattern)
+  return m?.[1]?.trim() ?? null
+}
+
+/** Parse ROC HTML search results into a structured result. */
+function parseRocHtml(html: string, businessName: string): RocEnrichment | null {
+  const licenseNumber = matchTrim(html, /License\s*#?\s*:?\s*(\w+)/i)
+  const businessNameMatch = matchTrim(html, /Business\s*Name[^:]*:\s*([^<\n]+)/i)
+
+  if (!licenseNumber && !businessNameMatch) return null
+
+  const complaintMatch = html.match(/Complaints?\s*:?\s*(\d+)/i)
+
+  return {
+    license_number: licenseNumber,
+    classification: matchTrim(html, /Classification[^:]*:\s*([^<\n]+)/i),
+    status: matchTrim(html, /Status[^:]*:\s*([^<\n]+)/i),
+    business_name: businessNameMatch ?? businessName,
+    complaint_count: complaintMatch ? parseInt(complaintMatch[1]) : null,
+  }
+}
+
 /**
  * Search Arizona ROC for a contractor license by business name.
  * Returns first matching result, or null.
@@ -34,21 +57,5 @@ export async function lookupRoc(businessName: string): Promise<RocEnrichment | n
   if (!response.ok) return null
 
   const html = await response.text()
-
-  // Extract license data from ROC results page
-  const licenseMatch = html.match(/License\s*#?\s*:?\s*(\w+)/i)
-  const classMatch = html.match(/Classification[^:]*:\s*([^<\n]+)/i)
-  const statusMatch = html.match(/Status[^:]*:\s*([^<\n]+)/i)
-  const nameMatch = html.match(/Business\s*Name[^:]*:\s*([^<\n]+)/i)
-  const complaintMatch = html.match(/Complaints?\s*:?\s*(\d+)/i)
-
-  if (!licenseMatch && !nameMatch) return null
-
-  return {
-    license_number: licenseMatch?.[1]?.trim() ?? null,
-    classification: classMatch?.[1]?.trim() ?? null,
-    status: statusMatch?.[1]?.trim() ?? null,
-    business_name: nameMatch?.[1]?.trim() ?? businessName,
-    complaint_count: complaintMatch ? parseInt(complaintMatch[1]) : null,
-  }
+  return parseRocHtml(html, businessName)
 }

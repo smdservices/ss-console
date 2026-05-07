@@ -134,6 +134,15 @@ export function resolveInvoiceState(
  * render no next-step copy — we never synthesize client-facing
  * commitments from non-authoritative fields (CLAUDE.md #398).
  */
+function proposalExpiredSurface(firstName: string | null): ProposalSurface {
+  return {
+    state: 'expired',
+    next: firstName
+      ? `This proposal has expired. Text ${firstName} to pick it back up.`
+      : `This proposal has expired.`,
+  }
+}
+
 export function resolveProposalState(
   quote: QuoteLike,
   params: SearchParamSource | null,
@@ -143,8 +152,7 @@ export function resolveProposalState(
   const status = (quote.status ?? '').toLowerCase()
 
   if (status === 'accepted' || quote.accepted_at) {
-    const next = nextStepText?.trim() || null
-    return { state: 'signed', next }
+    return { state: 'signed', next: nextStepText?.trim() || null }
   }
 
   if (status === 'declined') {
@@ -157,39 +165,19 @@ export function resolveProposalState(
   }
 
   if (status === 'superseded') {
-    return {
-      state: 'superseded',
-      next: `A revised version of this proposal is available.`,
-    }
+    return { state: 'superseded', next: `A revised version of this proposal is available.` }
   }
 
   const serverExpired =
     status === 'expired' ||
     (!!quote.expires_at && new Date(quote.expires_at).getTime() < Date.now())
 
-  if (serverExpired) {
-    return {
-      state: 'expired',
-      next: firstName
-        ? `This proposal has expired. Text ${firstName} to pick it back up.`
-        : `This proposal has expired.`,
-    }
-  }
+  if (serverExpired) return proposalExpiredSurface(firstName)
 
   const hint = readStateParam(params)
-  if (hint === 'expired') {
-    return {
-      state: 'expired',
-      next: firstName
-        ? `This proposal has expired. Text ${firstName} to pick it back up.`
-        : `This proposal has expired.`,
-    }
-  }
+  if (hint === 'expired') return proposalExpiredSurface(firstName)
 
-  return {
-    state: 'default',
-    next: `Review and sign when you're ready.`,
-  }
+  return { state: 'default', next: `Review and sign when you're ready.` }
 }
 
 /**

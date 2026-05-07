@@ -13,29 +13,28 @@ import type { ContextEntry } from '../src/lib/db/context'
 
 const NOW = new Date('2026-04-24T12:00:00Z')
 
-const entity = (id: string, overrides: Partial<Entity> = {}): Entity =>
-  ({
-    id,
-    org_id: 'org',
-    name: id.toUpperCase(),
-    slug: id,
-    phone: null,
-    website: null,
-    stage: 'prospect',
-    stage_changed_at: '2026-04-01T00:00:00Z',
-    pain_score: null,
-    vertical: null,
-    area: null,
-    employee_count: null,
-    tier: null,
-    summary: null,
-    next_action: null,
-    next_action_at: null,
-    source_pipeline: null,
-    created_at: '2026-04-01T00:00:00Z',
-    updated_at: '2026-04-01T00:00:00Z',
-    ...overrides,
-  }) as Entity
+const entity = (id: string, overrides: Partial<Entity> = {}): Entity => ({
+  id,
+  org_id: 'org',
+  name: id.toUpperCase(),
+  slug: id,
+  phone: null,
+  website: null,
+  stage: 'prospect',
+  stage_changed_at: '2026-04-01T00:00:00Z',
+  pain_score: null,
+  vertical: null,
+  area: null,
+  employee_count: null,
+  tier: null,
+  summary: null,
+  next_action: null,
+  next_action_at: null,
+  source_pipeline: null,
+  created_at: '2026-04-01T00:00:00Z',
+  updated_at: '2026-04-01T00:00:00Z',
+  ...overrides,
+})
 
 describe('sortProspectRows', () => {
   it('clusters inert (no outreach drafted) rows above active rows', () => {

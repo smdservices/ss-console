@@ -25,14 +25,19 @@ const VERTICAL_QUERIES: Record<string, string> = {
   restaurant_food: 'restaurant',
 }
 
+export interface CompetitorInput {
+  entityName: string
+  vertical: string | null
+  area: string | null
+  entityRating: number | null
+  entityReviewCount: number | null
+}
+
 export async function benchmarkCompetitors(
-  entityName: string,
-  vertical: string | null,
-  area: string | null,
-  entityRating: number | null,
-  entityReviewCount: number | null,
+  input: CompetitorInput,
   apiKey: string
 ): Promise<CompetitorBenchmark | null> {
+  const { entityName, vertical, area, entityRating, entityReviewCount } = input
   const verticalQuery = (vertical && VERTICAL_QUERIES[vertical]) || 'business'
   const locationQuery = area || 'Phoenix, AZ'
   const query = `${verticalQuery} ${locationQuery}`
@@ -58,13 +63,9 @@ export async function benchmarkCompetitors(
 
   if (!response.ok) return null
 
-  const data = (await response.json()) as {
-    places?: Array<{
-      displayName?: { text: string }
-      rating?: number
-      userRatingCount?: number
-    }>
-  }
+  const data: {
+    places?: Array<{ displayName?: { text?: string }; rating?: number; userRatingCount?: number }>
+  } = await response.json()
 
   const competitors = (data.places ?? [])
     .filter((p) => p.displayName?.text?.toLowerCase() !== entityName.toLowerCase())

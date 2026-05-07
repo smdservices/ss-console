@@ -1,4 +1,4 @@
-import type { APIRoute } from 'astro'
+import type { APIContext, APIRoute } from 'astro'
 import { createInvoice } from '../../../../lib/db/invoices'
 import type { InvoiceType } from '../../../../lib/db/invoices'
 import { env } from 'cloudflare:workers'
@@ -12,7 +12,33 @@ const VALID_TYPES: InvoiceType[] = ['deposit', 'completion', 'milestone', 'asses
  *
  * Protected by auth middleware (requires admin role).
  */
-export const POST: APIRoute = async ({ request, locals, redirect }) => {
+
+function parseInvoiceForm(
+  formData: FormData
+): { clientId: string; type: string; amountStr: string; redirectUrl: string | null } | null {
+  const clientId = formData.get('client_id')
+  const type = formData.get('type')
+  const amountStr = formData.get('amount')
+  const redirectUrl = formData.get('redirect_url')
+  if (
+    !clientId ||
+    typeof clientId !== 'string' ||
+    !type ||
+    typeof type !== 'string' ||
+    !amountStr ||
+    typeof amountStr !== 'string'
+  ) {
+    return null
+  }
+  return {
+    clientId,
+    type,
+    amountStr,
+    redirectUrl: typeof redirectUrl === 'string' ? redirectUrl : null,
+  }
+}
+
+async function handlePost({ request, locals, redirect }: APIContext): Promise<Response> {
   const session = locals.session
   if (!session || session.role !== 'admin') {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -23,37 +49,29 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
 
   try {
     const formData = await request.formData()
-
-    const clientId = formData.get('client_id')
-    const engagementId = formData.get('engagement_id')
-    const type = formData.get('type')
-    const amountStr = formData.get('amount')
-    const description = formData.get('description')
-    const dueDate = formData.get('due_date')
+    const parsed = parseInvoiceForm(formData)
     const redirectUrl = formData.get('redirect_url')
+    const defaultTarget = '/admin/entities'
+    const target = typeof redirectUrl === 'string' ? redirectUrl : defaultTarget
 
-    if (
-      !clientId ||
-      typeof clientId !== 'string' ||
-      !type ||
-      typeof type !== 'string' ||
-      !amountStr ||
-      typeof amountStr !== 'string'
-    ) {
-      const target = typeof redirectUrl === 'string' ? redirectUrl : '/admin/entities'
+    if (!parsed) {
       return redirect(`${target}?error=missing`, 302)
     }
 
+    const { clientId, type, amountStr } = parsed
+
     if (!VALID_TYPES.includes(type as InvoiceType)) {
-      const target = typeof redirectUrl === 'string' ? redirectUrl : '/admin/entities'
       return redirect(`${target}?error=invalid_type`, 302)
     }
 
     const amount = parseFloat(amountStr)
     if (isNaN(amount) || amount <= 0) {
-      const target = typeof redirectUrl === 'string' ? redirectUrl : '/admin/entities'
       return redirect(`${target}?error=invalid_amount`, 302)
     }
+
+    const engagementId = formData.get('engagement_id')
+    const description = formData.get('description')
+    const dueDate = formData.get('due_date')
 
     await createInvoice(env.DB, session.orgId, {
       entity_id: clientId,
@@ -65,10 +83,11 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
       due_date: typeof dueDate === 'string' && dueDate.trim() ? dueDate.trim() : null,
     })
 
-    const target = typeof redirectUrl === 'string' ? redirectUrl : '/admin/entities'
     return redirect(`${target}?created=1`, 302)
   } catch (err) {
     console.error('[api/admin/invoices] Create error:', err)
     return redirect('/admin/entities?error=server', 302)
   }
 }
+
+export const POST: APIRoute = (ctx) => handlePost(ctx)

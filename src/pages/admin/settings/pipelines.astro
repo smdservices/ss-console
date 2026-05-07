@@ -1,5 +1,6 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro'
+import PipelineSettingsPanel from '../../../components/admin/PipelineSettingsPanel.astro'
 import {
   PIPELINE_IDS,
   SETTING_SPECS,
@@ -139,10 +140,6 @@ function formatRelative(iso: string | null): string {
   if (hours < 24) return `${hours}h ago`
   return `${Math.round(hours / 24)}d ago`
 }
-
-function inputStep(spec: SettingSpec): string {
-  return spec.type === 'int' ? '1' : '0.01'
-}
 ---
 
 <AdminLayout
@@ -191,83 +188,12 @@ function inputStep(spec: SettingSpec): string {
   <div class="space-y-8">
     {
       views.map((view) => (
-        <section
-          aria-labelledby={`heading-${view.pipeline}`}
-          class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card"
-        >
-          <header class="mb-4">
-            <h3
-              id={`heading-${view.pipeline}`}
-              class="text-base font-semibold text-[color:var(--ss-color-text-primary)]"
-            >
-              {PIPELINE_LABELS[view.pipeline]}
-            </h3>
-            <p class="text-xs text-[color:var(--ss-color-text-secondary)] mt-1">
-              <a
-                href={`/admin/generators/${view.pipeline}`}
-                class="underline hover:text-[color:var(--ss-color-primary)]"
-              >
-                View pipeline detail and run history
-              </a>
-            </p>
-          </header>
-          <form method="POST" class="space-y-stack">
-            <input type="hidden" name="pipeline" value={view.pipeline} />
-            {Object.entries(view.specs).map(([key, spec]) => {
-              const stored = view.rawByKey[key]
-              const value = view.resolved[key]
-              const isDefault = !stored
-              return (
-                <div>
-                  <div class="flex items-center justify-between gap-2 mb-1">
-                    <label
-                      for={`${view.pipeline}_${key}`}
-                      class="text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-                    >
-                      {spec.label}{' '}
-                      <span class="text-xs text-[color:var(--ss-color-text-secondary)] font-normal">
-                        ({spec.min}–{spec.max})
-                      </span>
-                    </label>
-                    {isDefault ? (
-                      <span class="text-xs text-[color:var(--ss-color-text-muted)]">
-                        Default ({spec.default})
-                      </span>
-                    ) : (
-                      <span class="text-xs text-[color:var(--ss-color-text-muted)]">
-                        Set {formatRelative(stored.updated_at)}
-                        {stored.updated_by ? ` by ${stored.updated_by}` : ''}
-                      </span>
-                    )}
-                  </div>
-                  <input
-                    type="number"
-                    id={`${view.pipeline}_${key}`}
-                    name={key}
-                    value={value}
-                    min={spec.min}
-                    max={spec.max}
-                    step={inputStep(spec)}
-                    required
-                    class="w-full max-w-xs border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm font-mono"
-                  />
-                  <p class="text-xs text-[color:var(--ss-color-text-secondary)] mt-1">
-                    {spec.help}
-                  </p>
-                </div>
-              )
-            })}
-
-            <div class="pt-1">
-              <button
-                type="submit"
-                class="px-4 py-2 text-sm font-medium text-white bg-primary rounded-[var(--ss-radius-card)] hover:bg-primary/90 transition-colors"
-              >
-                Save {PIPELINE_LABELS[view.pipeline]} settings
-              </button>
-            </div>
-          </form>
-        </section>
+        <PipelineSettingsPanel
+          pipeline={view.pipeline}
+          resolved={view.resolved}
+          rawByKey={view.rawByKey}
+          specs={view.specs}
+        />
       ))
     }
   </div>

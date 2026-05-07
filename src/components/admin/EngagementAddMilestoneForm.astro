@@ -1,0 +1,88 @@
+---
+/**
+ * "Add Milestone" collapsible form for the engagement detail page.
+ * Extracted from src/pages/admin/engagements/[id].astro.
+ */
+
+interface Props {
+  engagementId: string
+  milestonesLength: number
+}
+
+const { engagementId, milestonesLength } = Astro.props
+---
+
+{/* Add milestone form */}
+<details class="border-t border-[color:var(--ss-color-border-subtle)]">
+  <summary
+    class="px-6 py-3 cursor-pointer text-sm text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)]"
+  >
+    + Add Milestone
+  </summary>
+  <div class="px-6 pb-4">
+    <form
+      method="POST"
+      action={`/api/admin/engagements/${engagementId}/milestones`}
+      class="space-y-row"
+    >
+      <div class="grid grid-cols-2 gap-row">
+        <div>
+          <label
+            for="ms_name"
+            class="block text-xs font-medium text-[color:var(--ss-color-text-secondary)] mb-1"
+          >
+            Name *
+          </label>
+          <input
+            type="text"
+            id="ms_name"
+            name="name"
+            required
+            class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-1.5 text-sm"
+          />
+        </div>
+        <div>
+          <label
+            for="ms_due"
+            class="block text-xs font-medium text-[color:var(--ss-color-text-secondary)] mb-1"
+          >
+            Due Date
+          </label>
+          <input
+            type="date"
+            id="ms_due"
+            name="due_date"
+            class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-1.5 text-sm"
+          />
+        </div>
+      </div>
+      <div>
+        <label
+          for="ms_desc"
+          class="block text-xs font-medium text-[color:var(--ss-color-text-secondary)] mb-1"
+        >
+          Description
+        </label>
+        <input
+          type="text"
+          id="ms_desc"
+          name="description"
+          class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-1.5 text-sm"
+        />
+      </div>
+      <div class="flex items-center gap-stack">
+        <label class="flex items-center gap-2 text-sm text-[color:var(--ss-color-text-secondary)]">
+          <input type="checkbox" name="payment_trigger" value="1" />
+          Payment trigger
+        </label>
+        <input type="hidden" name="sort_order" value={String(milestonesLength)} />
+        <button
+          type="submit"
+          class="ml-auto bg-[color:var(--ss-color-primary)] text-white text-xs px-3 py-1.5 hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
+        >
+          Add Milestone
+        </button>
+      </div>
+    </form>
+  </div>
+</details>

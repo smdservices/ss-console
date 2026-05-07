@@ -1,0 +1,115 @@
+---
+/**
+ * Pipeline settings panel for one pipeline in the admin pipeline settings page.
+ *
+ * Renders the form section for a single pipeline with all its tunable settings.
+ * Extracted from settings/pipelines.astro to keep the map() arrow under 75 lines.
+ */
+import { PIPELINE_LABELS, type PipelineId } from '../../lib/generators/types'
+import type { SettingSpec } from '../../lib/db/pipeline-settings'
+
+interface RawRow {
+  value: string
+  updated_at: string
+  updated_by: string | null
+}
+
+interface Props {
+  pipeline: PipelineId
+  resolved: Record<string, number>
+  rawByKey: Record<string, RawRow>
+  specs: Record<string, SettingSpec>
+}
+
+const { pipeline, resolved, rawByKey, specs } = Astro.props
+
+function formatRelative(iso: string | null): string {
+  if (!iso) return ''
+  const diff = Date.now() - new Date(iso).getTime()
+  const hours = Math.round(diff / (1000 * 60 * 60))
+  if (hours < 1) return 'Just now'
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.round(hours / 24)}d ago`
+}
+
+function inputStep(spec: SettingSpec): string {
+  return spec.type === 'int' ? '1' : '0.01'
+}
+---
+
+<section
+  aria-labelledby={`heading-${pipeline}`}
+  class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card"
+>
+  <header class="mb-4">
+    <h3
+      id={`heading-${pipeline}`}
+      class="text-base font-semibold text-[color:var(--ss-color-text-primary)]"
+    >
+      {PIPELINE_LABELS[pipeline]}
+    </h3>
+    <p class="text-xs text-[color:var(--ss-color-text-secondary)] mt-1">
+      <a
+        href={`/admin/generators/${pipeline}`}
+        class="underline hover:text-[color:var(--ss-color-primary)]"
+      >
+        View pipeline detail and run history
+      </a>
+    </p>
+  </header>
+  <form method="POST" class="space-y-stack">
+    <input type="hidden" name="pipeline" value={pipeline} />
+    {
+      Object.entries(specs).map(([key, spec]) => {
+        const stored = rawByKey[key]
+        const value = resolved[key]
+        const isDefault = !stored
+        return (
+          <div>
+            <div class="flex items-center justify-between gap-2 mb-1">
+              <label
+                for={`${pipeline}_${key}`}
+                class="text-sm font-medium text-[color:var(--ss-color-text-primary)]"
+              >
+                {spec.label}{' '}
+                <span class="text-xs text-[color:var(--ss-color-text-secondary)] font-normal">
+                  ({spec.min}–{spec.max})
+                </span>
+              </label>
+              {isDefault ? (
+                <span class="text-xs text-[color:var(--ss-color-text-muted)]">
+                  Default ({spec.default})
+                </span>
+              ) : (
+                <span class="text-xs text-[color:var(--ss-color-text-muted)]">
+                  Set {formatRelative(stored.updated_at)}
+                  {stored.updated_by ? ` by ${stored.updated_by}` : ''}
+                </span>
+              )}
+            </div>
+            <input
+              type="number"
+              id={`${pipeline}_${key}`}
+              name={key}
+              value={value}
+              min={spec.min}
+              max={spec.max}
+              step={inputStep(spec)}
+              required
+              class="w-full max-w-xs border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm font-mono"
+            />
+            <p class="text-xs text-[color:var(--ss-color-text-secondary)] mt-1">{spec.help}</p>
+          </div>
+        )
+      })
+    }
+    <div class="pt-1">
+      <button
+        type="submit"
+        class="px-4 py-2 text-sm font-medium text-white bg-primary rounded-[var(--ss-radius-card)] hover:bg-primary/90 transition-colors"
+      >
+        Save {PIPELINE_LABELS[pipeline]} settings
+      </button>
+    </div>
+  </form>
+</section>

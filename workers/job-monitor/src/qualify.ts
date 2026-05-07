@@ -18,11 +18,6 @@ import type { SerpApiJob } from './serpapi.js'
 
 export type { JobQualification }
 
-interface AnthropicResponse {
-  content: Array<{ type: string; text: string }>
-  stop_reason: string
-}
-
 /**
  * Qualify a job posting using Claude.
  * Returns the qualification result if Claude produces valid JSON, null otherwise.
@@ -64,7 +59,7 @@ export async function qualifyJob(
     return null
   }
 
-  const data = (await response.json()) as AnthropicResponse
+  const data: { content?: Array<{ type: string; text?: string }> } = await response.json()
   const text = data.content?.[0]?.text
   if (!text) {
     console.error('Anthropic returned no text content')

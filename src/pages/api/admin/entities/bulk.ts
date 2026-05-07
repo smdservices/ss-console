@@ -1,11 +1,11 @@
-import type { APIRoute } from 'astro'
+import type { APIContext, APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 import {
   bulkDismissEntities,
   listEntitiesForExport,
   type BulkActionResult,
 } from '../../../../lib/db/entities-bulk'
-import { isLostReasonCode, type LostReasonCode } from '../../../../lib/db/lost-reasons'
+import { isLostReasonCode } from '../../../../lib/db/lost-reasons'
 
 /**
  * POST /api/admin/entities/bulk
@@ -30,7 +30,7 @@ import { isLostReasonCode, type LostReasonCode } from '../../../../lib/db/lost-r
  *
  * Admin-only. Org-scoped. Validates every id belongs to the session org.
  */
-export const POST: APIRoute = async ({ request, locals }) => {
+async function handlePost({ request, locals }: APIContext): Promise<Response> {
   const session = locals.session
   if (!session || session.role !== 'admin') {
     return jsonResponse({ error: 'Unauthorized' }, 401)
@@ -70,36 +70,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   try {
     if (action === 'dismiss') {
-      if (!isLostReasonCode(reason)) {
-        return jsonResponse(
-          {
-            error:
-              'reason must be one of the canonical lost-reason values (see src/lib/db/lost-reasons.ts)',
-          },
-          400
-        )
-      }
-      const detail =
-        typeof reasonDetail === 'string' && reasonDetail.trim() ? reasonDetail.trim() : null
-
-      const result: BulkActionResult = await bulkDismissEntities(env.DB, session.orgId, stringIds, {
-        reason: reason as LostReasonCode,
-        detail,
-      })
-      return jsonResponse(result, result.failed.length === 0 ? 200 : 207)
+      return handleDismiss(session.orgId, stringIds, reason, reasonDetail)
     }
 
     if (action === 'export') {
-      const rows = await listEntitiesForExport(env.DB, session.orgId, stringIds)
-      const csv = buildCsv(rows)
-      const filename = `entities-export-${new Date().toISOString().slice(0, 10)}.csv`
-      return new Response(csv, {
-        status: 200,
-        headers: {
-          'Content-Type': 'text/csv; charset=utf-8',
-          'Content-Disposition': `attachment; filename="${filename}"`,
-        },
-      })
+      return handleExport(session.orgId, stringIds)
     }
 
     return jsonResponse({ error: `Unknown action: ${String(action)}` }, 400)
@@ -109,6 +84,46 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return jsonResponse({ error: message }, 500)
   }
 }
+
+async function handleDismiss(
+  orgId: string,
+  ids: string[],
+  reason: unknown,
+  reasonDetail: unknown
+): Promise<Response> {
+  if (!isLostReasonCode(reason)) {
+    return jsonResponse(
+      {
+        error:
+          'reason must be one of the canonical lost-reason values (see src/lib/db/lost-reasons.ts)',
+      },
+      400
+    )
+  }
+  const detail =
+    typeof reasonDetail === 'string' && reasonDetail.trim() ? reasonDetail.trim() : null
+
+  const result: BulkActionResult = await bulkDismissEntities(env.DB, orgId, ids, {
+    reason,
+    detail,
+  })
+  return jsonResponse(result, result.failed.length === 0 ? 200 : 207)
+}
+
+async function handleExport(orgId: string, ids: string[]): Promise<Response> {
+  const rows = await listEntitiesForExport(env.DB, orgId, ids)
+  const csv = buildCsv(rows)
+  const filename = `entities-export-${new Date().toISOString().slice(0, 10)}.csv`
+  return new Response(csv, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    },
+  })
+}
+
+export const POST: APIRoute = (ctx) => handlePost(ctx)
 
 function jsonResponse(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {

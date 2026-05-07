@@ -1,11 +1,11 @@
-import type { APIRoute } from 'astro'
+import type { APIContext, APIRoute } from 'astro'
 import {
   getQuote,
   updateQuote,
   updateQuoteStatus,
   parseDeliverables,
 } from '../../../../lib/db/quotes'
-import type { LineItem, QuoteStatus, DeliverableRow } from '../../../../lib/db/quotes'
+import type { LineItem, DeliverableRow } from '../../../../lib/db/quotes'
 import { getEntity } from '../../../../lib/db/entities'
 import { listContacts } from '../../../../lib/db/contacts'
 import { getSignalById } from '../../../../lib/db/signal-attribution'
@@ -23,7 +23,248 @@ import { env } from 'cloudflare:workers'
  *
  * Protected by auth middleware (requires admin role).
  */
-export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
+
+type Redirect = APIContext['redirect']
+type Quote = NonNullable<Awaited<ReturnType<typeof getQuote>>>
+
+function formatCurrency(amount: number): string {
+  return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+}
+
+function formatDate(date: Date): string {
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+}
+
+function buildPaymentProps(existing: Quote): SOWTemplateProps['payment'] {
+  const isThreeMilestone = existing.total_hours >= 40
+  const depositPct = existing.deposit_pct
+  const totalPrice = existing.total_price
+
+  if (isThreeMilestone) {
+    return {
+      schedule: 'three_milestone',
+      totalPrice: formatCurrency(totalPrice),
+      deposit: formatCurrency(totalPrice * 0.4),
+      milestone: formatCurrency(totalPrice * 0.3),
+      ...(existing.milestone_label?.trim()
+        ? { milestoneLabel: existing.milestone_label.trim() }
+        : {}),
+      completion: formatCurrency(totalPrice * 0.3),
+    }
+  }
+  return {
+    schedule: 'two_part',
+    totalPrice: formatCurrency(totalPrice),
+    deposit: formatCurrency(totalPrice * depositPct),
+    completion: formatCurrency(totalPrice * (1 - depositPct)),
+  }
+}
+
+function buildSowItems(
+  lineItems: LineItem[],
+  authoredDeliverables: DeliverableRow[]
+): Array<{ name: string; description: string }> {
+  if (authoredDeliverables.length > 0) {
+    return authoredDeliverables.map((row) => ({ name: row.title, description: row.body }))
+  }
+  return lineItems.map((item) => ({ name: item.problem, description: item.description }))
+}
+
+async function handleGeneratePdf(
+  redirect: Redirect,
+  orgId: string,
+  userId: string,
+  existing: Quote
+): Promise<Response> {
+  const quoteId = existing.id
+  const quoteUrl = `/admin/entities/${existing.entity_id}/quotes/${quoteId}`
+
+  const entity = await getEntity(env.DB, orgId, existing.entity_id)
+  if (!entity) {
+    return redirect(`${quoteUrl}?error=client_not_found`, 302)
+  }
+
+  const contacts = await listContacts(env.DB, orgId, existing.entity_id)
+  const primaryContact = contacts[0]
+
+  if (!primaryContact?.name?.trim()) {
+    return redirect(
+      `${quoteUrl}?error=${encodeURIComponent('Cannot generate SOW: add a primary contact with a name before generating the PDF.')}`,
+      302
+    )
+  }
+
+  if (!existing.engagement_overview?.trim()) {
+    return redirect(
+      `${quoteUrl}?error=${encodeURIComponent('Cannot generate SOW: author the engagement overview on this quote before generating the PDF.')}`,
+      302
+    )
+  }
+
+  const lineItems: LineItem[] = JSON.parse(existing.line_items) as LineItem[]
+  const authoredDeliverables: DeliverableRow[] = parseDeliverables(existing)
+  const sowItems = buildSowItems(lineItems, authoredDeliverables)
+
+  const now = new Date()
+  const expirationDate = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000)
+
+  const templateProps: SOWTemplateProps = {
+    client: {
+      businessName: entity.name,
+      contactName: primaryContact.name,
+      contactTitle: primaryContact?.title ?? undefined,
+    },
+    document: {
+      date: formatDate(now),
+      expirationDate: formatDate(expirationDate),
+      sowNumber: 'PENDING',
+    },
+    engagement: {
+      overview: existing.engagement_overview.trim(),
+      startDate: 'TBD upon deposit',
+      endDate: 'TBD based on scope',
+    },
+    items: sowItems,
+    payment: buildPaymentProps(existing),
+  }
+
+  await createSOWRevisionForQuote({
+    db: env.DB,
+    storage: env.STORAGE,
+    orgId,
+    quote: existing,
+    actorId: userId,
+    templateProps,
+  })
+
+  return redirect(`${quoteUrl}?saved=1`, 302)
+}
+
+function parseJsonArray<T extends object>(
+  raw: FormDataEntryValue | null,
+  mapFn: (row: Record<string, unknown>) => T
+): T[] | undefined {
+  if (typeof raw !== 'string') return undefined
+  try {
+    const parsed: unknown = raw.trim() === '' ? [] : JSON.parse(raw)
+    if (!Array.isArray(parsed)) return undefined
+    return parsed
+      .filter((row): row is Record<string, unknown> => row !== null && typeof row === 'object')
+      .map(mapFn)
+      .filter((row) => Object.values(row).some((v) => typeof v === 'string' && v.length > 0))
+  } catch {
+    return undefined
+  }
+}
+
+function parseLineItemsField(formData: FormData): LineItem[] | undefined {
+  const raw = formData.get('line_items')
+  if (!raw || typeof raw !== 'string') return undefined
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed as LineItem[]
+  } catch {
+    // Invalid JSON — skip
+  }
+  return undefined
+}
+
+function parseDepositPct(formData: FormData): number | undefined {
+  const raw = formData.get('deposit_pct')
+  if (!raw || typeof raw !== 'string') return undefined
+  const v = parseFloat(raw)
+  return !isNaN(v) && v > 0 && v <= 1 ? v : undefined
+}
+
+async function resolveSignalId(
+  formData: FormData,
+  orgId: string,
+  entityId: string
+): Promise<string | null | undefined> {
+  const signalRaw = formData.get('originating_signal_id')
+  if (typeof signalRaw !== 'string') return undefined
+  const v = signalRaw.trim()
+  if (v === '__none__') return null
+  if (v === '') return undefined
+  const signal = await getSignalById(env.DB, orgId, v)
+  return signal && signal.entity_id === entityId ? signal.id : undefined
+}
+
+async function buildUpdateData(
+  formData: FormData,
+  orgId: string,
+  entityId: string
+): Promise<Record<string, unknown>> {
+  const updateData: Record<string, unknown> = {}
+
+  const lineItems = parseLineItemsField(formData)
+  if (lineItems !== undefined) updateData.lineItems = lineItems
+
+  const depositPct = parseDepositPct(formData)
+  if (depositPct !== undefined) updateData.depositPct = depositPct
+
+  const scheduleRows = parseJsonArray(formData.get('schedule'), (row) => ({
+    label: typeof row.label === 'string' ? row.label.trim() : '',
+    body: typeof row.body === 'string' ? row.body.trim() : '',
+  }))
+  if (scheduleRows !== undefined) updateData.schedule = scheduleRows
+
+  const deliverableRows = parseJsonArray(formData.get('deliverables'), (row) => ({
+    title: typeof row.title === 'string' ? row.title.trim() : '',
+    body: typeof row.body === 'string' ? row.body.trim() : '',
+  }))
+  if (deliverableRows !== undefined) updateData.deliverables = deliverableRows
+
+  const engagementOverview = formData.get('engagement_overview')
+  if (typeof engagementOverview === 'string') {
+    updateData.engagementOverview = engagementOverview
+  }
+
+  const milestoneLabel = formData.get('milestone_label')
+  if (typeof milestoneLabel === 'string') {
+    updateData.milestoneLabel = milestoneLabel
+  }
+
+  const signalId = await resolveSignalId(formData, orgId, entityId)
+  if (signalId !== undefined) updateData.originatingSignalId = signalId
+
+  return updateData
+}
+
+async function handleStatusAction(
+  redirect: Redirect,
+  orgId: string,
+  quoteId: string,
+  entityId: string,
+  action: string
+): Promise<Response | null> {
+  const quoteUrl = `/admin/entities/${entityId}/quotes/${quoteId}`
+  const validStatuses: Record<string, string> = {
+    decline: 'declined',
+    expire: 'expired',
+    send: 'sent',
+  }
+
+  const newStatus = validStatuses[action]
+  if (!newStatus) return null
+
+  try {
+    await updateQuoteStatus(
+      env.DB,
+      orgId,
+      quoteId,
+      newStatus as Parameters<typeof updateQuoteStatus>[3]
+    )
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`[api/admin/quotes/[id]] ${action} error:`, err)
+    return redirect(`${quoteUrl}?error=${encodeURIComponent(msg)}`, 302)
+  }
+
+  return redirect(`${quoteUrl}?saved=1`, 302)
+}
+
+async function handlePost({ request, locals, redirect, params }: APIContext): Promise<Response> {
   const session = locals.session
   if (!session || session.role !== 'admin') {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -47,264 +288,24 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
     }
 
     const formData = await request.formData()
-    const action = formData.get('action')
+    const actionRaw = formData.get('action')
+    const action = typeof actionRaw === 'string' ? actionRaw : ''
 
-    // ----- ACTION: generate-pdf -----
     if (action === 'generate-pdf') {
-      const entity = await getEntity(env.DB, session.orgId, existing.entity_id)
-      if (!entity) {
-        return redirect(
-          `/admin/entities/${existing.entity_id}/quotes/${quoteId}?error=client_not_found`,
-          302
-        )
-      }
-
-      const contacts = await listContacts(env.DB, session.orgId, existing.entity_id)
-      const primaryContact = contacts[0]
-
-      // A SOW signed with a placeholder contact name is a compliance risk.
-      // See #377 audit, src/pages/api/admin/quotes/[id].ts:101 — the previous
-      // 'Business Owner' fallback let an unauthored signer name reach the PDF.
-      if (!primaryContact?.name?.trim()) {
-        return redirect(
-          `/admin/entities/${existing.entity_id}/quotes/${quoteId}?error=${encodeURIComponent(
-            'Cannot generate SOW: add a primary contact with a name before generating the PDF.'
-          )}`,
-          302
-        )
-      }
-
-      // Engagement overview must be authored on the quote. See #377 audit:
-      // the prior hardcoded "Operations cleanup engagement as discussed during
-      // assessment." sentence shipped to every client regardless of scope.
-      if (!existing.engagement_overview?.trim()) {
-        return redirect(
-          `/admin/entities/${existing.entity_id}/quotes/${quoteId}?error=${encodeURIComponent(
-            'Cannot generate SOW: author the engagement overview on this quote before generating the PDF.'
-          )}`,
-          302
-        )
-      }
-
-      const lineItems: LineItem[] = JSON.parse(existing.line_items)
-      const authoredDeliverables: DeliverableRow[] = parseDeliverables(existing)
-
-      // SOW item rows: prefer authored deliverables. If they are not yet
-      // authored, fall back to line items so legacy quotes do not break PDF
-      // generation. The send-gating in updateQuoteStatus will still block
-      // the quote from being sent without authored deliverables.
-      const sowItems =
-        authoredDeliverables.length > 0
-          ? authoredDeliverables.map((row) => ({ name: row.title, description: row.body }))
-          : lineItems.map((item) => ({ name: item.problem, description: item.description }))
-
-      // Format currency
-      const formatCurrency = (amount: number) =>
-        `$${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-
-      // Format date
-      const formatDate = (date: Date) =>
-        date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-
-      const now = new Date()
-      const expirationDate = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000)
-
-      // Determine payment schedule
-      const isThreeMilestone = existing.total_hours >= 40
-      const depositPct = existing.deposit_pct
-      const totalPrice = existing.total_price
-
-      let paymentProps: SOWTemplateProps['payment']
-      if (isThreeMilestone) {
-        // 40% deposit, 30% mid-engagement, 30% completion
-        // milestone_label is authored per quote — no generic default. The SOW
-        // template renders the label only when set; otherwise it uses the
-        // template's neutral "milestone" wording.
-        paymentProps = {
-          schedule: 'three_milestone',
-          totalPrice: formatCurrency(totalPrice),
-          deposit: formatCurrency(totalPrice * 0.4),
-          milestone: formatCurrency(totalPrice * 0.3),
-          ...(existing.milestone_label?.trim()
-            ? { milestoneLabel: existing.milestone_label.trim() }
-            : {}),
-          completion: formatCurrency(totalPrice * 0.3),
-        }
-      } else {
-        paymentProps = {
-          schedule: 'two_part',
-          totalPrice: formatCurrency(totalPrice),
-          deposit: formatCurrency(totalPrice * depositPct),
-          completion: formatCurrency(totalPrice * (1 - depositPct)),
-        }
-      }
-
-      const templateProps: SOWTemplateProps = {
-        client: {
-          businessName: entity.name,
-          contactName: primaryContact.name,
-          contactTitle: primaryContact?.title ?? undefined,
-        },
-        document: {
-          date: formatDate(now),
-          expirationDate: formatDate(expirationDate),
-          sowNumber: 'PENDING',
-        },
-        engagement: {
-          overview: existing.engagement_overview!.trim(),
-          // Captain-decision (#377): start/end dates kept as explicit "TBD"
-          // markers, matching the empty-state convention. If/when
-          // engagements.start_date is wired in, replace these with that data.
-          startDate: 'TBD upon deposit',
-          endDate: 'TBD based on scope',
-        },
-        items: sowItems,
-        payment: paymentProps,
-      }
-
-      await createSOWRevisionForQuote({
-        db: env.DB,
-        storage: env.STORAGE,
-        orgId: session.orgId,
-        quote: existing,
-        actorId: session.userId,
-        templateProps,
-      })
-
-      return redirect(`/admin/entities/${existing.entity_id}/quotes/${quoteId}?saved=1`, 302)
+      return handleGeneratePdf(redirect, session.orgId, session.userId, existing)
     }
 
-    // ----- ACTION: decline -----
-    if (action === 'decline') {
-      try {
-        await updateQuoteStatus(env.DB, session.orgId, quoteId, 'declined' as QuoteStatus)
-      } catch (err) {
-        console.error('[api/admin/quotes/[id]] Decline error:', err)
-        return redirect(
-          `/admin/entities/${existing.entity_id}/quotes/${quoteId}?error=invalid_transition`,
-          302
-        )
-      }
-      return redirect(`/admin/entities/${existing.entity_id}/quotes/${quoteId}?saved=1`, 302)
-    }
+    const statusResult = await handleStatusAction(
+      redirect,
+      session.orgId,
+      quoteId,
+      existing.entity_id,
+      action
+    )
+    if (statusResult) return statusResult
 
-    // ----- ACTION: expire -----
-    if (action === 'expire') {
-      try {
-        await updateQuoteStatus(env.DB, session.orgId, quoteId, 'expired' as QuoteStatus)
-      } catch (err) {
-        console.error('[api/admin/quotes/[id]] Expire error:', err)
-        return redirect(
-          `/admin/entities/${existing.entity_id}/quotes/${quoteId}?error=invalid_transition`,
-          302
-        )
-      }
-      return redirect(`/admin/entities/${existing.entity_id}/quotes/${quoteId}?saved=1`, 302)
-    }
-
-    // ----- ACTION: send (gated on authored content per #377) -----
-    if (action === 'send') {
-      try {
-        await updateQuoteStatus(env.DB, session.orgId, quoteId, 'sent' as QuoteStatus)
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        return redirect(
-          `/admin/entities/${existing.entity_id}/quotes/${quoteId}?error=${encodeURIComponent(msg)}`,
-          302
-        )
-      }
-      return redirect(`/admin/entities/${existing.entity_id}/quotes/${quoteId}?saved=1`, 302)
-    }
-
-    // ----- ACTION: update (default) -----
-    const lineItemsJson = formData.get('line_items')
-    const depositPctStr = formData.get('deposit_pct')
-    const scheduleJson = formData.get('schedule')
-    const deliverablesJson = formData.get('deliverables')
-    const engagementOverview = formData.get('engagement_overview')
-    const milestoneLabel = formData.get('milestone_label')
-
-    const updateData: Record<string, unknown> = {}
-
-    if (lineItemsJson && typeof lineItemsJson === 'string') {
-      try {
-        const lineItems: LineItem[] = JSON.parse(lineItemsJson)
-        if (Array.isArray(lineItems) && lineItems.length > 0) {
-          updateData.lineItems = lineItems
-        }
-      } catch {
-        // Invalid JSON — skip line items update
-      }
-    }
-
-    if (depositPctStr && typeof depositPctStr === 'string') {
-      const depositPct = parseFloat(depositPctStr)
-      if (!isNaN(depositPct) && depositPct > 0 && depositPct <= 1) {
-        updateData.depositPct = depositPct
-      }
-    }
-
-    // Parse the JSON-encoded authored arrays. An empty/whitespace string
-    // means "clear the field"; missing form key means "leave unchanged".
-    if (typeof scheduleJson === 'string') {
-      try {
-        const parsed = scheduleJson.trim() === '' ? [] : JSON.parse(scheduleJson)
-        if (Array.isArray(parsed)) {
-          updateData.schedule = parsed
-            .filter((row) => row && typeof row === 'object')
-            .map((row) => ({
-              label: typeof row.label === 'string' ? row.label.trim() : '',
-              body: typeof row.body === 'string' ? row.body.trim() : '',
-            }))
-            .filter((row) => row.label.length > 0 || row.body.length > 0)
-        }
-      } catch {
-        // Invalid JSON — skip schedule update
-      }
-    }
-
-    if (typeof deliverablesJson === 'string') {
-      try {
-        const parsed = deliverablesJson.trim() === '' ? [] : JSON.parse(deliverablesJson)
-        if (Array.isArray(parsed)) {
-          updateData.deliverables = parsed
-            .filter((row) => row && typeof row === 'object')
-            .map((row) => ({
-              title: typeof row.title === 'string' ? row.title.trim() : '',
-              body: typeof row.body === 'string' ? row.body.trim() : '',
-            }))
-            .filter((row) => row.title.length > 0 || row.body.length > 0)
-        }
-      } catch {
-        // Invalid JSON — skip deliverables update
-      }
-    }
-
-    if (typeof engagementOverview === 'string') {
-      updateData.engagementOverview = engagementOverview
-    }
-
-    if (typeof milestoneLabel === 'string') {
-      updateData.milestoneLabel = milestoneLabel
-    }
-
-    // Originating-signal attribution edit (#589). Same sentinel rules as the
-    // engagement endpoints. Validation rejects ids belonging to a different
-    // entity or org silently — falls through to "no change" so a tampered
-    // POST can't reattribute an engagement to another tenant's signal.
-    const signalRaw = formData.get('originating_signal_id')
-    if (typeof signalRaw === 'string') {
-      const v = signalRaw.trim()
-      if (v === '__none__') {
-        updateData.originatingSignalId = null
-      } else if (v !== '') {
-        const signal = await getSignalById(env.DB, session.orgId, v)
-        if (signal && signal.entity_id === existing.entity_id) {
-          updateData.originatingSignalId = signal.id
-        }
-      }
-    }
-
+    // Default: update action
+    const updateData = await buildUpdateData(formData, session.orgId, existing.entity_id)
     await updateQuote(env.DB, session.orgId, quoteId, updateData)
 
     return redirect(`/admin/entities/${existing.entity_id}/quotes/${quoteId}?saved=1`, 302)
@@ -318,3 +319,5 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
     )
   }
 }
+
+export const POST: APIRoute = (ctx) => handlePost(ctx)

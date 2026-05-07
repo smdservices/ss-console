@@ -11,8 +11,18 @@ import { resolve } from 'path'
 
 const endpoint = () =>
   readFileSync(resolve('src/pages/api/admin/entities/[id]/reply-log.ts'), 'utf-8')
-const detailPage = () => readFileSync(resolve('src/pages/admin/entities/[id].astro'), 'utf-8')
-const listPage = () => readFileSync(resolve('src/pages/admin/entities/index.astro'), 'utf-8')
+// Stage actions and timeline entry rendering were extracted to component files
+// to keep the page files within the 500-line ceiling.
+const detailPage = () =>
+  readFileSync(resolve('src/pages/admin/entities/[id].astro'), 'utf-8') +
+  '\n' +
+  readFileSync(resolve('src/components/admin/EntityStageActions.astro'), 'utf-8') +
+  '\n' +
+  readFileSync(resolve('src/components/admin/EntityTimelineEntry.astro'), 'utf-8')
+const listPage = () =>
+  readFileSync(resolve('src/pages/admin/entities/index.astro'), 'utf-8') +
+  '\n' +
+  readFileSync(resolve('src/components/admin/EntityStageActions.astro'), 'utf-8')
 const dialog = () => readFileSync(resolve('src/components/admin/LogReplyDialog.astro'), 'utf-8')
 
 describe('reply-log endpoint: allowed values', () => {

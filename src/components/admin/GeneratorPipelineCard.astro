@@ -1,0 +1,148 @@
+---
+/**
+ * Pipeline summary card for the generators index page.
+ *
+ * Extracted from generators/index.astro to keep the map() arrow
+ * under the 75-line ceiling.
+ */
+import { PIPELINE_LABELS, type PipelineId } from '../../lib/generators/types'
+
+interface PipelineMetrics {
+  total_signals: number
+  last_7d: number
+  has_pain: number
+  has_vertical: number
+  has_area: number
+  has_employee_count: number
+  has_tier: number
+  latest_signal_at: string | null
+  top_vertical: string | null
+  top_vertical_count: number
+}
+
+interface PipelineDef {
+  id: PipelineId
+  description: string
+}
+
+interface Props {
+  pipeline: PipelineDef
+  metrics: PipelineMetrics
+  avgPain: number | null
+  enabled: boolean
+  lastRunLabel: string
+}
+
+const { pipeline, metrics: m, avgPain, enabled, lastRunLabel } = Astro.props
+
+function coveragePct(populated: number, total: number): number {
+  if (total === 0) return 0
+  return Math.round((populated / total) * 100)
+}
+
+function vlabel(v: string): string {
+  return v.replace(/_/g, ' ')
+}
+
+const painPct = coveragePct(m.has_pain, m.total_signals)
+const verticalPct = coveragePct(m.has_vertical, m.total_signals)
+const empPct = coveragePct(m.has_employee_count, m.total_signals)
+const areaPct = coveragePct(m.has_area, m.total_signals)
+---
+
+<a
+  href={`/admin/generators/${pipeline.id}`}
+  class="block bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card hover:border-[color:var(--ss-color-border)] hover:shadow-sm transition-all"
+>
+  <div class="flex items-start justify-between mb-3 gap-2">
+    <div class="min-w-0">
+      <div class="flex items-center gap-2 mb-0.5">
+        <div
+          class={`w-2 h-2 rounded-full shrink-0 ${enabled ? 'bg-[color:var(--ss-color-text-primary)]' : 'bg-[color:var(--ss-color-border)]'}`}
+          title={enabled ? 'Enabled' : 'Disabled'}
+          aria-hidden="true"
+        >
+        </div>
+        <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] truncate">
+          {PIPELINE_LABELS[pipeline.id]}
+        </h3>
+      </div>
+      <p class="text-xs text-[color:var(--ss-color-text-secondary)] mt-0.5">
+        {pipeline.description}
+      </p>
+    </div>
+    <span class="text-xs text-[color:var(--ss-color-text-muted)] whitespace-nowrap">
+      {lastRunLabel}
+    </span>
+  </div>
+
+  <dl class="grid grid-cols-2 gap-row text-sm">
+    <div>
+      <dt class="text-xs text-[color:var(--ss-color-text-secondary)]">Total signals</dt>
+      <dd class="text-[color:var(--ss-color-text-primary)] font-medium">{m.total_signals}</dd>
+    </div>
+    <div>
+      <dt class="text-xs text-[color:var(--ss-color-text-secondary)]">Last 7 days</dt>
+      <dd class="text-[color:var(--ss-color-text-primary)] font-medium">{m.last_7d}</dd>
+    </div>
+
+    {
+      painPct >= 50 && avgPain !== null && (
+        <div>
+          <dt class="text-xs text-[color:var(--ss-color-text-secondary)]">
+            Avg pain{' '}
+            <span class="text-[color:var(--ss-color-text-muted)]">({painPct}% coverage)</span>
+          </dt>
+          <dd class="text-[color:var(--ss-color-text-primary)] font-medium">
+            {avgPain.toFixed(1)}/10
+          </dd>
+        </div>
+      )
+    }
+
+    {
+      verticalPct >= 50 && m.top_vertical && (
+        <div>
+          <dt class="text-xs text-[color:var(--ss-color-text-secondary)]">
+            Top vertical{' '}
+            <span class="text-[color:var(--ss-color-text-muted)]">({verticalPct}% coverage)</span>
+          </dt>
+          <dd class="text-[color:var(--ss-color-text-primary)] font-medium capitalize">
+            {vlabel(m.top_vertical)}
+          </dd>
+        </div>
+      )
+    }
+
+    {
+      empPct >= 50 && (
+        <div>
+          <dt class="text-xs text-[color:var(--ss-color-text-secondary)]">
+            Employee count{' '}
+            <span class="text-[color:var(--ss-color-text-muted)]">({empPct}% coverage)</span>
+          </dt>
+          <dd class="text-[color:var(--ss-color-text-primary)] font-medium">
+            {m.has_employee_count} enriched
+          </dd>
+        </div>
+      )
+    }
+
+    {
+      areaPct >= 50 && (
+        <div>
+          <dt class="text-xs text-[color:var(--ss-color-text-secondary)]">
+            Area <span class="text-[color:var(--ss-color-text-muted)]">({areaPct}% coverage)</span>
+          </dt>
+          <dd class="text-[color:var(--ss-color-text-primary)] font-medium">{m.has_area} tagged</dd>
+        </div>
+      )
+    }
+  </dl>
+
+  {
+    m.total_signals === 0 && (
+      <p class="text-xs text-[color:var(--ss-color-text-secondary)] mt-3 italic">No signals yet.</p>
+    )
+  }
+</a>

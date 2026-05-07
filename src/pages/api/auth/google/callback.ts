@@ -84,7 +84,7 @@ export const GET: APIRoute = async ({ request, redirect }) => {
       return redirect('/admin/settings/google-connect?error=userinfo_failed', 302)
     }
 
-    const userinfo = (await userinfoRes.json()) as { email: string; id: string }
+    const userinfo: { email: string; id: string } = await userinfoRes.json()
 
     // 5. Encrypt refresh token
     const refreshCiphertext = await encrypt(encryptionKey, tokens.refresh_token)

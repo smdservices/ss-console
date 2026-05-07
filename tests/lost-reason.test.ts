@@ -75,7 +75,7 @@ describe('structured lost reason', () => {
     it('throws when no lost reason is provided', async () => {
       const entity = await createEntity(db, ORG_ID, {
         name: 'No-Reason Biz',
-        stage: 'signal' as EntityStage,
+        stage: 'signal',
       })
       await expect(transitionStage(db, ORG_ID, entity.id, 'lost', 'Dismissed.')).rejects.toThrow(
         'Lost reason is required'
@@ -85,10 +85,11 @@ describe('structured lost reason', () => {
     it('throws when the provided code is not in the taxonomy', async () => {
       const entity = await createEntity(db, ORG_ID, {
         name: 'Bad-Code Biz',
-        stage: 'signal' as EntityStage,
+        stage: 'signal',
       })
       await expect(
-        transitionStage(db, ORG_ID, entity.id, 'lost', 'Dismissed.', {
+        transitionStage(db, ORG_ID, entity.id, 'lost', {
+          reason: 'Dismissed.',
           // Cast around the type to exercise runtime validation.
           lostReason: { code: 'ghost' as never },
         })
@@ -98,9 +99,10 @@ describe('structured lost reason', () => {
     it('persists lost_reason + lost_detail on the stage_change metadata', async () => {
       const entity = await createEntity(db, ORG_ID, {
         name: 'Persist Biz',
-        stage: 'signal' as EntityStage,
+        stage: 'signal',
       })
-      await transitionStage(db, ORG_ID, entity.id, 'lost', 'Dismissed from inbox.', {
+      await transitionStage(db, ORG_ID, entity.id, 'lost', {
+        reason: 'Dismissed from inbox.',
         lostReason: { code: 'no-budget', detail: 'Said they could fund it next quarter.' },
       })
 
@@ -122,9 +124,10 @@ describe('structured lost reason', () => {
     it('trims whitespace detail and stores empty detail as absent', async () => {
       const entity = await createEntity(db, ORG_ID, {
         name: 'Trim Biz',
-        stage: 'signal' as EntityStage,
+        stage: 'signal',
       })
-      await transitionStage(db, ORG_ID, entity.id, 'lost', 'Dismissed.', {
+      await transitionStage(db, ORG_ID, entity.id, 'lost', {
+        reason: 'Dismissed.',
         lostReason: { code: 'unreachable', detail: '   ' },
       })
       const row = await db
@@ -142,7 +145,7 @@ describe('structured lost reason', () => {
       // Create a signal entity and promote — must not require a lost reason.
       const entity = await createEntity(db, ORG_ID, {
         name: 'Promote Biz',
-        stage: 'signal' as EntityStage,
+        stage: 'signal',
       })
       const result = await transitionStage(
         db,
@@ -165,23 +168,26 @@ describe('structured lost reason', () => {
     it('rolls up the most recent lost reason per entity', async () => {
       const a = await createEntity(db, ORG_ID, {
         name: 'Entity A',
-        stage: 'signal' as EntityStage,
+        stage: 'signal',
       })
       const b = await createEntity(db, ORG_ID, {
         name: 'Entity B',
-        stage: 'signal' as EntityStage,
+        stage: 'signal',
       })
 
-      await transitionStage(db, ORG_ID, a.id, 'lost', 'A', {
+      await transitionStage(db, ORG_ID, a.id, 'lost', {
+        reason: 'A',
         lostReason: { code: 'no-response' },
       })
       // Re-engage A and then mark lost again with a different code.
       await transitionStage(db, ORG_ID, a.id, 'prospect', 'Re-engaged')
-      await transitionStage(db, ORG_ID, a.id, 'lost', 'A2', {
+      await transitionStage(db, ORG_ID, a.id, 'lost', {
+        reason: 'A2',
         lostReason: { code: 'declined-quote', detail: 'Sent SOW; owner passed.' },
       })
 
-      await transitionStage(db, ORG_ID, b.id, 'lost', 'B', {
+      await transitionStage(db, ORG_ID, b.id, 'lost', {
+        reason: 'B',
         lostReason: { code: 'wrong-contact' },
       })
 
@@ -196,7 +202,7 @@ describe('structured lost reason', () => {
     it('omits entities whose latest stage_change has no lost_reason (legacy rows)', async () => {
       const entity = await createEntity(db, ORG_ID, {
         name: 'Legacy Biz',
-        stage: 'signal' as EntityStage,
+        stage: 'signal',
       })
       // Simulate a legacy Lost row: insert stage_change metadata without
       // lost_reason. Bypasses transitionStage() which would now enforce.

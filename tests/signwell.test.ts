@@ -143,7 +143,10 @@ describe('signwell: webhook handler', () => {
 })
 
 describe('signwell: sow lifecycle service', () => {
-  const source = () => readFileSync(resolve('src/lib/sow/service.ts'), 'utf-8')
+  // Finalization logic was extracted to service-finalize.ts (keeping service.ts under 500 lines).
+  // Some tests check service.ts (send flow), others check service-finalize.ts (finalize flow).
+  const source = () => readFileSync(resolve('src/lib/sow/service-finalize.ts'), 'utf-8')
+  const serviceSource = () => readFileSync(resolve('src/lib/sow/service.ts'), 'utf-8')
 
   it('looks up requests by provider_request_id', () => {
     const code = source()
@@ -166,9 +169,10 @@ describe('signwell: sow lifecycle service', () => {
 
   it('generates UUIDs for engagement and invoice BEFORE the batch', () => {
     const code = source()
-    const engagementIdIdx = code.indexOf('const engagementId = crypto.randomUUID()')
-    const invoiceIdIdx = code.indexOf('const invoiceId = crypto.randomUUID()')
-    const batchIdx = code.indexOf('await db.batch([', engagementIdIdx)
+    // UUIDs are generated in the FinalizeCtx object literal before db.batch is called.
+    const engagementIdIdx = code.indexOf('engagementId: crypto.randomUUID()')
+    const invoiceIdIdx = code.indexOf('invoiceId: crypto.randomUUID()')
+    const batchIdx = code.indexOf('await db.batch(', engagementIdIdx)
     expect(engagementIdIdx).toBeGreaterThan(-1)
     expect(invoiceIdIdx).toBeGreaterThan(-1)
     expect(batchIdx).toBeGreaterThan(-1)
@@ -245,7 +249,8 @@ describe('signwell: sow lifecycle service', () => {
   })
 
   it('builds SignWell requests using text-tag field placement (no hardcoded coordinates)', () => {
-    const code = source()
+    // Send flow lives in service.ts (not service-finalize.ts)
+    const code = serviceSource()
     expect(code).toContain('recipients')
     expect(code).toContain('callback_url')
     // Text tags drive field placement — the PDF template carries {{s:1}} / {{d:1}}
@@ -260,7 +265,8 @@ describe('signwell: sow lifecycle service', () => {
   })
 
   it('records send authorization and signature request before updating quote send state', () => {
-    const code = source()
+    // Send flow lives in service.ts (not service-finalize.ts)
+    const code = serviceSource()
     expect(code).toContain('createSOWSendAuthorization')
     expect(code).toContain('createSignatureRequest')
     expect(code).toContain('sent_at')

@@ -85,8 +85,6 @@ export async function generateDossier(
     )
   }
 
-  const result = (await response.json()) as {
-    content?: Array<{ type: string; text?: string }>
-  }
+  const result: { content?: Array<{ type: string; text?: string }> } = await response.json()
   return result?.content?.find((b) => b.type === 'text')?.text?.trim() ?? null
 }

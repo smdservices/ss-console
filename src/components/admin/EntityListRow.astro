@@ -1,0 +1,291 @@
+---
+/**
+ * Single entity row for the admin entity list page.
+ *
+ * Accepts a pre-computed EntityRowView (all heavy computation done in the
+ * page frontmatter) so this component stays purely presentational. Extracted
+ * from entities/index.astro to keep the map() arrow under the 75-line ceiling.
+ */
+import type { EntityRowView } from '../../lib/admin/entity-row-view'
+import { statusBadgeClass } from '../../lib/ui/status-badge'
+import { pipelineBadgeClass } from '../../lib/ui/pipeline-badge'
+import { PIPELINE_LABELS } from '../../lead-gen/schemas/lead-scoring-schema'
+import type { PipelineId } from '../../lead-gen/schemas/lead-scoring-schema'
+
+interface Props {
+  row: EntityRowView
+  bulkEnabled: boolean
+}
+
+const { row: r, bulkEnabled } = Astro.props
+const e = r.entity
+
+function meetingSubstateBadgeClass(s: string): string {
+  if (s === 'past-due') return 'bg-surface border border-error text-error'
+  return 'bg-border-subtle text-text-secondary'
+}
+---
+
+<div
+  class="group relative px-6 py-4 flex items-start gap-3 hover:bg-[color:var(--ss-color-background)] transition-colors"
+  data-entity-row
+  data-entity-id={e.id}
+>
+  {
+    bulkEnabled && (
+      <div class="relative z-10 pt-0.5">
+        <input
+          type="checkbox"
+          class="bulk-select-row w-4 h-4 rounded border-[color:var(--ss-color-border)] cursor-pointer"
+          data-entity-id={e.id}
+          data-entity-name={e.name}
+          aria-label={`Select ${e.name}`}
+        />
+      </div>
+    )
+  }
+  <a
+    href={`/admin/entities/${e.id}`}
+    class="absolute inset-0 z-0 rounded-[var(--ss-radius-card)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-primary)]"
+    aria-label={`Open ${e.name}`}
+    tabindex="0"></a>
+  <div class="flex items-start justify-between gap-stack flex-1 min-w-0">
+    <div class="min-w-0 flex-1">
+      <div class="flex items-center gap-2 mb-1 flex-wrap">
+        <span
+          class="text-sm font-medium text-[color:var(--ss-color-text-primary)] group-hover:text-primary transition-colors"
+          >{e.name}</span
+        >
+        {
+          r.activeQuote && (
+            <>
+              <span class={statusBadgeClass(r.activeQuote.status)}>
+                {r.activeQuote.status}
+                {r.activeQuote.version > 1 ? ` v${r.activeQuote.version}` : ''}
+              </span>
+              {r.quoteAge && (
+                <span class="text-xs text-[color:var(--ss-color-text-muted)]">{r.quoteAge}</span>
+              )}
+            </>
+          )
+        }
+        {
+          e.source_pipeline && (
+            <span class={pipelineBadgeClass(e.source_pipeline)}>
+              {PIPELINE_LABELS[e.source_pipeline as PipelineId] ?? e.source_pipeline}
+            </span>
+          )
+        }
+        {
+          e.tier && (
+            <span class={`text-xs px-1.5 py-0.5 rounded bg-border-subtle text-text-secondary`}>
+              {e.tier}
+            </span>
+          )
+        }
+        {
+          r.rowSubstate && r.rowSubstate !== 'other' && (
+            <span
+              class={`text-xs px-1.5 py-0.5 rounded ${meetingSubstateBadgeClass(r.rowSubstate)}`}
+            >
+              {r.rowSubstateLabel}
+            </span>
+          )
+        }
+        {
+          r.rowEngagement && (
+            <span class={statusBadgeClass(r.rowEngagement.status)}>{r.rowEngagement.status}</span>
+          )
+        }
+        {
+          r.rowInvoiceRollup?.has_overdue && (
+            <span class="text-xs px-1.5 py-0.5 rounded bg-surface border border-error text-error">
+              Invoice overdue
+            </span>
+          )
+        }
+        {
+          r.rowLostReason && (
+            <span
+              class={`text-xs px-2 py-0.5 rounded ${r.rowLostReasonChipClass}`}
+              title={r.rowLostReason.detail ?? undefined}
+            >
+              {r.rowLostReasonLabel ?? r.rowLostReason.code}
+            </span>
+          )
+        }
+      </div>
+
+      {
+        r.isSignal && r.problems.length > 0 && (
+          <div class="flex flex-wrap items-center gap-1 mb-1.5">
+            {r.problems.map((p) => (
+              <span class="text-xs px-2 py-0.5 rounded-full bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-secondary)] border border-[color:var(--ss-color-border-subtle)]">
+                {p.label}
+              </span>
+            ))}
+          </div>
+        )
+      }
+      {
+        r.isSignal && r.outreachAngle && (
+          <p class="text-xs text-[color:var(--ss-color-text-secondary)] mb-1 line-clamp-2 italic">
+            {r.outreachAngle}
+          </p>
+        )
+      }
+      {
+        !r.isSignal && e.summary && (
+          <p class="text-xs text-[color:var(--ss-color-text-secondary)] mb-1 line-clamp-2">
+            {e.summary}
+          </p>
+        )
+      }
+      {
+        e.next_action && (
+          <p
+            class={`text-xs mb-1 ${r.isOverdue ? 'text-error font-medium' : 'text-text-secondary'}`}
+          >
+            <span class="font-medium">{r.isOverdue ? 'Overdue:' : 'Next:'}</span> {e.next_action}
+            {e.next_action_at && ` — ${r.nextActionDateLabel}`}
+          </p>
+        )
+      }
+
+      <div
+        class="flex items-center gap-row text-xs text-[color:var(--ss-color-text-muted)] mt-1 flex-wrap"
+      >
+        {
+          r.isSignal && r.lastActivity ? (
+            <span>Last activity {r.lastActivityLabel}</span>
+          ) : r.isSignal ? (
+            <span>{r.createdAtLabel}</span>
+          ) : (
+            <span>
+              {r.stageLabel} since {r.stageChangedAtLabel}
+            </span>
+          )
+        }
+        {r.rowNextMeeting?.scheduled_at && <span>Next meeting {r.nextMeetingLabel}</span>}
+        {
+          r.rowEngagement?.estimated_hours != null && (
+            <span>
+              {r.rowEngagement.actual_hours}/{r.rowEngagement.estimated_hours} hrs
+            </span>
+          )
+        }
+        {
+          r.rowInvoiceRollup && (
+            <span>
+              ${r.rowInvoiceRollup.outstanding_amount.toLocaleString()} outstanding
+              {r.rowInvoiceRollup.outstanding_count > 1 &&
+                ` (${r.rowInvoiceRollup.outstanding_count})`}
+            </span>
+          )
+        }
+        {r.stabilizationDays != null && <span>Day {r.stabilizationDays + 1} of stabilization</span>}
+        {e.area && <span>{e.area}</span>}
+        {e.vertical && <span class="capitalize">{e.vertical.replace(/_/g, ' ')}</span>}
+        {
+          r.isSignal && r.website && (
+            <a
+              href={r.website.href}
+              target="_blank"
+              rel="noreferrer noopener"
+              class="relative z-10 inline-flex items-center gap-1 text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-primary)] transition-colors"
+              title={r.website.label}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="w-3 h-3"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+                aria-hidden="true"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                />
+              </svg>
+              <span class="truncate max-w-[16ch]">{r.website.label}</span>
+            </a>
+          )
+        }
+        {
+          r.isSignal && e.phone && (
+            <a
+              href={`tel:${e.phone}`}
+              class="relative z-10 text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-primary)] transition-colors"
+            >
+              {e.phone}
+            </a>
+          )
+        }
+      </div>
+    </div>
+
+    {
+      (r.isSignal || r.showProspectActions || r.showMeetingsActions) && (
+        <div class="relative z-10 flex items-center gap-2 shrink-0">
+          {r.isSignal ? (
+            <>
+              <form method="POST" action={`/api/admin/entities/${e.id}/promote`}>
+                <button
+                  type="submit"
+                  class="text-xs bg-primary text-white px-3 py-1.5 rounded-[var(--ss-radius-card)] hover:bg-primary/90 transition-colors"
+                >
+                  Promote
+                </button>
+              </form>
+              <form method="POST" action={`/api/admin/entities/${e.id}/dismiss`}>
+                <button
+                  type="submit"
+                  class="text-xs bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-secondary)] px-3 py-1.5 rounded-[var(--ss-radius-card)] hover:bg-[color:var(--ss-color-border-subtle)] transition-colors"
+                >
+                  Dismiss
+                </button>
+              </form>
+            </>
+          ) : r.showMeetingsActions && r.draftableMeetingId ? (
+            <form
+              method="POST"
+              action={`/api/admin/entities/${e.id}/meetings/${r.draftableMeetingId}/draft-quote`}
+            >
+              <button
+                type="submit"
+                class="text-xs bg-primary text-white px-3 py-1.5 rounded-[var(--ss-radius-card)] hover:bg-primary/90 transition-colors"
+                title="Create a draft quote from the most recent completed meeting's notes"
+              >
+                Draft proposal
+              </button>
+            </form>
+          ) : (
+            <>
+              {r.outreachMailto && (
+                <a
+                  href={r.outreachMailto}
+                  class="text-xs border border-[color:var(--ss-color-border)] text-[color:var(--ss-color-text-primary)] px-3 py-1.5 rounded-[var(--ss-radius-card)] hover:bg-[color:var(--ss-color-background)] transition-colors"
+                  title={`Open mail to ${r.contactEmail} with the draft pre-filled`}
+                >
+                  Send outreach
+                </a>
+              )}
+              {r.hasOutreachDraft && (
+                <button
+                  type="button"
+                  data-open-reply-dialog={e.id}
+                  class="text-xs border border-[color:var(--ss-color-border)] text-[color:var(--ss-color-text-primary)] px-3 py-1.5 rounded-[var(--ss-radius-card)] hover:bg-[color:var(--ss-color-background)] transition-colors"
+                >
+                  Log reply
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )
+    }
+  </div>
+</div>

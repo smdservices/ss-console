@@ -15,7 +15,12 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
 
-const source = readFileSync(resolve('src/pages/admin/entities/index.astro'), 'utf-8')
+// Signal row rendering was extracted from index.astro to EntityListRow.astro to
+// keep index.astro within the 500-line ceiling. Combined source covers both.
+const source =
+  readFileSync(resolve('src/pages/admin/entities/index.astro'), 'utf-8') +
+  '\n' +
+  readFileSync(resolve('src/components/admin/EntityListRow.astro'), 'utf-8')
 
 describe('admin entities index — Signal row redesign (#462)', () => {
   it('hydrates signal rows with pipeline metadata via the DAL helper', () => {

@@ -156,6 +156,37 @@ export function validateJobMonitor(raw: unknown): ValidationResult<JobMonitorCon
   }
 }
 
+function validateGeoCenter(raw: unknown, errors: string[]): { lat: number; lon: number } {
+  if (!isObject(raw)) {
+    if (raw !== undefined) errors.push('geo_center must be an object with lat/lon')
+    return { ...DEFAULTS.review_mining.geo_center }
+  }
+  const lat = typeof raw.lat === 'number' ? raw.lat : null
+  const lon = typeof raw.lon === 'number' ? raw.lon : null
+  if (lat === null || lon === null) {
+    errors.push('geo_center must have numeric lat and lon')
+    return { ...DEFAULTS.review_mining.geo_center }
+  }
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+    errors.push('geo_center out of range')
+    return { ...DEFAULTS.review_mining.geo_center }
+  }
+  return { lat, lon }
+}
+
+function validateGeoRadius(raw: unknown, errors: string[]): number {
+  if (raw === undefined) return DEFAULTS.review_mining.geo_radius_km
+  if (typeof raw !== 'number') {
+    errors.push('geo_radius_km must be a number')
+    return DEFAULTS.review_mining.geo_radius_km
+  }
+  if (raw <= 0 || raw > 500) {
+    errors.push('geo_radius_km must be > 0 and <= 500')
+    return DEFAULTS.review_mining.geo_radius_km
+  }
+  return raw
+}
+
 export function validateReviewMining(raw: unknown): ValidationResult<ReviewMiningConfig> {
   const errors: string[] = []
   const obj = isObject(raw) ? raw : {}
@@ -165,35 +196,7 @@ export function validateReviewMining(raw: unknown): ValidationResult<ReviewMinin
     DEFAULTS.review_mining.discovery_queries,
     errors
   )
-  if (queries.length === 0) {
-    errors.push('discovery_queries cannot be empty')
-  }
-
-  let geoCenter = DEFAULTS.review_mining.geo_center
-  if (isObject(obj.geo_center)) {
-    const lat = typeof obj.geo_center.lat === 'number' ? obj.geo_center.lat : null
-    const lon = typeof obj.geo_center.lon === 'number' ? obj.geo_center.lon : null
-    if (lat === null || lon === null) {
-      errors.push('geo_center must have numeric lat and lon')
-    } else if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-      errors.push('geo_center out of range')
-    } else {
-      geoCenter = { lat, lon }
-    }
-  } else if (obj.geo_center !== undefined) {
-    errors.push('geo_center must be an object with lat/lon')
-  }
-
-  let radius = DEFAULTS.review_mining.geo_radius_km
-  if (typeof obj.geo_radius_km === 'number') {
-    if (obj.geo_radius_km <= 0 || obj.geo_radius_km > 500) {
-      errors.push('geo_radius_km must be > 0 and <= 500')
-    } else {
-      radius = obj.geo_radius_km
-    }
-  } else if (obj.geo_radius_km !== undefined) {
-    errors.push('geo_radius_km must be a number')
-  }
+  if (queries.length === 0) errors.push('discovery_queries cannot be empty')
 
   return {
     value: {
@@ -202,8 +205,8 @@ export function validateReviewMining(raw: unknown): ValidationResult<ReviewMinin
       geos: validateStringArray(obj.geos, 'geos', DEFAULTS.review_mining.geos, errors),
       discovery_queries:
         queries.length > 0 ? queries : [...DEFAULTS.review_mining.discovery_queries],
-      geo_center: geoCenter,
-      geo_radius_km: radius,
+      geo_center: validateGeoCenter(obj.geo_center, errors),
+      geo_radius_km: validateGeoRadius(obj.geo_radius_km, errors),
     },
     errors,
   }

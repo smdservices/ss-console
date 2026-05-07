@@ -27,7 +27,6 @@
 import type { Entity } from '../db/entities'
 import { getEntity, updateEntity } from '../db/entities'
 import { appendContext, assembleEntityContext } from '../db/context'
-import { generateOutreachDraft } from '../claude/outreach'
 import { lookupGooglePlaces } from './google-places'
 import { analyzeWebsite } from './website-analyzer'
 import { lookupOutscraper } from './outscraper'
@@ -35,99 +34,33 @@ import { lookupAcc } from './acc'
 import { lookupRoc } from './roc'
 import { analyzeReviewPatterns } from './review-analysis'
 import { benchmarkCompetitors } from './competitors'
-import { searchNews } from './news'
-import { deepWebsiteAnalysis, type DeepWebsiteAnalysis } from './deep-website'
+import { searchNews, formatNewsEvidence } from './news'
+import { deepWebsiteAnalysis, formatDeepWebsite } from './deep-website'
 import { synthesizeReviews } from './review-synthesis'
-import { lookupLinkedIn } from './linkedin'
-import { generateDossier } from './dossier'
-import {
-  instrumentModule,
-  fingerprint,
-  type ModuleOutcome,
-  type InstrumentResult,
-} from './instrument'
+import { instrumentModule, fingerprint, type ModuleOutcome } from './instrument'
 import type { ModuleId } from './modules'
+import type { OutscraperEnrichment } from './outscraper'
+import {
+  type EnrichMode,
+  type EnrichResult,
+  type EnrichEnv,
+  createEnrichResult,
+  applyOutcome,
+  AUTHORITATIVE_CONTEXT_META,
+  NON_AUTHORITATIVE_CONTEXT_META,
+} from './types'
+import { tryLinkedIn, tryIntelligenceBrief, tryOutreach } from './enrichment-advanced'
 
-export type EnrichMode = 'full' | 'reviews-and-news'
+export type { EnrichMode, EnrichResult, EnrichEnv }
+export { createEnrichResult }
 
-export interface EnrichResult {
-  entityId: string
-  mode: EnrichMode
-  /** Provenance — same value passed in EnrichOptions.triggered_by. */
-  triggered_by: string
-  /** Module source names that completed successfully in this run. */
-  completed: string[]
-  /** Module source names that were skipped (missing API key, wrong vertical, already enriched). */
-  skipped: string[]
-  /** Module source names that threw — logged but non-blocking. */
-  errors: string[]
-  /** True if the run did nothing because a prior full enrichment exists. */
-  alreadyEnriched: boolean
-}
-
-/**
- * Build a fresh per-call `EnrichResult` accumulator. The Workflow's step
- * bodies use a per-step accumulator so each step's `applyOutcome` calls
- * stay local — the persistent record is `enrichment_runs`.
- */
-export function createEnrichResult(
-  entityId: string,
-  mode: EnrichMode,
-  triggered_by: string
-): EnrichResult {
-  return {
-    entityId,
-    mode,
-    triggered_by,
-    completed: [],
-    skipped: [],
-    errors: [],
-    alreadyEnriched: false,
-  }
-}
-
-/**
- * Map a wrapper outcome into the legacy in-memory EnrichResult arrays so
- * callers that read result.completed continue to work. The persisted
- * enrichment_runs row is the durable record; this is best-effort accounting
- * for the in-memory return value.
- */
-function applyOutcome(result: EnrichResult, module: ModuleId, outcome: InstrumentResult): void {
-  switch (outcome.status) {
-    case 'succeeded':
-      result.completed.push(module)
-      return
-    case 'no_data':
-    case 'skipped':
-      result.skipped.push(module)
-      return
-    case 'failed':
-      result.errors.push(module)
-      return
-    case 'running':
-      // Unreachable under instrumentModule (always settles to terminal).
-      return
-  }
-}
-
-export type EnrichEnv = {
-  DB: D1Database
-  ANTHROPIC_API_KEY?: string
-  GOOGLE_PLACES_API_KEY?: string
-  OUTSCRAPER_API_KEY?: string
-  PROXYCURL_API_KEY?: string
-  SERPAPI_API_KEY?: string
-}
-
-const AUTHORITATIVE_CONTEXT_META = {
-  context_authority: 'authoritative' as const,
-  evidence_mode: 'extractive',
-}
-
-const NON_AUTHORITATIVE_CONTEXT_META = {
-  context_authority: 'non_authoritative' as const,
-  evidence_mode: 'model_summary',
-}
+/** Type alias for a try-module function signature. */
+export type TryModuleFn = (
+  env: EnrichEnv,
+  orgId: string,
+  entity: Entity,
+  result: EnrichResult
+) => Promise<void>
 
 // ---------------------------------------------------------------------------
 // Individual module wrappers — each is best-effort, instruments its own
@@ -249,6 +182,34 @@ export async function tryWebsite(
   applyOutcome(result, 'website_analysis', outcome)
 }
 
+function oscOptional(label: string, value: string | null | undefined): string | null {
+  return value ? `${label}: ${value}` : null
+}
+
+function buildOutscraperContent(osc: OutscraperEnrichment): string {
+  const rating =
+    osc.rating != null ? `Rating: ${osc.rating} (${osc.review_count ?? 0} reviews)` : null
+  return [
+    'Outscraper business profile:',
+    oscOptional('Owner', osc.owner_name),
+    osc.emails.length > 0 ? `Email: ${osc.emails.join(', ')}` : null,
+    oscOptional('Phone', osc.phone),
+    oscOptional('Hours', osc.working_hours),
+    osc.verified ? 'Google listing: Verified' : 'Google listing: Unverified',
+    rating,
+    osc.booking_link ? 'Online booking: Yes' : 'Online booking: Not detected',
+    oscOptional('Facebook', osc.facebook),
+    oscOptional('Instagram', osc.instagram),
+    oscOptional('LinkedIn', osc.linkedin),
+    oscOptional('Platform', osc.website_generator),
+    osc.has_facebook_pixel ? 'Has Facebook Pixel' : null,
+    osc.has_google_tag_manager ? 'Has Google Tag Manager' : null,
+    oscOptional('About', osc.about),
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
 export async function tryOutscraper(
   env: EnrichEnv,
   orgId: string,
@@ -272,28 +233,10 @@ export async function tryOutscraper(
         phone: osc.phone ?? entity.phone ?? undefined,
         website: osc.website ?? entity.website ?? undefined,
       })
-      const contentParts = [
-        'Outscraper business profile:',
-        osc.owner_name ? `Owner: ${osc.owner_name}` : null,
-        osc.emails.length > 0 ? `Email: ${osc.emails.join(', ')}` : null,
-        osc.phone ? `Phone: ${osc.phone}` : null,
-        osc.working_hours ? `Hours: ${osc.working_hours}` : null,
-        osc.verified ? 'Google listing: Verified' : 'Google listing: Unverified',
-        osc.rating != null ? `Rating: ${osc.rating} (${osc.review_count ?? 0} reviews)` : null,
-        osc.booking_link ? `Online booking: Yes` : 'Online booking: Not detected',
-        osc.facebook ? `Facebook: ${osc.facebook}` : null,
-        osc.instagram ? `Instagram: ${osc.instagram}` : null,
-        osc.linkedin ? `LinkedIn: ${osc.linkedin}` : null,
-        osc.website_generator ? `Platform: ${osc.website_generator}` : null,
-        osc.has_facebook_pixel ? 'Has Facebook Pixel' : null,
-        osc.has_google_tag_manager ? 'Has Google Tag Manager' : null,
-        osc.about ? `About: ${osc.about}` : null,
-      ].filter(Boolean)
-
       const ce = await appendContext(env.DB, orgId, {
         entity_id: entity.id,
         type: 'enrichment',
-        content: contentParts.join('\n'),
+        content: buildOutscraperContent(osc),
         source: 'outscraper',
         metadata: osc as unknown as Record<string, unknown>,
       })
@@ -430,11 +373,13 @@ export async function tryCompetitors(
       if (!env.GOOGLE_PLACES_API_KEY)
         return { kind: 'skipped', reason: 'missing_api_key:google_places' }
       const benchmark = await benchmarkCompetitors(
-        entity.name,
-        entity.vertical,
-        entity.area,
-        entity.pain_score,
-        null,
+        {
+          entityName: entity.name,
+          vertical: entity.vertical,
+          area: entity.area,
+          entityRating: entity.pain_score,
+          entityReviewCount: null,
+        },
         env.GOOGLE_PLACES_API_KEY
       )
       if (!benchmark) return { kind: 'no_data', reason: 'no_benchmark' }
@@ -581,170 +526,21 @@ export async function tryReviewSynthesis(
   applyOutcome(result, 'review_synthesis', outcome)
 }
 
-export async function tryLinkedIn(
-  env: EnrichEnv,
-  orgId: string,
-  entity: Entity,
-  result: EnrichResult
-): Promise<void> {
-  const outcome = await instrumentModule(
-    {
-      db: env.DB,
-      org_id: orgId,
-      entity_id: entity.id,
-      module: 'linkedin',
-      mode: result.mode,
-      triggered_by: result.triggered_by,
-    },
-    async (): Promise<ModuleOutcome> => {
-      if (!env.PROXYCURL_API_KEY) return { kind: 'skipped', reason: 'missing_api_key:proxycurl' }
-      const linkedin = await lookupLinkedIn(entity.name, entity.area, env.PROXYCURL_API_KEY)
-      if (!linkedin) return { kind: 'no_data', reason: 'no_match' }
-      const ce = await appendContext(env.DB, orgId, {
-        entity_id: entity.id,
-        type: 'enrichment',
-        content: `LinkedIn: ${linkedin.company_name}. ${linkedin.employee_count ? `~${linkedin.employee_count} employees.` : ''} ${linkedin.industry ? `Industry: ${linkedin.industry}.` : ''} ${linkedin.description ? linkedin.description.slice(0, 200) : ''}`,
-        source: 'linkedin',
-        metadata: linkedin as unknown as Record<string, unknown>,
-      })
-      return { kind: 'succeeded', context_entry_id: ce.id }
-    }
-  )
-  applyOutcome(result, 'linkedin', outcome)
-}
-
-export async function tryIntelligenceBrief(
-  env: EnrichEnv,
-  orgId: string,
-  entity: Entity,
-  result: EnrichResult
-): Promise<void> {
-  let inputFingerprint: string | null = null
-  try {
-    const ctx = await assembleEntityContext(env.DB, entity.id, { maxBytes: 32_000 })
-    if (ctx) inputFingerprint = await fingerprint(ctx)
-  } catch {
-    // Informational only.
-  }
-
-  const outcome = await instrumentModule(
-    {
-      db: env.DB,
-      org_id: orgId,
-      entity_id: entity.id,
-      module: 'intelligence_brief',
-      mode: result.mode,
-      triggered_by: result.triggered_by,
-      input_fingerprint: inputFingerprint,
-    },
-    async (): Promise<ModuleOutcome> => {
-      if (!env.ANTHROPIC_API_KEY) return { kind: 'skipped', reason: 'missing_api_key:anthropic' }
-      const fullContext = await assembleEntityContext(env.DB, entity.id, { maxBytes: 32_000 })
-      if (!fullContext) return { kind: 'skipped', reason: 'no_context' }
-      const brief = await generateDossier(fullContext, entity.name, env.ANTHROPIC_API_KEY)
-      if (!brief) return { kind: 'no_data', reason: 'no_brief' }
-      const ce = await appendContext(env.DB, orgId, {
-        entity_id: entity.id,
-        type: 'enrichment',
-        content: brief,
-        source: 'intelligence_brief',
-        metadata: {
-          model: 'claude-sonnet-4-20250514',
-          trigger: 'at_ingest',
-          ...NON_AUTHORITATIVE_CONTEXT_META,
-        },
-      })
-      return { kind: 'succeeded', context_entry_id: ce.id }
-    }
-  )
-  applyOutcome(result, 'intelligence_brief', outcome)
-}
-
-/**
- * Outreach draft generation. Wrapped in `instrumentModule` (issue #631)
- * so failures land a `failed` row in `enrichment_runs` instead of vanishing
- * into a console.error — the legacy implementation surfaced the failure
- * only via `result.errors` (in-memory) and a console line, so a permanent
- * outreach failure was effectively invisible.
- *
- * Uses the synthetic `outreach_draft` ModuleId added to `modules.ts`.
- */
-export async function tryOutreach(
-  env: EnrichEnv,
-  orgId: string,
-  entity: Entity,
-  result: EnrichResult
-): Promise<void> {
-  const outcome = await instrumentModule(
-    {
-      db: env.DB,
-      org_id: orgId,
-      entity_id: entity.id,
-      module: 'outreach_draft',
-      mode: result.mode,
-      triggered_by: result.triggered_by,
-    },
-    async (): Promise<ModuleOutcome> => {
-      if (!env.ANTHROPIC_API_KEY) return { kind: 'skipped', reason: 'missing_api_key:anthropic' }
-      const context = await assembleEntityContext(env.DB, entity.id, { maxBytes: 24_000 })
-      if (!context) return { kind: 'skipped', reason: 'no_context' }
-      const draft = await generateOutreachDraft(
-        env.ANTHROPIC_API_KEY,
-        entity.name,
-        context,
-        entity.vertical
-      )
-      const ce = await appendContext(env.DB, orgId, {
-        entity_id: entity.id,
-        type: 'outreach_draft',
-        content: draft,
-        source: 'claude',
-        metadata: {
-          model: 'claude-sonnet-4-20250514',
-          trigger: result.mode === 'full' ? 'at_ingest' : 're_enrich',
-          // Issue #594 — record which vertical guidance the prompt used so
-          // re-runs and audits can see the variant. Null/unrecognized
-          // verticals record as null and the generic backbone was used.
-          vertical: entity.vertical ?? null,
-        },
-      })
-      return { kind: 'succeeded', context_entry_id: ce.id }
-    }
-  )
-  applyOutcome(result, 'outreach_draft', outcome)
-}
+export { tryLinkedIn, tryIntelligenceBrief, tryOutreach } from './enrichment-advanced'
 
 // ---------------------------------------------------------------------------
 // Single-module runner — used by the admin "Retry" button per module.
-// Synchronous, single-module, single-shot — not subject to the cron-loop
-// CPU budget that motivated the workflow refactor (#631).
 // ---------------------------------------------------------------------------
 
-const SINGLE_RUNNERS: Record<
-  ModuleId,
-  (env: EnrichEnv, orgId: string, entity: Entity, result: EnrichResult) => Promise<unknown>
-> = {
-  google_places: tryPlaces,
-  website_analysis: tryWebsite,
-  outscraper: tryOutscraper,
-  acc_filing: tryAcc,
-  roc_license: tryRoc,
-  review_analysis: tryReviewAnalysis,
-  competitors: tryCompetitors,
-  news_search: tryNews,
-  deep_website: tryDeepWebsite,
-  review_synthesis: tryReviewSynthesis,
-  linkedin: tryLinkedIn,
-  intelligence_brief: tryIntelligenceBrief,
-  outreach_draft: tryOutreach,
+// prettier-ignore
+const SINGLE_RUNNERS: Record<ModuleId, TryModuleFn> = {
+  google_places: tryPlaces, website_analysis: tryWebsite, outscraper: tryOutscraper,
+  acc_filing: tryAcc, roc_license: tryRoc, review_analysis: tryReviewAnalysis,
+  competitors: tryCompetitors, news_search: tryNews, deep_website: tryDeepWebsite,
+  review_synthesis: tryReviewSynthesis, linkedin: tryLinkedIn,
+  intelligence_brief: tryIntelligenceBrief, outreach_draft: tryOutreach,
 }
 
-/**
- * Execute a single named module against an entity. Used by the admin
- * per-module Retry button. Records a row in enrichment_runs with the
- * provided triggered_by. Bypasses idempotency checks (the caller
- * explicitly asked to re-run this one module).
- */
 export async function runSingleModule(
   env: EnrichEnv,
   orgId: string,
@@ -753,59 +549,16 @@ export async function runSingleModule(
   options: { triggered_by: string } = { triggered_by: 'admin:retry' }
 ): Promise<EnrichResult> {
   const result = createEnrichResult(entityId, 'reviews-and-news', options.triggered_by)
-
   const entity = await getEntity(env.DB, orgId, entityId)
   if (!entity) {
     result.errors.push('entity_not_found')
     return result
   }
-
   const runner = SINGLE_RUNNERS[module]
   if (!runner) {
     result.errors.push('unknown_module')
     return result
   }
-
   await runner(env, orgId, entity, result)
   return result
-}
-
-// ---------------------------------------------------------------------------
-// Shared formatters — copied from dossier.ts during the merge.
-// ---------------------------------------------------------------------------
-
-function formatDeepWebsite(analysis: DeepWebsiteAnalysis): string {
-  const parts: string[] = ['Deep website analysis:']
-  if (analysis.owner_profile.name)
-    parts.push(`Owner: ${analysis.owner_profile.name} (${analysis.owner_profile.title ?? 'owner'})`)
-  if (analysis.owner_profile.background)
-    parts.push(`Background: ${analysis.owner_profile.background}`)
-  if (analysis.team.named_employees.length > 0)
-    parts.push(
-      `Named staff: ${analysis.team.named_employees.map((e) => `${e.name} (${e.role})`).join(', ')}`
-    )
-  if (analysis.business_profile.services.length > 0)
-    parts.push(`Services: ${analysis.business_profile.services.join(', ')}`)
-  if (analysis.business_profile.service_areas.length > 0)
-    parts.push(`Service areas: ${analysis.business_profile.service_areas.join(', ')}`)
-  if (analysis.business_profile.certifications.length > 0)
-    parts.push(`Certifications: ${analysis.business_profile.certifications.join(', ')}`)
-  if (analysis.business_profile.awards.length > 0)
-    parts.push(`Awards: ${analysis.business_profile.awards.join(', ')}`)
-  if (analysis.business_profile.partnerships.length > 0)
-    parts.push(`Partnerships: ${analysis.business_profile.partnerships.join(', ')}`)
-  if (analysis.contact_info.email) parts.push(`Email: ${analysis.contact_info.email}`)
-  if (analysis.contact_info.phone) parts.push(`Phone: ${analysis.contact_info.phone}`)
-  if (analysis.contact_info.address) parts.push(`Address: ${analysis.contact_info.address}`)
-  return parts.join('\n')
-}
-
-function formatNewsEvidence(news: {
-  mentions: Array<{ title: string; source: string; snippet: string }>
-}): string {
-  const parts = ['News / press mentions:']
-  for (const mention of news.mentions.slice(0, 3)) {
-    parts.push(`- ${mention.title} (${mention.source}): ${mention.snippet}`)
-  }
-  return parts.join('\n')
 }

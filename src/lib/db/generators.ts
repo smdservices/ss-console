@@ -44,8 +44,8 @@ interface RawRow {
 }
 
 function hydrate(row: RawRow): GeneratorConfigRow {
-  let parsed: unknown = null
-  let parseError: string[] = []
+  let parsed: unknown
+  const parseError: string[] = []
   try {
     parsed = JSON.parse(row.config_json)
   } catch (e) {
@@ -54,7 +54,7 @@ function hydrate(row: RawRow): GeneratorConfigRow {
   }
   const result = validateByPipeline(row.pipeline, parsed)
   if (result.errors.length > 0) {
-    parseError = [...parseError, ...result.errors]
+    parseError.push(...result.errors)
   }
   return {
     id: row.id,

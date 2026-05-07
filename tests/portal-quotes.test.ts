@@ -241,7 +241,12 @@ describe('portal quotes: quote list page', () => {
 })
 
 describe('portal quotes: quote detail page', () => {
-  const source = () => readFileSync(resolve('src/pages/portal/quotes/[id].astro'), 'utf-8')
+  // Deliverables/schedule rendering was extracted to QuoteProposalSections.astro
+  // to keep [id].astro within the 500-line ceiling. Combined source covers both.
+  const source = () =>
+    readFileSync(resolve('src/pages/portal/quotes/[id].astro'), 'utf-8') +
+    '\n' +
+    readFileSync(resolve('src/components/portal/QuoteProposalSections.astro'), 'utf-8')
 
   it('quote detail page exists', () => {
     expect(existsSync(resolve('src/pages/portal/quotes/[id].astro'))).toBe(true)
