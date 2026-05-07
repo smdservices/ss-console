@@ -1,0 +1,105 @@
+---
+/**
+ * Automations card on the admin dashboard.
+ *
+ * Google Calendar status row, booking-sync warnings, and per-pipeline
+ * freshness rows. Extracted from pages/admin/index.astro.
+ */
+
+interface PipelineRow {
+  id: string
+  label: string
+  ago: string
+  color: string
+}
+
+interface Props {
+  calStatus: string | null
+  calEmail: string | null
+  calError: string | null
+  syncErrors: number
+  syncStuck: number
+  pipelineRows: PipelineRow[]
+}
+
+const { calStatus, calEmail, calError, syncErrors, syncStuck, pipelineRows } = Astro.props
+---
+
+<section
+  class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card"
+>
+  <h2 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-4">
+    Automations
+  </h2>
+  <div class="divide-y divide-[color:var(--ss-color-border-subtle)]">
+    <div class="flex items-center justify-between py-2">
+      <div class="flex items-center gap-2">
+        <div
+          class:list={[
+            'w-2 h-2 rounded-full',
+            calStatus === 'active'
+              ? 'bg-[color:var(--ss-color-text-primary)]'
+              : calStatus === 'error' || calStatus === 'revoked'
+                ? 'bg-[color:var(--ss-color-error)]'
+                : 'bg-[color:var(--ss-color-border)]',
+          ]}
+        >
+        </div>
+        <span class="text-sm text-[color:var(--ss-color-text-secondary)]">Google Calendar</span>
+      </div>
+      <span
+        class:list={[
+          'text-xs',
+          calStatus === 'error' || calStatus === 'revoked'
+            ? 'text-[color:var(--ss-color-error)]'
+            : 'text-[color:var(--ss-color-text-muted)]',
+        ]}
+      >
+        {
+          calStatus === 'active'
+            ? calEmail
+            : calStatus === 'error'
+              ? (calError?.slice(0, 40) ?? 'Error')
+              : calStatus === 'revoked'
+                ? 'Reconnect required'
+                : 'Not connected'
+        }
+      </span>
+    </div>
+
+    {
+      (syncErrors > 0 || syncStuck > 0) && (
+        <div class="py-2 pl-4">
+          {syncErrors > 0 && (
+            <p class="text-xs text-[color:var(--ss-color-error)]">
+              {syncErrors} booking{syncErrors === 1 ? '' : 's'} failed to sync
+            </p>
+          )}
+          {syncStuck > 0 && (
+            <p class="text-xs text-[color:var(--ss-color-attention)]">
+              {syncStuck} booking{syncStuck === 1 ? '' : 's'} stuck pending
+            </p>
+          )}
+        </div>
+      )
+    }
+
+    {
+      pipelineRows.length > 0 ? (
+        pipelineRows.map((p) => (
+          <div class="flex items-center justify-between py-2">
+            <div class="flex items-center gap-2">
+              <div class:list={['w-2 h-2 rounded-full', p.color]} />
+              <span class="text-sm text-[color:var(--ss-color-text-secondary)]">{p.label}</span>
+            </div>
+            <span class="text-xs text-[color:var(--ss-color-text-muted)]">{p.ago}</span>
+          </div>
+        ))
+      ) : (
+        <div class="py-2 text-xs text-[color:var(--ss-color-text-muted)]">
+          No pipeline data yet
+        </div>
+      )
+    }
+  </div>
+</section>
