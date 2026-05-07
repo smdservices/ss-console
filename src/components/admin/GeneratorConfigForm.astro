@@ -58,8 +58,8 @@ const sl = configRow.config as SocialListeningConfig
       name="target_verticals"
       rows="6"
       class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm font-mono"
-      set:html={(configRow.config as NewBusinessConfig).target_verticals.join('\n')}
-    />
+      >{(configRow.config as NewBusinessConfig).target_verticals.join('\n')}</textarea
+    >
     <p class="text-xs text-[color:var(--ss-color-text-secondary)] mt-1">
       Free-text. Suggestions: {VERTICALS.map((v) => v.replace(/_/g, ' ')).join(', ')}.
     </p>
@@ -116,8 +116,8 @@ const sl = configRow.config as SocialListeningConfig
       name="geos"
       rows="2"
       class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm font-mono"
-      set:html={(configRow.config as NewBusinessConfig).geos.join('\n')}
-    />
+      >{(configRow.config as NewBusinessConfig).geos.join('\n')}</textarea
+    >
   </div>
 
   {
@@ -161,8 +161,9 @@ const sl = configRow.config as SocialListeningConfig
           name="search_queries"
           rows="8"
           class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm font-mono"
-          set:html={jm.search_queries.join('\n')}
-        />
+        >
+          {jm.search_queries.join('\n')}
+        </textarea>
       </div>
     )
   }
@@ -183,8 +184,9 @@ const sl = configRow.config as SocialListeningConfig
             name="discovery_queries"
             rows="10"
             class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm font-mono"
-            set:html={rm.discovery_queries.join('\n')}
-          />
+          >
+            {rm.discovery_queries.join('\n')}
+          </textarea>
         </div>
         <div>
           <label class="text-sm font-medium text-[color:var(--ss-color-text-primary)] block mb-1">
@@ -272,8 +274,9 @@ const sl = configRow.config as SocialListeningConfig
           name="search_queries"
           rows="5"
           class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm font-mono"
-          set:html={sl.search_queries.join('\n')}
-        />
+        >
+          {sl.search_queries.join('\n')}
+        </textarea>
       </div>
     )
   }
