@@ -14,6 +14,7 @@ import { SCORE_DESCRIPTIONS } from '../../../lib/scorecard/descriptions'
 import { renderScorecardReport } from '../../../lib/pdf/render'
 import { sendEmail } from '../../../lib/email/resend'
 import { scorecardReportEmailHtml } from '../../../lib/email/templates'
+import { rateLimitByIp } from '../../../lib/booking/rate-limit'
 
 import { env } from 'cloudflare:workers'
 
@@ -151,6 +152,13 @@ function buildScorecardMeta(
 }
 
 async function handlePost({ request }: APIContext): Promise<Response> {
+  // Rate limit: 3 requests/hour per IP — checked first, before any DB write or email send
+  const clientIp = request.headers.get('cf-connecting-ip') ?? undefined
+  const rateLimitResult = await rateLimitByIp(env.BOOKING_CACHE, 'scorecard', clientIp, 3)
+  if (!rateLimitResult.allowed) {
+    return jsonResponse(429, { error: 'Too many submissions' })
+  }
+
   let body: Record<string, unknown>
   try {
     body = await request.json()
