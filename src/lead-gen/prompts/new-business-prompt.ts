@@ -16,6 +16,8 @@
  */
 
 import type { NewBusinessInput, NewBusinessQualification } from '../schemas/new-business-signal.js'
+import { NEW_BUSINESS_SOURCES } from '../schemas/new-business-signal.js'
+import { VERTICALS } from '../../portal/assessments/extraction-schema.js'
 
 export type { NewBusinessQualification, NewBusinessInput }
 
@@ -70,7 +72,7 @@ Business names often contain industry clues. Use these patterns:
 - **Retail/salon/spa:** salon, spa, barber, beauty, nail, boutique, shop, store, fitness, gym, studio
 - **Restaurant/food:** restaurant, cafe, bistro, grill, kitchen, catering, bakery, pizzeria, taco, sushi, bar
 
-When the name is ambiguous (e.g., "Copper State Holdings LLC"), use entity type, address, permit type, and additional_data to infer vertical. If still unclear, use "unknown."
+When the name is ambiguous (e.g., "Copper State Holdings LLC"), use entity type, address, permit type, and additional_data to infer vertical. If still unclear, use "other."
 
 ## Disqualification Criteria
 
@@ -88,7 +90,7 @@ When disqualifying, explain the reason in the notes field.
 ## Output Rules
 
 - Output ONLY valid JSON matching the NewBusinessQualification schema. No markdown, no code fences, no commentary.
-- Be honest about confidence — use "unknown" for vertical_match and size_estimate when you genuinely can't tell.
+- Be honest about confidence. For vertical_match, use "other" when you genuinely can't classify the business. For size_estimate, use "unknown" when no employee or revenue data is available (size_estimate is a free-form string field, not a closed enum).
 - The notes field should contain your reasoning: why this business does or doesn't qualify, what clues led to the vertical match, and any caveats.
 
 ## Examples
@@ -155,24 +157,14 @@ export function buildManualPrompt(input: NewBusinessInput): string {
 ${buildUserPrompt(input)}`
 }
 
-const VALID_SOURCES = [
-  'acc_filing',
-  'ador_tpt',
-  'phoenix_permit',
-  'scottsdale_permit',
-  'chandler_permit',
-  'sba_loan',
-] as const
-
-const VALID_VERTICALS = [
-  'home_services',
-  'professional_services',
-  'contractor_trades',
-  'retail_salon_spa',
-  'restaurant_food',
-  'other',
-  'unknown',
-] as const
+// Validator enums are sourced from the canonical schemas to prevent drift.
+// VALID_SOURCES = every source string emitted by workers/new-business/src/soda.ts
+// (see NEW_BUSINESS_SOURCES in src/lead-gen/schemas/new-business-signal.ts).
+// VALID_VERTICALS = the canonical 9-item ICP list (see VERTICALS in
+// src/portal/assessments/extraction-schema.ts), which the prompt instructs
+// the model to use when classifying the operating business.
+const VALID_SOURCES = NEW_BUSINESS_SOURCES
+const VALID_VERTICALS = VERTICALS
 
 const VALID_TIMINGS = ['immediate', 'wait_30_days', 'wait_60_days', 'not_recommended'] as const
 
