@@ -339,11 +339,12 @@ infisical export --env=prod --path=/ss --format=dotenv \
 
 Fetch the relevant module when working in that domain.
 
-| Module              | Key Rule                                      | Fetch for details                          |
-| ------------------- | --------------------------------------------- | ------------------------------------------ |
-| `secrets.md`        | Verify secret VALUES, not just key existence  | Infisical, vault, API keys                 |
-| `content-policy.md` | Never auto-save to VCMS; agents ARE the voice | VCMS tags, storage rules, editorial, style |
-| `team-workflow.md`  | All changes through PRs; never push to main   | Full workflow, escalation triggers         |
+| Module                | Key Rule                                                                                                                                | Fetch for details                                                         |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `coding-standards.md` | Parse external inputs (never cast); no floating Promises; no module-level state in Workers; 500/75/15 file/function/complexity ceilings | Portable TypeScript directives, agent-context arithmetic, per-stack notes |
+| `secrets.md`          | Verify secret VALUES, not just key existence                                                                                            | Infisical, vault, API keys                                                |
+| `content-policy.md`   | Never auto-save to VCMS; agents ARE the voice                                                                                           | VCMS tags, storage rules, editorial, style                                |
+| `team-workflow.md`    | All changes through PRs; never push to main                                                                                             | Full workflow, escalation triggers                                        |
 
 Fetch with: `crane_doc('global', '<module>')`
 
