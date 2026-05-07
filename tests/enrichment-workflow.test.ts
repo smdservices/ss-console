@@ -92,7 +92,7 @@ import type { WorkflowEvent } from 'cloudflare:workers'
 const migrationsDir = resolve(process.cwd(), 'migrations')
 
 async function freshDb(): Promise<D1Database> {
-  const db = createTestD1() as unknown as D1Database
+  const db = createTestD1()
   await runMigrations(db, { files: discoverNumericMigrations(migrationsDir) })
   return db
 }
@@ -128,7 +128,7 @@ async function runWorkflow(
   bindings: EnrichmentWorkflowBindings,
   params: EnrichmentWorkflowParams
 ): Promise<{ stats: StepStats }> {
-  const wf = new EnrichmentWorkflow({} as never, bindings as never)
+  const wf = new EnrichmentWorkflow({} as never, bindings)
   const { step, stats } = makeStep()
   const event: WorkflowEvent<EnrichmentWorkflowParams> = {
     payload: params,
@@ -219,7 +219,7 @@ describe('EnrichmentWorkflow — idempotency', () => {
       engagement_level: 'high',
       owner_accessible: true,
       evidence_summary: 'The owner responds to public reviews with regular follow-up.',
-    } as unknown as Awaited<ReturnType<typeof analyzeReviewPatterns>>)
+    })
     vi.mocked(synthesizeReviews).mockResolvedValue({
       customer_sentiment: 'positive',
       sentiment_trend: 'stable',
@@ -229,7 +229,7 @@ describe('EnrichmentWorkflow — idempotency', () => {
     vi.mocked(searchNews).mockResolvedValue({
       summary: 'recent local press',
       mentions: [],
-    } as unknown as Awaited<ReturnType<typeof searchNews>>)
+    })
     vi.mocked(generateOutreachDraft).mockResolvedValue('Hi there')
 
     const { stats } = await runWorkflow(bindings(db), {
@@ -286,7 +286,7 @@ describe('EnrichmentWorkflow — entity reload per step', () => {
       reviewCount: 12,
       businessStatus: 'OPERATIONAL',
       address: 'Phoenix, AZ',
-    } as unknown as Awaited<ReturnType<typeof lookupGooglePlaces>>)
+    })
 
     // analyzeWebsite is the tier1-website body. It receives the entity
     // re-loaded from D1 — must see the website Places wrote.
@@ -486,7 +486,7 @@ describe('EnrichmentWorkflow — no skip-succeeded semantics', () => {
       engagement_level: 'high',
       owner_accessible: true,
       evidence_summary: 'The owner responds to public reviews with regular follow-up.',
-    } as unknown as Awaited<ReturnType<typeof analyzeReviewPatterns>>)
+    })
     vi.mocked(synthesizeReviews).mockResolvedValue(null)
     vi.mocked(searchNews).mockResolvedValue(null)
     vi.mocked(generateDossier).mockResolvedValue('# Brief')

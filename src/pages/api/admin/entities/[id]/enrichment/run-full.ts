@@ -25,7 +25,7 @@ import { env } from 'cloudflare:workers'
  * now we rely on the operator clicking only when they want to re-run, and
  * accept that re-clicking on an already-succeeded entity short-circuits.
  */
-export const POST: APIRoute = async ({ params, locals, redirect }) => {
+export const POST: APIRoute = ({ params, locals, redirect }) => {
   const session = locals.session
   if (!session || session.role !== 'admin') {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {

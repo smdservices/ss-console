@@ -132,16 +132,55 @@ export function buildManualJobQualificationPrompt(job: JobPostingInput): string 
 ${buildJobQualificationUserPrompt(job)}`
 }
 
+function validateJobQualificationFields(d: Record<string, unknown>, errors: string[]): void {
+  if (typeof d.company !== 'string' || d.company.length === 0) {
+    errors.push('company must be a non-empty string')
+  }
+  if (typeof d.qualified !== 'boolean') errors.push('qualified must be a boolean')
+  if (!['high', 'medium', 'low'].includes(d.confidence as string)) {
+    errors.push('confidence must be "high", "medium", or "low"')
+  }
+  if (typeof d.company_size_estimate !== 'string') {
+    errors.push('company_size_estimate must be a string')
+  }
+  if (typeof d.evidence !== 'string') errors.push('evidence must be a string')
+  if (typeof d.outreach_angle !== 'string') errors.push('outreach_angle must be a string')
+}
+
+function validateDisqualification(d: Record<string, unknown>, errors: string[]): void {
+  if (d.qualified === false && typeof d.disqualification_reason !== 'string') {
+    errors.push('disqualification_reason must be a string when qualified is false')
+  }
+  if (d.qualified === true && d.disqualification_reason !== null) {
+    errors.push('disqualification_reason must be null when qualified is true')
+  }
+}
+
+function validateProblemsSignaled(raw: unknown, errors: string[]): void {
+  const validIds: readonly string[] = PROBLEM_IDS
+  if (!Array.isArray(raw)) {
+    errors.push('problems_signaled must be an array')
+    return
+  }
+  for (const p of raw) {
+    if (!validIds.includes(p as string)) {
+      errors.push(`Invalid problem ID in problems_signaled: "${String(p)}"`)
+    }
+  }
+}
+
+function isFirstPersonVoice(angle: string): boolean {
+  const lower = angle.toLowerCase()
+  return lower.includes(' i ') || lower.startsWith('i ') || lower.includes(" i'")
+}
+
 /**
  * Validates that a parsed JSON object conforms to the JobQualification schema.
  *
  * @param data - The parsed JSON to validate
  * @returns An object with `valid` boolean and `errors` array of issues found
  */
-export function validateJobQualification(data: unknown): {
-  valid: boolean
-  errors: string[]
-} {
+export function validateJobQualification(data: unknown): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
   if (typeof data !== 'object' || data === null) {
@@ -150,59 +189,17 @@ export function validateJobQualification(data: unknown): {
 
   const d = data as Record<string, unknown>
 
-  // Required string fields
-  if (typeof d.company !== 'string' || d.company.length === 0) {
-    errors.push('company must be a non-empty string')
-  }
+  validateJobQualificationFields(d, errors)
+  validateProblemsSignaled(d.problems_signaled, errors)
 
-  if (typeof d.qualified !== 'boolean') {
-    errors.push('qualified must be a boolean')
+  if (
+    d.qualified === true &&
+    typeof d.outreach_angle === 'string' &&
+    isFirstPersonVoice(d.outreach_angle)
+  ) {
+    errors.push('outreach_angle must use "we" voice, not "I"')
   }
-
-  // Confidence enum
-  if (!['high', 'medium', 'low'].includes(d.confidence as string)) {
-    errors.push('confidence must be "high", "medium", or "low"')
-  }
-
-  if (typeof d.company_size_estimate !== 'string') {
-    errors.push('company_size_estimate must be a string')
-  }
-
-  // Problems signaled
-  const validProblemIds: readonly string[] = PROBLEM_IDS
-  if (!Array.isArray(d.problems_signaled)) {
-    errors.push('problems_signaled must be an array')
-  } else {
-    for (const p of d.problems_signaled) {
-      if (!validProblemIds.includes(p as string)) {
-        errors.push(`Invalid problem ID in problems_signaled: "${String(p)}"`)
-      }
-    }
-  }
-
-  if (typeof d.evidence !== 'string') {
-    errors.push('evidence must be a string')
-  }
-
-  if (typeof d.outreach_angle !== 'string') {
-    errors.push('outreach_angle must be a string')
-  }
-
-  // Outreach angle voice check (when qualified)
-  if (d.qualified === true && typeof d.outreach_angle === 'string') {
-    const angle = d.outreach_angle.toLowerCase()
-    if (angle.includes(' i ') || angle.startsWith('i ') || angle.includes(" i'")) {
-      errors.push('outreach_angle must use "we" voice, not "I"')
-    }
-  }
-
-  // Disqualification reason
-  if (d.qualified === false && typeof d.disqualification_reason !== 'string') {
-    errors.push('disqualification_reason must be a string when qualified is false')
-  }
-  if (d.qualified === true && d.disqualification_reason !== null) {
-    errors.push('disqualification_reason must be null when qualified is true')
-  }
+  validateDisqualification(d, errors)
 
   return { valid: errors.length === 0, errors }
 }

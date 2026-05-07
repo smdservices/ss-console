@@ -185,9 +185,9 @@ function makeScoring(overrides = {}) {
 describe('review-mining fetch handler', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings() as never)
+    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings())
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
-    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined as never)
+    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(discoverBusinesses).mockResolvedValue([])
     vi.mocked(fetchReviews).mockResolvedValue([])
     vi.mocked(findOrCreateEntity).mockResolvedValue({
@@ -214,7 +214,7 @@ describe('review-mining fetch handler', () => {
   it('returns 200 JSON summary on valid auth', async () => {
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
     expect(res.status).toBe(200)
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     expect(body).toMatchObject({
       queries: expect.any(Number),
       discovered: expect.any(Number),
@@ -230,15 +230,15 @@ describe('review-mining fetch handler', () => {
 describe('review-mining disabled generator', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings() as never)
+    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings())
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeDisabledConfig() as never)
-    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined as never)
+    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
   })
 
   it('skips run when disabled', async () => {
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
     expect(res.status).toBe(200)
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     expect(body.written).toBe(0)
     expect(discoverBusinesses).not.toHaveBeenCalled()
   })
@@ -251,9 +251,9 @@ describe('review-mining disabled generator', () => {
 describe('review-mining happy path', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings() as never)
+    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings())
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
-    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined as never)
+    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(discoverBusinesses).mockResolvedValue([makeDiscoveredBusiness()])
     vi.mocked(fetchReviews).mockResolvedValue([makeBusinessWithReviews()])
     vi.mocked(scoreReviews).mockResolvedValue(makeScoring() as never)
@@ -266,7 +266,7 @@ describe('review-mining happy path', () => {
   it('scores a business and writes to D1 when pain_score >= 7', async () => {
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
     expect(res.status).toBe(200)
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     expect(body.qualified).toBe(1)
     expect(body.written).toBe(1)
     expect(appendContext).toHaveBeenCalledOnce()
@@ -280,9 +280,9 @@ describe('review-mining happy path', () => {
 describe('review-mining below threshold', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings() as never)
+    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings())
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
-    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined as never)
+    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(discoverBusinesses).mockResolvedValue([makeDiscoveredBusiness()])
     vi.mocked(fetchReviews).mockResolvedValue([makeBusinessWithReviews()])
     vi.mocked(scoreReviews).mockResolvedValue(makeScoring({ pain_score: 5 }) as never)
@@ -290,7 +290,7 @@ describe('review-mining below threshold', () => {
 
   it('skips D1 write when pain_score is below threshold', async () => {
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     expect(body.belowThreshold).toBe(1)
     expect(body.written).toBe(0)
     expect(appendContext).not.toHaveBeenCalled()
@@ -304,9 +304,9 @@ describe('review-mining below threshold', () => {
 describe('review-mining Outscraper failure', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings() as never)
+    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings())
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
-    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined as never)
+    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(discoverBusinesses).mockResolvedValue([makeDiscoveredBusiness()])
     vi.mocked(fetchReviews).mockRejectedValue(new Error('Outscraper: 503 Service Unavailable'))
   })
@@ -314,7 +314,7 @@ describe('review-mining Outscraper failure', () => {
   it('records error and returns degraded summary without crashing', async () => {
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
     expect(res.status).toBe(200)
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     expect(body.errors).toBeGreaterThan(0)
     expect(body.written).toBe(0)
   })
@@ -327,9 +327,9 @@ describe('review-mining Outscraper failure', () => {
 describe('review-mining discovery failure', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings() as never)
+    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings())
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
-    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined as never)
+    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(discoverBusinesses).mockRejectedValue(new Error('Google Places: 403'))
     vi.mocked(fetchReviews).mockResolvedValue([])
   })
@@ -337,7 +337,7 @@ describe('review-mining discovery failure', () => {
   it('records error and continues with zero businesses', async () => {
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
     expect(res.status).toBe(200)
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     expect(body.errors).toBeGreaterThan(0)
     expect(body.discovered).toBe(0)
     expect(body.written).toBe(0)
@@ -351,9 +351,9 @@ describe('review-mining discovery failure', () => {
 describe('review-mining scheduled handler', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings() as never)
+    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings())
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
-    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined as never)
+    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(discoverBusinesses).mockResolvedValue([])
     vi.mocked(fetchReviews).mockResolvedValue([])
   })
@@ -373,9 +373,9 @@ describe('review-mining scheduled handler', () => {
 describe('review-mining cap and budget guard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings() as never)
+    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings())
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
-    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined as never)
+    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(fetchReviews).mockResolvedValue([])
     vi.mocked(findOrCreateEntity).mockResolvedValue({
       entity: { id: 'entity-001', name: 'Desert HVAC' },
@@ -384,15 +384,13 @@ describe('review-mining cap and budget guard', () => {
   })
 
   it('respects max_review_checks setting (caps at 5 of 12 discovered)', async () => {
-    vi.mocked(getPipelineSettings).mockResolvedValue(
-      makeSettings({ max_review_checks: 5 }) as never
-    )
+    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings({ max_review_checks: 5 }))
     const businesses = Array.from({ length: 12 }, (_, i) =>
       makeDiscoveredBusiness({ place_id: `p-${i}` })
     )
     vi.mocked(discoverBusinesses).mockResolvedValue(businesses)
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     expect(body.discovered).toBe(12)
     expect(body.reviewChecksAttempted).toBe(5)
     // 5 places x $0.003 = $0.015
@@ -404,14 +402,14 @@ describe('review-mining cap and budget guard', () => {
     // 30 discovered, batch size 10, $0.003 each. Budget $0.04 allows
     // at most 1 batch ($0.030); the 2nd batch would push to $0.060 > $0.040.
     vi.mocked(getPipelineSettings).mockResolvedValue(
-      makeSettings({ outscraper_budget_usd_per_run: 0.04 }) as never
+      makeSettings({ outscraper_budget_usd_per_run: 0.04 })
     )
     const businesses = Array.from({ length: 30 }, (_, i) =>
       makeDiscoveredBusiness({ place_id: `p-${i}` })
     )
     vi.mocked(discoverBusinesses).mockResolvedValue(businesses)
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     expect(body.budgetGuardTripped).toBe(true)
     expect(body.reviewChecksAttempted).toBe(10)
     expect(body.outscraperSpendUsd).toBeCloseTo(0.03, 5)
@@ -423,7 +421,7 @@ describe('review-mining cap and budget guard', () => {
     )
     vi.mocked(discoverBusinesses).mockResolvedValue(businesses)
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     expect(body.discovered).toBe(250)
     expect(body.reviewChecksAttempted).toBe(200)
     expect(body.outscraperSpendUsd).toBeCloseTo(0.6, 5)
@@ -439,7 +437,7 @@ describe('review-mining pain_threshold from settings', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
-    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined as never)
+    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(discoverBusinesses).mockResolvedValue([makeDiscoveredBusiness()])
     vi.mocked(fetchReviews).mockResolvedValue([makeBusinessWithReviews()])
     vi.mocked(findOrCreateEntity).mockResolvedValue({
@@ -449,29 +447,29 @@ describe('review-mining pain_threshold from settings', () => {
   })
 
   it('writes a pain=6 business when admin lowers threshold to 5', async () => {
-    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings({ pain_threshold: 5 }) as never)
+    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings({ pain_threshold: 5 }))
     vi.mocked(scoreReviews).mockResolvedValue(makeScoring({ pain_score: 6 }) as never)
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     expect(body.qualified).toBe(1)
     expect(body.written).toBe(1)
   })
 
   it('skips a pain=8 business when admin raises threshold to 9', async () => {
-    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings({ pain_threshold: 9 }) as never)
+    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings({ pain_threshold: 9 }))
     vi.mocked(scoreReviews).mockResolvedValue(makeScoring({ pain_score: 8 }) as never)
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     expect(body.belowThreshold).toBe(1)
     expect(body.written).toBe(0)
     expect(appendContext).not.toHaveBeenCalled()
   })
 
   it('uses default 7 when settings table returns DAL defaults', async () => {
-    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings() as never)
+    vi.mocked(getPipelineSettings).mockResolvedValue(makeSettings())
     vi.mocked(scoreReviews).mockResolvedValue(makeScoring({ pain_score: 7 }) as never)
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     // pain_score=7 with threshold=7 should pass (>=)
     expect(body.qualified).toBe(1)
     expect(body.written).toBe(1)

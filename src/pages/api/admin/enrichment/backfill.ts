@@ -1,4 +1,4 @@
-import type { APIRoute } from 'astro'
+import type { APIContext, APIRoute } from 'astro'
 import { dispatchEnrichmentWorkflow } from '../../../../lib/enrichment/dispatch'
 import { env } from 'cloudflare:workers'
 
@@ -6,33 +6,10 @@ import { env } from 'cloudflare:workers'
  * POST /api/admin/enrichment/backfill (#631)
  *
  * One-time (and re-runnable) operation to dispatch enrichment Workflows
- * for entities that lack a successful `intelligence_brief` row. The
- * 2026-04-30 measurement found 86% of created entities had no enrichment
- * activity — `ctx.waitUntil(enrichEntity(...))` was being killed by the
- * post-response CPU budget. The Workflow refactor fixes the forward path;
- * this endpoint backfills the entities already stuck.
- *
- * Bounded operation:
- *   - `limit` defaults to 50, max 500
- *   - Dispatch is throttled at ~5/second so the consumer Worker isn't
- *     overwhelmed
- *   - Operator clicks repeatedly to drain the backlog
- *
- * `dry_run: true` returns the total unenriched-entity count plus an
- * estimated cost (based on $0.18/dossier from the cost model documented
- * in the conversation that produced this PR) so the operator sees the
- * full population before committing real spend.
+ * for entities that lack a successful `intelligence_brief` row.
  *
  * Body shape:
  *   { limit?: number; dry_run?: boolean }
- *
- * Response shape:
- *   {
- *     enqueued: number;          // count actually dispatched
- *     total_remaining: number;   // unenriched entities still in DB
- *     dry_run: boolean;
- *     estimated_cost_usd?: number;  // dry_run only
- *   }
  */
 
 const DEFAULT_LIMIT = 50
@@ -53,53 +30,24 @@ interface BackfillResponse {
   errors?: string[]
 }
 
-export const POST: APIRoute = async ({ request, locals }) => {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return jsonResponse(401, { error: 'Unauthorized' })
-  }
-
-  let body: BackfillBody = {}
-  try {
-    body = (await request.json()) as BackfillBody
-  } catch {
-    // Empty body is fine — defaults apply.
-    body = {}
-  }
-
-  const dryRun = body.dry_run === true
-  const limitInput = typeof body.limit === 'number' ? body.limit : DEFAULT_LIMIT
-  const limit = Math.min(Math.max(1, Math.floor(limitInput)), MAX_LIMIT)
-
-  // Total unenriched count — needed for both dry_run estimate AND for
-  // total_remaining in the live response. Single COUNT query.
-  const countRow = (await env.DB.prepare(
+async function fetchUnenrichedCount(): Promise<number> {
+  const countRow = await env.DB.prepare(
     `SELECT COUNT(*) AS n
        FROM entities
       WHERE id NOT IN (
         SELECT DISTINCT entity_id FROM enrichment_runs
          WHERE module = 'intelligence_brief' AND status = 'succeeded'
       )`
-  ).first()) as { n: number } | null
-  const totalUnenriched = countRow?.n ?? 0
+  ).first<{ n: number }>()
+  return countRow?.n ?? 0
+}
 
-  if (dryRun) {
-    const response: BackfillResponse = {
-      enqueued: 0,
-      total_remaining: totalUnenriched,
-      dry_run: true,
-      estimated_cost_usd: Number((totalUnenriched * PER_DOSSIER_COST_USD).toFixed(2)),
-    }
-    return jsonResponse(200, response)
-  }
-
-  // Live path — fetch the bounded slice and dispatch. We dispatch in
-  // sequence with a small throttle so the consumer Worker isn't drowned;
-  // backfill is a maintenance operation and operators won't notice the
-  // few seconds of latency on the response.
-  const slice = (await env.DB.prepare(
-    `SELECT id, org_id
-       FROM entities
+async function dispatchSlice(
+  orgId: string,
+  limit: number
+): Promise<{ enqueued: number; errors: string[] }> {
+  const slice = await env.DB.prepare(
+    `SELECT id, org_id FROM entities
       WHERE id NOT IN (
         SELECT DISTINCT entity_id FROM enrichment_runs
          WHERE module = 'intelligence_brief' AND status = 'succeeded'
@@ -107,7 +55,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       LIMIT ?`
   )
     .bind(limit)
-    .all()) as { results?: Array<{ id: string; org_id: string }> }
+    .all<{ id: string; org_id: string }>()
 
   const rows = slice.results ?? []
   const errors: string[] = []
@@ -118,36 +66,59 @@ export const POST: APIRoute = async ({ request, locals }) => {
     try {
       const result = await dispatchEnrichmentWorkflow(env, {
         entityId: row.id,
-        orgId: row.org_id,
+        orgId: row.org_id ?? orgId,
         mode: 'full',
         triggered_by: 'admin:backfill',
       })
-      if (result.dispatched) {
-        enqueued++
-      } else if (result.alreadyEnriched) {
-        // Race: another caller enriched between our COUNT and our SELECT.
-        // Don't count it as enqueued.
-      }
+      if (result.dispatched) enqueued++
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      errors.push(`${row.id}: ${msg}`)
+      errors.push(`${row.id}: ${err instanceof Error ? err.message : String(err)}`)
     }
-    // Throttle between dispatches.
     if (i < rows.length - 1) {
       await new Promise((resolve) => setTimeout(resolve, THROTTLE_MS))
     }
   }
+  return { enqueued, errors }
+}
 
+async function handlePost({ request, locals }: APIContext): Promise<Response> {
+  const session = locals.session
+  if (!session || session.role !== 'admin') {
+    return jsonResponse(401, { error: 'Unauthorized' })
+  }
+
+  let body: BackfillBody
+  try {
+    body = await request.json()
+  } catch {
+    body = {}
+  }
+
+  const dryRun = body.dry_run === true
+  const limitInput = typeof body.limit === 'number' ? body.limit : DEFAULT_LIMIT
+  const limit = Math.min(Math.max(1, Math.floor(limitInput)), MAX_LIMIT)
+  const totalUnenriched = await fetchUnenrichedCount()
+
+  if (dryRun) {
+    return jsonResponse(200, {
+      enqueued: 0,
+      total_remaining: totalUnenriched,
+      dry_run: true,
+      estimated_cost_usd: Number((totalUnenriched * PER_DOSSIER_COST_USD).toFixed(2)),
+    } satisfies BackfillResponse)
+  }
+
+  const { enqueued, errors } = await dispatchSlice(session.orgId, limit)
   const response: BackfillResponse = {
     enqueued,
     total_remaining: Math.max(0, totalUnenriched - enqueued),
     dry_run: false,
   }
-  if (errors.length > 0) {
-    response.errors = errors
-  }
+  if (errors.length > 0) response.errors = errors
   return jsonResponse(200, response)
 }
+
+export const POST: APIRoute = (ctx) => handlePost(ctx)
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {

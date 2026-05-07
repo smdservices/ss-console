@@ -1,0 +1,120 @@
+---
+/**
+ * Single contact row, extracted from EntityContactsPanel.astro to keep
+ * the parent's map callback under the 75-line function ceiling.
+ */
+import type { Contact } from '../../lib/db/contacts'
+
+interface Props {
+  contact: Contact
+}
+
+const { contact: c } = Astro.props
+---
+
+<div class="px-6 py-3 space-y-row">
+  <div class="flex items-start justify-between gap-stack">
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-sm font-medium text-[color:var(--ss-color-text-primary)]">{c.name}</span>
+        {
+          c.title && (
+            <span class="text-xs text-[color:var(--ss-color-text-secondary)]">{c.title}</span>
+          )
+        }
+        {
+          c.role && (
+            <span class="text-xs bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)] px-1.5 py-0.5 rounded">
+              {c.role}
+            </span>
+          )
+        }
+      </div>
+      <div class="text-xs text-[color:var(--ss-color-text-muted)] flex flex-wrap gap-x-3 mt-0.5">
+        {c.email && <span>{c.email}</span>}
+        {c.phone && <span>{c.phone}</span>}
+      </div>
+    </div>
+    <div class="flex-shrink-0 flex items-center gap-2">
+      <details class="relative">
+        <summary
+          class="cursor-pointer text-xs text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)]"
+        >
+          Edit
+        </summary>
+        <form
+          method="POST"
+          action={`/api/admin/contacts/${c.id}`}
+          class="space-y-row mt-2 p-3 border border-[color:var(--ss-color-border)] rounded bg-[color:var(--ss-color-background)]"
+        >
+          <div class="grid grid-cols-2 gap-2">
+            <label class="text-xs text-[color:var(--ss-color-text-secondary)] col-span-2">
+              Name *
+              <input
+                type="text"
+                name="name"
+                required
+                value={c.name}
+                class="mt-1 w-full border border-[color:var(--ss-color-border)] rounded px-2 py-1 text-sm"
+              />
+            </label>
+            <label class="text-xs text-[color:var(--ss-color-text-secondary)]">
+              Email
+              <input
+                type="email"
+                name="email"
+                value={c.email ?? ''}
+                class="mt-1 w-full border border-[color:var(--ss-color-border)] rounded px-2 py-1 text-sm"
+              />
+            </label>
+            <label class="text-xs text-[color:var(--ss-color-text-secondary)]">
+              Phone
+              <input
+                type="text"
+                name="phone"
+                value={c.phone ?? ''}
+                class="mt-1 w-full border border-[color:var(--ss-color-border)] rounded px-2 py-1 text-sm"
+              />
+            </label>
+            <label class="text-xs text-[color:var(--ss-color-text-secondary)]">
+              Title
+              <input
+                type="text"
+                name="title"
+                value={c.title ?? ''}
+                class="mt-1 w-full border border-[color:var(--ss-color-border)] rounded px-2 py-1 text-sm"
+              />
+            </label>
+            <label class="text-xs text-[color:var(--ss-color-text-secondary)]">
+              Role
+              <input
+                type="text"
+                name="role"
+                value={c.role ?? ''}
+                class="mt-1 w-full border border-[color:var(--ss-color-border)] rounded px-2 py-1 text-sm"
+              />
+            </label>
+          </div>
+          <div class="flex justify-end">
+            <button
+              type="submit"
+              class="text-xs px-3 py-1 bg-[color:var(--ss-color-primary)] text-white hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
+            >
+              Save
+            </button>
+          </div>
+        </form>
+      </details>
+      <form method="POST" action={`/api/admin/contacts/${c.id}`}>
+        <input type="hidden" name="_method" value="DELETE" />
+        <button
+          type="submit"
+          class="text-xs px-2 py-1 border border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)] hover:bg-[color:var(--ss-color-background)] transition-colors"
+          onclick="return confirm('Delete this contact? Engagement role assignments referencing it will block deletion.')"
+        >
+          Del
+        </button>
+      </form>
+    </div>
+  </div>
+</div>

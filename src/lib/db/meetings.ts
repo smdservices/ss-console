@@ -285,6 +285,20 @@ export async function createMeetingWithLegacyAssessment(
   return meeting
 }
 
+async function updateExistingAssessmentMeeting(
+  db: D1Database,
+  orgId: string,
+  existing: Meeting,
+  data: EnsureMeetingForAssessmentData
+): Promise<EnsureMeetingForAssessmentResult> {
+  const updated = await updateMeeting(db, orgId, data.assessmentId, {
+    scheduled_at: data.scheduled_at,
+    ...(data.meeting_type !== undefined ? { meeting_type: data.meeting_type } : {}),
+  })
+  if (!updated) throw new Error('Failed to update meeting for legacy assessment')
+  return { meeting: updated, created: false, previousScheduledAt: existing.scheduled_at }
+}
+
 /**
  * Ensure a canonical meeting row exists for a legacy assessment id, then keep
  * its scheduled_at / meeting_type aligned with the booking flow.
@@ -296,53 +310,27 @@ export async function ensureMeetingForAssessment(
   data: EnsureMeetingForAssessmentData
 ): Promise<EnsureMeetingForAssessmentResult> {
   const existing = await getMeeting(db, orgId, data.assessmentId)
-  if (existing) {
-    const updated = await updateMeeting(db, orgId, data.assessmentId, {
-      scheduled_at: data.scheduled_at,
-      ...(data.meeting_type !== undefined ? { meeting_type: data.meeting_type } : {}),
-    })
-    if (!updated) {
-      throw new Error('Failed to update meeting for legacy assessment')
-    }
-    return {
-      meeting: updated,
-      created: false,
-      previousScheduledAt: existing.scheduled_at,
-    }
-  }
+  if (existing) return updateExistingAssessmentMeeting(db, orgId, existing, data)
 
   const assessment = await db
     .prepare(
-      `SELECT entity_id, scheduled_at, status, created_at
-       FROM assessments
-       WHERE id = ? AND org_id = ?`
+      `SELECT entity_id, scheduled_at, status, created_at FROM assessments WHERE id = ? AND org_id = ?`
     )
     .bind(data.assessmentId, orgId)
-    .first<{
-      entity_id: string
-      scheduled_at: string | null
-      status: string
-      created_at: string
-    }>()
+    .first<{ entity_id: string; scheduled_at: string | null; status: string; created_at: string }>()
 
-  if (!assessment) {
-    throw new Error(`Assessment not found: ${data.assessmentId}`)
-  }
-
+  if (!assessment) throw new Error(`Assessment not found: ${data.assessmentId}`)
   if (assessment.entity_id !== entityId) {
     throw new Error(`Assessment ${data.assessmentId} does not belong to entity ${entityId}`)
   }
 
-  // Resolve originating-signal attribution (#589). The legacy assessment row
-  // doesn't have a signal FK so we always default-resolve from context.
   const originatingSignalId = await getDefaultOriginatingSignalId(db, orgId, entityId)
 
   try {
     await db
       .prepare(
-        `INSERT INTO meetings (
-          id, org_id, entity_id, meeting_type, scheduled_at, status, originating_signal_id, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO meetings (id, org_id, entity_id, meeting_type, scheduled_at, status, originating_signal_id, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         data.assessmentId,
@@ -358,31 +346,19 @@ export async function ensureMeetingForAssessment(
   } catch (error) {
     const raced = await getMeeting(db, orgId, data.assessmentId)
     if (!raced) throw error
-
     const updated = await updateMeeting(db, orgId, data.assessmentId, {
       scheduled_at: data.scheduled_at,
       ...(data.meeting_type !== undefined ? { meeting_type: data.meeting_type } : {}),
     })
-    if (!updated) {
-      throw new Error('Failed to update raced meeting for legacy assessment')
-    }
-    return {
-      meeting: updated,
-      created: false,
-      previousScheduledAt: raced.scheduled_at,
-    }
+    if (!updated)
+      throw new Error('Failed to update raced meeting for legacy assessment', { cause: error })
+    return { meeting: updated, created: false, previousScheduledAt: raced.scheduled_at }
   }
 
   const meeting = await getMeeting(db, orgId, data.assessmentId)
-  if (!meeting) {
-    throw new Error('Failed to retrieve meeting for legacy assessment')
-  }
+  if (!meeting) throw new Error('Failed to retrieve meeting for legacy assessment')
 
-  return {
-    meeting,
-    created: true,
-    previousScheduledAt: null,
-  }
+  return { meeting, created: true, previousScheduledAt: null }
 }
 
 /**

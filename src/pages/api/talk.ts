@@ -45,7 +45,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   let body: Record<string, unknown>
   try {
-    body = (await request.json()) as Record<string, unknown>
+    body = await request.json()
   } catch {
     return jsonResponse(400, { error: 'Invalid JSON' })
   }

@@ -94,12 +94,14 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     return handleDocumentCompleted(
-      env.DB,
-      env.STORAGE,
-      apiKey,
-      env.RESEND_API_KEY,
-      env.STRIPE_API_KEY,
-      env.APP_BASE_URL,
+      {
+        db: env.DB,
+        storage: env.STORAGE,
+        apiKey,
+        resendApiKey: env.RESEND_API_KEY,
+        stripeApiKey: env.STRIPE_API_KEY,
+        appBaseUrl: env.APP_BASE_URL,
+      },
       payload
     )
   }

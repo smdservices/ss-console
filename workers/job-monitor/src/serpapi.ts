@@ -14,11 +14,6 @@ export interface SerpApiJob {
   company_url?: string
 }
 
-interface SerpApiResponse {
-  jobs_results?: SerpApiJob[]
-  error?: string
-}
-
 /**
  * Search Google Jobs via SerpAPI for a given query term.
  * Returns the jobs_results array, or empty on error.
@@ -47,7 +42,7 @@ export async function searchJobs(query: string, apiKey: string): Promise<SerpApi
     if (!retry.ok) {
       throw new Error(`SerpAPI: ${retry.status} on retry for query "${query}"`)
     }
-    const data = (await retry.json()) as SerpApiResponse
+    const data: { jobs_results?: SerpApiJob[] } = await retry.json()
     return data.jobs_results ?? []
   }
 
@@ -56,7 +51,7 @@ export async function searchJobs(query: string, apiKey: string): Promise<SerpApi
     return []
   }
 
-  const data = (await response.json()) as SerpApiResponse
+  const data: { jobs_results?: SerpApiJob[] } = await response.json()
   return data.jobs_results ?? []
 }
 

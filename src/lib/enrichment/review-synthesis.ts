@@ -60,9 +60,7 @@ export async function synthesizeReviews(
     )
   }
 
-  const result = (await response.json()) as {
-    content?: Array<{ type: string; text?: string }>
-  }
+  const result: { content?: Array<{ type: string; text?: string }> } = await response.json()
   let text = result?.content?.find((b) => b.type === 'text')?.text?.trim()
   if (!text) return null
   if (text.startsWith('```')) text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')

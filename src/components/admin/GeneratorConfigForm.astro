@@ -1,0 +1,289 @@
+---
+/**
+ * Configuration form for a generator pipeline.
+ * Extracted from src/pages/admin/generators/[type].astro.
+ */
+import {
+  VERTICALS,
+  type JobMonitorConfig,
+  type NewBusinessConfig,
+  type ReviewMiningConfig,
+  type SocialListeningConfig,
+  type PipelineId,
+} from '../../lib/generators/types'
+import type { GeneratorConfigRow } from '../../lib/db/generators'
+
+interface Props {
+  configRow: GeneratorConfigRow
+  type: PipelineId
+}
+
+const { configRow, type } = Astro.props
+const nb = configRow.config as NewBusinessConfig
+const jm = configRow.config as JobMonitorConfig
+const rm = configRow.config as ReviewMiningConfig
+const sl = configRow.config as SocialListeningConfig
+---
+
+<form
+  method="POST"
+  class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card space-y-stack"
+>
+  <input type="hidden" name="action" value="save_config" />
+
+  <div class="flex items-center gap-row">
+    <input
+      type="checkbox"
+      id="enabled"
+      name="enabled"
+      checked={configRow.enabled}
+      class="w-4 h-4 rounded border-[color:var(--ss-color-border)]"
+    />
+    <label for="enabled" class="text-sm font-medium text-[color:var(--ss-color-text-primary)]">
+      Enabled — when unchecked, worker returns early and writes no signals
+    </label>
+  </div>
+
+  <div>
+    <label
+      for="target_verticals"
+      class="text-sm font-medium text-[color:var(--ss-color-text-primary)] block mb-1"
+    >
+      Target verticals <span class="text-xs text-[color:var(--ss-color-text-secondary)]"
+        >(one per line)</span
+      >
+    </label>
+    <textarea
+      id="target_verticals"
+      name="target_verticals"
+      rows="6"
+      class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm font-mono"
+      set:html={(configRow.config as NewBusinessConfig).target_verticals.join('\n')}
+    />
+    <p class="text-xs text-[color:var(--ss-color-text-secondary)] mt-1">
+      Free-text. Suggestions: {VERTICALS.map((v) => v.replace(/_/g, ' ')).join(', ')}.
+    </p>
+  </div>
+
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label
+        for="revenue_min_usd"
+        class="text-sm font-medium text-[color:var(--ss-color-text-primary)] block mb-1"
+      >
+        Revenue min (USD)
+      </label>
+      <input
+        type="number"
+        id="revenue_min_usd"
+        name="revenue_min_usd"
+        value={(configRow.config as NewBusinessConfig).revenue_range.min_usd}
+        min="0"
+        step="50000"
+        class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm"
+      />
+    </div>
+    <div>
+      <label
+        for="revenue_max_usd"
+        class="text-sm font-medium text-[color:var(--ss-color-text-primary)] block mb-1"
+      >
+        Revenue max (USD)
+      </label>
+      <input
+        type="number"
+        id="revenue_max_usd"
+        name="revenue_max_usd"
+        value={(configRow.config as NewBusinessConfig).revenue_range.max_usd}
+        min="0"
+        step="50000"
+        class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm"
+      />
+    </div>
+  </div>
+
+  <div>
+    <label
+      for="geos"
+      class="text-sm font-medium text-[color:var(--ss-color-text-primary)] block mb-1"
+    >
+      Geographies <span class="text-xs text-[color:var(--ss-color-text-secondary)]"
+        >(one per line)</span
+      >
+    </label>
+    <textarea
+      id="geos"
+      name="geos"
+      rows="2"
+      class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm font-mono"
+      set:html={(configRow.config as NewBusinessConfig).geos.join('\n')}
+    />
+  </div>
+
+  {
+    type === 'new_business' && (
+      <div>
+        <label class="text-sm font-medium text-[color:var(--ss-color-text-primary)] block mb-2">
+          Data sources
+        </label>
+        <div class="space-y-1">
+          {nb.soda_sources.map((s) => (
+            <label class="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name={`soda_${s.city}`}
+                checked={s.enabled}
+                class="w-4 h-4 rounded border-[color:var(--ss-color-border)]"
+              />
+              <span class="font-mono text-xs">{s.city.replace(/_/g, ' ')}</span>
+            </label>
+          ))}
+        </div>
+        <p class="text-xs text-[color:var(--ss-color-text-secondary)] mt-1">
+          Per-city toggles. Unchecking skips that feed entirely on the next run.
+        </p>
+      </div>
+    )
+  }
+
+  {
+    type === 'job_monitor' && (
+      <div>
+        <label
+          for="search_queries"
+          class="text-sm font-medium text-[color:var(--ss-color-text-primary)] block mb-1"
+        >
+          Search queries{' '}
+          <span class="text-xs text-[color:var(--ss-color-text-secondary)]">(one per line)</span>
+        </label>
+        <textarea
+          id="search_queries"
+          name="search_queries"
+          rows="8"
+          class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm font-mono"
+          set:html={jm.search_queries.join('\n')}
+        />
+      </div>
+    )
+  }
+
+  {
+    type === 'review_mining' && (
+      <>
+        <div>
+          <label
+            for="discovery_queries"
+            class="text-sm font-medium text-[color:var(--ss-color-text-primary)] block mb-1"
+          >
+            Discovery queries{' '}
+            <span class="text-xs text-[color:var(--ss-color-text-secondary)]">(one per line)</span>
+          </label>
+          <textarea
+            id="discovery_queries"
+            name="discovery_queries"
+            rows="10"
+            class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm font-mono"
+            set:html={rm.discovery_queries.join('\n')}
+          />
+        </div>
+        <div>
+          <label class="text-sm font-medium text-[color:var(--ss-color-text-primary)] block mb-1">
+            Search area
+          </label>
+          <p class="text-xs text-[color:var(--ss-color-text-secondary)] mb-2">
+            Google Places biases results near this point. Defaults are Phoenix downtown (33.4484,
+            -112.074) with a 50km radius — covers Scottsdale, Tempe, Mesa, Chandler, Glendale.
+          </p>
+          <div class="grid grid-cols-3 gap-4">
+            <div>
+              <label
+                for="geo_lat"
+                class="text-xs text-[color:var(--ss-color-text-secondary)] block mb-1"
+              >
+                Latitude
+              </label>
+              <input
+                type="number"
+                id="geo_lat"
+                name="geo_lat"
+                value={rm.geo_center.lat}
+                step="0.0001"
+                class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label
+                for="geo_lon"
+                class="text-xs text-[color:var(--ss-color-text-secondary)] block mb-1"
+              >
+                Longitude
+              </label>
+              <input
+                type="number"
+                id="geo_lon"
+                name="geo_lon"
+                value={rm.geo_center.lon}
+                step="0.0001"
+                class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label
+                for="geo_radius_km"
+                class="text-xs text-[color:var(--ss-color-text-secondary)] block mb-1"
+              >
+                Radius (km, 1–500)
+              </label>
+              <input
+                type="number"
+                id="geo_radius_km"
+                name="geo_radius_km"
+                value={rm.geo_radius_km}
+                min="1"
+                max="500"
+                class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            data-phoenix-defaults
+            class="mt-2 text-xs text-primary hover:underline"
+          >
+            Reset to Phoenix metro defaults
+          </button>
+        </div>
+      </>
+    )
+  }
+
+  {
+    type === 'social_listening' && (
+      <div>
+        <label
+          for="search_queries"
+          class="text-sm font-medium text-[color:var(--ss-color-text-primary)] block mb-1"
+        >
+          Search queries{' '}
+          <span class="text-xs text-[color:var(--ss-color-text-secondary)]">(one per line)</span>
+        </label>
+        <textarea
+          id="search_queries"
+          name="search_queries"
+          rows="5"
+          class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm font-mono"
+          set:html={sl.search_queries.join('\n')}
+        />
+      </div>
+    )
+  }
+
+  <div>
+    <button
+      type="submit"
+      class="px-4 py-2 text-sm font-medium text-white bg-primary rounded-[var(--ss-radius-card)] hover:bg-primary/90 transition-colors"
+    >
+      Save configuration
+    </button>
+  </div>
+</form>

@@ -1,3 +1,126 @@
+const PHOTO_TARGET_SIZE = 400
+const PHOTO_PREVIEW_SIZE = 160
+const PHOTO_MAX_BYTES = 5 * 1024 * 1024
+
+interface PhotoCtx {
+  engagementId: string
+  input: HTMLInputElement
+  uploadBtn: HTMLButtonElement
+  cancelBtn: HTMLButtonElement
+  previewEl: HTMLCanvasElement
+  statusEl: HTMLElement
+  removeBtn: HTMLButtonElement | null
+  getPending: () => Blob | null
+  setPending: (b: Blob | null) => void
+}
+
+function setPhotoStatus(statusEl: HTMLElement, msg: string, isError: boolean): void {
+  statusEl.textContent = msg
+  statusEl.className = isError
+    ? 'mt-2 text-xs text-[color:var(--ss-color-error)]'
+    : 'mt-2 text-xs text-[color:var(--ss-color-text-secondary)]'
+}
+
+async function cropToSquareWebp(file: File, previewEl: HTMLCanvasElement): Promise<Blob> {
+  if (file.size > PHOTO_MAX_BYTES)
+    throw new Error('Original file exceeds 5 MB. Please pick a smaller image.')
+  const bitmap = await createImageBitmap(file)
+  const side = Math.min(bitmap.width, bitmap.height)
+  const sx = Math.round((bitmap.width - side) / 2)
+  const sy = Math.round((bitmap.height - side) / 2)
+
+  const canvas = document.createElement('canvas')
+  canvas.width = PHOTO_TARGET_SIZE
+  canvas.height = PHOTO_TARGET_SIZE
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Could not initialize image processing.')
+  ctx.drawImage(bitmap, sx, sy, side, side, 0, 0, PHOTO_TARGET_SIZE, PHOTO_TARGET_SIZE)
+
+  previewEl.width = PHOTO_PREVIEW_SIZE
+  previewEl.height = PHOTO_PREVIEW_SIZE
+  const pCtx = previewEl.getContext('2d')
+  if (!pCtx) throw new Error('Could not initialize preview canvas.')
+  pCtx.drawImage(canvas, 0, 0, PHOTO_PREVIEW_SIZE, PHOTO_PREVIEW_SIZE)
+  previewEl.classList.remove('hidden')
+
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Encoding failed'))), 'image/webp', 0.9)
+  })
+  if (blob.size > PHOTO_MAX_BYTES)
+    throw new Error('Encoded photo still exceeds 5 MB. Try a smaller source image.')
+  return blob
+}
+
+async function handlePhotoChange(ctx: PhotoCtx): Promise<void> {
+  const file = ctx.input.files?.[0]
+  if (!file) return
+  try {
+    setPhotoStatus(ctx.statusEl, 'Processing image...', false)
+    const blob = await cropToSquareWebp(file, ctx.previewEl)
+    ctx.setPending(blob)
+    setPhotoStatus(
+      ctx.statusEl,
+      `Ready to upload (${(blob.size / 1024).toFixed(1)} KB WebP)`,
+      false
+    )
+    ctx.uploadBtn.classList.remove('hidden')
+    ctx.cancelBtn.classList.remove('hidden')
+  } catch (err) {
+    ctx.setPending(null)
+    setPhotoStatus(
+      ctx.statusEl,
+      err instanceof Error ? err.message : 'Could not process image',
+      true
+    )
+  }
+}
+
+async function handlePhotoUpload(ctx: PhotoCtx): Promise<void> {
+  const pending = ctx.getPending()
+  if (!pending) return
+  ctx.uploadBtn.disabled = true
+  ctx.cancelBtn.disabled = true
+  setPhotoStatus(ctx.statusEl, 'Uploading...', false)
+  const form = new FormData()
+  form.append('photo', new File([pending], 'consultant.webp', { type: 'image/webp' }))
+  try {
+    const res = await fetch(`/api/admin/engagements/${ctx.engagementId}/consultant-photo`, {
+      method: 'POST',
+      body: form,
+    })
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string }
+      throw new Error(data.error || res.statusText)
+    }
+    setPhotoStatus(ctx.statusEl, 'Photo uploaded. Reloading...', false)
+    window.setTimeout(() => location.reload(), 500)
+  } catch (err) {
+    setPhotoStatus(ctx.statusEl, err instanceof Error ? err.message : 'Upload failed', true)
+    ctx.uploadBtn.disabled = false
+    ctx.cancelBtn.disabled = false
+  }
+}
+
+async function handlePhotoRemove(ctx: PhotoCtx): Promise<void> {
+  if (!ctx.removeBtn || !confirm('Remove the current consultant photo?')) return
+  ctx.removeBtn.disabled = true
+  setPhotoStatus(ctx.statusEl, 'Removing...', false)
+  try {
+    const res = await fetch(`/api/admin/engagements/${ctx.engagementId}/consultant-photo`, {
+      method: 'DELETE',
+    })
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string }
+      throw new Error(data.error || res.statusText)
+    }
+    setPhotoStatus(ctx.statusEl, 'Photo removed. Reloading...', false)
+    window.setTimeout(() => location.reload(), 500)
+  } catch (err) {
+    setPhotoStatus(ctx.statusEl, err instanceof Error ? err.message : 'Remove failed', true)
+    ctx.removeBtn.disabled = false
+  }
+}
+
 function setupDeliverablesUpload(engagementId: string): void {
   const fileInput = document.getElementById('file-input')
   const uploadBtn = document.getElementById('upload-btn')
@@ -9,14 +132,15 @@ function setupDeliverablesUpload(engagementId: string): void {
     !(uploadBtn instanceof HTMLButtonElement) ||
     !(uploadArea instanceof HTMLDivElement) ||
     !(uploadStatus instanceof HTMLDivElement)
-  ) {
+  )
     return
-  }
 
   const uploadStatusEl = uploadStatus
 
   uploadBtn.addEventListener('click', () => fileInput.click())
-  fileInput.addEventListener('change', () => uploadFiles(fileInput.files))
+  fileInput.addEventListener('change', () => {
+    void uploadFiles(fileInput.files)
+  })
 
   uploadArea.addEventListener('dragover', (e) => {
     e.preventDefault()
@@ -28,13 +152,12 @@ function setupDeliverablesUpload(engagementId: string): void {
   uploadArea.addEventListener('drop', (e) => {
     e.preventDefault()
     uploadArea.classList.remove('drag-active')
-    uploadFiles(e.dataTransfer?.files ?? null)
+    void uploadFiles(e.dataTransfer?.files ?? null)
   })
 
   async function uploadFiles(files: FileList | null): Promise<void> {
     if (!files || files.length === 0) return
     uploadStatusEl.classList.remove('hidden')
-
     for (const file of files) {
       uploadStatusEl.textContent = `Uploading ${file.name}...`
       const form = new FormData()
@@ -44,12 +167,9 @@ function setupDeliverablesUpload(engagementId: string): void {
           method: 'POST',
           body: form,
         })
-        if (!res.ok) {
-          const data = (await res.json().catch(() => ({}))) as { error?: string }
-          uploadStatusEl.textContent = `Failed: ${data.error || res.statusText}`
-        } else {
-          uploadStatusEl.textContent = `Uploaded ${file.name}`
-        }
+        uploadStatusEl.textContent = res.ok
+          ? `Uploaded ${file.name}`
+          : `Failed: ${((await res.json().catch(() => ({}))) as { error?: string }).error || res.statusText}`
       } catch (err) {
         uploadStatusEl.textContent =
           err instanceof Error ? `Error: ${err.message}` : 'Error: Upload failed'
@@ -75,137 +195,43 @@ function setupConsultantPhoto(engagementId: string): void {
     !(photoCancel instanceof HTMLButtonElement) ||
     !(photoPreview instanceof HTMLCanvasElement) ||
     !(photoStatus instanceof HTMLElement)
-  ) {
+  )
     return
-  }
 
-  const photoPreviewEl = photoPreview
-  const photoStatusEl = photoStatus
-  const photoRemoveEl = photoRemove instanceof HTMLButtonElement ? photoRemove : null
   let pendingBlob: Blob | null = null
-  const TARGET_SIZE = 400
-  const PREVIEW_SIZE = 160
-  const MAX_BYTES = 5 * 1024 * 1024
-
-  function setStatus(msg: string, isError: boolean): void {
-    photoStatusEl.textContent = msg
-    photoStatusEl.className = isError
-      ? 'mt-2 text-xs text-[color:var(--ss-color-error)]'
-      : 'mt-2 text-xs text-[color:var(--ss-color-text-secondary)]'
-  }
-
-  async function cropToSquareWebp(file: File): Promise<Blob> {
-    if (file.size > MAX_BYTES) {
-      throw new Error('Original file exceeds 5 MB. Please pick a smaller image.')
-    }
-    const bitmap = await createImageBitmap(file)
-    const side = Math.min(bitmap.width, bitmap.height)
-    const sx = Math.round((bitmap.width - side) / 2)
-    const sy = Math.round((bitmap.height - side) / 2)
-
-    const canvas = document.createElement('canvas')
-    canvas.width = TARGET_SIZE
-    canvas.height = TARGET_SIZE
-    const ctx = canvas.getContext('2d')
-    if (!ctx) {
-      throw new Error('Could not initialize image processing.')
-    }
-    ctx.drawImage(bitmap, sx, sy, side, side, 0, 0, TARGET_SIZE, TARGET_SIZE)
-
-    photoPreviewEl.width = PREVIEW_SIZE
-    photoPreviewEl.height = PREVIEW_SIZE
-    const previewContext = photoPreviewEl.getContext('2d')
-    if (!previewContext) {
-      throw new Error('Could not initialize preview canvas.')
-    }
-    previewContext.drawImage(canvas, 0, 0, PREVIEW_SIZE, PREVIEW_SIZE)
-    photoPreviewEl.classList.remove('hidden')
-
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (nextBlob) => (nextBlob ? resolve(nextBlob) : reject(new Error('Encoding failed'))),
-        'image/webp',
-        0.9
-      )
-    })
-    if (blob.size > MAX_BYTES) {
-      throw new Error('Encoded photo still exceeds 5 MB. Try a smaller source image.')
-    }
-    return blob
+  const ctx: PhotoCtx = {
+    engagementId,
+    input: photoInput,
+    uploadBtn: photoUpload,
+    cancelBtn: photoCancel,
+    previewEl: photoPreview,
+    statusEl: photoStatus,
+    removeBtn: photoRemove instanceof HTMLButtonElement ? photoRemove : null,
+    getPending: () => pendingBlob,
+    setPending: (b) => {
+      pendingBlob = b
+    },
   }
 
   photoChoose.addEventListener('click', () => photoInput.click())
-
-  photoInput.addEventListener('change', async () => {
-    const file = photoInput.files?.[0]
-    if (!file) return
-    try {
-      setStatus('Processing image...', false)
-      pendingBlob = await cropToSquareWebp(file)
-      setStatus(`Ready to upload (${(pendingBlob.size / 1024).toFixed(1)} KB WebP)`, false)
-      photoUpload.classList.remove('hidden')
-      photoCancel.classList.remove('hidden')
-    } catch (err) {
-      pendingBlob = null
-      setStatus(err instanceof Error ? err.message : 'Could not process image', true)
-    }
+  photoInput.addEventListener('change', () => {
+    void handlePhotoChange(ctx)
   })
-
+  photoUpload.addEventListener('click', () => {
+    void handlePhotoUpload(ctx)
+  })
   photoCancel.addEventListener('click', () => {
-    pendingBlob = null
+    ctx.setPending(null)
     photoInput.value = ''
-    photoPreviewEl.classList.add('hidden')
+    photoPreview.classList.add('hidden')
     photoUpload.classList.add('hidden')
     photoCancel.classList.add('hidden')
-    setStatus('', false)
+    setPhotoStatus(photoStatus, '', false)
   })
-
-  photoUpload.addEventListener('click', async () => {
-    if (!pendingBlob) return
-    photoUpload.disabled = true
-    photoCancel.disabled = true
-    setStatus('Uploading...', false)
-    const form = new FormData()
-    form.append('photo', new File([pendingBlob], 'consultant.webp', { type: 'image/webp' }))
-    try {
-      const res = await fetch(`/api/admin/engagements/${engagementId}/consultant-photo`, {
-        method: 'POST',
-        body: form,
-      })
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string }
-        throw new Error(data.error || res.statusText)
-      }
-      setStatus('Photo uploaded. Reloading...', false)
-      window.setTimeout(() => location.reload(), 500)
-    } catch (err) {
-      setStatus(err instanceof Error ? err.message : 'Upload failed', true)
-      photoUpload.disabled = false
-      photoCancel.disabled = false
-    }
-  })
-
-  if (!photoRemoveEl) return
-
-  photoRemoveEl.addEventListener('click', async () => {
-    if (!confirm('Remove the current consultant photo?')) return
-    photoRemoveEl.disabled = true
-    setStatus('Removing...', false)
-    try {
-      const res = await fetch(`/api/admin/engagements/${engagementId}/consultant-photo`, {
-        method: 'DELETE',
-      })
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string }
-        throw new Error(data.error || res.statusText)
-      }
-      setStatus('Photo removed. Reloading...', false)
-      window.setTimeout(() => location.reload(), 500)
-    } catch (err) {
-      setStatus(err instanceof Error ? err.message : 'Remove failed', true)
-      photoRemoveEl.disabled = false
-    }
-  })
+  if (ctx.removeBtn)
+    ctx.removeBtn.addEventListener('click', () => {
+      void handlePhotoRemove(ctx)
+    })
 }
 
 export function initEngagementDetailPage(rootId = 'engagement-page'): void {

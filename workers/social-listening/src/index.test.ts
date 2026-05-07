@@ -137,7 +137,7 @@ describe('social-listening fetch handler', () => {
     vi.clearAllMocks()
     mockFetch.mockReset()
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
-    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined as never)
+    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(appendContext).mockResolvedValue(undefined as never)
     // 2 queries both returning empty lists
     mockFetch
@@ -164,7 +164,7 @@ describe('social-listening fetch handler', () => {
   it('returns 200 JSON summary on valid auth', async () => {
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
     expect(res.status).toBe(200)
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     expect(body).toMatchObject({
       queries: expect.any(Number),
       totalPosts: expect.any(Number),
@@ -182,13 +182,13 @@ describe('social-listening disabled generator', () => {
     vi.clearAllMocks()
     mockFetch.mockReset()
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeDisabledConfig() as never)
-    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined as never)
+    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
   })
 
   it('skips run when disabled without calling Reddit', async () => {
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
     expect(res.status).toBe(200)
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     expect(body.stored).toBe(0)
     expect(mockFetch).not.toHaveBeenCalled()
   })
@@ -203,7 +203,7 @@ describe('social-listening happy path', () => {
     vi.clearAllMocks()
     mockFetch.mockReset()
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
-    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined as never)
+    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(appendContext).mockResolvedValue(undefined as never)
     mockFetch
       .mockResolvedValueOnce(makeRedditTokenResponse())
@@ -215,7 +215,7 @@ describe('social-listening happy path', () => {
   it('stores new posts and sends digest', async () => {
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
     expect(res.status).toBe(200)
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     expect(body.stored).toBe(1)
     expect(body.newPosts).toBe(1)
     expect(appendContext).toHaveBeenCalledOnce()
@@ -231,7 +231,7 @@ describe('social-listening Reddit auth failure', () => {
     vi.clearAllMocks()
     mockFetch.mockReset()
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
-    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined as never)
+    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     mockFetch.mockResolvedValueOnce(
       new Response('Unauthorized', { status: 401, statusText: 'Unauthorized' })
     )
@@ -240,7 +240,7 @@ describe('social-listening Reddit auth failure', () => {
   it('records auth error and returns degraded summary without crashing', async () => {
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
     expect(res.status).toBe(200)
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     expect(body.errors).toBeGreaterThan(0)
     expect(body.stored).toBe(0)
     expect(appendContext).not.toHaveBeenCalled()
@@ -256,7 +256,7 @@ describe('social-listening Reddit search failure', () => {
     vi.clearAllMocks()
     mockFetch.mockReset()
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
-    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined as never)
+    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(appendContext).mockResolvedValue(undefined as never)
     mockFetch
       .mockResolvedValueOnce(makeRedditTokenResponse())
@@ -271,7 +271,7 @@ describe('social-listening Reddit search failure', () => {
   it('records search errors and returns degraded summary', async () => {
     const res = await worker.fetch(makeRequest('Bearer sk-test-ingest-key'), makeEnv(), makeCtx())
     expect(res.status).toBe(200)
-    const body = (await res.json()) as Record<string, unknown>
+    const body: Record<string, unknown> = await res.json()
     expect(body.errors).toBeGreaterThan(0)
     expect(body.stored).toBe(0)
   })
@@ -286,7 +286,7 @@ describe('social-listening scheduled handler', () => {
     vi.clearAllMocks()
     mockFetch.mockReset()
     vi.mocked(getGeneratorConfig).mockResolvedValue(makeEnabledConfig() as never)
-    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined as never)
+    vi.mocked(recordGeneratorRun).mockResolvedValue(undefined)
     vi.mocked(appendContext).mockResolvedValue(undefined as never)
     mockFetch
       .mockResolvedValueOnce(makeRedditTokenResponse())

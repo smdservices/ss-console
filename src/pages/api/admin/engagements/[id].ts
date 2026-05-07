@@ -1,4 +1,4 @@
-import type { APIRoute } from 'astro'
+import type { APIContext, APIRoute } from 'astro'
 import {
   getEngagement,
   updateEngagement,
@@ -16,7 +16,50 @@ import { env } from 'cloudflare:workers'
  *
  * Protected by auth middleware (requires admin role).
  */
-export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
+
+function trimOrNull(v: FormDataEntryValue | null): string | null {
+  return v && typeof v === 'string' && v.trim() ? v.trim() : null
+}
+
+function parseFloat2(v: FormDataEntryValue | null): number | null | undefined {
+  if (!v || typeof v !== 'string' || !v.trim()) return null
+  return parseFloat(v) || null
+}
+
+type EngagementUpdate = Parameters<typeof updateEngagement>[3]
+
+function buildEngagementUpdate(
+  formData: FormData,
+  originatingSignalId: string | null | undefined
+): EngagementUpdate {
+  const scopeRaw = formData.get('scope_summary')
+  const update: EngagementUpdate = {
+    scope_summary: scopeRaw && typeof scopeRaw === 'string' ? scopeRaw.trim() || null : undefined,
+    start_date: trimOrNull(formData.get('start_date')),
+    estimated_end: trimOrNull(formData.get('estimated_end')),
+    estimated_hours: parseFloat2(formData.get('estimated_hours')),
+    actual_hours: parseFloat2(formData.get('actual_hours')),
+  }
+  if (originatingSignalId !== undefined) {
+    update.originating_signal_id = originatingSignalId
+  }
+  return update
+}
+
+async function resolveSignalEdit(
+  orgId: string,
+  entityId: string,
+  signalRaw: FormDataEntryValue | null
+): Promise<string | null | undefined> {
+  if (typeof signalRaw !== 'string') return undefined
+  const v = signalRaw.trim()
+  if (v === '__none__') return null
+  if (v === '') return undefined
+  const signal = await getSignalById(env.DB, orgId, v)
+  return signal && signal.entity_id === entityId ? signal.id : undefined
+}
+
+async function handlePost({ request, locals, redirect, params }: APIContext): Promise<Response> {
   const session = locals.session
   if (!session || session.role !== 'admin') {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -35,20 +78,16 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
 
   try {
     const existing = await getEngagement(env.DB, session.orgId, engagementId)
-    if (!existing) {
-      return redirect('/admin/entities?error=not_found', 302)
-    }
+    if (!existing) return redirect('/admin/entities?error=not_found', 302)
 
     const formData = await request.formData()
     const action = formData.get('action')
 
-    // Handle status transition as a separate action
     if (action === 'transition_status') {
       const newStatus = formData.get('new_status')
       if (!newStatus || typeof newStatus !== 'string') {
         return redirect(`/admin/engagements/${engagementId}?error=invalid_status`, 302)
       }
-
       try {
         await updateEngagementStatus(
           env.DB,
@@ -60,55 +99,17 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
         console.error('[api/admin/engagements/[id]] Status transition error:', err)
         return redirect(`/admin/engagements/${engagementId}?error=invalid_transition`, 302)
       }
-
       return redirect(`/admin/engagements/${engagementId}?saved=1`, 302)
     }
 
-    // Handle general update
-    const scopeSummary = formData.get('scope_summary')
-    const startDate = formData.get('start_date')
-    const estimatedEnd = formData.get('estimated_end')
-    const estimatedHours = formData.get('estimated_hours')
-    const actualHours = formData.get('actual_hours')
+    const originatingSignalId = await resolveSignalEdit(
+      session.orgId,
+      existing.entity_id,
+      formData.get('originating_signal_id')
+    )
 
-    // Originating-signal attribution edit (#589). Only present when the form
-    // includes the dropdown — absence means "no change". Same sentinel rules
-    // as the create endpoint: "" / missing = no change, "__none__" = clear,
-    // "<id>" = explicit override (validated against entity/org).
-    const signalRaw = formData.get('originating_signal_id')
-    let originatingSignalId: string | null | undefined
-    if (typeof signalRaw === 'string') {
-      const v = signalRaw.trim()
-      if (v === '__none__') {
-        originatingSignalId = null
-      } else if (v !== '') {
-        const signal = await getSignalById(env.DB, session.orgId, v)
-        // Reject mismatched entity scopes silently — UI shouldn't have rendered
-        // a foreign signal in the dropdown, but guard against tampered POSTs.
-        originatingSignalId =
-          signal && signal.entity_id === existing.entity_id ? signal.id : undefined
-      }
-    }
-
-    await updateEngagement(env.DB, session.orgId, engagementId, {
-      scope_summary:
-        scopeSummary && typeof scopeSummary === 'string' ? scopeSummary.trim() || null : undefined,
-      start_date:
-        startDate && typeof startDate === 'string' && startDate.trim() ? startDate.trim() : null,
-      estimated_end:
-        estimatedEnd && typeof estimatedEnd === 'string' && estimatedEnd.trim()
-          ? estimatedEnd.trim()
-          : null,
-      estimated_hours:
-        estimatedHours && typeof estimatedHours === 'string' && estimatedHours.trim()
-          ? parseFloat(estimatedHours) || null
-          : null,
-      actual_hours:
-        actualHours && typeof actualHours === 'string' && actualHours.trim()
-          ? parseFloat(actualHours) || null
-          : undefined,
-      ...(originatingSignalId !== undefined && { originating_signal_id: originatingSignalId }),
-    })
+    const updateFields = buildEngagementUpdate(formData, originatingSignalId)
+    await updateEngagement(env.DB, session.orgId, engagementId, updateFields)
 
     return redirect(`/admin/engagements/${engagementId}?saved=1`, 302)
   } catch (err) {
@@ -116,3 +117,5 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
     return redirect('/admin/entities?error=server', 302)
   }
 }
+
+export const POST: APIRoute = (ctx) => handlePost(ctx)

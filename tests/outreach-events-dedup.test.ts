@@ -33,7 +33,7 @@ const ORG_ID = 'org-dedup-test'
 const ENTITY_ID = 'ent-dedup-test'
 
 async function freshDb(): Promise<D1Database> {
-  const db = createTestD1() as unknown as D1Database
+  const db = createTestD1()
   await runMigrations(db, { files: discoverNumericMigrations(migrationsDir) })
 
   // Seed FK targets so outreach_events INSERTs satisfy any FK references.

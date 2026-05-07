@@ -60,16 +60,18 @@ describe('middleware: legacy apex redirects', () => {
 
   it('redirects apex /admin/* to admin subdomain', () => {
     const code = source()
+    // Guard uses early-return form (hostname !== 'smd.services') then handles /admin/* paths.
     expect(code).toMatch(
-      /hostname\s*===\s*'smd\.services'[\s\S]*?pathname\.startsWith\('\/admin\/'\)/
+      /hostname\s*!==\s*'smd\.services'[\s\S]*?pathname\.startsWith\('\/admin\/'\)/
     )
     expect(code).toContain("newUrl.hostname = 'admin.smd.services'")
   })
 
   it('redirects apex /auth/login to admin subdomain', () => {
     const code = source()
+    // Guard uses early-return form (hostname !== 'smd.services') then handles /auth/login.
     expect(code).toMatch(
-      /hostname\s*===\s*'smd\.services'[\s\S]*?pathname\.startsWith\('\/auth\/login'\)/
+      /hostname\s*!==\s*'smd\.services'[\s\S]*?pathname\.startsWith\('\/auth\/login'\)/
     )
   })
 
@@ -155,8 +157,9 @@ describe('middleware: session resolution gating (#20)', () => {
     // Marketing pages are prerendered; reading request headers during
     // prerender triggers a build warning. The cookie read must be gated
     // behind a `needsSession` check so static pages stay clean.
+    // Uses early-return form: `if (!needsSession) return null`.
     expect(code).toContain('const needsSession =')
-    expect(code).toMatch(/if\s*\(\s*needsSession\s*\)/)
+    expect(code).toMatch(/if\s*\(\s*!needsSession\s*\)/)
   })
 
   it('needsSession includes protected, auth, and API routes', () => {
@@ -165,7 +168,10 @@ describe('middleware: session resolution gating (#20)', () => {
     // - protected (admin/portal) require it
     // - auth routes read it (e.g. renewal flows)
     // - API routes include /api/auth/google/connect etc.
-    expect(code).toContain('isProtectedRoute || isAuthRoute || isApiRoute')
+    // Inline form: isProtectedRoute || pathname.startsWith('/auth') || pathname.startsWith('/api/')
+    expect(code).toContain('isProtectedRoute ||')
+    expect(code).toMatch(/isProtectedRoute\s*\|\|[\s\S]*?pathname\.startsWith\('\/auth'\)/)
+    expect(code).toMatch(/isProtectedRoute\s*\|\|[\s\S]*?pathname\.startsWith\('\/api\/'?\)/)
   })
 })
 

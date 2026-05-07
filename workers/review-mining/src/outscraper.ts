@@ -81,21 +81,20 @@ export async function discoverBusinesses(
     return []
   }
 
-  const data = (await response.json()) as {
-    places?: Array<{
-      id: string
-      displayName?: { text: string }
-      formattedAddress?: string
-      rating?: number
-      userRatingCount?: number
-      primaryTypeDisplayName?: { text: string }
-      nationalPhoneNumber?: string
-      websiteUri?: string
-    }>
+  interface PlacesApiPlace {
+    id?: string
+    displayName?: { text?: string }
+    formattedAddress?: string
+    rating?: number
+    userRatingCount?: number
+    primaryTypeDisplayName?: { text?: string }
+    nationalPhoneNumber?: string
+    websiteUri?: string
   }
+  const data: { places?: PlacesApiPlace[] } = await response.json()
 
   return (data.places ?? []).map((p) => ({
-    place_id: p.id,
+    place_id: p.id ?? '',
     name: p.displayName?.text ?? '',
     address: p.formattedAddress ?? '',
     rating: p.rating ?? 0,
@@ -140,18 +139,16 @@ export async function fetchReviews(
         continue
       }
 
-      const data = (await response.json()) as {
-        data?: Array<{
-          google_id?: string
-          name?: string
-          reviews_data?: Array<{
-            author_title?: string
-            review_rating?: number
-            review_text?: string
-            review_datetime_utc?: string
-          }>
-        }>
+      interface OutscraperReview {
+        review_text?: string
+        review_datetime_utc?: string
+        author_title?: string
+        review_rating?: number
       }
+      interface OutscraperPlace {
+        reviews_data?: OutscraperReview[]
+      }
+      const data: { data?: OutscraperPlace[] } = await response.json()
 
       const place = data.data?.[0]
       if (!place?.reviews_data) continue

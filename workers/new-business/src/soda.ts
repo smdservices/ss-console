@@ -27,6 +27,12 @@ export interface PermitRecord {
 
 export type SodaCity = 'phoenix' | 'scottsdale_licenses' | 'scottsdale_permits' | 'mesa' | 'tempe'
 
+/** Safely stringify an unknown ArcGIS attribute value. */
+function attrStr(val: unknown): string {
+  if (val == null) return ''
+  return typeof val === 'string' ? val : typeof val === 'number' ? String(val) : ''
+}
+
 // ---------------------------------------------------------------------------
 // Business-name resolution
 // ---------------------------------------------------------------------------
@@ -119,6 +125,15 @@ export interface ResolvedName {
   role: 'business' | 'contractor' | 'unknown'
 }
 
+function strField(row: Record<string, unknown>, key: string): string {
+  const val = row[key]
+  return typeof val === 'string' ? val.trim() : ''
+}
+
+function validName(raw: string): string | null {
+  return raw && isLikelyBusinessName(raw) ? raw : null
+}
+
 /**
  * Resolve a business name from a SODA source row. Returns null when no
  * usable name exists — skip the record rather than invent one.
@@ -130,35 +145,29 @@ export function resolveBusinessName(
   switch (source) {
     case 'phoenix': {
       // PERMIT_NAME is a description field ("Sprkler Sys Mod..."). Never use.
-      // PROFESS_NAME is the contractor's company — real business name, but
-      // it's the contractor, not the business occupying the space.
-      const raw = typeof row.PROFESS_NAME === 'string' ? row.PROFESS_NAME.trim() : ''
-      if (!raw || !isLikelyBusinessName(raw)) return null
-      return { name: raw, role: 'contractor' }
+      // PROFESS_NAME is the contractor's company — real business name.
+      const name = validName(strField(row, 'PROFESS_NAME'))
+      return name ? { name, role: 'contractor' } : null
     }
     case 'scottsdale_licenses': {
       // `Company` is the licensee — the actual business.
-      const raw = typeof row.Company === 'string' ? row.Company.trim() : ''
-      if (!raw || !isLikelyBusinessName(raw)) return null
-      return { name: raw, role: 'business' }
+      const name = validName(strField(row, 'Company'))
+      return name ? { name, role: 'business' } : null
     }
-    case 'scottsdale_permits': {
-      // No business-name field in this schema. Permits here have only
-      // an `address`. Skip entirely.
+    case 'scottsdale_permits':
+      // No business-name field in this schema. Skip entirely.
       return null
-    }
     case 'mesa': {
-      const app = typeof row.application_name === 'string' ? row.application_name.trim() : ''
-      const applicant = typeof row.applicant === 'string' ? row.applicant.trim() : ''
+      const app = strField(row, 'application_name')
+      const applicant = strField(row, 'applicant')
       const raw = app || applicant
-      if (!raw || !isLikelyBusinessName(raw)) return null
-      return { name: raw, role: app ? 'unknown' : 'contractor' }
+      const name = validName(raw)
+      return name ? { name, role: app ? 'unknown' : 'contractor' } : null
     }
     case 'tempe': {
       // ProjectName only — Description is a work description, never a name.
-      const raw = typeof row.ProjectName === 'string' ? row.ProjectName.trim() : ''
-      if (!raw || !isLikelyBusinessName(raw)) return null
-      return { name: raw, role: 'unknown' }
+      const name = validName(strField(row, 'ProjectName'))
+      return name ? { name, role: 'unknown' } : null
     }
   }
 }
@@ -227,7 +236,7 @@ async function fetchPhoenixPermits(since: Date): Promise<PermitRecord[]> {
   const response = await fetch(url)
   if (!response.ok) return []
 
-  const data = (await response.json()) as ArcGISResponse
+  const data: { features?: Array<{ attributes: Record<string, unknown> }> } = await response.json()
   const records: PermitRecord[] = []
   let skipped = 0
   for (const f of data.features ?? []) {
@@ -239,16 +248,16 @@ async function fetchPhoenixPermits(since: Date): Promise<PermitRecord[]> {
     records.push({
       business_name: resolved.name,
       entity_type: 'Commercial Permit',
-      address: String(f.attributes.STREET_FULL_NAME ?? ''),
-      filing_date: epochToDate(f.attributes.PER_ISSUE_DATE),
+      address: attrStr(f.attributes.STREET_FULL_NAME),
+      filing_date: epochToDate(f.attributes.PER_ISSUE_DATE as string | number | null),
       source: 'phoenix_permit',
       permit_type:
         f.attributes.SCOPE_DESC != null
-          ? String(f.attributes.SCOPE_DESC)
+          ? attrStr(f.attributes.SCOPE_DESC)
           : f.attributes.PER_TYPE_DESC != null
-            ? String(f.attributes.PER_TYPE_DESC)
+            ? attrStr(f.attributes.PER_TYPE_DESC)
             : undefined,
-      permit_number: f.attributes.PER_NUM != null ? String(f.attributes.PER_NUM) : undefined,
+      permit_number: f.attributes.PER_NUM != null ? attrStr(f.attributes.PER_NUM) : undefined,
     })
   }
   if (skipped > 0) console.log(`Phoenix: skipped ${skipped} records (no business name)`)
@@ -269,7 +278,7 @@ async function fetchScottsdaleLicenses(since: Date): Promise<PermitRecord[]> {
   const response = await fetch(url)
   if (!response.ok) return []
 
-  const data = (await response.json()) as ArcGISResponse
+  const data: { features?: Array<{ attributes: Record<string, unknown> }> } = await response.json()
   const records: PermitRecord[] = []
   let skipped = 0
   for (const f of data.features ?? []) {
@@ -281,13 +290,12 @@ async function fetchScottsdaleLicenses(since: Date): Promise<PermitRecord[]> {
     records.push({
       business_name: resolved.name,
       entity_type: 'Business License',
-      address: [f.attributes.ServAddrComp, f.attributes.ServCityStateZipComp]
+      address: [attrStr(f.attributes.ServAddrComp), attrStr(f.attributes.ServCityStateZipComp)]
         .filter(Boolean)
-        .map(String)
         .join(', '),
-      filing_date: epochToDate(f.attributes.BusinessStartDate),
+      filing_date: epochToDate(f.attributes.BusinessStartDate as string | number | null),
       source: 'scottsdale_license',
-      permit_number: f.attributes.AcctNum != null ? String(f.attributes.AcctNum) : undefined,
+      permit_number: f.attributes.AcctNum != null ? attrStr(f.attributes.AcctNum) : undefined,
     })
   }
   if (skipped > 0) console.log(`Scottsdale Licenses: skipped ${skipped} records (no business name)`)
@@ -298,12 +306,12 @@ async function fetchScottsdaleLicenses(since: Date): Promise<PermitRecord[]> {
 // Scottsdale — ArcGIS REST (building permits)
 // ---------------------------------------------------------------------------
 
-async function fetchScottsdalePermits(_since: Date): Promise<PermitRecord[]> {
+function fetchScottsdalePermits(_since: Date): Promise<PermitRecord[]> {
   // Scottsdale building permits have no business-name field — only a street
   // address. Inventing a name from the address is a CLAUDE.md Pattern B
   // violation. resolveBusinessName('scottsdale_permits', ...) always returns
   // null, so we skip the API call entirely.
-  return []
+  return Promise.resolve([])
 }
 
 // ---------------------------------------------------------------------------
@@ -317,20 +325,12 @@ async function fetchMesaPermits(since: Date): Promise<PermitRecord[]> {
   const response = await fetch(url)
   if (!response.ok) return []
 
-  const rows = (await response.json()) as Array<{
-    permit_number?: string
-    application_name?: string
-    applicant?: string
-    property_address?: string
-    issued_date?: string
-    description_of_work?: string
-    type_of_work?: string
-  }>
+  const rows: Array<Record<string, unknown>> = await response.json()
 
   const records: PermitRecord[] = []
   let skipped = 0
   for (const r of rows) {
-    const resolved = resolveBusinessName('mesa', r as unknown as Record<string, unknown>)
+    const resolved = resolveBusinessName('mesa', r)
     if (!resolved) {
       skipped++
       continue
@@ -338,11 +338,16 @@ async function fetchMesaPermits(since: Date): Promise<PermitRecord[]> {
     records.push({
       business_name: resolved.name,
       entity_type: 'Commercial Permit',
-      address: r.property_address ?? '',
-      filing_date: r.issued_date?.split('T')[0] ?? '',
+      address: typeof r.property_address === 'string' ? r.property_address : '',
+      filing_date: typeof r.issued_date === 'string' ? r.issued_date.split('T')[0] : '',
       source: 'mesa_permit',
-      permit_type: r.description_of_work ?? r.type_of_work,
-      permit_number: r.permit_number,
+      permit_type:
+        typeof r.description_of_work === 'string'
+          ? r.description_of_work
+          : typeof r.type_of_work === 'string'
+            ? r.type_of_work
+            : undefined,
+      permit_number: typeof r.permit_number === 'string' ? r.permit_number : undefined,
     })
   }
   if (skipped > 0) console.log(`Mesa: skipped ${skipped} records (no business name)`)
@@ -363,7 +368,7 @@ async function fetchTempePermits(since: Date): Promise<PermitRecord[]> {
   const response = await fetch(url)
   if (!response.ok) return []
 
-  const data = (await response.json()) as ArcGISResponse
+  const data: { features?: Array<{ attributes: Record<string, unknown> }> } = await response.json()
   const records: PermitRecord[] = []
   let skipped = 0
   for (const f of data.features ?? []) {
@@ -375,14 +380,13 @@ async function fetchTempePermits(since: Date): Promise<PermitRecord[]> {
     records.push({
       business_name: resolved.name,
       entity_type: 'Commercial Permit',
-      address: [f.attributes.OriginalAddress1, f.attributes.OriginalCity]
+      address: [attrStr(f.attributes.OriginalAddress1), attrStr(f.attributes.OriginalCity)]
         .filter(Boolean)
-        .map(String)
         .join(', '),
-      filing_date: epochToDate(f.attributes.IssuedDateDtm),
+      filing_date: epochToDate(f.attributes.IssuedDateDtm as string | number | null),
       source: 'tempe_permit',
-      permit_type: f.attributes.Type != null ? String(f.attributes.Type) : undefined,
-      permit_number: f.attributes.PermitNum != null ? String(f.attributes.PermitNum) : undefined,
+      permit_type: f.attributes.Type != null ? attrStr(f.attributes.Type) : undefined,
+      permit_number: f.attributes.PermitNum != null ? attrStr(f.attributes.PermitNum) : undefined,
     })
   }
   if (skipped > 0) console.log(`Tempe: skipped ${skipped} records (no business name)`)
@@ -392,10 +396,6 @@ async function fetchTempePermits(since: Date): Promise<PermitRecord[]> {
 // ---------------------------------------------------------------------------
 // Shared types and helpers
 // ---------------------------------------------------------------------------
-
-interface ArcGISResponse {
-  features?: Array<{ attributes: Record<string, string | number | null> }>
-}
 
 function epochToDate(epoch: string | number | null): string {
   if (!epoch) return new Date().toISOString().split('T')[0]

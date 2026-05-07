@@ -1,0 +1,117 @@
+---
+/**
+ * "Send booking link" dialog for the entity detail page (prospect stage only).
+ * Extracted from src/pages/admin/entities/[id].astro.
+ */
+
+interface Props {
+  entityId: string
+}
+
+const { entityId } = Astro.props
+---
+
+<dialog
+  id="send-booking-link-dialog"
+  class="rounded-[var(--ss-radius-card)] p-0 max-w-md w-full backdrop:bg-surface-inverse/30"
+>
+  <form method="dialog" id="send-booking-link-form" class="p-card">
+    <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-1">
+      Send booking link
+    </h3>
+    <p class="text-xs text-[color:var(--ss-color-text-secondary)] mb-4">
+      Creates a meeting row and signs a booking URL for this prospect. Link expires in 14 days.
+    </p>
+
+    <div class="mb-3">
+      <label
+        for="sbl-meeting-type"
+        class="block text-xs font-medium text-[color:var(--ss-color-text-secondary)] mb-1"
+      >
+        Meeting type (optional)
+      </label>
+      <input
+        type="text"
+        id="sbl-meeting-type"
+        name="meeting_type"
+        maxlength="100"
+        placeholder="e.g. discovery, assessment"
+        class="w-full text-sm border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+      />
+    </div>
+
+    <div class="mb-4">
+      <label
+        for="sbl-duration"
+        class="block text-xs font-medium text-[color:var(--ss-color-text-secondary)] mb-1"
+      >
+        Duration
+      </label>
+      <select
+        id="sbl-duration"
+        name="duration_minutes"
+        class="w-full text-sm border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+      >
+        <option value="30" selected>30 minutes</option>
+        <option value="45">45 minutes</option>
+        <option value="60">60 minutes</option>
+      </select>
+    </div>
+
+    {
+      /* Send-mode toggle. Default is "send via email" so the button
+        actually does what its label says (#467). The "copy only"
+        path is preserved for cases where the admin wants to edit
+        the body in their own mail client. */
+    }
+    <fieldset class="mb-4">
+      <legend class="block text-xs font-medium text-[color:var(--ss-color-text-secondary)] mb-1">
+        Delivery
+      </legend>
+      <label
+        class="flex items-start gap-2 text-xs text-[color:var(--ss-color-text-primary)] mb-1.5"
+      >
+        <input type="radio" name="send_mode" value="email" checked class="mt-0.5" />
+        <span>
+          Send the email now
+          <span class="block text-[color:var(--ss-color-text-muted)]">
+            Recorded in the outreach timeline so opens and clicks attribute back to this prospect.
+          </span>
+        </span>
+      </label>
+      <label class="flex items-start gap-2 text-xs text-[color:var(--ss-color-text-primary)]">
+        <input type="radio" name="send_mode" value="copy" class="mt-0.5" />
+        <span>
+          Copy the body and open mailto
+          <span class="block text-[color:var(--ss-color-text-muted)]">
+            No tracking. Use when you want to edit the message in your own mail client.
+          </span>
+        </span>
+      </label>
+    </fieldset>
+
+    <div
+      id="sbl-error"
+      class="hidden mb-3 rounded-[var(--ss-radius-card)] bg-surface border border-error text-error text-xs px-3 py-2"
+    >
+    </div>
+
+    <div class="flex items-center justify-end gap-2">
+      <button
+        type="button"
+        id="sbl-cancel"
+        class="text-xs px-3 py-1.5 rounded-[var(--ss-radius-card)] bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)] hover:bg-[color:var(--ss-color-border)] transition-colors"
+      >
+        Cancel
+      </button>
+      <button
+        type="submit"
+        id="sbl-submit"
+        data-entity-id={entityId}
+        class="text-xs px-3 py-1.5 rounded-[var(--ss-radius-card)] bg-[color:var(--ss-color-primary)] text-white hover:bg-[color:var(--ss-color-primary-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Send link
+      </button>
+    </div>
+  </form>
+</dialog>

@@ -238,7 +238,12 @@ describe('follow-ups: email templates', () => {
 })
 
 describe('follow-ups: dashboard page', () => {
-  const source = () => readFileSync(resolve('src/pages/admin/follow-ups/index.astro'), 'utf-8')
+  // Row rendering was extracted to FollowUpList.astro to keep index.astro
+  // within the 500-line ceiling. Combined source covers both.
+  const source = () =>
+    readFileSync(resolve('src/pages/admin/follow-ups/index.astro'), 'utf-8') +
+    '\n' +
+    readFileSync(resolve('src/components/admin/FollowUpList.astro'), 'utf-8')
 
   it('dashboard page exists', () => {
     expect(existsSync(resolve('src/pages/admin/follow-ups/index.astro'))).toBe(true)

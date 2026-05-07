@@ -1,0 +1,223 @@
+---
+/**
+ * Stage-transition action buttons for the entity detail page header.
+ * Extracted from src/pages/admin/entities/[id].astro.
+ */
+import { adminActionButtonClass } from '../../lib/ui/admin-action-button'
+import { relativeTime } from '../../lib/admin/relative-time'
+import { formatDate } from '../../lib/admin/entity-detail-page'
+import { LOST_REASONS } from '../../lib/db/lost-reasons'
+import type { EntityDetailTransition } from '../../lib/admin/entity-detail-page'
+
+interface SupersedeCandidate {
+  id: string
+  version: number
+  status: string
+}
+
+interface Meeting {
+  id: string
+}
+
+interface Props {
+  entityId: string
+  entityStage: string
+  transitions: EntityDetailTransition[]
+  mostRecentDraftableMeeting: Meeting | null
+  outreachMailto: string | null
+  outreachContactEmail: string | null
+  showReEnrichButton: boolean
+  lastEnrichmentAt: string | null
+  hasOutreach: boolean
+  showNewQuoteButton: boolean
+  supersedeCandidates: SupersedeCandidate[]
+}
+
+const {
+  entityId,
+  entityStage,
+  transitions,
+  mostRecentDraftableMeeting,
+  outreachMailto,
+  outreachContactEmail,
+  showReEnrichButton,
+  lastEnrichmentAt,
+  hasOutreach,
+  showNewQuoteButton,
+  supersedeCandidates,
+} = Astro.props
+---
+
+<div class="flex items-center gap-2 shrink-0">
+  {
+    entityStage === 'prospect' && (
+      <button type="button" id="send-booking-link-btn" class={adminActionButtonClass('primary')}>
+        Send booking link
+      </button>
+    )
+  }
+  {
+    /* H17 — Draft proposal from meeting, surfaced into the top toolbar
+       on meetings-stage when a draftable meeting exists. The endpoint
+       auto-transitions the entity to proposing on success, so this
+       single click does the work that "Mark as Proposing" + creating
+       a quote separately would have done. */
+    entityStage === 'meetings' && mostRecentDraftableMeeting && (
+      <form
+        method="POST"
+        action={`/api/admin/entities/${entityId}/meetings/${mostRecentDraftableMeeting.id}/draft-quote`}
+      >
+        <button
+          type="submit"
+          class={adminActionButtonClass('primary')}
+          title="Create a draft quote from the most recent completed meeting's notes"
+        >
+          Draft proposal from meeting
+        </button>
+      </form>
+    )
+  }
+  {
+    /* Use the latest outreach draft as a pre-filled mailto when a
+       contact email exists. The dossier copy action stays as the
+       fallback when no recipient is available. */
+    outreachMailto && (
+      <a
+        href={outreachMailto}
+        class={adminActionButtonClass('ghost')}
+        title={`Open mail to ${outreachContactEmail ?? ''} with the draft pre-filled`}
+      >
+        Send outreach
+      </a>
+    )
+  }
+  {
+    /* When a meeting can draft a proposal, the dedicated primary action
+       replaces the generic proposing transition. */
+    (entityStage === 'meetings' && mostRecentDraftableMeeting
+      ? transitions.filter((t) => t.stage !== 'proposing')
+      : transitions
+    )?.map((t) =>
+      t.stage === 'lost' ? (
+        <details class="relative lost-picker">
+          <summary class={`list-none ${adminActionButtonClass(t.variant)}`}>{t.label}</summary>
+          <form
+            method="POST"
+            action={t.action ?? `/api/admin/entities/${entityId}/stage`}
+            class="absolute right-0 mt-1 z-10 w-72 bg-surface border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] shadow-lg p-3 space-y-2"
+          >
+            <input type="hidden" name="stage" value="lost" />
+            <input type="hidden" name="reason" value={`${t.label} by admin.`} />
+            <label class="block text-xs font-medium text-[color:var(--ss-color-text-secondary)]">
+              Lost reason
+              <select
+                name="lost_reason"
+                required
+                class="mt-1 block w-full text-sm border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] px-2 py-1.5 bg-surface text-[color:var(--ss-color-text-primary)]"
+              >
+                <option value="" disabled selected>
+                  Select a reason…
+                </option>
+                {LOST_REASONS.map((r) => (
+                  <option value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </label>
+            <label class="block text-xs font-medium text-[color:var(--ss-color-text-secondary)]">
+              Detail (optional)
+              <textarea
+                name="lost_detail"
+                rows="2"
+                class="mt-1 block w-full text-sm border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+            </label>
+            <div class="flex justify-end gap-2">
+              <button type="submit" class={adminActionButtonClass('destructive')}>
+                {t.label}
+              </button>
+            </div>
+          </form>
+        </details>
+      ) : (
+        <form method="POST" action={t.action ?? `/api/admin/entities/${entityId}/stage`}>
+          <input type="hidden" name="stage" value={t.stage} />
+          <input type="hidden" name="reason" value={`${t.label} by admin.`} />
+          <button type="submit" class={adminActionButtonClass(t.variant)}>
+            {t.label}
+          </button>
+        </form>
+      )
+    )
+  }
+  {
+    showReEnrichButton && (
+      <form
+        method="POST"
+        action={`/api/admin/entities/${entityId}/dossier`}
+        id="re-enrich-form"
+        class="flex items-center gap-2"
+      >
+        <button
+          type="submit"
+          id="re-enrich-btn"
+          class={`${adminActionButtonClass('ghost')} disabled:opacity-50 disabled:cursor-not-allowed`}
+          title="Refresh reviews and news — cheap, safe to re-run"
+        >
+          Re-enrich (reviews + news)
+        </button>
+        {lastEnrichmentAt && (
+          <span
+            class="text-xs text-[color:var(--ss-color-text-muted)]"
+            title={`Last enriched ${formatDate(lastEnrichmentAt)}`}
+          >
+            Last enriched {relativeTime(lastEnrichmentAt)}
+          </span>
+        )}
+      </form>
+    )
+  }
+  {
+    /* H3 — Log reply is hidden until outreach has been drafted. The
+       button only makes sense once there's something the prospect
+       could reply *to*. `hasOutreach` is the practical proxy. */
+    entityStage === 'prospect' && hasOutreach && (
+      <button
+        type="button"
+        data-open-reply-dialog={entityId}
+        class={adminActionButtonClass('ghost')}
+      >
+        Log reply
+      </button>
+    )
+  }
+  {
+    showNewQuoteButton && (
+      <form
+        method="POST"
+        action={`/api/admin/entities/${entityId}/quotes`}
+        class="flex items-center gap-2"
+      >
+        {supersedeCandidates.length > 0 && (
+          <label class="text-xs text-[color:var(--ss-color-text-secondary)] flex items-center gap-1">
+            <span class="sr-only">Supersede prior quote</span>
+            <select
+              name="parent_quote_id"
+              class="text-xs border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] px-2 py-1 bg-surface"
+              title="Optional: link to a prior quote this one supersedes"
+            >
+              <option value="">No supersede link</option>
+              {supersedeCandidates.map((q) => (
+                <option value={q.id}>
+                  Supersede v{q.version} ({q.status})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <button type="submit" class={adminActionButtonClass('ghost')}>
+          New quote
+        </button>
+      </form>
+    )
+  }
+</div>

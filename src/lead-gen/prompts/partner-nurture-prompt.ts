@@ -205,16 +205,36 @@ export function buildManualPrompt(partner: PartnerInput): string {
 ${buildUserPrompt(partner)}`
 }
 
+function validatePartnerBody(body: string, errors: string[]): void {
+  const bodyLower = body.toLowerCase()
+  const iMatches =
+    bodyLower.includes(' i ') || bodyLower.startsWith('i ') || bodyLower.includes(" i'")
+  const myMatches = body.match(/\bmy\b/gi)
+
+  if (iMatches) errors.push('body must use "we" voice — found first-person singular "I" usage')
+  if (myMatches && myMatches.length > 0) {
+    errors.push('body must use "we" voice — found first-person singular "my" usage')
+  }
+  if (/\$\d/.test(body)) errors.push('body must not contain dollar amounts')
+
+  const priceHints = ['affordable', 'premium', 'budget-friendly', 'cost-effective']
+  for (const hint of priceHints) {
+    if (bodyLower.includes(hint)) {
+      errors.push(`body must not contain price-adjacent language: "${hint}"`)
+    }
+  }
+  if (/\d+[\s-]*(minute|hour|min|hr|day|week|month)/i.test(body)) {
+    errors.push('body must not contain fixed timeframes (e.g., "20-minute call")')
+  }
+}
+
 /**
  * Validates that a parsed JSON object conforms to the PartnerEmailDraft schema.
  *
  * @param data - The parsed JSON to validate
  * @returns An object with `valid` boolean and `errors` array of issues found
  */
-export function validate(data: unknown): {
-  valid: boolean
-  errors: string[]
-} {
+export function validate(data: unknown): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
   if (typeof data !== 'object' || data === null) {
@@ -223,81 +243,27 @@ export function validate(data: unknown): {
 
   const d = data as Record<string, unknown>
 
-  // Subject
   if (typeof d.subject !== 'string' || d.subject.length === 0) {
     errors.push('subject must be a non-empty string')
   }
-
-  // Body
   if (typeof d.body !== 'string' || d.body.length === 0) {
     errors.push('body must be a non-empty string')
   }
 
-  // Tone enum
   const validTones = ['warm_checkin', 'gentle_followup', 'initial_outreach']
   if (!validTones.includes(d.tone as string)) {
     errors.push('tone must be "warm_checkin", "gentle_followup", or "initial_outreach"')
   }
 
-  // Suggested send day enum
   const validDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
   if (!validDays.includes(d.suggested_send_day as string)) {
     errors.push(
       'suggested_send_day must be "monday", "tuesday", "wednesday", "thursday", or "friday"'
     )
   }
+  if (typeof d.notes !== 'string') errors.push('notes must be a string')
 
-  // Notes
-  if (typeof d.notes !== 'string') {
-    errors.push('notes must be a string')
-  }
-
-  // Voice check — "we" voice, no "I" or "my"
-  if (typeof d.body === 'string' && d.body.length > 0) {
-    const body = d.body
-    const bodyLower = body.toLowerCase()
-
-    // Check for first-person singular voice
-    // Match " I " (surrounded by spaces), "I'" (contractions like I'm, I've), or sentence-start "I "
-    if (
-      bodyLower.includes(' i ') ||
-      bodyLower.startsWith('i ') ||
-      bodyLower.includes(" i'") ||
-      // Also check for "my " at word boundaries (but not inside words like "mystery")
-      /\bmy\b/i.test(body)
-    ) {
-      // Refine: "my" check needs to avoid false positives in words like "mystery"
-      // The \b word boundary handles this, but double-check with specific patterns
-      const myMatches = body.match(/\bmy\b/gi)
-      const iMatches =
-        bodyLower.includes(' i ') || bodyLower.startsWith('i ') || bodyLower.includes(" i'")
-
-      if (iMatches) {
-        errors.push('body must use "we" voice — found first-person singular "I" usage')
-      }
-      if (myMatches && myMatches.length > 0) {
-        errors.push('body must use "we" voice — found first-person singular "my" usage')
-      }
-    }
-
-    // Check for dollar amounts
-    if (/\$\d/.test(body)) {
-      errors.push('body must not contain dollar amounts')
-    }
-
-    // Check for price-adjacent language
-    const priceHints = ['affordable', 'premium', 'budget-friendly', 'cost-effective']
-    for (const hint of priceHints) {
-      if (bodyLower.includes(hint)) {
-        errors.push(`body must not contain price-adjacent language: "${hint}"`)
-      }
-    }
-
-    // Check for fixed timeframes (specific durations)
-    if (/\d+[\s-]*(minute|hour|min|hr|day|week|month)/i.test(body)) {
-      errors.push('body must not contain fixed timeframes (e.g., "20-minute call")')
-    }
-  }
+  if (typeof d.body === 'string' && d.body.length > 0) validatePartnerBody(d.body, errors)
 
   return { valid: errors.length === 0, errors }
 }

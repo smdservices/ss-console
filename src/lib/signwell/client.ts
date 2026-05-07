@@ -39,7 +39,7 @@ export async function createSignatureRequest(
     throw new Error(`SignWell createSignatureRequest failed (${response.status}): ${errorBody}`)
   }
 
-  return response.json() as Promise<SignWellDocument>
+  return response.json()
 }
 
 /**
@@ -62,7 +62,7 @@ export async function getDocument(apiKey: string, docId: string): Promise<SignWe
     throw new Error(`SignWell getDocument failed (${response.status}): ${errorBody}`)
   }
 
-  return response.json() as Promise<SignWellDocument>
+  return response.json()
 }
 
 /**

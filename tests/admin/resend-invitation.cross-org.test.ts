@@ -140,7 +140,7 @@ describe('POST /api/admin/resend-invitation — cross-org regression', () => {
     const response = await callAsAdminFromOrg('org-a', { userId: 'user-in-b' })
     expect(response.status).toBe(404)
 
-    const body = (await response.json()) as { error: string }
+    const body: Record<string, unknown> = await response.json()
     expect(body.error).toBe('Client user not found')
 
     // No magic_link should have been created — the request should have
@@ -177,11 +177,7 @@ describe('POST /api/admin/resend-invitation — cross-org regression', () => {
     const response = await callAsAdminFromOrg('org-a', { userId: 'user-in-a' })
     expect(response.status).toBe(200)
 
-    const body = (await response.json()) as {
-      success: boolean
-      sentTo: string
-      emailId: string
-    }
+    const body: Record<string, unknown> = await response.json()
     expect(body.success).toBe(true)
     expect(body.sentTo).toBe('client-a@example.com')
 

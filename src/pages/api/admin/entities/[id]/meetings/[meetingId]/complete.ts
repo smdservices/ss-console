@@ -1,4 +1,4 @@
-import type { APIRoute } from 'astro'
+import type { APIContext, APIRoute } from 'astro'
 import {
   getMeeting,
   updateMeeting,
@@ -15,13 +15,54 @@ import { env } from 'cloudflare:workers'
  * the outcome to the entity context timeline, and optionally advances the
  * entity to an admin-chosen next stage.
  *
- * Deliberately does NOT draft a quote or force a stage transition —
- * those are separate explicit actions (see the draft-quote endpoint in
- * this same directory). This is the decoupling called for in issue #470.
- *
  * Protected by auth middleware (requires admin role).
  */
-export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
+
+async function mirrorLegacyAssessment(orgId: string, meetingId: string): Promise<void> {
+  try {
+    await env.DB.prepare(
+      `UPDATE assessments
+         SET status = 'completed',
+             completed_at = COALESCE(completed_at, datetime('now'))
+       WHERE id = ? AND org_id = ?`
+    )
+      .bind(meetingId, orgId)
+      .run()
+  } catch (err) {
+    console.error(
+      '[api/admin/entities/[id]/meetings/[meetingId]/complete] Legacy mirror failed:',
+      err
+    )
+  }
+}
+
+function parseFormData(formData: FormData): {
+  completionNotes: string | null
+  durationMinutes: number | null
+  nextStage: EntityStage | null
+} {
+  const completionNotesRaw = formData.get('completion_notes')
+  const completionNotes =
+    typeof completionNotesRaw === 'string' && completionNotesRaw.trim()
+      ? completionNotesRaw.trim()
+      : null
+
+  const durationRaw = formData.get('duration_minutes')
+  const durationMinutes =
+    typeof durationRaw === 'string' && durationRaw.trim()
+      ? parseInt(durationRaw.trim(), 10) || null
+      : null
+
+  const nextStageRaw = formData.get('next_stage')
+  const nextStage =
+    typeof nextStageRaw === 'string' && nextStageRaw.trim()
+      ? (nextStageRaw.trim() as EntityStage)
+      : null
+
+  return { completionNotes, durationMinutes, nextStage }
+}
+
+async function handlePost({ request, locals, redirect, params }: APIContext): Promise<Response> {
   const session = locals.session
   if (!session || session.role !== 'admin') {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -32,17 +73,13 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
 
   const entityId = params.id
   const meetingId = params.meetingId
-  if (!entityId || !meetingId) {
-    return redirect('/admin/entities?error=missing', 302)
-  }
+  if (!entityId || !meetingId) return redirect('/admin/entities?error=missing', 302)
 
   const meetingUrl = `/admin/entities/${entityId}/meetings/${meetingId}`
 
   try {
     const meeting = await getMeeting(env.DB, session.orgId, meetingId)
-    if (!meeting) {
-      return redirect('/admin/entities?error=not_found', 302)
-    }
+    if (!meeting) return redirect('/admin/entities?error=not_found', 302)
     if (meeting.entity_id !== entityId) {
       return redirect(
         `/admin/entities/${meeting.entity_id}/meetings/${meetingId}?error=entity_mismatch`,
@@ -51,58 +88,17 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
     }
 
     const entity = await getEntity(env.DB, session.orgId, entityId)
-    if (!entity) {
-      return redirect('/admin/entities?error=entity_not_found', 302)
-    }
+    if (!entity) return redirect('/admin/entities?error=entity_not_found', 302)
 
-    const formData = await request.formData()
+    const { completionNotes, durationMinutes, nextStage } = parseFormData(await request.formData())
 
-    const completionNotesRaw = formData.get('completion_notes')
-    const completionNotes =
-      typeof completionNotesRaw === 'string' && completionNotesRaw.trim()
-        ? completionNotesRaw.trim()
-        : null
-
-    const durationRaw = formData.get('duration_minutes')
-    const durationMinutes =
-      typeof durationRaw === 'string' && durationRaw.trim()
-        ? parseInt(durationRaw.trim(), 10) || null
-        : null
-
-    const nextStageRaw = formData.get('next_stage')
-    const nextStage =
-      typeof nextStageRaw === 'string' && nextStageRaw.trim()
-        ? (nextStageRaw.trim() as EntityStage)
-        : null
-
-    // 1. Mark meeting completed (auto-sets completed_at)
     await updateMeetingStatus(env.DB, session.orgId, meetingId, 'completed')
-
-    // Mirror to the legacy assessments table during the monitoring window.
-    // meeting.id == assessment.id by construction.
-    try {
-      await env.DB.prepare(
-        `UPDATE assessments
-           SET status = 'completed',
-               completed_at = COALESCE(completed_at, datetime('now'))
-         WHERE id = ? AND org_id = ?`
-      )
-        .bind(meetingId, session.orgId)
-        .run()
-    } catch (err) {
-      console.error(
-        '[api/admin/entities/[id]/meetings/[meetingId]/complete] Legacy mirror failed:',
-        err
-      )
-    }
-
-    // 2. Persist completion notes + duration on the meeting
+    await mirrorLegacyAssessment(session.orgId, meetingId)
     await updateMeeting(env.DB, session.orgId, meetingId, {
       completion_notes: completionNotes,
       duration_minutes: durationMinutes,
     })
 
-    // 3. Append outcome to the entity context timeline
     if (completionNotes) {
       await appendContext(env.DB, session.orgId, {
         entity_id: entityId,
@@ -118,7 +114,6 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
       })
     }
 
-    // 4. Transition stage only if the admin explicitly picked one. No default.
     if (nextStage && nextStage !== entity.stage) {
       try {
         await transitionStage(
@@ -140,3 +135,5 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
     return redirect(`${meetingUrl}?error=server`, 302)
   }
 }
+
+export const POST: APIRoute = (ctx) => handlePost(ctx)

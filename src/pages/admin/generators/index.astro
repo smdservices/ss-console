@@ -1,7 +1,8 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro'
+import GeneratorPipelineCard from '../../../components/admin/GeneratorPipelineCard.astro'
 import { listGeneratorConfigs } from '../../../lib/db/generators'
-import { PIPELINE_LABELS, type PipelineId } from '../../../lib/generators/types'
+import type { PipelineId } from '../../../lib/generators/types'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -58,8 +59,8 @@ interface PipelineMetrics {
   top_vertical_count: number
 }
 
-async function getPipelineMetrics(pipeline: string): Promise<PipelineMetrics> {
-  const row = await env.DB.prepare(
+async function fetchSignalCounts(orgId: string, pipeline: string) {
+  return env.DB.prepare(
     `SELECT
        COUNT(*) as total_signals,
        SUM(CASE WHEN created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) as last_7d,
@@ -72,10 +73,12 @@ async function getPipelineMetrics(pipeline: string): Promise<PipelineMetrics> {
      FROM entities
      WHERE stage = 'signal' AND org_id = ? AND source_pipeline = ?`
   )
-    .bind(session.orgId, pipeline)
+    .bind(orgId, pipeline)
     .first<PipelineMetrics>()
+}
 
-  const verticalRow = await env.DB.prepare(
+async function fetchTopVertical(orgId: string, pipeline: string) {
+  return env.DB.prepare(
     `SELECT vertical, COUNT(*) as count
      FROM entities
      WHERE stage = 'signal' AND org_id = ? AND source_pipeline = ?
@@ -84,21 +87,39 @@ async function getPipelineMetrics(pipeline: string): Promise<PipelineMetrics> {
      ORDER BY count DESC
      LIMIT 1`
   )
-    .bind(session.orgId, pipeline)
+    .bind(orgId, pipeline)
     .first<{ vertical: string; count: number }>()
+}
 
-  return {
-    total_signals: row?.total_signals ?? 0,
-    last_7d: row?.last_7d ?? 0,
-    has_pain: row?.has_pain ?? 0,
-    has_vertical: row?.has_vertical ?? 0,
-    has_area: row?.has_area ?? 0,
-    has_employee_count: row?.has_employee_count ?? 0,
-    has_tier: row?.has_tier ?? 0,
-    latest_signal_at: row?.latest_signal_at ?? null,
-    top_vertical: verticalRow?.vertical ?? null,
-    top_vertical_count: verticalRow?.count ?? 0,
-  }
+const ZERO_COUNTS: PipelineMetrics = {
+  total_signals: 0,
+  last_7d: 0,
+  has_pain: 0,
+  has_vertical: 0,
+  has_area: 0,
+  has_employee_count: 0,
+  has_tier: 0,
+  latest_signal_at: null,
+  top_vertical: null,
+  top_vertical_count: 0,
+}
+
+function mergeMetrics(
+  row: PipelineMetrics | null,
+  verticalRow: { vertical: string; count: number } | null
+): PipelineMetrics {
+  const counts = row ? { ...row } : { ...ZERO_COUNTS }
+  counts.top_vertical = verticalRow ? verticalRow.vertical : null
+  counts.top_vertical_count = verticalRow ? verticalRow.count : 0
+  return counts
+}
+
+async function getPipelineMetrics(pipeline: string): Promise<PipelineMetrics> {
+  const [row, verticalRow] = await Promise.all([
+    fetchSignalCounts(session.orgId, pipeline),
+    fetchTopVertical(session.orgId, pipeline),
+  ])
+  return mergeMetrics(row, verticalRow)
 }
 
 const metrics = await Promise.all(
@@ -121,11 +142,6 @@ const painAvgs = await Promise.all(
 )
 const painByPipeline = Object.fromEntries(painAvgs.map((a) => [a.pipeline, a.avg]))
 
-function coveragePct(populated: number, total: number): number {
-  if (total === 0) return 0
-  return Math.round((populated / total) * 100)
-}
-
 function formatRelative(iso: string | null): string {
   if (!iso) return 'Never'
   const then = new Date(iso).getTime()
@@ -146,10 +162,6 @@ function lastRun(pipelineId: PipelineId): string {
 
 function isEnabled(pipelineId: PipelineId): boolean {
   return configByPipeline[pipelineId]?.enabled ?? true
-}
-
-function vlabel(v: string): string {
-  return v.replace(/_/g, ' ')
 }
 ---
 
@@ -177,117 +189,15 @@ function vlabel(v: string): string {
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-card">
     {
-      metrics.map(({ pipeline, metrics: m }) => {
-        const painPct = coveragePct(m.has_pain, m.total_signals)
-        const verticalPct = coveragePct(m.has_vertical, m.total_signals)
-        const empPct = coveragePct(m.has_employee_count, m.total_signals)
-        const areaPct = coveragePct(m.has_area, m.total_signals)
-        const avgPain = painByPipeline[pipeline.id]
-        const enabled = isEnabled(pipeline.id)
-
-        return (
-          <a
-            href={`/admin/generators/${pipeline.id}`}
-            class="block bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card hover:border-[color:var(--ss-color-border)] hover:shadow-sm transition-all"
-          >
-            <div class="flex items-start justify-between mb-3 gap-2">
-              <div class="min-w-0">
-                <div class="flex items-center gap-2 mb-0.5">
-                  <div
-                    class={`w-2 h-2 rounded-full shrink-0 ${enabled ? 'bg-[color:var(--ss-color-text-primary)]' : 'bg-[color:var(--ss-color-border)]'}`}
-                    title={enabled ? 'Enabled' : 'Disabled'}
-                    aria-hidden="true"
-                  />
-                  <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] truncate">
-                    {PIPELINE_LABELS[pipeline.id]}
-                  </h3>
-                </div>
-                <p class="text-xs text-[color:var(--ss-color-text-secondary)] mt-0.5">
-                  {pipeline.description}
-                </p>
-              </div>
-              <span class="text-xs text-[color:var(--ss-color-text-muted)] whitespace-nowrap">
-                {lastRun(pipeline.id)}
-              </span>
-            </div>
-
-            <dl class="grid grid-cols-2 gap-row text-sm">
-              <div>
-                <dt class="text-xs text-[color:var(--ss-color-text-secondary)]">Total signals</dt>
-                <dd class="text-[color:var(--ss-color-text-primary)] font-medium">
-                  {m.total_signals}
-                </dd>
-              </div>
-              <div>
-                <dt class="text-xs text-[color:var(--ss-color-text-secondary)]">Last 7 days</dt>
-                <dd class="text-[color:var(--ss-color-text-primary)] font-medium">{m.last_7d}</dd>
-              </div>
-
-              {painPct >= 50 && avgPain !== null && (
-                <div>
-                  <dt class="text-xs text-[color:var(--ss-color-text-secondary)]">
-                    Avg pain{' '}
-                    <span class="text-[color:var(--ss-color-text-muted)]">
-                      ({painPct}% coverage)
-                    </span>
-                  </dt>
-                  <dd class="text-[color:var(--ss-color-text-primary)] font-medium">
-                    {avgPain.toFixed(1)}/10
-                  </dd>
-                </div>
-              )}
-
-              {verticalPct >= 50 && m.top_vertical && (
-                <div>
-                  <dt class="text-xs text-[color:var(--ss-color-text-secondary)]">
-                    Top vertical{' '}
-                    <span class="text-[color:var(--ss-color-text-muted)]">
-                      ({verticalPct}% coverage)
-                    </span>
-                  </dt>
-                  <dd class="text-[color:var(--ss-color-text-primary)] font-medium capitalize">
-                    {vlabel(m.top_vertical)}
-                  </dd>
-                </div>
-              )}
-
-              {empPct >= 50 && (
-                <div>
-                  <dt class="text-xs text-[color:var(--ss-color-text-secondary)]">
-                    Employee count{' '}
-                    <span class="text-[color:var(--ss-color-text-muted)]">
-                      ({empPct}% coverage)
-                    </span>
-                  </dt>
-                  <dd class="text-[color:var(--ss-color-text-primary)] font-medium">
-                    {m.has_employee_count} enriched
-                  </dd>
-                </div>
-              )}
-
-              {areaPct >= 50 && (
-                <div>
-                  <dt class="text-xs text-[color:var(--ss-color-text-secondary)]">
-                    Area{' '}
-                    <span class="text-[color:var(--ss-color-text-muted)]">
-                      ({areaPct}% coverage)
-                    </span>
-                  </dt>
-                  <dd class="text-[color:var(--ss-color-text-primary)] font-medium">
-                    {m.has_area} tagged
-                  </dd>
-                </div>
-              )}
-            </dl>
-
-            {m.total_signals === 0 && (
-              <p class="text-xs text-[color:var(--ss-color-text-secondary)] mt-3 italic">
-                No signals yet.
-              </p>
-            )}
-          </a>
-        )
-      })
+      metrics.map(({ pipeline, metrics: m }) => (
+        <GeneratorPipelineCard
+          pipeline={pipeline}
+          metrics={m}
+          avgPain={painByPipeline[pipeline.id] ?? null}
+          enabled={isEnabled(pipeline.id)}
+          lastRunLabel={lastRun(pipeline.id)}
+        />
+      ))
     }
   </div>
 </AdminLayout>

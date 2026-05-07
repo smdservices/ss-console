@@ -89,6 +89,34 @@ interface DispatchResponseBody {
 }
 
 /**
+ * Verify bearer auth for public requests. Header-less requests are treated
+ * as service-binding traffic and allowed. Returns a Response on failure,
+ * null on success.
+ */
+function checkAuth(auth: string | null, env: Env): Response | null {
+  if (!auth) return null
+  if (!env.LEAD_INGEST_API_KEY)
+    return jsonResponse(401, { ok: false, error: 'auth_not_configured' })
+  if (auth !== `Bearer ${env.LEAD_INGEST_API_KEY}`)
+    return jsonResponse(401, { ok: false, error: 'unauthorized' })
+  return null
+}
+
+function extractBodyFields(body: DispatchRequestBody): {
+  entityId: string
+  orgId: string
+  mode: 'full' | 'reviews-and-news'
+  triggered_by: string
+} {
+  return {
+    entityId: typeof body.entityId === 'string' ? body.entityId : '',
+    orgId: typeof body.orgId === 'string' ? body.orgId : '',
+    mode: body.mode === 'reviews-and-news' ? 'reviews-and-news' : 'full',
+    triggered_by: typeof body.triggered_by === 'string' ? body.triggered_by : 'unknown',
+  }
+}
+
+/**
  * Dispatch handler. Service-binding-only in production: ss-web's
  * `env.ENRICHMENT_WORKFLOW_SERVICE.fetch(...)` invokes this entrypoint
  * without the request ever reaching the public internet. Public requests
@@ -99,36 +127,20 @@ async function handleDispatch(request: Request, env: Env): Promise<Response> {
     return jsonResponse(405, { ok: false, error: 'method_not_allowed' })
   }
 
-  // Bearer guard. Header-less requests are treated as service-binding
-  // traffic and allowed; header-bearing requests must match the secret.
-  const auth = request.headers.get('Authorization')
-  if (auth) {
-    if (!env.LEAD_INGEST_API_KEY) {
-      return jsonResponse(401, { ok: false, error: 'auth_not_configured' })
-    }
-    if (auth !== `Bearer ${env.LEAD_INGEST_API_KEY}`) {
-      return jsonResponse(401, { ok: false, error: 'unauthorized' })
-    }
-  }
+  const authErr = checkAuth(request.headers.get('Authorization'), env)
+  if (authErr) return authErr
 
   let body: DispatchRequestBody
   try {
-    body = (await request.json()) as DispatchRequestBody
+    body = await request.json()
   } catch {
     return jsonResponse(400, { ok: false, error: 'invalid_json' })
   }
 
-  const entityId = typeof body.entityId === 'string' ? body.entityId : ''
-  const orgId = typeof body.orgId === 'string' ? body.orgId : ''
-  const mode = body.mode === 'reviews-and-news' ? 'reviews-and-news' : 'full'
-  const triggered_by = typeof body.triggered_by === 'string' ? body.triggered_by : 'unknown'
+  const { entityId, orgId, mode, triggered_by } = extractBodyFields(body)
 
-  if (!entityId) {
-    return jsonResponse(400, { ok: false, error: 'missing_entity_id' })
-  }
-  if (!orgId) {
-    return jsonResponse(400, { ok: false, error: 'missing_org_id' })
-  }
+  if (!entityId) return jsonResponse(400, { ok: false, error: 'missing_entity_id' })
+  if (!orgId) return jsonResponse(400, { ok: false, error: 'missing_org_id' })
 
   if (!env.ENRICHMENT_WORKFLOW || typeof env.ENRICHMENT_WORKFLOW.create !== 'function') {
     // Should never fire in production — the binding is declared in this

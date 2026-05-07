@@ -3,26 +3,25 @@ import AdminLayout from '../../../layouts/AdminLayout.astro'
 import AdminFlashNotice from '../../../components/admin/AdminFlashNotice.astro'
 import LogReplyDialog from '../../../components/admin/LogReplyDialog.astro'
 import EnrichmentStatusPanel from '../../../components/admin/EnrichmentStatusPanel.astro'
+import EntityTimelineEntry from '../../../components/admin/EntityTimelineEntry.astro'
+import EntitySendBookingDialog from '../../../components/admin/EntitySendBookingDialog.astro'
+import EntityStageActions from '../../../components/admin/EntityStageActions.astro'
+import EntityDossierSummary from '../../../components/admin/EntityDossierSummary.astro'
 import EntityContactsPanel from '../../../components/admin/EntityContactsPanel.astro'
 import { statusBadgeClass } from '../../../lib/ui/status-badge'
 import { pipelineBadgeClass } from '../../../lib/ui/pipeline-badge'
 import { adminActionButtonClass } from '../../../lib/ui/admin-action-button'
 import { relativeTime } from '../../../lib/admin/relative-time'
 import {
-  confidenceColor,
   contextTypeBadge,
   formatDate,
-  formatDateTime,
   isOverdue,
   loadEntityDetailPage,
-  parseMetadata,
-  renderSimpleMarkdown,
-  sentimentColor,
 } from '../../../lib/admin/entity-detail-page'
 import { PIPELINE_LABELS } from '../../../lead-gen/schemas/lead-scoring-schema'
 import type { PipelineId } from '../../../lead-gen/schemas/lead-scoring-schema'
 import { ENTITY_STAGES } from '../../../lib/db/entities'
-import { LOST_REASONS, lostReasonLabel, lostReasonChipClass } from '../../../lib/db/lost-reasons'
+import { lostReasonLabel, lostReasonChipClass } from '../../../lib/db/lost-reasons'
 import { CONTEXT_TYPES } from '../../../lib/db/context'
 import type { ContextEntry } from '../../../lib/db/context'
 import { env } from 'cloudflare:workers'
@@ -240,302 +239,25 @@ const {
       </div>
 
       {/* Stage transition buttons */}
-      <div class="flex items-center gap-2 shrink-0">
-        {
-          entity.stage === 'prospect' && (
-            <button
-              type="button"
-              id="send-booking-link-btn"
-              class={adminActionButtonClass('primary')}
-            >
-              Send booking link
-            </button>
-          )
-        }
-        {
-          /* H17 — Draft proposal from meeting, surfaced into the top toolbar
-             on meetings-stage when a draftable meeting exists. The endpoint
-             auto-transitions the entity to proposing on success, so this
-             single click does the work that "Mark as Proposing" + creating
-             a quote separately would have done. */
-          entity.stage === 'meetings' && mostRecentDraftableMeeting && (
-            <form
-              method="POST"
-              action={`/api/admin/entities/${entity.id}/meetings/${mostRecentDraftableMeeting.id}/draft-quote`}
-            >
-              <button
-                type="submit"
-                class={adminActionButtonClass('primary')}
-                title="Create a draft quote from the most recent completed meeting's notes"
-              >
-                Draft proposal from meeting
-              </button>
-            </form>
-          )
-        }
-        {
-          /* Use the latest outreach draft as a pre-filled mailto when a
-             contact email exists. The dossier copy action stays as the
-             fallback when no recipient is available. */
-          outreachMailto && (
-            <a
-              href={outreachMailto}
-              class={adminActionButtonClass('ghost')}
-              title={`Open mail to ${outreachContact?.email ?? ''} with the draft pre-filled`}
-            >
-              Send outreach
-            </a>
-          )
-        }
-        {
-          /* When a meeting can draft a proposal, the dedicated primary action
-             replaces the generic proposing transition. */
-          (entity.stage === 'meetings' && mostRecentDraftableMeeting
-            ? transitions.filter((t) => t.stage !== 'proposing')
-            : transitions
-          )?.map((t) =>
-            t.stage === 'lost' ? (
-              <details class="relative lost-picker">
-                <summary class={`list-none ${adminActionButtonClass(t.variant)}`}>
-                  {t.label}
-                </summary>
-                <form
-                  method="POST"
-                  action={t.action ?? `/api/admin/entities/${entity.id}/stage`}
-                  class="absolute right-0 mt-1 z-10 w-72 bg-surface border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] shadow-lg p-3 space-y-2"
-                >
-                  <input type="hidden" name="stage" value="lost" />
-                  <input type="hidden" name="reason" value={`${t.label} by admin.`} />
-                  <label class="block text-xs font-medium text-[color:var(--ss-color-text-secondary)]">
-                    Lost reason
-                    <select
-                      name="lost_reason"
-                      required
-                      class="mt-1 block w-full text-sm border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] px-2 py-1.5 bg-surface text-[color:var(--ss-color-text-primary)]"
-                    >
-                      <option value="" disabled selected>
-                        Select a reason…
-                      </option>
-                      {LOST_REASONS.map((r) => (
-                        <option value={r.value}>{r.label}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label class="block text-xs font-medium text-[color:var(--ss-color-text-secondary)]">
-                    Detail (optional)
-                    <textarea
-                      name="lost_detail"
-                      rows="2"
-                      class="mt-1 block w-full text-sm border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    />
-                  </label>
-                  <div class="flex justify-end gap-2">
-                    <button type="submit" class={adminActionButtonClass('destructive')}>
-                      {t.label}
-                    </button>
-                  </div>
-                </form>
-              </details>
-            ) : (
-              <form method="POST" action={t.action ?? `/api/admin/entities/${entity.id}/stage`}>
-                <input type="hidden" name="stage" value={t.stage} />
-                <input type="hidden" name="reason" value={`${t.label} by admin.`} />
-                <button type="submit" class={adminActionButtonClass(t.variant)}>
-                  {t.label}
-                </button>
-              </form>
-            )
-          )
-        }
-        {
-          showReEnrichButton && (
-            <form
-              method="POST"
-              action={`/api/admin/entities/${entity.id}/dossier`}
-              id="re-enrich-form"
-              class="flex items-center gap-2"
-            >
-              <button
-                type="submit"
-                id="re-enrich-btn"
-                class={`${adminActionButtonClass('ghost')} disabled:opacity-50 disabled:cursor-not-allowed`}
-                title="Refresh reviews and news — cheap, safe to re-run"
-              >
-                Re-enrich (reviews + news)
-              </button>
-              {lastEnrichmentAt && (
-                <span
-                  class="text-xs text-[color:var(--ss-color-text-muted)]"
-                  title={`Last enriched ${formatDate(lastEnrichmentAt)}`}
-                >
-                  Last enriched {relativeTime(lastEnrichmentAt)}
-                </span>
-              )}
-            </form>
-          )
-        }
-        {
-          /* H3 — Log reply is hidden until outreach has been drafted. The
-             button only makes sense once there's something the prospect
-             could reply *to*. `hasOutreach` is the practical proxy. */
-          entity.stage === 'prospect' && hasOutreach && (
-            <button
-              type="button"
-              data-open-reply-dialog={entity.id}
-              class={adminActionButtonClass('ghost')}
-            >
-              Log reply
-            </button>
-          )
-        }
-        {
-          showNewQuoteButton && (
-            <form
-              method="POST"
-              action={`/api/admin/entities/${entity.id}/quotes`}
-              class="flex items-center gap-2"
-            >
-              {supersedeCandidates.length > 0 && (
-                <label class="text-xs text-[color:var(--ss-color-text-secondary)] flex items-center gap-1">
-                  <span class="sr-only">Supersede prior quote</span>
-                  <select
-                    name="parent_quote_id"
-                    class="text-xs border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] px-2 py-1 bg-surface"
-                    title="Optional: link to a prior quote this one supersedes"
-                  >
-                    <option value="">No supersede link</option>
-                    {supersedeCandidates.map((q) => (
-                      <option value={q.id}>
-                        Supersede v{q.version} ({q.status})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              <button type="submit" class={adminActionButtonClass('ghost')}>
-                New quote
-              </button>
-            </form>
-          )
-        }
-      </div>
+      <EntityStageActions
+        entityId={entity.id}
+        entityStage={entity.stage}
+        transitions={transitions}
+        mostRecentDraftableMeeting={mostRecentDraftableMeeting ?? null}
+        outreachMailto={outreachMailto}
+        outreachContactEmail={outreachContact?.email ?? null}
+        showReEnrichButton={showReEnrichButton}
+        lastEnrichmentAt={lastEnrichmentAt}
+        hasOutreach={hasOutreach}
+        showNewQuoteButton={showNewQuoteButton}
+        supersedeCandidates={supersedeCandidates}
+      />
     </div>
   </div>
 
   <LogReplyDialog entityId={entity.id} entityName={entity.name} />
 
-  {
-    /* Send-booking-link modal (#467). Rendered only on prospect-stage
-       entities. Uses a native <dialog> for keyboard + accessibility
-       defaults. The modal calls the send-booking-link endpoint, copies
-       the outreach template to the clipboard, and opens a mailto:. */
-  }
-  {
-    entity.stage === 'prospect' && (
-      <dialog
-        id="send-booking-link-dialog"
-        class="rounded-[var(--ss-radius-card)] p-0 max-w-md w-full backdrop:bg-surface-inverse/30"
-      >
-        <form method="dialog" id="send-booking-link-form" class="p-card">
-          <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-1">
-            Send booking link
-          </h3>
-          <p class="text-xs text-[color:var(--ss-color-text-secondary)] mb-4">
-            Creates a meeting row and signs a booking URL for this prospect. Link expires in 14
-            days.
-          </p>
-
-          <div class="mb-3">
-            <label
-              for="sbl-meeting-type"
-              class="block text-xs font-medium text-[color:var(--ss-color-text-secondary)] mb-1"
-            >
-              Meeting type (optional)
-            </label>
-            <input
-              type="text"
-              id="sbl-meeting-type"
-              name="meeting_type"
-              maxlength="100"
-              placeholder="e.g. discovery, assessment"
-              class="w-full text-sm border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            />
-          </div>
-
-          <div class="mb-4">
-            <label
-              for="sbl-duration"
-              class="block text-xs font-medium text-[color:var(--ss-color-text-secondary)] mb-1"
-            >
-              Duration
-            </label>
-            <select
-              id="sbl-duration"
-              name="duration_minutes"
-              class="w-full text-sm border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            >
-              <option value="30" selected>
-                30 minutes
-              </option>
-              <option value="45">45 minutes</option>
-              <option value="60">60 minutes</option>
-            </select>
-          </div>
-
-          {/* Send-mode toggle. Default is "send via email" so the button
-              actually does what its label says (#467). The "copy only"
-              path is preserved for cases where the admin wants to edit
-              the body in their own mail client. */}
-          <fieldset class="mb-4">
-            <legend class="block text-xs font-medium text-[color:var(--ss-color-text-secondary)] mb-1">
-              Delivery
-            </legend>
-            <label class="flex items-start gap-2 text-xs text-[color:var(--ss-color-text-primary)] mb-1.5">
-              <input type="radio" name="send_mode" value="email" checked class="mt-0.5" />
-              <span>
-                Send the email now
-                <span class="block text-[color:var(--ss-color-text-muted)]">
-                  Recorded in the outreach timeline so opens and clicks attribute back to this
-                  prospect.
-                </span>
-              </span>
-            </label>
-            <label class="flex items-start gap-2 text-xs text-[color:var(--ss-color-text-primary)]">
-              <input type="radio" name="send_mode" value="copy" class="mt-0.5" />
-              <span>
-                Copy the body and open mailto
-                <span class="block text-[color:var(--ss-color-text-muted)]">
-                  No tracking. Use when you want to edit the message in your own mail client.
-                </span>
-              </span>
-            </label>
-          </fieldset>
-
-          <div
-            id="sbl-error"
-            class="hidden mb-3 rounded-[var(--ss-radius-card)] bg-surface border border-error text-error text-xs px-3 py-2"
-          />
-
-          <div class="flex items-center justify-end gap-2">
-            <button
-              type="button"
-              id="sbl-cancel"
-              class="text-xs px-3 py-1.5 rounded-[var(--ss-radius-card)] bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)] hover:bg-[color:var(--ss-color-border)] transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              id="sbl-submit"
-              class="text-xs px-3 py-1.5 rounded-[var(--ss-radius-card)] bg-[color:var(--ss-color-primary)] text-white hover:bg-[color:var(--ss-color-primary-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Send link
-            </button>
-          </div>
-        </form>
-      </dialog>
-    )
-  }
+  {entity.stage === 'prospect' && <EntitySendBookingDialog entityId={entity.id} />}
 
   {
     /* Add Note — `rows="4"` and a non-resize textarea give the operator
@@ -601,99 +323,9 @@ const {
         </div>
       ) : (
         <div class="space-y-row">
-          {filteredEntries.map((entry: ContextEntry, idx: number) => {
-            const meta = parseMetadata(entry.metadata)
-            const problems = meta?.top_problems as string[] | undefined
-            const isLong = entry.content.length > 500
-            const isReplyLog = entry.type === 'note' && entry.source === 'reply_log'
-            const replySentiment = isReplyLog ? (meta?.sentiment as string | undefined) : undefined
-            const replyNextAction = isReplyLog
-              ? (meta?.next_action as string | undefined)
-              : undefined
-            // Open by default for the most recent N entries; older entries
-            // collapse so the timeline summary stays scannable. Toggle handles
-            // the rest. N=3 keeps the dense top-of-page view useful without
-            // a wall of expanded content.
-            const openByDefault = idx < 3
-            return (
-              <details
-                open={openByDefault}
-                class={`group bg-surface rounded-[var(--ss-radius-card)] border px-4 py-3 ${
-                  isReplyLog
-                    ? 'border-l-4 border-l-teal-500 border-[color:var(--ss-color-border)]'
-                    : 'border-[color:var(--ss-color-border)]'
-                }`}
-              >
-                <summary class="flex items-center gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden flex-wrap">
-                  {isReplyLog ? (
-                    <span class="text-xs px-2 py-0.5 rounded bg-border-subtle text-text-secondary font-semibold">
-                      Reply
-                    </span>
-                  ) : (
-                    <span class={`text-xs px-2 py-0.5 rounded ${contextTypeBadge(entry.type)}`}>
-                      {CONTEXT_TYPES.find((t) => t.value === entry.type)?.label ?? entry.type}
-                    </span>
-                  )}
-                  <span class="text-xs text-[color:var(--ss-color-text-muted)]">
-                    {entry.source}
-                  </span>
-                  <span class="text-xs text-[color:var(--ss-color-text-muted)]">
-                    {formatDateTime(entry.created_at)}
-                  </span>
-                  {replySentiment && (
-                    <span class="text-xs px-1.5 py-0.5 rounded bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)] capitalize">
-                      {replySentiment.replace(/_/g, ' ')}
-                    </span>
-                  )}
-                  {replyNextAction && (
-                    <span class="text-xs text-[color:var(--ss-color-text-secondary)]">
-                      Next: <span class="capitalize">{replyNextAction.replace(/_/g, ' ')}</span>
-                    </span>
-                  )}
-                  <svg
-                    class="ml-auto h-3.5 w-3.5 shrink-0 text-[color:var(--ss-color-text-muted)] transition-transform group-open:rotate-180"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path
-                      fill-rule="evenodd"
-                      d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"
-                      clip-rule="evenodd"
-                    />
-                  </svg>
-                  <span class="sr-only">Toggle entry</span>
-                </summary>
-
-                <div class="mt-1.5">
-                  {problems && problems.length > 0 && (
-                    <div class="flex gap-1 mb-1.5 flex-wrap">
-                      {problems.map((p: string) => (
-                        <span class="text-xs bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)] px-1.5 py-0.5 rounded">
-                          {p.replace(/_/g, ' ')}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  <div
-                    class={`text-sm text-[color:var(--ss-color-text-primary)] whitespace-pre-wrap${isLong ? ' js-truncated' : ''}`}
-                    data-long={isLong ? 'true' : 'false'}
-                  >
-                    {entry.content}
-                  </div>
-                  {isLong && (
-                    <button
-                      type="button"
-                      class="js-toggle-long text-xs mt-2 text-[color:var(--ss-color-primary)] hover:underline cursor-pointer"
-                    >
-                      Show more
-                    </button>
-                  )}
-                </div>
-              </details>
-            )
-          })}
+          {filteredEntries.map((entry: ContextEntry, idx: number) => (
+            <EntityTimelineEntry entry={entry} openByDefault={idx < 3} />
+          ))}
         </div>
       )
     }
@@ -705,141 +337,14 @@ const {
   {/* Dossier Summary */}
   {
     hasDossier && (
-      <div class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card mb-6">
-        <div class="flex items-baseline justify-between gap-2 mb-4 flex-wrap">
-          <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)]">
-            Dossier Summary
-          </h3>
-          {dossierBrief && (
-            <span
-              class="text-xs text-[color:var(--ss-color-text-muted)]"
-              title={`Generated ${formatDate(dossierBrief.created_at)}`}
-            >
-              Generated {relativeTime(dossierBrief.created_at)}
-            </span>
-          )}
-        </div>
-
-        {/* Zone 1: Quick Stats */}
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-stack mb-5">
-          {reviewMeta?.unified_rating != null && (
-            <div class="bg-[color:var(--ss-color-background)] rounded-[var(--ss-radius-card)] p-row">
-              <div class="text-2xl font-bold text-[color:var(--ss-color-text-primary)]">
-                {reviewMeta.unified_rating.toFixed(1)}
-                <span class="text-sm font-normal text-[color:var(--ss-color-text-muted)]">
-                  {' '}
-                  / 5
-                </span>
-              </div>
-              <div class="text-xs text-[color:var(--ss-color-text-secondary)]">
-                {reviewMeta.total_reviews_across_platforms ?? 0} reviews
-              </div>
-            </div>
-          )}
-          {reviewMeta?.sentiment_trend && reviewMeta.sentiment_trend !== 'insufficient_data' && (
-            <div class="bg-[color:var(--ss-color-background)] rounded-[var(--ss-radius-card)] p-row">
-              <div
-                class={`text-sm font-semibold px-2 py-0.5 rounded inline-block ${sentimentColor(reviewMeta.sentiment_trend)}`}
-              >
-                {reviewMeta.sentiment_trend}
-              </div>
-              <div class="text-xs text-[color:var(--ss-color-text-secondary)] mt-1">
-                Sentiment trend
-              </div>
-            </div>
-          )}
-          {websiteMeta?.digital_maturity?.score != null && (
-            <div class="bg-[color:var(--ss-color-background)] rounded-[var(--ss-radius-card)] p-row">
-              <div class="text-2xl font-bold text-[color:var(--ss-color-text-primary)]">
-                {websiteMeta.digital_maturity.score}
-                <span class="text-sm font-normal text-[color:var(--ss-color-text-muted)]">
-                  {' '}
-                  / 10
-                </span>
-              </div>
-              <div class="text-xs text-[color:var(--ss-color-text-secondary)]">
-                Digital maturity
-              </div>
-            </div>
-          )}
-          {competitorMeta?.entity_rank_by_rating != null &&
-            competitorMeta?.total_competitors != null && (
-              <div class="bg-[color:var(--ss-color-background)] rounded-[var(--ss-radius-card)] p-row">
-                <div class="text-2xl font-bold text-[color:var(--ss-color-text-primary)]">
-                  #{competitorMeta.entity_rank_by_rating}
-                  <span class="text-sm font-normal text-[color:var(--ss-color-text-muted)]">
-                    {' '}
-                    of {competitorMeta.total_competitors}
-                  </span>
-                </div>
-                <div class="text-xs text-[color:var(--ss-color-text-secondary)]">Local ranking</div>
-              </div>
-            )}
-        </div>
-
-        {/* Zone 2: Identified Problems */}
-        {reviewMeta?.operational_problems && reviewMeta.operational_problems.length > 0 && (
-          <div class="mb-5">
-            <div class="text-xs font-medium text-[color:var(--ss-color-text-secondary)] uppercase tracking-wide mb-2">
-              Identified Problems
-            </div>
-            <div class="flex flex-wrap gap-2">
-              {reviewMeta.operational_problems.map((p) => (
-                <span
-                  class={`text-xs px-2.5 py-1 rounded-full font-medium ${confidenceColor(p.confidence)}`}
-                  title={p.evidence}
-                >
-                  {p.problem.replace(/_/g, ' ')}
-                  <span class="opacity-60 ml-1">({p.confidence})</span>
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Zone 3: Intelligence Brief — open by default. The brief is the core
-            of the dossier; collapsing it hid the highest-value research and
-            forced the operator to click before reading anything substantive. */}
-        <div class="border-t border-[color:var(--ss-color-border-subtle)] pt-4 mb-4">
-          <details open>
-            <summary class="text-xs font-medium text-[color:var(--ss-color-text-secondary)] uppercase tracking-wide mb-3 cursor-pointer">
-              Intelligence Brief
-            </summary>
-            <div
-              class="max-h-[50vh] overflow-y-auto"
-              set:html={renderSimpleMarkdown(dossierBrief!.content)}
-            />
-          </details>
-        </div>
-
-        {/* Zone 4: Outreach Draft */}
-        {outreachEntry && (
-          <div class="border-t border-[color:var(--ss-color-border-subtle)] pt-4">
-            <div class="flex items-center justify-between mb-2">
-              <div class="text-xs font-medium text-[color:var(--ss-color-text-secondary)] uppercase tracking-wide">
-                Outreach Draft
-                {!outreachFromDossier && (
-                  <span class="normal-case font-normal text-[color:var(--ss-color-text-muted)] ml-2">
-                    Pre-dossier draft
-                  </span>
-                )}
-              </div>
-              <button
-                id="copy-outreach-btn"
-                class="text-xs px-2 py-1 rounded bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)] hover:bg-[color:var(--ss-color-border)] transition-colors"
-              >
-                Copy
-              </button>
-            </div>
-            <pre
-              id="outreach-content"
-              class="text-sm text-[color:var(--ss-color-text-primary)] whitespace-pre-wrap bg-[color:var(--ss-color-background)] rounded-[var(--ss-radius-card)] p-stack border border-[color:var(--ss-color-border-subtle)]"
-            >
-              {outreachEntry.content}
-            </pre>
-          </div>
-        )}
-      </div>
+      <EntityDossierSummary
+        dossierBrief={dossierBrief}
+        reviewMeta={reviewMeta}
+        websiteMeta={websiteMeta}
+        competitorMeta={competitorMeta}
+        outreachEntry={outreachEntry}
+        outreachFromDossier={outreachFromDossier}
+      />
     )
   }
 
