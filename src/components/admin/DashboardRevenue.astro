@@ -1,0 +1,70 @@
+---
+/**
+ * Revenue card on the admin dashboard.
+ *
+ * Invoiced / paid / outstanding totals plus active engagement count and
+ * average days-to-completion. Extracted from pages/admin/index.astro.
+ */
+import type { getRevenueReport, getEngagementHealth } from '../../lib/db/analytics'
+
+interface Props {
+  revenue: Awaited<ReturnType<typeof getRevenueReport>>
+  outstandingTotal: number
+  activeEngagementsCount: number
+  health: Awaited<ReturnType<typeof getEngagementHealth>>
+}
+
+const { revenue, outstandingTotal, activeEngagementsCount, health } = Astro.props
+---
+
+<section
+  class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card"
+>
+  <h2 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-4">Revenue</h2>
+  <div class="space-y-row">
+    <div class="flex justify-between items-baseline">
+      <span class="text-sm text-[color:var(--ss-color-text-secondary)]">Invoiced</span>
+      <span class="text-lg font-semibold text-[color:var(--ss-color-text-primary)]">
+        ${revenue.total_invoiced.toLocaleString('en-US', { minimumFractionDigits: 0 })}
+      </span>
+    </div>
+    <div class="flex justify-between items-baseline">
+      <span class="text-sm text-[color:var(--ss-color-text-secondary)]">Paid</span>
+      <span class="text-lg font-semibold text-[color:var(--ss-color-text-primary)]">
+        ${revenue.total_paid.toLocaleString('en-US', { minimumFractionDigits: 0 })}
+      </span>
+    </div>
+    <div class="flex justify-between items-baseline">
+      <span class="text-sm text-[color:var(--ss-color-text-secondary)]">Outstanding</span>
+      <span
+        class:list={[
+          'text-lg font-semibold',
+          outstandingTotal > 0
+            ? 'text-[color:var(--ss-color-attention)]'
+            : 'text-[color:var(--ss-color-text-muted)]',
+        ]}
+      >
+        ${outstandingTotal.toLocaleString('en-US', { minimumFractionDigits: 0 })}
+      </span>
+    </div>
+
+    <div class="pt-3 border-t border-[color:var(--ss-color-border-subtle)]">
+      <div class="flex justify-between items-baseline">
+        <span class="text-sm text-[color:var(--ss-color-text-secondary)]">Active engagements</span>
+        <span class="text-sm font-medium text-[color:var(--ss-color-text-primary)]"
+          >{activeEngagementsCount}</span
+        >
+      </div>
+      {
+        health.avg_days_to_completion > 0 && (
+          <div class="flex justify-between items-baseline mt-1">
+            <span class="text-sm text-[color:var(--ss-color-text-secondary)]">Avg completion</span>
+            <span class="text-sm font-medium text-[color:var(--ss-color-text-primary)]">
+              {health.avg_days_to_completion} days
+            </span>
+          </div>
+        )
+      }
+    </div>
+  </div>
+</section>

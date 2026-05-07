@@ -1,0 +1,107 @@
+---
+/**
+ * Today's Work card on the admin dashboard.
+ *
+ * Three tiles: signals to triage, assessments scheduled today, overdue follow-ups.
+ * Extracted from pages/admin/index.astro.
+ */
+import type { listAssessments } from '../../lib/db/assessments'
+
+interface Props {
+  signalCount: number
+  todayAssessments: Awaited<ReturnType<typeof listAssessments>>
+  overdueCount: number
+}
+
+const { signalCount, todayAssessments, overdueCount } = Astro.props
+---
+
+<section
+  class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card"
+>
+  <h2 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-4">
+    Today's Work
+  </h2>
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-stack">
+    <a
+      href="/admin/entities?stage=signal"
+      class="flex items-center gap-row p-row rounded-[var(--ss-radius-card)] hover:bg-[color:var(--ss-color-background)] transition-colors"
+    >
+      <div
+        class:list={[
+          'w-10 h-10 rounded-[var(--ss-radius-card)] flex items-center justify-center text-sm font-semibold',
+          signalCount > 0
+            ? 'bg-[color:var(--ss-color-attention)] text-white'
+            : 'bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-muted)]',
+        ]}
+      >
+        {signalCount}
+      </div>
+      <div>
+        <div class="text-sm font-medium text-[color:var(--ss-color-text-primary)]">
+          Signals to triage
+        </div>
+        <div class="text-xs text-[color:var(--ss-color-text-secondary)]">Promote or dismiss</div>
+      </div>
+    </a>
+
+    <div class="flex items-center gap-row p-row rounded-[var(--ss-radius-card)]">
+      <div
+        class:list={[
+          'w-10 h-10 rounded-[var(--ss-radius-card)] flex items-center justify-center text-sm font-semibold',
+          todayAssessments.length > 0
+            ? 'bg-[color:var(--ss-color-primary)] text-white'
+            : 'bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-muted)]',
+        ]}
+      >
+        {todayAssessments.length}
+      </div>
+      <div>
+        <div class="text-sm font-medium text-[color:var(--ss-color-text-primary)]">
+          Assessments today
+        </div>
+        <div class="text-xs text-[color:var(--ss-color-text-secondary)]">
+          {
+            todayAssessments.length > 0
+              ? todayAssessments
+                  .map((a) => {
+                    const time = a.scheduled_at
+                      ? new Date(a.scheduled_at).toLocaleTimeString('en-US', {
+                          hour: 'numeric',
+                          minute: '2-digit',
+                        })
+                      : ''
+                    return time
+                  })
+                  .join(', ')
+              : 'None scheduled'
+          }
+        </div>
+      </div>
+    </div>
+
+    <a
+      href="/admin/follow-ups?filter=overdue"
+      class="flex items-center gap-row p-row rounded-[var(--ss-radius-card)] hover:bg-[color:var(--ss-color-background)] transition-colors"
+    >
+      <div
+        class:list={[
+          'w-10 h-10 rounded-[var(--ss-radius-card)] flex items-center justify-center text-sm font-semibold',
+          overdueCount > 0
+            ? 'bg-[color:var(--ss-color-error)] text-white'
+            : 'bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-muted)]',
+        ]}
+      >
+        {overdueCount}
+      </div>
+      <div>
+        <div class="text-sm font-medium text-[color:var(--ss-color-text-primary)]">
+          Overdue follow-ups
+        </div>
+        <div class="text-xs text-[color:var(--ss-color-text-secondary)]">
+          {overdueCount > 0 ? 'Needs attention' : 'All clear'}
+        </div>
+      </div>
+    </a>
+  </div>
+</section>

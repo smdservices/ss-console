@@ -1,0 +1,89 @@
+---
+/**
+ * Follow-up Health card on the admin dashboard.
+ *
+ * On-time rate, sent on time/late, missed, and upcoming counts.
+ * Extracted from pages/admin/index.astro.
+ */
+import type { getFollowUpCompliance } from '../../lib/db/analytics'
+
+interface Props {
+  compliance: Awaited<ReturnType<typeof getFollowUpCompliance>>
+  upcomingFollowUpsCount: number
+}
+
+const { compliance, upcomingFollowUpsCount } = Astro.props
+---
+
+<section
+  class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card"
+>
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-base font-semibold text-[color:var(--ss-color-text-primary)]">
+      Follow-up Health
+    </h2>
+    <a
+      href="/admin/follow-ups"
+      class="text-xs text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)]"
+      >View all</a
+    >
+  </div>
+  <div class="space-y-row">
+    <div class="flex justify-between items-baseline">
+      <span class="text-sm text-[color:var(--ss-color-text-secondary)]">On-time rate</span>
+      <span
+        class:list={[
+          'text-lg font-semibold',
+          compliance.compliance_pct >= 80
+            ? 'text-[color:var(--ss-color-text-primary)]'
+            : compliance.compliance_pct >= 50
+              ? 'text-[color:var(--ss-color-attention)]'
+              : 'text-[color:var(--ss-color-error)]',
+        ]}
+      >
+        {compliance.compliance_pct}%
+      </span>
+    </div>
+    <div class="flex justify-between items-baseline">
+      <span class="text-sm text-[color:var(--ss-color-text-secondary)]">Sent on time</span>
+      <span class="text-sm font-medium text-[color:var(--ss-color-text-primary)]"
+        >{compliance.completed_on_time}</span
+      >
+    </div>
+    <div class="flex justify-between items-baseline">
+      <span class="text-sm text-[color:var(--ss-color-text-secondary)]">Sent late</span>
+      <span
+        class:list={[
+          'text-sm font-medium',
+          compliance.completed_late > 0
+            ? 'text-[color:var(--ss-color-attention)]'
+            : 'text-[color:var(--ss-color-text-primary)]',
+        ]}
+      >
+        {compliance.completed_late}
+      </span>
+    </div>
+    <div class="flex justify-between items-baseline">
+      <span class="text-sm text-[color:var(--ss-color-text-secondary)]">Missed</span>
+      <span
+        class:list={[
+          'text-sm font-medium',
+          compliance.missed > 0
+            ? 'text-[color:var(--ss-color-error)]'
+            : 'text-[color:var(--ss-color-text-primary)]',
+        ]}
+      >
+        {compliance.missed}
+      </span>
+    </div>
+
+    <div class="pt-3 border-t border-[color:var(--ss-color-border-subtle)]">
+      <div class="flex justify-between items-baseline">
+        <span class="text-sm text-[color:var(--ss-color-text-secondary)]">Upcoming</span>
+        <span class="text-sm font-medium text-[color:var(--ss-color-text-primary)]"
+          >{upcomingFollowUpsCount} scheduled</span
+        >
+      </div>
+    </div>
+  </div>
+</section>
