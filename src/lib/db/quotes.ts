@@ -488,8 +488,9 @@ export async function updateQuote(
   if (bumpsVersion) fields.push('version = version + 1')
   fields.push("updated_at = datetime('now')")
 
+  const updateSql = `UPDATE quotes SET ${fields.join(', ')} WHERE id = ? AND org_id = ?`
   await db
-    .prepare(`UPDATE quotes SET ${fields.join(', ')} WHERE id = ? AND org_id = ?`)
+    .prepare(updateSql)
     .bind(...params, quoteId, orgId)
     .run()
   return getQuote(db, orgId, quoteId)

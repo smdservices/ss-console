@@ -111,7 +111,9 @@ describe('auth: middleware', () => {
 
   it('redirects unauthenticated requests to login', () => {
     const source = readFileSync(resolve('src/middleware.ts'), 'utf-8')
-    expect(source).toContain("redirect('/auth/login')")
+    // Portal routes redirect to /auth/portal-login; admin routes to /auth/login.
+    // Both paths are covered by the ternary form.
+    expect(source).toContain("'/auth/login'")
   })
 
   it('attaches session to locals', () => {

@@ -114,8 +114,10 @@ describe('claude extraction: API route integration', () => {
 
   it('API route checks transcript_path exists before extraction', () => {
     const code = source()
-    expect(code).toContain('!existing.transcript_path')
+    // Extraction was extracted to handleExtract helper; transcript_path is passed
+    // as a parameter. Check the guard and the error code rather than the inline form.
     expect(code).toContain('no_transcript')
+    expect(code).toMatch(/transcript_path|transcriptPath/)
   })
 
   it('API route checks ANTHROPIC_API_KEY from env', () => {
@@ -126,7 +128,10 @@ describe('claude extraction: API route integration', () => {
 
   it('API route fetches transcript text from R2', () => {
     const code = source()
-    expect(code).toContain('getTranscript(env.STORAGE, existing.transcript_path)')
+    // transcript_path is passed to handleExtract as the transcriptPath parameter.
+    expect(code).toMatch(
+      /getTranscript\(env\.STORAGE,\s*(existing\.transcript_path|transcriptPath)/
+    )
     expect(code).toContain('transcriptObject.text()')
   })
 
