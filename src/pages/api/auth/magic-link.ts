@@ -84,7 +84,10 @@ export const POST: APIRoute = async ({ request, redirect }) => {
     })
 
     if (!result.success) {
-      console.error(`[magic-link] Failed to send email to ${normalizedEmail}: ${result.error}`)
+      console.error(
+        '[magic-link] Failed to send portal invite (check Resend dashboard):',
+        result.error
+      )
       // Still show success to prevent enumeration
     }
 
