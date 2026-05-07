@@ -511,7 +511,7 @@ No illustration anywhere. Empty states render nothing or a "TBD in SOW" marker �
 | ---------------------- | --------------------- | -------------------- | ------ |
 | `/`                    | Marketing home        | Book assessment      | Exists |
 | `/get-started`         | Warm landing          | Book assessment      | Exists |
-| `/scorecard`           | Self-serve assessment | Complete & book      | Exists |
+| `/scorecard`           | Self-serve assessment | Complete & book      | Retired (301 → /) — public route retired in PR #702/#703; `POST /api/scorecard/submit` remains as internal endpoint |
 | `/book`                | Booking form          | Confirm booking      | Exists |
 | `/book/manage/[token]` | Booking management    | Reschedule or cancel | Exists |
 | `/contact`             | General inquiry       | Submit inquiry       | Exists |
