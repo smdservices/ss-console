@@ -76,13 +76,15 @@ describe('processIntakeSubmission — pre-seeded admin booking link flow (#467)'
         email: 'owner@scottcarpentry.example',
         businessName: 'Scott Carpentry',
       },
-      slot,
-      'admin_booking_link',
       {
-        entityId: ENTITY_ID,
-        assessmentId: ASSESSMENT_ID,
-        meetingType: 'discovery',
-        contactId: CONTACT_ID,
+        scheduledAt: slot,
+        source: 'admin_booking_link',
+        preSeeded: {
+          entityId: ENTITY_ID,
+          assessmentId: ASSESSMENT_ID,
+          meetingType: 'discovery',
+          contactId: CONTACT_ID,
+        },
       }
     )
 
@@ -125,11 +127,13 @@ describe('processIntakeSubmission — pre-seeded admin booking link flow (#467)'
         email: 'owner@scottcarpentry.example',
         businessName: 'A DIFFERENT BUSINESS NAME',
       },
-      '2026-05-01T17:00:00.000Z',
-      'admin_booking_link',
       {
-        entityId: ENTITY_ID,
-        assessmentId: ASSESSMENT_ID,
+        scheduledAt: '2026-05-01T17:00:00.000Z',
+        source: 'admin_booking_link',
+        preSeeded: {
+          entityId: ENTITY_ID,
+          assessmentId: ASSESSMENT_ID,
+        },
       }
     )
 
@@ -153,12 +157,14 @@ describe('processIntakeSubmission — pre-seeded admin booking link flow (#467)'
         email: 'someone-else@example.com',
         businessName: 'Scott Carpentry',
       },
-      '2026-05-01T17:00:00.000Z',
-      'admin_booking_link',
       {
-        entityId: ENTITY_ID,
-        assessmentId: ASSESSMENT_ID,
-        contactId: CONTACT_ID,
+        scheduledAt: '2026-05-01T17:00:00.000Z',
+        source: 'admin_booking_link',
+        preSeeded: {
+          entityId: ENTITY_ID,
+          assessmentId: ASSESSMENT_ID,
+          contactId: CONTACT_ID,
+        },
       }
     )
 
@@ -183,11 +189,13 @@ describe('processIntakeSubmission — pre-seeded admin booking link flow (#467)'
           email: 'x@example.com',
           businessName: 'Nonexistent',
         },
-        '2026-05-01T17:00:00.000Z',
-        'admin_booking_link',
         {
-          entityId: 'nonexistent-entity',
-          assessmentId: ASSESSMENT_ID,
+          scheduledAt: '2026-05-01T17:00:00.000Z',
+          source: 'admin_booking_link',
+          preSeeded: {
+            entityId: 'nonexistent-entity',
+            assessmentId: ASSESSMENT_ID,
+          },
         }
       )
     ).rejects.toThrow(/Pre-seeded entity not found/)
@@ -203,11 +211,13 @@ describe('processIntakeSubmission — pre-seeded admin booking link flow (#467)'
           email: 'x@example.com',
           businessName: 'Scott Carpentry',
         },
-        '2026-05-01T17:00:00.000Z',
-        'admin_booking_link',
         {
-          entityId: ENTITY_ID,
-          assessmentId: 'nonexistent-assessment',
+          scheduledAt: '2026-05-01T17:00:00.000Z',
+          source: 'admin_booking_link',
+          preSeeded: {
+            entityId: ENTITY_ID,
+            assessmentId: 'nonexistent-assessment',
+          },
         }
       )
     ).rejects.toThrow(/Pre-seeded assessment not found/)

@@ -97,9 +97,7 @@ export async function extractAssessment(
     )
   }
 
-  const result = (await response.json()) as {
-    content?: Array<{ type: string; text?: string }>
-  }
+  const result: { content?: Array<{ type: string; text?: string }> } = await response.json()
 
   // The Messages API returns content as an array of content blocks.
   // We expect a single text block containing the JSON.

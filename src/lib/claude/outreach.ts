@@ -224,9 +224,7 @@ ${assembledContext}`
         throw new Error(`Claude API returned ${response.status}: ${text.slice(0, 200)}`)
       }
 
-      const result = (await response.json()) as {
-        content?: Array<{ type: string; text?: string }>
-      }
+      const result: { content?: Array<{ type: string; text?: string }> } = await response.json()
 
       const textBlock = result?.content?.find((block) => block.type === 'text')
       if (!textBlock?.text) {

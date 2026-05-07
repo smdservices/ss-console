@@ -10,9 +10,8 @@
  * Extracted from src/pages/admin/engagements/[id].astro to keep that page
  * under its concern-boundary line cap (tests/admin-astro-boundaries.test.ts).
  */
-import { statusBadgeClass } from '../../lib/ui/status-badge'
-import { formatDate } from '../../lib/admin/engagement-detail-page'
 import type { ParkingLotItem } from '../../lib/db/parking-lot'
+import ParkingLotItemRow from './ParkingLotItemRow.astro'
 
 interface Props {
   engagementId: string
@@ -38,99 +37,7 @@ const { engagementId, parkingLot } = Astro.props
         </div>
       )
     }
-    {
-      parkingLot.map((item) => (
-        <div class="px-6 py-4 space-y-row">
-          <div class="flex items-start justify-between gap-stack">
-            <div class="flex-1 min-w-0 space-y-1">
-              <div class="flex items-center gap-2">
-                <span class={statusBadgeClass(item.disposition ?? 'pending')}>
-                  {item.disposition ?? 'pending'}
-                </span>
-                <span class="text-sm font-medium text-[color:var(--ss-color-text-primary)]">
-                  {item.description}
-                </span>
-              </div>
-              <div class="text-xs text-[color:var(--ss-color-text-muted)]">
-                {item.requested_by ? <span>from {item.requested_by} · </span> : null}
-                Logged {formatDate(item.requested_at)}
-                {item.reviewed_at && <span> · Reviewed {formatDate(item.reviewed_at)}</span>}
-              </div>
-              {item.disposition && item.disposition_note && (
-                <p class="text-xs text-[color:var(--ss-color-text-secondary)] whitespace-pre-wrap pt-1">
-                  {item.disposition_note}
-                </p>
-              )}
-            </div>
-            {item.disposition === null && (
-              <form
-                method="POST"
-                action={`/api/admin/engagements/${engagementId}/parking-lot`}
-                class="flex-shrink-0"
-              >
-                <input type="hidden" name="_method" value="DELETE" />
-                <input type="hidden" name="item_id" value={item.id} />
-                <button
-                  type="submit"
-                  class="text-xs px-2 py-1 border border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)] hover:bg-[color:var(--ss-color-background)] transition-colors"
-                  onclick="return confirm('Delete this parking lot item?')"
-                >
-                  Del
-                </button>
-              </form>
-            )}
-          </div>
-          {item.disposition === null && (
-            <details class="border-t border-[color:var(--ss-color-border-subtle)] pt-2">
-              <summary class="cursor-pointer text-xs text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)]">
-                Disposition →
-              </summary>
-              <form
-                method="POST"
-                action={`/api/admin/engagements/${engagementId}/parking-lot`}
-                class="space-y-row mt-2"
-              >
-                <input type="hidden" name="action" value="disposition" />
-                <input type="hidden" name="item_id" value={item.id} />
-                <textarea
-                  name="disposition_note"
-                  required
-                  rows="2"
-                  placeholder="Rationale (required) — what happens with this and why"
-                  class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-1.5 text-sm"
-                />
-                <div class="flex gap-2 flex-wrap">
-                  <button
-                    type="submit"
-                    name="disposition"
-                    value="fold_in"
-                    class="text-xs px-2.5 py-1 border border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)] hover:bg-[color:var(--ss-color-background)] transition-colors"
-                  >
-                    Fold in
-                  </button>
-                  <button
-                    type="submit"
-                    name="disposition"
-                    value="follow_on"
-                    class="text-xs px-2.5 py-1 border border-[color:var(--ss-color-primary)] text-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-background)] transition-colors"
-                  >
-                    Follow-on
-                  </button>
-                  <button
-                    type="submit"
-                    name="disposition"
-                    value="dropped"
-                    class="text-xs px-2.5 py-1 border border-[color:var(--ss-color-border)] text-[color:var(--ss-color-text-secondary)] hover:bg-[color:var(--ss-color-background)] transition-colors"
-                  >
-                    Drop
-                  </button>
-                </div>
-              </form>
-            </details>
-          )}
-        </div>
-      ))
-    }
+    {parkingLot.map((item) => <ParkingLotItemRow engagementId={engagementId} item={item} />)}
   </div>
 
   <details class="border-t border-[color:var(--ss-color-border-subtle)]">

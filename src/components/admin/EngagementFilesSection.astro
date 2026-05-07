@@ -1,0 +1,163 @@
+---
+/**
+ * Consultant Photo and Deliverables cards for the engagement detail page.
+ * Extracted from src/pages/admin/engagements/[id].astro.
+ */
+import { fileSize, formatDate } from '../../lib/admin/engagement-detail-page'
+
+interface R2Doc {
+  key: string
+  size: number
+  uploaded: Date
+}
+
+interface Props {
+  engagementId: string
+  consultantPhotoUrl: string | null
+  documents: R2Doc[]
+}
+
+const { engagementId, consultantPhotoUrl, documents } = Astro.props
+---
+
+<!-- Consultant photo -->
+<div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)]">
+  <div class="px-6 py-4 border-b border-[color:var(--ss-color-border-subtle)]">
+    <h2 class="font-medium text-[color:var(--ss-color-text-primary)]">Consultant Photo</h2>
+    <p class="text-xs text-[color:var(--ss-color-text-secondary)] mt-1">
+      Shown on every portal surface for this engagement. Square, 400×400 recommended. We'll crop to
+      a circle and encode as WebP in your browser before upload. JPEG/PNG/WebP up to 5 MB.
+    </p>
+  </div>
+  <div class="px-6 py-5">
+    <div class="flex items-start gap-5">
+      <div
+        class="w-20 h-20 shrink-0 rounded-full bg-[color:var(--ss-color-background)] border border-[color:var(--ss-color-border)] overflow-hidden"
+      >
+        {
+          consultantPhotoUrl ? (
+            <img
+              id="consultant-photo-current"
+              src={consultantPhotoUrl}
+              alt="Current consultant photo"
+              class="w-full h-full object-cover"
+            />
+          ) : (
+            <svg
+              id="consultant-photo-placeholder"
+              viewBox="0 0 80 80"
+              class="w-full h-full text-[color:var(--ss-color-text-muted)]"
+              aria-hidden="true"
+            >
+              <rect width="80" height="80" fill="currentColor" fill-opacity="0.12" />
+              <circle cx="40" cy="32" r="13" fill="currentColor" fill-opacity="0.5" />
+              <path d="M14 74c4-13 14-20 26-20s22 7 26 20" fill="currentColor" fill-opacity="0.5" />
+            </svg>
+          )
+        }
+      </div>
+      <div class="flex-1 min-w-0">
+        <canvas
+          id="photo-preview"
+          width="160"
+          height="160"
+          class="hidden rounded-full border border-[color:var(--ss-color-border)] mb-3"></canvas>
+        <div id="photo-controls" class="flex flex-wrap items-center gap-2">
+          <input
+            type="file"
+            id="photo-input"
+            accept="image/jpeg,image/png,image/webp"
+            class="hidden"
+          />
+          <button
+            type="button"
+            id="photo-choose"
+            class="text-xs px-3 py-1.5 rounded border border-[color:var(--ss-color-border)] text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-background)] transition-colors"
+          >
+            Choose Photo
+          </button>
+          <button
+            type="button"
+            id="photo-upload"
+            class="hidden text-xs px-3 py-1.5 bg-[color:var(--ss-color-primary)] text-white hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
+          >
+            Upload
+          </button>
+          <button
+            type="button"
+            id="photo-cancel"
+            class="hidden text-xs px-3 py-1.5 rounded border border-[color:var(--ss-color-border)] text-[color:var(--ss-color-text-secondary)] hover:bg-[color:var(--ss-color-background)] transition-colors"
+          >
+            Cancel
+          </button>
+          {
+            consultantPhotoUrl && (
+              <button
+                type="button"
+                id="photo-remove"
+                class="text-xs px-3 py-1.5 border border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)] hover:bg-[color:var(--ss-color-background)] transition-colors"
+              >
+                Remove
+              </button>
+            )
+          }
+        </div>
+        <p id="photo-status" class="mt-2 text-xs text-[color:var(--ss-color-text-secondary)]"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Deliverables -->
+<div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)]">
+  <div class="px-6 py-4 border-b border-[color:var(--ss-color-border-subtle)]">
+    <h2 class="font-medium text-[color:var(--ss-color-text-primary)]">Deliverables</h2>
+  </div>
+  <div class="px-6 py-4">
+    {
+      documents.length === 0 && (
+        <p class="text-sm text-[color:var(--ss-color-text-muted)] mb-4">No files uploaded yet.</p>
+      )
+    }
+    {
+      documents.length > 0 && (
+        <ul class="space-y-2 mb-4">
+          {documents.map((doc) => {
+            const name = doc.key.split('/').pop() ?? doc.key
+            return (
+              <li class="flex items-center justify-between text-sm">
+                <a
+                  href={`/api/admin/engagements/${engagementId}/deliverables/${name}`}
+                  class="text-[color:var(--ss-color-primary)] hover:underline truncate"
+                >
+                  {name}
+                </a>
+                <span class="text-xs text-[color:var(--ss-color-text-muted)] flex-shrink-0 ml-4">
+                  {fileSize(doc.size)} &middot; {formatDate(doc.uploaded.toISOString())}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      )
+    }
+    <div
+      id="upload-area"
+      class="border-2 border-dashed border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] p-card text-center"
+    >
+      <p class="text-sm text-[color:var(--ss-color-text-secondary)] mb-2">
+        Drag files here or click to upload
+      </p>
+      <input type="file" id="file-input" class="hidden" multiple />
+      <button
+        type="button"
+        id="upload-btn"
+        class="text-xs px-3 py-1.5 rounded border border-[color:var(--ss-color-border)] text-[color:var(--ss-color-text-secondary)] hover:bg-[color:var(--ss-color-background)] transition-colors"
+      >
+        Choose Files
+      </button>
+      <div id="upload-status" class="text-xs text-[color:var(--ss-color-text-muted)] mt-2 hidden">
+      </div>
+    </div>
+  </div>
+</div>

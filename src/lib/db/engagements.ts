@@ -252,6 +252,39 @@ export async function createEngagement(
 /**
  * Update an existing engagement. Returns the updated engagement record.
  */
+const ENGAGEMENT_FIELD_KEYS: ReadonlyArray<keyof UpdateEngagementData> = [
+  'scope_summary',
+  'start_date',
+  'estimated_end',
+  'actual_end',
+  'handoff_date',
+  'safety_net_end',
+  'estimated_hours',
+  'actual_hours',
+  'consultant_name',
+  'consultant_photo_url',
+  'consultant_role',
+  'consultant_phone',
+  'next_touchpoint_at',
+  'next_touchpoint_label',
+  'originating_signal_id',
+]
+
+function buildEngagementFields(data: UpdateEngagementData): {
+  fields: string[]
+  params: (string | number | null)[]
+} {
+  const fields: string[] = []
+  const params: (string | number | null)[] = []
+  for (const key of ENGAGEMENT_FIELD_KEYS) {
+    if (data[key] !== undefined) {
+      fields.push(`${key} = ?`)
+      params.push(data[key])
+    }
+  }
+  return { fields, params }
+}
+
 export async function updateEngagement(
   db: D1Database,
   orgId: string,
@@ -259,100 +292,16 @@ export async function updateEngagement(
   data: UpdateEngagementData
 ): Promise<Engagement | null> {
   const existing = await getEngagement(db, orgId, engagementId)
-  if (!existing) {
-    return null
-  }
+  if (!existing) return null
 
-  const fields: string[] = []
-  const params: (string | number | null)[] = []
-
-  if (data.scope_summary !== undefined) {
-    fields.push('scope_summary = ?')
-    params.push(data.scope_summary)
-  }
-
-  if (data.start_date !== undefined) {
-    fields.push('start_date = ?')
-    params.push(data.start_date)
-  }
-
-  if (data.estimated_end !== undefined) {
-    fields.push('estimated_end = ?')
-    params.push(data.estimated_end)
-  }
-
-  if (data.actual_end !== undefined) {
-    fields.push('actual_end = ?')
-    params.push(data.actual_end)
-  }
-
-  if (data.handoff_date !== undefined) {
-    fields.push('handoff_date = ?')
-    params.push(data.handoff_date)
-  }
-
-  if (data.safety_net_end !== undefined) {
-    fields.push('safety_net_end = ?')
-    params.push(data.safety_net_end)
-  }
-
-  if (data.estimated_hours !== undefined) {
-    fields.push('estimated_hours = ?')
-    params.push(data.estimated_hours)
-  }
-
-  if (data.actual_hours !== undefined) {
-    fields.push('actual_hours = ?')
-    params.push(data.actual_hours)
-  }
-
-  if (data.consultant_name !== undefined) {
-    fields.push('consultant_name = ?')
-    params.push(data.consultant_name)
-  }
-
-  if (data.consultant_photo_url !== undefined) {
-    fields.push('consultant_photo_url = ?')
-    params.push(data.consultant_photo_url)
-  }
-
-  if (data.consultant_role !== undefined) {
-    fields.push('consultant_role = ?')
-    params.push(data.consultant_role)
-  }
-
-  if (data.consultant_phone !== undefined) {
-    fields.push('consultant_phone = ?')
-    params.push(data.consultant_phone)
-  }
-
-  if (data.next_touchpoint_at !== undefined) {
-    fields.push('next_touchpoint_at = ?')
-    params.push(data.next_touchpoint_at)
-  }
-
-  if (data.next_touchpoint_label !== undefined) {
-    fields.push('next_touchpoint_label = ?')
-    params.push(data.next_touchpoint_label)
-  }
-
-  if (data.originating_signal_id !== undefined) {
-    fields.push('originating_signal_id = ?')
-    params.push(data.originating_signal_id)
-  }
-
-  if (fields.length === 0) {
-    return existing
-  }
+  const { fields, params } = buildEngagementFields(data)
+  if (fields.length === 0) return existing
 
   fields.push("updated_at = datetime('now')")
-
   const sql = `UPDATE engagements SET ${fields.join(', ')} WHERE id = ? AND org_id = ?`
-  params.push(engagementId, orgId)
-
   await db
     .prepare(sql)
-    .bind(...params)
+    .bind(...params, engagementId, orgId)
     .run()
 
   return getEngagement(db, orgId, engagementId)

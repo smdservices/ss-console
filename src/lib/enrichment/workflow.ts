@@ -175,6 +175,22 @@ interface ModuleStepResult {
 
 const SKIPPED: ModuleStepResult = { ran: false, outcome: 'skipped' }
 
+interface OrchestrationCtx {
+  env: EnrichEnv
+  orgId: string
+  entityId: string
+  triggered_by: string
+  loadEntity: () => Promise<Entity | null>
+}
+
+interface InnerParams {
+  env: EnrichEnv
+  entityId: string
+  orgId: string
+  mode: EnrichMode
+  triggered_by: string
+}
+
 /**
  * The Workflow class. Cloudflare instantiates this on demand inside an
  * isolate; `run()` is the orchestration body. Each `step.do` call is
@@ -205,7 +221,7 @@ export class EnrichmentWorkflow extends WorkflowEntrypoint<
     // `enrichment_runs`. The dashboard view of failed runs is the
     // operator-facing surface.
     try {
-      await this.runInner(enrichEnv, entityId, orgId, mode, triggered_by, step)
+      await this.runInner({ env: enrichEnv, entityId, orgId, mode, triggered_by }, step)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       console.error('[enrichment-workflow] terminal failure:', { entityId, orgId, mode, message })
@@ -218,161 +234,74 @@ export class EnrichmentWorkflow extends WorkflowEntrypoint<
    * Inner orchestration. Split out so `run()` can wrap a single try/catch
    * around the whole pipeline.
    */
-  private async runInner(
-    env: EnrichEnv,
-    entityId: string,
-    orgId: string,
-    mode: EnrichMode,
-    triggered_by: string,
-    step: WorkflowStep
-  ): Promise<void> {
-    // ---------------------------------------------------------------
-    // init: load entity, idempotency check.
-    // ---------------------------------------------------------------
+  private async runInner(params: InnerParams, step: WorkflowStep): Promise<void> {
+    const { env, entityId, orgId, mode, triggered_by } = params
     const init = await step.do<InitStepResult>(
       'init',
       { retries: RETRY_INFRA, timeout: TIMEOUT_INFRA },
       async () => {
         const entity = await getEntity(env.DB, orgId, entityId)
-        if (!entity) {
-          return { skip: true, reason: 'entity_not_found' as const }
-        }
-        // Mode='full' with an existing intelligence_brief context entry
-        // skips. reviews-and-news intentionally bypasses this — it is the
-        // explicit refresh path.
+        if (!entity) return { skip: true, reason: 'entity_not_found' as const }
         if (mode === 'full') {
           const existing = await listContext(env.DB, entityId, { type: 'enrichment' })
           const hasBrief = existing.some((e) => e.source === 'intelligence_brief')
-          if (hasBrief) {
-            return { skip: true, reason: 'already_enriched' as const }
-          }
+          if (hasBrief) return { skip: true, reason: 'already_enriched' as const }
         }
         return { skip: false }
       }
     )
+    if (init.skip) return
 
-    if (init.skip) {
-      // Idempotent short-circuit — nothing to do. The Workflow ends in
-      // `complete` state with the init step recorded.
-      return
-    }
+    const loadEntity = (): Promise<Entity | null> => getEntity(env.DB, orgId, entityId)
+    const ctx: OrchestrationCtx = { env, orgId, entityId, triggered_by, loadEntity }
 
-    // Helper used inside every subsequent step. Re-loads the entity from
-    // D1 fresh so step replays see the latest state (rather than a cached
-    // snapshot from a prior step's return value).
-    const loadEntity = async (): Promise<Entity | null> => {
-      return getEntity(env.DB, orgId, entityId)
-    }
-
-    // ---------------------------------------------------------------
-    // mode === 'reviews-and-news': cheap refresh path.
-    // Runs only review_analysis, review_synthesis, news, brief
-    // (if missing), outreach, finalize.
-    // ---------------------------------------------------------------
     if (mode === 'reviews-and-news') {
-      await this.runReviewsAndNews(step, env, orgId, entityId, triggered_by, loadEntity)
+      await this.runReviewsAndNews(step, ctx)
       return
     }
+    await this.runFull(step, ctx)
+  }
 
-    // ---------------------------------------------------------------
-    // mode === 'full': full 13-module pipeline.
-    // ---------------------------------------------------------------
-    await this.runFull(step, env, orgId, entityId, triggered_by, loadEntity)
+  /** Shorthand: run a module wrapper inside a step.do checkpoint. */
+  private doMod(
+    step: WorkflowStep,
+    name: string,
+    tier: 1 | 2 | 3,
+    ctx: OrchestrationCtx,
+    w: ModuleWrapper
+  ): Promise<ModuleStepResult> {
+    const retries = tier === 3 ? RETRY_TIER3 : tier === 2 ? RETRY_TIER2 : RETRY_TIER1
+    const timeout = tier === 3 ? TIMEOUT_TIER3 : tier === 2 ? TIMEOUT_TIER2 : TIMEOUT_TIER1
+    return step.do<ModuleStepResult>(name, { retries, timeout }, () => runModule(ctx, 'full', w))
   }
 
   /**
    * Full-mode pipeline. Each step re-loads the entity at its top.
    */
-  private async runFull(
-    step: WorkflowStep,
-    env: EnrichEnv,
-    orgId: string,
-    entityId: string,
-    triggered_by: string,
-    loadEntity: () => Promise<Entity | null>
-  ): Promise<void> {
-    // Tier 1 — contact + tech signals.
-    await step.do<ModuleStepResult>(
-      'tier1-places',
-      { retries: RETRY_TIER1, timeout: TIMEOUT_TIER1 },
-      async () => runModule(env, orgId, triggered_by, 'full', loadEntity, tryPlaces)
-    )
-    await step.do<ModuleStepResult>(
-      'tier1-website',
-      { retries: RETRY_TIER2, timeout: TIMEOUT_TIER2 },
-      async () => runModule(env, orgId, triggered_by, 'full', loadEntity, tryWebsite)
-    )
-    await step.do<ModuleStepResult>(
-      'tier1-outscraper',
-      { retries: RETRY_TIER1, timeout: TIMEOUT_TIER1 },
-      async () => runModule(env, orgId, triggered_by, 'full', loadEntity, tryOutscraper)
-    )
-    await step.do<ModuleStepResult>(
-      'tier1-acc',
-      { retries: RETRY_TIER1, timeout: TIMEOUT_TIER1 },
-      async () => runModule(env, orgId, triggered_by, 'full', loadEntity, tryAcc)
-    )
-    await step.do<ModuleStepResult>(
-      'tier1-roc',
-      { retries: RETRY_TIER1, timeout: TIMEOUT_TIER1 },
-      async () => runModule(env, orgId, triggered_by, 'full', loadEntity, tryRoc)
-    )
-
-    // Tier 2 — review patterns + competitors + news.
-    await step.do<ModuleStepResult>(
-      'tier2-review-analysis',
-      { retries: RETRY_TIER2, timeout: TIMEOUT_TIER2 },
-      async () => runModule(env, orgId, triggered_by, 'full', loadEntity, tryReviewAnalysis)
-    )
-    await step.do<ModuleStepResult>(
-      'tier2-competitors',
-      { retries: RETRY_TIER1, timeout: TIMEOUT_TIER1 },
-      async () => runModule(env, orgId, triggered_by, 'full', loadEntity, tryCompetitors)
-    )
-    await step.do<ModuleStepResult>(
-      'tier2-news',
-      { retries: RETRY_TIER1, timeout: TIMEOUT_TIER1 },
-      async () => runModule(env, orgId, triggered_by, 'full', loadEntity, tryNews)
-    )
-
-    // Tier 3 — deep intelligence.
-    await step.do<ModuleStepResult>(
-      'tier3-deep-website',
-      { retries: RETRY_TIER3, timeout: TIMEOUT_TIER3 },
-      async () => runModule(env, orgId, triggered_by, 'full', loadEntity, tryDeepWebsite)
-    )
-    await step.do<ModuleStepResult>(
-      'tier3-review-synthesis',
-      { retries: RETRY_TIER3, timeout: TIMEOUT_TIER3 },
-      async () => runModule(env, orgId, triggered_by, 'full', loadEntity, tryReviewSynthesis)
-    )
-    await step.do<ModuleStepResult>(
-      'tier3-linkedin',
-      { retries: RETRY_TIER1, timeout: TIMEOUT_TIER1 },
-      async () => runModule(env, orgId, triggered_by, 'full', loadEntity, tryLinkedIn)
-    )
-    await step.do<ModuleStepResult>(
-      'tier3-intelligence-brief',
-      { retries: RETRY_TIER3, timeout: TIMEOUT_TIER3 },
-      async () => runModule(env, orgId, triggered_by, 'full', loadEntity, tryIntelligenceBrief)
-    )
-
-    // Outreach draft from the full enriched context.
-    await step.do<ModuleStepResult>(
-      'outreach',
-      { retries: RETRY_TIER2, timeout: TIMEOUT_TIER2 },
-      async () => runModule(env, orgId, triggered_by, 'full', loadEntity, tryOutreach)
-    )
-
-    // Finalize — set next_action so the admin inbox shows "review and send".
+  private async runFull(step: WorkflowStep, ctx: OrchestrationCtx): Promise<void> {
+    const d = (name: string, tier: 1 | 2 | 3, w: ModuleWrapper) =>
+      this.doMod(step, name, tier, ctx, w)
+    await d('tier1-places', 1, tryPlaces)
+    await d('tier1-website', 2, tryWebsite)
+    await d('tier1-outscraper', 1, tryOutscraper)
+    await d('tier1-acc', 1, tryAcc)
+    await d('tier1-roc', 1, tryRoc)
+    await d('tier2-review-analysis', 2, tryReviewAnalysis)
+    await d('tier2-competitors', 1, tryCompetitors)
+    await d('tier2-news', 1, tryNews)
+    await d('tier3-deep-website', 3, tryDeepWebsite)
+    await d('tier3-review-synthesis', 3, tryReviewSynthesis)
+    await d('tier3-linkedin', 1, tryLinkedIn)
+    await d('tier3-intelligence-brief', 3, tryIntelligenceBrief)
+    await d('outreach', 2, tryOutreach)
     await step.do<{ ok: boolean }>(
       'finalize',
       { retries: RETRY_INFRA, timeout: TIMEOUT_INFRA },
       async () => {
-        const entity = await loadEntity()
+        const entity = await ctx.loadEntity()
         if (!entity) return { ok: false }
         if (!entity.next_action) {
-          await updateEntity(env.DB, orgId, entityId, {
+          await updateEntity(ctx.env.DB, ctx.orgId, ctx.entityId, {
             next_action: 'Review enrichment and send outreach email',
             next_action_at: new Date().toISOString(),
           })
@@ -386,65 +315,43 @@ export class EnrichmentWorkflow extends WorkflowEntrypoint<
    * Reviews-and-news refresh pipeline. Subset of `runFull` plus a
    * conditional intelligence_brief backfill.
    */
-  private async runReviewsAndNews(
-    step: WorkflowStep,
-    env: EnrichEnv,
-    orgId: string,
-    entityId: string,
-    triggered_by: string,
-    loadEntity: () => Promise<Entity | null>
-  ): Promise<void> {
+  private async runReviewsAndNews(step: WorkflowStep, ctx: OrchestrationCtx): Promise<void> {
+    const rm = (w: ModuleWrapper): Promise<ModuleStepResult> =>
+      runModule(ctx, 'reviews-and-news', w)
     await step.do<ModuleStepResult>(
       'tier2-review-analysis',
       { retries: RETRY_TIER2, timeout: TIMEOUT_TIER2 },
-      async () =>
-        runModule(env, orgId, triggered_by, 'reviews-and-news', loadEntity, tryReviewAnalysis)
+      () => rm(tryReviewAnalysis)
     )
     await step.do<ModuleStepResult>(
       'tier3-review-synthesis',
       { retries: RETRY_TIER3, timeout: TIMEOUT_TIER3 },
-      async () =>
-        runModule(env, orgId, triggered_by, 'reviews-and-news', loadEntity, tryReviewSynthesis)
+      () => rm(tryReviewSynthesis)
     )
     await step.do<ModuleStepResult>(
       'tier2-news',
       { retries: RETRY_TIER1, timeout: TIMEOUT_TIER1 },
-      async () => runModule(env, orgId, triggered_by, 'reviews-and-news', loadEntity, tryNews)
+      () => rm(tryNews)
     )
-    // Conditional brief backfill: re-enrich Re-enriches the cheap modules
-    // and ALSO backfills a missing intelligence_brief. Entities whose
-    // initial pipeline crashed mid-run end up with no brief; Re-enrich
-    // is the natural place to heal that.
+    // Conditional brief backfill for entities whose initial pipeline crashed mid-run.
     await step.do<ModuleStepResult>(
       'tier3-intelligence-brief',
       { retries: RETRY_TIER3, timeout: TIMEOUT_TIER3 },
       async () => {
-        const existing = await listContext(env.DB, entityId, { type: 'enrichment' })
-        const hasBrief = existing.some((e) => e.source === 'intelligence_brief')
-        if (hasBrief) return SKIPPED
-        return runModule(
-          env,
-          orgId,
-          triggered_by,
-          'reviews-and-news',
-          loadEntity,
-          tryIntelligenceBrief
-        )
+        const existing = await listContext(ctx.env.DB, ctx.entityId, { type: 'enrichment' })
+        if (existing.some((e) => e.source === 'intelligence_brief')) return SKIPPED
+        return rm(tryIntelligenceBrief)
       }
     )
     await step.do<ModuleStepResult>(
       'outreach',
       { retries: RETRY_TIER2, timeout: TIMEOUT_TIER2 },
-      async () => runModule(env, orgId, triggered_by, 'reviews-and-news', loadEntity, tryOutreach)
+      () => rm(tryOutreach)
     )
     await step.do<{ ok: boolean }>(
       'finalize',
       { retries: RETRY_INFRA, timeout: TIMEOUT_INFRA },
-      async () => {
-        // No-op for reviews-and-news — next_action is set during initial
-        // promotion, and the refresh path should not overwrite it.
-        return { ok: true }
-      }
+      () => Promise.resolve({ ok: true })
     )
   }
 }
@@ -455,23 +362,22 @@ export class EnrichmentWorkflow extends WorkflowEntrypoint<
  * its own enrichment_runs row via instrumentModule; we only need to
  * surface a step return value for Workflows replay.
  */
-async function runModule(
+type ModuleWrapper = (
   env: EnrichEnv,
   orgId: string,
-  triggered_by: string,
+  entity: Entity,
+  result: ReturnType<typeof createEnrichResult>
+) => Promise<void>
+
+async function runModule(
+  ctx: OrchestrationCtx,
   mode: EnrichMode,
-  loadEntity: () => Promise<Entity | null>,
-  wrapper: (
-    env: EnrichEnv,
-    orgId: string,
-    entity: Entity,
-    result: ReturnType<typeof createEnrichResult>
-  ) => Promise<void>
+  wrapper: ModuleWrapper
 ): Promise<ModuleStepResult> {
-  const entity = await loadEntity()
+  const entity = await ctx.loadEntity()
   if (!entity) return SKIPPED
-  const result = createEnrichResult(entity.id, mode, triggered_by)
-  await wrapper(env, orgId, entity, result)
+  const result = createEnrichResult(entity.id, mode, ctx.triggered_by)
+  await wrapper(ctx.env, ctx.orgId, entity, result)
   return {
     ran: true,
     outcome:

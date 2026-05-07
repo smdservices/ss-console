@@ -1,8 +1,9 @@
-import type { APIRoute } from 'astro'
+import type { APIContext, APIRoute } from 'astro'
 import {
   transitionStage,
   type EntityStage,
   type TransitionStageOptions,
+  type TransitionArgs,
 } from '../../../../../lib/db/entities'
 import { isLostReasonCode } from '../../../../../lib/db/lost-reasons'
 import { env } from 'cloudflare:workers'
@@ -16,7 +17,31 @@ import { env } from 'cloudflare:workers'
  * When `stage === 'lost'`, a structured `lost_reason` form field is
  * required. The `lost_detail` field is optional free-text context.
  */
-export const POST: APIRoute = async ({ params, request, locals, redirect }) => {
+
+type Redirect = APIContext['redirect']
+
+function resolveLostOptions(
+  formData: FormData,
+  entityId: string,
+  redirect: Redirect
+): TransitionStageOptions | Response {
+  const rawCode = formData.get('lost_reason')
+  const lostReasonCode = typeof rawCode === 'string' ? rawCode : null
+  if (!lostReasonCode || !isLostReasonCode(lostReasonCode)) {
+    return redirect(
+      `/admin/entities/${entityId}?error=${encodeURIComponent('lost_reason_required')}`,
+      302
+    )
+  }
+  const rawDetail = formData.get('lost_detail')
+  const lostDetail =
+    rawDetail && typeof rawDetail === 'string' && rawDetail.trim().length > 0
+      ? rawDetail.trim()
+      : null
+  return { lostReason: { code: lostReasonCode, detail: lostDetail } }
+}
+
+async function handlePost({ params, request, locals, redirect }: APIContext): Promise<Response> {
   const session = locals.session
   if (!session || session.role !== 'admin') {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -26,9 +51,7 @@ export const POST: APIRoute = async ({ params, request, locals, redirect }) => {
   }
 
   const entityId = params.id
-  if (!entityId) {
-    return redirect('/admin/entities?error=missing', 302)
-  }
+  if (!entityId) return redirect('/admin/entities?error=missing', 302)
 
   try {
     const formData = await request.formData()
@@ -39,30 +62,16 @@ export const POST: APIRoute = async ({ params, request, locals, redirect }) => {
         ? reason.trim()
         : 'Stage changed by admin.'
 
-    if (!stage) {
-      return redirect(`/admin/entities/${entityId}?error=missing_stage`, 302)
-    }
+    if (!stage) return redirect(`/admin/entities/${entityId}?error=missing_stage`, 302)
 
-    const options: TransitionStageOptions = {}
+    let transitionArgs: TransitionArgs = { reason: reasonStr }
     if (stage === 'lost') {
-      const rawCode = formData.get('lost_reason')
-      const lostReasonCode = typeof rawCode === 'string' ? rawCode : null
-      if (!lostReasonCode || !isLostReasonCode(lostReasonCode)) {
-        return redirect(
-          `/admin/entities/${entityId}?error=${encodeURIComponent('lost_reason_required')}`,
-          302
-        )
-      }
-      const rawDetail = formData.get('lost_detail')
-      const lostDetail =
-        rawDetail && typeof rawDetail === 'string' && rawDetail.trim().length > 0
-          ? rawDetail.trim()
-          : null
-      options.lostReason = { code: lostReasonCode, detail: lostDetail }
+      const result = resolveLostOptions(formData, entityId, redirect)
+      if (result instanceof Response) return result
+      transitionArgs = { reason: reasonStr, ...result }
     }
 
-    await transitionStage(env.DB, session.orgId, entityId, stage, reasonStr, options)
-
+    await transitionStage(env.DB, session.orgId, entityId, stage, transitionArgs)
     return redirect(`/admin/entities/${entityId}?stage_updated=1`, 302)
   } catch (err) {
     console.error('[api/admin/entities/stage] Error:', err)
@@ -70,3 +79,5 @@ export const POST: APIRoute = async ({ params, request, locals, redirect }) => {
     return redirect(`/admin/entities/${entityId}?error=${encodeURIComponent(message)}`, 302)
   }
 }
+
+export const POST: APIRoute = (ctx) => handlePost(ctx)

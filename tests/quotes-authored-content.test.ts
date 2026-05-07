@@ -197,7 +197,7 @@ describe('quotes DAL: authored content round-trip', () => {
 
     const entity = await createEntity(db, ORG_ID, {
       name: 'Authored Content Biz',
-      stage: 'proposing' as EntityStage,
+      stage: 'proposing',
     })
     entityId = entity.id
 
@@ -313,7 +313,7 @@ describe('updateQuoteStatus: send-gating on authored content', () => {
 
     const entity = await createEntity(db, ORG_ID, {
       name: 'Send Gate Biz',
-      stage: 'proposing' as EntityStage,
+      stage: 'proposing',
     })
     entityId = entity.id
 

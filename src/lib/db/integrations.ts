@@ -190,6 +190,24 @@ export interface GoogleTokenEnv {
   BOOKING_ENCRYPTION_KEY?: string
 }
 
+/** Mark an integration as revoked if the response indicates invalid_grant. */
+async function maybeMarkRevoked(
+  db: D1Database,
+  integrationId: string,
+  status: number,
+  body: string
+): Promise<void> {
+  if (status !== 400 && status !== 401) return
+  try {
+    const parsed = JSON.parse(body) as { error?: string }
+    if (parsed.error === 'invalid_grant') {
+      await updateIntegrationStatus(db, integrationId, 'revoked', 'Refresh token revoked by Google')
+    }
+  } catch {
+    // JSON parse failed — leave status as-is
+  }
+}
+
 /**
  * Get a valid Google access token for the integration. Refreshes if the
  * cached token is expired or about to expire (within 5 minutes).
@@ -243,30 +261,11 @@ export async function getGoogleAccessToken(
     if (!response.ok) {
       const body = await response.text()
       console.error(`[integrations] Google token refresh failed: ${response.status} ${body}`)
-
-      // If invalid_grant, mark integration as revoked
-      if (response.status === 400 || response.status === 401) {
-        try {
-          const parsed = JSON.parse(body) as { error?: string }
-          if (parsed.error === 'invalid_grant') {
-            await updateIntegrationStatus(
-              db,
-              integration.id,
-              'revoked',
-              'Refresh token revoked by Google'
-            )
-          }
-        } catch {
-          // JSON parse failed — just leave status as-is
-        }
-      }
+      await maybeMarkRevoked(db, integration.id, response.status, body)
       return null
     }
 
-    const data = (await response.json()) as {
-      access_token: string
-      expires_in: number
-    }
+    const data: { access_token: string; expires_in: number } = await response.json()
 
     const expiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString()
 

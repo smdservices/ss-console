@@ -25,7 +25,7 @@ function makeEnv(overrides: Partial<Env> = {}): Env {
     ENRICHMENT_WORKFLOW: { create },
     LEAD_INGEST_API_KEY: 'test-secret',
     ...overrides,
-  } as Env
+  }
 }
 
 async function dispatch(
@@ -58,7 +58,7 @@ describe('ss-enrichment-workflow Worker', () => {
         {} as ExecutionContext
       )
       expect(res.status).toBe(200)
-      const body = (await res.json()) as { ok: boolean }
+      const body: Record<string, unknown> = await res.json()
       expect(body.ok).toBe(true)
     })
 
@@ -79,7 +79,7 @@ describe('ss-enrichment-workflow Worker', () => {
         triggered_by: 'cron:new-business',
       })
       expect(res.status).toBe(200)
-      const body = (await res.json()) as { ok: boolean; workflow_run_id: string }
+      const body: Record<string, unknown> = await res.json()
       expect(body.ok).toBe(true)
       expect(body.workflow_run_id).toBe('wf-test-001')
 
@@ -133,7 +133,7 @@ describe('ss-enrichment-workflow Worker', () => {
         {} as ExecutionContext
       )
       expect(res.status).toBe(405)
-      const body = (await res.json()) as { ok: boolean; error: string }
+      const body: Record<string, unknown> = await res.json()
       expect(body.error).toBe('method_not_allowed')
     })
 
@@ -141,7 +141,7 @@ describe('ss-enrichment-workflow Worker', () => {
       const env = makeEnv()
       const res = await dispatch(env, { orgId: 'org-1', mode: 'full', triggered_by: 'test' })
       expect(res.status).toBe(400)
-      const body = (await res.json()) as { ok: boolean; error: string }
+      const body: Record<string, unknown> = await res.json()
       expect(body.error).toBe('missing_entity_id')
 
       const create = env.ENRICHMENT_WORKFLOW.create as unknown as ReturnType<typeof vi.fn>
@@ -156,7 +156,7 @@ describe('ss-enrichment-workflow Worker', () => {
         triggered_by: 'test',
       })
       expect(res.status).toBe(400)
-      const body = (await res.json()) as { ok: boolean; error: string }
+      const body: Record<string, unknown> = await res.json()
       expect(body.error).toBe('missing_org_id')
     })
 
@@ -164,7 +164,7 @@ describe('ss-enrichment-workflow Worker', () => {
       const env = makeEnv()
       const res = await dispatch(env, '{not valid json')
       expect(res.status).toBe(400)
-      const body = (await res.json()) as { ok: boolean; error: string }
+      const body: Record<string, unknown> = await res.json()
       expect(body.error).toBe('invalid_json')
     })
 
@@ -177,7 +177,7 @@ describe('ss-enrichment-workflow Worker', () => {
         triggered_by: 'test',
       })
       expect(res.status).toBe(500)
-      const body = (await res.json()) as { ok: boolean; error: string }
+      const body: Record<string, unknown> = await res.json()
       expect(body.error).toBe('workflow_binding_missing')
     })
 
@@ -194,7 +194,7 @@ describe('ss-enrichment-workflow Worker', () => {
         triggered_by: 'test',
       })
       expect(res.status).toBe(500)
-      const body = (await res.json()) as { ok: boolean; error: string }
+      const body: Record<string, unknown> = await res.json()
       expect(body.error).toMatch(/dispatch_failed/)
       expect(body.error).toContain('quota exceeded')
     })
@@ -209,7 +209,7 @@ describe('ss-enrichment-workflow Worker', () => {
         { headers: { Authorization: 'Bearer test-secret' } }
       )
       expect(res.status).toBe(200)
-      const body = (await res.json()) as { ok: boolean; workflow_run_id: string }
+      const body: Record<string, unknown> = await res.json()
       expect(body.workflow_run_id).toBe('wf-test-001')
     })
 
@@ -221,7 +221,7 @@ describe('ss-enrichment-workflow Worker', () => {
         { headers: { Authorization: 'Bearer wrong-secret' } }
       )
       expect(res.status).toBe(401)
-      const body = (await res.json()) as { ok: boolean; error: string }
+      const body: Record<string, unknown> = await res.json()
       expect(body.error).toBe('unauthorized')
     })
 
@@ -233,7 +233,7 @@ describe('ss-enrichment-workflow Worker', () => {
         { headers: { Authorization: 'Bearer anything' } }
       )
       expect(res.status).toBe(401)
-      const body = (await res.json()) as { ok: boolean; error: string }
+      const body: Record<string, unknown> = await res.json()
       expect(body.error).toBe('auth_not_configured')
     })
   })

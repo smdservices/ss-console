@@ -15,11 +15,6 @@ import type { PermitRecord } from './soda.js'
 
 export type { NewBusinessQualification }
 
-interface AnthropicResponse {
-  content: Array<{ type: string; text: string }>
-  stop_reason: string
-}
-
 /**
  * Qualify a new business filing using Claude.
  */
@@ -60,7 +55,7 @@ export async function qualifyNewBusiness(
     return null
   }
 
-  const data = (await response.json()) as AnthropicResponse
+  const data: { content?: Array<{ type: string; text?: string }> } = await response.json()
   const text = data.content?.[0]?.text
   if (!text) return null
 

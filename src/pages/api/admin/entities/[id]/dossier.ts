@@ -21,7 +21,7 @@ import { env } from 'cloudflare:workers'
  * The "Generate Dossier" button itself was removed from the admin UI in
  * issue #471. This endpoint backs the "Re-enrich" toolbar action.
  */
-export const POST: APIRoute = async ({ params, locals, redirect }) => {
+export const POST: APIRoute = ({ params, locals, redirect }) => {
   const session = locals.session
   if (!session || session.role !== 'admin') {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {

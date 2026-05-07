@@ -700,7 +700,8 @@ describe('invoices: portal dashboard integration', () => {
 })
 
 describe('invoices: signwell handler creates deposit invoice', () => {
-  const source = () => readFileSync(resolve('src/lib/sow/service.ts'), 'utf-8')
+  // Finalization logic was extracted to service-finalize.ts to keep service.ts under 500 lines.
+  const source = () => readFileSync(resolve('src/lib/sow/service-finalize.ts'), 'utf-8')
 
   it('finalization creates the deposit invoice in the acceptance batch', () => {
     const code = source()
@@ -711,7 +712,7 @@ describe('invoices: signwell handler creates deposit invoice', () => {
 
   it('deposit invoice uses raw SQL in db.batch for atomicity', () => {
     const code = source()
-    expect(code).toContain('db.batch([')
+    expect(code).toContain('db.batch(')
     expect(code).toContain('INSERT INTO invoices')
   })
 })

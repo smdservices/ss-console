@@ -36,6 +36,125 @@ export interface Env {
   ENRICHMENT_WORKFLOW_SERVICE?: { fetch: typeof fetch }
 }
 
+async function fetchAllJobs(
+  cfg: JobMonitorConfig,
+  apiKey: string,
+  summary: RunSummary
+): Promise<Array<{ job: SerpApiJob; query: string }>> {
+  const allJobs: Array<{ job: SerpApiJob; query: string }> = []
+  for (const query of cfg.search_queries) {
+    summary.queries++
+    try {
+      const jobs = await searchJobs(query, apiKey)
+      for (const job of jobs) allJobs.push({ job, query })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      summary.errors++
+      summary.errorDetails.push(`Query "${query}": ${msg}`)
+      if (msg.includes('401')) {
+        console.error(`Fatal: SerpAPI 401 — aborting run`)
+        break
+      }
+    }
+  }
+  return allJobs
+}
+
+function buildJobContent(qualification: Awaited<ReturnType<typeof qualifyJob>>): string {
+  if (!qualification) return 'Signal from job_monitor.'
+  const parts: string[] = []
+  if (qualification.evidence) parts.push(qualification.evidence)
+  if (qualification.outreach_angle)
+    parts.push(`**Outreach angle:** ${qualification.outreach_angle}`)
+  return parts.join('\n\n') || 'Signal from job_monitor.'
+}
+
+function buildJobMetadata(
+  job: SerpApiJob,
+  query: string,
+  qualification: Awaited<ReturnType<typeof qualifyJob>>,
+  painScore: number
+): Record<string, unknown> {
+  const firstLink = job.apply_options && job.apply_options[0] ? job.apply_options[0].link : null
+  return {
+    job_hash: job.job_id,
+    job_url: firstLink,
+    job_title: job.title,
+    query_term: query,
+    confidence: qualification?.confidence,
+    company_size_estimate: qualification?.company_size_estimate,
+    ...(painScore != null ? { pain_score: painScore } : {}),
+    ...(qualification?.problems_signaled ? { top_problems: qualification.problems_signaled } : {}),
+    ...(qualification?.outreach_angle ? { outreach_angle: qualification.outreach_angle } : {}),
+    date_found: new Date().toISOString().split('T')[0],
+  }
+}
+
+async function processOneJob(
+  entry: { job: SerpApiJob; query: string },
+  env: Env,
+  ctx: ExecutionContext | undefined,
+  summary: RunSummary,
+  painThreshold: number
+): Promise<void> {
+  const { job, query } = entry
+  const alreadyProcessed = await env.DB.prepare(
+    `SELECT 1 FROM context WHERE org_id = ? AND source = 'job_monitor' AND source_ref = ?`
+  )
+    .bind(ORG_ID, job.job_id)
+    .first()
+  if (alreadyProcessed) {
+    summary.existingAppended++
+    return
+  }
+
+  summary.newJobs++
+  const qualification = await qualifyJob(job, env.ANTHROPIC_API_KEY)
+  if (!qualification) {
+    summary.errors++
+    summary.errorDetails.push(`Claude failed for "${job.company_name}" — "${job.title}"`)
+    return
+  }
+  if (!qualification.qualified) {
+    summary.disqualified++
+    return
+  }
+
+  const painScore = derivePainScore(qualification)
+  if (painScore < painThreshold) {
+    summary.belowThreshold++
+    return
+  }
+
+  summary.qualified++
+  const { entity } = await findOrCreateEntity(env.DB, ORG_ID, {
+    name: qualification.company,
+    area: job.location,
+    website: job.company_url ?? null,
+    source_pipeline: 'job_monitor',
+  })
+
+  await appendContext(env.DB, ORG_ID, {
+    entity_id: entity.id,
+    type: 'signal',
+    content: buildJobContent(qualification),
+    source: 'job_monitor',
+    source_ref: job.job_id,
+    metadata: buildJobMetadata(job, query, qualification, painScore),
+  })
+  summary.written++
+
+  const dispatchPromise = dispatchEnrichmentWorkflow(env, {
+    entityId: entity.id,
+    orgId: ORG_ID,
+    mode: 'full',
+    triggered_by: 'cron:job-monitor',
+  }).catch((err) => {
+    console.error('[job_monitor] enrichment dispatch failed for', entity.id, err)
+  })
+  if (ctx) ctx.waitUntil(dispatchPromise)
+}
+
 async function run(env: Env, ctx?: ExecutionContext): Promise<RunSummary> {
   const summary: RunSummary = {
     queries: 0,
@@ -58,34 +177,12 @@ async function run(env: Env, ctx?: ExecutionContext): Promise<RunSummary> {
   const configRow = await getGeneratorConfig(env.DB, ORG_ID, 'job_monitor')
   if (!configRow.enabled) {
     console.log('job_monitor: disabled by admin config — skipping run')
-    await recordGeneratorRun(env.DB, ORG_ID, 'job_monitor', {
-      signalsCount: 0,
-      error: null,
-    })
+    await recordGeneratorRun(env.DB, ORG_ID, 'job_monitor', { signalsCount: 0, error: null })
     return summary
   }
   const cfg = configRow.config as JobMonitorConfig
 
-  const allJobs: Array<{ job: SerpApiJob; query: string }> = []
-
-  for (const query of cfg.search_queries) {
-    summary.queries++
-    try {
-      const jobs = await searchJobs(query, env.SERPAPI_API_KEY)
-      for (const job of jobs) {
-        allJobs.push({ job, query })
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      summary.errors++
-      summary.errorDetails.push(`Query "${query}": ${msg}`)
-      if (msg.includes('401')) {
-        console.error(`Fatal: SerpAPI 401 — aborting run`)
-        break
-      }
-    }
-  }
-
+  const allJobs = await fetchAllJobs(cfg, env.SERPAPI_API_KEY, summary)
   summary.totalResults = allJobs.length
   console.log(`SerpAPI: ${summary.queries} queries, ${summary.totalResults} total results`)
 
@@ -98,109 +195,13 @@ async function run(env: Env, ctx?: ExecutionContext): Promise<RunSummary> {
     }
   }
 
-  for (const { job, query } of uniqueJobs) {
+  for (const entry of uniqueJobs) {
     try {
-      // Dedup on source_ref (job_id) — skip if we already have this exact signal
-      const alreadyProcessed = await env.DB.prepare(
-        `SELECT 1 FROM context WHERE org_id = ? AND source = 'job_monitor' AND source_ref = ?`
-      )
-        .bind(ORG_ID, job.job_id)
-        .first()
-
-      if (alreadyProcessed) {
-        summary.existingAppended++
-        continue
-      }
-
-      summary.newJobs++
-
-      const qualification = await qualifyJob(job, env.ANTHROPIC_API_KEY)
-      if (!qualification) {
-        summary.errors++
-        summary.errorDetails.push(`Claude failed for "${job.company_name}" — "${job.title}"`)
-        continue
-      }
-
-      if (!qualification.qualified) {
-        summary.disqualified++
-        continue
-      }
-
-      // Apply admin-tunable pain_threshold (issue #595). The derived score
-      // collapses Claude `confidence` + `problems_signaled.length` into a
-      // 1-10 scale (see derivePainScore). Default threshold is 7, matching
-      // prior shipped behavior — but ops can lower it to surface medium-
-      // confidence single-problem jobs without redeploying.
-      const painScore = derivePainScore(qualification)
-      if (painScore < painThreshold) {
-        summary.belowThreshold++
-        continue
-      }
-
-      summary.qualified++
-
-      // Find or create entity
-      const { entity } = await findOrCreateEntity(env.DB, ORG_ID, {
-        name: qualification.company,
-        area: job.location,
-        website: job.company_url ?? null,
-        source_pipeline: 'job_monitor',
-      })
-
-      // Build context content
-      const contentParts: string[] = []
-      if (qualification.evidence) contentParts.push(qualification.evidence)
-      if (qualification.outreach_angle) {
-        contentParts.push(`**Outreach angle:** ${qualification.outreach_angle}`)
-      }
-      const content = contentParts.join('\n\n') || 'Signal from job_monitor.'
-
-      // Build metadata
-      const dateFound = new Date().toISOString().split('T')[0]
-      const metadata: Record<string, unknown> = {
-        job_hash: job.job_id,
-        job_url: job.apply_options?.[0]?.link ?? null,
-        job_title: job.title,
-        query_term: query,
-        confidence: qualification.confidence,
-        company_size_estimate: qualification.company_size_estimate,
-        ...(painScore != null ? { pain_score: painScore } : {}),
-        ...(qualification.problems_signaled
-          ? { top_problems: qualification.problems_signaled }
-          : {}),
-        ...(qualification.outreach_angle ? { outreach_angle: qualification.outreach_angle } : {}),
-        date_found: dateFound,
-      }
-
-      // Append context (source_ref = job_id for dedup across runs)
-      await appendContext(env.DB, ORG_ID, {
-        entity_id: entity.id,
-        type: 'signal',
-        content,
-        source: 'job_monitor',
-        source_ref: job.job_id,
-        metadata,
-      })
-
-      summary.written++
-
-      // At-ingest enrichment (#631). Dispatches the EnrichmentWorkflow on
-      // the dedicated Worker; idempotent (skips if a prior brief exists).
-      const dispatchPromise = dispatchEnrichmentWorkflow(env, {
-        entityId: entity.id,
-        orgId: ORG_ID,
-        mode: 'full',
-        triggered_by: 'cron:job-monitor',
-      }).catch((err) => {
-        console.error('[job_monitor] enrichment dispatch failed for', entity.id, err)
-      })
-      if (ctx) {
-        ctx.waitUntil(dispatchPromise)
-      }
+      await processOneJob(entry, env, ctx, summary, painThreshold)
     } catch (err) {
       summary.errors++
       const msg = err instanceof Error ? err.message : String(err)
-      summary.errorDetails.push(`Job "${job.company_name}": ${msg}`)
+      summary.errorDetails.push(`Job "${entry.job.company_name}": ${msg}`)
     }
   }
 

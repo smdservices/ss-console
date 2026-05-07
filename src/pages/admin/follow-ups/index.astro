@@ -1,7 +1,8 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro'
+import FollowUpList from '../../../components/admin/FollowUpList.astro'
 import { listFollowUps, FOLLOW_UP_TYPES } from '../../../lib/db/follow-ups'
-import type { FollowUp, FollowUpType } from '../../../lib/db/follow-ups'
+import type { FollowUpType } from '../../../lib/db/follow-ups'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -55,36 +56,9 @@ if (validIds.length > 0) {
   }
 }
 
-// Helpers
-function getTypeLabel(type: string): string {
-  return FOLLOW_UP_TYPES.find((t) => t.value === type)?.label ?? type
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
-}
-
-function daysUntil(iso: string): number {
-  const target = new Date(iso)
-  const now = new Date()
-  const diff = target.getTime() - now.getTime()
-  return Math.ceil(diff / (1000 * 60 * 60 * 24))
-}
-
-function daysLabel(iso: string): string {
-  const days = daysUntil(iso)
-  if (days === 0) return 'Today'
-  if (days === 1) return 'Tomorrow'
-  if (days > 1) return `In ${days} days`
-  if (days === -1) return '1 day overdue'
-  return `${Math.abs(days)} days overdue`
-}
-
 const success = Astro.url.searchParams.get('saved')
+const activeItems =
+  activeTab === 'overdue' ? overdue : activeTab === 'completed' ? completed : upcoming
 ---
 
 <AdminLayout
@@ -156,91 +130,5 @@ const success = Astro.url.searchParams.get('saved')
     </a>
   </div>
 
-  {/* Follow-up list */}
-  {
-    (() => {
-      const items =
-        activeTab === 'overdue' ? overdue : activeTab === 'completed' ? completed : upcoming
-      if (items.length === 0) {
-        return (
-          <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
-            <p class="text-[color:var(--ss-color-text-secondary)] text-sm">
-              {activeTab === 'upcoming' && 'No upcoming follow-ups.'}
-              {activeTab === 'overdue' && 'No overdue follow-ups.'}
-              {activeTab === 'completed' && 'No completed follow-ups.'}
-            </p>
-          </div>
-        )
-      }
-      return (
-        <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] divide-y divide-[color:var(--ss-color-border-subtle)]">
-          {items.map((f: FollowUp) => (
-            <div class="px-6 py-4">
-              <div class="flex items-start justify-between gap-stack">
-                <div class="min-w-0 flex-1">
-                  <div class="flex items-center gap-2 mb-1">
-                    <span
-                      class={`text-sm font-medium ${f.entity_id && clientMap[f.entity_id] ? 'text-[color:var(--ss-color-text-primary)]' : 'italic text-[color:var(--ss-color-text-muted)]'}`}
-                    >
-                      {f.entity_id ? (clientMap[f.entity_id] ?? 'Missing entity') : 'Unlinked'}
-                    </span>
-                    <span class="text-xs bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)] px-2 py-0.5 rounded">
-                      {getTypeLabel(f.type)}
-                    </span>
-                  </div>
-                  <div class="flex items-center gap-row text-xs text-[color:var(--ss-color-text-muted)]">
-                    <span>{formatDate(f.scheduled_for)}</span>
-                    {f.status === 'scheduled' && (
-                      <span
-                        class={
-                          daysUntil(f.scheduled_for) < 0
-                            ? 'text-[color:var(--ss-color-error)] font-medium'
-                            : 'text-[color:var(--ss-color-text-secondary)]'
-                        }
-                      >
-                        {daysLabel(f.scheduled_for)}
-                      </span>
-                    )}
-                    {f.completed_at && <span>Completed: {formatDate(f.completed_at)}</span>}
-                  </div>
-                </div>
-
-                {f.status === 'scheduled' && (
-                  <div class="flex items-center gap-2 shrink-0">
-                    <form method="POST" action={`/api/admin/follow-ups/${f.id}`}>
-                      <input type="hidden" name="action" value="send_email" />
-                      <button
-                        type="submit"
-                        class="text-xs bg-primary text-white px-3 py-1.5 rounded-[var(--ss-radius-card)] hover:bg-primary/90 transition-colors"
-                      >
-                        Send Email
-                      </button>
-                    </form>
-                    <form method="POST" action={`/api/admin/follow-ups/${f.id}`}>
-                      <input type="hidden" name="action" value="complete" />
-                      <button
-                        type="submit"
-                        class="text-xs bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] border border-[color:var(--ss-color-border)] px-3 py-1.5 rounded-[var(--ss-radius-card)] hover:bg-[color:var(--ss-color-border-subtle)] transition-colors"
-                      >
-                        Mark Complete
-                      </button>
-                    </form>
-                    <form method="POST" action={`/api/admin/follow-ups/${f.id}`}>
-                      <input type="hidden" name="action" value="skip" />
-                      <button
-                        type="submit"
-                        class="text-xs bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-secondary)] px-3 py-1.5 rounded-[var(--ss-radius-card)] hover:bg-[color:var(--ss-color-border-subtle)] transition-colors"
-                      >
-                        Skip
-                      </button>
-                    </form>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )
-    })()
-  }
+  <FollowUpList items={activeItems} activeTab={activeTab} clientMap={clientMap} />
 </AdminLayout>

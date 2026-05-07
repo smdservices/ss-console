@@ -226,17 +226,21 @@ export function groupSlotsByLocalDate(
  * the orchestration logic can be integration-tested against miniflare D1 +
  * a mocked Google client, while the math is unit-tested against the helpers.
  */
+export interface SlotQueryArgs {
+  orgId: string
+  fromUtc: Date
+  toUtc: Date
+  fetchGoogleBusy: (from: Date, to: Date) => Promise<SlotRange[]>
+}
+
 export async function getAvailableSlots(
-  env: {
-    DB: D1Database
-  },
-  orgId: string,
-  fromUtc: Date,
-  toUtc: Date,
-  fetchGoogleBusy: (from: Date, to: Date) => Promise<SlotRange[]>,
+  env: { DB: D1Database },
+  query: SlotQueryArgs,
   now: Date = new Date(),
   config: BookingConfig = BOOKING_CONFIG
 ): Promise<SlotRange[]> {
+  const { orgId, fromUtc, toUtc, fetchGoogleBusy } = query
+
   // 1. Generate candidates from weekly schedule
   const candidates = generateCandidateSlots(fromUtc, toUtc, config)
 

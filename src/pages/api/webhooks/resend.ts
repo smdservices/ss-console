@@ -1,4 +1,4 @@
-import type { APIRoute } from 'astro'
+import type { APIContext, APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 import { handleResendEvent, type ResendWebhookPayload } from '../../../lib/webhooks/resend-handler'
 
@@ -40,50 +40,35 @@ const MAX_WEBHOOK_AGE_SECONDS = 300
 /** Default org id for events that can't be re-attributed via the sent row. */
 const DEFAULT_ORG_ID = '01JQFK0000SMDSERVICES000'
 
-export const POST: APIRoute = async ({ request }) => {
-  const webhookSecret = env.RESEND_WEBHOOK_SECRET
-  if (!webhookSecret) {
-    console.error('[webhook/resend] RESEND_WEBHOOK_SECRET not configured')
-    return new Response(JSON.stringify({ error: 'Server misconfigured' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+function jsonErr(status: number, message: string): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
 
+async function verifySvixHeaders(
+  request: Request,
+  rawBody: string,
+  webhookSecret: string
+): Promise<Response | { svixId: string }> {
   const svixId = request.headers.get('svix-id')
   const svixTimestamp = request.headers.get('svix-timestamp')
   const svixSignature = request.headers.get('svix-signature')
 
   if (!svixId || !svixTimestamp || !svixSignature) {
-    return new Response(JSON.stringify({ error: 'Missing svix headers' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return jsonErr(400, 'Missing svix headers')
   }
 
-  // Read the raw body BEFORE parsing — Svix signs the exact bytes, and any
-  // round-trip through JSON.parse + JSON.stringify will mutate whitespace
-  // and break verification.
-  const rawBody = await request.text()
-
-  // --- Timestamp freshness (replay protection) ---
   const tsSeconds = parseInt(svixTimestamp, 10)
-  if (!Number.isFinite(tsSeconds)) {
-    return new Response(JSON.stringify({ error: 'Invalid timestamp' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!Number.isFinite(tsSeconds)) return jsonErr(400, 'Invalid timestamp')
+
   const nowSeconds = Math.floor(Date.now() / 1000)
   if (Math.abs(nowSeconds - tsSeconds) > MAX_WEBHOOK_AGE_SECONDS) {
     console.error(`[webhook/resend] Stale webhook: ts=${tsSeconds}, now=${nowSeconds}`)
-    return new Response(JSON.stringify({ error: 'Stale webhook' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return jsonErr(401, 'Stale webhook')
   }
 
-  // --- Svix signature verification ---
   const isValid = await verifySvixSignature(
     svixId,
     svixTimestamp,
@@ -93,34 +78,37 @@ export const POST: APIRoute = async ({ request }) => {
   )
   if (!isValid) {
     console.error('[webhook/resend] Invalid signature')
-    return new Response(JSON.stringify({ error: 'Invalid signature' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return jsonErr(401, 'Invalid signature')
   }
 
-  // --- Parse the now-verified body ---
+  return { svixId }
+}
+
+async function handlePost({ request }: APIContext): Promise<Response> {
+  const webhookSecret = env.RESEND_WEBHOOK_SECRET
+  if (!webhookSecret) {
+    console.error('[webhook/resend] RESEND_WEBHOOK_SECRET not configured')
+    return jsonErr(500, 'Server misconfigured')
+  }
+
+  // Read the raw body BEFORE parsing — Svix signs the exact bytes.
+  const rawBody = await request.text()
+
+  const headerResult = await verifySvixHeaders(request, rawBody, webhookSecret)
+  if (headerResult instanceof Response) return headerResult
+
   let payload: ResendWebhookPayload
   try {
     payload = JSON.parse(rawBody) as ResendWebhookPayload
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return jsonErr(400, 'Invalid JSON')
   }
 
-  if (!payload.type) {
-    return new Response(JSON.stringify({ error: 'Missing event type' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!payload.type) return jsonErr(400, 'Missing event type')
 
-  // --- Dispatch ---
   try {
     const result = await handleResendEvent(env.DB, {
-      providerEventId: svixId,
+      providerEventId: headerResult.svixId,
       payload,
       fallbackOrgId: DEFAULT_ORG_ID,
     })
@@ -135,14 +123,12 @@ export const POST: APIRoute = async ({ request }) => {
     )
   } catch (err) {
     console.error('[webhook/resend] handler failed:', err)
-    // 500 → Svix retries with backoff. Better than silently 200ing on a
-    // transient D1 error and losing the event.
-    return new Response(JSON.stringify({ error: 'Internal error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    // 500 → Svix retries with backoff.
+    return jsonErr(500, 'Internal error')
   }
 }
+
+export const POST: APIRoute = (ctx) => handlePost(ctx)
 
 /**
  * Verify a Svix-signed webhook payload.

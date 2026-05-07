@@ -9,9 +9,98 @@
  * src/lib/email/resend.ts handles missing RESEND_API_KEY.
  */
 
-import type { StripeCreateInvoiceParams, StripeInvoice, StripeInvoiceResult } from './types'
+import type { StripeCreateInvoiceParams, StripeInvoiceResult } from './types'
 
 const STRIPE_API_BASE = 'https://api.stripe.com/v1'
+
+function stripeHeaders(apiKey: string): Record<string, string> {
+  return {
+    Authorization: `Bearer ${apiKey}`,
+    'Content-Type': 'application/x-www-form-urlencoded',
+  }
+}
+
+async function createStripeCustomer(apiKey: string, email: string): Promise<string> {
+  const body = new URLSearchParams()
+  body.append('email', email)
+  const res = await fetch(`${STRIPE_API_BASE}/customers`, {
+    method: 'POST',
+    headers: stripeHeaders(apiKey),
+    body: body.toString(),
+  })
+  if (!res.ok) {
+    throw new Error(`Stripe customer creation failed ${res.status}: ${await res.text()}`)
+  }
+  const data: { id: string } = await res.json()
+  return data.id
+}
+
+async function resolveStripeCustomerId(apiKey: string, email: string): Promise<string> {
+  const searchRes = await fetch(
+    `${STRIPE_API_BASE}/customers/search?query=email:'${encodeURIComponent(email)}'`,
+    { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } }
+  )
+  if (searchRes.ok) {
+    const data: { data: Array<{ id: string }> } = await searchRes.json()
+    if (data.data.length > 0) return data.data[0].id
+  }
+  return createStripeCustomer(apiKey, email)
+}
+
+async function createStripeInvoiceRecord(
+  apiKey: string,
+  customerId: string,
+  params: StripeCreateInvoiceParams
+): Promise<{ id: string; hosted_invoice_url: string; status: string }> {
+  const body = new URLSearchParams()
+  body.append('customer', customerId)
+  body.append('collection_method', params.collection_method ?? 'send_invoice')
+  body.append('days_until_due', String(params.days_until_due ?? 15))
+  if (params.description) body.append('description', params.description)
+  if (params.metadata) {
+    for (const [key, value] of Object.entries(params.metadata)) {
+      body.append(`metadata[${key}]`, value)
+    }
+  }
+  if (params.payment_settings?.payment_method_types) {
+    for (const methodType of params.payment_settings.payment_method_types) {
+      body.append('payment_settings[payment_method_types][]', methodType)
+    }
+  }
+  const res = await fetch(`${STRIPE_API_BASE}/invoices`, {
+    method: 'POST',
+    headers: stripeHeaders(apiKey),
+    body: body.toString(),
+  })
+  if (!res.ok) {
+    throw new Error(`Stripe invoice creation failed ${res.status}: ${await res.text()}`)
+  }
+  return await res.json()
+}
+
+async function addStripeLineItems(
+  apiKey: string,
+  customerId: string,
+  invoiceId: string,
+  lineItems: StripeCreateInvoiceParams['line_items']
+): Promise<void> {
+  for (const item of lineItems) {
+    const body = new URLSearchParams()
+    body.append('customer', customerId)
+    body.append('invoice', invoiceId)
+    body.append('amount', String(item.amount))
+    body.append('currency', item.currency)
+    body.append('description', item.description)
+    const res = await fetch(`${STRIPE_API_BASE}/invoiceitems`, {
+      method: 'POST',
+      headers: stripeHeaders(apiKey),
+      body: body.toString(),
+    })
+    if (!res.ok) {
+      throw new Error(`Stripe invoice item creation failed ${res.status}: ${await res.text()}`)
+    }
+  }
+}
 
 /**
  * Create a Stripe invoice with line items, then return the result.
@@ -38,133 +127,11 @@ export async function createStripeInvoice(
     return { id: devId, hosted_invoice_url: '#dev-mode', status: 'draft' }
   }
 
-  // Step 1: Create or find customer by email
-  const customerSearchBody = new URLSearchParams()
-  customerSearchBody.append('email', params.customer_email)
-  customerSearchBody.append('limit', '1')
+  const customerId = await resolveStripeCustomerId(apiKey, params.customer_email)
+  const invoice = await createStripeInvoiceRecord(apiKey, customerId, params)
+  await addStripeLineItems(apiKey, customerId, invoice.id, params.line_items)
 
-  const customerSearchRes = await fetch(
-    `${STRIPE_API_BASE}/customers/search?query=email:'${encodeURIComponent(params.customer_email)}'`,
-    {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
-    }
-  )
-
-  let customerId: string
-
-  if (customerSearchRes.ok) {
-    const searchData = (await customerSearchRes.json()) as { data: { id: string }[] }
-    if (searchData.data.length > 0) {
-      customerId = searchData.data[0].id
-    } else {
-      // Create customer
-      const createCustomerBody = new URLSearchParams()
-      createCustomerBody.append('email', params.customer_email)
-      const createRes = await fetch(`${STRIPE_API_BASE}/customers`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: createCustomerBody.toString(),
-      })
-      if (!createRes.ok) {
-        const errBody = await createRes.text()
-        throw new Error(`Stripe customer creation failed ${createRes.status}: ${errBody}`)
-      }
-      const customerData = (await createRes.json()) as { id: string }
-      customerId = customerData.id
-    }
-  } else {
-    // Fallback: just create a new customer
-    const createCustomerBody = new URLSearchParams()
-    createCustomerBody.append('email', params.customer_email)
-    const createRes = await fetch(`${STRIPE_API_BASE}/customers`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: createCustomerBody.toString(),
-    })
-    if (!createRes.ok) {
-      const errBody = await createRes.text()
-      throw new Error(`Stripe customer creation failed ${createRes.status}: ${errBody}`)
-    }
-    const customerData = (await createRes.json()) as { id: string }
-    customerId = customerData.id
-  }
-
-  // Step 2: Create draft invoice
-  const invoiceBody = new URLSearchParams()
-  invoiceBody.append('customer', customerId)
-  invoiceBody.append('collection_method', params.collection_method ?? 'send_invoice')
-  invoiceBody.append('days_until_due', String(params.days_until_due ?? 15))
-
-  if (params.description) {
-    invoiceBody.append('description', params.description)
-  }
-
-  if (params.metadata) {
-    for (const [key, value] of Object.entries(params.metadata)) {
-      invoiceBody.append(`metadata[${key}]`, value)
-    }
-  }
-
-  if (params.payment_settings?.payment_method_types) {
-    for (const methodType of params.payment_settings.payment_method_types) {
-      invoiceBody.append('payment_settings[payment_method_types][]', methodType)
-    }
-  }
-
-  const invoiceRes = await fetch(`${STRIPE_API_BASE}/invoices`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: invoiceBody.toString(),
-  })
-
-  if (!invoiceRes.ok) {
-    const errBody = await invoiceRes.text()
-    throw new Error(`Stripe invoice creation failed ${invoiceRes.status}: ${errBody}`)
-  }
-
-  const invoice = (await invoiceRes.json()) as StripeInvoice
-
-  // Step 3: Add line items (invoice items)
-  for (const item of params.line_items) {
-    const itemBody = new URLSearchParams()
-    itemBody.append('customer', customerId)
-    itemBody.append('invoice', invoice.id)
-    itemBody.append('amount', String(item.amount))
-    itemBody.append('currency', item.currency)
-    itemBody.append('description', item.description)
-
-    const itemRes = await fetch(`${STRIPE_API_BASE}/invoiceitems`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: itemBody.toString(),
-    })
-
-    if (!itemRes.ok) {
-      const errBody = await itemRes.text()
-      throw new Error(`Stripe invoice item creation failed ${itemRes.status}: ${errBody}`)
-    }
-  }
-
-  return {
-    id: invoice.id,
-    hosted_invoice_url: invoice.hosted_invoice_url,
-    status: invoice.status,
-  }
+  return { id: invoice.id, hosted_invoice_url: invoice.hosted_invoice_url, status: invoice.status }
 }
 
 /**
@@ -182,117 +149,48 @@ export async function sendStripeInvoice(
 ): Promise<StripeInvoiceResult> {
   if (!apiKey) {
     console.log(`[DEV] Stripe: would send invoice ${invoiceId}`)
-    return {
-      id: invoiceId,
-      hosted_invoice_url: '#dev-mode',
-      status: 'open',
-    }
+    return { id: invoiceId, hosted_invoice_url: '#dev-mode', status: 'open' }
   }
 
-  // Finalize
   const finalizeRes = await fetch(`${STRIPE_API_BASE}/invoices/${invoiceId}/finalize`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
+    headers: stripeHeaders(apiKey),
   })
-
   if (!finalizeRes.ok) {
-    const errBody = await finalizeRes.text()
-    throw new Error(`Stripe invoice finalize failed ${finalizeRes.status}: ${errBody}`)
+    throw new Error(`Stripe finalize failed ${finalizeRes.status}: ${await finalizeRes.text()}`)
   }
+  const finalized: { id?: string; hosted_invoice_url?: string; status?: string } =
+    await finalizeRes.json()
 
-  // Send
   const sendRes = await fetch(`${STRIPE_API_BASE}/invoices/${invoiceId}/send`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
+    headers: stripeHeaders(apiKey),
   })
-
   if (!sendRes.ok) {
-    const errBody = await sendRes.text()
-    throw new Error(`Stripe invoice send failed ${sendRes.status}: ${errBody}`)
+    throw new Error(`Stripe send failed ${sendRes.status}: ${await sendRes.text()}`)
   }
-
-  const invoice = (await sendRes.json()) as StripeInvoice
+  const sent: { id?: string; hosted_invoice_url?: string; status?: string } = await sendRes.json()
 
   return {
-    id: invoice.id,
-    hosted_invoice_url: invoice.hosted_invoice_url,
-    status: invoice.status,
+    id: sent.id ?? finalized.id ?? invoiceId,
+    hosted_invoice_url: sent.hosted_invoice_url ?? finalized.hosted_invoice_url ?? null,
+    status: sent.status ?? finalized.status ?? 'open',
   }
 }
 
-/**
- * Void a Stripe invoice.
- *
- * If apiKey is undefined: dev-mode stub.
- */
 export async function voidStripeInvoice(
   apiKey: string | undefined,
   invoiceId: string
-): Promise<StripeInvoiceResult> {
+): Promise<void> {
   if (!apiKey) {
     console.log(`[DEV] Stripe: would void invoice ${invoiceId}`)
-    return { id: invoiceId, hosted_invoice_url: null, status: 'void' }
+    return
   }
-
   const res = await fetch(`${STRIPE_API_BASE}/invoices/${invoiceId}/void`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
+    headers: stripeHeaders(apiKey),
   })
-
   if (!res.ok) {
-    const errBody = await res.text()
-    throw new Error(`Stripe invoice void failed ${res.status}: ${errBody}`)
-  }
-
-  const invoice = (await res.json()) as StripeInvoice
-
-  return {
-    id: invoice.id,
-    hosted_invoice_url: invoice.hosted_invoice_url,
-    status: invoice.status,
-  }
-}
-
-/**
- * Get a Stripe invoice by ID.
- *
- * If apiKey is undefined: dev-mode stub.
- */
-export async function getStripeInvoice(
-  apiKey: string | undefined,
-  invoiceId: string
-): Promise<StripeInvoiceResult> {
-  if (!apiKey) {
-    console.log(`[DEV] Stripe: would get invoice ${invoiceId}`)
-    return { id: invoiceId, hosted_invoice_url: '#dev-mode', status: 'draft' }
-  }
-
-  const res = await fetch(`${STRIPE_API_BASE}/invoices/${invoiceId}`, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-    },
-  })
-
-  if (!res.ok) {
-    const errBody = await res.text()
-    throw new Error(`Stripe invoice get failed ${res.status}: ${errBody}`)
-  }
-
-  const invoice = (await res.json()) as StripeInvoice
-
-  return {
-    id: invoice.id,
-    hosted_invoice_url: invoice.hosted_invoice_url,
-    status: invoice.status,
+    throw new Error(`Stripe void failed ${res.status}: ${await res.text()}`)
   }
 }

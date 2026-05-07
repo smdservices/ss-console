@@ -35,14 +35,9 @@ export async function searchNews(
   const response = await fetch(`https://serpapi.com/search?${params.toString()}`)
   if (!response.ok) return null
 
-  const data = (await response.json()) as {
-    organic_results?: Array<{
-      title?: string
-      source?: string
-      snippet?: string
-      link?: string
-    }>
-  }
+  const data: {
+    organic_results?: Array<{ title?: string; snippet?: string; source?: string; link?: string }>
+  } = await response.json()
 
   const results = data.organic_results ?? []
   if (results.length === 0) return null
@@ -79,11 +74,18 @@ export async function searchNews(
 
   let summary = 'Search results found but not summarized.'
   if (summaryResponse.ok) {
-    const summaryResult = (await summaryResponse.json()) as {
-      content?: Array<{ type: string; text?: string }>
-    }
+    const summaryResult: { content?: Array<{ type: string; text?: string }> } =
+      await summaryResponse.json()
     summary = summaryResult?.content?.find((b) => b.type === 'text')?.text?.trim() ?? summary
   }
 
   return { mentions, summary }
+}
+
+export function formatNewsEvidence(news: NewsEnrichment): string {
+  const parts = ['News / press mentions:']
+  for (const mention of news.mentions.slice(0, 3)) {
+    parts.push(`- ${mention.title} (${mention.source}): ${mention.snippet}`)
+  }
+  return parts.join('\n')
 }

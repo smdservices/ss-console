@@ -50,7 +50,7 @@ describe('lifecycle invariant guards', () => {
     beforeEach(async () => {
       const entity = await createEntity(db, ORG_ID, {
         name: 'Guard Test Biz',
-        stage: 'proposing' as EntityStage,
+        stage: 'proposing',
       })
       entityId = entity.id
     })
@@ -101,7 +101,7 @@ describe('lifecycle invariant guards', () => {
     beforeEach(async () => {
       const entity = await createEntity(db, ORG_ID, {
         name: 'Delivered Biz',
-        stage: 'delivered' as EntityStage,
+        stage: 'delivered',
       })
       entityId = entity.id
     })
@@ -128,7 +128,8 @@ describe('lifecycle invariant guards', () => {
     })
 
     it('succeeds with force override and logs reason to context', async () => {
-      const result = await transitionStage(db, ORG_ID, entityId, 'ongoing', 'Moving to retainer', {
+      const result = await transitionStage(db, ORG_ID, entityId, 'ongoing', {
+        reason: 'Moving to retainer',
         force: 'Client paid via wire transfer outside system',
       })
       expect(result).not.toBeNull()
@@ -142,7 +143,7 @@ describe('lifecycle invariant guards', () => {
         .bind(entityId)
         .all()
       expect(contextEntries.results.length).toBeGreaterThanOrEqual(1)
-      const overrideEntry = contextEntries.results[0] as Record<string, unknown>
+      const overrideEntry = contextEntries.results[0]
       expect(overrideEntry.content).toContain('wire transfer outside system')
     })
   })
@@ -155,7 +156,7 @@ describe('lifecycle invariant guards', () => {
     it('throws because VALID_TRANSITIONS does not allow direct signal -> meetings', async () => {
       const entity = await createEntity(db, ORG_ID, {
         name: 'Signal Biz',
-        stage: 'signal' as EntityStage,
+        stage: 'signal',
       })
 
       await expect(
@@ -176,7 +177,7 @@ describe('lifecycle invariant guards', () => {
       // Create an entity and a quote in 'sent' status
       const entity = await createEntity(db, ORG_ID, {
         name: 'Quote Guard Biz',
-        stage: 'proposing' as EntityStage,
+        stage: 'proposing',
       })
       entityId = entity.id
 

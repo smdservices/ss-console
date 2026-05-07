@@ -103,7 +103,7 @@ export async function sendEmail(
     return { success: false, error: `Resend API error ${response.status}: ${body}` }
   }
 
-  const data = (await response.json()) as { id: string }
+  const data: { id: string } = await response.json()
   return { success: true, id: data.id }
 }
 

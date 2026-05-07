@@ -161,9 +161,7 @@ export async function generateConversationReply(
     )
   }
 
-  const result = (await response.json()) as {
-    content?: Array<{ type: string; text?: string }>
-  }
+  const result: { content?: Array<{ type: string; text?: string }> } = await response.json()
 
   const contentBlocks = result?.content
   if (!Array.isArray(contentBlocks) || contentBlocks.length === 0) {

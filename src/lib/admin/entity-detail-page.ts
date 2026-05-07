@@ -157,22 +157,21 @@ export function confidenceColor(confidence?: string): string {
   return 'bg-border-subtle text-text-secondary'
 }
 
-export async function loadEntityDetailPage(params: {
-  db: Database
-  orgId: string
-  entityId: string
-  url: URL
-}): Promise<{
+type ContextEntry = Awaited<ReturnType<typeof listContext>>[number]
+type Contact = Awaited<ReturnType<typeof listContacts>>[number]
+type Quote = Awaited<ReturnType<typeof listQuotes>>[number]
+
+export interface EntityDetailPageResult {
   entity: EntityRecord
-  contextEntries: Awaited<ReturnType<typeof listContext>>
-  contacts: Awaited<ReturnType<typeof listContacts>>
+  contextEntries: ContextEntry[]
+  contacts: Contact[]
   meetings: Awaited<ReturnType<typeof listMeetings>>
   engagements: Awaited<ReturnType<typeof listEngagements>>
-  quotes: Awaited<ReturnType<typeof listQuotes>>
+  quotes: Quote[]
   invoices: Awaited<ReturnType<typeof listInvoices>>
   mostRecentDraftableMeeting: ReturnType<typeof findDraftableMeeting>
   hasOutreach: boolean
-  filteredEntries: Awaited<ReturnType<typeof listContext>>
+  filteredEntries: ContextEntry[]
   typeFilter: string
   typeCounts: Record<string, number>
   currentLostReason: { code: string; detail: string | null } | null
@@ -187,11 +186,11 @@ export async function loadEntityDetailPage(params: {
   error: string | null
   showReEnrichButton: boolean
   showNewQuoteButton: boolean
-  supersedeCandidates: Awaited<ReturnType<typeof listQuotes>>
+  supersedeCandidates: Quote[]
   transitions: EntityDetailTransition[]
-  dossierBrief: Awaited<ReturnType<typeof listContext>>[number] | undefined
-  outreachEntry: Awaited<ReturnType<typeof listContext>>[number] | undefined
-  outreachContact: Awaited<ReturnType<typeof listContacts>>[number] | null
+  dossierBrief: ContextEntry | undefined
+  outreachEntry: ContextEntry | undefined
+  outreachContact: Contact | null
   outreachMailto: string | null
   outreachFromDossier: unknown
   hasDossier: boolean
@@ -206,7 +205,135 @@ export async function loadEntityDetailPage(params: {
   } | null
   websiteMeta: { digital_maturity?: { score: number; reasoning: string } } | null
   competitorMeta: { entity_rank_by_rating?: number | null; total_competitors?: number } | null
-}> {
+}
+
+function extractUrlParams(url: URL): {
+  typeFilter: string
+  promoted: string | null
+  noteAdded: string | null
+  replyLogged: string | null
+  stageUpdated: string | null
+  dossierGenerated: string | null
+  contactAdded: string | null
+  contactUpdated: string | null
+  contactDeleted: string | null
+  error: string | null
+} {
+  const sp = url.searchParams
+  return {
+    typeFilter: sp.get('type') ?? '',
+    promoted: sp.get('promoted'),
+    noteAdded: sp.get('note_added'),
+    replyLogged: sp.get('reply_logged'),
+    stageUpdated: sp.get('stage_updated'),
+    dossierGenerated: sp.get('dossier'),
+    contactAdded: sp.get('contact_added'),
+    contactUpdated: sp.get('contact_updated'),
+    contactDeleted: sp.get('contact_deleted'),
+    error: sp.get('error'),
+  }
+}
+
+function resolveLostReason(
+  entity: EntityRecord,
+  contextEntries: ContextEntry[]
+): { code: string; detail: string | null } | null {
+  if (entity.stage !== 'lost') return null
+  for (const entry of [...contextEntries].reverse().filter((e) => e.type === 'stage_change')) {
+    if (!entry.metadata) continue
+    try {
+      const meta = JSON.parse(entry.metadata) as Record<string, unknown>
+      if (meta.to === 'lost' && typeof meta.lost_reason === 'string') {
+        return {
+          code: meta.lost_reason,
+          detail: typeof meta.lost_detail === 'string' ? meta.lost_detail : null,
+        }
+      }
+    } catch {
+      continue
+    }
+  }
+  return null
+}
+
+function resolveOutreachMailto(
+  outreachEntry: ContextEntry | undefined,
+  outreachContact: Contact | null,
+  entityName: string
+): string | null {
+  if (!outreachEntry || !outreachContact?.email) return null
+  return (
+    `mailto:${encodeURIComponent(outreachContact.email)}` +
+    `?subject=${encodeURIComponent(`Reaching out - ${entityName}`)}` +
+    `&body=${encodeURIComponent(outreachEntry.content)}`
+  )
+}
+
+function resolveQuoteFlags(
+  entity: EntityRecord,
+  quotes: Quote[],
+  meetings: Awaited<ReturnType<typeof listMeetings>>,
+  hasOpenQuote: boolean
+): { showNewQuoteButton: boolean; supersedeCandidates: Quote[]; latestSentQuoteAt: string | null } {
+  const showNewQuoteButton =
+    ['signal', 'prospect', 'meetings', 'proposing'].includes(entity.stage) &&
+    !hasOpenQuote &&
+    meetings.length > 0
+  const supersedeCandidates = showNewQuoteButton
+    ? quotes.filter((q) => q.status === 'declined' || q.status === 'expired')
+    : []
+  const latestSentQuote = quotes
+    .filter((q) => q.sent_at)
+    .sort((a, b) => (b.sent_at ?? '').localeCompare(a.sent_at ?? ''))[0]
+  return {
+    showNewQuoteButton,
+    supersedeCandidates,
+    latestSentQuoteAt: latestSentQuote?.sent_at ?? null,
+  }
+}
+
+function resolveContextDerivedFields(
+  contextEntries: ContextEntry[],
+  typeFilter: string
+): {
+  filteredEntries: ContextEntry[]
+  typeCounts: Record<string, number>
+  dossierBrief: ContextEntry | undefined
+  outreachEntry: ContextEntry | undefined
+  reviewSynthEntry: ContextEntry | undefined
+  deepWebsiteEntry: ContextEntry | undefined
+  competitorEntry: ContextEntry | undefined
+  lastEnrichmentAt: string | null
+} {
+  const timelineEntries = [...contextEntries].reverse()
+  const filteredEntries = typeFilter
+    ? timelineEntries.filter((e) => e.type === typeFilter)
+    : timelineEntries
+  const typeCounts: Record<string, number> = {}
+  for (const entry of contextEntries) typeCounts[entry.type] = (typeCounts[entry.type] ?? 0) + 1
+  return {
+    filteredEntries,
+    typeCounts,
+    dossierBrief: contextEntries.filter((e) => e.source === 'intelligence_brief').pop(),
+    outreachEntry: contextEntries.filter((e) => e.type === 'outreach_draft').pop(),
+    reviewSynthEntry: contextEntries.filter((e) => e.source === 'review_synthesis').pop(),
+    deepWebsiteEntry: contextEntries.filter((e) => e.source === 'deep_website').pop(),
+    competitorEntry: contextEntries.filter((e) => e.source === 'competitors').pop(),
+    lastEnrichmentAt:
+      contextEntries
+        .filter((e) => e.type === 'enrichment')
+        .map((e) => e.created_at)
+        .sort()
+        .pop() ?? null,
+  }
+}
+
+export async function loadEntityDetailPage(params: {
+  db: Database
+  orgId: string
+  entityId: string
+  url: URL
+}): Promise<EntityDetailPageResult> {
   const entity = await getEntity(params.db, params.orgId, params.entityId)
   if (!entity) return null as never
 
@@ -219,112 +346,29 @@ export async function loadEntityDetailPage(params: {
     listInvoices(params.db, params.orgId, { entityId: params.entityId }),
   ])
 
-  const mostRecentDraftableMeeting = findDraftableMeeting(meetings, quotes)
-  const hasOutreach = contextEntries.some((entry) => entry.type === 'outreach_draft')
+  const urlParams = extractUrlParams(params.url)
+  const ctx = resolveContextDerivedFields(contextEntries, urlParams.typeFilter)
 
-  const timelineEntries = [...contextEntries].reverse()
-  const typeFilter = params.url.searchParams.get('type') ?? ''
-  const filteredEntries = typeFilter
-    ? timelineEntries.filter((entry) => entry.type === typeFilter)
-    : timelineEntries
-
-  const typeCounts: Record<string, number> = {}
-  for (const entry of contextEntries) {
-    typeCounts[entry.type] = (typeCounts[entry.type] ?? 0) + 1
-  }
-
-  let currentLostReason: { code: string; detail: string | null } | null = null
-  if (entity.stage === 'lost') {
-    const lostEntries = [...contextEntries]
-      .reverse()
-      .filter((entry) => entry.type === 'stage_change')
-    for (const entry of lostEntries) {
-      if (!entry.metadata) continue
-      try {
-        const meta = JSON.parse(entry.metadata) as Record<string, unknown>
-        if (meta.to === 'lost' && typeof meta.lost_reason === 'string') {
-          currentLostReason = {
-            code: meta.lost_reason,
-            detail: typeof meta.lost_detail === 'string' ? meta.lost_detail : null,
-          }
-          break
-        }
-      } catch {
-        continue
-      }
-    }
-  }
-
-  const promoted = params.url.searchParams.get('promoted')
-  const noteAdded = params.url.searchParams.get('note_added')
-  const replyLogged = params.url.searchParams.get('reply_logged')
-  const stageUpdated = params.url.searchParams.get('stage_updated')
-  const dossierGenerated = params.url.searchParams.get('dossier')
-  const contactAdded = params.url.searchParams.get('contact_added')
-  const contactUpdated = params.url.searchParams.get('contact_updated')
-  const contactDeleted = params.url.searchParams.get('contact_deleted')
-  const error = params.url.searchParams.get('error')
+  const currentLostReason = resolveLostReason(entity, contextEntries)
+  const outreachMeta = parseMetadata(ctx.outreachEntry?.metadata ?? null)
+  const outreachContact = contacts.find((c) => c.email && c.email.trim().length > 0) ?? null
+  const outreachMailto = resolveOutreachMailto(ctx.outreachEntry, outreachContact, entity.name)
 
   const hasOpenQuote = await hasOpenQuoteForEntity(params.db, params.orgId, params.entityId)
+  const quoteFlags = resolveQuoteFlags(entity, quotes, meetings, hasOpenQuote)
   const showReEnrichButton = RE_ENRICH_STAGES.includes(entity.stage)
-  const showNewQuoteButton =
-    ['signal', 'prospect', 'meetings', 'proposing'].includes(entity.stage) &&
-    !hasOpenQuote &&
-    meetings.length > 0
-  const supersedeCandidates = showNewQuoteButton
-    ? quotes.filter((quote) => quote.status === 'declined' || quote.status === 'expired')
-    : []
-
-  const dossierBrief = contextEntries.filter((entry) => entry.source === 'intelligence_brief').pop()
-  const reviewSynthEntry = contextEntries
-    .filter((entry) => entry.source === 'review_synthesis')
-    .pop()
-  const deepWebsiteEntry = contextEntries.filter((entry) => entry.source === 'deep_website').pop()
-  const competitorEntry = contextEntries.filter((entry) => entry.source === 'competitors').pop()
-  const outreachEntry = contextEntries.filter((entry) => entry.type === 'outreach_draft').pop()
-  const outreachMeta = parseMetadata(outreachEntry?.metadata ?? null)
-  const outreachFromDossier = outreachMeta?.trigger === 'dossier'
-  const hasDossier = !!dossierBrief
-
-  const outreachContact =
-    contacts.find((contact) => contact.email && contact.email.trim().length > 0) ?? null
-  const outreachMailto =
-    outreachEntry && outreachContact?.email
-      ? `mailto:${encodeURIComponent(outreachContact.email)}` +
-        `?subject=${encodeURIComponent(`Reaching out - ${entity.name}`)}` +
-        `&body=${encodeURIComponent(outreachEntry.content)}`
-      : null
-
-  const lastEnrichmentAt =
-    contextEntries
-      .filter((entry) => entry.type === 'enrichment')
-      .map((entry) => entry.created_at)
-      .sort()
-      .pop() ?? null
-
-  const latestSentQuote = quotes
-    .filter((quote) => quote.sent_at)
-    .sort((a, b) => (b.sent_at ?? '').localeCompare(a.sent_at ?? ''))[0]
-  const latestSentQuoteAt = latestSentQuote?.sent_at ?? null
-
-  const reviewMeta = parseMetadata(reviewSynthEntry?.metadata ?? null) as {
-    unified_rating?: number | null
-    total_reviews_across_platforms?: number
-    sentiment_trend?: string
-    top_themes?: string[]
-    operational_problems?: Array<{ problem: string; confidence: string; evidence: string }>
-  } | null
-  const websiteMeta = parseMetadata(deepWebsiteEntry?.metadata ?? null) as {
-    digital_maturity?: { score: number; reasoning: string }
-  } | null
-  const competitorMeta = parseMetadata(competitorEntry?.metadata ?? null) as {
-    entity_rank_by_rating?: number | null
-    total_competitors?: number
-  } | null
-
-  const transitions = ENTITY_DETAIL_TRANSITIONS[entity.stage].map((transition) => ({
-    ...transition,
-    action: transition.action ?? `/api/admin/entities/${entity.id}/stage`,
+  const reviewMeta = parseMetadata(
+    ctx.reviewSynthEntry?.metadata ?? null
+  ) as EntityDetailPageResult['reviewMeta']
+  const websiteMeta = parseMetadata(
+    ctx.deepWebsiteEntry?.metadata ?? null
+  ) as EntityDetailPageResult['websiteMeta']
+  const competitorMeta = parseMetadata(
+    ctx.competitorEntry?.metadata ?? null
+  ) as EntityDetailPageResult['competitorMeta']
+  const transitions = ENTITY_DETAIL_TRANSITIONS[entity.stage].map((t) => ({
+    ...t,
+    action: t.action ?? `/api/admin/entities/${entity.id}/stage`,
   }))
 
   return {
@@ -335,33 +379,24 @@ export async function loadEntityDetailPage(params: {
     engagements,
     quotes,
     invoices,
-    mostRecentDraftableMeeting,
-    hasOutreach,
-    filteredEntries,
-    typeFilter,
-    typeCounts,
+    mostRecentDraftableMeeting: findDraftableMeeting(meetings, quotes),
+    hasOutreach: contextEntries.some((e) => e.type === 'outreach_draft'),
+    filteredEntries: ctx.filteredEntries,
+    typeCounts: ctx.typeCounts,
     currentLostReason,
-    promoted,
-    noteAdded,
-    replyLogged,
-    stageUpdated,
-    dossierGenerated,
-    contactAdded,
-    contactUpdated,
-    contactDeleted,
-    error,
+    ...urlParams,
     showReEnrichButton,
-    showNewQuoteButton,
-    supersedeCandidates,
+    showNewQuoteButton: quoteFlags.showNewQuoteButton,
+    supersedeCandidates: quoteFlags.supersedeCandidates,
     transitions,
-    dossierBrief,
-    outreachEntry,
+    dossierBrief: ctx.dossierBrief,
+    outreachEntry: ctx.outreachEntry,
     outreachContact,
     outreachMailto,
-    outreachFromDossier,
-    hasDossier,
-    lastEnrichmentAt,
-    latestSentQuoteAt,
+    outreachFromDossier: outreachMeta?.trigger === 'dossier',
+    hasDossier: !!ctx.dossierBrief,
+    lastEnrichmentAt: ctx.lastEnrichmentAt,
+    latestSentQuoteAt: quoteFlags.latestSentQuoteAt,
     reviewMeta,
     websiteMeta,
     competitorMeta,

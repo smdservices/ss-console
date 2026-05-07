@@ -172,6 +172,51 @@ export function buildManualReviewScoringPrompt(business: BusinessReviewInput): s
 ${buildReviewScoringUserPrompt(business)}`
 }
 
+function validateTopProblems(raw: unknown, errors: string[]): void {
+  const validIds: readonly string[] = PROBLEM_IDS
+  if (!Array.isArray(raw)) {
+    errors.push('top_problems must be an array')
+    return
+  }
+  for (const p of raw) {
+    if (!validIds.includes(p as string)) {
+      errors.push(`Invalid problem ID in top_problems: "${String(p)}"`)
+    }
+  }
+  if (raw.length > 3) errors.push('top_problems should have at most 3 entries')
+}
+
+function validateSignalEntry(s: Record<string, unknown>, idx: number, errors: string[]): void {
+  const validIds: readonly string[] = PROBLEM_IDS
+  if (!validIds.includes(s.problem_id as string)) {
+    errors.push(`signals[${idx}].problem_id must be a valid problem ID`)
+  }
+  if (typeof s.quote !== 'string' || s.quote.length === 0) {
+    errors.push(`signals[${idx}].quote must be a non-empty string`)
+  }
+  if (typeof s.review_rating !== 'number' || s.review_rating < 1 || s.review_rating > 5) {
+    errors.push(`signals[${idx}].review_rating must be 1-5`)
+  }
+  if (typeof s.severity !== 'number' || s.severity < 1 || s.severity > 10) {
+    errors.push(`signals[${idx}].severity must be 1-10`)
+  }
+}
+
+function validateSignals(raw: unknown, errors: string[]): void {
+  if (!Array.isArray(raw)) {
+    errors.push('signals must be an array')
+    return
+  }
+  for (let i = 0; i < raw.length; i++) {
+    const s = raw[i]
+    if (!s || typeof s !== 'object') {
+      errors.push(`signals[${i}] must be an object`)
+      continue
+    }
+    validateSignalEntry(s as Record<string, unknown>, i, errors)
+  }
+}
+
 /**
  * Validates that a parsed JSON object conforms to the ReviewScoring schema.
  *
@@ -190,61 +235,19 @@ export function validateReviewScoring(data: unknown): {
 
   const d = data as Record<string, unknown>
 
-  // Required fields
   if (typeof d.business_name !== 'string' || d.business_name.length === 0) {
     errors.push('business_name must be a non-empty string')
   }
-
   if (typeof d.place_id !== 'string' || d.place_id.length === 0) {
     errors.push('place_id must be a non-empty string')
   }
-
-  // Pain score range
   if (typeof d.pain_score !== 'number' || d.pain_score < 1 || d.pain_score > 10) {
     errors.push('pain_score must be a number between 1 and 10')
   }
 
-  // Top problems
-  const validProblemIds: readonly string[] = PROBLEM_IDS
-  if (!Array.isArray(d.top_problems)) {
-    errors.push('top_problems must be an array')
-  } else {
-    for (const p of d.top_problems) {
-      if (!validProblemIds.includes(p as string)) {
-        errors.push(`Invalid problem ID in top_problems: "${String(p)}"`)
-      }
-    }
-    if (d.top_problems.length > 3) {
-      errors.push('top_problems should have at most 3 entries')
-    }
-  }
+  validateTopProblems(d.top_problems, errors)
+  validateSignals(d.signals, errors)
 
-  // Signals array
-  if (!Array.isArray(d.signals)) {
-    errors.push('signals must be an array')
-  } else {
-    for (let i = 0; i < (d.signals as unknown[]).length; i++) {
-      const s = (d.signals as Record<string, unknown>[])[i]
-      if (!s || typeof s !== 'object') {
-        errors.push(`signals[${i}] must be an object`)
-        continue
-      }
-      if (!validProblemIds.includes(s.problem_id as string)) {
-        errors.push(`signals[${i}].problem_id must be a valid problem ID`)
-      }
-      if (typeof s.quote !== 'string' || s.quote.length === 0) {
-        errors.push(`signals[${i}].quote must be a non-empty string`)
-      }
-      if (typeof s.review_rating !== 'number' || s.review_rating < 1 || s.review_rating > 5) {
-        errors.push(`signals[${i}].review_rating must be 1-5`)
-      }
-      if (typeof s.severity !== 'number' || s.severity < 1 || s.severity > 10) {
-        errors.push(`signals[${i}].severity must be 1-10`)
-      }
-    }
-  }
-
-  // Outreach angle voice check
   if (typeof d.outreach_angle === 'string' && d.outreach_angle.length > 0) {
     const angle = d.outreach_angle.toLowerCase()
     if (angle.includes(' i ') || angle.startsWith('i ') || angle.includes(" i'")) {

@@ -41,7 +41,7 @@ function createFakeR2(): R2Bucket {
     list: vi.fn(),
     createMultipartUpload: vi.fn(),
     resumeMultipartUpload: vi.fn(),
-  } as unknown as R2Bucket
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -246,12 +246,14 @@ describe('handleDocumentCompleted — milestone creation', () => {
   it('creates milestones from quote line items with correct fields', async () => {
     const r2 = createFakeR2()
     const res = await handleDocumentCompleted(
-      db,
-      r2,
-      'fake-api-key',
-      undefined,
-      undefined,
-      'https://test.smd.services',
+      {
+        db,
+        storage: r2,
+        apiKey: 'fake-api-key',
+        resendApiKey: undefined,
+        stripeApiKey: undefined,
+        appBaseUrl: 'https://test.smd.services',
+      },
       makePayload()
     )
 
@@ -275,12 +277,14 @@ describe('handleDocumentCompleted — milestone creation', () => {
   it('sets payment_trigger = true only on the last milestone', async () => {
     const r2 = createFakeR2()
     await handleDocumentCompleted(
-      db,
-      r2,
-      'fake-api-key',
-      undefined,
-      undefined,
-      'https://test.smd.services',
+      {
+        db,
+        storage: r2,
+        apiKey: 'fake-api-key',
+        resendApiKey: undefined,
+        stripeApiKey: undefined,
+        appBaseUrl: 'https://test.smd.services',
+      },
       makePayload()
     )
 
@@ -300,12 +304,14 @@ describe('handleDocumentCompleted — milestone creation', () => {
   it('preserves sort_order matching line item index', async () => {
     const r2 = createFakeR2()
     await handleDocumentCompleted(
-      db,
-      r2,
-      'fake-api-key',
-      undefined,
-      undefined,
-      'https://test.smd.services',
+      {
+        db,
+        storage: r2,
+        apiKey: 'fake-api-key',
+        resendApiKey: undefined,
+        stripeApiKey: undefined,
+        appBaseUrl: 'https://test.smd.services',
+      },
       makePayload()
     )
 
@@ -320,12 +326,14 @@ describe('handleDocumentCompleted — milestone creation', () => {
   it('writes a stage_change context entry', async () => {
     const r2 = createFakeR2()
     await handleDocumentCompleted(
-      db,
-      r2,
-      'fake-api-key',
-      undefined,
-      undefined,
-      'https://test.smd.services',
+      {
+        db,
+        storage: r2,
+        apiKey: 'fake-api-key',
+        resendApiKey: undefined,
+        stripeApiKey: undefined,
+        appBaseUrl: 'https://test.smd.services',
+      },
       makePayload()
     )
 
@@ -350,12 +358,14 @@ describe('handleDocumentCompleted — milestone creation', () => {
   it('links milestones to the created engagement', async () => {
     const r2 = createFakeR2()
     await handleDocumentCompleted(
-      db,
-      r2,
-      'fake-api-key',
-      undefined,
-      undefined,
-      'https://test.smd.services',
+      {
+        db,
+        storage: r2,
+        apiKey: 'fake-api-key',
+        resendApiKey: undefined,
+        stripeApiKey: undefined,
+        appBaseUrl: 'https://test.smd.services',
+      },
       makePayload()
     )
 
@@ -380,23 +390,27 @@ describe('handleDocumentCompleted — milestone creation', () => {
     const payload = makePayload()
 
     const res1 = await handleDocumentCompleted(
-      db,
-      r2,
-      'fake-api-key',
-      undefined,
-      undefined,
-      'https://test.smd.services',
+      {
+        db,
+        storage: r2,
+        apiKey: 'fake-api-key',
+        resendApiKey: undefined,
+        stripeApiKey: undefined,
+        appBaseUrl: 'https://test.smd.services',
+      },
       payload
     )
     expect(res1.status).toBe(200)
 
     const res2 = await handleDocumentCompleted(
-      db,
-      r2,
-      'fake-api-key',
-      undefined,
-      undefined,
-      'https://test.smd.services',
+      {
+        db,
+        storage: r2,
+        apiKey: 'fake-api-key',
+        resendApiKey: undefined,
+        stripeApiKey: undefined,
+        appBaseUrl: 'https://test.smd.services',
+      },
       payload
     )
     expect(res2.status).toBe(200)
@@ -413,12 +427,14 @@ describe('handleDocumentCompleted — milestone creation', () => {
   it('creates all records atomically in a single batch', async () => {
     const r2 = createFakeR2()
     await handleDocumentCompleted(
-      db,
-      r2,
-      'fake-api-key',
-      undefined,
-      undefined,
-      'https://test.smd.services',
+      {
+        db,
+        storage: r2,
+        apiKey: 'fake-api-key',
+        resendApiKey: undefined,
+        stripeApiKey: undefined,
+        appBaseUrl: 'https://test.smd.services',
+      },
       makePayload()
     )
 
@@ -453,12 +469,14 @@ describe('handleDocumentCompleted — milestone creation', () => {
   it('provisions a client portal user from the signer snapshot', async () => {
     const r2 = createFakeR2()
     await handleDocumentCompleted(
-      db,
-      r2,
-      'fake-api-key',
-      undefined,
-      undefined,
-      'https://test.smd.services',
+      {
+        db,
+        storage: r2,
+        apiKey: 'fake-api-key',
+        resendApiKey: undefined,
+        stripeApiKey: undefined,
+        appBaseUrl: 'https://test.smd.services',
+      },
       makePayload()
     )
 
@@ -477,12 +495,14 @@ describe('handleDocumentCompleted — milestone creation', () => {
   it('creates a portal invitation outbox job', async () => {
     const r2 = createFakeR2()
     await handleDocumentCompleted(
-      db,
-      r2,
-      'fake-api-key',
-      undefined,
-      undefined,
-      'https://test.smd.services',
+      {
+        db,
+        storage: r2,
+        apiKey: 'fake-api-key',
+        resendApiKey: undefined,
+        stripeApiKey: undefined,
+        appBaseUrl: 'https://test.smd.services',
+      },
       makePayload()
     )
 
@@ -504,21 +524,25 @@ describe('handleDocumentCompleted — milestone creation', () => {
     const payload = makePayload()
 
     await handleDocumentCompleted(
-      db,
-      r2,
-      'fake-api-key',
-      undefined,
-      undefined,
-      'https://test.smd.services',
+      {
+        db,
+        storage: r2,
+        apiKey: 'fake-api-key',
+        resendApiKey: undefined,
+        stripeApiKey: undefined,
+        appBaseUrl: 'https://test.smd.services',
+      },
       payload
     )
     await handleDocumentCompleted(
-      db,
-      r2,
-      'fake-api-key',
-      undefined,
-      undefined,
-      'https://test.smd.services',
+      {
+        db,
+        storage: r2,
+        apiKey: 'fake-api-key',
+        resendApiKey: undefined,
+        stripeApiKey: undefined,
+        appBaseUrl: 'https://test.smd.services',
+      },
       payload
     )
 

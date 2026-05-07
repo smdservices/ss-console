@@ -108,17 +108,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Answer card selection (delegated)
   document.getElementById('quiz')?.addEventListener('click', (e) => {
-    const card = (e.target as HTMLElement).closest('[data-answer]') as HTMLElement | null
+    const card = (e.target as HTMLElement).closest('[data-answer]')
     if (!card) return
-    const step = card.closest('[data-step]') as HTMLElement | null
-    if (!step) return
-    selectAnswer(step, card)
+    const step = card.closest('[data-step]')
+    if (!(step instanceof HTMLElement)) return
+    selectAnswer(step, card as HTMLElement)
   })
 
   // Email gate form
   document.getElementById('gate-form')?.addEventListener('submit', (e) => {
     e.preventDefault()
-    submitScorecard()
+    void submitScorecard()
   })
 })
 
@@ -126,58 +126,71 @@ document.addEventListener('DOMContentLoaded', () => {
 // Navigation
 // ---------------------------------------------------------------------------
 
-function goToStep(step: number) {
-  // Hide all sections
+interface ProgressElements {
+  wrapper: HTMLElement | null
+  fill: HTMLElement | null
+  text: HTMLElement | null
+  pct: HTMLElement | null
+}
+
+function getProgressEls(): ProgressElements {
+  return {
+    wrapper: document.getElementById('progress-wrapper'),
+    fill: document.getElementById('progress-fill'),
+    text: document.getElementById('progress-text'),
+    pct: document.getElementById('progress-pct'),
+  }
+}
+
+function hideAllSections() {
   document.getElementById('landing')?.classList.add('hidden')
   document.getElementById('quiz')?.classList.add('hidden')
   document.getElementById('email-gate')?.classList.add('hidden')
   document.getElementById('results')?.classList.add('hidden')
-
-  // Hide all question steps
   document.querySelectorAll('[data-step]').forEach((el) => el.classList.add('hidden'))
+}
 
-  const progressWrapper = document.getElementById('progress-wrapper')
-  const progressFill = document.getElementById('progress-fill')
-  const progressText = document.getElementById('progress-text')
-  const progressPct = document.getElementById('progress-pct')
-  const quizNav = document.getElementById('quiz-nav')
+function showLandingStep(prog: ProgressElements) {
+  document.getElementById('landing')?.classList.remove('hidden')
+  prog.wrapper?.classList.add('hidden')
+  document.getElementById('quiz-nav')?.classList.add('hidden')
+}
 
-  if (step === 0) {
-    document.getElementById('landing')?.classList.remove('hidden')
-    progressWrapper?.classList.add('hidden')
-    quizNav?.classList.add('hidden')
-  } else if (step >= 1 && step <= TOTAL_STEPS) {
-    document.getElementById('quiz')?.classList.remove('hidden')
-    progressWrapper?.classList.remove('hidden')
-    quizNav?.classList.remove('hidden')
+function showQuizStep(step: number, prog: ProgressElements) {
+  document.getElementById('quiz')?.classList.remove('hidden')
+  prog.wrapper?.classList.remove('hidden')
+  document.getElementById('quiz-nav')?.classList.remove('hidden')
+  document.querySelector(`[data-step="${step}"]`)?.classList.remove('hidden')
+  const pct = Math.round((step / TOTAL_STEPS) * 100)
+  if (prog.fill) prog.fill.style.width = `${pct}%`
+  if (prog.text) prog.text.textContent = `Question ${step} of ${TOTAL_STEPS}`
+  if (prog.pct) prog.pct.textContent = `${pct}%`
+  updateNextButton(step)
+  const backBtn = document.getElementById('btn-back')
+  if (backBtn) backBtn.classList.toggle('invisible', step === 1)
+}
 
-    const stepEl = document.querySelector(`[data-step="${step}"]`)
-    stepEl?.classList.remove('hidden')
+function showGateStep(prog: ProgressElements) {
+  document.getElementById('email-gate')?.classList.remove('hidden')
+  if (prog.fill) prog.fill.style.width = '100%'
+  if (prog.text) prog.text.textContent = 'Done!'
+  if (prog.pct) prog.pct.textContent = '100%'
+  document.getElementById('quiz-nav')?.classList.add('hidden')
+}
 
-    // Update progress
-    const pct = Math.round((step / TOTAL_STEPS) * 100)
-    if (progressFill) progressFill.style.width = `${pct}%`
-    if (progressText) progressText.textContent = `Question ${step} of ${TOTAL_STEPS}`
-    if (progressPct) progressPct.textContent = `${pct}%`
+function showResultsStep(prog: ProgressElements) {
+  document.getElementById('results')?.classList.remove('hidden')
+  prog.wrapper?.classList.add('hidden')
+  document.getElementById('quiz-nav')?.classList.add('hidden')
+}
 
-    // Update Next button state
-    updateNextButton(step)
-
-    // Update Back button visibility
-    const backBtn = document.getElementById('btn-back')
-    if (backBtn) backBtn.classList.toggle('invisible', step === 1)
-  } else if (step === 22) {
-    document.getElementById('email-gate')?.classList.remove('hidden')
-    if (progressFill) progressFill.style.width = '100%'
-    if (progressText) progressText.textContent = 'Done!'
-    if (progressPct) progressPct.textContent = '100%'
-    quizNav?.classList.add('hidden')
-  } else if (step === 23) {
-    document.getElementById('results')?.classList.remove('hidden')
-    progressWrapper?.classList.add('hidden')
-    quizNav?.classList.add('hidden')
-  }
-
+function goToStep(step: number) {
+  hideAllSections()
+  const prog = getProgressEls()
+  if (step === 0) showLandingStep(prog)
+  else if (step >= 1 && step <= TOTAL_STEPS) showQuizStep(step, prog)
+  else if (step === 22) showGateStep(prog)
+  else if (step === 23) showResultsStep(prog)
   currentStep = step
   window.scrollTo({ top: 0, behavior: 'instant' })
 }
@@ -217,7 +230,7 @@ function updateNextButton(step: number) {
   const nextBtn = document.getElementById('btn-next')
   if (!nextBtn) return
 
-  let hasAnswer = false
+  let hasAnswer: boolean
   if (step <= 3) {
     const contextIds = ['vertical', 'employee_range', 'role']
     hasAnswer = answers[contextIds[step - 1]] !== undefined
@@ -293,21 +306,45 @@ function computeClientScores(): {
 // Form submission
 // ---------------------------------------------------------------------------
 
+interface GateFields {
+  firstName: string
+  email: string
+  businessName: string
+  phone: string
+  honeypot: string | undefined
+}
+
+function inputValue(form: HTMLFormElement, name: string): string {
+  const el = form.querySelector(`[name="${name}"]`)
+  return el instanceof HTMLInputElement ? el.value.trim() : ''
+}
+
+function collectGateFields(form: HTMLFormElement): GateFields {
+  const honeypotEl = form.querySelector('[name="website_url"]')
+  return {
+    firstName: inputValue(form, 'first_name'),
+    email: inputValue(form, 'email'),
+    businessName: inputValue(form, 'business_name'),
+    phone: inputValue(form, 'phone'),
+    honeypot: honeypotEl instanceof HTMLInputElement ? honeypotEl.value : undefined,
+  }
+}
+
+function buildScoredAnswers(): Record<string, number> {
+  const scoredAnswers: Record<string, number> = {}
+  for (let i = 1; i <= 18; i++) {
+    scoredAnswers[`q${i}`] = (answers[`q${i}`] as number) ?? 0
+  }
+  return scoredAnswers
+}
+
 async function submitScorecard() {
   const form = document.getElementById('gate-form') as HTMLFormElement
   const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement
   const errorEl = document.getElementById('gate-error')
 
-  // Collect form data
-  const firstName = (form.querySelector('[name="first_name"]') as HTMLInputElement)?.value?.trim()
-  const email = (form.querySelector('[name="email"]') as HTMLInputElement)?.value?.trim()
-  const businessName = (
-    form.querySelector('[name="business_name"]') as HTMLInputElement
-  )?.value?.trim()
-  const phone = (form.querySelector('[name="phone"]') as HTMLInputElement)?.value?.trim()
-  const honeypot = (form.querySelector('[name="website_url"]') as HTMLInputElement)?.value
-
-  if (!firstName || !email || !businessName) {
+  const fields = collectGateFields(form)
+  if (!fields.firstName || !fields.email || !fields.businessName) {
     if (errorEl) {
       errorEl.textContent = 'Please fill in all required fields.'
       errorEl.classList.remove('hidden')
@@ -315,22 +352,13 @@ async function submitScorecard() {
     return
   }
 
-  // Disable submit
   submitBtn.disabled = true
   submitBtn.textContent = 'Loading...'
 
-  // Compute scores client-side and render results immediately
   const scores = computeClientScores()
   renderResults(scores)
   goToStep(23)
 
-  // Build scored answers (only q1-q18, numeric values)
-  const scoredAnswers: Record<string, number> = {}
-  for (let i = 1; i <= 18; i++) {
-    scoredAnswers[`q${i}`] = (answers[`q${i}`] as number) ?? 0
-  }
-
-  // Fire-and-forget POST to API
   try {
     await fetch('/api/scorecard/submit', {
       method: 'POST',
@@ -339,17 +367,16 @@ async function submitScorecard() {
         vertical: answers.vertical || 'other',
         employee_range: answers.employee_range || '11-25',
         role: answers.role || 'owner',
-        answers: scoredAnswers,
-        first_name: firstName,
-        email,
-        business_name: businessName,
-        phone: phone || undefined,
-        website_url: honeypot || '',
+        answers: buildScoredAnswers(),
+        first_name: fields.firstName,
+        email: fields.email,
+        business_name: fields.businessName,
+        phone: fields.phone || undefined,
+        website_url: fields.honeypot || '',
         started_at: startedAt,
       }),
     })
   } catch {
-    // API failure doesn't affect the user experience — results already showing
     console.error('[scorecard] Submit failed')
   }
 }
@@ -357,6 +384,40 @@ async function submitScorecard() {
 // ---------------------------------------------------------------------------
 // Results rendering
 // ---------------------------------------------------------------------------
+
+function dimensionBarHtml(d: DimensionResult): string {
+  const warning =
+    d.scoreLabel !== 'strong' && d.scoreLabel !== 'getting_there'
+      ? '<span class="material-symbols-outlined text-amber-500 text-base">warning</span>'
+      : '<span class="w-6"></span>'
+  return `<div class="flex items-center gap-4">
+    <span class="w-40 text-sm font-medium text-slate-700">${d.label}</span>
+    <div class="relative h-3 flex-1 overflow-hidden rounded-full bg-slate-100">
+      <div class="absolute inset-y-0 left-0 rounded-full" style="width: ${Math.max(d.scaled, 3)}%; background-color: ${d.color}"></div>
+    </div>
+    <span class="w-8 text-right text-sm font-semibold text-slate-700">${d.scaled}</span>
+    ${warning}
+  </div>`
+}
+
+function opportunitiesSectionHtml(topProblems: DimensionResult[]): string {
+  if (topProblems.length === 0) return ''
+  const cards = topProblems
+    .map(
+      (d) => `<div class="rounded-lg border border-slate-200 bg-white p-6">
+      <p class="font-semibold text-slate-900">${d.label}</p>
+      <p class="mt-1 text-sm leading-relaxed text-slate-600">${d.description}</p>
+    </div>`
+    )
+    .join('')
+  return `<div class="bg-slate-50 px-6 py-12">
+    <div class="mx-auto max-w-2xl">
+      <h3 class="text-xl font-bold text-slate-900">Where we'd start</h3>
+      <p class="mt-2 text-base text-slate-600">Based on your answers, the areas with the most room for improvement are:</p>
+      <div class="mt-6 space-y-4">${cards}</div>
+    </div>
+  </div>`
+}
 
 function renderResults(scores: {
   dimensions: DimensionResult[]
@@ -371,7 +432,6 @@ function renderResults(scores: {
   const topProblems = sorted.filter((d) => d.scoreLabel !== 'strong').slice(0, 3)
 
   container.innerHTML = `
-    <!-- Score Header -->
     <div class="py-12 text-center">
       <p class="text-sm font-medium uppercase tracking-wider text-slate-500">Your Operations Health Score</p>
       <p class="mt-2 text-7xl font-extrabold" style="color: ${scores.overallColor}">${scores.overall}</p>
@@ -380,52 +440,11 @@ function renderResults(scores: {
       </span>
       <div class="mx-auto mt-8 max-w-lg border-t border-slate-200"></div>
     </div>
-
-    <!-- Dimension Breakdown -->
     <div class="mx-auto max-w-2xl px-6 py-12">
       <h3 class="text-xl font-bold text-slate-900">How you scored across 6 areas</h3>
-      <div class="mt-8 space-y-5">
-        ${sorted
-          .map(
-            (d) => `
-          <div class="flex items-center gap-4">
-            <span class="w-40 text-sm font-medium text-slate-700">${d.label}</span>
-            <div class="relative h-3 flex-1 overflow-hidden rounded-full bg-slate-100">
-              <div class="absolute inset-y-0 left-0 rounded-full" style="width: ${Math.max(d.scaled, 3)}%; background-color: ${d.color}"></div>
-            </div>
-            <span class="w-8 text-right text-sm font-semibold text-slate-700">${d.scaled}</span>
-            ${d.scoreLabel !== 'strong' && d.scoreLabel !== 'getting_there' ? '<span class="material-symbols-outlined text-amber-500 text-base">warning</span>' : '<span class="w-6"></span>'}
-          </div>`
-          )
-          .join('')}
-      </div>
+      <div class="mt-8 space-y-5">${sorted.map(dimensionBarHtml).join('')}</div>
     </div>
-
-    <!-- Opportunities -->
-    ${
-      topProblems.length > 0
-        ? `
-    <div class="bg-slate-50 px-6 py-12">
-      <div class="mx-auto max-w-2xl">
-        <h3 class="text-xl font-bold text-slate-900">Where we'd start</h3>
-        <p class="mt-2 text-base text-slate-600">Based on your answers, the areas with the most room for improvement are:</p>
-        <div class="mt-6 space-y-4">
-          ${topProblems
-            .map(
-              (d) => `
-            <div class="rounded-lg border border-slate-200 bg-white p-6">
-              <p class="font-semibold text-slate-900">${d.label}</p>
-              <p class="mt-1 text-sm leading-relaxed text-slate-600">${d.description}</p>
-            </div>`
-            )
-            .join('')}
-        </div>
-      </div>
-    </div>`
-        : ''
-    }
-
-    <!-- CTA -->
+    ${opportunitiesSectionHtml(topProblems)}
     <div class="px-6 py-16 text-center">
       <h3 class="text-xl font-bold text-slate-900">Want to dig deeper?</h3>
       <p class="mx-auto mt-2 max-w-lg text-base leading-relaxed text-slate-600">

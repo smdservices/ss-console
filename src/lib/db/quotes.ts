@@ -387,6 +387,77 @@ export async function createQuote(
   return quote
 }
 
+type QuoteFieldAccumulator = { fields: string[]; params: (string | number | null)[] }
+
+function appendQuoteArrayField(
+  acc: QuoteFieldAccumulator,
+  column: string,
+  value: unknown[] | null | undefined
+): void {
+  if (value === undefined) return
+  acc.fields.push(`${column} = ?`)
+  acc.params.push(value && value.length > 0 ? JSON.stringify(value) : null)
+}
+
+function appendQuoteTextField(
+  acc: QuoteFieldAccumulator,
+  column: string,
+  value: string | null | undefined
+): void {
+  if (value === undefined) return
+  const t = value?.trim() ?? null
+  acc.fields.push(`${column} = ?`)
+  acc.params.push(t && t.length > 0 ? t : null)
+}
+
+function appendTotalsFields(
+  acc: QuoteFieldAccumulator,
+  data: UpdateQuoteData,
+  existing: Quote
+): void {
+  const lineItems = data.lineItems
+  const rate = data.rate
+  if (lineItems !== undefined || rate !== undefined) {
+    const effectiveItems = lineItems ?? (JSON.parse(existing.line_items) as LineItem[])
+    const effectiveRate = rate ?? existing.rate
+    const totalHours = effectiveItems.reduce((sum, item) => sum + item.estimated_hours, 0)
+    const totalPrice = totalHours * effectiveRate
+    acc.fields.push('total_hours = ?', 'total_price = ?', 'deposit_amount = ?')
+    acc.params.push(totalHours, totalPrice, totalPrice * (data.depositPct ?? existing.deposit_pct))
+  } else if (data.depositPct !== undefined) {
+    acc.fields.push('deposit_amount = ?')
+    acc.params.push(existing.total_price * data.depositPct)
+  }
+}
+
+function buildQuoteFields(data: UpdateQuoteData, existing: Quote): QuoteFieldAccumulator {
+  const acc: QuoteFieldAccumulator = { fields: [], params: [] }
+
+  if (data.lineItems !== undefined) {
+    acc.fields.push('line_items = ?')
+    acc.params.push(JSON.stringify(data.lineItems))
+  }
+  if (data.rate !== undefined) {
+    acc.fields.push('rate = ?')
+    acc.params.push(data.rate)
+  }
+  if (data.depositPct !== undefined) {
+    acc.fields.push('deposit_pct = ?')
+    acc.params.push(data.depositPct)
+  }
+  appendQuoteArrayField(acc, 'schedule', data.schedule)
+  appendQuoteArrayField(acc, 'deliverables', data.deliverables)
+  appendQuoteTextField(acc, 'engagement_overview', data.engagementOverview)
+  appendQuoteTextField(acc, 'milestone_label', data.milestoneLabel)
+  if (data.originatingSignalId !== undefined) {
+    acc.fields.push('originating_signal_id = ?')
+    acc.params.push(data.originatingSignalId)
+  }
+  appendTotalsFields(acc, data, existing)
+
+  return acc
+}
+
 /**
  * Update an existing quote. Returns the updated quote record.
  *
@@ -400,89 +471,12 @@ export async function updateQuote(
   data: UpdateQuoteData
 ): Promise<Quote | null> {
   const existing = await getQuote(db, orgId, quoteId)
-  if (!existing) {
-    return null
-  }
+  if (!existing) return null
 
-  const fields: string[] = []
-  const params: (string | number | null)[] = []
+  const { fields, params } = buildQuoteFields(data, existing)
+  if (fields.length === 0) return existing
 
-  // Determine effective values for recalculation
-  let lineItems: LineItem[] | undefined
-  let rate: number | undefined
-
-  if (data.lineItems !== undefined) {
-    lineItems = data.lineItems
-    fields.push('line_items = ?')
-    params.push(JSON.stringify(data.lineItems))
-  }
-
-  if (data.rate !== undefined) {
-    rate = data.rate
-    fields.push('rate = ?')
-    params.push(data.rate)
-  }
-
-  if (data.depositPct !== undefined) {
-    fields.push('deposit_pct = ?')
-    params.push(data.depositPct)
-  }
-
-  if (data.schedule !== undefined) {
-    fields.push('schedule = ?')
-    params.push(data.schedule && data.schedule.length > 0 ? JSON.stringify(data.schedule) : null)
-  }
-
-  if (data.deliverables !== undefined) {
-    fields.push('deliverables = ?')
-    params.push(
-      data.deliverables && data.deliverables.length > 0 ? JSON.stringify(data.deliverables) : null
-    )
-  }
-
-  if (data.engagementOverview !== undefined) {
-    fields.push('engagement_overview = ?')
-    const trimmed = data.engagementOverview?.trim() ?? null
-    params.push(trimmed && trimmed.length > 0 ? trimmed : null)
-  }
-
-  if (data.milestoneLabel !== undefined) {
-    fields.push('milestone_label = ?')
-    const trimmed = data.milestoneLabel?.trim() ?? null
-    params.push(trimmed && trimmed.length > 0 ? trimmed : null)
-  }
-
-  if (data.originatingSignalId !== undefined) {
-    fields.push('originating_signal_id = ?')
-    params.push(data.originatingSignalId)
-  }
-
-  // Recalculate totals if line items or rate changed
-  if (lineItems !== undefined || rate !== undefined) {
-    const effectiveItems = lineItems ?? (JSON.parse(existing.line_items) as LineItem[])
-    const effectiveRate = rate ?? existing.rate
-    const totalHours = effectiveItems.reduce((sum, item) => sum + item.estimated_hours, 0)
-    const totalPrice = totalHours * effectiveRate
-
-    fields.push('total_hours = ?')
-    params.push(totalHours)
-    fields.push('total_price = ?')
-    params.push(totalPrice)
-
-    const effectiveDepositPct = data.depositPct ?? existing.deposit_pct
-    fields.push('deposit_amount = ?')
-    params.push(totalPrice * effectiveDepositPct)
-  } else if (data.depositPct !== undefined) {
-    // Only deposit percentage changed, recalculate deposit amount
-    fields.push('deposit_amount = ?')
-    params.push(existing.total_price * data.depositPct)
-  }
-
-  if (fields.length === 0) {
-    return existing
-  }
-
-  if (
+  const bumpsVersion =
     data.lineItems !== undefined ||
     data.rate !== undefined ||
     data.depositPct !== undefined ||
@@ -490,20 +484,14 @@ export async function updateQuote(
     data.deliverables !== undefined ||
     data.engagementOverview !== undefined ||
     data.milestoneLabel !== undefined
-  ) {
-    fields.push('version = version + 1')
-  }
 
+  if (bumpsVersion) fields.push('version = version + 1')
   fields.push("updated_at = datetime('now')")
 
-  const sql = `UPDATE quotes SET ${fields.join(', ')} WHERE id = ? AND org_id = ?`
-  params.push(quoteId, orgId)
-
   await db
-    .prepare(sql)
-    .bind(...params)
+    .prepare(`UPDATE quotes SET ${fields.join(', ')} WHERE id = ? AND org_id = ?`)
+    .bind(...params, quoteId, orgId)
     .run()
-
   return getQuote(db, orgId, quoteId)
 }
 

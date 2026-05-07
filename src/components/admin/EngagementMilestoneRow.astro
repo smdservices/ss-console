@@ -1,0 +1,116 @@
+---
+/**
+ * Single milestone row for the engagement detail page.
+ * Extracted from src/pages/admin/engagements/[id].astro to keep that page
+ * under the 500 code-line ceiling.
+ */
+import { statusBadgeClass } from '../../lib/ui/status-badge'
+import { formatDate } from '../../lib/admin/engagement-detail-page'
+import type { Milestone, MilestoneStatus } from '../../lib/db/milestones'
+
+interface Props {
+  ms: Milestone
+  msNext: MilestoneStatus[]
+  engagementId: string
+}
+
+const { ms, msNext, engagementId } = Astro.props
+const msStatus = ms.status as MilestoneStatus
+---
+
+<div class="px-6 py-4 flex items-center justify-between gap-stack">
+  <div class="flex-1 min-w-0">
+    <div class="flex items-center gap-2">
+      <span class={statusBadgeClass(ms.status)}>{ms.status}</span>
+      <span class="text-sm font-medium text-[color:var(--ss-color-text-primary)] truncate">
+        {ms.name}
+      </span>
+      {
+        ms.payment_trigger ? (
+          <span
+            title="Payment trigger"
+            class="inline-flex items-center px-1.5 py-0.5 bg-[color:var(--ss-color-attention)] text-white text-label uppercase font-mono tracking-[var(--ss-text-letter-spacing-label)]"
+          >
+            $
+          </span>
+        ) : null
+      }
+    </div>
+    {
+      ms.description && (
+        <p class="text-xs text-[color:var(--ss-color-text-secondary)] mt-1 truncate">
+          {ms.description}
+        </p>
+      )
+    }
+    {
+      ms.due_date && (
+        <span class="text-xs text-[color:var(--ss-color-text-muted)] mt-1 block">
+          Due: {formatDate(ms.due_date)}
+        </span>
+      )
+    }
+  </div>
+  <div class="flex items-center gap-2 flex-shrink-0">
+    {/* Payment trigger toggle */}
+    <form method="POST" action={`/api/admin/engagements/${engagementId}/milestones`}>
+      <input type="hidden" name="action" value="toggle_payment_trigger" />
+      <input type="hidden" name="milestone_id" value={ms.id} />
+      <button
+        type="submit"
+        title={ms.payment_trigger ? 'Remove payment trigger' : 'Set as payment trigger'}
+        class={`text-xs px-2 py-1 border transition-colors ${
+          ms.payment_trigger
+            ? 'border-[color:var(--ss-color-attention)] text-[color:var(--ss-color-attention)] hover:bg-[color:var(--ss-color-background)]'
+            : 'border-[color:var(--ss-color-border)] text-[color:var(--ss-color-text-muted)] hover:text-[color:var(--ss-color-text-secondary)]'
+        }`}
+      >
+        $
+      </button>
+    </form>
+    {/* Status transitions */}
+    {
+      msNext.map((ns) => (
+        <form method="POST" action={`/api/admin/engagements/${engagementId}/milestones`}>
+          <input type="hidden" name="action" value="transition_status" />
+          <input type="hidden" name="milestone_id" value={ms.id} />
+          <input type="hidden" name="new_status" value={ns} />
+          <button
+            type="submit"
+            class={`text-xs px-2.5 py-1 border transition-colors ${
+              ns === 'completed'
+                ? 'border-[color:var(--ss-color-border)] text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-background)]'
+                : ns === 'in_progress'
+                  ? 'border-[color:var(--ss-color-primary)] text-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-background)]'
+                  : 'border-[color:var(--ss-color-border)] text-[color:var(--ss-color-text-secondary)] hover:bg-[color:var(--ss-color-background)]'
+            }`}
+          >
+            {ns === 'in_progress'
+              ? 'Start'
+              : ns === 'completed'
+                ? 'Complete'
+                : ns === 'skipped'
+                  ? 'Skip'
+                  : ns}
+          </button>
+        </form>
+      ))
+    }
+    {/* Delete */}
+    {
+      msStatus === 'pending' && (
+        <form method="POST" action={`/api/admin/engagements/${engagementId}/milestones`}>
+          <input type="hidden" name="_method" value="DELETE" />
+          <input type="hidden" name="milestone_id" value={ms.id} />
+          <button
+            type="submit"
+            class="text-xs px-2 py-1 border border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)] hover:bg-[color:var(--ss-color-background)] transition-colors"
+            onclick="return confirm('Delete this milestone?')"
+          >
+            Del
+          </button>
+        </form>
+      )
+    }
+  </div>
+</div>

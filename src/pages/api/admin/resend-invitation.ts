@@ -1,4 +1,4 @@
-import type { APIRoute } from 'astro'
+import type { APIContext, APIRoute } from 'astro'
 import { createMagicLink, MAGIC_LINK_EXPIRY_MS } from '../../../lib/auth/magic-link'
 import { requirePortalBaseUrl } from '../../../lib/config/app-url'
 import { sendEmail } from '../../../lib/email/resend'
@@ -29,26 +29,55 @@ interface UserRow {
  * If email is provided, updates the user's email before sending.
  * This supports the OQ-010 flow where admin corrects a bounced email.
  */
-export const POST: APIRoute = async ({ request, locals }) => {
+function jsonError(status: number, message: string): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+async function maybeUpdateEmail(
+  orgId: string,
+  userId: string,
+  currentEmail: string,
+  newEmail: unknown
+): Promise<string | Response> {
+  if (!newEmail || typeof newEmail !== 'string') return currentEmail
+  const normalizedEmail = newEmail.toLowerCase().trim()
+  if (normalizedEmail === currentEmail) return currentEmail
+
+  // Update is org-scoped as a defense-in-depth measure even though the
+  // preceding SELECT already gates on org_id.
+  const updateResult = await env.DB.prepare(
+    `UPDATE users SET email = ? WHERE id = ? AND org_id = ?`
+  )
+    .bind(normalizedEmail, userId, orgId)
+    .run()
+
+  // D1 returns meta.changes for affected row count. If zero, the row
+  // disappeared between the SELECT and UPDATE (or somehow slipped org
+  // scoping) — fail closed rather than send an invitation we can't trust.
+  if (!updateResult.meta || updateResult.meta.changes === 0) {
+    return jsonError(404, 'Client user not found')
+  }
+
+  return normalizedEmail
+}
+
+async function handlePost({ request, locals }: APIContext): Promise<Response> {
   // Verify admin session (middleware already checks /admin/* routes,
   // but this is under /api/admin/* so we verify explicitly)
   const session = locals.session
   if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return jsonError(401, 'Unauthorized')
   }
 
   try {
-    const body = (await request.json()) as { userId?: string; email?: string }
+    const body: { userId?: unknown; email?: unknown } = await request.json()
     const { userId, email: newEmail } = body
 
     if (!userId || typeof userId !== 'string') {
-      return new Response(JSON.stringify({ error: 'userId is required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return jsonError(400, 'userId is required')
     }
 
     // Look up the client user — scoped to the admin's org to prevent
@@ -60,38 +89,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
       .first<UserRow>()
 
     if (!user) {
-      return new Response(JSON.stringify({ error: 'Client user not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return jsonError(404, 'Client user not found')
     }
 
     // If a new email is provided, update the user's email (OQ-010 bounce recovery)
-    let targetEmail = user.email
-    if (newEmail && typeof newEmail === 'string') {
-      const normalizedEmail = newEmail.toLowerCase().trim()
-      if (normalizedEmail !== user.email) {
-        // Update is org-scoped as a defense-in-depth measure even though the
-        // preceding SELECT already gates on org_id.
-        const updateResult = await env.DB.prepare(
-          `UPDATE users SET email = ? WHERE id = ? AND org_id = ?`
-        )
-          .bind(normalizedEmail, userId, session.orgId)
-          .run()
-
-        // D1 returns meta.changes for affected row count. If zero, the row
-        // disappeared between the SELECT and UPDATE (or somehow slipped org
-        // scoping) — fail closed rather than send an invitation we can't trust.
-        if (!updateResult.meta || updateResult.meta.changes === 0) {
-          return new Response(JSON.stringify({ error: 'Client user not found' }), {
-            status: 404,
-            headers: { 'Content-Type': 'application/json' },
-          })
-        }
-
-        targetEmail = normalizedEmail
-      }
-    }
+    const emailResult = await maybeUpdateEmail(session.orgId, userId, user.email, newEmail)
+    if (emailResult instanceof Response) return emailResult
+    const targetEmail = emailResult
 
     // Create magic link (15-minute TTL for portal invitation).
     const token = await createMagicLink(
@@ -119,10 +123,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     if (!result.success) {
       console.error(`[resend-invitation] Failed to send to ${targetEmail}: ${result.error}`)
-      return new Response(JSON.stringify({ error: 'Failed to send email' }), {
-        status: 502,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return jsonError(502, 'Failed to send email')
     }
 
     return new Response(
@@ -138,9 +139,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     )
   } catch (err) {
     console.error('[resend-invitation] Error:', err)
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return jsonError(500, 'Internal server error')
   }
 }
+
+export const POST: APIRoute = (ctx) => handlePost(ctx)

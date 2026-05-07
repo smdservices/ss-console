@@ -48,7 +48,7 @@ const PLAINSPOKEN_SIZE_CLASS: Record<'hero' | 'total' | 'kpi' | 'row', string> =
 const isPlainspoken = size === 'hero' || size === 'total' || size === 'kpi' || size === 'row'
 
 const sizeClass = isPlainspoken
-  ? PLAINSPOKEN_SIZE_CLASS[size as 'hero' | 'total' | 'kpi' | 'row']
+  ? PLAINSPOKEN_SIZE_CLASS[size]
   : size === 'display'
     ? 'font-display text-money font-medium text-[color:var(--ss-color-text-primary)]'
     : size === 'h2'

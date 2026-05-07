@@ -1,4 +1,4 @@
-import type { APIRoute } from 'astro'
+import type { APIContext, APIRoute } from 'astro'
 import { getEngagement, updateEngagement } from '../../../../../lib/db/engagements'
 import { env } from 'cloudflare:workers'
 
@@ -27,7 +27,30 @@ function extensionFor(mime: string): string {
   return 'jpg'
 }
 
-export const POST: APIRoute = async ({ request, locals, params }) => {
+function json(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+function validatePhotoFile(file: FormDataEntryValue | null): Response | File {
+  if (!file || !(file instanceof File)) return json(400, { error: 'Photo file required' })
+  if (!ACCEPTED_TYPES.has(file.type)) {
+    return json(415, {
+      error: `Unsupported image type: ${file.type || 'unknown'}. Expected WebP, JPEG, or PNG.`,
+    })
+  }
+  if (file.size > MAX_BYTES) {
+    return json(413, {
+      error: `Photo exceeds 5 MB limit (received ${(file.size / (1024 * 1024)).toFixed(2)} MB)`,
+    })
+  }
+  if (file.size === 0) return json(400, { error: 'Photo file is empty' })
+  return file
+}
+
+async function handlePost({ request, locals, params }: APIContext): Promise<Response> {
   const session = locals.session
   if (!session || session.role !== 'admin') {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -46,47 +69,12 @@ export const POST: APIRoute = async ({ request, locals, params }) => {
 
   try {
     const engagement = await getEngagement(env.DB, session.orgId, engagementId)
-    if (!engagement) {
-      return new Response(JSON.stringify({ error: 'Engagement not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    }
+    if (!engagement) return json(404, { error: 'Engagement not found' })
 
     const formData = await request.formData()
-    const file = formData.get('photo')
-
-    if (!file || !(file instanceof File)) {
-      return new Response(JSON.stringify({ error: 'Photo file required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    }
-
-    if (!ACCEPTED_TYPES.has(file.type)) {
-      return new Response(
-        JSON.stringify({
-          error: `Unsupported image type: ${file.type || 'unknown'}. Expected WebP, JPEG, or PNG.`,
-        }),
-        { status: 415, headers: { 'Content-Type': 'application/json' } }
-      )
-    }
-
-    if (file.size > MAX_BYTES) {
-      return new Response(
-        JSON.stringify({
-          error: `Photo exceeds 5 MB limit (received ${(file.size / (1024 * 1024)).toFixed(2)} MB)`,
-        }),
-        { status: 413, headers: { 'Content-Type': 'application/json' } }
-      )
-    }
-
-    if (file.size === 0) {
-      return new Response(JSON.stringify({ error: 'Photo file is empty' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    }
+    const fileOrError = validatePhotoFile(formData.get('photo'))
+    if (fileOrError instanceof Response) return fileOrError
+    const file = fileOrError
 
     const ext = extensionFor(file.type)
     const key = `${session.orgId}/engagements/${engagementId}/${Date.now()}.${ext}`
@@ -104,25 +92,18 @@ export const POST: APIRoute = async ({ request, locals, params }) => {
 
     const publicBase = env.CONSULTANT_PHOTOS_PUBLIC_BASE?.replace(/\/$/, '')
     const photoUrl = publicBase ? `${publicBase}/${key}` : `/api/portal/consultants/photo/${key}`
+    await updateEngagement(env.DB, session.orgId, engagementId, { consultant_photo_url: photoUrl })
 
-    await updateEngagement(env.DB, session.orgId, engagementId, {
-      consultant_photo_url: photoUrl,
-    })
-
-    return new Response(JSON.stringify({ key, url: photoUrl }), {
-      status: 201,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return json(201, { key, url: photoUrl })
   } catch (err) {
     console.error('[api/admin/engagements/[id]/consultant-photo] Upload error:', err)
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return json(500, { error: 'Internal server error' })
   }
 }
 
-export const DELETE: APIRoute = async ({ locals, params }) => {
+export const POST: APIRoute = (ctx) => handlePost(ctx)
+
+async function handleDelete({ locals, params }: APIContext): Promise<Response> {
   const session = locals.session
   if (!session || session.role !== 'admin') {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -183,3 +164,5 @@ export const DELETE: APIRoute = async ({ locals, params }) => {
     })
   }
 }
+
+export const DELETE: APIRoute = (ctx) => handleDelete(ctx)

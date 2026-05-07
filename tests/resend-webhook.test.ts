@@ -161,7 +161,7 @@ describe('POST /api/webhooks/resend', () => {
     const res = await callRoute(makeRequest({ body }))
     expect(res.status).toBe(200)
 
-    const json = (await res.json()) as { ok: boolean; recorded: boolean }
+    const json: Record<string, unknown> = await res.json()
     expect(json.ok).toBe(true)
     expect(json.recorded).toBe(true)
 
@@ -196,7 +196,7 @@ describe('POST /api/webhooks/resend', () => {
 
     const retry = await callRoute(makeRequest({ body, svixId, timestamp: ts }))
     expect(retry.status).toBe(200)
-    const retryJson = (await retry.json()) as { recorded: boolean; reason?: string }
+    const retryJson: Record<string, unknown> = await retry.json()
     expect(retryJson.recorded).toBe(false)
     expect(retryJson.reason).toBe('deduped')
 
@@ -217,7 +217,7 @@ describe('POST /api/webhooks/resend', () => {
     })
     const res = await callRoute(makeRequest({ body }))
     expect(res.status).toBe(200)
-    const json = (await res.json()) as { recorded: boolean; reason?: string }
+    const json: Record<string, unknown> = await res.json()
     expect(json.recorded).toBe(false)
     expect(json.reason).toBe('unhandled_event_type')
   })
