@@ -15,10 +15,18 @@ import { resolve } from 'path'
  * #631 was filed to escape — `ctx.waitUntil` killing 86% of enrichments.
  */
 describe('enrichment workflow (issue #631)', () => {
-  // tryLinkedIn, tryIntelligenceBrief, tryOutreach were extracted to enrichment-advanced.ts
-  // and re-exported from index.ts to keep it within the 500-line ceiling.
+  // The 13 try* wrappers live across four files (issue #724):
+  //   - index.ts                — barrel + runSingleModule
+  //   - data-sources.ts         — tryPlaces..tryNews (8)
+  //   - synthesis.ts            — tryDeepWebsite, tryReviewSynthesis (2)
+  //   - enrichment-advanced.ts  — tryLinkedIn, tryIntelligenceBrief, tryOutreach (3)
+  // Concatenate all four so the source-level lock-in checks span the surface.
   const enrichmentIndex = () =>
     readFileSync(resolve('src/lib/enrichment/index.ts'), 'utf-8') +
+    '\n' +
+    readFileSync(resolve('src/lib/enrichment/data-sources.ts'), 'utf-8') +
+    '\n' +
+    readFileSync(resolve('src/lib/enrichment/synthesis.ts'), 'utf-8') +
     '\n' +
     readFileSync(resolve('src/lib/enrichment/enrichment-advanced.ts'), 'utf-8')
   const workflowSrc = () => readFileSync(resolve('src/lib/enrichment/workflow.ts'), 'utf-8')
