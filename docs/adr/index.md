@@ -6,6 +6,8 @@ sidebar:
 
 Architecture Decision Records (ADRs) capturing strategic and technical decisions made during the SMD Services platform build.
 
+> **Looking for the substantive decision corpus?** The 43+ numbered go-to-market decisions (buy box, scope, pricing, assessment, distribution, delivery) live in [decision-stack.md](./decision-stack.md). The numbered ADRs below capture narrower architectural choices.
+
 ## Files
 
 - [decision-stack.md](./decision-stack.md) - SMD Services Decision Stack - complete reference across all 6 go-to-market layers

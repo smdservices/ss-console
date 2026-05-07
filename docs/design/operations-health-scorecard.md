@@ -1,8 +1,10 @@
 # Operations Health Scorecard — Functional Design Spec
 
 **Issue:** #147
-**Status:** Design
+**Status:** Retired (2026-05-04)
 **Last updated:** 2026-04-02
+
+> **Retired 2026-05-04.** The public `/scorecard` route was retired in PR #702/#703 alongside the broader Outside View retirement. The route now 301-redirects to `/`. Only `POST /api/scorecard/submit` remains as an internal endpoint. This spec is preserved for historical reference; do not implement against it.
 
 ---
 

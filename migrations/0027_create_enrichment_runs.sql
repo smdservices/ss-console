@@ -1,3 +1,10 @@
+-- HISTORICAL: This migration shares its 00NN prefix with another migration applied
+-- in the same timeframe. Wrangler tracks applied migrations by full filename so
+-- both apply correctly, but the prefix collision violates the "monotonic unique
+-- prefix" convention. Do NOT rename to fix — renaming applied migrations causes
+-- D1 to reapply them as new migrations in prod. Going forward, each migration
+-- must use a unique, monotonically-increasing 00NN prefix.
+
 -- Per-module enrichment-run state. Replaces the in-memory EnrichResult that
 -- workers/admin endpoints discarded after every call, leaving us with no way
 -- to see which modules ran for which entity (or why some — like Cactus

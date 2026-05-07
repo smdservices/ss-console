@@ -139,7 +139,7 @@ export async function dispatchEnrichmentWorkflow(
  * treat it as non-prod and log a warning.
  */
 function isProductionEnvironment(): boolean {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ua = (globalThis as any).navigator?.userAgent
+  const nav = (globalThis as { navigator?: { userAgent?: string } }).navigator
+  const ua = nav?.userAgent
   return typeof ua === 'string' && ua === 'Cloudflare-Workers'
 }

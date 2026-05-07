@@ -10,7 +10,7 @@ Pair this with `wrangler tail ss-web --format pretty` running in a second shell 
 - [ ] `GET /book` → 200, contains Turnstile widget markup
 - [ ] `GET /contact` → 200
 - [ ] `GET /get-started` → 200
-- [ ] `GET /scorecard` → 200
+- [ ] `GET /scorecard` → 301 redirect to `/` (retired in PR #702/#703)
 - [ ] `GET /404-nonexistent` → 404 with prerendered 404 body
 - [ ] `GET /favicon.svg`, `/og-image.png`, `/scott-durgan.jpg`, `/robots.txt` → 200 from `[assets]` binding
 - [ ] `GET /sitemap-index.xml` → 200 (Astro sitemap integration)
