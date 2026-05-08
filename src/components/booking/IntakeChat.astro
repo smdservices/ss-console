@@ -1,0 +1,89 @@
+---
+/**
+ * V3 /book chat shell. Pre-rendered hidden under the intro card; the
+ * page-level controller (src/scripts/book.ts) reveals it after the
+ * /api/intake/send response lands and populates the first user turn +
+ * AI reply from JSON.
+ *
+ * Layout: thread of turns, sticky input bar (textarea + mic + send arrow),
+ * Done quiet link in the input row, slot-picker pre-mounted as the final
+ * turn (hidden until the server signals slot_picker_next: true).
+ *
+ * Plainspoken register: cream paper, ink, hairline borders, zero radius,
+ * role labels in JetBrains Mono small caps. No bubbles.
+ */
+
+import SlotPicker from './SlotPicker.astro'
+---
+
+<section id="intake-chat" class="ss-chat" hidden>
+  <div id="chat-thread" class="ss-chat-thread" aria-live="polite"></div>
+
+  <div id="chat-input-wrap" class="ss-chat-input-wrap">
+    <div class="ss-chat-input">
+      <textarea
+        id="chat-reply"
+        rows="1"
+        placeholder="Reply, or use the mic"
+        class="ss-chat-textarea"></textarea>
+      <button
+        type="button"
+        id="chat-mic-btn"
+        class="ss-mic-btn"
+        aria-label="Voice input"
+        data-mic-target="chat-reply"
+      >
+        <span class="material-symbols-outlined">mic</span>
+      </button>
+      <button type="button" id="chat-send-btn" class="ss-send-btn" aria-label="Send">
+        <span class="material-symbols-outlined">arrow_upward</span>
+      </button>
+    </div>
+
+    <div id="chat-error" class="ss-error mt-row" hidden></div>
+
+    <div class="ss-chat-meta">
+      <button type="button" id="chat-done-btn" class="ss-quiet-link" data-action="done">
+        Done
+      </button>
+    </div>
+
+    <div id="chat-voice-unsupported" class="ss-helper" hidden>
+      Voice input is not supported in this browser.
+    </div>
+    <div id="chat-voice-permission" class="ss-helper" hidden>
+      Microphone access was denied. Check the site permissions in your browser settings.
+    </div>
+  </div>
+
+  <!--
+    Slot picker as the final assistant turn. Pre-mounted hidden so
+    refetchSlots() resolves against the same DOM root the booking flow
+    expects. Revealed when the server says slot_picker_next is true,
+    or when the prospect clicks "Or pick a time to talk."
+  -->
+  <article id="chat-slot-turn" class="ss-turn" hidden>
+    <p class="ss-turn-role">SMD</p>
+    <div class="ss-turn-body">
+      <p id="chat-slot-opener" class="ss-turn-line">
+        Got enough to make the call useful. Here is open time this week.
+      </p>
+
+      <SlotPicker />
+
+      <div id="chat-selected-slot-banner" class="ss-selected-slot" hidden>
+        <span id="chat-selected-slot-text"></span>
+        <button type="button" id="chat-change-slot-btn" class="ss-quiet-link">Change</button>
+      </div>
+
+      <div id="chat-slot-error" class="ss-error mt-row" hidden></div>
+      <div id="chat-slot-taken" class="ss-error mt-row" hidden>
+        That time was just taken. Please choose another time above.
+      </div>
+
+      <button id="chat-confirm-slot-btn" type="button" disabled class="ss-primary mt-stack">
+        Confirm time
+      </button>
+    </div>
+  </article>
+</section>

@@ -160,3 +160,168 @@ export async function appendAssistantTurn(
     },
   })
 }
+
+/**
+ * Per-conversation state row. Backs the V3 Done flow (idempotent close)
+ * and the in-flight guard that prevents Done from racing an in-progress
+ * assistant turn. See migration 0037_intake_conversation_meta.sql.
+ */
+
+/** Window we hold the in-flight flag for. Tuned to be longer than the
+ *  worst-case Claude latency so a stuck request still releases the lock
+ *  cleanly. Done arriving inside the window returns 409 — the client
+ *  retries once the in-flight assistant turn lands. */
+export const IN_FLIGHT_TTL_SECONDS = 120
+
+/**
+ * Idempotent close. First call writes closed_at; later calls are no-ops
+ * but still return ok: true so the client never sees an error after
+ * reaching the Done acknowledgment card.
+ */
+export async function markConversationClosed(
+  db: D1Database,
+  params: { conversationId: string; entityId: string }
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO intake_conversation_meta (conversation_id, entity_id, closed_at)
+       VALUES (?, ?, datetime('now'))
+       ON CONFLICT(conversation_id) DO UPDATE
+         SET closed_at = COALESCE(closed_at, datetime('now')),
+             updated_at = datetime('now')
+       WHERE intake_conversation_meta.closed_at IS NULL`
+    )
+    .bind(params.conversationId, params.entityId)
+    .run()
+}
+
+export async function isConversationClosed(
+  db: D1Database,
+  conversationId: string
+): Promise<boolean> {
+  const row = await db
+    .prepare(`SELECT closed_at FROM intake_conversation_meta WHERE conversation_id = ?`)
+    .bind(conversationId)
+    .first<{ closed_at: string | null }>()
+  return row != null && row.closed_at != null
+}
+
+/**
+ * Mark the conversation as having an assistant turn in flight. Sets
+ * in_flight_until to now() + IN_FLIGHT_TTL_SECONDS. Idempotent — a second
+ * call simply pushes the deadline forward.
+ */
+export async function setInFlight(
+  db: D1Database,
+  params: { conversationId: string; entityId: string; ttlSeconds?: number }
+): Promise<void> {
+  const ttl = params.ttlSeconds ?? IN_FLIGHT_TTL_SECONDS
+  await db
+    .prepare(
+      `INSERT INTO intake_conversation_meta (conversation_id, entity_id, in_flight_until)
+       VALUES (?, ?, datetime('now', '+' || ? || ' seconds'))
+       ON CONFLICT(conversation_id) DO UPDATE
+         SET in_flight_until = datetime('now', '+' || ? || ' seconds'),
+             updated_at = datetime('now')`
+    )
+    .bind(params.conversationId, params.entityId, ttl, ttl)
+    .run()
+}
+
+export async function clearInFlight(db: D1Database, conversationId: string): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE intake_conversation_meta
+         SET in_flight_until = NULL, updated_at = datetime('now')
+       WHERE conversation_id = ?`
+    )
+    .bind(conversationId)
+    .run()
+}
+
+/**
+ * True if the conversation has an assistant turn currently being generated.
+ * Compared against datetime('now'); expired locks read as not in flight,
+ * so a crashed handler can't permanently wedge the conversation.
+ */
+export async function isInFlight(db: D1Database, conversationId: string): Promise<boolean> {
+  const row = await db
+    .prepare(
+      `SELECT in_flight_until FROM intake_conversation_meta
+         WHERE conversation_id = ?
+           AND in_flight_until IS NOT NULL
+           AND in_flight_until > datetime('now')`
+    )
+    .bind(conversationId)
+    .first<{ in_flight_until: string }>()
+  return row != null
+}
+
+/**
+ * Last-turn idempotency snapshot. Backs the Retry button: a client that
+ * POSTs the same idempotency key gets the same reply replayed without
+ * duplicating the user turn server-side. Sticky to the most recent turn
+ * only — older keys are overwritten.
+ */
+export interface IdempotencySnapshot {
+  turn: number
+  aiReply: string
+  slotPickerNext: boolean
+}
+
+export async function recordIdempotencySnapshot(
+  db: D1Database,
+  params: {
+    conversationId: string
+    entityId: string
+    idempotencyKey: string
+    turn: number
+    aiReply: string
+    slotPickerNext: boolean
+  }
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO intake_conversation_meta
+         (conversation_id, entity_id, last_idempotency_key, last_turn,
+          last_ai_reply, last_slot_picker_next, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+       ON CONFLICT(conversation_id) DO UPDATE
+         SET last_idempotency_key = excluded.last_idempotency_key,
+             last_turn = excluded.last_turn,
+             last_ai_reply = excluded.last_ai_reply,
+             last_slot_picker_next = excluded.last_slot_picker_next,
+             updated_at = datetime('now')`
+    )
+    .bind(
+      params.conversationId,
+      params.entityId,
+      params.idempotencyKey,
+      params.turn,
+      params.aiReply,
+      params.slotPickerNext ? 1 : 0
+    )
+    .run()
+}
+
+export async function lookupIdempotencySnapshot(
+  db: D1Database,
+  conversationId: string,
+  idempotencyKey: string
+): Promise<IdempotencySnapshot | null> {
+  const row = await db
+    .prepare(
+      `SELECT last_turn, last_ai_reply, last_slot_picker_next
+         FROM intake_conversation_meta
+         WHERE conversation_id = ? AND last_idempotency_key = ?
+           AND last_ai_reply IS NOT NULL`
+    )
+    .bind(conversationId, idempotencyKey)
+    .first<{ last_turn: number; last_ai_reply: string; last_slot_picker_next: number }>()
+  if (!row) return null
+  return {
+    turn: row.last_turn,
+    aiReply: row.last_ai_reply,
+    slotPickerNext: row.last_slot_picker_next === 1,
+  }
+}

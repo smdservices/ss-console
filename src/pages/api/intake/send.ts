@@ -50,23 +50,32 @@ interface ValidatedSendBody {
   name: string
   email: string
   businessName: string
-  phone: string
+  phone: string | null
   website: string | null
   messageRaw: string
 }
 
+/**
+ * V3 chat redesign reduces the intake form to email + name + message.
+ * `business_name` and `phone` were dropped from the form. We still
+ * accept them for forwards/back compat (admin "send booking link" flow
+ * may pre-fill them via /api/booking/admin/send-link) but do not gate
+ * submission on their presence. `business_name` falls back to the email
+ * domain so admin lists still have something human to read; `phone`
+ * stays null and the admin notification omits the line.
+ */
 function validateSendBody(body: Record<string, unknown>): ValidatedSendBody | Response {
   const name = trimString(body.name)
   const email = trimString(body.email)
   const businessName = trimString(body.business_name)
   const phone = trimString(body.phone)
+  const messageRaw = typeof body.message === 'string' ? body.message.trim() : ''
 
   const fieldErrors: Record<string, string> = {}
   if (!name) fieldErrors.name = 'Name is required.'
   if (!email) fieldErrors.email = 'Email is required.'
   else if (!isValidEmail(email)) fieldErrors.email = 'Email looks invalid.'
-  if (!businessName) fieldErrors.business_name = 'Business name is required.'
-  if (!phone) fieldErrors.phone = 'Phone is required.'
+  if (!messageRaw) fieldErrors.message = 'Tell us a bit about the business.'
 
   if (Object.keys(fieldErrors).length > 0) {
     return jsonResponse(400, {
@@ -76,7 +85,6 @@ function validateSendBody(body: Record<string, unknown>): ValidatedSendBody | Re
     })
   }
 
-  const messageRaw = typeof body.message === 'string' ? body.message.trim() : ''
   if (messageRaw.length > MAX_MESSAGE_CHARS) {
     return jsonResponse(400, {
       error: 'validation_failed',
@@ -87,11 +95,16 @@ function validateSendBody(body: Record<string, unknown>): ValidatedSendBody | Re
   return {
     name: name!,
     email: email!,
-    businessName: businessName!,
-    phone: phone!,
+    businessName: businessName ?? deriveBusinessNameFromEmail(email!),
+    phone,
     website: trimString(body.website),
     messageRaw,
   }
+}
+
+function deriveBusinessNameFromEmail(email: string): string {
+  const domain = email.split('@')[1] ?? ''
+  return domain || 'Unknown'
 }
 
 /**
@@ -191,7 +204,7 @@ async function handlePost({ request, clientAddress }: APIContext): Promise<Respo
         name: validated.name,
         email: validated.email,
         businessName: validated.businessName,
-        phone: validated.phone,
+        phone: validated.phone ?? '',
         website: validated.website,
         userMessage: validated.messageRaw || null,
       },
@@ -250,7 +263,7 @@ interface AdminNotificationParams {
   name: string
   email: string
   businessName: string
-  phone: string
+  phone: string | null
   website: string | null
   message: string
   aiReply: string | null
@@ -265,19 +278,19 @@ async function sendAdminNotification(
   const escapedName = escapeHtml(params.name)
   const escapedEmail = escapeHtml(params.email)
   const escapedBusiness = escapeHtml(params.businessName)
-  const escapedPhone = escapeHtml(params.phone)
+  const escapedPhone = params.phone ? escapeHtml(params.phone) : null
   const escapedWebsite = params.website ? escapeHtml(params.website) : null
   const escapedMessage = params.message ? escapeHtml(params.message) : null
   const escapedAiReply = params.aiReply ? escapeHtml(params.aiReply) : null
 
   const html = [
     `<p><strong>${escapedName}</strong> &lt;${escapedEmail}&gt; from <strong>${escapedBusiness}</strong> sent a message via the Send path on /book.</p>`,
-    `<p>Phone: ${escapedPhone}</p>`,
+    escapedPhone ? `<p>Phone: ${escapedPhone}</p>` : '',
     escapedWebsite ? `<p>Website: <a href="${escapedWebsite}">${escapedWebsite}</a></p>` : '',
     '<hr>',
     escapedMessage
       ? `<p><strong>What they wrote:</strong></p><blockquote>${escapedMessage.replace(/\n/g, '<br>')}</blockquote>`
-      : '<p><em>No message — they submitted just contact info.</em></p>',
+      : '<p><em>No message.</em></p>',
     escapedAiReply
       ? `<p><strong>AI follow-up sent back to them:</strong></p><blockquote>${escapedAiReply.replace(/\n/g, '<br>')}</blockquote>`
       : '',

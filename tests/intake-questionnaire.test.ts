@@ -66,16 +66,23 @@ describe('intake surfaces', () => {
     'utf-8'
   )
 
-  // /book was refactored from the categorical IntakeQuestionnaire to a
-  // UnifiedIntake (4 required fields + free-text textarea + AI follow-up).
+  // /book was refactored across two passes:
+  //   - V2: categorical IntakeQuestionnaire → UnifiedIntake (4 required
+  //     fields + textarea + AI follow-up, all in one form).
+  //   - V3: UnifiedIntake → three-state shell (IntakeIntroCard 3 fields,
+  //     IntakeChat for the live conversation, IntakeClosed acknowledgment).
   // /get-started keeps using the shared questionnaire for the post-booking
   // prep flow, where the categorical fields still serve a purpose.
 
-  it('/book renders the unified intake (post-merge with /talk)', () => {
+  it('/book renders the V3 three-state intake shell', () => {
     expect(bookSrc).toContain(
-      "import UnifiedIntake from '../components/booking/UnifiedIntake.astro'"
+      "import IntakeIntroCard from '../components/booking/IntakeIntroCard.astro'"
     )
-    expect(bookSrc).toContain('<UnifiedIntake')
+    expect(bookSrc).toContain("import IntakeChat from '../components/booking/IntakeChat.astro'")
+    expect(bookSrc).toContain("import IntakeClosed from '../components/booking/IntakeClosed.astro'")
+    expect(bookSrc).toContain('<IntakeIntroCard')
+    expect(bookSrc).toContain('<IntakeChat')
+    expect(bookSrc).toContain('<IntakeClosed')
   })
 
   it('/get-started still uses the shared categorical questionnaire (prep flow)', () => {

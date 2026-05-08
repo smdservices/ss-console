@@ -83,6 +83,20 @@ describe('CONVERSATION_SYSTEM_PROMPT (V2 doctrine)', () => {
     expect(lower).toContain('never claim to understand their business')
   })
 
+  it('codifies the readiness marker doctrine for the V3 slot-picker hand-off', () => {
+    // V3 chat redesign uses a server-stripped marker the AI emits when a
+    // prospect has shared enough signal to warrant the slot picker. The
+    // doctrine must be present and stable.
+    expect(CONVERSATION_SYSTEM_PROMPT).toContain('[[READY-FOR-CALL]]')
+    expect(lower).toContain('readiness marker')
+    // The conditions for emitting the marker must be on the prompt so
+    // the model knows when to use it.
+    expect(lower).toContain('vertical or industry')
+    expect(lower).toContain('the marker is not visible to the prospect')
+    // The marker must not be a substitute for the question.
+    expect(lower).toContain('still ends on a question on the line above')
+  })
+
   it('grounds the agent in specific operational signal categories', () => {
     expect(lower).toContain('volume')
     expect(lower).toContain('current state')
