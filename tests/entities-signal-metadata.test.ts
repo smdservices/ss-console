@@ -58,6 +58,8 @@ describe('getSignalMetadataForEntities', () => {
         signal_subject: 'HVAC contractor',
         signal_location: 'Phoenix, AZ',
         signal_date: '2026-05-07',
+        signal_address: '123 Main St, Phoenix, AZ 85001',
+        actor_role: 'business',
       },
     })
 
@@ -69,6 +71,9 @@ describe('getSignalMetadataForEntities', () => {
     expect(meta!.signal_subject).toBe('HVAC contractor')
     expect(meta!.signal_location).toBe('Phoenix, AZ')
     expect(meta!.signal_date).toBe('2026-05-07')
+    expect(meta!.signal_address).toBe('123 Main St, Phoenix, AZ 85001')
+    expect(meta!.actor_role).toBe('business')
+    expect(meta!.actor_role_confidence).toBe('high')
     expect(meta!.last_activity_at).toBeTruthy()
   })
 
@@ -124,6 +129,9 @@ describe('getSignalMetadataForEntities', () => {
     expect(meta!.top_problems).toBeNull()
     expect(meta!.signal_source_label).toBeNull()
     expect(meta!.signal_subject).toBeNull()
+    expect(meta!.signal_address).toBeNull()
+    expect(meta!.actor_role).toBeNull()
+    expect(meta!.actor_role_confidence).toBeNull()
     expect(meta!.last_activity_at).toBeTruthy()
   })
 
@@ -175,6 +183,25 @@ describe('getSignalMetadataForEntities', () => {
     const meta = result.get(entity.id)
     expect(meta!.top_problems).toBeNull()
     expect(meta!.signal_source_label).toBeNull()
+  })
+
+  it('defaults actor_role_confidence when role is present but confidence is missing', async () => {
+    const entity = await createEntity(db, ORG_ID, { name: 'Contractor Filed Biz' })
+
+    await appendContext(db, ORG_ID, {
+      entity_id: entity.id,
+      type: 'signal',
+      content: 'Contractor-owned permit',
+      source: 'new_business',
+      metadata: {
+        actor_role: 'contractor',
+        signal_source_label: 'Commercial permit',
+      },
+    })
+
+    const result = await getSignalMetadataForEntities(db, ORG_ID, [entity.id])
+    expect(result.get(entity.id)?.actor_role).toBe('contractor')
+    expect(result.get(entity.id)?.actor_role_confidence).toBe('high')
   })
 
   it('scopes by org_id — does not leak metadata across orgs', async () => {

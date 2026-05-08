@@ -1,12 +1,29 @@
 import { hasOpenQuoteForEntity, listQuotes } from '../db/quotes'
-import { getEntity } from '../db/entities'
+import { getEntity, getSignalMetadataForEntities, type EntitySignalMetadata } from '../db/entities'
 import type { EntityStage } from '../db/entities'
 import { listContext } from '../db/context'
 import { listContacts } from '../db/contacts'
 import { listMeetings } from '../db/meetings'
 import { listEngagements } from '../db/engagements'
 import { listInvoices } from '../db/invoices'
+import { latestRunByModule } from '../db/enrichment-runs'
+import type { EnrichmentRun } from '../db/enrichment-runs'
+import { getCandidateMergesForEntity } from '../db/candidate-merge-log'
+import type { CandidateMergeRow } from '../db/candidate-merge-log'
 import { findDraftableMeeting } from '../../lib/entities/draftable-meeting'
+import {
+  buildDecisionEvidence,
+  composeDeduplicatedTimeline,
+  type DecisionEvidence,
+} from './entity-detail-decision-evidence'
+export {
+  ADR_0003_DEPLOY_DATE,
+  composeDeduplicatedTimeline,
+  composeEnrichmentSummary,
+  composeMissingForOutreach,
+  detectStaleDraft,
+  resolveActorRole,
+} from './entity-detail-decision-evidence'
 
 type Database = Parameters<typeof getEntity>[0]
 type EntityRecord = Exclude<Awaited<ReturnType<typeof getEntity>>, null>
@@ -163,6 +180,7 @@ type Quote = Awaited<ReturnType<typeof listQuotes>>[number]
 
 export interface EntityDetailPageResult {
   entity: EntityRecord
+  signalMetadata: EntitySignalMetadata | null
   contextEntries: ContextEntry[]
   contacts: Contact[]
   meetings: Awaited<ReturnType<typeof listMeetings>>
@@ -172,6 +190,7 @@ export interface EntityDetailPageResult {
   mostRecentDraftableMeeting: ReturnType<typeof findDraftableMeeting>
   hasOutreach: boolean
   filteredEntries: ContextEntry[]
+  deduplicatedTimeline: ContextEntry[]
   typeFilter: string
   typeCounts: Record<string, number>
   currentLostReason: { code: string; detail: string | null } | null
@@ -188,6 +207,8 @@ export interface EntityDetailPageResult {
   showNewQuoteButton: boolean
   supersedeCandidates: Quote[]
   transitions: EntityDetailTransition[]
+  decisionEvidence: DecisionEvidence
+  mergeCandidates: CandidateMergeRow[]
   dossierBrief: ContextEntry | undefined
   outreachEntry: ContextEntry | undefined
   outreachContact: Contact | null
@@ -297,6 +318,7 @@ function resolveContextDerivedFields(
   typeFilter: string
 ): {
   filteredEntries: ContextEntry[]
+  deduplicatedTimeline: ContextEntry[]
   typeCounts: Record<string, number>
   dossierBrief: ContextEntry | undefined
   outreachEntry: ContextEntry | undefined
@@ -305,14 +327,15 @@ function resolveContextDerivedFields(
   competitorEntry: ContextEntry | undefined
   lastEnrichmentAt: string | null
 } {
-  const timelineEntries = [...contextEntries].reverse()
+  const deduplicatedTimeline = composeDeduplicatedTimeline(contextEntries)
   const filteredEntries = typeFilter
-    ? timelineEntries.filter((e) => e.type === typeFilter)
-    : timelineEntries
+    ? deduplicatedTimeline.filter((e) => e.type === typeFilter)
+    : deduplicatedTimeline
   const typeCounts: Record<string, number> = {}
   for (const entry of contextEntries) typeCounts[entry.type] = (typeCounts[entry.type] ?? 0) + 1
   return {
     filteredEntries,
+    deduplicatedTimeline,
     typeCounts,
     dossierBrief: contextEntries.filter((e) => e.source === 'intelligence_brief').pop(),
     outreachEntry: contextEntries.filter((e) => e.type === 'outreach_draft').pop(),
@@ -328,6 +351,111 @@ function resolveContextDerivedFields(
   }
 }
 
+async function loadEntityDetailDependencies(
+  params: Parameters<typeof loadEntityDetailPage>[0]
+): Promise<{
+  contextEntries: ContextEntry[]
+  contacts: Contact[]
+  meetings: Awaited<ReturnType<typeof listMeetings>>
+  engagements: Awaited<ReturnType<typeof listEngagements>>
+  quotes: Quote[]
+  invoices: Awaited<ReturnType<typeof listInvoices>>
+  signalMetadata: EntitySignalMetadata | null
+  enrichmentRuns: Map<EnrichmentRun['module'], EnrichmentRun>
+  mergeCandidates: CandidateMergeRow[]
+}> {
+  const [
+    contextEntries,
+    contacts,
+    meetings,
+    engagements,
+    quotes,
+    invoices,
+    signalMetadataMap,
+    enrichmentRuns,
+    mergeCandidates,
+  ] = await Promise.all([
+    listContext(params.db, params.entityId),
+    listContacts(params.db, params.orgId, params.entityId),
+    listMeetings(params.db, params.orgId, params.entityId),
+    listEngagements(params.db, params.orgId, params.entityId),
+    listQuotes(params.db, params.orgId, params.entityId),
+    listInvoices(params.db, params.orgId, { entityId: params.entityId }),
+    getSignalMetadataForEntities(params.db, params.orgId, [params.entityId]),
+    latestRunByModule(params.db, params.entityId),
+    getCandidateMergesForEntity(params.db, params.orgId, params.entityId),
+  ])
+
+  return {
+    contextEntries,
+    contacts,
+    meetings,
+    engagements,
+    quotes,
+    invoices,
+    signalMetadata: signalMetadataMap.get(params.entityId) ?? null,
+    enrichmentRuns,
+    mergeCandidates,
+  }
+}
+
+interface DetailPresentationState {
+  currentLostReason: EntityDetailPageResult['currentLostReason']
+  outreachContact: Contact | null
+  outreachMailto: string | null
+  outreachFromDossier: unknown
+  showReEnrichButton: boolean
+  reviewMeta: EntityDetailPageResult['reviewMeta']
+  websiteMeta: EntityDetailPageResult['websiteMeta']
+  competitorMeta: EntityDetailPageResult['competitorMeta']
+  transitions: EntityDetailTransition[]
+}
+
+function resolveDetailPresentationState(args: {
+  entity: EntityRecord
+  contextEntries: ContextEntry[]
+  contacts: Contact[]
+  outreachEntry: ContextEntry | undefined
+  reviewSynthEntry: ContextEntry | undefined
+  deepWebsiteEntry: ContextEntry | undefined
+  competitorEntry: ContextEntry | undefined
+}): DetailPresentationState {
+  const currentLostReason = resolveLostReason(args.entity, args.contextEntries)
+  const outreachMeta = parseMetadata(args.outreachEntry?.metadata ?? null)
+  const outreachContact = args.contacts.find((c) => c.email && c.email.trim().length > 0) ?? null
+  const outreachMailto = resolveOutreachMailto(
+    args.outreachEntry,
+    outreachContact,
+    args.entity.name
+  )
+  const showReEnrichButton = RE_ENRICH_STAGES.includes(args.entity.stage)
+  const reviewMeta = parseMetadata(
+    args.reviewSynthEntry?.metadata ?? null
+  ) as EntityDetailPageResult['reviewMeta']
+  const websiteMeta = parseMetadata(
+    args.deepWebsiteEntry?.metadata ?? null
+  ) as EntityDetailPageResult['websiteMeta']
+  const competitorMeta = parseMetadata(
+    args.competitorEntry?.metadata ?? null
+  ) as EntityDetailPageResult['competitorMeta']
+  const transitions = ENTITY_DETAIL_TRANSITIONS[args.entity.stage].map((t) => ({
+    ...t,
+    action: t.action ?? `/api/admin/entities/${args.entity.id}/stage`,
+  }))
+
+  return {
+    currentLostReason,
+    outreachContact,
+    outreachMailto,
+    outreachFromDossier: outreachMeta?.trigger === 'dossier',
+    showReEnrichButton,
+    reviewMeta,
+    websiteMeta,
+    competitorMeta,
+    transitions,
+  }
+}
+
 export async function loadEntityDetailPage(params: {
   db: Database
   orgId: string
@@ -336,69 +464,63 @@ export async function loadEntityDetailPage(params: {
 }): Promise<EntityDetailPageResult> {
   const entity = await getEntity(params.db, params.orgId, params.entityId)
   if (!entity) return null as never
-
-  const [contextEntries, contacts, meetings, engagements, quotes, invoices] = await Promise.all([
-    listContext(params.db, params.entityId),
-    listContacts(params.db, params.orgId, params.entityId),
-    listMeetings(params.db, params.orgId, params.entityId),
-    listEngagements(params.db, params.orgId, params.entityId),
-    listQuotes(params.db, params.orgId, params.entityId),
-    listInvoices(params.db, params.orgId, { entityId: params.entityId }),
-  ])
-
+  const data = await loadEntityDetailDependencies(params)
   const urlParams = extractUrlParams(params.url)
-  const ctx = resolveContextDerivedFields(contextEntries, urlParams.typeFilter)
-
-  const currentLostReason = resolveLostReason(entity, contextEntries)
-  const outreachMeta = parseMetadata(ctx.outreachEntry?.metadata ?? null)
-  const outreachContact = contacts.find((c) => c.email && c.email.trim().length > 0) ?? null
-  const outreachMailto = resolveOutreachMailto(ctx.outreachEntry, outreachContact, entity.name)
-
+  const ctx = resolveContextDerivedFields(data.contextEntries, urlParams.typeFilter)
+  const decisionEvidence: DecisionEvidence = buildDecisionEvidence({
+    entity,
+    signalMetadata: data.signalMetadata,
+    contextEntries: data.contextEntries,
+    contacts: data.contacts,
+    reviewSynthEntry: ctx.reviewSynthEntry,
+    deepWebsiteEntry: ctx.deepWebsiteEntry,
+    intelligenceBriefEntry: ctx.dossierBrief,
+    outreachEntry: ctx.outreachEntry,
+    enrichmentRuns: data.enrichmentRuns,
+  })
+  const detailState = resolveDetailPresentationState({
+    entity,
+    contextEntries: data.contextEntries,
+    contacts: data.contacts,
+    outreachEntry: ctx.outreachEntry,
+    reviewSynthEntry: ctx.reviewSynthEntry,
+    deepWebsiteEntry: ctx.deepWebsiteEntry,
+    competitorEntry: ctx.competitorEntry,
+  })
   const hasOpenQuote = await hasOpenQuoteForEntity(params.db, params.orgId, params.entityId)
-  const quoteFlags = resolveQuoteFlags(entity, quotes, meetings, hasOpenQuote)
-  const showReEnrichButton = RE_ENRICH_STAGES.includes(entity.stage)
-  const reviewMeta = parseMetadata(
-    ctx.reviewSynthEntry?.metadata ?? null
-  ) as EntityDetailPageResult['reviewMeta']
-  const websiteMeta = parseMetadata(
-    ctx.deepWebsiteEntry?.metadata ?? null
-  ) as EntityDetailPageResult['websiteMeta']
-  const competitorMeta = parseMetadata(
-    ctx.competitorEntry?.metadata ?? null
-  ) as EntityDetailPageResult['competitorMeta']
-  const transitions = ENTITY_DETAIL_TRANSITIONS[entity.stage].map((t) => ({
-    ...t,
-    action: t.action ?? `/api/admin/entities/${entity.id}/stage`,
-  }))
-
+  const quoteFlags = resolveQuoteFlags(entity, data.quotes, data.meetings, hasOpenQuote)
   return {
     entity,
-    contextEntries,
-    contacts,
-    meetings,
-    engagements,
-    quotes,
-    invoices,
-    mostRecentDraftableMeeting: findDraftableMeeting(meetings, quotes),
-    hasOutreach: contextEntries.some((e) => e.type === 'outreach_draft'),
+    signalMetadata: data.signalMetadata,
+    contextEntries: data.contextEntries,
+    contacts: data.contacts,
+    meetings: data.meetings,
+    engagements: data.engagements,
+    quotes: data.quotes,
+    invoices: data.invoices,
+    mostRecentDraftableMeeting: findDraftableMeeting(data.meetings, data.quotes),
+    hasOutreach: data.contextEntries.some((e) => e.type === 'outreach_draft'),
     filteredEntries: ctx.filteredEntries,
+    deduplicatedTimeline: ctx.deduplicatedTimeline,
     typeCounts: ctx.typeCounts,
-    currentLostReason,
+    currentLostReason: detailState.currentLostReason,
     ...urlParams,
-    showReEnrichButton,
+    showReEnrichButton: detailState.showReEnrichButton,
     showNewQuoteButton: quoteFlags.showNewQuoteButton,
     supersedeCandidates: quoteFlags.supersedeCandidates,
-    transitions,
+    transitions: detailState.transitions,
+    decisionEvidence,
+    mergeCandidates: data.mergeCandidates,
     dossierBrief: ctx.dossierBrief,
     outreachEntry: ctx.outreachEntry,
-    outreachContact,
-    outreachMailto,
-    outreachFromDossier: outreachMeta?.trigger === 'dossier',
+    outreachContact: detailState.outreachContact,
+    outreachMailto: detailState.outreachMailto,
+    outreachFromDossier: detailState.outreachFromDossier,
     hasDossier: !!ctx.dossierBrief,
     lastEnrichmentAt: ctx.lastEnrichmentAt,
     latestSentQuoteAt: quoteFlags.latestSentQuoteAt,
-    reviewMeta,
-    websiteMeta,
-    competitorMeta,
+    reviewMeta: detailState.reviewMeta,
+    websiteMeta: detailState.websiteMeta,
+    competitorMeta: detailState.competitorMeta,
   }
 }

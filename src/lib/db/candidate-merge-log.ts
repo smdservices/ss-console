@@ -14,6 +14,17 @@ export interface CandidateMergeLogData {
   metadata?: Record<string, unknown> | null
 }
 
+export interface CandidateMergeRow {
+  id: string
+  targetId: string | null
+  candidateName: string
+  candidateAddress: string | null
+  score: number | null
+  reason: string
+  sourcePipeline: string | null
+  createdAt: string
+}
+
 export async function appendCandidateMergeLog(
   db: D1Database,
   orgId: string,
@@ -47,4 +58,32 @@ export async function appendCandidateMergeLog(
       new Date().toISOString()
     )
     .run()
+}
+
+export async function getCandidateMergesForEntity(
+  db: D1Database,
+  orgId: string,
+  entityId: string
+): Promise<CandidateMergeRow[]> {
+  const rows = await db
+    .prepare(
+      `SELECT
+         id,
+         existing_entity_id AS targetId,
+         candidate_name AS candidateName,
+         candidate_address AS candidateAddress,
+         score,
+         reason,
+         source_pipeline AS sourcePipeline,
+         created_at AS createdAt
+       FROM candidate_merge_log
+       WHERE org_id = ?
+         AND existing_entity_id = ?
+         AND review_status = 'pending'
+       ORDER BY score DESC, created_at DESC`
+    )
+    .bind(orgId, entityId)
+    .all<CandidateMergeRow>()
+
+  return rows.results
 }

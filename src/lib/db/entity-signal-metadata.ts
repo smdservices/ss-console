@@ -9,13 +9,39 @@ export interface EntitySignalMetadata {
   signal_subject: string | null
   signal_location: string | null
   signal_date: string | null
+  signal_address: string | null
+  actor_role: 'business' | 'contractor' | 'unknown' | null
+  actor_role_confidence: 'high' | 'medium' | 'low' | null
   enrichment_summary: string | null
   last_activity_at: string | null
 }
 
+type ActorRole = NonNullable<EntitySignalMetadata['actor_role']>
+type ActorRoleConfidence = NonNullable<EntitySignalMetadata['actor_role_confidence']>
+
 function parseStringMeta(meta: Record<string, unknown>, key: string): string | null {
   const value = meta[key]
   return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+function parseActorRole(meta: Record<string, unknown>): ActorRole | null {
+  const value = meta.actor_role
+  return value === 'business' || value === 'contractor' || value === 'unknown' ? value : null
+}
+
+function defaultActorRoleConfidence(role: ActorRole | null): ActorRoleConfidence | null {
+  if (role === 'business' || role === 'contractor') return 'high'
+  if (role === 'unknown') return 'low'
+  return null
+}
+
+function parseActorRoleConfidence(
+  meta: Record<string, unknown>,
+  role: ActorRole | null
+): ActorRoleConfidence | null {
+  const value = meta.actor_role_confidence
+  if (value === 'high' || value === 'medium' || value === 'low') return value
+  return defaultActorRoleConfidence(role)
 }
 
 function parseSignalMetadataRow(row: {
@@ -27,6 +53,9 @@ function parseSignalMetadataRow(row: {
   let signalSubject: string | null = null
   let signalLocation: string | null = null
   let signalDate: string | null = null
+  let signalAddress: string | null = null
+  let actorRole: ActorRole | null = null
+  let actorRoleConfidence: ActorRoleConfidence | null = null
   if (row.metadata) {
     try {
       const meta = JSON.parse(row.metadata) as Record<string, unknown>
@@ -40,6 +69,9 @@ function parseSignalMetadataRow(row: {
       signalSubject = parseStringMeta(meta, 'signal_subject')
       signalLocation = parseStringMeta(meta, 'signal_location')
       signalDate = parseStringMeta(meta, 'signal_date') ?? parseStringMeta(meta, 'date_found')
+      signalAddress = parseStringMeta(meta, 'signal_address')
+      actorRole = parseActorRole(meta)
+      actorRoleConfidence = parseActorRoleConfidence(meta, actorRole)
     } catch {
       // Malformed JSON - treat as missing metadata.
     }
@@ -51,6 +83,9 @@ function parseSignalMetadataRow(row: {
     signal_subject: signalSubject,
     signal_location: signalLocation,
     signal_date: signalDate,
+    signal_address: signalAddress,
+    actor_role: actorRole,
+    actor_role_confidence: actorRoleConfidence,
     enrichment_summary: null,
     last_activity_at: null,
   }
@@ -80,6 +115,9 @@ function buildEmptyMetadata(entityId: string): EntitySignalMetadata {
     signal_subject: null,
     signal_location: null,
     signal_date: null,
+    signal_address: null,
+    actor_role: null,
+    actor_role_confidence: null,
     enrichment_summary: null,
     last_activity_at: null,
   }

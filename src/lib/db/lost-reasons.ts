@@ -23,6 +23,11 @@
  */
 
 export type LostReasonCode =
+  | 'wrong-actor'
+  | 'out-of-buy-box'
+  | 'out-of-geography'
+  | 'no-signal'
+  | 'duplicate'
   | 'not-a-fit'
   | 'no-budget'
   | 'no-response'
@@ -39,6 +44,32 @@ export interface LostReasonDef {
 }
 
 export const LOST_REASONS: LostReasonDef[] = [
+  {
+    value: 'wrong-actor',
+    label: 'Wrong actor',
+    description: 'Contractor, vendor, or staffing intermediary - not the operating business.',
+  },
+  {
+    value: 'out-of-buy-box',
+    label: 'Outside buy box',
+    description:
+      'Structurally outside fit - chain, enterprise, government, non-profit, or holding LLC.',
+  },
+  {
+    value: 'out-of-geography',
+    label: 'Outside Arizona',
+    description: 'Not an Arizona business.',
+  },
+  {
+    value: 'no-signal',
+    label: 'Insufficient signal',
+    description: 'Not enough evidence to qualify credibly.',
+  },
+  {
+    value: 'duplicate',
+    label: 'Duplicate',
+    description: 'Duplicate of another tracked entity.',
+  },
   {
     value: 'not-a-fit',
     label: 'Not a fit',
