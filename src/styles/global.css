@@ -166,3 +166,401 @@
     'GRAD' 0,
     'opsz' 24;
 }
+
+/* Honor reduced-motion preference. The V3 /book chat shell uses
+ * scrollIntoView({ behavior: 'smooth' }) and hidden→visible state
+ * transitions; users with prefers-reduced-motion get instant changes.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------------------------------------------------------------------
+ * V3 /book Plainspoken chat shell
+ *
+ * Pinned to SS tokens. Hairline borders, zero radius (Plainspoken hard
+ * rule), single accent (burnt orange). No bubbles, no shadows. Role
+ * labels in JetBrains Mono small caps. Sticky chat input bar.
+ * ------------------------------------------------------------------- */
+
+.ss-book-main {
+  background: var(--ss-color-background);
+  min-height: 100vh;
+}
+
+.ss-book-header {
+  border-bottom: 1px solid var(--ss-color-border);
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+.ss-book-section {
+  padding: 3rem 1.5rem 6rem;
+}
+
+.ss-book-frame {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.ss-banner {
+  border: 1px solid var(--ss-color-border);
+  padding: 0.875rem 1rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.9375rem;
+  border-radius: 0;
+}
+.ss-banner-warn {
+  border-color: var(--ss-color-attention, #b77400);
+  color: var(--ss-color-attention, #6b4400);
+}
+
+/* ---------- Common bits ---------- */
+.ss-eyebrow {
+  font-family: var(--ss-font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ss-color-text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+.ss-headline {
+  font-family: var(--ss-font-display);
+  font-weight: 900;
+  font-size: clamp(1.875rem, 4vw, 2.5rem);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.75rem;
+  color: var(--ss-color-text-primary);
+}
+
+.ss-headline-sm {
+  font-family: var(--ss-font-display);
+  font-weight: 700;
+  font-size: clamp(1.375rem, 3vw, 1.75rem);
+  line-height: 1.2;
+  color: var(--ss-color-text-primary);
+}
+
+.ss-lede {
+  color: var(--ss-color-text-secondary);
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  max-width: 36rem;
+}
+
+.ss-helper {
+  font-size: 0.8125rem;
+  color: var(--ss-color-text-secondary);
+  margin-top: 0.5rem;
+}
+
+.ss-error {
+  color: var(--ss-color-error, #7c1d1d);
+  font-size: 0.8125rem;
+}
+
+.ss-quiet-link {
+  font-family: var(--ss-font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ss-color-text-secondary);
+  border: none;
+  background: none;
+  padding: 2px 0;
+  border-bottom: 1px solid var(--ss-color-border);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease;
+  display: inline-block;
+}
+.ss-quiet-link:hover {
+  color: var(--ss-color-text-primary);
+  border-bottom-color: var(--ss-color-text-primary);
+}
+.ss-quiet-sep {
+  color: var(--ss-color-text-muted);
+  margin: 0 0.375rem;
+}
+
+.ss-link {
+  color: var(--ss-color-primary);
+  font-weight: 500;
+  text-decoration: underline;
+}
+
+.ss-primary {
+  background: var(--ss-color-primary);
+  color: #fff;
+  padding: 0.875rem 1.75rem;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  letter-spacing: 0.02em;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  display: inline-block;
+  text-decoration: none;
+  text-align: center;
+  transition: background 150ms ease;
+}
+.ss-primary:hover {
+  background: var(--ss-color-primary-hover);
+}
+.ss-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mt-row {
+  margin-top: 0.75rem;
+}
+.mt-stack {
+  margin-top: 1.25rem;
+}
+
+/* ---------- Intro card ---------- */
+.ss-intro {
+  background: var(--ss-color-background);
+}
+.ss-intro .mb-stack {
+  margin-bottom: 1.5rem;
+}
+
+.ss-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.ss-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.ss-field-label {
+  font-family: var(--ss-font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ss-color-text-secondary);
+}
+.ss-input {
+  border: none;
+  border-bottom: 1px solid var(--ss-color-border);
+  background: transparent;
+  padding: 0.5rem 0;
+  font-size: 1.0625rem;
+  font-family: inherit;
+  color: var(--ss-color-text-primary);
+  outline: none;
+  border-radius: 0;
+}
+.ss-input:focus {
+  border-bottom-color: var(--ss-color-text-primary);
+}
+.ss-textarea-wrap {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--ss-color-border);
+  transition: border-color 150ms ease;
+}
+.ss-textarea-wrap:focus-within {
+  border-bottom-color: var(--ss-color-text-primary);
+}
+.ss-textarea {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 0.5rem 0;
+  font-size: 1.0625rem;
+  font-family: inherit;
+  color: var(--ss-color-text-primary);
+  outline: none;
+  resize: vertical;
+  min-height: 5rem;
+  border-radius: 0;
+}
+
+.ss-mic-btn {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ss-color-border);
+  background: transparent;
+  color: var(--ss-color-text-secondary);
+  flex-shrink: 0;
+  cursor: pointer;
+  border-radius: 0;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease;
+}
+.ss-mic-btn:hover {
+  color: var(--ss-color-text-primary);
+  border-color: var(--ss-color-text-primary);
+}
+.ss-mic-btn .material-symbols-outlined {
+  font-size: 18px;
+}
+.ss-mic-btn[data-listening='true'] {
+  color: var(--ss-color-primary);
+  border-color: var(--ss-color-primary);
+}
+
+.ss-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+/* ---------- Chat shell ---------- */
+.ss-chat {
+  display: flex;
+  flex-direction: column;
+}
+
+.ss-chat-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.ss-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.ss-turn-role {
+  font-family: var(--ss-font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ss-color-text-muted);
+}
+.ss-turn-body {
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: var(--ss-color-text-primary);
+}
+.ss-turn-line {
+  white-space: pre-wrap;
+}
+.ss-turn-line + .ss-turn-line {
+  margin-top: 0.75rem;
+}
+
+.ss-chat-input-wrap {
+  position: sticky;
+  bottom: 0;
+  background: var(--ss-color-background);
+  padding-top: 2rem;
+  margin-top: 2rem;
+}
+.ss-chat-input {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  border: 1px solid var(--ss-color-border);
+  padding: 0.625rem 0.75rem;
+  background: var(--ss-color-background);
+  border-radius: 0;
+  transition: border-color 150ms ease;
+}
+.ss-chat-input:focus-within {
+  border-color: var(--ss-color-text-primary);
+}
+.ss-chat-textarea {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 0.5rem 0;
+  font-size: 1.0625rem;
+  font-family: inherit;
+  color: var(--ss-color-text-primary);
+  resize: none;
+  min-height: 2.5rem;
+  max-height: 12rem;
+  outline: none;
+  line-height: 1.5;
+  border-radius: 0;
+}
+.ss-send-btn {
+  width: 36px;
+  height: 36px;
+  background: var(--ss-color-primary);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  border: none;
+  border-radius: 0;
+  transition: background 150ms ease;
+}
+.ss-send-btn:hover {
+  background: var(--ss-color-primary-hover);
+}
+.ss-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ss-send-btn .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.ss-chat-meta {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.625rem;
+}
+
+.ss-retry-affordance {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ss-selected-slot {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  background: rgba(197, 80, 30, 0.06);
+  border: 1px solid var(--ss-color-primary);
+  margin-top: 0.75rem;
+  font-size: 0.9375rem;
+}
+
+/* ---------- Closed card ---------- */
+.ss-closed {
+  border-top: 1px solid var(--ss-color-border);
+  padding-top: 2rem;
+}
+.ss-closed-card {
+  max-width: 32rem;
+}
+.ss-closed-card .ss-stack {
+  margin-top: 1rem;
+}

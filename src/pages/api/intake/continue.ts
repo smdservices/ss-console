@@ -6,6 +6,7 @@ import {
   generateConversationReply,
   ConversationApiError,
   postProcessReply,
+  detectAndStripReadyMarker,
 } from '../../../lib/claude/conversation'
 import {
   appendUserTurn,
@@ -13,6 +14,13 @@ import {
   countUserTurns,
   loadConversationHistory,
   MAX_TURNS,
+  markConversationClosed,
+  isConversationClosed,
+  setInFlight,
+  clearInFlight,
+  isInFlight,
+  recordIdempotencySnapshot,
+  lookupIdempotencySnapshot,
 } from '../../../lib/db/intake-conversations'
 import {
   verifyConversationToken,
@@ -25,38 +33,82 @@ import {
 /**
  * POST /api/intake/continue
  *
- * Follow-up turn in a multi-turn intake conversation. The first turn is
- * established by `/api/intake/send`, which issues the signed
- * `ss_intake_conv` cookie. Each `/continue` POST verifies the cookie,
- * loads the conversation history, calls Claude with the full history,
- * persists the new user/assistant pair, and returns the AI reply.
+ * Two shapes share this endpoint:
  *
- * Request body:
- *   { message: string }    — the prospect's next message (1..MAX_MESSAGE_CHARS)
+ *   - Continue:  { message, idempotency_key? }    — append a user turn,
+ *                                                   call Claude, persist
+ *                                                   the AI reply, return
+ *                                                   it. Same idempotency
+ *                                                   key on a retry replays
+ *                                                   the previous result
+ *                                                   without duplicating
+ *                                                   the user turn.
  *
- * Response:
- *   200 { ok, ai_reply, turn, can_continue }
- *   401 { error: 'session_expired' | 'unauthorized' }
- *   400 { error: 'validation_failed', message }
- *   429 { error: 'rate_limited' }
- *   503 { error: 'ai_unavailable' }      — Claude call failed; user turn was still persisted
+ *   - Close:     { closed: true }                 — V3 "Done" button.
+ *                                                   Marks the conversation
+ *                                                   closed (idempotent).
+ *                                                   Returns 409 if an
+ *                                                   assistant turn is
+ *                                                   currently in flight.
  *
- * `can_continue` is false when the conversation has reached MAX_TURNS,
- * signaling the UI to surface the booking CTA as the next step.
+ * The conversation lives in the existing `context` table with V2 turn
+ * sources. Per-conversation flags (closed_at, in_flight_until,
+ * last-turn idempotency snapshot) live in `intake_conversation_meta`
+ * (migration 0037).
  *
- * Cookie is rotated on every successful turn so the TTL slides forward
- * with active engagement.
+ * Response (continue, 200):
+ *   { ok, ai_reply, turn, can_continue, slot_picker_next }
+ *
+ * Response (close, 200):
+ *   { ok: true, closed: true }
+ *
+ * Response (close, 409):
+ *   { error: 'in_flight' }   — retry once the in-flight turn lands
+ *
+ * Other responses unchanged from V2:
+ *   401 unauthorized | session_expired
+ *   400 validation_failed | invalid JSON
+ *   429 rate_limited
+ *   503 ai_unavailable
+ *
+ * Cookie is rotated on every successful continue turn so the TTL slides
+ * forward with active engagement. Close does not rotate the cookie —
+ * the conversation is over.
+ *
+ * ## Slot-picker readiness
+ *
+ * The response field `slot_picker_next` tells the client to render the
+ * slot picker as the NEXT assistant turn. Two paths set it:
+ *
+ *   - AI marker: the system prompt instructs the model to emit
+ *     `[[READY-FOR-CALL]]` on its own line when the prospect has shared
+ *     enough signal. The server strips the marker before persistence
+ *     and display.
+ *   - Ceiling: at `user_turns >= READINESS_CEILING_TURNS` (default 4),
+ *     the picker fires regardless of marker. Tire-kicker safety net
+ *     and high-signal prospects who didn't trip the marker.
  */
 
 const MAX_MESSAGE_CHARS = 5000
 /** /continue is generous because each conversation can produce up to MAX_TURNS hits per user. */
 const RATE_LIMIT_PER_HOUR = 60
+/** AI-marker fast path; ceiling is the floor for offering the picker. */
+const READINESS_CEILING_TURNS = 4
 
 interface ValidatedContinueBody {
+  kind: 'continue'
   messageRaw: string
+  idempotencyKey: string | null
 }
+interface ValidatedCloseBody {
+  kind: 'close'
+}
+type ValidatedBody = ValidatedContinueBody | ValidatedCloseBody
 
-function validateContinueBody(body: Record<string, unknown>): ValidatedContinueBody | Response {
+function validateBody(body: Record<string, unknown>): ValidatedBody | Response {
+  if (body.closed === true) {
+    return { kind: 'close' }
+  }
   const message = typeof body.message === 'string' ? body.message.trim() : ''
   if (!message) {
     return jsonResponse(400, {
@@ -70,26 +122,29 @@ function validateContinueBody(body: Record<string, unknown>): ValidatedContinueB
       message: `Your message is too long (max ${MAX_MESSAGE_CHARS} characters).`,
     })
   }
-  return { messageRaw: message }
+  const idempotencyKey =
+    typeof body.idempotency_key === 'string' && body.idempotency_key.length > 0
+      ? body.idempotency_key.slice(0, 128)
+      : null
+  return { kind: 'continue', messageRaw: message, idempotencyKey }
 }
 
 /**
  * Design notes for the auth + idempotency posture on /continue:
  *
  *   - Turn numbers are computed server-side (`countUserTurns + 1`) rather
- *     than supplied by the client as an idempotency key. Intake is a
- *     low-stakes user-facing flow; the signed cookie + IP rate limit cap
- *     exposure to abuse, and accidental double-submits at this scale are
- *     a UX nuisance, not a data-integrity concern. For higher-stakes
- *     mutating endpoints (e.g. /api/booking/reserve) a client-supplied
- *     idempotency key would be expected.
+ *     than supplied by the client.
+ *
+ *   - V3 adds an optional client-supplied `idempotency_key` for the
+ *     Retry-after-network-failure case. If a previous POST with the
+ *     same key reached the server and persisted, the snapshot row
+ *     replays the AI reply. If the key is absent, the legacy V2 posture
+ *     applies (best-effort dedup; double-submits are rare at this
+ *     scale).
  *
  *   - The `rendered_at` bot check that /api/intake/send enforces is
  *     deliberately absent here. The cookie's existence proves the
  *     prospect already cleared the bot gate when they submitted /send.
- *     Adding a second timestamp check would not improve security and
- *     would add a confusing failure mode if the prospect simply replied
- *     fast.
  */
 async function authConversationCookie(
   request: Request
@@ -137,6 +192,158 @@ async function callClaudeForTurn(
   }
 }
 
+async function handleClose(args: { conversationId: string; entityId: string }): Promise<Response> {
+  // Reject Done while an assistant turn is mid-generation. The client
+  // suppresses the close button briefly and lets the in-flight turn
+  // land before sending Done.
+  if (await isInFlight(env.DB, args.conversationId)) {
+    return jsonResponse(409, { error: 'in_flight' })
+  }
+  await markConversationClosed(env.DB, {
+    conversationId: args.conversationId,
+    entityId: args.entityId,
+  })
+  return jsonResponse(200, { ok: true, closed: true })
+}
+
+async function persistUserTurnSafe(args: {
+  entityId: string
+  conversationId: string
+  turn: number
+  content: string
+}): Promise<Response | null> {
+  try {
+    await appendUserTurn(env.DB, ORG_ID, args)
+    return null
+  } catch (err) {
+    console.error('[api/intake/continue] User turn append failed:', err)
+    return jsonResponse(500, { error: 'Internal server error' })
+  }
+}
+
+async function callClaudeWithInFlight(args: {
+  entityId: string
+  conversationId: string
+  messageRaw: string
+}): Promise<{ aiReply: string } | Response> {
+  await setInFlight(env.DB, { conversationId: args.conversationId, entityId: args.entityId })
+  try {
+    return await callClaudeForTurn(args.entityId, args.conversationId, args.messageRaw)
+  } finally {
+    await clearInFlight(env.DB, args.conversationId).catch(() => undefined)
+  }
+}
+
+async function persistAssistantAndSnapshot(args: {
+  conversationId: string
+  entityId: string
+  turn: number
+  cleanReply: string
+  slotPickerNext: boolean
+  idempotencyKey: string | null
+}): Promise<void> {
+  try {
+    await appendAssistantTurn(env.DB, ORG_ID, {
+      entityId: args.entityId,
+      conversationId: args.conversationId,
+      turn: args.turn,
+      content: args.cleanReply,
+    })
+  } catch (err) {
+    console.error('[api/intake/continue] AI turn append failed:', err)
+    // Reply was generated; persistence loss is non-fatal for the response.
+  }
+
+  if (args.idempotencyKey) {
+    await recordIdempotencySnapshot(env.DB, {
+      conversationId: args.conversationId,
+      entityId: args.entityId,
+      idempotencyKey: args.idempotencyKey,
+      turn: args.turn,
+      aiReply: args.cleanReply,
+      slotPickerNext: args.slotPickerNext,
+    }).catch((err) => {
+      console.error('[api/intake/continue] Idempotency snapshot write failed:', err)
+    })
+  }
+}
+
+async function handleContinue(args: {
+  conversationId: string
+  entityId: string
+  messageRaw: string
+  idempotencyKey: string | null
+}): Promise<Response> {
+  const { conversationId, entityId, messageRaw, idempotencyKey } = args
+
+  if (await isConversationClosed(env.DB, conversationId)) {
+    return jsonResponse(401, { error: 'unauthorized', message: 'Conversation already closed.' })
+  }
+
+  if (idempotencyKey) {
+    const snap = await lookupIdempotencySnapshot(env.DB, conversationId, idempotencyKey)
+    if (snap) {
+      return buildContinueResponse({
+        conversationId,
+        entityId,
+        turn: snap.turn,
+        aiReply: snap.aiReply,
+        slotPickerNext: snap.slotPickerNext,
+      })
+    }
+  }
+
+  const priorUserTurns = await countUserTurns(env.DB, entityId, conversationId)
+  if (priorUserTurns >= MAX_TURNS) {
+    return jsonResponse(200, {
+      ok: true,
+      ai_reply: null,
+      turn: priorUserTurns,
+      can_continue: false,
+      slot_picker_next: true,
+      message: 'turn_cap_reached',
+    })
+  }
+  const turn = priorUserTurns + 1
+
+  const userTurnError = await persistUserTurnSafe({
+    entityId,
+    conversationId,
+    turn,
+    content: messageRaw,
+  })
+  if (userTurnError) return userTurnError
+
+  const claudeResult = await callClaudeWithInFlight({ entityId, conversationId, messageRaw })
+  if (claudeResult instanceof Response) return claudeResult
+
+  const { reply: cleanReply, ready: markerReady } = detectAndStripReadyMarker(claudeResult.aiReply)
+  postProcessReply(cleanReply, {
+    endpoint: 'api/intake/continue',
+    entityId,
+    conversationId,
+    turn,
+  })
+
+  const slotPickerNext = markerReady || turn >= READINESS_CEILING_TURNS
+  await persistAssistantAndSnapshot({
+    conversationId,
+    entityId,
+    turn,
+    cleanReply,
+    slotPickerNext,
+    idempotencyKey,
+  })
+
+  return buildContinueResponse({
+    conversationId,
+    entityId,
+    turn,
+    aiReply: cleanReply,
+    slotPickerNext,
+  })
+}
+
 async function handlePost({ request, clientAddress }: APIContext): Promise<Response> {
   const auth = await authConversationCookie(request)
   if (auth instanceof Response) return auth
@@ -161,58 +368,19 @@ async function handlePost({ request, clientAddress }: APIContext): Promise<Respo
   } catch {
     return jsonResponse(400, { error: 'Invalid JSON' })
   }
-  const validated = validateContinueBody(body)
+  const validated = validateBody(body)
   if (validated instanceof Response) return validated
 
-  const priorUserTurns = await countUserTurns(env.DB, entityId, conversationId)
-  if (priorUserTurns >= MAX_TURNS) {
-    return jsonResponse(200, {
-      ok: true,
-      ai_reply: null,
-      turn: priorUserTurns,
-      can_continue: false,
-      message: 'turn_cap_reached',
-    })
-  }
-  const turn = priorUserTurns + 1
-
-  // Persist user turn first so admin sees what they wrote even if
-  // Claude fails.
-  try {
-    await appendUserTurn(env.DB, ORG_ID, {
-      entityId,
-      conversationId,
-      turn,
-      content: validated.messageRaw,
-    })
-  } catch (err) {
-    console.error('[api/intake/continue] User turn append failed:', err)
-    return jsonResponse(500, { error: 'Internal server error' })
+  if (validated.kind === 'close') {
+    return handleClose({ conversationId, entityId })
   }
 
-  const claudeResult = await callClaudeForTurn(entityId, conversationId, validated.messageRaw)
-  if (claudeResult instanceof Response) return claudeResult
-  const { aiReply } = claudeResult
-  postProcessReply(aiReply, {
-    endpoint: 'api/intake/continue',
-    entityId,
+  return handleContinue({
     conversationId,
-    turn,
+    entityId,
+    messageRaw: validated.messageRaw,
+    idempotencyKey: validated.idempotencyKey,
   })
-
-  try {
-    await appendAssistantTurn(env.DB, ORG_ID, {
-      entityId,
-      conversationId,
-      turn,
-      content: aiReply,
-    })
-  } catch (err) {
-    console.error('[api/intake/continue] AI turn append failed:', err)
-    // Reply was generated; persistence loss is non-fatal for the response.
-  }
-
-  return buildContinueResponse({ conversationId, entityId, turn, aiReply })
 }
 
 async function buildContinueResponse(args: {
@@ -220,6 +388,7 @@ async function buildContinueResponse(args: {
   entityId: string
   turn: number
   aiReply: string
+  slotPickerNext: boolean
 }): Promise<Response> {
   const newToken = await signConversationToken({
     conversation_id: args.conversationId,
@@ -235,6 +404,7 @@ async function buildContinueResponse(args: {
       ai_reply: args.aiReply,
       turn: args.turn,
       can_continue: args.turn < MAX_TURNS,
+      slot_picker_next: args.slotPickerNext,
     }),
     { status: 200, headers }
   )

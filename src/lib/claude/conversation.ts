@@ -152,7 +152,28 @@ You: "Which part of follow-up is the slowdown for you right now?"
 - Never use the banned words and phrases above.
 - Never make a universal observation about businesses, growth, owners, or operations.
 - Never write more than two short paragraphs per turn.
-- Always end on a question.`
+- Always end on a question.
+
+## Readiness marker
+
+After your question, on the very next line by itself, you may include the literal token \`[[READY-FOR-CALL]]\` if all of the following are true:
+
+- They have shared their vertical or industry and at least one of: scale (team size, crew count, jobs or customers per week, revenue band), pain (specific operational breakdown), or current state (how the work runs today).
+- The next thing that would actually help them is a real conversation, not another typed back-and-forth.
+- They have not asked you a direct question that you should answer first.
+
+When you include the marker, your reply still ends on a question on the line above. The marker is not visible to the prospect. The page strips it before rendering and uses it to surface a "pick a time" turn next. If you are unsure whether the prospect has shared enough, omit the marker. The page also surfaces the picker on its own after the conversation runs long enough, so the marker is purely a fast path for clearly ready prospects.
+
+Sample (with marker):
+
+Prospect (turn 2): "Four crews. Mostly residential. Scheduling is text messages and a whiteboard. Lost a job last week because the homeowner couldn't reach us back in time."
+You: "Where in the chain does the slowdown usually hit, the first call or the follow-up?"
+[[READY-FOR-CALL]]
+
+Sample (without marker):
+
+Prospect (turn 1): "We do HVAC, twelve years."
+You: "How big is the team today, and what's the next thing you're working to figure out?"`
 
 /**
  * Call the Claude API to generate a single conversation reply.
@@ -218,6 +239,30 @@ export async function generateConversationReply(
   }
 
   return textBlock.text.trim()
+}
+
+/**
+ * The literal token the AI emits on its own line to signal "this prospect
+ * is ready for the slot picker." See the system prompt's "Readiness
+ * marker" section. The marker is internal — it is stripped from the
+ * reply before persistence and display.
+ */
+export const READY_MARKER = '[[READY-FOR-CALL]]'
+
+/**
+ * Detect and strip the [[READY-FOR-CALL]] marker. The marker is expected
+ * on its own line at the end of the reply, but a misbehaving model may
+ * paste it inline; we strip whichever shape arrives so the prospect
+ * never sees raw `[[READY-FOR-CALL]]` text.
+ */
+export function detectAndStripReadyMarker(reply: string): { reply: string; ready: boolean } {
+  if (!reply.includes(READY_MARKER)) {
+    return { reply, ready: false }
+  }
+  const stripped = reply.split(READY_MARKER).join('')
+  // Collapse any blank trailing lines the marker left behind. Trim end
+  // only — leading whitespace in the body is preserved (paragraphs).
+  return { reply: stripped.replace(/\n\s*\n\s*$/g, '\n').trimEnd(), ready: true }
 }
 
 /**
