@@ -104,29 +104,15 @@ function setupReEnrichForm(): void {
   }
 }
 
-function setupCopyOutreach(): void {
-  const copyBtn = document.getElementById('copy-outreach-btn') as HTMLButtonElement | null
-  const outreachEl = document.getElementById('outreach-content')
-  if (!copyBtn || !outreachEl) return
-  copyBtn.addEventListener('click', () => {
-    void navigator.clipboard.writeText(outreachEl.textContent ?? '').then(() => {
-      copyBtn.textContent = 'Copied!'
-      window.setTimeout(() => {
-        copyBtn.textContent = 'Copy'
-      }, 2000)
-    })
-  })
-}
+function setupDiagnosticsHash(): void {
+  const syncHash = () => {
+    if (!window.location.hash.startsWith('#entity-diagnostics')) return
+    const diagnostics = document.querySelector<HTMLDetailsElement>('[data-diagnostics]')
+    diagnostics?.setAttribute('open', 'true')
+  }
 
-function setupToggleLong(): void {
-  document.querySelectorAll<HTMLButtonElement>('.js-toggle-long').forEach((toggle) => {
-    toggle.addEventListener('click', () => {
-      const body = toggle.previousElementSibling as HTMLElement | null
-      if (!body || !body.classList.contains('js-truncated')) return
-      const expanded = body.classList.toggle('is-expanded')
-      toggle.textContent = expanded ? 'Show less' : 'Show more'
-    })
-  })
+  syncHash()
+  window.addEventListener('hashchange', syncHash)
 }
 
 function setupSendBookingLink(): void {
@@ -166,7 +152,6 @@ function setupSendBookingLink(): void {
 
 export function initEntityDetailPage(): void {
   setupReEnrichForm()
-  setupCopyOutreach()
-  setupToggleLong()
+  setupDiagnosticsHash()
   setupSendBookingLink()
 }

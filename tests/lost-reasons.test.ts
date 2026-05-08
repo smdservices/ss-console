@@ -8,16 +8,21 @@ describe('lost-reasons: canonical enum (shared with #477)', () => {
     expect(existsSync(resolve('src/lib/db/lost-reasons.ts'))).toBe(true)
   })
 
-  it('exports the seven canonical values from issue #477', () => {
+  it('exports the current canonical values from issue #477 and the entity-detail redesign', () => {
     const values = LOST_REASONS.map((r) => r.value).sort()
     expect(values).toEqual(
       [
         'declined-quote',
+        'duplicate',
         'no-budget',
         'no-response',
+        'no-signal',
         'not-a-fit',
         'other',
+        'out-of-buy-box',
+        'out-of-geography',
         'unreachable',
+        'wrong-actor',
         'wrong-contact',
       ].sort()
     )

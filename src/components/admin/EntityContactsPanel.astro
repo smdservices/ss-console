@@ -1,15 +1,4 @@
 ---
-/**
- * Contacts panel for the admin entity detail page (PRD CM-3, US-003).
- *
- * Replaces the read-only contacts list with a CRUD panel:
- *   - Inline list with per-row edit/delete affordances
- *   - "Add contact" form (name, email, phone, title, role)
- *
- * `role` here is the contact's free-text job role on the contact record,
- * not the per-engagement role assignment (owner / decision_maker /
- * champion). Engagement-role assignment lives on the engagement detail page.
- */
 import type { Contact } from '../../lib/db/contacts'
 import EntityContactRow from './EntityContactRow.astro'
 
@@ -19,95 +8,163 @@ interface Props {
 }
 
 const { entityId, contacts } = Astro.props
+
+const labelClass =
+  'text-[12px] font-medium uppercase tracking-[0.08em] text-[color:var(--ss-color-text-secondary)]'
+const inputClass =
+  'mt-1 w-full border border-[color:var(--ss-color-border)] bg-[color:var(--ss-color-background)] px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)]'
 ---
 
-<div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)]">
-  <div class="px-6 py-4 border-b border-[color:var(--ss-color-border-subtle)]">
-    <h2 class="font-medium text-[color:var(--ss-color-text-primary)]">
+<section class="border-b border-[color:var(--ss-color-border)] py-8" data-test="contacts-panel">
+  <div class="mb-4 flex items-baseline justify-between gap-4">
+    <h2
+      class="font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)]"
+    >
       Contacts ({contacts.length})
     </h2>
-    <p class="text-xs text-[color:var(--ss-color-text-secondary)] mt-1">
-      People at this organization. Engagement-specific roles (owner / decision maker / champion) are
-      assigned per engagement.
-    </p>
+    <span class="font-['JetBrains_Mono'] text-[12px] text-[color:var(--ss-color-text-muted)]">
+      People at this organization
+    </span>
   </div>
 
-  <div class="divide-y divide-[color:var(--ss-color-border-subtle)]">
-    {
-      contacts.length === 0 && (
-        <div class="px-6 py-8 text-center text-sm text-[color:var(--ss-color-text-muted)]">
-          No contacts on file.
+  {
+    contacts.length === 0 ? (
+      <div class="space-y-4">
+        <div class="flex items-center justify-between gap-4 border border-dashed border-[color:var(--ss-color-border)] px-5 py-4">
+          <span class="text-[15px] leading-6 text-[color:var(--ss-color-text-secondary)]">
+            No contacts on file. Discovery runs after Promote.
+          </span>
+          <span class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)] underline underline-offset-4">
+            + Add contact manually
+          </span>
         </div>
-      )
-    }
-    {contacts.map((c) => <EntityContactRow contact={c} />)}
-  </div>
-
-  <details class="border-t border-[color:var(--ss-color-border-subtle)]">
-    <summary
-      class="px-6 py-3 cursor-pointer text-sm text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)]"
-    >
-      + Add contact
-    </summary>
-    <div class="px-6 pb-4">
-      <form method="POST" action={`/api/admin/entities/${entityId}/contacts`} class="space-y-row">
-        <div class="grid grid-cols-2 gap-2">
-          <label class="text-xs font-medium text-[color:var(--ss-color-text-secondary)] col-span-2">
-            Name *
-            <input
-              type="text"
-              name="name"
-              required
-              placeholder="Jane Smith"
-              class="mt-1 w-full border border-[color:var(--ss-color-border)] rounded px-3 py-1.5 text-sm"
-            />
-          </label>
-          <label class="text-xs font-medium text-[color:var(--ss-color-text-secondary)]">
-            Email
-            <input
-              type="email"
-              name="email"
-              placeholder="jane@example.com"
-              class="mt-1 w-full border border-[color:var(--ss-color-border)] rounded px-3 py-1.5 text-sm"
-            />
-          </label>
-          <label class="text-xs font-medium text-[color:var(--ss-color-text-secondary)]">
-            Phone
-            <input
-              type="text"
-              name="phone"
-              placeholder="(555) 123-4567"
-              class="mt-1 w-full border border-[color:var(--ss-color-border)] rounded px-3 py-1.5 text-sm"
-            />
-          </label>
-          <label class="text-xs font-medium text-[color:var(--ss-color-text-secondary)]">
-            Title
-            <input
-              type="text"
-              name="title"
-              placeholder="Operations Manager"
-              class="mt-1 w-full border border-[color:var(--ss-color-border)] rounded px-3 py-1.5 text-sm"
-            />
-          </label>
-          <label class="text-xs font-medium text-[color:var(--ss-color-text-secondary)]">
-            Role
-            <input
-              type="text"
-              name="role"
-              placeholder="Free-form (e.g. owner, ops lead)"
-              class="mt-1 w-full border border-[color:var(--ss-color-border)] rounded px-3 py-1.5 text-sm"
-            />
-          </label>
+        <details>
+          <summary class="cursor-pointer font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)] underline underline-offset-4">
+            Add contact manually
+          </summary>
+          <div class="mt-4 border border-[color:var(--ss-color-border)] px-5 py-4">
+            <form
+              method="POST"
+              action={`/api/admin/entities/${entityId}/contacts`}
+              class="space-y-4"
+            >
+              <div class="grid gap-3 sm:grid-cols-2">
+                <label class={`${labelClass} sm:col-span-2`}>
+                  Name *
+                  <input
+                    type="text"
+                    name="name"
+                    required
+                    placeholder="Jane Smith"
+                    class={inputClass}
+                  />
+                </label>
+                <label class={labelClass}>
+                  Email
+                  <input
+                    type="email"
+                    name="email"
+                    placeholder="jane@example.com"
+                    class={inputClass}
+                  />
+                </label>
+                <label class={labelClass}>
+                  Phone
+                  <input type="text" name="phone" placeholder="(555) 123-4567" class={inputClass} />
+                </label>
+                <label class={labelClass}>
+                  Title
+                  <input
+                    type="text"
+                    name="title"
+                    placeholder="Operations Manager"
+                    class={inputClass}
+                  />
+                </label>
+                <label class={labelClass}>
+                  Role
+                  <input type="text" name="role" placeholder="owner, ops lead" class={inputClass} />
+                </label>
+              </div>
+              <div class="flex justify-end">
+                <button
+                  type="submit"
+                  class="border border-[color:var(--ss-color-primary)] bg-[color:var(--ss-color-primary)] px-4 py-2 font-['Archivo'] text-sm font-semibold uppercase tracking-[0.04em] text-white transition-colors hover:bg-[color:var(--ss-color-primary-hover)] hover:border-[color:var(--ss-color-primary-hover)]"
+                >
+                  Add contact
+                </button>
+              </div>
+            </form>
+          </div>
+        </details>
+      </div>
+    ) : (
+      <div class="space-y-4">
+        <div class="divide-y divide-[color:var(--ss-color-border-subtle)] border-y border-[color:var(--ss-color-border-subtle)]">
+          {contacts.map((contact) => (
+            <EntityContactRow contact={contact} />
+          ))}
         </div>
-        <div class="flex">
-          <button
-            type="submit"
-            class="ml-auto bg-[color:var(--ss-color-primary)] text-white text-xs px-3 py-1.5 hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
-          >
-            Add contact
-          </button>
-        </div>
-      </form>
-    </div>
-  </details>
-</div>
+        <details>
+          <summary class="cursor-pointer font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)] underline underline-offset-4">
+            + Add contact manually
+          </summary>
+          <div class="mt-4 border border-[color:var(--ss-color-border)] px-5 py-4">
+            <form
+              method="POST"
+              action={`/api/admin/entities/${entityId}/contacts`}
+              class="space-y-4"
+            >
+              <div class="grid gap-3 sm:grid-cols-2">
+                <label class={`${labelClass} sm:col-span-2`}>
+                  Name *
+                  <input
+                    type="text"
+                    name="name"
+                    required
+                    placeholder="Jane Smith"
+                    class={inputClass}
+                  />
+                </label>
+                <label class={labelClass}>
+                  Email
+                  <input
+                    type="email"
+                    name="email"
+                    placeholder="jane@example.com"
+                    class={inputClass}
+                  />
+                </label>
+                <label class={labelClass}>
+                  Phone
+                  <input type="text" name="phone" placeholder="(555) 123-4567" class={inputClass} />
+                </label>
+                <label class={labelClass}>
+                  Title
+                  <input
+                    type="text"
+                    name="title"
+                    placeholder="Operations Manager"
+                    class={inputClass}
+                  />
+                </label>
+                <label class={labelClass}>
+                  Role
+                  <input type="text" name="role" placeholder="owner, ops lead" class={inputClass} />
+                </label>
+              </div>
+              <div class="flex justify-end">
+                <button
+                  type="submit"
+                  class="border border-[color:var(--ss-color-primary)] bg-[color:var(--ss-color-primary)] px-4 py-2 font-['Archivo'] text-sm font-semibold uppercase tracking-[0.04em] text-white transition-colors hover:bg-[color:var(--ss-color-primary-hover)] hover:border-[color:var(--ss-color-primary-hover)]"
+                >
+                  Add contact
+                </button>
+              </div>
+            </form>
+          </div>
+        </details>
+      </div>
+    )
+  }
+</section>
