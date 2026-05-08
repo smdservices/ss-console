@@ -1,29 +1,23 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro'
 import AdminFlashNotice from '../../../components/admin/AdminFlashNotice.astro'
-import LogReplyDialog from '../../../components/admin/LogReplyDialog.astro'
-import EnrichmentStatusPanel from '../../../components/admin/EnrichmentStatusPanel.astro'
-import EntityTimelineEntry from '../../../components/admin/EntityTimelineEntry.astro'
-import EntitySendBookingDialog from '../../../components/admin/EntitySendBookingDialog.astro'
-import EntityStageActions from '../../../components/admin/EntityStageActions.astro'
-import EntityDossierSummary from '../../../components/admin/EntityDossierSummary.astro'
 import EntityContactsPanel from '../../../components/admin/EntityContactsPanel.astro'
+import EntityDecisionRail from '../../../components/admin/EntityDecisionRail.astro'
+import EntityDiagnosticsDrawer from '../../../components/admin/EntityDiagnosticsDrawer.astro'
+import EntityEnrichmentSummary from '../../../components/admin/EntityEnrichmentSummary.astro'
+import EntityIdentityStrip from '../../../components/admin/EntityIdentityStrip.astro'
+import EntityMissingPanel from '../../../components/admin/EntityMissingPanel.astro'
+import EntityPainObservations from '../../../components/admin/EntityPainObservations.astro'
+import EntitySendBookingDialog from '../../../components/admin/EntitySendBookingDialog.astro'
+import EntityTimelineEntry from '../../../components/admin/EntityTimelineEntry.astro'
+import LogReplyDialog from '../../../components/admin/LogReplyDialog.astro'
 import { statusBadgeClass } from '../../../lib/ui/status-badge'
-import { pipelineBadgeClass } from '../../../lib/ui/pipeline-badge'
-import { adminActionButtonClass } from '../../../lib/ui/admin-action-button'
-import { relativeTime } from '../../../lib/admin/relative-time'
+import { ENTITY_STAGES, type EntityStage } from '../../../lib/db/entities'
 import {
-  contextTypeBadge,
   formatDate,
-  isOverdue,
   loadEntityDetailPage,
+  parseMetadata,
 } from '../../../lib/admin/entity-detail-page'
-import { PIPELINE_LABELS } from '../../../lead-gen/schemas/lead-scoring-schema'
-import type { PipelineId } from '../../../lead-gen/schemas/lead-scoring-schema'
-import { ENTITY_STAGES } from '../../../lib/db/entities'
-import { lostReasonLabel, lostReasonChipClass } from '../../../lib/db/lost-reasons'
-import { CONTEXT_TYPES } from '../../../lib/db/context'
-import type { ContextEntry } from '../../../lib/db/context'
 import { env } from 'cloudflare:workers'
 
 const session = Astro.locals.session!
@@ -38,18 +32,16 @@ if (!pageData) return Astro.redirect('/admin/entities?error=not_found')
 
 const {
   entity,
+  signalMetadata,
   contextEntries,
   contacts,
   meetings,
   engagements,
   quotes,
   invoices,
+  enrichmentRuns,
   mostRecentDraftableMeeting,
-  hasOutreach,
-  filteredEntries,
-  typeFilter,
-  typeCounts,
-  currentLostReason,
+  deduplicatedTimeline,
   promoted,
   noteAdded,
   replyLogged,
@@ -63,187 +55,259 @@ const {
   showNewQuoteButton,
   supersedeCandidates,
   transitions,
+  decisionEvidence,
+  mergeCandidates,
   dossierBrief,
   outreachEntry,
   outreachContact,
   outreachMailto,
-  outreachFromDossier,
-  hasDossier,
+  hasOutreach,
   lastEnrichmentAt,
-  latestSentQuoteAt,
   reviewMeta,
-  websiteMeta,
-  competitorMeta,
 } = pageData
+
+const merged = Astro.url.searchParams.get('merged')
+const draftDiscarded = Astro.url.searchParams.get('draft_discarded')
+
+const signalSourceLabel =
+  signalMetadata?.signal_source_label ?? entity.source_pipeline ?? 'unknown_source'
+const signalAddress =
+  signalMetadata?.signal_address ?? signalMetadata?.signal_location ?? entity.area ?? null
+const signalDate = signalMetadata?.signal_date ?? entity.created_at
+const stageAnchorDate = entity.stage_changed_at ?? entity.created_at
+const stageAgeMs = Date.now() - new Date(stageAnchorDate).getTime()
+const daysInStage = Math.max(0, Math.floor(stageAgeMs / (24 * 60 * 60 * 1000)))
+const stageLabel =
+  ENTITY_STAGES.find((stage) => stage.value === entity.stage)?.label ?? entity.stage
+
+const reviewSynthesisEntry = [...contextEntries]
+  .reverse()
+  .find((entry) => entry.source === 'review_synthesis')
+const deepWebsiteEntry = [...contextEntries]
+  .reverse()
+  .find((entry) => entry.source === 'deep_website')
+const summaryGeneratedAt =
+  reviewSynthesisEntry?.created_at ??
+  deepWebsiteEntry?.created_at ??
+  dossierBrief?.created_at ??
+  null
+const summarySource =
+  reviewSynthesisEntry?.source ?? deepWebsiteEntry?.source ?? dossierBrief?.source ?? null
+
+const latestJobSignalEntry =
+  [...contextEntries]
+    .reverse()
+    .find((entry) => entry.type === 'signal' && entry.source === 'job_monitor') ?? undefined
+const jobSignalMeta = parseMetadata(latestJobSignalEntry?.metadata ?? null) as {
+  top_problems?: string[]
+  evidence?: string
+} | null
+
+const mobileDraftWarning = decisionEvidence.staleDraftWarning.isStale
+
+function emptyCountLabel(count: number, singular: string, plural: string): string {
+  return `${count} ${count === 1 ? singular : plural}`
+}
+
+function renderCollapsedSectionTitle(stage: EntityStage, count: number): string {
+  const base = ENTITY_STAGES.find((item) => item.value === stage)?.label ?? stage
+  return `${base} (${count})`
+}
 ---
 
 <AdminLayout
-  title={`${entity.name} — SMD Services`}
+  title={`${entity.name} | SMD Services`}
   breadcrumbs={[
     { label: 'Dashboard', href: '/admin' },
     { label: 'Entities', href: `/admin/entities?stage=${entity.stage}` },
     { label: entity.name },
   ]}
+  mainClass="pb-20 lg:pb-8"
+  maxWidth="max-w-6xl"
 >
-  {
-    /* H19 — back-link to the stage list. Breadcrumbs cover this in
-      principle but reduce to a small text trail; an inline back link
-      gives the operator a one-click escape hatch from a deep detail
-      page back to the work queue they came from. */
-  }
-  <a
-    href={`/admin/entities?stage=${entity.stage}`}
-    class="inline-flex items-center gap-1 text-xs text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-primary)] mb-3"
-  >
-    <span aria-hidden="true">←</span>
-    <span>
-      Back to {ENTITY_STAGES.find((s) => s.value === entity.stage)?.label ?? entity.stage} list
-    </span>
-  </a>
   {promoted && <AdminFlashNotice message={`${entity.name} promoted to prospect.`} />}
   {noteAdded && <AdminFlashNotice message={`Note added to ${entity.name}.`} />}
   {replyLogged && <AdminFlashNotice message={`Reply logged on ${entity.name}.`} />}
-  {
-    stageUpdated && (
-      <AdminFlashNotice
-        message={`${entity.name} moved to ${ENTITY_STAGES.find((s) => s.value === entity.stage)?.label ?? entity.stage}.`}
-      />
-    )
-  }
+  {stageUpdated && <AdminFlashNotice message={`${entity.name} moved to ${stageLabel}.`} />}
+  {merged && <AdminFlashNotice message="Entity merge completed." />}
+  {draftDiscarded && <AdminFlashNotice message="Stale outreach draft discarded." />}
   {
     dossierGenerated === 'queued' && (
       <AdminFlashNotice
         kind="warning"
-        message={`Re-enrichment queued for ${entity.name}. The pipeline runs in the background. Refresh in about 30 seconds to see updated reviews, synthesis, news, and outreach draft.`}
+        message={`Re-enrichment queued for ${entity.name}. Refresh in about 30 seconds for updated signals.`}
       />
     )
   }
-  {
-    dossierGenerated === '1' && (
-      <AdminFlashNotice
-        message={`Re-enriched ${entity.name}. Refreshed reviews, synthesis, news, and outreach draft. See timeline below.`}
-      />
-    )
-  }
+  {dossierGenerated === '1' && <AdminFlashNotice message={`Re-enriched ${entity.name}.`} />}
   {contactAdded && <AdminFlashNotice message="Contact added." />}
   {contactUpdated && <AdminFlashNotice message="Contact updated." />}
   {contactDeleted && <AdminFlashNotice message="Contact deleted." />}
   {error && <AdminFlashNotice kind="error" message={decodeURIComponent(error)} />}
 
-  {/* Entity Summary */}
-  <div
-    class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card mb-6"
+  <a
+    href={`/admin/entities?stage=${entity.stage}`}
+    class="mb-6 inline-flex items-center gap-1 text-sm text-[color:var(--ss-color-text-secondary)] transition-colors hover:text-[color:var(--ss-color-primary)]"
   >
-    <div class="flex items-start justify-between gap-stack">
-      <div>
-        <div class="flex items-center gap-row mb-2">
-          <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
-            {entity.name}
-          </h2>
-          <span class={statusBadgeClass(entity.stage)}>
-            {ENTITY_STAGES.find((s) => s.value === entity.stage)?.label ?? entity.stage}
-          </span>
-          {
-            currentLostReason && (
-              <span
-                class={`text-xs px-2 py-0.5 rounded ${lostReasonChipClass(currentLostReason.code)}`}
-                title={currentLostReason.detail ?? undefined}
-              >
-                {lostReasonLabel(currentLostReason.code) ?? currentLostReason.code}
-              </span>
-            )
-          }
-          {
-            entity.tier && (
-              <span class="text-xs px-2 py-0.5 rounded bg-border-subtle text-text-secondary">
-                {entity.tier}
-              </span>
-            )
-          }
-        </div>
+    <span>Back to {stageLabel} list</span>
+  </a>
 
-        <div
-          class="flex items-center gap-stack text-sm text-[color:var(--ss-color-text-secondary)] mb-2 flex-wrap"
-        >
-          {entity.vertical && <span class="capitalize">{entity.vertical.replace(/_/g, ' ')}</span>}
-          {entity.area && <span>{entity.area}</span>}
-        </div>
+  <LogReplyDialog entityId={entity.id} entityName={entity.name} />
+  {entity.stage === 'prospect' && <EntitySendBookingDialog entityId={entity.id} />}
 
-        <div class="flex items-center gap-row text-xs text-[color:var(--ss-color-text-muted)]">
-          {
-            entity.source_pipeline && (
-              <span class={pipelineBadgeClass(entity.source_pipeline)}>
-                {PIPELINE_LABELS[entity.source_pipeline as PipelineId] ?? entity.source_pipeline}
-              </span>
-            )
-          }
-          {
-            entity.stage === 'signal' || entity.stage === 'lost' ? (
-              <span>
-                {entity.stage === 'lost'
-                  ? `Lost ${formatDate(entity.stage_changed_at)}`
-                  : `Created ${formatDate(entity.created_at)}`}
-              </span>
-            ) : (
-              <span>
-                {ENTITY_STAGES.find((s) => s.value === entity.stage)?.label ?? entity.stage} since{' '}
-                {formatDate(entity.stage_changed_at)}
-              </span>
-            )
-          }
-          {
-            entity.stage === 'proposing' && latestSentQuoteAt && (
-              <span title={`Quote sent ${formatDate(latestSentQuoteAt)}`}>
-                Quote sent {relativeTime(latestSentQuoteAt)}
-              </span>
-            )
-          }
-          {entity.phone && <span>{entity.phone}</span>}
-          {
-            entity.website && (
-              <a
-                href={
-                  entity.website.startsWith('http') ? entity.website : `https://${entity.website}`
-                }
-                target="_blank"
-                class="text-primary hover:underline"
-              >
-                {entity.website}
-              </a>
-            )
-          }
-        </div>
+  <div data-test="decision-evidence">
+    <div class="lg:grid lg:grid-cols-[1fr_22rem] lg:gap-8">
+      <section class="min-w-0">
+        <EntityIdentityStrip
+          entity={entity}
+          actorRole={decisionEvidence.actorRole}
+          actorRoleConfidence={decisionEvidence.actorRoleConfidence}
+          signalEvidence={decisionEvidence.signalEvidence}
+          signalSourceLabel={signalSourceLabel}
+          daysInStage={daysInStage}
+          structuralFlags={decisionEvidence.structuralFlags}
+        />
 
         {
-          entity.next_action && (
-            <div
-              class={`mt-3 px-3 py-2 rounded text-sm bg-surface border ${
-                isOverdue(entity.next_action_at) ? 'border-error' : 'border-border'
-              }`}
-            >
-              <span
-                class={`font-medium ${
-                  isOverdue(entity.next_action_at) ? 'text-error' : 'text-text-primary'
-                }`}
-              >
-                {isOverdue(entity.next_action_at) ? 'Overdue:' : 'Next:'}
-              </span>
-              <span class={isOverdue(entity.next_action_at) ? 'text-error' : 'text-text-secondary'}>
-                {' '}
-                {entity.next_action}
-                {entity.next_action_at && ` — ${formatDate(entity.next_action_at)}`}
-              </span>
-            </div>
+          mobileDraftWarning && (
+            <section class="border-b border-[color:var(--ss-color-border)] py-8 lg:hidden">
+              <div class="border border-[color:var(--ss-color-warning)] border-l-[3px] px-4 py-4 text-sm leading-6 text-[color:var(--ss-color-text-secondary)]">
+                <strong class="mb-1 block font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-warning)]">
+                  Draft is stale
+                </strong>
+                <span>
+                  {decisionEvidence.staleDraftWarning.reason} Will be regenerated when you Promote
+                  and validated against Pattern A.
+                </span>
+                <div class="mt-3 flex gap-3">
+                  <a
+                    href="#entity-diagnostics-draft"
+                    class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)] underline underline-offset-4"
+                  >
+                    View draft
+                  </a>
+                  <form
+                    method="POST"
+                    action={`/api/admin/entities/${entity.id}/outreach-draft/discard`}
+                  >
+                    <button
+                      type="submit"
+                      class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)] underline underline-offset-4"
+                    >
+                      Discard now
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </section>
           )
         }
-      </div>
 
-      {/* Stage transition buttons */}
-      <EntityStageActions
+        <EntityMissingPanel items={decisionEvidence.missingForOutreach} />
+
+        <EntityEnrichmentSummary
+          summary={decisionEvidence.enrichmentSummary}
+          summarySource={summarySource}
+          signalSource={signalSourceLabel}
+          signalDate={signalDate}
+          address={signalAddress}
+          vertical={entity.vertical}
+          generatedAt={summaryGeneratedAt}
+        />
+
+        <EntityPainObservations reviewMeta={reviewMeta} jobSignalMeta={jobSignalMeta} />
+
+        <EntityContactsPanel entityId={entity.id} contacts={contacts} />
+
+        <section class="border-b border-[color:var(--ss-color-border)] py-8">
+          <div class="mb-4 flex items-baseline justify-between gap-4">
+            <h2
+              class="font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)]"
+            >
+              Timeline
+            </h2>
+            <span
+              class="font-['JetBrains_Mono'] text-[12px] text-[color:var(--ss-color-text-muted)]"
+            >
+              {emptyCountLabel(deduplicatedTimeline.length, 'event', 'events')} | deduped
+            </span>
+          </div>
+
+          <details class="mb-6">
+            <summary
+              class="cursor-pointer font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)] underline underline-offset-4"
+            >
+              + Add note
+            </summary>
+            <div class="mt-4 border border-[color:var(--ss-color-border)] px-5 py-4">
+              <form
+                method="POST"
+                action={`/api/admin/entities/${entity.id}/context`}
+                class="space-y-4"
+              >
+                <input type="hidden" name="type" value="note" />
+                <label class="block">
+                  <span
+                    class="mb-1 block font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
+                  >
+                    Note
+                  </span>
+                  <textarea
+                    name="content"
+                    rows="4"
+                    placeholder="Add a note..."
+                    class="w-full border border-[color:var(--ss-color-border)] bg-[color:var(--ss-color-background)] px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)]"
+                  ></textarea>
+                </label>
+                <div class="flex justify-end gap-3">
+                  <button
+                    type="reset"
+                    class="border border-[color:var(--ss-color-text-primary)] px-4 py-2 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)] transition-colors hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)]"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="submit"
+                    class="border border-[color:var(--ss-color-primary)] bg-[color:var(--ss-color-primary)] px-4 py-2 font-['Archivo'] text-sm font-semibold uppercase tracking-[0.04em] text-white transition-colors hover:bg-[color:var(--ss-color-primary-hover)] hover:border-[color:var(--ss-color-primary-hover)]"
+                  >
+                    Add note
+                  </button>
+                </div>
+              </form>
+            </div>
+          </details>
+
+          {
+            deduplicatedTimeline.length === 0 ? (
+              <p class="text-[15px] italic leading-6 text-[color:var(--ss-color-text-secondary)]">
+                No context entries yet.
+              </p>
+            ) : (
+              <ul class="list-none">
+                {deduplicatedTimeline.map((entry, idx) => (
+                  <EntityTimelineEntry entry={entry} openByDefault={idx < 3} />
+                ))}
+              </ul>
+            )
+          }
+        </section>
+
+        <EntityDiagnosticsDrawer
+          entityId={entity.id}
+          intelligenceBriefEntry={dossierBrief}
+          outreachEntry={outreachEntry}
+          enrichmentRuns={enrichmentRuns}
+        />
+      </section>
+
+      <EntityDecisionRail
         entityId={entity.id}
         entityStage={entity.stage}
+        mergeCandidates={mergeCandidates}
+        staleDraft={decisionEvidence.staleDraftWarning}
+        outreachEntry={outreachEntry}
         transitions={transitions}
-        mostRecentDraftableMeeting={mostRecentDraftableMeeting ?? null}
+        mostRecentDraftableMeeting={mostRecentDraftableMeeting}
         outreachMailto={outreachMailto}
         outreachContactEmail={outreachContact?.email ?? null}
         showReEnrichButton={showReEnrichButton}
@@ -253,244 +317,134 @@ const {
         supersedeCandidates={supersedeCandidates}
       />
     </div>
-  </div>
 
-  <LogReplyDialog entityId={entity.id} entityName={entity.name} />
-
-  {entity.stage === 'prospect' && <EntitySendBookingDialog entityId={entity.id} />}
-
-  {
-    /* Add Note — `rows="4"` and a non-resize textarea give the operator
-      enough room to draft a real note (the prior `rows="2"` was a single-
-      line nudge that fought against any actual writing). The Clear button
-      resets the textarea without submitting; the form's native reset
-      handles the clearing logic. */
-  }
-  <div
-    class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-stack mb-6"
-  >
-    <form method="POST" action={`/api/admin/entities/${entity.id}/context`} class="flex gap-row">
-      <input type="hidden" name="type" value="note" />
-      <textarea
-        name="content"
-        placeholder="Add a note..."
-        rows="4"
-        class="flex-1 text-sm border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] px-3 py-2 resize-y focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-      ></textarea>
-      <div class="flex flex-col gap-2 self-end">
-        <button type="submit" class={adminActionButtonClass('ghost')}>Add Note</button>
-        <button type="reset" class={adminActionButtonClass('ghost')}> Clear </button>
-      </div>
-    </form>
-  </div>
-
-  {/* Context Timeline */}
-  <div class="mb-6">
-    <div class="flex items-center justify-between mb-3">
-      <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)]">
-        Context Timeline
-        <span class="text-sm font-normal text-[color:var(--ss-color-text-muted)]"
-          >({contextEntries.length})</span
-        >
-      </h3>
-    </div>
-
-    {/* Type filter pills */}
-    <div class="flex gap-1 mb-4 flex-wrap">
-      <a
-        href={`/admin/entities/${entity.id}`}
-        class={`text-xs px-2.5 py-1 rounded-full transition-colors ${!typeFilter ? 'bg-surface-inverse text-white' : 'bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)] hover:bg-[color:var(--ss-color-border)]'}`}
-      >
-        All ({contextEntries.length})
-      </a>
+    <div class="mt-8 space-y-4">
       {
-        Object.entries(typeCounts).map(([type, count]) => (
-          <a
-            href={`/admin/entities/${entity.id}?type=${type}`}
-            class={`text-xs px-2.5 py-1 rounded-full transition-colors ${typeFilter === type ? 'bg-surface-inverse text-white' : contextTypeBadge(type) + ' hover:opacity-80'}`}
-          >
-            {CONTEXT_TYPES.find((t) => t.value === type)?.label ?? type} ({count})
-          </a>
-        ))
+        meetings.length > 0 && (
+          <details open class="border border-[color:var(--ss-color-border)]">
+            <summary class="cursor-pointer px-6 py-4 font-medium text-[color:var(--ss-color-text-primary)]">
+              {renderCollapsedSectionTitle('meetings', meetings.length)}
+            </summary>
+            <div class="px-6 pb-4">
+              {meetings.map((meeting) => (
+                <a
+                  href={`/admin/entities/${entity.id}/meetings/${meeting.id}`}
+                  class="flex items-center gap-2 border-t border-[color:var(--ss-color-border-subtle)] px-0 py-3 first:border-t-0 first:pt-0 hover:text-[color:var(--ss-color-primary)]"
+                >
+                  <span class={statusBadgeClass(meeting.status)}>{meeting.status}</span>
+                  {meeting.meeting_type && (
+                    <span class="border border-[color:var(--ss-color-border)] px-2 py-1 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]">
+                      {meeting.meeting_type}
+                    </span>
+                  )}
+                  {meeting.scheduled_at && (
+                    <span class="text-sm text-[color:var(--ss-color-text-primary)]">
+                      {formatDate(meeting.scheduled_at)}
+                    </span>
+                  )}
+                  {meeting.duration_minutes && (
+                    <span class="text-xs text-[color:var(--ss-color-text-muted)]">
+                      {meeting.duration_minutes} min
+                    </span>
+                  )}
+                </a>
+              ))}
+            </div>
+          </details>
+        )
+      }
+
+      {
+        engagements.length > 0 && (
+          <details class="border border-[color:var(--ss-color-border)]">
+            <summary class="cursor-pointer px-6 py-4 font-medium text-[color:var(--ss-color-text-primary)]">
+              {renderCollapsedSectionTitle('engaged', engagements.length)}
+            </summary>
+            <div class="px-6 pb-4">
+              {engagements.map((engagement) => (
+                <a
+                  href={`/admin/engagements/${engagement.id}`}
+                  class="flex items-center gap-2 border-t border-[color:var(--ss-color-border-subtle)] px-0 py-3 first:border-t-0 first:pt-0 hover:text-[color:var(--ss-color-primary)]"
+                >
+                  <span class={statusBadgeClass(engagement.status)}>{engagement.status}</span>
+                  {engagement.start_date && (
+                    <span class="text-sm text-[color:var(--ss-color-text-primary)]">
+                      {formatDate(engagement.start_date)}
+                    </span>
+                  )}
+                  {engagement.estimated_hours && (
+                    <span class="text-xs text-[color:var(--ss-color-text-muted)]">
+                      {engagement.actual_hours}/{engagement.estimated_hours} hrs
+                    </span>
+                  )}
+                </a>
+              ))}
+            </div>
+          </details>
+        )
+      }
+
+      {
+        quotes.length > 0 && (
+          <details class="border border-[color:var(--ss-color-border)]">
+            <summary class="cursor-pointer px-6 py-4 font-medium text-[color:var(--ss-color-text-primary)]">
+              Quotes ({quotes.length})
+            </summary>
+            <div class="px-6 pb-4">
+              {quotes.map((quote) => (
+                <a
+                  href={`/admin/entities/${entity.id}/quotes/${quote.id}`}
+                  class="flex items-center gap-2 border-t border-[color:var(--ss-color-border-subtle)] px-0 py-3 first:border-t-0 first:pt-0 hover:text-[color:var(--ss-color-primary)]"
+                >
+                  <span class={statusBadgeClass(quote.status)}>{quote.status}</span>
+                  <span class="text-sm font-medium text-[color:var(--ss-color-text-primary)]">
+                    ${quote.total_price.toLocaleString()}
+                  </span>
+                  <span class="text-xs text-[color:var(--ss-color-text-muted)]">
+                    {quote.total_hours} hrs
+                  </span>
+                  <span class="text-xs text-[color:var(--ss-color-text-muted)]">
+                    v{quote.version}
+                  </span>
+                </a>
+              ))}
+            </div>
+          </details>
+        )
+      }
+
+      {
+        invoices.length > 0 && (
+          <details class="border border-[color:var(--ss-color-border)]">
+            <summary class="cursor-pointer px-6 py-4 font-medium text-[color:var(--ss-color-text-primary)]">
+              Invoices ({invoices.length})
+            </summary>
+            <div class="px-6 pb-4">
+              {invoices.map((invoice) => (
+                <div class="flex items-center justify-between gap-4 border-t border-[color:var(--ss-color-border-subtle)] py-3 first:border-t-0 first:pt-0">
+                  <div class="flex items-center gap-2">
+                    <span class={statusBadgeClass(invoice.status)}>{invoice.status}</span>
+                    <span class="text-sm font-medium text-[color:var(--ss-color-text-primary)]">
+                      ${invoice.amount.toLocaleString()}
+                    </span>
+                    <span class="text-xs text-[color:var(--ss-color-text-muted)]">
+                      {invoice.type}
+                    </span>
+                    {invoice.due_date && (
+                      <span class="text-xs text-[color:var(--ss-color-text-muted)]">
+                        Due {formatDate(invoice.due_date)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </details>
+        )
       }
     </div>
-
-    {/* Timeline entries */}
-    {
-      filteredEntries.length === 0 ? (
-        <div class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-stack">
-          <p class="text-[color:var(--ss-color-text-secondary)] text-sm">No context entries yet.</p>
-        </div>
-      ) : (
-        <div class="space-y-row">
-          {filteredEntries.map((entry: ContextEntry, idx: number) => (
-            <EntityTimelineEntry entry={entry} openByDefault={idx < 3} />
-          ))}
-        </div>
-      )
-    }
   </div>
 
-  {/* Enrichment status — debug surface for the runs table */}
-  <EnrichmentStatusPanel entityId={entityId} />
-
-  {/* Dossier Summary */}
-  {
-    hasDossier && (
-      <EntityDossierSummary
-        dossierBrief={dossierBrief}
-        reviewMeta={reviewMeta}
-        websiteMeta={websiteMeta}
-        competitorMeta={competitorMeta}
-        outreachEntry={outreachEntry}
-        outreachFromDossier={outreachFromDossier}
-      />
-    )
-  }
-
-  {/* Related Data Panels */}
-  <div class="mb-4">
-    <EntityContactsPanel entityId={entity.id} contacts={contacts} />
-  </div>
-
-  {
-    meetings.length > 0 && (
-      <details
-        class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] mb-4"
-        open
-      >
-        <summary class="px-6 py-4 cursor-pointer font-medium text-[color:var(--ss-color-text-primary)]">
-          Meetings ({meetings.length})
-        </summary>
-        <div class="px-6 pb-4 divide-y divide-[color:var(--ss-color-border-subtle)]">
-          {meetings.map((m) => (
-            <a
-              href={`/admin/entities/${entity.id}/meetings/${m.id}`}
-              class="py-2 flex items-center gap-2 hover:bg-[color:var(--ss-color-background)] -mx-2 px-2 rounded transition-colors"
-            >
-              <span class={statusBadgeClass(m.status)}>{m.status}</span>
-              {m.meeting_type && (
-                <span class="text-xs bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)] px-1.5 py-0.5 rounded">
-                  {m.meeting_type}
-                </span>
-              )}
-              {m.scheduled_at && (
-                <span class="text-sm text-[color:var(--ss-color-text-primary)]">
-                  {formatDate(m.scheduled_at)}
-                </span>
-              )}
-              {m.duration_minutes && (
-                <span class="text-xs text-[color:var(--ss-color-text-muted)]">
-                  {m.duration_minutes} min
-                </span>
-              )}
-            </a>
-          ))}
-        </div>
-      </details>
-    )
-  }
-
-  {
-    engagements.length > 0 && (
-      <details class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] mb-4">
-        <summary class="px-6 py-4 cursor-pointer font-medium text-[color:var(--ss-color-text-primary)]">
-          Engagements ({engagements.length})
-        </summary>
-        <div class="px-6 pb-4 divide-y divide-[color:var(--ss-color-border-subtle)]">
-          {engagements.map((e) => (
-            <a
-              href={`/admin/engagements/${e.id}`}
-              class="py-2 flex items-center gap-2 hover:bg-[color:var(--ss-color-background)] -mx-2 px-2 rounded transition-colors"
-            >
-              <span class={statusBadgeClass(e.status)}>{e.status}</span>
-              {e.start_date && (
-                <span class="text-sm text-[color:var(--ss-color-text-primary)]">
-                  {formatDate(e.start_date)}
-                </span>
-              )}
-              {e.estimated_hours && (
-                <span class="text-xs text-[color:var(--ss-color-text-muted)]">
-                  {e.actual_hours}/{e.estimated_hours} hrs
-                </span>
-              )}
-            </a>
-          ))}
-        </div>
-      </details>
-    )
-  }
-
-  {
-    quotes.length > 0 && (
-      <details class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] mb-4">
-        <summary class="px-6 py-4 cursor-pointer font-medium text-[color:var(--ss-color-text-primary)]">
-          Quotes ({quotes.length})
-        </summary>
-        <div class="px-6 pb-4 divide-y divide-[color:var(--ss-color-border-subtle)]">
-          {quotes.map((q) => (
-            <a
-              href={`/admin/entities/${entity.id}/quotes/${q.id}`}
-              class="py-2 flex items-center gap-2 hover:bg-[color:var(--ss-color-background)] -mx-2 px-2 rounded transition-colors"
-            >
-              <span class={statusBadgeClass(q.status)}>{q.status}</span>
-              <span class="text-sm font-medium text-[color:var(--ss-color-text-primary)]">
-                ${q.total_price.toLocaleString()}
-              </span>
-              <span class="text-xs text-[color:var(--ss-color-text-muted)]">
-                {q.total_hours} hrs
-              </span>
-              <span class="text-xs text-[color:var(--ss-color-text-muted)]">v{q.version}</span>
-            </a>
-          ))}
-        </div>
-      </details>
-    )
-  }
-
-  {
-    invoices.length > 0 && (
-      <details class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] mb-4">
-        <summary class="px-6 py-4 cursor-pointer font-medium text-[color:var(--ss-color-text-primary)]">
-          Invoices ({invoices.length})
-        </summary>
-        <div class="px-6 pb-4 divide-y divide-[color:var(--ss-color-border-subtle)]">
-          {invoices.map((inv) => (
-            <div class="py-2 flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <span class={statusBadgeClass(inv.status)}>{inv.status}</span>
-                <span class="text-sm font-medium text-[color:var(--ss-color-text-primary)]">
-                  ${inv.amount.toLocaleString()}
-                </span>
-                <span class="text-xs text-[color:var(--ss-color-text-muted)]">{inv.type}</span>
-                {inv.due_date && (
-                  <span class="text-xs text-[color:var(--ss-color-text-muted)]">
-                    Due {formatDate(inv.due_date)}
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </details>
-    )
-  }
-  <style>
-    /* Timeline long-entry truncation: visible by default, expands on toggle. */
-    .js-truncated {
-      display: -webkit-box;
-      -webkit-line-clamp: 6;
-      line-clamp: 6;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-    .js-truncated.is-expanded {
-      display: block;
-      -webkit-line-clamp: unset;
-      line-clamp: unset;
-      overflow: visible;
-    }
-  </style>
   <script>
     import { initEntityDetailPage } from '../../../lib/admin/entity-detail-client'
 

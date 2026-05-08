@@ -1,0 +1,48 @@
+---
+interface MissingItem {
+  key: string
+  label: string
+  reason: string
+}
+
+interface Props {
+  items: MissingItem[]
+}
+
+const { items } = Astro.props
+
+if (items.length === 0) {
+  return null
+}
+---
+
+<section class="border-b border-[color:var(--ss-color-border)] py-8">
+  <div
+    class="border-l-[3px] border-[color:var(--ss-color-warning)] px-5 py-4"
+    data-test="missing-panel"
+  >
+    <div
+      class="mb-2 font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-warning)]"
+    >
+      Missing for credible outreach
+    </div>
+    <ul class="space-y-1 text-[15px] leading-6 text-[color:var(--ss-color-text-secondary)]">
+      {
+        items.map((item) => (
+          <li class="flex items-start gap-2">
+            <span class="font-bold text-[color:var(--ss-color-warning)]" aria-hidden="true">
+              -
+            </span>
+            <span>
+              <strong class="font-semibold text-[color:var(--ss-color-text-primary)]">
+                {item.label}
+              </strong>
+              {' - '}
+              {item.reason}
+            </span>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>

@@ -1,11 +1,6 @@
 ---
-/**
- * Single timeline entry for the entity detail page.
- * Extracted from src/pages/admin/entities/[id].astro to keep that page
- * under the 500 code-line ceiling.
- */
-import { contextTypeBadge, formatDateTime, parseMetadata } from '../../lib/admin/entity-detail-page'
-import { CONTEXT_TYPES } from '../../lib/db/context'
+import { parseMetadata } from '../../lib/admin/entity-detail-page'
+import { relativeTime } from '../../lib/admin/relative-time'
 import type { ContextEntry } from '../../lib/db/context'
 
 interface Props {
@@ -13,96 +8,88 @@ interface Props {
   openByDefault: boolean
 }
 
-const { entry, openByDefault } = Astro.props
+const { entry } = Astro.props
 const meta = parseMetadata(entry.metadata)
-const problems = meta?.top_problems as string[] | undefined
-const isLong = entry.content.length > 500
 const isReplyLog = entry.type === 'note' && entry.source === 'reply_log'
-const replySentiment = isReplyLog ? (meta?.sentiment as string | undefined) : undefined
-const replyNextAction = isReplyLog ? (meta?.next_action as string | undefined) : undefined
+
+function formatStage(value: unknown): string | null {
+  if (typeof value !== 'string' || value.length === 0) return null
+  return value.replace(/_/g, ' ')
+}
+
+function entryHeadline(current: ContextEntry, _metadata: Record<string, unknown> | null): string {
+  if (current.type === 'enrichment') return 'Enrichment run completed'
+  if (current.type === 'signal') return 'Pipeline signal qualified'
+  if (current.type === 'stage_change') return 'Stage changed'
+  if (isReplyLog) return 'Reply logged'
+  if (current.type === 'note') return 'Note added'
+  return current.type.replace(/_/g, ' ')
+}
+
+function signalDetail(
+  current: ContextEntry,
+  metadata: Record<string, unknown> | null
+): string | null {
+  const parts = [
+    current.source,
+    typeof metadata?.vertical === 'string' ? `vertical: ${metadata.vertical}` : null,
+    typeof metadata?.outreach_timing === 'string' ? `timing: ${metadata.outreach_timing}` : null,
+  ].filter((part): part is string => !!part)
+  return parts.length > 0 ? parts.join(' | ') : null
+}
+
+function enrichmentDetail(
+  current: ContextEntry,
+  metadata: Record<string, unknown> | null
+): string | null {
+  const succeeded = typeof metadata?.succeeded === 'number' ? metadata.succeeded : null
+  const noData = typeof metadata?.no_data === 'number' ? metadata.no_data : null
+  const skipped = typeof metadata?.skipped === 'number' ? metadata.skipped : null
+  const parts = [
+    current.source ? `${current.source}` : null,
+    succeeded !== null ? `${succeeded} succeeded` : null,
+    noData !== null ? `${noData} no_data` : null,
+    skipped !== null ? `${skipped} skipped` : null,
+  ].filter((part): part is string => !!part)
+  return parts.length > 0 ? parts.join(' | ') : null
+}
+
+function stageChangeDetail(metadata: Record<string, unknown> | null): string | null {
+  const from = formatStage(metadata?.from)
+  const to = formatStage(metadata?.to)
+  const reason = typeof metadata?.reason === 'string' ? metadata.reason : null
+  const parts = [from && to ? `${from} to ${to}` : null, reason].filter(
+    (part): part is string => !!part
+  )
+  return parts.length > 0 ? parts.join(' | ') : null
+}
+
+function replyLogDetail(metadata: Record<string, unknown> | null): string | null {
+  const sentiment = formatStage(metadata?.sentiment)
+  const nextAction = formatStage(metadata?.next_action)
+  const parts = [sentiment, nextAction ? `next: ${nextAction}` : null].filter(
+    (part): part is string => !!part
+  )
+  return parts.length > 0 ? parts.join(' | ') : null
+}
+
+function entryDetail(current: ContextEntry, metadata: Record<string, unknown> | null): string {
+  if (current.type === 'signal') return signalDetail(current, metadata) ?? current.content
+  if (current.type === 'enrichment') return enrichmentDetail(current, metadata) ?? current.content
+  if (current.type === 'stage_change') return stageChangeDetail(metadata) ?? current.content
+  if (isReplyLog) return replyLogDetail(metadata) ?? current.content
+  return current.content
+}
 ---
 
-<details
-  open={openByDefault}
-  class={`group bg-surface rounded-[var(--ss-radius-card)] border px-4 py-3 ${
-    isReplyLog
-      ? 'border-l-4 border-l-teal-500 border-[color:var(--ss-color-border)]'
-      : 'border-[color:var(--ss-color-border)]'
-  }`}
+<li
+  class="grid gap-3 border-t border-[color:var(--ss-color-border-subtle)] py-3 text-[15px] leading-6 first:border-t-0 first:pt-0 md:grid-cols-[8rem_1fr]"
 >
-  <summary
-    class="flex items-center gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden flex-wrap"
-  >
-    {
-      isReplyLog ? (
-        <span class="text-xs px-2 py-0.5 rounded bg-border-subtle text-text-secondary font-semibold">
-          Reply
-        </span>
-      ) : (
-        <span class={`text-xs px-2 py-0.5 rounded ${contextTypeBadge(entry.type)}`}>
-          {CONTEXT_TYPES.find((t) => t.value === entry.type)?.label ?? entry.type}
-        </span>
-      )
-    }
-    <span class="text-xs text-[color:var(--ss-color-text-muted)]">{entry.source}</span>
-    <span class="text-xs text-[color:var(--ss-color-text-muted)]"
-      >{formatDateTime(entry.created_at)}</span
-    >
-    {
-      replySentiment && (
-        <span class="text-xs px-1.5 py-0.5 rounded bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)] capitalize">
-          {replySentiment.replace(/_/g, ' ')}
-        </span>
-      )
-    }
-    {
-      replyNextAction && (
-        <span class="text-xs text-[color:var(--ss-color-text-secondary)]">
-          Next: <span class="capitalize">{replyNextAction.replace(/_/g, ' ')}</span>
-        </span>
-      )
-    }
-    <svg
-      class="ml-auto h-3.5 w-3.5 shrink-0 text-[color:var(--ss-color-text-muted)] transition-transform group-open:rotate-180"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path
-        fill-rule="evenodd"
-        d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"
-        clip-rule="evenodd"></path>
-    </svg>
-    <span class="sr-only">Toggle entry</span>
-  </summary>
-
-  <div class="mt-1.5">
-    {
-      problems && problems.length > 0 && (
-        <div class="flex gap-1 mb-1.5 flex-wrap">
-          {problems.map((p: string) => (
-            <span class="text-xs bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)] px-1.5 py-0.5 rounded">
-              {p.replace(/_/g, ' ')}
-            </span>
-          ))}
-        </div>
-      )
-    }
-    <div
-      class={`text-sm text-[color:var(--ss-color-text-primary)] whitespace-pre-wrap${isLong ? ' js-truncated' : ''}`}
-      data-long={isLong ? 'true' : 'false'}
-    >
-      {entry.content}
-    </div>
-    {
-      isLong && (
-        <button
-          type="button"
-          class="js-toggle-long text-xs mt-2 text-[color:var(--ss-color-primary)] hover:underline cursor-pointer"
-        >
-          Show more
-        </button>
-      )
-    }
-  </div>
-</details>
+  <span class="font-['JetBrains_Mono'] text-[13px] text-[color:var(--ss-color-text-secondary)]">
+    {relativeTime(entry.created_at)}
+  </span>
+  <span class="text-[color:var(--ss-color-text-primary)]">
+    <strong class="font-semibold">{entryHeadline(entry, meta)}</strong>
+    <span class="text-[color:var(--ss-color-text-secondary)]"> | {entryDetail(entry, meta)}</span>
+  </span>
+</li>

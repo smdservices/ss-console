@@ -187,6 +187,7 @@ export interface EntityDetailPageResult {
   engagements: Awaited<ReturnType<typeof listEngagements>>
   quotes: Quote[]
   invoices: Awaited<ReturnType<typeof listInvoices>>
+  enrichmentRuns: Map<EnrichmentRun['module'], EnrichmentRun>
   mostRecentDraftableMeeting: ReturnType<typeof findDraftableMeeting>
   hasOutreach: boolean
   filteredEntries: ContextEntry[]
@@ -498,6 +499,7 @@ export async function loadEntityDetailPage(params: {
     engagements: data.engagements,
     quotes: data.quotes,
     invoices: data.invoices,
+    enrichmentRuns: data.enrichmentRuns,
     mostRecentDraftableMeeting: findDraftableMeeting(data.meetings, data.quotes),
     hasOutreach: data.contextEntries.some((e) => e.type === 'outreach_draft'),
     filteredEntries: ctx.filteredEntries,

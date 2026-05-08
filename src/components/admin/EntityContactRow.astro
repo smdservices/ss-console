@@ -1,118 +1,97 @@
 ---
-/**
- * Single contact row, extracted from EntityContactsPanel.astro to keep
- * the parent's map callback under the 75-line function ceiling.
- */
 import type { Contact } from '../../lib/db/contacts'
 
 interface Props {
   contact: Contact
 }
 
-const { contact: c } = Astro.props
+const { contact } = Astro.props
+const inputClass =
+  'mt-1 w-full border border-[color:var(--ss-color-border)] bg-[color:var(--ss-color-background)] px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)]'
+const labelClass =
+  'text-[12px] font-medium uppercase tracking-[0.08em] text-[color:var(--ss-color-text-secondary)]'
 ---
 
-<div class="px-6 py-3 space-y-row">
-  <div class="flex items-start justify-between gap-stack">
-    <div class="flex-1 min-w-0">
-      <div class="flex items-center gap-2 flex-wrap">
-        <span class="text-sm font-medium text-[color:var(--ss-color-text-primary)]">{c.name}</span>
+<div class="py-4">
+  <div class="flex items-start justify-between gap-4">
+    <div class="min-w-0 flex-1">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-sm font-semibold text-[color:var(--ss-color-text-primary)]"
+          >{contact.name}</span
+        >
         {
-          c.title && (
-            <span class="text-xs text-[color:var(--ss-color-text-secondary)]">{c.title}</span>
+          contact.title && (
+            <span class="text-sm text-[color:var(--ss-color-text-secondary)]">{contact.title}</span>
           )
         }
         {
-          c.role && (
-            <span class="text-xs bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-secondary)] px-1.5 py-0.5 rounded">
-              {c.role}
+          contact.role && (
+            <span class="border border-[color:var(--ss-color-border)] px-2 py-1 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]">
+              {contact.role}
             </span>
           )
         }
       </div>
-      <div class="text-xs text-[color:var(--ss-color-text-muted)] flex flex-wrap gap-x-3 mt-0.5">
-        {c.email && <span>{c.email}</span>}
-        {c.phone && <span>{c.phone}</span>}
+      <div
+        class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-[color:var(--ss-color-text-muted)]"
+      >
+        {contact.email && <span>{contact.email}</span>}
+        {contact.phone && <span>{contact.phone}</span>}
       </div>
     </div>
-    <div class="flex-shrink-0 flex items-center gap-2">
+
+    <div class="flex shrink-0 items-start gap-3">
       <details class="relative">
         <summary
-          class="cursor-pointer text-xs text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)]"
+          class="cursor-pointer font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)] underline underline-offset-4"
         >
           Edit
         </summary>
         <form
           method="POST"
-          action={`/api/admin/contacts/${c.id}`}
-          class="space-y-row mt-2 p-3 border border-[color:var(--ss-color-border)] rounded bg-[color:var(--ss-color-background)]"
+          action={`/api/admin/contacts/${contact.id}`}
+          class="absolute right-0 top-full z-20 mt-3 w-[min(26rem,calc(100vw-2rem))] border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-4 py-4"
         >
-          <div class="grid grid-cols-2 gap-2">
-            <label class="text-xs text-[color:var(--ss-color-text-secondary)] col-span-2">
+          <div class="grid gap-3 sm:grid-cols-2">
+            <label class={`${labelClass} sm:col-span-2`}>
               Name *
-              <input
-                type="text"
-                name="name"
-                required
-                value={c.name}
-                class="mt-1 w-full border border-[color:var(--ss-color-border)] rounded px-2 py-1 text-sm"
-              />
+              <input type="text" name="name" required value={contact.name} class={inputClass} />
             </label>
-            <label class="text-xs text-[color:var(--ss-color-text-secondary)]">
+            <label class={labelClass}>
               Email
-              <input
-                type="email"
-                name="email"
-                value={c.email ?? ''}
-                class="mt-1 w-full border border-[color:var(--ss-color-border)] rounded px-2 py-1 text-sm"
-              />
+              <input type="email" name="email" value={contact.email ?? ''} class={inputClass} />
             </label>
-            <label class="text-xs text-[color:var(--ss-color-text-secondary)]">
+            <label class={labelClass}>
               Phone
-              <input
-                type="text"
-                name="phone"
-                value={c.phone ?? ''}
-                class="mt-1 w-full border border-[color:var(--ss-color-border)] rounded px-2 py-1 text-sm"
-              />
+              <input type="text" name="phone" value={contact.phone ?? ''} class={inputClass} />
             </label>
-            <label class="text-xs text-[color:var(--ss-color-text-secondary)]">
+            <label class={labelClass}>
               Title
-              <input
-                type="text"
-                name="title"
-                value={c.title ?? ''}
-                class="mt-1 w-full border border-[color:var(--ss-color-border)] rounded px-2 py-1 text-sm"
-              />
+              <input type="text" name="title" value={contact.title ?? ''} class={inputClass} />
             </label>
-            <label class="text-xs text-[color:var(--ss-color-text-secondary)]">
+            <label class={labelClass}>
               Role
-              <input
-                type="text"
-                name="role"
-                value={c.role ?? ''}
-                class="mt-1 w-full border border-[color:var(--ss-color-border)] rounded px-2 py-1 text-sm"
-              />
+              <input type="text" name="role" value={contact.role ?? ''} class={inputClass} />
             </label>
           </div>
-          <div class="flex justify-end">
+          <div class="mt-4 flex justify-end">
             <button
               type="submit"
-              class="text-xs px-3 py-1 bg-[color:var(--ss-color-primary)] text-white hover:bg-[color:var(--ss-color-primary-hover)] transition-colors"
+              class="border border-[color:var(--ss-color-primary)] bg-[color:var(--ss-color-primary)] px-4 py-2 font-['Archivo'] text-sm font-semibold uppercase tracking-[0.04em] text-white transition-colors hover:bg-[color:var(--ss-color-primary-hover)] hover:border-[color:var(--ss-color-primary-hover)]"
             >
               Save
             </button>
           </div>
         </form>
       </details>
-      <form method="POST" action={`/api/admin/contacts/${c.id}`}>
+      <form method="POST" action={`/api/admin/contacts/${contact.id}`}>
         <input type="hidden" name="_method" value="DELETE" />
         <button
           type="submit"
-          class="text-xs px-2 py-1 border border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)] hover:bg-[color:var(--ss-color-background)] transition-colors"
+          class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-error)] underline underline-offset-4"
           onclick="return confirm('Delete this contact? Engagement role assignments referencing it will block deletion.')"
         >
-          Del
+          Delete
         </button>
       </form>
     </div>

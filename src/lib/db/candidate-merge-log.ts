@@ -68,19 +68,36 @@ export async function getCandidateMergesForEntity(
   const rows = await db
     .prepare(
       `SELECT
-         id,
-         existing_entity_id AS targetId,
-         candidate_name AS candidateName,
-         candidate_address AS candidateAddress,
-         score,
-         reason,
-         source_pipeline AS sourcePipeline,
-         created_at AS createdAt
-       FROM candidate_merge_log
-       WHERE org_id = ?
-         AND existing_entity_id = ?
+         cml.id,
+         (
+           SELECT e.id
+           FROM entities e
+           WHERE e.org_id = cml.org_id
+             AND e.id != cml.existing_entity_id
+             AND (
+               (cml.candidate_slug IS NOT NULL AND e.slug = cml.candidate_slug)
+               OR (
+                 e.name = cml.candidate_name
+                 AND (
+                   cml.candidate_area IS NULL
+                   OR e.area = cml.candidate_area
+                 )
+               )
+             )
+           ORDER BY e.updated_at DESC
+           LIMIT 1
+         ) AS targetId,
+         cml.candidate_name AS candidateName,
+         COALESCE(cml.candidate_address, cml.candidate_area) AS candidateAddress,
+         cml.score,
+         cml.reason,
+         cml.source_pipeline AS sourcePipeline,
+         cml.created_at AS createdAt
+       FROM candidate_merge_log cml
+       WHERE cml.org_id = ?
+         AND cml.existing_entity_id = ?
          AND review_status = 'pending'
-       ORDER BY score DESC, created_at DESC`
+       ORDER BY cml.score DESC, cml.created_at DESC`
     )
     .bind(orgId, entityId)
     .all<CandidateMergeRow>()
