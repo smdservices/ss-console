@@ -2,7 +2,11 @@ import type { APIContext, APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 import { ORG_ID } from '../../../lib/constants'
 import { rateLimitByIp } from '../../../lib/booking/rate-limit'
-import { generateConversationReply, ConversationApiError } from '../../../lib/claude/conversation'
+import {
+  generateConversationReply,
+  ConversationApiError,
+  postProcessReply,
+} from '../../../lib/claude/conversation'
 import {
   appendUserTurn,
   appendAssistantTurn,
@@ -69,6 +73,24 @@ function validateContinueBody(body: Record<string, unknown>): ValidatedContinueB
   return { messageRaw: message }
 }
 
+/**
+ * Design notes for the auth + idempotency posture on /continue:
+ *
+ *   - Turn numbers are computed server-side (`countUserTurns + 1`) rather
+ *     than supplied by the client as an idempotency key. Intake is a
+ *     low-stakes user-facing flow; the signed cookie + IP rate limit cap
+ *     exposure to abuse, and accidental double-submits at this scale are
+ *     a UX nuisance, not a data-integrity concern. For higher-stakes
+ *     mutating endpoints (e.g. /api/booking/reserve) a client-supplied
+ *     idempotency key would be expected.
+ *
+ *   - The `rendered_at` bot check that /api/intake/send enforces is
+ *     deliberately absent here. The cookie's existence proves the
+ *     prospect already cleared the bot gate when they submitted /send.
+ *     Adding a second timestamp check would not improve security and
+ *     would add a confusing failure mode if the prospect simply replied
+ *     fast.
+ */
 async function authConversationCookie(
   request: Request
 ): Promise<{ conversationId: string; entityId: string } | Response> {
@@ -171,6 +193,12 @@ async function handlePost({ request, clientAddress }: APIContext): Promise<Respo
   const claudeResult = await callClaudeForTurn(entityId, conversationId, validated.messageRaw)
   if (claudeResult instanceof Response) return claudeResult
   const { aiReply } = claudeResult
+  postProcessReply(aiReply, {
+    endpoint: 'api/intake/continue',
+    entityId,
+    conversationId,
+    turn,
+  })
 
   try {
     await appendAssistantTurn(env.DB, ORG_ID, {

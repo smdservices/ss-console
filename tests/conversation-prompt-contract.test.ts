@@ -99,12 +99,22 @@ describe('CONVERSATION_SYSTEM_PROMPT (V2 doctrine)', () => {
     expect(lower).not.toContain('twelve years is a long run')
   })
 
-  it('lists at least five concrete sample turns showing the right shape', () => {
+  it('lists at least six concrete sample turns showing the right shape', () => {
     // Section heading appears exactly once, followed by sample dialogues.
     expect(CONVERSATION_SYSTEM_PROMPT).toContain('Sample turns')
     // Each sample is shaped Prospect:/You: — count the You: lines.
     const youLines = CONVERSATION_SYSTEM_PROMPT.match(/^You:/gm) ?? []
-    expect(youLines.length).toBeGreaterThanOrEqual(5)
+    expect(youLines.length).toBeGreaterThanOrEqual(6)
+  })
+
+  // Captain authors the sidestep doctrine paragraph (see PR #754 description,
+  // Section A4). Until that lands, this assertion is skipped to prevent the
+  // lint cycle from blocking on it.
+  it.skip('codifies sidestep / non-answer handling (do not press, ask differently)', () => {
+    // Look for the doctrine shape Captain will author. Either of these
+    // phrases would satisfy: "do not press", "do not repeat", "ask
+    // differently", "wind toward the booking".
+    expect(lower).toMatch(/do not press|do not repeat|ask differently|wind toward/)
   })
 
   it('every sample "You:" line ends with a question', () => {

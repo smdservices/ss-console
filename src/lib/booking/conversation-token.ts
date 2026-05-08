@@ -19,6 +19,14 @@
  * Mirrors the encoding and crypto posture of `src/lib/booking/signed-link.ts`
  * (HMAC-SHA256, base64url, constant-time verify via crypto.subtle).
  *
+ * Cookie scope is `Path=/`. This is intentional. The cookie needs to be
+ * reachable by /api/intake/continue today and by any future intake-related
+ * endpoints (e.g. a passive /api/intake/state hydration route under
+ * discussion). Scoping to /api/intake/ would block any non-API page from
+ * doing a lightweight presence check before fetching, and gives no real
+ * security benefit since the cookie is `HttpOnly` and HMAC-bound to a
+ * specific (entity_id, conversation_id) pair.
+ *
  * Encoding:
  *   `<base64url(json-payload)>.<base64url(hmac)>`
  *

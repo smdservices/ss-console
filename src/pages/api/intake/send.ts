@@ -3,7 +3,11 @@ import { env } from 'cloudflare:workers'
 import { ORG_ID } from '../../../lib/constants'
 import { rateLimitByIp } from '../../../lib/booking/rate-limit'
 import { processIntakeSubmission } from '../../../lib/booking/intake-core'
-import { generateConversationReply, ConversationApiError } from '../../../lib/claude/conversation'
+import {
+  generateConversationReply,
+  ConversationApiError,
+  postProcessReply,
+} from '../../../lib/claude/conversation'
 import { appendUserTurn, appendAssistantTurn } from '../../../lib/db/intake-conversations'
 import {
   signConversationToken,
@@ -122,6 +126,12 @@ async function generateAndPersistFirstTurn(
   }
   try {
     const aiReply = await generateConversationReply(apiKey, messageRaw, [])
+    postProcessReply(aiReply, {
+      endpoint: 'api/intake/send',
+      entityId,
+      conversationId,
+      turn: 1,
+    })
     try {
       await appendAssistantTurn(env.DB, ORG_ID, {
         entityId,

@@ -219,3 +219,42 @@ export async function generateConversationReply(
 
   return textBlock.text.trim()
 }
+
+/**
+ * Defense-in-depth observability for Claude replies on the V2 intake.
+ *
+ * The system prompt forbids ending a turn on anything but a question. If the
+ * model drifts and ends on a statement, the UX dead-ends silently — the user
+ * sees a paragraph with no obvious next step, and the conversation stalls.
+ *
+ * This helper does NOT modify the reply or block the response. It logs a
+ * structured warning so we can observe drift in production. Wrapped in
+ * try/catch so any bug in the helper itself cannot take down the endpoint
+ * it is meant to protect.
+ *
+ * Future work: wire warnings into a notifications surface so they become
+ * actionable rather than log lines that nobody reads.
+ */
+export function postProcessReply(
+  reply: string,
+  context: { endpoint: string; entityId?: string; conversationId?: string; turn?: number }
+): void {
+  try {
+    const trimmed = reply.trimEnd()
+    if (trimmed.length === 0) return
+    const lastChar = trimmed[trimmed.length - 1]
+    if (lastChar !== '?') {
+      console.warn('[conversation.postProcessReply] reply did not end on a question', {
+        endpoint: context.endpoint,
+        entity_id: context.entityId,
+        conversation_id: context.conversationId,
+        turn: context.turn,
+        last_char: lastChar,
+        reply_tail: trimmed.slice(-80),
+      })
+    }
+  } catch (err) {
+    // Helper bugs cannot impact the endpoint. Best-effort log and swallow.
+    console.error('[conversation.postProcessReply] internal error:', err)
+  }
+}
