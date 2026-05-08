@@ -1,8 +1,20 @@
 /**
  * Client-side booking flow logic for book.astro.
  *
- * Manages: unified intake send, slot picker reveal, slot selection,
- * booking POST, confirmation panel, and email fallback.
+ * Manages: unified intake send (turn 1), multi-turn intake continuation,
+ * slot picker reveal, slot selection, booking POST, confirmation panel,
+ * and email fallback.
+ *
+ * V2 multi-turn flow:
+ *   - unified-send → POST /api/intake/send → first AI reply rendered.
+ *     If the prospect submitted a non-empty message, the conversation
+ *     controls (reply input + booking offer) appear so the prospect can
+ *     keep talking or pick a time. If the message was empty, only the
+ *     booking offer appears.
+ *   - unified-reply-send → POST /api/intake/continue → next AI reply
+ *     appended to the thread, reply input cleared. Repeat until the
+ *     prospect picks a time, leaves, or hits the conversation turn cap.
+ *   - unified-pick-time → reveal slot picker, fetch slots, etc.
  */
 
 interface UnifiedFormData {
@@ -34,9 +46,19 @@ interface IntakeSendResponse {
   ok?: boolean
   ai_reply?: string | null
   entity_id?: string
+  can_continue?: boolean
   error?: string
   message?: string
   field_errors?: Record<string, string>
+}
+
+interface IntakeContinueResponse {
+  ok?: boolean
+  ai_reply?: string | null
+  turn?: number
+  can_continue?: boolean
+  error?: string
+  message?: string
 }
 
 interface BookElements {
@@ -59,6 +81,7 @@ interface BookState {
   submittedData: UnifiedFormData | null
   currentSlot: BookingSlot | null
   slotsFetched: boolean
+  conversationActive: boolean
 }
 
 function dispatchState(root: HTMLElement, state: string): void {
@@ -73,10 +96,32 @@ function dispatchClearError(root: HTMLElement): void {
   root.dispatchEvent(new CustomEvent('unified-clear-error', { bubbles: false }))
 }
 
-function dispatchAiReply(root: HTMLElement, reply: string | null): void {
+function dispatchReplyError(root: HTMLElement, message: string): void {
   root.dispatchEvent(
-    new CustomEvent('unified-show-ai-reply', { detail: { reply }, bubbles: false })
+    new CustomEvent('unified-reply-error', { detail: { message }, bubbles: false })
   )
+}
+
+function appendTurn(root: HTMLElement, role: 'user' | 'assistant', content: string): void {
+  root.dispatchEvent(
+    new CustomEvent('unified-append-turn', { detail: { role, content }, bubbles: false })
+  )
+}
+
+function showConversationControls(root: HTMLElement): void {
+  root.dispatchEvent(new CustomEvent('unified-show-conversation-controls', { bubbles: false }))
+}
+
+function showBookingOnly(root: HTMLElement): void {
+  root.dispatchEvent(new CustomEvent('unified-show-booking-only', { bubbles: false }))
+}
+
+function showEmptyAck(root: HTMLElement): void {
+  root.dispatchEvent(new CustomEvent('unified-show-empty-ack', { bubbles: false }))
+}
+
+function clearReplyText(root: HTMLElement): void {
+  root.dispatchEvent(new CustomEvent('unified-clear-reply-text', { bubbles: false }))
 }
 
 function showConfirmation(els: BookElements, body: BookingResponse, state: BookState): void {
@@ -135,6 +180,18 @@ function extractSendErrorMessage(res: Response, body: IntakeSendResponse): strin
   return body.message ?? body.error ?? 'Something went wrong. Please try again.'
 }
 
+function extractContinueErrorMessage(res: Response, body: IntakeContinueResponse): string {
+  if (res.status === 401) {
+    return body.error === 'session_expired'
+      ? 'This conversation has timed out. Pick a time to talk to keep going.'
+      : 'We could not authorize this message. Please refresh and try again.'
+  }
+  if (res.status === 429) return 'Too many messages. Please wait a moment and try again.'
+  if (res.status === 503)
+    return 'The assistant is temporarily unavailable. Try again or pick a time to talk.'
+  return body.message ?? body.error ?? 'Something went wrong. Please try again.'
+}
+
 async function handleSend(event: Event, els: BookElements, state: BookState): Promise<void> {
   const data = (event as CustomEvent<UnifiedFormData>).detail
   dispatchClearError(els.intakeRoot)
@@ -173,7 +230,28 @@ async function handleSend(event: Event, els: BookElements, state: BookState): Pr
       state.sendSucceeded = true
       state.submittedData = { ...data }
       dispatchState(els.intakeRoot, 'send_done')
-      dispatchAiReply(els.intakeRoot, body.ai_reply ?? null)
+
+      const userMessage = data.message.trim()
+      const aiReply = (body.ai_reply ?? '').trim()
+
+      if (userMessage) {
+        appendTurn(els.intakeRoot, 'user', userMessage)
+      }
+      if (aiReply) {
+        appendTurn(els.intakeRoot, 'assistant', aiReply)
+      }
+
+      if (aiReply && body.can_continue) {
+        // Conversation is live — reveal reply input + booking offer.
+        state.conversationActive = true
+        showConversationControls(els.intakeRoot)
+      } else {
+        // No conversation (empty message or AI generation failed). Just
+        // show the booking offer; the empty-ack renders too if the user
+        // submitted with no message at all.
+        if (!userMessage) showEmptyAck(els.intakeRoot)
+        showBookingOnly(els.intakeRoot)
+      }
       return
     }
 
@@ -186,6 +264,59 @@ async function handleSend(event: Event, els: BookElements, state: BookState): Pr
       'Could not reach the server. Please check your connection and try again.'
     )
     dispatchState(els.intakeRoot, 'idle')
+  }
+}
+
+async function handleReplySend(event: Event, els: BookElements, state: BookState): Promise<void> {
+  if (!state.conversationActive) return
+  const detail = (event as CustomEvent<{ message: string }>).detail
+  const message = (detail?.message ?? '').trim()
+  if (!message) return
+
+  // Optimistically render the user turn so the conversation feels live.
+  appendTurn(els.intakeRoot, 'user', message)
+  clearReplyText(els.intakeRoot)
+  dispatchState(els.intakeRoot, 'continue_thinking')
+
+  try {
+    const res = await fetch('/api/intake/continue', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+    })
+    const body = (await res.json().catch(() => ({}))) as IntakeContinueResponse
+
+    if (res.ok && body.ok) {
+      const aiReply = (body.ai_reply ?? '').trim()
+      if (aiReply) {
+        appendTurn(els.intakeRoot, 'assistant', aiReply)
+      }
+      if (body.can_continue) {
+        dispatchState(els.intakeRoot, 'send_done')
+      } else {
+        // Turn cap reached. The booking is the next step.
+        state.conversationActive = false
+        dispatchState(els.intakeRoot, 'turn_capped')
+      }
+      return
+    }
+
+    dispatchReplyError(els.intakeRoot, extractContinueErrorMessage(res, body))
+    if (res.status === 401) {
+      // Session expired — disable further continuations, leave booking
+      // offer in place as the path forward.
+      state.conversationActive = false
+      dispatchState(els.intakeRoot, 'turn_capped')
+    } else {
+      dispatchState(els.intakeRoot, 'send_done')
+    }
+  } catch (err) {
+    console.error('[book] /api/intake/continue error:', err)
+    dispatchReplyError(
+      els.intakeRoot,
+      'Could not reach the server. Please check your connection and try again.'
+    )
+    dispatchState(els.intakeRoot, 'send_done')
   }
 }
 
@@ -290,7 +421,7 @@ function handleSlotSelected(event: Event, els: BookElements, state: BookState): 
   els.bookSubmitBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
 }
 
-;(() => {
+function locateBookElements(): BookElements | null {
   const intakeRoot = document.getElementById('unified-intake')
   const slotPickerSection = document.getElementById('slot-picker-section')
   const pickerElement = document.getElementById('slot-picker')
@@ -319,12 +450,10 @@ function handleSlotSelected(event: Event, els: BookElements, state: BookState): 
     !(confirmPanel instanceof HTMLElement) ||
     !(emailFallback instanceof HTMLElement)
   ) {
-    return
+    return null
   }
-
   const picker = pickerElement as HTMLElement & { refetchSlots?: () => void }
-
-  const els: BookElements = {
+  return {
     intakeRoot,
     slotPickerSection,
     picker,
@@ -338,37 +467,46 @@ function handleSlotSelected(event: Event, els: BookElements, state: BookState): 
     emailFallback,
     prefillTokenStore,
   }
+}
+
+function bindBookListeners(els: BookElements, state: BookState): void {
+  els.intakeRoot.addEventListener('unified-send', (event) => {
+    void handleSend(event, els, state)
+  })
+  els.intakeRoot.addEventListener('unified-reply-send', (event) => {
+    void handleReplySend(event, els, state)
+  })
+  els.intakeRoot.addEventListener('unified-pick-time', () => {
+    if (!state.sendSucceeded || !state.submittedData) return
+    els.slotPickerSection.hidden = false
+    if (!state.slotsFetched && els.picker.refetchSlots) {
+      els.picker.refetchSlots()
+      state.slotsFetched = true
+    }
+    els.slotPickerSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
+  els.picker.addEventListener('slot-selected', (event) => {
+    handleSlotSelected(event, els, state)
+  })
+  els.changeSlotBtn.addEventListener('click', () => {
+    els.picker.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
+  els.bookSubmitBtn.addEventListener('click', () => {
+    void handleBookSubmit(els, state)
+  })
+}
+
+;(() => {
+  const els = locateBookElements()
+  if (!els) return
 
   const state: BookState = {
     sendSucceeded: false,
     submittedData: null,
     currentSlot: null,
     slotsFetched: false,
+    conversationActive: false,
   }
 
-  intakeRoot.addEventListener('unified-send', (event) => {
-    void handleSend(event, els, state)
-  })
-
-  intakeRoot.addEventListener('unified-pick-time', () => {
-    if (!state.sendSucceeded || !state.submittedData) return
-    slotPickerSection.hidden = false
-    if (!state.slotsFetched && picker.refetchSlots) {
-      picker.refetchSlots()
-      state.slotsFetched = true
-    }
-    slotPickerSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  })
-
-  picker.addEventListener('slot-selected', (event) => {
-    handleSlotSelected(event, els, state)
-  })
-
-  changeSlotBtn.addEventListener('click', () => {
-    picker.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  })
-
-  bookSubmitBtn.addEventListener('click', () => {
-    void handleBookSubmit(els, state)
-  })
+  bindBookListeners(els, state)
 })()

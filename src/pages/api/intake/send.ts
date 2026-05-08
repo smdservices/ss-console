@@ -3,8 +3,17 @@ import { env } from 'cloudflare:workers'
 import { ORG_ID } from '../../../lib/constants'
 import { rateLimitByIp } from '../../../lib/booking/rate-limit'
 import { processIntakeSubmission } from '../../../lib/booking/intake-core'
-import { appendContext } from '../../../lib/db/context'
-import { generateConversationReply, ConversationApiError } from '../../../lib/claude/conversation'
+import {
+  generateConversationReply,
+  ConversationApiError,
+  postProcessReply,
+} from '../../../lib/claude/conversation'
+import { appendUserTurn, appendAssistantTurn } from '../../../lib/db/intake-conversations'
+import {
+  signConversationToken,
+  buildConversationCookieHeader,
+  DEFAULT_CONVERSATION_TTL_SECONDS,
+} from '../../../lib/booking/conversation-token'
 import { sendEmail } from '../../../lib/email/resend'
 import { buildAdminUrl } from '../../../lib/config/app-url'
 
@@ -15,19 +24,16 @@ const MAX_MESSAGE_CHARS = 5000
 /**
  * POST /api/intake/send
  *
- * The "Send — we'll reach out" path of the unified /book intake. Lower-intent
- * sibling of /api/booking/reserve: captures the same identity fields but no
- * meeting / no calendar / no slot pick. After persisting the lead, generates
- * a single AI follow-up to whatever the prospect typed in the textarea so the
- * conversation feels alive, then notifies the team via email.
+ * The first turn of the unified /book intake conversation. Captures
+ * identity fields and the prospect's free-text "tell us about your
+ * business" message, persists the lead, generates the AI's first reply,
+ * and issues a signed conversation cookie so subsequent
+ * `/api/intake/continue` posts can authenticate as this conversation.
  *
- * Single-turn by design (V1). The architectural complexity of multi-turn
- * (entity authority, replay safety, server-side conversation_id lookup)
- * is deferred to a future PR with proper auth.
- *
- * Security: render-timestamp check + IP rate limiting (10/hour).
- * Cloudflare zone-level Bot Fight Mode runs at the edge before requests
- * reach this Worker.
+ * Security: render-timestamp check + IP rate limiting (10/hour) +
+ * HMAC-signed cookie binding conversation_id to entity_id (see
+ * src/lib/booking/conversation-token.ts). Cloudflare zone-level Bot
+ * Fight Mode runs at the edge before requests reach this Worker.
  *
  * The previous offscreen `<input name="website_url">` honeypot was visible to
  * Chrome's autofill classifier and suppressed autofill suggestions on the
@@ -88,8 +94,31 @@ function validateSendBody(body: Record<string, unknown>): ValidatedSendBody | Re
   }
 }
 
-async function maybeGenerateAiReply(entityId: string, messageRaw: string): Promise<string | null> {
+/**
+ * Generate the AI's reply to the prospect's first message and persist
+ * both the user turn and the AI turn against the V2 conversation. Returns
+ * the AI reply text (or null if generation failed or message was empty).
+ */
+async function generateAndPersistFirstTurn(
+  entityId: string,
+  conversationId: string,
+  messageRaw: string
+): Promise<string | null> {
   if (!messageRaw) return null
+
+  // Persist user turn 1 first so the conversation history is complete
+  // even if Claude errors out. The admin can still see what they wrote.
+  try {
+    await appendUserTurn(env.DB, ORG_ID, {
+      entityId,
+      conversationId,
+      turn: 1,
+      content: messageRaw,
+    })
+  } catch (ctxErr) {
+    console.error('[api/intake/send] User turn 1 append failed:', ctxErr)
+  }
+
   const apiKey = env.ANTHROPIC_API_KEY
   if (!apiKey) {
     console.error('[api/intake/send] ANTHROPIC_API_KEY not configured')
@@ -97,16 +126,21 @@ async function maybeGenerateAiReply(entityId: string, messageRaw: string): Promi
   }
   try {
     const aiReply = await generateConversationReply(apiKey, messageRaw, [])
+    postProcessReply(aiReply, {
+      endpoint: 'api/intake/send',
+      entityId,
+      conversationId,
+      turn: 1,
+    })
     try {
-      await appendContext(env.DB, ORG_ID, {
-        entity_id: entityId,
-        type: 'intake',
+      await appendAssistantTurn(env.DB, ORG_ID, {
+        entityId,
+        conversationId,
+        turn: 1,
         content: aiReply,
-        source: 'website_intake_send_ai_reply',
-        metadata: { model: 'claude', prospect_message: messageRaw },
       })
     } catch (ctxErr) {
-      console.error('[api/intake/send] AI reply context append failed:', ctxErr)
+      console.error('[api/intake/send] AI turn 1 append failed:', ctxErr)
     }
     return aiReply
   } catch (err) {
@@ -168,7 +202,12 @@ async function handlePost({ request, clientAddress }: APIContext): Promise<Respo
     return jsonResponse(500, { error: 'Internal server error' })
   }
 
-  const aiReply = await maybeGenerateAiReply(intakeResult.entityId, validated.messageRaw)
+  const conversationId = crypto.randomUUID()
+  const aiReply = await generateAndPersistFirstTurn(
+    intakeResult.entityId,
+    conversationId,
+    validated.messageRaw
+  )
 
   try {
     await sendAdminNotification(env, {
@@ -181,7 +220,28 @@ async function handlePost({ request, clientAddress }: APIContext): Promise<Respo
     console.error('[api/intake/send] Admin notification failed:', emailErr)
   }
 
-  return jsonResponse(200, { ok: true, entity_id: intakeResult.entityId, ai_reply: aiReply })
+  // Issue a signed conversation cookie so /api/intake/continue can
+  // authenticate follow-up turns. Only set the cookie when we actually
+  // started a conversation (i.e. there was a non-empty message that
+  // produced an AI reply).
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (aiReply) {
+    const token = await signConversationToken({
+      conversation_id: conversationId,
+      entity_id: intakeResult.entityId,
+    })
+    headers['Set-Cookie'] = buildConversationCookieHeader(token, DEFAULT_CONVERSATION_TTL_SECONDS)
+  }
+
+  return new Response(
+    JSON.stringify({
+      ok: true,
+      entity_id: intakeResult.entityId,
+      ai_reply: aiReply,
+      can_continue: aiReply !== null,
+    }),
+    { status: 200, headers }
+  )
 }
 
 export const POST: APIRoute = (ctx) => handlePost(ctx)
