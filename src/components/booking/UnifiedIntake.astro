@@ -243,37 +243,68 @@ const { values } = Astro.props
     </div>
   </form>
 
-  <!-- Post-Send response: either an AI reply (with-message) or a brief
-       acknowledgement (empty-message). Either way, the booking offer
-       reveals beneath. -->
-  <div id="ui-response-slot" hidden aria-live="polite" class="mt-8">
-    <h3
-      id="ui-response-header"
-      hidden
-      class="mb-2 text-xs font-semibold uppercase tracking-wide text-[color:var(--ss-color-text-secondary)]"
+  <!-- Post-Send conversation thread. Grows as the prospect and the AI
+       trade turns. Each turn renders as its own styled block. The empty
+       acknowledgement renders here when the prospect submitted with no
+       textarea content. -->
+  <div id="ui-thread" hidden aria-live="polite" class="mt-8 space-y-4"></div>
+
+  <p id="ui-empty-ack" hidden class="mt-6 text-base text-[color:var(--ss-color-text-primary)]">
+    Got it.
+  </p>
+
+  <!-- Reply input. Visible while the conversation is in progress and the
+       turn cap has not been reached. -->
+  <div id="ui-reply-section" hidden class="mt-6">
+    <label
+      for="ui-reply-text"
+      class="block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
     >
-      We hear you
-    </h3>
+      Reply
+    </label>
+    <textarea
+      id="ui-reply-text"
+      rows="3"
+      class="mt-1 block w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-text-secondary)]/20 bg-white px-4 py-3 text-base leading-relaxed text-[color:var(--ss-color-text-primary)] shadow-sm transition-colors placeholder:text-[color:var(--ss-color-text-secondary)]/50 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed read-only:cursor-not-allowed read-only:bg-[color:var(--ss-color-text-secondary)]/5"
+    ></textarea>
     <div
-      id="ui-response-content"
+      id="ui-reply-error"
       hidden
-      class="whitespace-pre-wrap rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-text-secondary)]/20 bg-white px-4 py-3 text-base leading-relaxed text-[color:var(--ss-color-text-primary)] shadow-sm"
+      class="mt-2 rounded-[var(--ss-radius-card)] bg-[color:var(--ss-color-error)]/5 px-4 py-3 text-sm text-[color:var(--ss-color-error)]"
     >
     </div>
-    <p id="ui-empty-ack" hidden class="text-base text-[color:var(--ss-color-text-primary)]">
-      Got it.
-    </p>
-    <div id="ui-booking-offer" hidden class="mt-6">
-      <p id="ui-booking-prompt" class="text-base text-[color:var(--ss-color-text-secondary)]"></p>
+    <div class="mt-3 flex justify-end">
       <button
-        id="ui-pick-time-btn"
+        id="ui-reply-send-btn"
         type="button"
-        data-ev="intake-pick-time"
-        class="mt-3 inline-flex items-center justify-center rounded-[var(--ss-radius-card)] bg-primary px-6 py-3 text-base font-semibold text-white shadow-sm transition-all hover:opacity-90 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/40"
+        data-ev="intake-reply-send"
+        class="inline-flex items-center justify-center rounded-[var(--ss-radius-card)] bg-primary px-6 py-3 text-base font-semibold text-white shadow-sm transition-all hover:opacity-90 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        Pick a time to talk
+        Send
       </button>
     </div>
+  </div>
+
+  <!-- Surfaced when the conversation hits the turn cap. Replaces the
+       reply input. -->
+  <p id="ui-turn-cap-msg" hidden class="mt-6 text-base text-[color:var(--ss-color-text-secondary)]">
+    We've covered a lot. The natural next step is a real conversation.
+  </p>
+
+  <!-- Booking offer. Always visible after the first Send so the prospect
+       can move to a real conversation at any turn. -->
+  <div id="ui-booking-offer" hidden class="mt-6">
+    <p id="ui-booking-prompt" class="text-base text-[color:var(--ss-color-text-secondary)]">
+      Want to keep the conversation going?
+    </p>
+    <button
+      id="ui-pick-time-btn"
+      type="button"
+      data-ev="intake-pick-time"
+      class="mt-3 inline-flex items-center justify-center rounded-[var(--ss-radius-card)] bg-primary px-6 py-3 text-base font-semibold text-white shadow-sm transition-all hover:opacity-90 focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/40"
+    >
+      Pick a time to talk
+    </button>
   </div>
 </section>
 
@@ -297,215 +328,6 @@ const { values } = Astro.props
   }
 </style>
 
-<script is:inline>
-  ;(() => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-    const shell = document.getElementById('unified-intake')
-    const form = document.getElementById('unified-intake-form')
-    const textInput = document.getElementById('ui-message')
-    const micBtn = document.getElementById('ui-mic-btn')
-    const sendBtn = document.getElementById('ui-send-btn')
-    const errorDiv = document.getElementById('ui-error')
-    const voiceUnsupported = document.getElementById('ui-voice-unsupported')
-    const permissionError = document.getElementById('ui-voice-permission-error')
-    const responseSlot = document.getElementById('ui-response-slot')
-    const responseHeader = document.getElementById('ui-response-header')
-    const responseContent = document.getElementById('ui-response-content')
-    const emptyAck = document.getElementById('ui-empty-ack')
-    const bookingOffer = document.getElementById('ui-booking-offer')
-    const bookingPrompt = document.getElementById('ui-booking-prompt')
-    const pickTimeBtn = document.getElementById('ui-pick-time-btn')
-
-    let recognition = null
-    const supportsVoice = !!SR
-    if (!supportsVoice) {
-      micBtn.hidden = true
-      voiceUnsupported.hidden = false
-    } else {
-      recognition = new SR()
-      recognition.lang = 'en-US'
-      recognition.interimResults = false
-      recognition.continuous = false
-      recognition.maxAlternatives = 1
-
-      recognition.onresult = (e) => {
-        let finalText = ''
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          if (e.results[i].isFinal) finalText += e.results[i][0].transcript
-        }
-        if (finalText) {
-          const current = textInput.value
-          const needsSpace = current.length > 0 && !/\s$/.test(current)
-          textInput.value = current + (needsSpace ? ' ' : '') + finalText
-        }
-      }
-      recognition.onerror = (e) => {
-        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-          permissionError.hidden = false
-        } else if (e.error === 'no-speech' || e.error === 'aborted') {
-          // benign
-        } else {
-          console.error('[unified-intake] recognition error', e.error)
-        }
-        setListening(false)
-      }
-      recognition.onend = () => {
-        if (shell.dataset.state === 'listening') setListening(false)
-      }
-    }
-
-    function setListening(on) {
-      shell.dataset.state = on ? 'listening' : 'idle'
-      textInput.readOnly = on
-    }
-
-    function stopRecognitionIfActive() {
-      if (recognition && shell.dataset.state === 'listening') {
-        try {
-          recognition.stop()
-        } catch (err) {
-          // benign — recognition may already be stopping
-        }
-      }
-    }
-
-    function hidePostSendUi() {
-      responseSlot.hidden = true
-      responseHeader.hidden = true
-      responseContent.hidden = true
-      responseContent.textContent = ''
-      emptyAck.hidden = true
-      bookingOffer.hidden = true
-      bookingPrompt.textContent = ''
-    }
-
-    if (supportsVoice && micBtn) {
-      micBtn.addEventListener('click', () => {
-        if (shell.dataset.state === 'listening') {
-          recognition.stop()
-          return
-        }
-        if (shell.dataset.state !== 'idle') return
-        permissionError.hidden = true
-        setListening(true)
-        try {
-          recognition.start()
-        } catch (err) {
-          console.error('[unified-intake] start() failed', err)
-          setListening(false)
-        }
-      })
-    }
-
-    // Captured at script-execute time. The page-level handler reads this off
-    // the unified-send detail and sends it as `rendered_at` to the server,
-    // which rejects submissions under 2s old as bot-driven.
-    const renderedAt = Date.now()
-
-    function readFormData() {
-      const fd = new FormData(form)
-      return {
-        name: String(fd.get('name') ?? '').trim(),
-        email: String(fd.get('email') ?? '').trim(),
-        business_name: String(fd.get('business_name') ?? '').trim(),
-        phone: String(fd.get('phone') ?? '').trim(),
-        website: String(fd.get('website') ?? '').trim() || null,
-        message: String(fd.get('message') ?? '').trim(),
-        rendered_at: renderedAt,
-      }
-    }
-
-    // Listen on the form, not the button. type="submit" routes button click
-    // and Enter-in-field through the same path, and gives Chrome the submit
-    // event it needs to register form values for future-visit autofill.
-    form.addEventListener('submit', (e) => {
-      e.preventDefault()
-      if (sendBtn.disabled) return
-      const data = readFormData()
-      shell.dispatchEvent(new CustomEvent('unified-send', { detail: data, bubbles: true }))
-    })
-
-    pickTimeBtn.addEventListener('click', () => {
-      shell.dispatchEvent(new CustomEvent('unified-pick-time', { bubbles: true }))
-    })
-
-    // Page-side state controls. The page calls these via dispatchEvent on #unified-intake.
-    shell.addEventListener('unified-set-state', (e) => {
-      const next = e.detail?.state
-      if (!next) return
-      const prev = shell.dataset.state
-      // Halt any active speech recognition before locking the form so
-      // late-arriving onresult cannot mutate textarea content the server
-      // already saw.
-      if (next !== 'idle' && next !== 'listening' && prev === 'listening') {
-        stopRecognitionIfActive()
-      }
-      shell.dataset.state = next
-      const fields = form.querySelectorAll('input, textarea')
-      const locked = next === 'send_thinking' || next === 'send_done' || next === 'booked'
-      fields.forEach((f) => {
-        f.readOnly = locked
-      })
-      if (next === 'send_thinking') {
-        sendBtn.disabled = true
-        sendBtn.textContent = 'Sending...'
-      } else if (next === 'send_done') {
-        sendBtn.disabled = true
-        sendBtn.hidden = true
-        if (supportsVoice) micBtn.hidden = true
-      } else if (next === 'booked') {
-        sendBtn.disabled = true
-        sendBtn.hidden = true
-        if (supportsVoice) micBtn.hidden = true
-        // Page-level confirmation panel takes over rendering.
-      } else if (next === 'idle') {
-        sendBtn.disabled = false
-        sendBtn.hidden = false
-        sendBtn.textContent = 'Get in touch'
-        if (supportsVoice) {
-          micBtn.hidden = false
-          micBtn.disabled = false
-        }
-        // Recovery from a failed Send: scrub any post-send UI so a
-        // stale booking offer can't appear above a still-editable form.
-        hidePostSendUi()
-      }
-    })
-
-    shell.addEventListener('unified-show-error', (e) => {
-      const msg = e.detail?.message || 'Something went wrong. Please try again.'
-      errorDiv.textContent = msg
-      errorDiv.hidden = false
-    })
-
-    shell.addEventListener('unified-clear-error', () => {
-      errorDiv.hidden = true
-      errorDiv.textContent = ''
-    })
-
-    // Two-mode response handler. With-message: render AI reply. Empty-message:
-    // brief acknowledgement. In both, reveal the booking offer below as the
-    // sequential next step.
-    //
-    // Note: no scrollIntoView here. The booking offer is offered passively;
-    // scroll fires only when the user clicks Pick-a-time (page-side), so we
-    // never jump the page while the prospect is mid-read.
-    shell.addEventListener('unified-show-ai-reply', (e) => {
-      const reply = (e.detail?.reply || '').trim()
-      responseSlot.hidden = false
-      if (reply) {
-        responseHeader.hidden = false
-        responseContent.textContent = reply
-        responseContent.hidden = false
-        emptyAck.hidden = true
-        bookingPrompt.textContent = 'Want to keep the conversation going?'
-      } else {
-        responseHeader.hidden = true
-        responseContent.hidden = true
-        emptyAck.hidden = false
-        bookingPrompt.textContent = 'Ready to talk?'
-      }
-      bookingOffer.hidden = false
-    })
-  })()
+<script>
+  import '../../scripts/unified-intake.ts'
 </script>
