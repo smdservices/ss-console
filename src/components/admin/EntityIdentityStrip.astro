@@ -1,0 +1,127 @@
+---
+import { ENTITY_STAGES, type Entity } from '../../lib/db/entities'
+
+interface Props {
+  entity: Entity
+  actorRole: 'business' | 'contractor' | 'unknown'
+  actorRoleConfidence: 'high' | 'medium' | 'low'
+  signalEvidence: string | null
+  signalSourceLabel: string | null
+  daysInStage: number
+  structuralFlags: string[]
+}
+
+const {
+  entity,
+  actorRole,
+  actorRoleConfidence,
+  signalEvidence,
+  signalSourceLabel,
+  daysInStage,
+  structuralFlags,
+} = Astro.props
+
+const stageLabel =
+  ENTITY_STAGES.find((stage) => stage.value === entity.stage)?.label ?? entity.stage
+const verticalLabel = entity.vertical?.replace(/_/g, ' ') ?? null
+
+function actorRoleTone(role: Props['actorRole']): string {
+  switch (role) {
+    case 'business':
+      return 'border-[color:var(--ss-color-complete)] bg-[color:var(--ss-color-complete)] text-white'
+    case 'contractor':
+      return 'border-[color:var(--ss-color-error)] bg-[color:var(--ss-color-error)] text-white'
+    default:
+      return 'border-[color:var(--ss-color-warning)] bg-[color:var(--ss-color-warning)] text-white'
+  }
+}
+
+function actorRoleIcon(role: Props['actorRole']): string {
+  switch (role) {
+    case 'business':
+      return 'verified'
+    case 'contractor':
+      return 'construction'
+    default:
+      return 'help'
+  }
+}
+
+function formatRole(role: Props['actorRole']): string {
+  if (role === 'business') return 'Business'
+  if (role === 'contractor') return 'Contractor'
+  return 'Unknown'
+}
+
+function stageAgeLabel(days: number): string {
+  if (days <= 0) return 'Filed today'
+  if (days === 1) return 'Filed yesterday'
+  return `Filed ${days} days ago`
+}
+
+const chipClass =
+  "inline-flex items-center gap-1 border px-2.5 py-1 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em]"
+---
+
+<section
+  class="border-[3px] border-[color:var(--ss-color-text-primary)] px-7 py-6"
+  data-test="identity-strip"
+>
+  <div
+    class="mb-2 font-['Archivo_Narrow'] text-[12px] font-semibold uppercase tracking-[0.08em] text-[color:var(--ss-color-text-secondary)]"
+  >
+    Signal | {signalSourceLabel ?? entity.source_pipeline ?? 'unknown_source'}
+  </div>
+  <h1
+    class="mb-3 font-['Archivo'] text-4xl font-black uppercase leading-[1.05] tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+  >
+    {entity.name}
+  </h1>
+  <div class="mb-5 flex flex-wrap gap-2">
+    <span class:list={[chipClass, actorRoleTone(actorRole)]}>
+      <span class="material-symbols-outlined text-[16px]" aria-hidden="true">
+        {actorRoleIcon(actorRole)}
+      </span>
+      {formatRole(actorRole)}
+    </span>
+    {
+      verticalLabel && (
+        <span
+          class={`${chipClass} border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] capitalize`}
+        >
+          {verticalLabel}
+        </span>
+      )
+    }
+    {
+      structuralFlags
+        .slice(0, 3)
+        .map((flag) => (
+          <span
+            class={`${chipClass} border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-secondary)]`}
+          >
+            {flag}
+          </span>
+        ))
+    }
+    <span
+      class={`${chipClass} border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)]`}
+    >
+      {stageLabel}
+    </span>
+  </div>
+  {
+    signalEvidence && (
+      <div class="font-['JetBrains_Mono'] text-[15px] font-medium leading-6 text-[color:var(--ss-color-text-primary)]">
+        {signalEvidence}
+      </div>
+    )
+  }
+  <div class="mt-2 text-sm text-[color:var(--ss-color-text-secondary)]">
+    <span>{stageAgeLabel(daysInStage)}</span>
+    <span class="px-2 text-[color:var(--ss-color-text-muted)]">|</span>
+    <span>{daysInStage} {daysInStage === 1 ? 'day' : 'days'} in {stageLabel}</span>
+    <span class="px-2 text-[color:var(--ss-color-text-muted)]">|</span>
+    <span>actor_role: {actorRole} ({actorRoleConfidence} confidence)</span>
+  </div>
+</section>

@@ -136,6 +136,14 @@ const FORBIDDEN_PATTERNS: Array<{ label: string; pattern: RegExp | string }> = [
     pattern: /['"]Engagement work['"]/,
   },
   {
+    label: 'Entity detail regression: do not reintroduce outreach_angle',
+    pattern: /\boutreach_angle\b/,
+  },
+  {
+    label: 'Entity detail regression: do not reintroduce pre-dossier draft copy',
+    pattern: /Pre-dossier draft/,
+  },
+  {
     label: 'Pattern B: hardcoded "Scott" fallback in portal render paths',
     // Match ?? 'Scott' or : 'Scott' (ternary / nullish) in portal pages and components.
     // Does not flag 'Scott' in test fixtures, variable names, or email author strings.

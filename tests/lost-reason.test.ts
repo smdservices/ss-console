@@ -46,16 +46,21 @@ describe('structured lost reason', () => {
   })
 
   describe('taxonomy module', () => {
-    it('exposes the seven canonical codes', () => {
+    it('exposes the full canonical code set', () => {
       const codes = LOST_REASONS.map((r) => r.value).sort()
       expect(codes).toEqual(
         [
           'declined-quote',
+          'duplicate',
           'no-budget',
           'no-response',
+          'no-signal',
           'not-a-fit',
           'other',
+          'out-of-buy-box',
+          'out-of-geography',
           'unreachable',
+          'wrong-actor',
           'wrong-contact',
         ].sort()
       )

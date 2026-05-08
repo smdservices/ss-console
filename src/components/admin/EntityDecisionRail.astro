@@ -1,0 +1,472 @@
+---
+import type { ContextEntry } from '../../lib/db/context'
+import { LOST_REASONS, type LostReasonCode } from '../../lib/db/lost-reasons'
+import type { CandidateMergeRow } from '../../lib/db/candidate-merge-log'
+import type { EntityStage } from '../../lib/db/entities'
+import type { EntityDetailTransition } from '../../lib/admin/entity-detail-page'
+import { relativeTime } from '../../lib/admin/relative-time'
+
+interface SupersedeCandidate {
+  id: string
+  version: number
+  status: string
+}
+
+interface MeetingRef {
+  id: string
+}
+
+interface Props {
+  entityId: string
+  entityStage: EntityStage
+  mergeCandidates: CandidateMergeRow[]
+  staleDraft: { isStale: boolean; reason: string | null }
+  outreachEntry: ContextEntry | undefined
+  transitions: EntityDetailTransition[]
+  mostRecentDraftableMeeting: MeetingRef | null
+  outreachMailto: string | null
+  outreachContactEmail: string | null
+  showReEnrichButton: boolean
+  lastEnrichmentAt: string | null
+  hasOutreach: boolean
+  showNewQuoteButton: boolean
+  supersedeCandidates: SupersedeCandidate[]
+}
+
+const {
+  entityId,
+  entityStage,
+  mergeCandidates,
+  staleDraft,
+  outreachEntry,
+  transitions,
+  mostRecentDraftableMeeting,
+  outreachMailto,
+  outreachContactEmail,
+  showReEnrichButton,
+  lastEnrichmentAt,
+  hasOutreach,
+  showNewQuoteButton,
+  supersedeCandidates,
+} = Astro.props
+
+const structuralLostReasons = LOST_REASONS.slice(0, 5)
+const lifecycleLostReasons = LOST_REASONS.slice(5)
+const railButtonBase =
+  "flex w-full items-center justify-between border px-4 py-3 text-left font-['Archivo'] text-base font-semibold uppercase tracking-[0.04em] transition-colors"
+const railPrimaryButton = `${railButtonBase} border-[color:var(--ss-color-primary)] bg-[color:var(--ss-color-primary)] text-white hover:border-[color:var(--ss-color-primary-hover)] hover:bg-[color:var(--ss-color-primary-hover)]`
+const railSecondaryButton = `${railButtonBase} border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)]`
+const railDisabledButton = `${railButtonBase} cursor-not-allowed border-[color:var(--ss-color-border)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-muted)]`
+const workflowButtonClass =
+  "flex w-full items-center justify-between border border-[color:var(--ss-color-text-primary)] px-3 py-2 font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)] transition-colors hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)]"
+const menuClass =
+  'absolute right-0 top-full z-30 mt-2 w-[min(22rem,calc(100vw-2rem))] border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] p-4 shadow-none max-lg:bottom-full max-lg:left-1/2 max-lg:right-auto max-lg:top-auto max-lg:mb-2 max-lg:mt-0 max-lg:w-[min(24rem,calc(100vw-2rem))] max-lg:-translate-x-1/2'
+
+const promoteTransition =
+  transitions.find((transition) => transition.stage !== 'lost') ?? transitions[0] ?? null
+const dismissTransition = transitions.find((transition) => transition.stage === 'lost') ?? null
+const mergeDisabled = entityStage !== 'signal'
+
+const hasWorkflowActions =
+  entityStage === 'prospect' ||
+  (entityStage === 'meetings' && !!mostRecentDraftableMeeting) ||
+  !!outreachMailto ||
+  showReEnrichButton ||
+  hasOutreach ||
+  showNewQuoteButton
+
+function lostDetailPlaceholder(code: LostReasonCode): string {
+  if (code === 'wrong-actor') return 'What made it the wrong actor?'
+  if (code === 'duplicate') return 'Link the kept entity or explain the duplicate.'
+  return 'Optional detail for the record'
+}
+---
+
+<aside
+  class="lg:sticky lg:top-20 max-lg:fixed max-lg:bottom-0 max-lg:left-0 max-lg:right-0 max-lg:z-40 max-lg:border-t-[3px] max-lg:border-[color:var(--ss-color-text-primary)] max-lg:bg-[color:var(--ss-color-background)] max-lg:px-4 max-lg:py-3"
+  data-test="decision-rail"
+>
+  <div
+    class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-6 py-6 max-lg:border-0 max-lg:px-0 max-lg:py-0"
+  >
+    <div
+      class="mb-4 font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] max-lg:hidden"
+    >
+      Disposition
+    </div>
+
+    <div class="grid gap-2 max-lg:grid-cols-3">
+      {
+        entityStage === 'signal' ? (
+          <>
+            <form method="POST" action={`/api/admin/entities/${entityId}/stage`}>
+              <input type="hidden" name="stage" value="prospect" />
+              <input type="hidden" name="reason" value="Promoted to prospect by admin." />
+              <button type="submit" class={railPrimaryButton} data-rail-action="promote">
+                <span class="max-lg:hidden">Promote to Prospect</span>
+                <span class="lg:hidden">Promote</span>
+              </button>
+            </form>
+
+            <details class="relative">
+              <summary class={`list-none ${railSecondaryButton}`} data-rail-action="dismiss">
+                <span>Dismiss...</span>
+                <span aria-hidden="true">v</span>
+              </summary>
+              {dismissTransition && (
+                <div class={menuClass}>
+                  <form
+                    method="POST"
+                    action={dismissTransition.action ?? `/api/admin/entities/${entityId}/stage`}
+                    class="space-y-4"
+                  >
+                    <input type="hidden" name="stage" value="lost" />
+                    <input type="hidden" name="reason" value="Dismissed by admin." />
+                    <label class="block">
+                      <span class="mb-1 block font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]">
+                        Lost reason
+                      </span>
+                      <select
+                        name="lost_reason"
+                        required
+                        class="w-full border border-[color:var(--ss-color-border)] bg-[color:var(--ss-color-background)] px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)]"
+                      >
+                        <option value="" disabled selected>
+                          Select a reason...
+                        </option>
+                        <optgroup label="Structural disqualifications">
+                          {structuralLostReasons.map((reason) => (
+                            <option value={reason.value}>{reason.label}</option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="Lifecycle reasons">
+                          {lifecycleLostReasons.map((reason) => (
+                            <option value={reason.value}>{reason.label}</option>
+                          ))}
+                        </optgroup>
+                      </select>
+                    </label>
+                    <label class="block">
+                      <span class="mb-1 block font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]">
+                        Detail (optional)
+                      </span>
+                      <textarea
+                        name="lost_detail"
+                        rows="3"
+                        placeholder={lostDetailPlaceholder('wrong-actor')}
+                        class="w-full border border-[color:var(--ss-color-border)] bg-[color:var(--ss-color-background)] px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)]"
+                      />
+                    </label>
+                    <div class="flex justify-end">
+                      <button type="submit" class={railSecondaryButton}>
+                        Dismiss
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+            </details>
+
+            <details class="relative">
+              <summary
+                class:list={[mergeDisabled ? railDisabledButton : railSecondaryButton, 'list-none']}
+                title={
+                  mergeDisabled
+                    ? 'Merge available at Signal stage only - extending mergeEntities is a follow-on.'
+                    : undefined
+                }
+              >
+                <span class="sr-only" data-rail-action="merge">
+                  Merge into...
+                </span>
+                <span>Merge into...</span>
+                <span aria-hidden="true">v</span>
+              </summary>
+              <div class={menuClass}>
+                {mergeCandidates.length === 0 ? (
+                  <p class="text-sm leading-6 text-[color:var(--ss-color-text-secondary)]">
+                    No candidates from candidate_merge_log.
+                  </p>
+                ) : (
+                  <div class="space-y-3">
+                    {mergeCandidates.map((candidate) => (
+                      <div class="border border-[color:var(--ss-color-border)] px-3 py-3">
+                        <div class="font-semibold text-[color:var(--ss-color-text-primary)]">
+                          {candidate.candidateName}
+                        </div>
+                        <div class="mt-1 text-sm leading-6 text-[color:var(--ss-color-text-secondary)]">
+                          {candidate.candidateAddress ?? 'Address unavailable'}
+                        </div>
+                        <div class="mt-1 font-['JetBrains_Mono'] text-[12px] text-[color:var(--ss-color-text-muted)]">
+                          {candidate.reason}
+                          {candidate.score !== null ? ` - score ${candidate.score}` : ''}
+                        </div>
+                        {candidate.targetId ? (
+                          <form
+                            method="POST"
+                            action={`/api/admin/entities/${candidate.targetId}/merge`}
+                            class="mt-3"
+                          >
+                            <input type="hidden" name="source_id" value={entityId} />
+                            <button type="submit" class={workflowButtonClass}>
+                              Merge into candidate
+                            </button>
+                          </form>
+                        ) : (
+                          <p class="mt-3 text-[13px] leading-5 text-[color:var(--ss-color-text-muted)]">
+                            Candidate logged for review only. No target entity record exists yet.
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </details>
+          </>
+        ) : (
+          <>
+            {promoteTransition && (
+              <form
+                method="POST"
+                action={promoteTransition.action ?? `/api/admin/entities/${entityId}/stage`}
+              >
+                <input type="hidden" name="stage" value={promoteTransition.stage} />
+                <input type="hidden" name="reason" value={`${promoteTransition.label} by admin.`} />
+                <button
+                  type="submit"
+                  class={
+                    promoteTransition.variant === 'primary'
+                      ? railPrimaryButton
+                      : railSecondaryButton
+                  }
+                  data-rail-action="promote"
+                >
+                  <span>{promoteTransition.label}</span>
+                </button>
+              </form>
+            )}
+
+            {dismissTransition ? (
+              <details class="relative">
+                <summary class={`list-none ${railSecondaryButton}`} data-rail-action="dismiss">
+                  <span>{dismissTransition.label}</span>
+                  <span aria-hidden="true">v</span>
+                </summary>
+                <div class={menuClass}>
+                  <form
+                    method="POST"
+                    action={dismissTransition.action ?? `/api/admin/entities/${entityId}/stage`}
+                    class="space-y-4"
+                  >
+                    <input type="hidden" name="stage" value="lost" />
+                    <input
+                      type="hidden"
+                      name="reason"
+                      value={`${dismissTransition.label} by admin.`}
+                    />
+                    <label class="block">
+                      <span class="mb-1 block font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]">
+                        Lost reason
+                      </span>
+                      <select
+                        name="lost_reason"
+                        required
+                        class="w-full border border-[color:var(--ss-color-border)] bg-[color:var(--ss-color-background)] px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)]"
+                      >
+                        <option value="" disabled selected>
+                          Select a reason...
+                        </option>
+                        <optgroup label="Structural disqualifications">
+                          {structuralLostReasons.map((reason) => (
+                            <option value={reason.value}>{reason.label}</option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="Lifecycle reasons">
+                          {lifecycleLostReasons.map((reason) => (
+                            <option value={reason.value}>{reason.label}</option>
+                          ))}
+                        </optgroup>
+                      </select>
+                    </label>
+                    <label class="block">
+                      <span class="mb-1 block font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]">
+                        Detail (optional)
+                      </span>
+                      <textarea
+                        name="lost_detail"
+                        rows="3"
+                        placeholder="Optional detail for the record"
+                        class="w-full border border-[color:var(--ss-color-border)] bg-[color:var(--ss-color-background)] px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)]"
+                      />
+                    </label>
+                    <div class="flex justify-end">
+                      <button type="submit" class={railSecondaryButton}>
+                        {dismissTransition.label}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </details>
+            ) : (
+              <button
+                type="button"
+                class={railDisabledButton}
+                title="Dismiss reasons apply from the Signal and prospect workflow."
+                disabled
+                data-rail-action="dismiss"
+              >
+                <span>Dismiss...</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              class={railDisabledButton}
+              title="Merge available at Signal stage only - extending mergeEntities is a follow-on."
+              disabled
+              data-rail-action="merge"
+            >
+              <span>Merge into...</span>
+            </button>
+          </>
+        )
+      }
+    </div>
+
+    {
+      hasWorkflowActions && (
+        <div class="mt-6 border-t border-[color:var(--ss-color-border)] pt-4 max-lg:hidden">
+          <div class="mb-3 font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+            Workflow actions
+          </div>
+          <div class="space-y-2">
+            {entityStage === 'prospect' && (
+              <button type="button" id="send-booking-link-btn" class={workflowButtonClass}>
+                Send booking link
+              </button>
+            )}
+            {entityStage === 'meetings' && mostRecentDraftableMeeting && (
+              <form
+                method="POST"
+                action={`/api/admin/entities/${entityId}/meetings/${mostRecentDraftableMeeting.id}/draft-quote`}
+              >
+                <button type="submit" class={workflowButtonClass}>
+                  Draft proposal from meeting
+                </button>
+              </form>
+            )}
+            {outreachMailto && (
+              <a
+                href={outreachMailto}
+                class={workflowButtonClass}
+                title={`Open mail to ${outreachContactEmail ?? ''} with the draft pre-filled`}
+              >
+                Send outreach
+              </a>
+            )}
+            {showReEnrichButton && (
+              <form
+                method="POST"
+                action={`/api/admin/entities/${entityId}/dossier`}
+                id="re-enrich-form"
+              >
+                <button type="submit" id="re-enrich-btn" class={workflowButtonClass}>
+                  Re-enrich
+                </button>
+                {lastEnrichmentAt && (
+                  <div class="mt-1 font-['JetBrains_Mono'] text-[12px] text-[color:var(--ss-color-text-muted)]">
+                    Last enriched {relativeTime(lastEnrichmentAt)}
+                  </div>
+                )}
+              </form>
+            )}
+            {entityStage === 'prospect' && hasOutreach && (
+              <button type="button" data-open-reply-dialog={entityId} class={workflowButtonClass}>
+                Log reply
+              </button>
+            )}
+            {showNewQuoteButton && (
+              <form
+                method="POST"
+                action={`/api/admin/entities/${entityId}/quotes`}
+                class="space-y-2"
+              >
+                {supersedeCandidates.length > 0 && (
+                  <label class="block">
+                    <span class="mb-1 block font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]">
+                      Supersede prior quote
+                    </span>
+                    <select
+                      name="parent_quote_id"
+                      class="w-full border border-[color:var(--ss-color-border)] bg-[color:var(--ss-color-background)] px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)]"
+                    >
+                      <option value="">No supersede link</option>
+                      {supersedeCandidates.map((quote) => (
+                        <option value={quote.id}>
+                          Supersede v{quote.version} ({quote.status})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <button type="submit" class={workflowButtonClass}>
+                  New quote
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )
+    }
+
+    <div class="mt-6 border-t border-[color:var(--ss-color-border)] pt-4 max-lg:hidden">
+      <div
+        class="mb-3 font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]"
+      >
+        Outreach status
+      </div>
+
+      {
+        staleDraft.isStale ? (
+          <div class="border border-[color:var(--ss-color-warning)] border-l-[3px] px-3 py-3 text-sm leading-6 text-[color:var(--ss-color-text-secondary)]">
+            <strong class="mb-1 block font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-warning)]">
+              Draft is stale
+            </strong>
+            <span>
+              {staleDraft.reason} Will be regenerated when you Promote and validated against Pattern
+              A.
+            </span>
+            <div class="mt-2 flex gap-3">
+              <a
+                href="#entity-diagnostics-draft"
+                class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)] underline underline-offset-4"
+              >
+                View draft
+              </a>
+              <form method="POST" action={`/api/admin/entities/${entityId}/outreach-draft/discard`}>
+                <button
+                  type="submit"
+                  class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)] underline underline-offset-4"
+                >
+                  Discard now
+                </button>
+              </form>
+            </div>
+          </div>
+        ) : entityStage !== 'signal' && outreachEntry ? (
+          <a
+            href="#entity-diagnostics-draft"
+            class="text-sm leading-6 text-[color:var(--ss-color-text-secondary)] underline underline-offset-4"
+          >
+            Latest draft generated {relativeTime(outreachEntry.created_at)}.
+          </a>
+        ) : (
+          <p class="text-sm leading-6 text-[color:var(--ss-color-text-secondary)]">
+            Will be generated post-Promote and validated against Pattern A doctrine.
+          </p>
+        )
+      }
+    </div>
+  </div>
+</aside>

@@ -11,9 +11,10 @@ interface Props {
   title: string
   breadcrumbs?: BreadcrumbItem[]
   maxWidth?: 'max-w-5xl' | 'max-w-6xl'
+  mainClass?: string
 }
 
-const { title, breadcrumbs = [], maxWidth = 'max-w-5xl' } = Astro.props
+const { title, breadcrumbs = [], maxWidth = 'max-w-5xl', mainClass = '' } = Astro.props
 const session = Astro.locals.session!
 const pathname = Astro.url.pathname
 
@@ -164,7 +165,7 @@ const navItems = [
       </div>
     </header>
 
-    <main id="main" role="main" class={`${maxWidth} mx-auto px-4 py-8`}>
+    <main id="main" role="main" class={`${maxWidth} mx-auto px-4 py-8 ${mainClass}`}>
       {
         breadcrumbs.length > 0 && (
           <nav aria-label="Breadcrumb" class="mb-4">
