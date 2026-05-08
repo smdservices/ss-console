@@ -245,6 +245,59 @@ describe('forbidden-strings: Pattern A/B violations must not appear in shipped s
   }
 })
 
+// ============================================================================
+// Done-card fabrication-trap guard — V3 /book chat redesign.
+//
+// IntakeClosed.astro renders an acknowledgment card after the prospect
+// clicks "Done" without booking. Per the no-fabricated-content policy in
+// CLAUDE.md (Pattern A is P0), the card MUST NOT promise follow-up
+// outreach. The Captain authors the literal copy line; this scoped check
+// blocks regression patterns sneaking into THIS file specifically. The
+// global FORBIDDEN_PATTERNS list catches historical violations elsewhere;
+// this list is targeted at the surface most likely to drift.
+// ============================================================================
+
+const DONE_CARD_FILE = resolve('src/components/booking/IntakeClosed.astro')
+const DONE_CARD_FABRICATION_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
+  {
+    label: '"we will" follow-up promise',
+    pattern: /\bwe\s+will\b/i,
+  },
+  {
+    label: '"we\'ll" follow-up promise',
+    pattern: /\bwe['’]ll\b/i,
+  },
+  {
+    label: '"review your" implies we will read and act',
+    pattern: /\breview your\b/i,
+  },
+  {
+    label: '"get back" implies a return contact',
+    pattern: /\bget back\b/i,
+  },
+  {
+    label: '"in touch" implies we will reach out',
+    pattern: /\bin touch\b/i,
+  },
+  {
+    label: '"reach out" implies we will reach out',
+    pattern: /\breach out\b/i,
+  },
+]
+
+describe('IntakeClosed.astro fabrication guard (no follow-up promises)', () => {
+  it('finds the Done acknowledgment card source (sanity)', () => {
+    expect(() => readFileSync(DONE_CARD_FILE, 'utf-8')).not.toThrow()
+  })
+
+  for (const { label, pattern } of DONE_CARD_FABRICATION_PATTERNS) {
+    it(`IntakeClosed.astro must not contain: ${label}`, () => {
+      const content = stripComments(readFileSync(DONE_CARD_FILE, 'utf-8'))
+      expect(pattern.test(content)).toBe(false)
+    })
+  }
+})
+
 describe('user-facing copy guardrails', () => {
   it('finds shipped user-facing Astro surfaces to check (sanity)', () => {
     expect(userFacingSurfaceFiles.length).toBeGreaterThan(0)

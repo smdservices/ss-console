@@ -4,8 +4,9 @@ export const prerender = false
 import Base from '../layouts/Base.astro'
 import Nav from '../components/Nav.astro'
 import Footer from '../components/Footer.astro'
-import SlotPicker from '../components/booking/SlotPicker.astro'
-import UnifiedIntake from '../components/booking/UnifiedIntake.astro'
+import IntakeIntroCard from '../components/booking/IntakeIntroCard.astro'
+import IntakeChat from '../components/booking/IntakeChat.astro'
+import IntakeClosed from '../components/booking/IntakeClosed.astro'
 import { getEntity } from '../lib/db/entities'
 import { getContact } from '../lib/db/contacts'
 import { verifyBookingLink } from '../lib/booking/signed-link'
@@ -52,22 +53,22 @@ if (prefillToken) {
 
 <Base
   title="Let's Talk | SMD Services"
-  description="Tell us about your business. Get in touch and we'll take it from there."
+  description="Tell us about the business. A short conversation, then a real time on the calendar if it is worth a call."
 >
   <Nav />
-  <main id="main" role="main">
-    <!-- Intake -->
-    <section class="bg-[color:var(--ss-color-background)] px-6 py-16 sm:py-24">
-      <div class="mx-auto max-w-3xl">
-        <header class="mb-6">
-          <h1 class="text-3xl font-bold text-[color:var(--ss-color-text-primary)] sm:text-4xl">
-            Tell us about your business.
-          </h1>
-        </header>
+  <main id="main" role="main" class="ss-book-main">
+    <!-- Persistent header off-ramp: always visible, in all three states. -->
+    <header class="ss-book-header">
+      <a href="#chat-pick-time" id="header-pick-time-link" class="ss-quiet-link">
+        Or pick a time to talk
+      </a>
+    </header>
 
+    <section class="ss-book-section">
+      <div class="ss-book-frame">
         {
           prefillTokenError && (
-            <div class="mb-6 rounded-[var(--ss-radius-card)] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <div class="ss-banner ss-banner-warn" role="status">
               {prefillTokenError === 'expired'
                 ? 'This booking link has expired. You can still pick a time below.'
                 : 'This booking link is not valid. You can still pick a time below.'}
@@ -75,326 +76,30 @@ if (prefillToken) {
           )
         }
 
-        <UnifiedIntake
-          values={{
-            name: prefillContactName ?? undefined,
-            email: prefillEmail ?? undefined,
-            businessName: prefillBusinessName ?? undefined,
-          }}
-        />
+        <!--
+          Single root #unified-intake — the original event hub. The three
+          state sections (intro, chat, closed) live inside. unified-intake.ts
+          dispatches/listens on this root.
+        -->
+        <div id="unified-intake" data-state="intro">
+          <IntakeIntroCard
+            values={{
+              name: prefillContactName ?? undefined,
+              email: prefillEmail ?? undefined,
+              businessName: prefillBusinessName ?? undefined,
+            }}
+          />
+
+          <IntakeChat />
+
+          <IntakeClosed />
+        </div>
 
         {
           prefillTokenValid && prefillToken && (
             <input id="prefill-token-store" type="hidden" value={prefillToken} />
           )
         }
-
-        <!-- Slot picker — hidden until the prospect clicks "Pick a time to talk" post-Send -->
-        <div
-          id="slot-picker-section"
-          hidden
-          class="mt-6 rounded-[var(--ss-radius-card)] bg-white p-card sm:p-section"
-        >
-          <h2 class="mb-1 text-lg font-bold text-[color:var(--ss-color-text-primary)]">
-            Pick a time
-          </h2>
-          <p class="mb-6 text-sm text-[color:var(--ss-color-text-secondary)]">
-            Choose a date and time that works for you.
-          </p>
-
-          <SlotPicker />
-
-          <!-- Selected slot summary (appears after user picks) -->
-          <div
-            id="selected-slot-banner"
-            hidden
-            class="mt-6 flex items-center gap-2 rounded-[var(--ss-radius-card)] bg-primary/5 px-4 py-2.5"
-          >
-            <svg
-              class="h-5 w-5 flex-shrink-0 text-primary"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke-width="2"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
-              ></path>
-            </svg>
-            <span id="selected-slot-text" class="text-sm font-medium text-primary"></span>
-            <button
-              type="button"
-              id="change-slot-btn"
-              class="ml-auto text-xs font-medium text-primary/70 underline hover:text-primary"
-            >
-              Change
-            </button>
-          </div>
-
-          <!-- Slot-section error banners -->
-          <div
-            id="bf-error"
-            hidden
-            class="mt-4 rounded-[var(--ss-radius-card)] bg-[color:var(--ss-color-error)]/5 px-4 py-3 text-sm text-[color:var(--ss-color-error)]"
-          >
-          </div>
-          <div
-            id="bf-slot-taken"
-            hidden
-            class="mt-4 rounded-[var(--ss-radius-card)] bg-amber-50 px-4 py-3 text-sm text-[color:var(--ss-color-attention)]"
-          >
-            That time was just taken. Please choose another time above.
-          </div>
-
-          <!-- Book confirm button (only enabled after slot is selected) -->
-          <button
-            id="bf-submit"
-            type="button"
-            disabled
-            data-ev="book-submit"
-            class="mt-6 w-full rounded-[var(--ss-radius-card)] bg-primary px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Book Your Call
-          </button>
-        </div>
-
-        <!-- Confirmation panel (replaces everything above on successful booking) -->
-        <div
-          id="confirmation-panel"
-          hidden
-          class="mt-6 rounded-[var(--ss-radius-card)] bg-white p-card sm:p-section"
-        >
-          <div class="text-center">
-            <div
-              class="mx-auto flex h-14 w-14 items-center justify-center rounded-[var(--ss-radius-card)] bg-[color:var(--ss-color-complete)]/10"
-            >
-              <svg
-                class="h-7 w-7 text-[color:var(--ss-color-complete)]"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="2"
-                stroke="currentColor"
-              >
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"
-                ></path>
-              </svg>
-            </div>
-            <h2 class="mt-4 text-xl font-bold text-[color:var(--ss-color-text-primary)]">
-              You're all set
-            </h2>
-            <p class="mt-2 text-sm text-[color:var(--ss-color-text-secondary)]">
-              We'll see you at your scheduled time. Check your email for a confirmation with the
-              meeting link.
-            </p>
-            <p class="mt-3 text-sm text-[color:var(--ss-color-text-secondary)]">
-              <a
-                href="/get-started?booked=1"
-                class="font-medium text-primary underline hover:text-primary/80"
-                data-ev="book-post-confirm-intake">Help us prepare for your call</a
-              >. A few quick questions will help us make the most of our time together.
-            </p>
-          </div>
-
-          <div
-            class="mt-6 space-y-row rounded-[var(--ss-radius-card)] bg-[color:var(--ss-color-background)] p-stack"
-          >
-            <div class="flex items-start gap-row">
-              <svg
-                class="mt-0.5 h-5 w-5 flex-shrink-0 text-[color:var(--ss-color-text-muted)]"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="1.5"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
-                ></path>
-              </svg>
-              <span
-                id="conf-slot"
-                class="text-sm font-medium text-[color:var(--ss-color-text-primary)]"></span>
-            </div>
-            <div id="conf-meet-row" hidden class="flex items-start gap-row">
-              <svg
-                class="mt-0.5 h-5 w-5 flex-shrink-0 text-[color:var(--ss-color-text-muted)]"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="1.5"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z"
-                ></path>
-              </svg>
-              <a
-                id="conf-meet-link"
-                href="#"
-                target="_blank"
-                rel="noopener"
-                class="text-sm font-medium text-primary hover:text-primary-hover"
-              >
-                Join Video Call
-              </a>
-            </div>
-            <div id="conf-manage-row" hidden class="flex items-start gap-row">
-              <svg
-                class="mt-0.5 h-5 w-5 flex-shrink-0 text-[color:var(--ss-color-text-muted)]"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="1.5"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 1 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 1 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281Z"
-                ></path>
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"></path>
-              </svg>
-              <a
-                id="conf-manage-link"
-                href="#"
-                class="text-sm font-medium text-primary hover:text-primary-hover"
-              >
-                Reschedule or cancel
-              </a>
-            </div>
-          </div>
-        </div>
-
-        <!-- 503 email fallback panel -->
-        <div
-          id="email-fallback-panel"
-          hidden
-          class="mt-6 rounded-[var(--ss-radius-card)] bg-white p-card text-center sm:p-section"
-        >
-          <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
-            Online booking is temporarily unavailable.
-          </p>
-          <p class="mt-2 text-sm text-[color:var(--ss-color-text-secondary)]">
-            Please email us directly to schedule your call.
-          </p>
-          <a
-            id="fallback-mailto"
-            href="mailto:team@smd.services?subject=Assessment%20Call%20Request"
-            class="mt-4 inline-block rounded-[var(--ss-radius-card)] bg-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
-          >
-            Email team@smd.services
-          </a>
-        </div>
-      </div>
-    </section>
-
-    <!-- What to Expect -->
-    <section class="bg-white px-6 py-16 sm:py-24">
-      <div class="mx-auto max-w-5xl">
-        <h2 class="mb-12 text-center text-3xl font-bold text-[color:var(--ss-color-text-primary)]">
-          What Happens on the Call
-        </h2>
-        <div class="mx-auto grid max-w-3xl gap-section sm:grid-cols-3">
-          <div class="text-center">
-            <div
-              class="mx-auto flex h-12 w-12 items-center justify-center rounded-[var(--ss-radius-card)] bg-primary text-lg font-bold text-white"
-            >
-              1
-            </div>
-            <h3 class="mt-4 font-bold text-[color:var(--ss-color-text-primary)]">
-              You walk us through your day
-            </h3>
-            <p class="mt-2 text-sm text-[color:var(--ss-color-text-secondary)]">
-              How do customers find you? How do jobs get scheduled? What happens when something goes
-              wrong? We're just trying to understand how things really work day to day.
-            </p>
-          </div>
-          <div class="text-center">
-            <div
-              class="mx-auto flex h-12 w-12 items-center justify-center rounded-[var(--ss-radius-card)] bg-[color:var(--ss-color-border-subtle)] text-lg font-bold text-[color:var(--ss-color-text-primary)]"
-            >
-              2
-            </div>
-            <h3 class="mt-4 font-bold text-[color:var(--ss-color-text-primary)]">
-              We figure out what matters most
-            </h3>
-            <p class="mt-2 text-sm text-[color:var(--ss-color-text-secondary)]">
-              Together we identify what would make the biggest difference for where you're trying to
-              go, and why those things matter most right now.
-            </p>
-          </div>
-          <div class="text-center">
-            <div
-              class="mx-auto flex h-12 w-12 items-center justify-center rounded-[var(--ss-radius-card)] bg-[color:var(--ss-color-border-subtle)] text-lg font-bold text-[color:var(--ss-color-text-primary)]"
-            >
-              3
-            </div>
-            <h3 class="mt-4 font-bold text-[color:var(--ss-color-text-primary)]">
-              You decide if you want help
-            </h3>
-            <p class="mt-2 text-sm text-[color:var(--ss-color-text-secondary)]">
-              If it makes sense to work together, we'll send you a proposal with the scope, price,
-              and timeline. If not, you still walked away with a useful conversation.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- FAQ -->
-    <section class="bg-[color:var(--ss-color-background)] px-6 py-16 sm:py-24">
-      <div class="mx-auto max-w-5xl">
-        <h2 class="mb-12 text-center text-3xl font-bold text-[color:var(--ss-color-text-primary)]">
-          Common Questions
-        </h2>
-        <dl class="mx-auto max-w-2xl space-y-section">
-          <div>
-            <dt class="font-semibold text-[color:var(--ss-color-text-primary)]">
-              Does the call cost anything?
-            </dt>
-            <dd class="mt-2 text-[color:var(--ss-color-text-secondary)]">
-              No. If it makes sense to work together, we'll send a proposal after the call. If not,
-              you still got a useful conversation about your business. Either way it costs you
-              nothing but time.
-            </dd>
-          </div>
-          <div>
-            <dt class="font-semibold text-[color:var(--ss-color-text-primary)]">
-              Do I need to prepare anything?
-            </dt>
-            <dd class="mt-2 text-[color:var(--ss-color-text-secondary)]">
-              Just be ready to talk honestly about how things work. We'll ask questions. The less
-              polished, the better. The real version of how things run is what helps us figure out
-              the right path forward.
-            </dd>
-          </div>
-          <div>
-            <dt class="font-semibold text-[color:var(--ss-color-text-primary)]">
-              What happens after the call?
-            </dt>
-            <dd class="mt-2 text-[color:var(--ss-color-text-secondary)]">
-              If it makes sense to work together, you get a proposal. Fixed price, clear scope, no
-              surprises. If not, we'll tell you that too. No pressure either way.
-            </dd>
-          </div>
-          <div>
-            <dt class="font-semibold text-[color:var(--ss-color-text-primary)]">
-              What does this cost?
-            </dt>
-            <dd class="mt-2 text-[color:var(--ss-color-text-secondary)]">
-              Pricing comes from scope, and scope comes from the conversation. The real question
-              isn't the price by itself, it's whether the obstacle is costing the business more than
-              fixing it would. If something is draining time, money, or focus and we can solve it
-              for less, the math is the math.
-            </dd>
-          </div>
-        </dl>
       </div>
     </section>
   </main>
@@ -402,5 +107,6 @@ if (prefillToken) {
 
   <script>
     import '../scripts/book.ts'
+    import '../scripts/unified-intake.ts'
   </script>
 </Base>

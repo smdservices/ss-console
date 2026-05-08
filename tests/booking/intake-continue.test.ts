@@ -29,6 +29,8 @@ import {
   appendUserTurn,
   appendAssistantTurn,
   MAX_TURNS,
+  isConversationClosed,
+  setInFlight,
 } from '../../src/lib/db/intake-conversations'
 
 // ---------------------------------------------------------------------------
@@ -135,6 +137,8 @@ interface ContinueResponse {
   ai_reply?: string | null
   turn?: number
   can_continue?: boolean
+  slot_picker_next?: boolean
+  closed?: boolean
   error?: string
   message?: string
 }
@@ -195,6 +199,8 @@ describe('POST /api/intake/continue', () => {
     expect(body.ai_reply).toBe('How many crews are you running?')
     expect(body.turn).toBe(2)
     expect(body.can_continue).toBe(true)
+    // Default: low turn, no marker, ceiling not hit -> picker not surfaced.
+    expect(body.slot_picker_next).toBe(false)
 
     // Cookie was rotated.
     const setCookie = res.headers.get('set-cookie')
@@ -371,6 +377,229 @@ describe('POST /api/intake/continue', () => {
       'We do HVAC, mostly residential, twelve years.',
       'this should reach DB then 503',
     ])
+  })
+
+  // ---------------------------------------------------------------------------
+  // V3 additions: slot-picker readiness, Done flow, idempotency.
+  // ---------------------------------------------------------------------------
+
+  describe('slot-picker readiness', () => {
+    it('AI marker on its own line fires slot_picker_next and is stripped from the persisted reply', async () => {
+      await seedTurn1(db)
+      const token = await signConversationToken({
+        conversation_id: CONV_ID,
+        entity_id: ENTITY_ID,
+      })
+      claudeReplyResult = 'Where in the chain does the slowdown hit?\n[[READY-FOR-CALL]]'
+
+      const res = await POST(
+        buildContext({ body: { message: 'Four crews, scheduling is killing us.' }, cookie: token })
+      )
+      const body = await parseJson<ContinueResponse>(res)
+      expect(body.slot_picker_next).toBe(true)
+      expect(body.ai_reply).toBe('Where in the chain does the slowdown hit?')
+      expect(body.ai_reply).not.toContain('[[READY-FOR-CALL]]')
+
+      // Persisted reply was stripped too.
+      const persisted = await db
+        .prepare(
+          `SELECT content FROM context
+             WHERE entity_id = ? AND source = 'website_intake_v2_ai'
+             ORDER BY created_at DESC LIMIT 1`
+        )
+        .bind(ENTITY_ID)
+        .first<{ content: string }>()
+      expect(persisted?.content).toBe('Where in the chain does the slowdown hit?')
+      expect(persisted?.content).not.toContain('[[READY-FOR-CALL]]')
+    })
+
+    it('ceiling fires slot_picker_next at turn 4 even without the marker', async () => {
+      // Seed turns 1..3 (user + AI each).
+      for (let t = 1; t <= 3; t++) {
+        await appendUserTurn(db, ORG_ID, {
+          entityId: ENTITY_ID,
+          conversationId: CONV_ID,
+          turn: t,
+          content: `user turn ${t}`,
+        })
+        await appendAssistantTurn(db, ORG_ID, {
+          entityId: ENTITY_ID,
+          conversationId: CONV_ID,
+          turn: t,
+          content: `ai turn ${t}?`,
+        })
+      }
+      const token = await signConversationToken({
+        conversation_id: CONV_ID,
+        entity_id: ENTITY_ID,
+      })
+      claudeReplyResult = 'And what is running the schedule today?'
+
+      const res = await POST(
+        buildContext({ body: { message: 'turn 4 user content' }, cookie: token })
+      )
+      const body = await parseJson<ContinueResponse>(res)
+      expect(body.turn).toBe(4)
+      expect(body.slot_picker_next).toBe(true)
+      // No marker in the model reply, so ceiling is what set it.
+    })
+
+    it('turn 3 without marker stays under the ceiling and does not fire slot_picker_next', async () => {
+      // Seed turns 1..2.
+      for (let t = 1; t <= 2; t++) {
+        await appendUserTurn(db, ORG_ID, {
+          entityId: ENTITY_ID,
+          conversationId: CONV_ID,
+          turn: t,
+          content: `user turn ${t}`,
+        })
+        await appendAssistantTurn(db, ORG_ID, {
+          entityId: ENTITY_ID,
+          conversationId: CONV_ID,
+          turn: t,
+          content: `ai turn ${t}?`,
+        })
+      }
+      const token = await signConversationToken({
+        conversation_id: CONV_ID,
+        entity_id: ENTITY_ID,
+      })
+      claudeReplyResult = 'How many jobs a week is the team turning?'
+
+      const res = await POST(buildContext({ body: { message: 'turn 3 user' }, cookie: token }))
+      const body = await parseJson<ContinueResponse>(res)
+      expect(body.turn).toBe(3)
+      expect(body.slot_picker_next).toBe(false)
+    })
+  })
+
+  describe('Done close flow', () => {
+    it('closed: true marks the conversation closed and is idempotent', async () => {
+      await seedTurn1(db)
+      const token = await signConversationToken({
+        conversation_id: CONV_ID,
+        entity_id: ENTITY_ID,
+      })
+
+      const res1 = await POST(buildContext({ body: { closed: true }, cookie: token }))
+      expect(res1.status).toBe(200)
+      const body1 = await parseJson<ContinueResponse>(res1)
+      expect(body1.ok).toBe(true)
+      expect(body1.closed).toBe(true)
+      expect(await isConversationClosed(db, CONV_ID)).toBe(true)
+
+      // Second call: still 200, still closed.
+      const res2 = await POST(buildContext({ body: { closed: true }, cookie: token }))
+      expect(res2.status).toBe(200)
+      const body2 = await parseJson<ContinueResponse>(res2)
+      expect(body2.closed).toBe(true)
+    })
+
+    it('closed: true returns 409 when an assistant turn is in flight', async () => {
+      await seedTurn1(db)
+      // Simulate an in-flight assistant turn by seeding the row directly.
+      await setInFlight(db, { conversationId: CONV_ID, entityId: ENTITY_ID })
+      const token = await signConversationToken({
+        conversation_id: CONV_ID,
+        entity_id: ENTITY_ID,
+      })
+
+      const res = await POST(buildContext({ body: { closed: true }, cookie: token }))
+      expect(res.status).toBe(409)
+      const body = await parseJson<ContinueResponse>(res)
+      expect(body.error).toBe('in_flight')
+      // Conversation stayed open.
+      expect(await isConversationClosed(db, CONV_ID)).toBe(false)
+    })
+
+    it('closed conversation rejects subsequent /continue with 401', async () => {
+      await seedTurn1(db)
+      const token = await signConversationToken({
+        conversation_id: CONV_ID,
+        entity_id: ENTITY_ID,
+      })
+      // Close.
+      await POST(buildContext({ body: { closed: true }, cookie: token }))
+      // Continue against a closed conversation.
+      const res = await POST(buildContext({ body: { message: 'still typing' }, cookie: token }))
+      expect(res.status).toBe(401)
+      const body = await parseJson<ContinueResponse>(res)
+      expect(body.error).toBe('unauthorized')
+    })
+  })
+
+  describe('idempotency-key replay', () => {
+    it('replays the previous result without duplicating the user turn', async () => {
+      await seedTurn1(db)
+      const token = await signConversationToken({
+        conversation_id: CONV_ID,
+        entity_id: ENTITY_ID,
+      })
+      claudeReplyResult = 'How many crews are you running?'
+
+      // First call with idempotency_key.
+      const res1 = await POST(
+        buildContext({
+          body: { message: 'Four crews.', idempotency_key: 'k-1' },
+          cookie: token,
+        })
+      )
+      const body1 = await parseJson<ContinueResponse>(res1)
+      expect(body1.turn).toBe(2)
+      expect(body1.ai_reply).toBe('How many crews are you running?')
+
+      // Second call with the SAME key. Claude must NOT be called again
+      // (we'd see the new claudeReplyResult below if it were).
+      claudeReplyResult = 'DIFFERENT REPLY THAT MUST NOT WIN'
+      const res2 = await POST(
+        buildContext({
+          body: { message: 'Four crews.', idempotency_key: 'k-1' },
+          cookie: token,
+        })
+      )
+      const body2 = await parseJson<ContinueResponse>(res2)
+      expect(body2.turn).toBe(2)
+      expect(body2.ai_reply).toBe('How many crews are you running?')
+
+      // The user turn was NOT duplicated.
+      const userTurns = await db
+        .prepare(
+          `SELECT content FROM context
+             WHERE entity_id = ? AND source = 'website_intake_v2_user'
+             ORDER BY created_at ASC`
+        )
+        .bind(ENTITY_ID)
+        .all<{ content: string }>()
+      expect(userTurns.results).toHaveLength(2) // turn 1 (seed) + turn 2 (only one)
+      expect(userTurns.results[1].content).toBe('Four crews.')
+    })
+
+    it('a new key after the snapshot is recorded creates a fresh turn', async () => {
+      await seedTurn1(db)
+      const token = await signConversationToken({
+        conversation_id: CONV_ID,
+        entity_id: ENTITY_ID,
+      })
+      claudeReplyResult = 'How many crews?'
+
+      await POST(
+        buildContext({
+          body: { message: 'Four crews.', idempotency_key: 'k-1' },
+          cookie: token,
+        })
+      )
+
+      claudeReplyResult = 'And how does the work get scheduled today?'
+      const res2 = await POST(
+        buildContext({
+          body: { message: 'Whiteboard and texts.', idempotency_key: 'k-2' },
+          cookie: token,
+        })
+      )
+      const body2 = await parseJson<ContinueResponse>(res2)
+      expect(body2.turn).toBe(3)
+      expect(body2.ai_reply).toBe('And how does the work get scheduled today?')
+    })
   })
 
   it('400 on invalid JSON body', async () => {

@@ -1,0 +1,108 @@
+---
+/**
+ * V3 /book intro card. Three fields (email, name, message) plus a mic
+ * button on the message textarea. Single primary "Start" button.
+ *
+ * On submit, dispatches `unified-send` (CustomEvent) on `#unified-intake`
+ * carrying { name, email, message, rendered_at }. The page-level
+ * controller (src/scripts/book.ts) takes the call from there.
+ *
+ * Plainspoken Sign Shop register: cream paper, ink, hairline borders,
+ * zero radius (handled by tailwind utilities pinned to `rounded-none`).
+ */
+
+interface Props {
+  values?: {
+    name?: string
+    email?: string
+    businessName?: string
+  }
+}
+
+const { values = {} } = Astro.props
+
+// `businessName` is preserved as a hidden field for admin-issued
+// pre-filled links. It is not displayed on the intro card.
+---
+
+<section id="intake-intro" class="ss-intro">
+  <header class="mb-stack">
+    <p class="ss-eyebrow">Intake</p>
+    <h1 class="ss-headline">Tell us about the business.</h1>
+    <p class="ss-lede">
+      A short conversation, then a real time on the calendar if it is worth a call.
+    </p>
+  </header>
+
+  <form id="intro-form" class="ss-form" novalidate>
+    <div class="ss-field">
+      <label for="intro-email" class="ss-field-label">Email</label>
+      <input
+        id="intro-email"
+        name="email"
+        type="email"
+        autocomplete="email"
+        required
+        class="ss-input"
+        value={values.email ?? ''}
+      />
+    </div>
+
+    <div class="ss-field">
+      <label for="intro-name" class="ss-field-label">Name</label>
+      <input
+        id="intro-name"
+        name="name"
+        type="text"
+        autocomplete="name"
+        required
+        class="ss-input"
+        value={values.name ?? ''}
+      />
+    </div>
+
+    <div class="ss-field">
+      <label for="intro-message" class="ss-field-label">What is going on?</label>
+      <div class="ss-textarea-wrap">
+        <textarea
+          id="intro-message"
+          name="message"
+          rows="4"
+          required
+          placeholder="A few sentences. Voice works too."
+          class="ss-textarea"></textarea>
+        <button
+          type="button"
+          id="intro-mic-btn"
+          class="ss-mic-btn"
+          aria-label="Voice input"
+          data-mic-target="intro-message"
+        >
+          <span class="material-symbols-outlined">mic</span>
+        </button>
+      </div>
+    </div>
+
+    {
+      values.businessName && (
+        <input type="hidden" name="business_name" value={values.businessName} />
+      )
+    }
+
+    <div id="intro-error" class="ss-error" hidden></div>
+
+    <div class="ss-form-actions">
+      <a href="#chat-pick-time" class="ss-quiet-link" id="intro-pick-time-link">
+        Or pick a time to talk
+      </a>
+      <button type="submit" id="intro-start-btn" class="ss-primary">Start</button>
+    </div>
+
+    <div id="intro-voice-unsupported" class="ss-helper" hidden>
+      Voice input is not supported in this browser. You can still type.
+    </div>
+    <div id="intro-voice-permission" class="ss-helper" hidden>
+      Microphone access was denied. Check the site permissions in your browser settings.
+    </div>
+  </form>
+</section>
