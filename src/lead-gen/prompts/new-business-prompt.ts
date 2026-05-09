@@ -66,11 +66,11 @@ Use "not_recommended" when the business is disqualified or clearly outside our t
 
 Business names often contain industry clues. Use these patterns:
 
-- **Home services:** plumbing, plumber, HVAC, heating, cooling, air, electric, electrical, pest, landscape, lawn, cleaning, maid, roofing, painting, pool, garage, handyman
-- **Professional services:** law, legal, attorney, CPA, accounting, tax, bookkeeping, insurance, realty, real estate, financial, advisory, consulting, architect, engineering, marketing, design
-- **Contractor/trades:** construction, contracting, remodel, concrete, framing, drywall, flooring, tile, cabinet, countertop, excavation, demolition, welding, fabrication
-- **Retail/salon/spa:** salon, spa, barber, beauty, nail, boutique, shop, store, fitness, gym, studio
-- **Restaurant/food:** restaurant, cafe, bistro, grill, kitchen, catering, bakery, pizzeria, taco, sushi, bar
+- **home_services:** plumbing, plumber, HVAC, heating, cooling, air, electric, electrical, pest, landscape, lawn, cleaning, maid, roofing, painting, pool, garage, handyman
+- **professional_services:** law, legal, attorney, CPA, accounting, tax, bookkeeping, insurance, realty, real estate, financial, advisory, consulting, architect, engineering, marketing, design
+- **contractor_trades:** construction, contracting, remodel, concrete, framing, drywall, flooring, tile, cabinet, countertop, excavation, demolition, welding, fabrication
+- **retail_salon:** salon, spa, barber, beauty, nail, boutique, shop, store, fitness, gym, studio
+- **restaurant_food:** restaurant, cafe, bistro, grill, kitchen, catering, bakery, pizzeria, taco, sushi, bar
 
 When the name is ambiguous (e.g., "Copper State Holdings LLC"), use entity type, address, permit type, and additional_data to infer vertical. If still unclear, use "other."
 
