@@ -54,7 +54,9 @@ const STAFFING_AGENCY_NAMES = [
 const qualifySource = readFileSync(resolve('workers/job-monitor/src/qualify.ts'), 'utf-8')
 for (const name of STAFFING_AGENCY_NAMES) {
   if (!qualifySource.includes(`'${name}'`)) {
-    console.error(`Drift: '${name}' is in this script but not in qualify.ts. Re-sync before applying.`)
+    console.error(
+      `Drift: '${name}' is in this script but not in qualify.ts. Re-sync before applying.`
+    )
     process.exit(1)
   }
 }
@@ -69,9 +71,7 @@ function inferPostingActorRole({ company_name, apply_options = [] }) {
   )
     return 'staffing_agency'
   if (STAFFING_AGENCY_NAMES.some((n) => company.includes(n))) return 'staffing_agency'
-  const uniqueLinks = new Set(
-    (apply_options || []).map((o) => o?.link?.trim()).filter(Boolean)
-  )
+  const uniqueLinks = new Set((apply_options || []).map((o) => o?.link?.trim()).filter(Boolean))
   if (uniqueLinks.size >= 3) return 'syndicator'
   return 'direct'
 }
