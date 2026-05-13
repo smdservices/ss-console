@@ -23,7 +23,7 @@ A complete record of every strategic decision made across 6 layers of the SMD Se
 | **Payment terms**       | 50% deposit at signing, 50% at completion                                                             |
 | **Assessment**          | Free for first 3 clients, then $250 applied toward engagement                                         |
 | **Voice standard**      | We / our team throughout. Never I / the consultant.                                                   |
-| **Decisions locked**    | 30 decisions across 6 layers (plus venture-wide #20 positioning standard)                             |
+| **Decisions locked**    | 31 active decisions across 6 layers (plus venture-wide #20 positioning standard; 2 superseded)        |
 | **Deliverables queued** | 11 artifacts ready to build                                                                           |
 
 ---
@@ -309,7 +309,9 @@ The anchor math is not a PDF we email. It is 1-2 questions per problem type aske
 
 ---
 
-## Decision #12 - Retainer Model
+## Decision #12 - Retainer Model — SUPERSEDED 2026-05-13
+
+> **Superseded by Decision #44 / ADR 0004 (Productized AI Employee Offering).** The undefined "$200-$400/month, define after first delivery" placeholder is retired. SMD's recurring-revenue product is the productized AI Employee SKU. Post-handoff support for scope-based engagements continues under Decision #27 (two-week async stabilization); customers wanting ongoing support beyond that window are quoted a follow-on scope or converted to an AI Employee subscription if the fit is right. The decision below is preserved as historical context; do not implement against it.
 
 **Issue:** smdservices/ss-console #12
 
@@ -702,6 +704,39 @@ Same engine, same data model, same artifact shape. Fields fill progressively as 
 
 ---
 
+## Decision #44 - Productized AI Employee Offering (cross-layer)
+
+**ADR:** [docs/adr/0004-productized-ai-employee-offering.md](./0004-productized-ai-employee-offering.md)
+
+**Supersedes:** Decision #12 (Retainer Model)
+
+**Decision: Add a productized AI Employee offering as a second front door alongside the existing scope-based engagement funnel. Flat monthly retainer SKU. Lean Hermes as the agent harness; evaluate everything else independently before adopting any other vendor's stack wholesale. Two front doors, one firm — firm-level voice and solutions-consulting positioning unchanged.**
+
+**Four locks:**
+
+1. **Productize as a flat-rate retainer SKU.** Fixed monthly price, not metered, not credit-based, not scoped per engagement. Specific monthly price deferred to follow-on pending stack cost analysis; the *shape* of the pricing is locked here.
+2. **Second front door, not replacement.** The scope-based assessment funnel (Decisions #16, #18) remains the primary path for prospects whose objectives we need to surface through conversation. AI Employee is the entry point for prospects who already know they want an agent.
+3. **Hermes-leaning stack posture.** Hermes is the leading candidate for the agent harness. Every other component (host/VM, MCP connector layer, email identity, memory layer, build harness) is evaluated independently before adoption. Durable principles: cloud VMs over local hardware, MCP-bridged tooling, agents-building-agents, persistent memory layer, watchdog/observability.
+4. **Decision #12 superseded.** The undefined $200-500/mo post-delivery retainer concept is retired. AI Employee replaces it as SMD's recurring-revenue product. Post-handoff support for scope-based engagements continues under Decision #27 (two-week async stabilization).
+
+**Cross-layer impact.**
+
+- **Layer 1 (Buy Box).** Adds a productized SKU as a second front door. Does not change ICP (Decision #5) — AI Employee targets the same revenue band, with the addition that the prospect arrives self-diagnosed.
+- **Layer 3 (Pricing).** Adds a flat retainer pricing shape distinct from scope-based quoting (Decision #16, unchanged for the consulting funnel). Specific number deferred.
+- **Layer 5 (Distribution).** Adds a second acquisition path. Prospects who arrive knowing they want an agent skip the assessment funnel and convert directly to a productized retainer.
+- **Layer 6 (Delivery).** Introduces productized service obligations (uptime, monitoring, customer success cadence) that the firm has not yet had. Stack build follow-on must specify watchdog, observability, and incident-response patterns before the first paid customer.
+
+**Positioning guardrails.**
+
+- Firm-level voice stays solutions consulting. AI Employee is a named offering within that frame, not a competing identity.
+- No "AI-powered firm" branding. AI Employee is the knife; SMD is the chef.
+- AI Employee copy follows the same anti-fabrication rules (Pattern A / Pattern B in CLAUDE.md). No invented timeframes, deliverables, or commitments.
+- No false simplicity. "Unlimited agents" framing common in market practice is rhetorical, not literal. Productized scope language is honest — what the customer gets, what they don't, what triggers a scope conversation.
+
+**Captain authorized:** 2026-05-13, podcast-driven strategic conversation (The Startup Ideas Podcast — "The $1M+ Solo AI Agent Business," Greg Isenberg + Nick Vasilescu, 2026-05-12). See ADR 0004 for full context, decision shape, consequences, and follow-on backlog.
+
+---
+
 ## Decision #30 - Case Study Creation
 
 **Issue:** smdservices/ss-console #30
@@ -783,7 +818,7 @@ All 11 artifacts are scaffolded as GitHub issues in smdservices/ss-console. Ever
 | #9    | Tool evaluation framework - rubric-based, bias toward keep                                           |
 | #10   | Scope boundary language - positive definition + 4 exclusions                                         |
 | #11   | Scope creep protocol - parking lot, pre-handoff review                                               |
-| #12   | Retainer model - no retainer at launch, define after first delivery                                  |
+| #12   | Retainer model - SUPERSEDED 2026-05-13 by #44 (see ADR 0004)                                         |
 | #13   | Paid assessment - free for first 3, then $250                                                        |
 | #14   | Payment terms - 50% deposit at signing, 50% at completion                                            |
 | #15   | ROI anchor math - owner does the math, we ask the questions                                          |
@@ -804,6 +839,7 @@ All 11 artifacts are scaffolded as GitHub issues in smdservices/ss-console. Ever
 | #30   | Case study workflow - agent-drafted, client-approved, one page                                       |
 | #42   | Taxonomy two-layer model - 5-cat observation, 6-cat delivery (see ADR 0001)                          |
 | #43   | Outside View unified diagnostic - one product, three depths, portal-resident artifact (see ADR 0002) |
+| #44   | Productized AI Employee offering - flat-rate retainer SKU, second front door, Hermes-leaning stack (see ADR 0004) |
 
 ---
 
