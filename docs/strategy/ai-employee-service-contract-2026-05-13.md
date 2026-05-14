@@ -3,7 +3,6 @@
 **Issue:** [#773](https://github.com/venturecrane/ss-console/issues/773)
 **Authorizes:** Contract shape for productized AI Employee SKU. Drives downstream SOW/MSA drafting (separate deliverable under copy/surfaces #775 or its own follow-on).
 **Inputs:** [Pricing analysis](./ai-employee-pricing-2026-05-13.md), [functional shape research](./ai-employee-functional-shape-2026-05-13.md), [stack evaluation](./ai-employee-stack-evaluation-2026-05-13.md), [ADR 0004](../adr/0004-productized-ai-employee-offering.md)
-**Captain decision required** — does not auto-execute.
 
 ---
 
@@ -26,12 +25,6 @@ The productized AI Employee SKU is a structurally different agreement than SMD's
 | **Termination**              | Data handoff within 14 days; agent shutdown at request                                                                | Same                                                                          |
 
 **Every starting position is bound to a revision trigger** per the pricing analysis. The contract structure is designed to absorb data and tighten over the first 5-15 customers, not to lock today.
-
-**The three structural decisions queued for Captain** (each is the shape of a contract clause, not yet the wording):
-
-1. Confirm the **6-month / 12-month split** between Phase 1 and Phase 1.5+ customers
-2. Confirm **support-hour cap as included with overage billing** (vs. unlimited scoped)
-3. Confirm **trust ceiling enumerated per task** as a SOW exhibit (vs. blanket language)
 
 ---
 
@@ -339,15 +332,9 @@ In any of these cases, the agent refuses, Captain is alerted, and Captain has a 
 
 ---
 
-## Captain decisions queued
+## Status
 
-Three structural decisions, each a contract-shape choice (not yet wording):
-
-1. **Confirm 6-month / 12-month split between Phase 1 and Phase 1.5+ customers.** Phase 1 customers get the lower commitment; Phase 1.5+ moves to the SaaS-standard 12-month. Recommended.
-2. **Confirm support-hour cap (10 hrs/week per customer included, overage at $200/hr) vs. unlimited scoped.** The cap is the margin guardrail per pricing analysis. Recommended.
-3. **Confirm trust ceiling enumerated per task as a SOW exhibit (vs. blanket language).** This is the contract artifact that maps directly to the operational reality the functional shape research surfaced. Recommended.
-
-These three close #773 and unblock #774 (service name), #775 (copy/surfaces — landing pages + SOW template drafting), and #776 (stack build — informs which monitoring/observability/HITL features are mandatory).
+Contract shape adopted as documented above. Closes #773. Unblocks #774 (service name), #775 (copy/surfaces — landing pages + SOW template drafting), and #776 (stack build — informs which monitoring/observability/HITL features are mandatory).
 
 ---
 
