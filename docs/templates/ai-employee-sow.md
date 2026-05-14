@@ -124,14 +124,14 @@ This SOW, together with its Exhibits, constitutes the entire agreement between t
 **SMD Services**
 Name: Scott Durgan
 Title: Principal
-Signature: ********\_\_\_\_********
-Date: ********\_\_\_\_********
+Signature: **\*\*\*\***\_\_\_\_**\*\*\*\***
+Date: **\*\*\*\***\_\_\_\_**\*\*\*\***
 
 **{{CUSTOMER_LEGAL_NAME}}**
 Name: {{CUSTOMER_SIGNER_NAME}}
 Title: {{CUSTOMER_SIGNER_TITLE}}
-Signature: ********\_\_\_\_********
-Date: ********\_\_\_\_********
+Signature: **\*\*\*\***\_\_\_\_**\*\*\*\***
+Date: **\*\*\*\***\_\_\_\_**\*\*\*\***
 
 ---
 
