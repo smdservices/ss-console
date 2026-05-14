@@ -8,83 +8,111 @@
 
 ## Executive summary
 
-ADR 0004 authorized a productized AI Employee SKU with a "Hermes-leaning, evaluate everything else independently" stack posture. Independent evaluation surfaces one significant divergence from that posture, plus six concrete recommendations.
+ADR 0004 authorized a productized AI Employee SKU with a "Hermes-leaning, evaluate everything else independently" stack posture. Independent evaluation **confirms Hermes** for the agent harness and recommends specific choices for the five other components.
 
-**The divergence.** Hermes is open-source, MIT-licensed, and well-architected — but it's designed for a long-running VPS process with persistent local filesystem memory. Our existing infrastructure (Astro on Cloudflare Workers + D1) is ephemeral request/response edge compute. Adopting Hermes means standing up and operating a second hosting environment (Railway, Fly, Hetzner) per customer, which fights our productization economics.
+**The agent harness call.** Hermes and OpenClaw are the only operator-shipped products in this lane. Everything else — Mastra, LangGraph, Cloudflare Agents — is an agent _framework_, a toolkit to build your own. Phase 1 needs a product, not an architecture project. Hermes wins decisively on time-to-first-customer (days vs. 4-6 weeks of agent-managed build to reach parity), ships everything the source episode demoed out of the box, and is MIT-licensed for full portability.
 
-The recommendation below replaces Hermes with **Cloudflare Agents + Claude Agent SDK** — Anthropic's first-party agent primitive paired with Cloudflare's stateful agent runtime (shipped GA at v0.12.4 on 2026-05-13, the day this evaluation ran). This sits on our existing stack with zero new vendors, gives the agent a Durable Object with its own SQL database, supports WebSockets and scheduling, and is the lowest-abstraction-risk path.
+The cost of putting Hermes on Fly.io alongside our CF Workers stack is one additional managed VM per customer (~$5-20/mo) — well within our marginal-cost budget and decisively cheaper than a multi-week framework build.
 
-**Mastra is the credible alternative** — TypeScript-native, Apache 2.0, ships a first-class CloudflareDeployer, and gives us workflows + memory + RAG + evals out of the box. The tradeoff is one more framework dependency for a venture that hasn't pressure-tested its agent shape yet.
+**Adaptive posture is the durable answer.** The market is changing weekly. Every component in the stack (harness, host/VM, email, connectors) sits behind a pluggable internal interface so we can swap implementations without re-platforming. Hermes is the Phase 1 implementation; Mastra and Cloudflare Agents + Claude Agent SDK are kept on the bench as Phase 2 candidates. Quarterly re-evaluation cadence against signals from real customers.
 
-The other five components are cleaner reads — see the table below.
+**Earlier draft correction.** The previous version of this doc recommended Cloudflare Agents + Claude Agent SDK as primary. That call was wrong-headed — it optimized for architectural elegance over time-to-first-customer and conflated agent **frameworks** with operator-shipped **products**. Captain caught it; this revision corrects it.
+
+**The other five components** are cleaner reads — see the table below. All confirm as previously recommended: CF Sandboxes for host/VM (with e2b adapter), Native MCP + Composio two-tier for connectors, AgentMail for email at launch behind a swap interface, hybrid D1 + R2 + Vectorize for memory.
 
 ## Recommended stack at a glance
 
 | Component           | Recommendation                                                                           | Diverges from ADR leaning?   | Confidence |
 | ------------------- | ---------------------------------------------------------------------------------------- | ---------------------------- | ---------- |
-| **Agent harness**   | Cloudflare Agents + Claude Agent SDK (primary); Mastra (credible alternative)            | **Yes** — replaces Hermes    | Medium     |
+| **Agent harness**   | Hermes on Fly.io (Phase 1) behind pluggable adapter; Mastra + CF-native on Phase 2 bench | No — confirms ADR leaning    | High       |
 | **Build harness**   | Claude Code                                                                              | No                           | High       |
 | **Host / VM**       | Cloudflare Sandboxes / Containers (primary); e2b (second backend via adapter, if needed) | Yes — replaces Orgo          | High       |
 | **Connector layer** | Native MCP for top integrations + Composio for long-tail                                 | Partial — splits the layer   | High       |
 | **Email identity**  | AgentMail at launch, with thin internal interface to swap to Resend/Postmark or CF Email | No                           | Medium     |
 | **Memory layer**    | Hybrid: D1 (structured) + R2 markdown vault per customer + CF Vectorize (semantic)       | Yes — replaces flat Obsidian | High       |
 
-**Total cost shape per customer at launch load** (1 agent, ~10K agent actions/month, ~100 emails/month, <5GB memory):
+**Total cost shape per customer at launch load** (1 Hermes agent, ~10K agent actions/month, ~100 emails/month, <5GB memory, occasional computer-use bursts):
 
 - Cloudflare Workers Paid: $5/mo base (shared across all customers, not per-customer)
-- Cloudflare Sandboxes runtime: ~$10–25/mo per customer at moderate load
-- Cloudflare Vectorize: <$1/mo per customer at early scale
-- D1 + R2: <$1/mo per customer at early scale
+- **Fly.io Hermes machine: ~$5–20/mo per customer** at moderate active use (shared-cpu-1x or performance-1x depending on customer load)
+- Cloudflare Sandboxes (computer-use bursts only — GUI tasks Hermes can't handle headless): <$5/mo per customer at moderate load
+- Cloudflare Vectorize (semantic recall over the customer's vault): <$1/mo per customer at early scale
+- D1 + R2 (structured memory + markdown vault mirror): <$1/mo per customer at early scale
 - AgentMail Builder: $20/mo (covers 10 customer inboxes — amortized ~$2/customer)
-- Composio Standard: $29/mo (covers 200K tool calls across all customers — amortized $3/customer at 10 customers)
+- Composio Standard: $29/mo (covers 200K tool calls across all customers — amortized ~$3/customer at 10 customers)
 - Claude API tokens: $20–80/mo per customer depending on usage shape (prompt caching mandatory)
 
-**Estimated marginal cost per customer per month: $30–100** depending on token spend and Sandbox uptime. This is the input for pricing analysis ([#772](https://github.com/venturecrane/ss-console/issues/772)).
+**Estimated marginal cost per customer per month: $35–110** depending on token spend, Fly machine class, and Sandbox uptime. This is the input for pricing analysis ([#772](https://github.com/venturecrane/ss-console/issues/772)).
 
 ---
 
 ## Component 1: Agent harness
 
-### Why Hermes doesn't fit our stack
+### Recommendation: Hermes (Phase 1) behind a pluggable adapter
 
-The source episode named Hermes specifically. ADR 0004 leaned that direction. Independent evaluation surfaces three problems:
+Hermes is the operator-shipped product purpose-built for this lane. OpenClaw is the only other product-class competitor and is in an uncertain state (creator joined OpenAI April 2026; Anthropic blocked subscription-based use the same week). Everything else — Mastra, LangGraph, Cloudflare Agents, Claude Agent SDK — is an agent **framework**, a toolkit to build your own agent, not a shipped product. That's a real distinction we conflated in the first draft of this doc.
 
-1. **Hermes is a long-running process.** It assumes a VPS with a persistent filesystem holding skills, memory, and gateway state. Cloudflare Workers are ephemeral — each request gets a fresh isolate. The skills-and-memory pattern Hermes relies on would have to be rebuilt against R2 + D1, which means we're using a tiny fraction of Hermes' value.
-2. **Hermes wants its own host.** Running Hermes for SMD means standing up Railway/Fly/Hetzner alongside our existing CF Workers infrastructure. Two clouds, two bills, two observability surfaces, two security boundaries — exactly the friction we want to avoid for a one-person agency at launch.
-3. **The Hermes "learning loop" can be reimplemented.** The differentiating feature — self-evolving skills, three-layer memory, automatic skill creation — is a pattern, not a moat. We can build the same surface on Cloudflare Agents + Claude Agent SDK using Claude's memory tool, our R2 vault, and our own skill registry. It's more code, but it sits on our stack.
+For Phase 1 (now-through-first-5-customers), we are buying not building. We need to ship customers, not architect infrastructure. Hermes ships out of the box:
 
-This is exactly what "evaluate independently before adopting" was supposed to surface. The ADR's "Hermes-leaning" wording was deliberate — leaning, not locked.
+- **Multi-surface gateway** — Telegram, iMessage, WhatsApp, Signal, Slack, Discord, email, CLI
+- **Three-tier memory** — core / recall / archival, coherent across surfaces
+- **Skills system** — modular markdown + tool defs the agent dynamically loads
+- **Self-evolving / skill auto-creation** — the differentiating learning loop
+- **Watchdog** — auto-restore on gateway crash
+- **Plugin ecosystem** — community skills already exist for common patterns
 
-### The recommendation: Cloudflare Agents + Claude Agent SDK
+Building parity with Cloudflare-native primitives is roughly 4-6 weeks of agent-managed work. Installing Hermes is days. Phase 1 wins on Hermes.
 
-**Cloudflare Agents** (`@cloudflare/agents`, v0.12.4 shipped 2026-05-13): Stateful agents running as Durable Objects. Each agent gets its own SQL database, can hold WebSockets open across model turns, supports scheduling, can survive client disconnects. Built specifically for the long-running-agent pattern.
+### How Hermes lives alongside our CF Workers stack
 
-**Claude Agent SDK** (renamed from Claude Code SDK, Anthropic's first-party agent primitive): Python and TypeScript SDKs. Built-in tool use, agent loop, context management, memory tool (filesystem-backed — we point it at R2 or the agent's own Durable Object SQL). Automatic prompt caching (1.25x base for 5min cache, 2x for 1hr; reads at 0.1x).
+Hermes runs per-customer on **Fly.io Machines** (Hetzner, Railway, or any VPS works; Fly is chosen for per-second billing, fast boot, OCI-compatible images, and the cleanest API for programmatic provisioning from a Worker).
 
-**Together:** The agent is a Durable Object. Its identity, memory, and skill registry live in that DO's SQL database. Long-horizon work is just code running inside the DO with the agent SDK in the loop. Customer credentials live in D1, scoped by customer ID. The agent's email inbox is a webhook into another Worker that writes to the DO. Cron jobs are scheduled on the DO.
+- **smd.services** (our CF Worker) stays the customer relationship layer: signup, billing, admin, observability, support inbox.
+- **Hermes instances** live on Fly. One machine per customer. Provisioned from our admin Worker via the Fly Machines API. Total marginal cost per machine: ~$5-20/mo at moderate active use.
+- **Customer-facing surfaces** (Telegram, email, etc.) connect to the customer's Hermes instance, not to our CF Worker.
+- **Customer data the agent learns** lives on the Fly machine's persistent volume (Hermes' default pattern) for Phase 1. Phase 2 evaluation looks at whether memory should migrate to our R2 + D1 hybrid for portability and visibility from the admin Worker.
 
-**Cost:** Anthropic API tokens + Workers Paid base + Durable Objects costs (negligible at this scale).
+This is a two-cloud architecture for the agent itself. The friction is real but bounded: Fly's API is REST-clean, observability into Hermes runs through its own logs surfaced into our admin, and incident response involves one additional dashboard. Worth it for a Phase 1 that ships customers in weeks instead of months.
 
-**Lock-in:** Tied to Anthropic for the model and to Cloudflare for the runtime. Both are deliberate choices we're already making. The agent loop and memory shape are reimplementable on any other runtime if we ever need to migrate (the agent's _state_ in D1/R2 is portable).
+### Pluggable harness adapter — keeping options open
 
-### The credible alternative: Mastra
+Build customer-facing code against an internal `AIEmployee` interface that abstracts:
 
-**Mastra** (Apache 2.0, $13M seed + $22M Series A): TypeScript-native agent framework. Ships a CloudflareDeployer that bundles your agent into a Workers-compatible output and configures `wrangler.jsonc` automatically. Workflows, agents, RAG, evals as first-class primitives. Unified model router across 3,300+ models and 94 providers.
+- `respond(message, surface)` — model turn against a customer message from any gateway
+- `schedule(task, when)` — defer work for later execution
+- `addSkill(skill)` — register a new capability
+- `memory.read() / memory.write()` — access the agent's vault and structured memory
 
-**Why it's the credible alternative:** Mastra does for agents what Astro did for web frameworks — opinionated structure, good defaults, fast iteration. If we hit a wall building skill/workflow logic directly on Cloudflare Agents + Claude Agent SDK, Mastra is a tidy upgrade path.
+Hermes is the **first implementation** behind this interface. Cloudflare Agents + Claude Agent SDK and Mastra are kept on the bench as alternative implementations. If the market shifts or our needs evolve, swapping is a contained refactor — not a re-platform.
 
-**Why not primary:** One more framework dependency, slightly younger than the underlying primitives, and we'd be paying for workflows/RAG/evals features we haven't yet proven we need at our pre-launch stage.
+This is the same pluggability pattern applied to email identity (AgentMail behind a swap interface), host/VM (CF Sandboxes behind an adapter for e2b/Orgo), and connector layer (Native MCP + Composio split). **Pluggability across the stack is the durable answer to a fast-moving market.**
 
-### Rejected
+### Phase 2 re-evaluation criteria
 
-- **Hermes** — Workers mismatch, requires second host. The episode's leaning choice. (Verdict: pattern is right, implementation is wrong for us.)
-- **LangGraph** — Production-tested but Python-primary and heavy for Workers. JS port lags.
-- **Google ADK** — Pulls us off Anthropic onto Gemini/Vertex AI. Wrong direction.
-- **OpenClaw** — Creator joined OpenAI in April 2026; Anthropic blocked subscription-based usage same week. Commoditized exactly as the episode predicted.
+After the first 5 paid customers, re-evaluate the harness decision against these signals:
+
+1. **What our customers actually want.** Functional research ([#777-followup-functional-shape](https://github.com/venturecrane/ss-console/issues/)) feeds this — if customers consistently want capabilities Hermes doesn't ship, that's a migration signal.
+2. **Hermes evolution.** v0.9 shipped April 2026, active community. If maintenance velocity continues, stay. If breaking changes accumulate or activity slows, migrate.
+3. **Cloudflare Agents maturity.** v0.12.4 today; track GA milestones. If DOs + Claude Agent SDK become turnkey, migration is a 4-6 week agent-managed project.
+4. **Cost shape under real load.** If per-customer Fly cost climbs above $50/mo at customer load, the equation shifts toward CF Sandboxes-native.
+5. **Operational friction.** Two-cloud cost (observability splits, incident response splits, secrets management splits). If it hurts more than expected, migrate.
+
+**Cadence: 90 days.** Review the harness decision once a quarter, then again. Do not lock for longer.
+
+### Alternatives kept on the bench
+
+- **Cloudflare Agents + Claude Agent SDK** — Best stack-coherent rebuild target. Phase 2 candidate if Hermes' product fit weakens. v0.12.4 shipped 2026-05-13 — actively maturing.
+- **Mastra** — Apache 2.0, TypeScript-native, ships a first-class CloudflareDeployer, gives us workflows + memory + RAG + evals out of the box. Phase 2 candidate if we want a framework upgrade path rather than a primitive rebuild.
+
+### Rejected for Phase 1
+
+- **OpenClaw.** Creator joined OpenAI April 2026; Anthropic blocked subscription-based usage same week. Product is functional but the maintainer signal is bad. Keep on the bench in case the community fork stabilizes; do not bet Phase 1 on it.
+- **LangGraph.** Production-tested framework, Python-primary, heavy. Not the product class we need at Phase 1.
+- **Google ADK.** Pulls us off Anthropic onto Gemini/Vertex AI. Wrong direction for a Claude-centric stack.
 
 ### Decision asked of Captain
 
-Confirm Cloudflare Agents + Claude Agent SDK as primary, or override to Mastra. If overriding, note the framework dependency tradeoff.
+Confirm Hermes on Fly.io for Phase 1, with pluggable `AIEmployee` adapter pattern across the stack. Confirm 90-day re-evaluation cadence.
 
 ---
 
@@ -204,32 +232,38 @@ Confirm hybrid. None of this requires new vendors — all three primitives are G
 
 ## Open questions for Captain
 
-1. **Agent harness override?** The Hermes-leaning posture in ADR 0004 was deliberate but not locked. This evaluation recommends Cloudflare Agents + Claude Agent SDK instead. Three responses possible:
-   - Accept the recommendation. Amend ADR 0004 to drop "Hermes-leaning" in favor of "Cloudflare-native stack." File as a minor amendment, not a new ADR.
-   - Override and stay with Hermes. Accept the second-cloud operational cost. Reason: the self-evolving learning loop matters enough to pay for.
-   - Pick Mastra instead. Same stack fit as the recommendation, with a framework dependency for workflows + RAG + evals out of the box.
+1. **Confirm Hermes Phase 1 + adapter pattern.** Recommended: Hermes on Fly.io as the Phase 1 harness implementation, behind a pluggable `AIEmployee` interface. Mastra and CF-native kept on the bench as Phase 2 candidates. 90-day re-evaluation cadence.
 
-2. **Sandbox primary — fully Cloudflare, or hedge with e2b adapter at launch?** Building the adapter pattern early is cheap; building it under pressure when a customer demands GUI screencast UX is expensive. Recommendation is to scaffold the interface but only implement CF Sandboxes until we have evidence of need.
+2. **Confirm functional research as a Phase 2 prerequisite.** Per Captain directive (imperative), we need broad signal on what businesses across verticals actually want from these agents — not from one podcast. Research issue is being filed; deliverable is `docs/strategy/ai-employee-functional-shape-2026-MM-DD.md`. This research feeds the Phase 2 re-evaluation criteria.
 
-3. **Email — accept startup-vendor risk at launch?** AgentMail's per-agent abstraction is a real product fit. The startup premium is real. Captain calls it.
+3. **Sandbox primary — fully Cloudflare, or hedge with e2b adapter at launch?** Building the adapter pattern early is cheap; building it under pressure when a customer demands GUI screencast UX is expensive. Recommendation: scaffold the interface, implement CF Sandboxes only until we have evidence of need.
 
-4. **Pricing analysis next?** [#772](https://github.com/venturecrane/ss-console/issues/772) is ready to start once stack is locked. Marginal cost shape per customer ($30-100/mo) is the input — we then add target margin to get the published retainer price.
+4. **Email — accept startup-vendor risk at launch?** AgentMail's per-agent abstraction is a real product fit. Startup premium is real. Adapter pattern in place.
+
+5. **Pricing analysis next?** [#772](https://github.com/venturecrane/ss-console/issues/772) is ready to start once stack is locked. Marginal cost shape per customer ($35-110/mo) is the input — add target margin to get the published retainer price.
 
 ---
 
 ## Risks tracked
 
-- **Cloudflare Agents v0.12.4 shipped 2026-05-13 (today).** Active development, but version number signals a still-stabilizing API. Pin versions carefully; allocate budget for follow-on bumps.
-- **Mastra has a known CF bindings bug ([#8782](https://github.com/mastra-ai/mastra/issues/8782))** if Captain overrides to Mastra. Track resolution before committing.
-- **AgentMail deliverability at scale is unproven.** Architect the email module for provider swap.
-- **Composio pricing cliff at 200K tool calls/month** ($29 → $229). Track usage; Arcade.dev BYO-credentials is the replacement path.
+- **Hermes maintenance trajectory.** v0.9 shipped April 2026 with active community. Monitor velocity, breaking-change cadence, security responsiveness. If activity slows, accelerate Phase 2 re-evaluation.
+- **Fly.io reliability per-customer.** Track Fly Machine SLA, incident history. If multi-customer outages become a pattern, evaluate alternative hosts (Hetzner Cloud, Railway).
+- **Two-cloud operational friction.** Observability, secrets, incident response split across CF + Fly. Mitigation: unified admin dashboard surfacing Fly logs into our CF Worker. Track real cost over first 90 days.
+- **AgentMail deliverability at scale is unproven.** Architect the email module behind a provider-swap interface.
+- **Composio pricing cliff at 200K tool calls/month** ($29 → $229). Track usage; Arcade.dev BYO-credentials documented as replacement path.
+- **Cloudflare Agents v0.12.4** (Phase 2 candidate). Track GA milestone, API stability, real-world references.
+- **Functional shape unknown.** Mitigation: functional research follow-on (filed as a new issue) feeds Phase 2 re-evaluation criteria.
 
 ---
 
 ## Sources
 
 - [ADR 0004 — Productized AI Employee Offering](../adr/0004-productized-ai-employee-offering.md)
-- [Cloudflare Agents SDK v0.12.4 changelog (2026-05-13)](https://developers.cloudflare.com/changelog/post/2026-05-13-agents-sdk-v0124/)
+- [Hermes agent (Nous Research)](https://github.com/nousresearch/hermes-agent) — primary repository, MIT-licensed
+- [Hermes agent docs](https://hermes-agent.nousresearch.com/)
+- [Fly.io Machines pricing](https://fly.io/docs/about/pricing/)
+- [Fly.io Machines API](https://fly.io/docs/machines/api/)
+- [Cloudflare Agents SDK v0.12.4 changelog (2026-05-13)](https://developers.cloudflare.com/changelog/post/2026-05-13-agents-sdk-v0124/) — Phase 2 candidate
 - [Claude Agent SDK overview](https://platform.claude.com/docs/en/agent-sdk/overview)
 - [Claude memory tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool)
 - [Mastra CloudflareDeployer](https://mastra.ai/reference/deployer/cloudflare)
