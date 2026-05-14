@@ -19,7 +19,7 @@ Per Captain directive (2026-05-13, imperative), we cannot productize AI Employee
 
 **4. Productize the operating layer, not the build.** The recurring revenue lock is in monitoring, evals, prompt regression, model swaps, escalation triage — the "agent ops" retainer shape that mirrors DevOps. The one-time setup is the wedge; the retainer is the business. SMD's existing Assessment → Solution → Implementation → Handoff framing extends naturally with a 5th phase: _operate_.
 
-**5. The research recommends marketing agencies as the launch vertical.** Lowest catastrophic-failure exposure (no E&O, no bar referrals, no fair-housing liability), clear single gateway (Slack), Phoenix density of agency owners, buyer is also decision-maker. This is a divergence from SMD's primary consulting verticals (home services + professional services + contractor/trades per Decision #3) — Captain decision required on whether AI Employee should follow the primary vertical strategy or operate as a separate vertical strategy optimized for the productized model.
+**5. Marketing agencies are the recommended _first_ vertical pack to ship.** Lowest catastrophic-failure exposure (no E&O, no bar referrals, no fair-housing liability), clear single gateway (Slack), Phoenix density of agency owners, buyer is also decision-maker. **AI Employee follows an expansive vertical strategy** (Captain directive, 2026-05-13): any vertical where we can realistically deliver $5K/mo of value to a $750K-$5M revenue business is in scope. Vertical packs sequenced by acquisition speed and build cost, not by SMD's primary consulting verticals. Marketing agencies is the recommended _starting point_ because the path to first paid customer is shortest there — not a vertical constraint.
 
 The rest of this doc is the evidence: market scan, operational reality, per-vertical task taxonomy, cross-vertical patterns, Phase 1 launch recommendation with reasoning, and implications for downstream decisions.
 
@@ -393,33 +393,35 @@ What customers expect that doesn't reliably work yet:
 
 ---
 
-## Phase 1 launch vertical recommendation
+## Vertical strategy
 
-### Research recommendation: marketing agencies
+### Expansive — any vertical where we can deliver value
 
-The per-vertical research recommends **marketing agencies as the Phase 1 launch vertical**, reasoning:
+Per Captain directive (2026-05-13): **AI Employee follows an expansive vertical strategy.** Any vertical where we can realistically deliver $5K/mo of value to a $750K-$5M revenue business is in scope. This is distinct from SMD's primary consulting funnel verticals ([Decision #3](../adr/decision-stack.md#decision-3---launch-verticals)) — the AI Employee SKU is a second front door per [ADR 0004](../adr/0004-productized-ai-employee-offering.md), not a vertical-constrained extension of the consulting funnel. SMD's primary consulting funnel continues unchanged. The two acquisition paths serve the same buyer band through different doors.
 
-1. **Lowest risk surface.** Marketing agencies have the lowest catastrophic-failure exposure of the five verticals. A hallucinated metric in a client report is recoverable; a hallucinated case citation, a misstated coverage representation, a fair-housing violation, or a mispriced PO is not. Year-one risk profile should not be E&O claims and bar referrals.
-2. **Gateway clarity.** Slack is unambiguous. Slack-bot deployment is well-trodden territory. One integration serves the vertical.
-3. **Phoenix density and buyer accessibility.** Phoenix has a dense agency scene; Vistage and EO Arizona have heavy agency-owner representation; the buyer (the owner) is the decision-maker and the budget-holder. Compare to law (managing partner buys, but practice-area silos slow expansion), insurance (principal buys, but state DOI variation), manufacturing (long sales cycles, ERP integration complexity), real estate (broker buys but per-agent value, fragmented).
+The core platform — multi-gateway agent runtime, trust-ceiling discipline, memory layer, connector layer — is vertical-agnostic. Vertical packs are skill bundles layered on top. A new vertical pack ranges from a few hours of skill assembly (low-compliance verticals) to a few days of skill design (regulated verticals like insurance, law, real estate). The marginal cost of adding a vertical is low; the opportunity cost of pre-committing to one is high.
 
-### Tension with SMD's primary vertical strategy
+### Recommended first vertical pack: marketing agencies
 
-This recommendation diverges from SMD's primary consulting verticals per [Decision #3](../adr/decision-stack.md#decision-3---launch-verticals): home services + professional services + contractor/trades, problem-qualified.
+The per-vertical research recommends marketing agencies as the _first_ vertical pack to build and ship:
 
-Three paths possible:
+1. **Lowest risk surface.** Marketing agencies have the lowest catastrophic-failure exposure. A hallucinated metric in a client report is recoverable; a hallucinated case citation, a misstated coverage representation, a fair-housing violation, or a mispriced PO is not. The first paid customer should not carry E&O or bar-referral risk.
+2. **Gateway clarity.** Slack is unambiguous. Slack-bot deployment is well-trodden. One integration serves the vertical.
+3. **Phoenix density and buyer accessibility.** Phoenix has a dense agency scene; Vistage and EO Arizona have heavy agency-owner representation; the buyer (the owner) is the decision-maker and the budget-holder. Compare to law (practice-area silos), insurance (state DOI variation), manufacturing (long sales cycles, ERP depth), real estate (per-agent value, fragmented).
 
-**Path A: Adopt the research recommendation.** AI Employee Phase 1 vertical = marketing agencies. SMD's primary consulting funnel continues serving home services + professional services + contractor/trades unchanged. Two distinct vertical strategies, one firm. The "second front door" framing in ADR 0004 covers this — same buyer band ($750K-$5M revenue, owner-led), different vertical, different acquisition path.
+### Vertical pack sequencing
 
-**Path B: Stay within primary verticals, pick the lowest-risk slice.** AI Employee Phase 1 vertical = professional services, specifically insurance agencies or non-litigation law (estate planning, business law, real estate transactions) where citation risk is low. Insurance has the highest density of identical-shape repeat work and clear gateway (email + AMS). Slower start than marketing agencies (more compliance research required up front) but stays within SMD's positioning.
+Build the v1 marketing agencies pack. Ship to first 1-5 Phoenix-area agencies. As customers in other verticals arrive (inbound, referral, or active outreach), build vertical packs in the order customers arrive — not in a pre-committed order:
 
-**Path C: Hybrid — productized SKU sold via primary verticals, with vertical pack chosen per customer.** AI Employee is not vertical-specific at launch; SMD's primary verticals (home services + professional services + contractor/trades) are the acquisition channel; the vertical pack assembled per customer based on what they actually need. Most flexible, slowest to ship (no off-the-shelf vertical pack), but cleanest fit with existing positioning.
+- **Insurance agencies** — high density of identical-shape repeat work, clear gateway (email + AMS), E&O risk requires careful skill design but the customer profile is excellent.
+- **Non-litigation law** (estate planning, business law, real estate transactions) — low citation risk; consistent demand from law firms.
+- **Real estate** — TC + lead nurture is a real wedge; compliance complexity (TCPA, fair housing, AI disclosure per state) is real engineering.
+- **Manufacturers / wholesalers** — ERP integration depth is the gate; payoff is high (response-speed → win-rate).
+- **Home services, contractor/trades, professional services beyond the above, or anything else** — build vertical packs as customers arrive. The core platform supports any vertical; only the skill bundle differs.
 
-**My read:** Path A or Path B. Path C trades launch speed for theoretical flexibility; the research is clear that narrow scope at launch is what makes onboarding work. Path A optimizes for productized fit at the cost of vertical-strategy coherence. Path B optimizes for coherence at the cost of slower start and higher compliance surface.
+The first customer in any vertical is in scope. If a home services owner or a contractor or a fractional bookkeeping firm comes to us wanting an AI Employee, we take them on — we assemble a thinner vertical pack for them than what marketing agencies will have, but the platform works.
 
-Captain decision required.
-
-### Phase 1 vertical pack (if marketing agencies)
+### Phase 1 vertical pack (marketing agencies)
 
 The v1 pack ships these skills wired into Slack and email, deploying as an agent that joins the agency's Slack workspace and has Gmail/Outlook scopes:
 
@@ -487,17 +489,23 @@ Trademark search and vertical-resonance check per vertical-specific name.
 
 ---
 
-## Open questions for Captain
+## Captain confirmations (2026-05-13)
 
-1. **Path A (marketing agencies), Path B (lowest-risk slice within primary verticals), or Path C (hybrid)?** This is the most consequential downstream decision in this doc. Research recommends Path A. SMD's existing positioning argues for Path B. Path C is the most flexible but loses launch focus.
+Five decisions queued; Captain confirmed:
 
-2. **Adopt "AI-assisted, human-accountable" as the canonical positioning frame?** This shifts SMD's AI Employee SKU from the episode's "unlimited autonomous worker" frame to a hybrid frame. Aligns with the firm-level "solutions consulting" positioning and the practitioner-firm voice. Recommended.
+1. **Expansive vertical strategy.** Drop the "diverges from primary verticals" framing entirely. Any vertical where we can realistically generate revenue is in scope. Marketing agencies is the recommended _first_ vertical pack to ship; the rest follow as customers arrive. SMD's primary consulting funnel continues unchanged; AI Employee is a separate acquisition path.
+2. **"AI-assisted, human-accountable" positioning frame.** Adopted. Shifts the SKU from "unlimited autonomous worker" framing to hybrid. Aligns with the firm-level solutions-consulting positioning and the practitioner-firm voice.
+3. **$5K/mo flat single tier launch pricing.** Adopted (per research recommendation). No tiering at launch. Feeds pricing analysis ([#772](https://github.com/venturecrane/ss-console/issues/772)) for final lock with margin analysis.
+4. **Onboarding as separate paid stage with shadow-mode period.** Adopted. Day 1-5 discovery + access + data audit. Day 6-14 narrow first agent in shadow mode (observes, drafts, doesn't send). Day 15+ graduated autonomy with explicit gates. Feeds service contract ([#773](https://github.com/venturecrane/ss-console/issues/773)).
+5. **Trust ceiling enumerated per task in SOW.** Adopted. The SOW enumerates per-task: "autonomous / draft-for-review / refused." Feeds service contract ([#773](https://github.com/venturecrane/ss-console/issues/773)) and copy/surfaces ([#775](https://github.com/venturecrane/ss-console/issues/775)).
 
-3. **Adopt $5K/mo flat single tier as launch pricing?** Research consensus. No tiering at launch. Recommended.
+These confirmations unblock the Wave 2 follow-on issues:
 
-4. **Onboarding as separate paid stage with shadow-mode period?** Day 1-5 discovery, Day 6-14 shadow, Day 15+ graduated autonomy. Reduces 90-day cancellation risk substantially. Recommended.
-
-5. **Trust ceiling enumerated in SOW per task?** Locks expectations, protects the firm. Recommended.
+- [#772 Pricing analysis](https://github.com/venturecrane/ss-console/issues/772) — input: $35-110/mo marginal cost shape, $5K/mo flat tier launch price; output: target margin + tier lock
+- [#773 Service contract terms](https://github.com/venturecrane/ss-console/issues/773) — onboarding-as-paid-stage, shadow mode, trust ceiling per task, day-60-90 evaluation window
+- [#774 Service name](https://github.com/venturecrane/ss-console/issues/774) — per-vertical role naming pattern (e.g., "Mira the AM Assistant" for marketing agencies)
+- [#775 Copy / surfaces](https://github.com/venturecrane/ss-console/issues/775) — "AI-assisted, human-accountable" framing, vertical-pack landing pages, intake flow
+- [#776 Stack build](https://github.com/venturecrane/ss-console/issues/776) — first internal SMD AI Employee, then v1 marketing-agencies vertical pack
 
 ---
 
