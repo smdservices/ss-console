@@ -33,7 +33,7 @@ Captain's directive: add this offering to SMD's catalog. Two front doors, one fi
 
 ### Four locks
 
-**1. Productize as a flat-rate retainer SKU.** AI Employee is a named offering with a fixed monthly price. The customer signs up for a productized service, not a scoped engagement. Pricing shape is flat retainer (not metered, not credit-based, not scoped per-engagement). The specific monthly price is deferred to follow-on work pending stack cost analysis; the *shape* of the pricing is locked here.
+**1. Productize as a flat-rate retainer SKU.** AI Employee is a named offering with a fixed monthly price. The customer signs up for a productized service, not a scoped engagement. Pricing shape is flat retainer (not metered, not credit-based, not scoped per-engagement). The specific monthly price is deferred to follow-on work pending stack cost analysis; the _shape_ of the pricing is locked here.
 
 **2. Second front door, not replacement.** The scope-based assessment funnel (Decision #16, #18) remains the primary path for prospects whose objectives the firm needs to surface through conversation. AI Employee is the entry point for prospects who already know they want an agent. Two front doors, one firm — the firm-level voice and solutions-consulting positioning are unchanged.
 
@@ -44,7 +44,7 @@ Captain's directive: add this offering to SMD's catalog. Two front doors, one fi
 ### What this decision does NOT lock
 
 - **Specific monthly price.** Requires stack cost analysis (token spend, infra, support hours per customer). Filed as follow-on.
-- **Specific tooling beyond Hermes-leaning.** Orgo, Composio, Agent Mail, Obsidian, Claude Code/Codex are *candidates*, not adoptions. Filed as follow-on.
+- **Specific tooling beyond Hermes-leaning.** Orgo, Composio, Agent Mail, Obsidian, Claude Code/Codex are _candidates_, not adoptions. Filed as follow-on.
 - **Service contract terms** (notice, escalation, included scope, scope creep protocol for productized customers). Filed as follow-on.
 - **Copy, landing surfaces, SOW variant.** Deferred until pricing locks.
 - **Stack build itself.** Deferred until evaluation completes.
@@ -62,7 +62,7 @@ Captain's directive: add this offering to SMD's catalog. Two front doors, one fi
 
 **Negative / accepted.**
 
-- Positioning surface increases. The marketing site, sales conversations, and Decision Stack now have to hold two compatible offers without letting the productized SKU drag the firm's identity into "the agent shop." Mitigation: practitioner-firm voice (#20, About.astro practitioner exception) and solutions-consulting positioning remain the firm-level frame. AI Employee is *one productized outcome we can deliver*, not the firm itself.
+- Positioning surface increases. The marketing site, sales conversations, and Decision Stack now have to hold two compatible offers without letting the productized SKU drag the firm's identity into "the agent shop." Mitigation: practitioner-firm voice (#20, About.astro practitioner exception) and solutions-consulting positioning remain the firm-level frame. AI Employee is _one productized outcome we can deliver_, not the firm itself.
 - The productized SKU pre-supposes the solution. SMD's posture is collaborative and objectives-first; productizing one specific solution creates a category of prospect who never goes through the assessment conversation. We accept this — the customer arriving at AI Employee has already done their own diagnosis. The conversation we'd have surfaced is the conversation they've had with themselves.
 - Recurring revenue creates operational obligations (uptime, monitoring, customer success cadence) the firm has not yet had. Productized service delivery is structurally different from project delivery. The stack-build follow-on will need to specify watchdog, observability, and incident-response patterns before the first paid customer.
 - Decision #12's deprecation removes a placeholder some collateral may reference. CLAUDE.md and the Decision Stack are updated as part of this ADR; any other surface referencing the old retainer will need to be swept in follow-on work.

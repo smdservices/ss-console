@@ -714,7 +714,7 @@ Same engine, same data model, same artifact shape. Fields fill progressively as 
 
 **Four locks:**
 
-1. **Productize as a flat-rate retainer SKU.** Fixed monthly price, not metered, not credit-based, not scoped per engagement. Specific monthly price deferred to follow-on pending stack cost analysis; the *shape* of the pricing is locked here.
+1. **Productize as a flat-rate retainer SKU.** Fixed monthly price, not metered, not credit-based, not scoped per engagement. Specific monthly price deferred to follow-on pending stack cost analysis; the _shape_ of the pricing is locked here.
 2. **Second front door, not replacement.** The scope-based assessment funnel (Decisions #16, #18) remains the primary path for prospects whose objectives we need to surface through conversation. AI Employee is the entry point for prospects who already know they want an agent.
 3. **Hermes-leaning stack posture.** Hermes is the leading candidate for the agent harness. Every other component (host/VM, MCP connector layer, email identity, memory layer, build harness) is evaluated independently before adoption. Durable principles: cloud VMs over local hardware, MCP-bridged tooling, agents-building-agents, persistent memory layer, watchdog/observability.
 4. **Decision #12 superseded.** The undefined $200-500/mo post-delivery retainer concept is retired. AI Employee replaces it as SMD's recurring-revenue product. Post-handoff support for scope-based engagements continues under Decision #27 (two-week async stabilization).
@@ -808,37 +808,37 @@ All 11 artifacts are scaffolded as GitHub issues in smdservices/ss-console. Ever
 
 # Appendix - Decision Index
 
-| Issue | Decision                                                                                             |
-| ----- | ---------------------------------------------------------------------------------------------------- |
-| #2    | Revenue-based qualification - $750k-$5M primary                                                      |
-| #3    | Launch verticals - home services + professional services + contractor/trades, problem-qualified      |
-| #4    | Disqualification criteria - 4 hard stops, 5 soft flags                                               |
-| #5    | Ideal client profile - synthesis                                                                     |
-| #6    | Financial visibility - in core with 30-day prerequisite gate                                         |
-| #9    | Tool evaluation framework - rubric-based, bias toward keep                                           |
-| #10   | Scope boundary language - positive definition + 4 exclusions                                         |
-| #11   | Scope creep protocol - parking lot, pre-handoff review                                               |
-| #12   | Retainer model - SUPERSEDED 2026-05-13 by #44 (see ADR 0004)                                         |
-| #13   | Paid assessment - free for first 3, then $250                                                        |
-| #14   | Payment terms - 50% deposit at signing, 50% at completion                                            |
-| #15   | ROI anchor math - owner does the math, we ask the questions                                          |
-| #16   | Pricing model - scope-based, $175/hr → $200 → $250 → $300 rate progression                           |
-| #17   | Assessment capture - MacWhisper Pro + Claude extraction                                              |
-| #18   | Assessment to proposal - solution design phase, SOW within 48 hours                                  |
-| #19   | Follow-up cadence - 3-touch over 7 days, then mark dead                                              |
-| #20   | Positioning standard - we voice, team framing (venture-wide)                                         |
-| #21   | Networking strategy - BNI + chambers + vertical associations                                         |
-| #22   | Accountant partnership - co-value, no fee, warm handoff                                              |
-| #23   | Client referral incentive - no formal incentive, ask at handoff                                      |
-| #24   | Outreach messaging - vertical-specific message and channel                                           |
-| #25   | Pipeline math - 15-20 touches/week, 2-3 engagements/month, 25-30% close                              |
-| #26   | Review request - verbal at handoff, automated email 2 days later                                     |
-| #27   | Safety net - 2-week async from handoff                                                               |
-| #28   | Internal champion - identify at assessment, orient Day 1                                             |
-| #29   | Feedback collection - verbal at handoff, survey 30 days later                                        |
-| #30   | Case study workflow - agent-drafted, client-approved, one page                                       |
-| #42   | Taxonomy two-layer model - 5-cat observation, 6-cat delivery (see ADR 0001)                          |
-| #43   | Outside View unified diagnostic - one product, three depths, portal-resident artifact (see ADR 0002) |
+| Issue | Decision                                                                                                          |
+| ----- | ----------------------------------------------------------------------------------------------------------------- |
+| #2    | Revenue-based qualification - $750k-$5M primary                                                                   |
+| #3    | Launch verticals - home services + professional services + contractor/trades, problem-qualified                   |
+| #4    | Disqualification criteria - 4 hard stops, 5 soft flags                                                            |
+| #5    | Ideal client profile - synthesis                                                                                  |
+| #6    | Financial visibility - in core with 30-day prerequisite gate                                                      |
+| #9    | Tool evaluation framework - rubric-based, bias toward keep                                                        |
+| #10   | Scope boundary language - positive definition + 4 exclusions                                                      |
+| #11   | Scope creep protocol - parking lot, pre-handoff review                                                            |
+| #12   | Retainer model - SUPERSEDED 2026-05-13 by #44 (see ADR 0004)                                                      |
+| #13   | Paid assessment - free for first 3, then $250                                                                     |
+| #14   | Payment terms - 50% deposit at signing, 50% at completion                                                         |
+| #15   | ROI anchor math - owner does the math, we ask the questions                                                       |
+| #16   | Pricing model - scope-based, $175/hr → $200 → $250 → $300 rate progression                                        |
+| #17   | Assessment capture - MacWhisper Pro + Claude extraction                                                           |
+| #18   | Assessment to proposal - solution design phase, SOW within 48 hours                                               |
+| #19   | Follow-up cadence - 3-touch over 7 days, then mark dead                                                           |
+| #20   | Positioning standard - we voice, team framing (venture-wide)                                                      |
+| #21   | Networking strategy - BNI + chambers + vertical associations                                                      |
+| #22   | Accountant partnership - co-value, no fee, warm handoff                                                           |
+| #23   | Client referral incentive - no formal incentive, ask at handoff                                                   |
+| #24   | Outreach messaging - vertical-specific message and channel                                                        |
+| #25   | Pipeline math - 15-20 touches/week, 2-3 engagements/month, 25-30% close                                           |
+| #26   | Review request - verbal at handoff, automated email 2 days later                                                  |
+| #27   | Safety net - 2-week async from handoff                                                                            |
+| #28   | Internal champion - identify at assessment, orient Day 1                                                          |
+| #29   | Feedback collection - verbal at handoff, survey 30 days later                                                     |
+| #30   | Case study workflow - agent-drafted, client-approved, one page                                                    |
+| #42   | Taxonomy two-layer model - 5-cat observation, 6-cat delivery (see ADR 0001)                                       |
+| #43   | Outside View unified diagnostic - one product, three depths, portal-resident artifact (see ADR 0002)              |
 | #44   | Productized AI Employee offering - flat-rate retainer SKU, second front door, Hermes-leaning stack (see ADR 0004) |
 
 ---
