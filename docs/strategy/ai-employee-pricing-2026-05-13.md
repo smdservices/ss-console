@@ -25,7 +25,7 @@ Captain confirmed $5K/mo flat single tier launch pricing in the functional shape
 
 **Tier structure: single flat tier at launch, re-evaluate after 5 customers.** Tiering pre-revenue is premature optimization. Single tier maximizes sales velocity and customer self-selection. After 5 customers, data will indicate whether to add a smaller capacity-light tier or a larger dedicated-support tier.
 
-**Pricing recommendation: $5,000/mo flat retainer, no tiering, 12-month commitment with 90-day evaluation window.**
+**Pricing starting position (subject to revision against data, not a lock): $5,000/mo flat retainer, no tiering, 6-month initial term for Phase 1 customers with 90-day evaluation window. 12-month commitment pattern locks for customer 6+ once Phase 1.5 data validates assumptions.** This is a newly emerging market; our data is thin (operator anecdotes, one quarter of market signals). Locking these numbers as firm benchmarks would be overconfidence. We adopt them as the best starting position the available data supports and bind them to explicit revision triggers (see below).
 
 ---
 
@@ -219,9 +219,11 @@ This is the worst plausible case. It survives because most variables move toward
 
 ---
 
-## Pricing recommendation
+## Pricing starting position
 
-**Single flat tier at $5,000/mo, 12-month commitment with 90-day evaluation window.**
+**Single flat tier at $5,000/mo. 6-month initial term for Phase 1 (customers 1-5) with 90-day evaluation window. 12-month commitment pattern locks for customer 6+ once Phase 1.5 data validates the assumptions.**
+
+This is the best starting position the available data supports. The market is newly emerging; the operator data is thin; locking these numbers as firm benchmarks would be overconfidence. The structure binds the starting position to explicit revision triggers (see below) so each Phase 1 customer becomes a data point that improves the next.
 
 ### Why $5K (and not $3K or $7.5K)
 
@@ -254,6 +256,22 @@ This is the worst plausible case. It survives because most variables move toward
 - **Honest about reality.** First 90 days are when failures surface, when trust is built or broken, when customers decide whether to renew.
 - **Reduces sales friction.** "If after 90 days you're not seeing value, we part ways" is a closer-friendly story.
 - **Reduces churn risk.** Customers who would have churned at Day-90 anyway will use the evaluation window cleanly; everyone else commits.
+
+---
+
+## Revision triggers
+
+The starting position above commits to a specific number ($5K), term length (6 months Phase 1 / 12 months Phase 1.5+), and support cap (10 hrs/week). Each of these is bound to a concrete data checkpoint at which we revisit.
+
+| Trigger                             | What we re-evaluate                                                                                                                                                | Action if data deviates                                                                                                                                                       |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Customer 1 onboarding completes** | Did the 80-hour onboarding cap hold? Did the customer accept the $5K price without negotiation pressure? Was the 10 hrs/week steady-state realistic in week 5-8?   | If onboarding hit 120+ hours, revise scope or raise cap. If $5K was a struggle, test $4K with customer 2. If steady-state is 15+ hours/week, adjust cap for customer 2.       |
+| **Customer 3 enters steady-state**  | Are we consistently at the support-hour cap or under? Are renewal signals strong (Day-30 satisfaction)? Is per-customer infra cost tracking against the model?     | If support is sustained above cap, raise price (test $6K with customer 4) or tighten scope. If renewal signals weak, escalate customer success engineering before customer 4. |
+| **Customer 5 reaches Day-60**       | Are we ready to transition Phase 1.5 (systematization)? Does the v1 marketing-agencies pack hold up across customers, or is each customer requiring custom skills? | If pack holds up, lock $5K/mo and 12-month commitment for customer 6+. If each customer needs custom skills, the model is broken; revisit scope of the productized SKU.       |
+| **Customer 5 renewal decision**     | Among customers 1-3 who hit their renewal window during this phase, what's the renewal rate?                                                                       | If <70% renew at the 6-month mark, the price-value equation is wrong somewhere; adjust before scaling.                                                                        |
+| **Quarterly (every 90 days)**       | Market data refresh — pricing shifts among operators we track, new tooling that changes our cost stack, churn-pattern data in published case studies.              | Update the doc with new evidence; revise starting positions for new customers if signal warrants.                                                                             |
+
+These triggers are operational discipline, not contract clauses. Customers don't see them. They drive whether we ship customer 4 with the same terms as customer 3, or different terms.
 
 ---
 
@@ -298,13 +316,13 @@ The margin math drives several contract terms that #773 should lock:
 
 ## Captain decisions queued
 
-Three follow-up decisions on top of the confirmed launch price:
+Three starting positions, each bound to the revision triggers above. **These are not lock-it-in commitments — they are the best starting position the data supports, subject to revision at each named trigger.**
 
-1. **Confirm $5K/mo flat single tier launch pricing.** Per functional shape research and this analysis. Recommended.
-2. **Confirm 12-month commitment with 90-day evaluation window.** Reduces churn risk; aligns with retention reality. Recommended.
-3. **Confirm support-hour cap (10 hours/week per customer included, additional billed at $200/hr).** Single most important margin guardrail. Recommended.
+1. **Adopt $5K/mo flat single tier as customer-1 starting position.** Revisit at customer 1 onboarding completion and customer 3 steady-state.
+2. **Adopt 6-month initial term + 90-day evaluation window for Phase 1 (customers 1-5).** 12-month commitment pattern locks for customer 6+ once Phase 1.5 data validates assumptions. Revisit at customer 5 renewal-decision data point.
+3. **Adopt 10 hours/week support cap as customer-1 starting position.** Track actuals. Revisit at customer 1 steady-state (week 5-8) and customer 3 steady-state. This remains the most important margin guardrail; even if the specific number changes, _some_ cap is non-negotiable.
 
-These three lock #772 and unblock #773 (service contract terms), #774 (service name), and #775 (copy/surfaces).
+These three starting positions close #772 and unblock #773 (service contract terms — codifies the contract shape and the revision discipline), #774 (service name), and #775 (copy/surfaces). Captain confirmation as "starting positions subject to revision triggers" is what proceeds the work.
 
 ---
 
