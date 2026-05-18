@@ -78,7 +78,15 @@ def enforce(
         return EnforcementDecision(allowed=True, reason="read action", audit_action="allow")
 
     # COMMITMENT never autonomous (invariant #3)
+    # Draft_for_review skills never originate commitments — escalate to autonomous
+    # authorship if you want commitment-capable behavior.
     if action == ActionClass.COMMITMENT:
+        if ceiling == Ceiling.DRAFT_FOR_REVIEW:
+            return EnforcementDecision(
+                allowed=False,
+                reason="draft_for_review skills do not originate commitments; produce draft instead",
+                audit_action="draft",
+            )
         if not current_turn_approval:
             return EnforcementDecision(
                 allowed=False,
@@ -88,7 +96,16 @@ def enforce(
         return EnforcementDecision(allowed=True, reason="commitment with current-turn approval", audit_action="allow")
 
     # DESTRUCTIVE requires current-turn approval (invariant #1)
+    # Draft_for_review skills never originate destructive actions — they only
+    # produce text for human review. If a skill needs to destruct, author it as
+    # autonomous and gate via approval there.
     if action == ActionClass.DESTRUCTIVE:
+        if ceiling == Ceiling.DRAFT_FOR_REVIEW:
+            return EnforcementDecision(
+                allowed=False,
+                reason="draft_for_review skills do not originate destructive actions; report instead",
+                audit_action="refuse",
+            )
         if not current_turn_approval:
             return EnforcementDecision(
                 allowed=False,
