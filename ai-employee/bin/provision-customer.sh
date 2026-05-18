@@ -53,7 +53,11 @@ print(m.get('size', 'shared-cpu-1x'))
 print(m.get('memory_mb', 1024))
 print(c.get('hermes_ref', 'v0.13.0'))
 "
-mapfile -t FIELDS < <(uv run --quiet --with pyyaml python3 -c "${PARSE_PY}")
+# Portable line-array read (macOS bash 3.2 doesn't have mapfile)
+FIELDS=()
+while IFS= read -r _line; do
+  FIELDS+=("${_line}")
+done < <(uv run --quiet --with pyyaml python3 -c "${PARSE_PY}")
 CUSTOMER_ID="${FIELDS[0]}"
 FLY_REGION="${FIELDS[1]}"
 MACHINE_SIZE="${FIELDS[2]}"
