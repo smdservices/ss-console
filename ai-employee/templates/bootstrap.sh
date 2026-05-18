@@ -117,11 +117,19 @@ log "Symlinking skill library into HERMES_HOME..."
 mkdir -p "${HERMES_HOME}/skills"
 ln -sfn /app/skills/* "${HERMES_HOME}/skills/" 2>/dev/null || true
 
-log "Starting Hermes agent loop..."
-# Phase A: run Hermes without --adapter (the AIEmployee adapter is wired in
-# Phase A.5 once trust-ceiling enforcement is implemented + tested). For now
-# the agent runs with skill-declared ceilings but no code-level enforcement
-# — this is acceptable for customer-zero only, not for any paying customer.
-# Phase A.5 flips to: hermes run --config ... --adapter aiemployee
-exec gosu hermes:hermes /opt/hermes/.venv/bin/hermes run \
-  --config "${HERMES_HOME}/config.yaml"
+log "Container alive; ready for interactive Hermes sessions via 'fly ssh console'"
+# Phase A: the container stays alive so Captain can SSH in and run
+# `hermes chat` or `hermes cron` interactively. We don't start a long-running
+# agent loop here because customer-zero's gateway is `cli` (per customer.yaml)
+# — there's nothing to listen on. Future gateways (Slack, email, AgentMail
+# inbox) become the foreground process when wired in.
+#
+# To use:
+#   fly ssh console -a hermes-smd
+#   /opt/hermes/.venv/bin/hermes chat                    # interactive REPL
+#   /opt/hermes/.venv/bin/hermes cron                    # run scheduled skills
+#   /opt/hermes/.venv/bin/hermes mcp list                # list configured MCP servers
+#
+# Phase A.5 swaps this for the AIEmployee-wrapped gateway command once the
+# adapter is registered with Hermes' tool dispatch.
+exec gosu hermes:hermes tail -f /dev/null
