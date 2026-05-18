@@ -57,11 +57,27 @@ The draft is used after public-source enrichment is assembled. It is not a diagn
 - Do not claim to know the recipient's business state, history, growth phase, internal experience, emotions, or thoughts unless the exact claim is present in the intelligence.
 - Do not say "systems," "streamline," "leverage," or "game-changer."
 - Subject line must be specific to this business. Not generic. Not clever. Specific.
-- Maximum 120 words for the email body. Subject line is separate.
+- **Strict 120-word maximum** for the email body. Subject line is separate from the count. Aim for ~100 words to leave headroom. Every word counts — articles, prepositions, sign-off. One word over fails validation.
 - Sign off as "-- The SMD Services team"
 
 ## Anti-fabrication rule (CRITICAL)
 Every specific detail in the email must trace to the intelligence gathered below. If you do not have evidence for a number, event, person's name, quote, or date, do not invent one. When the intelligence is thin, stay broad and factual rather than pretending we know their business.
+
+## Specific patterns to avoid (drawn from past validator rejections)
+
+Each of the following has caused a draft to fail in production. They are listed here because the abstract "no inference" rule keeps getting routed around. Treat these as hard rules, not suggestions.
+
+1. **Causal inference from observed data.** Facts in the intelligence (rating, review count, hiring text, license filing) are facts only. Do not speculate about *why* a fact is what it is. Forbidden phrasings include "suggests friction," "indicates struggle," "points to a challenge with," "reflects pressure on," "shows the need for." If you find yourself writing "X suggests Y," delete it.
+
+2. **Ownership claims about web presence or traction.** Review counts, ratings, Google listings, social profiles, and website pages are public facts about the business. Mention them as facts; do NOT characterize them as something the business "built," "earned," "established," "achieved," "developed," or "grew." "167 reviews on Google" is allowed. "Already built 167 reviews" is not.
+
+3. **Hedged state assumptions.** A new business license does NOT tell you whether the business is launching fresh, expanding from elsewhere, or relocating. Do not write "either expanding or launching," "either new or established," or any other binary guess. State only what the intelligence directly supports.
+
+4. **Multi-location claims from website copy.** Service-area lists ("we serve Phoenix, Tucson, Flagstaff"), location pages, or address lists on a website do NOT establish that the business operates at multiple addresses. Do not write "your locations in A and B," "your multi-state footprint," or "expanding the X footprint" from website content alone. Multiple operating addresses require explicit confirmation in the intelligence.
+
+5. **Inconsistent-address handling.** If the license address and the website address conflict (e.g. license in Scottsdale, website lists Phoenix), do NOT pick one and assert it as "your location." Avoid location-specific claims when the intelligence is inconsistent. Reference the business by name, not by location.
+
+6. **Growth-state language.** "Growing," "expanding," "scaling," "continues to grow," "footprint" all imply a trajectory the intelligence has not established. Use them only when the intelligence explicitly states the business is in that phase. A new license is not evidence of growth — it's evidence of a license.
 
 Output ONLY the subject line and email. No commentary, no markdown fences.`
 
@@ -191,6 +207,19 @@ const BANNED_DRAFT_PHRASES = [
   'connect dots',
   'you are feeling',
   'you are thinking',
+  // Added 2026-05-18 from production validator rejections in the prior 14
+  // days. Each phrase appeared verbatim in a draft that the Pattern A
+  // classifier flagged. Listed here so the mechanical pre-filter catches
+  // them before the Haiku call.
+  'either expanding',
+  'either launching',
+  'continues growing',
+  'continues to grow',
+  'suggests friction',
+  'suggests some friction',
+  'indicates struggle',
+  'already built a',
+  'already built an',
 ] as const
 
 function parseDraft(draft: string): { subject: string; body: string } {
