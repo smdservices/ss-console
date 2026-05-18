@@ -1,0 +1,57 @@
+# Fly.io app config for hermes-{{CUSTOMER_SLUG}}
+#
+# Rendered by provision-customer.sh: every {{TOKEN}} substituted before
+# `fly deploy`. The template is the only fly.toml the repo holds; per-
+# customer rendered output is gitignored.
+
+app = "hermes-{{CUSTOMER_SLUG}}"
+primary_region = "{{FLY_REGION}}"
+
+[build]
+  dockerfile = "ai-employee/templates/Dockerfile"
+  [build.args]
+    HERMES_REF = "{{HERMES_REF}}"
+    CUSTOMER_SLUG = "{{CUSTOMER_SLUG}}"
+
+# Persistent volume for Hermes state (SQLite + markdown vault + session files).
+# Memory layer per the stack eval also writes to D1/R2/Vectorize via MCP, but
+# Hermes' own local state lives here.
+[mounts]
+  source = "hermes_state"
+  destination = "/opt/data"
+
+[env]
+  HERMES_HOME = "/opt/data"
+  CUSTOMER_SLUG = "{{CUSTOMER_SLUG}}"
+  HERMES_LOG_LEVEL = "info"
+  # AIEmployee adapter reads /app/customer.yaml at boot for skill version pins
+  # and trust-ceiling config; no env var needed.
+
+# Smallest machine class for customer-zero / lightweight workloads. Per-customer
+# customer.yaml can override via provision-customer.sh's --machine-size flag.
+[[vm]]
+  size = "{{MACHINE_SIZE}}"
+  memory = "{{MEMORY_MB}}"
+  cpu_kind = "shared"
+  cpus = 1
+
+# No public HTTP service — Hermes operates over MCP/gateway adapters, not as
+# a web server. SSH-only access via `fly ssh console`. Health is checked by
+# Fly's process supervision (tini exit code).
+[processes]
+  agent = "/usr/bin/tini -g -- /app/bootstrap.sh"
+
+# Restart policy: if the agent loop crashes, Fly restarts it. The safety
+# substrate re-runs on every start, so an unhealthy build can't loop into
+# production behavior.
+[[restart]]
+  policy = "on-failure"
+  max_retries = 3
+
+# Auto-stop after idle to control cost. Hermes will wake on incoming MCP
+# message via the gateway. Customer-zero stays warm; paying customers can
+# tune via customer.yaml.
+[[services]]
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1

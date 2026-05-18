@@ -1,0 +1,178 @@
+# SMD Services — customer-zero config
+#
+# SMD is our own permanent customer-zero. This config enables the
+# marketing-agency-shaped subset of skills that SMD's own ops naturally
+# exercise (inbox triage, status assembly, AR-chase pattern, scope-flagging,
+# calendar coordination). Other-vertical skills are tested against synthetic
+# fixtures on this same instance.
+#
+# Schema: see ai-employee/customer.yaml.schema.md
+
+customer_id: smd
+customer_name: "SMD Services"
+vertical: marketing-agency # closest match — SMD operates like an agency-shaped consulting firm
+model: claude-opus-4-7
+fly_region: phx
+machine:
+  size: shared-cpu-1x
+  memory_mb: 1024
+hermes_ref: v2026.5.7 # latest date-based tag; pin to SHA in Phase A.5
+gateway: cli # SSH-only for customer-zero; we'll wire Slack/email later
+oauth_scopes:
+  - https://www.googleapis.com/auth/gmail.readonly
+  - https://www.googleapis.com/auth/gmail.send
+  - https://www.googleapis.com/auth/calendar
+  - https://www.googleapis.com/auth/drive.readonly
+
+# ----------------- Skills -----------------
+# Customer-zero starts with the marketing-agency v1 pack subset that SMD's
+# own ops exercise. Versions are `pending` until each skill is authored +
+# content-hashed in Phase C. inbox-triage is the only skill currently complete.
+
+skills:
+  - name: inbox-triage
+    version: pending # will be set to content hash after Phase C lock-in
+    trust_ceiling: draft_for_review
+    enabled: true
+    cost_estimate:
+      tokens_in_per_run: 8000
+      tokens_out_per_run: 1500
+      tool_calls_per_run: 6
+      runs_per_day_typical: 3
+
+  - name: status-report-assembler
+    version: pending
+    trust_ceiling: draft_for_review
+    enabled: false # author in Phase C marketing batch
+
+  - name: ar-chaser
+    version: pending
+    trust_ceiling: draft_for_review # touches money — never autonomous
+    enabled: false
+
+  - name: scope-creep-flagger
+    version: pending
+    trust_ceiling: draft_for_review # judgment call — never autonomous
+    enabled: false
+
+  - name: asset-collection-follower
+    version: pending
+    trust_ceiling: autonomous # safe internal-cadence work, no external send to client without review
+    enabled: false
+
+  - name: retainer-hours-reconciler
+    version: pending
+    trust_ceiling: draft_for_review
+    enabled: false
+
+  - name: paid-media-anomaly-watcher
+    version: pending
+    trust_ceiling: autonomous # surfaces only; escalates to draft for action
+    enabled: false # SMD runs no paid media currently
+
+  - name: proposal-drafter
+    version: pending
+    trust_ceiling: draft_for_review
+    enabled: false
+
+# ----------------- Connectors -----------------
+# Per the connector-coverage doc, SMD's stack is Composio-covered end to
+# end. Non-SMD-applicable connectors are bound to synthetic fixtures so
+# the corresponding skills can be tested on this instance (Track 2 work).
+
+connectors:
+  # SMD's real tools
+  gmail:
+    backend: composio:gmail
+    enabled: true
+    scopes: [gmail.readonly, gmail.send]
+  calendar:
+    backend: composio:google_calendar
+    enabled: true
+  drive:
+    backend: composio:google_drive
+    enabled: true
+  slack:
+    backend: composio:slack
+    enabled: false # wire when ready to test slack-based skills
+  github:
+    backend: composio:github
+    enabled: true # SMD lives in github for crane + venture work
+
+  # Marketing-pack tools SMD doesn't currently use (synthetic for Track 2 testing)
+  harvest:
+    backend: synthetic:fixtures/marketing-agency/harvest-time.json
+    enabled: false
+  asana:
+    backend: synthetic:fixtures/marketing-agency/asana-projects.json
+    enabled: false
+  ga4:
+    backend: synthetic:fixtures/marketing-agency/ga4-metrics.json
+    enabled: false
+  meta_ads:
+    backend: synthetic:fixtures/marketing-agency/meta-ads-anomalies.json
+    enabled: false
+  google_ads:
+    backend: synthetic:fixtures/marketing-agency/google-ads-anomalies.json
+    enabled: false
+  hubspot:
+    backend: composio:hubspot
+    enabled: false # SMD doesn't run HubSpot today; flip on later if needed
+
+  # Other-vertical connectors — synthetic for Track 2 testing on customer-zero
+  clio:
+    backend: synthetic:fixtures/law-firm/clio-matters.json
+    enabled: false # Track 2 — law vertical skills
+  lawpay:
+    backend: build:lawpay
+    enabled: false # Track 2 wrapper, fixture mode until Phase B builds it
+  filevine:
+    backend: synthetic:fixtures/law-firm/filevine-cases.json
+    enabled: false
+  dotloop:
+    backend: build:dotloop
+    enabled: false # Track 2 — RE vertical
+  spark_api:
+    backend: build:spark-mls
+    enabled: false # Track 2 — Phoenix RE
+  follow_up_boss:
+    backend: composio:follow_up_boss
+    enabled: false # Track 2 — RE customers
+  fishbowl:
+    backend: build:fishbowl
+    enabled: false # Track 2 — manufacturing
+  shipstation:
+    backend: build:shipstation
+    enabled: false # Track 2 — manufacturing + DTC
+  acumatica:
+    backend: build:acumatica
+    enabled: false # Track 2 — mid-market manufacturing
+  netsuite:
+    backend: composio:netsuite
+    enabled: false # Track 2 — manufacturing on NetSuite
+  business_central:
+    backend: mcp:https://mcp.businesscentral.dynamics.com
+    enabled: false # Track 2 — manufacturing on BC
+  quickbooks:
+    backend: composio:quickbooks
+    enabled: true # SMD invoices via QBO; cross-vertical tool
+
+# ----------------- Pause / kill-switch -----------------
+pause:
+  active: false
+  reason: ""
+
+# ----------------- Logging / observability -----------------
+logging:
+  level: info
+  ship_to:
+    - fly-logs
+    # cloudflare-d1 admin Worker mirror added later when admin dashboard exists
+
+# ----------------- Memory layer -----------------
+# Per the stack eval: D1 (structured) + R2 (markdown vault) + Vectorize (semantic).
+# Customer-zero gets its own per-customer namespaces.
+memory:
+  d1_namespace: smd
+  r2_vault_path: vaults/smd/
+  vectorize_index: smd-vault
