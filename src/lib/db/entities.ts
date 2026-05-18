@@ -357,9 +357,9 @@ async function insertEntityIfMissing(
   await db
     .prepare(
       `INSERT INTO entities (
-        id, org_id, name, slug, phone, website, stage, stage_changed_at,
+        id, org_id, name, slug, phone, website, area, stage, stage_changed_at,
         source_pipeline, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(org_id, slug) DO NOTHING`
     )
     .bind(
@@ -369,6 +369,7 @@ async function insertEntityIfMissing(
       args.slug,
       args.data.phone ?? null,
       args.data.website ?? null,
+      args.data.area ?? null,
       args.data.stage ?? 'signal',
       args.now,
       args.data.source_pipeline ?? null,
@@ -423,7 +424,7 @@ export async function createEntity(
   const now = new Date().toISOString()
   await db
     .prepare(
-      `INSERT INTO entities (id, org_id, name, slug, phone, website, stage, stage_changed_at, source_pipeline, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO entities (id, org_id, name, slug, phone, website, area, stage, stage_changed_at, source_pipeline, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       id,
@@ -432,6 +433,7 @@ export async function createEntity(
       slug,
       data.phone ?? null,
       data.website ?? null,
+      data.area ?? null,
       data.stage ?? 'signal',
       now,
       data.source_pipeline ?? null,
