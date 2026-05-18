@@ -70,7 +70,7 @@ done
 # mismatch is a deploy error — the customer is on a skill version we don't
 # have in the image. Rollback or deploy a fresh image with the right SHAs.
 log "Resolving skill version pins from customer.yaml..."
-python3 /app/adapter/resolve_skill_pins.py "${CUSTOMER_YAML}" /app/skills \
+/opt/hermes/.venv/bin/python3 /app/adapter/resolve_skill_pins.py "${CUSTOMER_YAML}" /app/skills \
   || die "Skill pin resolution failed; check customer.yaml versions vs /app/skills/ content"
 log "Skill pins resolved OK"
 
@@ -79,7 +79,7 @@ log "Skill pins resolved OK"
 # tool failure, prompt injection, ceiling-escalation attempts. Re-runs on
 # every container start so a Hermes SHA bump can't regress the floor.
 log "Running safety substrate invariant checks (Phase A.5 gate)..."
-if ! python3 /app/safety-substrate/run_invariants.py \
+if ! /opt/hermes/.venv/bin/python3 /app/safety-substrate/run_invariants.py \
        --customer "${CUSTOMER_SLUG}" \
        --fixtures /app/safety-substrate/tests \
        --strict ; then
