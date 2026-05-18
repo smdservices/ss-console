@@ -7,8 +7,12 @@
 app = "hermes-{{CUSTOMER_SLUG}}"
 primary_region = "{{FLY_REGION}}"
 
+# Rendered fly.toml lives at ai-employee/.rendered/<slug>/fly.toml. Dockerfile
+# is two levels up at ai-employee/templates/Dockerfile. The Docker build
+# context root is the repo root, which Fly infers from where `fly deploy`
+# runs. provision-customer.sh always runs from repo root.
 [build]
-  dockerfile = "ai-employee/templates/Dockerfile"
+  dockerfile = "../../templates/Dockerfile"
   [build.args]
     HERMES_REF = "{{HERMES_REF}}"
     CUSTOMER_SLUG = "{{CUSTOMER_SLUG}}"
@@ -36,10 +40,9 @@ primary_region = "{{FLY_REGION}}"
   cpus = 1
 
 # No public HTTP service — Hermes operates over MCP/gateway adapters, not as
-# a web server. SSH-only access via `fly ssh console`. Health is checked by
-# Fly's process supervision (tini exit code).
-[processes]
-  agent = "/usr/bin/tini -g -- /app/bootstrap.sh"
+# a web server. SSH-only access via `fly ssh console`. No `[[services]]` block
+# because we don't expose ports; no `[processes]` block because the Dockerfile
+# ENTRYPOINT (tini -- bootstrap.sh) is the only process.
 
 # Restart policy: if the agent loop crashes, Fly restarts it. The safety
 # substrate re-runs on every start, so an unhealthy build can't loop into
@@ -47,11 +50,3 @@ primary_region = "{{FLY_REGION}}"
 [[restart]]
   policy = "on-failure"
   max_retries = 3
-
-# Auto-stop after idle to control cost. Hermes will wake on incoming MCP
-# message via the gateway. Customer-zero stays warm; paying customers can
-# tune via customer.yaml.
-[[services]]
-  auto_stop_machines = false
-  auto_start_machines = true
-  min_machines_running = 1

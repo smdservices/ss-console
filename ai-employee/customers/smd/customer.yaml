@@ -12,7 +12,7 @@ customer_id: smd
 customer_name: "SMD Services"
 vertical: marketing-agency # closest match — SMD operates like an agency-shaped consulting firm
 model: claude-opus-4-7
-fly_region: phx
+fly_region: lax # Fly has no PHX region; LAX is geographically closest to Phoenix (~5-15ms)
 machine:
   size: shared-cpu-1x
   memory_mb: 1024
