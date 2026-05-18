@@ -162,9 +162,52 @@ The deterministic Tier 2 filter only catches names that self-identify with the w
 
 ## Open follow-ons surfaced by this session
 
-| Finding                                                                                                                             | Issue                                                                         |
-| ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Probable franchise/national-chain without "franchise" word — needs Claude re-qualification or new follow-on                         | candidate for new issue                                                       |
-| `candidate_merge_log` is empty despite obvious within-pipeline duplicates — Jaro-Winkler match is not firing                        | re-prioritize **#751**                                                        |
-| SerpAPI quota appears to be monthly cap, not daily-refresh as #749 hypothesized — pivot validation against fresh data blocked       | **#749** (mark part 1 done; quota-refresh dependency persists)                |
-| `posting_actor_role` field absent from existing 96 stored job_monitor signals — pre-pivot ingest didn't capture it; new ingest does | accepted (pivot is forward-looking; reconciliation closed the historical gap) |
+| Finding                                                                                                                             | Issue                                                                                    |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Probable franchise/national-chain without "franchise" word — needs Claude re-qualification or new follow-on                         | resolved 2026-05-18 by PM dismissal of 3 entities (Aire Serv, Maid Brigade, PatchMaster) |
+| `candidate_merge_log` is empty despite obvious within-pipeline duplicates — Jaro-Winkler match is not firing                        | resolved 2026-05-18: see "Update" section below                                          |
+| SerpAPI quota appears to be monthly cap, not daily-refresh as #749 hypothesized — pivot validation against fresh data blocked       | **#749** (mark part 1 done; quota-refresh dependency persists)                           |
+| `posting_actor_role` field absent from existing 96 stored job_monitor signals — pre-pivot ingest didn't capture it; new ingest does | accepted (pivot is forward-looking; reconciliation closed the historical gap)            |
+
+---
+
+## Update — 2026-05-18
+
+### Dedup-logging three-bug chain resolved (#751 closed)
+
+The investigation surfaced in §"Obvious misses" item 2 above ran ten days later. `candidate_merge_log` empty turned out to be three interacting bugs, all now fixed:
+
+| Bug                                                                                                                                                             | Fix                                                                                                                                                   | PR                                                          |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| 1. `entities` INSERT silently dropped the `area` column for 6 weeks (since PR #136, 2026-04-03)                                                                 | Bind `area` in both `insertEntityIfMissing` and `createEntity`                                                                                        | [#783](https://github.com/venturecrane/ss-console/pull/783) |
+| 2. SerpAPI location-string drift ("Phoenix, AZ" / "Phoenix, AZ, Estados Unidos" / "AZ") produced inconsistent slugs for the same business                       | Slug is name-only; `area` parameter accepted but ignored. Genuine same-name collisions are caught by fuzzy logger and resolved via admin Merge action | [#785](https://github.com/venturecrane/ss-console/pull/785) |
+| 3. `findBestFuzzyAreaMatch` filtered `WHERE area=?` and `maybeLogFuzzyDuplicate` bailed on null area — combined with Bug 1 this disabled fuzzy logging entirely | Renamed `findBestFuzzyMatch`, drop area filter, drop the area guard. Scope is now org-wide                                                            | [#785](https://github.com/venturecrane/ss-console/pull/785) |
+
+Regression tests cover all three: `tests/entities-area-persisted.test.ts`, `tests/lead-gen-dedup.test.ts`, `tests/entities-fuzzy-dedup-log.test.ts`.
+
+### Calibration deferred, not re-filed
+
+The original #751 premise — spot-review 30 pairs at thresholds 0.88 / 0.90 / 0.92 / 0.95 — assumed `candidate_merge_log` would accumulate dozens of pairs per week. Real volume is ~4 entities/week of active ingest, most unique businesses, with slug-level dedup now catching same-name collisions automatically. Projected near-match volume at this rate: ~1–2 pairs per week. Calibration against that data would be premature optimization that consumes Captain time without changing observable behavior.
+
+**Default threshold (0.92) accepted as-is** until volume justifies revisiting. ADR 0003 §8 designed dedup as log-only with human review, so the threshold is not load-bearing — Captain reviews pairs as they appear via the admin Merge action.
+
+### Trigger to revisit calibration
+
+Open a fresh focused issue when any of these are true:
+
+- `candidate_merge_log` accumulates **30+ pairs in any 30-day window**
+- Captain notices near-miss duplicates **visibly building up** in the admin queue
+- Ingest volume scales past **~20 entities/week** (Decision #25 steady-state target — at this scale the noise-floor calculation flips and threshold tuning earns its keep)
+
+Until then: do not file. Calibration is a refinement, not a foundation.
+
+### Pattern A validator instrumentation also resolved
+
+§"Obvious misses" item 3 above flagged a ~3% briefs-without-drafts gap as a Pattern A validator-rate proxy. Two findings landed in the dedup investigation:
+
+- **Instrumentation already exists.** `enrichment_runs.error_message` captures every validator rejection via #631's `instrumentModule` wrapper. The Move 2 from the PM recommendation (add validatorRejected counter) was redundant and superseded.
+- **Draft prompt tightened.** Examining the 14 last-14d failures (8 Pattern A, 5 mechanical, 1 transient) drove the prompt tightening shipped in [#784](https://github.com/venturecrane/ss-console/pull/784) — 6 concrete anti-pattern rules in the system prompt + 9 new banlist phrases for the mechanical pre-filter.
+
+### Enrichment under-production (#631) closed
+
+Recovered cleanly via PR #632's Workflows migration. Coverage went 14% → 97.4% over 18 days (190 of 195 entities created in last 30 days have `intelligence_brief` context). The 5 entities without enrichment are all structural: 2 entities in `lost` stage at creation (Claude-rejected, no enrichment dispatched by design), 3 manual test entities. ACs 1–3 (panel, recovery loop, alert) explicitly not built — deferred until volume justifies instrumentation overhead. See #631 closure comment for full numbers.
