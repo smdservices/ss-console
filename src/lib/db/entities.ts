@@ -291,16 +291,22 @@ interface FuzzyMatchCandidate {
   score: number
 }
 
-async function findBestFuzzyAreaMatch(
+/**
+ * Find the highest-scoring Jaro-Winkler match for `name` across the org's
+ * existing entities. Scope is org-wide as of 2026-05-18 (#751 bug 3) —
+ * previously scoped `WHERE area = ?`, which silently disabled fuzzy
+ * matching for area-less ingests (the common case post-bug-1, since
+ * `entities.area` was being silently dropped at INSERT).
+ */
+async function findBestFuzzyMatch(
   db: D1Database,
   orgId: string,
   name: string,
-  area: string,
   threshold: number
 ): Promise<FuzzyMatchCandidate | null> {
   const candidates = await db
-    .prepare(`SELECT * FROM entities WHERE org_id = ? AND area = ?`)
-    .bind(orgId, area)
+    .prepare(`SELECT * FROM entities WHERE org_id = ?`)
+    .bind(orgId)
     .all<Entity>()
 
   const target = normalizeBusinessName(name)
@@ -321,18 +327,16 @@ async function maybeLogFuzzyDuplicate(
   data: CreateEntityData,
   slug: string
 ): Promise<void> {
-  if (!data.area) return
-
   const settings = await getPipelineSettings(db, orgId, 'new_business')
   const threshold = settings.dedup_fuzzy_threshold
-  const bestMatch = await findBestFuzzyAreaMatch(db, orgId, data.name, data.area, threshold)
+  const bestMatch = await findBestFuzzyMatch(db, orgId, data.name, threshold)
   if (!bestMatch) return
 
   await appendCandidateMergeLog(db, orgId, {
     existingEntityId: bestMatch.entity.id,
     candidateName: data.name,
     candidateSlug: slug,
-    candidateArea: data.area,
+    candidateArea: data.area ?? null,
     matchedName: bestMatch.entity.name,
     matchedArea: bestMatch.entity.area,
     sourcePipeline: data.source_pipeline ?? null,
