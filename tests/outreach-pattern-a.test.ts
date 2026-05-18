@@ -59,4 +59,42 @@ We came across your part-time shop coordinator opening and your recent customer 
 
     await expect(validateOutreachDraft('sk-test', INTELLIGENCE, draft)).resolves.toBeUndefined()
   })
+
+  // Regression coverage for 2026-05-18 prompt tightening. Each phrase below
+  // appeared verbatim in a real validator rejection in the prior 14 days
+  // (see docs/audits/lead-gen-pivot-validation-2026-05-08.md and
+  // enrichment_runs.error_message). The mechanical pre-filter should catch
+  // them before the Haiku classifier call.
+  const NEW_BANLIST_CASES: Array<{ phrase: string; label: string }> = [
+    { phrase: 'either expanding or launching fresh', label: 'either expanding' },
+    { phrase: 'either launching as a new business or relocating', label: 'either launching' },
+    { phrase: 'as the business continues growing', label: 'continues growing' },
+    { phrase: 'and continues to grow into the local market', label: 'continues to grow' },
+    {
+      phrase: 'suggests friction in how client interactions are handled',
+      label: 'suggests friction',
+    },
+    {
+      phrase: 'rating suggests some friction in customer experience',
+      label: 'suggests some friction',
+    },
+    { phrase: 'review volume indicates struggle with throughput', label: 'indicates struggle' },
+    { phrase: 'already built a verified Google presence', label: 'already built a' },
+    { phrase: 'already built an audience of loyal customers', label: 'already built an' },
+  ]
+
+  for (const { phrase, label } of NEW_BANLIST_CASES) {
+    it(`rejects mechanical violation: "${label}"`, async () => {
+      const fetchSpy = vi.fn()
+      vi.stubGlobal('fetch', fetchSpy)
+      const draft = `Subject for Desert Bloom
+
+${phrase} and that is why we are reaching out.`
+
+      await expect(validateOutreachDraft('sk-test', INTELLIGENCE, draft)).rejects.toThrow(
+        OutreachValidationError
+      )
+      expect(fetchSpy).not.toHaveBeenCalled()
+    })
+  }
 })
