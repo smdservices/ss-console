@@ -15,3 +15,8 @@ Architecture Decision Records (ADRs) capturing strategic and technical decisions
 - [0002-outside-view-unified-diagnostic.md](./0002-outside-view-unified-diagnostic.md) - Outside View unified diagnostic (**superseded 2026-05-04** — product retired in PR #702 and #703)
 - [0003-lead-gen-pivot-actor-identity.md](./0003-lead-gen-pivot-actor-identity.md) - Lead-gen pivot: actor identity, drafting decoupled, statewide, no revenue gate
 - [0004-productized-ai-employee-offering.md](./0004-productized-ai-employee-offering.md) - Productized AI Employee offering: flat-rate retainer SKU, second front door, Hermes-leaning stack (supersedes Decision #12)
+- [0005-reviewer-as-sender.md](./0005-reviewer-as-sender.md) - Reviewer-as-sender: every customer-bound message ships under the human reviewer's identity (architectural, not configurable)
+- [0006-capability-adapter-pattern.md](./0006-capability-adapter-pattern.md) - Capability-adapter pattern: skills bind to abstract capability interfaces; vendor adapters implement them; customer.yaml binds the wiring
+- [0007-per-customer-machine-isolation.md](./0007-per-customer-machine-isolation.md) - Per-customer Machine isolation: one Fly.io Machine per customer; multi-tenancy via deployment isolation, not runtime tenancy
+- [0008-customer-owned-memory-artifact.md](./0008-customer-owned-memory-artifact.md) - Customer-owned memory artifact: voice samples, rules, draft history in customer-specific R2/Vectorize namespaces; portable on offboarding
+- [0009-cross-machine-query-prohibition.md](./0009-cross-machine-query-prohibition.md) - Cross-Machine query prohibition: boot-time storage-binding check + shared-catalog merge gate; no runtime data path between customers
