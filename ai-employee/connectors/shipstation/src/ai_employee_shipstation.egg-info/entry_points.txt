@@ -1,2 +1,0 @@
-[console_scripts]
-ai-employee-shipstation = ai_employee_shipstation.server:main

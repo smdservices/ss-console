@@ -61,3 +61,9 @@ backups/
 # rendered artifacts are per-deploy and gitignored.
 ai-employee/.rendered/
 ai-employee/safety-substrate/logs/
+
+# Python build artifacts (setuptools generates these inside each connector
+# package on `pip install -e .`). Track pyproject.toml, never the egg-info.
+**/*.egg-info/
+__pycache__/
+*.py[cod]

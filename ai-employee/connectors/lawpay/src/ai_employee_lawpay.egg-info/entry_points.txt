@@ -1,3 +1,0 @@
-[console_scripts]
-ai-employee-lawpay = ai_employee_lawpay.server:main
-ai-employee-lawpay-setup = ai_employee_lawpay.setup:main
