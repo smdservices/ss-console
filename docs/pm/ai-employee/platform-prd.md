@@ -1089,7 +1089,7 @@ Status: largely complete per `ai-employee-smd-customer-zero` branch progress.
 **Skills (5-7 selected, not the full catalog):**
 - The 6 universal primitives authored as skill scaffolds, but only 3-4 enabled in v1 based on what the meeting reveals as load-bearing
 - Of the 9 cross-cutting universals: enable `inbox-triage-and-draft`, `morning-digest`, `memory-curator`, and `compliance-audit-export` in v1; defer others
-- 1-2 PI-specialized skills from the law-firm vertical pack: minimum is `pi-intake-triage`; `pi-demand-letter-text-only` only ships if Captain explicitly authorizes the legal-sensitivity risk
+- 1-2 PI-specialized skills from the law-firm vertical pack: minimum is `pi-intake-triage`; v1 uses `pi-demand-letter-evidence-packet` (partner authors demand from the assembled inputs). `pi-demand-letter-text-only` deferred to Phase 3+ per law-firm-prd.md §6.2.
 
 **Dashboard (7 tabs, not 16):**
 - Information: Today, Queue, Memory, Audit

@@ -39,12 +39,10 @@ Per the platform PRD §0, this vertical PRD documents **the law-firm vision in f
 - **Citation-refusal substrate (invariant 6)** ships in v1 (already in flight on the `ai-employee-smd-customer-zero` branch).
 - **Per-state engagement-letter clause library** ships in v1 with PA + Utah + the firm's home state explicitly; other states roadmap.
 - **Tier-1 PM adapter for the first customer's actual PM system** — built within 7 days of the meeting, not pre-built for all 6 likely systems. Pre-build only the most-likely 2-3 in advance (Filevine, Clio, SmartAdvocate based on probability).
-- **PI specialized skills**: minimum is `pi-intake-triage`; `pi-demand-letter-text-only` only if Captain authorizes the legal-sensitivity risk in advance.
+- **PI specialized skills**: minimum is `pi-intake-triage`. `pi-demand-letter-text-only` is deferred to Phase 3+ per §6.2; v1 uses `pi-demand-letter-evidence-packet` (assembles inputs; partner authors the demand letter).
 - **Walk-in-cold demo strategy** ships in v1 (this is the urgent capability for the 2026-06 meeting).
 
 The expansion roadmap in §13 (WC / SSD / immigration / estate / family next) is **planning, not commitment**. Each round of expansion gated on platform PRD's customer-count gates (Phase 4 = ≥3 customers).
-
-**Captain-veto reservation**: the demand-letter-text-only skill, even constrained to text-only with citation-refusal substrate, is the highest legal-sensitivity skill in the v1 set. Captain may decide not to ship it for the first meeting and instead position it as roadmap. The decision is Captain's; the PRD documents both paths.
 
 ---
 
@@ -1009,7 +1007,7 @@ Platform-level risks (platform PRD §18) apply. Law-firm-specific risks:
 | **Privilege waiver via open-loop AI** | Loss of attorney-client privilege per Rakoff 2026 ruling | Closed-loop architecture; DPA in place; LexisNexis/Westlaw content never ingested |
 | **Microsoft Copilot displacement** | Platform-level competitive threat from Copilot eating legal AI from below | Differentiate on matter-awareness + firm-voice + reviewer-as-sender + closed-loop compliance + memory editability; show on-stage why Copilot can't do these things |
 | **Eve Legal head-to-head** | Closest pattern-competitor for PI plaintiff firms | Differentiate on continuous-teammate (vs episodic Auditor) + readable memory + flat-monthly SKU + multi-skill scope |
-| **EvenUp head-to-head on demands** | The loudest PI competitor; firms may already pay for it | Position complementarity: "we don't replace EvenUp on demand-letter assembly; we cover the rest of the lifecycle." OR if they want full replacement: pi-demand-letter-text-only does it differently (text, no valuation, partner-driven) |
+| **EvenUp head-to-head on demands** | The loudest PI competitor; firms may already pay for it | Position complementarity: "we don't replace EvenUp on demand-letter assembly; we cover the rest of the lifecycle." V1 `pi-demand-letter-evidence-packet` assembles the inputs (chronology, billing, exhibits); partner authors the demand. |
 | **Demo provisioning fails on stage** | Meeting hinge; reputational loss | Captain dry-run before every meeting; pre-provisioned fallback instance ready; demo script accommodates failure ("here's what would normally happen") |
 
 ---
@@ -1019,7 +1017,6 @@ Platform-level risks (platform PRD §18) apply. Law-firm-specific risks:
 Specific to the law-firm vertical:
 
 - **Default persona name suggestions per practice area.** Worth a short curated list (3-5 names per practice) that's vertical-appropriate. Currently undefined; suggested at onboarding by SMD.
-- **Demand-letter scope on launch.** `pi-demand-letter-text-only` ships in v1 of the PI overlay, but it's the most legally-sensitive operational skill. Captain decision: do we ship it with the first demo, or hold for beta-1?
 - **Court e-filing connector strategy.** Tyler Odyssey / InfoTrack / state-by-state. Most likely build-as-discovered, but if a specific state is critical for Arizona / Phoenix expansion, may warrant pre-build.
 - **MSA (Medicare Set-Aside) skill for PI.** Specialized workflow. Probably defer to first PI customer that actively needs it.
 - **Lien-resolution-services connector (Synergy, Garretson, ARM, Episource).** Portal-automation only; build-on-demand.
