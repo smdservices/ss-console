@@ -588,21 +588,22 @@ The platform PRD (§6) lays out the seven competitor shapes. Here's the law-firm
 
 | Competitor | What they do | Where they end (our differentiation) |
 |---|---|---|
-| **Harvey** ($11B val, Mar 2026 raise) | BigLaw research + drafting; custom agents; Westlaw/Lexis content integration | $100-1200/seat/mo; research-shaped; no operational reach; BigLaw-only. **We win on operational reach + flat pricing.** |
+| **Harvey** ($11B val, $200M raise Mar 2026) | BigLaw research + drafting; custom agents; Westlaw/Lexis content integration | $1,200-$2,000+/seat/mo; 20-seat minimum; research-shaped; no operational reach; BigLaw-only. **We win on operational reach + flat-per-firm pricing.** Horizon note: mid-market expansion intent (Phase 3-4 threat). |
 | **CoCounsel (Thomson Reuters)** | Multi-step Deep Research agents over Westlaw; tied to Westlaw subscription | Westlaw-locked; research-shaped. **We win on operational reach + cross-tool reach.** |
 | **Lexis+ Protégé (LexisNexis)** | Lexis-content research + drafting + Word/browser | Same shape as CoCounsel; Lexis-locked. **We win on operational reach.** |
 | **Spellbook** | Word-native contract drafting / review; playbooks | Single-skill; Word-bound. **We win on multi-skill + matter awareness.** |
-| **Eve Legal** (800-1000+ plaintiff firms) | Plaintiff-firm-focused workflow; nightly AI Auditor; case evaluation, demand-drafting, discovery | Per-seat; episodic tasks + scheduled scan; no versioned memory; no partner-as-sender flow. **We win on continuous teammate model + memory + reviewer-as-sender + flat-monthly SKU.** |
-| **EvenUp** (loudest PI competitor) | Demand letter assembly, settlement valuation; hybrid AI + human review | Per-case ($300-800/letter); demand-only; not a continuous teammate. **We win on continuous lifecycle + flat-monthly + reviewer-as-sender.** |
+| **Eve Legal 2.0 AI Workforce** (1,000+ plaintiff firms) | AI Workforce model: Agents (autonomous task execution) + Auditor (nightly case-wide value detection) + Analyst; plaintiff-firm-focused | Per-seat; task-execution focus; no customer-editable memory; no reviewer-as-sender governance. **We win on reviewer-as-sender governance architecture + customer-editable memory vs. task-execution focus.** |
+| **EvenUp PLAAS** (launched May 13, 2026; loudest PI competitor) | Full pre-litigation lifecycle via PLAAS managed service: AI + U.S. human case managers; demand letter + settlement negotiation execution | Managed-service shape with labor cost embedded; not a named AI teammate; no customer-editable memory. **We win on continuous AI-identity teammate + flat-per-firm SKU + reviewer-as-sender vs. managed-service model.** (See §10.5 for the prepared PLAAS-response paragraph.) |
 | **Precedent, Tavrn, Supio** (PI demand-side cluster) | Variations on demand-letter assembly | Demand-only. Supio markets "learns your voice" for demands. **We win on lifecycle scope + editable memory.** |
+| **Law Practice AI** (launched April 2026, 300+ PI firm clients) | "Five-solution AI operating system" framing; conceptually adjacent to AI Employee's "one identity, every surface" framing | High install base; persistent-identity / reviewer-as-sender / editable-memory architecture **unverified**. Threat level: medium. **If asked: we can defend on the specific architecture combination until we verify what their five solutions actually do.** [TODO: confirm with Captain — direct pillar-by-pillar comparison pending Law Practice AI public-architecture review.] |
 | **Clio Manage AI (formerly Clio Duo)** | Deadline extraction, billing automation, client communication drafting | Capability menu inside Clio; no agent identity; Clio-locked. **We win on agent identity + cross-tool reach + readable memory.** |
-| **MyCase IQ, Filevine AI, Smokeball Archie** | PM-embedded capability menus | Same shape — feature menu inside the PM. **We win on the same axes.** |
-| **Lawmatics** | Intake CRM with AI lead-scoring; agentic-AI branding | Front-of-funnel only; stops at conversion. **We win on lifecycle continuity.** |
-| **Microsoft 365 Copilot** (with absorbed Robin AI tech, April 2026) | Word-native AI redlining, contract review summarization, generic horizontal AI | Doesn't know matter; doesn't know firm rules; doesn't ghostwrite partner voice. **Platform-level threat — but we win on legal-domain context.** |
+| **MyCase IQ, Filevine AI, Smokeball Archie** (Smokeball announced CoCounsel partnership March 2026) | PM-embedded capability menus | Same shape — feature menu inside the PM. Smokeball's CoCounsel partnership signals PM-vendor strategic direction. **We win on the same axes.** |
+| **Lawmatics AI Suite** (QualifyAI + EngageAI + MerlinAI, launched March 2026) | Intake + early-lifecycle agentic operations | Front-of-funnel and early matter operations; no matter-lifecycle continuity. **We win on lifecycle continuity.** |
+| **Microsoft 365 Copilot** (hired Robin AI's engineering team + IP after Robin AI shuttered, April 2026) | Word-native AI redlining, contract review summarization, generic horizontal AI | Doesn't know matter; doesn't know firm rules; doesn't ghostwrite partner voice. **Platform-level threat — but we win on legal-domain context.** |
 
 ### 10.2 The platform-level threat: Microsoft Copilot
 
-Microsoft absorbed Robin AI's contract-review engineering team and IP in early 2026. M365 Copilot is increasingly capable inside Office. M365 is the email/document substrate of ~70-80% of mid-to-large U.S. law firms.
+Microsoft hired Robin AI's engineering team and IP in April 2026 (Robin AI shuttered as a going concern). M365 Copilot is increasingly capable inside Office. M365 is the email/document substrate of ~70-80% of mid-to-large U.S. law firms.
 
 Our differentiation against Copilot:
 - **Matter-aware.** Copilot doesn't know the case file. The agent does.
@@ -613,14 +614,24 @@ Our differentiation against Copilot:
 
 ### 10.3 The demo-day one-liner (law-firm-specialized)
 
-> "Harvey is a research desk. EvenUp is a demand-letter shop. Clio Duo is a feature inside your PM. Eve is workflow software for plaintiff firms. Hermes is the staffer — one identity, every surface, drafts in your firm's voice, never sends, supervised exactly like your paralegals are, and you can read and edit what it knows about your firm."
+**Sharpened claim (defensible against 2026 launches):** No vendor ships **editable customer-owned memory + reviewer-as-sender + flat-per-firm SKU under one identity**. Each individual pillar is being eroded by 2026 launches (Eve 2.0 AI Workforce, EvenUp PLAAS, Law Practice AI); the specific combination remains uncopied. Lead with this narrower formulation when a research-oriented partner probes the differentiation claim.
+
+> "Harvey is a research desk. EvenUp PLAAS is a managed service with humans in the loop. Clio Duo is a feature inside your PM. Eve 2.0 is autonomous task execution per seat. Hermes is the staffer — one identity, every surface, drafts in your firm's voice, never sends, supervised exactly like your paralegals are, and you can read and edit what it knows about your firm."
 
 ### 10.4 PI-specific positioning notes
 
-For the named PI firm meeting, the closest competitor the partners will know is **Eve Legal** (continuous-teammate-shaped, plaintiff-focused) and **EvenUp** (demand-letter shop). The differentiators against both:
+For the named PI firm meeting, the closest competitors the partners will know are **Eve Legal 2.0 AI Workforce** (continuous-teammate-shaped, plaintiff-focused) and **EvenUp PLAAS** (managed-service shop). The differentiators:
 
-- vs. Eve: Eve is per-seat and lacks readable/editable memory; AI Employee is per-firm and surfaces memory as a first-class artifact
-- vs. EvenUp: EvenUp is per-case demand-letter outsourcing with humans in the loop; AI Employee is a continuous teammate doing the operational supply chain end-to-end
+- vs. Eve 2.0: Eve's AI Workforce is task-execution-focused, per-seat, and lacks customer-editable memory; AI Employee is per-firm with reviewer-as-sender governance and surfaces memory as a first-class artifact
+- vs. EvenUp PLAAS: PLAAS is U.S.-human-staff-embedded managed service with labor cost; AI Employee is a continuous AI-identity teammate doing the operational supply chain end-to-end under flat-per-firm SKU
+
+### 10.5 EvenUp PLAAS prepared response
+
+PLAAS launched May 13, 2026 — days before this PRD was finalized. The PI partner may have read about it. Captain's 30-second answer:
+
+> "PLAAS is structurally a different product. EvenUp wraps AI in a U.S. human-staffing layer — case managers do the work, AI assists them. The labor cost is embedded in the price. You're hiring their team. Hermes is the opposite: it's a single AI teammate that works inside your firm under one identity, your paralegal supervises it the way she'd supervise a junior. You can read and edit what it knows about your firm — PLAAS doesn't expose that. The architecture is structurally different from a managed-service model; the pricing is structurally different from a per-case fee."
+
+Use when: prospect mentions PLAAS by name, asks "what about EvenUp's new thing," or has clearly been comparison-shopping.
 
 ---
 

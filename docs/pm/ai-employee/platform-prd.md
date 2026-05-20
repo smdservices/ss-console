@@ -215,15 +215,21 @@ The legal-AI landscape clusters into seven shapes; AI Employee occupies a distin
 
 | Shape | Examples | Where it ends |
 |---|---|---|
-| **BigLaw research desk** | Harvey ($11B val), CoCounsel (Westlaw), Lexis+ Protégé | $100-$1200/seat/mo; research-shaped; no operational reach; BigLaw-only |
+| **BigLaw research desk** | Harvey ($11B val, $200M raise Mar 2026), CoCounsel (Westlaw), Lexis+ Protégé | $1,200-$2,000+/seat/mo; 20-seat minimum; research-shaped; no operational reach; BigLaw-only. Harvey's March 2026 raise + mid-market expansion intent is a Phase 3-4 horizon threat. |
 | **Contract drafting in Word** | Spellbook ($20-$350/seat) | Single-skill, Word-bound, no matter awareness |
-| **PI demand-letter shop** | EvenUp ($300-800/case), Precedent, Tavrn, Supio | Per-case; demand-only; not a teammate |
-| **Workflow-AI for plaintiff firms** | Eve Legal (800-1000+ firms) | Per-seat; episodic tasks + nightly auditor; no versioned memory, no reviewer-as-sender |
-| **PM-embedded capability menu** | Clio Manage AI, MyCase IQ, Filevine AI, Smokeball Archie | Feature menu, not agent identity; locked to one tool |
-| **Front-of-funnel intake AI** | Lawmatics, Lead Docket AI, Intaker | Stops at conversion |
-| **Platform horizontal AI** | Microsoft 365 Copilot (with absorbed Robin AI tech, April 2026) | Generic — doesn't know matter, firm rules, or partner voice |
+| **PI demand-letter shop** | EvenUp PLAAS (launched May 2026), Precedent, Tavrn, Supio | Full pre-litigation lifecycle via PLAAS managed service (AI + U.S. human case managers); demand-only without PLAAS. Not a named teammate; no customer-editable memory. |
+| **Workflow-AI for plaintiff firms** | Eve Legal 2.0 AI Workforce (1,000+ plaintiff firms) | Per-seat; AI Workforce (Agents + Auditor + Analyst); autonomous task execution; no customer-editable memory; no reviewer-as-sender governance |
+| **PI AI operating system** | Law Practice AI (300+ PI firms, launched April 2026) | "Five-solution AI operating system" framing; install base high; persistent-identity / reviewer-as-sender / editable-memory architecture unverified. Threat level: medium. |
+| **PM-embedded capability menu** | Clio Manage AI, MyCase IQ, Filevine AI, Smokeball Archie (CoCounsel partnership Mar 2026) | Feature menu, not agent identity; locked to one tool |
+| **Front-of-funnel intake AI** | Lawmatics AI Suite (QualifyAI + EngageAI + MerlinAI, launched March 2026), Lead Docket AI, Intaker | Intake + early-lifecycle agentic operations; no matter-lifecycle continuity |
+| **Platform horizontal AI** | Microsoft 365 Copilot (hired Robin AI's engineering team + IP after Robin AI shuttered, April 2026) | Generic — doesn't know matter, firm rules, or partner voice |
+
+**Watch items (not direct competitors today, signal vendor strategy):**
+- **Smokeball + CoCounsel partnership (March 2026)** — PM-embedded research + drafting; signals PM vendor strategic direction. Not PI-relevant directly but relevant for cross-practice expansion.
 
 ### The four pillars of differentiation
+
+**Sharpened claim (defensible against 2026 launches):** No vendor ships **editable customer-owned memory + reviewer-as-sender + flat-per-firm SKU under one identity**. Each individual pillar is being eroded by 2026 launches (Eve 2.0 AI Workforce, EvenUp PLAAS, Law Practice AI); the specific combination remains uncopied. The narrower formulation is the load-bearing differentiator.
 
 **1. Productized as an employee, not a tool.** Flat-monthly per-customer SKU. Reframes the buying decision from "how many seats" to "do we want this team member" — the cognitive model customers already use for headcount.
 
