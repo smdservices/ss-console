@@ -1060,7 +1060,7 @@ Open architectural decisions:
 
 Scope:
 - Hermes runtime on Fly.io Machines
-- Five base safety invariants (per §7.5)
+- Five base safety invariants (per §7.5 — invariants #1-#5)
 - Composio Gmail/Outlook round-trip
 - Provisioning script (`bin/provision-customer.sh`)
 - First customer-zero (`hermes-smd`) live
@@ -1075,7 +1075,7 @@ Status: largely complete per `ai-employee-smd-customer-zero` branch progress.
 - `customer.yaml` schema locked
 - Capability-interface contracts defined for: Email, Calendar, DocumentStorage, ESign, PracticeManagement, CourtAccess, Payments, Accounting
 - Per-customer Fly.io Machine + D1 + R2 + Vectorize bound
-- Safety substrate with 8 invariants live (including new #7 cross-Machine query prohibition and #8 fabrication discipline)
+- Safety substrate expanded from 5 invariants (Phase 0) to 8 invariants: +citation-refusal (#6 — already in flight from `ai-employee-smd-customer-zero` branch), +cross-Machine query prohibition (#7 — new), +fabrication discipline (#8 — new)
 - Automated `bin/provision-customer.sh` AND `bin/decommission-customer.sh`
 
 **Connectors (minimal v1 floor — not the full Tier-0 catalog):**
