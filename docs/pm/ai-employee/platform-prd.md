@@ -1078,13 +1078,19 @@ Status: largely complete per `ai-employee-smd-customer-zero` branch progress.
 - Safety substrate expanded from 5 invariants (Phase 0) to 8 invariants: +citation-refusal (#6 — already in flight from `ai-employee-smd-customer-zero` branch), +cross-Machine query prohibition (#7 — new), +fabrication discipline (#8 — new)
 - Automated `bin/provision-customer.sh` AND `bin/decommission-customer.sh`
 
-**Connectors (minimal v1 floor — not the full Tier-0 catalog):**
+**Connectors — demo-readiness target vs production-deployment minimum:**
+
+The platform distinguishes the connector set walked into a demo room from the connector set a signed customer operates against. Vertical PRDs may pre-build a broader read-only adapter set for demo credibility (see law-firm-prd.md §7.5 pre-build sequence); only one PM adapter needs to be write-capable for the first signed customer.
+
+*Production-deployment minimum (write-capable, every Phase 1 customer):*
 - Microsoft Graph (Outlook + Calendar + OneDrive)
 - CourtListener / PACER
 - DocuSign
 - LawPay
 - QuickBooks Online
-- **One PM adapter built within 7 days of the first meeting**, against whichever system the firm reveals (Filevine / Clio / SmartAdvocate / CASEpeer / Neos / MyCase — chosen by the meeting)
+- **One PM adapter promoted to write-capable within 7 days of customer sign**, against whichever system the firm reveals at meeting (chosen from the vertical's pre-built read-only set).
+
+*Demo-readiness target (pre-built read-only for the first meeting):* per `law-firm-prd.md` §7.5 / §17 — Filevine, SmartAdvocate, Clio, CASEpeer-via-Zapier, Neos, MyCase, Litify pre-built read-only so the demo configures live. One of these is promoted to write-capable post-sign; the rest stay read-only until subsequent customers require them.
 
 **Skills (5-7 selected, not the full catalog):**
 - The 6 universal primitives authored as skill scaffolds, but only 3-4 enabled in v1 based on what the meeting reveals as load-bearing

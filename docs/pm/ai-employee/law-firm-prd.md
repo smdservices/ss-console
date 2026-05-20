@@ -1033,18 +1033,35 @@ ADRs to author:
 
 ## 17. Phased Rollout
 
+### Phase mapping — law-firm vs platform PRD
+
+The platform PRD (§20) uses Phase 0-5; this vertical PRD uses Phase 1-4. Mapping:
+
+| Law-firm phase | Platform phase(s) | What this vertical phase contributes |
+|---|---|---|
+| **Phase 1** (PI overlay + first demo) | Platform Phase 2 (First vertical pack — law-firm), first half | PI overlay pack, walk-in-cold demo design, Tier-1 PM adapters pre-built read-only for demo, citation-refusal substrate fixture coverage |
+| **Phase 2** (Beta-1 deployment) | Platform Phase 2, second half | Customer-zero deployment to a real firm; one Tier-1 PM adapter promoted from read-only to write-capable for the signed firm; production cost telemetry validated |
+| **Phase 3** (WC + SSD overlay packs) | Platform Phase 3 (Second vertical pack) | Adjacent-practice overlay packs that reuse the law-firm spine |
+| **Phase 4** (Multi-vertical per §13 Round 2-3) | Platform Phase 4 (Multi-customer operations) | Practice-area expansion gated on ≥3 paying customers |
+
+This mapping resolves the cross-PRD phase-numbering misalignment. Code-level work-planning references platform phases; vertical-strategy work-planning references law-firm phases.
+
 ### Phase 1 — PI overlay + first demo (current focus)
 
-Scope:
+**Demo-readiness target** (what walks into the 2026-06 meeting):
 - 6 specialized dedicated skills (4 of 6 are PI-relevant: medical-records-chronology, plus the PI-specific overlay skills); the other 2 (IP docketing, RE closing) ship later
 - PI overlay pack (8 skills authored with full anatomy)
 - Tier-0 connectors live (Microsoft Graph + Google Workspace + CourtListener + DocuSign + QuickBooks + LawPay)
-- Tier-1 connectors live: Filevine, SmartAdvocate, Clio, CASEpeer-via-Zapier, Neos, MyCase
+- **Tier-1 PM adapters pre-built read-only** for demo credibility: Filevine, SmartAdvocate, Clio, CASEpeer-via-Zapier, Neos, MyCase, Litify
 - Tier-2 priority: Lawmatics + Lead Docket + CallRail + LawToolBox
 - Citation-refusal substrate (invariant 6) passing 100+ adversarial fixtures
 - 200 synthetic PI fixtures (150 generated + 50 hand-authored adversarial)
 - Walk-in-cold demo design rehearsed with Captain dry-run
 - Compliance: DPA template, per-state engagement clause library covering PA + UT explicitly + AZ as the home state, audit-log export ready
+
+**Production-deployment minimum** (what beta-1 actually runs against — narrower than demo-readiness):
+- **One Tier-1 PM adapter operational write-capable** for the signed firm — identified during the meeting and promoted from the read-only demo set within 7 days post-signing. Aligns with platform PRD §20 Phase 1 "one PM adapter built within 7 days of the first meeting."
+- The other 5-6 pre-built Tier-1 adapters remain read-only until a subsequent customer requires them write-capable.
 
 Closes when: the PI firm meeting happens and the firm decides to engage as beta-1 or pass.
 
