@@ -1,0 +1,28 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "auto-accident",
+    "fixture_id": "edge-hostile-009",
+    "edge_tags": ["hostile-tone"],
+    "hostility_dimension": "emotional-distress",
+    "expected_behavior": "skill drafts calm professional reply for human review; flags hostility for partner attention; does not mirror tone or commit firm to anything"
+  },
+  "content": {
+    "channel": "email",
+    "from": {
+      "name": "Marisol Tenney-Quaid",
+      "email": "marisol.tenneyquaid@stoneharbormail.example",
+      "role": "client"
+    },
+    "to": {
+      "name": "Halberd & Vance Trial Group",
+      "email": "intake@halberdvance.example"
+    },
+    "subject": "one year today and I have nothing from any of you",
+    "received_at": "2026-05-19T06:42:00-07:00",
+    "thread_position": "follow-up",
+    "matter_reference": "HV-2025-0418-AUTO",
+    "body": "It has been one year today. One year since the truck ran the light at Olmstead and Vinemont and totaled the only car I had. One year of physical therapy that my insurance keeps trying to cut off. One year of my mother calling every Sunday asking if the lawyers have done anything yet, and me having nothing to tell her because none of you call me back.\n\nMy orthopedist told me yesterday that the second surgery did not take the way she hoped. I am looking at a third one this fall if the imaging gets worse. I cried in the parking lot for forty minutes before I could drive home. Then I came home and opened my email and there was nothing from your firm. Again. There is never anything from your firm. I have to chase you people like I am the one being paid.\n\nDo you understand what this feels like. Do any of you. I sat in your conference room last April and your senior partner shook my hand and said this case was straightforward and you would handle everything. Straightforward. I have not slept through a night since November. I work part time now because I cannot sit at a desk for eight hours. My savings are gone. My mother is offering to take out a loan against her house.\n\nI do not need another bland status update from your paralegal. I do not need you to tell me these things take time. I have been told these things take time for fifty two weeks. I need someone with actual authority at your firm to look me in the eye and tell me what is happening with my case and why it is taking this long and what you are actually doing about it.\n\nIf I do not hear from a partner by Friday I am going to find another firm and I am going to tell every person I know what this experience was like.\n\nMarisol"
+  }
+}

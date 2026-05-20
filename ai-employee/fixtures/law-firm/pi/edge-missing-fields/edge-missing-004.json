@@ -1,0 +1,90 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "intake-transcript",
+    "case_type": "auto-accident",
+    "fixture_id": "edge-missing-004",
+    "edge_tags": ["missing-fields"],
+    "missing_fields": ["prior_treatment_history", "employer_and_wage_info"],
+    "expected_behavior": "skill identifies missing critical fields and requests them before proceeding with case classification"
+  },
+  "content": {
+    "intake_channel": "inbound phone, recorded with caller consent",
+    "intake_date": "2026-03-14",
+    "intake_specialist": "Marisol Quintero",
+    "caller": {
+      "name": "Devon Halsey-Brubaker",
+      "preferred_name": "Dev",
+      "phone": "602-555-0173",
+      "email": "dev.halsey@stoneglade-mail.example",
+      "address": "4218 W. Tumbleberry Lane, Apt 12B, Glendale, AZ 85301",
+      "dob": "1987-11-02",
+      "marital_status": "married, spouse Renata Halsey-Brubaker",
+      "dependents": "two children, ages 6 and 9"
+    },
+    "transcript": [
+      {
+        "turn": 1,
+        "speaker": "specialist",
+        "text": "Thanks for calling Stockwell Heritage Injury Group, this is Marisol. Are you safe to talk right now?"
+      },
+      {
+        "turn": 2,
+        "speaker": "caller",
+        "text": "Yeah, I'm fine to talk. I'm sitting in my driveway. Sorry, my voice is a little off — I think the airbag stuff is still in my throat. The accident was a week ago Tuesday, so March 3rd, around 4:45 in the afternoon. I was northbound on 51st Avenue just past the Cactus Road light, and a white Dodge Ram blew the red and clipped my front passenger quarter panel. Spun me about a hundred and twenty degrees and I ended up facing the median."
+      },
+      {
+        "turn": 3,
+        "speaker": "specialist",
+        "text": "That sounds frightening. Were the police called to the scene?"
+      },
+      {
+        "turn": 4,
+        "speaker": "caller",
+        "text": "Glendale PD showed up, Officer Yelena Brachowski, badge 4421, she gave me the incident number — DR-2026-08914. The Ram driver, his name was Carlton Wexler-Pemberton, he had Farm Bureau Mutual through some agency on Bell Road. He admitted he was looking at his phone. Officer Brachowski cited him for failure to obey signal and improper use of wireless device. My car got towed by Sunrise Towing to their yard on 67th Avenue, total loss according to my adjuster at Heritage Casualty, Bridget Kovalenko, claim number HC-779-44210-X."
+      },
+      {
+        "turn": 5,
+        "speaker": "specialist",
+        "text": "You're organized, that helps. Let me ask about injuries. What are you feeling right now, and where did you go after the accident?"
+      },
+      {
+        "turn": 6,
+        "speaker": "caller",
+        "text": "Paramedics from Glendale Fire wanted to transport me but I was worried about the bill so I said no. My wife drove me to Banner Thunderbird ER about two hours later because my neck locked up. They did a CT of the cervical spine, ruled out fracture, diagnosed whiplash and a chest contusion from the seatbelt, sent me home with cyclobenzaprine and tramadol. Dr. Anand Pillaipakkam was the attending. I followed up with my regular doctor, Dr. Renee Stoltzfus at Camelback Family Medicine on March 7th, and she referred me to Desert Spine and Sports Rehab. I've had four PT sessions so far with a therapist named Quinn Adebanjo. The headaches are the worst part — they're behind my right eye, almost daily, and I'm getting this tingling in my left pinky and ring finger that comes and goes."
+      },
+      {
+        "turn": 7,
+        "speaker": "specialist",
+        "text": "Have you ever had any similar symptoms before this accident — neck issues, back issues, anything that a defense attorney might try to point to?"
+      },
+      {
+        "turn": 8,
+        "speaker": "caller",
+        "text": "Hmm. I mean, I've had a stiff neck here and there, who hasn't. I genuinely can't think of anything specific. I had a desk job for years so probably some posture stuff. I don't remember ever going to a doctor for it though. Honestly my memory on medical stuff is bad, I'd have to look it up. I think there might have been something maybe four or five years ago but I can't tell you what or who I saw. Sorry, I know that's not super helpful."
+      },
+      {
+        "turn": 9,
+        "speaker": "specialist",
+        "text": "That's okay. Tell me about the impact on your daily life — work, family, anything you can't do that you used to."
+      },
+      {
+        "turn": 10,
+        "speaker": "caller",
+        "text": "I can't pick up my younger kid, he's six and wants to be carried everywhere. Sleeping is terrible, I'm propped up with three pillows. My wife has been driving me to PT because the highway makes me panicky now. I had to cancel a weekend trip we'd planned to Sedona for our anniversary, lost the deposit on the Airbnb, that was about four hundred bucks. I haven't been able to mow the lawn or do the pool maintenance so I'm paying a service. Oh and I missed my brother-in-law's birthday dinner at Postino because I couldn't sit upright that long."
+      },
+      {
+        "turn": 11,
+        "speaker": "specialist",
+        "text": "What about photos of the vehicles and the scene — do you have anything?"
+      },
+      {
+        "turn": 12,
+        "speaker": "caller",
+        "text": "Yeah, tons. I took maybe forty pictures at the scene before the tow truck came — my car from every angle, his truck, the intersection, the skid marks, the debris field, the broken glass. I also have the dashcam footage from my Tesla Model Y, front and rear cameras, the whole thing is saved to my USB drive. Two witnesses stopped — a woman named Henriette Oluwafemi-Carter who was behind me, she gave me her number, and a guy in a landscaping truck for Saguaro Green Solutions, I have his card somewhere. The intersection has a city traffic camera too, the one mounted on the southwest pole."
+      }
+    ],
+    "specialist_notes": "Caller is articulate, organized, has documentation. Liability looks strong (admitted fault, citation, dashcam, witnesses, traffic cam). Injuries appear to be soft-tissue + possible cervical radiculopathy given pinky/ring finger paresthesia — recommend ortho or neuro referral. Two follow-up data gaps remain before we can do a proper case workup: (1) full prior medical history, especially any pre-existing cervical or lumbar treatment that defense will subpoena; caller was vague and self-admittedly uncertain about a possible episode 'four or five years ago.' (2) employment information — never captured employer name, occupation, wage rate, or whether he's missed work, despite covering daily-life impact. Need to circle back on both before sending engagement letter.",
+    "next_steps_drafted": "Schedule callback Monday 9am to capture prior-treatment history (request HIPAA authorization for records pull going back 7 years) and complete employment/wage-loss section of intake."
+  }
+}
