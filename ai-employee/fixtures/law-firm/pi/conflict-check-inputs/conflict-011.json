@@ -1,0 +1,65 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "conflict-check-input",
+    "case_type": "n/a",
+    "fixture_id": "conflict-011",
+    "edge_tags": []
+  },
+  "content": {
+    "prospect": {
+      "name": "Fenwick Kowalski",
+      "email": "fenwick.kowalski@proton.me",
+      "case_type": "product-liability-consumer",
+      "incident_party_list": [
+        "Fenwick Kowalski",
+        "Otis Ashworth"
+      ]
+    },
+    "existing_matters_subset": [
+      {
+        "matter_id": "contact-15106",
+        "client_name": "Otis Steinmetz",
+        "opposing_party": "Mei-Lin Onyeka",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-51099",
+        "client_name": "Fenwick Ranganathan",
+        "opposing_party": "Fenwick Pemberton",
+        "opposing_counsel": "Vasquez-Mendez Insurance Defense"
+      },
+      {
+        "matter_id": "contact-81117",
+        "client_name": "Talullah Okafor",
+        "opposing_party": "Marcus Yamashita",
+        "opposing_counsel": "Vasquez-Mendez Insurance Defense"
+      },
+      {
+        "matter_id": "contact-45130",
+        "client_name": "Devon Brzezinski",
+        "opposing_party": "Talullah Pemberton",
+        "opposing_counsel": "Eklund & Associates"
+      },
+      {
+        "matter_id": "contact-10480",
+        "client_name": "Fenwick Onyeka",
+        "opposing_party": "Anneke Brzezinski",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-87647",
+        "client_name": "Niko Kowalski",
+        "opposing_party": "Inigo Lim",
+        "opposing_counsel": "Cascade Pacific Defense Counsel"
+      },
+      {
+        "matter_id": "contact-45064",
+        "client_name": "Yolanda Onyeka",
+        "opposing_party": "Priya Volkmann",
+        "opposing_counsel": "Cascade Pacific Defense Counsel"
+      }
+    ],
+    "expected_outcome": "no-conflict"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "billing-entry",
+    "case_type": "med-mal",
+    "fixture_id": "billing-023",
+    "edge_tags": []
+  },
+  "content": {
+    "matter_display_number": "PI-2026-4589",
+    "entry_date": "2026-03-31",
+    "duration_hours": 4.3,
+    "billable": true,
+    "rate_per_hour_usd": 350,
+    "amount_usd": 1505.0,
+    "description": "Reviewed defendant carrier Westmark Indemnity Group's response to demand. Identified 2 contestable points. 4.3 hrs.",
+    "quality_self_assessment": "well-coded"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "slip-fall-commercial",
+    "fixture_id": "client-029",
+    "edge_tags": []
+  },
+  "content": {
+    "from": "meilin.vasquezmendez@outlook.com",
+    "from_name": "Mei-Lin Vasquez-Mendez",
+    "to": "james@example-firm.invalid",
+    "subject": "Re: My case — quick question",
+    "sent_date": "2026-05-15",
+    "body": "Hi James, I haven't heard anything in 4 weeks and I'm getting really worried. Is something wrong with my case? Did the carrier reject the demand? Please let me know what's going on. I can't sleep thinking about this.\n\nMei-Lin Vasquez-Mendez",
+    "tone_label": "anxious",
+    "matter_display_number": "PI-2026-6591"
+  }
+}

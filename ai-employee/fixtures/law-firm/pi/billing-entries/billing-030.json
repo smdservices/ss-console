@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "billing-entry",
+    "case_type": "auto-rear-end-residential",
+    "fixture_id": "billing-030",
+    "edge_tags": []
+  },
+  "content": {
+    "matter_display_number": "PI-2026-1637",
+    "entry_date": "2026-05-13",
+    "duration_hours": 1.5,
+    "billable": true,
+    "rate_per_hour_usd": 350,
+    "amount_usd": 525.0,
+    "description": "Document review. 1.5 hrs.",
+    "quality_self_assessment": "ambiguous"
+  }
+}

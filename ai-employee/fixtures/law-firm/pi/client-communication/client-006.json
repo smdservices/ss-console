@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "slip-fall-snow-ice",
+    "fixture_id": "client-006",
+    "edge_tags": []
+  },
+  "content": {
+    "from": "tomasz.kowalski@proton.me",
+    "from_name": "Tomasz Kowalski",
+    "to": "marcus@example-firm.invalid",
+    "subject": "Re: My case — quick question",
+    "sent_date": "2026-05-18",
+    "body": "Hi Marcus,\n\nJust checking in for an update on my case. I know these things take time. Last we spoke you mentioned the carrier was reviewing the demand. Any news? No rush, just wanted to stay in the loop.\n\nThanks,\nTomasz Kowalski",
+    "tone_label": "informed-patient",
+    "matter_display_number": "PI-2026-4512"
+  }
+}

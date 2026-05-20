@@ -1,0 +1,65 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "conflict-check-input",
+    "case_type": "n/a",
+    "fixture_id": "conflict-025",
+    "edge_tags": []
+  },
+  "content": {
+    "prospect": {
+      "name": "Esperanza Yamashita",
+      "email": "esperanza.yamashita@fastmail.com",
+      "case_type": "slip-fall-commercial",
+      "incident_party_list": [
+        "Esperanza Yamashita",
+        "Patel Nguyen-Pham"
+      ]
+    },
+    "existing_matters_subset": [
+      {
+        "matter_id": "contact-18058",
+        "client_name": "Sage Nguyen-Pham",
+        "opposing_party": "Niko Brzezinski",
+        "opposing_counsel": "Brennan Litigation Partners"
+      },
+      {
+        "matter_id": "contact-16334",
+        "client_name": "Esperanza Yamashita",
+        "opposing_party": "Jorge Brennan",
+        "opposing_counsel": "Holcombe Defense Group"
+      },
+      {
+        "matter_id": "contact-48692",
+        "client_name": "Imani Pemberton",
+        "opposing_party": "Halmar Whitlock",
+        "opposing_counsel": "Cascade Pacific Defense Counsel"
+      },
+      {
+        "matter_id": "contact-86593",
+        "client_name": "Marcus Achebe",
+        "opposing_party": "Esperanza Yamashita",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-80004",
+        "client_name": "Thaddeus Yamashita",
+        "opposing_party": "Octavio Kowalski",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-56139",
+        "client_name": "Jorge Whitlock",
+        "opposing_party": "Sigrid Eklund",
+        "opposing_counsel": "Brennan Litigation Partners"
+      },
+      {
+        "matter_id": "contact-16829",
+        "client_name": "Fenwick Brennan",
+        "opposing_party": "Patel Achebe",
+        "opposing_counsel": "Brennan Litigation Partners"
+      }
+    ],
+    "expected_outcome": "positive-conflict"
+  }
+}

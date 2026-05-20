@@ -1,0 +1,59 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "conflict-check-input",
+    "case_type": "n/a",
+    "fixture_id": "conflict-012",
+    "edge_tags": []
+  },
+  "content": {
+    "prospect": {
+      "name": "Zora Achebe",
+      "email": "zora.achebe@gmail.com",
+      "case_type": "auto-rear-end-residential",
+      "incident_party_list": [
+        "Zora Achebe",
+        "Priya Henneberry"
+      ]
+    },
+    "existing_matters_subset": [
+      {
+        "matter_id": "contact-57992",
+        "client_name": "Halmar Achebe",
+        "opposing_party": "Yolanda Nguyen-Pham",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-29240",
+        "client_name": "Esperanza Vasquez-Mendez",
+        "opposing_party": "Branwen Henneberry",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-66937",
+        "client_name": "Octavio Aldecoa",
+        "opposing_party": "Patel Henneberry",
+        "opposing_counsel": "Holcombe Defense Group"
+      },
+      {
+        "matter_id": "contact-21239",
+        "client_name": "Zora Ashworth",
+        "opposing_party": "Reginald Lim",
+        "opposing_counsel": "Holcombe Defense Group"
+      },
+      {
+        "matter_id": "contact-94703",
+        "client_name": "Cassandra Volkmann",
+        "opposing_party": "Mei-Lin Pemberton",
+        "opposing_counsel": "Holcombe Defense Group"
+      },
+      {
+        "matter_id": "contact-32285",
+        "client_name": "Cassandra Holcombe",
+        "opposing_party": "Halmar Lim",
+        "opposing_counsel": "Vasquez-Mendez Insurance Defense"
+      }
+    ],
+    "expected_outcome": "no-conflict"
+  }
+}

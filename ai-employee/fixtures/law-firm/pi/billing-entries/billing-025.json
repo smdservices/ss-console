@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "billing-entry",
+    "case_type": "slip-fall-commercial",
+    "fixture_id": "billing-025",
+    "edge_tags": []
+  },
+  "content": {
+    "matter_display_number": "PI-2026-1951",
+    "entry_date": "2026-03-13",
+    "duration_hours": 0.9,
+    "billable": true,
+    "rate_per_hour_usd": 350,
+    "amount_usd": 315.0,
+    "description": "Phone conference with client Imani Sarmiento re: status of next steps; addressed 3 questions. 0.9 hrs.",
+    "quality_self_assessment": "well-coded"
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "conflict-check-input",
+    "case_type": "n/a",
+    "fixture_id": "conflict-021",
+    "edge_tags": []
+  },
+  "content": {
+    "prospect": {
+      "name": "Cassandra Kowalski",
+      "email": "cassandra.kowalski@fastmail.com",
+      "case_type": "slip-fall-snow-ice",
+      "incident_party_list": [
+        "Cassandra Kowalski",
+        "Quinlan Steinmetz"
+      ]
+    },
+    "existing_matters_subset": [
+      {
+        "matter_id": "contact-11033",
+        "client_name": "Fenwick Tsosie",
+        "opposing_party": "Cyrus Volkmann",
+        "opposing_counsel": "Cascade Pacific Defense Counsel"
+      },
+      {
+        "matter_id": "contact-71126",
+        "client_name": "Anneke Ashworth",
+        "opposing_party": "Marcus Henneberry",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-74891",
+        "client_name": "Lakshmi Pellegrino",
+        "opposing_party": "Marcus Nguyen-Pham",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-90928",
+        "client_name": "Otis Nguyen-Pham",
+        "opposing_party": "Fenwick Henneberry",
+        "opposing_counsel": "Holcombe Defense Group"
+      },
+      {
+        "matter_id": "contact-44674",
+        "client_name": "Cassandra Aldecoa",
+        "opposing_party": "Talullah Brennan",
+        "opposing_counsel": "Cascade Pacific Defense Counsel"
+      },
+      {
+        "matter_id": "contact-85525",
+        "client_name": "Halmar Henneberry",
+        "opposing_party": "Sage Pemberton",
+        "opposing_counsel": "Brennan Litigation Partners"
+      }
+    ],
+    "expected_outcome": "no-conflict"
+  }
+}

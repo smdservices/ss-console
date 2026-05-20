@@ -1,0 +1,65 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "conflict-check-input",
+    "case_type": "n/a",
+    "fixture_id": "conflict-022",
+    "edge_tags": []
+  },
+  "content": {
+    "prospect": {
+      "name": "Octavio Nguyen-Pham",
+      "email": "octavio.nguyenpham@outlook.com",
+      "case_type": "slip-fall-snow-ice",
+      "incident_party_list": [
+        "Octavio Nguyen-Pham",
+        "Devon Volkmann"
+      ]
+    },
+    "existing_matters_subset": [
+      {
+        "matter_id": "contact-93863",
+        "client_name": "Kazimir Ranganathan",
+        "opposing_party": "Zora Eklund",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-70303",
+        "client_name": "Marcus Okafor",
+        "opposing_party": "Otis Aldecoa",
+        "opposing_counsel": "Brennan Litigation Partners"
+      },
+      {
+        "matter_id": "contact-56563",
+        "client_name": "Otis Onyeka",
+        "opposing_party": "Priya Steinmetz",
+        "opposing_counsel": "Brennan Litigation Partners"
+      },
+      {
+        "matter_id": "contact-38249",
+        "client_name": "Magdalena Garibaldi",
+        "opposing_party": "Fenwick Holcombe",
+        "opposing_counsel": "Eklund & Associates"
+      },
+      {
+        "matter_id": "contact-24629",
+        "client_name": "Mei-Lin Lim",
+        "opposing_party": "Octavio Nguyen-Pham",
+        "opposing_counsel": "Holcombe Defense Group"
+      },
+      {
+        "matter_id": "contact-43912",
+        "client_name": "Patel Kowalski",
+        "opposing_party": "Halmar Yamashita",
+        "opposing_counsel": "Vasquez-Mendez Insurance Defense"
+      },
+      {
+        "matter_id": "contact-27676",
+        "client_name": "Imani Henneberry",
+        "opposing_party": "Lakshmi Yamashita",
+        "opposing_counsel": "Vasquez-Mendez Insurance Defense"
+      }
+    ],
+    "expected_outcome": "positive-conflict"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "matter-record",
+    "case_type": "premises-inadequate-maintenance",
+    "fixture_id": "matter-012",
+    "edge_tags": []
+  },
+  "content": {
+    "display_number": "PI-2026-5130",
+    "description": "premises liability for inadequate maintenance",
+    "case_type": "premises-inadequate-maintenance",
+    "status": "pre-litigation",
+    "open_date": "2026-02-05",
+    "client_id": "contact-49206",
+    "client_name": "Yolanda Eklund",
+    "assigned_attorney": "K. Patel",
+    "case_value_estimate_low_usd": 250000,
+    "case_value_estimate_high_usd": 500000,
+    "defendant": {
+      "type": "individual",
+      "name": "Lakeside Properties LLC",
+      "carrier": "Brevard Allied Insurance",
+      "opp_counsel_firm": "Vasquez-Mendez Insurance Defense"
+    },
+    "key_dates": {
+      "incident_date": "2025-03-01",
+      "sol_date": "2027-12-07",
+      "next_court_date": null
+    },
+    "custom_fields": {
+      "settlement_stage": "pre-demand",
+      "policy_limits_disclosed": false
+    }
+  }
+}

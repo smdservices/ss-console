@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "billing-entry",
+    "case_type": "auto-rear-end-residential",
+    "fixture_id": "billing-005",
+    "edge_tags": []
+  },
+  "content": {
+    "matter_display_number": "PI-2026-3794",
+    "entry_date": "2026-03-27",
+    "duration_hours": 4.1,
+    "billable": true,
+    "rate_per_hour_usd": 350,
+    "amount_usd": 1435.0,
+    "description": "Attended deposition of expert witness. Prepared cross-examination outline. 4.1 hrs.",
+    "quality_self_assessment": "well-coded"
+  }
+}

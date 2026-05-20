@@ -1,0 +1,47 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "conflict-check-input",
+    "case_type": "n/a",
+    "fixture_id": "conflict-001",
+    "edge_tags": []
+  },
+  "content": {
+    "prospect": {
+      "name": "Yolanda Aboueid",
+      "email": "yolanda.aboueid@fastmail.com",
+      "case_type": "med-mal",
+      "incident_party_list": [
+        "Yolanda Aboueid",
+        "Lakshmi Henneberry"
+      ]
+    },
+    "existing_matters_subset": [
+      {
+        "matter_id": "contact-68381",
+        "client_name": "Niko Vasquez-Mendez",
+        "opposing_party": "Quinlan Pemberton",
+        "opposing_counsel": "Holcombe Defense Group"
+      },
+      {
+        "matter_id": "contact-95764",
+        "client_name": "Sage Lim",
+        "opposing_party": "Reginald Eklund",
+        "opposing_counsel": "Vasquez-Mendez Insurance Defense"
+      },
+      {
+        "matter_id": "contact-57910",
+        "client_name": "Devon Steinmetz",
+        "opposing_party": "Esperanza Ashworth",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-72907",
+        "client_name": "Otis Lim",
+        "opposing_party": "Halmar Eklund",
+        "opposing_counsel": "Holcombe Defense Group"
+      }
+    ],
+    "expected_outcome": "no-conflict"
+  }
+}

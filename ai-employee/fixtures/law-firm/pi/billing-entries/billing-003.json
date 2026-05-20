@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "billing-entry",
+    "case_type": "product-liability-consumer",
+    "fixture_id": "billing-003",
+    "edge_tags": []
+  },
+  "content": {
+    "matter_display_number": "PI-2026-3080",
+    "entry_date": "2026-03-16",
+    "duration_hours": 1.6,
+    "billable": true,
+    "rate_per_hour_usd": 350,
+    "amount_usd": 560.0,
+    "description": "Phone conference with client Devon Whitlock re: status of next steps; addressed 3 questions. 1.6 hrs.",
+    "quality_self_assessment": "well-coded"
+  }
+}

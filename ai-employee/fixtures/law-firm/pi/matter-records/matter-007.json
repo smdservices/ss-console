@@ -1,0 +1,36 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "matter-record",
+    "case_type": "product-liability-consumer",
+    "fixture_id": "matter-007",
+    "edge_tags": []
+  },
+  "content": {
+    "display_number": "PI-2026-2131",
+    "description": "product liability — consumer goods defect",
+    "case_type": "product-liability-consumer",
+    "status": "closed-recovered",
+    "open_date": "2024-12-29",
+    "client_id": "contact-52744",
+    "client_name": "Esperanza Tsosie",
+    "assigned_attorney": "M. Tran",
+    "case_value_estimate_low_usd": 100000,
+    "case_value_estimate_high_usd": 500000,
+    "defendant": {
+      "type": "government-entity",
+      "name": "Brookfield Properties LLC",
+      "carrier": "Brevard Allied Insurance",
+      "opp_counsel_firm": "Vasquez-Mendez Insurance Defense"
+    },
+    "key_dates": {
+      "incident_date": "2026-01-09",
+      "sol_date": "2026-08-28",
+      "next_court_date": null
+    },
+    "custom_fields": {
+      "settlement_stage": "pre-demand",
+      "policy_limits_disclosed": false
+    }
+  }
+}

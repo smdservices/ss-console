@@ -1,0 +1,65 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "conflict-check-input",
+    "case_type": "n/a",
+    "fixture_id": "conflict-013",
+    "edge_tags": []
+  },
+  "content": {
+    "prospect": {
+      "name": "Lakshmi Aboueid",
+      "email": "lakshmi.aboueid@fastmail.com",
+      "case_type": "slip-fall-snow-ice",
+      "incident_party_list": [
+        "Lakshmi Aboueid",
+        "Talullah Whitlock"
+      ]
+    },
+    "existing_matters_subset": [
+      {
+        "matter_id": "contact-79408",
+        "client_name": "Devon Tsosie",
+        "opposing_party": "Magdalena Volkmann",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-28239",
+        "client_name": "Halmar Whitlock",
+        "opposing_party": "Otis Yamashita",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-75911",
+        "client_name": "Cyrus Nguyen-Pham",
+        "opposing_party": "Octavio Garibaldi",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-51733",
+        "client_name": "Inigo Tsosie",
+        "opposing_party": "Mei-Lin Onyeka",
+        "opposing_counsel": "Brennan Litigation Partners"
+      },
+      {
+        "matter_id": "contact-28060",
+        "client_name": "Otis Ranganathan",
+        "opposing_party": "Imani Lim",
+        "opposing_counsel": "Holcombe Defense Group"
+      },
+      {
+        "matter_id": "contact-48058",
+        "client_name": "Anneke Pellegrino",
+        "opposing_party": "Zora Sarmiento",
+        "opposing_counsel": "Holcombe Defense Group"
+      },
+      {
+        "matter_id": "contact-33472",
+        "client_name": "Branwen Sarmiento",
+        "opposing_party": "Mei-Lin Onyeka",
+        "opposing_counsel": "Brennan Litigation Partners"
+      }
+    ],
+    "expected_outcome": "no-conflict"
+  }
+}

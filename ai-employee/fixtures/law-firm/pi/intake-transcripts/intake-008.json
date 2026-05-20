@@ -1,0 +1,60 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "intake-transcript",
+    "case_type": "auto-rear-end-residential",
+    "fixture_id": "intake-008",
+    "edge_tags": []
+  },
+  "content": {
+    "client_name": "Cassandra Aldecoa",
+    "client_phone": "(555) 598-5905",
+    "client_email": "cassandra.aldecoa@fastmail.com",
+    "incident_date": "2026-04-17",
+    "case_type_self_described": "low-speed rear-end in residential area",
+    "defendant_carrier_named": "Coronado Mutual Casualty",
+    "medical_provider_mentioned": "Verde Valley ER",
+    "dialogue": [
+      {
+        "speaker": "intake",
+        "text": "Hi Cassandra, this is the intake line at SMD's partner law firm. I understand you'd like to talk about a low-speed rear-end in residential area. Is now still a good time?"
+      },
+      {
+        "speaker": "client",
+        "text": "Yes, thanks for calling back. So on 2026-04-17 I was picking up my kids from school when low-speed rear-end in residential area happened."
+      },
+      {
+        "speaker": "intake",
+        "text": "I'm sorry to hear that. Can you tell me what injuries you've experienced, and whether you've gotten medical treatment?"
+      },
+      {
+        "speaker": "client",
+        "text": "I've been having a shoulder injury. I went to Cholla Park Physical Therapy the next day. They referred me to physical therapy."
+      },
+      {
+        "speaker": "intake",
+        "text": "Did you exchange information with the other party? Do you know who their insurance is with?"
+      },
+      {
+        "speaker": "client",
+        "text": "Yes, Sunfield National. The police were also there."
+      },
+      {
+        "speaker": "intake",
+        "text": "Have you spoken with the insurance company yet?"
+      },
+      {
+        "speaker": "client",
+        "text": "Yes, they offered $3,500 already and I said I'd think about it."
+      },
+      {
+        "speaker": "intake",
+        "text": "Got it. One more question — have you worked with another attorney on this matter, or signed anything with another firm?"
+      },
+      {
+        "speaker": "client",
+        "text": "No."
+      }
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "conflict-check-input",
+    "case_type": "n/a",
+    "fixture_id": "conflict-008",
+    "edge_tags": []
+  },
+  "content": {
+    "prospect": {
+      "name": "Esperanza Pellegrino",
+      "email": "esperanza.pellegrino@proton.me",
+      "case_type": "slip-fall-commercial",
+      "incident_party_list": [
+        "Esperanza Pellegrino",
+        "Kazimir Garibaldi"
+      ]
+    },
+    "existing_matters_subset": [
+      {
+        "matter_id": "contact-18414",
+        "client_name": "Halmar Brennan",
+        "opposing_party": "Esperanza Pellegrino",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-20297",
+        "client_name": "Kazimir Garibaldi",
+        "opposing_party": "Sigrid Achebe",
+        "opposing_counsel": "Holcombe Defense Group"
+      },
+      {
+        "matter_id": "contact-29726",
+        "client_name": "Halmar Brzezinski",
+        "opposing_party": "Niko Sarmiento",
+        "opposing_counsel": "Holcombe Defense Group"
+      }
+    ],
+    "expected_outcome": "positive-conflict"
+  }
+}

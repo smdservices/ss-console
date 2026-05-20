@@ -1,0 +1,47 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "conflict-check-input",
+    "case_type": "n/a",
+    "fixture_id": "conflict-007",
+    "edge_tags": []
+  },
+  "content": {
+    "prospect": {
+      "name": "Marcus Brennan",
+      "email": "marcus.brennan@outlook.com",
+      "case_type": "auto-rear-end-residential",
+      "incident_party_list": [
+        "Marcus Brennan",
+        "Mei-Lin Tsosie"
+      ]
+    },
+    "existing_matters_subset": [
+      {
+        "matter_id": "contact-61193",
+        "client_name": "Magdalena Lim",
+        "opposing_party": "Magdalena Volkmann",
+        "opposing_counsel": "Holcombe Defense Group"
+      },
+      {
+        "matter_id": "contact-55794",
+        "client_name": "Lakshmi Ranganathan",
+        "opposing_party": "Niko Okafor",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-66791",
+        "client_name": "Tomasz Pemberton",
+        "opposing_party": "Marcus Brennan",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-42560",
+        "client_name": "Lakshmi Onyeka",
+        "opposing_party": "Mei-Lin Garibaldi",
+        "opposing_counsel": "Cascade Pacific Defense Counsel"
+      }
+    ],
+    "expected_outcome": "positive-conflict"
+  }
+}

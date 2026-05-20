@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "slip-fall-residential",
+    "fixture_id": "client-010",
+    "edge_tags": []
+  },
+  "content": {
+    "from": "branwen.ashworth@gmail.com",
+    "from_name": "Branwen Ashworth",
+    "to": "kavita@example-firm.invalid",
+    "subject": "Question about invoice",
+    "sent_date": "2026-05-15",
+    "body": "Kavita, I got the invoice. I see there's an entry for 2.9 hours on 2026-05-03 for \"document review\" — can you tell me what specifically was reviewed? I want to make sure I understand what I'm being billed for.\n\nThanks,\nBranwen Ashworth",
+    "tone_label": "fee-disputing-mild",
+    "matter_display_number": "PI-2026-5444"
+  }
+}
