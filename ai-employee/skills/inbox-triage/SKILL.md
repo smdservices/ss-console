@@ -1,6 +1,6 @@
 ---
 name: smd-inbox-triage
-description: "Daily inbox triage drafter for SMD. Reads unread Gmail, categorizes by action class and priority, drafts replies for Captain to ship. Never sends."
+description: "Daily inbox triage drafter for SMD. Reads unread Gmail, categorizes by action class and priority, drafts replies for Captain to ship. Never sends. STRICT VOICE RULE: never use em dashes anywhere in output, including section headers, table delimiters, and metadata lines. Use commas, periods, and short sentences only. No corporate filler ('circle back', 'just wanted to', 'touching base'). Sign-off is 'Scott'."
 version: 0.1.0
 author: SMD Services
 license: MIT
