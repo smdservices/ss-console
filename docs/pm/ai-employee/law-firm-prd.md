@@ -379,7 +379,7 @@ PI law firms specifically fragment across these systems. The pack ships adapters
 
 **Build-when-discovered (firm reveals at demo → 7-day adapter ship):**
 
-PracticePanther, Smokeball, CARET Legal, Centerbase, Actionstep, Lawcus, Tabs3/PracticeMaster, Litify (via Salesforce REST + Docrio), TrialWorks.
+PracticePanther, Smokeball, CARET Legal, Centerbase, Actionstep, Lawcus, Tabs3/PracticeMaster, TrialWorks.
 
 **Legacy / migration cases:**
 
@@ -454,10 +454,11 @@ In priority order:
 9. **CASEpeer** (via Zapier-as-MCP) — fourth-likely PM
 10. **Neos** — insurance against Needles-migration scenario
 11. **MyCase** — generic, broad utility
-12. **Lawmatics** — PI intake CRM common
-13. **CallRail** — PI marketing common
-14. **LawToolBox** — deadline-calculation, high malpractice-prevention value
-15. **Google Workspace** (for the 20-30% on Google)
+12. **Litify** — dominant high-end PI / mass-tort platform; $300k+ settlement firms core profile (pre-built read-only; write capability Phase 2)
+13. **Lawmatics** — PI intake CRM common
+14. **CallRail** — PI marketing common
+15. **LawToolBox** — deadline-calculation, high malpractice-prevention value
+16. **Google Workspace** (for the 20-30% on Google)
 
 This is the pre-build floor. Additional adapters ship as customers reveal needs.
 

@@ -515,6 +515,8 @@ Voice indistinguishability is the platform's most important kill criterion (§17
 
 **Gate 2 — Captain-led calibration session**: A scheduled 4-6 hour Captain session with the customer (typically the reviewer + designated operator). Walk through the test sandbox. Run 20+ scenarios per cohort. Tune rules iteratively. Document the agreed voice envelope in `customer.yaml`.
 
+*Vertical extension point:* The 4-6 hour budget is platform-level guidance. Vertical PRDs may specify how the calibration session is structured within that budget — including splitting time between roles, sequencing partner vs. operator work, and async post-session sign-off. For the law-firm vertical, see `law-firm-prd.md` §11.9 (Calibration session split): the budget is split between partner (~90 minutes) and paralegal (~4-6 hours) with async partner sign-off, because a 4-6 hour monolithic session with a 20-year litigation partner is impractical.
+
 **Gate 3 — Blind-test protocol**: Before the first external draft ships under the reviewer's name, run a blind test:
 - 10 reviewer-written + 10 agent-drafted communications, unlabeled, presented to 3 people who know the reviewer well (other partners, longtime staff)
 - **Acceptance threshold**: ≥80% indistinguishability (judges cannot reliably identify which is which)
@@ -1050,7 +1052,7 @@ Open product decisions:
 - **Voice-strictness slider semantics**: rules-strict vs samples-leaning. Range and default TBD.
 - **Frozen-tier pricing**: not yet sized (referenced in §14.5).
 - **Path B send-through-agent UX** (per §10.4): v2 work; not specified in v1.
-- **Continuous voice sampling** (per §9.3 Layer 3): v2 work; not specified in v1.
+- **Continuous voice sampling** (auto-resampling from the reviewer's sent folder, per §9.3 Layer 3): v2 work; not specified in v1. *Note: per-recipient voice cohort declaration in `customer.yaml` IS v1 (also per §9.3 Layer 3). The v2 piece is the auto-resampling mechanism specifically; cohort routing at draft time is in scope for Phase 1.*
 - **Multi-user role model in dashboard** (principal-only vs principal+operator+compliance multi-role): demoed as principal-only; multi-role in beta-1. Role schema not yet specified.
 
 Open architectural decisions:
@@ -1098,7 +1100,11 @@ The platform distinguishes the connector set walked into a demo room from the co
 
 *Demo-readiness target (pre-built read-only for the first meeting):* per `law-firm-prd.md` §7.5 / §17 — Filevine, SmartAdvocate, Clio, CASEpeer-via-Zapier, Neos, MyCase, Litify pre-built read-only so the demo configures live. One of these is promoted to write-capable post-sign; the rest stay read-only until subsequent customers require them.
 
-**Skills (5-7 selected, not the full catalog):**
+**Skills (5-7 *enabled* at Phase 1 close, not the full catalog):**
+
+*Authored count is higher.* Vertical PRDs scaffold the full primitive set and overlay packs (the law-firm vertical authors ~15+ skill files per `law-firm-prd.md` §6 + §17). The 5-7 figure refers to skills *enabled* in the first customer's `customer.yaml` at Phase 1 close — activation is gated per customer, not the authored catalog size.
+
+V1 enabled set:
 - The 6 universal primitives authored as skill scaffolds, but only 3-4 enabled in v1 based on what the meeting reveals as load-bearing
 - Of the 9 cross-cutting universals: enable `inbox-triage-and-draft`, `morning-digest`, `memory-curator`, and `compliance-audit-export` in v1; defer others
 - 1-2 PI-specialized skills from the law-firm vertical pack: minimum is `pi-intake-triage`; v1 uses `pi-demand-letter-evidence-packet` (partner authors demand from the assembled inputs). `pi-demand-letter-text-only` deferred to Phase 3+ per law-firm-prd.md §6.2.
