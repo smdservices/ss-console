@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "intake-transcript",
+    "case_type": "ambiguous",
+    "fixture_id": "edge-amb-005",
+    "edge_tags": ["ambiguous-intake"],
+    "expected_behavior": "skill flags ambiguity and requests clarification rather than guessing a single case type"
+  },
+  "content": {
+    "format": "intake-transcript",
+    "intake_date": "2026-05-12",
+    "client_name": "Desmond Pritchard",
+    "dialogue": [
+      {"speaker": "intake", "text": "Thank you for calling, this is the intake line. May I get your name and a callback number in case we get disconnected?"},
+      {"speaker": "client", "text": "Yeah, sorry, this is Desmond Pritchard. Number is on the form I filled out online. I don't even know where to start, honestly. My wife told me to just call somebody."},
+      {"speaker": "intake", "text": "That's all right, Desmond. Take your time. Can you tell me, in your own words, what happened?"},
+      {"speaker": "client", "text": "So about three weeks ago I was at a bachelor party weekend up at this lake rental place — Cedar Hollow Retreats, I think the company is called. They have these little side-by-side off-road things, like ATVs but with two seats. The cabin owner said we could take them out on the trails behind the property."},
+      {"speaker": "intake", "text": "Okay. And were you driving one of those vehicles when something happened?"},
+      {"speaker": "client", "text": "Yes and no. I was in the passenger side. My buddy Trent was driving. We were going maybe twenty, twenty-five on a gravel trail, and the seatbelt thing — it's like a four-point harness — the buckle just released on its own. I'm not saying he was driving crazy. I've thought about this a lot. The buckle popped open and I came out the side when we hit a dip."},
+      {"speaker": "intake", "text": "I see. Were you injured when you came out of the vehicle?"},
+      {"speaker": "client", "text": "Broke my collarbone, banged up my hip pretty bad. Surgery on the collarbone last Tuesday. The thing is, when we got back to the cabin office, the kid who runs the place said something like, 'Oh yeah, that buckle has been sticking,' and he kind of laughed about it. Like they knew. Then the trail itself — there are these dips that aren't marked, no signage, no nothing. My brother-in-law thinks the trail is the problem because they're supposed to maintain that, it's their property. But my cousin who's a mechanic says it sounds like the harness is defective from the factory, that's a known thing with those side-by-sides."},
+      {"speaker": "intake", "text": "Do you remember the make or model of the vehicle?"},
+      {"speaker": "client", "text": "Not the model. The brand on the front was Ridgemark, I remember that because of the logo. I can probably get the model off a photo we took."},
+      {"speaker": "intake", "text": "That would be helpful. And the rental company — Cedar Hollow — did you sign anything when you arrived?"},
+      {"speaker": "client", "text": "Probably? There's always a stack of paper at those places. I didn't read it. Trent might have been the one who signed since it was his card. Look, I don't know if I'm calling about the rental place because they knew the buckle was bad, or the manufacturer because it's their product, or what. I just know I'm out of work for six weeks and the medical bills are stacking up. My insurance is through Sentinel Plains Mutual and they're already asking who's going to be paying."}
+    ]
+  }
+}

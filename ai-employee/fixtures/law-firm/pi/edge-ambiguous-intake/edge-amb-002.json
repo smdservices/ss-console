@@ -1,0 +1,18 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "ambiguous",
+    "fixture_id": "edge-amb-002",
+    "edge_tags": ["ambiguous-intake"],
+    "expected_behavior": "skill flags ambiguity and requests clarification rather than guessing a single case type"
+  },
+  "content": {
+    "from": "marisol.henrey88@fastmailbox.example",
+    "from_name": "Marisol Henrey",
+    "to": "intake@example-firm.invalid",
+    "sent_date": "2026-05-08",
+    "subject": "Need help figuring out what to do after my hip replacement situation",
+    "body": "Hello, I am reaching out because I do not know how to think about what happened to me and a friend told me your office handles cases like this. About fourteen months ago I had a hip replacement done at Sutterfield Orthopedic Surgical Center here in town. The device that was put in was made by a company called Calderhouse Medical. For the first eight months I was fine, then I started getting this metallic taste in my mouth and bad pain that was not like normal recovery pain. My new orthopedist did blood work and said the metal ion levels were elevated and the implant needs to come out. He also said, kind of off the record, that he would not have used that particular component on someone my size and that he was surprised it was selected for me. I do not know if the problem is that the implant itself is bad and has been hurting other people too, or if my original surgeon picked the wrong size and model for my body and the implant would be fine in someone else. The revision surgery is scheduled for next month and I am scared and also angry. Can someone please tell me whether I have any kind of case here and who I would even be going after?"
+  }
+}

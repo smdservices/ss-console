@@ -1,0 +1,31 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "intake-transcript",
+    "case_type": "ambiguous",
+    "fixture_id": "edge-amb-007",
+    "edge_tags": ["ambiguous-intake"],
+    "expected_behavior": "skill flags ambiguity and requests clarification rather than guessing a single case type"
+  },
+  "content": {
+    "format": "intake-transcript",
+    "intake_date": "2026-05-16",
+    "client_name": "Karim Doulatabadi",
+    "dialogue": [
+      {"speaker": "intake", "text": "Thanks for calling. My name is Pria, I'm one of the intake coordinators. Who do I have the pleasure of speaking with?"},
+      {"speaker": "client", "text": "Karim. Karim Doulatabadi. I'm — sorry, I'm a little flustered. I haven't done this before."},
+      {"speaker": "intake", "text": "No need to apologize, Karim. Why don't you walk me through what happened, and we'll go at whatever pace works for you."},
+      {"speaker": "client", "text": "Okay. So I work for a delivery company, like a contract driver, doing same-day stuff around the city. About ten days ago I was making a drop at this office tower, Meridian Crossing on Fourth. The loading dock entrance has this big steel roll-up door, and there's a button you press inside the dock to make it go up."},
+      {"speaker": "intake", "text": "Okay."},
+      {"speaker": "client", "text": "I had a hand truck full of boxes, maybe sixty pounds total. I pressed the button, the door started going up, and then about halfway up it just stopped. I waited maybe ten seconds, then I bent down to duck under it to get my delivery out, and as I was under it the door came down. Fast. Hit me right on the back of the neck and shoulders. I went down on my knees, the hand truck went over, boxes everywhere."},
+      {"speaker": "intake", "text": "Are you okay? Were you hospitalized?"},
+      {"speaker": "client", "text": "Urgent care that day, then my own doctor the next morning. I have a concussion, they think, and a bulging disc in my neck. I'm in physical therapy three times a week now and I can't lift anything over twenty pounds, which means I can't really do my job."},
+      {"speaker": "intake", "text": "Has anyone from the building or the delivery company reached out?"},
+      {"speaker": "client", "text": "The building manager, this guy Donovan, he came out when it happened. He told me right there, 'That door has been doing that for months, we keep telling the service company.' He said it like it was nothing. There's a maintenance contract with a company called Stratford Door & Dock, that's painted on the side of the door. So the door is busted, the building knows it's busted, the door company hasn't fixed it. I don't know which of those is the lawsuit."},
+      {"speaker": "intake", "text": "That's a fair question, and not one you need to answer right now. Let me ask — do you know if the door is a particular brand?"},
+      {"speaker": "client", "text": "There's a metal plate on the inside, I took a picture. It says Halyard Industrial Doors, model something-something. My cousin, he's an engineer, he looked at the picture and said those doors are supposed to have a safety sensor that stops them from coming down on a person. Like an electric eye. He said if the sensor was working it physically couldn't have come down on me. So now he's saying the door itself is defective or somebody disabled the sensor."},
+      {"speaker": "intake", "text": "And you mentioned you're a contract driver. Has your employer or their insurance — is it workers' comp territory, or are you not sure?"},
+      {"speaker": "client", "text": "I'm 1099, so I don't think regular workers' comp applies, but the company I drive for, Brightline Logistics, they have some kind of accident policy through Old Pueblo Surety that they take a fee out of my pay for. I called them and the lady was super vague. Said file a claim and they'll see. Look, I just need to know who's responsible. Is it the building owner? The door maintenance company? The manufacturer? I keep going in circles in my head."}
+    ]
+  }
+}
