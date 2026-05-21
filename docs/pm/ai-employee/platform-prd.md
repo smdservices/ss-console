@@ -290,6 +290,44 @@ Capability interfaces (sketch — full set defined in `ai-employee/capabilities/
 
 Concrete adapters live at `ai-employee/connectors/{capability}/{system}/` and implement the relevant interface.
 
+### 7.2.1 Capability interface specifications
+
+The formal TypeScript signatures for all eleven capability interfaces live at `src/lib/ai-employee/capabilities/` in the ss-console repo. Each interface is a single file (e.g. `email.ts`, `practice-management.ts`); shared types (`DateRange`, `CapabilitySet`, `HealthStatus`, `AdapterError`) live in `types.ts`; the adapter conformance harness lives in `conformance.ts`. The TypeScript source is the contract — this PRD section summarizes the commitments.
+
+**Adapter base contract.** Every adapter implements `describe_capabilities(): CapabilitySet` and `health_check(): Promise<HealthStatus>`. The `CapabilitySet` declares the capability name, the adapter slug, the version, the set of methods supported, the set of optional methods explicitly NOT supported, and (recommended) per-method field-coverage disclosure that feeds the §12 dashboard "what Marcus used to write this" sourcing block.
+
+**Email pattern decision — Pattern A locked at v1.** The Tech Lead's synthesis-round-1 contribution surfaced two architecturally distinct draft-and-send patterns:
+
+- **Pattern A.** Agent creates a draft in the reviewer's drafts folder. The reviewer reviews, edits, and sends from their own email client. The platform has no programmatic send path.
+- **Pattern B.** Agent surfaces a pending action in the dashboard Queue. Reviewer clicks Approve in the dashboard. The platform's backend sends programmatically using a stored OAuth token.
+
+**Pattern A is the architectural answer per [ADR 0005 (Reviewer-as-Sender)](../../adr/0005-reviewer-as-sender.md).** Pattern B was considered and explicitly rejected — it surrenders the architectural property ADR 0005 protects (no agent-to-external send path under any identity other than the reviewer's own client). The `Email` interface has no `send` method; the conformance harness blocks adapters that add one.
+
+**The eleven interfaces (one-line summary; full signatures in source):**
+
+| Interface            | Role                                                       | Key methods                                                                                                                  | Outbound posture                                                                                     |
+| -------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `PracticeManagement` | Matters, contacts, time entries, PM documents              | `search_matters`, `create_matter`, `update_matter`, `list_time_entries`, `create_time_entry_draft`, `upload_matter_document` | Write to PM system only; no external send                                                            |
+| `Email`              | Inbox, threads, drafts, labels, sent-folder watch          | `list_threads`, `get_thread`, `create_draft`, `update_draft`, `apply_label`, `list_sent_since`                               | **Pattern A only**: no send method                                                                   |
+| `Calendar`           | Read events, propose events, suggest times                 | `list_events`, `suggest_time`, `create_event_draft`, `update_event_draft`                                                    | Drafts only; reviewer adds external attendees and sends invite from their own client                 |
+| `DocumentStorage`    | Folders, versioned documents, share drafts                 | `list_folder`, `download_document`, `upload_document`, `update_document`, `share_document_draft`                             | Internal writes allowed; external shares are drafts only                                             |
+| `ESign`              | Envelope status, reminder drafts, completed-doc retrieval  | `list_envelopes`, `get_envelope`, `create_reminder_draft`, `download_completed`                                              | No `send_envelope`: reviewer creates and sends envelopes from the source platform                    |
+| `CourtAccess`        | Case search, dockets, filing retrieval                     | `search_cases`, `get_docket`, `get_docket_entries`, `get_filing_document`                                                    | **Read-only**: no filing or write methods                                                            |
+| `Payments`           | Transactions, trust-balance lookup, payment-request drafts | `list_transactions`, `get_trust_balance`, `create_payment_request_draft`                                                     | **Read + draft only**: no autonomous trust transfers or sends (invariant #3)                         |
+| `Accounting`         | Invoices, A/R, expense entries                             | `list_invoices`, `list_accounts_receivable`, `create_invoice_draft`, `create_expense_entry_draft`                            | **Read + draft only**: no posting to the GL                                                          |
+| `IntakeCRM`          | Leads, lead status, intake-form responses                  | `list_leads`, `update_lead`, `append_lead_note`, `list_intake_form_responses`                                                | Internal CRM mutations allowed; outreach goes through Email                                          |
+| `CallTracking`       | Call records, recordings, attribution                      | `list_calls`, `get_recording`, `get_attribution`                                                                             | **Read-only**: no origination or messaging methods                                                   |
+| `InternalComms`      | Slack/Teams channels, DMs, mentions                        | `list_channels`, `post_to_channel`, `send_dm`, `react_to_message`, `list_recent_mentions`                                    | **Persona-as-sender for internal-only destinations**: adapters refuse channels with external members |
+
+**Adapter conformance.** `src/lib/ai-employee/capabilities/conformance.ts` defines eight invariants every adapter must satisfy. The two most architecturally load-bearing:
+
+- `NO_AUTONOMOUS_EXTERNAL_SEND` — No adapter exposes a method that sends external messages under any identity other than the reviewer's drafts folder. The harness enforces this by reflecting on the adapter's method names against `BANNED_METHOD_NAMES` (per-capability lists of forbidden names: `Email.send`, `ESign.send_envelope`, `Calendar.send_invitation`, etc.).
+- `NO_AUTONOMOUS_TRUST_TRANSFER` — No `Payments` adapter exposes `initiate_transfer`, `trust_disbursement`, or equivalents, regardless of vendor capability. Per Platform PRD invariant #3 and ADR 0005.
+
+The full eight invariants — including `NULL_FOR_ABSENT` (read methods return null, don't throw), `TYPED_ERRORS` (only `AdapterError` with codes from the closed `AdapterErrorCode` union), `HEALTH_CHECK_BOUNDED` (5-second budget), `UNSUPPORTED_METHODS_THROW` (no silent stubs), and `NO_FIELD_FABRICATION` (only fields read from source; inferred fields declared in `CapabilitySet.field_coverage.derived`) — are documented inline in `conformance.ts`.
+
+Conformance suites are authored as `*.conformance.test.ts` files next to each adapter. Adapter PRs that do not include a passing conformance suite are blocked at review.
+
 ### 7.3 `customer.yaml` as the wiring layer
 
 Each customer has one `customer.yaml` declaring: persona, voice, vertical, region, connectors per capability, skills enabled, trust ceilings, scope, escalation rules.
