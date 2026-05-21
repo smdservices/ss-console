@@ -1,0 +1,114 @@
+/**
+ * Product access helpers for the customer-first portal.
+ *
+ * Two layers govern whether a portal user can use a given product on a
+ * given entity:
+ *
+ *   1. `subscriptions(entity_id, product_slug)` — does this customer
+ *      have an active subscription to the product? Status lifecycle:
+ *      provisioning → active → paused → cancelled.
+ *
+ *   2. `product_roles(user_id, entity_id, product_slug, role)` — is
+ *      this specific user granted a role inside the product? AI
+ *      Employee vocabulary: `principal | operator | compliance`.
+ *      Future products bring their own vocabularies.
+ *
+ * Both layers must pass for the product surface to render. Anything
+ * less degrades to the appropriate empty state per
+ * docs/style/empty-state-pattern.md (no fabrication).
+ */
+
+export interface SubscriptionRow {
+  id: string
+  org_id: string
+  entity_id: string
+  product_slug: string
+  status: string
+  started_at: string
+  ended_at: string | null
+  settings_json: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ProductRoleRow {
+  id: string
+  org_id: string
+  user_id: string
+  entity_id: string
+  product_slug: string
+  role: string
+  granted_by: string | null
+  granted_at: string
+  revoked_at: string | null
+}
+
+export interface ProductAccess {
+  subscription: SubscriptionRow
+  roles: string[]
+}
+
+/**
+ * Return the customer's active subscription for a given product slug, or
+ * null if no row exists or the row is cancelled. `provisioning`,
+ * `active`, and `paused` are all returned — the caller decides which
+ * statuses unlock which UI states.
+ */
+export async function getProductSubscription(
+  db: D1Database,
+  entityId: string,
+  productSlug: string
+): Promise<SubscriptionRow | null> {
+  return await db
+    .prepare(
+      `SELECT * FROM subscriptions
+        WHERE entity_id = ? AND product_slug = ?
+          AND status IN ('provisioning', 'active', 'paused')`
+    )
+    .bind(entityId, productSlug)
+    .first<SubscriptionRow>()
+}
+
+/**
+ * Return the list of active (non-revoked) roles this user holds on this
+ * (entity, product) tuple. Empty array means the user has no access
+ * inside the product even if the customer has a subscription.
+ */
+export async function listProductRoles(
+  db: D1Database,
+  userId: string,
+  entityId: string,
+  productSlug: string
+): Promise<string[]> {
+  const result = await db
+    .prepare(
+      `SELECT role FROM product_roles
+        WHERE user_id = ? AND entity_id = ? AND product_slug = ?
+          AND revoked_at IS NULL
+        ORDER BY granted_at ASC`
+    )
+    .bind(userId, entityId, productSlug)
+    .all<{ role: string }>()
+  return (result.results ?? []).map((r) => r.role)
+}
+
+/**
+ * Combined check: does this user have access to this product on this
+ * customer? Returns the subscription + role list when both layers pass.
+ * Returns null when either the subscription is missing/cancelled or the
+ * user has no roles granted.
+ */
+export async function resolveProductAccess(
+  db: D1Database,
+  userId: string,
+  entityId: string,
+  productSlug: string
+): Promise<ProductAccess | null> {
+  const subscription = await getProductSubscription(db, entityId, productSlug)
+  if (!subscription) return null
+
+  const roles = await listProductRoles(db, userId, entityId, productSlug)
+  if (roles.length === 0) return null
+
+  return { subscription, roles }
+}
