@@ -256,8 +256,9 @@ describe('validate — EnumViolation', () => {
 
   it('rejects unknown trust_ceiling', () => {
     const f = validFixture()
-    ;(f['personas'] as Array<{ skills: Array<{ trust_ceiling: string }> }>)[0]!.skills[0]!.trust_ceiling =
-      'YOLO'
+    ;(
+      f['personas'] as Array<{ skills: Array<{ trust_ceiling: string }> }>
+    )[0]!.skills[0]!.trust_ceiling = 'YOLO'
     const r = validate(f)
     expect(r.ok).toBe(false)
     if (r.ok) return
@@ -556,8 +557,11 @@ describe('validate — secret detection integration', () => {
 
   it('rejects when a provider-shaped key appears in a value', () => {
     const f = validFixture()
-    ;(f['personas'] as Array<Record<string, unknown>>)[0]!['notes'] =
-      ['sk', 'live', 'abcdefghijklmnopqrstuvwxyz12345678'].join('_')
+    ;(f['personas'] as Array<Record<string, unknown>>)[0]!['notes'] = [
+      'sk',
+      'live',
+      'abcdefghijklmnopqrstuvwxyz12345678',
+    ].join('_')
     const r = validate(f)
     expect(r.ok).toBe(false)
     if (r.ok) return

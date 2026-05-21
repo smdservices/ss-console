@@ -185,10 +185,7 @@ describe('scanParsedValue — banned field names', () => {
   })
 
   it('reports the JSONPath of a banned field', () => {
-    const findings = scanParsedValue(
-      { connectors: { Email: { client_secret: 'foo' } } },
-      ''
-    )
+    const findings = scanParsedValue({ connectors: { Email: { client_secret: 'foo' } } }, '')
     const banned = findings.find((f) => f.category === 'banned_field_name')
     expect(banned).toBeDefined()
     expect(banned!.path).toBe('connectors.Email.client_secret')

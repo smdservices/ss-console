@@ -524,7 +524,11 @@ function checkUsers(root: Record<string, unknown>, errors: ValidationError[]): U
     return []
   }
   if (raw.length === 0) {
-    errors.push({ code: 'EmptyList', path: 'users', message: 'users must contain at least one entry' })
+    errors.push({
+      code: 'EmptyList',
+      path: 'users',
+      message: 'users must contain at least one entry',
+    })
     return []
   }
   const out: User[] = []
@@ -717,11 +721,7 @@ function checkPersonas(root: Record<string, unknown>, errors: ValidationError[])
   return out
 }
 
-function checkPersonaSkills(
-  raw: unknown,
-  path: string,
-  errors: ValidationError[]
-): PersonaSkill[] {
+function checkPersonaSkills(raw: unknown, path: string, errors: ValidationError[]): PersonaSkill[] {
   if (raw === undefined || raw === null) {
     errors.push({
       code: 'MissingField',
@@ -1017,9 +1017,19 @@ function checkScope(root: Record<string, unknown>, errors: ValidationError[]): S
     return emptyScope()
   }
   const rec = raw as Record<string, unknown>
-  const visible = requireStringList(rec, 'email_folders_visible', 'scope.email_folders_visible', errors)
+  const visible = requireStringList(
+    rec,
+    'email_folders_visible',
+    'scope.email_folders_visible',
+    errors
+  )
   const blind = requireStringList(rec, 'email_folders_blind', 'scope.email_folders_blind', errors)
-  const keywords = requireStringList(rec, 'email_keyword_blocks', 'scope.email_keyword_blocks', errors)
+  const keywords = requireStringList(
+    rec,
+    'email_keyword_blocks',
+    'scope.email_keyword_blocks',
+    errors
+  )
   const domains = requireStringList(rec, 'domain_blocks', 'scope.domain_blocks', errors)
   const matters = optionalStringList(rec, 'matter_blocks', 'scope.matter_blocks', errors)
   return {
@@ -1052,11 +1062,20 @@ function checkEscalation(root: Record<string, unknown>, errors: ValidationError[
     return { red_flag_recipients: [], failure_recipients: [], acknowledgement_window_minutes: null }
   }
   if (!isPlainObject(raw)) {
-    errors.push({ code: 'TypeMismatch', path: 'escalation', message: 'escalation must be an object' })
+    errors.push({
+      code: 'TypeMismatch',
+      path: 'escalation',
+      message: 'escalation must be an object',
+    })
     return { red_flag_recipients: [], failure_recipients: [], acknowledgement_window_minutes: null }
   }
   const rec = raw as Record<string, unknown>
-  const reds = requireStringList(rec, 'red_flag_recipients', 'escalation.red_flag_recipients', errors)
+  const reds = requireStringList(
+    rec,
+    'red_flag_recipients',
+    'escalation.red_flag_recipients',
+    errors
+  )
   if (reds.length === 0) {
     errors.push({
       code: 'EmptyList',
@@ -1064,7 +1083,12 @@ function checkEscalation(root: Record<string, unknown>, errors: ValidationError[
       message: 'escalation.red_flag_recipients must contain at least one address',
     })
   }
-  const fails = requireStringList(rec, 'failure_recipients', 'escalation.failure_recipients', errors)
+  const fails = requireStringList(
+    rec,
+    'failure_recipients',
+    'escalation.failure_recipients',
+    errors
+  )
   if (fails.length === 0) {
     errors.push({
       code: 'EmptyList',
@@ -1085,7 +1109,11 @@ function checkEscalation(root: Record<string, unknown>, errors: ValidationError[
       ack = a
     }
   }
-  return { red_flag_recipients: reds, failure_recipients: fails, acknowledgement_window_minutes: ack }
+  return {
+    red_flag_recipients: reds,
+    failure_recipients: fails,
+    acknowledgement_window_minutes: ack,
+  }
 }
 
 function checkMemory(
@@ -1145,11 +1173,7 @@ function checkMemory(
       message: `memory.vectorize_index must equal "hermes-${customerId}-vault"`,
     })
   }
-  if (
-    typeof d1 === 'string' &&
-    typeof r2 === 'string' &&
-    typeof vec === 'string'
-  ) {
+  if (typeof d1 === 'string' && typeof r2 === 'string' && typeof vec === 'string') {
     return { d1_namespace: d1, r2_vault_path: r2, vectorize_index: vec }
   }
   return null
@@ -1280,16 +1304,18 @@ function checkLogging(root: Record<string, unknown>, errors: ValidationError[]):
     })
     ok = false
   }
-  return ok
-    ? { level: level as LogLevel, ship_to: shipTo as LogShip[] }
-    : null
+  return ok ? { level: level as LogLevel, ship_to: shipTo as LogShip[] } : null
 }
 
 function checkPause(root: Record<string, unknown>, errors: ValidationError[]): Pause | null {
   const raw = root['pause']
   if (raw === undefined || raw === null) return null
   if (!isPlainObject(raw)) {
-    errors.push({ code: 'TypeMismatch', path: 'pause', message: 'pause must be an object when present' })
+    errors.push({
+      code: 'TypeMismatch',
+      path: 'pause',
+      message: 'pause must be an object when present',
+    })
     return null
   }
   const rec = raw as Record<string, unknown>
