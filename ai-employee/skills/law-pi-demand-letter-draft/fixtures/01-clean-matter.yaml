@@ -1,0 +1,257 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 01: clean PI matter with full-information sourced documents.
+# Expected outcome: skill produces a complete draft. Four legal-judgment
+# sections render as TBD markers; everything else is sourced and rendered.
+
+matter:
+  id: 'matter_synthetic_01'
+  client_name: 'Janet Holloway'
+  matter_type: 'auto-accident'
+  status: 'open'
+  opened_at: '2026-05-01T14:22:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2026-04-28'
+    incident_location: 'Intersection of Camelback Road and 24th Street, Phoenix, Arizona'
+    client_role: 'operator of stopped 2021 Toyota Camry'
+    opposing_insured_name: 'David Kerr'
+    opposing_carrier: 'Saguaro Mutual Insurance Company'
+    opposing_adjuster_name: 'Lori Mendez'
+    opposing_adjuster_email: 'lori.mendez@saguaro-mutual.invalid'
+    opposing_adjuster_address: 'PO Box 4421, Phoenix AZ 85067'
+    claim_number: 'SM-2026-049182'
+    employer_name: 'ABC Manufacturing'
+    documents_folder_path: '/matters/matter_synthetic_01'
+
+documents:
+  - id: 'doc_01'
+    path: '/matters/matter_synthetic_01/medical/2026-04-28_mercy_general_ed.pdf'
+    filename: '2026-04-28_mercy_general_ed.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 184320
+    created_at: '2026-05-02T09:14:00Z'
+    modified_at: '2026-05-02T09:14:00Z'
+    current_version: 'v1'
+    classification: 'medical_record'
+    synthetic_body: |
+      Mercy General Hospital, Emergency Department.
+      Date of service: 2026-04-28. Time: 15:42.
+      Patient: Holloway, Janet (DOB 1981-03-14).
+      Chief complaint: motor vehicle collision, cervical and lumbar pain.
+      Provider: Dr. Ana Reyes, MD.
+      Disposition: discharged home with prescription, referral to orthopedics.
+
+  - id: 'doc_02'
+    path: '/matters/matter_synthetic_01/medical/2026-05-12_phoenix_imaging_mri.pdf'
+    filename: '2026-05-12_phoenix_imaging_mri.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 312456
+    created_at: '2026-05-12T16:00:00Z'
+    modified_at: '2026-05-12T16:00:00Z'
+    current_version: 'v1'
+    classification: 'medical_record'
+    synthetic_body: |
+      Phoenix Imaging Center.
+      Date of service: 2026-05-12.
+      Patient: Holloway, Janet.
+      Study: MRI lumbar spine without contrast.
+      Provider: Dr. Marcus Hahn, MD (radiologist).
+      Impression: L4-L5 disc herniation with right-side neural foraminal narrowing.
+      Referring provider: Dr. Linwei Chen, Phoenix Orthopedics.
+
+  - id: 'doc_03'
+    path: '/matters/matter_synthetic_01/medical/2026-05-18_phoenix_ortho_initial.pdf'
+    filename: '2026-05-18_phoenix_ortho_initial.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 142336
+    created_at: '2026-05-18T11:30:00Z'
+    modified_at: '2026-05-18T11:30:00Z'
+    current_version: 'v1'
+    classification: 'medical_record'
+    synthetic_body: |
+      Phoenix Orthopedics.
+      Date of service: 2026-05-18.
+      Patient: Holloway, Janet.
+      Provider: Dr. Linwei Chen, MD.
+      Subjective: persistent lumbar pain, radiating to right leg.
+      Plan: physical therapy 3x weekly, follow-up in 3 weeks.
+
+  - id: 'doc_04'
+    path: '/matters/matter_synthetic_01/medical/2026-06-04_phoenix_ortho_followup.pdf'
+    filename: '2026-06-04_phoenix_ortho_followup.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 98112
+    created_at: '2026-06-04T14:15:00Z'
+    modified_at: '2026-06-04T14:15:00Z'
+    current_version: 'v1'
+    classification: 'medical_record'
+    synthetic_body: |
+      Phoenix Orthopedics.
+      Date of service: 2026-06-04.
+      Patient: Holloway, Janet.
+      Provider: Dr. Linwei Chen, MD.
+      Subjective: pain level 5 of 10, improved from initial 7 of 10.
+      Plan: continue PT, follow-up in 4 weeks.
+
+  - id: 'doc_05'
+    path: '/matters/matter_synthetic_01/medical/2026-06-12_valley_pt_summary.pdf'
+    filename: '2026-06-12_valley_pt_summary.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 76544
+    created_at: '2026-06-12T17:00:00Z'
+    modified_at: '2026-06-12T17:00:00Z'
+    current_version: 'v1'
+    classification: 'medical_record'
+    synthetic_body: |
+      Valley Physical Therapy.
+      Date of summary: 2026-06-12.
+      Patient: Holloway, Janet.
+      Treating therapist: Renee Park, PT, DPT.
+      Sessions: 12 sessions from 2026-05-22 through 2026-06-12.
+      Status: ongoing, lumbar mobility improved.
+
+  - id: 'doc_06'
+    path: '/matters/matter_synthetic_01/billing/mercy_general_billing.pdf'
+    filename: 'mercy_general_billing.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 65792
+    created_at: '2026-05-06T10:00:00Z'
+    modified_at: '2026-05-06T10:00:00Z'
+    current_version: 'v1'
+    classification: 'billing_statement'
+    synthetic_body: |
+      Mercy General Hospital. Itemized billing.
+      Patient: Holloway, Janet. Account 8839204.
+      Date of service: 2026-04-28.
+      Billed charges total: $14,237.18
+
+  - id: 'doc_07'
+    path: '/matters/matter_synthetic_01/billing/phoenix_imaging_billing.pdf'
+    filename: 'phoenix_imaging_billing.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 32128
+    created_at: '2026-05-15T09:00:00Z'
+    modified_at: '2026-05-15T09:00:00Z'
+    current_version: 'v1'
+    classification: 'billing_statement'
+    synthetic_body: |
+      Phoenix Imaging Center. Itemized billing.
+      Patient: Holloway, Janet.
+      Date of service: 2026-05-12.
+      Billed charges total: $1,842.00
+
+  - id: 'doc_08'
+    path: '/matters/matter_synthetic_01/billing/phoenix_ortho_billing.pdf'
+    filename: 'phoenix_ortho_billing.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 48256
+    created_at: '2026-06-05T11:00:00Z'
+    modified_at: '2026-06-05T11:00:00Z'
+    current_version: 'v1'
+    classification: 'billing_statement'
+    synthetic_body: |
+      Phoenix Orthopedics. Itemized billing.
+      Patient: Holloway, Janet.
+      Dates of service: 2026-05-18, 2026-06-04.
+      Billed charges total: $6,418.24
+
+  - id: 'doc_09'
+    path: '/matters/matter_synthetic_01/billing/valley_pt_billing.pdf'
+    filename: 'valley_pt_billing.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 41472
+    created_at: '2026-06-13T08:00:00Z'
+    modified_at: '2026-06-13T08:00:00Z'
+    current_version: 'v1'
+    classification: 'billing_statement'
+    synthetic_body: |
+      Valley Physical Therapy. Itemized billing.
+      Patient: Holloway, Janet.
+      Dates of service: 2026-05-22 through 2026-06-12.
+      Billed charges total: $2,340.00
+
+  - id: 'doc_10'
+    path: '/matters/matter_synthetic_01/employment/abc_manufacturing_letter.pdf'
+    filename: 'abc_manufacturing_letter.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 28672
+    created_at: '2026-06-01T13:00:00Z'
+    modified_at: '2026-06-01T13:00:00Z'
+    current_version: 'v1'
+    classification: 'employment_verification'
+    synthetic_body: |
+      ABC Manufacturing.
+      Date: 2026-06-01.
+      Re: Janet Holloway, employee since 2022-09-15.
+      Janet was unable to work from 2026-04-28 through 2026-05-12, and on
+      modified duty from 2026-05-13 through 2026-06-15. Lost wages during
+      the full-absence period total $4,200.00 (gross). Reduced earnings
+      during the modified-duty period total $3,800.00 (gross).
+      Total documented lost wages to date: $8,000.00.
+
+  - id: 'doc_11'
+    path: '/matters/matter_synthetic_01/employment/paystubs_2026Q2.pdf'
+    filename: 'paystubs_2026Q2.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 102400
+    created_at: '2026-06-15T16:00:00Z'
+    modified_at: '2026-06-15T16:00:00Z'
+    current_version: 'v1'
+    classification: 'employment_verification'
+    synthetic_body: |
+      Pay stubs, Janet Holloway, ABC Manufacturing.
+      Pay periods ending 2026-04-27 through 2026-06-15.
+      Pre-incident weekly gross: $1,400.00.
+
+  - id: 'doc_12'
+    path: '/matters/matter_synthetic_01/photos/scene_intersection.jpg'
+    filename: 'scene_intersection.jpg'
+    mime_type: 'image/jpeg'
+    size_bytes: 2456832
+    created_at: '2026-04-28T16:14:00Z'
+    modified_at: '2026-04-28T16:14:00Z'
+    current_version: 'v1'
+    classification: 'photo'
+    synthetic_body: '(image data omitted; photo of intersection at time of incident)'
+
+  - id: 'doc_13'
+    path: '/matters/matter_synthetic_01/photos/vehicle_damage_rear.jpg'
+    filename: 'vehicle_damage_rear.jpg'
+    mime_type: 'image/jpeg'
+    size_bytes: 1842176
+    created_at: '2026-04-28T17:30:00Z'
+    modified_at: '2026-04-28T17:30:00Z'
+    current_version: 'v1'
+    classification: 'photo'
+    synthetic_body: "(image data omitted; photo of rear damage to client's vehicle)"
+
+  - id: 'doc_14'
+    path: '/matters/matter_synthetic_01/photos/vehicle_damage_other.jpg'
+    filename: 'vehicle_damage_other.jpg'
+    mime_type: 'image/jpeg'
+    size_bytes: 1923584
+    created_at: '2026-04-28T17:32:00Z'
+    modified_at: '2026-04-28T17:32:00Z'
+    current_version: 'v1'
+    classification: 'photo'
+    synthetic_body: "(image data omitted; photo of front damage to opposing party's vehicle)"
+
+customer_yaml_excerpt:
+  firm_name: 'Holcomb & Reyes, LLP'
+  supervising_partner:
+    name: 'Sarah Holcomb'
+    title: 'Managing Partner'
+    reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'
+    signature_block: |
+      Sarah Holcomb
+      Managing Partner
+      Holcomb & Reyes, LLP
+      1810 N Central Avenue, Suite 800
+      Phoenix, AZ 85004
+      (602) 555-0142
+      sarah.holcomb@holcomb-reyes.invalid
+  practice_areas:
+    - 'personal-injury'
+  voice:
+    layer2_samples_count: 35
