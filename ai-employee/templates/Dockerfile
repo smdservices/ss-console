@@ -30,7 +30,6 @@ RUN git clone --depth 1 --branch ${HERMES_REF} \
 
 # ---------- Stage 2: build base from upstream Hermes Dockerfile pattern ----------
 FROM ghcr.io/astral-sh/uv:0.11.6-python3.13-trixie AS uv_source
-FROM tianon/gosu:1.19-trixie AS gosu_source
 FROM debian:13.4
 
 ARG CUSTOMER_SLUG
@@ -51,7 +50,6 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -u 10000 -m -d /opt/data hermes
-COPY --chmod=0755 --from=gosu_source /gosu /usr/local/bin/
 COPY --chmod=0755 --from=uv_source /usr/local/bin/uv /usr/local/bin/uvx /usr/local/bin/
 
 WORKDIR /opt/hermes
@@ -96,13 +94,18 @@ COPY ai-employee/templates/bootstrap.sh /app/bootstrap.sh
 RUN chmod +x /app/bootstrap.sh
 
 # ---------- Permissions ----------
-USER root
 RUN chmod -R a+rX /opt/hermes /app \
- && chown -R hermes:hermes /opt/hermes/.venv /opt/hermes/ui-tui /opt/hermes/node_modules /app
+ && chown -R hermes:hermes /opt/hermes/.venv /opt/hermes/ui-tui /opt/hermes/node_modules /app /opt/data
 
 ENV HERMES_WEB_DIST=/opt/hermes/hermes_cli/web_dist
 
 VOLUME [ "/opt/data" ]
+
+# Drop to non-root for runtime. bootstrap.sh does no root-requiring work:
+# env validation, customer.yaml read, safety-substrate python run, and
+# symlink creation in hermes-owned /opt/data all work as the hermes user.
+# Closes semgrep dockerfile.security.last-user-is-root.
+USER hermes
 
 # tini for signal handling + zombie reaping; bootstrap.sh runs safety
 # substrate then starts Hermes.

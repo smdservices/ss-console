@@ -110,7 +110,7 @@ export AIE_SKILLS_DIR="/app/skills"
 export AIE_CONNECTORS_DIR="/app/connectors"
 
 # ---------- Step 6: start Hermes ----------
-# Drop to the hermes user (uid 10000) via gosu, then exec the agent.
+# Container already runs as the hermes user (Dockerfile sets USER hermes).
 # The Hermes CLI loads skills from $HERMES_HOME/skills/ — bootstrap has
 # already symlinked /app/skills/ into the customer's volume.
 log "Symlinking skill library into HERMES_HOME..."
@@ -132,4 +132,4 @@ log "Container alive; ready for interactive Hermes sessions via 'fly ssh console
 #
 # Phase A.5 swaps this for the AIEmployee-wrapped gateway command once the
 # adapter is registered with Hermes' tool dispatch.
-exec gosu hermes:hermes tail -f /dev/null
+exec tail -f /dev/null
