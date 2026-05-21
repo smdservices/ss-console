@@ -17,13 +17,13 @@
 - **Per-customer Fly Machine isolation (ADR 0007).** Keeps blast radius small, makes "no cross-customer query" enforceable at the network layer, lets cost telemetry land naturally on Machine naming. `r2-vectorize-naming.md` + `decommission-drain.md` codify prefix and deletion ordering.
 - **Pre-output safety substrate (invariants #6 + #8 as runtime filters, not skills).** Avoids the circularity the prior critique caught. `safety-substrate/run_invariants.py` runs `--strict` at boot; `citation_filter.py` ships with adversarial fixtures; `fabrication-filter.md` correctly treats #8 parallel to #6.
 - **Reviewer-as-sender (ADR 0005) carries through to OAuth scopes.** `oauth-lifecycle.md` excludes `Mail.Send` / `gmail.send` — architectural enforcement of P2 at the grant layer. A security reviewer can confirm by inspection that the agent literally cannot send.
-- **Trust-ceiling enforcement design is sound *as designed*.** `trust_ceiling.py:enforce()` returns `allow | draft | refuse`; action-class taxonomy (READ / INTERNAL_WRITE / EXTERNAL_SEND / COMMITMENT / DESTRUCTIVE) covers invariants #1-#3. Testable in isolation. *Wiring it to Hermes is different — see #1 below.*
+- **Trust-ceiling enforcement design is sound _as designed_.** `trust_ceiling.py:enforce()` returns `allow | draft | refuse`; action-class taxonomy (READ / INTERNAL_WRITE / EXTERNAL_SEND / COMMITMENT / DESTRUCTIVE) covers invariants #1-#3. Testable in isolation. _Wiring it to Hermes is different — see #1 below._
 
 ## What's wrong
 
 ### 1. Hermes integration risk is materially understated everywhere except the Hermes runbook. (HIGH)
 
-`aie_adapter.py:register()` is a stub. The runbook §3 names the actual problem: **Hermes v2026.5.7 has `agent/tool_guardrails.py` and per-provider adapters but no `agent/tool_router.py`** — the hook surface `aie_adapter.py`'s docstring assumes does not exist. Concretely: trust-ceiling enforcement for tool calls is not wired (`trust_ceiling.enforce()` is unit-testable, nothing calls it inside Hermes' dispatch loop); sticky-stop survival across compaction has no handler; per-tool-call audit logging has no emission point. A demo claiming "trust ceiling enforced in code" is not yet true. Runbook estimate is 2-4 days *if the upstream seam is findable*; if Hermes requires forking, this becomes 1-2 weeks plus permanent maintenance on every version bump. Largest gap between PR #812 and the §20 phase commitments.
+`aie_adapter.py:register()` is a stub. The runbook §3 names the actual problem: **Hermes v2026.5.7 has `agent/tool_guardrails.py` and per-provider adapters but no `agent/tool_router.py`** — the hook surface `aie_adapter.py`'s docstring assumes does not exist. Concretely: trust-ceiling enforcement for tool calls is not wired (`trust_ceiling.enforce()` is unit-testable, nothing calls it inside Hermes' dispatch loop); sticky-stop survival across compaction has no handler; per-tool-call audit logging has no emission point. A demo claiming "trust ceiling enforced in code" is not yet true. Runbook estimate is 2-4 days _if the upstream seam is findable_; if Hermes requires forking, this becomes 1-2 weeks plus permanent maintenance on every version bump. Largest gap between PR #812 and the §20 phase commitments.
 
 ### 2. Provisioning script doesn't match the spec's surface, and the gap is load-bearing. (HIGH)
 
@@ -91,4 +91,4 @@ This keeps architecture commitments intact while making the build commitment ach
 
 ---
 
-*End of Technical PM contribution — Round 1.*
+_End of Technical PM contribution — Round 1._
