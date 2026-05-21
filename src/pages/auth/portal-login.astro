@@ -9,6 +9,8 @@
  */
 
 const status = Astro.url.searchParams.get('status')
-const target = status ? `/auth/portal-sign-in?status=${encodeURIComponent(status)}` : '/auth/portal-sign-in'
+const target = status
+  ? `/auth/portal-sign-in?status=${encodeURIComponent(status)}`
+  : '/auth/portal-sign-in'
 return Astro.redirect(target, 301)
 ---

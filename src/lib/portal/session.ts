@@ -14,11 +14,7 @@
  */
 
 import type { Entity } from '../db/entities'
-import {
-  ensureLocalUser,
-  resolveClerkEntity,
-  type PortalUserRow,
-} from '../auth/clerk-bridge'
+import { ensureLocalUser, resolveClerkEntity, type PortalUserRow } from '../auth/clerk-bridge'
 
 export interface PortalContext {
   user: PortalUserRow
@@ -44,8 +40,10 @@ export async function getPortalClient(
   const clerkUser = await locals.currentUser()
   if (!clerkUser) return null
 
-  const email = clerkUser.primaryEmailAddress?.emailAddress ?? clerkUser.emailAddresses[0]?.emailAddress ?? ''
-  const name = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ').trim() ||
+  const email =
+    clerkUser.primaryEmailAddress?.emailAddress ?? clerkUser.emailAddresses[0]?.emailAddress ?? ''
+  const name =
+    [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ').trim() ||
     clerkUser.username ||
     email
 

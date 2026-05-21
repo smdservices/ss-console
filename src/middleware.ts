@@ -151,10 +151,7 @@ function enforceAdminAuth(
   return null
 }
 
-function enforcePortalAuth(
-  context: APIContext,
-  isPortalApiRoute: boolean
-): Response | null {
+function enforcePortalAuth(context: APIContext, isPortalApiRoute: boolean): Response | null {
   // Portal auth is owned by Clerk. clerkMiddleware (composed before
   // ssMiddleware via sequence()) populates locals.auth() with the
   // current request's Clerk session state. We only check userId
