@@ -213,6 +213,46 @@ if (!subscription) {
                   </ul>
                 </div>
               </section>
+
+              {access?.roles.includes('principal') && (
+                <section class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
+                  <div class="flex items-center justify-between gap-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
+                    <span>Manage</span>
+                    <span class="text-[color:var(--ss-color-primary)]">§ 03</span>
+                  </div>
+                  <ul
+                    class="divide-y-[2px] divide-[color:var(--ss-color-text-primary)]"
+                    role="list"
+                  >
+                    <li>
+                      <a
+                        href="/portal/products/ai-employee/settings/users"
+                        class="block px-5 md:px-7 py-4 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
+                      >
+                        <p class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)]">
+                          Users
+                        </p>
+                        <p class="mt-1 text-sm text-[color:var(--ss-color-text-secondary)]">
+                          Invite team members and manage roles.
+                        </p>
+                      </a>
+                    </li>
+                    <li>
+                      <a
+                        href="/portal/products/ai-employee/settings"
+                        class="block px-5 md:px-7 py-4 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
+                      >
+                        <p class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)]">
+                          Settings
+                        </p>
+                        <p class="mt-1 text-sm text-[color:var(--ss-color-text-secondary)]">
+                          Configure your AI Employee.
+                        </p>
+                      </a>
+                    </li>
+                  </ul>
+                </section>
+              )}
             </aside>
           </div>
         )
