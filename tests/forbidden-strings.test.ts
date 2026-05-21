@@ -348,6 +348,15 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // a repeating card — a different primitive than `PortalListItem`. Track
   // as a follow-up if milestone rail drifts or gains a second use.
   resolve('src/pages/portal/engagement/index.astro'),
+  // `products/ai-employee/index.astro` is the AI Employee dashboard
+  // landing (one customer per render), not a list of products. The
+  // small `.map(roles, …)` inside the sidebar renders a bullet list of
+  // granted role names (principal / operator / compliance) — text
+  // items inside a chrome card, not a list-row card surface. Drafts
+  // (#869) and Matters (#871) list views will live under
+  // /portal/products/ai-employee/drafts/index.astro and matters/index.astro
+  // and WILL use PortalListItem.
+  resolve('src/pages/portal/products/ai-employee/index.astro'),
 ]
 
 /** Collect every `index.astro` under `src/pages/portal/` EXCEPT the home. */
