@@ -17,7 +17,7 @@
 - **Per-customer Fly Machine isolation (ADR 0007).** Keeps blast radius small, makes "no cross-customer query" enforceable at the network layer, lets cost telemetry land naturally on Machine naming. `r2-vectorize-naming.md` + `decommission-drain.md` codify prefix and deletion ordering.
 - **Pre-output safety substrate (invariants #6 + #8 as runtime filters, not skills).** Avoids the circularity the prior critique caught. `safety-substrate/run_invariants.py` runs `--strict` at boot; `citation_filter.py` ships with adversarial fixtures; `fabrication-filter.md` correctly treats #8 parallel to #6.
 - **Reviewer-as-sender (ADR 0005) carries through to OAuth scopes.** `oauth-lifecycle.md` excludes `Mail.Send` / `gmail.send` — architectural enforcement of P2 at the grant layer. A security reviewer can confirm by inspection that the agent literally cannot send.
-- **Trust-ceiling enforcement design is sound _as designed_.** `trust_ceiling.py:enforce()` returns `allow | draft | refuse`; action-class taxonomy (READ / INTERNAL_WRITE / EXTERNAL_SEND / COMMITMENT / DESTRUCTIVE) covers invariants #1-#3. Testable in isolation. _Wiring it to Hermes is different — see #1 below._
+- **Trust-ceiling enforcement design is sound _as designed_.** `trust_ceiling.py:enforce()` returns `allow | draft | refuse`; action-class taxonomy (`READ` / `INTERNAL_WRITE` / `EXTERNAL_SEND` / `COMMITMENT` / `DESTRUCTIVE`) covers invariants #1-#3. Testable in isolation. _Wiring it to Hermes is different — see #1 below._
 
 ## What's wrong
 
