@@ -40,11 +40,11 @@ const entityId = portalData.client.id
 const clientName = portalData.client.name
 const orgId = portalData.user.org_id
 
-let engagement = null
 let milestones: Milestone[] = []
 
 const engagements = await listEngagements(env.DB, orgId, entityId)
-engagement = engagements.find((e) => e.status !== 'completed' && e.status !== 'cancelled') ?? null
+const engagement =
+  engagements.find((e) => e.status !== 'completed' && e.status !== 'cancelled') ?? null
 
 if (engagement) {
   milestones = await listMilestones(env.DB, orgId, engagement.id)
