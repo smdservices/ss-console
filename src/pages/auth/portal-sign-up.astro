@@ -3,6 +3,7 @@ import Base from '../../layouts/Base.astro'
 import AuthHeader from '../../components/AuthHeader.astro'
 import Footer from '../../components/Footer.astro'
 import { SignUp } from '@clerk/astro/components'
+import { clerkAppearance } from '../../lib/auth/clerk-appearance'
 
 /**
  * Client portal sign-up. Renders Clerk's SignUp component, which handles
@@ -41,6 +42,7 @@ import { SignUp } from '@clerk/astro/components'
           signInUrl="/auth/portal-sign-in"
           fallbackRedirectUrl="/portal"
           forceRedirectUrl="/portal"
+          appearance={clerkAppearance}
         />
       </div>
     </main>
