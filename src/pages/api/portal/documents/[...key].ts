@@ -40,14 +40,6 @@ function getContentType(key: string): string {
 }
 
 export const GET: APIRoute = async ({ locals, params }) => {
-  const session = locals.session
-  if (!session || session.role !== 'client') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
-
   const key = params.key
   if (!key) {
     return new Response(JSON.stringify({ error: 'Document key required' }), {
@@ -56,9 +48,15 @@ export const GET: APIRoute = async ({ locals, params }) => {
     })
   }
 
-  // Resolve client entity from session
-  const portalData = await getPortalClient(env.DB, session.userId, session.orgId)
+  // Resolve client entity via Clerk identity bridge
+  const portalData = await getPortalClient(env.DB, locals)
   if (!portalData) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+  if (!portalData.client) {
     return new Response(JSON.stringify({ error: 'Forbidden' }), {
       status: 403,
       headers: { 'Content-Type': 'application/json' },
@@ -69,8 +67,8 @@ export const GET: APIRoute = async ({ locals, params }) => {
   // Two conventions exist in R2:
   //   - Engagement docs:   `{orgId}/engagements/{id}/...`
   //   - SOW revisions:     `orgs/{orgId}/quotes/{qid}/sow/...` (see getSowRevisionSignedKey)
-  const orgPrefix = `${session.orgId}/`
-  const orgsScopedPrefix = `orgs/${session.orgId}/`
+  const orgPrefix = `${portalData.user.org_id}/`
+  const orgsScopedPrefix = `orgs/${portalData.user.org_id}/`
   if (!key.startsWith(orgPrefix) && !key.startsWith(orgsScopedPrefix)) {
     return new Response(JSON.stringify({ error: 'Forbidden' }), {
       status: 403,
@@ -87,18 +85,18 @@ export const GET: APIRoute = async ({ locals, params }) => {
   }
 
   // Verify the key belongs to this client's engagement
-  const engagements = await listEngagements(env.DB, session.orgId, portalData.client.id)
+  const engagements = await listEngagements(env.DB, portalData.user.org_id, portalData.client.id)
   const engagementIds = engagements.map((e) => e.id)
   const quoteIds = engagements.map((e) => e.quote_id)
 
   // Check if key matches engagement docs path or SOW PDF path
   const isEngagementDoc = engagementIds.some((id) =>
-    key.startsWith(`${session.orgId}/engagements/${id}/`)
+    key.startsWith(`${portalData.user.org_id}/engagements/${id}/`)
   )
   const isQuoteDoc = quoteIds.some(
     (qid) =>
-      key.startsWith(`${session.orgId}/quotes/${qid}/`) ||
-      key.startsWith(`orgs/${session.orgId}/quotes/${qid}/`)
+      key.startsWith(`${portalData.user.org_id}/quotes/${qid}/`) ||
+      key.startsWith(`orgs/${portalData.user.org_id}/quotes/${qid}/`)
   )
 
   if (!isEngagementDoc && !isQuoteDoc) {

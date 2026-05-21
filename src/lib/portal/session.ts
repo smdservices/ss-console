@@ -1,54 +1,58 @@
 /**
  * Portal session helpers.
  *
- * Resolves the entity record for an authenticated portal user.
- * Portal users are linked to entities via users.entity_id. Only the
- * 'client' role is portal-eligible.
+ * Resolves the local user + entity for an authenticated portal request.
+ * Identity is owned by Clerk (see src/lib/auth/clerk-bridge.ts); SS
+ * stores shadow rows keyed by clerk_user_id / clerk_org_id and JIT-
+ * creates the local users row on first login. The local entity is NOT
+ * JIT-created — a Clerk Organization without a matching
+ * `entities.clerk_org_id` returns `client: null`, and the caller renders
+ * the "no portal access yet" state.
+ *
+ * Magic-link auth on src/lib/auth/session.ts is retained for the admin
+ * console only. Portal auth runs through Clerk.
  */
 
 import type { Entity } from '../db/entities'
+import {
+  ensureLocalUser,
+  resolveClerkEntity,
+  type PortalUserRow,
+} from '../auth/clerk-bridge'
 
-interface UserRow {
-  id: string
-  org_id: string
-  email: string
-  name: string
-  role: string
-  entity_id: string | null
+export interface PortalContext {
+  user: PortalUserRow
+  client: Entity | null
 }
 
 /**
- * Resolve the entity record for the current portal session.
+ * Resolve the portal context for the current Astro request.
  *
- * Looks up the user by session.userId AND org_id to get entity_id,
- * then fetches the entity record. The org_id scope prevents a valid
- * portal user ID from one org from resolving against a different org's
- * session.
- *
- * Returns null if the user or entity is not found.
+ * Reads Clerk auth state and user profile from `Astro.locals` (populated
+ * by `clerkMiddleware()` in src/middleware.ts). Returns:
+ *   - null                              — no Clerk session (redirect to sign-in)
+ *   - { user, client: null }            — signed in, no entity provisioned yet
+ *   - { user, client: <Entity> }        — fully provisioned, render portal
  */
 export async function getPortalClient(
   db: D1Database,
-  userId: string,
-  orgId: string
-): Promise<{ user: UserRow; client: Entity } | null> {
-  const user = await db
-    .prepare(`SELECT * FROM users WHERE id = ? AND role = 'client' AND org_id = ?`)
-    .bind(userId, orgId)
-    .first<UserRow>()
+  locals: App.Locals
+): Promise<PortalContext | null> {
+  const auth = locals.auth()
+  if (!auth.userId) return null
 
-  if (!user || !user.entity_id) {
-    return null
-  }
+  const clerkUser = await locals.currentUser()
+  if (!clerkUser) return null
 
-  const client = await db
-    .prepare('SELECT * FROM entities WHERE id = ? AND org_id = ?')
-    .bind(user.entity_id, orgId)
-    .first<Entity>()
+  const email = clerkUser.primaryEmailAddress?.emailAddress ?? clerkUser.emailAddresses[0]?.emailAddress ?? ''
+  const name = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ').trim() ||
+    clerkUser.username ||
+    email
 
-  if (!client) {
-    return null
-  }
+  const user = await ensureLocalUser(db, auth.userId, { email, name })
 
+  if (!auth.orgId) return { user, client: null }
+
+  const client = await resolveClerkEntity(db, auth.orgId)
   return { user, client }
 }

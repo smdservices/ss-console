@@ -1,5 +1,6 @@
 ---
 import '../../../styles/global.css'
+import { SignOutButton } from '@clerk/astro/components'
 import { BRAND_NAME } from '../../../lib/config/brand'
 import { listEngagements } from '../../../lib/db/engagements'
 import { listDocuments } from '../../../lib/storage/r2'
@@ -21,10 +22,17 @@ import { env } from 'cloudflare:workers'
  * Protected by auth middleware (role=client).
  */
 
-const session = Astro.locals.session!
-const portalData = await getPortalClient(env.DB, session.userId, session.orgId)
-const clientId = portalData?.client.id
-const clientName = portalData?.client.name ?? ''
+const portalData = await getPortalClient(env.DB, Astro.locals)
+if (!portalData) {
+  return Astro.redirect('/auth/portal-sign-in')
+}
+if (!portalData.client) {
+  return Astro.redirect('/auth/portal-sign-in?status=no_subscription')
+}
+
+const clientId = portalData.client.id
+const clientName = portalData.client.name
+const orgId = portalData.user.org_id
 
 interface DocumentEntry {
   name: string
@@ -45,14 +53,14 @@ const documents: DocumentEntry[] = []
 let engagement = null
 
 if (clientId) {
-  const engagements = await listEngagements(env.DB, session.orgId, clientId)
+  const engagements = await listEngagements(env.DB, orgId, clientId)
   engagement =
     engagements.find((e) => e.status !== 'completed' && e.status !== 'cancelled') ??
     engagements[0] ??
     null
 
   if (engagement) {
-    const prefix = `${session.orgId}/engagements/${engagement.id}/docs/`
+    const prefix = `${orgId}/engagements/${engagement.id}/docs/`
     const r2Objects = await listDocuments(env.STORAGE, prefix)
 
     for (const obj of r2Objects) {
@@ -67,7 +75,7 @@ if (clientId) {
     }
 
     if (engagement.quote_id) {
-      const sowState = await getSOWStateForQuote(env.DB, session.orgId, engagement.quote_id)
+      const sowState = await getSOWStateForQuote(env.DB, orgId, engagement.quote_id)
       const revision = sowState.downloadableRevision
 
       if (revision) {
@@ -144,14 +152,14 @@ function kindFor(doc: DocumentEntry): string {
   <body class="min-h-screen bg-[color:var(--ss-color-background)]">
     <SkipToMain />
     <PortalHeader clientName={clientName}>
-      <form method="POST" action="/api/auth/logout">
+      <SignOutButton asChild redirectUrl="/auth/portal-sign-in?status=signed_out">
         <button
-          type="submit"
+          type="button"
           class="inline-flex items-center min-h-11 px-2 -mx-2 text-sm text-[color:var(--ss-color-text-muted)] hover:text-[color:var(--ss-color-text-primary)] active:text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded transition-colors"
         >
           Sign out
         </button>
-      </form>
+      </SignOutButton>
     </PortalHeader>
 
     <PortalTabs pathname={Astro.url.pathname} />
