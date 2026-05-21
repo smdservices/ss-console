@@ -290,50 +290,122 @@ Capability interfaces (sketch — full set defined in `ai-employee/capabilities/
 
 Concrete adapters live at `ai-employee/connectors/{capability}/{system}/` and implement the relevant interface.
 
+### 7.2.1 Capability interface specifications
+
+The formal TypeScript signatures for all eleven capability interfaces live at `src/lib/ai-employee/capabilities/` in the ss-console repo. Each interface is a single file (e.g. `email.ts`, `practice-management.ts`); shared types (`DateRange`, `CapabilitySet`, `HealthStatus`, `AdapterError`) live in `types.ts`; the adapter conformance harness lives in `conformance.ts`. The TypeScript source is the contract — this PRD section summarizes the commitments.
+
+**Adapter base contract.** Every adapter implements `describe_capabilities(): CapabilitySet` and `health_check(): Promise<HealthStatus>`. The `CapabilitySet` declares the capability name, the adapter slug, the version, the set of methods supported, the set of optional methods explicitly NOT supported, and (recommended) per-method field-coverage disclosure that feeds the §12 dashboard "what Marcus used to write this" sourcing block.
+
+**Email pattern decision — Pattern A locked at v1.** The Tech Lead's synthesis-round-1 contribution surfaced two architecturally distinct draft-and-send patterns:
+
+- **Pattern A.** Agent creates a draft in the reviewer's drafts folder. The reviewer reviews, edits, and sends from their own email client. The platform has no programmatic send path.
+- **Pattern B.** Agent surfaces a pending action in the dashboard Queue. Reviewer clicks Approve in the dashboard. The platform's backend sends programmatically using a stored OAuth token.
+
+**Pattern A is the architectural answer per [ADR 0005 (Reviewer-as-Sender)](../../adr/0005-reviewer-as-sender.md).** Pattern B was considered and explicitly rejected — it surrenders the architectural property ADR 0005 protects (no agent-to-external send path under any identity other than the reviewer's own client). The `Email` interface has no `send` method; the conformance harness blocks adapters that add one.
+
+**The eleven interfaces (one-line summary; full signatures in source):**
+
+| Interface            | Role                                                       | Key methods                                                                                                                  | Outbound posture                                                                                     |
+| -------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `PracticeManagement` | Matters, contacts, time entries, PM documents              | `search_matters`, `create_matter`, `update_matter`, `list_time_entries`, `create_time_entry_draft`, `upload_matter_document` | Write to PM system only; no external send                                                            |
+| `Email`              | Inbox, threads, drafts, labels, sent-folder watch          | `list_threads`, `get_thread`, `create_draft`, `update_draft`, `apply_label`, `list_sent_since`                               | **Pattern A only**: no send method                                                                   |
+| `Calendar`           | Read events, propose events, suggest times                 | `list_events`, `suggest_time`, `create_event_draft`, `update_event_draft`                                                    | Drafts only; reviewer adds external attendees and sends invite from their own client                 |
+| `DocumentStorage`    | Folders, versioned documents, share drafts                 | `list_folder`, `download_document`, `upload_document`, `update_document`, `share_document_draft`                             | Internal writes allowed; external shares are drafts only                                             |
+| `ESign`              | Envelope status, reminder drafts, completed-doc retrieval  | `list_envelopes`, `get_envelope`, `create_reminder_draft`, `download_completed`                                              | No `send_envelope`: reviewer creates and sends envelopes from the source platform                    |
+| `CourtAccess`        | Case search, dockets, filing retrieval                     | `search_cases`, `get_docket`, `get_docket_entries`, `get_filing_document`                                                    | **Read-only**: no filing or write methods                                                            |
+| `Payments`           | Transactions, trust-balance lookup, payment-request drafts | `list_transactions`, `get_trust_balance`, `create_payment_request_draft`                                                     | **Read + draft only**: no autonomous trust transfers or sends (invariant #3)                         |
+| `Accounting`         | Invoices, A/R, expense entries                             | `list_invoices`, `list_accounts_receivable`, `create_invoice_draft`, `create_expense_entry_draft`                            | **Read + draft only**: no posting to the GL                                                          |
+| `IntakeCRM`          | Leads, lead status, intake-form responses                  | `list_leads`, `update_lead`, `append_lead_note`, `list_intake_form_responses`                                                | Internal CRM mutations allowed; outreach goes through Email                                          |
+| `CallTracking`       | Call records, recordings, attribution                      | `list_calls`, `get_recording`, `get_attribution`                                                                             | **Read-only**: no origination or messaging methods                                                   |
+| `InternalComms`      | Slack/Teams channels, DMs, mentions                        | `list_channels`, `post_to_channel`, `send_dm`, `react_to_message`, `list_recent_mentions`                                    | **Persona-as-sender for internal-only destinations**: adapters refuse channels with external members |
+
+**Adapter conformance.** `src/lib/ai-employee/capabilities/conformance.ts` defines eight invariants every adapter must satisfy. The two most architecturally load-bearing:
+
+- `NO_AUTONOMOUS_EXTERNAL_SEND` — No adapter exposes a method that sends external messages under any identity other than the reviewer's drafts folder. The harness enforces this by reflecting on the adapter's method names against `BANNED_METHOD_NAMES` (per-capability lists of forbidden names: `Email.send`, `ESign.send_envelope`, `Calendar.send_invitation`, etc.).
+- `NO_AUTONOMOUS_TRUST_TRANSFER` — No `Payments` adapter exposes `initiate_transfer`, `trust_disbursement`, or equivalents, regardless of vendor capability. Per Platform PRD invariant #3 and ADR 0005.
+
+The full eight invariants — including `NULL_FOR_ABSENT` (read methods return null, don't throw), `TYPED_ERRORS` (only `AdapterError` with codes from the closed `AdapterErrorCode` union), `HEALTH_CHECK_BOUNDED` (5-second budget), `UNSUPPORTED_METHODS_THROW` (no silent stubs), and `NO_FIELD_FABRICATION` (only fields read from source; inferred fields declared in `CapabilitySet.field_coverage.derived`) — are documented inline in `conformance.ts`.
+
+Conformance suites are authored as `*.conformance.test.ts` files next to each adapter. Adapter PRs that do not include a passing conformance suite are blocked at review.
+
 ### 7.3 `customer.yaml` as the wiring layer
 
-Each customer has one `customer.yaml` declaring: persona, voice, vertical, region, connectors per capability, skills enabled, trust ceilings, scope, escalation rules.
+Each customer has one `customer.yaml` declaring: personas, voice, vertical, region, connectors per capability, skills enabled, trust ceilings, scope, escalation rules.
+
+**Formal schema** lives at [`docs/specs/ai-employee/customer-yaml-schema.md`](../../specs/ai-employee/customer-yaml-schema.md) (closes [#790](https://github.com/venturecrane/ss-console/issues/790)). The schema is the contract; the example below is illustrative.
+
+**Storage model** is pinned by [ADR 0012](../../adr/0012-customer-yaml-storage.md) — git is the source of truth, with portal D1 (`customer_configs`) and per-customer R2 as materialized read replicas. The runtime validator [`src/lib/ai-employee/customer-yaml/validator.ts`](../../../src/lib/ai-employee/customer-yaml/validator.ts) gates merges; the secret detector [`src/lib/ai-employee/customer-yaml/secret-detector.ts`](../../../src/lib/ai-employee/customer-yaml/secret-detector.ts) rejects any literal-secret leak before commit.
 
 ```yaml
-customer: smith-pi-firm
+schema_version: 1
+customer_id: smith-pi-firm
+customer_name: Smith PI Firm
 vertical: law-firm
 practice_areas: [personal-injury, workers-comp]
-region: us-west-2 (lax)
-persona:
-  name: Marcus
-  signature_html: ...
-  avatar_url: ...
-  tone: warm-but-professional
+fly_region: lax
+model: claude-opus-4-7
+hermes_ref: v2026.5.7
+
+machine:
+  size: performance-1x
+  memory_mb: 1024
+
+users: # humans with portal access (dashboard-roles.md)
+  - email: partner@firm.com
+    role: principal
+    full_name: Jane Smith
+
+# personas is an ARRAY (ADR 0011); v1 ships at length 1
+personas:
+  - slug: marcus
+    status: active
+    name: Marcus
+    title: AI Associate
+    signature_html: ...
+    tone: [warm-but-professional, concise]
+    send_as:
+      agentmail_identity: marcus@smith-pi-firm.agents.smd.services
+    skills:
+      - { name: inbox-triage-and-draft, trust_ceiling: draft_for_review }
+      - { name: conflict-check, trust_ceiling: autonomous }
+      - { name: pi-intake-triage, trust_ceiling: draft_for_review }
+    channel_bindings:
+      - integration: ms-graph
+        channels: [primary-inbox]
+
+# 11 capability-name keys from src/lib/ai-employee/capabilities/types.ts
 connectors:
-  Email: microsoft-graph
-  Calendar: microsoft-graph
-  DocumentStorage: sharepoint
-  PracticeManagement: filevine
-  ESign: docusign
-  CourtAccess: courtlistener
-  Payments: lawpay
-  Accounting: quickbooks-online
-  IntakeCRM: lead-docket
-  CallTracking: callrail
-  InternalComms: microsoft-teams
-skills:
-  - inbox-triage-and-draft: { trust: draft_for_review, scope: [partner, intake] }
-  - conflict-check: { trust: autonomous_read }
-  - law-pi-intake-triage: { trust: draft_for_review }
-  - signing-page-chase: { trust: draft_for_review }
-  - red-flag-watching: { trust: autonomous_read }
-  # ... etc
+  Email:
+    adapter: microsoft-graph
+    backend: mcp:softeria/ms-365-mcp-server
+    token_ref: 'infisical:/ai-employee/smith-pi-firm/email/refresh' # NEVER literal secrets
+  PracticeManagement:
+    adapter: filevine
+    backend: build:filevine-mcp
+  CourtAccess:
+    adapter: courtlistener
+    backend: mcp:freelawproject/courtlistener
+  # ... Calendar, DocumentStorage, ESign, Payments, Accounting, IntakeCRM, CallTracking, InternalComms
+
 scope:
   email_folders_visible: [Inbox, Clients, Intake]
   email_folders_blind: [Strategy, Private, Co-Counsel]
   email_keyword_blocks: [PRIVILEGED, WORK PRODUCT]
   domain_blocks: [opposing-counsel-personal.example.com]
+
 escalation:
   red_flag_recipients: [partner@firm.com]
   failure_recipients: [partner@firm.com, paralegal@firm.com]
+
+memory: # ADR 0009 isolation invariants — validator enforces equality with customer_id
+  d1_namespace: smith-pi-firm
+  r2_vault_path: vaults/smith-pi-firm/
+  vectorize_index: hermes-smith-pi-firm-vault
 ```
 
-`bin/provision-customer.sh {customer}` reads this, allocates the Machine, binds storage, registers connectors, deploys the runtime. Changes redeploy with the same script.
+`bin/provision-customer.sh {customer}` reads this, allocates the Machine, binds storage, registers connectors, deploys the runtime. Changes redeploy with the same script. The validator runs at PR time per [ADR 0012](../../adr/0012-customer-yaml-storage.md) §5; provisioning trusts the gate but re-validates defensively at boot.
+
+**Secret-exclusion enforcement.** `token_ref: 'infisical:/<scope>/<customer>/<purpose>'` is the only permitted secret-reference channel. Literal API keys, OAuth client secrets, JWTs, AWS access keys, GitHub tokens, OpenAI keys, Slack tokens, and Google OAuth client secrets are rejected by pattern; field names containing `secret`, `password`, `api_key`, `access_token`, `refresh_token`, `private_key`, or `bearer` are rejected by name. Refs are resolved at deploy time and injected as Fly secrets — they never enter container env vars at rest. The detector NEVER echoes a matched substring back, so its findings can safely be CI-logged.
 
 ### 7.4 Skill loading and pinning
 
@@ -1053,6 +1125,7 @@ This PRD assumes the following are settled (some by existing ADRs, some pending)
 - **ADR (proposed) — Memory as a customer-owned, editable, exportable artifact**: needs an ADR.
 - **ADR (proposed) — Cross-Machine query prohibition (invariant #7)**: needs an ADR. Architectural enforcement of customer isolation.
 - **ADR (proposed) — Fabrication discipline (invariant #8)**: needs an ADR. Empty-state pattern for unsourced client-facing fields.
+- **ADR (proposed) — `customer.yaml` secret-exclusion policy**: needs an ADR. Formalizes the rule that customer.yaml never carries literal secret values, with `token_ref: 'infisical:/...'` as the only permitted secret-reference channel and pre-commit + CI validator enforcement. The schema spec and validator land per [#790](https://github.com/venturecrane/ss-console/issues/790); the ADR records the policy commitment alongside [ADR 0012](../../adr/0012-customer-yaml-storage.md) (storage architecture).
 - **ADR (proposed) — Sent-folder watching as opt-in with structural-diff-only storage**: needs an ADR. Privacy posture for the learning loop.
 - **ADR (proposed) — Voice quality gates (blind-test ≥80% before first external draft)**: needs an ADR. Operational gate for customer launch.
 - **ADR (proposed) — Captain operational budget (≤2 hrs/wk/customer) and backup-operator bus-factor minimum**: needs an ADR. Operational sustainability constraint.
@@ -1093,7 +1166,8 @@ Status: largely complete per `ai-employee-smd-customer-zero` branch progress.
 
 **Architecture:**
 
-- `customer.yaml` schema locked
+- `customer.yaml` schema locked — formal contract at [`docs/specs/ai-employee/customer-yaml-schema.md`](../../specs/ai-employee/customer-yaml-schema.md), runtime validator at [`src/lib/ai-employee/customer-yaml/validator.ts`](../../../src/lib/ai-employee/customer-yaml/validator.ts), secret detector at [`src/lib/ai-employee/customer-yaml/secret-detector.ts`](../../../src/lib/ai-employee/customer-yaml/secret-detector.ts) ([#790](https://github.com/venturecrane/ss-console/issues/790))
+- Pre-commit + CI validation hook wired against the canonical configs repo per [ADR 0012](../../adr/0012-customer-yaml-storage.md) §5 — blocks merges that carry literal secrets or break schema (validator module lands in this PR; CI workflow + configs-repo location land in the follow-on ADR 0012 implementation phase)
 - Capability-interface contracts defined for: Email, Calendar, DocumentStorage, ESign, PracticeManagement, CourtAccess, Payments, Accounting
 - Per-customer Fly.io Machine + D1 + R2 + Vectorize bound
 - Safety substrate with 8 invariants live (including new #7 cross-Machine query prohibition and #8 fabrication discipline)

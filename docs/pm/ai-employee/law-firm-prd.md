@@ -357,6 +357,8 @@ These extend the platform's 9 cross-cutting skills with law-firm-aware versions:
 
 The law-firm pack ships a tiered, additive connector strategy. Tier 0 connectors work for any firm regardless of practice management. Tier 1 covers the specific PM systems law firms use. Tier 2 covers adjacent legal tools (intake, court, accounting, communications). All adapters implement the platform's capability interfaces (platform PRD §7.2).
 
+**How adapters wire into a customer.** Each customer's connector bindings live in `customer.yaml` under the `connectors:` map, keyed by canonical capability name. The formal schema — including the secret-exclusion rules that protect privilege (no literal OAuth tokens, no API keys; only `token_ref: 'infisical:/...'`) — is at [`docs/specs/ai-employee/customer-yaml-schema.md`](../../specs/ai-employee/customer-yaml-schema.md). Platform PRD §7.3 shows the worked example. For a law-firm tenant, a leaked credential in git history is a privilege-breach with bar-discipline consequences — the validator and secret detector at [`src/lib/ai-employee/customer-yaml/`](../../../src/lib/ai-employee/customer-yaml/) gate merges before any literal secret enters history.
+
 ### 7.1 Tier 0 — Universal connectors (pre-built, every demo)
 
 These are needed by every law-firm customer regardless of stack. Sourced from existing official or strong community MCPs; SMD hardens for production.

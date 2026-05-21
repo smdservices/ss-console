@@ -13,7 +13,7 @@ The market has moved hard toward "AI workforce" and "AI operating system" langua
 
 The strongest competitive moats are **portability and ownership**, not "what the AI does." Two architectural facts (customer-owned editable memory and reviewer-as-sender) form a combined ethics architecture position that no competitor in the reviewed set publicly matches. Both individually are defensible for 9-18 months; combined, they are a category position rather than a feature differentiator.
 
-The doctrine outputs of this round are locked in [ADR 0012](../../../adr/0012-ai-employee-positioning-doctrine.md).
+The doctrine outputs of this round are locked in [ADR 0013](../../../adr/0013-ai-employee-positioning-doctrine.md).
 
 ---
 
@@ -202,8 +202,8 @@ Final price is locked elsewhere.
 
 This round's outputs are locked in two ADRs:
 
-- **[ADR 0012](../../../adr/0012-ai-employee-positioning-doctrine.md)** — AI Employee positioning doctrine: portable persona, firm-owned memory, reviewer-as-sender as ethics architecture; Eve wedge line; legal-vertical opener ("a managed AI staffer your team reviews before anything leaves the firm"); combined moat stack; flat-monthly removed from moat list.
-- **[ADR 0013](../../../adr/0013-pi-vertical-adapter-build-priority.md)** — Practice-management adapter build priority: Filevine first, CASEpeer second, SmartAdvocate third.
+- **[ADR 0013](../../../adr/0013-ai-employee-positioning-doctrine.md)** — AI Employee positioning doctrine: portable persona, firm-owned memory, reviewer-as-sender as ethics architecture; Eve wedge line; legal-vertical opener ("a managed AI staffer your team reviews before anything leaves the firm"); combined moat stack; flat-monthly removed from moat list.
+- **[ADR 0014](../../../adr/0014-pi-vertical-adapter-build-priority.md)** — Practice-management adapter build priority: Filevine first, CASEpeer second, SmartAdvocate third.
 
 ---
 
@@ -213,8 +213,8 @@ This round's outputs are locked in two ADRs:
 - [ADR 0006](../../../adr/0006-capability-adapter-pattern.md) — capability-adapter pattern
 - [ADR 0008](../../../adr/0008-customer-owned-memory-artifact.md) — customer-owned memory artifact
 - [ADR 0011](../../../adr/0011-multi-persona-per-customer.md) — multi-persona per customer
-- [ADR 0012](../../../adr/0012-ai-employee-positioning-doctrine.md) — AI Employee positioning doctrine
-- [ADR 0013](../../../adr/0013-pi-vertical-adapter-build-priority.md) — PI vertical adapter build priority
+- [ADR 0013](../../../adr/0013-ai-employee-positioning-doctrine.md) — AI Employee positioning doctrine
+- [ADR 0014](../../../adr/0014-pi-vertical-adapter-build-priority.md) — PI vertical adapter build priority
 - [Round-1 competitor analyst contribution](../round-1/competitor-analyst.md)
 - [Round-3 ethics architecture](../round-3/ethics-architecture.md)
 - [Round-3 OpenAI UPL strategic read](../round-3/openai-upl-strategic-read.md)

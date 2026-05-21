@@ -8,7 +8,7 @@ related-prd: docs/pm/ai-employee/platform-prd.md §2, §3, §10, §13, §16; doc
 related-issue: https://github.com/venturecrane/ss-console/issues/828
 ---
 
-# ADR 0012 — AI Employee Positioning Doctrine
+# ADR 0013 — AI Employee Positioning Doctrine
 
 **Status:** Accepted. Locks the marketing, sales, and demo positioning for the AI Employee product across the cross-vertical brand and the PI law-firm vertical specifically. Doctrine inputs synthesized from a three-round external competitive analysis engagement (May 2026) and Captain decisions on positioning, voice, and demo flow.
 
@@ -209,7 +209,7 @@ This is the merge gate that prevents doctrine drift back into marketing copy.
 - [ADR 0008](./0008-customer-owned-memory-artifact.md) — customer-owned memory artifact
 - [ADR 0010](./0010-per-customer-oauth-token-storage.md) — per-customer OAuth token storage
 - [ADR 0011](./0011-multi-persona-per-customer.md) — multi-persona per customer
-- [ADR 0013](./0013-pi-vertical-adapter-build-priority.md) — PI vertical adapter build priority
+- [ADR 0014](./0014-pi-vertical-adapter-build-priority.md) — PI vertical adapter build priority
 - [Platform PRD](../pm/ai-employee/platform-prd.md)
 - [Law-firm PRD](../pm/ai-employee/law-firm-prd.md)
 - [Round-2 competitive analysis](../pm/ai-employee/prd-contributions/round-2/competitive-analysis.md)

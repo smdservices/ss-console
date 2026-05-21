@@ -8,7 +8,7 @@ related-prd: docs/pm/ai-employee/platform-prd.md §7.2; docs/pm/ai-employee/law-
 related-issue: https://github.com/venturecrane/ss-console/issues/828
 ---
 
-# ADR 0013 — PI Vertical Adapter Build Priority
+# ADR 0014 — PI Vertical Adapter Build Priority
 
 **Status:** Accepted. Locks the practice-management capability-adapter build sequence for the PI law-firm vertical in v1. The capability-adapter pattern itself is locked separately in [ADR 0006](./0006-capability-adapter-pattern.md); this ADR sequences which `PracticeManagement` adapter ships first, second, and third for the PI vertical.
 
@@ -91,7 +91,7 @@ That line is approved cross-vertical and matches the architecture.
 - **Engineering scope aligned to sales motion.** Filevine first means the first paying customer's most likely stack is supported on day one. CASEpeer and SmartAdvocate follow as the pipeline broadens.
 - **Adapter build cost is bounded.** Three adapters, in priority order, sized to the actual buyer set. We do not speculatively build for Clio, MyCase, Litify, or Neos.
 - **Demo coherence.** The "we integrate with your system" question has a confident answer for the three most likely PI prospects in Phoenix. For other systems, the capability-adapter pattern answer (the persona is decoupled) is honest and accurate.
-- **Composes with positioning doctrine.** [ADR 0012](./0012-ai-employee-positioning-doctrine.md) makes "portable, firm-owned, human-reviewed AI staffer" the brand position. The adapter-priority decision reinforces it: the persona is portable across the three most likely PI practice-management systems, with the capability layer ensuring that portability scales beyond v1.
+- **Composes with positioning doctrine.** [ADR 0013](./0013-ai-employee-positioning-doctrine.md) makes "portable, firm-owned, human-reviewed AI staffer" the brand position. The adapter-priority decision reinforces it: the persona is portable across the three most likely PI practice-management systems, with the capability layer ensuring that portability scales beyond v1.
 
 ### Negative / accepted
 
@@ -128,7 +128,7 @@ The beta-1 outreach playbook screens for Filevine first, CASEpeer second, SmartA
 ## References
 
 - [ADR 0006](./0006-capability-adapter-pattern.md) — capability-adapter pattern (the architectural pattern this ADR sequences within)
-- [ADR 0012](./0012-ai-employee-positioning-doctrine.md) — AI Employee positioning doctrine (the brand-level frame this sequencing supports)
+- [ADR 0013](./0013-ai-employee-positioning-doctrine.md) — AI Employee positioning doctrine (the brand-level frame this sequencing supports)
 - [Platform PRD §7.2](../pm/ai-employee/platform-prd.md) — capability interface + adapter pattern
 - [Law-firm PRD §7](../pm/ai-employee/law-firm-prd.md) — connector strategy (Tier-0/Tier-1/Tier-2 ladder)
 - [Round-2 competitive analysis](../pm/ai-employee/prd-contributions/round-2/competitive-analysis.md) — competitive landscape context

@@ -147,6 +147,26 @@ declare namespace Cloudflare {
      * standard wrangler secret bulk pattern documented in CLAUDE.md.
      */
     CLERK_SECRET_KEY?: string
+    /**
+     * Microsoft Graph OAuth 2.0 client ID and secret. Used by the
+     * ai-employee OAuth callback (issue #879) to exchange authorization
+     * codes for tokens during connector consent flows. Issued by an
+     * Azure AD app registration whose redirect URI list includes
+     * `${ADMIN_BASE_URL}/api/oauth/callback`.
+     */
+    MICROSOFT_GRAPH_CLIENT_ID?: string
+    MICROSOFT_GRAPH_CLIENT_SECRET?: string
+    /**
+     * HMAC-SHA256 signing key for stateless OAuth state parameters used
+     * by /api/oauth/callback (issue #879, ai-employee connector consent).
+     * 32 random bytes, base64-encoded. Generate with
+     * `openssl rand -base64 32`. Rotation: bump the secret in Workers
+     * env; in-flight states issued under the old key fail validation at
+     * the callback and the reviewer simply re-initiates consent. No
+     * grace window required because state TTL is 10 minutes. See
+     * src/lib/oauth/state.ts.
+     */
+    OAUTH_STATE_SIGNING_KEY?: string
   }
 }
 
