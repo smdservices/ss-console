@@ -145,7 +145,7 @@ describe('validate — happy path', () => {
     const value: CustomerYaml = result.value
     expect(value.customer_id).toBe('smith-pi-firm')
     expect(value.personas).toHaveLength(1)
-    expect(value.personas[0]!.skills).toHaveLength(2)
+    expect(value.personas[0].skills).toHaveLength(2)
     expect(value.connectors.Email?.token_ref).toBe(
       'infisical:/ai-employee/smith-pi-firm/email/refresh'
     )
@@ -167,7 +167,7 @@ describe('validate — happy path', () => {
   it('accepts non-law-firm vertical without practice_areas', () => {
     const f = validFixture()
     f['vertical'] = 'marketing-agency'
-    delete (f as Record<string, unknown>)['practice_areas']
+    delete f['practice_areas']
     const result = validate(f)
     if (!result.ok) {
       throw new Error(`expected ok; got: ${JSON.stringify(result.errors)}`)
@@ -212,7 +212,7 @@ describe('validate — MissingField', () => {
 
   it('requires practice_areas when vertical=law-firm', () => {
     const f = validFixture()
-    delete (f as Record<string, unknown>)['practice_areas']
+    delete f['practice_areas']
     const r = validate(f)
     expect(r.ok).toBe(false)
     if (r.ok) return
@@ -247,7 +247,7 @@ describe('validate — EnumViolation', () => {
 
   it('rejects unknown user role', () => {
     const f = validFixture()
-    ;(f['users'] as Array<{ role: string }>)[0]!.role = 'janitor'
+    ;(f['users'] as Array<{ role: string }>)[0].role = 'janitor'
     const r = validate(f)
     expect(r.ok).toBe(false)
     if (r.ok) return
@@ -258,7 +258,7 @@ describe('validate — EnumViolation', () => {
     const f = validFixture()
     ;(
       f['personas'] as Array<{ skills: Array<{ trust_ceiling: string }> }>
-    )[0]!.skills[0]!.trust_ceiling = 'YOLO'
+    )[0].skills[0].trust_ceiling = 'YOLO'
     const r = validate(f)
     expect(r.ok).toBe(false)
     if (r.ok) return
@@ -269,7 +269,7 @@ describe('validate — EnumViolation', () => {
 
   it('rejects unknown persona status', () => {
     const f = validFixture()
-    ;(f['personas'] as Array<{ status: string }>)[0]!.status = 'on-vacation'
+    ;(f['personas'] as Array<{ status: string }>)[0].status = 'on-vacation'
     const r = validate(f)
     expect(r.ok).toBe(false)
     if (r.ok) return
@@ -322,7 +322,7 @@ describe('validate — InvalidSlug', () => {
 
   it('rejects persona.slug with uppercase', () => {
     const f = validFixture()
-    ;(f['personas'] as Array<{ slug: string }>)[0]!.slug = 'Marcus'
+    ;(f['personas'] as Array<{ slug: string }>)[0].slug = 'Marcus'
     const r = validate(f)
     expect(r.ok).toBe(false)
     if (r.ok) return
@@ -355,7 +355,7 @@ describe('validate — personas[]', () => {
 
   it('rejects personas with no active entry', () => {
     const f = validFixture()
-    ;(f['personas'] as Array<{ status: string }>)[0]!.status = 'archived'
+    ;(f['personas'] as Array<{ status: string }>)[0].status = 'archived'
     const r = validate(f)
     expect(r.ok).toBe(false)
     if (r.ok) return
@@ -412,7 +412,7 @@ describe('validate — connectors', () => {
 
   it('rejects an unknown backend prefix', () => {
     const f = validFixture()
-    ;(f['connectors'] as Record<string, Record<string, string>>)['Email']!.backend =
+    ;(f['connectors'] as Record<string, Record<string, string>>)['Email'].backend =
       'mystery:foo-bar'
     const r = validate(f)
     expect(r.ok).toBe(false)
@@ -440,7 +440,7 @@ describe('validate — connectors', () => {
 
   it('rejects a non-infisical token_ref', () => {
     const f = validFixture()
-    ;(f['connectors'] as Record<string, Record<string, string>>)['Email']!.token_ref =
+    ;(f['connectors'] as Record<string, Record<string, string>>)['Email'].token_ref =
       'vault://path/that/is/not/infisical'
     const r = validate(f)
     expect(r.ok).toBe(false)
@@ -450,7 +450,7 @@ describe('validate — connectors', () => {
 
   it('rejects an infisical token_ref with too few segments', () => {
     const f = validFixture()
-    ;(f['connectors'] as Record<string, Record<string, string>>)['Email']!.token_ref =
+    ;(f['connectors'] as Record<string, Record<string, string>>)['Email'].token_ref =
       'infisical:/short'
     const r = validate(f)
     expect(r.ok).toBe(false)
@@ -547,7 +547,7 @@ describe('validate — schema_version', () => {
 describe('validate — secret detection integration', () => {
   it('rejects when a banned field name appears anywhere', () => {
     const f = validFixture()
-    ;(f['connectors'] as Record<string, Record<string, unknown>>)['Email']!['client_secret'] =
+    ;(f['connectors'] as Record<string, Record<string, unknown>>)['Email']['client_secret'] =
       'irrelevant'
     const r = validate(f)
     expect(r.ok).toBe(false)
@@ -557,7 +557,7 @@ describe('validate — secret detection integration', () => {
 
   it('rejects when a provider-shaped key appears in a value', () => {
     const f = validFixture()
-    ;(f['personas'] as Array<Record<string, unknown>>)[0]!['notes'] = [
+    ;(f['personas'] as Array<Record<string, unknown>>)[0]['notes'] = [
       'sk',
       'live',
       'abcdefghijklmnopqrstuvwxyz12345678',
@@ -581,7 +581,7 @@ describe('validate — secret detection integration', () => {
   it('NEVER echoes the matched secret in error messages', () => {
     const secret = ['sk', 'live', 'abcdefghijklmnopqrstuvwxyz12345678'].join('_')
     const f = validFixture()
-    ;(f['personas'] as Array<Record<string, unknown>>)[0]!['notes'] = secret
+    ;(f['personas'] as Array<Record<string, unknown>>)[0]['notes'] = secret
     const r = validate(f)
     expect(r.ok).toBe(false)
     if (r.ok) return
@@ -617,15 +617,15 @@ describe('validate — aggregate error behavior', () => {
     const r = validate(['not', 'an', 'object'])
     expect(r.ok).toBe(false)
     if (r.ok) return
-    expect(r.errors[0]!.code).toBe('TypeMismatch')
-    expect(r.errors[0]!.path).toBe('$')
+    expect(r.errors[0].code).toBe('TypeMismatch')
+    expect(r.errors[0].path).toBe('$')
   })
 
   it('rejects null root', () => {
     const r = validate(null)
     expect(r.ok).toBe(false)
     if (r.ok) return
-    expect(r.errors[0]!.code).toBe('TypeMismatch')
+    expect(r.errors[0].code).toBe('TypeMismatch')
   })
 
   it('never throws on adversarial input', () => {

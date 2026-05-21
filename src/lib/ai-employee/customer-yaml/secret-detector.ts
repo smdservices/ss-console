@@ -358,7 +358,7 @@ export function scanRawYaml(text: string, options: ScanOptions = {}): SecretFind
     if (line === '' || line.startsWith('#')) continue
     const colon = findUnquotedColon(line)
     let fieldName: string | null = null
-    let valueText: string = ''
+    let valueText: string
     if (colon === -1) {
       // No colon — treat the whole non-comment portion as a value (covers
       // YAML list items written as `- bare-value`).
