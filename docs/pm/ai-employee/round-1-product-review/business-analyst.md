@@ -18,7 +18,7 @@
 
 ## What's wrong
 
-**Connector list assumes tooling real PI firms don't always have.** Law-firm §7.2 pre-builds Filevine/SmartAdvocate/Clio/CASEpeer/Neos/MyCase/Litify — reasonable for *modernized* firms. Meeting firm is 20 years old; realistic shapes include Needles (acknowledged dead-end), homegrown Filemaker DB, paper + Outlook + Dropbox + PracticeMaster for billing, or Clio bought reluctantly and unused. 7-day adapter fallback is good, but the most common reality — *firm has no working PM system* — is unaddressed. Different demo, not a connector problem.
+**Connector list assumes tooling real PI firms don't always have.** Law-firm §7.2 pre-builds Filevine/SmartAdvocate/Clio/CASEpeer/Neos/MyCase/Litify — reasonable for _modernized_ firms. Meeting firm is 20 years old; realistic shapes include Needles (acknowledged dead-end), homegrown Filemaker DB, paper + Outlook + Dropbox + PracticeMaster for billing, or Clio bought reluctantly and unused. 7-day adapter fallback is good, but the most common reality — _firm has no working PM system_ — is unaddressed. Different demo, not a connector problem.
 
 **Morning-digest delivery breaks litigation schedules.** Platform §12.3 + law-firm §11.8 assume 8am digest is the partner's primary touchpoint. A 20-year PI litigator has depositions at 9am, court all morning, in front of a juror, not their phone. The 8am-from-phone loop is a knowledge-worker-from-laptop assumption. Need configurable cadence (8am / lunch / EOD), weekend catch-up, email-reply ingestion so partner approves via reply not dashboard.
 
@@ -38,7 +38,7 @@
 
 **Intake from the receptionist.** Real PI intake also arrives via walk-in, referral phone to partner mobile, 2am answering-service handoff. Receptionist — operationally first touch at larger firms — isn't a configured user.
 
-**Court-bound deadline coordination beyond tracking.** Deadline-docketer surfaces deadlines but doesn't coordinate the *multi-party scheduling* (partner picks dates, paralegal emails OC, invites sent, court confirms). Most missed deadlines fail in coordination, not awareness.
+**Court-bound deadline coordination beyond tracking.** Deadline-docketer surfaces deadlines but doesn't coordinate the _multi-party scheduling_ (partner picks dates, paralegal emails OC, invites sent, court confirms). Most missed deadlines fail in coordination, not awareness.
 
 **Email-reply correction ingestion.** Partner under court pressure interacts via inbox reply, not dashboard. No path to ingest "yes, send a reminder" as workflow continuation rather than chat.
 
@@ -48,7 +48,7 @@
 
 **Rule-with-exception handling.** Paralegal teaches "no medmal under $1M"; top referral source sends a $750k medmal. Marcus rejects per rule; referral partner is offended. "Apply rule but flag unusual context" capability is missing. Rules are absolute; contextual judgment is the missing layer.
 
-**Voice degradation response.** Quarterly LLM-judge sample detects drift, but *response* workflow (re-run blind-test? Captain session? cost?) is unspecified. Most voice products fail at the 90-day mark.
+**Voice degradation response.** Quarterly LLM-judge sample detects drift, but _response_ workflow (re-run blind-test? Captain session? cost?) is unspecified. Most voice products fail at the 90-day mark.
 
 **Multi-firm referral relationships.** Some senior PI lawyers carry co-counsel ties. Marcus is in Firm A's instance; Firm B lawyer emails are workflow-essential, not opposing-counsel-blind. `domain_blocks` handles shutout, not "treat Firm B as in-scope without adding their lawyers as users."
 
@@ -143,4 +143,4 @@ The two workflows PRDs don't yet model: **referral-source exception** (rule-with
 
 ---
 
-*End — Business Analyst Perspective, Round 1*
+_End — Business Analyst Perspective, Round 1_
