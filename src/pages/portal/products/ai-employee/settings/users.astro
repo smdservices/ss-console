@@ -11,14 +11,15 @@ import { SignOutButton } from '@clerk/astro/components'
 import { env } from 'cloudflare:workers'
 
 /**
- * AI Employee — user management (read-only list).
+ * AI Employee — user management.
  *
  * URL: portal.smd.services/portal/products/ai-employee/settings/users
  *
- * First slice of #883. Lists every local user who has at least one
- * non-revoked role in product_roles for this customer's AI Employee
- * subscription. Renders name, email, granted roles, granted_at, and
- * last_login_at.
+ * Lists every local user who has at least one non-revoked role in
+ * product_roles for this customer's AI Employee subscription, and lets
+ * the principal grant/revoke roles on each member. Renders name, email,
+ * last login, and per-row Grant/Revoke buttons for each of the three
+ * AI Employee roles (principal | operator | compliance).
  *
  * Access gate:
  *   - Clerk session (middleware)
@@ -29,11 +30,21 @@ import { env } from 'cloudflare:workers'
  * Anyone else hitting this URL is redirected to the AI Employee
  * landing page; the page's role-gate empty state explains why.
  *
- * Mutation actions (invite new member, change role, revoke role) land
- * in follow-on PRs against #883. This slice intentionally ships no
- * action UI — dead buttons would be worse than no buttons. A short
- * note at the bottom tells principals to contact us for member
- * changes until self-service controls land.
+ * Mutations are HTML-form POSTs to
+ * /api/portal/products/ai-employee/role-action. No JS / fetch logic
+ * here — the action endpoint redirects back with a `?status=` query
+ * param that drives the banner at the top of the page.
+ *
+ * Self-protection: server-side, the action endpoint blocks revoking
+ * your own LAST principal grant (would lock the customer out).
+ *
+ * Not yet shipped (next slice):
+ *   - Invite-new-member flow (Clerk Organization invitation API)
+ *   - Audit-log entries on each role change
+ *   - Listing Clerk Organization members who don't yet have a local
+ *     users row (so principals can grant roles to invitees who haven't
+ *     signed in yet — currently new members appear here only after
+ *     their first portal sign-in JIT-creates the local users row).
  */
 
 const PRODUCT_SLUG = 'ai-employee'
@@ -123,6 +134,8 @@ for (const m of members) {
   m.roles.sort((a, b) => (ROLE_ORDER[a] ?? 99) - (ROLE_ORDER[b] ?? 99))
 }
 
+const ALL_ROLES = ['principal', 'operator', 'compliance'] as const
+
 function formatLastLogin(iso: string | null): string {
   if (!iso) return 'Never'
   const d = new Date(iso)
@@ -130,11 +143,25 @@ function formatLastLogin(iso: string | null): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-function formatGrantedAt(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+// Status banner — set by the role-action endpoint on redirect.
+const status = Astro.url.searchParams.get('status')
+type BannerStatus = { text: string; tone: 'success' | 'error' | 'info' }
+const STATUS_BANNERS: Record<string, BannerStatus> = {
+  granted: { text: 'Role granted.', tone: 'success' },
+  revoked: { text: 'Role revoked.', tone: 'success' },
+  no_change: { text: 'No change applied.', tone: 'info' },
+  invalid_action: { text: 'Invalid action.', tone: 'error' },
+  invalid_user: { text: 'Invalid user.', tone: 'error' },
+  invalid_role: { text: 'Invalid role.', tone: 'error' },
+  user_not_found: { text: 'User not found.', tone: 'error' },
+  cannot_revoke_last_principal: {
+    text:
+      'You are the only principal on this account. Grant another user the principal role before ' +
+      'revoking your own.',
+    tone: 'error',
+  },
 }
+const banner = status ? (STATUS_BANNERS[status] ?? null) : null
 ---
 
 <!doctype html>
@@ -178,6 +205,24 @@ function formatGrantedAt(iso: string): string {
         meta={`${members.length} ${members.length === 1 ? 'member' : 'members'}`}
       />
 
+      {
+        banner && (
+          <div
+            role="status"
+            class:list={[
+              'mt-6 px-4 py-3 border-[3px] text-sm',
+              banner.tone === 'success'
+                ? 'border-[color:var(--ss-color-complete)] bg-[color:var(--ss-color-complete)]/10 text-[color:var(--ss-color-complete)]'
+                : banner.tone === 'error'
+                  ? 'border-[color:var(--ss-color-error)] bg-[color:var(--ss-color-error)]/10 text-[color:var(--ss-color-error)]'
+                  : 'border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-primary)]',
+            ]}
+          >
+            {banner.text}
+          </div>
+        )
+      }
+
       <section class="mt-8">
         <p
           class="mb-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
@@ -192,59 +237,77 @@ function formatGrantedAt(iso: string): string {
                 No members yet
               </p>
               <p class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
-                Once you invite team members and grant them roles, they'll appear here.
+                Once your team members sign in and you grant them roles, they'll appear here.
               </p>
             </div>
           ) : (
             <div class="border-[3px] border-[color:var(--ss-color-text-primary)]">
-              {/* Header row */}
-              <div class="hidden md:grid grid-cols-[2fr_2fr_1fr_1fr_140px] gap-4 px-5 py-3 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
-                <span>Name</span>
-                <span>Email</span>
-                <span>Roles</span>
-                <span>Last login</span>
-                <span class="text-right">Granted</span>
-              </div>
-              {members.map((m, idx) => (
-                <div
-                  class:list={[
-                    'px-5 py-4 md:py-3',
-                    idx > 0 ? 'border-t-[2px] border-[color:var(--ss-color-text-primary)]' : '',
-                    'md:grid md:grid-cols-[2fr_2fr_1fr_1fr_140px] md:gap-4 md:items-center',
-                  ]}
-                >
-                  <div class="md:hidden flex flex-col gap-1 mb-2">
-                    <span class="font-['Archivo'] text-base font-bold text-[color:var(--ss-color-text-primary)]">
-                      {m.name || m.email}
-                    </span>
-                    <span class="text-sm text-[color:var(--ss-color-text-secondary)]">
-                      {m.email}
-                    </span>
+              {members.map((m, idx) => {
+                const activeRoles = new Set(m.roles)
+                return (
+                  <div
+                    class:list={[
+                      'px-5 py-4',
+                      idx > 0 ? 'border-t-[2px] border-[color:var(--ss-color-text-primary)]' : '',
+                    ]}
+                  >
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-6">
+                      <div class="flex flex-col gap-0.5 min-w-0">
+                        <span class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)] truncate">
+                          {m.name || m.email}
+                        </span>
+                        <span class="text-sm text-[color:var(--ss-color-text-secondary)] truncate">
+                          {m.email}
+                        </span>
+                        <span class="text-xs text-[color:var(--ss-color-text-muted)]">
+                          Last login: {formatLastLogin(m.last_login_at)}
+                        </span>
+                      </div>
+
+                      <div class="flex flex-wrap gap-2 md:justify-end">
+                        {ALL_ROLES.map((role) => {
+                          const isActive = activeRoles.has(role)
+                          return (
+                            <form
+                              method="POST"
+                              action="/api/portal/products/ai-employee/role-action"
+                              class="inline-flex"
+                            >
+                              <input
+                                type="hidden"
+                                name="action"
+                                value={isActive ? 'revoke' : 'grant'}
+                              />
+                              <input type="hidden" name="userId" value={m.id} />
+                              <input type="hidden" name="role" value={role} />
+                              <button
+                                type="submit"
+                                class:list={[
+                                  "inline-flex items-center px-3 py-1.5 text-xs font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold border-[2px] transition-colors",
+                                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2',
+                                  isActive
+                                    ? 'border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-error)] hover:border-[color:var(--ss-color-error)]'
+                                    : 'border-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)]',
+                                ]}
+                              >
+                                {isActive ? `Revoke ${role}` : `Grant ${role}`}
+                              </button>
+                            </form>
+                          )
+                        })}
+                      </div>
+                    </div>
                   </div>
-                  <span class="hidden md:inline font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)]">
-                    {m.name || m.email}
-                  </span>
-                  <span class="hidden md:inline text-sm text-[color:var(--ss-color-text-secondary)] truncate">
-                    {m.email}
-                  </span>
-                  <span class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)]">
-                    {m.roles.join(', ')}
-                  </span>
-                  <span class="text-sm text-[color:var(--ss-color-text-secondary)]">
-                    {formatLastLogin(m.last_login_at)}
-                  </span>
-                  <span class="text-xs text-[color:var(--ss-color-text-muted)] md:text-right">
-                    Granted {formatGrantedAt(m.earliest_granted_at)}
-                  </span>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )
         }
 
         <p class="mt-6 text-sm text-[color:var(--ss-color-text-secondary)]">
-          To invite new members, change a role, or remove someone, contact us. Self-service controls
-          land in the next release.
+          New team members appear here after their first sign-in to the portal. To invite someone
+          new to your firm's workspace, contact us. Self-service invitations land in the next
+          release.
         </p>
       </section>
     </main>
