@@ -763,6 +763,8 @@ This turns a connector limitation into a strategic value-add.
 
 Show audit log + compliance view + per-state engagement clause library on screen.
 
+**The compliance evidence packet is the artifact behind this moment.** When Susan (firm's outside counsel) asks to see "everything Marcus did and the controls that governed him," Captain generates a packet via the `compliance-audit-export` skill: plain-language README on top, auto-rendered summary PDF, structured audit-log CSV with a human-narrated companion, the firm's customer.yaml (secrets redacted) showing the scope and trust ceilings, the safety-substrate boot logs, the per-state engagement-letter clauses including the Pennsylvania and Utah disclosure language, and Captain's countersignature over the hash set. The packet contents are specified in [platform-prd.md §13.6](./platform-prd.md#136-compliance-evidence-packet-structure) with the full template at [`docs/specs/ai-employee/compliance-evidence-packet.md`](../../specs/ai-employee/compliance-evidence-packet.md). Susan reads it end-to-end without needing a technical background; the technical artifacts are there if she wants to verify a specific claim.
+
 ### 11.7 The order-taking moment
 
 The demo's last 15+ minutes are explicit: we are taking the order, not pitching. Questions to ask:
