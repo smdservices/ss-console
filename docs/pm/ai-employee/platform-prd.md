@@ -330,48 +330,82 @@ Conformance suites are authored as `*.conformance.test.ts` files next to each ad
 
 ### 7.3 `customer.yaml` as the wiring layer
 
-Each customer has one `customer.yaml` declaring: persona, voice, vertical, region, connectors per capability, skills enabled, trust ceilings, scope, escalation rules.
+Each customer has one `customer.yaml` declaring: personas, voice, vertical, region, connectors per capability, skills enabled, trust ceilings, scope, escalation rules.
+
+**Formal schema** lives at [`docs/specs/ai-employee/customer-yaml-schema.md`](../../specs/ai-employee/customer-yaml-schema.md) (closes [#790](https://github.com/venturecrane/ss-console/issues/790)). The schema is the contract; the example below is illustrative.
+
+**Storage model** is pinned by [ADR 0012](../../adr/0012-customer-yaml-storage.md) — git is the source of truth, with portal D1 (`customer_configs`) and per-customer R2 as materialized read replicas. The runtime validator [`src/lib/ai-employee/customer-yaml/validator.ts`](../../../src/lib/ai-employee/customer-yaml/validator.ts) gates merges; the secret detector [`src/lib/ai-employee/customer-yaml/secret-detector.ts`](../../../src/lib/ai-employee/customer-yaml/secret-detector.ts) rejects any literal-secret leak before commit.
 
 ```yaml
-customer: smith-pi-firm
+schema_version: 1
+customer_id: smith-pi-firm
+customer_name: Smith PI Firm
 vertical: law-firm
 practice_areas: [personal-injury, workers-comp]
-region: us-west-2 (lax)
-persona:
-  name: Marcus
-  signature_html: ...
-  avatar_url: ...
-  tone: warm-but-professional
+fly_region: lax
+model: claude-opus-4-7
+hermes_ref: v2026.5.7
+
+machine:
+  size: performance-1x
+  memory_mb: 1024
+
+users: # humans with portal access (dashboard-roles.md)
+  - email: partner@firm.com
+    role: principal
+    full_name: Jane Smith
+
+# personas is an ARRAY (ADR 0011); v1 ships at length 1
+personas:
+  - slug: marcus
+    status: active
+    name: Marcus
+    title: AI Associate
+    signature_html: ...
+    tone: [warm-but-professional, concise]
+    send_as:
+      agentmail_identity: marcus@smith-pi-firm.agents.smd.services
+    skills:
+      - { name: inbox-triage-and-draft, trust_ceiling: draft_for_review }
+      - { name: conflict-check, trust_ceiling: autonomous }
+      - { name: pi-intake-triage, trust_ceiling: draft_for_review }
+    channel_bindings:
+      - integration: ms-graph
+        channels: [primary-inbox]
+
+# 11 capability-name keys from src/lib/ai-employee/capabilities/types.ts
 connectors:
-  Email: microsoft-graph
-  Calendar: microsoft-graph
-  DocumentStorage: sharepoint
-  PracticeManagement: filevine
-  ESign: docusign
-  CourtAccess: courtlistener
-  Payments: lawpay
-  Accounting: quickbooks-online
-  IntakeCRM: lead-docket
-  CallTracking: callrail
-  InternalComms: microsoft-teams
-skills:
-  - inbox-triage-and-draft: { trust: draft_for_review, scope: [partner, intake] }
-  - conflict-check: { trust: autonomous_read }
-  - law-pi-intake-triage: { trust: draft_for_review }
-  - signing-page-chase: { trust: draft_for_review }
-  - red-flag-watching: { trust: autonomous_read }
-  # ... etc
+  Email:
+    adapter: microsoft-graph
+    backend: mcp:softeria/ms-365-mcp-server
+    token_ref: 'infisical:/ai-employee/smith-pi-firm/email/refresh' # NEVER literal secrets
+  PracticeManagement:
+    adapter: filevine
+    backend: build:filevine-mcp
+  CourtAccess:
+    adapter: courtlistener
+    backend: mcp:freelawproject/courtlistener
+  # ... Calendar, DocumentStorage, ESign, Payments, Accounting, IntakeCRM, CallTracking, InternalComms
+
 scope:
   email_folders_visible: [Inbox, Clients, Intake]
   email_folders_blind: [Strategy, Private, Co-Counsel]
   email_keyword_blocks: [PRIVILEGED, WORK PRODUCT]
   domain_blocks: [opposing-counsel-personal.example.com]
+
 escalation:
   red_flag_recipients: [partner@firm.com]
   failure_recipients: [partner@firm.com, paralegal@firm.com]
+
+memory: # ADR 0009 isolation invariants — validator enforces equality with customer_id
+  d1_namespace: smith-pi-firm
+  r2_vault_path: vaults/smith-pi-firm/
+  vectorize_index: hermes-smith-pi-firm-vault
 ```
 
-`bin/provision-customer.sh {customer}` reads this, allocates the Machine, binds storage, registers connectors, deploys the runtime. Changes redeploy with the same script.
+`bin/provision-customer.sh {customer}` reads this, allocates the Machine, binds storage, registers connectors, deploys the runtime. Changes redeploy with the same script. The validator runs at PR time per [ADR 0012](../../adr/0012-customer-yaml-storage.md) §5; provisioning trusts the gate but re-validates defensively at boot.
+
+**Secret-exclusion enforcement.** `token_ref: 'infisical:/<scope>/<customer>/<purpose>'` is the only permitted secret-reference channel. Literal API keys, OAuth client secrets, JWTs, AWS access keys, GitHub tokens, OpenAI keys, Slack tokens, and Google OAuth client secrets are rejected by pattern; field names containing `secret`, `password`, `api_key`, `access_token`, `refresh_token`, `private_key`, or `bearer` are rejected by name. Refs are resolved at deploy time and injected as Fly secrets — they never enter container env vars at rest. The detector NEVER echoes a matched substring back, so its findings can safely be CI-logged.
 
 ### 7.4 Skill loading and pinning
 
@@ -1091,6 +1125,7 @@ This PRD assumes the following are settled (some by existing ADRs, some pending)
 - **ADR (proposed) — Memory as a customer-owned, editable, exportable artifact**: needs an ADR.
 - **ADR (proposed) — Cross-Machine query prohibition (invariant #7)**: needs an ADR. Architectural enforcement of customer isolation.
 - **ADR (proposed) — Fabrication discipline (invariant #8)**: needs an ADR. Empty-state pattern for unsourced client-facing fields.
+- **ADR (proposed) — `customer.yaml` secret-exclusion policy**: needs an ADR. Formalizes the rule that customer.yaml never carries literal secret values, with `token_ref: 'infisical:/...'` as the only permitted secret-reference channel and pre-commit + CI validator enforcement. The schema spec and validator land per [#790](https://github.com/venturecrane/ss-console/issues/790); the ADR records the policy commitment alongside [ADR 0012](../../adr/0012-customer-yaml-storage.md) (storage architecture).
 - **ADR (proposed) — Sent-folder watching as opt-in with structural-diff-only storage**: needs an ADR. Privacy posture for the learning loop.
 - **ADR (proposed) — Voice quality gates (blind-test ≥80% before first external draft)**: needs an ADR. Operational gate for customer launch.
 - **ADR (proposed) — Captain operational budget (≤2 hrs/wk/customer) and backup-operator bus-factor minimum**: needs an ADR. Operational sustainability constraint.
@@ -1131,7 +1166,8 @@ Status: largely complete per `ai-employee-smd-customer-zero` branch progress.
 
 **Architecture:**
 
-- `customer.yaml` schema locked
+- `customer.yaml` schema locked — formal contract at [`docs/specs/ai-employee/customer-yaml-schema.md`](../../specs/ai-employee/customer-yaml-schema.md), runtime validator at [`src/lib/ai-employee/customer-yaml/validator.ts`](../../../src/lib/ai-employee/customer-yaml/validator.ts), secret detector at [`src/lib/ai-employee/customer-yaml/secret-detector.ts`](../../../src/lib/ai-employee/customer-yaml/secret-detector.ts) ([#790](https://github.com/venturecrane/ss-console/issues/790))
+- Pre-commit + CI validation hook wired against the canonical configs repo per [ADR 0012](../../adr/0012-customer-yaml-storage.md) §5 — blocks merges that carry literal secrets or break schema (validator module lands in this PR; CI workflow + configs-repo location land in the follow-on ADR 0012 implementation phase)
 - Capability-interface contracts defined for: Email, Calendar, DocumentStorage, ESign, PracticeManagement, CourtAccess, Payments, Accounting
 - Per-customer Fly.io Machine + D1 + R2 + Vectorize bound
 - Safety substrate with 8 invariants live (including new #7 cross-Machine query prohibition and #8 fabrication discipline)
