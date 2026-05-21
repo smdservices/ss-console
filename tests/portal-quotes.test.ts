@@ -55,29 +55,35 @@ describe('portal quotes: session helper', () => {
     expect(code).toContain('export async function getPortalClient')
   })
 
-  it('resolves portal user via users.entity_id', () => {
+  it('resolves portal user via the Clerk identity bridge', () => {
+    // Portal auth migrated to Clerk (PR #906). getPortalClient now reads
+    // Astro.locals.auth() / locals.currentUser() and bridges to local
+    // rows via ensureLocalUser / resolveClerkEntity in clerk-bridge.ts.
     const code = readFileSync(resolve('src/lib/portal/session.ts'), 'utf-8')
-    expect(code).toContain('entity_id')
-    expect(code).toContain("role = 'client'")
-  })
-
-  it('scopes user lookup by org_id to prevent cross-org access (#400)', () => {
-    const code = readFileSync(resolve('src/lib/portal/session.ts'), 'utf-8')
-    expect(code).toContain('org_id = ?')
-  })
-
-  it('getPortalClient accepts orgId parameter (#400)', () => {
-    const code = readFileSync(resolve('src/lib/portal/session.ts'), 'utf-8')
-    expect(code).toContain('orgId: string')
+    expect(code).toContain('locals.auth()')
+    expect(code).toContain('locals.currentUser()')
+    expect(code).toContain('ensureLocalUser')
+    expect(code).toContain('resolveClerkEntity')
   })
 
   it('scopes the entity lookup by org_id for defense-in-depth (#399)', () => {
-    const code = readFileSync(resolve('src/lib/portal/session.ts'), 'utf-8')
-    // The entity row lookup must enforce org_id independently, not trust
-    // that users.entity_id was set correctly. If users.entity_id is ever
-    // stale or cross-org, the query returns null rather than resolving to
-    // an entity outside the session's org.
-    expect(code).toContain('SELECT * FROM entities WHERE id = ? AND org_id = ?')
+    // The Clerk-org → local-entity bridge enforces both:
+    //   * clerk_org_id matches the active Clerk Organization claim
+    //   * org_id matches the SMD tenant (ORG_ID), so a misconfigured
+    //     Clerk org cannot resolve to a cross-tenant entity row.
+    const code = readFileSync(resolve('src/lib/auth/clerk-bridge.ts'), 'utf-8')
+    expect(code).toContain('WHERE clerk_org_id = ? AND org_id = ?')
+  })
+
+  it('JIT-creates the local users row keyed by clerk_user_id', () => {
+    // First-time Clerk users get a local users row with role='client'
+    // and clerk_user_id set. The bridge does NOT JIT-create entities —
+    // a Clerk org without a matching entity returns client: null and
+    // the portal renders the "no portal access yet" state.
+    const code = readFileSync(resolve('src/lib/auth/clerk-bridge.ts'), 'utf-8')
+    expect(code).toContain('INSERT INTO users')
+    expect(code).toContain('clerk_user_id')
+    expect(code).toContain("role")
   })
 })
 
@@ -366,9 +372,14 @@ describe('portal quotes: SOW download API route', () => {
     expect(existsSync(resolve('src/pages/api/portal/quotes/[id]/sow.ts'))).toBe(true)
   })
 
-  it('verifies portal session (client role)', () => {
+  it('verifies portal session via Clerk identity bridge', () => {
+    // Portal API routes now authenticate via getPortalClient (Clerk-aware
+    // resolver) instead of inspecting locals.session.role. Unauthenticated
+    // requests return 401; authenticated-but-unprovisioned requests return
+    // 403 with "Client not found".
     const code = readFileSync(resolve('src/pages/api/portal/quotes/[id]/sow.ts'), 'utf-8')
-    expect(code).toContain("session.role !== 'client'")
+    expect(code).toContain('getPortalClient(env.DB, locals)')
+    expect(code).toContain('status: 401')
   })
 
   it('scopes quote to entity via getQuoteForEntity', () => {

@@ -17,10 +17,12 @@ describe('portal: engagement progress page', () => {
     expect(source()).toContain('listMilestones')
   })
 
-  it('resolves entity via getPortalClient', () => {
+  it('resolves entity via getPortalClient (Clerk-aware signature)', () => {
+    // After PR #906 the portal session resolver takes Astro.locals
+    // (Clerk-aware) instead of (userId, orgId). session.userId is
+    // gone from portal pages.
     const code = source()
-    expect(code).toContain('getPortalClient')
-    expect(code).toContain('session.userId')
+    expect(code).toContain('getPortalClient(env.DB, Astro.locals)')
   })
 
   it('filters out completed and cancelled engagements', () => {
@@ -75,8 +77,10 @@ describe('portal: documents page', () => {
   })
 
   it('scopes document listing to org/engagement prefix', () => {
+    // After PR #906 orgId is resolved from the Clerk-bridged local user
+    // (portalData.user.org_id) rather than the magic-link session.
     const code = source()
-    expect(code).toContain('session.orgId')
+    expect(code).toContain('portalData.user.org_id')
     expect(code).toContain('engagement.id')
     expect(code).toContain('/docs/')
   })
@@ -101,9 +105,12 @@ describe('portal: document download route', () => {
     expect(existsSync(resolve('src/pages/api/portal/documents/[...key].ts'))).toBe(true)
   })
 
-  it('verifies portal session', () => {
+  it('verifies portal session via Clerk identity bridge', () => {
+    // Portal API routes now authenticate via getPortalClient (Clerk-aware)
+    // rather than inspecting session.role. Unauthenticated requests get
+    // 401; authenticated-but-unprovisioned get 403 Forbidden.
     const code = source()
-    expect(code).toContain("session.role !== 'client'")
+    expect(code).toContain('getPortalClient(env.DB, locals)')
     expect(code).toContain('Unauthorized')
   })
 
@@ -115,8 +122,11 @@ describe('portal: document download route', () => {
   })
 
   it('verifies key starts with org prefix', () => {
+    // After PR #906 the orgId for path-prefix checks is sourced from
+    // portalData.user.org_id (resolved via the Clerk bridge), not the
+    // magic-link session.
     const code = source()
-    expect(code).toContain('session.orgId')
+    expect(code).toContain('portalData.user.org_id')
     expect(code).toContain('startsWith')
   })
 
@@ -130,9 +140,10 @@ describe('portal: document download route', () => {
   it('accepts SOW revision keys under the orgs/{orgId}/quotes/ prefix', () => {
     // SOW revisions are stored at `orgs/{orgId}/quotes/{qid}/sow/...` per
     // getSowRevisionSignedKey(). The handler must not reject these as off-org.
+    // After PR #906 the orgId interpolation uses portalData.user.org_id.
     const code = source()
-    expect(code).toContain('orgs/${session.orgId}/')
-    expect(code).toContain('orgs/${session.orgId}/quotes/${qid}/')
+    expect(code).toContain('orgs/${portalData.user.org_id}/')
+    expect(code).toContain('orgs/${portalData.user.org_id}/quotes/${qid}/')
   })
 
   it('streams document from R2', () => {
