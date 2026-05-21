@@ -30,25 +30,25 @@ Rollup is one row per `(date, driver)` per customer. Insertion is UPSERT — mul
 
 ### Drivers + emission sources
 
-| `driver` | Source | Emission cadence | `unit_type` |
-|---|---|---|---|
-| `claude_api_input_tokens` | Captured from Anthropic API response headers (`anthropic-input-tokens`) on every model call | Per-call, batched to D1 every 60s | `input_tokens` |
-| `claude_api_output_tokens` | Same response headers (`anthropic-output-tokens`) | Per-call, batched 60s | `output_tokens` |
-| `fly_machine_minutes` | Fly.io billing API; pulled by nightly Captain job at 02:00 UTC | Daily | `machine_minutes` |
-| `d1_reads` | D1 metering query (`PRAGMA d1_metrics` or Cloudflare GraphQL Analytics) | Daily nightly | `api_calls` |
-| `d1_writes` | Same source | Daily nightly | `api_calls` |
-| `r2_storage_gb_hours` | Cloudflare R2 metering API | Daily nightly | `gb_hours` |
-| `r2_class_a_ops` | Same source (writes, list operations) | Daily nightly | `api_calls` |
-| `r2_class_b_ops` | Same source (reads) | Daily nightly | `api_calls` |
-| `vectorize_queries` | Cloudflare Vectorize metering API | Daily nightly | `api_calls` |
-| `vectorize_dimensions_stored` | Same source | Daily nightly | `dimensions` |
-| `composio_actions` | Composio usage API; pulled by nightly job | Daily nightly | `api_calls` |
-| `agentmail_messages` | AgentMail billing API | Daily nightly | `messages` |
-| `agentmail_mailbox_days` | AgentMail subscription pull | Daily nightly | `mailbox_days` |
-| `third_party_api_lawpay` | LawPay billing API (if cost model includes per-call fees) | Daily nightly | `api_calls` |
-| `third_party_api_docusign` | DocuSign billing | Daily nightly | `envelopes` |
-| `third_party_api_courtlistener` | CourtListener (free tier; logged as units only) | Daily nightly | `api_calls` |
-| `captain_minutes` | Captain logs manually via `bin/captain-time.sh <slug> <minutes> "<reason>"` | On-demand by Captain | `captain_minutes` |
+| `driver`                        | Source                                                                                      | Emission cadence                  | `unit_type`       |
+| ------------------------------- | ------------------------------------------------------------------------------------------- | --------------------------------- | ----------------- |
+| `claude_api_input_tokens`       | Captured from Anthropic API response headers (`anthropic-input-tokens`) on every model call | Per-call, batched to D1 every 60s | `input_tokens`    |
+| `claude_api_output_tokens`      | Same response headers (`anthropic-output-tokens`)                                           | Per-call, batched 60s             | `output_tokens`   |
+| `fly_machine_minutes`           | Fly.io billing API; pulled by nightly Captain job at 02:00 UTC                              | Daily                             | `machine_minutes` |
+| `d1_reads`                      | D1 metering query (`PRAGMA d1_metrics` or Cloudflare GraphQL Analytics)                     | Daily nightly                     | `api_calls`       |
+| `d1_writes`                     | Same source                                                                                 | Daily nightly                     | `api_calls`       |
+| `r2_storage_gb_hours`           | Cloudflare R2 metering API                                                                  | Daily nightly                     | `gb_hours`        |
+| `r2_class_a_ops`                | Same source (writes, list operations)                                                       | Daily nightly                     | `api_calls`       |
+| `r2_class_b_ops`                | Same source (reads)                                                                         | Daily nightly                     | `api_calls`       |
+| `vectorize_queries`             | Cloudflare Vectorize metering API                                                           | Daily nightly                     | `api_calls`       |
+| `vectorize_dimensions_stored`   | Same source                                                                                 | Daily nightly                     | `dimensions`      |
+| `composio_actions`              | Composio usage API; pulled by nightly job                                                   | Daily nightly                     | `api_calls`       |
+| `agentmail_messages`            | AgentMail billing API                                                                       | Daily nightly                     | `messages`        |
+| `agentmail_mailbox_days`        | AgentMail subscription pull                                                                 | Daily nightly                     | `mailbox_days`    |
+| `third_party_api_lawpay`        | LawPay billing API (if cost model includes per-call fees)                                   | Daily nightly                     | `api_calls`       |
+| `third_party_api_docusign`      | DocuSign billing                                                                            | Daily nightly                     | `envelopes`       |
+| `third_party_api_courtlistener` | CourtListener (free tier; logged as units only)                                             | Daily nightly                     | `api_calls`       |
+| `captain_minutes`               | Captain logs manually via `bin/captain-time.sh <slug> <minutes> "<reason>"`                 | On-demand by Captain              | `captain_minutes` |
 
 ### Per-call emission (Claude API)
 

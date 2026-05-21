@@ -83,6 +83,7 @@ client_facing_fields:
 ```
 
 Allowed values for `sourced_from`:
+
 - `memory_rule` — a row in `memory_rules` (D1)
 - `person_mapping` — a row in `person_mappings` (D1)
 - `matter_attribute` — a field on a `Matter` returned by PracticeManagement capability
@@ -95,13 +96,14 @@ A skill that emits a draft with a `client_facing_fields` entry omitted, or with 
 
 The filter returns one of three outcomes:
 
-| Severity | Outcome | Audit event |
-|---|---|---|
-| `clean` | Draft proceeds to `draft_queue` | (none — happy path) |
-| `flag` | Draft proceeds but tagged in dashboard "verify source"; reviewer sees yellow banner | `FABRICATION_FILTER_TRIGGERED` (severity=flag) |
-| `block` | Draft rejected; agent re-runs with stricter prompt; if 2nd run also blocked, escalate to Captain | `FABRICATION_FILTER_TRIGGERED` (severity=block) |
+| Severity | Outcome                                                                                          | Audit event                                     |
+| -------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| `clean`  | Draft proceeds to `draft_queue`                                                                  | (none — happy path)                             |
+| `flag`   | Draft proceeds but tagged in dashboard "verify source"; reviewer sees yellow banner              | `FABRICATION_FILTER_TRIGGERED` (severity=flag)  |
+| `block`  | Draft rejected; agent re-runs with stricter prompt; if 2nd run also blocked, escalate to Captain | `FABRICATION_FILTER_TRIGGERED` (severity=block) |
 
 Severity mapping:
+
 - `none`-tagged field with non-empty value → block
 - `sourced_from` tagged but source not found → block
 - High-risk marker matched on a `system_of_record`-tagged field → flag (the source is upstream; reviewer verifies)
@@ -111,6 +113,7 @@ Severity mapping:
 ### Relationship to `context-detector` skill
 
 `context-detector` (§8.2 cross-cutting universal) remains in the catalog but its role is **supplementary**:
+
 - It examines drafts that passed the filter as `clean` or `flag` and looks for higher-order concerns (regulatory citations, court-bound content, settlement amounts) that the filter's pattern matching misses.
 - It does NOT enforce invariant #8. The filter does.
 - `context-detector` runs on a separate worker thread; failure or `trust: disabled` does not break invariant #8 enforcement.

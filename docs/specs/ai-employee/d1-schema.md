@@ -178,6 +178,7 @@ CREATE INDEX idx_escalation_unacked ON escalation_events(acknowledged_at, ts) WH
 ## Per-customer isolation
 
 Cross-Machine query prohibition (invariant #7) is enforced at the **D1 binding layer**, not via row-level customer_id columns. Each Machine binds exactly one D1 database (`hermes-{slug}-d1`). The runtime verifies at boot that:
+
 1. Exactly one D1 binding exists
 2. The bound database name equals `hermes-{customer-slug}-d1` where `customer-slug` matches `customer.yaml.customer_id`
 

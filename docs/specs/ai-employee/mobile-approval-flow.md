@@ -1,6 +1,6 @@
 # V1 Mobile Approval Flow
 
-**Spec for issue #799.** Screen-by-screen specification for the 60-second partner loop: morning digest → phone → tap → review → approve. Target Customer named this as a sign-or-no-sign condition: *"I'd want to see the actual approval UX during the demo. Not described. Shown."* If the demo can't drive this end-to-end on the partner's phone, the meeting fails.
+**Spec for issue #799.** Screen-by-screen specification for the 60-second partner loop: morning digest → phone → tap → review → approve. Target Customer named this as a sign-or-no-sign condition: _"I'd want to see the actual approval UX during the demo. Not described. Shown."_ If the demo can't drive this end-to-end on the partner's phone, the meeting fails.
 
 ## Source
 
@@ -166,6 +166,7 @@ Required confirmation prevents accidental thumb-tap sends. Modal is a sheet over
 ### Offline tolerance
 
 The mobile web app caches the current Queue list and the currently-open draft in the service worker. If the network drops mid-flow:
+
 - Reading existing drafts: works
 - Editing: queued in IndexedDB; banner "Pending sync" displayed
 - Sending: blocked with banner "Reconnect to send" — never optimistic. Send is a real upstream call that requires confirmation from the email adapter; we don't fake it.

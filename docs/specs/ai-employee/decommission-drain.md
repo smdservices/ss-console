@@ -84,6 +84,7 @@ Step 6  (final confirmation artifact)
 ### Hard-kill semantics
 
 When the 60s drain window elapses with in-flight LLM calls still running:
+
 - The script does NOT wait further. Compliance window is bounded.
 - `fly machine stop --signal SIGKILL` terminates the Machine process. Any in-flight Anthropic streaming response is dropped — Anthropic may still emit tokens, but our runtime is gone. No D1 write completes.
 - The dropped draft is unrecoverable — but per the reviewer-as-sender pattern (§9.2 in PRD), no external send occurred. The cost is one truncated draft, not a customer-facing failure.

@@ -29,160 +29,169 @@ type CapabilityError =
   | { kind: 'not_found'; resource: string }
   | { kind: 'forbidden'; reason: string }
   | { kind: 'upstream_error'; status: number; message: string }
-  | { kind: 'scope_violation'; field: string };
+  | { kind: 'scope_violation'; field: string }
 
 type HealthStatus = {
-  healthy: boolean;
-  last_ok_at: string;          // ISO 8601 UTC
-  last_error?: CapabilityError;
-};
+  healthy: boolean
+  last_ok_at: string // ISO 8601 UTC
+  last_error?: CapabilityError
+}
 
 type CapabilitySet = {
-  capability: string;          // e.g. "Email"
-  adapter: string;             // e.g. "microsoft-graph"
-  version: string;             // adapter semver
-  features: string[];          // optional sub-features (e.g. "labels", "folders")
-};
+  capability: string // e.g. "Email"
+  adapter: string // e.g. "microsoft-graph"
+  version: string // adapter semver
+  features: string[] // optional sub-features (e.g. "labels", "folders")
+}
 
-type DateRange = { start: string; end: string };   // ISO 8601
-type DraftRef = { id: string; storage_uri: string; created_at: string };
+type DateRange = { start: string; end: string } // ISO 8601
+type DraftRef = { id: string; storage_uri: string; created_at: string }
 
 // ---------- 1. PracticeManagement ----------
 interface PracticeManagement {
-  search_matters(query: MatterQuery): Promise<Matter[]>;
-  get_matter(id: string): Promise<Matter | null>;
-  create_matter(input: CreateMatterInput): Promise<Matter>;
-  update_matter(id: string, updates: Partial<MatterUpdate>): Promise<Matter>;
-  search_contacts(query: ContactQuery): Promise<Contact[]>;
-  get_contact(id: string): Promise<Contact | null>;
-  create_contact(input: CreateContactInput): Promise<Contact>;
-  list_time_entries(matter_id: string, range: DateRange): Promise<TimeEntry[]>;
-  create_time_entry_draft(input: TimeEntryInput): Promise<TimeEntry>;
-  list_matter_documents(matter_id: string): Promise<DocumentRef[]>;
-  upload_matter_document(matter_id: string, doc: DocumentUpload): Promise<DocumentRef>;
-  describe_capabilities(): CapabilitySet;
-  health_check(): Promise<HealthStatus>;
+  search_matters(query: MatterQuery): Promise<Matter[]>
+  get_matter(id: string): Promise<Matter | null>
+  create_matter(input: CreateMatterInput): Promise<Matter>
+  update_matter(id: string, updates: Partial<MatterUpdate>): Promise<Matter>
+  search_contacts(query: ContactQuery): Promise<Contact[]>
+  get_contact(id: string): Promise<Contact | null>
+  create_contact(input: CreateContactInput): Promise<Contact>
+  list_time_entries(matter_id: string, range: DateRange): Promise<TimeEntry[]>
+  create_time_entry_draft(input: TimeEntryInput): Promise<TimeEntry>
+  list_matter_documents(matter_id: string): Promise<DocumentRef[]>
+  upload_matter_document(matter_id: string, doc: DocumentUpload): Promise<DocumentRef>
+  describe_capabilities(): CapabilitySet
+  health_check(): Promise<HealthStatus>
 }
 
 // ---------- 2. Email ----------
 interface Email {
-  list_threads(query: ThreadQuery): Promise<EmailThread[]>;
-  get_thread(thread_id: string): Promise<EmailThread>;
-  create_draft(input: DraftInput): Promise<DraftRef>;        // -> reviewer's drafts folder
-  update_draft(draft_id: string, updates: DraftUpdate): Promise<DraftRef>;
-  apply_label(thread_id: string, label: string): Promise<void>;
-  move_to_folder(thread_id: string, folder: string): Promise<void>;
-  list_sent_since(cursor: string): Promise<SentItem[]>;       // opt-in per customer.yaml
-  get_sent_item(message_id: string): Promise<SentItem>;
-  get_scoped_folders(): string[];                              // customer.yaml-allowed only
-  describe_capabilities(): CapabilitySet;
-  health_check(): Promise<HealthStatus>;
+  list_threads(query: ThreadQuery): Promise<EmailThread[]>
+  get_thread(thread_id: string): Promise<EmailThread>
+  create_draft(input: DraftInput): Promise<DraftRef> // -> reviewer's drafts folder
+  update_draft(draft_id: string, updates: DraftUpdate): Promise<DraftRef>
+  apply_label(thread_id: string, label: string): Promise<void>
+  move_to_folder(thread_id: string, folder: string): Promise<void>
+  list_sent_since(cursor: string): Promise<SentItem[]> // opt-in per customer.yaml
+  get_sent_item(message_id: string): Promise<SentItem>
+  get_scoped_folders(): string[] // customer.yaml-allowed only
+  describe_capabilities(): CapabilitySet
+  health_check(): Promise<HealthStatus>
 }
 
 type DraftInput = {
-  reviewer_account_id: string;     // human sender; never an agent mailbox
-  to: string[]; cc?: string[]; bcc?: string[];
-  subject: string; body_html: string; body_text: string;
-  thread_id?: string; matter_ref?: string;
-};
+  reviewer_account_id: string // human sender; never an agent mailbox
+  to: string[]
+  cc?: string[]
+  bcc?: string[]
+  subject: string
+  body_html: string
+  body_text: string
+  thread_id?: string
+  matter_ref?: string
+}
 
 // ---------- 3. Calendar ----------
 interface Calendar {
-  list_events(query: EventQuery): Promise<CalendarEvent[]>;
-  get_event(event_id: string): Promise<CalendarEvent | null>;
-  create_event_draft(input: EventInput): Promise<DraftRef>;  // reviewer confirms before send
-  update_event_draft(draft_id: string, updates: Partial<EventInput>): Promise<DraftRef>;
-  suggest_times(input: SuggestInput): Promise<TimeSlot[]>;
-  respond_to_invitation_draft(event_id: string, response: 'accept'|'decline'|'tentative', comment?: string): Promise<DraftRef>;
-  describe_capabilities(): CapabilitySet;
-  health_check(): Promise<HealthStatus>;
+  list_events(query: EventQuery): Promise<CalendarEvent[]>
+  get_event(event_id: string): Promise<CalendarEvent | null>
+  create_event_draft(input: EventInput): Promise<DraftRef> // reviewer confirms before send
+  update_event_draft(draft_id: string, updates: Partial<EventInput>): Promise<DraftRef>
+  suggest_times(input: SuggestInput): Promise<TimeSlot[]>
+  respond_to_invitation_draft(
+    event_id: string,
+    response: 'accept' | 'decline' | 'tentative',
+    comment?: string
+  ): Promise<DraftRef>
+  describe_capabilities(): CapabilitySet
+  health_check(): Promise<HealthStatus>
 }
 
 // ---------- 4. DocumentStorage ----------
 interface DocumentStorage {
-  list_folder(path: string): Promise<DocumentRef[]>;
-  get_document(id: string): Promise<DocumentContent>;
-  put_document(path: string, content: DocumentUpload): Promise<DocumentRef>;
-  copy_document(src_id: string, dest_path: string): Promise<DocumentRef>;
-  delete_document(id: string): Promise<void>;                // requires current-turn approval per trust_ceiling
-  list_versions(id: string): Promise<VersionRef[]>;
-  describe_capabilities(): CapabilitySet;
-  health_check(): Promise<HealthStatus>;
+  list_folder(path: string): Promise<DocumentRef[]>
+  get_document(id: string): Promise<DocumentContent>
+  put_document(path: string, content: DocumentUpload): Promise<DocumentRef>
+  copy_document(src_id: string, dest_path: string): Promise<DocumentRef>
+  delete_document(id: string): Promise<void> // requires current-turn approval per trust_ceiling
+  list_versions(id: string): Promise<VersionRef[]>
+  describe_capabilities(): CapabilitySet
+  health_check(): Promise<HealthStatus>
 }
 
 // ---------- 5. ESign ----------
 interface ESign {
-  list_envelopes(query: EnvelopeQuery): Promise<Envelope[]>;
-  get_envelope(envelope_id: string): Promise<Envelope>;
-  create_envelope_draft(input: EnvelopeInput): Promise<DraftRef>;  // reviewer initiates send
-  create_reminder_draft(envelope_id: string, input: ReminderInput): Promise<DraftRef>;
-  download_completed(envelope_id: string): Promise<Buffer>;
-  describe_capabilities(): CapabilitySet;
-  health_check(): Promise<HealthStatus>;
+  list_envelopes(query: EnvelopeQuery): Promise<Envelope[]>
+  get_envelope(envelope_id: string): Promise<Envelope>
+  create_envelope_draft(input: EnvelopeInput): Promise<DraftRef> // reviewer initiates send
+  create_reminder_draft(envelope_id: string, input: ReminderInput): Promise<DraftRef>
+  download_completed(envelope_id: string): Promise<Buffer>
+  describe_capabilities(): CapabilitySet
+  health_check(): Promise<HealthStatus>
 }
 
 // ---------- 6. CourtAccess (read-only) ----------
 interface CourtAccess {
-  search_cases(query: CaseQuery): Promise<CaseResult[]>;
-  get_docket(case_id: string): Promise<Docket>;
-  get_docket_entries(case_id: string, range: DateRange): Promise<DocketEntry[]>;
-  describe_capabilities(): CapabilitySet;
-  health_check(): Promise<HealthStatus>;
+  search_cases(query: CaseQuery): Promise<CaseResult[]>
+  get_docket(case_id: string): Promise<Docket>
+  get_docket_entries(case_id: string, range: DateRange): Promise<DocketEntry[]>
+  describe_capabilities(): CapabilitySet
+  health_check(): Promise<HealthStatus>
 }
 
 // ---------- 7. Payments ----------
 interface Payments {
-  list_invoices(query: InvoiceQuery): Promise<Invoice[]>;
-  get_invoice(invoice_id: string): Promise<Invoice>;
-  create_payment_request_draft(input: PaymentRequestInput): Promise<DraftRef>;
-  list_transactions(range: DateRange): Promise<Transaction[]>;
-  get_aging_report(): Promise<AgingReport>;
-  describe_capabilities(): CapabilitySet;
-  health_check(): Promise<HealthStatus>;
+  list_invoices(query: InvoiceQuery): Promise<Invoice[]>
+  get_invoice(invoice_id: string): Promise<Invoice>
+  create_payment_request_draft(input: PaymentRequestInput): Promise<DraftRef>
+  list_transactions(range: DateRange): Promise<Transaction[]>
+  get_aging_report(): Promise<AgingReport>
+  describe_capabilities(): CapabilitySet
+  health_check(): Promise<HealthStatus>
   // No autonomous fund transfers ever. No method to initiate trust-account moves.
 }
 
 // ---------- 8. Accounting ----------
 interface Accounting {
-  list_invoices(query: InvoiceQuery): Promise<Invoice[]>;
-  create_invoice_draft(input: InvoiceInput): Promise<DraftRef>;
-  list_expenses(range: DateRange): Promise<Expense[]>;
-  create_expense_draft(input: ExpenseInput): Promise<DraftRef>;
-  get_ar_aging(): Promise<AgingReport>;
-  describe_capabilities(): CapabilitySet;
-  health_check(): Promise<HealthStatus>;
+  list_invoices(query: InvoiceQuery): Promise<Invoice[]>
+  create_invoice_draft(input: InvoiceInput): Promise<DraftRef>
+  list_expenses(range: DateRange): Promise<Expense[]>
+  create_expense_draft(input: ExpenseInput): Promise<DraftRef>
+  get_ar_aging(): Promise<AgingReport>
+  describe_capabilities(): CapabilitySet
+  health_check(): Promise<HealthStatus>
 }
 
 // ---------- 9. IntakeCRM ----------
 interface IntakeCRM {
-  list_leads(query: LeadQuery): Promise<Lead[]>;
-  get_lead(lead_id: string): Promise<Lead>;
-  update_lead_status(lead_id: string, status: LeadStatus, note?: string): Promise<Lead>;
-  list_intake_responses(form_id: string, range: DateRange): Promise<IntakeResponse[]>;
-  create_followup_draft(lead_id: string, input: FollowupInput): Promise<DraftRef>;
-  describe_capabilities(): CapabilitySet;
-  health_check(): Promise<HealthStatus>;
+  list_leads(query: LeadQuery): Promise<Lead[]>
+  get_lead(lead_id: string): Promise<Lead>
+  update_lead_status(lead_id: string, status: LeadStatus, note?: string): Promise<Lead>
+  list_intake_responses(form_id: string, range: DateRange): Promise<IntakeResponse[]>
+  create_followup_draft(lead_id: string, input: FollowupInput): Promise<DraftRef>
+  describe_capabilities(): CapabilitySet
+  health_check(): Promise<HealthStatus>
 }
 
 // ---------- 10. CallTracking ----------
 interface CallTracking {
-  list_calls(query: CallQuery): Promise<CallRecord[]>;
-  get_call(call_id: string): Promise<CallRecord>;
-  get_recording_url(call_id: string): Promise<string | null>;     // signed URL; expires
-  get_transcript(call_id: string): Promise<CallTranscript | null>;
-  get_attribution(call_id: string): Promise<CallAttribution>;
-  describe_capabilities(): CapabilitySet;
-  health_check(): Promise<HealthStatus>;
+  list_calls(query: CallQuery): Promise<CallRecord[]>
+  get_call(call_id: string): Promise<CallRecord>
+  get_recording_url(call_id: string): Promise<string | null> // signed URL; expires
+  get_transcript(call_id: string): Promise<CallTranscript | null>
+  get_attribution(call_id: string): Promise<CallAttribution>
+  describe_capabilities(): CapabilitySet
+  health_check(): Promise<HealthStatus>
 }
 
 // ---------- 11. InternalComms ----------
 interface InternalComms {
-  list_channels(): Promise<ChannelRef[]>;
-  post_to_channel(channel_id: string, body: MessageBody): Promise<MessageRef>;   // agent persona OK; INTERNAL ONLY
-  post_dm(user_id: string, body: MessageBody): Promise<MessageRef>;
-  list_recent_messages(channel_id: string, since: string): Promise<Message[]>;
-  describe_capabilities(): CapabilitySet;
-  health_check(): Promise<HealthStatus>;
+  list_channels(): Promise<ChannelRef[]>
+  post_to_channel(channel_id: string, body: MessageBody): Promise<MessageRef> // agent persona OK; INTERNAL ONLY
+  post_dm(user_id: string, body: MessageBody): Promise<MessageRef>
+  list_recent_messages(channel_id: string, since: string): Promise<Message[]>
+  describe_capabilities(): CapabilitySet
+  health_check(): Promise<HealthStatus>
 }
 ```
 
@@ -199,6 +208,7 @@ Every method returns `Promise<T>` and rejects with `CapabilityError`. Adapters m
 ## Verification
 
 Adapter conformance suite at `ai-employee/capabilities/tests/conformance/<capability>.test.ts`. Every adapter MUST pass:
+
 1. Every method returns the correct TypeScript type at runtime (schema validation)
 2. Every error case rejects with a structured `CapabilityError`, never a raw exception
 3. `health_check` returns within 5s

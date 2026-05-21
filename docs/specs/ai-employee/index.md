@@ -6,26 +6,26 @@ Build agents consuming these specs should treat the PRDs as **vision/doctrine** 
 
 ## P0 — Phase 1 blockers (build cannot start without these)
 
-| Spec | Issue | Scope |
-|---|---|---|
-| [customer-yaml-schema.md](customer-yaml-schema.md) | [#790](https://github.com/venturecrane/ss-console/issues/790) | Formal schema, secret-exclusion enforcement, pre-commit validation hook |
+| Spec                                               | Issue                                                         | Scope                                                                              |
+| -------------------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| [customer-yaml-schema.md](customer-yaml-schema.md) | [#790](https://github.com/venturecrane/ss-console/issues/790) | Formal schema, secret-exclusion enforcement, pre-commit validation hook            |
 | [capability-contracts.md](capability-contracts.md) | [#791](https://github.com/venturecrane/ss-console/issues/791) | TypeScript signatures for all 11 capability interfaces; Email Pattern A/B decision |
-| [oauth-lifecycle.md](oauth-lifecycle.md) | [#789](https://github.com/venturecrane/ss-console/issues/789) | Token storage, refresh, failure handling, re-authorization, per-connector scopes |
-| [dashboard-roles.md](dashboard-roles.md) | [#788](https://github.com/venturecrane/ss-console/issues/788) | Principal + Operator + Compliance role schema; permission matrix |
+| [oauth-lifecycle.md](oauth-lifecycle.md)           | [#789](https://github.com/venturecrane/ss-console/issues/789) | Token storage, refresh, failure handling, re-authorization, per-connector scopes   |
+| [dashboard-roles.md](dashboard-roles.md)           | [#788](https://github.com/venturecrane/ss-console/issues/788) | Principal + Operator + Compliance role schema; permission matrix                   |
 
 ## P1 — Beta-1 dependencies
 
-| Spec | Issue | Scope |
-|---|---|---|
-| [d1-schema.md](d1-schema.md) | [#800](https://github.com/venturecrane/ss-console/issues/800) | 11 D1 tables; per-customer isolation via binding layer |
-| [r2-vectorize-naming.md](r2-vectorize-naming.md) | [#801](https://github.com/venturecrane/ss-console/issues/801) | Per-customer R2 + Vectorize naming; invariant #7 boot-check |
-| [voice-gate-fallback.md](voice-gate-fallback.md) | [#797](https://github.com/venturecrane/ss-console/issues/797) | Pass / Near-pass / Fail states; internal-drafts-only mode |
-| [fabrication-filter.md](fabrication-filter.md) | [#798](https://github.com/venturecrane/ss-console/issues/798) | Invariant #8 as runtime pre-output filter; `client_facing_fields` skill anatomy |
-| [mobile-approval-flow.md](mobile-approval-flow.md) | [#799](https://github.com/venturecrane/ss-console/issues/799) | V1 mobile screen sequence; 60-second partner loop |
-| [compliance-evidence-packet.md](compliance-evidence-packet.md) | [#802](https://github.com/venturecrane/ss-console/issues/802) | Susan-readable compliance packet contents |
-| [day-1-onboarding.md](day-1-onboarding.md) | [#803](https://github.com/venturecrane/ss-console/issues/803) | First-hour dashboard walkthrough screens |
-| [cost-telemetry-events.md](cost-telemetry-events.md) | [#804](https://github.com/venturecrane/ss-console/issues/804) | Per-customer cost emission for all 9+ drivers |
-| [decommission-drain.md](decommission-drain.md) | [#805](https://github.com/venturecrane/ss-console/issues/805) | 60s drain window before substrate deletion |
+| Spec                                                           | Issue                                                         | Scope                                                                           |
+| -------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| [d1-schema.md](d1-schema.md)                                   | [#800](https://github.com/venturecrane/ss-console/issues/800) | 11 D1 tables; per-customer isolation via binding layer                          |
+| [r2-vectorize-naming.md](r2-vectorize-naming.md)               | [#801](https://github.com/venturecrane/ss-console/issues/801) | Per-customer R2 + Vectorize naming; invariant #7 boot-check                     |
+| [voice-gate-fallback.md](voice-gate-fallback.md)               | [#797](https://github.com/venturecrane/ss-console/issues/797) | Pass / Near-pass / Fail states; internal-drafts-only mode                       |
+| [fabrication-filter.md](fabrication-filter.md)                 | [#798](https://github.com/venturecrane/ss-console/issues/798) | Invariant #8 as runtime pre-output filter; `client_facing_fields` skill anatomy |
+| [mobile-approval-flow.md](mobile-approval-flow.md)             | [#799](https://github.com/venturecrane/ss-console/issues/799) | V1 mobile screen sequence; 60-second partner loop                               |
+| [compliance-evidence-packet.md](compliance-evidence-packet.md) | [#802](https://github.com/venturecrane/ss-console/issues/802) | Susan-readable compliance packet contents                                       |
+| [day-1-onboarding.md](day-1-onboarding.md)                     | [#803](https://github.com/venturecrane/ss-console/issues/803) | First-hour dashboard walkthrough screens                                        |
+| [cost-telemetry-events.md](cost-telemetry-events.md)           | [#804](https://github.com/venturecrane/ss-console/issues/804) | Per-customer cost emission for all 9+ drivers                                   |
+| [decommission-drain.md](decommission-drain.md)                 | [#805](https://github.com/venturecrane/ss-console/issues/805) | 60s drain window before substrate deletion                                      |
 
 ## Open ambiguities requiring Captain decision
 

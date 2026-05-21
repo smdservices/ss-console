@@ -88,6 +88,7 @@ Contact: scott@smd.services
 ### 01-summary.pdf
 
 Auto-rendered from a markdown template. Contents:
+
 - "What the agent did" summary (drafts created / approved / rejected per skill, week-by-week)
 - "What the agent learned" summary (memory edits per category, voice violations caught)
 - "What the agent never did" summary (an exhibits list: zero external sends, zero data leaks, zero invariant violations — quoted from audit_log)
@@ -113,6 +114,7 @@ Narrated audit log. Events grouped by week, then by category (drafts / memory / 
 ### 05-customer-yaml.redacted.yml
 
 The full `customer.yaml` with these fields redacted (replaced by `<redacted>`):
+
 - All `token_ref` values
 - All `oauth_scopes` values (replaced by count: `<12 scopes redacted>`)
 - All `escalation.failure_recipients` and `red_flag_recipients` email addresses (replaced by domain: `<redacted>@firm.example.com`)
@@ -122,6 +124,7 @@ Everything else — persona, vertical, skills enabled, trust ceilings, scope rul
 ### 06-memory-snapshot.json
 
 JSON dump of:
+
 - `memory_rules` rows (rule content visible — rules are customer-curated, intentionally readable)
 - `person_mappings` rows (names + roles visible; external IDs redacted)
 - `voice_samples` metadata (ID, upload date, cohort, sanitization flag — sample content NOT included in default packet; available on request via separate signed export)
@@ -130,6 +133,7 @@ JSON dump of:
 ### 07-skill-catalog.json
 
 For each skill enabled during the period:
+
 - `skill_name`, `content_hash` (pinned version), `activated_at`, `trust_ceiling`, `run_count`
 - Citation to the skill's `SKILL.md` content as committed in git (commit SHA + path)
 

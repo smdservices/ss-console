@@ -234,6 +234,7 @@ Audit event: `ONBOARDING_COMPLETED`. Lands on Today tab.
 ### Operator onboarding (parallel, separate)
 
 If `customer.yaml.users` includes an operator, they receive a separate welcome email. Their walkthrough is the same sequence, except:
+
 - Screen 5 (trust ceiling explainer) reads "Your principal sets these. You can see them but not promote."
 - Screen 7 (first promotion) is skipped (operator cannot promote).
 - Skip-tab buttons hidden for tabs they don't have access to (per dashboard-roles.md).

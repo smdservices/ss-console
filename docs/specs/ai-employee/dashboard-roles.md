@@ -12,40 +12,40 @@
 
 ### Roles
 
-| Role | Persona | Auth | Sessions |
-|---|---|---|---|
-| `principal` | Partner/owner/founder. The buyer. | Clerk SSO via `portal.smd.services` | 24h refresh |
-| `operator` | Paralegal/office manager/admin. Day-to-day user. | Clerk SSO | 24h refresh |
+| Role         | Persona                                                       | Auth                                            | Sessions                                       |
+| ------------ | ------------------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------- |
+| `principal`  | Partner/owner/founder. The buyer.                             | Clerk SSO via `portal.smd.services`             | 24h refresh                                    |
+| `operator`   | Paralegal/office manager/admin. Day-to-day user.              | Clerk SSO                                       | 24h refresh                                    |
 | `compliance` | Outside counsel / compliance officer. Read-only audit access. | Clerk SSO + per-customer "compliance" org claim | 1h refresh (shorter; per audit-window posture) |
 
 Roles are stored in `customer.yaml.users[]` per customer-yaml-schema.md. Clerk org claims map `users[].email → role`. Runtime resolves on every dashboard request.
 
 ### Permission matrix
 
-| Capability | principal | operator | compliance |
-|---|---|---|---|
-| **Today tab** view | yes | yes | no |
-| **Queue tab** view | yes | yes | no |
-| **Queue** approve/reject draft | yes | yes (limited; see below) | no |
-| **Memory tab** view | yes | yes | no |
-| **Memory tab** add/edit memory rule | yes | yes (non-promoting only) | no |
-| **Memory tab** delete memory rule | yes | yes (requires principal confirmation for hard rules) | no |
-| **Audit tab** view | yes | yes | yes (Audit tab only) |
-| **Audit tab** export compliance packet | yes | yes | yes |
-| **Persona tab** view | yes | yes | no |
-| **Persona tab** edit signature/avatar/name | yes | no | no |
-| **Persona tab** edit voice samples | yes | yes | no |
-| **Skills tab** view | yes | yes | no |
-| **Skills tab** enable/disable skill | yes | no | no |
-| **Skills tab** **promote trust ceiling** (draft_for_review → autonomous) | yes | no | no |
-| **Skills tab** **demote trust ceiling** (any → draft_for_review or disabled) | yes | yes | no |
-| **Skills tab** configure skill scope/params | yes | yes | no |
-| **Voice tab** view | yes | yes | no |
-| **Voice tab** edit voice rules | yes | yes | no |
-| **Voice tab** run blind-test | yes | yes | no |
-| **Voice tab** mark blind-test passed (unlocks first external draft) | yes | no | no |
-| **Pause** all agent activity (sticky stop) | yes | yes | no |
-| **Resume** after pause | yes | no | no |
+| Capability                                                                   | principal | operator                                             | compliance           |
+| ---------------------------------------------------------------------------- | --------- | ---------------------------------------------------- | -------------------- |
+| **Today tab** view                                                           | yes       | yes                                                  | no                   |
+| **Queue tab** view                                                           | yes       | yes                                                  | no                   |
+| **Queue** approve/reject draft                                               | yes       | yes (limited; see below)                             | no                   |
+| **Memory tab** view                                                          | yes       | yes                                                  | no                   |
+| **Memory tab** add/edit memory rule                                          | yes       | yes (non-promoting only)                             | no                   |
+| **Memory tab** delete memory rule                                            | yes       | yes (requires principal confirmation for hard rules) | no                   |
+| **Audit tab** view                                                           | yes       | yes                                                  | yes (Audit tab only) |
+| **Audit tab** export compliance packet                                       | yes       | yes                                                  | yes                  |
+| **Persona tab** view                                                         | yes       | yes                                                  | no                   |
+| **Persona tab** edit signature/avatar/name                                   | yes       | no                                                   | no                   |
+| **Persona tab** edit voice samples                                           | yes       | yes                                                  | no                   |
+| **Skills tab** view                                                          | yes       | yes                                                  | no                   |
+| **Skills tab** enable/disable skill                                          | yes       | no                                                   | no                   |
+| **Skills tab** **promote trust ceiling** (draft_for_review → autonomous)     | yes       | no                                                   | no                   |
+| **Skills tab** **demote trust ceiling** (any → draft_for_review or disabled) | yes       | yes                                                  | no                   |
+| **Skills tab** configure skill scope/params                                  | yes       | yes                                                  | no                   |
+| **Voice tab** view                                                           | yes       | yes                                                  | no                   |
+| **Voice tab** edit voice rules                                               | yes       | yes                                                  | no                   |
+| **Voice tab** run blind-test                                                 | yes       | yes                                                  | no                   |
+| **Voice tab** mark blind-test passed (unlocks first external draft)          | yes       | no                                                   | no                   |
+| **Pause** all agent activity (sticky stop)                                   | yes       | yes                                                  | no                   |
+| **Resume** after pause                                                       | yes       | no                                                   | no                   |
 
 ### Operator's "limited" draft approval
 
@@ -56,6 +56,7 @@ This addresses the BA OQ-004 question: a paralegal can run the agent's day-to-da
 ### "Maria in the room" scenario
 
 The 20-year partner brings their paralegal to the meeting. Day-1 onboarding (day-1-onboarding.md) creates both users:
+
 - Partner = principal
 - Paralegal = operator
 

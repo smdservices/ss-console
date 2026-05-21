@@ -21,6 +21,7 @@ Fail:       <60%   Captain disclosure (see below). First external draft remains 
 ```
 
 State recorded in `audit_log` per d1-schema.md:
+
 - `VOICE_GATE_PASSED` (metadata: score, judge_ids, sample_set_id)
 - `VOICE_GATE_NEAR_PASS` (metadata: score, cycle_count, judge_ids)
 - `VOICE_GATE_FAILED` (metadata: score, cycle_count, disclosure_artifact_r2_key)
@@ -39,6 +40,7 @@ Cycles tracked in `voice_samples.notes` and `audit_log` (cycle_count metadata).
 Captain runs the disclosure protocol:
 
 1. **Disclosure conversation.** Captain calls the partner. Transparent script:
+
    > "The voice gate hasn't passed. Three judges scored Marcus's drafts at {score}% indistinguishable from yours. That's below the threshold we set so that no client could ever say 'did you write this?' We don't ship external drafts until that threshold is met. We have two paths forward."
 
 2. **Path A — Internal-drafts-only mode.** Marcus continues drafting against internal surfaces only (intake notes, status reports to the partner, never to the partner's clients). Reduced retainer per the pricing strategy doc. Continue voice calibration in parallel; re-attempt blind-test at next monthly checkpoint.
