@@ -79,7 +79,8 @@ function handleSubdomainRewrite(
     !pathname.startsWith('/admin') &&
     !pathname.startsWith('/api/admin') &&
     !pathname.startsWith('/auth') &&
-    !pathname.startsWith('/api/auth')
+    !pathname.startsWith('/api/auth') &&
+    !pathname.startsWith('/api/oauth')
   ) {
     const adminPath = pathname === '/' ? '/admin' : `/admin${pathname}`
     return context.rewrite(new Request(new URL(adminPath, context.url), context.request))
