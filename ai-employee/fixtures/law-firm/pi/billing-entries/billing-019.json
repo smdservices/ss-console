@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "billing-entry",
+    "case_type": "premises-inadequate-maintenance",
+    "fixture_id": "billing-019",
+    "edge_tags": []
+  },
+  "content": {
+    "matter_display_number": "PI-2026-5875",
+    "entry_date": "2026-03-22",
+    "duration_hours": 0.9,
+    "billable": true,
+    "rate_per_hour_usd": 350,
+    "amount_usd": 315.0,
+    "description": "Drafted demand letter section addressing damages exposure including lost earning capacity. 0.9 hrs.",
+    "quality_self_assessment": "well-coded"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "matter-record",
+    "case_type": "slip-fall-snow-ice",
+    "fixture_id": "matter-020",
+    "edge_tags": []
+  },
+  "content": {
+    "display_number": "PI-2026-6062",
+    "description": "ice-related fall on snow-affected walkway",
+    "case_type": "slip-fall-snow-ice",
+    "status": "discovery",
+    "open_date": "2025-06-14",
+    "client_id": "contact-94050",
+    "client_name": "Cassandra Nguyen-Pham",
+    "assigned_attorney": "K. Patel",
+    "case_value_estimate_low_usd": 250000,
+    "case_value_estimate_high_usd": 750000,
+    "defendant": {
+      "type": "individual",
+      "name": "Brookfield Properties LLC",
+      "carrier": "Sunfield National",
+      "opp_counsel_firm": "Brennan Litigation Partners"
+    },
+    "key_dates": {
+      "incident_date": "2026-03-31",
+      "sol_date": "2027-10-07",
+      "next_court_date": null
+    },
+    "custom_fields": {
+      "settlement_stage": "demand-out",
+      "policy_limits_disclosed": false
+    }
+  }
+}

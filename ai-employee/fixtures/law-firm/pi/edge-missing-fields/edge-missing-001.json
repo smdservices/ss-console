@@ -1,0 +1,47 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "auto-accident",
+    "fixture_id": "edge-missing-001",
+    "edge_tags": ["missing-fields"],
+    "missing_fields": ["incident_date", "opposing_party_insurance_carrier"],
+    "expected_behavior": "skill identifies missing critical fields and requests them before proceeding with case classification"
+  },
+  "content": {
+    "channel": "email",
+    "direction": "inbound",
+    "from": {
+      "name": "Marcella Vandervere",
+      "email": "marcella.vandervere@plumridge-mail.example",
+      "phone": "+1-602-555-0148"
+    },
+    "to": {
+      "name": "Halberd & Quince Intake",
+      "email": "intake@halberdquince.example"
+    },
+    "subject": "Following up on the car accident - figured I should write everything down",
+    "received_at": "2026-05-14T16:22:00-07:00",
+    "body": "Hi there,\n\nI spoke briefly with someone named Denise on Monday about my crash and she said the best thing to do was write up everything I remember while it's still fresh, so here goes. Sorry in advance for the length.\n\nThe accident happened at the intersection of Camelback and 32nd Street in Phoenix, in the left-turn lane heading westbound. I was stopped at the red light behind a white delivery van. The other driver — his name is Roland Pettigrew, and I got his info at the scene — was eastbound on Camelback going through what he later admitted was a yellow that turned red. He clipped the front-left quarter panel of my 2021 Subaru Outback when he tried to swing into the turn lane to avoid the van behind me. The impact spun my car about 45 degrees and I ended up partially blocking the crosswalk.\n\nPhoenix PD officer was Officer T. Nakashima, badge 4471. He took statements from both of us and a witness, a guy named Curtis who runs the smoothie place on the corner (Greenleaf Smoothies — Curtis Bellamy, I think). The report number is PHX-2026-IR-88432, if that helps. Officer Nakashima cited Roland for failure to yield.\n\nMy car is currently at Sunrise Collision on Indian School Road. The adjuster from MY insurance (Sentinel Mutual, policy SM-447-998-2210) came out two days after the accident and the initial estimate was around $11,400 in damage. They've already approved the repair but I haven't picked a date to drop it off because I'm still driving the rental they authorized through Hertz.\n\nMedically: I went to Banner Urgent Care on Bell Road that same evening because my neck started seizing up about three hours after the crash. They did X-rays, said no fracture, diagnosed cervical strain and possible mild concussion (I had a headache and was nauseous). They referred me to Dr. Aanya Worthington at Cascade Spine & Sport. I've now had six PT sessions with her practice. I'm also seeing a chiropractor, Dr. Marc Felber at Sonoran Wellness, twice a week. My out-of-pocket so far is about $1,840 (the urgent care copay, PT copays, and chiro visits my insurance doesn't cover). I'm tracking everything in a spreadsheet.\n\nI work as a regional sales manager for Pelham Beverage Distributors and I've missed nine full workdays plus another four half-days for appointments. HR has been okay about it but I'm burning through PTO faster than I'd like. My base is $94,000 plus commission, and Q2 is usually my strongest quarter, so the timing is terrible.\n\nRoland gave me his insurance card at the scene. I took a photo of it. I just looked at the photo on my phone and I can't read it — it's blurry and the lighting in the parking lot was bad. I remember it was something like 'Provident' or 'Prudential' or maybe 'Pinnacle' but I genuinely am not sure. His policy number I also can't read. I called him twice this week to get it again and he hasn't picked up or returned my voicemails. I'm worried he's going to ghost. I do have his phone number, his address (he gave me his license to photograph too), and his license plate (Arizona ALD-7729). The police report should have his carrier listed but I haven't requested a copy yet.\n\nOne more thing: my husband Theodore was in the passenger seat. He's fine — bruised shoulder from the seatbelt and a sore knee where it hit the dash, but he didn't go to the ER. He's mentioning the shoulder is still tight a couple weeks later. I don't know if he needs to be on this too or if I should encourage him to see someone.\n\nThe reason I'm writing now: my insurance adjuster called this morning and said the other side's carrier has 'reached out informally' and wants to discuss settlement of the property damage and potentially the medical. He told me not to talk to them directly and to get a lawyer involved before any of those conversations happen. That's why I'm here.\n\nI think that's everything. I have photos of the scene, photos of both cars, the police report number, all my medical paperwork, and a folder of receipts. What do you need from me to get started? I'm available pretty much any afternoon next week if you want to meet in person.\n\nThanks,\nMarcella Vandervere\n(602) 555-0148",
+    "attachments_referenced": [
+      "scene photos (12)",
+      "vehicle damage photos (8)",
+      "Banner Urgent Care discharge summary",
+      "Cascade Spine & Sport PT notes (sessions 1-6)",
+      "Sentinel Mutual adjuster estimate",
+      "expense tracking spreadsheet"
+    ],
+    "client_profile": {
+      "full_name": "Marcella Eileen Vandervere",
+      "date_of_birth": "1981-07-23",
+      "address": "4218 E Sweetwater Ave, Phoenix, AZ 85032",
+      "occupation": "Regional Sales Manager, Pelham Beverage Distributors",
+      "marital_status": "married",
+      "spouse_referenced": "Theodore Vandervere (potential second claimant)"
+    },
+    "intake_notes_pending": [
+      "Client provided extensive narrative but did not state the date of the accident anywhere in the email — needs to be obtained before file open.",
+      "Opposing driver's insurance carrier is unidentified (client could not read photographed card and Pettigrew is not returning calls). Police report copy will likely surface this but needs to be requested."
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "matter-record",
+    "case_type": "slip-fall-residential",
+    "fixture_id": "matter-014",
+    "edge_tags": []
+  },
+  "content": {
+    "display_number": "PI-2026-3343",
+    "description": "slip and fall at residential property",
+    "case_type": "slip-fall-residential",
+    "status": "discovery",
+    "open_date": "2026-02-06",
+    "client_id": "contact-68790",
+    "client_name": "Sage Holcombe",
+    "assigned_attorney": "S. Garcia",
+    "case_value_estimate_low_usd": 100000,
+    "case_value_estimate_high_usd": 300000,
+    "defendant": {
+      "type": "government-entity",
+      "name": "Lakeside Properties LLC",
+      "carrier": "Heritage Lake Casualty",
+      "opp_counsel_firm": "Holcombe Defense Group"
+    },
+    "key_dates": {
+      "incident_date": "2025-02-23",
+      "sol_date": "2027-02-04",
+      "next_court_date": null
+    },
+    "custom_fields": {
+      "settlement_stage": "demand-out",
+      "policy_limits_disclosed": false
+    }
+  }
+}

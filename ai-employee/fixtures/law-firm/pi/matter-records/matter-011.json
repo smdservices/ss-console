@@ -1,0 +1,36 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "matter-record",
+    "case_type": "med-mal",
+    "fixture_id": "matter-011",
+    "edge_tags": []
+  },
+  "content": {
+    "display_number": "PI-2026-7894",
+    "description": "medical malpractice",
+    "case_type": "med-mal",
+    "status": "intake",
+    "open_date": "2025-08-09",
+    "client_id": "contact-59626",
+    "client_name": "Lakshmi Lim",
+    "assigned_attorney": "J. Okafor",
+    "case_value_estimate_low_usd": 100000,
+    "case_value_estimate_high_usd": 300000,
+    "defendant": {
+      "type": "business",
+      "name": "Brookfield Properties LLC",
+      "carrier": "Mountain Pass Mutual",
+      "opp_counsel_firm": "Steinmetz, Kowalski & Pellegrino LLP"
+    },
+    "key_dates": {
+      "incident_date": "2025-03-25",
+      "sol_date": "2027-03-11",
+      "next_court_date": null
+    },
+    "custom_fields": {
+      "settlement_stage": "pre-demand",
+      "policy_limits_disclosed": true
+    }
+  }
+}

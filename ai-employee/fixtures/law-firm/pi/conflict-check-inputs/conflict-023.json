@@ -1,0 +1,56 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "conflict-check-input",
+    "case_type": "n/a",
+    "fixture_id": "conflict-023",
+    "edge_tags": []
+  },
+  "content": {
+    "prospect": {
+      "name": "Lakshmi Sarmiento",
+      "email": "lakshmi.sarmiento@outlook.com",
+      "case_type": "slip-fall-snow-ice",
+      "incident_party_list": ["Lakshmi Sarmiento", "Tomasz Lim"]
+    },
+    "existing_matters_subset": [
+      {
+        "matter_id": "contact-99711",
+        "client_name": "Marcus Pellegrino",
+        "opposing_party": "Reginald Aboueid",
+        "opposing_counsel": "Cascade Pacific Defense Counsel"
+      },
+      {
+        "matter_id": "contact-95618",
+        "client_name": "Tomasz Steinmetz",
+        "opposing_party": "Magdalena Ashworth",
+        "opposing_counsel": "Holcombe Defense Group"
+      },
+      {
+        "matter_id": "contact-72423",
+        "client_name": "Patel Henneberry",
+        "opposing_party": "Octavio Sarmiento",
+        "opposing_counsel": "Cascade Pacific Defense Counsel"
+      },
+      {
+        "matter_id": "contact-42022",
+        "client_name": "Halmar Eklund",
+        "opposing_party": "Thaddeus Tsosie",
+        "opposing_counsel": "Cascade Pacific Defense Counsel"
+      },
+      {
+        "matter_id": "contact-33378",
+        "client_name": "Yolanda Ranganathan",
+        "opposing_party": "Cyrus Aboueid",
+        "opposing_counsel": "Cascade Pacific Defense Counsel"
+      },
+      {
+        "matter_id": "contact-24844",
+        "client_name": "Sage Brennan",
+        "opposing_party": "Patel Onyeka",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      }
+    ],
+    "expected_outcome": "no-conflict"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "billing-entry",
+    "case_type": "premises-negligent-security",
+    "fixture_id": "billing-016",
+    "edge_tags": []
+  },
+  "content": {
+    "matter_display_number": "PI-2026-4353",
+    "entry_date": "2026-04-09",
+    "duration_hours": 0.8,
+    "billable": true,
+    "rate_per_hour_usd": 350,
+    "amount_usd": 280.0,
+    "description": "Reviewed and analyzed medical records from Tucson Mesa Family Practice. Drafted memo summarizing key findings re: causation. 0.8 hrs.",
+    "quality_self_assessment": "well-coded"
+  }
+}

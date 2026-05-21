@@ -1,0 +1,56 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "conflict-check-input",
+    "case_type": "n/a",
+    "fixture_id": "conflict-017",
+    "edge_tags": []
+  },
+  "content": {
+    "prospect": {
+      "name": "Jorge Aboueid",
+      "email": "jorge.aboueid@gmail.com",
+      "case_type": "auto-intersection",
+      "incident_party_list": ["Jorge Aboueid", "Niko Sarmiento"]
+    },
+    "existing_matters_subset": [
+      {
+        "matter_id": "contact-29067",
+        "client_name": "Niko Aldecoa",
+        "opposing_party": "Tomasz Aldecoa",
+        "opposing_counsel": "Vasquez-Mendez Insurance Defense"
+      },
+      {
+        "matter_id": "contact-14150",
+        "client_name": "Cassandra Volkmann",
+        "opposing_party": "Talullah Achebe",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-77368",
+        "client_name": "Magdalena Brennan",
+        "opposing_party": "Quinlan Steinmetz",
+        "opposing_counsel": "Vasquez-Mendez Insurance Defense"
+      },
+      {
+        "matter_id": "contact-17390",
+        "client_name": "Esperanza Aldecoa",
+        "opposing_party": "Lakshmi Lim",
+        "opposing_counsel": "Holcombe Defense Group"
+      },
+      {
+        "matter_id": "contact-12598",
+        "client_name": "Yolanda Tsosie",
+        "opposing_party": "Tomasz Kowalski",
+        "opposing_counsel": "Vasquez-Mendez Insurance Defense"
+      },
+      {
+        "matter_id": "contact-20666",
+        "client_name": "Imani Eklund",
+        "opposing_party": "Esperanza Henneberry",
+        "opposing_counsel": "Holcombe Defense Group"
+      }
+    ],
+    "expected_outcome": "no-conflict"
+  }
+}

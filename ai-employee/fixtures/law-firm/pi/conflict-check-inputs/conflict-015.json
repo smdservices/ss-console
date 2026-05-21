@@ -1,0 +1,44 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "conflict-check-input",
+    "case_type": "n/a",
+    "fixture_id": "conflict-015",
+    "edge_tags": []
+  },
+  "content": {
+    "prospect": {
+      "name": "Anneke Ashworth",
+      "email": "anneke.ashworth@proton.me",
+      "case_type": "slip-fall-residential",
+      "incident_party_list": ["Anneke Ashworth", "Zora Pellegrino"]
+    },
+    "existing_matters_subset": [
+      {
+        "matter_id": "contact-55978",
+        "client_name": "Priya Eklund",
+        "opposing_party": "Branwen Eklund",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-22686",
+        "client_name": "Jorge Brzezinski",
+        "opposing_party": "Tomasz Achebe",
+        "opposing_counsel": "Holcombe Defense Group"
+      },
+      {
+        "matter_id": "contact-39349",
+        "client_name": "Inigo Aboueid",
+        "opposing_party": "Anneke Ashworth",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-39456",
+        "client_name": "Sage Whitlock",
+        "opposing_party": "Talullah Ashworth",
+        "opposing_counsel": "Eklund & Associates"
+      }
+    ],
+    "expected_outcome": "positive-conflict"
+  }
+}

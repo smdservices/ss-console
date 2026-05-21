@@ -1,0 +1,47 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "premises",
+    "fixture_id": "edge-missing-009",
+    "edge_tags": ["missing-fields"],
+    "missing_fields": ["prior_claim_history", "settlement_expectation"],
+    "expected_behavior": "skill identifies missing critical fields and requests them before proceeding"
+  },
+  "content": {
+    "channel": "email",
+    "direction": "inbound",
+    "from": {
+      "name": "Bernadette Thrushwood",
+      "email": "b.thrushwood@windmere-mail.example",
+      "phone": "+1-480-555-0173"
+    },
+    "to": {
+      "name": "Halberd & Quince Intake",
+      "email": "intake@halberdquince.example"
+    },
+    "subject": "Slip and fall at the grocery store — looking for representation",
+    "received_at": "2026-05-16T09:14:00-07:00",
+    "body": "Hello,\n\nI was referred to your firm by my friend Lorraine Pickering, who said you were thorough and easy to work with. I'm hoping you can help me with a fall I had three weeks ago.\n\nOn the evening of April 23rd, I was shopping at Crestwell Market on Shea Boulevard in Scottsdale. It was around 7:15pm. I had just turned into the dairy aisle when my right foot slid out from under me on what turned out to be a puddle of liquid — I think it was olive oil from a broken bottle on the lower shelf that hadn't been cleaned up. There was no wet floor sign, no caution cone, nothing. I went down hard on my left hip and my right wrist took most of the impact when I tried to catch myself.\n\nA store employee named Devon (I didn't get a last name, but he was wearing a name tag and a green apron) came over within about thirty seconds. He was apologetic and said something like, 'Oh no, I saw that bottle earlier and was supposed to come back to it.' He helped me to a bench near the customer service desk and called the manager, a woman named Patrice Holloway. She filled out an incident report and gave me a copy. The report number is CM-INC-2026-0419-A.\n\nI declined the ambulance they offered because I was conscious and could move, but my daughter Imogen drove me to HonorHealth Shea Emergency Department about an hour later when the wrist swelling got worse. X-rays showed a distal radius fracture and a deep hip contusion. They put me in a wrist splint, gave me crutches because the hip was making weight-bearing difficult, and referred me to an orthopedist, Dr. Yusuf Calderwood at Camelback Orthopedic Associates. I saw Dr. Calderwood the following Monday and he confirmed the fracture was non-displaced but recommended I wear the splint for six weeks. I've been doing prescribed exercises and I have a follow-up next Tuesday.\n\nI'm 64 years old and I work part-time as a bookkeeper for Whitfield & Sons Roofing — about 22 hours a week. I've been able to work from home since the fall, so I haven't lost income, but I can't lift my grandson Theo (he's two) and I've had to cancel a trip to Coeur d'Alene to see my sister that we'd been planning since January. I'm also right-handed, which has made everything from cooking to brushing my teeth take twice as long.\n\nThe store manager called me twice in the first week to check in, which I appreciated. The second time, she mentioned their 'claims department' would be in touch. A man named Reginald Astor from Crestwell's risk management group called me on May 6th and asked if I'd be willing to discuss 'resolving the matter directly.' I told him I needed to think about it and hung up. He called again on May 12th. I haven't returned his second call.\n\nMy medical bills so far are about $4,200 (ER copay, ortho visits, the splint, two follow-up X-rays). My health insurance through Blue Mesa is covering the rest but I know they'll want to be paid back if I recover anything.\n\nWhat I have: the incident report copy, photos my daughter took of the spill area before they cleaned it up (she went back into the aisle while I was on the bench — smart girl), the ER discharge paperwork, Dr. Calderwood's notes, and a folder of receipts. I'd be happy to come in and bring all of it.\n\nA few questions while I'm thinking of them: Do I need to file something with the store formally, or does that happen through you? Should I keep talking to Mr. Astor or stop entirely? And how long does something like this usually take?\n\nLet me know what you need from me. Afternoons work best — I'm usually free after 2pm.\n\nThank you,\nBernadette Thrushwood\n(480) 555-0173",
+    "attachments_referenced": [
+      "Crestwell Market incident report CM-INC-2026-0419-A",
+      "spill area photos (4)",
+      "HonorHealth Shea ER discharge summary",
+      "Dr. Calderwood ortho consult notes",
+      "follow-up X-ray reports (2)",
+      "receipts folder"
+    ],
+    "client_profile": {
+      "full_name": "Bernadette Mae Thrushwood",
+      "date_of_birth": "1961-11-08",
+      "address": "9847 N Granite Reef Rd, Scottsdale, AZ 85258",
+      "occupation": "Part-time Bookkeeper, Whitfield & Sons Roofing",
+      "marital_status": "widowed",
+      "household_referenced": "daughter Imogen Thrushwood (drove client to ER); grandson Theo (2)"
+    },
+    "intake_notes_pending": [
+      "Client did not disclose any prior personal injury claims. A 2019 records cross-reference flag exists internally suggesting she filed a workers' compensation claim against a former employer (Mereton Logistics) for a back injury and a 2014 auto-accident bodily injury claim. Both should be confirmed with the client directly — prior claim history must be obtained before file open to assess credibility and disclosure obligations.",
+      "Client did not state what outcome she is seeking. The email contains no reference to desired recovery, whether she expects only medical expense reimbursement, lost-trip reimbursement, pain-and-suffering compensation, or something else. Settlement expectation must be elicited in the intake call before scope and engagement terms can be set."
+    ]
+  }
+}

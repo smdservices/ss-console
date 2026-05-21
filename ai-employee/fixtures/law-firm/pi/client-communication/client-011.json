@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "auto-highway",
+    "fixture_id": "client-011",
+    "edge_tags": []
+  },
+  "content": {
+    "from": "meilin.aldecoa@proton.me",
+    "from_name": "Mei-Lin Aldecoa",
+    "to": "sarah@example-firm.invalid",
+    "subject": "Case status",
+    "sent_date": "2026-05-10",
+    "body": "Sarah,\n\nIt's been 6 weeks since we filed. I left two voicemails last week. I'm starting to feel like nobody is working on my case. I'd appreciate a call back within 24 hours.\n\nMei-Lin Aldecoa",
+    "tone_label": "frustrated",
+    "matter_display_number": "PI-2026-6396"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "auto-highway",
+    "fixture_id": "client-008",
+    "edge_tags": []
+  },
+  "content": {
+    "from": "niko.kowalski@proton.me",
+    "from_name": "Niko Kowalski",
+    "to": "sarah@example-firm.invalid",
+    "subject": "Need to talk",
+    "sent_date": "2026-05-15",
+    "body": "Hi Sarah,\n\nJust checking in for an update on my case. I know these things take time. Last we spoke you mentioned the carrier was reviewing the demand. Any news? No rush, just wanted to stay in the loop.\n\nThanks,\nNiko Kowalski",
+    "tone_label": "informed-patient",
+    "matter_display_number": "PI-2026-4099"
+  }
+}

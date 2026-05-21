@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "auto-intersection",
+    "fixture_id": "client-026",
+    "edge_tags": []
+  },
+  "content": {
+    "from": "tomasz.eklund@outlook.com",
+    "from_name": "Tomasz Eklund",
+    "to": "kavita@example-firm.invalid",
+    "subject": "Case status",
+    "sent_date": "2026-05-12",
+    "body": "Kavita, I got the invoice. I see there's an entry for 5.5 hours on 2026-05-12 for \"document review\" — can you tell me what specifically was reviewed? I want to make sure I understand what I'm being billed for.\n\nThanks,\nTomasz Eklund",
+    "tone_label": "fee-disputing-mild",
+    "matter_display_number": "PI-2026-7649"
+  }
+}

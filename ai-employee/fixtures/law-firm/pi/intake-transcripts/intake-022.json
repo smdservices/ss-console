@@ -1,0 +1,60 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "intake-transcript",
+    "case_type": "slip-fall-snow-ice",
+    "fixture_id": "intake-022",
+    "edge_tags": []
+  },
+  "content": {
+    "client_name": "Esperanza Sarmiento",
+    "client_phone": "(637) 374-6223",
+    "client_email": "esperanza.sarmiento@proton.me",
+    "incident_date": "2026-02-18",
+    "case_type_self_described": "ice-related fall on snow-affected walkway",
+    "defendant_carrier_named": "Cascade Bay Insurance",
+    "medical_provider_mentioned": "Cholla Park Physical Therapy",
+    "dialogue": [
+      {
+        "speaker": "intake",
+        "text": "Hi Esperanza, this is the intake line at SMD's partner law firm. I understand you'd like to talk about a ice-related fall on snow-affected walkway. Is now still a good time?"
+      },
+      {
+        "speaker": "client",
+        "text": "Yes, thanks for calling back. So on 2026-02-18 I was driving home from work when ice-related fall on snow-affected walkway happened."
+      },
+      {
+        "speaker": "intake",
+        "text": "I'm sorry to hear that. Can you tell me what injuries you've experienced, and whether you've gotten medical treatment?"
+      },
+      {
+        "speaker": "client",
+        "text": "I've been having knee pain. I went to Saguaro Spine and Pain Institute the next day. They referred me to a pain specialist."
+      },
+      {
+        "speaker": "intake",
+        "text": "Did you exchange information with the other party? Do you know who their insurance is with?"
+      },
+      {
+        "speaker": "client",
+        "text": "Yes, Cascade Bay Insurance. The police were also there."
+      },
+      {
+        "speaker": "intake",
+        "text": "Have you spoken with the insurance company yet?"
+      },
+      {
+        "speaker": "client",
+        "text": "Yes, they offered $3,500 already and I said I'd think about it."
+      },
+      {
+        "speaker": "intake",
+        "text": "Got it. One more question — have you worked with another attorney on this matter, or signed anything with another firm?"
+      },
+      {
+        "speaker": "client",
+        "text": "No."
+      }
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "billing-entry",
+    "case_type": "auto-rear-end-residential",
+    "fixture_id": "billing-002",
+    "edge_tags": []
+  },
+  "content": {
+    "matter_display_number": "PI-2026-5472",
+    "entry_date": "2026-03-15",
+    "duration_hours": 1.2,
+    "billable": false,
+    "rate_per_hour_usd": 350,
+    "amount_usd": 420.0,
+    "description": "Reviewed file. 1.2 hrs.",
+    "quality_self_assessment": "ambiguous"
+  }
+}

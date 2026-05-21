@@ -1,0 +1,36 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "matter-record",
+    "case_type": "med-mal",
+    "fixture_id": "matter-013",
+    "edge_tags": []
+  },
+  "content": {
+    "display_number": "PI-2026-8421",
+    "description": "medical malpractice",
+    "case_type": "med-mal",
+    "status": "litigation",
+    "open_date": "2025-09-02",
+    "client_id": "contact-89166",
+    "client_name": "Tomasz Aboueid",
+    "assigned_attorney": "K. Patel",
+    "case_value_estimate_low_usd": 15000,
+    "case_value_estimate_high_usd": 75000,
+    "defendant": {
+      "type": "business",
+      "name": "Quinlan Garibaldi",
+      "carrier": "Mountain Pass Mutual",
+      "opp_counsel_firm": "Brennan Litigation Partners"
+    },
+    "key_dates": {
+      "incident_date": "2025-08-28",
+      "sol_date": "2027-04-24",
+      "next_court_date": "2026-09-29"
+    },
+    "custom_fields": {
+      "settlement_stage": "demand-rejected",
+      "policy_limits_disclosed": true
+    }
+  }
+}
