@@ -23,7 +23,7 @@ A complete record of every strategic decision made across 6 layers of the SMD Se
 | **Payment terms**       | 50% deposit at signing, 50% at completion                                                             |
 | **Assessment**          | Free for first 3 clients, then $250 applied toward engagement                                         |
 | **Voice standard**      | We / our team throughout. Never I / the consultant.                                                   |
-| **Decisions locked**    | 31 active decisions across 6 layers (plus venture-wide #20 positioning standard; 2 superseded)        |
+| **Decisions locked**    | 36 active decisions across 6 layers (plus venture-wide #20 positioning standard; 2 superseded)        |
 | **Deliverables queued** | 11 artifacts ready to build                                                                           |
 
 ---
@@ -737,6 +737,76 @@ Same engine, same data model, same artifact shape. Fields fill progressively as 
 
 ---
 
+## Decision #45 - Reviewer-as-Sender (AI Employee architectural invariant)
+
+**ADR:** [docs/adr/0005-reviewer-as-sender.md](./0005-reviewer-as-sender.md)
+
+**Decision: Every customer-bound external message ships under the human reviewer's identity. The AI Employee persona does not exist as a sending identity to the outside world. This is architectural, not advisory.**
+
+The persona is fully visible internally (dashboard, internal Slack/Teams, audit log). Externally — to the customer's clients, opposing counsel, courts, regulators, vendors — the persona does not exist. Drafts go to the reviewer's drafts folder. The reviewer reviews and sends from their own account. Trust-ceiling promotion to `autonomous` is not available for any skill whose output crosses the external boundary.
+
+**Cross-layer impact (Layer 6 - Delivery).** Defines how productized AI Employee delivery operates. Customer compliance counsel can sign off knowing the human-in-the-loop posture is structural.
+
+**Captain authorized:** 2026-05-20 per ADR record (decision embedded in PRDs since first draft).
+
+---
+
+## Decision #46 - Capability-Adapter Pattern (AI Employee architectural invariant)
+
+**ADR:** [docs/adr/0006-capability-adapter-pattern.md](./0006-capability-adapter-pattern.md)
+
+**Decision: Skills bind to abstract capability interfaces. Vendor adapters implement the interfaces. `customer.yaml` declares which adapter implements which capability for each customer. Three-layer separation — capability interface, adapter, wiring — is architectural.**
+
+Eleven capability interfaces: `PracticeManagement`, `Email`, `Calendar`, `DocumentStorage`, `ESign`, `CourtAccess`, `Payments`, `Accounting`, `IntakeCRM`, `CallTracking`, `InternalComms`. Adding a new vendor is one adapter, not new skill variants. Per-customer adapter swap is configuration.
+
+**Cross-layer impact (Layer 6 - Delivery).** Defines the scalability model for vendor coverage in the AI Employee SKU.
+
+**Captain authorized:** 2026-05-20 per ADR record.
+
+---
+
+## Decision #47 - Per-Customer Machine Isolation (AI Employee architectural invariant)
+
+**ADR:** [docs/adr/0007-per-customer-machine-isolation.md](./0007-per-customer-machine-isolation.md)
+
+**Decision: One Fly.io Machine per customer. No shared runtime across customers. Multi-tenancy is achieved through deployment isolation, not runtime tenancy.**
+
+Each customer gets dedicated D1, R2, and Vectorize bindings; dedicated OAuth tokens; pinned content-hash SHA of the Hermes runtime. Boot-time invariant verifies the Machine's storage bindings include only its own customer's namespaces. The control plane (SMD's operational layer) is a single multi-tenant application; customer runtime Machines are not.
+
+**Cross-layer impact (Layer 6 - Delivery).** Defines the productized service obligations called out in Decision #44 (uptime, monitoring per-Machine, incident-response patterns).
+
+**Captain authorized:** 2026-05-20 per ADR record.
+
+---
+
+## Decision #48 - Customer-Owned Memory Artifact (AI Employee architectural invariant)
+
+**ADR:** [docs/adr/0008-customer-owned-memory-artifact.md](./0008-customer-owned-memory-artifact.md)
+
+**Decision: Customer memory (rules, person-mappings, voice samples, corrections, audit log) lives in customer-specific D1, R2, and Vectorize namespaces bound to the customer's Machine. The customer owns the artifact contractually and operationally. The platform supports portable export and verifiable deletion on offboarding.**
+
+The "no lock-in" claim from Decision #44 / ADR 0004 is backed by architecture, not goodwill. GDPR / CCPA / state-privacy-law right-to-export and right-to-erasure map onto platform operations.
+
+**Cross-layer impact (Layer 6 - Delivery).** Defines the data-ownership boundary for AI Employee customer contracts.
+
+**Captain authorized:** 2026-05-20 per ADR record.
+
+---
+
+## Decision #49 - Cross-Machine Query Prohibition (AI Employee architectural invariant)
+
+**ADR:** [docs/adr/0009-cross-machine-query-prohibition.md](./0009-cross-machine-query-prohibition.md)
+
+**Decision: No customer's Hermes Machine can query another customer's data, by any mechanism, at any layer. Enforced by (1) boot-time storage-binding check that refuses to start on namespace violation, and (2) a shared-catalog CI merge gate that blocks platform-level catalog entries containing customer-specific content.**
+
+Cross-customer learning is not available as a feature. Platform improvements are SMD-authored from human-readable insights, never derived from runtime data propagation. Pairs with Decisions #47 (Machine isolation) and #48 (memory ownership).
+
+**Cross-layer impact (Layer 6 - Delivery).** Defines the cross-customer perimeter for the AI Employee SKU; the answer to compliance counsel's "could another customer's data ever inform ours?" question.
+
+**Captain authorized:** 2026-05-20 per ADR record.
+
+---
+
 ## Decision #30 - Case Study Creation
 
 **Issue:** smdservices/ss-console #30
@@ -808,38 +878,43 @@ All 11 artifacts are scaffolded as GitHub issues in smdservices/ss-console. Ever
 
 # Appendix - Decision Index
 
-| Issue | Decision                                                                                                          |
-| ----- | ----------------------------------------------------------------------------------------------------------------- |
-| #2    | Revenue-based qualification - $750k-$5M primary                                                                   |
-| #3    | Launch verticals - home services + professional services + contractor/trades, problem-qualified                   |
-| #4    | Disqualification criteria - 4 hard stops, 5 soft flags                                                            |
-| #5    | Ideal client profile - synthesis                                                                                  |
-| #6    | Financial visibility - in core with 30-day prerequisite gate                                                      |
-| #9    | Tool evaluation framework - rubric-based, bias toward keep                                                        |
-| #10   | Scope boundary language - positive definition + 4 exclusions                                                      |
-| #11   | Scope creep protocol - parking lot, pre-handoff review                                                            |
-| #12   | Retainer model - SUPERSEDED 2026-05-13 by #44 (see ADR 0004)                                                      |
-| #13   | Paid assessment - free for first 3, then $250                                                                     |
-| #14   | Payment terms - 50% deposit at signing, 50% at completion                                                         |
-| #15   | ROI anchor math - owner does the math, we ask the questions                                                       |
-| #16   | Pricing model - scope-based, $175/hr → $200 → $250 → $300 rate progression                                        |
-| #17   | Assessment capture - MacWhisper Pro + Claude extraction                                                           |
-| #18   | Assessment to proposal - solution design phase, SOW within 48 hours                                               |
-| #19   | Follow-up cadence - 3-touch over 7 days, then mark dead                                                           |
-| #20   | Positioning standard - we voice, team framing (venture-wide)                                                      |
-| #21   | Networking strategy - BNI + chambers + vertical associations                                                      |
-| #22   | Accountant partnership - co-value, no fee, warm handoff                                                           |
-| #23   | Client referral incentive - no formal incentive, ask at handoff                                                   |
-| #24   | Outreach messaging - vertical-specific message and channel                                                        |
-| #25   | Pipeline math - 15-20 touches/week, 2-3 engagements/month, 25-30% close                                           |
-| #26   | Review request - verbal at handoff, automated email 2 days later                                                  |
-| #27   | Safety net - 2-week async from handoff                                                                            |
-| #28   | Internal champion - identify at assessment, orient Day 1                                                          |
-| #29   | Feedback collection - verbal at handoff, survey 30 days later                                                     |
-| #30   | Case study workflow - agent-drafted, client-approved, one page                                                    |
-| #42   | Taxonomy two-layer model - 5-cat observation, 6-cat delivery (see ADR 0001)                                       |
-| #43   | Outside View unified diagnostic - one product, three depths, portal-resident artifact (see ADR 0002)              |
-| #44   | Productized AI Employee offering - flat-rate retainer SKU, second front door, Hermes-leaning stack (see ADR 0004) |
+| Issue | Decision                                                                                                                   |
+| ----- | -------------------------------------------------------------------------------------------------------------------------- |
+| #2    | Revenue-based qualification - $750k-$5M primary                                                                            |
+| #3    | Launch verticals - home services + professional services + contractor/trades, problem-qualified                            |
+| #4    | Disqualification criteria - 4 hard stops, 5 soft flags                                                                     |
+| #5    | Ideal client profile - synthesis                                                                                           |
+| #6    | Financial visibility - in core with 30-day prerequisite gate                                                               |
+| #9    | Tool evaluation framework - rubric-based, bias toward keep                                                                 |
+| #10   | Scope boundary language - positive definition + 4 exclusions                                                               |
+| #11   | Scope creep protocol - parking lot, pre-handoff review                                                                     |
+| #12   | Retainer model - SUPERSEDED 2026-05-13 by #44 (see ADR 0004)                                                               |
+| #13   | Paid assessment - free for first 3, then $250                                                                              |
+| #14   | Payment terms - 50% deposit at signing, 50% at completion                                                                  |
+| #15   | ROI anchor math - owner does the math, we ask the questions                                                                |
+| #16   | Pricing model - scope-based, $175/hr → $200 → $250 → $300 rate progression                                                 |
+| #17   | Assessment capture - MacWhisper Pro + Claude extraction                                                                    |
+| #18   | Assessment to proposal - solution design phase, SOW within 48 hours                                                        |
+| #19   | Follow-up cadence - 3-touch over 7 days, then mark dead                                                                    |
+| #20   | Positioning standard - we voice, team framing (venture-wide)                                                               |
+| #21   | Networking strategy - BNI + chambers + vertical associations                                                               |
+| #22   | Accountant partnership - co-value, no fee, warm handoff                                                                    |
+| #23   | Client referral incentive - no formal incentive, ask at handoff                                                            |
+| #24   | Outreach messaging - vertical-specific message and channel                                                                 |
+| #25   | Pipeline math - 15-20 touches/week, 2-3 engagements/month, 25-30% close                                                    |
+| #26   | Review request - verbal at handoff, automated email 2 days later                                                           |
+| #27   | Safety net - 2-week async from handoff                                                                                     |
+| #28   | Internal champion - identify at assessment, orient Day 1                                                                   |
+| #29   | Feedback collection - verbal at handoff, survey 30 days later                                                              |
+| #30   | Case study workflow - agent-drafted, client-approved, one page                                                             |
+| #42   | Taxonomy two-layer model - 5-cat observation, 6-cat delivery (see ADR 0001)                                                |
+| #43   | Outside View unified diagnostic - one product, three depths, portal-resident artifact (see ADR 0002)                       |
+| #44   | Productized AI Employee offering - flat-rate retainer SKU, second front door, Hermes-leaning stack (see ADR 0004)          |
+| #45   | Reviewer-as-sender - every customer-bound message ships under the human reviewer's identity (see ADR 0005)                 |
+| #46   | Capability-adapter pattern - skills bind to capability interfaces; adapters implement; customer.yaml wires (see ADR 0006)  |
+| #47   | Per-customer Machine isolation - one Fly.io Machine per customer; deployment isolation, not runtime tenancy (see ADR 0007) |
+| #48   | Customer-owned memory artifact - per-customer namespaces; portable export; verifiable deletion (see ADR 0008)              |
+| #49   | Cross-Machine query prohibition - boot-time binding check + shared-catalog merge gate (see ADR 0009)                       |
 
 ---
 
