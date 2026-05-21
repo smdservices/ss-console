@@ -20,3 +20,5 @@ Architecture Decision Records (ADRs) capturing strategic and technical decisions
 - [0007-per-customer-machine-isolation.md](./0007-per-customer-machine-isolation.md) - Per-customer Machine isolation: one Fly.io Machine per customer; multi-tenancy via deployment isolation, not runtime tenancy
 - [0008-customer-owned-memory-artifact.md](./0008-customer-owned-memory-artifact.md) - Customer-owned memory artifact: voice samples, rules, draft history in customer-specific R2/Vectorize namespaces; portable on offboarding
 - [0009-cross-machine-query-prohibition.md](./0009-cross-machine-query-prohibition.md) - Cross-Machine query prohibition: boot-time storage-binding check + shared-catalog merge gate; no runtime data path between customers
+- [0010-per-customer-oauth-token-storage.md](./0010-per-customer-oauth-token-storage.md) - Per-customer OAuth token storage location (Infisical vs. Fly volume)
+- [0011-multi-persona-per-customer.md](./0011-multi-persona-per-customer.md) - Multi-persona per customer: schema-locked at v1 (`personas: []` array length=1), runtime deferred to Phase 2
