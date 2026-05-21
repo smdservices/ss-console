@@ -1,0 +1,53 @@
+---
+/**
+ * Brand header for unauthenticated routes (sign-in / sign-up / verify).
+ *
+ * Same monogram and chrome as Nav.astro (the marketing site header) so
+ * the auth surfaces feel like part of the same site. No nav links and
+ * no CTA — those would distract from the sign-in flow. Optional
+ * cross-link (Sign in ↔ Create account) renders on the right when a
+ * crossLinkHref/Label pair is provided.
+ */
+
+interface Props {
+  crossLinkHref?: string
+  crossLinkLabel?: string
+}
+
+const { crossLinkHref, crossLinkLabel } = Astro.props
+---
+
+<header
+  role="banner"
+  class="sticky top-0 z-40 border-b-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
+>
+  <div
+    class="mx-auto flex h-14 md:h-16 w-full max-w-5xl items-center justify-between gap-3 px-4 md:px-6"
+  >
+    <a
+      href="/"
+      aria-label="SMD Services"
+      class="inline-flex items-baseline gap-2 text-base md:text-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+    >
+      <span
+        class="inline-block bg-[color:var(--ss-color-primary)] px-1.5 py-0.5 font-['Archivo'] font-black uppercase leading-none tracking-tight text-white"
+        >SMD</span
+      >
+      <span
+        class="font-['Archivo_Narrow'] font-semibold uppercase tracking-[0.08em] leading-none text-[color:var(--ss-color-text-primary)]"
+        >Services</span
+      >
+    </a>
+
+    {
+      crossLinkHref && crossLinkLabel && (
+        <a
+          href={crossLinkHref}
+          class="inline-flex items-center min-h-11 px-1 font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)] active:text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+        >
+          {crossLinkLabel}
+        </a>
+      )
+    }
+  </div>
+</header>
