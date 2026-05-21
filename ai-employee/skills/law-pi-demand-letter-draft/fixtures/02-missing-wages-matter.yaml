@@ -1,0 +1,169 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 02: PI matter with ample medical and billing documents but NO
+# employment-verification documents. employer_name is null in custom_fields.
+# Expected outcome: skill produces a partial draft. Lost-wages section
+# renders as a TBD marker. The opening recital's lost-wages clause renders
+# as TBD rather than dropping the clause. No employment exhibits in the
+# exhibit list.
+
+matter:
+  id: 'matter_synthetic_02'
+  client_name: 'Marcus Whitfield'
+  matter_type: 'auto-accident'
+  status: 'open'
+  opened_at: '2026-05-04T11:08:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2026-04-30'
+    incident_location: 'Northbound Loop 101 near 7th Avenue exit, Phoenix, Arizona'
+    client_role: 'operator of 2019 Honda CR-V'
+    opposing_insured_name: 'Theresa Vance'
+    opposing_carrier: 'Desert Sky Casualty'
+    opposing_adjuster_name: 'Brian Okolo'
+    opposing_adjuster_email: 'b.okolo@desertsky-casualty.invalid'
+    opposing_adjuster_address: '2400 N Litchfield Road, Goodyear AZ 85395'
+    claim_number: 'DSC-26-7711-A'
+    employer_name: null
+    documents_folder_path: '/matters/matter_synthetic_02'
+
+documents:
+  - id: 'doc_201'
+    path: '/matters/matter_synthetic_02/medical/2026-04-30_west_valley_ed.pdf'
+    filename: '2026-04-30_west_valley_ed.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 156672
+    created_at: '2026-05-02T08:12:00Z'
+    modified_at: '2026-05-02T08:12:00Z'
+    current_version: 'v1'
+    classification: 'medical_record'
+    synthetic_body: |
+      West Valley Medical Center, Emergency Department.
+      Date of service: 2026-04-30. Time: 11:18.
+      Patient: Whitfield, Marcus (DOB 1975-11-02).
+      Chief complaint: motor vehicle collision, right shoulder and chest pain.
+      Provider: Dr. Yvonne Park, MD.
+      Imaging: chest X-ray, no acute findings. Right shoulder X-ray, no fracture.
+      Disposition: discharged home, referral to orthopedics.
+
+  - id: 'doc_202'
+    path: '/matters/matter_synthetic_02/medical/2026-05-08_arrowhead_ortho_initial.pdf'
+    filename: '2026-05-08_arrowhead_ortho_initial.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 124928
+    created_at: '2026-05-08T15:30:00Z'
+    modified_at: '2026-05-08T15:30:00Z'
+    current_version: 'v1'
+    classification: 'medical_record'
+    synthetic_body: |
+      Arrowhead Orthopedics.
+      Date of service: 2026-05-08.
+      Patient: Whitfield, Marcus.
+      Provider: Dr. Eric Tanaka, MD.
+      Diagnosis: right rotator-cuff strain.
+      Plan: PT 2x weekly, follow-up in 4 weeks.
+
+  - id: 'doc_203'
+    path: '/matters/matter_synthetic_02/medical/2026-06-05_arrowhead_ortho_followup.pdf'
+    filename: '2026-06-05_arrowhead_ortho_followup.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 89344
+    created_at: '2026-06-05T10:45:00Z'
+    modified_at: '2026-06-05T10:45:00Z'
+    current_version: 'v1'
+    classification: 'medical_record'
+    synthetic_body: |
+      Arrowhead Orthopedics.
+      Date of service: 2026-06-05.
+      Patient: Whitfield, Marcus.
+      Provider: Dr. Eric Tanaka, MD.
+      Subjective: pain 4 of 10, improved from 6 of 10.
+      Plan: continue PT, follow-up in 6 weeks.
+
+  - id: 'doc_204'
+    path: '/matters/matter_synthetic_02/medical/2026-06-15_sun_pt_summary.pdf'
+    filename: '2026-06-15_sun_pt_summary.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 68608
+    created_at: '2026-06-15T16:30:00Z'
+    modified_at: '2026-06-15T16:30:00Z'
+    current_version: 'v1'
+    classification: 'medical_record'
+    synthetic_body: |
+      Sun Physical Therapy.
+      Date of summary: 2026-06-15.
+      Patient: Whitfield, Marcus.
+      Treating therapist: Daniela Romero, PT.
+      Sessions: 10 sessions from 2026-05-15 through 2026-06-15.
+      Status: ongoing.
+
+  - id: 'doc_205'
+    path: '/matters/matter_synthetic_02/billing/west_valley_billing.pdf'
+    filename: 'west_valley_billing.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 54272
+    created_at: '2026-05-09T09:00:00Z'
+    modified_at: '2026-05-09T09:00:00Z'
+    current_version: 'v1'
+    classification: 'billing_statement'
+    synthetic_body: |
+      West Valley Medical Center. Itemized billing.
+      Patient: Whitfield, Marcus.
+      Date of service: 2026-04-30.
+      Billed charges total: $5,124.50
+
+  - id: 'doc_206'
+    path: '/matters/matter_synthetic_02/billing/arrowhead_billing.pdf'
+    filename: 'arrowhead_billing.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 47104
+    created_at: '2026-06-06T11:00:00Z'
+    modified_at: '2026-06-06T11:00:00Z'
+    current_version: 'v1'
+    classification: 'billing_statement'
+    synthetic_body: |
+      Arrowhead Orthopedics. Itemized billing.
+      Patient: Whitfield, Marcus.
+      Dates of service: 2026-05-08, 2026-06-05.
+      Billed charges total: $2,840.00
+
+  - id: 'doc_207'
+    path: '/matters/matter_synthetic_02/photos/vehicle_damage.jpg'
+    filename: 'vehicle_damage.jpg'
+    mime_type: 'image/jpeg'
+    size_bytes: 2048512
+    created_at: '2026-04-30T13:00:00Z'
+    modified_at: '2026-04-30T13:00:00Z'
+    current_version: 'v1'
+    classification: 'photo'
+    synthetic_body: "(image data omitted; photo of damage to client's vehicle)"
+
+  - id: 'doc_208'
+    path: '/matters/matter_synthetic_02/photos/scene_loop101.jpg'
+    filename: 'scene_loop101.jpg'
+    mime_type: 'image/jpeg'
+    size_bytes: 1843200
+    created_at: '2026-04-30T13:02:00Z'
+    modified_at: '2026-04-30T13:02:00Z'
+    current_version: 'v1'
+    classification: 'photo'
+    synthetic_body: '(image data omitted; photo of scene from highway shoulder)'
+
+customer_yaml_excerpt:
+  firm_name: 'Holcomb & Reyes, LLP'
+  supervising_partner:
+    name: 'Sarah Holcomb'
+    title: 'Managing Partner'
+    reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'
+    signature_block: |
+      Sarah Holcomb
+      Managing Partner
+      Holcomb & Reyes, LLP
+      1810 N Central Avenue, Suite 800
+      Phoenix, AZ 85004
+      (602) 555-0142
+      sarah.holcomb@holcomb-reyes.invalid
+  practice_areas:
+    - 'personal-injury'
+  voice:
+    layer2_samples_count: 32
