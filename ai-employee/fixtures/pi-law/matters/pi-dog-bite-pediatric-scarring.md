@@ -25,13 +25,13 @@
 
 ## Treatment timeline
 
-| Date | Provider | Treatment | Status |
-| --- | --- | --- | --- |
-| 2026-04-18 | Chandler Regional ER | Initial eval, wound cleaning, sutures (cheek + forearm), rabies prophylaxis | Closed |
-| 2026-04-21 | Pediatric primary care | Wound check, suture care | Closed |
-| 2026-04-25 | Chandler Regional ER | Suture removal | Closed |
-| 2026-05-08 | Dr. Liang, Pediatric Plastic Surgery | Initial scar assessment | Closed |
-| 2026-05-21 (scheduled) | Dr. Liang | First scar-revision consult | Scheduled |
+| Date                   | Provider                             | Treatment                                                                   | Status    |
+| ---------------------- | ------------------------------------ | --------------------------------------------------------------------------- | --------- |
+| 2026-04-18             | Chandler Regional ER                 | Initial eval, wound cleaning, sutures (cheek + forearm), rabies prophylaxis | Closed    |
+| 2026-04-21             | Pediatric primary care               | Wound check, suture care                                                    | Closed    |
+| 2026-04-25             | Chandler Regional ER                 | Suture removal                                                              | Closed    |
+| 2026-05-08             | Dr. Liang, Pediatric Plastic Surgery | Initial scar assessment                                                     | Closed    |
+| 2026-05-21 (scheduled) | Dr. Liang                            | First scar-revision consult                                                 | Scheduled |
 
 Treatment is ongoing. Pediatric plastic surgery anticipates 2-3 scar revision procedures spaced ~6 months apart as the child grows. Final cosmetic outcome will not be known until plaintiff reaches adolescence.
 
@@ -43,14 +43,14 @@ Open liability question for partner review: whether to plead negligence against 
 
 ## Damages computation (preliminary; treatment ongoing)
 
-| Category | Amount | Source |
-| --- | --- | --- |
-| Medical specials to date (billed) | $14,820 | ER, plastic surgery consult, primary care |
-| Medical specials (anticipated future, scar revisions to age 16) | $35,000 – $60,000 | Dr. Liang preliminary estimate |
-| Future medical (psychological evaluation, possible therapy) | TBD | Not yet ordered |
-| Lost wages (parent's documented unpaid leave) | $1,840 | Parent's payroll records |
-| Pain and suffering (minor) | TBD | n/a |
-| Permanent disfigurement | TBD | Cannot finalize until cosmetic outcome stable |
+| Category                                                        | Amount            | Source                                        |
+| --------------------------------------------------------------- | ----------------- | --------------------------------------------- |
+| Medical specials to date (billed)                               | $14,820           | ER, plastic surgery consult, primary care     |
+| Medical specials (anticipated future, scar revisions to age 16) | $35,000 – $60,000 | Dr. Liang preliminary estimate                |
+| Future medical (psychological evaluation, possible therapy)     | TBD               | Not yet ordered                               |
+| Lost wages (parent's documented unpaid leave)                   | $1,840            | Parent's payroll records                      |
+| Pain and suffering (minor)                                      | TBD               | n/a                                           |
+| Permanent disfigurement                                         | TBD               | Cannot finalize until cosmetic outcome stable |
 
 **Provisional demand bracket (discussed at intake closure):** $100,000 – $300,000. Partner has flagged that this number is highly preliminary; the permanent-disfigurement and psychological components are not yet developed.
 
@@ -67,15 +67,15 @@ Settlement will require court approval (minor's compromise) if structured as a s
 
 ## Communications history
 
-| Date | From → To | Type | Summary |
-| --- | --- | --- | --- |
-| 2026-04-23 | Parent → Firm | Phone intake | Initial call, referred by partner's networking contact |
-| 2026-04-28 | Parent → Firm | Office visit | Intake closed, retainer discussion |
-| 2026-05-02 | Parent → Firm | Signed retainer | n/a |
-| 2026-05-03 | Firm → Dog owner | Letter | Notice of representation, demand for insurance information |
-| 2026-05-03 | Firm → Riverview HOA | Letter | Notice of representation, demand for incident records and prior-complaint records |
-| 2026-05-09 | Dog owner's insurer (Saguaro Insurance Group) → Firm | Letter | Acknowledged claim FICT-SI-29110, requested medical authorization |
-| 2026-05-12 | Firm → Saguaro Insurance Group | Letter | Limited medical authorization sent; refused full authorization at this stage |
+| Date       | From → To                                            | Type            | Summary                                                                           |
+| ---------- | ---------------------------------------------------- | --------------- | --------------------------------------------------------------------------------- |
+| 2026-04-23 | Parent → Firm                                        | Phone intake    | Initial call, referred by partner's networking contact                            |
+| 2026-04-28 | Parent → Firm                                        | Office visit    | Intake closed, retainer discussion                                                |
+| 2026-05-02 | Parent → Firm                                        | Signed retainer | n/a                                                                               |
+| 2026-05-03 | Firm → Dog owner                                     | Letter          | Notice of representation, demand for insurance information                        |
+| 2026-05-03 | Firm → Riverview HOA                                 | Letter          | Notice of representation, demand for incident records and prior-complaint records |
+| 2026-05-09 | Dog owner's insurer (Saguaro Insurance Group) → Firm | Letter          | Acknowledged claim FICT-SI-29110, requested medical authorization                 |
+| 2026-05-12 | Firm → Saguaro Insurance Group                       | Letter          | Limited medical authorization sent; refused full authorization at this stage      |
 
 Riverview HOA has not yet responded to the 2026-05-03 letter. Follow-up scheduled.
 

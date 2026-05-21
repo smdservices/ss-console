@@ -25,15 +25,15 @@
 
 ## Treatment timeline
 
-| Date | Provider | Treatment | Status |
-| --- | --- | --- | --- |
-| 2025-01-19 | Flagstaff Medical Center ER | Initial eval; closed reduction left distal radius fracture; CT head | Closed |
-| 2025-01-26 | Dr. Henderson, Orthopedic Associates | Follow-up imaging; conservative management decision | Closed |
-| 2025-02-18 | Dr. Henderson | Imaging showed loss of reduction; ORIF recommended | Closed |
-| 2025-03-04 | Surgicenter of Tempe | ORIF distal radius (volar plate) | Closed |
-| 2025-03-12 → 2025-08-14 | High Country Physical Therapy | Post-op PT, 22 sessions | Closed |
-| 2025-04-22 | Dr. Reilly, Neuropsychology | Post-concussive eval; cleared no residual deficits | Closed |
-| 2025-09-08 | Dr. Henderson | MMI declared; ~80% range of motion recovery, mild residual stiffness | Closed |
+| Date                    | Provider                             | Treatment                                                            | Status |
+| ----------------------- | ------------------------------------ | -------------------------------------------------------------------- | ------ |
+| 2025-01-19              | Flagstaff Medical Center ER          | Initial eval; closed reduction left distal radius fracture; CT head  | Closed |
+| 2025-01-26              | Dr. Henderson, Orthopedic Associates | Follow-up imaging; conservative management decision                  | Closed |
+| 2025-02-18              | Dr. Henderson                        | Imaging showed loss of reduction; ORIF recommended                   | Closed |
+| 2025-03-04              | Surgicenter of Tempe                 | ORIF distal radius (volar plate)                                     | Closed |
+| 2025-03-12 → 2025-08-14 | High Country Physical Therapy        | Post-op PT, 22 sessions                                              | Closed |
+| 2025-04-22              | Dr. Reilly, Neuropsychology          | Post-concussive eval; cleared no residual deficits                   | Closed |
+| 2025-09-08              | Dr. Henderson                        | MMI declared; ~80% range of motion recovery, mild residual stiffness | Closed |
 
 Plaintiff has returned to tutoring at pre-incident schedule.
 
@@ -52,13 +52,13 @@ Crestwood-style joint defendant claims against the snow removal contractor were 
 
 ## Damages computation
 
-| Category | Amount | Source |
-| --- | --- | --- |
-| Medical specials (billed) | $68,420 | Provider billing |
-| Medical specials (anticipated future) | None significant | n/a |
-| Lost income (tutoring, documented) | $4,240 | Self-reported, supported by client logs |
-| Pain and suffering | $30,000 – $60,000 (working range) | n/a |
-| Property damage | None | n/a |
+| Category                              | Amount                            | Source                                  |
+| ------------------------------------- | --------------------------------- | --------------------------------------- |
+| Medical specials (billed)             | $68,420                           | Provider billing                        |
+| Medical specials (anticipated future) | None significant                  | n/a                                     |
+| Lost income (tutoring, documented)    | $4,240                            | Self-reported, supported by client logs |
+| Pain and suffering                    | $30,000 – $60,000 (working range) | n/a                                     |
+| Property damage                       | None                              | n/a                                     |
 
 **Provisional case value bracket:** $50,000 – $120,000.
 
@@ -85,14 +85,14 @@ Crestwood-style joint defendant claims against the snow removal contractor were 
 
 ## Recent communications
 
-| Date | From → To | Type | Summary |
-| --- | --- | --- | --- |
-| 2026-04-22 | Firm → CMS | Letter | Requested final demand on conditional payment |
-| 2026-05-08 | Firm → Coastline Health | Letter | Lien reduction request |
-| 2026-05-12 | Firm → Opposing counsel | Letter | Counter at $98k; floor not stated |
-| 2026-05-15 | Coastline Health → Firm | Email | Indicated ~$8,500 reduction acceptable |
+| Date       | From → To               | Type                                        | Summary                                                   |
+| ---------- | ----------------------- | ------------------------------------------- | --------------------------------------------------------- |
+| 2026-04-22 | Firm → CMS              | Letter                                      | Requested final demand on conditional payment             |
+| 2026-05-08 | Firm → Coastline Health | Letter                                      | Lien reduction request                                    |
+| 2026-05-12 | Firm → Opposing counsel | Letter                                      | Counter at $98k; floor not stated                         |
+| 2026-05-15 | Coastline Health → Firm | Email                                       | Indicated ~$8,500 reduction acceptable                    |
 | 2026-05-18 | Opposing counsel → Firm | Phone call (followed by email confirmation) | Indicated authority to discuss high $70s / low $80s range |
-| 2026-05-19 | Firm → Plaintiff | Phone call | Reviewed authority window and Medicare timing |
+| 2026-05-19 | Firm → Plaintiff        | Phone call                                  | Reviewed authority window and Medicare timing             |
 
 ## Tasks queue (next 7 days)
 

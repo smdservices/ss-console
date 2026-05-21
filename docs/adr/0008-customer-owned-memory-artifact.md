@@ -51,14 +51,14 @@ Pattern 3 makes the promise architectural. The customer's memory artifact is the
 
 The structure (per PRD §7.6 and §10.1):
 
-| Layer | What it holds | Storage |
-| --- | --- | --- |
-| Hard rules | Customer-set constraints | D1 (per-customer namespace), structured rows |
-| Person-mappings | Customer's firm + counterparty directory | D1 (per-customer), structured rows |
-| Process knowledge | How the firm handles workflows | R2 (per-customer), markdown vault |
-| Voice samples | Real sent examples | R2 (per-customer) + Vectorize-indexed |
-| Past corrections | Draft-vs-sent deltas (structural-diff only per PRD §10.4) | R2 (per-customer) + Vectorize-indexed |
-| Audit log | Immutable record of every agent action | D1 (per-customer), append-only rows |
+| Layer             | What it holds                                             | Storage                                      |
+| ----------------- | --------------------------------------------------------- | -------------------------------------------- |
+| Hard rules        | Customer-set constraints                                  | D1 (per-customer namespace), structured rows |
+| Person-mappings   | Customer's firm + counterparty directory                  | D1 (per-customer), structured rows           |
+| Process knowledge | How the firm handles workflows                            | R2 (per-customer), markdown vault            |
+| Voice samples     | Real sent examples                                        | R2 (per-customer) + Vectorize-indexed        |
+| Past corrections  | Draft-vs-sent deltas (structural-diff only per PRD §10.4) | R2 (per-customer) + Vectorize-indexed        |
+| Audit log         | Immutable record of every agent action                    | D1 (per-customer), append-only rows          |
 
 Per ADR 0007 (Per-customer Machine isolation), each customer's bindings are scoped to that customer's Machine. No cross-customer query path exists.
 

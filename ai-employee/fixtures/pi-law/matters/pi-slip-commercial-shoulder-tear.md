@@ -24,16 +24,16 @@
 
 ## Treatment timeline
 
-| Date | Provider | Treatment | Status |
-| --- | --- | --- | --- |
-| 2025-10-18 | Tempe Family ER | Initial eval, X-ray (no fracture), sling, follow-up referral | Closed |
-| 2025-10-25 | Dr. Henderson, Orthopedic Associates | Suspected rotator cuff injury, MRI ordered | Closed |
-| 2025-11-08 | Imaging Center of Tempe | MRI: full-thickness rotator cuff tear, right shoulder | Closed |
-| 2025-11-20 → 2026-01-15 | Foothills Physical Therapy | Conservative care, 14 sessions, minimal improvement | Closed |
-| 2026-02-04 | Dr. Henderson | Recommended arthroscopic rotator cuff repair | Closed |
-| 2026-03-11 | Surgicenter of Tempe | Arthroscopic repair performed | Closed |
-| 2026-03-18 → 2026-05-13 | Post-op PT, Foothills | Ongoing recovery, near completion | Active, ~2 weeks remaining |
-| 2026-05-14 (scheduled) | Dr. Henderson | Final post-op evaluation, IME report expected | Scheduled |
+| Date                    | Provider                             | Treatment                                                    | Status                     |
+| ----------------------- | ------------------------------------ | ------------------------------------------------------------ | -------------------------- |
+| 2025-10-18              | Tempe Family ER                      | Initial eval, X-ray (no fracture), sling, follow-up referral | Closed                     |
+| 2025-10-25              | Dr. Henderson, Orthopedic Associates | Suspected rotator cuff injury, MRI ordered                   | Closed                     |
+| 2025-11-08              | Imaging Center of Tempe              | MRI: full-thickness rotator cuff tear, right shoulder        | Closed                     |
+| 2025-11-20 → 2026-01-15 | Foothills Physical Therapy           | Conservative care, 14 sessions, minimal improvement          | Closed                     |
+| 2026-02-04              | Dr. Henderson                        | Recommended arthroscopic rotator cuff repair                 | Closed                     |
+| 2026-03-11              | Surgicenter of Tempe                 | Arthroscopic repair performed                                | Closed                     |
+| 2026-03-18 → 2026-05-13 | Post-op PT, Foothills                | Ongoing recovery, near completion                            | Active, ~2 weeks remaining |
+| 2026-05-14 (scheduled)  | Dr. Henderson                        | Final post-op evaluation, IME report expected                | Scheduled                  |
 
 MMI projected: 2026-06-01.
 
@@ -45,14 +45,14 @@ Liability theory: failure to maintain known hazardous condition, failure to warn
 
 ## Damages computation (provisional)
 
-| Category | Amount | Source |
-| --- | --- | --- |
-| Medical specials (billed) | $58,940 | Provider billing summaries, indexed |
-| Medical specials (anticipated, IME completion) | $2,800 | Dr. Henderson estimate |
-| Lost wages (documented) | $9,420 | Employer payroll records |
-| Future earning capacity | None claimed | Plaintiff returning to full duty per IME draft |
-| Pain and suffering (bracket, partner to set) | TBD | n/a |
-| Property damage | None | n/a |
+| Category                                       | Amount       | Source                                         |
+| ---------------------------------------------- | ------------ | ---------------------------------------------- |
+| Medical specials (billed)                      | $58,940      | Provider billing summaries, indexed            |
+| Medical specials (anticipated, IME completion) | $2,800       | Dr. Henderson estimate                         |
+| Lost wages (documented)                        | $9,420       | Employer payroll records                       |
+| Future earning capacity                        | None claimed | Plaintiff returning to full duty per IME draft |
+| Pain and suffering (bracket, partner to set)   | TBD          | n/a                                            |
+| Property damage                                | None         | n/a                                            |
 
 **Provisional demand bracket:** $75,000 – $150,000. Partner to finalize after IME report.
 
@@ -66,16 +66,16 @@ Liability theory: failure to maintain known hazardous condition, failure to warn
 
 ## Communications history
 
-| Date | From → To | Type | Summary |
-| --- | --- | --- | --- |
-| 2025-10-30 | Plaintiff → Firm | Intake call | Initial consultation referred by accountant |
-| 2025-11-04 | Plaintiff → Firm | Office visit | Signed retainer |
-| 2025-11-07 | Firm → Saguaro Property Group | Letter | Notice of representation, preservation demand for incident records and maintenance logs |
-| 2025-11-21 | Saguaro Property Group → Firm | Letter | Acknowledgment, forwarded to carrier (Pacific Casualty) |
-| 2025-12-12 | Pacific Casualty → Firm | Letter | Claim opened, FICT-PC-44882 |
-| 2026-02-10 | Firm → Plaintiff | Status update | Surgery scheduled, MMI projection |
-| 2026-04-30 | Firm → Pacific Casualty | Letter | Records request: maintenance logs, prior incident reports |
-| 2026-05-09 | Pacific Casualty → Firm | Email | Records production complete; offered "early resolution discussion" |
+| Date       | From → To                     | Type          | Summary                                                                                 |
+| ---------- | ----------------------------- | ------------- | --------------------------------------------------------------------------------------- |
+| 2025-10-30 | Plaintiff → Firm              | Intake call   | Initial consultation referred by accountant                                             |
+| 2025-11-04 | Plaintiff → Firm              | Office visit  | Signed retainer                                                                         |
+| 2025-11-07 | Firm → Saguaro Property Group | Letter        | Notice of representation, preservation demand for incident records and maintenance logs |
+| 2025-11-21 | Saguaro Property Group → Firm | Letter        | Acknowledgment, forwarded to carrier (Pacific Casualty)                                 |
+| 2025-12-12 | Pacific Casualty → Firm       | Letter        | Claim opened, FICT-PC-44882                                                             |
+| 2026-02-10 | Firm → Plaintiff              | Status update | Surgery scheduled, MMI projection                                                       |
+| 2026-04-30 | Firm → Pacific Casualty       | Letter        | Records request: maintenance logs, prior incident reports                               |
+| 2026-05-09 | Pacific Casualty → Firm       | Email         | Records production complete; offered "early resolution discussion"                      |
 
 Pacific Casualty has not yet retained outside counsel. The 2026-05-09 email is a soft opener; partner has not responded, and the demand letter will be the formal opener.
 

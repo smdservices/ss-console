@@ -26,19 +26,19 @@ This matter is framed as a post-surgical complications claim, narrow in scope. T
 
 ## Treatment timeline
 
-| Date | Provider | Treatment | Status |
-| --- | --- | --- | --- |
-| 2024-07-09 | Sonoran Orthopedic Surgery Center | Right TKR (primary surgery) | Closed |
-| 2024-07-10 → 2024-07-12 | Inpatient stay | Standard post-op | Closed |
-| 2024-07-15 → 2024-08-20 | Riverside PT | Initial post-op PT | Closed (suspended) |
-| 2024-08-22 | Dr. Webber, Orthopedic Associates | Persistent pain, follow-up imaging ordered | Closed |
-| 2024-08-29 | Imaging Center of Scottsdale | Imaging identified retained component fragment | Closed |
-| 2024-09-04 | Sonoran Orthopedic Surgery Center | Revision surgery; fragment retrieval | Closed |
-| 2024-09-15 → 2024-09-28 | Banner Scottsdale | Antibiotic IV therapy course (secondary infection) | Closed |
-| 2024-10-08 → 2025-04-22 | Riverside PT | Extended post-op PT, second course | Closed |
-| 2025-05-19 | Dr. Webber | MMI declared; residual gait deficit documented | Closed |
-| 2026-02-14 | Plaintiff expert (Dr. Mathis, orthopedic surgery) | Expert report served | Closed |
-| 2026-04-03 | Defense expert (Dr. Ahn) | Expert report served | Closed |
+| Date                    | Provider                                          | Treatment                                          | Status             |
+| ----------------------- | ------------------------------------------------- | -------------------------------------------------- | ------------------ |
+| 2024-07-09              | Sonoran Orthopedic Surgery Center                 | Right TKR (primary surgery)                        | Closed             |
+| 2024-07-10 → 2024-07-12 | Inpatient stay                                    | Standard post-op                                   | Closed             |
+| 2024-07-15 → 2024-08-20 | Riverside PT                                      | Initial post-op PT                                 | Closed (suspended) |
+| 2024-08-22              | Dr. Webber, Orthopedic Associates                 | Persistent pain, follow-up imaging ordered         | Closed             |
+| 2024-08-29              | Imaging Center of Scottsdale                      | Imaging identified retained component fragment     | Closed             |
+| 2024-09-04              | Sonoran Orthopedic Surgery Center                 | Revision surgery; fragment retrieval               | Closed             |
+| 2024-09-15 → 2024-09-28 | Banner Scottsdale                                 | Antibiotic IV therapy course (secondary infection) | Closed             |
+| 2024-10-08 → 2025-04-22 | Riverside PT                                      | Extended post-op PT, second course                 | Closed             |
+| 2025-05-19              | Dr. Webber                                        | MMI declared; residual gait deficit documented     | Closed             |
+| 2026-02-14              | Plaintiff expert (Dr. Mathis, orthopedic surgery) | Expert report served                               | Closed             |
+| 2026-04-03              | Defense expert (Dr. Ahn)                          | Expert report served                               | Closed             |
 
 Plaintiff returned to part-time consulting in 2025-06. Has not returned to golf at pre-incident frequency.
 
@@ -52,15 +52,15 @@ This matter is not a broad medical malpractice case. It is a narrow retained-for
 
 ## Damages computation
 
-| Category | Amount | Source |
-| --- | --- | --- |
-| Medical specials (billed, revision and subsequent) | $138,420 | Provider billing summaries |
-| Medical specials (collateral source offset analysis pending) | TBD | Mediation prep item |
-| Medical specials (anticipated future) | $18,000 | Dr. Webber projection |
-| Lost income (consulting work, documented) | $42,820 | Tax returns and client contracts |
-| Pain and suffering (bracket, partner to set) | TBD | n/a |
-| Loss of enjoyment of life | TBD | n/a |
-| Spousal loss of consortium | TBD | Spouse co-plaintiff |
+| Category                                                     | Amount   | Source                           |
+| ------------------------------------------------------------ | -------- | -------------------------------- |
+| Medical specials (billed, revision and subsequent)           | $138,420 | Provider billing summaries       |
+| Medical specials (collateral source offset analysis pending) | TBD      | Mediation prep item              |
+| Medical specials (anticipated future)                        | $18,000  | Dr. Webber projection            |
+| Lost income (consulting work, documented)                    | $42,820  | Tax returns and client contracts |
+| Pain and suffering (bracket, partner to set)                 | TBD      | n/a                              |
+| Loss of enjoyment of life                                    | TBD      | n/a                              |
+| Spousal loss of consortium                                   | TBD      | Spouse co-plaintiff              |
 
 **Provisional case value bracket:** $300,000 – $750,000. Defense expert's clinical-insignificance theory is the principal downward pressure on the upper end.
 
@@ -81,14 +81,14 @@ This matter is not a broad medical malpractice case. It is a narrow retained-for
 
 ## Recent communications
 
-| Date | From → To | Type | Summary |
-| --- | --- | --- | --- |
-| 2026-04-03 | Opposing counsel (Kirkland Madden LLP) → Firm | Letter | Served Dr. Ahn defense expert report |
-| 2026-04-15 | Firm → Plaintiff | Phone call | Summarized defense expert position |
-| 2026-04-29 | Firm → Opposing counsel | Email | Notice of intent to depose Dr. Ahn |
-| 2026-05-08 | Opposing counsel → Firm | Email | Confirmed Dr. Ahn deposition 2026-06-12; offered Dr. Mathis deposition 2026-06-19 |
-| 2026-05-13 | Firm → Opposing counsel | Email | Confirmed Dr. Mathis deposition date |
-| 2026-05-16 | Cassidy MSA → Firm | Email | MSA analysis draft ready for partner review |
+| Date       | From → To                                     | Type       | Summary                                                                           |
+| ---------- | --------------------------------------------- | ---------- | --------------------------------------------------------------------------------- |
+| 2026-04-03 | Opposing counsel (Kirkland Madden LLP) → Firm | Letter     | Served Dr. Ahn defense expert report                                              |
+| 2026-04-15 | Firm → Plaintiff                              | Phone call | Summarized defense expert position                                                |
+| 2026-04-29 | Firm → Opposing counsel                       | Email      | Notice of intent to depose Dr. Ahn                                                |
+| 2026-05-08 | Opposing counsel → Firm                       | Email      | Confirmed Dr. Ahn deposition 2026-06-12; offered Dr. Mathis deposition 2026-06-19 |
+| 2026-05-13 | Firm → Opposing counsel                       | Email      | Confirmed Dr. Mathis deposition date                                              |
+| 2026-05-16 | Cassidy MSA → Firm                            | Email      | MSA analysis draft ready for partner review                                       |
 
 ## Tasks queue (next 7 days)
 

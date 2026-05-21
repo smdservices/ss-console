@@ -25,21 +25,21 @@
 
 ## Treatment timeline
 
-| Date | Provider | Treatment | Status |
-| --- | --- | --- | --- |
-| 2024-04-02 | Banner Phoenix Trauma | Initial trauma eval; admitted; multiple lacerations, rib fractures (L 4-7), pulmonary contusion, L hip labral tear | Closed |
-| 2024-04-03 → 2024-04-09 | Banner Phoenix | Inpatient 7 days | Closed |
-| 2024-04-15 → 2024-08-22 | Dr. Linley, Orthopedic Surgery | Conservative management of hip labral tear, PT | Closed |
-| 2024-04-20 → 2024-08-30 | Foothills Physical Therapy | 22 sessions for rib, hip, soft-tissue | Closed |
-| 2024-09-12 | Dr. Linley | Hip labral surgical repair recommended | Closed |
-| 2024-10-08 | Sonoran Orthopedic Surgery Center | L hip arthroscopic labral repair | Closed |
-| 2024-10-15 → 2025-04-30 | Foothills Physical Therapy | Post-op PT, 28 sessions | Closed |
-| 2025-02-18 → 2025-12-15 | Dr. Bauer, Psychiatry | PTSD diagnosis 2025-04; trauma therapy | Closed |
-| 2025-09-22 | Dr. Reilly, Neuropsychology | Cognitive eval; no significant deficits found | Closed |
-| 2025-11-08 | Dr. Linley | MMI declared; residual L hip restriction documented | Closed |
-| 2026-02-20 | Plaintiff expert (Dr. Mathis, orthopedic surgery) | Expert report served | Closed |
-| 2026-03-15 | Defense expert (Dr. Pemberton) | Expert report served | Closed |
-| 2026-04-08 | Plaintiff IME (defense, Dr. Stafford psychiatry) | IME completed | Closed |
+| Date                    | Provider                                          | Treatment                                                                                                          | Status |
+| ----------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------ |
+| 2024-04-02              | Banner Phoenix Trauma                             | Initial trauma eval; admitted; multiple lacerations, rib fractures (L 4-7), pulmonary contusion, L hip labral tear | Closed |
+| 2024-04-03 → 2024-04-09 | Banner Phoenix                                    | Inpatient 7 days                                                                                                   | Closed |
+| 2024-04-15 → 2024-08-22 | Dr. Linley, Orthopedic Surgery                    | Conservative management of hip labral tear, PT                                                                     | Closed |
+| 2024-04-20 → 2024-08-30 | Foothills Physical Therapy                        | 22 sessions for rib, hip, soft-tissue                                                                              | Closed |
+| 2024-09-12              | Dr. Linley                                        | Hip labral surgical repair recommended                                                                             | Closed |
+| 2024-10-08              | Sonoran Orthopedic Surgery Center                 | L hip arthroscopic labral repair                                                                                   | Closed |
+| 2024-10-15 → 2025-04-30 | Foothills Physical Therapy                        | Post-op PT, 28 sessions                                                                                            | Closed |
+| 2025-02-18 → 2025-12-15 | Dr. Bauer, Psychiatry                             | PTSD diagnosis 2025-04; trauma therapy                                                                             | Closed |
+| 2025-09-22              | Dr. Reilly, Neuropsychology                       | Cognitive eval; no significant deficits found                                                                      | Closed |
+| 2025-11-08              | Dr. Linley                                        | MMI declared; residual L hip restriction documented                                                                | Closed |
+| 2026-02-20              | Plaintiff expert (Dr. Mathis, orthopedic surgery) | Expert report served                                                                                               | Closed |
+| 2026-03-15              | Defense expert (Dr. Pemberton)                    | Expert report served                                                                                               | Closed |
+| 2026-04-08              | Plaintiff IME (defense, Dr. Stafford psychiatry)  | IME completed                                                                                                      | Closed |
 
 Plaintiff returned to nursing duties 2025-06 at modified-duty status; full-duty release 2025-12.
 
@@ -53,15 +53,15 @@ The mediation strategy focuses on Crestwood's primary liability and policy struc
 
 ## Damages computation
 
-| Category | Amount | Source |
-| --- | --- | --- |
-| Medical specials (billed) | $284,840 | Provider billing |
-| Medical specials (anticipated future) | $12,000 | Dr. Linley projection |
-| Lost wages (documented 2024-04 through 2025-12) | $96,420 | Hospital payroll and shift records |
-| Loss of future earning capacity | None claimed | Plaintiff returned to full duty |
-| Pain and suffering | $400,000 – $700,000 (working range) | n/a |
-| Property damage | Resolved pre-suit, $24,800 | Closed |
-| Spousal loss of consortium | $50,000 – $100,000 (working range) | Spouse co-plaintiff |
+| Category                                        | Amount                              | Source                             |
+| ----------------------------------------------- | ----------------------------------- | ---------------------------------- |
+| Medical specials (billed)                       | $284,840                            | Provider billing                   |
+| Medical specials (anticipated future)           | $12,000                             | Dr. Linley projection              |
+| Lost wages (documented 2024-04 through 2025-12) | $96,420                             | Hospital payroll and shift records |
+| Loss of future earning capacity                 | None claimed                        | Plaintiff returned to full duty    |
+| Pain and suffering                              | $400,000 – $700,000 (working range) | n/a                                |
+| Property damage                                 | Resolved pre-suit, $24,800          | Closed                             |
+| Spousal loss of consortium                      | $50,000 – $100,000 (working range)  | Spouse co-plaintiff                |
 
 **Settlement demand at mediation:** $1,200,000 (top of bracket; opening number, not floor). **Walk-away authority discussed with plaintiff:** TBD, partner to confirm with plaintiff in 2026-06-04 prep meeting.
 
@@ -87,14 +87,14 @@ Lien resolution status: in active reduction discussions with Coastline Health (n
 
 ## Recent communications
 
-| Date | From → To | Type | Summary |
-| --- | --- | --- | --- |
-| 2026-05-01 | Opposing counsel (Pemberton & Hayes LLP) → Firm | Letter | Confirmed mediation booking; requested settlement demand 14 days in advance |
-| 2026-05-04 | Firm → Plaintiff | Phone call | Mediation prep planning; outlined demand structure |
-| 2026-05-09 | Firm → Defendants 2 and 3 counsel | Letter | Renewed dismissal request given deposition record |
-| 2026-05-12 | Defendant 2 counsel → Firm | Email | Indicated nominal contribution offer ($25k) to resolve contribution exposure |
-| 2026-05-15 | Coastline Health → Firm | Email | Indicated willingness to discuss lien reduction at mediation |
-| 2026-05-17 | Firm → Plaintiff | Email | Sent mediation prep document for plaintiff review |
+| Date       | From → To                                       | Type       | Summary                                                                      |
+| ---------- | ----------------------------------------------- | ---------- | ---------------------------------------------------------------------------- |
+| 2026-05-01 | Opposing counsel (Pemberton & Hayes LLP) → Firm | Letter     | Confirmed mediation booking; requested settlement demand 14 days in advance  |
+| 2026-05-04 | Firm → Plaintiff                                | Phone call | Mediation prep planning; outlined demand structure                           |
+| 2026-05-09 | Firm → Defendants 2 and 3 counsel               | Letter     | Renewed dismissal request given deposition record                            |
+| 2026-05-12 | Defendant 2 counsel → Firm                      | Email      | Indicated nominal contribution offer ($25k) to resolve contribution exposure |
+| 2026-05-15 | Coastline Health → Firm                         | Email      | Indicated willingness to discuss lien reduction at mediation                 |
+| 2026-05-17 | Firm → Plaintiff                                | Email      | Sent mediation prep document for plaintiff review                            |
 
 ## Tasks queue (next 7 days)
 

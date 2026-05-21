@@ -25,16 +25,16 @@
 
 ## Treatment timeline
 
-| Date | Provider | Treatment | Status |
-| --- | --- | --- | --- |
-| 2024-11-22 | Banner Mesa Trauma | Initial trauma eval; CT head and face; admitted | Closed |
-| 2024-11-23 → 2024-11-29 | Banner Mesa | Inpatient; ORIF zygomatic-maxillary complex fracture; concussion observation | Closed |
-| 2024-12-08 | Dr. Park, OMFS | Post-op follow-up | Closed |
-| 2024-12-19 → 2025-04-10 | Phoenix Concussion Center | Post-concussive symptom management | Closed |
-| 2025-01-15 → 2025-09-30 | Dr. Bauer, Psychiatry | PTSD diagnosis 2025-02; ongoing trauma therapy | Closed |
-| 2025-10-15 → ongoing | Dr. Bauer, Psychiatry | Maintenance therapy, monthly | Active |
-| 2026-03-22 | Dr. Reilly, Neuropsychology | Neuropsych eval; residual mild cognitive deficits documented | Closed |
-| 2026-05-04 | Defense IME (Dr. Stafford, psychiatry) | IME completed | Closed |
+| Date                    | Provider                               | Treatment                                                                    | Status |
+| ----------------------- | -------------------------------------- | ---------------------------------------------------------------------------- | ------ |
+| 2024-11-22              | Banner Mesa Trauma                     | Initial trauma eval; CT head and face; admitted                              | Closed |
+| 2024-11-23 → 2024-11-29 | Banner Mesa                            | Inpatient; ORIF zygomatic-maxillary complex fracture; concussion observation | Closed |
+| 2024-12-08              | Dr. Park, OMFS                         | Post-op follow-up                                                            | Closed |
+| 2024-12-19 → 2025-04-10 | Phoenix Concussion Center              | Post-concussive symptom management                                           | Closed |
+| 2025-01-15 → 2025-09-30 | Dr. Bauer, Psychiatry                  | PTSD diagnosis 2025-02; ongoing trauma therapy                               | Closed |
+| 2025-10-15 → ongoing    | Dr. Bauer, Psychiatry                  | Maintenance therapy, monthly                                                 | Active |
+| 2026-03-22              | Dr. Reilly, Neuropsychology            | Neuropsych eval; residual mild cognitive deficits documented                 | Closed |
+| 2026-05-04              | Defense IME (Dr. Stafford, psychiatry) | IME completed                                                                | Closed |
 
 Plaintiff returned to work 2025-05 at reduced hours. Currently working full-time but reports ongoing PTSD symptoms.
 
@@ -53,14 +53,14 @@ Defendant's primary defenses: criminal-act-of-third-party intervening cause, and
 
 ## Damages computation
 
-| Category | Amount | Source |
-| --- | --- | --- |
-| Medical specials (billed) | $148,720 | Provider billing |
-| Medical specials (anticipated future, ongoing therapy through 5-year projection) | $42,000 | Dr. Bauer projection |
-| Lost wages (documented through 2026-04) | $38,420 | Employer payroll |
-| Loss of future earning capacity | TBD | Economist not yet engaged; partner reviewing necessity |
-| Pain and suffering | TBD | n/a |
-| Property damage (purse, personal items recovered) | None claimed | n/a |
+| Category                                                                         | Amount       | Source                                                 |
+| -------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------ |
+| Medical specials (billed)                                                        | $148,720     | Provider billing                                       |
+| Medical specials (anticipated future, ongoing therapy through 5-year projection) | $42,000      | Dr. Bauer projection                                   |
+| Lost wages (documented through 2026-04)                                          | $38,420      | Employer payroll                                       |
+| Loss of future earning capacity                                                  | TBD          | Economist not yet engaged; partner reviewing necessity |
+| Pain and suffering                                                               | TBD          | n/a                                                    |
+| Property damage (purse, personal items recovered)                                | None claimed | n/a                                                    |
 
 **Provisional case value bracket:** $400,000 – $1,000,000. The PTSD and loss-of-future-earning components are the swing variables; the medical specials are well-documented.
 
@@ -83,14 +83,14 @@ Defendant's primary defenses: criminal-act-of-third-party intervening cause, and
 
 ## Recent communications
 
-| Date | From → To | Type | Summary |
-| --- | --- | --- | --- |
-| 2026-04-22 | Firm → Opposing counsel | Email | Served subpoena duces tecum on Capstone Management's prior security vendor |
-| 2026-05-04 | Defense IME (Dr. Stafford) → Opposing counsel | Report | IME complete; report served on us 2026-05-12 |
-| 2026-05-12 | Opposing counsel → Firm | Email | Served Dr. Stafford IME report; flagged minimization framing |
-| 2026-05-13 | Firm → Plaintiff | Phone call | Summarized defense IME; addressed plaintiff's concern about characterization |
-| 2026-05-15 | Firm → Opposing counsel | Email | Confirmed deposition dates: 2026-06-03 (property manager), 2026-06-10 (security vendor representative) |
-| 2026-05-18 | Plaintiff's prior security vendor (Sentinel Group) → Firm | Letter | Acknowledged subpoena; objected to scope of records request |
+| Date       | From → To                                                 | Type       | Summary                                                                                                |
+| ---------- | --------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------ |
+| 2026-04-22 | Firm → Opposing counsel                                   | Email      | Served subpoena duces tecum on Capstone Management's prior security vendor                             |
+| 2026-05-04 | Defense IME (Dr. Stafford) → Opposing counsel             | Report     | IME complete; report served on us 2026-05-12                                                           |
+| 2026-05-12 | Opposing counsel → Firm                                   | Email      | Served Dr. Stafford IME report; flagged minimization framing                                           |
+| 2026-05-13 | Firm → Plaintiff                                          | Phone call | Summarized defense IME; addressed plaintiff's concern about characterization                           |
+| 2026-05-15 | Firm → Opposing counsel                                   | Email      | Confirmed deposition dates: 2026-06-03 (property manager), 2026-06-10 (security vendor representative) |
+| 2026-05-18 | Plaintiff's prior security vendor (Sentinel Group) → Firm | Letter     | Acknowledged subpoena; objected to scope of records request                                            |
 
 ## Tasks queue (next 7 days)
 

@@ -25,18 +25,18 @@
 
 ## Treatment timeline
 
-| Date | Provider | Treatment | Status |
-| --- | --- | --- | --- |
-| 2024-09-12 | Banner Anthem Trauma | LOC at scene; admitted for observation; CT head, CT C-spine, multiple lacerations | Closed |
-| 2024-09-13 → 2024-09-19 | Banner Anthem | Inpatient, 7-day admission, mild TBI diagnosis, multiple soft-tissue injuries | Closed |
-| 2024-09-26 → 2025-02-15 | Phoenix Concussion Center | Cognitive rehab, vestibular therapy, neuro-optometry | Closed |
-| 2024-10-08 | Dr. Vargas, Neurology | Initial post-TBI eval | Closed |
-| 2024-12-04 → 2025-08-12 | Dr. Vargas, Neurology | Ongoing follow-up; persistent post-concussive symptoms documented | Closed |
-| 2025-03-10 | Dr. Reilly, Neuropsychology | Neuropsychological evaluation: persistent cognitive deficits documented (attention, processing speed, executive function) | Closed |
-| 2025-09-22 | Dr. Reilly | Re-evaluation; partial improvement, residual deficits stable | Closed |
-| 2025-11-14 | Vocational Assessment, Beacon Vocational | Loss of earning capacity opinion: 35-50% reduction in capacity for high-cognitive-load broker work | Closed |
-| 2026-04-30 | Defense IME (Dr. Mahoney, Neurology) | IME completed | Closed |
-| 2026-06-15 (scheduled) | Plaintiff IME (Dr. Reilly, re-eval) | Updated cognitive eval | Scheduled |
+| Date                    | Provider                                 | Treatment                                                                                                                 | Status    |
+| ----------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 2024-09-12              | Banner Anthem Trauma                     | LOC at scene; admitted for observation; CT head, CT C-spine, multiple lacerations                                         | Closed    |
+| 2024-09-13 → 2024-09-19 | Banner Anthem                            | Inpatient, 7-day admission, mild TBI diagnosis, multiple soft-tissue injuries                                             | Closed    |
+| 2024-09-26 → 2025-02-15 | Phoenix Concussion Center                | Cognitive rehab, vestibular therapy, neuro-optometry                                                                      | Closed    |
+| 2024-10-08              | Dr. Vargas, Neurology                    | Initial post-TBI eval                                                                                                     | Closed    |
+| 2024-12-04 → 2025-08-12 | Dr. Vargas, Neurology                    | Ongoing follow-up; persistent post-concussive symptoms documented                                                         | Closed    |
+| 2025-03-10              | Dr. Reilly, Neuropsychology              | Neuropsychological evaluation: persistent cognitive deficits documented (attention, processing speed, executive function) | Closed    |
+| 2025-09-22              | Dr. Reilly                               | Re-evaluation; partial improvement, residual deficits stable                                                              | Closed    |
+| 2025-11-14              | Vocational Assessment, Beacon Vocational | Loss of earning capacity opinion: 35-50% reduction in capacity for high-cognitive-load broker work                        | Closed    |
+| 2026-04-30              | Defense IME (Dr. Mahoney, Neurology)     | IME completed                                                                                                             | Closed    |
+| 2026-06-15 (scheduled)  | Plaintiff IME (Dr. Reilly, re-eval)      | Updated cognitive eval                                                                                                    | Scheduled |
 
 Plaintiff has returned to work part-time at reduced capacity. Has not returned to full broker volume.
 
@@ -48,14 +48,14 @@ Plaintiff's comparative fault is minimal; the defense's only theory is that plai
 
 ## Damages computation
 
-| Category | Amount | Source |
-| --- | --- | --- |
-| Medical specials (billed to date) | $312,840 | Provider billing summaries |
-| Medical specials (anticipated future, life-care plan) | $185,000 | Life-care planner report 2025-12-04 |
-| Lost wages (documented, 2024-09 through 2026-04) | $214,300 | Tax returns, employer earnings statements |
-| Future earning capacity (35-50% reduction, life expectancy) | $1,100,000 – $1,650,000 | Economist report, 2025-12-15 |
-| Pain and suffering (bracket, partner to set) | TBD | n/a |
-| Loss of consortium (spouse) | TBD | Spouse separately retained, same firm |
+| Category                                                    | Amount                  | Source                                    |
+| ----------------------------------------------------------- | ----------------------- | ----------------------------------------- |
+| Medical specials (billed to date)                           | $312,840                | Provider billing summaries                |
+| Medical specials (anticipated future, life-care plan)       | $185,000                | Life-care planner report 2025-12-04       |
+| Lost wages (documented, 2024-09 through 2026-04)            | $214,300                | Tax returns, employer earnings statements |
+| Future earning capacity (35-50% reduction, life expectancy) | $1,100,000 – $1,650,000 | Economist report, 2025-12-15              |
+| Pain and suffering (bracket, partner to set)                | TBD                     | n/a                                       |
+| Loss of consortium (spouse)                                 | TBD                     | Spouse separately retained, same firm     |
 
 **Provisional case value bracket:** $750,000 – $2,000,000. The wide range reflects uncertainty on the future earning capacity figure (plaintiff has returned to partial work; how much capacity is recoverable is the swing variable) and the pain-and-suffering treatment of the residual cognitive deficits.
 
@@ -77,14 +77,14 @@ Plaintiff's comparative fault is minimal; the defense's only theory is that plai
 
 ## Communications history (recent; full log in matter file)
 
-| Date | From → To | Type | Summary |
-| --- | --- | --- | --- |
-| 2026-04-15 | Opposing counsel (Steinberg, Halloran & Reeves) → Firm | Email | Confirmed defense IME scheduling |
-| 2026-04-30 | Defense IME (Dr. Mahoney) → Opposing counsel | Report | Defense IME complete, report served on us 2026-05-08 |
-| 2026-05-08 | Opposing counsel → Firm | Email | Served Dr. Mahoney IME report; flagged for partner review |
-| 2026-05-10 | Firm → Plaintiff | Phone call | Summarized defense IME findings (partial-recovery framing) |
-| 2026-05-14 | Firm → Opposing counsel | Email | Confirmed deposition dates: 2026-05-28 (corporate rep, Pinnacle), 2026-06-04 (defendant driver) |
-| 2026-05-15 | Plaintiff → Firm | Email | Anxiety about deposition prep; requested prep session |
+| Date       | From → To                                              | Type       | Summary                                                                                         |
+| ---------- | ------------------------------------------------------ | ---------- | ----------------------------------------------------------------------------------------------- |
+| 2026-04-15 | Opposing counsel (Steinberg, Halloran & Reeves) → Firm | Email      | Confirmed defense IME scheduling                                                                |
+| 2026-04-30 | Defense IME (Dr. Mahoney) → Opposing counsel           | Report     | Defense IME complete, report served on us 2026-05-08                                            |
+| 2026-05-08 | Opposing counsel → Firm                                | Email      | Served Dr. Mahoney IME report; flagged for partner review                                       |
+| 2026-05-10 | Firm → Plaintiff                                       | Phone call | Summarized defense IME findings (partial-recovery framing)                                      |
+| 2026-05-14 | Firm → Opposing counsel                                | Email      | Confirmed deposition dates: 2026-05-28 (corporate rep, Pinnacle), 2026-06-04 (defendant driver) |
+| 2026-05-15 | Plaintiff → Firm                                       | Email      | Anxiety about deposition prep; requested prep session                                           |
 
 ## Tasks queue (next 7 days)
 

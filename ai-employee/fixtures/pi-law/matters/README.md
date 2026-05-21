@@ -8,16 +8,16 @@ These are distinct from the JSON grading fixtures at `ai-employee/fixtures/law-f
 
 ## Coverage
 
-| Slug | Phase | Injury type | Settlement range | Complexity |
-| --- | --- | --- | --- | --- |
-| `pi-auto-rear-end-cervical-fusion` | Pre-suit (demand drafting) | Auto, soft-tissue → fusion | $250k–$500k | Medium |
-| `pi-slip-commercial-shoulder-tear` | Pre-suit (demand drafting) | Commercial slip-and-fall | $75k–$150k | Low |
-| `pi-dog-bite-pediatric-scarring` | Pre-suit (intake just closed) | Dog bite, minor plaintiff | $100k–$300k | Medium |
-| `pi-auto-highway-tbi` | Active discovery | Auto, traumatic brain injury | $750k–$2M | High |
-| `pi-premises-negligent-security` | Active discovery | Premises liability, assault | $400k–$1M | High |
-| `pi-medical-complications-knee-replacement` | Active discovery | Medical, retained foreign body | $300k–$750k | High |
-| `pi-auto-intersection-multi-vehicle` | Pre-trial (mediation prep) | Auto, multi-defendant | $500k–$1.2M | High |
-| `pi-slip-residential-snow-ice` | Pre-trial (settlement negotiation) | Slip-and-fall, premises | $50k–$120k | Low-medium |
+| Slug                                        | Phase                              | Injury type                    | Settlement range | Complexity |
+| ------------------------------------------- | ---------------------------------- | ------------------------------ | ---------------- | ---------- |
+| `pi-auto-rear-end-cervical-fusion`          | Pre-suit (demand drafting)         | Auto, soft-tissue → fusion     | $250k–$500k      | Medium     |
+| `pi-slip-commercial-shoulder-tear`          | Pre-suit (demand drafting)         | Commercial slip-and-fall       | $75k–$150k       | Low        |
+| `pi-dog-bite-pediatric-scarring`            | Pre-suit (intake just closed)      | Dog bite, minor plaintiff      | $100k–$300k      | Medium     |
+| `pi-auto-highway-tbi`                       | Active discovery                   | Auto, traumatic brain injury   | $750k–$2M        | High       |
+| `pi-premises-negligent-security`            | Active discovery                   | Premises liability, assault    | $400k–$1M        | High       |
+| `pi-medical-complications-knee-replacement` | Active discovery                   | Medical, retained foreign body | $300k–$750k      | High       |
+| `pi-auto-intersection-multi-vehicle`        | Pre-trial (mediation prep)         | Auto, multi-defendant          | $500k–$1.2M      | High       |
+| `pi-slip-residential-snow-ice`              | Pre-trial (settlement negotiation) | Slip-and-fall, premises        | $50k–$120k       | Low-medium |
 
 ## Conventions
 
