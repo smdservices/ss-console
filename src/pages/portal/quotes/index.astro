@@ -3,6 +3,7 @@ import '../../../styles/global.css'
 import { SignOutButton } from '@clerk/astro/components'
 import { BRAND_NAME } from '../../../lib/config/brand'
 import { getPortalClient } from '../../../lib/portal/session'
+import { getProductSubscription } from '../../../lib/portal/product-access'
 import { listQuotesForEntity } from '../../../lib/db/quotes'
 import type { Quote } from '../../../lib/db/quotes'
 import PortalHeader from '../../../components/portal/PortalHeader.astro'
@@ -28,6 +29,13 @@ if (!portalData) {
 if (!portalData.client) {
   return Astro.redirect('/auth/portal-sign-in?status=no_subscription')
 }
+
+const aiEmployeeSubscription = await getProductSubscription(
+  env.DB,
+  portalData.client.id,
+  'ai-employee'
+)
+const aiEmployeeActive = aiEmployeeSubscription !== null
 
 const { client } = portalData
 const quotes = await listQuotesForEntity(env.DB, portalData.user.org_id, client.id)
@@ -92,7 +100,7 @@ const eyebrowText = eyebrowParts.join(' · ').toUpperCase()
       </SignOutButton>
     </PortalHeader>
 
-    <PortalTabs pathname={Astro.url.pathname} />
+    <PortalTabs pathname={Astro.url.pathname} aiEmployeeActive={aiEmployeeActive} />
 
     <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
       <PortalPageHead

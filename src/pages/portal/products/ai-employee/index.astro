@@ -112,7 +112,7 @@ if (!subscription) {
       </SignOutButton>
     </PortalHeader>
 
-    <PortalTabs pathname={Astro.url.pathname} />
+    <PortalTabs pathname={Astro.url.pathname} aiEmployeeActive={subscription !== null} />
 
     <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
       <PortalPageHead
