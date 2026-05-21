@@ -234,4 +234,4 @@ That's why I'll hear them out. Whether I sign depends on what Monday morning act
 
 ---
 
-*Target Customer persona contribution — PRD review round 1*
+_Target Customer persona contribution — PRD review round 1_

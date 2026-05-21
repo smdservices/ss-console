@@ -14,6 +14,7 @@ This review covers a two-PRD product-family structure. Both PRDs are source mate
 ## Project structural note (read carefully)
 
 This is a **product family** under the SMD Services venture:
+
 - SMD Services is the venture (sells solutions consulting and the AI Employee SKU)
 - AI Employee is the product line
 - Law Firm is the first vertical pack; other verticals follow
@@ -25,7 +26,7 @@ This is a **product family** under the SMD Services venture:
 
 Each role writes to `docs/pm/ai-employee/prd-contributions/round-1/{role-slug}.md`.
 
-The synthesis step (after this round) will produce *change recommendations* to apply to the existing platform-prd.md and law-firm-prd.md — it will NOT overwrite `docs/pm/prd.md` (which is a different product's PRD).
+The synthesis step (after this round) will produce _change recommendations_ to apply to the existing platform-prd.md and law-firm-prd.md — it will NOT overwrite `docs/pm/prd.md` (which is a different product's PRD).
 
 ## User corrections
 

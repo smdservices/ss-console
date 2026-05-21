@@ -31,7 +31,7 @@ Grouped by theme. Priority codes: **P0** = must fix before commit; **P1** = must
   - **Principal** — full access, trust-ceiling promotion authority, send-approval authority
   - **Operator** — full access except cannot promote trust ceiling above customer-configured maximum without Principal confirmation
   - **Compliance** — read-only access to Audit tab only; no draft approval, no memory edit
-  Update platform PRD §19 and law-firm PRD §16 to remove this as an open decision.
+    Update platform PRD §19 and law-firm PRD §16 to remove this as an open decision.
 - **Priority:** P0 (blocks beta-1 architecture; required before provisioning script can be written)
 
 ### Theme 2: OAuth token lifecycle is completely unspecified
@@ -103,7 +103,7 @@ Grouped by theme. Priority codes: **P0** = must fix before commit; **P1** = must
   - **Pass (≥80%):** first external draft ships
   - **Near-pass (60-79%):** additional 1-week calibration cycle with 10 more scenarios; re-test
   - **Fail (<60% after two rounds):** Captain discloses to partner; offers internal-drafts-only mode at reduced retainer while calibration continues, or pauses beta-1 with transparent explanation
-  Cross-reference from law-firm PRD §11.9 Calibration session split.
+    Cross-reference from law-firm PRD §11.9 Calibration session split.
 - **Priority:** P1 (operational doctrine for the most likely beta-1 awkward moment)
 
 ### Theme 11: Invariant #8 (fabrication discipline) enforcement is circular at the runtime layer
@@ -117,7 +117,7 @@ Grouped by theme. Priority codes: **P0** = must fix before commit; **P1** = must
 
 - **Issue:** No pricing number anywhere in the PRDs. Platform PRD §15 correctly defers to the pricing strategy doc, gated on COGS modeling. But the meeting is 2-3 weeks away. Target Customer named pricing-or-framework as one of seven sign-conditions: "I'm not committing without a cost. A number. Or a range. Or a framework for how the pricing works."
 - **Roles flagging:** PM (R1, OD-1), Target Customer (Sign condition #6), Competitor Analyst (§5 — market context for the pricing conversation)
-- **Recommended change:** In **platform PRD §15**, add an explicit deadline: COGS modeling for the three customer profiles (Light/Medium/Heavy per §15.1) **must complete before the first customer meeting**. If not complete, Captain enters the meeting with a defined response: *"Pricing is flat-monthly per firm; I'll have the specific number for you within 5 business days post-meeting while we scope your connector set."* Document this fallback explicitly. Cross-reference from law-firm PRD §11.7 The order-taking moment.
+- **Recommended change:** In **platform PRD §15**, add an explicit deadline: COGS modeling for the three customer profiles (Light/Medium/Heavy per §15.1) **must complete before the first customer meeting**. If not complete, Captain enters the meeting with a defined response: _"Pricing is flat-monthly per firm; I'll have the specific number for you within 5 business days post-meeting while we scope your connector set."_ Document this fallback explicitly. Cross-reference from law-firm PRD §11.7 The order-taking moment.
 - **Priority:** P0 (Captain cannot walk into the meeting without a pricing response)
 
 ### Theme 13: `pi-demand-letter-text-only` status appears in three sections with three different answers
@@ -204,12 +204,14 @@ Grouped by theme. Priority codes: **P0** = must fix before commit; **P1** = must
 These are explicit contradictions both reviewers flagged. They must resolve to a single authoritative statement.
 
 ### Contradiction A: Phase 1 connector scope
+
 - **Platform PRD §20:** 1 PM adapter built within 7 days of meeting
 - **Law-firm PRD §17:** All 6 Tier-1 PM adapters pre-built
 - **Resolution:** Law-firm PRD §7.5 is the demo-readiness target; platform PRD §20 needs to align to match. Add distinction between "demo-readiness" (broad pre-build) and "production-deployment minimum" (narrow). Files: platform PRD §20 Phase 1, law-firm PRD §17 Phase 1.
 - See Theme 5.
 
 ### Contradiction B: `pi-demand-letter-text-only` status
+
 - **Law-firm PRD §0:** Possible-with-Captain-authorization
 - **Law-firm PRD §16:** Live Captain decision
 - **Law-firm PRD §6.2:** Deferred to Phase 3+, replaced by evidence-packet
@@ -217,6 +219,7 @@ These are explicit contradictions both reviewers flagged. They must resolve to a
 - See Theme 13.
 
 ### Contradiction C: Litify adapter scope (three references, three meanings)
+
 - **§7.2 Tier-1 table:** Pre-built read-only
 - **§7.2 build-when-discovered list:** Build at discovery
 - **§7.5 pre-build sequence:** Not listed
@@ -224,30 +227,35 @@ These are explicit contradictions both reviewers flagged. They must resolve to a
 - See Theme 14.
 
 ### Contradiction D: Phase numbering between platform and law-firm PRDs
+
 - **Platform PRD §20:** Phase 0-5
 - **Law-firm PRD §17:** Phase 1-4 (with different content)
 - **Resolution:** Add explicit phase mapping table at top of law-firm PRD §17. Files: law-firm PRD §17 preamble.
 - See Theme 15.
 
 ### Contradiction E: Voice Layer 3 "v1 vs deferred" status
+
 - **Platform PRD §9.3:** "Layer 3 — Per-recipient voice cohorts (v1, not deferred)"
 - **Platform PRD §19:** "Continuous voice sampling (per §9.3 Layer 3): v2 work; not specified in v1"
 - **Resolution:** Continuous sampling (auto-resampling from sent folder) is v2; per-recipient cohort declaration in customer.yaml is v1. Clarify §19 wording. Files: platform PRD §19.
 - See PM C4.
 
 ### Contradiction F: Phase 1 skill count "5-7" vs. authored count
+
 - **Platform PRD §20:** "5-7 skills, not 30"
 - **Law-firm PRD §17:** ~15+ skill files authored (6 primitives scaffolded + 4 cross-cutting + 4 law-specific + 1 PI overlay)
 - **Resolution:** Clarify what "5-7 skills" means: authored, scaffolded, or enabled. Recommend: "5-7 enabled skills at Phase 1 close; broader authoring overhead acknowledged in scaffold count." Files: platform PRD §20 Phase 1.
 - See Tech Lead Cross-PRD Contradiction 1.
 
 ### Contradiction G: Voice calibration session structure
+
 - **Platform PRD §9.6 Gate 2:** "4-6 hour Captain session with the customer (typically reviewer + designated operator)"
 - **Law-firm PRD §11.9:** Splits 4-6 hours between partner (90 min) and paralegal (4-6 hours)
 - **Resolution:** Not contradictory but the platform PRD lacks an extension point. Update **platform PRD §9.6** to note that vertical PRDs may specify how the calibration session is structured within the time budget. Files: platform PRD §9.6.
 - See Tech Lead Cross-PRD Contradiction 3.
 
 ### Contradiction H: 5 vs. 7 vs. 8 safety invariants in Phase 1 scope
+
 - **Platform PRD §7.5:** 8 safety invariants defined
 - **Platform PRD §20 Phase 0:** "Five base safety invariants"
 - **Platform PRD §20 Phase 1:** Adds invariants #7 and #8 (= 7, not 8)
@@ -261,56 +269,67 @@ These are explicit contradictions both reviewers flagged. They must resolve to a
 These are new artifacts both PRDs need that aren't currently anywhere.
 
 ### M1. Multi-user dashboard role schema specification
+
 - **Gap:** Three roles (Principal / Operator / Compliance) with distinct permissions, currently undefined.
 - **Recommended location:** New section **platform PRD §11.6** (Multi-user role model). Reference from law-firm PRD §11.8 onboarding flow.
 - **Why it matters:** Beta-1 cannot ship without it. See Theme 1.
 
 ### M2. OAuth token lifecycle architecture
+
 - **Gap:** Complete spec missing — storage, refresh, failure handling, re-authorization flow.
 - **Recommended location:** New section **platform PRD §7.9** (OAuth token lifecycle). New ADR in §19.
 - **Why it matters:** Most likely cause of demo-day or week-3 failure. See Theme 2.
 
 ### M3. EvenUp PLAAS competitive response paragraph
+
 - **Gap:** PLAAS launched May 13, 2026 — 6 days before this review. PI prospects may have seen it. No prepared response.
 - **Recommended location:** Add to **law-firm PRD §10 Competitive Positioning**, after the table. Captain needs a 30-second answer ready: PLAAS uses U.S. human staff (labor cost embedded), does not provide named AI teammate, does not expose customer-editable memory, AI Employee's reviewer-as-sender architecture is structurally different from PLAAS's managed-service model.
 - **Why it matters:** Direct competitive comparison most likely to come up in the demo room. See Competitor Analyst §6.3.
 
 ### M4. Pricing response framework for Captain
+
 - **Gap:** No pricing number. Captain has no documented response if asked.
 - **Recommended location:** Add to **platform PRD §15** and **law-firm PRD §11.7 The order-taking moment**: "If COGS modeling is not complete by meeting day, Captain's response: 'Pricing is flat-monthly per firm; I'll have the specific number for you within 5 business days post-meeting while we scope your connector set.'"
 - **Why it matters:** Target Customer named pricing as a sign-or-no-sign condition. See Theme 12.
 
 ### M5. Capability interface specifications (all 11 interfaces)
+
 - **Gap:** Phase 1 build cannot start without these.
 - **Recommended location:** New section **platform PRD §7.2.1**. Tech Lead's contribution has Phase-1-minimum signatures for 4 of 11; author remaining 7.
 - **Why it matters:** Blocks adapter implementation. See Theme 4.
 
 ### M6. `customer.yaml` formal schema with secret-exclusion enforcement
+
 - **Gap:** Schema undefined; secret-hygiene enforcement absent.
 - **Recommended location:** Extend **platform PRD §7.3** with the full schema skeleton from Tech Lead's contribution.
 - **Why it matters:** Blocks provisioning. See Theme 3.
 
 ### M7. D1 schema specification
+
 - **Gap:** Memory layers described in prose; voice samples / draft queue / recipient cohorts / sent-folder cursor tables undefined.
 - **Recommended location:** New section **platform PRD §10.6** (D1 schema).
 - **Why it matters:** Voice gate cannot be programmatically enforced. See Theme 19.
 
 ### M8. R2 object key naming convention and Vectorize index naming
+
 - **Gap:** Tech Lead identified that without conventions, decommissioning script cannot enumerate and delete customer objects, and Vectorize per-customer isolation isn't enforced.
 - **Recommended location:** Extend **platform PRD §7.6 Storage architecture** with both conventions.
 - **Why it matters:** Per-customer isolation (invariant #7); decommissioning correctness (BR-013). See Tech Lead Architecture section.
 
 ### M9. Compliance evidence packet content specification
+
 - **Gap:** Platform PRD §13 and law-firm PRD §11.6 reference the packet but don't specify what's in it. UX Lead identified Susan's use case (handed to outside counsel, readable by non-technical lawyer) as the design constraint.
 - **Recommended location:** New subsection **platform PRD §13.6** (Compliance evidence packet structure). Reference from law-firm PRD §11.6.
 - **Why it matters:** UX cannot design the export without it. BR-011 enforcement depends on it. See UX Gap 4, BA US-011.
 
 ### M10. Day-1 onboarding screen sequence
+
 - **Gap:** Platform PRD §16 describes the demo; law-firm PRD §11.8 describes Day-1 in prose. No screen-by-screen sequence for the first hour the customer is in the dashboard.
 - **Recommended location:** Extend **law-firm PRD §11.8** with the screen sequence (UX Lead's contribution provides full design).
 - **Why it matters:** Captain cannot operate the dashboard fluently in the meeting without this. See UX User Journey, Theme 9.
 
 ### M11. Cost telemetry event emission specification
+
 - **Gap:** What to track is specified; how data is emitted is not.
 - **Recommended location:** New section **platform PRD §15.2** (Cost telemetry event emission).
 - **Why it matters:** §17.1 kill criterion unobservable without this. See Theme 17.
@@ -322,36 +341,43 @@ These are new artifacts both PRDs need that aren't currently anywhere.
 These decisions surfaced by the panel are not blocked on missing information — they're Captain-level calls that the panel could not make.
 
 ### UD1. Sent-folder watching default for beta-1: opt-in or opt-out?
+
 - **Options:** Tech Lead, BA, PM all describe sent-folder watching as opt-in per customer (default off). Voice quality gate may require it long-term to maintain ≥80% indistinguishability against drift.
 - **Roles raising:** Tech Lead (Risk + invariant #4 / ADR proposal), BA (BR-007, EC-011), PM (P9 ADR list)
 - **Recommended deferral:** Keep opt-in default for beta-1 (no production data flowing into voice training during first paid customer). Captain decision once beta-1 voice drift data is available at day 60.
 
 ### UD2. Frozen tier pricing
+
 - **Options:** Defer to Phase 2; Captain decides at beta-1 renewal conversation.
 - **Roles raising:** PM (OD-5), BA (OQ-006)
 - **Recommended deferral:** Defer to Phase 2 (Captain decision before day-90 renewal). Add to operations runbook so Captain can describe at the renewal meeting.
 
 ### UD3. Engagement-letter clause library sourcing (external counsel review vs. in-house)
+
 - **Options:** PM recommends external counsel review for at minimum PA (strictest) and AZ (home state); in-house for permissive states once PA/UT validated.
 - **Roles raising:** PM (OD-4)
 - **Recommended deferral:** Captain decision before Phase 2 close. Document as ADR.
 
 ### UD4. Trust-ceiling promotion timing for in-flight invocations
+
 - **Options:** BA OQ-001 — symmetric demotion rule (immediate) vs. promotion rule (next invocation only) for safety bias.
 - **Roles raising:** BA (OQ-001, EC-001)
 - **Recommended:** Apply BA's recommendation: demotions immediate, promotions next invocation only. Document in §11 Trust Ceiling Model. Captain confirmation needed.
 
 ### UD5. Multi-email-system firms (e.g., Outlook + Gmail)
+
 - **Options:** Does v1 `customer.yaml` schema support per-user connector binding within a single capability?
 - **Roles raising:** BA (OQ-002, EC-007)
 - **Recommended deferral:** Captain decision after PI demo if the firm has mixed email infrastructure; document fallback if no.
 
 ### UD6. Citation filter tuning access path
+
 - **Options:** Can the citation filter's regex patterns / confidence thresholds be tuned via Captain control plane without a code deploy?
 - **Roles raising:** BA (OQ-009)
 - **Recommended:** Required for v1 given the "100% accuracy" target. Captain decision; if not available, false-positive corrections require a code release path — which is too slow for beta-1.
 
 ### UD7. Compliance/ethics counsel touchpoint in onboarding
+
 - **Options:** Add proactive "Week 2 ethics-counsel touchpoint" to operations runbook.
 - **Roles raising:** PM (Issue 4)
 - **Recommended:** Yes. Add to operations runbook (not PRD). Captain confirmation.
@@ -379,6 +405,7 @@ Captured in Theme 6, Theme 7, Theme 8 above. Consolidated here for the synthesis
 Captain's time is finite and the meeting is 2-3 weeks out. Apply in this order:
 
 **P0 — must complete before commit:**
+
 1. Multi-user role model spec (Theme 1, M1) — unblocks beta-1 onboarding architecture
 2. OAuth token lifecycle spec (Theme 2, M2) — unblocks all connector adapters
 3. `customer.yaml` schema + secret-exclusion (Theme 3, M6) — unblocks provisioning
@@ -389,32 +416,12 @@ Captain's time is finite and the meeting is 2-3 weeks out. Apply in this order:
 8. `pi-demand-letter-text-only` three-way consistency (Theme 13, Contradiction B) — drafting cleanup
 9. Safety-invariant count consistency (Contradiction H) — drafting cleanup
 
-**P1 — must complete before beta-1 sign:**
-10. Voice gate failure fallback path (Theme 10)
-11. Invariant #8 runtime enforcement (Theme 11)
-12. Mobile approval flow spec (Theme 9)
-13. D1 schema (Theme 19, M7)
-14. R2 + Vectorize naming conventions (M8)
-15. Compliance evidence packet content (M9)
-16. Day-1 onboarding screen sequence (M10)
-17. Cost telemetry event emission (Theme 17, M11)
-18. Decommissioning drain window (Theme 16)
-19. Captain time-logging mechanism (Theme 20)
-20. "What Marcus used" sourcing block (Theme 21)
-21. Skill loader workaround → Phase 1/2 (Theme 18)
-22. Litify three-way consistency (Theme 14)
-23. Phase numbering map (Theme 15)
-24. Voice Layer 3 v1/v2 clarification (Contradiction E)
-25. Skill count clarification (Contradiction F)
-26. Voice calibration session vertical extension point (Contradiction G)
-27. Four-pillar claim sharpening (Theme 8)
-28. Sharpen Eve 2.0 differentiation language (subset of Theme 6)
+**P1 — must complete before beta-1 sign:** 10. Voice gate failure fallback path (Theme 10) 11. Invariant #8 runtime enforcement (Theme 11) 12. Mobile approval flow spec (Theme 9) 13. D1 schema (Theme 19, M7) 14. R2 + Vectorize naming conventions (M8) 15. Compliance evidence packet content (M9) 16. Day-1 onboarding screen sequence (M10) 17. Cost telemetry event emission (Theme 17, M11) 18. Decommissioning drain window (Theme 16) 19. Captain time-logging mechanism (Theme 20) 20. "What Marcus used" sourcing block (Theme 21) 21. Skill loader workaround → Phase 1/2 (Theme 18) 22. Litify three-way consistency (Theme 14) 23. Phase numbering map (Theme 15) 24. Voice Layer 3 v1/v2 clarification (Contradiction E) 25. Skill count clarification (Contradiction F) 26. Voice calibration session vertical extension point (Contradiction G) 27. Four-pillar claim sharpening (Theme 8) 28. Sharpen Eve 2.0 differentiation language (subset of Theme 6)
 
-**P2 — nice-to-have:**
-29. "Teach Marcus" from draft view (Theme 22)
-30. Trust-ceiling promotion recommendation card (Theme 23)
+**P2 — nice-to-have:** 29. "Teach Marcus" from draft view (Theme 22) 30. Trust-ceiling promotion recommendation card (Theme 23)
 
 **Out-of-scope for this synthesis (defer):**
+
 - UD1-UD7 unresolved decisions — Captain judgment required, not document edits
 - Operations runbook content (not PRD) — Captain decides separately
 - ADR authoring (12 proposed ADRs) — PM's recommendation that 5 are load-bearing before beta-1; these are separate documents, not PRD edits
@@ -433,4 +440,4 @@ But for the PRD itself, Round 1 plus the critique pass that preceded it is suffi
 
 ---
 
-*End of synthesis. The user applies these recommendations via Edit tool to `platform-prd.md` and `law-firm-prd.md`. `docs/pm/prd.md` (the consulting venture's client portal PRD) is not touched.*
+_End of synthesis. The user applies these recommendations via Edit tool to `platform-prd.md` and `law-firm-prd.md`. `docs/pm/prd.md` (the consulting venture's client portal PRD) is not touched._

@@ -48,6 +48,7 @@ A 20-year PI law firm is meeting with SMD in 2-3 weeks to evaluate the product. 
 The platform PRD is the durable architectural commitment. Phase 1 ships v1. The platform earns its abstractions retroactively, after each customer reveals what's actually load-bearing.
 
 **Specifically: the v1 scope** (full detail in §20):
+
 - **One vertical** (law firm), **one practice-area overlay** (PI), **one customer** (the meeting firm if they sign as beta-1; otherwise a synthetic-data demo customer).
 - **Tier-0 connector floor + one PM adapter** (the firm's actual PM system, identified during the meeting and built within 7 days).
 - **5-7 skills**, not 30. Selected based on what the meeting reveals as load-bearing.
@@ -102,7 +103,7 @@ The agent has a name, a voice, a persona, a scope, a memory, and a set of skills
 
 **Voice standard (binding):**
 
-External-facing positioning uses "we / our team" (per Decision #20 venture-wide). The agent's *own* internal-facing voice is its persona's voice (configured per customer). The product never refers to itself as "I" externally — it operates under the customer's named persona.
+External-facing positioning uses "we / our team" (per Decision #20 venture-wide). The agent's _own_ internal-facing voice is its persona's voice (configured per customer). The product never refers to itself as "I" externally — it operates under the customer's named persona.
 
 ---
 
@@ -139,6 +140,7 @@ These constrain every downstream design and feature decision.
 The person who signs the contract and the person who lives with the agent day-to-day. In law: the firm partner. In other verticals: the founder, the practice owner, the managing director. They have built the business over years; they are not "drowning" — they want capacity expansion without hiring, quality consistency, and time back from the bottom 30% of work that drags down their hour value.
 
 What they need from the agent:
+
 - Drafts ready to send when they open their inbox in the morning
 - Status visible at a glance — what's pending, what's flagged, what shipped
 - Confidence the agent is staying in its lane (the third-rail boundary is firm)
@@ -148,9 +150,10 @@ What kills them on the product: external communication that sounds robotic, memo
 
 ### Persona 2 — The Designated Operator (Day-to-Day Touchpoint)
 
-Often *not* the principal. The paralegal, office manager, billing coordinator, or admin who interfaces with the agent most. They configure rules, edit memory, promote trust ceilings, watch the queue.
+Often _not_ the principal. The paralegal, office manager, billing coordinator, or admin who interfaces with the agent most. They configure rules, edit memory, promote trust ceilings, watch the queue.
 
 What they need:
+
 - A dashboard that makes the workload visible and tractable
 - An obvious way to teach the agent what was right or wrong
 - A scope mechanism so they (or the principal) can keep sensitive matters out of the agent's view
@@ -163,6 +166,7 @@ What kills them on the product: drafts that don't improve over time, scope contr
 SMD itself, operating the platform on behalf of customers. The role responsible for: skill authoring, customer onboarding, voice calibration, trust ceiling discipline, monitoring, regression handling, compliance posture, customer success.
 
 What the Captain needs from the platform:
+
 - Single-customer-config provisioning (`bin/provision-customer.sh` works at scale)
 - Skill catalog versioning and pinning per customer (no skill rollout breaks an in-flight customer)
 - Health, cost, and behavior telemetry per customer instance
@@ -213,15 +217,15 @@ The unmet need: **one identity, every surface, persistent memory, customer voice
 
 The legal-AI landscape clusters into seven shapes; AI Employee occupies a distinct white space adjacent to all of them.
 
-| Shape | Examples | Where it ends |
-|---|---|---|
-| **BigLaw research desk** | Harvey ($11B val), CoCounsel (Westlaw), Lexis+ Protégé | $100-$1200/seat/mo; research-shaped; no operational reach; BigLaw-only |
-| **Contract drafting in Word** | Spellbook ($20-$350/seat) | Single-skill, Word-bound, no matter awareness |
-| **PI demand-letter shop** | EvenUp ($300-800/case), Precedent, Tavrn, Supio | Per-case; demand-only; not a teammate |
-| **Workflow-AI for plaintiff firms** | Eve Legal (800-1000+ firms) | Per-seat; episodic tasks + nightly auditor; no versioned memory, no reviewer-as-sender |
-| **PM-embedded capability menu** | Clio Manage AI, MyCase IQ, Filevine AI, Smokeball Archie | Feature menu, not agent identity; locked to one tool |
-| **Front-of-funnel intake AI** | Lawmatics, Lead Docket AI, Intaker | Stops at conversion |
-| **Platform horizontal AI** | Microsoft 365 Copilot (with absorbed Robin AI tech, April 2026) | Generic — doesn't know matter, firm rules, or partner voice |
+| Shape                               | Examples                                                        | Where it ends                                                                          |
+| ----------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| **BigLaw research desk**            | Harvey ($11B val), CoCounsel (Westlaw), Lexis+ Protégé          | $100-$1200/seat/mo; research-shaped; no operational reach; BigLaw-only                 |
+| **Contract drafting in Word**       | Spellbook ($20-$350/seat)                                       | Single-skill, Word-bound, no matter awareness                                          |
+| **PI demand-letter shop**           | EvenUp ($300-800/case), Precedent, Tavrn, Supio                 | Per-case; demand-only; not a teammate                                                  |
+| **Workflow-AI for plaintiff firms** | Eve Legal (800-1000+ firms)                                     | Per-seat; episodic tasks + nightly auditor; no versioned memory, no reviewer-as-sender |
+| **PM-embedded capability menu**     | Clio Manage AI, MyCase IQ, Filevine AI, Smokeball Archie        | Feature menu, not agent identity; locked to one tool                                   |
+| **Front-of-funnel intake AI**       | Lawmatics, Lead Docket AI, Intaker                              | Stops at conversion                                                                    |
+| **Platform horizontal AI**          | Microsoft 365 Copilot (with absorbed Robin AI tech, April 2026) | Generic — doesn't know matter, firm rules, or partner voice                            |
 
 ### The four pillars of differentiation
 
@@ -245,9 +249,10 @@ The "first hire your firm doesn't have to make" framing is buyer-fragile. It wor
 
 **Framing A — Headcount substitution.** Use when the customer's discovery answers reveal hiring difficulty, wanting to scale without payroll, or operational stress. The frame: "the first hire you don't have to make." Anchor against $55-95k loaded paralegal salary. Works at firms that are growing capacity-constrained.
 
-**Framing B — Capacity multiplier.** Use when the customer is loyal to existing staff, says things like "I love my team," or expresses concern about displacement. The frame: "Sarah keeps her job. She stops doing the bottom 30%. You stop hiring Sarah #2 when you grow." Anchor against the *incremental* cost of expansion. Works at established firms with stable teams.
+**Framing B — Capacity multiplier.** Use when the customer is loyal to existing staff, says things like "I love my team," or expresses concern about displacement. The frame: "Sarah keeps her job. She stops doing the bottom 30%. You stop hiring Sarah #2 when you grow." Anchor against the _incremental_ cost of expansion. Works at established firms with stable teams.
 
 **Signal triggers** (the demo opener listens for):
+
 - Framing A: "we can't hire fast enough," "the recruiter brought us junk," "I don't have time to train another paralegal," "we're slammed"
 - Framing B: "Sarah's been with us 15 years," "I love my team," "I'm not looking to cut headcount," "I just need more from what I have"
 
@@ -261,7 +266,7 @@ The Captain conducts the demo with whichever framing fits, never both. Mixing fr
 
 One Fly.io Machine per customer (`hermes-{customer-slug}`). The Hermes agent runtime is pinned to a content-hash SHA. Each Machine is isolated by default — no cross-customer data flow. The Captain operates the fleet of Machines; SMD's control plane provisions, monitors, and updates them.
 
-Multi-tenancy is achieved through *deployment isolation*, not *runtime tenancy*. Customer data lives in their Machine's bound storage. Memory queries do not span customers. Connector credentials are per-customer-yaml.
+Multi-tenancy is achieved through _deployment isolation_, not _runtime tenancy_. Customer data lives in their Machine's bound storage. Memory queries do not span customers. Connector credentials are per-customer-yaml.
 
 This shape is locked in `docs/strategy/ai-employee-stack-evaluation-2026-05-13.md`.
 
@@ -332,7 +337,7 @@ escalation:
 
 ### 7.4 Skill loading and pinning
 
-Skills live in `ai-employee/skills/{skill-name}/SKILL.md` plus a `references/` folder. Each skill is pinned per customer by content-hash. A skill update to the platform catalog does *not* propagate to running customers until the Captain explicitly re-pins them. This prevents silent regressions.
+Skills live in `ai-employee/skills/{skill-name}/SKILL.md` plus a `references/` folder. Each skill is pinned per customer by content-hash. A skill update to the platform catalog does _not_ propagate to running customers until the Captain explicitly re-pins them. This prevents silent regressions.
 
 ### 7.5 Safety substrate
 
@@ -392,14 +397,14 @@ Six universal primitives + nine cross-cutting universal skills + six specialized
 
 The primitives that exist in every business that hires a paralegal-shaped role:
 
-| Primitive | What it does | Configuration per vertical/customer |
-|---|---|---|
-| **intake-and-conflict** | Structured intake of new prospects/customers, conflict check, matter/account open | Fields, conflict-check parties, engagement-letter template, jurisdiction handling |
-| **document-collection** | Open document checklists per matter type; nudge customers/sources for outstanding items; verify receipt | What to collect, reminder cadence, receipt verification heuristics |
-| **deadline-docketer** | Track and remind on deadlines (statutes, agency response windows, court dates, contract renewals, custom dates) | Deadline rule source per matter type, lead-time policy, escalation thresholds |
-| **status-update-generator** | Draft periodic status updates to customers' counterparties (clients, vendors, etc.) | Templates per matter type, cadence, sensitivity level |
-| **signing-coordinator** | Track outstanding e-sign envelopes; draft and queue reminders; route returned documents | Signing topology (single vs multi-party), witness/notary, originals-vs-electronic |
-| **billing-reconciliation** | Time/expense entry, invoice drafting, AR chase drafts, trust-account reconciliation | Fee model (hourly/contingent/flat), trust rule jurisdiction, reconciliation cadence |
+| Primitive                   | What it does                                                                                                    | Configuration per vertical/customer                                                 |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| **intake-and-conflict**     | Structured intake of new prospects/customers, conflict check, matter/account open                               | Fields, conflict-check parties, engagement-letter template, jurisdiction handling   |
+| **document-collection**     | Open document checklists per matter type; nudge customers/sources for outstanding items; verify receipt         | What to collect, reminder cadence, receipt verification heuristics                  |
+| **deadline-docketer**       | Track and remind on deadlines (statutes, agency response windows, court dates, contract renewals, custom dates) | Deadline rule source per matter type, lead-time policy, escalation thresholds       |
+| **status-update-generator** | Draft periodic status updates to customers' counterparties (clients, vendors, etc.)                             | Templates per matter type, cadence, sensitivity level                               |
+| **signing-coordinator**     | Track outstanding e-sign envelopes; draft and queue reminders; route returned documents                         | Signing topology (single vs multi-party), witness/notary, originals-vs-electronic   |
+| **billing-reconciliation**  | Time/expense entry, invoice drafting, AR chase drafts, trust-account reconciliation                             | Fee model (hourly/contingent/flat), trust rule jurisdiction, reconciliation cadence |
 
 These six are not law-specific. The same primitive runs for a corporate law firm, a real-estate brokerage, a medical practice, an accounting firm, a custom-build contractor. Configuration changes; primitive does not.
 
@@ -407,17 +412,17 @@ These six are not law-specific. The same primitive runs for a corporate law firm
 
 These supplement the primitives — they are the front door, the safety net, and the operating layer.
 
-| Skill | Role |
-|---|---|
-| **inbox-triage-and-draft** | The agent's front door. Watches relevant inboxes, categorizes by action class and priority, drafts replies, applies labels |
-| **morning-digest** | First-thing-of-day brief: what's pending review, what's overdue, what's coming, what changed |
-| **red-flag-watching** | Pattern-based monitoring: late payments, hostile tone, ghosted clients, AR aging, missed touchpoints. Surfaces to the principal |
-| **memory-curator** | Continuously refines voice + rules from edits and corrections. Surfaces weekly "I learned X from your edits" digests |
-| **context-detector** | Identifies high-risk contexts (court-bound drafts, regulatory submissions, customer-facing transactions) and flags for verification. Per vertical, the "high-risk" definitions are configured |
-| **engagement-letter-jurisdictional** | Standard engagement language with jurisdictional clauses (e.g., AI-disclosure language for PA/Utah clients). Per vertical, the legal/regulatory baseline differs |
-| **compliance-audit-export** | On-demand generation of compliance evidence packets — audit log, model lineage, data retention proof, DPA/BAA references |
-| **privilege-scope-guard** | Pattern-detect privileged/sensitive content; tighten read scope, flag for human attention. Per vertical, privilege definitions vary |
-| **referral-thank-you + review-request** | The business-development pair. New customer from referral source → thank-you to source. Positive outcome → review-request at the right interval |
+| Skill                                   | Role                                                                                                                                                                                          |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **inbox-triage-and-draft**              | The agent's front door. Watches relevant inboxes, categorizes by action class and priority, drafts replies, applies labels                                                                    |
+| **morning-digest**                      | First-thing-of-day brief: what's pending review, what's overdue, what's coming, what changed                                                                                                  |
+| **red-flag-watching**                   | Pattern-based monitoring: late payments, hostile tone, ghosted clients, AR aging, missed touchpoints. Surfaces to the principal                                                               |
+| **memory-curator**                      | Continuously refines voice + rules from edits and corrections. Surfaces weekly "I learned X from your edits" digests                                                                          |
+| **context-detector**                    | Identifies high-risk contexts (court-bound drafts, regulatory submissions, customer-facing transactions) and flags for verification. Per vertical, the "high-risk" definitions are configured |
+| **engagement-letter-jurisdictional**    | Standard engagement language with jurisdictional clauses (e.g., AI-disclosure language for PA/Utah clients). Per vertical, the legal/regulatory baseline differs                              |
+| **compliance-audit-export**             | On-demand generation of compliance evidence packets — audit log, model lineage, data retention proof, DPA/BAA references                                                                      |
+| **privilege-scope-guard**               | Pattern-detect privileged/sensitive content; tighten read scope, flag for human attention. Per vertical, privilege definitions vary                                                           |
+| **referral-thank-you + review-request** | The business-development pair. New customer from referral source → thank-you to source. Positive outcome → review-request at the right interval                                               |
 
 ### 8.3 The specialized + overlay model
 
@@ -439,7 +444,7 @@ Every skill ships as:
 - `references/test-cases.md` — synthetic fixture inputs + expected outputs
 - `references/{vertical}-policy.md` (vertical-specific) — invariants and constraints relevant to the vertical (e.g., citation policy for law)
 
-Voice rules are *front-loaded in the SKILL.md description* (not just in `references/voice.md`), because Hermes' current skill loader surfaces description at invocation time but doesn't reliably load references. This is Phase A.6 discipline; it applies to every skill the platform authors.
+Voice rules are _front-loaded in the SKILL.md description_ (not just in `references/voice.md`), because Hermes' current skill loader surfaces description at invocation time but doesn't reliably load references. This is Phase A.6 discipline; it applies to every skill the platform authors.
 
 ---
 
@@ -449,14 +454,14 @@ Voice rules are *front-loaded in the SKILL.md description* (not just in `referen
 
 Each customer's agent has a fully developed persona, declared in `customer.yaml` and rendered consistently across surfaces:
 
-| Element | What it is | Source |
-|---|---|---|
-| **Name** | A human first-name (e.g., "Marcus," "Sarah," "Aiden") | Customer picks during onboarding; SMD suggests defaults appropriate to the vertical |
-| **Pronouns + voice register** | Gender-neutral by default ("they/them"); customer-overridable | Customer choice |
-| **Signature** | HTML signature block with name, title ("AI Associate" / "AI Operations" / etc.), customer firm/business, and required disclosure language (see §13) | SMD generates from `customer.yaml`; per-state/regulation language injected |
-| **Avatar** | Professional, generated, neutral, consistent across surfaces | SMD-generated during onboarding; customer-replaceable |
-| **Tone descriptors** | 3-5 adjectives ("warm-but-professional," "concise," "never effusive," "always end with thanks") | Customer-curated, layered on vertical baselines |
-| **Voice samples** | 10-20 anchor samples of real (sanitized) sent communications | Customer uploads during onboarding; mandatory minimum before first external draft |
+| Element                       | What it is                                                                                                                                          | Source                                                                              |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| **Name**                      | A human first-name (e.g., "Marcus," "Sarah," "Aiden")                                                                                               | Customer picks during onboarding; SMD suggests defaults appropriate to the vertical |
+| **Pronouns + voice register** | Gender-neutral by default ("they/them"); customer-overridable                                                                                       | Customer choice                                                                     |
+| **Signature**                 | HTML signature block with name, title ("AI Associate" / "AI Operations" / etc.), customer firm/business, and required disclosure language (see §13) | SMD generates from `customer.yaml`; per-state/regulation language injected          |
+| **Avatar**                    | Professional, generated, neutral, consistent across surfaces                                                                                        | SMD-generated during onboarding; customer-replaceable                               |
+| **Tone descriptors**          | 3-5 adjectives ("warm-but-professional," "concise," "never effusive," "always end with thanks")                                                     | Customer-curated, layered on vertical baselines                                     |
+| **Voice samples**             | 10-20 anchor samples of real (sanitized) sent communications                                                                                        | Customer uploads during onboarding; mandatory minimum before first external draft   |
 
 ### 9.2 Internal vs external persona
 
@@ -471,18 +476,21 @@ This split is principled, ethics-defensible (see §13), and removes any deceptiv
 Voice is configured in three layers, with Layer 3 promoted to v1 (was previously deferred — voice is the kill criterion for the entire product, so per-recipient modulation cannot wait).
 
 **Layer 1 — Explicit rules** (declarative, fast iteration):
+
 - Tone register (formal/conversational/warm)
 - Banned patterns (no em dashes, no exclamation marks, no contractions, etc.)
 - Required patterns (always end with "thank you," always sign with first name, etc.)
 - Stylistic guardrails (sentence length max, paragraph density, hedging discipline)
 
 **Layer 2 — Anchor samples** (extractive, slow iteration):
+
 - **30-50** real sent communications uploaded by the customer (revised from 10-20 — single-speaker voice models below ~30 samples reliably fail blind tests against people who know the writer)
 - Categorized: to-client, to-vendor, to-counterparty
 - Pre-demo bootstrap path: SMD scrapes the customer's published writing (firm About page, partner-attributed blog posts, Recent Verdicts) before the meeting to seed a 10-sample anchor pack. The first real demo draft uses this bootstrap; full samples come during onboarding.
 - Agent references at draft time
 
 **Layer 3 — Per-recipient voice cohorts (v1, not deferred):**
+
 - The reviewer's voice differs by recipient class (anxious client vs. opposing counsel vs. routine vendor). Layer 3 declares cohorts in `customer.yaml` and binds samples + tone descriptors per cohort.
 - Continuous voice sampling (auto-resampling from reviewer's sent folder, with explicit permission per §10.4 constraints) is v2.
 
@@ -510,6 +518,7 @@ Voice indistinguishability is the platform's most important kill criterion (§17
 **Gate 2 — Captain-led calibration session**: A scheduled 4-6 hour Captain session with the customer (typically the reviewer + designated operator). Walk through the test sandbox. Run 20+ scenarios per cohort. Tune rules iteratively. Document the agreed voice envelope in `customer.yaml`.
 
 **Gate 3 — Blind-test protocol**: Before the first external draft ships under the reviewer's name, run a blind test:
+
 - 10 reviewer-written + 10 agent-drafted communications, unlabeled, presented to 3 people who know the reviewer well (other partners, longtime staff)
 - **Acceptance threshold**: ≥80% indistinguishability (judges cannot reliably identify which is which)
 - If <80%: voice recalibration required; first external draft does not ship
@@ -517,6 +526,7 @@ Voice indistinguishability is the platform's most important kill criterion (§17
 **Ongoing adversarial-detection metric**: Quarterly, sample 20 agent-drafted-then-sent communications and run an LLM-judge against them scoring "AI-likely" vs "human-likely." Track the trend in the dashboard's Health view. If "AI-likely" rate climbs above 30%, trigger recalibration. This addresses the silent-degradation failure mode the "voice violation rate" metric alone misses.
 
 **Leading indicators of voice failure** (surfaced in Health view):
+
 - Opposing-counsel-initiated requests to communicate by phone instead of email after agent goes live (often a tell that recipients sense something off)
 - Customer's clients increasingly Bcc'ing the partner or asking "is this really from you"
 - Reply rate to agent-drafted-then-sent communications dropping vs. baseline
@@ -529,21 +539,21 @@ The single most differentiated product surface. No 2026 competitor exposes memor
 
 ### 10.1 Memory layers
 
-| Layer | What it holds | Storage |
-|---|---|---|
-| **Hard rules** | Explicit constraints set by the customer ("we don't take medmal under $1M," "always CC paralegal Sarah on new intake," "no contingency offers under $50k") | D1, structured rows |
-| **Person-mappings** | Who's who at the customer's firm + key counterparties ("Sarah is intake paralegal," "Karen Chen is the senior partner," "Acme Insurance's adjuster is Bob") | D1, structured rows |
-| **Process knowledge** | How the customer handles common workflows ("intake takes 48h max from form submission to first reply," "all settlement statements go through Karen before client") | R2 markdown, retrievable |
-| **Voice samples** | Real sent examples that anchor the agent's writing | R2 markdown, retrievable + Vectorize-indexed |
-| **Past corrections** | The diff history of "what the agent drafted vs what the reviewer actually sent," with corrections distilled | R2 markdown + Vectorize-indexed |
-| **Audit log** | Every action the agent took, with timestamps and inputs/outputs | D1, immutable rows |
+| Layer                 | What it holds                                                                                                                                                      | Storage                                      |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| **Hard rules**        | Explicit constraints set by the customer ("we don't take medmal under $1M," "always CC paralegal Sarah on new intake," "no contingency offers under $50k")         | D1, structured rows                          |
+| **Person-mappings**   | Who's who at the customer's firm + key counterparties ("Sarah is intake paralegal," "Karen Chen is the senior partner," "Acme Insurance's adjuster is Bob")        | D1, structured rows                          |
+| **Process knowledge** | How the customer handles common workflows ("intake takes 48h max from form submission to first reply," "all settlement statements go through Karen before client") | R2 markdown, retrievable                     |
+| **Voice samples**     | Real sent examples that anchor the agent's writing                                                                                                                 | R2 markdown, retrievable + Vectorize-indexed |
+| **Past corrections**  | The diff history of "what the agent drafted vs what the reviewer actually sent," with corrections distilled                                                        | R2 markdown + Vectorize-indexed              |
+| **Audit log**         | Every action the agent took, with timestamps and inputs/outputs                                                                                                    | D1, immutable rows                           |
 
 ### 10.2 Learning sources (the closed loop)
 
 The agent updates memory from five signals:
 
 **1. Edit-then-send (highest-quality signal).**
-Reviewer edits the agent's draft before sending. Agent diffs (draft vs sent), stores the delta as a correction signal. Voice-related deltas update voice models; content-related deltas update process knowledge. *This is the cleanest learning signal* — the reviewer has done the work to refine the agent's output.
+Reviewer edits the agent's draft before sending. Agent diffs (draft vs sent), stores the delta as a correction signal. Voice-related deltas update voice models; content-related deltas update process knowledge. _This is the cleanest learning signal_ — the reviewer has done the work to refine the agent's output.
 
 **2. Rejection signal.**
 Reviewer archives/deletes the draft without sending. Agent flags as rejection. Optional follow-up prompt in dashboard ("I noticed you didn't send the draft to Karen. Was it off, or no longer needed?"). Skippable, never blocking.
@@ -575,11 +585,13 @@ Two paths, in order of preference, both opt-in:
 
 **Path A — Sent-folder watching with structural-diff-only storage (v1 opt-in).**
 When the customer opts in, the agent monitors the reviewer's Sent folder. For each outbound matching a prior draft:
-- The agent computes a *structural delta* — formatting changes, salutation pattern, sentence-count delta, paragraph rearrangement, voice-rule violations caught.
+
+- The agent computes a _structural delta_ — formatting changes, salutation pattern, sentence-count delta, paragraph rearrangement, voice-rule violations caught.
 - The agent does NOT persist the substantive content of the diff. Sensitive content (substantive legal language, settlement terms, opposing-party text) is content-redacted before storage.
 - Storage: structural delta to R2 + Vectorize-indexed pattern tokens only.
 
 Scope constraints (enforced in `customer.yaml`):
+
 - Never watch threads to recipients in `domain_blocks`
 - Never watch threads with subject-line keyword blocks (e.g., `PRIVILEGED`, `WORK PRODUCT`, `PRIVATE`)
 - Never watch threads to opposing counsel, courts, or co-counsel domains
@@ -590,7 +602,7 @@ Reviewer clicks "send" via a dashboard surface or lightweight add-in. Agent sees
 
 **Confidentiality posture:**
 
-The §13.1 "no training on customer inputs" claim is preserved by this design: the structural-delta-only storage is *retrieval indexing of formatting patterns*, not substantive content. We distinguish:
+The §13.1 "no training on customer inputs" claim is preserved by this design: the structural-delta-only storage is _retrieval indexing of formatting patterns_, not substantive content. We distinguish:
 
 - **Training**: building or fine-tuning a model with customer content. SMD does not do this. Per §13.1.
 - **Indexing for retrieval**: storing patterns the agent retrieves at draft time. The platform does this only on structural-diff data, not substantive content. Substantive customer content is read at draft time (per active session needs) and not persisted.
@@ -618,11 +630,11 @@ The product's safety architecture and the principal's confidence dial.
 
 ### 11.1 The three trust ceilings
 
-| Ceiling | What it means | Examples |
-|---|---|---|
-| **autonomous** | Agent acts without per-action review. Logged in audit but no draft step. | Read-only operations (conflict-check returning "no conflict"), monitoring (red-flag detection), internal status reports |
-| **draft_for_review** | Agent drafts; named human reviewer must approve before any external action. | All external communications, all transactions, all matter writes, all signing requests |
-| **disabled** | Agent does not run this skill at all. | Customer-disabled or trust-revoked skills |
+| Ceiling              | What it means                                                               | Examples                                                                                                                |
+| -------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **autonomous**       | Agent acts without per-action review. Logged in audit but no draft step.    | Read-only operations (conflict-check returning "no conflict"), monitoring (red-flag detection), internal status reports |
+| **draft_for_review** | Agent drafts; named human reviewer must approve before any external action. | All external communications, all transactions, all matter writes, all signing requests                                  |
+| **disabled**         | Agent does not run this skill at all.                                       | Customer-disabled or trust-revoked skills                                                                               |
 
 ### 11.2 The default ceiling per skill
 
@@ -661,36 +673,36 @@ The full dashboard vision is 16 tabs. **V1 ships 7 tabs**, sized to what a singl
 
 **V1 information views (4 tabs):**
 
-| View | Primary user | Content |
-|---|---|---|
-| **Today** | Principal | Headline metrics (drafts pending review, items flagged, recent absorbed corrections), action queue summary |
-| **Queue** | Operator | All pending drafts, sortable by skill / age / priority / matter |
-| **Memory** | Both | What the agent knows (per §10) — read, edit, delete |
-| **Audit** | Both + Compliance | Full audit log, exportable, queryable |
+| View       | Primary user      | Content                                                                                                    |
+| ---------- | ----------------- | ---------------------------------------------------------------------------------------------------------- |
+| **Today**  | Principal         | Headline metrics (drafts pending review, items flagged, recent absorbed corrections), action queue summary |
+| **Queue**  | Operator          | All pending drafts, sortable by skill / age / priority / matter                                            |
+| **Memory** | Both              | What the agent knows (per §10) — read, edit, delete                                                        |
+| **Audit**  | Both + Compliance | Full audit log, exportable, queryable                                                                      |
 
 **V1 configuration views (3 tabs):**
 
-| View | Primary user | Content |
-|---|---|---|
-| **Persona** | Principal (initial); Operator (ongoing) | Name, signature, voice samples, photo, tone — see §9 |
-| **Skills** | Operator | Skill catalog visible to this customer; activation, configuration parameters, trust-ceiling controls |
-| **Voice** | Principal + Operator | Rules editor, samples library, test sandbox, violation log, blind-test results (per §9.5–9.6) |
+| View        | Primary user                            | Content                                                                                              |
+| ----------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| **Persona** | Principal (initial); Operator (ongoing) | Name, signature, voice samples, photo, tone — see §9                                                 |
+| **Skills**  | Operator                                | Skill catalog visible to this customer; activation, configuration parameters, trust-ceiling controls |
+| **Voice**   | Principal + Operator                    | Rules editor, samples library, test sandbox, violation log, blind-test results (per §9.5–9.6)        |
 
 ### 12.2 Deferred dashboard surface (Phase 4)
 
 These ship after Phase 1's 7-tab v1 surface is proven against the first customer:
 
-| View | Phase | Why deferred |
-|---|---|---|
-| **Activity** | Phase 4 | Audit view covers the compliance case for v1; full chronological feed shipped when customer needs it for ops |
-| **Flags** | Phase 4 | Subset of Today view; broken out when single-view aggregation isn't enough |
-| **Health** | Phase 4 | Captain-internal in v1 (control plane); customer-facing view ships when self-service connector management is needed |
-| **Rules** | Phase 4 | Folded into Memory tab in v1; broken out when rule-categories become large enough to need their own UI |
-| **Connectors** | Phase 4 | SMD-managed in v1 (Captain handles OAuth); customer-facing when self-service is needed |
-| **People** | Phase 4 | Hardcoded in `customer.yaml` in v1; UI ships when multi-user firm dashboards land |
-| **Schedule** | Phase 4 | Default-on in v1 (business hours from `customer.yaml`); UI ships if needed |
-| **Compliance** | Phase 4 | DPA/BAA delivered as PDF in v1; in-dashboard view ships when audit packet generation is needed at scale |
-| **Billing/Usage** | Phase 4 | Captain-internal cost dashboard in v1 (see §15.1); customer-facing transparency view ships at scale |
+| View              | Phase   | Why deferred                                                                                                        |
+| ----------------- | ------- | ------------------------------------------------------------------------------------------------------------------- |
+| **Activity**      | Phase 4 | Audit view covers the compliance case for v1; full chronological feed shipped when customer needs it for ops        |
+| **Flags**         | Phase 4 | Subset of Today view; broken out when single-view aggregation isn't enough                                          |
+| **Health**        | Phase 4 | Captain-internal in v1 (control plane); customer-facing view ships when self-service connector management is needed |
+| **Rules**         | Phase 4 | Folded into Memory tab in v1; broken out when rule-categories become large enough to need their own UI              |
+| **Connectors**    | Phase 4 | SMD-managed in v1 (Captain handles OAuth); customer-facing when self-service is needed                              |
+| **People**        | Phase 4 | Hardcoded in `customer.yaml` in v1; UI ships when multi-user firm dashboards land                                   |
+| **Schedule**      | Phase 4 | Default-on in v1 (business hours from `customer.yaml`); UI ships if needed                                          |
+| **Compliance**    | Phase 4 | DPA/BAA delivered as PDF in v1; in-dashboard view ships when audit packet generation is needed at scale             |
+| **Billing/Usage** | Phase 4 | Captain-internal cost dashboard in v1 (see §15.1); customer-facing transparency view ships at scale                 |
 
 ### 12.3 The headline summary (the "this is working" line)
 
@@ -699,6 +711,7 @@ Top of dashboard, weekly:
 > "This week: Marcus drafted 47 replies, sent 42 with your approval, flagged 3 for review, learned from 6 of your edits."
 
 Four elements:
+
 - **Volume** (47 drafts) — proves it's working
 - **Trust** (42/47 = 89% approval rate) — proves accuracy
 - **Attention** (3 flagged) — directs the principal
@@ -727,6 +740,7 @@ The compliance posture is a sales asset, not a back-office artifact. Customers i
 **1. Closed-loop architecture, contractually verifiable.**
 
 Specifically, the platform commits to:
+
 - **No training on customer content.** SMD does not train, fine-tune, or update any model with customer inputs. "Training" means modifying model weights.
 - **Bounded indexing.** The platform indexes content for retrieval (Vectorize semantic search, R2 markdown vault). Indexing is distinct from training. The platform indexes only: (a) explicit customer-curated content (voice samples uploaded, memory rules entered, process knowledge declared), (b) structural-diff data per §10.4 Path A (formatting patterns, not substantive content), and (c) the customer's curated narrative knowledge (per §10.1). Substantive client communication content is not indexed.
 - **Session-bounded reads.** Substantive customer content (matter records, client emails, documents) is read at active draft time. Reads are not persisted into indexes; they exist only within the active draft session.
@@ -737,11 +751,13 @@ Specifically, the platform commits to:
 The "no training vs. bounded indexing" distinction is critical and explicitly documented in the DPA. The §13 compliance posture stands or falls on its credibility.
 
 **2. Mandatory human review before any external action.**
+
 - Architecturally enforced via the reviewer-as-sender pattern (§9.2).
 - No skill at any trust ceiling sends external communication, executes transactions, or files court documents without a named human pressing send.
 - Per safety invariant #2.
 
 **3. Audit trail / explainability.**
+
 - Every draft traceable: source materials accessed, agent reasoning where applicable, reviewer edits, final sent version.
 - Per §11.4 and §12 (Audit view).
 - Exportable as compliance evidence packet on demand (per the compliance-audit-export skill, §8.2).
@@ -784,7 +800,7 @@ The platform's compliance posture for regulated verticals (law, healthcare, etc.
 ### 14.1 What's the customer's (and what we honestly mean)
 
 - **All their email, CRM/PM data, documents** — these live in the customer's own systems (Outlook, Clio, OneDrive, etc.) and have always been theirs. The platform reads via OAuth; it doesn't create a copy SMD owns.
-- **The customer's curated configuration artifacts** — voice samples uploaded, memory rules entered, persona configuration. Exportable as JSON (rules, mappings) + markdown (voice samples, narrative knowledge) via one click in the Memory tab. *Note: this is the customer's reference data, not a portable runtime — see §14.5.*
+- **The customer's curated configuration artifacts** — voice samples uploaded, memory rules entered, persona configuration. Exportable as JSON (rules, mappings) + markdown (voice samples, narrative knowledge) via one click in the Memory tab. _Note: this is the customer's reference data, not a portable runtime — see §14.5._
 - **Full audit log for the customer's retention period.** Exportable on demand, at any time during the relationship, for the full retention period the customer paid for (not just the most recent 90 days).
 
 ### 14.2 What's SMD's
@@ -816,7 +832,7 @@ Tightening earlier overclaim — the platform commits to these specific things:
 What "no lock-in" does NOT honestly claim:
 
 - The agent's accumulated learning is not portable to another vendor's runtime (no other vendor exists; this is honest, not deceptive)
-- The voice-tuned model state stays with SMD (the customer's *inputs* are exportable; the *tuned model* is not — the export contains the samples + rules they can re-feed elsewhere)
+- The voice-tuned model state stays with SMD (the customer's _inputs_ are exportable; the _tuned model_ is not — the export contains the samples + rules they can re-feed elsewhere)
 - The relationship has switching cost (the relationship with the agent, the learned voice, the established trust — these are real, like any working employment relationship; we don't pretend otherwise)
 
 ### 14.5 Marketing line
@@ -847,22 +863,23 @@ The platform must instrument per-customer cost telemetry before beta-1 deploymen
 
 **Cost drivers to track per customer per day:**
 
-| Driver | Source | Variability |
-|---|---|---|
-| Claude API input tokens | Anthropic billing | Dominant variable; scales with draft volume + memory absorption + voice calibration |
-| Claude API output tokens | Anthropic billing | Tied to draft length × draft count |
-| Fly.io Machine baseline | Fly.io billing | Mostly fixed per customer (size + always-on vs. scale-to-zero tradeoff) |
-| D1 reads/writes | Cloudflare billing | Tied to memory edits + audit log writes |
-| R2 storage + reads | Cloudflare billing | Tied to vault size + retrieval frequency |
-| Vectorize index size + queries | Cloudflare billing | Tied to memory volume + retrieval density |
-| Composio actions (per-action billing) | Composio billing | Tied to tool calls × draft volume |
-| AgentMail per-mailbox + per-message | AgentMail billing | Tied to internal-comms volume |
-| Third-party API costs (LawPay, DocuSign, CourtListener, etc.) | Per-vendor billing | Per-call costs vary |
-| Captain operations time | Internal time log | Tied to customer complexity + incident frequency |
+| Driver                                                        | Source             | Variability                                                                         |
+| ------------------------------------------------------------- | ------------------ | ----------------------------------------------------------------------------------- |
+| Claude API input tokens                                       | Anthropic billing  | Dominant variable; scales with draft volume + memory absorption + voice calibration |
+| Claude API output tokens                                      | Anthropic billing  | Tied to draft length × draft count                                                  |
+| Fly.io Machine baseline                                       | Fly.io billing     | Mostly fixed per customer (size + always-on vs. scale-to-zero tradeoff)             |
+| D1 reads/writes                                               | Cloudflare billing | Tied to memory edits + audit log writes                                             |
+| R2 storage + reads                                            | Cloudflare billing | Tied to vault size + retrieval frequency                                            |
+| Vectorize index size + queries                                | Cloudflare billing | Tied to memory volume + retrieval density                                           |
+| Composio actions (per-action billing)                         | Composio billing   | Tied to tool calls × draft volume                                                   |
+| AgentMail per-mailbox + per-message                           | AgentMail billing  | Tied to internal-comms volume                                                       |
+| Third-party API costs (LawPay, DocuSign, CourtListener, etc.) | Per-vendor billing | Per-call costs vary                                                                 |
+| Captain operations time                                       | Internal time log  | Tied to customer complexity + incident frequency                                    |
 
 **Modeling required before pricing commits:**
 
 Three customer profiles:
+
 1. **Light**: 20 drafts/week, 2 memory edits/week, 1 active practice area, 4 connectors
 2. **Medium**: 50 drafts/week, 5 memory edits/week, 1 practice area, 6 connectors
 3. **Heavy**: 150 drafts/week, 10 memory edits/week, 2 practice areas, 8 connectors
@@ -881,13 +898,13 @@ The platform supports a vertical-agnostic demo pattern. Vertical PRDs specialize
 
 ### 16.1 The structure
 
-| Phase | Duration | What happens |
-|---|---|---|
-| **Discovery** | 10 min | Informal conversation. Listen to the customer's operational story. Take structured notes that map directly to configuration UI elements |
-| **Live configuration** | 5 min | Open the dashboard, configure persona, select connectors, enable skills based on what was just heard. Click provision. Watch agent come up. **The aircraft carrier moment.** |
-| **Catalog + drill-down** | 35 min | Show the full skill catalog (30+ skills visible). Customer picks 3-5 to drill into. Run them against synthetic data pre-loaded for their shape. Show drafts, reasoning, memory updates |
-| **Differentiation set-pieces** | 10 min | Three demos no competitor can run: (a) memory & learning visible, (b) trust-ceiling promotion, (c) scope/audit log |
-| **Open conversation** | 10 min+ | "What did we miss? What would you want? What do you use we didn't anticipate?" Take the order, not pitch the product |
+| Phase                          | Duration | What happens                                                                                                                                                                           |
+| ------------------------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Discovery**                  | 10 min   | Informal conversation. Listen to the customer's operational story. Take structured notes that map directly to configuration UI elements                                                |
+| **Live configuration**         | 5 min    | Open the dashboard, configure persona, select connectors, enable skills based on what was just heard. Click provision. Watch agent come up. **The aircraft carrier moment.**           |
+| **Catalog + drill-down**       | 35 min   | Show the full skill catalog (30+ skills visible). Customer picks 3-5 to drill into. Run them against synthetic data pre-loaded for their shape. Show drafts, reasoning, memory updates |
+| **Differentiation set-pieces** | 10 min   | Three demos no competitor can run: (a) memory & learning visible, (b) trust-ceiling promotion, (c) scope/audit log                                                                     |
+| **Open conversation**          | 10 min+  | "What did we miss? What would you want? What do you use we didn't anticipate?" Take the order, not pitch the product                                                                   |
 
 ### 16.2 The aircraft carrier moment (pre-provisioned, with live calibration)
 
@@ -895,11 +912,12 @@ The platform supports a vertical-agnostic demo pattern. Vertical PRDs specialize
 
 1. Real provisioning latency for one Fly.io Machine + D1 + R2 + Vectorize + Composio OAuth pre-stage + AgentMail mailbox is empirically P95 60-180 seconds, not 30. A discriminating partner sees a 90-second white screen and either grows uncomfortable or pattern-matches "fake demo."
 2. Voice samples require pre-loaded customer-specific anchors to draft credibly in minute 1 of the demo. Placeholder vertical voice is the uncanny-valley failure (§18).
-3. The pre-provisioned approach is *more* impressive than synchronous: it demonstrates SMD did homework on the firm.
+3. The pre-provisioned approach is _more_ impressive than synchronous: it demonstrates SMD did homework on the firm.
 
 **The revised approach:**
 
 24-48 hours before the meeting, SMD pre-provisions `hermes-demo-{firm-slug}` using publicly-discoverable firm data:
+
 - Firm name from website
 - Partner names and bios from website
 - Practice areas from website
@@ -920,7 +938,7 @@ This is the aircraft carrier moment in the revised design: **professional prepar
 
 **Honest measured P95 commitment**: connector swap = ≤30s; voice calibration scenario draft = ≤8s per draft; trust-ceiling promotion = ≤2s. These are measurable and rehearsable.
 
-**Fallback if dashboard glitches**: same as v0 — pre-provisioned instance ready as backup. But unlike v0, "pre-provisioned" is now the *primary* approach, not the fallback. There's no theater being broken.
+**Fallback if dashboard glitches**: same as v0 — pre-provisioned instance ready as backup. But unlike v0, "pre-provisioned" is now the _primary_ approach, not the fallback. There's no theater being broken.
 
 ### 16.3 The principled-boundary moment (script)
 
@@ -954,24 +972,25 @@ Vertical PRDs specify the pre-build set for their buyer profile.
 
 ### 17.1 Per-customer success metrics
 
-| Metric | Target | Type |
-|---|---|---|
-| Weekly draft volume | >40 drafts/week active customer | Outcome |
-| Approval rate (sent / drafted) | ≥85% by week 4; ≥90% by week 12 | Outcome |
-| Voice violation rate (pre-send self-catch + reviewer catches) | ≤2% by week 4 | Outcome (rule conformance) |
-| **Voice blind-test pass rate** | ≥80% indistinguishability before first external draft (§9.6) | Leading (gate) |
-| **Quarterly adversarial AI-detection rate** | "AI-likely" score ≤30% on blinded LLM-judge sample | Leading (drift detection) |
-| Customer-initiated memory edits | ≥3/week by week 2 (signal that loop is closing) | Leading |
-| Trust-ceiling promotions | ≥1 by week 8 (signal that confidence is building) | Leading |
-| External "did a robot send me this?" incidents | 0. Single incident is a kill signal for that customer relationship | Outcome (binary) |
-| **Opposing-counsel "let's get on a call" pattern** | Baseline-stable (rising rate is a voice-drift leading indicator) | Leading |
-| Compliance audit log requests | Available in ≤60 seconds | Outcome |
-| **Captain weekly hours per customer** | ≤2 hrs/wk at steady state (week 4+); >3 hrs/wk is an operational defect | Leading (operational sustainability) |
-| **Per-customer monthly COGS / MRR** | ≤40%; >40% triggers SKU re-pricing or usage cap | Leading (margin) |
+| Metric                                                        | Target                                                                  | Type                                 |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------ |
+| Weekly draft volume                                           | >40 drafts/week active customer                                         | Outcome                              |
+| Approval rate (sent / drafted)                                | ≥85% by week 4; ≥90% by week 12                                         | Outcome                              |
+| Voice violation rate (pre-send self-catch + reviewer catches) | ≤2% by week 4                                                           | Outcome (rule conformance)           |
+| **Voice blind-test pass rate**                                | ≥80% indistinguishability before first external draft (§9.6)            | Leading (gate)                       |
+| **Quarterly adversarial AI-detection rate**                   | "AI-likely" score ≤30% on blinded LLM-judge sample                      | Leading (drift detection)            |
+| Customer-initiated memory edits                               | ≥3/week by week 2 (signal that loop is closing)                         | Leading                              |
+| Trust-ceiling promotions                                      | ≥1 by week 8 (signal that confidence is building)                       | Leading                              |
+| External "did a robot send me this?" incidents                | 0. Single incident is a kill signal for that customer relationship      | Outcome (binary)                     |
+| **Opposing-counsel "let's get on a call" pattern**            | Baseline-stable (rising rate is a voice-drift leading indicator)        | Leading                              |
+| Compliance audit log requests                                 | Available in ≤60 seconds                                                | Outcome                              |
+| **Captain weekly hours per customer**                         | ≤2 hrs/wk at steady state (week 4+); >3 hrs/wk is an operational defect | Leading (operational sustainability) |
+| **Per-customer monthly COGS / MRR**                           | ≤40%; >40% triggers SKU re-pricing or usage cap                         | Leading (margin)                     |
 
 ### 17.2 Per-customer kill criteria
 
 A customer relationship is at risk if any of these:
+
 - Approval rate <70% sustained over 2+ weeks (the agent is wrong too often)
 - Zero memory edits over 4+ weeks (loop is broken; customer is not engaging)
 - External AI disclosure incident (an external recipient identified the work as AI-drafted)
@@ -982,13 +1001,13 @@ Any of these triggers SMD-side intervention (Captain review, possible pause).
 
 ### 17.3 Platform-level success metrics
 
-| Metric | Target |
-|---|---|
-| Customer count | TBD per pricing/growth plan |
-| Customer churn rate | <10% annualized after first 60 days (the AI-SDR market's 50-70% churn in days 60-90 is the failure pattern to beat) |
-| Per-customer monthly cost of operation | <40% of MRR (SKU margin defensible) |
-| Cross-customer skill regression incidents | 0 (skill catalog versioning works) |
-| Cross-customer data leakage incidents | 0 (isolation architecture works) |
+| Metric                                    | Target                                                                                                              |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Customer count                            | TBD per pricing/growth plan                                                                                         |
+| Customer churn rate                       | <10% annualized after first 60 days (the AI-SDR market's 50-70% churn in days 60-90 is the failure pattern to beat) |
+| Per-customer monthly cost of operation    | <40% of MRR (SKU margin defensible)                                                                                 |
+| Cross-customer skill regression incidents | 0 (skill catalog versioning works)                                                                                  |
+| Cross-customer data leakage incidents     | 0 (isolation architecture works)                                                                                    |
 
 ### 17.4 Platform-level kill criteria
 
@@ -1000,26 +1019,26 @@ Any of these triggers SMD-side intervention (Captain review, possible pause).
 
 ## 18. Risks & Mitigations
 
-| Risk | Impact | Mitigation |
-|---|---|---|
-| **External AI disclosure incident** (customer's client identifies an email as AI-drafted) | Single-customer existential; potentially viral | Voice calibration discipline (§9), reviewer-as-sender architecture (§9.2), mandatory voice samples + rules before first send |
-| **Memory corruption / wrong learning** (agent absorbs a bad correction and propagates) | Customer trust erosion | Memory tab editability (§10.3), audit log of memory changes, reversibility |
-| **Compliance/ethics violation** (an attorney's bar discipline triggered by AI use) | Single-customer existential + reputational | Per-state engagement letter library, three-control architecture (§13), legal review of templates |
-| **Connector outage** (Filevine/Clio/etc. down) | Customer-day operational impact | Health view (§12.1) surfaces immediately, graceful degradation (skills that don't require the down connector continue), backup connector strategy for high-criticality capabilities |
-| **Skill regression in production** (a catalog update breaks an active customer) | Customer-day impact, churn risk | Per-customer skill pinning (§7.4), regression test library, staged rollout |
-| **Captain bandwidth ceiling** (operating fleet at scale exceeds SMD operator capacity) | Growth ceiling | Control plane automation, customer self-service for routine config, escalation tiers |
-| **Hostile-content TOS violation** (agent ingests Lexis/Westlaw content despite ban) | Vendor TOS violation, potential legal exposure | Connector-level do-not-ingest flag (§13.4), per-content-source policy enforcement |
-| **Sticky-stop bypass via prompt injection** (an attacker convinces the agent to ignore its stop signal) | Catastrophic — agent acts when it shouldn't | Code-enforced trust ceilings (§7.5 invariant #5), safety substrate's invariant #4 (sticky stop), regression testing against adversarial fixtures |
-| **Cross-customer data leakage via memory** | Existential platform failure | Per-customer storage isolation (§7.1), architectural impossibility of cross-customer queries, security audit |
-| **Persona "uncanny valley"** (the persona is too obviously AI, customer's staff reject it) | Internal adoption failure | Vertical-appropriate persona defaults, customer-curated samples, "test sandbox" UX for iteration before launch, voice blind-test gate before first external draft (§9.6) |
-| **Live-configuration demo fails on stage** (any glitch during meeting) | Single-demo loss, potentially the meeting | Pre-provisioned approach as primary (§16.2 revised); 24-48hr advance setup; Captain dry-run before every meeting; pre-provisioned backup instance ready |
-| **Captain unavailability** (vacation, illness, single-SPOF on operations) | Customer-day impact; procurement objection at scale | Designated backup operator named by Phase 2; operations runbook in place; customer PTO communication template; bus-factor minimum gate on customer #5 (§4 Persona 3) |
-| **Per-customer cost over-run** (heavy customer consumes 3-5x light customer at same MRR) | SKU margin collapse; existential at scale | Cost telemetry instrumented per customer per day (§15.1); usage soft-caps defined in SKU spec; per-customer COGS/MRR ratio surfaced as kill criterion (§17.1) |
-| **Voice indistinguishability drift over time** (voice rules "improve" but agent reads more AI-typical to recipients who know the writer) | Silent customer churn with no observable failure event | Quarterly adversarial AI-detection metric (§17.1); leading indicators tracked (opposing-counsel-initiated phone preference, baseline reply-rate drift) |
+| Risk                                                                                                                                                   | Impact                                                                                                          | Mitigation                                                                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **External AI disclosure incident** (customer's client identifies an email as AI-drafted)                                                              | Single-customer existential; potentially viral                                                                  | Voice calibration discipline (§9), reviewer-as-sender architecture (§9.2), mandatory voice samples + rules before first send                                                               |
+| **Memory corruption / wrong learning** (agent absorbs a bad correction and propagates)                                                                 | Customer trust erosion                                                                                          | Memory tab editability (§10.3), audit log of memory changes, reversibility                                                                                                                 |
+| **Compliance/ethics violation** (an attorney's bar discipline triggered by AI use)                                                                     | Single-customer existential + reputational                                                                      | Per-state engagement letter library, three-control architecture (§13), legal review of templates                                                                                           |
+| **Connector outage** (Filevine/Clio/etc. down)                                                                                                         | Customer-day operational impact                                                                                 | Health view (§12.1) surfaces immediately, graceful degradation (skills that don't require the down connector continue), backup connector strategy for high-criticality capabilities        |
+| **Skill regression in production** (a catalog update breaks an active customer)                                                                        | Customer-day impact, churn risk                                                                                 | Per-customer skill pinning (§7.4), regression test library, staged rollout                                                                                                                 |
+| **Captain bandwidth ceiling** (operating fleet at scale exceeds SMD operator capacity)                                                                 | Growth ceiling                                                                                                  | Control plane automation, customer self-service for routine config, escalation tiers                                                                                                       |
+| **Hostile-content TOS violation** (agent ingests Lexis/Westlaw content despite ban)                                                                    | Vendor TOS violation, potential legal exposure                                                                  | Connector-level do-not-ingest flag (§13.4), per-content-source policy enforcement                                                                                                          |
+| **Sticky-stop bypass via prompt injection** (an attacker convinces the agent to ignore its stop signal)                                                | Catastrophic — agent acts when it shouldn't                                                                     | Code-enforced trust ceilings (§7.5 invariant #5), safety substrate's invariant #4 (sticky stop), regression testing against adversarial fixtures                                           |
+| **Cross-customer data leakage via memory**                                                                                                             | Existential platform failure                                                                                    | Per-customer storage isolation (§7.1), architectural impossibility of cross-customer queries, security audit                                                                               |
+| **Persona "uncanny valley"** (the persona is too obviously AI, customer's staff reject it)                                                             | Internal adoption failure                                                                                       | Vertical-appropriate persona defaults, customer-curated samples, "test sandbox" UX for iteration before launch, voice blind-test gate before first external draft (§9.6)                   |
+| **Live-configuration demo fails on stage** (any glitch during meeting)                                                                                 | Single-demo loss, potentially the meeting                                                                       | Pre-provisioned approach as primary (§16.2 revised); 24-48hr advance setup; Captain dry-run before every meeting; pre-provisioned backup instance ready                                    |
+| **Captain unavailability** (vacation, illness, single-SPOF on operations)                                                                              | Customer-day impact; procurement objection at scale                                                             | Designated backup operator named by Phase 2; operations runbook in place; customer PTO communication template; bus-factor minimum gate on customer #5 (§4 Persona 3)                       |
+| **Per-customer cost over-run** (heavy customer consumes 3-5x light customer at same MRR)                                                               | SKU margin collapse; existential at scale                                                                       | Cost telemetry instrumented per customer per day (§15.1); usage soft-caps defined in SKU spec; per-customer COGS/MRR ratio surfaced as kill criterion (§17.1)                              |
+| **Voice indistinguishability drift over time** (voice rules "improve" but agent reads more AI-typical to recipients who know the writer)               | Silent customer churn with no observable failure event                                                          | Quarterly adversarial AI-detection metric (§17.1); leading indicators tracked (opposing-counsel-initiated phone preference, baseline reply-rate drift)                                     |
 | **Fabrication of client-facing content** (agent fills in plausible-but-uncited fields, partner doesn't catch, recipient receives invented commitments) | Bar discipline risk + client trust failure; collision with CLAUDE.md "no fabricated client-facing content" rule | Invariant #8 (§7.5) enforces empty-state pattern for unsourced fields; skill authoring template requires citations for client-facing fields; `context-detector` skill flags suspect drafts |
-| **Privilege waiver via memory indexing of substantive client content** (Rakoff Feb 2026 ruling on AI privilege) | Loss of attorney-client privilege; bar exposure | Sent-folder watching opt-in only with structural-diff-only storage (§10.4 revised); per-skill scope; DPA enforces no training; closed-loop architecture per §13.1 |
-| **Cross-Machine query leakage** (memory contents flow between customer instances) | Existential platform failure; cross-customer data leakage | Invariant #7 (§7.5) enforces architectural prohibition; boot-time storage-binding check; CI gate on shared catalog merges |
-| **Customer decommissioning incomplete or slow** (data not fully deleted across substrates) | Compliance breach; reputational loss; potential bar exposure for customer | Automated `bin/decommission-customer.sh` shipped in Phase 1; covers D1 + R2 + Vectorize + Composio + AgentMail + Fly Machine + customer.yaml + audit trail confirmation |
+| **Privilege waiver via memory indexing of substantive client content** (Rakoff Feb 2026 ruling on AI privilege)                                        | Loss of attorney-client privilege; bar exposure                                                                 | Sent-folder watching opt-in only with structural-diff-only storage (§10.4 revised); per-skill scope; DPA enforces no training; closed-loop architecture per §13.1                          |
+| **Cross-Machine query leakage** (memory contents flow between customer instances)                                                                      | Existential platform failure; cross-customer data leakage                                                       | Invariant #7 (§7.5) enforces architectural prohibition; boot-time storage-binding check; CI gate on shared catalog merges                                                                  |
+| **Customer decommissioning incomplete or slow** (data not fully deleted across substrates)                                                             | Compliance breach; reputational loss; potential bar exposure for customer                                       | Automated `bin/decommission-customer.sh` shipped in Phase 1; covers D1 + R2 + Vectorize + Composio + AgentMail + Fly Machine + customer.yaml + audit trail confirmation                    |
 
 ---
 
@@ -1059,6 +1078,7 @@ Open architectural decisions:
 ### Phase 0 — Foundation (in progress, partially complete)
 
 Scope:
+
 - Hermes runtime on Fly.io Machines
 - Five base safety invariants (per §7.5)
 - Composio Gmail/Outlook round-trip
@@ -1072,6 +1092,7 @@ Status: largely complete per `ai-employee-smd-customer-zero` branch progress.
 **Narrower than the platform vision; sized to a single first customer.** Scope:
 
 **Architecture:**
+
 - `customer.yaml` schema locked
 - Capability-interface contracts defined for: Email, Calendar, DocumentStorage, ESign, PracticeManagement, CourtAccess, Payments, Accounting
 - Per-customer Fly.io Machine + D1 + R2 + Vectorize bound
@@ -1079,6 +1100,7 @@ Status: largely complete per `ai-employee-smd-customer-zero` branch progress.
 - Automated `bin/provision-customer.sh` AND `bin/decommission-customer.sh`
 
 **Connectors (minimal v1 floor — not the full Tier-0 catalog):**
+
 - Microsoft Graph (Outlook + Calendar + OneDrive)
 - CourtListener / PACER
 - DocuSign
@@ -1087,32 +1109,38 @@ Status: largely complete per `ai-employee-smd-customer-zero` branch progress.
 - **One PM adapter built within 7 days of the first meeting**, against whichever system the firm reveals (Filevine / Clio / SmartAdvocate / CASEpeer / Neos / MyCase — chosen by the meeting)
 
 **Skills (5-7 selected, not the full catalog):**
+
 - The 6 universal primitives authored as skill scaffolds, but only 3-4 enabled in v1 based on what the meeting reveals as load-bearing
 - Of the 9 cross-cutting universals: enable `inbox-triage-and-draft`, `morning-digest`, `memory-curator`, and `compliance-audit-export` in v1; defer others
 - 1-2 PI-specialized skills from the law-firm vertical pack: minimum is `pi-intake-triage`; `pi-demand-letter-text-only` only ships if Captain explicitly authorizes the legal-sensitivity risk
 
 **Dashboard (7 tabs, not 16):**
+
 - Information: Today, Queue, Memory, Audit
 - Configuration: Persona, Skills, Voice
 - Other tabs (Activity, Flags, Health, Rules, Connectors, People, Schedule, Compliance, Billing) deferred to Phase 4
 
 **Persona + voice:**
+
 - Persona system shipped (config-driven name, signature, avatar)
 - Voice Layer 1 (rules) + Layer 2 (30+ samples) + Layer 3 (per-recipient cohorts) live in v1
 - Voice quality gates per §9.6: pre-meeting public-data sample bootstrap + Captain-led calibration session + blind-test ≥80% gate before first external draft
 
 **Memory:**
+
 - D1 structured rules + R2 markdown vault + Vectorize indexing live (per customer)
 - Memory tab in dashboard with editability
 - Sent-folder watching opt-out by default (per §10.4 revised)
 
 **Compliance:**
+
 - DPA + BAA-when-applicable signed before first customer engagement
 - Audit log live and exportable for full retention period
 - Per-state engagement-letter clause library (PA + Utah explicitly + home state)
 - Closed-loop architecture verified per §13.1
 
 **Operations:**
+
 - Operations runbook at `docs/runbooks/ai-employee-ops.md`
 - Captain operational budget instrumented (≤2 hrs/wk/customer)
 - Cost telemetry instrumented per §15.1 (Captain-only dashboard)
@@ -1133,6 +1161,7 @@ Vertical TBD per `docs/strategy/ai-employee-functional-shape-2026-05-13.md` and 
 **Gated on ≥3 paying customers.** Phase 4 builds the operational machinery the platform vision requires; building it before ≥3 customers is premature.
 
 Scope:
+
 - Per-customer skill catalog versioning + content-hash pinning + per-customer regression test runs
 - Remaining 9 dashboard tabs (Activity, Flags, Health, Rules, Connectors, People, Schedule, Compliance, Billing) shipped based on observed customer needs
 - Tier-0 connector floor expanded (Google Workspace, Box, Dropbox, Slack, Zoom, Xero)
@@ -1146,6 +1175,7 @@ Scope:
 ### Phase 5 — Continuous learning (v2 capabilities)
 
 Scope:
+
 - Path B send-through-agent UX (per §10.4)
 - Continuous voice sampling (per §9.3 Layer 3)
 - Per-recipient voice modulation
@@ -1173,4 +1203,4 @@ Scope:
 
 ---
 
-*End of platform PRD v0. Companion vertical PRDs: `law-firm-prd.md`. Critique pass and multi-agent PRD review pending.*
+_End of platform PRD v0. Companion vertical PRDs: `law-firm-prd.md`. Critique pass and multi-agent PRD review pending._

@@ -87,21 +87,22 @@ Beta-1 is the PI law firm meeting. Phase 1 succeeds if:
 
 ### Per-customer metrics (from platform PRD §17.1 — accepted as stated)
 
-| Metric | Target | Notes |
-|---|---|---|
-| Weekly draft volume | >40/week | Active-customer indicator |
-| Approval rate | ≥85% by week 4; ≥90% by week 12 | Primary quality signal |
-| Voice blind-test pass | ≥80% indistinguishability | Gate before first external draft |
-| Quarterly adversarial AI-detection | "AI-likely" ≤30% on LLM-judge sample | Drift detection |
-| Customer memory edits | ≥3/week by week 2 | Loop-closing signal |
-| Trust ceiling promotions | ≥1 by week 8 | Confidence-building signal |
-| External AI disclosure incidents | 0 | Binary kill signal |
-| Captain hours/customer/week | ≤2 hrs at steady state | Operational sustainability |
-| Per-customer COGS/MRR | ≤40% | Margin floor |
+| Metric                             | Target                               | Notes                            |
+| ---------------------------------- | ------------------------------------ | -------------------------------- |
+| Weekly draft volume                | >40/week                             | Active-customer indicator        |
+| Approval rate                      | ≥85% by week 4; ≥90% by week 12      | Primary quality signal           |
+| Voice blind-test pass              | ≥80% indistinguishability            | Gate before first external draft |
+| Quarterly adversarial AI-detection | "AI-likely" ≤30% on LLM-judge sample | Drift detection                  |
+| Customer memory edits              | ≥3/week by week 2                    | Loop-closing signal              |
+| Trust ceiling promotions           | ≥1 by week 8                         | Confidence-building signal       |
+| External AI disclosure incidents   | 0                                    | Binary kill signal               |
+| Captain hours/customer/week        | ≤2 hrs at steady state               | Operational sustainability       |
+| Per-customer COGS/MRR              | ≤40%                                 | Margin floor                     |
 
 ### Kill criteria
 
 **Customer-level kill signals:**
+
 - Approval rate <70% sustained over 2+ weeks
 - Zero memory edits over 4+ consecutive weeks (loop broken, customer not engaging)
 - Any external AI disclosure incident (single incident)
@@ -110,6 +111,7 @@ Beta-1 is the PI law firm meeting. Phase 1 succeeds if:
 - Voice "AI-likely" rate climbs above 30% and recalibration fails to correct within 2 weeks
 
 **Platform-level kill criteria:**
+
 - Any cross-customer data leakage (existential; triggers platform-wide audit and customer disclosure)
 - Any cross-customer skill regression that breaks an active customer
 - Customer churn >25% annualized over any quarter
@@ -150,6 +152,7 @@ The platform PRD §18 table is thorough. The following are issues the critique p
 **Risk:** Platform PRD §9.6 requires ≥80% blind-test indistinguishability before the first external draft ships. The gate is clear. But neither PRD specifies what happens when the gate fails after two calibration rounds: does beta-1 stall indefinitely? Does the customer get told "your voice is harder to model than average"? Is there a fallback SKU (e.g., internal-drafts-only) that keeps the customer engaged while voice calibration continues?
 
 **Mitigation:** Add to platform PRD §9.6 a three-state fallback:
+
 - **Pass (≥80%):** first external draft ships
 - **Near-pass (60-79%):** additional 1-week calibration cycle; Captain and designated operator run 10 more scenarios; re-test
 - **Fail (<60% after two rounds):** Captain discloses to partner that the voice model needs more samples from a broader set of the partner's outgoing communication; offers an internal-drafts-only mode at a reduced retainer rate while calibration continues, or pauses beta-1 with transparent explanation
@@ -208,13 +211,13 @@ The platform PRD §19 lists 9 proposed ADRs. The law-firm PRD §16 lists 3. Tota
 
 **For Phase 1 / beta-1, the following are load-bearing and must be authored before the first customer signs:**
 
-| ADR | Why it must exist before signing |
-|---|---|
-| Reviewer-as-sender architecture | This is the product's core ethical and legal defense. The compliance moment in the demo cites it. Without a signed ADR, the posture could drift in implementation. |
-| Fabrication discipline (invariant #8) | The CLAUDE.md "no fabricated client-facing content" rule is venture policy. Without an ADR, skill authors have no formal reference. |
-| Sent-folder watching as opt-in with structural-diff-only storage | The DPA references this. The DPA is signed before first customer engagement. The ADR must pre-date the DPA. |
-| Voice quality gates (blind-test ≥80%) | This is the gate before first external draft. Without an ADR, it is an informal Captain discipline rather than a platform commitment. |
-| Citation-refusal substrate (law vertical) | Invariant 6. The demo depends on it. The substrate is in flight; the ADR formalizes the commitment. |
+| ADR                                                              | Why it must exist before signing                                                                                                                                   |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Reviewer-as-sender architecture                                  | This is the product's core ethical and legal defense. The compliance moment in the demo cites it. Without a signed ADR, the posture could drift in implementation. |
+| Fabrication discipline (invariant #8)                            | The CLAUDE.md "no fabricated client-facing content" rule is venture policy. Without an ADR, skill authors have no formal reference.                                |
+| Sent-folder watching as opt-in with structural-diff-only storage | The DPA references this. The DPA is signed before first customer engagement. The ADR must pre-date the DPA.                                                        |
+| Voice quality gates (blind-test ≥80%)                            | This is the gate before first external draft. Without an ADR, it is an informal Captain discipline rather than a platform commitment.                              |
+| Citation-refusal substrate (law vertical)                        | Invariant 6. The demo depends on it. The substrate is in flight; the ADR formalizes the commitment.                                                                |
 
 The remaining 7 proposed ADRs can be authored post-beta-1 but should not wait for Phase 4.
 
@@ -281,6 +284,7 @@ Foundation is largely complete. No changes recommended.
 **Gate criteria for Phase 1 completion** (missing from platform PRD §20):
 
 Phase 1 closes when ALL of the following are true:
+
 1. Citation-refusal substrate (invariant 6) passing 100+ adversarial fixtures
 2. Voice blind-test gate documented and Captain has rehearsed calibration protocol
 3. COGS modeling for Light/Medium/Heavy profiles complete and Captain has a pricing response
@@ -305,6 +309,7 @@ Platform PRD §20 is clear on this but the law-firm PRD §17 Phase 1 scope is br
 ### Phase 3 — Second vertical OR WC/SSD expansion
 
 **Conditional on Phase 2 beta-1 outcome:**
+
 - If beta-1 signs and passes week-4 gates: Phase 3 = WC + SSD overlay (law-firm PRD §17 Phase 3). Low lift — same connectors, same primitives, often same firm.
 - If beta-1 stalls or firm passes: Phase 3 = Estate Planning + Probate vertical (law-firm PRD §13 roadmap branch). New customer profile; lower price point, faster sales cycle.
 
@@ -346,4 +351,4 @@ Platform PRD §7.5 defines 8 safety invariants. Platform PRD §20 Phase 0 says "
 
 ---
 
-*PM Agent contribution complete. Synthesis step should apply changes to `platform-prd.md` and `law-firm-prd.md`; do not modify `docs/pm/prd.md`.*
+_PM Agent contribution complete. Synthesis step should apply changes to `platform-prd.md` and `law-firm-prd.md`; do not modify `docs/pm/prd.md`._

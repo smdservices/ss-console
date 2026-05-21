@@ -90,6 +90,7 @@ Option C — Control plane is inside the Hermes process
 ```
 
 **What the diagram does not show (gaps):**
+
 - Where AgentMail mailboxes live and how they bind to Machine instances
 - How Composio sessions are scoped per customer
 - Whether D1/R2/Vectorize are provisioned inside the Machine boundary or as separate Cloudflare resources
@@ -149,7 +150,7 @@ CREATE TABLE person_mappings (
                                            -- 'billing_coordinator' | 'client' | 'opposing_counsel' |
                                            -- 'vendor' | 'referral_source' | 'other'
   email_addresses TEXT,                    -- JSON array; may be null
-  external_ids  TEXT,                      -- JSON obj: {"filevine": "...", "clio": "..."} 
+  external_ids  TEXT,                      -- JSON obj: {"filevine": "...", "clio": "..."}
   firm_internal BOOLEAN NOT NULL DEFAULT 1,
   notes         TEXT,
   created_at    TEXT NOT NULL,
@@ -189,7 +190,7 @@ CREATE TABLE cost_telemetry (
   driver        TEXT NOT NULL,             -- matches §15.1 cost driver list
   amount_cents  INTEGER NOT NULL,          -- integer cents to avoid float precision issues
   units         REAL,                      -- tokens, API calls, GB-hours, etc.
-  unit_type     TEXT,                      -- 'input_tokens' | 'output_tokens' | 'api_calls' | 
+  unit_type     TEXT,                      -- 'input_tokens' | 'output_tokens' | 'api_calls' |
                                            -- 'gb_hours' | 'machine_minutes' | 'captain_minutes'
   PRIMARY KEY (date, driver)
 );
@@ -243,7 +244,7 @@ Index name pattern: hermes-{customer-slug}-vault
                     hermes-{customer-slug}-corrections
 ```
 
-This means N customers = N*2 Vectorize indexes (minimum). Cloudflare's current Vectorize limits (100 indexes per account on paid plans as of 2026) must be validated against the scale target before committing. At 50 customers, this is 100+ indexes. This is a scaling constraint the PRD does not surface.
+This means N customers = N\*2 Vectorize indexes (minimum). Cloudflare's current Vectorize limits (100 indexes per account on paid plans as of 2026) must be validated against the scale target before committing. At 50 customers, this is 100+ indexes. This is a scaling constraint the PRD does not surface.
 
 ---
 
@@ -258,39 +259,39 @@ The PRD names 11 capability interfaces (§7.2) but provides only one concrete ex
 ```typescript
 interface PracticeManagement {
   // Matter operations
-  search_matters(query: MatterQuery): Promise<Matter[]>;
-  get_matter(id: string): Promise<Matter | null>;
-  create_matter(input: CreateMatterInput): Promise<Matter>;
-  update_matter(id: string, updates: Partial<MatterUpdate>): Promise<Matter>;
+  search_matters(query: MatterQuery): Promise<Matter[]>
+  get_matter(id: string): Promise<Matter | null>
+  create_matter(input: CreateMatterInput): Promise<Matter>
+  update_matter(id: string, updates: Partial<MatterUpdate>): Promise<Matter>
 
   // Contact operations
-  search_contacts(query: ContactQuery): Promise<Contact[]>;
-  get_contact(id: string): Promise<Contact | null>;
-  create_contact(input: CreateContactInput): Promise<Contact>;
+  search_contacts(query: ContactQuery): Promise<Contact[]>
+  get_contact(id: string): Promise<Contact | null>
+  create_contact(input: CreateContactInput): Promise<Contact>
 
   // Time / billing entries (read-only in v1 except for draft creation)
-  list_time_entries(matter_id: string, range: DateRange): Promise<TimeEntry[]>;
-  create_time_entry_draft(input: TimeEntryInput): Promise<TimeEntry>;
+  list_time_entries(matter_id: string, range: DateRange): Promise<TimeEntry[]>
+  create_time_entry_draft(input: TimeEntryInput): Promise<TimeEntry>
 
   // Document operations within the PM system
-  list_matter_documents(matter_id: string): Promise<DocumentRef[]>;
-  upload_matter_document(matter_id: string, doc: DocumentUpload): Promise<DocumentRef>;
+  list_matter_documents(matter_id: string): Promise<DocumentRef[]>
+  upload_matter_document(matter_id: string, doc: DocumentUpload): Promise<DocumentRef>
 
   // Adapter metadata (for health checks and capability disclosure)
-  describe_capabilities(): CapabilitySet;
-  health_check(): Promise<HealthStatus>;
+  describe_capabilities(): CapabilitySet
+  health_check(): Promise<HealthStatus>
 }
 
 type MatterQuery = {
-  client_name?: string;
-  matter_type?: string;
-  status?: MatterStatus;
-  date_range?: DateRange;
-  limit?: number;
-  offset?: number;
-};
+  client_name?: string
+  matter_type?: string
+  status?: MatterStatus
+  date_range?: DateRange
+  limit?: number
+  offset?: number
+}
 
-type MatterStatus = 'open' | 'closed' | 'pending' | 'intake';
+type MatterStatus = 'open' | 'closed' | 'pending' | 'intake'
 
 // NOTE: Matter, Contact, TimeEntry are vertical-generic.
 // Practice-area-specific fields live in Matter.custom_fields: Record<string, unknown>
@@ -302,40 +303,40 @@ type MatterStatus = 'open' | 'closed' | 'pending' | 'intake';
 ```typescript
 interface Email {
   // Inbox watching (poll or webhook depending on adapter)
-  list_threads(query: ThreadQuery): Promise<EmailThread[]>;
-  get_thread(thread_id: string): Promise<EmailThread>;
+  list_threads(query: ThreadQuery): Promise<EmailThread[]>
+  get_thread(thread_id: string): Promise<EmailThread>
 
   // Draft operations (reviewer-as-sender pattern enforced here)
-  create_draft(input: DraftInput): Promise<DraftRef>;
-  update_draft(draft_id: string, updates: DraftUpdate): Promise<DraftRef>;
+  create_draft(input: DraftInput): Promise<DraftRef>
+  update_draft(draft_id: string, updates: DraftUpdate): Promise<DraftRef>
   // NOTE: No send method. Drafts go to the reviewer's drafts folder.
   // The reviewer sends from their own email client. No programmatic send.
 
   // Label / folder operations
-  apply_label(thread_id: string, label: string): Promise<void>;
-  move_to_folder(thread_id: string, folder: string): Promise<void>;
+  apply_label(thread_id: string, label: string): Promise<void>
+  move_to_folder(thread_id: string, folder: string): Promise<void>
 
   // Sent-folder watching (opt-in; only called when customer.yaml enables it)
-  list_sent_since(cursor: string): Promise<SentItem[]>;
-  get_sent_item(message_id: string): Promise<SentItem>;
+  list_sent_since(cursor: string): Promise<SentItem[]>
+  get_sent_item(message_id: string): Promise<SentItem>
 
   // Scope enforcement (adapter enforces; skill never bypasses)
-  get_scoped_folders(): string[];  // returns only customer.yaml-allowed folders
+  get_scoped_folders(): string[] // returns only customer.yaml-allowed folders
 }
 
 // CRITICAL: The DraftInput must route to the REVIEWER'S drafts folder,
 // not to any agent-owned mailbox. The AgentMail address is for INTERNAL
 // comms only (§7.8, §19). Adapters must enforce this routing.
 type DraftInput = {
-  reviewer_account_id: string;   // the human sender's account, not the agent's
-  to: string[];
-  cc?: string[];
-  subject: string;
-  body_html: string;
-  body_text: string;
-  thread_id?: string;            // null for new threads
-  matter_ref?: string;           // for audit correlation
-};
+  reviewer_account_id: string // the human sender's account, not the agent's
+  to: string[]
+  cc?: string[]
+  subject: string
+  body_html: string
+  body_text: string
+  thread_id?: string // null for new threads
+  matter_ref?: string // for audit correlation
+}
 ```
 
 **ESign**
@@ -343,15 +344,15 @@ type DraftInput = {
 ```typescript
 interface ESign {
   // Envelope status monitoring
-  list_envelopes(query: EnvelopeQuery): Promise<Envelope[]>;
-  get_envelope(envelope_id: string): Promise<Envelope>;
+  list_envelopes(query: EnvelopeQuery): Promise<Envelope[]>
+  get_envelope(envelope_id: string): Promise<Envelope>
 
   // Reminder drafting (reviewer-as-sender pattern: agent drafts reminder,
   // reviewer sends or approves automated reminder)
-  create_reminder_draft(envelope_id: string, input: ReminderInput): Promise<DraftRef>;
+  create_reminder_draft(envelope_id: string, input: ReminderInput): Promise<DraftRef>
 
   // Document retrieval (completed envelopes)
-  download_completed(envelope_id: string): Promise<Buffer>;
+  download_completed(envelope_id: string): Promise<Buffer>
 
   // NOTE: No send_envelope method. Agent never initiates signing flows.
   // The reviewer initiates; agent tracks and chases.
@@ -369,9 +370,9 @@ These are architecturally different. Pattern A requires only a `create_draft` me
 
 ```typescript
 interface CourtAccess {
-  search_cases(query: CaseQuery): Promise<CaseResult[]>;
-  get_docket(case_id: string): Promise<Docket>;
-  get_docket_entries(case_id: string, range: DateRange): Promise<DocketEntry[]>;
+  search_cases(query: CaseQuery): Promise<CaseResult[]>
+  get_docket(case_id: string): Promise<Docket>
+  get_docket_entries(case_id: string, range: DateRange): Promise<DocketEntry[]>
   // NOTE: Citation filtering is NOT this interface's responsibility.
   // The citation-refusal filter (invariant #6, §9) runs on ALL outputs
   // before surfacing to any skill or draft surface — including any content
@@ -472,23 +473,24 @@ not self-schedule this cleanup — it is a Captain calendar item.
 ### Performance budgets
 
 The PRD states measured P95 commitments in the demo context (§16.2):
+
 - Connector swap: ≤30s
 - Voice calibration scenario draft: ≤8s
 - Trust-ceiling promotion: ≤2s
 
 These should be formalized as platform NFRs with measurement methodology:
 
-| Operation | P50 target | P95 target | P99 budget | Measurement method |
-|---|---|---|---|---|
-| Draft generation (inbox-triage, standard email) | ≤3s | ≤8s | ≤20s | Audit log timestamps: skill_invoked → draft_created |
-| Draft generation (evidence-packet, document-heavy) | ≤30s | ≤90s | ≤180s | Same |
-| Trust-ceiling promotion (dashboard action) | ≤500ms | ≤2s | ≤5s | Dashboard action → D1 write → confirmation |
-| Connector swap (runtime rebind) | ≤10s | ≤30s | ≤60s | provision-customer.sh step 7 re-run timing |
-| Memory edit propagation (hard rule) | ≤1s | ≤3s | ≤10s | D1 write → agent next-invocation verification |
-| Audit log entry write | ≤100ms | ≤500ms | ≤1s | D1 write latency |
-| Morning digest generation | ≤60s | ≤120s | ≤300s | Scheduled trigger → email delivery |
-| Machine cold start (scale-to-zero) | ≤5s | ≤15s | ≤30s | Fly.io boot metrics |
-| Memory export (full vault) | ≤60s | ≤5min | ≤15min | Export job timing |
+| Operation                                          | P50 target | P95 target | P99 budget | Measurement method                                  |
+| -------------------------------------------------- | ---------- | ---------- | ---------- | --------------------------------------------------- |
+| Draft generation (inbox-triage, standard email)    | ≤3s        | ≤8s        | ≤20s       | Audit log timestamps: skill_invoked → draft_created |
+| Draft generation (evidence-packet, document-heavy) | ≤30s       | ≤90s       | ≤180s      | Same                                                |
+| Trust-ceiling promotion (dashboard action)         | ≤500ms     | ≤2s        | ≤5s        | Dashboard action → D1 write → confirmation          |
+| Connector swap (runtime rebind)                    | ≤10s       | ≤30s       | ≤60s       | provision-customer.sh step 7 re-run timing          |
+| Memory edit propagation (hard rule)                | ≤1s        | ≤3s        | ≤10s       | D1 write → agent next-invocation verification       |
+| Audit log entry write                              | ≤100ms     | ≤500ms     | ≤1s        | D1 write latency                                    |
+| Morning digest generation                          | ≤60s       | ≤120s      | ≤300s      | Scheduled trigger → email delivery                  |
+| Machine cold start (scale-to-zero)                 | ≤5s        | ≤15s       | ≤30s       | Fly.io boot metrics                                 |
+| Memory export (full vault)                         | ≤60s       | ≤5min      | ≤15min     | Export job timing                                   |
 
 **Issue:** The PRD does not specify whether the ≤8s draft target is wall-clock or streaming. If the Hermes response is streamed (tokens arriving progressively), "≤8s" to first token is a very different NFR from "≤8s to complete draft." The demo context implies the partner sees the full draft appear, suggesting complete-draft latency — but this should be stated.
 
@@ -497,12 +499,14 @@ These should be formalized as platform NFRs with measurement methodology:
 The PRD is privacy-aware but does not enumerate security controls as requirements. The following are non-negotiable for a product handling privileged legal communications:
 
 **Authentication:**
+
 - Control plane access: Captain authenticates via existing SMD venture auth (Clerk, per CLAUDE.md stack)
 - Per-customer Machine SSH: key-based only; no password auth; keys rotated on Captain personnel change
 - Connector OAuth tokens: stored in Infisical per `secrets.md` guidance; never in customer.yaml or environment variables in plaintext; injected at Machine boot
 
 **OAuth token handling — a critical gap the PRD does not address:**
 The PRD relies on connector OAuth for all external integrations. OAuth access tokens expire (typically 1 hour for Microsoft Graph, Filevine, etc.). Refresh tokens expire if unused (varies: 90 days for Microsoft, indefinite for some others). The PRD does not specify:
+
 - Where refresh tokens are stored (Infisical? D1? R2?)
 - Who is responsible for token refresh (Hermes runtime? a sidecar? Captain?)
 - What happens when a token refresh fails (the connector goes offline; does the Machine degrade gracefully or throw errors into the draft pipeline?)
@@ -511,30 +515,33 @@ The PRD relies on connector OAuth for all external integrations. OAuth access to
 For a product where "connector outage" is a named risk (§18), the OAuth refresh failure path must be specified before Phase 1 ships.
 
 **Data in transit:**
+
 - All API calls from Hermes Machine to external connectors: TLS 1.2+ required; certificate validation enforced; no self-signed certificates accepted
 - All internal API calls (control plane → Machines): Fly.io private networking (6PN) where available; mutual TLS otherwise
 - D1 / R2 / Vectorize calls: Cloudflare's default TLS (already enforced by the platform)
 
 **Data at rest:**
+
 - R2 objects: encrypted at rest (Cloudflare default; no additional application-layer encryption in v1)
 - D1 rows: encrypted at rest (Cloudflare default)
 - Fly.io Machine volumes: encrypted at rest (Fly.io AES-256 default)
 - customer.yaml: git-committed (config/customers/ path); must not contain any secret values. All secrets injected from Infisical at provision and runtime. This is an absolute requirement; the schema section below enforces it.
 
 **Audit log integrity:**
+
 - The audit log is described as "immutable rows" (§10.1). D1 does not enforce immutability at the database layer — a compromised Hermes process can DELETE from audit_log. True immutability requires either: (a) write-once append-only semantics enforced at the application layer with no DELETE/UPDATE permission granted to the agent runtime, or (b) a secondary write to an append-only external log (e.g., Cloudflare Logpush). The PRD assumes immutability but does not specify how it is enforced.
 
 ### Scalability targets
 
-| Dimension | Phase 1 (1 customer) | Phase 4 (≥3 customers) | Phase 5 (10+ customers) |
-|---|---|---|---|
-| Concurrent Machines | 1 | 3-5 | 10-20 |
-| D1 databases | 1 | 3-5 | 10-20 (per Cloudflare limits) |
-| R2 buckets | 1 | 3-5 | 10-20 |
-| Vectorize indexes | 2 | 6-10 | 20-40 |
-| Composio connections | 4-8 | 12-40 | 40-160 |
-| Draft volume per customer (heavy profile) | 150/wk | 150/wk | 150/wk |
-| Audit log rows per customer per month | ~10,000 | ~10,000 | ~10,000 |
+| Dimension                                 | Phase 1 (1 customer) | Phase 4 (≥3 customers) | Phase 5 (10+ customers)       |
+| ----------------------------------------- | -------------------- | ---------------------- | ----------------------------- |
+| Concurrent Machines                       | 1                    | 3-5                    | 10-20                         |
+| D1 databases                              | 1                    | 3-5                    | 10-20 (per Cloudflare limits) |
+| R2 buckets                                | 1                    | 3-5                    | 10-20                         |
+| Vectorize indexes                         | 2                    | 6-10                   | 20-40                         |
+| Composio connections                      | 4-8                  | 12-40                  | 40-160                        |
+| Draft volume per customer (heavy profile) | 150/wk               | 150/wk                 | 150/wk                        |
+| Audit log rows per customer per month     | ~10,000              | ~10,000                | ~10,000                       |
 
 **Cloudflare D1 limit check:** D1 supports up to 50,000 databases per account on Workers Paid. Phase 1 well within limits. At 10,000 customers (hypothetical), this becomes a constraint — not relevant for Phase 1 but worth noting.
 
@@ -567,39 +574,39 @@ For a product where "connector outage" is a named risk (§18), the OAuth refresh
 # All fields below are REQUIRED unless marked optional.
 # NO secret values in this file. Use {service}-{customer-slug} ref patterns.
 
-customer: <string>          # slug: ^[a-z0-9-]+$; must match directory name
-vertical: <enum>            # 'law-firm' | (future verticals)
-practice_areas: <list>      # validated against vertical's practice area registry
-region: <string>            # Fly.io region slug (e.g., 'iad', 'lax', 'ord')
+customer: <string> # slug: ^[a-z0-9-]+$; must match directory name
+vertical: <enum> # 'law-firm' | (future verticals)
+practice_areas: <list> # validated against vertical's practice area registry
+region: <string> # Fly.io region slug (e.g., 'iad', 'lax', 'ord')
 
 persona:
-  name: <string>            # human first name; max 50 chars
-  title: <string>           # e.g. "AI Associate" | "AI Operations Coordinator"
-  signature_html: <string>  # [OPTIONAL] full HTML; generated by provision if absent
-  avatar_url: <string>      # [OPTIONAL] https URL to SMD-hosted image
-  tone: <string>            # 3-5 adjective string; free text
+  name: <string> # human first name; max 50 chars
+  title: <string> # e.g. "AI Associate" | "AI Operations Coordinator"
+  signature_html: <string> # [OPTIONAL] full HTML; generated by provision if absent
+  avatar_url: <string> # [OPTIONAL] https URL to SMD-hosted image
+  tone: <string> # 3-5 adjective string; free text
 
 connectors:
-  <CapabilityName>: <adapter-slug>  # e.g. Email: microsoft-graph
+  <CapabilityName>: <adapter-slug> # e.g. Email: microsoft-graph
   # CapabilityName must be a registered capability interface name
   # adapter-slug must exist in ai-employee/connectors/{capability}/{adapter}/
 
 skills:
   - <skill-name>:
-      trust: <enum>         # 'autonomous' | 'draft_for_review' | 'disabled'
-      scope: <list>         # [OPTIONAL] list of scope tags from scope section
+      trust: <enum> # 'autonomous' | 'draft_for_review' | 'disabled'
+      scope: <list> # [OPTIONAL] list of scope tags from scope section
 
 scope:
-  email_folders_visible: <list>     # [OPTIONAL] defaults to all folders
-  email_folders_blind: <list>       # [OPTIONAL]
-  email_keyword_blocks: <list>      # [OPTIONAL]
-  domain_blocks: <list>             # [OPTIONAL]
+  email_folders_visible: <list> # [OPTIONAL] defaults to all folders
+  email_folders_blind: <list> # [OPTIONAL]
+  email_keyword_blocks: <list> # [OPTIONAL]
+  domain_blocks: <list> # [OPTIONAL]
 
 escalation:
-  red_flag_recipients: <list>       # email addresses; at least one required
-  failure_recipients: <list>        # email addresses; at least one required
+  red_flag_recipients: <list> # email addresses; at least one required
+  failure_recipients: <list> # email addresses; at least one required
 
-business_hours:             # [OPTIONAL] defaults to M-F 8am-6pm local
+business_hours: # [OPTIONAL] defaults to M-F 8am-6pm local
   timezone: <IANA tz>
   days: <list>
   start: <HH:MM>
@@ -628,6 +635,7 @@ business_hours:             # [OPTIONAL] defaults to M-F 8am-6pm local
 **What §7.5 says:** "At Machine boot, the runtime verifies its storage bindings include only its own customer's namespaces and refuses to start if it detects bindings outside its namespace."
 
 **What's not specified:**
+
 - What constitutes a "storage binding" in the runtime's view? A Fly.io volume mount? A Cloudflare binding in the Worker config? An environment variable pointing to a D1 database ID?
 - How does the runtime know what "its own customer's namespace" is? By comparing the D1 database name to the customer slug in customer.yaml? If so, what is the comparison rule?
 - What does "refuse to start" mean operationally? Throw an exception and exit? Write to a health endpoint? Alert Captain? The PRD says the Machine "refuses to start" but does not specify the failure mode.
@@ -650,6 +658,7 @@ business_hours:             # [OPTIONAL] defaults to M-F 8am-6pm local
 **§15.1 describes what to track** (a solid list of 9 cost drivers) and **what to model** (three customer profiles). It does not describe how the data is emitted and collected.
 
 **Specific gaps:**
+
 - Claude API token costs: Anthropic's API returns token counts in the response. Does Hermes capture this per-call and write to `cost_telemetry`? Or does it rely on Anthropic's billing dashboard, which is per-account, not per-customer?
 - Fly.io Machine baseline: Fly.io billing is account-level, not per-Machine-tagged-by-customer. Without explicit resource tagging (Machine name = `hermes-{customer-slug}`), correlating Fly.io charges to customers requires a naming convention — which the PRD has (good) but has no automated extraction script for.
 - Composio per-action billing: Composio provides usage data via API. Is there a nightly job that pulls Composio usage by connection ID (per customer) and writes to `cost_telemetry`?
@@ -711,6 +720,7 @@ Formalizes that `customer.yaml` is git-committed, secret-free configuration; def
 **Platform PRD §20 Phase 1:** "5-7 skills, not 30."
 
 **Law-firm PRD §17 Phase 1:** Lists the following as Phase 1 scope:
+
 - 6 universal primitives (as scaffolds, 3-4 enabled)
 - `inbox-triage-and-draft`, `morning-digest`, `memory-curator`, `compliance-audit-export` (4 cross-cutting skills enabled)
 - `pi-intake-triage` (1 PI skill minimum)
@@ -751,23 +761,23 @@ These three references are inconsistent. If the read-only adapter is a v1 pre-bu
 
 The following must be resolved before Phase 1 implementation begins:
 
-| # | Item | Blocking what | Owner |
-|---|---|---|---|
-| 1 | OAuth token lifecycle ADR | Email, Calendar, all connector adapters | Tech Lead |
-| 2 | Capability interface method signatures (all 11) | All adapter implementation | Tech Lead |
-| 3 | `customer.yaml` formal schema with secret-exclusion validation | provision-customer.sh, all adapter binding | Tech Lead |
-| 4 | Invariant #7 concrete implementation spec | Safety substrate boot sequence | Tech Lead |
-| 5 | Invariant #8 runtime-filter implementation spec | All draft generation | Tech Lead |
-| 6 | `bin/decommission-customer.sh` step spec including drain window | Phase 1 compliance requirement | Tech Lead |
-| 7 | R2 object key naming convention | decommissioning, export, vault operations | Tech Lead |
-| 8 | Vectorize index naming + per-customer isolation confirmation | Memory retrieval, cross-customer isolation | Tech Lead |
-| 9 | Control plane / data plane separation architecture | invariant #7 enforcement, emergency-stop | Tech Lead + Captain |
-| 10 | Dashboard hosting decision (Astro app location) | Dashboard tab implementation | Tech Lead + Captain |
-| 11 | Cost telemetry event emission spec | §17.1 per-customer COGS/MRR kill criterion | Tech Lead |
-| 12 | D1 `voice_samples` and `draft_queue` table definitions | Voice gate enforcement, draft routing | Tech Lead |
+| #   | Item                                                            | Blocking what                              | Owner               |
+| --- | --------------------------------------------------------------- | ------------------------------------------ | ------------------- |
+| 1   | OAuth token lifecycle ADR                                       | Email, Calendar, all connector adapters    | Tech Lead           |
+| 2   | Capability interface method signatures (all 11)                 | All adapter implementation                 | Tech Lead           |
+| 3   | `customer.yaml` formal schema with secret-exclusion validation  | provision-customer.sh, all adapter binding | Tech Lead           |
+| 4   | Invariant #7 concrete implementation spec                       | Safety substrate boot sequence             | Tech Lead           |
+| 5   | Invariant #8 runtime-filter implementation spec                 | All draft generation                       | Tech Lead           |
+| 6   | `bin/decommission-customer.sh` step spec including drain window | Phase 1 compliance requirement             | Tech Lead           |
+| 7   | R2 object key naming convention                                 | decommissioning, export, vault operations  | Tech Lead           |
+| 8   | Vectorize index naming + per-customer isolation confirmation    | Memory retrieval, cross-customer isolation | Tech Lead           |
+| 9   | Control plane / data plane separation architecture              | invariant #7 enforcement, emergency-stop   | Tech Lead + Captain |
+| 10  | Dashboard hosting decision (Astro app location)                 | Dashboard tab implementation               | Tech Lead + Captain |
+| 11  | Cost telemetry event emission spec                              | §17.1 per-customer COGS/MRR kill criterion | Tech Lead           |
+| 12  | D1 `voice_samples` and `draft_queue` table definitions          | Voice gate enforcement, draft routing      | Tech Lead           |
 
 Items 1-11 map to ADRs or spec artifacts that can be authored in 1-2 days each. They are not blocking in the sense of requiring external dependencies — they block because the code cannot be written correctly without them. The recommendation is to resolve all 12 before the first adapter is merged.
 
 ---
 
-*End of Technical Lead Contribution — PRD Review Round 1*
+_End of Technical Lead Contribution — PRD Review Round 1_

@@ -25,6 +25,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Designated Operator, I want the agent to capture structured intake from a new prospect and run a conflict check, so that I can open a matter quickly without manually searching for conflicts or duplicating data entry.
 
 **Acceptance Criteria:**
+
 - [ ] Given an inbound intake event (form submission, call-log entry, or email flagged as new prospect), when the agent processes it, then a structured intake record is created containing: prospect name, contact info, matter type, incident date (if applicable), referred-by, and configurable vertical-specific fields
 - [ ] Given a new intake record, when the agent runs the conflict check, then it searches the configured PracticeManagement connector for existing matters and contacts matching the prospect name and all named adverse parties, returning a result within 60 seconds
 - [ ] Given a conflict-check result with one or more potential matches, when the agent surfaces results, then each match includes: matter name, matter number, match confidence level, and the matched field (name, phone, email, adverse party)
@@ -45,6 +46,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Designated Operator, I want the conflict check to err heavily on the side of over-flagging, so that the firm never inadvertently opens a conflicted matter.
 
 **Acceptance Criteria:**
+
 - [ ] Given a conflict check result, when confidence falls below the configured threshold, then the result is surfaced as a potential conflict (not cleared), regardless of match quality
 - [ ] Given a new matter where the adverse party name is partially matched (phonetic similarity, common name variants), when the agent surfaces the result, then the match is flagged for human review and not auto-cleared
 - [ ] Given a conflict-check false-negative rate metric tracked over time, when false negatives are detected (a cleared matter later reveals a real conflict), then the event is logged in the audit trail as a kill-criterion-level event and Captain is alerted
@@ -61,6 +63,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Designated Operator, I want the agent to open a document checklist for a matter and nudge sources for outstanding items, so that I don't have to manually track what's arrived and chase each provider individually.
 
 **Acceptance Criteria:**
+
 - [ ] Given a matter opened in the PracticeManagement connector, when the agent activates document-collection for that matter type, then a checklist is created with the configured document types for that matter type (sourced from `customer.yaml`, not fabricated)
 - [ ] Given an open checklist item, when the configured nudge cadence passes without receipt, then a draft reminder is queued for Operator review — not sent autonomously
 - [ ] Given a document received via email or DocumentStorage connector, when the agent identifies it as matching an open checklist item (by filename pattern, sender domain, or subject-line match), then the checklist item is marked received and the match is surfaced in the dashboard queue for Operator confirmation
@@ -79,6 +82,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Designated Operator, I want the agent to track deadlines and surface approaching ones with configured lead times, so that no SOL, court date, or agency response window is missed.
 
 **Acceptance Criteria:**
+
 - [ ] Given a matter with a configured deadline rule source (LawToolBox or custom), when a triggering event occurs (matter opened, hearing set, discovery served), then the relevant deadline(s) are calculated and entered in the deadline tracker with date, type, matter number, and configured lead times
 - [ ] Given a tracked deadline, when the lead time threshold is reached (configurable per deadline type in `customer.yaml`), then an escalation notification is drafted and queued for Operator review — not sent autonomously
 - [ ] Given a deadline that passes without resolution, when the escalation threshold is exceeded, then the deadline is promoted to the `red_flag_recipients` list defined in `customer.yaml` — not a default list
@@ -97,6 +101,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Designated Operator, I want the agent to draft periodic status updates to the firm's clients, so that routine "where are we" communications are ready to review and send without manual authoring.
 
 **Acceptance Criteria:**
+
 - [ ] Given a matter with configured status-update cadence, when the cadence interval passes, then a draft status update is generated and queued for reviewer approval
 - [ ] Given a status update draft, when the agent generates it, then all variable fields (timeline references, deliverable descriptions, dollar amounts, named persons) are sourced exclusively from the matter record in the PracticeManagement connector — no fields are inferred or fabricated
 - [ ] Given a matter record with missing required fields (no recent activity logged, no status entered), when the agent generates the draft, then the variable field renders as "[TBD — update required]" and not as plausible status copy
@@ -115,6 +120,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Designated Operator, I want the agent to monitor outstanding DocuSign envelopes and draft reminders when they stall, so that I'm not manually tracking every signing loop.
 
 **Acceptance Criteria:**
+
 - [ ] Given a DocuSign (or PandaDoc) envelope sent and not returned within the configured wait period, when the stall threshold is reached, then a draft reminder is queued for Operator review — not sent autonomously
 - [ ] Given a stalled envelope with multiple signatories, when the reminder is drafted, then the draft addresses only the non-signing party — not all signatories — and the non-signing identity is sourced from the envelope's signer list, not inferred
 - [ ] Given a returned envelope (all parties signed), when the ESign connector event fires, then the checklist item (if connected to document-collection) is marked complete and the event is logged in the audit trail
@@ -133,6 +139,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Designated Operator, I want the agent to reconcile time entries and draft invoices for review, so that billing work product is ready to send without starting from zero each billing cycle.
 
 **Acceptance Criteria:**
+
 - [ ] Given time entries logged in the PracticeManagement connector for a matter in the billing cycle, when the configured billing cycle closes, then the agent reconciles the entries and produces a draft invoice for partner review
 - [ ] Given a draft invoice, when it is generated, then the billed amounts, time entries, and matter references all trace directly to the PracticeManagement connector records — no amounts are calculated or inferred outside the connector's data
 - [ ] Given a contingency-fee matter, when the agent activates billing-reconciliation for that matter, then the skill produces an expense reconciliation only (no time-entry billing) and flags the matter as contingency
@@ -156,6 +163,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Designated Operator, I want the agent to watch the configured inboxes, categorize inbound emails, and queue draft replies for review, so that the morning inbox is pre-processed before I or the partner start work.
 
 **Acceptance Criteria:**
+
 - [ ] Given an inbound email arriving in a configured watched folder, when the agent processes it, then it categorizes the email by action class (new matter inquiry, existing-matter status request, signing-related, billing-related, internal-ops, no-action-required) using the configured categorization rubric
 - [ ] Given an email in a folder listed in `email_folders_blind`, when the agent encounters it, then it does not read, process, or draft against the email — the scope boundary is respected
 - [ ] Given an email with a subject-line matching an entry in `email_keyword_blocks`, when the agent encounters it, then it skips the email, logs the skip in the audit trail, and does not surface the email's content in any view
@@ -176,6 +184,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Principal, I want to receive an 8am daily digest summarizing what the agent will work on today and what requires my attention, so that I can plan my day in under 60 seconds from my phone.
 
 **Acceptance Criteria:**
+
 - [ ] Given a configured 8am digest schedule in `customer.yaml`, when the daily run fires, then the digest email is in the principal's inbox by 8am local time
 - [ ] Given the digest email, when it is generated, then it contains: (a) count of drafts pending review, (b) count of flagged items, (c) upcoming deadlines within 48 hours, (d) any red-flag events surfaced since yesterday's digest — and nothing else
 - [ ] Given zero pending items of a category, when the digest is generated, then that category is omitted rather than shown as "0 items"
@@ -194,6 +203,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Designated Operator, I want the agent to surface what it learned from my edits this week and update its behavior accordingly, so that the agent improves and I can verify the learning is correct.
 
 **Acceptance Criteria:**
+
 - [ ] Given a reviewer edit of a queued draft (edit-then-send signal), when the diff is captured, then the memory-curator skill classifies the delta as: voice-correction, content-rule, or process-update — not as undifferentiated "correction"
 - [ ] Given a classified correction, when the correction is applied to memory, then the memory entry records: source (edit-then-send / direct-teach / rejection), timestamp, actor, and what changed
 - [ ] Given a weekly memory-curator digest, when it is generated, then it presents distilled corrections in human-readable form ("Based on 12 of your edits last week, Marcus updated voice on closing salutations") — not raw diffs
@@ -212,6 +222,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Captain or Compliance Counsel, I want to generate a compliance evidence packet on demand, so that I can respond to a bar inquiry, client question, or internal ethics review within 60 seconds.
 
 **Acceptance Criteria:**
+
 - [ ] Given a request to generate a compliance evidence packet (from the Audit tab or via Captain control-plane), when the request is made, then the packet is available for download within 60 seconds
 - [ ] Given a compliance evidence packet, when it is generated, then it contains: (a) full audit log for the requested period, (b) safety-substrate version and invariant list, (c) DPA reference (document name, version, execution date), (d) per-state engagement-letter clause citations for the customer's active client jurisdictions, (e) model lineage (Claude version, Hermes runtime SHA)
 - [ ] Given the audit log in the packet, when it is exported, then every agent action is included — reads, draft generations, rejections, memory updates, trust-ceiling changes — with actor, timestamp, and action type
@@ -234,6 +245,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As an intake coordinator, I want the agent to classify a new PI intake by case type, severity band, jurisdiction, and fit against firm criteria, so that I can route or decline the intake quickly without applying the same judgment manually each time.
 
 **Acceptance Criteria:**
+
 - [ ] Given a new PI intake record (from Lawmatics, Lead Docket, CallRail, or email), when the agent processes it, then it outputs: (a) case-type classification (auto-accident / slip-and-fall / premises-liability / product-liability / medmal), (b) severity band (not dollar value), (c) jurisdiction (state / county), (d) fit-against-firm-criteria result (pass / flag / reject) per the customer's configured criteria
 - [ ] Given a firm criterion configured in `customer.yaml` ("we don't take medmal under $1M"), when an intake triggers that criterion, then the fit result is "reject" and the configured rejection reason is included in the output
 - [ ] Given an ambiguous intake (could classify as two or more case types), when the agent cannot resolve the classification with ≥configured confidence, then it surfaces both classifications with confidence levels and requires human selection — no default classification is chosen
@@ -252,6 +264,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Designated Operator, I want the agent to assemble the structured evidence inputs a partner needs to write a demand letter, so that the partner can focus on drafting legal argument rather than organizing the underlying materials.
 
 **Acceptance Criteria:**
+
 - [ ] Given a PI matter at the demand-ready stage, when the partner or operator triggers the evidence-packet skill, then the output contains: (a) medical chronology spreadsheet, (b) billing tabulation by provider, (c) lost-wages spreadsheet with documentation references, (d) exhibit list with index, (e) photo and document inventory, (f) blank narrative-impact template with labeled sections for partner authorship
 - [ ] Given any output field in the evidence packet, when it is generated, then the value is sourced from the matter record, uploaded documents, or the PracticeManagement connector — not inferred or fabricated
 - [ ] Given an evidence packet with missing source documents (medical records not yet received), when the packet is generated, then the missing items render as "[Records outstanding — checklist item open]" with a link to the open checklist item — not as "no records" or with estimated values
@@ -270,6 +283,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Designated Operator, I want the agent to track liens per matter and surface them at settlement stage, so that the firm doesn't miss a lien before disbursing funds.
 
 **Acceptance Criteria:**
+
 - [ ] Given a matter with configured lien-tracking, when a lien is identified (via document receipt, operator entry, or intake record), then the lien is recorded with: lien type (medical / ERISA / MSP / Medicaid / WC / attorney / child support), holder name, amount (if known), and status (open / in-resolution / resolved)
 - [ ] Given a matter approaching the settlement stage (status flag in the PM connector), when the agent generates the settlement pre-disbursement checklist, then all open liens are surfaced with an explicit "Must resolve before disbursement" flag — never auto-resolved
 - [ ] Given an IOLTA or trust-account disbursement event in the PM or Accounting connector, when the agent detects it, then it flags the event for partner review if any liens are still open on the matter — the agent never blocks disbursement autonomously, but it surfaces the risk
@@ -287,6 +301,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Designated Operator, I want the agent to draft the client settlement statement once settlement terms are entered, so that the partner can review and sign rather than building the statement manually.
 
 **Acceptance Criteria:**
+
 - [ ] Given a settled PI matter with gross settlement amount entered in the PM connector, when the skill activates, then it produces a draft client settlement statement containing: gross settlement, attorney fee (computed from configured fee structure), expenses (from expense ledger), lien payoffs (from pi-lien-tracker), and net to client
 - [ ] Given any dollar amount in the settlement statement, when the draft is generated, then every amount traces to an explicit source (PM connector fee structure, expense ledger entry, lien record) — no amounts are estimated or inferred
 - [ ] Given an open lien on the matter, when the settlement statement is generated, then the lien payoff line reads "[Open — amount TBD]" and the net-to-client line reads "[Cannot compute — open liens remain]" — a net-to-client figure is never computed or displayed with outstanding liens
@@ -308,6 +323,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Principal, I want a Today view that gives me the day's operational status at a glance, so that my daily engagement with the dashboard is ≤60 seconds.
 
 **Acceptance Criteria:**
+
 - [ ] Given the Today tab, when the Principal opens it, then the headline summary displays: drafts pending review (count), items flagged (count), corrections absorbed this week (count), and approval rate (rolling 7-day)
 - [ ] Given the headline summary, when zero items are pending in a category, then that count is omitted (not shown as "0")
 - [ ] Given drafts pending review in the Today view, when the Principal taps any item, then they navigate directly to the draft in the Queue tab
@@ -325,6 +341,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Designated Operator, I want a sortable queue of all pending drafts, so that I can work through the day's review load systematically without anything falling through.
 
 **Acceptance Criteria:**
+
 - [ ] Given the Queue tab, when the Operator opens it, then all pending drafts are listed with: skill name, matter number (if applicable), age (time since draft was generated), priority (configured per skill), and required reviewer role
 - [ ] Given a pending draft, when the Operator opens it, then the full draft is displayed with the source context (what inbound email or event triggered the draft) and any agent-surfaced flags
 - [ ] Given a draft with an explicit "requires partner review" flag (e.g., conflict-check result, court-bound draft, evidence packet), when the Operator opens the draft, then the Operator-only approval path is disabled and the partner must approve
@@ -343,6 +360,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Designated Operator, I want to read, edit, and delete any item in the agent's memory, so that I can correct wrong learning and maintain trust that the agent knows accurate information.
 
 **Acceptance Criteria:**
+
 - [ ] Given the Memory tab, when it is opened, then all memory layers are browsable: hard rules, person-mappings, process knowledge, and voice samples — each in its own labeled section
 - [ ] Given a hard rule in the Memory tab, when the Operator edits it, then the change takes effect immediately (within the next draft invocation) and the change is logged with: original value, new value, actor, timestamp
 - [ ] Given a voice rule or sample in the Memory tab, when the Operator edits it, then a confirmation prompt is displayed showing the scope of the cascade ("This edit affects N voice cohorts — confirm?") before the change is applied
@@ -362,6 +380,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Designated Operator, I want to delete a memory item even while drafts are in flight, so that a correction takes effect immediately without waiting for active drafts to complete.
 
 **Acceptance Criteria:**
+
 - [ ] Given a memory item deleted by the Operator while a draft invoking that item is in flight, when the draft completes, then the draft is flagged "drafted against a since-deleted memory item — review recommended" before entering the queue
 - [ ] Given a deleted memory item, when a subsequent draft is generated, then the deleted item does not influence the draft output
 - [ ] Given a memory item that is actively referenced by a hard rule, when the item is deleted, then a warning is surfaced ("This item is referenced by rule [X] — deleting will leave the rule with no source. Confirm?") before deletion proceeds
@@ -377,6 +396,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Compliance Counsel, I want to view and export the full audit log for any period, so that I can produce a compliance evidence artifact in under 60 seconds.
 
 **Acceptance Criteria:**
+
 - [ ] Given the Audit tab, when it is opened, then all logged events are displayed in reverse chronological order with: timestamp, event type, actor (agent or human identity), matter reference (if applicable), and action summary
 - [ ] Given the Audit tab filter controls, when filtered by date range, skill, or event type, then the filtered view updates immediately and the filter state is preserved if the user navigates away and returns
 - [ ] Given the export function in the Audit tab, when triggered, then the export is available within 60 seconds for periods up to the full retention window
@@ -395,6 +415,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Principal, I want to configure the agent's name, signature, tone, and voice samples during onboarding, so that the agent's persona is anchored to my firm's identity before any external draft ships.
 
 **Acceptance Criteria:**
+
 - [ ] Given the Persona tab, when it is opened, then the configurable fields are displayed: name, pronouns, title, tone descriptors (3-5 adjectives), signature (HTML preview), and avatar
 - [ ] Given a persona name field, when the Principal sets the name, then the name propagates to: dashboard displays, email signature HTML, internal Slack/Teams posts from the persona, and audit log actor references — all surfaces update on save
 - [ ] Given the persona configuration, when it is saved, then the change is logged in the audit trail with actor and timestamp
@@ -412,6 +433,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Designated Operator, I want to view the skill catalog, activate skills for this customer, configure skill parameters, and promote trust ceilings, so that the agent's scope and autonomy match what the firm has authorized.
 
 **Acceptance Criteria:**
+
 - [ ] Given the Skills tab, when it is opened, then all skills in the customer's skill catalog are visible: active skills, inactive skills, and skills unavailable (not licensed or not applicable to this vertical)
 - [ ] Given an inactive skill, when the Operator activates it, then the skill's default trust ceiling from the skill's `SKILL.md` frontmatter is applied — not the platform maximum
 - [ ] Given a skill with a configurable trust ceiling, when the Operator promotes it from `draft_for_review` to `autonomous`, then a confirmation dialog is shown listing what the skill will do autonomously, the promotion is logged in the audit trail, and a one-click "Demote" option is immediately visible on the skill tile
@@ -430,6 +452,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Principal, I want to configure voice rules, upload anchor samples, and test how the agent drafts before any external draft ships, so that I can confirm the agent sounds like me before it touches a client.
 
 **Acceptance Criteria:**
+
 - [ ] Given the Voice tab, when it is opened, then three sections are visible: Rules editor (Layer 1), Samples library (Layer 2), and Test sandbox
 - [ ] Given the Rules editor, when the Principal adds a banned phrase (e.g., "em dash"), then the rule is stored in the voice configuration and the violation log reflects any pre-existing drafts that would have violated the rule if re-drafted
 - [ ] Given the Samples library, when the Principal uploads a voice sample, then the sample is tagged with recipient cohort (to-client / to-vendor / to-counterparty) and the sample count per cohort is displayed
@@ -453,6 +476,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Captain, I want to complete the Day-1 onboarding for the PI firm beta-1 customer within 24 hours of signing, so that the partner's morning digest is configured and the voice calibration has begun before the second day.
 
 **Acceptance Criteria:**
+
 - [ ] Given beta-1 contract signed, when Captain initiates onboarding, then the customer's Fly.io Machine is provisioned, D1/R2/Vectorize storage is bound, and the customer's chosen connectors are OAuth-authorized within 24 hours of signing
 - [ ] Given the onboarding session, when the partner session (90 minutes maximum) concludes, then: (a) ≥10 scenarios have been run in the voice test sandbox against the highest-judgment cohorts, (b) the partner has reviewed and approved or edited the voice rules, (c) per-recipient cohort definitions have been confirmed
 - [ ] Given the paralegal session (4-6 hours with Captain), when it concludes, then: (a) ≥30 voice samples are uploaded and categorized, (b) memory rules are seeded (firm patterns, case-acceptance criteria, person-mappings), (c) paralegal has completed a dashboard walkthrough and can operate the Memory and Queue tabs without assistance
@@ -471,6 +495,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Principal, I want my daily interaction with the agent to be established as a 60-second loop by end of Week 1, so that the agent fits into my existing morning routine without adding cognitive overhead.
 
 **Acceptance Criteria:**
+
 - [ ] Given the Week-1 daily digest, when the partner opens it, then the digest references only items from that day — no backlog accumulation from the shadow period appears in Week-1 digests
 - [ ] Given a draft in the queue, when the partner approves or rejects it via the digest link, then the action is recorded and the item is removed from the pending count in the next digest — the loop closes within 24 hours
 - [ ] Given a Captain daily check-in with the paralegal (first 5 business days), when the check-in identifies a drift pattern (drafts consistently off in voice, wrong categorization), then Captain escalates to an unscheduled calibration session within 24 hours
@@ -488,6 +513,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Captain, I want all beta-1 stickiness metrics to be confirmed at Week 4, so that I have a data-supported basis for the Day-90 renewal conversation.
 
 **Acceptance Criteria:**
+
 - [ ] Given Week 4 of beta-1, when the Captain reviews metrics, then all of the following must be satisfied: partner approval rate ≥85%, voice violation rate ≤2%, partner opens dashboard ≥4 days/week, paralegal uses dashboard daily
 - [ ] Given a stickiness metric missing its Week-4 target, when Captain identifies the gap, then a written course-correction plan is documented with specific actions and a re-check date before the Day-90 renewal conversation
 - [ ] Given the "first I forgot about that" moment (agent surfaces a stalled signing or late-paying client the partner had forgotten), when this event occurs, then it is noted in Captain's beta-1 notes as the stickiness anchor event — the platform surfaces this as a candidate story in the monthly recap artifact
@@ -509,6 +535,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Captain, I want to complete the partner's calibration contribution in ≤90 minutes, so that the partner's calendar commitment is bounded and the calibration does not become a reason to delay going live.
 
 **Acceptance Criteria:**
+
 - [ ] Given the partner calibration session, when it begins, then the Captain has pre-loaded ≥10 scenarios covering the highest-judgment recipient cohorts (anxious client, opposing counsel) in the test sandbox before the session starts
 - [ ] Given a calibration scenario run in the partner session, when the partner edits the draft, then the edit is immediately reflected in the voice configuration and the updated voice rules are visible to the partner in the same session
 - [ ] Given the partner session, when 90 minutes have elapsed, then Captain closes the session and transfers to the paralegal session — there is no "just a few more" extension of the partner session without explicit partner agreement
@@ -526,6 +553,7 @@ This document provides user stories, acceptance criteria, business rules, edge c
 **Narrative:** As a Captain, I want the paralegal session to fully seed memory, complete voice scenarios, and leave the paralegal comfortable operating the dashboard independently, so that beta-1 operations are not dependent on Captain availability from Week 1.
 
 **Acceptance Criteria:**
+
 - [ ] Given the paralegal calibration session, when it concludes, then: (a) ≥30 anchor samples are uploaded and categorized across all configured cohorts, (b) all firm-pattern memory rules are seeded (case-acceptance criteria, escalation rules, person-mappings), (c) paralegal can add a hard rule, edit a voice sample, and review a queued draft without Captain assistance
 - [ ] Given memory rules seeded during the paralegal session, when they are saved, then each rule is confirmed by the paralegal (not batch-imported by Captain without confirmation) — the paralegal is the actor in the audit trail for rules they seed
 - [ ] Given the paralegal session, when it concludes, then a session summary is sent to the partner for async review within 24 hours — summary includes all rules seeded and key voice decisions made
@@ -688,31 +716,31 @@ The walk-in-cold demo uses a pre-loaded voice anchor from public writing (the bo
 
 ## Traceability Matrix
 
-| Story | Skill / Feature | Platform PRD Reference | Law Firm PRD Reference | Success Metric |
-|---|---|---|---|---|
-| US-001, US-002 | `intake-and-conflict` | §8.1 primitives, §11.2 trust ceilings | §6.1 (n/a — universal primitive), §5 third-rail map | Conflict-check false-negative rate 0% (§17.1, law-firm §14.1) |
-| US-003 | `document-collection` | §8.1 primitives | §4 (pillars 2, 5), §7.3 retrieval reality | Draft approval rate ≥85% week 4 (§17.1) |
-| US-004 | `deadline-docketer` | §8.1 primitives | §4 (pillars 2, 6, 10), §7.3 LawToolBox | Captain weekly hours ≤2/wk (§17.1) |
-| US-005 | `status-update-generator` | §8.1 primitives, §7.5 invariant #8 | §4 (pillar 3), §6.2 overlay compatibility | Draft approval rate ≥85% week 4 (§17.1) |
-| US-006 | `signing-coordinator` | §8.1 primitives | §4 (pillar 2), §7.1 DocuSign connector | Signing-chase loops closed (law-firm §14.4) |
-| US-007 | `billing-reconciliation` | §8.1 primitives, §11.2 trust ceiling | §5 third-rail (IOLTA), §4 (pillar 8) | Trust account write incidents 0 (BR-005) |
-| US-008 | `inbox-triage-and-draft` | §8.2 cross-cutting skills, §7.5 invariants 2+4 | §4 (pillar 3) | Inbox triage events absorbed (law-firm §14.4) |
-| US-009 | `morning-digest` | §8.2 cross-cutting skills | §11.8 Day-1 experience | Partner opens dashboard ≥4 days/week (law-firm §14.3) |
-| US-010 | `memory-curator` | §8.2 cross-cutting skills, §10.2 learning loop | §11.8 Week-1 experience | Customer-initiated memory edits ≥3/week by week 2 (§17.1) |
-| US-011 | `compliance-audit-export` | §8.2 cross-cutting skills, §13.1 audit trail | §6.3 `law-compliance-audit-export`, §8.6 court-filing context | Compliance audit log available ≤60 seconds (§17.1) |
-| US-012 | `pi-intake-triage` | §8.3 overlay model | §6.2 PI overlay, §12.1 PI skill detail | Intake-triage classification accuracy ≥90% week 4 (law-firm §14.1) |
-| US-013 | `pi-demand-letter-evidence-packet` | §7.5 invariant #8, §8.4 skill anatomy | §6.2 PI overlay, §12.1 pi-demand-letter-evidence-packet | Zero legal characterization in output (BR-016) |
-| US-014 | `pi-lien-tracker` | §8.1 billing-reconciliation (lien sub-function) | §12.1 pi-lien-tracker | Lien surfaced pre-disbursement 100% (BR-005) |
-| US-015 | `pi-settlement-statement-assembler` | §7.5 invariant #8 | §12.1 pi-settlement-statement-assembler | TBD markers for open liens 100% (BR-003) |
-| US-016 | Today dashboard tab | §12.1 v1 dashboard | §11.8 partner experience | Partner ≤5 min/day attention budget (law-firm §11.8 week 4) |
-| US-017 | Queue dashboard tab | §12.1 v1 dashboard | §11.8 operator time | Draft approval rate ≥85% week 4 (§17.1) |
-| US-018, US-019 | Memory dashboard tab | §10.3 memory tab, §12.1 v1 dashboard | — | Customer-initiated memory edits ≥3/week (§17.1) |
-| US-020 | Audit dashboard tab | §11.4 audit log, §12.1 v1 dashboard | §6.3 `law-compliance-audit-export` | Compliance packet ≤60 seconds (§17.1) |
-| US-021 | Persona dashboard tab | §9 persona model, §12.1 v1 dashboard | — | Voice blind-test ≥80% before first external draft (§17.1) |
-| US-022 | Skills dashboard tab | §11 trust ceiling, §12.1 v1 dashboard | §5 third-rail non-promotable skills | Trust-ceiling promotions ≥1 by week 8 (§17.1) |
-| US-023 | Voice dashboard tab | §9.5–9.6 voice configuration, §12.1 | — | Voice blind-test ≥80% gate (§17.1) |
-| US-024, US-025, US-026 | Beta-1 Day-1/Week-1/Week-4 | §4 Persona 2 (bus-factor), §17.1 metrics | §11.8 partner experience | Renewal decision beta-1 → paid by day 90 (law-firm §14.3) |
-| US-027, US-028 | Calibration session split | §9.6 voice quality gates | §11.9 calibration session split | Voice blind-test ≥80% gate passed (§17.1) |
+| Story                  | Skill / Feature                     | Platform PRD Reference                          | Law Firm PRD Reference                                        | Success Metric                                                     |
+| ---------------------- | ----------------------------------- | ----------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------ |
+| US-001, US-002         | `intake-and-conflict`               | §8.1 primitives, §11.2 trust ceilings           | §6.1 (n/a — universal primitive), §5 third-rail map           | Conflict-check false-negative rate 0% (§17.1, law-firm §14.1)      |
+| US-003                 | `document-collection`               | §8.1 primitives                                 | §4 (pillars 2, 5), §7.3 retrieval reality                     | Draft approval rate ≥85% week 4 (§17.1)                            |
+| US-004                 | `deadline-docketer`                 | §8.1 primitives                                 | §4 (pillars 2, 6, 10), §7.3 LawToolBox                        | Captain weekly hours ≤2/wk (§17.1)                                 |
+| US-005                 | `status-update-generator`           | §8.1 primitives, §7.5 invariant #8              | §4 (pillar 3), §6.2 overlay compatibility                     | Draft approval rate ≥85% week 4 (§17.1)                            |
+| US-006                 | `signing-coordinator`               | §8.1 primitives                                 | §4 (pillar 2), §7.1 DocuSign connector                        | Signing-chase loops closed (law-firm §14.4)                        |
+| US-007                 | `billing-reconciliation`            | §8.1 primitives, §11.2 trust ceiling            | §5 third-rail (IOLTA), §4 (pillar 8)                          | Trust account write incidents 0 (BR-005)                           |
+| US-008                 | `inbox-triage-and-draft`            | §8.2 cross-cutting skills, §7.5 invariants 2+4  | §4 (pillar 3)                                                 | Inbox triage events absorbed (law-firm §14.4)                      |
+| US-009                 | `morning-digest`                    | §8.2 cross-cutting skills                       | §11.8 Day-1 experience                                        | Partner opens dashboard ≥4 days/week (law-firm §14.3)              |
+| US-010                 | `memory-curator`                    | §8.2 cross-cutting skills, §10.2 learning loop  | §11.8 Week-1 experience                                       | Customer-initiated memory edits ≥3/week by week 2 (§17.1)          |
+| US-011                 | `compliance-audit-export`           | §8.2 cross-cutting skills, §13.1 audit trail    | §6.3 `law-compliance-audit-export`, §8.6 court-filing context | Compliance audit log available ≤60 seconds (§17.1)                 |
+| US-012                 | `pi-intake-triage`                  | §8.3 overlay model                              | §6.2 PI overlay, §12.1 PI skill detail                        | Intake-triage classification accuracy ≥90% week 4 (law-firm §14.1) |
+| US-013                 | `pi-demand-letter-evidence-packet`  | §7.5 invariant #8, §8.4 skill anatomy           | §6.2 PI overlay, §12.1 pi-demand-letter-evidence-packet       | Zero legal characterization in output (BR-016)                     |
+| US-014                 | `pi-lien-tracker`                   | §8.1 billing-reconciliation (lien sub-function) | §12.1 pi-lien-tracker                                         | Lien surfaced pre-disbursement 100% (BR-005)                       |
+| US-015                 | `pi-settlement-statement-assembler` | §7.5 invariant #8                               | §12.1 pi-settlement-statement-assembler                       | TBD markers for open liens 100% (BR-003)                           |
+| US-016                 | Today dashboard tab                 | §12.1 v1 dashboard                              | §11.8 partner experience                                      | Partner ≤5 min/day attention budget (law-firm §11.8 week 4)        |
+| US-017                 | Queue dashboard tab                 | §12.1 v1 dashboard                              | §11.8 operator time                                           | Draft approval rate ≥85% week 4 (§17.1)                            |
+| US-018, US-019         | Memory dashboard tab                | §10.3 memory tab, §12.1 v1 dashboard            | —                                                             | Customer-initiated memory edits ≥3/week (§17.1)                    |
+| US-020                 | Audit dashboard tab                 | §11.4 audit log, §12.1 v1 dashboard             | §6.3 `law-compliance-audit-export`                            | Compliance packet ≤60 seconds (§17.1)                              |
+| US-021                 | Persona dashboard tab               | §9 persona model, §12.1 v1 dashboard            | —                                                             | Voice blind-test ≥80% before first external draft (§17.1)          |
+| US-022                 | Skills dashboard tab                | §11 trust ceiling, §12.1 v1 dashboard           | §5 third-rail non-promotable skills                           | Trust-ceiling promotions ≥1 by week 8 (§17.1)                      |
+| US-023                 | Voice dashboard tab                 | §9.5–9.6 voice configuration, §12.1             | —                                                             | Voice blind-test ≥80% gate (§17.1)                                 |
+| US-024, US-025, US-026 | Beta-1 Day-1/Week-1/Week-4          | §4 Persona 2 (bus-factor), §17.1 metrics        | §11.8 partner experience                                      | Renewal decision beta-1 → paid by day 90 (law-firm §14.3)          |
+| US-027, US-028         | Calibration session split           | §9.6 voice quality gates                        | §11.9 calibration session split                               | Voice blind-test ≥80% gate passed (§17.1)                          |
 
 ---
 
@@ -740,4 +768,4 @@ The walk-in-cold demo uses a pre-loaded voice anchor from public writing (the bo
 
 ---
 
-*End of Business Analyst Contribution — PRD Review Round 1*
+_End of Business Analyst Contribution — PRD Review Round 1_

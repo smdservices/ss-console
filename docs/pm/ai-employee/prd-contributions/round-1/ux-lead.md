@@ -173,6 +173,7 @@ The dashboard is a single-page web app. Navigation is a fixed left rail with tab
 ```
 
 **Design constraints:**
+
 - No data tables on this screen.
 - Priority cards are the only interactive surface beyond the queue link and the pause control.
 - No "hours saved" estimate. Platform PRD §12.3 is explicit: no soft estimates until 60 days of real data.
@@ -180,6 +181,7 @@ The dashboard is a single-page web app. Navigation is a fixed left rail with tab
 - Agent Status block should be visually minimal — a green dot and a connector health indicator. Only escalated to a warning state if a connector is down or a skill has failed.
 
 **Interaction states:**
+
 - Empty state (no drafts today): "Nothing pending today. Queue is clear." No filler content, no "check back later."
 - First-login state (before go-live): Progress checklist replaces action queue summary.
 - Connector-down state: Agent Status block shows warning — "Filevine is not responding. Drafts requiring matter data are paused." [See Error States below.]
@@ -210,6 +212,7 @@ The dashboard is a single-page web app. Navigation is a fixed left rail with tab
 ```
 
 **Item status dot colors:**
+
 - Green: ready for review, agent confidence high
 - Yellow: agent-flagged (uncertain or escalation-threshold)
 - Orange: flagged by reviewer
@@ -244,6 +247,7 @@ The dashboard is a single-page web app. Navigation is a fixed left rail with tab
 **The "What Marcus used" block** is a critical trust-building element the PRDs imply but don't name. The partner and operator need to see that the draft is grounded in actual sources, not hallucinated. This block makes the sourcing visible. It is not a full citation list — it is a short plain-language list of what data was accessed. Expandable for the compliance use case.
 
 **Design constraints:**
+
 - Bulk approve should require confirmation if more than 5 items selected. The operator should not be able to approve 30 drafts with one click without seeing them.
 - The "Edit" action opens an inline editor, not a separate page. Editing a draft stays in the queue view context.
 - "Reject" should surface a one-tap reason picker: "Wrong approach," "No longer needed," "Out of scope." This feeds the rejection-signal learning loop (platform PRD §10.2).
@@ -535,6 +539,7 @@ The log builds confidence that the voice rules are working. An empty log for the
 **Trigger:** Ramon clicks the trust ceiling selector on a skill row in the Skills tab and selects "Autonomous."
 
 **Sequence:**
+
 1. Confirmation dialog appears (not modal for the full page — a focused dialog over the skills row).
 2. Dialog: "Promote [skill name] to autonomous? [Description of what this means]. This will be recorded in the audit log. [Confirm] [Cancel]"
 3. If confirmed: skill status updates immediately. A brief toast notification: "Conflict-check promoted to autonomous. Recorded in audit log." Toast disappears after 4 seconds.
@@ -580,6 +585,7 @@ Review in dashboard → [link]
 ```
 
 **Design constraints for the digest email:**
+
 - No "good news" framing or performative language. Margaret is a litigation partner, not a newsletter subscriber.
 - No em dashes (CLAUDE.md + platform PRD voice standard). Use colons and commas.
 - Each item: recipient, type, and the opening sentence of the draft (or a plain-English summary for non-draft items). Not a full draft — a preview sufficient for Margaret to decide whether to open the item first or last.
@@ -610,6 +616,7 @@ Suggested action: partner review of billing status.
 ```
 
 **Design principles for internal comms posts:**
+
 - Always include a matter reference, not just a client name (matter references are less exposed if the message is seen outside intended context).
 - The post never contains substantive legal content, settlement figures, or privileged communication.
 - The post includes the dashboard link. This keeps the dashboard as the action surface.
@@ -705,6 +712,7 @@ The platform PRD §18 identifies this risk ("Memory corruption / wrong learning"
 **Layout:** Two-column on desktop (nav left rail 240px, content area remaining width). Single-column on mobile (nav collapses to bottom tab bar with icons only). The seven tabs must map to icons that work without labels at mobile scale.
 
 **Left-rail navigation order (v1):**
+
 1. Today (home icon)
 2. Queue (inbox icon)
 3. Memory (brain/book icon)
@@ -718,6 +726,7 @@ Order prioritizes information tabs over configuration tabs. Margaret will live i
 **Typography:** The dashboard is a professional tool for a litigation firm. No playful fonts. A single sans-serif family (e.g., Inter or equivalent), maximum two weights (regular and medium). Body text at 16px minimum. Data tables at 14px minimum. No text below 14px anywhere in the v1 surface.
 
 **Color semantics (must be consistent across all 7 tabs):**
+
 - Green: healthy, confirmed, sent, approved
 - Yellow: attention needed, agent uncertainty, connector delay
 - Orange: flagged by reviewer, escalation-threshold item
@@ -751,6 +760,7 @@ The morning digest is the primary email surface. Design constraints:
 **Teams:** Similar pattern via Microsoft Graph bot framework. The persona posts to specified Teams channels.
 
 **Design constraint:** the agent must not post in response to every event. Notification fatigue is a real risk. The internal comms surface should be used for:
+
 - Red-flag alerts (matters needing immediate attention)
 - Escalation-threshold notifications (signing page stalled, late payment)
 - Daily digest prompts if Slack/Teams is the customer's preferred medium over email (configurable)
@@ -856,4 +866,4 @@ Recommendation: on go-live confirmation, the setup progress screen is replaced b
 
 ---
 
-*End of UX Lead Contribution — Round 1.*
+_End of UX Lead Contribution — Round 1._

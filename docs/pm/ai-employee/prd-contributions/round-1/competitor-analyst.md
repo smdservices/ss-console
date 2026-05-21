@@ -13,15 +13,15 @@ The legal AI market in 2026 has fragmented into seven competitive clusters, exac
 
 ### 1.1 Cluster Map
 
-| Cluster | Members | Threat to AI Employee |
-|---|---|---|
-| **BigLaw research desks** | Harvey, CoCounsel (Thomson Reuters), Lexis+ Protégé | Low — structurally non-overlapping on buyer + price |
-| **Contract drafting tools** | Spellbook, ContractPodAi | Low — single-skill, Word-bound, no operational reach |
-| **PI demand-letter shops** | EvenUp, Precedent, Tavrn, Supio | Medium — closest to the PI overlay's operational terrain; EvenUp now expanding scope |
-| **Plaintiff-firm workflow AI** | Eve Legal, Law Practice AI | High — most direct pattern competitor; both expanded scope in early 2026 |
-| **PM-embedded capability menus** | Clio Manage AI, MyCase IQ, Filevine AI, Smokeball Archie (+ CoCounsel) | Medium — feature menus, not agents, but Smokeball/Thomson Reuters integration raises the ceiling |
-| **Front-of-funnel intake AI** | Lawmatics (AI Suite), Lead Docket AI, Intaker | Low-Medium — Lawmatics' March 2026 AI Suite push (QualifyAI + EngageAI + MerlinAI) blurs the "stops at conversion" characterization |
-| **Platform horizontal AI** | Microsoft 365 Copilot (Legal Agent, April 2026) | Medium-High — not a PI firm tool today, but a long-run platform squeeze risk |
+| Cluster                          | Members                                                                | Threat to AI Employee                                                                                                               |
+| -------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **BigLaw research desks**        | Harvey, CoCounsel (Thomson Reuters), Lexis+ Protégé                    | Low — structurally non-overlapping on buyer + price                                                                                 |
+| **Contract drafting tools**      | Spellbook, ContractPodAi                                               | Low — single-skill, Word-bound, no operational reach                                                                                |
+| **PI demand-letter shops**       | EvenUp, Precedent, Tavrn, Supio                                        | Medium — closest to the PI overlay's operational terrain; EvenUp now expanding scope                                                |
+| **Plaintiff-firm workflow AI**   | Eve Legal, Law Practice AI                                             | High — most direct pattern competitor; both expanded scope in early 2026                                                            |
+| **PM-embedded capability menus** | Clio Manage AI, MyCase IQ, Filevine AI, Smokeball Archie (+ CoCounsel) | Medium — feature menus, not agents, but Smokeball/Thomson Reuters integration raises the ceiling                                    |
+| **Front-of-funnel intake AI**    | Lawmatics (AI Suite), Lead Docket AI, Intaker                          | Low-Medium — Lawmatics' March 2026 AI Suite push (QualifyAI + EngageAI + MerlinAI) blurs the "stops at conversion" characterization |
+| **Platform horizontal AI**       | Microsoft 365 Copilot (Legal Agent, April 2026)                        | Medium-High — not a PI firm tool today, but a long-run platform squeeze risk                                                        |
 
 ---
 
@@ -201,16 +201,16 @@ The legal AI market in 2026 has fragmented into seven competitive clusters, exac
 
 PLAAS (launched May 13, 2026 — six days before this review) deserves extended attention because it is the most direct structural threat to the AI Employee value proposition discovered in this research.
 
-| Dimension | AI Employee (v1 per PRD) | EvenUp PLAAS |
-|---|---|---|
-| **Model** | Software agent, SMD-operated | Managed service: AI + U.S.-based human staff |
-| **Coverage** | Intake → conflict → engagement → status → signing → billing → closing | Case sign-up through settlement (full pre-litigation lifecycle) |
-| **Demand letters** | Evidence packet only (v1); text deferred | Full demand letter + settlement negotiation |
-| **Medical records** | Retrieval orchestration (coordination layer) | 66 days faster retrieval (has execution staff) |
-| **Voice** | Customer-configurable, editable memory | Firmwide Knowledge Base applying firm standards |
-| **Pricing model** | Flat monthly per customer (TBD) | Subscription; $10M+ in early subscriptions |
-| **Trust framing** | Reviewer-as-sender, audit log, partner review | Human case managers as the trust backstop |
-| **Identity** | Named AI persona (Marcus/etc.) | EvenUp brand; no named persona for the firm |
+| Dimension           | AI Employee (v1 per PRD)                                              | EvenUp PLAAS                                                    |
+| ------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------- |
+| **Model**           | Software agent, SMD-operated                                          | Managed service: AI + U.S.-based human staff                    |
+| **Coverage**        | Intake → conflict → engagement → status → signing → billing → closing | Case sign-up through settlement (full pre-litigation lifecycle) |
+| **Demand letters**  | Evidence packet only (v1); text deferred                              | Full demand letter + settlement negotiation                     |
+| **Medical records** | Retrieval orchestration (coordination layer)                          | 66 days faster retrieval (has execution staff)                  |
+| **Voice**           | Customer-configurable, editable memory                                | Firmwide Knowledge Base applying firm standards                 |
+| **Pricing model**   | Flat monthly per customer (TBD)                                       | Subscription; $10M+ in early subscriptions                      |
+| **Trust framing**   | Reviewer-as-sender, audit log, partner review                         | Human case managers as the trust backstop                       |
+| **Identity**        | Named AI persona (Marcus/etc.)                                        | EvenUp brand; no named persona for the firm                     |
 
 PLAAS is not identical to AI Employee — it's a managed service, not an autonomous agent with customer-editable memory. But the "firm doesn't have to hire pre-litigation staff" value proposition is structurally identical. PI firms evaluating both will face a direct A/B comparison.
 
@@ -220,20 +220,20 @@ PLAAS is not identical to AI Employee — it's a managed service, not an autonom
 
 The following matrix covers the features the PRD claims as differentiators, evaluated against major competitors as of May 2026.
 
-| Feature | AI Employee (v1) | Harvey | Eve Legal 2.0 | EvenUp + PLAAS | Supio | Clio Manage AI | Lawmatics AI | M365 Copilot Legal | Law Practice AI |
-|---|---|---|---|---|---|---|---|---|---|
-| **Persistent named identity** | Yes | No | No | No | No | No | No | No | No |
-| **Multi-skill lifecycle (intake → billing)** | Yes (full) | No | Partial (PI focus) | Partial (pre-lit only) | No (demands only) | Partial (PM-bound) | No (intake only) | No | Partial |
-| **Customer-editable versioned memory** | Yes | No | No | No (opaque) | No (opaque) | No | No | No | Unknown |
-| **Reviewer-as-sender architecture** | Yes | No | No | No (PLAAS has humans) | No | No | No | No | Unknown |
-| **Flat-monthly per-firm pricing** | Yes (planned) | No (per-seat) | No (per-seat) | No (per-case/sub) | No (per-seat est.) | No (per-seat) | No (per-seat) | No (per-seat) | Unknown |
-| **Voice calibration + rules** | Yes | No | Implicit | Firmwide KB | Voice learning | No | No | No | Unknown |
-| **Audit log / explainability** | Yes | Limited | No | No | No | Limited | No | No | Unknown |
-| **Bar ethics posture (PA/UT clauses)** | Yes | No | No | No | No | No | No | No | No |
-| **Citation-refusal substrate** | Yes | N/A (research tool) | No | No | No | No | No | No | Unknown |
-| **Nightly case auditing** | No (not in PRD) | No | Yes (Auditor) | Partial | No | No | No | No | No |
-| **Settlement valuation** | No (third-rail) | No | Partial | Yes (PLAAS) | Partial | No | No | No | Unknown |
-| **Medical records retrieval execution** | Coordination only | No | No | Yes (PLAAS humans) | No | No | No | No | Unknown |
+| Feature                                      | AI Employee (v1)  | Harvey              | Eve Legal 2.0      | EvenUp + PLAAS         | Supio              | Clio Manage AI     | Lawmatics AI     | M365 Copilot Legal | Law Practice AI |
+| -------------------------------------------- | ----------------- | ------------------- | ------------------ | ---------------------- | ------------------ | ------------------ | ---------------- | ------------------ | --------------- |
+| **Persistent named identity**                | Yes               | No                  | No                 | No                     | No                 | No                 | No               | No                 | No              |
+| **Multi-skill lifecycle (intake → billing)** | Yes (full)        | No                  | Partial (PI focus) | Partial (pre-lit only) | No (demands only)  | Partial (PM-bound) | No (intake only) | No                 | Partial         |
+| **Customer-editable versioned memory**       | Yes               | No                  | No                 | No (opaque)            | No (opaque)        | No                 | No               | No                 | Unknown         |
+| **Reviewer-as-sender architecture**          | Yes               | No                  | No                 | No (PLAAS has humans)  | No                 | No                 | No               | No                 | Unknown         |
+| **Flat-monthly per-firm pricing**            | Yes (planned)     | No (per-seat)       | No (per-seat)      | No (per-case/sub)      | No (per-seat est.) | No (per-seat)      | No (per-seat)    | No (per-seat)      | Unknown         |
+| **Voice calibration + rules**                | Yes               | No                  | Implicit           | Firmwide KB            | Voice learning     | No                 | No               | No                 | Unknown         |
+| **Audit log / explainability**               | Yes               | Limited             | No                 | No                     | No                 | Limited            | No               | No                 | Unknown         |
+| **Bar ethics posture (PA/UT clauses)**       | Yes               | No                  | No                 | No                     | No                 | No                 | No               | No                 | No              |
+| **Citation-refusal substrate**               | Yes               | N/A (research tool) | No                 | No                     | No                 | No                 | No               | No                 | Unknown         |
+| **Nightly case auditing**                    | No (not in PRD)   | No                  | Yes (Auditor)      | Partial                | No                 | No                 | No               | No                 | No              |
+| **Settlement valuation**                     | No (third-rail)   | No                  | Partial            | Yes (PLAAS)            | Partial            | No                 | No               | No                 | Unknown         |
+| **Medical records retrieval execution**      | Coordination only | No                  | No                 | Yes (PLAAS humans)     | No                 | No                 | No               | No                 | Unknown         |
 
 ---
 
@@ -254,6 +254,7 @@ The following matrix covers the features the PRD claims as differentiators, eval
 ### 4.2 Where the differentiation is overstated or eroding
 
 **"No competitor ships all four pillars" (platform PRD §1).** The four pillars are: (1) named persistent agent, (2) versioned editable memory, (3) reviewer-as-sender, (4) flat-monthly per-customer SKU. This claim survives for the combination of all four. But:
+
 - Eve Legal 2.0's AI Workforce framing (Agents + Auditor + Analyst) is a meaningful move toward a persistent-workforce model. The "no persistent agent" claim for Eve needs qualification.
 - EvenUp PLAAS covers the pre-litigation lifecycle comprehensively. It does not have a named agent identity or editable memory, but it covers more operational territory than "demand-only."
 - Law Practice AI (April 2026, unlisted in PRDs) claims end-to-end PI coverage with five solutions. Unverified, but warrants attention.
@@ -280,18 +281,18 @@ The following matrix covers the features the PRD claims as differentiators, eval
 
 ### 5.1 Market pricing context (2026)
 
-| Competitor | Pricing model | Estimated range | Notes |
-|---|---|---|---|
-| Harvey | Per-seat, enterprise | $1,200–$2,000+/seat/mo | 20-seat min; BigLaw focus |
-| CoCounsel | Per-seat + Westlaw bundle | $300–$600+/user/mo total | Cannot be purchased standalone |
-| Spellbook | Per-seat | ~$180/mo/user | Word-bound, contract drafting |
-| Eve Legal | Per-seat | $100–$300/user/mo est. | Not published; requires demo |
-| EvenUp | Per-case (historical) | $200–$500/case est. | PLAAS pricing not disclosed |
-| Supio | Per-seat est. | $150–$400/user/mo est. | Not published; flat pricing claim |
-| Clio Manage AI | Per-seat add-on | $39–$59/user/mo add-on | On top of Clio base plan |
-| Lawmatics AI | Per-seat est. | Not published | AI Suite pricing not disclosed |
-| M365 Copilot | Per-seat bundle | ~$30–$60/user/mo | Existing M365 enterprise add-on |
-| Law Practice AI | Unknown | Not published | ~300 firms; new launch |
+| Competitor      | Pricing model             | Estimated range          | Notes                             |
+| --------------- | ------------------------- | ------------------------ | --------------------------------- |
+| Harvey          | Per-seat, enterprise      | $1,200–$2,000+/seat/mo   | 20-seat min; BigLaw focus         |
+| CoCounsel       | Per-seat + Westlaw bundle | $300–$600+/user/mo total | Cannot be purchased standalone    |
+| Spellbook       | Per-seat                  | ~$180/mo/user            | Word-bound, contract drafting     |
+| Eve Legal       | Per-seat                  | $100–$300/user/mo est.   | Not published; requires demo      |
+| EvenUp          | Per-case (historical)     | $200–$500/case est.      | PLAAS pricing not disclosed       |
+| Supio           | Per-seat est.             | $150–$400/user/mo est.   | Not published; flat pricing claim |
+| Clio Manage AI  | Per-seat add-on           | $39–$59/user/mo add-on   | On top of Clio base plan          |
+| Lawmatics AI    | Per-seat est.             | Not published            | AI Suite pricing not disclosed    |
+| M365 Copilot    | Per-seat bundle           | ~$30–$60/user/mo         | Existing M365 enterprise add-on   |
+| Law Practice AI | Unknown                   | Not published            | ~300 firms; new launch            |
 
 ### 5.2 The $55-95k paralegal anchor
 
@@ -384,17 +385,17 @@ Microsoft's Legal Agent is Word-only today. The long-run trajectory is across th
 
 ## 8. PRD Accuracy Scorecard
 
-| PRD claim | Verdict | Notes |
-|---|---|---|
-| "Harvey: $100-$1200/seat/mo; BigLaw-only" | Partially inaccurate | Harvey floor is $1,200/seat minimum; $100 lower bound is outdated or promotional |
-| "Eve: episodic tasks + nightly auditor" | Outdated | Eve 2.0 (Jan 2026) launched autonomous AI Agents for task execution |
-| "EvenUp: per-case; demand-only" | Outdated | EvenUp PLAAS (May 13, 2026) covers full pre-litigation lifecycle with managed operations |
-| "Lawmatics: stops at conversion" | Outdated | March 2026 AI Suite (QualifyAI + EngageAI + MerlinAI) extends well past conversion |
+| PRD claim                                      | Verdict               | Notes                                                                                         |
+| ---------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------- |
+| "Harvey: $100-$1200/seat/mo; BigLaw-only"      | Partially inaccurate  | Harvey floor is $1,200/seat minimum; $100 lower bound is outdated or promotional              |
+| "Eve: episodic tasks + nightly auditor"        | Outdated              | Eve 2.0 (Jan 2026) launched autonomous AI Agents for task execution                           |
+| "EvenUp: per-case; demand-only"                | Outdated              | EvenUp PLAAS (May 13, 2026) covers full pre-litigation lifecycle with managed operations      |
+| "Lawmatics: stops at conversion"               | Outdated              | March 2026 AI Suite (QualifyAI + EngageAI + MerlinAI) extends well past conversion            |
 | "Microsoft absorbed Robin AI tech, April 2026" | Substantially correct | Microsoft hired Robin AI's engineering team + IP (company did not survive as a going concern) |
-| "No competitor ships all four pillars" | True but narrowing | Still accurate for the exact combination; individual pillars are being eroded |
-| "Supio: learns your firm's voice for demands" | Accurate | Confirmed; opaque to firm (cannot read/edit) — use this as differentiation point |
-| "Smokeball Archie: feature menu inside PM" | Needs update | Archie + CoCounsel partnership (March 2026) creates PM + research + drafting stack |
-| "Law Practice AI" | Missing entirely | Launched April 2026; 300+ PI firm clients; five-solution operating system claim |
+| "No competitor ships all four pillars"         | True but narrowing    | Still accurate for the exact combination; individual pillars are being eroded                 |
+| "Supio: learns your firm's voice for demands"  | Accurate              | Confirmed; opaque to firm (cannot read/edit) — use this as differentiation point              |
+| "Smokeball Archie: feature menu inside PM"     | Needs update          | Archie + CoCounsel partnership (March 2026) creates PM + research + drafting stack            |
+| "Law Practice AI"                              | Missing entirely      | Launched April 2026; 300+ PI firm clients; five-solution operating system claim               |
 
 ---
 
@@ -420,4 +421,4 @@ The following changes are recommendations for the synthesis step — not impleme
 
 ---
 
-*End of Competitor Analyst Contribution.*
+_End of Competitor Analyst Contribution._
