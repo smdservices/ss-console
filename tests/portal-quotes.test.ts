@@ -83,7 +83,7 @@ describe('portal quotes: session helper', () => {
     const code = readFileSync(resolve('src/lib/auth/clerk-bridge.ts'), 'utf-8')
     expect(code).toContain('INSERT INTO users')
     expect(code).toContain('clerk_user_id')
-    expect(code).toContain("role")
+    expect(code).toContain('role')
   })
 })
 
