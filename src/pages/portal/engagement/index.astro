@@ -8,6 +8,7 @@ import {
   type Tone,
 } from '../../../lib/portal/status'
 import { getPortalClient } from '../../../lib/portal/session'
+import { getProductSubscription } from '../../../lib/portal/product-access'
 import { listEngagements } from '../../../lib/db/engagements'
 import { listMilestones } from '../../../lib/db/milestones'
 import type { Milestone } from '../../../lib/db/milestones'
@@ -35,6 +36,13 @@ if (!portalData) {
 if (!portalData.client) {
   return Astro.redirect('/auth/portal-sign-in?status=no_subscription')
 }
+
+const aiEmployeeSubscription = await getProductSubscription(
+  env.DB,
+  portalData.client.id,
+  'ai-employee'
+)
+const aiEmployeeActive = aiEmployeeSubscription !== null
 
 const entityId = portalData.client.id
 const clientName = portalData.client.name
@@ -115,7 +123,7 @@ const currentMilestoneLabel = engagement ? resolveEngagementLabel(engagement.sta
       </SignOutButton>
     </PortalHeader>
 
-    <PortalTabs pathname={Astro.url.pathname} />
+    <PortalTabs pathname={Astro.url.pathname} aiEmployeeActive={aiEmployeeActive} />
 
     <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
       <PortalPageHead
