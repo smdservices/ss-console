@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "billing-entry",
+    "case_type": "premises-inadequate-maintenance",
+    "fixture_id": "billing-026",
+    "edge_tags": []
+  },
+  "content": {
+    "matter_display_number": "PI-2026-5335",
+    "entry_date": "2026-02-22",
+    "duration_hours": 2.1,
+    "billable": true,
+    "rate_per_hour_usd": 350,
+    "amount_usd": 735.0,
+    "description": "Attended deposition of fact witness. Prepared cross-examination outline. 2.1 hrs.",
+    "quality_self_assessment": "well-coded"
+  }
+}

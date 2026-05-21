@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "billing-entry",
+    "case_type": "product-liability-consumer",
+    "fixture_id": "billing-021",
+    "edge_tags": []
+  },
+  "content": {
+    "matter_display_number": "PI-2026-3962",
+    "entry_date": "2026-04-30",
+    "duration_hours": 3.8,
+    "billable": true,
+    "rate_per_hour_usd": 350,
+    "amount_usd": 1330.0,
+    "description": "Reviewed defendant carrier Westmark Indemnity Group's response to demand. Identified 2 contestable points. 3.8 hrs.",
+    "quality_self_assessment": "well-coded"
+  }
+}

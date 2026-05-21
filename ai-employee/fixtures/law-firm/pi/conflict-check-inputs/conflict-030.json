@@ -1,0 +1,50 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "conflict-check-input",
+    "case_type": "n/a",
+    "fixture_id": "conflict-030",
+    "edge_tags": []
+  },
+  "content": {
+    "prospect": {
+      "name": "Talullah Ashworth",
+      "email": "talullah.ashworth@fastmail.com",
+      "case_type": "product-liability-consumer",
+      "incident_party_list": ["Talullah Ashworth", "Marcus Lim"]
+    },
+    "existing_matters_subset": [
+      {
+        "matter_id": "contact-18472",
+        "client_name": "Anneke Eklund",
+        "opposing_party": "Inigo Henneberry",
+        "opposing_counsel": "Eklund & Associates"
+      },
+      {
+        "matter_id": "contact-87633",
+        "client_name": "Cyrus Garibaldi",
+        "opposing_party": "Tomasz Aldecoa",
+        "opposing_counsel": "Vasquez-Mendez Insurance Defense"
+      },
+      {
+        "matter_id": "contact-96788",
+        "client_name": "Patel Ranganathan",
+        "opposing_party": "Patel Tsosie",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-81276",
+        "client_name": "Fenwick Holcombe",
+        "opposing_party": "Tomasz Garibaldi",
+        "opposing_counsel": "Eklund & Associates"
+      },
+      {
+        "matter_id": "contact-67308",
+        "client_name": "Reginald Brennan",
+        "opposing_party": "Sage Ashworth",
+        "opposing_counsel": "Vasquez-Mendez Insurance Defense"
+      }
+    ],
+    "expected_outcome": "no-conflict"
+  }
+}

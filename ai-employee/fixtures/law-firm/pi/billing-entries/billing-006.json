@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "billing-entry",
+    "case_type": "slip-fall-commercial",
+    "fixture_id": "billing-006",
+    "edge_tags": []
+  },
+  "content": {
+    "matter_display_number": "PI-2026-1754",
+    "entry_date": "2026-02-25",
+    "duration_hours": 3.6,
+    "billable": false,
+    "rate_per_hour_usd": 350,
+    "amount_usd": 1260.0,
+    "description": "Attended deposition of treating physician witness. Prepared cross-examination outline. 3.6 hrs.",
+    "quality_self_assessment": "well-coded"
+  }
+}

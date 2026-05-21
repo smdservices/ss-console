@@ -1,0 +1,36 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "matter-record",
+    "case_type": "auto-highway",
+    "fixture_id": "matter-009",
+    "edge_tags": []
+  },
+  "content": {
+    "display_number": "PI-2026-7379",
+    "description": "highway rear-end collision at speed",
+    "case_type": "auto-highway",
+    "status": "pre-litigation",
+    "open_date": "2025-07-18",
+    "client_id": "contact-55253",
+    "client_name": "Esperanza Achebe",
+    "assigned_attorney": "S. Garcia",
+    "case_value_estimate_low_usd": 100000,
+    "case_value_estimate_high_usd": 500000,
+    "defendant": {
+      "type": "individual",
+      "name": "Esperanza Volkmann",
+      "carrier": "Heritage Lake Casualty",
+      "opp_counsel_firm": "Cascade Pacific Defense Counsel"
+    },
+    "key_dates": {
+      "incident_date": "2025-10-13",
+      "sol_date": "2027-08-12",
+      "next_court_date": null
+    },
+    "custom_fields": {
+      "settlement_stage": "pre-demand",
+      "policy_limits_disclosed": true
+    }
+  }
+}

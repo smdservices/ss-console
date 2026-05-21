@@ -1,0 +1,48 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "auto-accident",
+    "fixture_id": "edge-missing-007",
+    "edge_tags": ["missing-fields"],
+    "missing_fields": ["police_report_number", "weather_and_road_conditions"],
+    "expected_behavior": "skill identifies missing critical fields and requests them before proceeding with case classification"
+  },
+  "content": {
+    "channel": "email",
+    "direction": "inbound",
+    "from": {
+      "name": "Sullivan Hartfield-Ngata",
+      "email": "sully.hartfield@brindlecove-mail.example",
+      "phone": "+1-480-555-0192"
+    },
+    "to": {
+      "name": "Halberd & Quince Intake",
+      "email": "intake@halberdquince.example"
+    },
+    "subject": "Rear-ended on the Pima — wanted to send you what I have",
+    "received_at": "2026-05-18T19:08:00-07:00",
+    "body": "Hello,\n\nMy name is Sullivan Hartfield-Ngata and I spoke with a woman named Yolanda at your front desk earlier today. She said the next step was to send a written summary by email so an attorney could look at it before our call on Wednesday. So here is what I have.\n\nI was driving home from a client meeting on the afternoon of Tuesday May 6, 2026. I am a freelance commercial photographer (LLC name is Pinhole & Powder, registered in Arizona) and I had been shooting a product line at a studio in north Scottsdale. I was southbound on the Loop 101 / Pima Freeway approaching the Indian Bend Road exit, in the third lane from the right, traveling with the flow of traffic. Speed was probably around 55 to 60. Traffic ahead of me started to slow — I think for an exit-ramp backup — and I came down to maybe 25 or 30 mph along with everyone else. That is when I got rear-ended.\n\nThe other driver hit me with enough force that my Volvo XC60 was pushed into the SUV in front of me, a black Lincoln Navigator. So it was a three-car chain. The driver who hit me was named Estefania Brockhurst-Vail. She was driving a silver Ford Explorer with a paper temp tag. She told me at the scene she had just bought the vehicle four days earlier from Cottonwood Pre-Owned. The Navigator driver was a man named Jaspar Tewksbury, and as far as I could see he was barely tapped — his bumper had a scuff but his airbags did not deploy and he walked around fine. My airbags did not deploy either but my rear hatch is crumpled in and the back seats are pushed forward at an angle that is not normal.\n\nI did call 911. DPS responded — the trooper was a woman, I want to say her last name was Aldermann or Aldercott, something starting with Alder. She took statements from all three of us, ran our licenses, and filed an accident report on the scene. She gave me a card with a case number written on the back. I had it in the cupholder of the Volvo. The Volvo got towed that night to a yard called Coronado Auto Recovery off the 202 and I have not been back out there yet because I have been dealing with the medical side and the rental. I am genuinely not sure if the card with the report number is still in the cupholder or if it fell out during the tow. I tried calling DPS records this morning and got routed to a phone tree and then disconnected. I will keep trying. The trooper did tell me at the scene that Ms. Brockhurst-Vail would be cited for following too closely but I do not know if that ended up on the report or not.\n\nMedically: I refused transport at the scene because I felt fine other than being shaken up. By the next morning my neck and upper back were locked up and I had a bad headache. I went to ArrowPath Urgent Care in Mesa that Wednesday afternoon. They did imaging on my neck — no fracture — and diagnosed cervical and thoracic strain. They told me to follow up with a primary if symptoms persisted past a week. They also flagged a possible concussion based on the headache and some light sensitivity and said to watch for worsening symptoms. I followed up with my primary, Dr. Inocencia Martell at Saguaro Park Family Practice, the next Monday. She referred me out to PT at Riverwalk Physical Therapy where I have now had four sessions, and to a neurologist named Dr. Holbert Vance at Desert Cognitive Health because the headaches were still daily at the two-week mark. I have an intake appointment with Dr. Vance scheduled for May 27.\n\nMy own insurance is Coronet Casualty, policy CCS-2208-4471-A. The other driver gave me a card for Sentinel Western Mutual, policy SWM-99-117-882-C. I have photos of both cards and they are legible this time.\n\nFinancially: the Volvo is almost certainly totaled — Coronet's adjuster left me a voicemail today saying they are leaning that way. My out-of-pocket so far is about $1,275 in copays and the rental gap. I have lost two scheduled shoots already (one was a $4,800 catalog day for a furniture client) because I cannot comfortably stand and hold a camera rig for more than about twenty minutes right now. I am self-employed so there is no PTO to burn, the income just disappears.\n\nA couple of things I should mention so you have the full picture. There is dashcam footage from my Volvo — front-facing only, unfortunately, so it shows the impact pushing me into the Navigator but not the Explorer hitting me from behind. I have the SD card. I also took about twenty photos at the scene before the tow truck arrived: my rear end, the Explorer's front end, the Navigator's bumper, the lane positions, and one wide shot showing the stretch of freeway we were on.\n\nWhat I do not have, and I want to be honest about: I cannot give you the police report number until I either get back out to the Volvo or get through to DPS records. And I realize as I type this that I have not described the driving conditions to you at all, which Yolanda mentioned might matter. I do not want to guess at it because the accident is now twelve days behind me and I do not trust my memory on specifics like that. I would rather wait until I can confirm what I actually remember versus what I am filling in. I can probably pull up weather history for that afternoon if you tell me that is acceptable.\n\nPlease let me know what else you need before Wednesday. Yolanda said the call is at 2 PM. I am happy to drive out to the tow yard before then if it would help to retrieve the trooper's card.\n\nThank you,\nSullivan Hartfield-Ngata\n(480) 555-0192\nPinhole & Powder LLC",
+    "attachments_referenced": [
+      "scene photos (20)",
+      "ArrowPath Urgent Care discharge summary",
+      "Saguaro Park Family Practice referral notes",
+      "Riverwalk PT visit notes (sessions 1-4)",
+      "Coronet Casualty claim correspondence",
+      "Sentinel Western Mutual insurance card photo",
+      "Volvo XC60 dashcam SD card (front-facing footage)"
+    ],
+    "client_profile": {
+      "full_name": "Sullivan Aurelio Hartfield-Ngata",
+      "date_of_birth": "1986-02-11",
+      "address": "9714 N Brindlecove Way, Scottsdale, AZ 85258",
+      "occupation": "Self-employed commercial photographer, Pinhole & Powder LLC",
+      "marital_status": "single",
+      "dependents": "none disclosed"
+    },
+    "intake_notes_pending": [
+      "Police report number not provided — client believes the trooper's business card is in the cupholder of his towed vehicle at Coronado Auto Recovery and has been unable to reach DPS records by phone. Number must be obtained before file open (incident report drives carrier confirmation and citation status).",
+      "Weather and road conditions at time of crash are entirely absent from the narrative. Client acknowledged the omission explicitly and declined to guess. Conditions are relevant to liability framing in a chain rear-end on a freeway and need to be captured during Wednesday's call (visibility, precipitation, road surface, time-of-day lighting)."
+    ]
+  }
+}

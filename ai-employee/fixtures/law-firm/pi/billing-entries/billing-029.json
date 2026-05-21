@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "billing-entry",
+    "case_type": "auto-intersection",
+    "fixture_id": "billing-029",
+    "edge_tags": []
+  },
+  "content": {
+    "matter_display_number": "PI-2026-5385",
+    "entry_date": "2026-05-05",
+    "duration_hours": 0.2,
+    "billable": false,
+    "rate_per_hour_usd": 350,
+    "amount_usd": 70.0,
+    "description": "Drafted demand letter section addressing damages exposure including future medical care. 0.2 hrs.",
+    "quality_self_assessment": "well-coded"
+  }
+}

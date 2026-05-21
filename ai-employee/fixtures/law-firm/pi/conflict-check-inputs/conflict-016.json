@@ -1,0 +1,62 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "conflict-check-input",
+    "case_type": "n/a",
+    "fixture_id": "conflict-016",
+    "edge_tags": []
+  },
+  "content": {
+    "prospect": {
+      "name": "Priya Tsosie",
+      "email": "priya.tsosie@proton.me",
+      "case_type": "premises-inadequate-maintenance",
+      "incident_party_list": ["Priya Tsosie", "Quinlan Eklund"]
+    },
+    "existing_matters_subset": [
+      {
+        "matter_id": "contact-70867",
+        "client_name": "Priya Vasquez-Mendez",
+        "opposing_party": "Reginald Onyeka",
+        "opposing_counsel": "Holcombe Defense Group"
+      },
+      {
+        "matter_id": "contact-41105",
+        "client_name": "Quinlan Whitlock",
+        "opposing_party": "Cyrus Pellegrino",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-46006",
+        "client_name": "Branwen Ranganathan",
+        "opposing_party": "Fenwick Yamashita",
+        "opposing_counsel": "Brennan Litigation Partners"
+      },
+      {
+        "matter_id": "contact-40513",
+        "client_name": "Fenwick Okafor",
+        "opposing_party": "Branwen Yamashita",
+        "opposing_counsel": "Vasquez-Mendez Insurance Defense"
+      },
+      {
+        "matter_id": "contact-23371",
+        "client_name": "Magdalena Ranganathan",
+        "opposing_party": "Yolanda Ranganathan",
+        "opposing_counsel": "Cascade Pacific Defense Counsel"
+      },
+      {
+        "matter_id": "contact-72433",
+        "client_name": "Devon Volkmann",
+        "opposing_party": "Branwen Achebe",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-14237",
+        "client_name": "Jorge Yamashita",
+        "opposing_party": "Thaddeus Nguyen-Pham",
+        "opposing_counsel": "Brennan Litigation Partners"
+      }
+    ],
+    "expected_outcome": "no-conflict"
+  }
+}

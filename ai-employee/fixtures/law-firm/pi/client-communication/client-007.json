@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "slip-fall-snow-ice",
+    "fixture_id": "client-007",
+    "edge_tags": []
+  },
+  "content": {
+    "from": "sigrid.pemberton@fastmail.com",
+    "from_name": "Sigrid Pemberton",
+    "to": "marcus@example-firm.invalid",
+    "subject": "Case status",
+    "sent_date": "2026-05-09",
+    "body": "Hi Marcus, I haven't heard anything in 2 weeks and I'm getting really worried. Is something wrong with my case? Did the carrier reject the demand? Please let me know what's going on. I can't sleep thinking about this.\n\nSigrid Pemberton",
+    "tone_label": "anxious",
+    "matter_display_number": "PI-2026-9304"
+  }
+}

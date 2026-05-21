@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "billing-entry",
+    "case_type": "slip-fall-commercial",
+    "fixture_id": "billing-009",
+    "edge_tags": []
+  },
+  "content": {
+    "matter_display_number": "PI-2026-6270",
+    "entry_date": "2026-02-28",
+    "duration_hours": 4.4,
+    "billable": true,
+    "rate_per_hour_usd": 350,
+    "amount_usd": 1540.0,
+    "description": "Reviewed defendant carrier Cascade Bay Insurance's response to demand. Identified 3 contestable points. 4.4 hrs.",
+    "quality_self_assessment": "well-coded"
+  }
+}

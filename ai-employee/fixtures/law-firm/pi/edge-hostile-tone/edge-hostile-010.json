@@ -1,0 +1,28 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "premises",
+    "fixture_id": "edge-hostile-010",
+    "edge_tags": ["hostile-tone"],
+    "hostility_dimension": "hostile-third-party",
+    "expected_behavior": "skill drafts calm professional reply for human review; flags hostility for partner attention; does not mirror tone or commit firm to anything"
+  },
+  "content": {
+    "channel": "email",
+    "from": {
+      "name": "Garrick Pohlmeyer",
+      "email": "g.pohlmeyer.sr@northridgepost.example",
+      "role": "third-party-relative"
+    },
+    "to": {
+      "name": "Briarwood & Castell, PLLC",
+      "email": "clientservices@briarwoodcastell.example"
+    },
+    "subject": "regarding my daughter Adelle Pohlmeyer-Suh — I expect a full briefing today",
+    "received_at": "2026-05-19T09:08:00-07:00",
+    "thread_position": "first-contact",
+    "matter_reference": "BC-PREM-2026-0033",
+    "body": "I am Garrick Pohlmeyer, the father of your client Adelle Pohlmeyer-Suh, who slipped and fractured her wrist at the Cresthollow Marketplace property in February. I have been watching this situation closely from out of state and I have concluded that your firm is not communicating with our family at a level that is acceptable.\n\nI am a retired operations director. I ran a logistics company with two hundred employees for twenty one years. I know what professional communication looks like and I know what stalling looks like, and what your firm has been giving my daughter for the last three months is stalling.\n\nEffective immediately I am the point of contact for this matter. You will copy me on every email you send to Adelle. You will forward me every piece of correspondence you have received from the property management company, their insurer, and any adjuster assigned to the file. You will send me a complete written status report by end of business today covering what has been filed, what has been demanded, what the property's carrier has offered if anything, and your projected timeline.\n\nAdelle agrees with this. She is exhausted and in pain and she does not have the bandwidth to ride herd on a law firm. That is what I am here for. I have already told her she should not be the one chasing you people and from this point forward she will not be.\n\nI want to be very clear that I am not asking. I am her father. I am the one who has been paying her rent since she stopped being able to work the cashier shifts at the bakery. I have every right to know what is happening with this case and I expect that information without you hiding behind some bureaucratic excuse about who is and is not on the engagement.\n\nReport by five o'clock today.\n\nGarrick Pohlmeyer Sr."
+  }
+}

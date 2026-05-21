@@ -1,0 +1,67 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "intake-transcript",
+    "case_type": "ambiguous",
+    "fixture_id": "edge-amb-006",
+    "edge_tags": ["ambiguous-intake"],
+    "expected_behavior": "skill flags ambiguity and requests clarification rather than guessing a single case type"
+  },
+  "content": {
+    "format": "intake-transcript",
+    "intake_date": "2026-05-14",
+    "client_name": "Yolanda Brevard",
+    "dialogue": [
+      {
+        "speaker": "intake",
+        "text": "Good afternoon, thanks for holding. Can I have your full name please?"
+      },
+      {
+        "speaker": "client",
+        "text": "Yolanda Brevard. B-R-E-V-A-R-D. I called yesterday too but the lady said someone would call back and nobody did, so I'm trying again."
+      },
+      {
+        "speaker": "intake",
+        "text": "I apologize for that, Yolanda. I'm here now. What's going on?"
+      },
+      {
+        "speaker": "client",
+        "text": "It's my mother. She's 78. She's at Willowbrook Pines, it's an assisted living place over by the freeway. About six weeks ago they put her on a new blood pressure medication. Almost immediately she started getting dizzy spells, falling down. She fell three times in two weeks. The third time she broke her hip."
+      },
+      { "speaker": "intake", "text": "I'm very sorry to hear that. Has she had surgery?" },
+      {
+        "speaker": "client",
+        "text": "Yes, partial hip replacement, she's still in rehab. She's not the same, honestly. Confused. They've got her on more medications now and I don't know what half of them are."
+      },
+      {
+        "speaker": "intake",
+        "text": "Yolanda, I want to make sure I understand. Is your concern about the medication itself, or about how the facility handled her after she started falling?"
+      },
+      {
+        "speaker": "client",
+        "text": "Both. I think. See, the doctor she sees comes to the facility, he's a contract guy, I never met him in person. He prescribed the new med. My mother had told him she gets dizzy on blood pressure stuff, that's in her chart from her old doctor going back years. He prescribed it anyway. So that's one thing."
+      },
+      { "speaker": "intake", "text": "Understood. And the facility?" },
+      {
+        "speaker": "client",
+        "text": "Willowbrook is supposed to be assisted living, which means they help her get up, walk to the bathroom, all that. After the first fall I personally called the director and said she needs more supervision, she's a fall risk now. Nothing changed. The second fall was in the bathroom and nobody checked on her for like two hours. The third fall, the bad one, she was trying to walk to the dining room by herself because nobody came when she pressed the button. They have video of the hallway, I've asked for it three times."
+      },
+      {
+        "speaker": "intake",
+        "text": "Has anyone at the facility taken responsibility for the gaps in care?"
+      },
+      {
+        "speaker": "client",
+        "text": "The director just keeps saying they followed her care plan. Her care plan from before she was a fall risk. Their insurance, I think it's Heritage Hill Indemnity or something, somebody from there called me and was very nice but also very, you know, careful. Asking a lot of questions. My sister thinks we should go after the doctor for prescribing something he knew she'd react to. My husband thinks the doctor is small potatoes and the real money is the facility because they ignored what I told them. I don't even know who to be mad at. I just want her to be okay."
+      },
+      {
+        "speaker": "intake",
+        "text": "That's completely understandable. Do you have copies of her medication list and the incident reports from each of the three falls?"
+      },
+      {
+        "speaker": "client",
+        "text": "I have the meds. The incident reports they've been slow-walking. I have texts to the director after the first fall though, asking for more help. That's all in writing."
+      }
+    ]
+  }
+}

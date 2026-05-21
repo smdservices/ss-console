@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "auto-accident",
+    "fixture_id": "edge-hostile-004",
+    "edge_tags": ["hostile-tone"],
+    "hostility_dimension": "conspiracy-accusation",
+    "expected_behavior": "skill drafts calm professional reply for human review; flags hostility for partner attention; does not mirror tone or commit firm to anything"
+  },
+  "content": {
+    "from": "marcus.delacroix.77@fakemailbox.invalid",
+    "from_name": "Marcus Delacroix",
+    "to": "intake@example-firm.invalid",
+    "subject": "I know what you're doing with Northbridge Mutual",
+    "sent_date": "2026-05-12",
+    "body": "I've been thinking about this for two weeks and I'm done staying quiet. The 'offer' that came back from Northbridge Mutual Casualty last Tuesday was $18,400. Eighteen thousand. For a rear-end collision that put me in PT three times a week for four months and cost me my route at Salzano Logistics. And then Attorney Reinholt calls me and says it's 'reasonable' and that we should 'seriously consider' it. Reasonable to who? Not to me. Not to anyone who actually got hit.\n\nLet me tell you what I think is happening. Your firm does volume work with Northbridge. I looked at the press releases on your website. Three of the four 'verdicts and settlements' from last year were Northbridge cases. You have a relationship. You have a quota. You need to keep them happy so the referrals keep flowing, and the easiest way to do that is to convince guys like me to fold for pennies so the adjuster can close the file and move on. That's not representation. That's a kickback scheme dressed up in a suit.\n\nI'm not signing anything. I'm not accepting that number. And before anyone calls me back to 'walk me through the math' again, understand that I have already pulled my own comparables off the court records search at the county. Two cases last year with worse facts than mine settled at $62k and $74k. So either Reinholt doesn't know how to negotiate, or he knows exactly what he's doing and the math is working out for everyone except me.\n\nI want a different attorney on this file by Friday. Not a different paralegal. Not a phone call from Reinholt 'clearing things up.' A different attorney, with no Northbridge history, who is willing to tell me to my face why $18,400 is the best this firm thinks I can do. If that's not possible, send me the file and I'll find someone who isn't on Northbridge's Christmas card list.\n\nMarcus Delacroix"
+  }
+}

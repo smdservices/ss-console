@@ -1,0 +1,56 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "conflict-check-input",
+    "case_type": "n/a",
+    "fixture_id": "conflict-005",
+    "edge_tags": []
+  },
+  "content": {
+    "prospect": {
+      "name": "Sigrid Aldecoa",
+      "email": "sigrid.aldecoa@gmail.com",
+      "case_type": "premises-negligent-security",
+      "incident_party_list": ["Sigrid Aldecoa", "Niko Nguyen-Pham"]
+    },
+    "existing_matters_subset": [
+      {
+        "matter_id": "contact-76559",
+        "client_name": "Anneke Okafor",
+        "opposing_party": "Cassandra Achebe",
+        "opposing_counsel": "Eklund & Associates"
+      },
+      {
+        "matter_id": "contact-18810",
+        "client_name": "Mei-Lin Yamashita",
+        "opposing_party": "Talullah Lim",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-61515",
+        "client_name": "Lakshmi Aldecoa",
+        "opposing_party": "Patel Brennan",
+        "opposing_counsel": "Holcombe Defense Group"
+      },
+      {
+        "matter_id": "contact-70685",
+        "client_name": "Sigrid Aldecoa",
+        "opposing_party": "Thaddeus Steinmetz",
+        "opposing_counsel": "Cascade Pacific Defense Counsel"
+      },
+      {
+        "matter_id": "contact-91756",
+        "client_name": "Jorge Aldecoa",
+        "opposing_party": "Otis Henneberry",
+        "opposing_counsel": "Brennan Litigation Partners"
+      },
+      {
+        "matter_id": "contact-92269",
+        "client_name": "Thaddeus Henneberry",
+        "opposing_party": "Yolanda Holcombe",
+        "opposing_counsel": "Holcombe Defense Group"
+      }
+    ],
+    "expected_outcome": "positive-conflict"
+  }
+}

@@ -1,0 +1,110 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "intake-transcript",
+    "case_type": "premises",
+    "fixture_id": "edge-missing-008",
+    "edge_tags": ["missing-fields"],
+    "missing_fields": ["primary_language", "immigration_status"],
+    "expected_behavior": "skill identifies missing critical fields and requests them before proceeding with case classification"
+  },
+  "content": {
+    "channel": "phone",
+    "recording_id": "INT-2026-05-18-1517-PR-014",
+    "recorded_at": "2026-05-18T15:17:00-07:00",
+    "duration_minutes": 17,
+    "participants": {
+      "intake_specialist": "Adelita Pemberton-Cruz",
+      "prospective_client": "Esperanza Mondragón-Llanos"
+    },
+    "consent_disclosed": true,
+    "turns": [
+      {
+        "speaker": "Adelita Pemberton-Cruz",
+        "text": "Thanks for holding, Ms. Mondragón-Llanos. My name is Adelita and I'll be doing your intake today. Before we get going I just want to confirm — is now still a good time to talk? Should take about fifteen, twenty minutes."
+      },
+      {
+        "speaker": "Esperanza Mondragón-Llanos",
+        "text": "Yes, yes, it's a good time. I'm on my lunch. I have until... maybe one hour. Is okay?"
+      },
+      {
+        "speaker": "Adelita Pemberton-Cruz",
+        "text": "An hour is more than enough. And please — at any point, if you want me to slow down or repeat something, or if there's a word I use that doesn't translate well, just stop me. We can take this at whatever pace works. Sound good?"
+      },
+      {
+        "speaker": "Esperanza Mondragón-Llanos",
+        "text": "Thank you. Yes. My English is okay for the work but for the things like this, the legal, sometimes I have to think. My daughter, she help me write down what happened so I have it in front of me. She is twenty-three, she is at work right now or she would be here helping me. But I can read what we wrote."
+      },
+      {
+        "speaker": "Adelita Pemberton-Cruz",
+        "text": "That's perfectly fine. Why don't you start with what you and your daughter wrote down, and I'll ask follow-up questions as we go. Take your time."
+      },
+      {
+        "speaker": "Esperanza Mondragón-Llanos",
+        "text": "Okay. So. The accident is on April twelve, a Saturday. I am working at La Cumbre Bakery on McDowell — I am there for six years now, I am one of the morning bakers. We open at five-thirty in the morning for the breakfast people. On this morning, the owner — her name is Rosalva Inestroza — she ask me to go to the back, to the walk-in refrigerator, to bring out three trays of the empanadas that we make the day before. The walk-in, the floor inside is supposed to have the rubber mats but two weeks before the mats are pulled up for cleaning and they don't put them back. We tell Rosalva many times. Many. We say it is slippery, somebody is going to fall. She say she will fix it, but she don't.\n\nSo this morning I go in the walk-in with the trays in my arms. I cannot see my feet because of the trays. I step on a piece of — I don't know the English word — like the wet plastic from the meat packages, that fell from the shelf maybe. My foot goes out from under me. I go down on my left side. The trays go everywhere. My left knee hit the floor first, then my hip, then my elbow. My head, it hit the bottom of the metal shelf where we keep the milk. I have a cut on my head, here, above the eye. I am laying there I think three, four minutes before another baker, Lupita, she find me."
+      },
+      {
+        "speaker": "Adelita Pemberton-Cruz",
+        "text": "I'm so sorry that happened to you. That sounds terrible. Did someone call 911, or how did you get to a doctor?"
+      },
+      {
+        "speaker": "Esperanza Mondragón-Llanos",
+        "text": "Lupita, she call Rosalva first. Rosalva come and she is — how to say — she is not happy. She is mad. She say why was I carrying so many trays. She don't call 911 right away. Lupita say we need to call. So then they call. The ambulance, they come, they take me to Westmark Medical Center on Thomas Road. The bill, it come to my house, it is more than nine thousand dollars just for the ambulance and the emergency. I have no insurance from the bakery. Rosalva, she tell me at the hospital, she will pay for everything. She tell me don't worry. Two days later she text me and she say I should say I fall at home. She say the workers comp, it will cost her the business. She say if I do this for her she will pay me cash for the time I miss and she will pay the bills."
+      },
+      {
+        "speaker": "Adelita Pemberton-Cruz",
+        "text": "Okay. That is a very important thing you just told me, and I want to come back to it. Did you tell Westmark you fell at home, or did you tell them what actually happened?"
+      },
+      {
+        "speaker": "Esperanza Mondragón-Llanos",
+        "text": "I tell the truth. I tell the doctor in the emergency, I tell them I fall at work, in the walk-in refrigerator, on a wet floor. It is in the paper from the hospital. I have the paper. I did not lie to the doctor. After Rosalva text me, I — I was scared, I am not going to lie to you, I was scared and I think about it for one day. But I tell my daughter and she say no, mama, you cannot say you fall at home, because then the hospital and the doctor, they will be confused, and also it is not the truth. So I don't text Rosalva back. I just don't go back to work. I have not been back to the bakery since April twelve. I am still — my knee, it is bad, I have the brace and I am using the crutches still. My head, the cut is healed but I have the headaches and sometimes I forget things, like I went to the store yesterday and I could not remember what I went there for. My daughter say this is from the head."
+      },
+      {
+        "speaker": "Adelita Pemberton-Cruz",
+        "text": "Have you been able to follow up with any doctors after Westmark? Anything for the knee, anything for the head?"
+      },
+      {
+        "speaker": "Esperanza Mondragón-Llanos",
+        "text": "Yes. Westmark, they send me to a — a specialist for the bones. Dr. Bramwell. His office is in Mesa, near the Fiesta Mall area. I have seen him three times. He say I have a tear in the knee — the meniscus, that is the word — and I need the surgery, but he say first I need to get the insurance figured out because the surgery is expensive. He has been very kind. He say he can wait. For the head, I have not seen anybody yet. Westmark say I should see a neurologist if the headaches don't go away in two weeks. They didn't go away. But I don't have the money for a neurologist, and I don't know who to go to. I am paying nothing right now. The bills, they are coming to the house. My daughter say we cannot answer them until we talk to a lawyer."
+      },
+      {
+        "speaker": "Adelita Pemberton-Cruz",
+        "text": "That's smart advice from your daughter. Let me ask about the bakery itself. La Cumbre Bakery — do you know if Ms. Inestroza is the owner of the building, or does she rent? And do you know if she has a business insurance policy?"
+      },
+      {
+        "speaker": "Esperanza Mondragón-Llanos",
+        "text": "She rent the building, I am sure of that, because the landlord come sometimes for the repairs. His name is Mr. Quinlan, I don't know his last name fully. The building, the whole strip there has the same owner I think. For the insurance, the business insurance, I don't know. I see the paper on the wall in the back office, the certificate, but I don't remember the company. I can ask Lupita, she still works there, she could look. Lupita is a friend, she will help."
+      },
+      {
+        "speaker": "Adelita Pemberton-Cruz",
+        "text": "That would be very helpful. A photo of that certificate, if Lupita can get one, would save us a lot of time. Now — and I want to ask this carefully — has Ms. Inestroza or anyone else contacted you since you stopped going to work? Any calls, texts, anyone showing up?"
+      },
+      {
+        "speaker": "Esperanza Mondragón-Llanos",
+        "text": "Rosalva, she text me two more times. The first one, she say I am being ungrateful. The second one, this was last week, she say if I make trouble for her, she will tell people about my situation, and I will lose everything. That is what she said. My daughter took a picture of the texts. I have them. I have not answered her. I am — I have been here in Phoenix for eleven years. I have my life here. My daughter, she was born here. I have not done anything wrong. But the texts from Rosalva, they scare me, and I almost don't call you today because of them. My daughter say I have to call. She say what Rosalva is doing is not legal, to threaten me like this."
+      },
+      {
+        "speaker": "Adelita Pemberton-Cruz",
+        "text": "Your daughter is right, and I'm glad you called. I want you to know up front — what your employer is allegedly doing, the texts, the request that you misrepresent the cause of injury — those are serious and they actually strengthen the picture we're building, not weaken it. I want to be very clear about something else, because I think it's on your mind: our firm handles personal injury matters. We do not handle anything related to status questions, and we do not share client information with anyone outside of this firm. If there are things going on in your life that you feel might affect how this case moves forward, the attorney who reviews this file will need to know — not to judge anything, but so we can plan correctly and protect you. That conversation can happen later, with the attorney, with your daughter present if you want, and at your pace. Today, you don't need to tell me anything you don't want to tell me. Okay?"
+      },
+      {
+        "speaker": "Esperanza Mondragón-Llanos",
+        "text": "Okay. Thank you. I appreciate you saying that. I will talk to my daughter and we will think about what to say to the attorney. I want to do this right."
+      },
+      {
+        "speaker": "Adelita Pemberton-Cruz",
+        "text": "Good. Here's what I'd like to do next. Please send me the Westmark hospital paperwork — discharge summary, any imaging reports — Dr. Bramwell's visit notes from all three appointments, the texts from Ms. Inestroza, and any of the medical bills you've received so far. If Lupita can photograph the insurance certificate on the back office wall, send that too. I'll get this in front of an attorney tomorrow morning. The attorney will likely want to schedule a longer call within a week, and if you'd like your daughter on that call, she's welcome. Does that sound okay?"
+      },
+      {
+        "speaker": "Esperanza Mondragón-Llanos",
+        "text": "Yes. Yes, this is okay. I will get the papers tonight with my daughter and I will send them. Thank you, Adelita. I have been very worried and you have been very kind."
+      }
+    ],
+    "intake_specialist_notes": [
+      "Client's primary language was never stated on the call. Indicators throughout — self-described 'okay for work but not legal' English, daughter writing the narrative in advance, untranslated word for plastic wrap, comfort cues when the specialist slowed pace — strongly suggest Spanish as primary, but primary language is unconfirmed and must be captured before attorney review (drives interpreter scheduling, document translation needs, and accessibility of any signed retainer or settlement materials).",
+      "Immigration status was not disclosed. The employer's reported threat ('I will tell people about your situation, and you will lose everything') and the client's hesitation around answering it suggest status is a sensitive variable, but no statement has been made. Status is relevant to damages framing (lost-earning-capacity calculations) and to anticipating defense pressure tactics. Specialist deferred the conversation to attorney intake at client's pace and did not press on the call. Must be revisited during attorney-led intake before scope and strategy are set.",
+      "Substantively strong premises case: persistent unrepaired hazard (missing mats), prior documented complaints to owner, contemporaneous true-cause disclosure to ER, post-incident employer pressure to misrepresent cause, written threats preserved. Confirmed meniscus tear requiring surgery; untreated post-concussive symptoms (headaches, memory complaints) need neurology referral.",
+      "Client tone cooperative, composed, forthcoming on case facts; carrying real fear about the employer's threats. Daughter (age 23, U.S.-born per client) is involved and supportive — request she be present for attorney call."
+    ]
+  }
+}

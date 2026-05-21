@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "auto-highway",
+    "fixture_id": "client-028",
+    "edge_tags": []
+  },
+  "content": {
+    "from": "jorge.onyeka@outlook.com",
+    "from_name": "Jorge Onyeka",
+    "to": "marcus@example-firm.invalid",
+    "subject": "Following up",
+    "sent_date": "2026-05-16",
+    "body": "Hi Marcus,\n\nJust checking in for an update on my case. I know these things take time. Last we spoke you mentioned the carrier was reviewing the demand. Any news? No rush, just wanted to stay in the loop.\n\nThanks,\nJorge Onyeka",
+    "tone_label": "informed-patient",
+    "matter_display_number": "PI-2026-1014"
+  }
+}
