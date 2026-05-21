@@ -3,6 +3,7 @@ import Base from '../../layouts/Base.astro'
 import AuthHeader from '../../components/AuthHeader.astro'
 import Footer from '../../components/Footer.astro'
 import { SignIn } from '@clerk/astro/components'
+import { clerkAppearance } from '../../lib/auth/clerk-appearance'
 
 /**
  * Client portal sign-in. Renders Clerk's SignIn component, which handles
@@ -71,6 +72,7 @@ const message = status ? statusMessages[status] : null
           signUpUrl="/auth/portal-sign-up"
           fallbackRedirectUrl="/portal"
           forceRedirectUrl="/portal"
+          appearance={clerkAppearance}
         />
       </div>
     </main>
