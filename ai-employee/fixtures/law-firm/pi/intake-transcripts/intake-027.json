@@ -1,0 +1,60 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "intake-transcript",
+    "case_type": "premises-inadequate-maintenance",
+    "fixture_id": "intake-027",
+    "edge_tags": []
+  },
+  "content": {
+    "client_name": "Otis Sarmiento",
+    "client_phone": "(500) 608-7250",
+    "client_email": "otis.sarmiento@gmail.com",
+    "incident_date": "2026-03-24",
+    "case_type_self_described": "premises liability for inadequate maintenance",
+    "defendant_carrier_named": "Pinecrest Auto Insurance",
+    "medical_provider_mentioned": "Verde Valley ER",
+    "dialogue": [
+      {
+        "speaker": "intake",
+        "text": "Hi Otis, this is the intake line at SMD's partner law firm. I understand you'd like to talk about a premises liability for inadequate maintenance. Is now still a good time?"
+      },
+      {
+        "speaker": "client",
+        "text": "Yes, thanks for calling back. So on 2026-03-24 I was leaving the gym when premises liability for inadequate maintenance happened."
+      },
+      {
+        "speaker": "intake",
+        "text": "I'm sorry to hear that. Can you tell me what injuries you've experienced, and whether you've gotten medical treatment?"
+      },
+      {
+        "speaker": "client",
+        "text": "I've been having neck and back pain. I went to Cholla Park Physical Therapy the next day. They referred me to a pain specialist."
+      },
+      {
+        "speaker": "intake",
+        "text": "Did you exchange information with the other party? Do you know who their insurance is with?"
+      },
+      {
+        "speaker": "client",
+        "text": "Yes, Mountain Pass Mutual. The police were also there."
+      },
+      {
+        "speaker": "intake",
+        "text": "Have you spoken with the insurance company yet?"
+      },
+      {
+        "speaker": "client",
+        "text": "I gave them a recorded statement before I knew I shouldn't."
+      },
+      {
+        "speaker": "intake",
+        "text": "Got it. One more question — have you worked with another attorney on this matter, or signed anything with another firm?"
+      },
+      {
+        "speaker": "client",
+        "text": "No, I went through the bar referral service to find your firm."
+      }
+    ]
+  }
+}

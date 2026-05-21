@@ -1,0 +1,18 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "ambiguous",
+    "fixture_id": "edge-amb-009",
+    "edge_tags": ["ambiguous-intake"],
+    "expected_behavior": "skill flags ambiguity and requests clarification rather than guessing a single case type"
+  },
+  "content": {
+    "from": "dwayne.k.brockman@webmail-fast.example",
+    "from_name": "Dwayne Brockman",
+    "to": "intake@example-firm.invalid",
+    "subject": "Injury claim — multiple things going on, need guidance",
+    "sent_date": "2026-05-07",
+    "body": "Hello, I want to be upfront that I have told this story a few different ways to a few different people and my wife says I need to just write it down and let a lawyer sort it out. So here is my best attempt.\n\nOn the night of April 30 I was leaving the parking lot of Greaves Hardware on Bell Road. I told the ER intake nurse that I slipped on something wet near the entrance, because that is what I thought happened in the moment. The next morning I told my primary doctor that I had been clipped by a car backing up in the lot, because by then I remembered hearing tires and a horn. When my brother-in-law asked me about it on Sunday, I told him I tripped over a pallet that one of the stock guys had left near the curb. Honestly, all three of those things might have happened in some order. I have a concussion and the ER doctor said memory gaps are normal for a few weeks.\n\nWhat I know for sure: I went down hard on the pavement, I have a broken collarbone and stitches over my right eye, and there was an incident report filled out by the store manager, a woman named Patrice. She wrote down that I fell but I have not seen the report. The driver of the car, if there was one, did not stop, or at least I do not have their information.\n\nMy wife took pictures of the area the next day and there was a wet patch by the door and tire marks across one of the parking spaces. I do not want to guess wrong about what kind of case this is and mess up my own claim. Can someone there help me figure out the right way to move forward? I have my ER discharge papers and the photos ready to send.\n\nThanks,\nDwayne Brockman"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "ambiguous",
+    "fixture_id": "edge-amb-001",
+    "edge_tags": ["ambiguous-intake"],
+    "expected_behavior": "skill flags ambiguity and requests clarification rather than guessing a single case type"
+  },
+  "content": {
+    "from": "marcy.holloran84@fastmail-example.com",
+    "from_name": "Marcy Holloran",
+    "to": "intake@example-firm.invalid",
+    "subject": "Not sure who to call — hurt last Saturday outside Eastside Hardware",
+    "sent_date": "2026-05-17",
+    "body": "Hello, my name is Marcy and I am hoping somebody can tell me if I even have a case. I have been going back and forth on this all week and my sister finally said to just write to a lawyer.\n\nLast Saturday morning I was leaving Eastside Hardware on Greenway. I had bought one of those folding step stools, the kind with the little handle on top. As I was walking out into the parking lot the stool kind of collapsed sideways under my arm and I stumbled. The lot had a big oil slick or maybe a leaking dumpster, I am not sure, it was very dark and slippery right by the cart return. I went down on my left knee and then sort of slid into the drive lane.\n\nA delivery van from Coronado Mutual Casualty (I think that is what the door said, maybe it was their contractor) was pulling through and clipped my foot before it stopped. The driver was very kind, he stayed with me. The store manager came out and said they had told someone about that spot before.\n\nSo I do not know what this is. Is it the van? Is it the store for the parking lot? Is it the stool because that is what started the whole fall? My knee is pretty bad and I am out of work this week. Any guidance would mean a lot. Thank you. — Marcy"
+  }
+}

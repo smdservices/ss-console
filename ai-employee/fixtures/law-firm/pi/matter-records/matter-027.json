@@ -1,0 +1,36 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "matter-record",
+    "case_type": "auto-rear-end-residential",
+    "fixture_id": "matter-027",
+    "edge_tags": []
+  },
+  "content": {
+    "display_number": "PI-2026-2187",
+    "description": "low-speed rear-end in residential area",
+    "case_type": "auto-rear-end-residential",
+    "status": "closed-recovered",
+    "open_date": "2024-12-07",
+    "client_id": "contact-14621",
+    "client_name": "Jorge Nguyen-Pham",
+    "assigned_attorney": "J. Okafor",
+    "case_value_estimate_low_usd": 15000,
+    "case_value_estimate_high_usd": 30000,
+    "defendant": {
+      "type": "government-entity",
+      "name": "Niko Nguyen-Pham",
+      "carrier": "Pinecrest Auto Insurance",
+      "opp_counsel_firm": "Steinmetz, Kowalski & Pellegrino LLP"
+    },
+    "key_dates": {
+      "incident_date": "2025-12-16",
+      "sol_date": "2028-03-15",
+      "next_court_date": null
+    },
+    "custom_fields": {
+      "settlement_stage": "demand-rejected",
+      "policy_limits_disclosed": true
+    }
+  }
+}

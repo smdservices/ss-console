@@ -1,0 +1,36 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "matter-record",
+    "case_type": "med-mal",
+    "fixture_id": "matter-028",
+    "edge_tags": []
+  },
+  "content": {
+    "display_number": "PI-2026-2558",
+    "description": "medical malpractice",
+    "case_type": "med-mal",
+    "status": "litigation",
+    "open_date": "2025-06-21",
+    "client_id": "contact-48209",
+    "client_name": "Sigrid Henneberry",
+    "assigned_attorney": "K. Patel",
+    "case_value_estimate_low_usd": 50000,
+    "case_value_estimate_high_usd": 250000,
+    "defendant": {
+      "type": "business",
+      "name": "Lakeside Properties LLC",
+      "carrier": "Sunfield National",
+      "opp_counsel_firm": "Brennan Litigation Partners"
+    },
+    "key_dates": {
+      "incident_date": "2025-05-14",
+      "sol_date": "2027-02-17",
+      "next_court_date": "2026-07-11"
+    },
+    "custom_fields": {
+      "settlement_stage": "in-negotiation",
+      "policy_limits_disclosed": false
+    }
+  }
+}

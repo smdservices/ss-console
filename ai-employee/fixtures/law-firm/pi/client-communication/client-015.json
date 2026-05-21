@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "slip-fall-residential",
+    "fixture_id": "client-015",
+    "edge_tags": []
+  },
+  "content": {
+    "from": "halmar.achebe@gmail.com",
+    "from_name": "Halmar Achebe",
+    "to": "kavita@example-firm.invalid",
+    "subject": "Following up",
+    "sent_date": "2026-05-19",
+    "body": "Hi Kavita, I haven't heard anything in 5 weeks and I'm getting really worried. Is something wrong with my case? Did the carrier reject the demand? Please let me know what's going on. I can't sleep thinking about this.\n\nHalmar Achebe",
+    "tone_label": "anxious",
+    "matter_display_number": "PI-2026-8244"
+  }
+}

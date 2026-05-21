@@ -1,0 +1,18 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "ambiguous",
+    "fixture_id": "edge-amb-004",
+    "edge_tags": ["ambiguous-intake"],
+    "expected_behavior": "skill flags ambiguity and requests clarification rather than guessing a single case type"
+  },
+  "content": {
+    "from": "yolanda.preshko@webmail-zone.example",
+    "from_name": "Yolanda Preshko",
+    "to": "intake@example-firm.invalid",
+    "sent_date": "2026-05-15",
+    "subject": "Brake problem caused my crash — or maybe the mechanic, I cannot tell",
+    "body": "Hi there. I was in a single-car crash on May 3rd on the eastbound stretch of Holloway Pike. I went off the road into a ditch and the airbag went off. I have a herniated disc and a concussion and I am still out of work. Here is what makes this complicated. About six weeks before the crash, I took my 2022 Pemberton Sienna SUV to Granger Auto Works for what I thought was going to be a routine brake job because the pedal was feeling soft. The shop replaced the rear brake lines and the master cylinder and charged me almost two thousand dollars. After I got it back the pedal felt better for a while but the soft feeling started coming back about two weeks before the crash. On the day of the crash I went to brake going into a curve and the pedal just sank to the floor and the car did not slow down. The state trooper who came out wrote down brake failure as a contributing factor. I have since learned there was a manufacturer service bulletin from Pemberton last year about the master cylinder on this model year being prone to internal failure, and a friend told me there might even have been a recall I missed. So I do not know if the shop installed the part wrong or used a bad part, or if the part itself is the defective one the manufacturer already knew about. Can your office help me sort out who is responsible?"
+  }
+}

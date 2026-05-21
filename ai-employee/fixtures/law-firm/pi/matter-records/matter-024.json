@@ -1,0 +1,36 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "matter-record",
+    "case_type": "slip-fall-commercial",
+    "fixture_id": "matter-024",
+    "edge_tags": []
+  },
+  "content": {
+    "display_number": "PI-2026-2016",
+    "description": "slip and fall at commercial premises",
+    "case_type": "slip-fall-commercial",
+    "status": "discovery",
+    "open_date": "2026-02-26",
+    "client_id": "contact-37150",
+    "client_name": "Sigrid Whitlock",
+    "assigned_attorney": "K. Patel",
+    "case_value_estimate_low_usd": 250000,
+    "case_value_estimate_high_usd": 1250000,
+    "defendant": {
+      "type": "business",
+      "name": "Westgate Properties LLC",
+      "carrier": "Cascade Bay Insurance",
+      "opp_counsel_firm": "Vasquez-Mendez Insurance Defense"
+    },
+    "key_dates": {
+      "incident_date": "2025-04-07",
+      "sol_date": "2027-10-28",
+      "next_court_date": null
+    },
+    "custom_fields": {
+      "settlement_stage": "settled",
+      "policy_limits_disclosed": true
+    }
+  }
+}

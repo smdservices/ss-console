@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "billing-entry",
+    "case_type": "premises-inadequate-maintenance",
+    "fixture_id": "billing-014",
+    "edge_tags": []
+  },
+  "content": {
+    "matter_display_number": "PI-2026-8659",
+    "entry_date": "2026-04-09",
+    "duration_hours": 3.0,
+    "billable": false,
+    "rate_per_hour_usd": 350,
+    "amount_usd": 1050.0,
+    "description": "Reviewed defendant carrier Sunfield National's response to demand. Identified 2 contestable points. 3.0 hrs.",
+    "quality_self_assessment": "well-coded"
+  }
+}

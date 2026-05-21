@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "billing-entry",
+    "case_type": "med-mal",
+    "fixture_id": "billing-013",
+    "edge_tags": []
+  },
+  "content": {
+    "matter_display_number": "PI-2026-6090",
+    "entry_date": "2026-04-01",
+    "duration_hours": 0.6,
+    "billable": true,
+    "rate_per_hour_usd": 350,
+    "amount_usd": 210.0,
+    "description": "Reviewed and analyzed medical records from Copper Canyon Imaging. Drafted memo summarizing key findings re: causation. 0.6 hrs.",
+    "quality_self_assessment": "well-coded"
+  }
+}

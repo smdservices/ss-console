@@ -1,0 +1,62 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "conflict-check-input",
+    "case_type": "n/a",
+    "fixture_id": "conflict-026",
+    "edge_tags": []
+  },
+  "content": {
+    "prospect": {
+      "name": "Tomasz Eklund",
+      "email": "tomasz.eklund@proton.me",
+      "case_type": "auto-highway",
+      "incident_party_list": ["Tomasz Eklund", "Sage Vasquez-Mendez"]
+    },
+    "existing_matters_subset": [
+      {
+        "matter_id": "contact-40859",
+        "client_name": "Quinlan Lim",
+        "opposing_party": "Magdalena Holcombe",
+        "opposing_counsel": "Holcombe Defense Group"
+      },
+      {
+        "matter_id": "contact-23562",
+        "client_name": "Fenwick Garibaldi",
+        "opposing_party": "Thaddeus Achebe",
+        "opposing_counsel": "Holcombe Defense Group"
+      },
+      {
+        "matter_id": "contact-57576",
+        "client_name": "Octavio Whitlock",
+        "opposing_party": "Priya Garibaldi",
+        "opposing_counsel": "Cascade Pacific Defense Counsel"
+      },
+      {
+        "matter_id": "contact-99183",
+        "client_name": "Otis Volkmann",
+        "opposing_party": "Yolanda Steinmetz",
+        "opposing_counsel": "Eklund & Associates"
+      },
+      {
+        "matter_id": "contact-93442",
+        "client_name": "Devon Garibaldi",
+        "opposing_party": "Devon Achebe",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-43125",
+        "client_name": "Quinlan Whitlock",
+        "opposing_party": "Imani Yamashita",
+        "opposing_counsel": "Eklund & Associates"
+      },
+      {
+        "matter_id": "contact-84486",
+        "client_name": "Branwen Lim",
+        "opposing_party": "Tomasz Eklund",
+        "opposing_counsel": "Brennan Litigation Partners"
+      }
+    ],
+    "expected_outcome": "positive-conflict"
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "conflict-check-input",
+    "case_type": "n/a",
+    "fixture_id": "conflict-024",
+    "edge_tags": []
+  },
+  "content": {
+    "prospect": {
+      "name": "Quinlan Henneberry",
+      "email": "quinlan.henneberry@fastmail.com",
+      "case_type": "slip-fall-residential",
+      "incident_party_list": ["Quinlan Henneberry", "Thaddeus Brennan"]
+    },
+    "existing_matters_subset": [
+      {
+        "matter_id": "contact-28821",
+        "client_name": "Esperanza Brennan",
+        "opposing_party": "Sigrid Sarmiento",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-44255",
+        "client_name": "Cassandra Onyeka",
+        "opposing_party": "Quinlan Henneberry",
+        "opposing_counsel": "Steinmetz, Kowalski & Pellegrino LLP"
+      },
+      {
+        "matter_id": "contact-65245",
+        "client_name": "Kazimir Volkmann",
+        "opposing_party": "Branwen Achebe",
+        "opposing_counsel": "Holcombe Defense Group"
+      },
+      {
+        "matter_id": "contact-40427",
+        "client_name": "Priya Holcombe",
+        "opposing_party": "Anneke Aboueid",
+        "opposing_counsel": "Brennan Litigation Partners"
+      },
+      {
+        "matter_id": "contact-12025",
+        "client_name": "Cassandra Onyeka",
+        "opposing_party": "Cassandra Lim",
+        "opposing_counsel": "Eklund & Associates"
+      }
+    ],
+    "expected_outcome": "positive-conflict"
+  }
+}

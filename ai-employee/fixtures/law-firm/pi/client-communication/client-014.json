@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "auto-highway",
+    "fixture_id": "client-014",
+    "edge_tags": []
+  },
+  "content": {
+    "from": "priya.holcombe@gmail.com",
+    "from_name": "Priya Holcombe",
+    "to": "marcus@example-firm.invalid",
+    "subject": "Re: My case — quick question",
+    "sent_date": "2026-05-15",
+    "body": "Hi Marcus, I haven't heard anything in 6 weeks and I'm getting really worried. Is something wrong with my case? Did the carrier reject the demand? Please let me know what's going on. I can't sleep thinking about this.\n\nPriya Holcombe",
+    "tone_label": "anxious",
+    "matter_display_number": "PI-2026-6241"
+  }
+}

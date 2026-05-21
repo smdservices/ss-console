@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "auto-rear-end-residential",
+    "fixture_id": "client-020",
+    "edge_tags": []
+  },
+  "content": {
+    "from": "zora.whitlock@fastmail.com",
+    "from_name": "Zora Whitlock",
+    "to": "sarah@example-firm.invalid",
+    "subject": "Re: My case — quick question",
+    "sent_date": "2026-05-19",
+    "body": "Hi Sarah, I know I haven't responded to your last three emails. Things have been hectic on my end. I'm ready to engage again. What do you need from me to move forward?\n\nZora Whitlock",
+    "tone_label": "ghosted-returning",
+    "matter_display_number": "PI-2026-4595"
+  }
+}

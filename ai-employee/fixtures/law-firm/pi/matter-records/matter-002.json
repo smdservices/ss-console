@@ -1,0 +1,36 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "matter-record",
+    "case_type": "product-liability-consumer",
+    "fixture_id": "matter-002",
+    "edge_tags": []
+  },
+  "content": {
+    "display_number": "PI-2026-5653",
+    "description": "product liability — consumer goods defect",
+    "case_type": "product-liability-consumer",
+    "status": "litigation",
+    "open_date": "2026-04-27",
+    "client_id": "contact-88464",
+    "client_name": "Talullah Volkmann",
+    "assigned_attorney": "S. Garcia",
+    "case_value_estimate_low_usd": 15000,
+    "case_value_estimate_high_usd": 30000,
+    "defendant": {
+      "type": "government-entity",
+      "name": "Niko Achebe",
+      "carrier": "Pinecrest Auto Insurance",
+      "opp_counsel_firm": "Cascade Pacific Defense Counsel"
+    },
+    "key_dates": {
+      "incident_date": "2025-10-19",
+      "sol_date": "2027-07-30",
+      "next_court_date": "2026-07-10"
+    },
+    "custom_fields": {
+      "settlement_stage": "settled",
+      "policy_limits_disclosed": true
+    }
+  }
+}

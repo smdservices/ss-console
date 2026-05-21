@@ -1,0 +1,18 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "ambiguous",
+    "fixture_id": "edge-amb-003",
+    "edge_tags": ["ambiguous-intake"],
+    "expected_behavior": "skill flags ambiguity and requests clarification rather than guessing a single case type"
+  },
+  "content": {
+    "from": "denbow.travis@quickpostal.example",
+    "from_name": "Travis Denbow",
+    "to": "intake@example-firm.invalid",
+    "sent_date": "2026-05-12",
+    "subject": "Hurt in the parking lot at Brindlecrest Plaza — not sure what kind of case this is",
+    "body": "Good afternoon. I am writing about an injury I had on April 29th at the Brindlecrest Plaza shopping center off Cooper Road. I was walking back to my car after picking up a prescription. The parking lot was being repaved in sections and there was a strip of fresh asphalt that was a couple inches higher than the older section next to it. There were a few orange cones but no real barrier. As I was stepping across the height difference, a delivery van being driven by a worker for the paving company started backing up and clipped my left side. I fell, partly because of the van but also because my foot caught on that asphalt lip. I broke my wrist and bruised three ribs. The plaza management company says it was the paving contractor's responsibility because they were doing the work. The paving company is saying their driver was doing his job and the real issue is that I should not have been walking through an active work zone. My own thought is that there should have been a walkway marked or the lot should have been closed off, but I also keep coming back to the fact that the van actually hit me. I do not know if this is something where I sue over the parking lot conditions or over the vehicle, or both, or what. Any guidance would be appreciated."
+  }
+}

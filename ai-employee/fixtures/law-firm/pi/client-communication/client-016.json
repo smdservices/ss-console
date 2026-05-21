@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "auto-highway",
+    "fixture_id": "client-016",
+    "edge_tags": []
+  },
+  "content": {
+    "from": "octavio.sarmiento@fastmail.com",
+    "from_name": "Octavio Sarmiento",
+    "to": "marcus@example-firm.invalid",
+    "subject": "Case status",
+    "sent_date": "2026-05-16",
+    "body": "Hi Marcus, I know I haven't responded to your last three emails. Things have been hectic on my end. I'm ready to engage again. What do you need from me to move forward?\n\nOctavio Sarmiento",
+    "tone_label": "ghosted-returning",
+    "matter_display_number": "PI-2026-6146"
+  }
+}

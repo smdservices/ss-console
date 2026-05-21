@@ -1,0 +1,60 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "intake-transcript",
+    "case_type": "auto-intersection",
+    "fixture_id": "intake-023",
+    "edge_tags": []
+  },
+  "content": {
+    "client_name": "Branwen Brzezinski",
+    "client_phone": "(572) 322-9142",
+    "client_email": "branwen.brzezinski@fastmail.com",
+    "incident_date": "2026-05-02",
+    "case_type_self_described": "intersection T-bone collision",
+    "defendant_carrier_named": "Pinecrest Auto Insurance",
+    "medical_provider_mentioned": "Cholla Park Physical Therapy",
+    "dialogue": [
+      {
+        "speaker": "intake",
+        "text": "Hi Branwen, this is the intake line at SMD's partner law firm. I understand you'd like to talk about a intersection T-bone collision. Is now still a good time?"
+      },
+      {
+        "speaker": "client",
+        "text": "Yes, thanks for calling back. So on 2026-05-02 I was driving home from work when intersection T-bone collision happened."
+      },
+      {
+        "speaker": "intake",
+        "text": "I'm sorry to hear that. Can you tell me what injuries you've experienced, and whether you've gotten medical treatment?"
+      },
+      {
+        "speaker": "client",
+        "text": "I've been having a shoulder injury. I went to Verde Valley ER the next day. They referred me to physical therapy."
+      },
+      {
+        "speaker": "intake",
+        "text": "Did you exchange information with the other party? Do you know who their insurance is with?"
+      },
+      {
+        "speaker": "client",
+        "text": "Yes, Cascade Bay Insurance. The police were also there."
+      },
+      {
+        "speaker": "intake",
+        "text": "Have you spoken with the insurance company yet?"
+      },
+      {
+        "speaker": "client",
+        "text": "Yes, they offered $3,500 already and I said I'd think about it."
+      },
+      {
+        "speaker": "intake",
+        "text": "Got it. One more question — have you worked with another attorney on this matter, or signed anything with another firm?"
+      },
+      {
+        "speaker": "client",
+        "text": "No, you're the first."
+      }
+    ]
+  }
+}

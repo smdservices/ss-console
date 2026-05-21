@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "slip-fall-snow-ice",
+    "fixture_id": "client-003",
+    "edge_tags": []
+  },
+  "content": {
+    "from": "sigrid.pellegrino@fastmail.com",
+    "from_name": "Sigrid Pellegrino",
+    "to": "kavita@example-firm.invalid",
+    "subject": "Following up",
+    "sent_date": "2026-05-17",
+    "body": "Kavita,\n\nIt's been 3 weeks since we filed. I left two voicemails last week. I'm starting to feel like nobody is working on my case. I'd appreciate a call back within 24 hours.\n\nSigrid Pellegrino",
+    "tone_label": "frustrated",
+    "matter_display_number": "PI-2026-2117"
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "client-communication",
+    "case_type": "auto-accident",
+    "fixture_id": "edge-missing-010",
+    "edge_tags": ["missing-fields"],
+    "missing_fields": [
+      "incident_date",
+      "opposing_party",
+      "injury_description",
+      "treatment_history"
+    ],
+    "expected_behavior": "skill identifies missing critical fields and requests them before proceeding, and does not get distracted by the volume of present but non-critical detail about emotional state and family circumstances"
+  },
+  "content": {
+    "channel": "email",
+    "direction": "inbound",
+    "from": {
+      "name": "Geraldine Forsythe-Mallon",
+      "email": "gfm.writes@harborbend-mail.example",
+      "phone": "+1-602-555-0211"
+    },
+    "to": {
+      "name": "Halberd & Quince Intake",
+      "email": "intake@halberdquince.example"
+    },
+    "subject": "I know it's late but I need to talk to someone",
+    "received_at": "2026-05-17T23:47:00-07:00",
+    "body": "I apologize in advance because I've been told my emails are too long, but I haven't slept properly in I don't know how long and I have to just get this out. My therapist Dr. Naoko Ellingboe (I see her at Tributary Counseling on 7th Street, every Tuesday at 4pm and sometimes a second slot on Fridays if I'm having a rough week) said writing it down might help me move forward, so here I am at almost midnight writing to a law firm I found through my cousin's wife's brother who lives in Tempe and who said you handle things 'the way they should be handled,' whatever that means. He's a good man so I trust him.\n\nI should say upfront that I am a writer by trade — I write copy for nonprofits, mostly community health organizations and food banks, and I've been doing it for almost twenty years — so words come easily to me but actions don't. That is going to be relevant to why I'm only reaching out now.\n\nMy husband Bartholomew passed in October of 2024. Pancreatic cancer. It was twelve weeks from diagnosis to funeral and I am still, by every measure I know how to apply, not okay. My older son Caspian moved back from Portland to help and has been sleeping in the guest room ever since. My younger son Edmund is at Northern Arizona and he comes home most weekends but he has his own life. My daughter-in-law Briony — Caspian's wife — is wonderful but she stayed in Portland with their two children, and the arrangement is not sustainable. Caspian is going to have to go back. I know that. He knows that. We don't talk about it.\n\nSo when the thing happened, my first thought was not, 'I need to call a lawyer.' My first thought was, 'I cannot put one more thing on Caspian.' And I didn't. I told him I was fine. I told my sister Philomena, who lives in Tucson and calls every other day, that I was fine. I told Dr. Ellingboe at our next session that I'd had 'a rough week' and left it at that. I told the woman at the corner where I get my coffee, Adelita, that I'd 'banged myself up a little.' I told everyone what they needed to hear so that no one would worry, because I am tired of being worried about, and because the truth is that being worried about by people who love you when you are already this tired is its own kind of weight.\n\nI did not see a doctor right away. I should have. I know that now. The pain in my shoulder I told myself was sleeping wrong, even though I knew it wasn't. The headaches I told myself were grief headaches, because I get those too and the line between them blurred. I have not been to my primary care, Dr. Stelios Ovington at Mesquite Family Medicine, since this happened, though I have an appointment scheduled with him next month for my regular annual.\n\nI cannot remember if I told anyone other than Adelita that it happened at all. I think I might not have. I have been moving through the days like someone watching herself from the ceiling.\n\nThe other person — I don't want to say his name out loud, even in an email, because saying it makes it real and I'm not ready for it to be real, but I have his information written in a notebook in my kitchen drawer along with the paper from the officer who came. There is a paper. I have it. I will bring it.\n\nMy car is in my garage. I haven't been able to look at it. Caspian drove it once, to move it out of the driveway when the neighbors complained about it sitting in the sun, and he asked me if I wanted him to take it somewhere to be looked at and I said no. He didn't push.\n\nI know what you're going to need from me. I know I have to tell you when and where and who and what the doctor said, except no doctor has said anything because I haven't gone, and what the police report says, except I haven't read past the first page. I know I have to do all of that. I am writing to you because if I tell another person who loves me, they will ask me how I am, and I cannot answer that question one more time. I need someone whose job it is to handle this so that I can focus on getting Caspian back to his family before his marriage suffers any more than it already has.\n\nMy availability is essentially open. I am working from home on a brochure for the Sonoran Hunger Coalition through the end of June and after that I have nothing scheduled. Mornings are best. I am not at my sharpest in the afternoons.\n\nPlease tell me what you need. I will get it to you. I will bring the notebook. I will bring the paper from the officer. I will go to Dr. Ovington if you tell me to. I will do whatever you say.\n\nThank you for reading this far. I know it was a lot.\n\nGeraldine Forsythe-Mallon\n(602) 555-0211",
+    "attachments_referenced": [],
+    "client_profile": {
+      "full_name": "Geraldine Iris Forsythe-Mallon",
+      "date_of_birth": "1962-03-19",
+      "address": "1736 W Hazelridge Pl, Phoenix, AZ 85021",
+      "occupation": "Freelance Copywriter (nonprofit sector)",
+      "marital_status": "widowed (Oct 2024)",
+      "household_referenced": "son Caspian Forsythe-Mallon (currently residing in guest room); son Edmund (NAU); daughter-in-law Briony and grandchildren in Portland",
+      "ongoing_mental_health_care": "Dr. Naoko Ellingboe, Tributary Counseling (weekly + intermittent second sessions)"
+    },
+    "intake_notes_pending": [
+      "SEVERE missing-data case. Client provided extensive emotional and family context but did NOT state when the incident occurred (no date, no approximate date, no 'a few weeks ago' anchor — only 'when the thing happened').",
+      "Opposing party is unidentified. Client states she has the information in a notebook and a police-officer-issued paper at home, but declined to name him or provide carrier, plate, or contact details in this communication.",
+      "Injury description is absent. References to shoulder pain and headaches are framed as things the client dismissed, with no clinical characterization, severity, body-region inventory, or symptom timeline.",
+      "Treatment history is essentially nonexistent. Client has not seen her primary care physician, has not been to urgent care or ER, has not been examined for the injuries from this incident. Her annual physical with Dr. Ovington is scheduled but not yet attended. No imaging, no diagnostics, no provider has assessed the injuries.",
+      "Mechanism of harm is not stated — the email does not confirm this was a motor-vehicle collision, a fall, or another type of incident. Case-type assignment of 'auto-accident' is inferred from the reference to her car being in the garage and an officer being at the scene; this inference must be confirmed by the intake attorney and not relied upon by the skill.",
+      "All four critical fields (incident date, opposing party, injury description, treatment history) must be obtained — and the mechanism confirmed — before any case classification, scope estimation, or engagement decision. Volume of present detail about grief, family arrangements, and emotional state must not be treated as a substitute for the missing operational facts."
+    ]
+  }
+}

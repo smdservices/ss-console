@@ -1,0 +1,36 @@
+{
+  "metadata": {
+    "watermark": "[SYNTHETIC FIXTURE — NOT A REAL MATTER]",
+    "category": "matter-record",
+    "case_type": "slip-fall-residential",
+    "fixture_id": "matter-004",
+    "edge_tags": []
+  },
+  "content": {
+    "display_number": "PI-2026-1360",
+    "description": "slip and fall at residential property",
+    "case_type": "slip-fall-residential",
+    "status": "settlement-pending",
+    "open_date": "2025-06-01",
+    "client_id": "contact-61563",
+    "client_name": "Patel Nguyen-Pham",
+    "assigned_attorney": "M. Tran",
+    "case_value_estimate_low_usd": 500000,
+    "case_value_estimate_high_usd": 1000000,
+    "defendant": {
+      "type": "government-entity",
+      "name": "Westgate Properties LLC",
+      "carrier": "Westmark Indemnity Group",
+      "opp_counsel_firm": "Holcombe Defense Group"
+    },
+    "key_dates": {
+      "incident_date": "2025-02-17",
+      "sol_date": "2028-03-10",
+      "next_court_date": "2026-06-29"
+    },
+    "custom_fields": {
+      "settlement_stage": "demand-out",
+      "policy_limits_disclosed": false
+    }
+  }
+}
