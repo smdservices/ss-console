@@ -140,6 +140,13 @@ declare namespace Cloudflare {
      * in prod (a missing binding in prod is a deploy ordering bug).
      */
     ENRICHMENT_WORKFLOW_SERVICE?: EnrichmentWorkflowServiceBinding
+    /**
+     * Clerk secret key (sk_test_* for dev, sk_live_* for prod). Used by
+     * @clerk/astro middleware to authenticate Clerk sessions on
+     * portal.smd.services. Pulled from Infisical at deploy time per the
+     * standard wrangler secret bulk pattern documented in CLAUDE.md.
+     */
+    CLERK_SECRET_KEY?: string
   }
 }
 
@@ -166,6 +173,12 @@ declare namespace App {
 interface ImportMetaEnv {
   readonly PUBLIC_GA4_MEASUREMENT_ID?: string
   readonly PUBLIC_GA4_INTERNAL_HOST_PATTERNS?: string
+  /**
+   * Clerk publishable key (pk_test_* for dev, pk_live_* for prod). Required
+   * at build time — @clerk/astro inlines it into the client bundle. Pulled
+   * from Infisical into .dev.vars locally and into Workers env at deploy.
+   */
+  readonly PUBLIC_CLERK_PUBLISHABLE_KEY?: string
 }
 
 interface ImportMeta {
