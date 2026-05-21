@@ -45,6 +45,15 @@ export interface Entity {
   source_pipeline: string | null
   created_at: string
   updated_at: string
+  /**
+   * Clerk Organization ID bound to this customer. Populated when the
+   * entity is provisioned for portal access (PR #904 bridge column).
+   * Null for prospect / pre-purchase entities. Optional in the type
+   * so legacy fixtures constructing Entity literals without this
+   * field continue to compile; D1 reads always materialize it (null
+   * when the row was inserted before the column was added).
+   */
+  clerk_org_id?: string | null
 }
 
 // prettier-ignore
