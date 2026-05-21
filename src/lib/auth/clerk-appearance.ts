@@ -94,15 +94,20 @@ export const clerkAppearance = {
       "font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold " +
       'hover:bg-[color:var(--ss-color-border-subtle)]',
     socialButtonsBlockButtonText: "font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold",
-    // Footer + action links
+    // Footer + action links. Normal-case here so email addresses
+    // (rendered in identity-preview rows like "Signed in as foo@bar")
+    // are not text-transformed and don't overflow the card.
     footer: 'rounded-none bg-[color:var(--ss-color-background)]',
-    footerAction: "font-['Archivo_Narrow'] uppercase tracking-[0.12em] text-sm",
+    footerAction: "font-['Archivo_Narrow'] text-sm normal-case tracking-normal",
     footerActionLink:
-      'text-[color:var(--ss-color-primary)] hover:text-[color:var(--ss-color-primary-hover)] underline-offset-2',
-    footerActionText: 'text-[color:var(--ss-color-text-secondary)]',
-    // Identity preview (e.g., signed in as ___)
-    identityPreviewText: 'text-[color:var(--ss-color-text-secondary)]',
-    identityPreviewEditButton: 'text-[color:var(--ss-color-primary)]',
+      "font-['Archivo_Narrow'] font-bold uppercase tracking-[0.12em] " +
+      'text-[color:var(--ss-color-primary)] hover:text-[color:var(--ss-color-primary-hover)] ' +
+      'underline-offset-2',
+    footerActionText: 'text-[color:var(--ss-color-text-secondary)] normal-case tracking-normal',
+    // Identity preview (e.g., "Signed in as ___"). Force normal case so
+    // the email reads as-typed and the row fits inside the card.
+    identityPreviewText: 'normal-case tracking-normal text-[color:var(--ss-color-text-secondary)]',
+    identityPreviewEditButton: 'normal-case tracking-normal text-[color:var(--ss-color-primary)]',
     // OTP / verification code inputs
     otpCodeFieldInput:
       'rounded-none border-[3px] border-[color:var(--ss-color-text-primary)] ' +
