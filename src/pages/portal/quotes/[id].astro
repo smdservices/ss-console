@@ -1,5 +1,6 @@
 ---
 import '../../../styles/global.css'
+import { SignOutButton } from '@clerk/astro/components'
 import PortalHeader from '../../../components/portal/PortalHeader.astro'
 import PortalTabs from '../../../components/portal/PortalTabs.astro'
 import PortalPageHead from '../../../components/portal/PortalPageHead.astro'
@@ -29,26 +30,29 @@ import { env } from 'cloudflare:workers'
  * invitation to invent commitments.
  */
 
-const session = Astro.locals.session!
 const { id: quoteId } = Astro.params
 
 if (!quoteId) {
   return Astro.redirect('/portal/quotes')
 }
 
-const portalData = await getPortalClient(env.DB, session.userId, session.orgId)
+const portalData = await getPortalClient(env.DB, Astro.locals)
 if (!portalData) {
-  return Astro.redirect('/auth/portal-login?error=no_account')
+  return Astro.redirect('/auth/portal-sign-in')
+}
+if (!portalData.client) {
+  return Astro.redirect('/auth/portal-sign-in?status=no_subscription')
 }
 
 const { client } = portalData
+const orgId = portalData.user.org_id
 
-const quote = await getQuoteForEntity(env.DB, session.orgId, client.id, quoteId)
+const quote = await getQuoteForEntity(env.DB, orgId, client.id, quoteId)
 if (!quote) {
   return Astro.redirect('/portal/quotes')
 }
 
-const sowState = await getSOWStateForQuote(env.DB, session.orgId, quote.id)
+const sowState = await getSOWStateForQuote(env.DB, orgId, quote.id)
 const activeSignatureRequest = sowState.openSignatureRequest
 const downloadableRevision = sowState.downloadableRevision
 
@@ -100,7 +104,7 @@ const engagement = await env.DB.prepare(
     ORDER BY created_at DESC
     LIMIT 1`
 )
-  .bind(quote.id, session.orgId)
+  .bind(quote.id, orgId)
   .first<EngagementLookupRow>()
 
 const consultantName = engagement?.consultant_name ?? null
@@ -120,7 +124,7 @@ const superseding = await env.DB.prepare(
     ORDER BY version DESC
     LIMIT 1`
 )
-  .bind(quote.id, quote.assessment_id, quote.version, client.id, session.orgId)
+  .bind(quote.id, quote.assessment_id, quote.version, client.id, orgId)
   .first<SupersedingRow>()
 
 // Build the concrete "what happens next" string for signed quotes. Render
@@ -170,14 +174,14 @@ const consultantPhone = engagement?.consultant_phone ?? null
       consultantPhone={isSigned ? null : consultantPhone}
       consultantFirstName={consultantFirst}
     >
-      <form method="POST" action="/api/auth/logout">
+      <SignOutButton asChild redirectUrl="/auth/portal-sign-in?status=signed_out">
         <button
-          type="submit"
+          type="button"
           class="text-sm text-[color:var(--ss-color-text-muted)] hover:text-[color:var(--ss-color-text-primary)] transition-colors"
         >
           Sign out
         </button>
-      </form>
+      </SignOutButton>
     </PortalHeader>
 
     <PortalTabs pathname={Astro.url.pathname} />

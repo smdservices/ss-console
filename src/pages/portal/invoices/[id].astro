@@ -1,5 +1,6 @@
 ---
 import '../../../styles/global.css'
+import { SignOutButton } from '@clerk/astro/components'
 import { BRAND_NAME } from '../../../lib/config/brand'
 import { getPortalClient } from '../../../lib/portal/session'
 import { getInvoiceForEntity, listLineItemsForInvoice } from '../../../lib/db/invoices'
@@ -29,21 +30,23 @@ import { env } from 'cloudflare:workers'
  * caption. Full error/edge design (voided, refunded, etc.) lives in #365.
  */
 
-const session = Astro.locals.session!
 const { id: invoiceId } = Astro.params
 
 if (!invoiceId) {
   return Astro.redirect('/portal')
 }
 
-const portalData = await getPortalClient(env.DB, session.userId, session.orgId)
+const portalData = await getPortalClient(env.DB, Astro.locals)
 if (!portalData) {
-  return Astro.redirect('/auth/portal-login?error=no_account')
+  return Astro.redirect('/auth/portal-sign-in')
+}
+if (!portalData.client) {
+  return Astro.redirect('/auth/portal-sign-in?status=no_subscription')
 }
 
 const { client } = portalData
 
-const invoice = await getInvoiceForEntity(env.DB, session.orgId, client.id, invoiceId)
+const invoice = await getInvoiceForEntity(env.DB, portalData.user.org_id, client.id, invoiceId)
 if (!invoice) {
   return Astro.redirect('/portal')
 }
@@ -75,7 +78,7 @@ const engagement = invoice.engagement_id
               consultant_phone, next_touchpoint_at, next_touchpoint_label
        FROM engagements WHERE id = ? AND org_id = ?`
     )
-      .bind(invoice.engagement_id, session.orgId)
+      .bind(invoice.engagement_id, portalData.user.org_id)
       .first<EngagementRow>()
   : null
 
@@ -213,14 +216,14 @@ const consultantFirstName: string | null = consultantName
       consultantPhone={isPaid ? null : consultantPhone}
       consultantFirstName={consultantFirstName}
     >
-      <form method="POST" action="/api/auth/logout">
+      <SignOutButton asChild redirectUrl="/auth/portal-sign-in?status=signed_out">
         <button
-          type="submit"
+          type="button"
           class="text-sm text-[color:var(--ss-color-text-muted)] hover:text-[color:var(--ss-color-text-secondary)] transition-colors"
         >
           Sign out
         </button>
-      </form>
+      </SignOutButton>
     </PortalHeader>
 
     <PortalTabs pathname={Astro.url.pathname} />

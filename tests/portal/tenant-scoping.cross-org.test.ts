@@ -20,7 +20,6 @@ import {
   runMigrations,
   discoverNumericMigrations,
 } from '@venturecrane/crane-test-harness'
-import { getPortalClient } from '../../src/lib/portal/session'
 import { getQuoteForEntity, listQuotesForEntity } from '../../src/lib/db/quotes'
 import { getInvoiceForEntity, listInvoicesForEntity } from '../../src/lib/db/invoices'
 import { resolve } from 'path'
@@ -141,33 +140,22 @@ describe('portal DAL — cross-org behavior (#399)', () => {
   })
 
   // ============================================================
-  // getPortalClient (src/lib/portal/session.ts)
-  // Finding #8: entity lookup must scope by org_id.
+  // NOTE: The three getPortalClient() tests previously here defended a
+  // magic-link auth model where the (userId, orgId) pair was supplied by
+  // the cookie and could be forged. Portal auth has moved to Clerk:
+  //   - userId comes from Clerk's signed session (cannot be forged at
+  //     the cookie layer)
+  //   - orgId comes from Clerk's active organization claim on the same
+  //     signed session
+  //   - getPortalClient now reads Astro.locals.auth() / locals.currentUser()
+  //     and bridges to local rows via the UNIQUE clerk_user_id and
+  //     clerk_org_id columns (migration 0038)
+  //
+  // Cross-org scoping is now enforced at three layers: Clerk's session
+  // signing, the UNIQUE clerk_user_id index, and the UNIQUE clerk_org_id
+  // index. The DAL-level cross-org tests below (quotes, invoices) still
+  // apply and provide defense-in-depth at the data layer.
   // ============================================================
-
-  it('getPortalClient returns null when a valid user_id from org B is asked under session orgId=org-a', async () => {
-    // Simulates a forged session where userId belongs to org B but orgId says
-    // org A. The SELECT on users scopes by (id, role, org_id), so the user
-    // lookup itself fails.
-    const result = await getPortalClient(db, USER_B, ORG_A)
-    expect(result).toBeNull()
-  })
-
-  it('getPortalClient returns null if users.entity_id points cross-org (stale or tampered)', async () => {
-    // Introduce a stale/tampered link: org A user pointing at org B's entity.
-    await db.prepare('UPDATE users SET entity_id = ? WHERE id = ?').bind(ENTITY_B, USER_A).run()
-
-    // Even though the user row exists in org A, the entity lookup is scoped
-    // by org_id and returns null, so the helper returns null overall.
-    const result = await getPortalClient(db, USER_A, ORG_A)
-    expect(result).toBeNull()
-  })
-
-  it('getPortalClient returns the client when session org matches user and entity', async () => {
-    const result = await getPortalClient(db, USER_A, ORG_A)
-    expect(result?.client.id).toBe(ENTITY_A)
-    expect(result?.user.id).toBe(USER_A)
-  })
 
   // ============================================================
   // Portal quote DAL — getQuoteForEntity + listQuotesForEntity

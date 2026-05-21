@@ -1,5 +1,6 @@
 ---
 import '../../styles/global.css'
+import { SignOutButton } from '@clerk/astro/components'
 import { BRAND_NAME } from '../../lib/config/brand'
 import { getPortalClient } from '../../lib/portal/session'
 import PortalHeader from '../../components/portal/PortalHeader.astro'
@@ -21,11 +22,12 @@ import { env } from 'cloudflare:workers'
  *   context + timeline; sticky right rail holds ActionCard + ConsultantBlock.
  */
 
-const session = Astro.locals.session!
-
-const portalData = await getPortalClient(env.DB, session.userId, session.orgId)
+const portalData = await getPortalClient(env.DB, Astro.locals)
 if (!portalData) {
-  return Astro.redirect('/auth/portal-login?error=no_account')
+  return Astro.redirect('/auth/portal-sign-in')
+}
+if (!portalData.client) {
+  return Astro.redirect('/auth/portal-sign-in?status=no_subscription')
 }
 
 const { client } = portalData
@@ -86,7 +88,7 @@ try {
       ORDER BY created_at DESC
       LIMIT 1`
   )
-    .bind(client.id, session.orgId)
+    .bind(client.id, portalData.user.org_id)
     .first<EngagementRow>()
 
   if (activeEngagement) {
@@ -96,7 +98,7 @@ try {
         WHERE engagement_id = ? AND org_id = ? AND status != 'void'
         ORDER BY created_at DESC`
     )
-      .bind(activeEngagement.id, session.orgId)
+      .bind(activeEngagement.id, portalData.user.org_id)
       .all<InvoiceRow>()
     invoices = invoiceResult.results ?? []
 
@@ -117,7 +119,7 @@ try {
         ORDER BY completed_at DESC
         LIMIT 5`
     )
-      .bind(activeEngagement.id, session.orgId)
+      .bind(activeEngagement.id, portalData.user.org_id)
       .all<MilestoneRow>()
     completedMilestones = milestoneResult.results ?? []
   }
@@ -129,7 +131,7 @@ try {
       ORDER BY updated_at DESC
       LIMIT 5`
   )
-    .bind(client.id, session.orgId)
+    .bind(client.id, portalData.user.org_id)
     .all<QuoteRow>()
   quotes = quoteResult.results ?? []
 } catch (err) {
@@ -302,16 +304,16 @@ const touchpointText: string | null = (() => {
       consultantPhone={consultant?.phone ?? null}
       consultantFirstName={consultantFirst}
     >
-      <form method="POST" action="/api/auth/logout">
+      <SignOutButton asChild redirectUrl="/auth/portal-sign-in?status=signed_out">
         <button
-          type="submit"
+          type="button"
           aria-label="Sign out"
           title="Sign out"
           class="inline-flex items-center justify-center w-9 h-9 rounded-full text-[color:var(--ss-color-text-muted)] hover:text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-primary)]/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-colors"
         >
           <span class="material-symbols-outlined text-[20px]">logout</span>
         </button>
-      </form>
+      </SignOutButton>
     </PortalHeader>
 
     <PortalTabs pathname={Astro.url.pathname} />

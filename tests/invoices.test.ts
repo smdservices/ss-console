@@ -462,10 +462,13 @@ describe('invoices: portal view', () => {
     expect(source()).toContain('listInvoicesForEntity')
   })
 
-  it('resolves entity via getPortalClient', () => {
+  it('resolves entity via getPortalClient (Clerk-aware signature)', () => {
+    // After PR #906 the portal session resolver takes Astro.locals
+    // (which carries Clerk's locals.auth() and locals.currentUser())
+    // instead of (userId, orgId). Magic-link's session.userId is gone
+    // from portal pages.
     const code = source()
-    expect(code).toContain('getPortalClient')
-    expect(code).toContain('session.userId')
+    expect(code).toContain('getPortalClient(env.DB, Astro.locals)')
   })
 
   it('passes amount to PortalListItem as cents', () => {

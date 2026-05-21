@@ -1,0 +1,92 @@
+---
+import '../../styles/global.css'
+import SkipToMain from '../../components/SkipToMain.astro'
+import { SignIn } from '@clerk/astro/components'
+
+/**
+ * Client portal sign-in. Renders Clerk's SignIn component, which handles
+ * email + password (primary), email verification code (passwordless
+ * fallback), and Organization-invitation acceptance natively.
+ *
+ * Replaces the legacy magic-link entry at /auth/portal-login (now a
+ * 301 redirect to this route).
+ */
+
+const status = Astro.url.searchParams.get('status')
+
+const statusMessages: Record<string, { text: string; type: 'success' | 'error' }> = {
+  no_subscription: {
+    text:
+      "You're signed in, but your account isn't connected to a customer yet. " +
+      'Contact us if you think this is an error.',
+    type: 'error',
+  },
+  signed_out: {
+    text: 'You have been signed out.',
+    type: 'success',
+  },
+}
+
+const message = status ? statusMessages[status] : null
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <title>Sign In | SMD Services Portal</title>
+  </head>
+  <body class="min-h-screen bg-[color:var(--ss-color-background)]">
+    <SkipToMain />
+    <header
+      role="banner"
+      class="sticky top-0 z-50 h-14 md:h-16 bg-white border-b border-[color:var(--ss-color-border)]"
+    >
+      <div class="max-w-md mx-auto h-full flex items-center justify-center px-4">
+        <span class="text-lg font-bold tracking-tight text-[color:var(--ss-color-text-primary)]"
+          >SMD Services</span
+        >
+      </div>
+    </header>
+    <main
+      id="main"
+      role="main"
+      class="flex items-start md:items-center justify-center px-4 py-10"
+      style="min-height: calc(100vh - 3.5rem)"
+    >
+      <div class="w-full max-w-sm">
+        <div class="text-center mb-6">
+          <p class="text-sm text-[color:var(--ss-color-text-secondary)]">Client portal sign-in</p>
+        </div>
+
+        {
+          message && (
+            <div
+              class:list={[
+                'mb-4 px-3 py-2 border rounded text-sm',
+                message.type === 'success'
+                  ? 'bg-[color:var(--ss-color-complete)]/5 border-[color:var(--ss-color-complete)]/30 text-[color:var(--ss-color-complete)]'
+                  : 'bg-[color:var(--ss-color-error)]/5 border-[color:var(--ss-color-error)]/30 text-[color:var(--ss-color-error)]',
+              ]}
+            >
+              {message.text}
+            </div>
+          )
+        }
+
+        <SignIn
+          signUpUrl="/auth/portal-sign-up"
+          fallbackRedirectUrl="/portal"
+          forceRedirectUrl="/portal"
+        />
+      </div>
+    </main>
+  </body>
+</html>
