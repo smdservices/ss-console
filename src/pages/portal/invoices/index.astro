@@ -1,5 +1,6 @@
 ---
 import '../../../styles/global.css'
+import { SignOutButton } from '@clerk/astro/components'
 import { BRAND_NAME } from '../../../lib/config/brand'
 import { getPortalClient } from '../../../lib/portal/session'
 import { listInvoicesForEntity } from '../../../lib/db/invoices'
@@ -23,16 +24,18 @@ import { env } from 'cloudflare:workers'
  * Resolves entity via getPortalClient() using users.entity_id.
  */
 
-const session = Astro.locals.session!
-const portalData = await getPortalClient(env.DB, session.userId, session.orgId)
-const entityId = portalData?.client.id ?? null
-const clientName = portalData?.client.name ?? ''
-
-let invoices: Awaited<ReturnType<typeof listInvoicesForEntity>> = []
-
-if (entityId) {
-  invoices = await listInvoicesForEntity(env.DB, session.orgId, entityId)
+const portalData = await getPortalClient(env.DB, Astro.locals)
+if (!portalData) {
+  return Astro.redirect('/auth/portal-sign-in')
 }
+if (!portalData.client) {
+  return Astro.redirect('/auth/portal-sign-in?status=no_subscription')
+}
+
+const entityId = portalData.client.id
+const clientName = portalData.client.name
+
+const invoices = await listInvoicesForEntity(env.DB, portalData.user.org_id, entityId)
 
 const typeLabel: Record<string, string> = {
   deposit: 'Deposit',
@@ -84,14 +87,14 @@ const totalCents = invoices.reduce((sum, i) => sum + Math.round(i.amount * 100),
   <body class="min-h-screen bg-[color:var(--ss-color-background)]">
     <SkipToMain />
     <PortalHeader clientName={clientName}>
-      <form method="POST" action="/api/auth/logout">
+      <SignOutButton asChild redirectUrl="/auth/portal-sign-in?status=signed_out">
         <button
-          type="submit"
+          type="button"
           class="inline-flex items-center min-h-11 px-2 -mx-2 text-sm text-[color:var(--ss-color-text-muted)] hover:text-[color:var(--ss-color-text-primary)] active:text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded transition-colors"
         >
           Sign out
         </button>
-      </form>
+      </SignOutButton>
     </PortalHeader>
 
     <PortalTabs pathname={Astro.url.pathname} />

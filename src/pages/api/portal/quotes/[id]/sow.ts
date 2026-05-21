@@ -14,14 +14,6 @@ import { env } from 'cloudflare:workers'
  * Scoped to client_id (not org_id) — portal access pattern.
  */
 export const GET: APIRoute = async ({ locals, params }) => {
-  const session = locals.session
-  if (!session || session.role !== 'client') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
-
   const quoteId = params.id
   if (!quoteId) {
     return new Response(JSON.stringify({ error: 'Quote ID required' }), {
@@ -30,9 +22,15 @@ export const GET: APIRoute = async ({ locals, params }) => {
     })
   }
 
-  // Resolve client from session
-  const portalData = await getPortalClient(env.DB, session.userId, session.orgId)
+  // Resolve client via Clerk identity bridge
+  const portalData = await getPortalClient(env.DB, locals)
   if (!portalData) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+  if (!portalData.client) {
     return new Response(JSON.stringify({ error: 'Client not found' }), {
       status: 403,
       headers: { 'Content-Type': 'application/json' },
@@ -40,7 +38,12 @@ export const GET: APIRoute = async ({ locals, params }) => {
   }
 
   // Get quote scoped to this client
-  const quote = await getQuoteForEntity(env.DB, session.orgId, portalData.client.id, quoteId)
+  const quote = await getQuoteForEntity(
+    env.DB,
+    portalData.user.org_id,
+    portalData.client.id,
+    quoteId
+  )
   if (!quote) {
     return new Response(JSON.stringify({ error: 'Quote not found' }), {
       status: 404,
@@ -48,7 +51,7 @@ export const GET: APIRoute = async ({ locals, params }) => {
     })
   }
 
-  const sowState = await getSOWStateForQuote(env.DB, session.orgId, quote.id)
+  const sowState = await getSOWStateForQuote(env.DB, portalData.user.org_id, quote.id)
   const revision = sowState.downloadableRevision
 
   if (!revision) {

@@ -14,11 +14,21 @@ import { env } from 'cloudflare:workers'
 /**
  * Astro middleware — handles auth for protected routes.
  *
- * Host → path mapping (three custom domains on one Pages project):
- *   admin.smd.services/*   → rewritten to /admin/* (admin console, role=admin)
- *   portal.smd.services/*  → rewritten to /portal/* (client portal, role=client)
+ * Host → path mapping (three custom domains on one Worker):
+ *   admin.smd.services/*   → rewritten to /admin/* (magic-link auth, role=admin)
+ *   portal.smd.services/*  → rewritten to /portal/* (Clerk auth)
  *   smd.services/*         → marketing (public); /admin/* and /auth/login 301
  *                            to admin.smd.services for backwards compat
+ *
+ * Auth model:
+ *   - Portal (portal.smd.services) — Clerk owns identity. clerkMiddleware
+ *     (composed before ssMiddleware via sequence()) populates locals.auth()
+ *     and locals.currentUser(). enforcePortalAuth gates routes on
+ *     locals.auth().userId; the bridge from Clerk identity to local
+ *     users/entities runs in getPortalClient (src/lib/portal/session.ts).
+ *   - Admin (admin.smd.services) — legacy magic-link auth. Sessions stored
+ *     in D1 + KV. resolveSession reads the session_token cookie;
+ *     enforceAdminAuth gates routes on locals.session.role === 'admin'.
  */
 
 type NextFn = MiddlewareNext
@@ -123,19 +133,37 @@ function jsonResponse(body: object, status: number): Response {
   })
 }
 
-function enforceRoleGate(
+function enforceAdminAuth(
   context: APIContext,
   isAdminRoute: boolean,
-  isAdminApiRoute: boolean,
-  isPortalRoute: boolean,
-  isPortalApiRoute: boolean
+  isAdminApiRoute: boolean
 ): Response | null {
-  const sessionRole = context.locals.session?.role
-  const isAdminAccess = (isAdminRoute || isAdminApiRoute) && sessionRole === 'admin'
-  const isPortalAccess = (isPortalRoute || isPortalApiRoute) && sessionRole === 'client'
-  if (isAdminAccess || isPortalAccess) return null
-  if (isAdminApiRoute || isPortalApiRoute) return jsonResponse({ error: 'Forbidden' }, 403)
-  return context.redirect(isPortalRoute ? '/auth/portal-login' : '/auth/login')
+  if (!context.locals.session) {
+    return isAdminApiRoute
+      ? jsonResponse({ error: 'Unauthorized' }, 401)
+      : context.redirect('/auth/login')
+  }
+  if (context.locals.session.role !== 'admin') {
+    return isAdminApiRoute
+      ? jsonResponse({ error: 'Forbidden' }, 403)
+      : context.redirect('/auth/login')
+  }
+  return null
+}
+
+function enforcePortalAuth(context: APIContext, isPortalApiRoute: boolean): Response | null {
+  // Portal auth is owned by Clerk. clerkMiddleware (composed before
+  // ssMiddleware via sequence()) populates locals.auth() with the
+  // current request's Clerk session state. We only check userId
+  // presence here — bridge from Clerk identity to local user/entity
+  // happens lazily in getPortalClient() per-route.
+  const auth = context.locals.auth()
+  if (!auth.userId) {
+    return isPortalApiRoute
+      ? jsonResponse({ error: 'Unauthorized' }, 401)
+      : context.redirect('/auth/portal-sign-in')
+  }
+  return null
 }
 
 function enforceAuth(context: APIContext, pathname: string): Response | null {
@@ -143,14 +171,14 @@ function enforceAuth(context: APIContext, pathname: string): Response | null {
   const isAdminApiRoute = pathname.startsWith('/api/admin')
   const isPortalRoute = pathname.startsWith('/portal')
   const isPortalApiRoute = pathname.startsWith('/api/portal')
-  const isProtectedRoute = isAdminRoute || isAdminApiRoute || isPortalRoute || isPortalApiRoute
 
-  if (!isProtectedRoute) return null
-  if (!context.locals.session) {
-    if (isAdminApiRoute || isPortalApiRoute) return jsonResponse({ error: 'Unauthorized' }, 401)
-    return context.redirect(isPortalRoute ? '/auth/portal-login' : '/auth/login')
+  if (isAdminRoute || isAdminApiRoute) {
+    return enforceAdminAuth(context, isAdminRoute, isAdminApiRoute)
   }
-  return enforceRoleGate(context, isAdminRoute, isAdminApiRoute, isPortalRoute, isPortalApiRoute)
+  if (isPortalRoute || isPortalApiRoute) {
+    return enforcePortalAuth(context, isPortalApiRoute)
+  }
+  return null
 }
 
 function applySessionCookie(
@@ -159,16 +187,15 @@ function applySessionCookie(
   token: string,
   hostname: string
 ): void {
+  // SS-side magic-link cookies only apply to the admin console. Portal
+  // sessions are owned by Clerk (cookie management handled by
+  // clerkMiddleware on the auth.smd.services subdomain).
   const session = context.locals.session
-  if (!session) return
-  const isPortalHost = hostname.startsWith('portal.')
+  if (!session || session.role !== 'admin') return
   const isAdminHost = hostname.startsWith('admin.')
-  const isPortalSession = session.role === 'client'
-  const isAdminSession = session.role === 'admin'
-  const hostMatches = (isPortalSession && isPortalHost) || (isAdminSession && isAdminHost)
-  if (hostMatches) {
+  if (isAdminHost) {
     response.headers.append('Set-Cookie', buildSessionCookie(token, session.role))
-  } else if (hostname === 'smd.services' && isAdminSession) {
+  } else if (hostname === 'smd.services') {
     response.headers.append('Set-Cookie', buildClearSessionCookie())
   }
 }
@@ -194,19 +221,17 @@ async function handleRequest(context: APIContext, next: NextFn): Promise<Respons
   return response
 }
 
-// Clerk + legacy magic-link middleware composed in sequence.
+// Composed middleware pipeline:
+//   1. clerkMiddleware  — parses Clerk session, populates locals.auth()
+//                         and locals.currentUser() for downstream handlers.
+//                         Does NOT enforce auth on any route.
+//   2. ssMiddleware     — SS-owned: subdomain rewrites, legacy redirects,
+//                         magic-link session validation (admin only), and
+//                         auth enforcement (Clerk for portal, magic-link
+//                         for admin).
 //
-// clerkMiddleware reads the Clerk session cookie (set by @clerk/astro's
-// sign-in flow on auth.smd.services) and populates `Astro.locals.auth()`
-// for downstream handlers. It does NOT enforce auth on any route — that
-// remains the job of the legacy ssMiddleware below, which is being kept
-// untouched during the Clerk transition. Magic-link sessions continue to
-// flow through `context.locals.session` as before.
-//
-// The bridge from Clerk identity to local user/entity state (via
-// users.clerk_user_id and entities.clerk_org_id, added in PR #904) is
-// implemented in a follow-on PR alongside the AI Employee dashboard route
-// (#868).
+// The bridge from Clerk identity to local users/entities runs lazily in
+// getPortalClient() per portal page, not in middleware.
 const ssMiddleware = defineMiddleware(async (context: APIContext, next: NextFn) => {
   return withSentryRequestHandler(context, () => handleRequest(context, next))
 })

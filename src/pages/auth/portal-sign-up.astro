@@ -1,0 +1,62 @@
+---
+import '../../styles/global.css'
+import SkipToMain from '../../components/SkipToMain.astro'
+import { SignUp } from '@clerk/astro/components'
+
+/**
+ * Client portal sign-up. Renders Clerk's SignUp component, which handles
+ * email + password account creation with email verification, and
+ * Organization-invitation acceptance (when a user clicks an invite link
+ * the SignUp form is pre-populated with the invitee's email and the
+ * accepted Organization membership is created on completion).
+ *
+ * Most portal users will arrive here from an Organization invitation
+ * email rather than discovering the URL directly.
+ */
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <title>Create Account | SMD Services Portal</title>
+  </head>
+  <body class="min-h-screen bg-[color:var(--ss-color-background)]">
+    <SkipToMain />
+    <header
+      role="banner"
+      class="sticky top-0 z-50 h-14 md:h-16 bg-white border-b border-[color:var(--ss-color-border)]"
+    >
+      <div class="max-w-md mx-auto h-full flex items-center justify-center px-4">
+        <span class="text-lg font-bold tracking-tight text-[color:var(--ss-color-text-primary)]"
+          >SMD Services</span
+        >
+      </div>
+    </header>
+    <main
+      id="main"
+      role="main"
+      class="flex items-start md:items-center justify-center px-4 py-10"
+      style="min-height: calc(100vh - 3.5rem)"
+    >
+      <div class="w-full max-w-sm">
+        <div class="text-center mb-6">
+          <p class="text-sm text-[color:var(--ss-color-text-secondary)]">Create your account</p>
+        </div>
+
+        <SignUp
+          signInUrl="/auth/portal-sign-in"
+          fallbackRedirectUrl="/portal"
+          forceRedirectUrl="/portal"
+        />
+      </div>
+    </main>
+  </body>
+</html>

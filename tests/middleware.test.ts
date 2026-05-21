@@ -98,19 +98,19 @@ describe('middleware: cookie refresh guard', () => {
     expect(code).toContain("hostname.startsWith('admin.')")
   })
 
-  it('refreshes cookie only when role matches host', () => {
-    // Portal sessions are client-only; admin sessions are admin-only.
+  it('refreshes SS-side cookie only for admin sessions', () => {
+    // Portal sessions are owned by Clerk after PR #906; only admin
+    // sessions still use the SS-side magic-link cookie.
     const code = source()
-    expect(code).toMatch(
-      /hostMatches\s*=\s*\(isPortalSession\s*&&\s*isPortalHost\)\s*\|\|\s*\(isAdminSession\s*&&\s*isAdminHost\)/
-    )
+    expect(code).toMatch(/session\.role\s*!==\s*'admin'/)
+    expect(code).toContain('isAdminHost')
   })
 
   it('clears stale admin cookie on apex', () => {
     // Pre-migration admin cookies on smd.services should be proactively cleared.
     const code = source()
     expect(code).toContain('buildClearSessionCookie')
-    expect(code).toMatch(/hostname\s*===\s*'smd\.services'\s*&&\s*isAdminSession/)
+    expect(code).toMatch(/hostname\s*===\s*'smd\.services'/)
   })
 
   it('imports buildClearSessionCookie', () => {
