@@ -31,3 +31,13 @@ GOOGLE_PLACES_API_KEY=""
 OUTSCRAPER_API_KEY=""
 SERPAPI_API_KEY=""
 PROXYCURL_API_KEY=""
+
+# ---------- Clerk auth (portal.smd.services) ----------
+# Identity layer for the portal — users, organizations, memberships,
+# invitations, sessions. SMD Services Application in the shared Clerk
+# workspace. Pull from Infisical (path=/) for local dev:
+#   infisical secrets get PUBLIC_CLERK_PUBLISHABLE_KEY --env=dev --path=/ --plain
+#   infisical secrets get CLERK_SECRET_KEY --env=dev --path=/ --plain
+# Production deploys read from Workers secrets (synced via Infisical bulk).
+PUBLIC_CLERK_PUBLISHABLE_KEY=""
+CLERK_SECRET_KEY=""

@@ -24,6 +24,7 @@
   "dependencies": {
     "@astrojs/cloudflare": "^13.1.10",
     "@astrojs/sitemap": "^3.7.2",
+    "@clerk/astro": "^3.2.6",
     "@formepdf/core": "^0.8.2",
     "@formepdf/react": "^0.8.2",
     "@sentry/cloudflare": "^10.51.0",

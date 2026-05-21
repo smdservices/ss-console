@@ -1,5 +1,6 @@
-import { defineMiddleware } from 'astro:middleware'
+import { defineMiddleware, sequence } from 'astro:middleware'
 import type { APIContext, MiddlewareNext } from 'astro'
+import { clerkMiddleware } from '@clerk/astro/server'
 import {
   parseSessionToken,
   validateSession,
@@ -193,6 +194,21 @@ async function handleRequest(context: APIContext, next: NextFn): Promise<Respons
   return response
 }
 
-export const onRequest = defineMiddleware(async (context: APIContext, next: NextFn) => {
+// Clerk + legacy magic-link middleware composed in sequence.
+//
+// clerkMiddleware reads the Clerk session cookie (set by @clerk/astro's
+// sign-in flow on auth.smd.services) and populates `Astro.locals.auth()`
+// for downstream handlers. It does NOT enforce auth on any route — that
+// remains the job of the legacy ssMiddleware below, which is being kept
+// untouched during the Clerk transition. Magic-link sessions continue to
+// flow through `context.locals.session` as before.
+//
+// The bridge from Clerk identity to local user/entity state (via
+// users.clerk_user_id and entities.clerk_org_id, added in PR #904) is
+// implemented in a follow-on PR alongside the AI Employee dashboard route
+// (#868).
+const ssMiddleware = defineMiddleware(async (context: APIContext, next: NextFn) => {
   return withSentryRequestHandler(context, () => handleRequest(context, next))
 })
+
+export const onRequest = sequence(clerkMiddleware(), ssMiddleware)
