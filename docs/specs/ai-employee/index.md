@@ -31,6 +31,7 @@ Build agents consuming these specs should treat the PRDs as **vision/doctrine** 
 | [safety-invariants.md](safety-invariants.md)                   | [#865](https://github.com/venturecrane/ss-console/issues/865) | Invariants #6 (citation enforcement on fact-bearing fields) and #7 (cross-Machine query prohibition)     |
 | [refusal-handling.md](refusal-handling.md)                     | [#866](https://github.com/venturecrane/ss-console/issues/866) | Runtime semantics when `trust_ceiling.enforce()` returns `refuse` (abort + notification + cascade alert) |
 | [audit-log-immutability.md](audit-log-immutability.md)         | [#892](https://github.com/venturecrane/ss-console/issues/892) | Worker-layer enforcement, Logpush mirror protocol, integrity check, Captain exception process            |
+| [aie-adapter-register.md](aie-adapter-register.md)             | [#841](https://github.com/venturecrane/ss-console/issues/841) | Adapter-side hook surface for the SMD overlay on Hermes; pre/post/refusal/compaction hooks               |
 
 ## Open ambiguities requiring Captain decision
 
