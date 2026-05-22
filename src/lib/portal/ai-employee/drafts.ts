@@ -399,3 +399,110 @@ export async function listDraftsForCustomer(
 function fetchDraftsFromHermes(_subscription: SubscriptionRow): Promise<Draft[]> {
   return Promise.resolve([])
 }
+
+/**
+ * Draft detail resolver — fetch one draft by id for the active customer.
+ *
+ * Powers the draft detail page at
+ * `/portal/products/ai-employee/drafts/[id]`, which adds the Approve & Send
+ * surface on top of the read shape established by the list resolver above.
+ *
+ * Today this returns null unconditionally because the Hermes bridge has
+ * not landed (#821). The page renders a "not found" empty state per
+ * docs/style/empty-state-pattern.md — no fabricated draft body, no
+ * placeholder recipients, no synthetic subject lines. When the bridge
+ * ships, swap `fetchDraftFromHermes` for the bridge call and the page
+ * machinery (detail layout, Approve & Send button, role gate) lights
+ * up unchanged.
+ *
+ * Body / preview is intentionally NOT on the list `Draft` shape because
+ * the queue surface scans by sender / recipient / skill — body would
+ * compete with those signals at row level. The detail surface needs the
+ * full message, so the resolver returns a richer `DraftDetail` shape
+ * that extends `Draft` with the additional fields a reviewer needs to
+ * approve.
+ *
+ * IMPORTANT: do not seed mock rows here. The empty-state pattern is the
+ * design contract — until real data lands, this resolver returns null.
+ */
+export async function getDraft(
+  _subscription: SubscriptionRow,
+  _draftId: string
+): Promise<DraftDetail | null> {
+  return fetchDraftFromHermes(_subscription, _draftId)
+}
+
+/**
+ * Extended draft shape used by the detail page. Inherits the list-row
+ * fields and adds the message body, the reviewer-visible "drafted by
+ * [persona] on [timestamp]" preamble (per ADR 0005 — stripped before
+ * send but surfaced in the review UI as part of the audit trail), and
+ * the send-pathway lifecycle fields the Approve & Send surface reads.
+ *
+ *   bodyPlain      — Full message body as plain text. The reviewer reads
+ *                    and edits this before approving. Plain text is the
+ *                    minimum-viable contract; rich-text rendering lands
+ *                    when the connector wiring exposes it.
+ *   personaName    — Internal-only persona name ("Marcus", "Sarah", per
+ *                    ADR 0005 §Decision). Used in the "drafted by"
+ *                    preamble in the review UI. Never crosses the
+ *                    external boundary.
+ *   personaDraftedAt — ISO timestamp when the AI Employee created the
+ *                      draft. Reviewer-facing chronology.
+ *   reviewerEmail  — The email account the draft is staged into. This
+ *                    is the address the message will ship from
+ *                    (reviewer-as-sender, ADR 0005). Required — every
+ *                    draft is staged into a real reviewer mailbox.
+ *   sendStatus     — Lifecycle of the send pathway. One of:
+ *                      pending        — draft is in the queue, awaiting
+ *                                       reviewer action
+ *                      sending        — within the undo window after
+ *                                       Approve & Send was clicked
+ *                      sent           — connector confirmed delivery
+ *                      send_failed    — connector returned an error;
+ *                                       draft returns to queue with the
+ *                                       failure surfaced inline
+ *   sendError      — Human-readable error from the last send attempt,
+ *                    null unless sendStatus === 'send_failed'.
+ */
+export type DraftSendStatus = 'pending' | 'sending' | 'sent' | 'send_failed'
+
+export interface DraftDetail extends Draft {
+  bodyPlain: string
+  personaName: string
+  personaDraftedAt: string
+  reviewerEmail: string
+  sendStatus: DraftSendStatus
+  sendError: string | null
+}
+
+/**
+ * Hermes bridge stub for the detail resolver. Mirrors
+ * `fetchDraftsFromHermes` — returns null today, swaps to a real fetch
+ * when #821 lands. Promise.resolve keeps the call shape async so the
+ * page-side await site stays stable.
+ */
+function fetchDraftFromHermes(
+  _subscription: SubscriptionRow,
+  _draftId: string
+): Promise<DraftDetail | null> {
+  return Promise.resolve(null)
+}
+
+/**
+ * Human label for a DraftSendStatus value. Closed vocabulary; see
+ * DraftSendStatus. Used by the detail page's status display and by the
+ * inline error banner.
+ */
+export function formatDraftSendStatus(status: DraftSendStatus): string {
+  switch (status) {
+    case 'pending':
+      return 'Ready for review'
+    case 'sending':
+      return 'Sending'
+    case 'sent':
+      return 'Sent'
+    case 'send_failed':
+      return 'Send failed'
+  }
+}
