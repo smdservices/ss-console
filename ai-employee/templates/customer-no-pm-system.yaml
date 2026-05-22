@@ -1,0 +1,160 @@
+schema_version: 1
+
+# TEMPLATE customer.yaml for a firm with NO external practice-management
+# system (paper + Outlook + OneDrive + QuickBooks for billing). This is
+# the most common state at the target-buyer profile -- the PI PRDs assume
+# Filevine / Clio, but most prospects we meet have no working PM system
+# at all.
+#
+# Default capability bindings (the stack assumption for this template):
+#
+#   PracticeManagement -> no_pm  (synthetic matter tracker; per-customer
+#                                 D1 + R2 substrate from PR #944)
+#   Email              -> microsoft_graph        (Outlook)
+#   Calendar           -> microsoft_graph        (Outlook calendar)
+#   DocumentStorage    -> onedrive               (Microsoft Graph drive API)
+#   ESign              -> docusign
+#   Accounting         -> quickbooks             (QuickBooks Online)
+#
+# Adapter implementations referenced above either ship (no_pm) or are
+# tracked under named adapter-build issues. The bindings are wire
+# contracts; flipping any binding to a real vendor later is a
+# customer.yaml edit, not a skill rewrite (per ADR 0006).
+#
+# Copy this file to ai-employee/customers/{firm-slug}/customer.yaml, then
+# replace every bracketed value. Validate with:
+#
+#   uv run --quiet --with pyyaml python3 \
+#     ai-employee/adapter/validate_customer_yaml.py \
+#     ai-employee/customers/{firm-slug}/customer.yaml \
+#     --skills-dir ai-employee/skills \
+#     --connectors-dir ai-employee/connectors \
+#     --fixtures-dir ai-employee/fixtures
+#
+# The reserved `_template` directory is never a real customer slug.
+# customer_id must equal the directory name and match ^[a-z0-9][a-z0-9-]{0,31}$.
+
+# ---- IDENTITY ----
+customer_id: '[FIRM-SLUG]'
+customer_name: '[LEGAL NAME]'
+vertical: law-firm
+practice_areas:
+  - '[PRIMARY PRACTICE AREA, e.g., personal-injury-plaintiff]'
+fly_region: '[FLY REGION SLUG, e.g., iad / lax / ord]'
+
+# ---- RUNTIME ----
+model: claude-opus-4-7
+hermes_ref: '[HERMES REF, e.g., v2026.5.7]'
+
+machine:
+  size: shared-cpu-1x
+  memory_mb: 1024
+
+# ---- HUMANS WITH PORTAL ACCESS ----
+users:
+  - email: '[PRINCIPAL EMAIL]'
+    role: principal
+    full_name: '[PRINCIPAL FULL NAME]'
+
+# ---- PERSONAS (length >= 1) ----
+personas:
+  - slug: '[PERSONA SLUG, e.g., marcus]'
+    status: active
+    name: '[PERSONA FIRST NAME]'
+    title: AI Associate
+    tone:
+      - plainspoken
+      - warm-but-professional
+      - concise
+    skills:
+      - name: '[LEAD PI SKILL, e.g., law-pi-demand-letter-draft]'
+        version: pending
+        trust_ceiling: draft_for_review
+        enabled: true
+
+# ---- CONNECTORS ----
+# No-PM-system stack. Replace any binding with a real vendor adapter
+# during the assessment call if the firm uses one (e.g. swap
+# accounting.adapter to xero if the firm is on Xero, not QuickBooks).
+connectors:
+  PracticeManagement:
+    adapter: no_pm
+    backend: build:no_pm
+    enabled: true
+    # No token_ref -- the synthetic store has no external OAuth surface.
+    # Per-customer D1 + R2 wiring is applied at provision time.
+
+  Email:
+    adapter: microsoft_graph
+    backend: build:microsoft_graph
+    enabled: true
+    scopes:
+      - 'Mail.Read'
+      - 'Mail.ReadWrite'
+    token_ref: 'infisical:/ai-employee/[FIRM-SLUG]/email/microsoft-graph-oauth-refresh'
+
+  Calendar:
+    adapter: microsoft_graph
+    backend: build:microsoft_graph
+    enabled: true
+    scopes:
+      - 'Calendars.Read'
+      - 'Calendars.ReadWrite'
+    # Calendar reuses the Email OAuth token; provision-customer.sh wires
+    # both bindings to the same auth provider when the adapter slug matches.
+    token_ref: 'infisical:/ai-employee/[FIRM-SLUG]/email/microsoft-graph-oauth-refresh'
+
+  DocumentStorage:
+    adapter: onedrive
+    backend: build:onedrive
+    enabled: true
+    scopes:
+      - 'Files.Read'
+      - 'Files.ReadWrite'
+    # OneDrive is a Microsoft Graph surface too; same token refresh path
+    # the Email + Calendar bindings use. Provisioning wires the shared
+    # auth provider.
+    token_ref: 'infisical:/ai-employee/[FIRM-SLUG]/email/microsoft-graph-oauth-refresh'
+
+  ESign:
+    adapter: docusign
+    backend: build:docusign
+    enabled: true
+    scopes:
+      - 'signature'
+      - 'impersonation'
+    token_ref: 'infisical:/ai-employee/[FIRM-SLUG]/e-sign/docusign-oauth-refresh'
+
+  Accounting:
+    adapter: quickbooks
+    backend: build:quickbooks
+    enabled: true
+    scopes:
+      - 'com.intuit.quickbooks.accounting'
+    token_ref: 'infisical:/ai-employee/[FIRM-SLUG]/accounting/quickbooks-oauth-refresh'
+
+# ---- SCOPE ----
+scope:
+  email_folders_visible:
+    - Inbox
+    - Sent
+  email_folders_blind: []
+  email_keyword_blocks: []
+  domain_blocks: []
+
+# ---- ESCALATION ----
+escalation:
+  red_flag_recipients:
+    - '[PRINCIPAL EMAIL]'
+  failure_recipients:
+    - '[PRINCIPAL EMAIL]'
+
+# ---- VOICE LIBRARY ----
+voice_library:
+  samples_path: 'r2://vaults/[FIRM-SLUG]/voice/samples/'
+
+# ---- MEMORY (isolation invariants; must match customer_id) ----
+memory:
+  d1_namespace: '[FIRM-SLUG]'
+  r2_vault_path: 'vaults/[FIRM-SLUG]/'
+  vectorize_index: 'hermes-[FIRM-SLUG]-vault'
