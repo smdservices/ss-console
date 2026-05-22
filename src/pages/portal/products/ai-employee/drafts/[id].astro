@@ -1,0 +1,166 @@
+---
+import '../../../../../styles/global.css'
+import { BRAND_NAME } from '../../../../../lib/config/brand'
+import { resolveAiEmployeeAccess } from '../../../../../lib/portal/ai-employee-access'
+import { getDraft } from '../../../../../lib/portal/ai-employee/drafts'
+import { DEFAULT_UNDO_WINDOW_MS } from '../../../../../lib/portal/ai-employee/send-as'
+import PortalHeader from '../../../../../components/portal/PortalHeader.astro'
+import PortalTabs from '../../../../../components/portal/PortalTabs.astro'
+import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
+import SkipToMain from '../../../../../components/SkipToMain.astro'
+import DraftDetail from '../../../../../components/portal/ai-employee/DraftDetail.astro'
+import { SignOutButton } from '@clerk/astro/components'
+import { env } from 'cloudflare:workers'
+
+/**
+ * AI Employee — Draft detail + Approve & Send (#870).
+ *
+ * URL: portal.smd.services/portal/products/ai-employee/drafts/[id]
+ *
+ * Per ADR 0005 (reviewer-as-sender), this is the on-stage moment of the
+ * beta-1 demo: customer logs in, sees a draft Marcus wrote, clicks
+ * Approve & Send, the message ships under the reviewer's identity. The
+ * page is responsible for:
+ *
+ *   - Resolving the active AI Employee access tuple (entity +
+ *     subscription + role)
+ *   - Fetching the draft from the per-customer Hermes bridge (currently
+ *     null per #821 stub — the page renders not-found honestly)
+ *   - Composing the read surface (DraftDetail) and the action surface
+ *     (ApproveAndSendButton, via DraftDetail)
+ *
+ * Access gate (see resolveAiEmployeeAccess):
+ *   - Clerk session (middleware)
+ *   - Local entity bound to the active Clerk organization
+ *   - Active AI Employee subscription on this customer
+ *   - Caller holds principal OR operator role
+ *
+ * Compliance-only callers are redirected off this surface — they hold
+ * the read-only role and the dedicated audit surface is their primary
+ * view. The send pathway is the principal/operator action.
+ *
+ * Empty state: when `getDraft` returns null (no bridge, or bad id),
+ * the page renders a not-found state mirroring matters/[id].astro —
+ * no fabricated draft, no placeholder body, no synthesized recipient.
+ * The empty-state contract (docs/style/empty-state-pattern.md) is the
+ * design rule for missing authored data.
+ *
+ * Per ADR 0005 §Decision, the undo window is configurable via the
+ * per-customer config (`customer.yaml send.undo_window_seconds`).
+ * That config lives on the Hermes side and surfaces through the
+ * bridge; until the bridge exposes it, the page passes the
+ * `DEFAULT_UNDO_WINDOW_MS` constant from send-as.ts.
+ */
+
+const access = await resolveAiEmployeeAccess(env.DB, Astro.locals, {
+  allowedRoles: ['operator', 'principal'],
+})
+if (access.kind === 'redirect') {
+  return Astro.redirect(access.to)
+}
+const { user, client, subscription, roles } = access
+
+const draftId = Astro.params.id
+if (!draftId || typeof draftId !== 'string') {
+  return Astro.redirect('/portal/products/ai-employee/drafts')
+}
+
+const draft = await getDraft(subscription, draftId)
+
+// Resolve the caller's role for the detail surface. The access gate
+// enforced that one of principal/operator is present; pick the more
+// powerful role when both are held so the surface labels reflect the
+// stronger grant.
+const callerRole: 'principal' | 'operator' = roles.includes('principal') ? 'principal' : 'operator'
+
+// Undo window — pending bridge wiring for the per-customer override.
+// DEFAULT_UNDO_WINDOW_MS is 5_000 per the issue's stated default.
+const undoWindowMs = DEFAULT_UNDO_WINDOW_MS
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+      rel="stylesheet"
+    />
+    <title>
+      AI Employee · {draft ? (draft.subject ?? 'Draft') : 'Draft'} | {BRAND_NAME}
+    </title>
+  </head>
+  <body class="min-h-screen bg-[color:var(--ss-color-background)]">
+    <SkipToMain />
+    <PortalHeader clientName={client.name}>
+      <SignOutButton asChild redirectUrl="/auth/portal-sign-in?status=signed_out">
+        <button
+          type="button"
+          class="inline-flex items-center min-h-11 px-2 -mx-2 text-sm text-[color:var(--ss-color-text-muted)] hover:text-[color:var(--ss-color-text-primary)] active:text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded transition-colors"
+        >
+          Sign out
+        </button>
+      </SignOutButton>
+    </PortalHeader>
+
+    <PortalTabs pathname={Astro.url.pathname} aiEmployeeActive={true} />
+
+    <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
+      {
+        draft === null ? (
+          <Fragment>
+            <PortalPageHead
+              crumbHref="/portal/products/ai-employee/drafts"
+              crumbLabel="Drafts"
+              tag="Draft"
+              h1="Draft not found"
+              meta={null}
+            />
+            <section class="mt-10">
+              <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
+                <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                  This draft is not on file for your firm. Return to the drafts queue to see what
+                  your AI Employee is preparing.
+                </p>
+                <p class="mt-6">
+                  <a
+                    href="/portal/products/ai-employee/drafts"
+                    class="inline-flex items-center gap-2 min-h-11 px-5 py-2 bg-[color:var(--ss-color-primary)] text-[color:var(--ss-color-background)] font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+                  >
+                    Back to drafts
+                  </a>
+                </p>
+              </div>
+            </section>
+          </Fragment>
+        ) : (
+          <Fragment>
+            <PortalPageHead
+              crumbHref="/portal/products/ai-employee/drafts"
+              crumbLabel="Drafts"
+              tag="Draft"
+              h1={draft.subject ?? 'Draft for review'}
+              meta={null}
+            />
+            <div class="mt-8">
+              <DraftDetail
+                draft={draft}
+                callerRole={callerRole}
+                reviewerEmail={user.email}
+                reviewerDisplayName={user.name && user.name !== user.email ? user.name : null}
+                undoWindowMs={undoWindowMs}
+              />
+            </div>
+          </Fragment>
+        )
+      }
+    </main>
+  </body>
+</html>
