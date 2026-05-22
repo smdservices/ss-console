@@ -1,0 +1,91 @@
+---
+/**
+ * Bell-icon affordance for the AI Employee notification surface.
+ *
+ * Renders a single anchor that links to
+ * /portal/products/ai-employee/notifications with an optional unread
+ * count badge in the corner. Static — no popover, no client-side
+ * fetch. The expanded panel (NotificationPanel.astro) is a separate
+ * surface composed by the consuming page when it wants the dropdown
+ * style; the bell itself is just a link.
+ *
+ * Per the issue's AC ("Bell icon in header with unread count") this
+ * component is the building block. The actual header integration is
+ * a follow-on task because the shared PortalHeader.astro is out of
+ * file scope for #876 — for this PR the bell lives at the top of the
+ * dedicated /notifications page so the AC is partially testable
+ * end-to-end (component exists, badge renders, link target resolves).
+ *
+ * Accessibility:
+ *   - The anchor carries an aria-label that includes the unread
+ *     count so a screen reader announces "Notifications, 3 unread"
+ *     instead of just "Notifications" with a number floating nearby.
+ *   - The badge is aria-hidden because the count is already in the
+ *     anchor's accessible name.
+ *   - Min 44x44 tap target per WCAG 2.2 (matches the rest of the
+ *     portal's interactive primitives).
+ *
+ * Plainspoken aesthetic: an outlined ink square frame holding the
+ * Material Symbols `notifications` glyph. Active state (unread > 0)
+ * fills the badge with the action color. Empty state (unread === 0)
+ * still renders the bell but suppresses the badge — the affordance
+ * stays discoverable even with no pending work.
+ */
+
+interface Props {
+  /**
+   * Number of unread notifications to show in the badge. 0 hides the
+   * badge entirely. Counts above 99 collapse to "99+" to keep the
+   * badge layout stable.
+   */
+  unreadCount: number
+  /**
+   * Optional href override. Defaults to the notifications list page.
+   * Exists so the future header integration (out of scope here) can
+   * point the bell at a different surface (e.g. an inline dropdown)
+   * without forking the component.
+   */
+  href?: string
+  /**
+   * Extra class hook for the container — lets the caller adjust
+   * spacing inside its own chrome without leaking layout concerns
+   * into this component.
+   */
+  class?: string
+}
+
+const {
+  unreadCount,
+  href = '/portal/products/ai-employee/notifications',
+  class: klass = '',
+} = Astro.props
+
+const safeCount = Number.isFinite(unreadCount) && unreadCount > 0 ? Math.floor(unreadCount) : 0
+const displayCount = safeCount > 99 ? '99+' : String(safeCount)
+const accessibleLabel =
+  safeCount === 0 ? 'Notifications, none unread' : `Notifications, ${safeCount} unread`
+---
+
+<a
+  href={href}
+  aria-label={accessibleLabel}
+  class={`relative inline-flex items-center justify-center min-h-11 min-w-11 px-2 border-[2px] border-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-colors ${klass}`}
+>
+  <span
+    class="material-symbols-outlined text-[24px] leading-none"
+    aria-hidden="true"
+    style="font-variation-settings: 'FILL' 0, 'wght' 500;"
+  >
+    notifications
+  </span>
+  {
+    safeCount > 0 && (
+      <span
+        aria-hidden="true"
+        class="absolute -top-2 -right-2 min-w-[20px] h-[20px] px-1 inline-flex items-center justify-center bg-[color:var(--ss-color-action)] text-[color:var(--ss-color-primary)] font-mono text-[11px] font-bold leading-none rounded-full border-[2px] border-[color:var(--ss-color-surface)]"
+      >
+        {displayCount}
+      </span>
+    )
+  }
+</a>
