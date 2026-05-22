@@ -35,6 +35,7 @@ Build agents consuming these specs should treat the PRDs as **vision/doctrine** 
 | [aie-adapter-register.md](aie-adapter-register.md)             | [#841](https://github.com/venturecrane/ss-console/issues/841) | Adapter-side hook surface for the SMD overlay on Hermes; pre/post/refusal/compaction hooks               |
 | [audit-emit-points.md](audit-emit-points.md)                   | [#842](https://github.com/venturecrane/ss-console/issues/842) | Per-tool registry, BANNED set, latency timer, scope-aware metadata for the post-tool audit emission      |
 | [no-pm-system-mode.md](no-pm-system-mode.md)                   | [#853](https://github.com/venturecrane/ss-console/issues/853) | Customer.yaml + capability bindings for customers without an external practice-management vendor         |
+| [backup-operator-training.md](backup-operator-training.md)     | [#888](https://github.com/venturecrane/ss-console/issues/888) | Training gates a backup operator must satisfy before being trusted as primary; bus-factor minimum gate   |
 
 ## Open ambiguities requiring Captain decision
 
