@@ -48,7 +48,7 @@ Rollup is one row per `(date, driver)` per customer. Insertion is UPSERT — mul
 | `third_party_api_lawpay`        | LawPay billing API (if cost model includes per-call fees)                                   | Daily nightly                     | `api_calls`       |
 | `third_party_api_docusign`      | DocuSign billing                                                                            | Daily nightly                     | `envelopes`       |
 | `third_party_api_courtlistener` | CourtListener (free tier; logged as units only)                                             | Daily nightly                     | `api_calls`       |
-| `captain_minutes`               | Captain logs manually via `bin/captain-time.sh <slug> <minutes> "<reason>"`                 | On-demand by Captain              | `captain_minutes` |
+| `captain_time`                  | Captain logs via `crane ai-employee log-time` CLI (platform-prd.md §15.2)                   | On-demand by Captain              | `captain_minutes` |
 
 ### Per-call emission (Claude API)
 
@@ -99,11 +99,53 @@ Failures (single source fails): log to Captain alerting; do NOT block other sour
 
 ### Captain time logging
 
-```bash
-bin/captain-time.sh <customer-slug> <minutes> "<reason>"
+Captain operations time is event-sourced, not rollup-keyed. Every invocation of the Captain CLI writes one row to the per-customer `captain_time_events` table (per d1-schema.md) and emits one matching summary row into `cost_telemetry` for the same date so the §17.1 COGS/MRR computation reads from a single rollup view.
+
+**Canonical CLI** (full command spec at platform-prd.md §15.2):
+
+```
+crane ai-employee log-time --customer {slug} --minutes {N} --activity {tag} [--note "{text}"] [--date YYYY-MM-DD]
 ```
 
-Writes one row: `date=today, driver=captain_minutes, amount_cents=minutes*200*100/60, units=minutes, unit_type=captain_minutes` (assumes $200/hr Captain rate; rate configurable in `bin/captain-time.sh`).
+**Activity tags** form a closed v1 enum. The CLI rejects any tag not in the list. See platform-prd.md §15.2 for the full taxonomy. Freeform strings are explicitly out of scope; new tags require a PR.
+
+**Per-event write (captain_time_events table):**
+
+```sql
+INSERT INTO captain_time_events
+  (id, ts, date, activity, minutes, amount_cents, note)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+```
+
+where:
+
+- `id` is a ULID
+- `ts` is the wall-clock ISO 8601 UTC of the CLI invocation
+- `date` is the `--date` value (defaults to today UTC)
+- `activity` is the validated activity tag
+- `minutes` is the `--minutes` value
+- `amount_cents` is `(minutes * 200 * 100) / 60` computed at write time using the $200/hr Captain rate
+- `note` is the optional free-text context (max 280 chars)
+
+**Daily rollup into cost_telemetry:**
+
+After each event insert, the CLI UPSERTs the day's `captain_time` summary row using the same `ON CONFLICT (date, driver) DO UPDATE SET amount_cents = amount_cents + excluded.amount_cents, units = units + excluded.units` pattern used for token events:
+
+```sql
+INSERT INTO cost_telemetry (date, driver, amount_cents, units, unit_type)
+VALUES (?, 'captain_time', ?, ?, 'captain_minutes')
+ON CONFLICT (date, driver) DO UPDATE
+  SET amount_cents = amount_cents + excluded.amount_cents,
+      units = units + excluded.units;
+```
+
+The rollup row is what §17.1 COGS/MRR computation reads. Per-event detail (activity attribution, notes) lives in `captain_time_events` for Captain-only audit and per-activity cost reporting.
+
+**Loaded-cost rate.** The $200/hr loaded rate matches platform-prd.md §15.1 and CLAUDE.md. The CLI never accepts a dollar amount from the user; the rate constant is defined once in the CLI source so a rate change requires a code change, not a flag override.
+
+**Audit log row.** Each successful CLI invocation also writes one `audit_log` row with `action_type: CAPTAIN_TIME_LOGGED`, `actor: captain`, and a metadata JSON containing `{activity, minutes, amount_cents, date, event_id}`. This surfaces the time log in the Captain dashboard alongside other administrative events.
+
+**Idempotency.** None, by design. Re-running the same command writes a second row in both `captain_time_events` and accumulates in `cost_telemetry`. This is intentional: Captain may log two distinct 15-minute calibration sessions on the same day for the same customer and both must persist. Correcting a mis-logged entry is a follow-on operation (`crane ai-employee log-time --reverse` is a Phase 4 follow-on, not in scope here).
 
 ### Per-customer rollup view
 
@@ -137,7 +179,8 @@ Alert fires when `ratio > 0.40` for two consecutive months. Audit event `COGS_RA
 - **Fly/Cloudflare metering API rate-limited**: nightly job retries with exponential backoff (1m/5m/15m); skips after 3 fails; Captain alerted.
 - **Composio API down for >24h**: composio row stays zero for those days; data backfills when API recovers (composio returns historical usage in their API per their docs).
 - **Pricing changes mid-month**: cost_telemetry stores `amount_cents` computed at emission time using the pricing in effect then. No retroactive recomputation. Per PRD §15.1 the pricing-strategy doc explicitly covers month-of-change recomputation.
-- **Captain forgets to log time**: row stays empty. Weekly automated reminder via Slack DM to Captain summarizing untagged Captain hours.
+- **Captain forgets to log time**: `captain_time_events` rows stay missing and the `cost_telemetry` rollup understates true COGS. Weekly automated reminder via Slack DM to Captain summarizing untagged Captain hours. The CLI accepts `--date` up to 7 days in the past so backfilling missed days is a single command per day.
+- **CLI rejects an invalid activity tag**: Captain has typed a freeform string that is not in the closed v1 taxonomy. Resolution: pick the nearest valid tag, or open a PR to platform-prd.md §15.2 extending the enum. The row is not written.
 
 ## Verification
 
@@ -152,7 +195,7 @@ Alert fires when `ratio > 0.40` for two consecutive months. Audit event `COGS_RA
 - Wrap every Anthropic call via `anthropic_client.py` rather than skill code touching the raw SDK; CI grep blocks direct SDK imports outside this wrapper.
 - Nightly Worker: `infra/workers/cost-telemetry/worker.ts`; cron `0 2 * * *` UTC; lives in main repo so it ships with platform code.
 - Captain dashboard view: `src/pages/admin/ai-employee/cost/[customer].astro` reads from per-customer D1.
-- Captain time helper: `bin/captain-time.sh` (bash, calls D1 via wrangler).
+- Captain time helper: `crane ai-employee log-time` CLI subcommand. Full command spec at platform-prd.md §15.2; per-event D1 schema at d1-schema.md `captain_time_events`. The CLI writes both the per-event row and the `cost_telemetry` daily rollup in a single transaction.
 - Cross-references:
   - d1-schema.md (cost_telemetry table)
   - decommission-drain.md (final cost_telemetry export before D1 deletion)
