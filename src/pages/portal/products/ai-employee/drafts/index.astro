@@ -2,10 +2,17 @@
 import '../../../../../styles/global.css'
 import { BRAND_NAME } from '../../../../../lib/config/brand'
 import { resolveAiEmployeeAccess } from '../../../../../lib/portal/ai-employee-access'
+import {
+  distinctSkills,
+  listDraftsForCustomer,
+  parseDraftListParams,
+} from '../../../../../lib/portal/ai-employee/drafts'
 import PortalHeader from '../../../../../components/portal/PortalHeader.astro'
 import PortalTabs from '../../../../../components/portal/PortalTabs.astro'
 import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
 import SkipToMain from '../../../../../components/SkipToMain.astro'
+import FilterBar from '../../../../../components/portal/ai-employee/FilterBar.astro'
+import DraftsListTable from '../../../../../components/portal/ai-employee/DraftsListTable.astro'
 import { SignOutButton } from '@clerk/astro/components'
 import { env } from 'cloudflare:workers'
 
@@ -22,9 +29,14 @@ import { env } from 'cloudflare:workers'
  * Data source lives on the per-customer Hermes Machine D1 (ADR 0007 +
  * 0009). The portal Worker cannot bind directly to a per-customer D1;
  * the read path is pending Hermes runtime wiring (#821). Until that
- * lands, this surface renders the empty state per
- * docs/style/empty-state-pattern.md — no fabricated drafts, no fake
+ * lands, listDraftsForCustomer returns an empty list with the correct
+ * typed shape — the page renders the empty state per
+ * docs/style/empty-state-pattern.md, no fabricated drafts, no fake
  * counts, no "coming soon" copy.
+ *
+ * Filter / sort / pagination machinery is wired today so the
+ * URL contract is stable when the bridge lands. See
+ * src/lib/portal/ai-employee/drafts.ts.
  *
  * Access gate (see resolveAiEmployeeAccess):
  *   - Clerk session (middleware)
@@ -42,7 +54,18 @@ const access = await resolveAiEmployeeAccess(env.DB, Astro.locals, {
 if (access.kind === 'redirect') {
   return Astro.redirect(access.to)
 }
-const { client } = access
+const { client, subscription } = access
+
+const params = parseDraftListParams(Astro.url.searchParams)
+const draftsPage = await listDraftsForCustomer(subscription, params)
+
+// Filter chrome stays visible even when no drafts exist so reviewers
+// see the queue's shape (and to make the empty state read as the
+// state of a real, wired surface — not a "not built yet" page).
+// availableSkills is derived from the current page of drafts; once
+// the Hermes bridge lands it will return the customer-wide skill set
+// from a small summary endpoint. Empty list today is honest.
+const availableSkills = distinctSkills(draftsPage.rows)
 ---
 
 <!doctype html>
@@ -83,25 +106,43 @@ const { client } = access
         crumbLabel="AI Employee"
         tag="Section"
         h1="Drafts"
-        meta={null}
+        meta={draftsPage.totalCount > 0 ? `${draftsPage.totalCount} total` : null}
       />
 
-      <section class="mt-10">
-        <div
-          class="border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center"
-        >
-          <p
-            class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-          >
-            No drafts yet
-          </p>
-          <p
-            class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]"
-          >
-            Drafts your AI Employee prepares land here for review before any message goes out.
-          </p>
-        </div>
-      </section>
+      <div class="mt-8 flex flex-col gap-6">
+        <FilterBar
+          skills={params.skills}
+          recipient={params.recipient}
+          maxAgeHours={params.maxAgeHours}
+          sort={params.sort}
+          availableSkills={availableSkills}
+        />
+
+        {
+          draftsPage.totalCount === 0 ? (
+            <section
+              aria-label="No drafts"
+              class="border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center"
+            >
+              <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+                No drafts yet
+              </p>
+              <p class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                Drafts your AI Employee prepares land here for review before any message goes out.
+              </p>
+            </section>
+          ) : (
+            <DraftsListTable
+              rows={draftsPage.rows}
+              totalCount={draftsPage.totalCount}
+              page={draftsPage.page}
+              pageSize={draftsPage.pageSize}
+              pageCount={draftsPage.pageCount}
+              searchParams={Astro.url.searchParams}
+            />
+          )
+        }
+      </div>
     </main>
   </body>
 </html>
