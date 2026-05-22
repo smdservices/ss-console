@@ -42,7 +42,8 @@ CREATE INDEX idx_audit_actor ON audit_log(actor, ts);
 -- RBAC_EVENT, COMPLIANCE_PACKET_EXPORTED,
 -- VOICE_GATE_PASSED, VOICE_GATE_NEAR_PASS, VOICE_GATE_FAILED,
 -- FABRICATION_FILTER_TRIGGERED, ESCALATION_FIRED, ESCALATION_ACKNOWLEDGED,
--- DECOMMISSION_INITIATED, DECOMMISSION_DRAIN_COMPLETE, DECOMMISSION_FINAL
+-- DECOMMISSION_INITIATED, DECOMMISSION_DRAIN_COMPLETE, DECOMMISSION_FINAL,
+-- CAPTAIN_TIME_LOGGED
 
 -- 2. Memory rules (hard rules; customer-defined)
 CREATE TABLE memory_rules (
@@ -113,6 +114,27 @@ CREATE TABLE cost_telemetry (
   unit_type     TEXT,
   PRIMARY KEY (date, driver)
 );
+
+-- 6a. Captain time events (event-sourced; rolls up into cost_telemetry per cost-telemetry-events.md)
+-- Captain operations time is the one cost driver that is not auto-instrumented from a vendor API.
+-- It is logged via the `crane ai-employee log-time` CLI (platform-prd.md §15.2). Multiple events
+-- per day per activity are expected (Captain may log two distinct calibration sessions in one
+-- day); the table is intentionally not UPSERT-keyed.
+CREATE TABLE captain_time_events (
+  id            TEXT PRIMARY KEY,           -- ULID
+  ts            TEXT NOT NULL,              -- ISO 8601 UTC of CLI invocation
+  date          TEXT NOT NULL,              -- YYYY-MM-DD; --date flag, defaults to today UTC
+  activity      TEXT NOT NULL,              -- enum from platform-prd.md §15.2 activity-tag taxonomy
+  minutes       INTEGER NOT NULL,           -- > 0 and ≤ 600
+  amount_cents  INTEGER NOT NULL,           -- (minutes * 200 * 100) / 60 at $200/hr Captain rate
+  note          TEXT                        -- optional free text, ≤ 280 chars
+);
+CREATE INDEX idx_captain_time_date ON captain_time_events(date);
+CREATE INDEX idx_captain_time_activity ON captain_time_events(activity, date);
+
+-- Each captain_time_events INSERT is paired with an UPSERT into cost_telemetry for the same
+-- (date, 'captain_time') key so the §17.1 COGS/MRR rollup reads from a single view. See
+-- cost-telemetry-events.md "Captain time logging" for the exact SQL.
 
 -- 7. Invariant boot-check log
 CREATE TABLE invariant_boot_checks (
