@@ -25,6 +25,7 @@ Build agents consuming these specs should treat the PRDs as **vision/doctrine** 
 | [compliance-evidence-packet.md](compliance-evidence-packet.md) | [#802](https://github.com/venturecrane/ss-console/issues/802) | Susan-readable compliance packet contents                                                                |
 | [day-1-onboarding.md](day-1-onboarding.md)                     | [#803](https://github.com/venturecrane/ss-console/issues/803) | First-hour dashboard walkthrough screens                                                                 |
 | [cost-telemetry-events.md](cost-telemetry-events.md)           | [#804](https://github.com/venturecrane/ss-console/issues/804) | Per-customer cost emission for all 9+ drivers                                                            |
+| [cost-attribution-rollup.md](cost-attribution-rollup.md)       | [#884](https://github.com/venturecrane/ss-console/issues/884) | Per-customer monthly rollup over cost_telemetry; nine category buckets; §17.1 COGS/MRR ratio computation |
 | [decommission-drain.md](decommission-drain.md)                 | [#805](https://github.com/venturecrane/ss-console/issues/805) | 60s drain window before substrate deletion                                                               |
 | [decommission-customer.md](decommission-customer.md)           | [#820](https://github.com/venturecrane/ss-console/issues/820) | Full per-customer off-boarding pipeline; 9 idempotent steps                                              |
 | [sticky-stop.md](sticky-stop.md)                               | [#843](https://github.com/venturecrane/ss-console/issues/843) | System-initiated circuit breaker for runaway agent loops (WARN/SOFT/HARD)                                |
@@ -82,6 +83,10 @@ mobile-approval-flow ─► fabrication-filter    (flag banner rendering)
 
 cost-telemetry       ─► d1-schema             (cost_telemetry table)
 cost-telemetry       ─► decommission-drain    (final rollup before D1 delete)
+
+cost-attribution-rollup ─► cost-telemetry-events (row source the rollup reads)
+cost-attribution-rollup ─► d1-schema             (cost_telemetry + captain_time_events)
+cost-attribution-rollup ─► decommission-drain    (final cost export before D1 delete)
 
 decommission-drain   ─► compliance-evidence-packet (final export contents)
 decommission-drain   ─► r2-vectorize-naming   (retention bucket)
