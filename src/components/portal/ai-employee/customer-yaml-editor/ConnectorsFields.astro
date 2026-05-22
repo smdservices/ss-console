@@ -1,0 +1,75 @@
+---
+/**
+ * ConnectorsFields — form section for the connectors map.
+ *
+ * Connectors bind capabilities (PracticeManagement, Email, Calendar, ...)
+ * to adapters (filevine, microsoft-graph, docusign, ...). The
+ * customer-side may toggle the `enabled` flag, edit `adapter` and
+ * `backend` slug choices, and adjust scopes.
+ *
+ * The `token_ref` field is LOCKED — Captain provisions OAuth refs
+ * through Infisical and they NEVER appear as editable input on this
+ * surface (per the issue's locked-field list and the secret-exclusion
+ * enforcement in docs/specs/ai-employee/customer-yaml-schema.md). The
+ * current token_ref values are displayed via the Captain-managed chip
+ * for visibility only.
+ *
+ * Connectors cannot be added or removed from this surface; the set is
+ * defined in customer.yaml at provisioning time and changes only via
+ * git commit. Per-connector rendering lives in ConnectorRow.astro.
+ */
+
+import type {
+  EditableConnector,
+  LockedFieldsView,
+} from '../../../../lib/portal/ai-employee/customer-yaml-editor'
+import type { ValidationError } from '../../../../lib/ai-employee/customer-yaml'
+import ConnectorRow from './ConnectorRow.astro'
+
+interface Props {
+  connectors: Record<string, EditableConnector>
+  tokenRefs: LockedFieldsView['connector_token_refs']
+  errors: ValidationError[]
+}
+
+const { connectors, tokenRefs, errors } = Astro.props
+const entries = Object.entries(connectors)
+---
+
+<section class="mt-12">
+  <header class="border-b-[2px] border-[color:var(--ss-color-text-primary)] pb-3 mb-6">
+    <p
+      class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]"
+    >
+      § 04
+    </p>
+    <h2
+      class="mt-1 font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+    >
+      Connectors
+    </h2>
+    <p class="mt-2 text-sm text-[color:var(--ss-color-text-secondary)]">
+      Capability-to-adapter bindings. OAuth references are Captain-managed and shown for visibility
+      only.
+    </p>
+  </header>
+
+  {
+    entries.length === 0 ? (
+      <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+        No connectors configured. Contact Captain.
+      </p>
+    ) : (
+      <div class="space-y-6">
+        {entries.map(([capability, connector]) => (
+          <ConnectorRow
+            capability={capability}
+            connector={connector}
+            tokenRef={tokenRefs[capability] ?? null}
+            errors={errors}
+          />
+        ))}
+      </div>
+    )
+  }
+</section>
