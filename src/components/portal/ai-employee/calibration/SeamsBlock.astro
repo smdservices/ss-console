@@ -1,0 +1,68 @@
+---
+/**
+ * Seams documentation block for the AI Employee calibration surface.
+ *
+ * Read-only block naming the three integration seams between
+ * calibration findings and the downstream substrate:
+ *
+ *   1. Voice corrections    → voice ingestion
+ *   2. Rule additions       → memory rules
+ *   3. Approvals            → trust-ceiling logging
+ *
+ * Per the issue acceptance criteria and the spec at
+ * `docs/specs/ai-employee/calibration-session.md`, the seams are
+ * documented on the portal so the principal sees what each session
+ * connects to. The actual data-capture mechanics depend on issue
+ * #821 (Hermes runtime scoping); until that ships, this block is the
+ * contract that downstream work hangs off.
+ *
+ * No fabricated runtime state. The block describes the seam, not the
+ * volume of data flowing through it. Volume is a downstream concern
+ * that lands when the writers wire up.
+ */
+
+interface Seam {
+  label: string
+  description: string
+}
+
+const SEAMS: Seam[] = [
+  {
+    label: 'Voice corrections to voice ingestion',
+    description:
+      'Edits the partner makes during session 1 feed the voice ingestion pipeline. Structural-diffs land in R2 per the voice-ingestion spec.',
+  },
+  {
+    label: 'Rule additions to memory rules',
+    description:
+      'Rules the partner states during session 2 are written to the memory rule writer. New rules appear in the memory tab on the next render.',
+  },
+  {
+    label: 'Approvals to trust-ceiling logging',
+    description:
+      'Ceiling changes the principal makes in session 3 write one row per change to the audit log via the log_decision emission contract.',
+  },
+]
+---
+
+<section class="mt-section">
+  <p
+    class="mb-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+  >
+    What each session connects to
+  </p>
+  <div
+    class="grid grid-cols-1 gap-px bg-[color:var(--ss-color-text-primary)] border-[3px] border-[color:var(--ss-color-text-primary)]"
+  >
+    {
+      SEAMS.map((seam) => (
+        <article class="bg-[color:var(--ss-color-background)] p-6 md:p-8">
+          <h3 class="font-['Archivo'] text-base md:text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
+            {seam.label}
+          </h3>
+          <p class="mt-2 text-sm text-[color:var(--ss-color-text-secondary)]">{seam.description}</p>
+        </article>
+      ))
+    }
+  </div>
+</section>
