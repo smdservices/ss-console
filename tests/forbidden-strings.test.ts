@@ -365,6 +365,16 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // (calendar, audit list view) shares the row shape, at which point
   // MatterRow is promoted into PortalListItem as a third variant.
   resolve('src/pages/portal/products/ai-employee/matters/index.astro'),
+  // `products/ai-employee/calendar/index.astro` is the AI Employee
+  // calendar agenda (#872). It renders list rows through the
+  // dedicated <CalendarItemRow> primitive (mirrors DraftRow's
+  // justification — the six-cell calendar vocabulary, time-range /
+  // title / type / source / matter / conflict, does not fit
+  // PortalListItem's status or document variants). The .map( hits on
+  // this page render the filter form's type checkboxes and sort
+  // <option>s, not list rows. The agenda itself is rendered through
+  // <CalendarAgenda>, which iterates via <CalendarItemRow>.
+  resolve('src/pages/portal/products/ai-employee/calendar/index.astro'),
 ]
 
 /** Collect every `index.astro` under `src/pages/portal/` EXCEPT the home. */
