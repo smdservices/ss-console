@@ -2,7 +2,7 @@
 
 **Status:** Draft (issue #856). Sibling pipeline to memory ingestion (issue #860).
 **Code:** `ai-employee/adapter/voice/`
-**Migration:** `ai-employee/migrations/0004_voice_ingestion.sql`
+**Migration:** `ai-employee/migrations/0005_voice_ingestion.sql`
 
 ---
 

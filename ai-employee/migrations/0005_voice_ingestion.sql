@@ -120,4 +120,4 @@ CREATE UNIQUE INDEX idx_voice_items_dedupe
 
 -- ---------- Schema version ----------
 -- 0001 set 1, 0002 set 2, 0003 set 3; this is migration 4.
-PRAGMA user_version = 4;
+PRAGMA user_version = 5;
