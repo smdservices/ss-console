@@ -1,0 +1,39 @@
+---
+/**
+ * Facts section of a matter detail page. Renders the AI Employee's
+ * statement-of-facts text for the matter inside the standard
+ * Plainspoken bordered container. When facts have not yet been
+ * captured (the AI Employee has not synthesized them, or this matter
+ * predates the facts feature), the section renders the empty state
+ * prose per docs/style/empty-state-pattern.md — no placeholder facts,
+ * no "TBD in SOW" marker (this is not a contracted field).
+ */
+
+interface Props {
+  facts: string | null
+}
+
+const { facts } = Astro.props
+---
+
+<section aria-labelledby="matter-facts-heading" class="mt-section">
+  <h2
+    id="matter-facts-heading"
+    class="font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0"
+  >
+    Facts
+  </h2>
+  <div class="mt-stack border-[3px] border-[color:var(--ss-color-text-primary)] p-card">
+    {
+      facts ? (
+        <p class="text-body text-[color:var(--ss-color-text-primary)] whitespace-pre-line m-0">
+          {facts}
+        </p>
+      ) : (
+        <p class="text-caption text-[color:var(--ss-color-text-muted)] m-0">
+          Facts are recorded here as your AI Employee gathers them from communications and intake.
+        </p>
+      )
+    }
+  </div>
+</section>
