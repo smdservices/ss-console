@@ -865,6 +865,95 @@ The platform's compliance posture for regulated verticals (law, healthcare, etc.
 - The product enforces what the rules require (closed-loop, mandatory review, audit trail)
 - This frame is the demo's compliance moment — see §16.4
 
+### 13.6 Compliance evidence packet structure
+
+The packet is the artifact that closes the loop on §13.1's three architectural controls. The customer (or their outside counsel, ethics counsel, or auditor) can request it on demand; the `compliance-audit-export` skill (§8.2) generates it; Captain countersigns; the result is a zip delivered within the §17.1 audit-log-request SLA.
+
+The full content contract lives at `docs/specs/ai-employee/compliance-evidence-packet.md`. This subsection documents the PRD-level shape: what's in the packet, the design constraint, the redaction rules, and the cross-references that downstream skills and templates must honor.
+
+**Design constraint (UX Lead).** The packet must be readable end-to-end by outside counsel who is not technical. The first document is a plain-language README; the second is an auto-rendered Susan-readable summary PDF; the rest are the underlying technical evidence in case a specific claim needs verification. A non-technical attorney must be able to confirm what the agent did, what it never did, and what controls made that true, without reading source code or D1 schemas.
+
+**Packet contents.** Each artifact corresponds to a specific compliance claim:
+
+| Artifact                           | Proves                                                                               |
+| ---------------------------------- | ------------------------------------------------------------------------------------ |
+| `00-README.md`                     | The plain-language first page (template below)                                       |
+| `01-summary.pdf`                   | Auto-rendered narrative: what the agent did, learned, never did, and was bounded by  |
+| `02-architecture-controls.md`      | The three controls from §13.1 verified for this period                               |
+| `03-audit-log.csv`                 | Structured audit_log dump (full retention period the customer paid for)              |
+| `04-audit-log-human.md`            | Same data, grouped by week then category, narrated for non-technical readers         |
+| `05-customer-yaml.redacted.yml`    | The customer.yaml with secrets stripped per the redaction rules below                |
+| `06-memory-snapshot.json`          | Memory rules + person-mappings + voice-samples metadata (the "what the agent knows") |
+| `07-skill-catalog.json`            | Skill versions pinned with content hashes for this customer                          |
+| `08-engagement-letter-clauses/`    | Per-state AI-disclosure clause inventory (PA, Utah, customer home state)             |
+| `09-boot-checks.csv`               | Safety-substrate boot logs: all 8 invariants (§7.5) verified per Machine boot        |
+| `10-dpa.pdf`                       | Signed Data Processing Addendum                                                      |
+| `11-baa.pdf`                       | Signed BAA where applicable                                                          |
+| `12-decommission-confirmation.pdf` | Captain-signed deletion confirmation (post-decommission packets only)                |
+| `manifest.json`                    | Generation date + Captain signature over all file hashes                             |
+
+**Plain-language first-page summary template (00-README.md).** The README is a "for the non-technical reader" preface. It states what the package is, who generated it, what period it covers, what it proves (five numbered claims tied to the architectural controls), and a contact for follow-up questions. No jargon, no D1 schema references, no skill-internal language. The full template lives in the content spec.
+
+**Audit log human-readable format (04-audit-log-human.md).** Events grouped by week, then by category (drafts / memory / trust / connectors / invariants / escalations). Each group has a count + a small sample of representative entries narrated in prose. Generated from a markdown template using the CSV in `03-audit-log.csv`. Captain may amend before delivery. The CSV columns are: `id, ts, action_type, actor, actor_role, skill_name, matter_ref, input_digest, output_digest, diff_digest, trust_ceiling, metadata`. Digests are content addresses; substantive content stays out of the packet by default. Auditors who need a specific underlying object request it separately.
+
+**Customer.yaml redaction rules.** Every top-level customer.yaml field is labeled VISIBLE or REDACTED in the exported `05-customer-yaml.redacted.yml`. Secrets are always REDACTED. The fields that prove the agent's bounded scope (personas, business hours, escalation policy, skills enabled, trust ceilings, the scope envelope) are VISIBLE. The customer.yaml schema authority is `docs/specs/ai-employee/customer-yaml-schema.md`.
+
+| Field path                                                | Disposition | Note                                                                                               |
+| --------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------- |
+| `schema_version`                                          | VISIBLE     |                                                                                                    |
+| `customer_id`, `customer_name`, `vertical`                | VISIBLE     |                                                                                                    |
+| `practice_areas`, `fly_region`                            | VISIBLE     |                                                                                                    |
+| `model`, `hermes_ref`, `machine`                          | VISIBLE     | Stack pin transparency per §7.8                                                                    |
+| `users[]` (email, role, full_name)                        | VISIBLE     | Who had portal access; the same people named in the audit log                                      |
+| `personas[]` (slug, name, title, tone, pronouns)          | VISIBLE     | The agent's identity surface                                                                       |
+| `personas[].signature_html`, `avatar_url`                 | VISIBLE     |                                                                                                    |
+| `personas[].send_as.agentmail_identity`                   | VISIBLE     | The actual sender identity (provable from message headers)                                         |
+| `personas[].skills[]`                                     | VISIBLE     | Skill bindings, trust ceilings, scope tags                                                         |
+| `connectors[].adapter`, `backend`, `enabled`              | VISIBLE     | Which integrations were wired                                                                      |
+| `connectors[].scopes`                                     | REDACTED    | Replaced by count: `<N scopes redacted>` (specific OAuth scope strings can leak adapter internals) |
+| `connectors[].token_ref`                                  | REDACTED    | Infisical references; always REDACTED                                                              |
+| `scope.email_folders_visible`                             | VISIBLE     | Per §13.1 closed-loop posture: proving what the agent was allowed to read                          |
+| `scope.email_folders_blind`                               | VISIBLE     |                                                                                                    |
+| `scope.email_keyword_blocks`                              | VISIBLE     |                                                                                                    |
+| `scope.domain_blocks`                                     | VISIBLE     |                                                                                                    |
+| `scope.matter_blocks`                                     | VISIBLE     |                                                                                                    |
+| `escalation.acknowledgement_window_minutes`               | VISIBLE     |                                                                                                    |
+| `escalation.red_flag_recipients[]`                        | REDACTED    | Replaced by domain: `<redacted>@firm.example.com`                                                  |
+| `escalation.failure_recipients[]`                         | REDACTED    | Same                                                                                               |
+| `voice_library.samples_path`                              | VISIBLE     | The R2 path is structural, not substantive                                                         |
+| `business_hours`                                          | VISIBLE     |                                                                                                    |
+| `memory.d1_namespace`, `r2_vault_path`, `vectorize_index` | VISIBLE     | Proves isolation invariant (§7.5 invariant #7)                                                     |
+| `logging`                                                 | VISIBLE     |                                                                                                    |
+| `pause.active`, `pause.reason`                            | VISIBLE     | If the agent was paused, that fact is part of the compliance story                                 |
+
+Any literal secret value (any `*_token`, `*_password`, `*_key` field) is forbidden in customer.yaml at the source per `customer-yaml-schema.md` §Secret-exclusion. The pre-export validator re-runs the secret-detector pass against the redacted output as a defense-in-depth check; if it matches, the export aborts.
+
+**Per-state engagement-letter clause inventory.** `08-engagement-letter-clauses/` contains one markdown file per applicable state. The verticals that require disclosure clauses in engagement letters declare their state list in the vertical PRD. For law-firm (§11.6 of law-firm-prd.md), the v1 set is:
+
+| State               | Authority                                            | Clause references                                                                |
+| ------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Pennsylvania        | Pennsylvania Bar Association Formal Opinion 2024-200 | Disclosure of AI use; supervisory duty under PA Rule of Professional Conduct 5.3 |
+| Utah                | Utah Supreme Court Standing Order on Generative AI   | Express client disclosure; required language varies by matter type               |
+| Customer home state | Per the customer's bar / state regulator             | If the home state issued formal guidance, the clause file documents it           |
+
+The PRD spec lists the state and the clause-reference structure (authority + matter scope). The full clause text is sourced from each state's bar opinion and the customer's outside ethics counsel reviews actual engagement-letter language at intake; the platform does not generate state bar opinions.
+
+**Memory snapshot scope (06-memory-snapshot.json).** Memory portability follows [ADR 0008](../../adr/0008-customer-owned-memory-artifact.md): the customer-owned-memory-artifact decision establishes that the snapshot is the customer's artifact, exportable in a structured form that a successor product could read. The compliance packet's snapshot is a read-time view: `memory_rules` (rule content visible because rules are customer-curated), `person_mappings` (names and roles visible; external IDs redacted), `voice_samples` metadata only (sample content withheld by default, available on separate signed export per the content spec), and `recipient_cohorts` rows.
+
+**Skill catalog (07-skill-catalog.json).** For each skill enabled during the period: skill name, content hash (the pinned version per §7.4 and §8.4), activated_at, trust_ceiling at end of period, run_count over the period, and a citation to the SKILL.md content (commit SHA + path) so a reader can read the rules the agent operated under.
+
+**Boot checks (09-boot-checks.csv).** Full `invariant_boot_checks` dump for the period. Every Machine boot during the period is present. Each row records the boot timestamp, the invariant number (1-8 per §7.5), pass/fail, and failure detail. Zero failure rows is the happy path. A failure row is a compliance event: the audit log will show what happened next (the safety substrate's hard halt per invariant #2).
+
+**Generation metadata and Captain signature (manifest.json).** The manifest lists every file's sha256 hash and includes a Captain-signed detached signature over the hash set. The signature is Captain's responsibility, not the agent's: a customer's compliance evidence packet is a Captain-issued attestation. Captain reviews the auto-rendered summary PDF and the narrated audit log before delivery; an unsigned packet is marked clearly in the manifest and is not a substitute for the signed version.
+
+**Cross-references.**
+
+- Content spec: `docs/specs/ai-employee/compliance-evidence-packet.md`. Full templates, file layout, redaction-validator behavior, failure modes, verification tests.
+- The `compliance-audit-export` skill (§8.2) is the generator; its SKILL.md aligns to this subsection's contract.
+- Customer.yaml redaction draws field-level vocabulary from `docs/specs/ai-employee/customer-yaml-schema.md`.
+- The audit log shape is the `audit_log` table in `docs/specs/ai-employee/d1-schema.md`.
+- The signed-DPA artifact references §13.1; the BAA references §13.2 disclosure posture; the engagement-letter clauses cross-reference the vertical PRD (law-firm-prd.md §11.6).
+
 ---
 
 ## 14. No Lock-In Architecture
