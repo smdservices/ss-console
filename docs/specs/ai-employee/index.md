@@ -33,6 +33,7 @@ Build agents consuming these specs should treat the PRDs as **vision/doctrine** 
 | [calibration-session.md](calibration-session.md)               | [#867](https://github.com/venturecrane/ss-console/issues/867) | Four 90-minute calibration sessions over two weeks; portal surface + integration seams                   |
 | [audit-log-immutability.md](audit-log-immutability.md)         | [#892](https://github.com/venturecrane/ss-console/issues/892) | Worker-layer enforcement, Logpush mirror protocol, integrity check, Captain exception process            |
 | [aie-adapter-register.md](aie-adapter-register.md)             | [#841](https://github.com/venturecrane/ss-console/issues/841) | Adapter-side hook surface for the SMD overlay on Hermes; pre/post/refusal/compaction hooks               |
+| [backup-operator-training.md](backup-operator-training.md)     | [#888](https://github.com/venturecrane/ss-console/issues/888) | Training gates a backup operator must satisfy before being trusted as primary; bus-factor minimum gate   |
 
 ## Open ambiguities requiring Captain decision
 
