@@ -11,6 +11,7 @@ import PortalPageHead from '../../../../../components/portal/PortalPageHead.astr
 import SkipToMain from '../../../../../components/SkipToMain.astro'
 import DraftDetail from '../../../../../components/portal/ai-employee/DraftDetail.astro'
 import DraftSourcingBlock from '../../../../../components/portal/ai-employee/DraftSourcingBlock.astro'
+import TeachMarcusButton from '../../../../../components/portal/ai-employee/TeachMarcusButton.astro'
 import { SignOutButton } from '@clerk/astro/components'
 import { env } from 'cloudflare:workers'
 
@@ -172,6 +173,7 @@ const personaDisplayName = activePersona ? activePersona.name : null
                 undoWindowMs={undoWindowMs}
               />
               <DraftSourcingBlock sources={draft.sources} personaName={personaDisplayName} />
+              <TeachMarcusButton draftId={draft.id} personaName={personaDisplayName} />
             </div>
           </Fragment>
         )
