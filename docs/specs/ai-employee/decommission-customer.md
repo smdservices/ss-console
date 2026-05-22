@@ -47,17 +47,17 @@ cd ai-employee && uv run --quiet --with pyyaml python3 \
 
 ### The 9 steps
 
-| #   | Step name               | Action                                                                                                                       | Idempotency mechanism                                                                                     |
-| --- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| 1   | `01_drain`              | Verify in-flight LLM drain marker (#805 covers the pause).                                                                   | Always re-runnable; records drain window seconds.                                                         |
-| 2   | `02_d1_memory_voice`    | Call `adapter.memory.state.decommission_source` and `adapter.voice.pipeline.decommission_source` for each configured source. | Each canonical hook soft-deletes provenance rows + clears state — repeat calls return zero counts.        |
-| 3   | `03_r2_namespace`       | Delete every R2 object under `{slug}/` except the `decommission-archive/` subtree.                                           | Second call returns `skipped: true, reason: namespace_already_empty`.                                     |
-| 4   | `04_vectorize_indexes`  | Delete `hermes-{slug}-vault` and `hermes-{slug}-corrections`.                                                                | Second call returns `skipped: true, reason: indexes_already_absent`.                                      |
-| 5   | `05_composio`           | Revoke OAuth tokens, remove connections (`ComposioConnectionManager`).                                                       | `NoOpStub` returns `skipped: true, reason: credentials_not_configured` until #789 wires real connections. |
-| 6   | `06_agentmail`          | Deprovision the AgentMail inbox and forwarding rules.                                                                        | `NoOpStub` skip until AgentMail admin API wired.                                                          |
-| 7   | `07_fly_machine`        | `fly machine destroy hermes-{slug} --force`.                                                                                 | `NoOpStub` skip until Fly destroy wired.                                                                  |
-| 8   | `08_compliance_archive` | Generate the compliance evidence packet per `compliance-evidence-packet.md` and copy to `archive_root/{slug}/`.              | Each call writes a new timestamped manifest; the cold-storage retention policy handles overwrites.        |
-| 9   | `09_tombstone`          | Rename `ai-employee/customers/{slug}/` to `{slug}.decommissioned.{iso-date}` and drop a `DECOMMISSIONED.md` marker.          | Returns `skipped: true, reason: already_tombstoned` when the dated tombstone is present.                  |
+| #   | Step name               | Action                                                                                                                       | Idempotency mechanism                                                                                    |
+| --- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| 1   | `01_drain`              | Verify in-flight LLM drain marker (#805 covers the pause).                                                                   | Always re-runnable; records drain window seconds.                                                        |
+| 2   | `02_d1_memory_voice`    | Call `adapter.memory.state.decommission_source` and `adapter.voice.pipeline.decommission_source` for each configured source. | Each canonical hook soft-deletes provenance rows + clears state — repeat calls return zero counts.       |
+| 3   | `03_r2_namespace`       | Delete every R2 object under `{slug}/` except the `decommission-archive/` subtree.                                           | Second call returns `skipped: true, reason: namespace_already_empty`.                                    |
+| 4   | `04_vectorize_indexes`  | Delete `hermes-{slug}-vault` and `hermes-{slug}-corrections`.                                                                | Second call returns `skipped: true, reason: indexes_already_absent`.                                     |
+| 5   | `05_composio`           | Revoke OAuth tokens, remove connections (`ComposioConnectionManager`).                                                       | `NoOpStub` returns `skipped: true, reason: external_client_not_wired` until #789 wires real connections. |
+| 6   | `06_agentmail`          | Deprovision the AgentMail inbox and forwarding rules.                                                                        | `NoOpStub` skip until AgentMail admin API wired.                                                         |
+| 7   | `07_fly_machine`        | `fly machine destroy hermes-{slug} --force`.                                                                                 | `NoOpStub` skip until Fly destroy wired.                                                                 |
+| 8   | `08_compliance_archive` | Generate the compliance evidence packet per `compliance-evidence-packet.md` and copy to `archive_root/{slug}/`.              | Each call writes a new timestamped manifest; the cold-storage retention policy handles overwrites.       |
+| 9   | `09_tombstone`          | Rename `ai-employee/customers/{slug}/` to `{slug}.decommissioned.{iso-date}` and drop a `DECOMMISSIONED.md` marker.          | Returns `skipped: true, reason: already_tombstoned` when the dated tombstone is present.                 |
 
 ### Audit-log emission
 
@@ -74,11 +74,11 @@ All three `action_type` values are in `ACCEPTED_ACTION_TYPES` in `adapter/audit_
 
 Three external services are not wired in this PR. Each is fronted by a `Protocol` so production wiring is a constructor swap:
 
-| Protocol                    | NoOp implementation | Behavior                                                                                                                                                      |
-| --------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ComposioConnectionManager` | `NoOpComposioStub`  | Logs `composio.revoke skipped: credentials not configured` and returns `{"skipped": True, "reason": "credentials_not_configured", "connections_revoked": 0}`. |
-| `AgentMailProvisioner`      | `NoOpAgentMailStub` | Same shape; `identities_removed: 0`.                                                                                                                          |
-| `FlyMachineManager`         | `NoOpFlyStub`       | Same shape; `app_destroyed: False`.                                                                                                                           |
+| Protocol                    | NoOp implementation | Behavior                                                                                                                                           |
+| --------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ComposioConnectionManager` | `NoOpComposioStub`  | Logs `composio.revoke skipped (no client wired)` and returns `{"skipped": True, "reason": "external_client_not_wired", "connections_revoked": 0}`. |
+| `AgentMailProvisioner`      | `NoOpAgentMailStub` | Same shape; `identities_removed: 0`.                                                                                                               |
+| `FlyMachineManager`         | `NoOpFlyStub`       | Same shape; `app_destroyed: False`.                                                                                                                |
 
 The CLI defaults to these stubs. When credentials land (per #789 and follow-on AgentMail / Fly issues), replace the stubs in `decommission_cli.py` with real clients — no pipeline rewrite required.
 
@@ -130,7 +130,7 @@ Live mode halts on the first step that raises. The failed step's audit row is wr
 | `test_failure_halts_with_step_failed`                 | A runner that raises mid-sequence halts with `DecommissionStepFailed`; audit log records the failure; resume path completes.                                                      |
 | `test_tombstone_skips_when_no_customer_dir`           | Tombstoning a non-existent slug returns `skipped: true, reason: no_customer_dir`.                                                                                                 |
 | `test_tombstone_idempotent_when_already_tombstoned`   | Second tombstone call returns `skipped: true, reason: already_tombstoned`.                                                                                                        |
-| `test_noop_stubs_return_skipped_manifests`            | All three NoOp stubs return `skipped: true, reason: credentials_not_configured`.                                                                                                  |
+| `test_noop_stubs_return_skipped_manifests`            | All three NoOp stubs return `skipped: true, reason: external_client_not_wired`.                                                                                                   |
 | `test_compliance_archiver_writes_manifest`            | The in-process archiver writes a manifest JSON to the archive dir.                                                                                                                |
 
 Run with:

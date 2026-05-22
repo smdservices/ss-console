@@ -395,7 +395,7 @@ def test_noop_stubs_return_skipped_manifests():
     assert r2["skipped"] is True
     assert r3["skipped"] is True
     for r in (r1, r2, r3):
-        assert r["reason"] == "credentials_not_configured"
+        assert r["reason"] == "external_client_not_wired"
 
 
 # ---------------------------------------------------------------------------

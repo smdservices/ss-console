@@ -21,9 +21,9 @@
 #
 # Notes on stubs:
 #   Composio, AgentMail, and Fly Machine destruction are stubbed behind
-#   protocols today; the stubs log "skipped: credentials not configured"
-#   and return a manifest the audit log records. Production wiring is a
-#   constructor swap in bin/lib/decommission.py — no script rewrite.
+#   protocols today; the stubs log "skipped (no client wired)" and
+#   return a manifest the audit log records. Production wiring is a
+#   constructor swap in bin/lib/decommission.py: no script rewrite.
 
 set -euo pipefail
 

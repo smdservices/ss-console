@@ -17,10 +17,10 @@ Design notes
   ``failed`` row before raising :class:`DecommissionStepFailed`.
 
 * **External services behind Protocols.** Composio, AgentMail, and Fly
-  Machine are not wired in this PR (credentials not present). Each is
-  stubbed behind a ``Protocol`` plus a :class:`NoOpStub` implementation
-  that logs "skipped: credentials not configured" and returns a manifest
-  with ``skipped=True``. Production wiring is a constructor swap.
+  Machine are not wired in this PR. Each is stubbed behind a
+  ``Protocol`` plus a :class:`NoOpStub` implementation that logs
+  "skipped (no client wired)" and returns a manifest with
+  ``skipped=True``. Production wiring is a constructor swap.
 
 * **D1 cleanup delegates to the canonical hooks.** Memory and voice are
   not re-implemented here. The pipeline imports
@@ -174,24 +174,30 @@ class NoOpComposioStub:
     Used until per-customer Composio enrolment lands (#789). The stub
     keeps the script runnable end-to-end against the ``smd`` fixture
     today so dry-run / live / idempotent re-run paths are testable
-    without external credentials.
+    without external service clients.
     """
 
+    _SKIPPED_REASON = "external_client_not_wired"
+
     async def revoke_connections(self, customer_slug: str) -> dict:
-        log.info("composio.revoke skipped: credentials not configured customer=%s", customer_slug)
-        return {"skipped": True, "reason": "credentials_not_configured", "connections_revoked": 0}
+        log.info("composio.revoke skipped (no client wired) customer=%s", customer_slug)
+        return {"skipped": True, "reason": self._SKIPPED_REASON, "connections_revoked": 0}
 
 
 class NoOpAgentMailStub:
+    _SKIPPED_REASON = "external_client_not_wired"
+
     async def deprovision(self, customer_slug: str) -> dict:
-        log.info("agentmail.deprovision skipped: credentials not configured customer=%s", customer_slug)
-        return {"skipped": True, "reason": "credentials_not_configured", "identities_removed": 0}
+        log.info("agentmail.deprovision skipped (no client wired) customer=%s", customer_slug)
+        return {"skipped": True, "reason": self._SKIPPED_REASON, "identities_removed": 0}
 
 
 class NoOpFlyStub:
+    _SKIPPED_REASON = "external_client_not_wired"
+
     async def destroy_machine(self, customer_slug: str) -> dict:
-        log.info("fly.destroy_machine skipped: credentials not configured customer=%s", customer_slug)
-        return {"skipped": True, "reason": "credentials_not_configured", "app_destroyed": False}
+        log.info("fly.destroy_machine skipped (no client wired) customer=%s", customer_slug)
+        return {"skipped": True, "reason": self._SKIPPED_REASON, "app_destroyed": False}
 
 
 # ---------------------------------------------------------------------------
