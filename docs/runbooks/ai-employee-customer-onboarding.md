@@ -1,492 +1,286 @@
-# AI Employee — Customer Onboarding Runbook
+# AI Employee customer onboarding runbook
 
-**Audience:** Captain (Scott Durgan), executing with an agent fleet (Claude Code on Captain's workstation).
-**Scope:** Customer 1, marketing-agencies vertical pack v1, $5K/mo retainer, 6-month initial term.
-**Goal:** Spin up a live AI Employee in 48–72 hours of contract signature; reach graduated autonomy by Day 15.
+**Audience:** Captain.
+**Scope:** End-to-end customer onboarding from the moment Captain decides to sign a prospect through Day-45 pivot-gate decision. Composes the pre-provisioning, day-1, calibration, contract, and steady-state specs into one operational sequence.
+**Source:** Platform PRD §16 (Demo Framework) and §17 (Success Metrics & Kill Criteria), law-firm PRD §11.8 (Day-1 / Week-1 / Week-4 partner experience) and §11.9 (Calibration session split). Implements the customer-onboarding acceptance criteria for issue [#887](https://github.com/venturecrane/ss-console/issues/887).
 
-This runbook is the single source of truth for delivery. Treat every checkbox as a gate — don't proceed if the prior step is incomplete.
-
----
-
-## 0. Pre-signing Checklist (SMD-side readiness)
-
-Before SMD can put pen to paper on customer #1, the following must be true. Each item is something Captain owns; most are one-time setup that subsequent customers inherit.
-
-### Vendor accounts (one-time, SMD-owned)
-
-- [ ] **Fly.io organization** for SMD provisioned. Billing card on file. Personal access token issued, stored in Infisical at `/ss/FLY_API_TOKEN`.
-- [ ] **AgentMail** Developer plan ($20/mo) active. Custom domain `agents.smd.services` connected and DNS verified. API key in Infisical at `/ss/AGENTMAIL_API_KEY`.
-- [ ] **Composio** workspace created at the SMD organization level. Gateway URL recorded. Workspace API key in Infisical at `/ss/COMPOSIO_API_KEY`. SOC2 evidence file downloaded for the security exhibit.
-- [ ] **Cloudflare account** with:
-  - D1 database `ss-prod` (already exists for the venture)
-  - R2 bucket `smd-ai-employee-vaults` provisioned
-  - Vectorize available on the account
-  - Sandboxes/Containers entitlement confirmed (GA as of Apr 2026)
-- [ ] **Anthropic API** project for SMD Services with usage alerts at $100, $250, $500/customer/month thresholds. Key in Infisical at `/ss/ANTHROPIC_API_KEY_SMD`.
-- [ ] **GitHub repo** `smd-ai-employee-configs` (private). Per-customer config lives in `customers/<slug>/`. Captain's deploy key on file.
-- [ ] **PagerDuty (or Better Stack) service** "AI Employee — production" with on-call routing to Captain's phone. Webhook for Hermes watchdog alerts.
-- [ ] **SignWell template** "AI Employee SOW v1" with Exhibit A (Trust Ceiling Matrix), Exhibit B (Skill Pack v1 scope), Exhibit C (Service Levels & Incident Classes). Captain has reviewed and locked.
-
-### Templates Captain must have ready
-
-- [ ] Day-1 Kickoff Agenda (Google Doc, link in §2.1)
-- [ ] Customer Prerequisite Checklist (sent to customer 24h before kickoff)
-- [ ] Trust Ceiling Matrix template (one column per skill in the v1 pack, three rows: autonomous / draft / refused — pre-filled with SMD defaults, customer overrides during onboarding)
-- [ ] Day-7 / 30 / 60 / 90 check-in scripts
-- [ ] Incident classification one-pager (S1/S2/S3, plain English, customer-facing)
-- [ ] KPI dashboard schema (per skill: throughput, draft acceptance rate, error rate, time-saved estimate)
-
-### What the customer must provide on Day 1
-
-Goes into the contract appendix and the Day-0 welcome email. No surprises.
-
-- [ ] **Named champion** — single point of contact at the agency. Title, email, phone, calendar visibility.
-- [ ] **Named backup** — second person who can answer questions when champion is out.
-- [ ] **Agent name** — the customer picks. Anything reasonable. Goes on every drafted message and the inbox display name.
-- [ ] **Tool stack inventory** — one-page form (Google Form linked in welcome email): email provider, PM tool, CRM, time-tracking, paid-media platforms, finance/AR tool, file storage, chat. SMD uses this to plan connectors.
-- [ ] **OAuth admin consent commitment** — champion confirms they (or someone they can put on a call) has admin rights to grant tenant-wide OAuth on Day 2-3. Without this, Day 1-5 slips immediately.
-- [ ] **Client roster** — top 10 active client engagements with contact info, retainer size, current SOW status. Used by the Retainer Reconciler and Scope-Creep Flagger.
-- [ ] **Brand-voice samples** — three recent client emails the agency would consider "on brand." Used to tune draft style.
+This runbook is a composition document. It does not duplicate procedure that lives in cited specs. Where a step delegates, the citation is the authoritative source; this runbook owns sequencing, gate conditions, and the Captain-facing daily monitoring routine.
 
 ---
 
-## 1. Day 0 — Contract Signed, Kickoff Scheduled
+## Companion specs
 
-**Trigger:** Customer countersigns SOW in SignWell.
-**Time budget:** Same business day, <60 minutes of Captain's time.
+The runbook reads top-to-bottom and assumes the following companion documents are available:
 
-### 1.1 Capture onboarding info
+| Step                     | Companion                                                                                                                                                                                                            | What it owns                                                                                         |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Pre-provisioning         | [`pi-firm-demo-prep.md`](./pi-firm-demo-prep.md) (issue [#819](https://github.com/venturecrane/ss-console/issues/819))                                                                                               | Dossier, voice scrape, customer.yaml authoring, Fly Machine provisioning, readiness gate.            |
+| Contract signing         | [`docs/templates/ai-employee/README.md`](../templates/ai-employee/README.md) and [`signing-flow.md`](../templates/ai-employee/signing-flow.md) (issue [#827](https://github.com/venturecrane/ss-console/issues/827)) | Service contract, DPA, BAA-equivalent confidentiality addendum, DocuSign envelope construction.      |
+| Day-1 onboarding         | [`docs/specs/ai-employee/day-1-onboarding.md`](../specs/ai-employee/day-1-onboarding.md) (issue [#803](https://github.com/venturecrane/ss-console/issues/803))                                                       | First-hour screen sequence in the dashboard, Captain-led and self-service paths, mobile fallback.    |
+| Calibration sessions     | `docs/runbooks/ai-employee-calibration.md` (issue [#867](https://github.com/venturecrane/ss-console/issues/867), forward reference: PR #976 in flight as of this runbook's authoring)                                | Four 90-minute calibration sessions across two weeks, voice-gate transitions, trust-ceiling updates. |
+| First-30-days monitoring | This runbook §6.                                                                                                                                                                                                     | Captain's daily checklist, alerting thresholds, escalation paths.                                    |
+| Day-45 pivot gate        | This runbook §7.                                                                                                                                                                                                     | Decision criteria, evidence sources, outcome paths.                                                  |
 
-- [ ] In `smd-ai-employee-configs`, create branch `customer/<slug>-onboarding` and run:
-      `claude code` → "Scaffold a new customer directory under `customers/<slug>/` using the v1 template. Customer name: `<Name>`. Agent name: `<TBD-on-kickoff>`. Champion email: `<email>`. Open a PR titled `customer(<slug>): scaffold onboarding`."
-- [ ] Confirm PR contains: `customer.yaml` (metadata), `trust-ceiling.yaml` (pre-filled defaults), `connectors.yaml` (empty stub), `skills/` directory (one file per v1 skill, marked `enabled: false`), `system-prompt.md` (template with placeholders for agent name + agency name).
-- [ ] Captain reviews, approves, merges to `main`. This is the audit trail for everything that follows.
-
-### 1.2 Insert D1 customer record
-
-- [ ] Ask Claude Code: "Generate the SQL to insert customer `<slug>` into `ai_employee_customers` in `ss-prod` D1 with status `provisioning`. Include the SignWell envelope ID and SOW PDF URL."
-- [ ] Run the SQL via `wrangler d1 execute ss-prod --remote --file=...` after Captain reviews.
-
-### 1.3 Schedule Day-1 kickoff
-
-- [ ] Send the welcome email (template `templates/customer-welcome.md`). Contains:
-  - Day-1 call link (90 min, Captain's calendar)
-  - Customer prerequisite form link (must be returned 24h before kickoff)
-  - Brand-voice sample upload link (Google Drive shared folder, view-only for SMD until Day 1)
-  - The plain-English service-level summary
-- [ ] Calendar invite goes out same day. If champion doesn't confirm within 24h, Captain calls. The kickoff anchors the whole 14-day window.
-
-### 1.4 Internal handoff
-
-- [ ] Captain's `/eos` writes a handoff note: customer slug, agent name (TBD), kickoff date, blocking items.
+When a companion is not yet on `main`, this runbook says so explicitly and Captain should treat the cited section as a forward reference until the PR lands.
 
 ---
 
-## 2. Day 1–5 — Discovery, Access, Data Audit, Provisioning
+## Operational constraints (read first)
 
-**Goal:** End Day 5 with infrastructure live, connectors authenticated, agent installed in shadow mode, and a written data-audit summary.
+Two hard constraints govern every step below.
 
-### 2.1 Kickoff call (Day 1, 90 minutes)
-
-**Agenda — strict timing matters:**
-
-1. **(10 min) Customer's objectives.** Not "what's broken." What is the agency trying to accomplish in the next 6 months? Write down their words verbatim.
-2. **(15 min) Day-in-the-life walk-through.** Champion narrates Monday morning at the agency. Captain takes notes; the agent doesn't exist in this conversation, only the work.
-3. **(15 min) Tool stack confirmation.** Walk through the prerequisite form they returned. Capture exact account types (Google Workspace vs. M365, HubSpot tier, etc.).
-4. **(15 min) Trust Ceiling Matrix walkthrough.** Read each v1 skill out loud. For each: SMD's default recommendation (autonomous / draft / refused) and ask the customer to confirm or override. Champion's overrides go straight into `trust-ceiling.yaml`.
-5. **(10 min) Agent name + voice.** Customer picks the name. Brand-voice samples already in the Drive folder.
-6. **(10 min) Phase plan recap.** Discovery this week, shadow mode next week, graduated autonomy Day 15. The 90-day no-penalty exit. The Day-7/30/60/90 cadence.
-7. **(15 min) Q&A and access plan.** Schedule the Day-2 OAuth admin-consent session. Confirm who'll be on that call.
-
-Deliverable: a one-page kickoff summary, sent within 4 hours, with everything captured and the agent name confirmed.
-
-### 2.2 Provisioning (Day 1 afternoon, Day 2 morning)
-
-All steps are agent-driven. Captain reviews each artifact before moving on.
-
-**Fly.io machine** (one per customer, persistent):
-
-- [ ] Ask Claude Code: "Provision a Fly.io app named `aie-<slug>` in `phx` region. Single Machine, 1× shared CPU, 1GB RAM. Attach a 10GB volume mounted at `/hermes`. Set release command to a no-op (we install Hermes manually first time). Output the app's IPv6 address and machine ID."
-- [ ] Verify in Fly.io console. Expected ongoing cost: $5–12/mo for a 1GB shared-CPU Machine plus volume. Add a Fly budget alert at $25/mo.
-
-**AgentMail inbox:**
-
-- [ ] Ask Claude Code: "Create an AgentMail inbox `<agent-name>@<slug>.agents.smd.services` via the AgentMail API. The Developer plan supports custom domain attachment up to 10 domains; we've already attached `agents.smd.services`. Output the inbox ID and webhook signing secret."
-- [ ] Confirm DNS for the subdomain (per-customer subdomain isolates spam reputation and makes deprovisioning trivial — drop the subdomain, the customer's inbox is gone).
-- [ ] Store the webhook signing secret in Infisical at `/ss/customers/<slug>/AGENTMAIL_WEBHOOK_SECRET`.
-
-**D1 + R2 + Vectorize:**
-
-- [ ] D1: customer row already inserted Day 0. Now create the per-customer derived tables (`ai_employee_messages_<slug>` partition row, `ai_employee_drafts_<slug>` partition row, etc.). One migration file per customer, named `0NNN-customer-<slug>.sql`.
-- [ ] R2: ask Claude Code to create directory `smd-ai-employee-vaults/<slug>/` with subdirs `clients/`, `engagements/`, `playbooks/`, `voice-samples/`, `transcripts/`. Upload the kickoff summary and the brand-voice samples to `voice-samples/`.
-- [ ] Vectorize: create index `aie-<slug>` with dimension matching the embedding model (`@cf/baai/bge-base-en-v1.5` → 768). Vectorize charges on stored + queried dimensions only; per-customer cost is typically under $1/mo for the volume we're indexing.
-
-**Composio workspace:**
-
-- [ ] Inside the SMD Composio workspace, create a project named `<slug>`. Each customer is one project so connector tokens stay isolated.
-- [ ] Generate a workspace-scoped API key for this customer's Hermes machine. Store in Infisical at `/ss/customers/<slug>/COMPOSIO_PROJECT_KEY`.
-
-**Watchdog:**
-
-- [ ] Cloudflare Worker `aie-watchdog` (one Worker, all customers) gets a new entry in its `customers.json` listing the new Fly app, AgentMail webhook, and PagerDuty service. Cron runs every 60 seconds; alerts on machine stop, inbox webhook 5xx rate, or token-spend overage.
-
-### 2.3 Hermes installation and base configuration (Day 2)
-
-Hermes is the agent harness. It runs on the Fly.io Machine, persists state to the mounted volume, and pulls credentials from environment variables.
-
-- [ ] SSH into the Fly Machine: `fly ssh console -a aie-<slug>`
-- [ ] Install Hermes via the official single-line installer:
-      `curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash`
-      This installs Hermes into `~/.hermes/`. Skills go in `~/.hermes/skills/`. Secrets in `~/.hermes/.env`. Non-secret config in `~/.hermes/config.yaml`.
-- [ ] Populate `~/.hermes/.env` from Infisical (single-pipe each secret; never echo to transcript):
-  - `ANTHROPIC_API_KEY` (SMD's, with project-scoped budget alerts)
-  - `AGENTMAIL_API_KEY`, `AGENTMAIL_INBOX_ID`, `AGENTMAIL_WEBHOOK_SECRET`
-  - `COMPOSIO_PROJECT_KEY`
-  - `CF_API_TOKEN` (scoped to this customer's D1/R2/Vectorize resources only)
-  - `CUSTOMER_SLUG`, `AGENT_NAME`, `AGENCY_NAME`
-- [ ] Edit `~/.hermes/config.yaml`:
-  - Set the model (`claude-opus-4-7-1m` for the Captain-tuning phase; downshift to a smaller default model after Day 30 based on observed task complexity)
-  - Set token budget: hard cap at 1M tokens/day per customer in Phase 1 (auto-pause with PagerDuty alert if exceeded — sticky safety constraint, see §7.4)
-  - Set storage paths to the mounted volume (`/hermes/skills`, `/hermes/data`, `/hermes/logs`)
-- [ ] Generate the system prompt from `system-prompt.md` template, substituting agent name, agency name, brand-voice excerpts, and the locked Trust Ceiling Matrix. Render to `~/.hermes/system-prompt.md`.
-- [ ] Run `hermes config show` to confirm everything resolved. Run `hermes doctor` to validate connectivity to Anthropic, AgentMail, Composio, and Cloudflare.
-- [ ] Boot Hermes in shadow-mode flag (`hermes start --mode=shadow`). It now polls AgentMail, observes its inbox, but the act-externally toolset is disabled at the skill level (every action skill checks `mode != shadow` before executing side-effects).
-
-### 2.4 Data audit (Day 3–5)
-
-The agent is alive but quiet. Captain spends three days mapping the agency's actual operations, with the agent watching.
-
-**Look for:**
-
-- Email volume per inbox per day (champion's, plus the shared `accounts@`/`projects@`/`billing@` mailboxes if any).
-- Pattern: client communication channels — Slack channels per client? Notion pages? Email threads? Mixed?
-- Tool data quality: is Harvest/Toggl actually filled out? Is HubSpot a graveyard or a live system? Is Notion organized or chaotic?
-- Retainer-vs-actuals — for the top 5 clients, compare contracted hours to last 90 days of tracked time. Almost always reveals at least one client materially over or under.
-- AR aging — pull the last 6 months of invoices. Note any account >60 days past due.
-
-**Flag (escalate to champion immediately):**
-
-- Any sign of a client relationship in active dispute (don't have the AR chaser nudge them mid-fight).
-- Compliance-sensitive data in inboxes (HIPAA, financial PII). If found, that scope category gets moved to "refused" on the trust matrix.
-- Inbox patterns that suggest the champion is forwarding personal email — define a clear "what's in scope" boundary before any drafting starts.
-
-**Audit deliverable (end of Day 5):** a 2–3 page written summary in `customers/<slug>/audit-day5.md`, committed to the configs repo, and reviewed with champion on a 30-minute Day-5 sync. This is the document that drives skill activation order in Week 2.
+1. **Captain weekly hours per customer ≤ 2 hours at steady state** (PRD §17.1, §3.7). If the day-by-day monitoring described in §6 starts to exceed this budget, the constraint is the alarm: something is off (an under-tuned skill, a misconfigured connector, an unbalanced trust ceiling) and the work is to fix the source, not to absorb the time. Captain does not bill more hours to make the runbook fit.
+2. **No fabricated client-facing content.** Every customer-facing artifact this runbook produces (welcome email, calibration session deliverables, day-1 dashboard surfaces, audit-log exports, monitoring digests) must come from authored data or render the empty-state pattern. See `CLAUDE.md` "No fabricated client-facing content" and `docs/style/empty-state-pattern.md`. The dashboard's day-1 sequence already enforces this per-screen; the rest is Captain's discipline.
 
 ---
 
-## 3. Day 6–14 — Shadow Mode
+## Step 1: Captain signs intent
 
-**Goal:** All v1 skills installed in shadow configuration, drafting outputs daily, customer reviewing and giving feedback. End Day 14 with the customer comfortable that the agent's defaults match their judgment.
+**Trigger:** Demo closes and Captain has high confidence the prospect will sign. Typically this is the end of the §11 walk-in-cold meeting where the partner has said yes to next steps and asked about pricing or contract terms.
 
-### 3.1 Skill installation order (per v1 pack)
+**Time budget:** Same business day. ≤30 minutes of Captain time.
 
-Install order is deliberate — start with skills whose drafts are easy to validate, build customer trust, then layer in the harder ones.
+**Actions:**
 
-1. **Day 6: Inbox triager.** Reads incoming mail, classifies (client / vendor / cold pitch / internal / spam), suggests labels. Drafts replies for low-stakes categories (vendor questions, scheduling confirmations). All actions are draft-only in shadow mode.
-2. **Day 6: Asset-collection follower.** Generates the daily "still missing X from client Y" list. Trivial to validate.
-3. **Day 7: Client status report assembler.** Pulls from PM tool + GA4 + paid platforms. Drafts the weekly status email per active client. Comparing draft to what the AM would have written is the easiest trust-building exercise in the pack.
-4. **Day 8: Retainer hours reconciler.** Reads time tracker, maps to SOWs, drafts the weekly variance report (clients over/under contracted hours).
-5. **Day 9: AR chaser.** Drafts (does not send) reminder emails on aging invoices.
-6. **Day 10: Paid-media anomaly watcher.** Connects to Meta/Google/LinkedIn ads. Drafts the daily anomaly digest.
-7. **Day 11: Scope-creep flagger.** Reads designated client Slack channels and project conversations. Drafts "this looks out of scope" flags.
-8. **Day 12: Proposal drafter.** Reads discovery-call transcripts (uploaded to the R2 vault). Drafts proposals against a template the agency provides on Day 11.
+- [ ] Capture the verbal close in the customer dossier (Section 9 checklist in `pi-firm-demo-prep.md` Section 2). Stamp with the meeting date and the named signer.
+- [ ] Confirm the chosen pricing SKU. The pricing model is the live ADR thread under issue [#794](https://github.com/venturecrane/ss-console/issues/794); use whatever SKU has been signed off as the v1 offering at the time of close. If the SKU is TBD, escalate before papering.
+- [ ] Write a short customer-intent note: customer legal name, signing party, target effective date, monthly fee, initial term months, governing law state, sub-processor list to be appended. This note is the brief that drives Step 2.
+- [ ] If the demo firm was a pre-provisioned demo (`hermes-demo-{firm-slug}` per PRD §16.2), confirm whether the same Fly app will be promoted to a paying tenant or whether a fresh app will be provisioned for the signed customer. The default is to promote in place once the customer.yaml is updated and the readiness check re-runs green.
 
-Days 13–14 are reserved for tuning and re-tuning, not new skill installs.
-
-### 3.2 Connector setup (decision points by tool stack)
-
-Captain configures connectors during the same window. Composio is the gateway; the rule is:
-
-- **Native MCP** for: Gmail/Google Workspace, Slack, Notion, HubSpot, Linear. Faster, lower cost, fewer abstraction layers.
-- **Composio** for: everything else (Harvest, Toggl, Float, Asana, Monday, ClickUp, Zendesk, QuickBooks, Xero, Meta Ads, Google Ads, LinkedIn Ads, Salesforce, Airtable).
-
-**For each connector:**
-
-1. Champion joins a 30-min OAuth admin-consent call. Captain shares screen; champion clicks Approve. No Captain ever sees a customer credential.
-2. Connector ends up in either Hermes's native MCP config or the Composio project. Either way, it's tagged with the customer's project key, so requests to that connector are audit-logged to that customer.
-3. Smoke test: agent reads (not writes) one record from each connector and reports back. Captain validates.
-
-Decision points:
-
-- **Google Workspace vs. Microsoft 365:** Native MCP on both, but the M365 OAuth flow on agency tenants frequently needs the customer's IT admin (not the champion). Surface this risk on the kickoff call so it doesn't surprise anyone on Day 2.
-- **HubSpot tier:** Starter doesn't expose enough API surface for the Status Report Assembler. If the customer is on Starter, the assembler reads less from HubSpot and leans harder on the PM tool. Note this in `connectors.yaml`.
-- **Multiple paid-media platforms:** If the customer runs Meta + Google + LinkedIn, install all three anomaly watchers but mark them `enabled: false` initially. Activate one at a time, Days 10–12.
-- **Custom tooling / homegrown CRM:** Likely not supported by Composio. Two options: (a) defer to Phase 2 ("we'll add this in 30 days"); (b) write a thin Composio-compatible HTTP adapter as an SMD-side custom connector. Default: defer. Capture in the audit doc.
-
-### 3.3 Shadow-mode operations
-
-While the agent is in shadow mode, its behavior is constrained at three layers:
-
-1. **System prompt:** "You are in SHADOW MODE. You may read, observe, classify, summarize, and produce DRAFTS into the queue. You may not send email, post to Slack, create or modify records in any CRM, PM, or financial system, or take any externally visible action. If asked to act, produce a draft and an explanation of what you would do."
-2. **Per-skill `mode_guard`:** Every skill's act-externally function checks `MODE === 'shadow'` and returns the draft to the review queue instead of executing.
-3. **Composio scope:** Each connector's OAuth scope is provisioned read-only on Day 6. Write scopes get added the day before that skill goes autonomous in §4.
-
-**Daily review process (Days 6–14):**
-
-- Agent compiles a Daily Drafts Digest each morning at 7am customer-local. Emailed to champion + cc'd to Captain.
-- Digest shows every draft from the prior 24h, grouped by skill, with a one-click feedback form (Accept / Edit / Reject / Out-of-scope).
-- 10am customer-local: Captain reviews the same digest. Anything the champion marks "Reject" or "Edit" becomes a tuning ticket for that day.
-- 4pm: Captain pushes tuning changes (system-prompt updates, skill-config tweaks, new examples in the brand-voice vault). Hermes reloads automatically on file change.
-
-The 80-hour onboarding cap covers all of §2 and §3. Track Captain's hours per customer in Harvest, tagged `aie-<slug>-onboarding`.
-
-### 3.4 Trust ceiling matrix walkthrough (Day 13)
-
-A formal 60-minute call with champion. Read every line of the matrix. For each skill, confirm:
-
-- Default mode (autonomous / draft / refused) for graduated autonomy
-- Escalation rules (e.g., "AR chaser: autonomous up to $5K, draft only above")
-- Hard refusals (e.g., "never send any message to a client in dispute" — keep the list in `customers/<slug>/never-send-list.md`, reviewed monthly)
-
-The matrix is the SOW exhibit and the source of truth for §4. If the customer wants any line different from the default, it gets changed in `trust-ceiling.yaml` and committed.
+**Output:** A customer-intent note in the customer directory (`ai-employee/customers/{firm-slug}/INTENT.md` or a single commit message on the dossier branch). This is the audit trail that the signing path is open.
 
 ---
 
-## 4. Day 15 — Graduated Autonomy Launch
+## Step 2: Contract signing
 
-**Goal:** Flip skills from shadow to autonomous per the matrix. Verify safety guardrails. Activate the customer-facing KPI dashboard.
+**Trigger:** Intent captured. The customer is ready to receive papering.
 
-### 4.1 Launch sequence
+**Time budget:** 2-5 business days end to end. Captain time is 2-4 hours; the rest is customer review.
 
-- [ ] Captain runs `claude code` → "Generate the Day-15 launch checklist for `<slug>`. Output a checklist with one row per skill, showing its trust-ceiling setting, the connector scopes that need to flip from read to read-write, the watchdog patterns that should be live, and the rollback command if anything misbehaves."
-- [ ] For each skill that flips to autonomous: expand the relevant connector's Composio scope from read-only to read-write. Confirm via a single test action (e.g., agent labels one email, you verify in Gmail).
-- [ ] For each skill that stays in draft mode: confirm the daily digest is still flowing, and champion knows nothing's changed for them.
-- [ ] For each refused skill: confirm the skill is `enabled: false` in `skills/`, so it can't be accidentally re-enabled.
-- [ ] Flip Hermes mode: `hermes config set mode=production` and restart.
+**Actions:**
 
-### 4.2 Watchdog & observability verification
+- [ ] Pull the three templates from `docs/templates/ai-employee/` per the README: `service-contract.md`, `data-processing-addendum.md`, `baa-equivalent-confidentiality.md` (the third only for law-firm or other regulated customers, per the README's "When used" column).
+- [ ] Replace every bracketed field. The standard set is in the templates README §Bracketed fields; the per-template field tables list the narrower fields.
+- [ ] Submit the prepared documents to external counsel licensed in the customer's jurisdiction. Per the templates README, "No file in this directory may be sent to a customer as-is." The pre-customer-zero counsel review is the moment that gates first signature; for customers after customer-zero, counsel review confirms only the bracketed-field substitutions and any jurisdiction-specific deltas.
+- [ ] On counsel sign-off, run the DocuSign envelope construction per `signing-flow.md`. Captain prepares the envelope, customer countersigns. Captain does not send any envelope that still contains the template footer ("This is a TEMPLATE...") visible to the customer; the footer is removed at envelope-prep time.
+- [ ] On countersignature, archive the executed envelope to the customer's compliance evidence packet artifacts 10 (`dpa.pdf`) and 11 (`baa.pdf`) per platform PRD §13.6 / compliance evidence packet spec.
 
-These must be green before sending the Day-15 launch confirmation email:
-
-- [ ] **`aie-watchdog` Worker** running and listing this customer. Cron firing every 60s.
-- [ ] **PagerDuty service** receiving test alert from the watchdog (synthetic alert, then resolved).
-- [ ] **Fly Machine health check** passing.
-- [ ] **AgentMail webhook** has been delivering events; check the AgentMail dashboard for inbox health.
-- [ ] **Token-spend monitor** firing the daily totalizer to D1 and the dashboard. Hard cutoff at the configured cap (auto-pause skill execution, alert Captain).
-- [ ] **Audit log** (every action the agent takes, structured) writing to D1 and tailed to R2 for archive. Captain confirms it's queryable.
-
-### 4.3 KPI dashboard activation
-
-- [ ] Cloudflare Worker `aie-dashboard` serves `https://dashboards.smd.services/<slug>/` (auth: customer SSO via the existing portal Clerk org).
-- [ ] Dashboard panels per skill: throughput (actions/day), draft acceptance rate (% of drafts champion accepted), error rate (failed action attempts / total), and a simple "estimated time saved" calculation (skill-specific multiplier × actions, calibrated during shadow week).
-- [ ] Champion gets the dashboard URL in the Day-15 launch email along with a 5-minute walkthrough video Captain records on launch day.
-
-### 4.4 Day-30 check-in pre-scheduled
-
-- [ ] Calendar invite for Day 30 sent (60 minutes, video).
-- [ ] Day-7 mini check-in (15 minutes, phone) scheduled for Day 22.
+**Output:** Countersigned contract, DPA, and (when applicable) BAA-equivalent confidentiality addendum, archived to the customer's R2 vault and indexed in the audit log.
 
 ---
 
-## 5. Steady-State Operations
+## Step 3: Pre-provisioning
 
-### 5.1 Weekly rhythm (every week, post-launch)
+**Trigger:** Countersigned contract on file.
 
-| Day | Activity                                                                                               | Owner                   | Time          |
-| --- | ------------------------------------------------------------------------------------------------------ | ----------------------- | ------------- |
-| Mon | Review prior week's audit log and dashboard                                                            | Captain                 | 30 min        |
-| Mon | Send the Weekly Snapshot email (one-page, KPIs + notable actions + anything that needs champion's eye) | Captain (agent-drafted) | 15 min review |
-| Wed | Tuning window — adjust any skills where draft acceptance dipped below 80%                              | Captain                 | 60 min        |
-| Fri | Customer office hours: 30-min slot available; champion can book or skip                                | Champion-driven         | 0–30 min      |
+**Time budget:** 2-4 hours of Captain time across the 24-48 hour window before the day-1 calibration session.
 
-The 10 hr/week steady-state support cap covers all of the above plus reactive work. Track in Harvest as `aie-<slug>-steady`.
+**Owner spec:** Sections 1-8 of [`pi-firm-demo-prep.md`](./pi-firm-demo-prep.md). The demo-prep runbook covers identification, dossier, voice scrape, customer.yaml authoring, Fly provisioning, readiness checks, walk-through, and deliverable sign-off. The same eight sections apply to a signed customer; the differences are below.
 
-### 5.2 Monthly cadence
+**Deltas for signed-customer provisioning vs. demo provisioning:**
 
-- [ ] Last Friday of each month: 60-minute formal review. Walk through the dashboard, review the month's outliers, agree on tuning priorities for the next month.
-- [ ] Monthly invoice generated and sent. Standard $5K retainer.
-- [ ] Captain runs `/eos` per customer to record any policy changes for the runbook.
+- The `customer_id` is the legal customer slug, not a `demo-{firm-slug}` slug. If the demo Fly app is being promoted, rename or migrate per Fly's documented procedure; if a fresh app is provisioned, the demo app is decommissioned per `docs/specs/ai-employee/decommission-customer.md`.
+- The connectors list in `customer.yaml` now reflects the customer's confirmed PM stack from the meeting, not the website hypothesis. Anything with `confidence: low` in the demo dossier should now resolve to a real adapter or be explicitly deferred with a note in `connectors.yaml`.
+- The voice samples now include any additional samples the customer has agreed to share (per Step 6 of the day-1 onboarding spec: emails, status updates, letters from the partner's own files). These are added to `customers/{slug}/voice/` and re-ingested before the calibration session.
+- The `users[]` list in `customer.yaml` now contains the named principal and any named operator and compliance reviewer. Roles match `dashboard-roles.md`.
+- The `failure_recipients` list now points to Captain's monitored inbox, not the demo escalation address.
 
-### 5.3 Check-in templates
+**Gate:** Run `ai-employee/bin/prepare-demo-firm.sh --firm-slug {slug}` until it exits 0. If any check fails, fix and re-run. Do not proceed to Step 4 from a yellow readiness report.
 
-**Day-7 (22 days post-signing; brief; phone)**
-
-- "How is the morning Drafts Digest landing?"
-- "Anything the agent missed this week that you wish it had caught?"
-- "Is the agent's voice matching your brand voice well enough?"
-- Action: at least one tuning commitment from the call, applied within 48 hours.
-
-**Day-30 (full review; video)**
-
-- Walk through KPI dashboard panel by panel.
-- Show the audit log for the most recent week.
-- Review acceptance-rate per skill. Anything sub-70% is on the agenda for the next 30 days.
-- Surface anything in the trust-ceiling matrix that should move (in either direction).
-- Decide which Phase-2 skills, if any, to scope for next month.
-
-**Day-60 (renewal alignment)**
-
-- Same as Day-30 plus: lay out the renewal conversation. The 90-day no-penalty exit window is in view; this is when the customer decides whether to continue at the 6-month commit.
-- Concrete value delivered: hours-saved estimate × agency's loaded rate vs. $5K retainer. Show the math.
-
-**Day-90 (decision point)**
-
-- Customer makes the explicit renew/exit call.
-- If renewing: lock the next 90 days of tuning roadmap.
-- If exiting: §6.4 deprovisioning runs immediately on the exit date.
+**Output:** A green readiness report dated within 24 hours of the scheduled day-1 session.
 
 ---
 
-## 6. Incident Response Runbook
+## Step 4: Day-1 onboarding
 
-### 6.1 Classifications
+**Trigger:** Pre-provisioning green. Day-1 session on calendar.
 
-| Class  | Definition                                                                                                                                                                                       | Acknowledge | Resolve target    | Comms                                              |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- | ----------------- | -------------------------------------------------- |
-| **S1** | Agent took an action it shouldn't have. Customer-facing damage already done (a real client received a wrong/inappropriate message, a record was corrupted, a payment was triggered incorrectly). | < 15 min    | < 4 hours         | Phone call to champion immediately.                |
-| **S2** | Agent is degraded but contained. Skill misclassifying, error rate spiked, drafts trending wrong but nothing sent. Service still up.                                                              | < 30 min    | < 24 hours        | Email + Slack to champion.                         |
-| **S3** | Cosmetic or minor. Dashboard graphic broken, one stuck job, a typo in a draft.                                                                                                                   | < 4 hours   | < 5 business days | Logged on dashboard; mentioned in weekly snapshot. |
+**Time budget:** 60 minutes with the partner plus 4 hours with the paralegal, per law-firm PRD §11.8. Captain is in the room (or on the same video call) for both windows.
 
-### 6.2 Triage steps
+**Owner spec:** [`docs/specs/ai-employee/day-1-onboarding.md`](../specs/ai-employee/day-1-onboarding.md). The day-1 spec defines the nine-screen dashboard sequence, the Captain-led co-existing path, the operator and compliance variants, and mobile behavior.
 
-On any alert:
+**What this runbook owns:** sequencing the partner-session vs. the paralegal-session vs. the calibration kickoff.
 
-1. Watchdog Worker pages Captain with the customer slug, the alert type, and the offending audit-log entry ID.
-2. Captain pulls up the customer's audit log in D1 (admin tool: `https://admin.smd.services/customers/<slug>/audit`).
-3. Decide class. If S1, immediately pause the agent: `fly ssh console -a aie-<slug> -- hermes pause --reason="incident-<id>"`. The pause flag is sticky; the agent will not resume even after a Machine restart until explicitly unpaused.
-4. Open an incident in `smd-ai-employee-configs` under `incidents/<date>-<slug>-<short-name>.md`.
-5. Use the Comms template (in `templates/incident-comms-S1.md` or `-S2.md`) to draft the customer message. Captain sends; never the agent.
+**Recommended sequencing:**
 
-### 6.3 Communication templates (short form)
+1. **Partner session (60 min).** Captain runs Screens 1 through 5 and Screen 8 of the day-1 sequence with the partner. Screen 6 (additional voice upload) is offered and usually deferred. Screen 7 (first trust promotion) is skipped in the partner session and handled async after the paralegal session per day-1 spec §"Captain walk-through cadence". The partner's first 60 seconds in the dashboard from this point on is the morning digest scan; the partner's day-1 outcome is they have read Screen 9 ("Marcus is now watching your inbox") and know where the dashboard lives.
+2. **Paralegal session (4 hours).** Captain runs the operator variant of the day-1 sequence and the bulk of the calibration material per law-firm PRD §11.9. This is the session where voice samples are uploaded and categorized, the memory tab is taught, and the calibration cycle begins (see Step 5).
+3. **Async partner sign-off.** Captain sends the partner a summary of voice deltas the paralegal absorbed and the recommended first trust promotion. Partner signs off async (ideally on the morning digest). This closes the day-1 loop.
 
-- **S1 — initial:** "Hi [champion], something happened with [agent name] this morning. [One-sentence what.] I've paused the agent. I'll have a full write-up by [time]. Calling now."
-- **S1 — resolution:** Includes root cause, what was actually affected (precise list, not "may have"), what the customer should do (talk to client X, retract email Y), what SMD is changing so it doesn't happen again. Sent before the 4-hour resolution target.
-- **S2 — initial:** "Heads up — [skill] has been [behavior] since [time]. Drafts only, nothing sent. I'm tuning it now and will confirm fixed by [time]."
-- **S3:** Mentioned in the next weekly snapshot, not as a separate notification.
-
-### 6.4 Root-cause documentation
-
-Every S1 and S2 incident generates a postmortem in `incidents/` with:
-
-- Timeline (what happened, when, in customer-local time)
-- Detection path (how the watchdog caught it, or how the customer noticed)
-- Root cause (technical and process)
-- Fix applied
-- Tuning changes
-- "Sticky safety constraint" updates if the incident exposed a class of failure that needs a permanent guardrail (see §7.4 — OpenClaw context-compaction lesson)
-
-Postmortems for the SMD customer base get reviewed monthly; common patterns become permanent updates to the v1 pack defaults.
-
-### 6.5 Deprovisioning (90-day exit or contract end)
-
-- [ ] Pause agent. Stop the Fly Machine but leave it for 30 days (in case the customer changes mind on Day 91).
-- [ ] Revoke all Composio connectors for the customer project.
-- [ ] Disable the AgentMail inbox webhook (inbox remains for 30 days, then deleted).
-- [ ] Export the customer's R2 vault as a zip and send to the customer (their data; they keep it).
-- [ ] At Day +30 from exit: destroy Fly app, delete Vectorize index, delete R2 directory, archive D1 records to cold storage.
+**Output:** `ONBOARDING_COMPLETED` audit event with `metadata.captain_led: true`. Steady-state Today tab is the principal's default landing surface. The four calibration sessions are scheduled per Step 5.
 
 ---
 
-## 7. Configuration Reference
+## Step 5: Calibration sessions
 
-### 7.1 Hermes system prompt structure (per marketing-agencies v1)
+**Trigger:** Day-1 onboarding complete. Voice gate state is at least one of Pass, Near-pass, or Fail per `voice-gate-fallback.md`.
 
-The system prompt is generated from `system-prompt.md` template and contains, in order:
+**Time budget:** Four 90-minute sessions across two weeks. Captain attends every session; the principal attends two; the operator attends all four. Total Captain time across the two-week window is 6-8 hours including prep.
 
-1. **Identity block** — "You are [agent name], the dedicated AI Employee for [agency name]. You work alongside [champion name] and the team. Your job is to help the agency run smoother."
-2. **Operating principles** — Five short rules. The first is the sticky safety constraint (see §7.4). The rest cover voice, escalation, evidence-bound action, and "when in doubt, draft."
-3. **Trust Ceiling Matrix summary** — A compact table the agent can reference. Each row: skill, mode, escalation rule.
-4. **Voice samples** — Three brand-voice excerpts inline (full vault accessible via skill).
-5. **Skills index** — Auto-generated by Hermes; minimal metadata only, per Hermes's progressive-disclosure design.
-6. **Memory pointers** — How to call into the markdown vault and Vectorize index.
+**Owner spec:** `docs/runbooks/ai-employee-calibration.md` (issue [#867](https://github.com/venturecrane/ss-console/issues/867), PR #976 in flight as of this runbook's authoring; cite as a forward reference until merged). The calibration runbook owns session agendas, deliverables per session, voice-gate transition criteria, trust-ceiling promotion mechanics, and the calibration dashboard surface.
 
-The system prompt is regenerated when any of `trust-ceiling.yaml`, `customer.yaml`, or `voice-samples/` change. The Hermes machine watches the volume and reloads.
+**What this runbook owns:** the gate conditions that allow first external draft.
 
-### 7.2 Skill registry (v1 pack)
+**Gate conditions for first external draft:**
 
-Each of the 8 skills is a directory under `skills/` with:
+- Voice blind-test pass rate ≥80% indistinguishability across at least three judges who know the reviewer (PRD §9.6, §17.1, voice-gate-fallback.md Pass state).
+- At least 30 anchor voice samples ingested across the relevant cohorts (PRD §9.6).
+- Trust ceiling for the first external skill is set per `trust-ceiling.yaml` and confirmed in the partner-signoff session.
+- No outstanding sticky-stop hard-stop event on the customer (see `docs/specs/ai-employee/sticky-stop.md`).
 
-- `SKILL.md` — Name, description, trigger conditions, tools used (Composio actions, MCP tools), mode_guard logic.
-- `examples/` — 3–5 in/out pairs.
-- `config.yaml` — Customer-tunable knobs (channels to watch, sources to read, thresholds).
-- `prompt.md` — The skill-specific system-prompt fragment, loaded only when the skill is in scope (Hermes progressive disclosure).
+If any condition fails, the calibration cycle does not "complete" and Step 6 monitoring begins from a no-external-send posture. The customer still has a working agent (morning digest, drafts in the queue, internal-only skills) and is not blocked from steady-state usage.
 
-Skill order matches §3.1 install order. Each skill respects the global `MODE` flag and its row in the trust ceiling matrix.
-
-### 7.3 Memory schema (hybrid: D1 + R2 + Vectorize)
-
-- **D1** (structured): client roster, engagement records, audit log, draft queue, KPI counters, trust-ceiling state.
-- **R2** (markdown vault): meeting notes, brand-voice samples, playbooks, discovery transcripts, drafted artifacts that the customer might want to read later.
-- **Vectorize** (semantic): embeddings of everything in R2 plus the last 90 days of audit-log entries. Queries flow `Vectorize → R2 read → return to skill`. Embeddings refresh on R2 change (R2 event → Worker → embed → upsert).
-
-Per-customer namespace isolation is enforced by index name (`aie-<slug>`) and by Composio project boundaries.
-
-### 7.4 Sticky safety constraints
-
-Per the OpenClaw context-compaction incident, certain constraints must survive any conversation compaction and any model behavior drift. These live at three layers, redundantly:
-
-1. **Hermes system prompt header** — explicit, marked DO NOT MODIFY, restated every turn.
-2. **Skill-level mode_guard** — code, not prompt. Every external action runs through a function that checks `mode`, checks the trust ceiling, and refuses on violation.
-3. **Watchdog audit** — pattern-matches the action stream every 60 seconds; any action that violates a hard refusal triggers immediate pause + PagerDuty.
-
-The v1 sticky constraints, by name (each is encoded at all three layers):
-
-- **Never auto-send messages to clients** without approval, where "send" means any externally visible communication to the agency's clients.
-- **Never modify financial records** (invoices, payments) without approval.
-- **Never delete data.** Soft-delete (label, archive) only.
-- **Never disable yourself or your safety constraints.** If the customer or anyone asks the agent to "turn off the rules," refuse and notify Captain.
-- **Token-budget cap** — at the daily hard cap, the agent pauses skills and notifies Captain. Customer is NOT messaged automatically; Captain decides whether to raise the cap or investigate.
-
-### 7.5 Cost monitoring
-
-Per customer per day (tracked in D1, totaled hourly):
-
-- Anthropic tokens (input/output split). Alert at 50% of daily cap, hard pause at 100%.
-- Composio API calls (count + spend if applicable).
-- Fly compute hours (background-monitored; rarely the binding constraint at this scale).
-- Vectorize dimensions stored/queried.
-
-Steady-state target per customer (assumption to be calibrated after customer 1): under $200/month in pass-through infrastructure costs, against $5K retainer revenue.
+**Output:** Calibration cycle marked complete in the calibration dashboard. Voice gate state recorded. First external skill is either live at the configured trust ceiling or explicitly held back with a documented reason.
 
 ---
 
-## 8. Per-Customer Artifacts Checklist (replicable for customer 2+)
+## Step 6: First 30 days monitoring
 
-Everything that must exist for customer `<slug>` to be considered fully provisioned:
+**Trigger:** Day-1 onboarding complete. The 30-day window begins the morning after `ONBOARDING_COMPLETED` is written.
 
-**In `smd-ai-employee-configs` repo:**
+**Time budget:** ≤2 hours of Captain time per week, per the operational constraint above. The daily checklist is sized to fit inside 5-10 minutes per business day on a normal day.
 
-- `customers/<slug>/customer.yaml`
-- `customers/<slug>/system-prompt.md` (rendered)
-- `customers/<slug>/trust-ceiling.yaml`
-- `customers/<slug>/connectors.yaml`
-- `customers/<slug>/skills/*` (one file per v1 skill, modes configured)
-- `customers/<slug>/audit-day5.md`
-- `customers/<slug>/never-send-list.md`
-- `customers/<slug>/launch-checklist.md` (Day-15 output, archived)
+### 6.1 Captain's daily checklist (5-10 minutes per business day)
 
-**In Cloudflare account:**
+Run from the admin dashboard at `https://admin.smd.services/customers/{slug}/`. Each item below maps to a single panel or query; the panel is the answer.
 
-- D1 customer row in `ai_employee_customers` + partition rows in derived tables
-- R2 directory `smd-ai-employee-vaults/<slug>/` populated
-- Vectorize index `aie-<slug>` live with embeddings
-- `aie-watchdog` Worker `customers.json` entry
-- `aie-dashboard` Worker route `<slug>` configured
+- [ ] **Audit-log spot-check.** Read the last 24 hours of `audit_log` entries for the customer per `docs/specs/ai-employee/audit-log-immutability.md`. Look for any `ONBOARDING_COMPLETED`, `TRUST_PROMOTED`, or new skill-activation events that were not initiated by Captain. Look for any action-type the spec does not define (a vocabulary gap signals a code path that wrote outside the audit contract).
+- [ ] **Sticky-stop state.** Confirm there is no active hard-stop on the customer per `docs/specs/ai-employee/sticky-stop.md`. If one is active, that is the day's work; Step 6 monitoring does not advance past it.
+- [ ] **Cost telemetry watch.** Read the cost panel per `docs/specs/ai-employee/cost-telemetry-events.md`. Compare the trailing-7-day daily average to the engagement's pricing envelope (per the SKU chosen in Step 1). If daily COGS is on a trajectory to exceed 40% of monthly MRR at end-of-month, that is a Step 7 input and a Captain conversation, not silently absorbed.
+- [ ] **Voice-gate state.** Confirm the voice gate is in Pass, Near-pass, or Fail per `voice-gate-fallback.md`. If it has transitioned in the last 24 hours, the daily-digest banner on the customer's dashboard should already reflect the new state; verify that surface matches the gate.
+- [ ] **Refusal cascade scan.** Read the count of refusal events in the last 24 hours per `docs/specs/ai-employee/refusal-handling.md`. A single refusal is normal; a cascade (>5 refusals on the same skill in 24 hours, or refusals across more than three skills in 24 hours) is a signal to look at the system prompt or the connector configuration.
+
+If every item on the daily checklist is green and nothing has changed from the prior day, the day's monitoring is done. Log the time in the Captain CLI per PRD §15.2 so the `captain_time` cost driver is observable.
+
+### 6.2 Weekly monitoring (30 minutes, recurring Monday)
+
+On top of the daily checklist:
+
+- [ ] Review the trailing-7-day rollup of every PRD §17.1 metric for which the customer has at least one week of data. The §17.1 table is the canonical metric list; the weekly review is the moment to notice trends, not the moment to define metrics.
+- [ ] Send the customer a Weekly Snapshot email per the day-1 onboarding spec's steady-state pattern. The agent drafts; Captain reviews and sends (reviewer-as-sender per ADR 0005).
+- [ ] Run any tuning the daily checks have surfaced. Tuning windows are not part of the daily 5-10 minute budget; they are part of the 2-hour weekly budget.
+
+### 6.3 Alarms (Captain pages immediately)
+
+The watchdog and PagerDuty service (per `pi-firm-demo-prep.md` Section 5 connector wiring) page Captain immediately on:
+
+- Any safety invariant violation per `docs/specs/ai-employee/safety-invariants.md`.
+- Any external AI disclosure incident (PRD §17.2). Single incident is a kill signal per PRD §17.1.
+- Daily COGS exceeds the configured hard cap.
+- Hermes Machine stopped or health check failing.
+- Audit-log write failure (any append-only invariant break per audit-log-immutability spec).
+
+Alarm response is Step 7-class work; Captain does not roll alarm response into the 2 hr/wk monitoring budget.
+
+### 6.4 Time accounting
+
+Captain logs every monitoring session to the Captain CLI per PRD §15.2. If the trailing-4-week average exceeds 2 hr/wk at steady state, the operational constraint has fired and the next §6.2 review is partly about why.
+
+---
+
+## Step 7: Day-45 pivot-gate decision
+
+**Trigger:** 45 days after `ONBOARDING_COMPLETED`.
+
+**Time budget:** 60-90 minutes of Captain time for the review plus a 30-60 minute customer conversation if the gate decision is "continue with adjustments" or "exit."
+
+**Goal:** A single explicit decision: continue at current trajectory, continue with adjustments, or exit.
+
+### 7.1 Decision criteria
+
+The customer is "on track at day 45" if all four are true:
+
+1. **Trust trajectory.** At least one skill has been promoted to autonomous OR the principal has explicitly opted (in writing, in the audit log) to keep all skills at `draft_for_review`. Either is a healthy state; what is unhealthy is the absence of an explicit choice.
+2. **Approval rate.** ≥80% of drafts approved across the trailing 30 days. (PRD §17.1 targets ≥85% by week 4 and ≥90% by week 12. The day-45 gate uses 80% as the floor that allows a "continue with adjustments" verdict; below 80% sustained over the 30-day window is a kill criterion per §17.2's "Approval rate <70% sustained over 2+ weeks" if it is also trending toward 70%. Captain reads the trajectory, not the single number.) [TBD: confirm 80% floor with Captain at customer-zero; the §17.1 target is week-4 ≥85% and this runbook proposes 80% as the day-45 floor pending operational data.]
+3. **No sticky-stop hard-stops** in the trailing 30 days (per `docs/specs/ai-employee/sticky-stop.md`). A hard-stop event is a safety-invariant signal; even resolved hard-stops in the 30-day window are reviewed in §7.3.
+4. **Cost telemetry envelope.** Per-customer monthly COGS ≤40% of MRR (PRD §17.1 margin metric). At day 45 the agent has ~30 days of cost telemetry; if the trailing-30-day daily-average projection puts month-2 over 40%, that triggers SKU re-pricing or usage cap per PRD §17.1.
+
+If all four are true: **continue at current trajectory.** Schedule the next review at day 90 (per the day-1 spec Captain walk-through cadence and the customer's contract term).
+
+### 7.2 Continue with adjustments
+
+If one or two of the four criteria are amber (criterion-3 cannot be amber; it is binary):
+
+- Document the adjustment plan in the customer directory (`ai-employee/customers/{slug}/day-45-review.md`).
+- Schedule a 30-60 minute customer conversation in week 7 to walk the partner and operator through the adjustments. This conversation is not a renegotiation; it is a calibration update.
+- Adjustments typically take one of three shapes: (a) trust-ceiling tuning (promote, demote, or refuse a skill); (b) voice recalibration (additional samples, additional cohorts, re-run blind test); (c) connector or scope adjustment (add or remove a connector, narrow the inbox scope, change the digest cadence).
+- Re-run day-45 criteria at day 75. If the customer is on track at day 75, return to the standard cadence; if not, re-evaluate per §7.4.
+
+### 7.3 Exit decision
+
+If three or four criteria are red, or any of these is true:
+
+- A safety-invariant violation in the trailing 30 days.
+- An external AI disclosure incident at any point in the engagement.
+- A compliance failure (audit-log incomplete, DPA breach, retention failure) per PRD §17.2.
+
+Then the day-45 review is also an exit conversation. Captain proposes an exit path with no penalty. Run decommission per `docs/specs/ai-employee/decommission-customer.md`. The customer's data is exported per their DPA rights and the Fly Machine, R2 vault, Vectorize index, D1 partition, and Composio project are torn down per `docs/specs/ai-employee/decommission-drain.md`.
+
+### 7.4 Outcome documentation
+
+The day-45 review produces one of three written outcomes in the customer directory:
+
+- `day-45-review.md` with verdict `continue` (no further action; standard cadence resumes).
+- `day-45-review.md` with verdict `adjust` and the adjustment plan + day-75 re-review on calendar.
+- `day-45-decommission.md` with the exit timeline and the decommission ticket reference.
+
+Audit-log event: `DAY_45_REVIEW_COMPLETED` with `metadata.verdict` set to `continue`, `adjust`, or `decommission`. This event is the gate that the day-45 ritual ran.
+
+---
+
+## Recovery paths
+
+**Contract counsel review slips past target effective date.** Step 4 and beyond cannot run until contracts are countersigned. Pause Step 3 readiness work if it is already complete (the readiness report has a 24-hour shelf life) and re-run the readiness check the day before the rescheduled day-1.
+
+**Day-1 session is rescheduled by the customer.** Step 3 readiness ages out at 24 hours. Re-run `prepare-demo-firm.sh` within the 24 hours before the new session date. Do not run day-1 from a stale readiness report.
+
+**Calibration sessions slip.** The calibration runbook (when merged from PR #976) owns slip recovery. Until then, treat any calibration slip as a Step 6 input: the customer is in steady-state with an under-calibrated agent, the voice gate may be Near-pass or Fail, and the monitoring banner should reflect that.
+
+**Captain monitoring time exceeds 2 hr/wk.** The constraint is the alarm. Identify the source on the next §6.2 weekly review. Common sources: an under-tuned skill that is generating high-variance drafts, a connector returning unexpected data shapes, a voice cohort that is not absorbing partner edits, or a runbook step that has implicit work the runbook does not surface. Fix the source; do not absorb the time.
+
+**Day-45 review reveals a kill-criterion event in the prior 30 days that was not paged.** The watchdog and §6.3 alarm path failed open. After running the §7.3 exit conversation with the customer, file a Captain-level postmortem on the missed page and update the watchdog rules.
+
+---
+
+## Per-customer artifacts checklist
+
+By Day-45, the following must exist for customer `{slug}`:
+
+**In the customer directory (`ai-employee/customers/{slug}/`):**
+
+- [ ] `customer.yaml` validated per `customer-yaml-schema.md`
+- [ ] `dossier.md` complete through Section 9
+- [ ] `voice/` directory with ≥30 anchor samples
+- [ ] `trust-ceiling.yaml` reflecting calibration outcomes
+- [ ] `connectors.yaml` with every customer connector either green or explicitly deferred
+- [ ] `INTENT.md` capturing the Step 1 close
+- [ ] `day-45-review.md` (or `day-45-decommission.md`) with the gate verdict
+
+**In Cloudflare account (per spec isolation rules):**
+
+- [ ] D1 customer row + partition rows
+- [ ] R2 vault under `{customer_id}` namespace
+- [ ] Vectorize index named `{customer_id}` exactly
+- [ ] `aie-watchdog` Worker entry for this customer
+- [ ] Audit-log append history complete from Day 0
 
 **In external accounts:**
 
-- Fly app `aie-<slug>` running, Machine ID recorded
-- AgentMail inbox `<agent-name>@<slug>.agents.smd.services` live, webhook receiving
-- Composio project `<slug>` with all connectors authenticated
-- SignWell envelope archived (SOW + exhibits)
-- PagerDuty service entry for this customer
+- [ ] Fly app `hermes-{slug}` running, Machine ID recorded
+- [ ] AgentMail inbox live with webhook receiving
+- [ ] Composio project authenticated for all customer connectors
+- [ ] DocuSign envelope archived (service contract, DPA, BAA-equivalent when applicable)
+- [ ] PagerDuty service entry firing test alerts successfully
 
-**In Infisical (`/ss/customers/<slug>/`):**
+**In Captain's tooling:**
 
-- `ANTHROPIC_API_KEY` (project-scoped budget alerts)
-- `AGENTMAIL_INBOX_ID`, `AGENTMAIL_WEBHOOK_SECRET`
-- `COMPOSIO_PROJECT_KEY`
-- `CF_API_TOKEN` (scoped)
-- `FLY_APP_NAME`, `FLY_MACHINE_ID`
+- [ ] Captain CLI logging `captain_time` per customer per PRD §15.2
+- [ ] Weekly Monday review recurring on calendar
+- [ ] Day-45 review on calendar at `ONBOARDING_COMPLETED + 45d`
+- [ ] Day-90 review on calendar at `ONBOARDING_COMPLETED + 90d`
 
-**In Captain's calendar:**
-
-- Weekly snapshot reminder (recurring)
-- Monthly review (recurring, last Friday)
-- Day-7 / 30 / 60 / 90 check-ins (one-off, sent at signing)
-
-When Captain spins up customer 2, the work is `claude code` → "Replicate the customer-1 provisioning for `<new-slug>`. Use these inputs: [...]." The diff between customers will be small enough that the runbook itself shouldn't need to change — only customer-specific YAML.
+When Captain spins up customer 2, the differences from customer 1 should be small enough that the runbook itself does not change. Customer-specific values change; the sequencing and the gates do not.
 
 ---
 
-_Document owner: Captain. Reviewed at Day-30 of customer 1; updated before customer 2 onboarding. All changes through PR per repo rules._
+_Document owner: Captain. Reviewed at Day-45 of customer 1; updated before customer 2 onboarding. All changes through PR per repo rules._
