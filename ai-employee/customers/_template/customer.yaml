@@ -1,0 +1,98 @@
+schema_version: 1
+
+# TEMPLATE customer.yaml for a PI law firm demo.
+#
+# Copy this file to ai-employee/customers/{firm-slug}/customer.yaml, then
+# replace every bracketed value. Validate with:
+#
+#   uv run --quiet --with pyyaml python3 \
+#     ai-employee/adapter/validate_customer_yaml.py \
+#     ai-employee/customers/{firm-slug}/customer.yaml \
+#     --skills-dir ai-employee/skills \
+#     --connectors-dir ai-employee/connectors \
+#     --fixtures-dir ai-employee/fixtures
+#
+# The reserved `_template` directory is never a real customer slug.
+# customer_id must equal the directory name and match ^[a-z0-9][a-z0-9-]{0,31}$.
+
+# ---- IDENTITY ----
+customer_id: '[FIRM-SLUG]'
+customer_name: '[LEGAL NAME]'
+vertical: law-firm
+practice_areas:
+  - '[PRIMARY PRACTICE AREA, e.g., personal-injury-plaintiff]'
+fly_region: '[FLY REGION SLUG, e.g., iad / lax / ord]'
+
+# ---- RUNTIME ----
+model: claude-opus-4-7
+hermes_ref: '[HERMES REF, e.g., v2026.5.7]'
+
+machine:
+  size: shared-cpu-1x
+  memory_mb: 1024
+
+# ---- HUMANS WITH PORTAL ACCESS ----
+users:
+  - email: '[PRINCIPAL EMAIL]'
+    role: principal
+    full_name: '[PRINCIPAL FULL NAME]'
+
+# ---- PERSONAS (length >= 1) ----
+personas:
+  - slug: '[PERSONA SLUG, e.g., marcus]'
+    status: active
+    name: '[PERSONA FIRST NAME]'
+    title: AI Associate
+    tone:
+      - plainspoken
+      - warm-but-professional
+      - concise
+    skills:
+      - name: '[LEAD PI SKILL, e.g., law-pi-demand-letter-draft]'
+        version: pending
+        trust_ceiling: draft_for_review
+        enabled: true
+
+# ---- CONNECTORS ----
+# Hypothesized stack from the dossier. Confidence-low items should start
+# as synthetic and switch to a real adapter only after Captain confirms
+# during the assessment call.
+connectors:
+  PracticeManagement:
+    adapter: '[filevine / clio / synthetic]'
+    backend: '[composio:filevine / build:filevine / synthetic:fixture]'
+    enabled: true
+  Email:
+    adapter: '[gmail / microsoft-graph / synthetic]'
+    backend: '[composio:gmail / build:ms-graph / synthetic:fixture]'
+    enabled: true
+  Calendar:
+    adapter: '[gmail / microsoft-graph / synthetic]'
+    backend: '[composio:gmail / build:ms-graph / synthetic:fixture]'
+    enabled: true
+
+# ---- SCOPE ----
+scope:
+  email_folders_visible:
+    - Inbox
+    - Sent
+  email_folders_blind: []
+  email_keyword_blocks: []
+  domain_blocks: []
+
+# ---- ESCALATION ----
+escalation:
+  red_flag_recipients:
+    - '[PRINCIPAL EMAIL]'
+  failure_recipients:
+    - '[PRINCIPAL EMAIL]'
+
+# ---- VOICE LIBRARY ----
+voice_library:
+  samples_path: 'r2://vaults/[FIRM-SLUG]/voice/samples/'
+
+# ---- MEMORY (isolation invariants; must match customer_id) ----
+memory:
+  d1_namespace: '[FIRM-SLUG]'
+  r2_vault_path: 'vaults/[FIRM-SLUG]/'
+  vectorize_index: 'hermes-[FIRM-SLUG]-vault'
