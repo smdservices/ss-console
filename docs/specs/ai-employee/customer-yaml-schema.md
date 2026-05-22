@@ -125,6 +125,29 @@ pause: # OPTIONAL
   reason: <string> # required if active=true
 ```
 
+## Memory retention
+
+**Added by [#863](https://github.com/venturecrane/ss-console/issues/863).** Per-data-type retention windows for the periodic cleanup runner (`adapter/memory/retention.py` + `bin/cron-retention.py`). The entire `memory.retention:` block is OPTIONAL; missing fields fall back to the documented defaults below. See [`memory-retention.md`](./memory-retention.md) for the full spec.
+
+```yaml
+memory:
+  # ...existing memory.* fields...
+  retention: # OPTIONAL
+    matters_days: <int> # OPTIONAL; default 730 (2 years)
+    documents_days: <int> # OPTIONAL; default 365 (1 year)
+    recipients_days: <int> # OPTIONAL; default 730 (2 years)
+    voice_samples_days: <int> # OPTIONAL; default 365 (1 year)
+    audit_log_days: <int> # OPTIONAL; default 2555 (7 years; legal industry norm)
+    drafts_days: <int> # OPTIONAL; default 90 (90 days)
+```
+
+Field rules:
+
+- Every `*_days` value MUST be a positive integer. Non-int values trigger a logged fallback to the module default in `MemoryRetentionPolicy.from_customer_yaml`; zero or negative values raise `ValueError` at policy-construction time.
+- Unknown keys under `memory.retention:` are ignored (forward-compat with future schema versions that add more knobs).
+- The runner only sweeps memory + voice today. `audit_log_days` and `drafts_days` declare the policy now; their sweep code lands in follow-ons against `memory-retention.md` §"Per-pipeline scope".
+- The default scheduled cron uses `access_scope = firm-wide`; partner-only and attorney-list rows require a narrower Captain-invoked sweep (see `memory-retention.md` §"Access-scope discipline").
+
 ## Capability binding
 
 The `connectors:` map keys MUST be drawn from the canonical capability union published by [`src/lib/ai-employee/capabilities/types.ts`](../../../src/lib/ai-employee/capabilities/types.ts):
