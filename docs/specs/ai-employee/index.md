@@ -28,11 +28,13 @@ Build agents consuming these specs should treat the PRDs as **vision/doctrine** 
 | [decommission-drain.md](decommission-drain.md)                 | [#805](https://github.com/venturecrane/ss-console/issues/805) | 60s drain window before substrate deletion                                                                     |
 | [decommission-customer.md](decommission-customer.md)           | [#820](https://github.com/venturecrane/ss-console/issues/820) | Full per-customer off-boarding pipeline; 9 idempotent steps                                                    |
 | [sticky-stop.md](sticky-stop.md)                               | [#843](https://github.com/venturecrane/ss-console/issues/843) | System-initiated circuit breaker for runaway agent loops (WARN/SOFT/HARD)                                      |
+| [aie-adapter-register.md](aie-adapter-register.md)             | [#841](https://github.com/venturecrane/ss-console/issues/841) | Adapter-side hook surface for the SMD overlay on Hermes; pre/post/refusal/compaction hooks                     |
+| [connector-smoke-tests.md](connector-smoke-tests.md)           | [#852](https://github.com/venturecrane/ss-console/issues/852) | Per-connector read-only smoke probes at provisioning + periodic; read-only allowlist; pass/partial/fail rollup |
+| [no-pm-system-mode.md](no-pm-system-mode.md)                   | [#853](https://github.com/venturecrane/ss-console/issues/853) | Customer.yaml + capability bindings for customers without an external practice-management vendor               |
 | [safety-invariants.md](safety-invariants.md)                   | [#865](https://github.com/venturecrane/ss-console/issues/865) | Invariants #6 (citation enforcement on fact-bearing fields) and #7 (cross-Machine query prohibition)           |
 | [refusal-handling.md](refusal-handling.md)                     | [#866](https://github.com/venturecrane/ss-console/issues/866) | Runtime semantics when `trust_ceiling.enforce()` returns `refuse` (abort + notification + cascade alert)       |
 | [calibration-session.md](calibration-session.md)               | [#867](https://github.com/venturecrane/ss-console/issues/867) | Four 90-minute calibration sessions over two weeks; portal surface + integration seams                         |
 | [audit-log-immutability.md](audit-log-immutability.md)         | [#892](https://github.com/venturecrane/ss-console/issues/892) | Worker-layer enforcement, Logpush mirror protocol, integrity check, Captain exception process                  |
-| [connector-smoke-tests.md](connector-smoke-tests.md)           | [#852](https://github.com/venturecrane/ss-console/issues/852) | Per-connector read-only smoke probes at provisioning + periodic; read-only allowlist; pass/partial/fail rollup |
 
 ## Open ambiguities requiring Captain decision
 
