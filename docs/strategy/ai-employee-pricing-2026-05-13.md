@@ -1,345 +1,378 @@
-# AI Employee Pricing Analysis — 2026-05-13
+# AI Employee v1 SKU Pricing and COGS Model
 
-**Issue:** [#772](https://github.com/venturecrane/ss-console/issues/772)
-**Authorizes:** Launch pricing lock for productized AI Employee SKU
-**Inputs:** [Stack evaluation](./ai-employee-stack-evaluation-2026-05-13.md) (cost shape), [functional shape research](./ai-employee-functional-shape-2026-05-13.md) (market pricing patterns + $5K/mo Captain confirmation)
-**Captain decision required** — does not auto-execute.
-
----
-
-## Executive summary
-
-Captain confirmed $5K/mo flat single tier launch pricing in the functional shape doc. This analysis validates that decision against the cost stack, surfaces the support-labor variable as the dominant margin risk, and proposes contract guardrails to protect economics.
-
-**The numbers.**
-
-| Year                                             | Revenue/customer | Cost/customer | Gross profit/customer | Gross margin |
-| ------------------------------------------------ | ---------------- | ------------- | --------------------- | ------------ |
-| Y1 (Phase 1 — first 1-5 customers)               | $60,000          | ~$37,700      | ~$22,300              | **~37%**     |
-| Y2 (Phase 1.5 — 6-15 customers, systematization) | $60,000          | ~$11,500      | ~$48,500              | **~81%**     |
-| Y3+ (Phase 2 — 16+ customers, automation)        | $60,000          | ~$7,300       | ~$52,700              | **~88%**     |
-
-**The dominant risk.** Support labor is 90% of the cost stack. Infra cost ($35-170/mo per customer) is rounding error against support hours ($350-2,100/mo per customer depending on operations phase). The pricing model survives if we bound support hours contractually and systematize delivery as customer count grows. The pricing model collapses if Phase 1 customer support drifts to 16+ hours/week per customer.
-
-**LTV / CAC framework.** At conservative retention (30% Y1 churn, 20% Y2, 15% Y3+), mean customer life is ~24-30 months. Expected lifetime gross profit per customer: **$70K-$90K**. Target LTV:CAC of 6:1 implies acquisition cost cap of $13K — well above realistic Phase 1 acquisition cost through warm channels (Vistage, EO Arizona, referrals, content; estimated $2-5K per customer).
-
-**Tier structure: single flat tier at launch, re-evaluate after 5 customers.** Tiering pre-revenue is premature optimization. Single tier maximizes sales velocity and customer self-selection. After 5 customers, data will indicate whether to add a smaller capacity-light tier or a larger dedicated-support tier.
-
-**Pricing starting position (subject to revision against data, not a lock): $5,000/mo flat retainer, no tiering, 6-month initial term for Phase 1 customers with 90-day evaluation window. 12-month commitment pattern locks for customer 6+ once Phase 1.5 data validates assumptions.** This is a newly emerging market; our data is thin (operator anecdotes, one quarter of market signals). Locking these numbers as firm benchmarks would be overconfidence. We adopt them as the best starting position the available data supports and bind them to explicit revision triggers (see below).
+> **Status:** v1 PROPOSAL. Captain reviews and finalizes before any customer engagement.
+> **Issue:** [#794](https://github.com/venturecrane/ss-console/issues/794) (supersedes the prior #772 framing that scoped this doc to a single PI meeting deadline).
+> **Companion PRDs:** [`docs/pm/ai-employee/platform-prd.md`](../pm/ai-employee/platform-prd.md) §15 (Pricing Posture), §15.1 (Cost telemetry and SKU margin discipline); [`docs/pm/ai-employee/law-firm-prd.md`](../pm/ai-employee/law-firm-prd.md) §11.7 (The order-taking moment).
+> **Source decisions:** [ADR 0004](../adr/0004-productized-ai-employee-offering.md) (Productized AI Employee Offering, flat-monthly SKU shape locked, specific price deferred to this doc).
+> **Captain rate used in model:** $200/hr loaded cost per `CLAUDE.md` and platform-prd §15.1. The decision-stack #16 "$175/hr launch" rate is the scope-based-consulting external billing rate; the productized SKU models the higher loaded internal cost because every Captain hour spent on a productized customer is an hour not spent on a billable scope engagement.
 
 ---
 
-## Cost stack per customer per month
+## 1. What this doc covers
 
-Three load points based on customer usage shape. Most SMD customers should land in **moderate**; the **light** and **heavy** profiles bracket the realistic range.
+This doc models the unit economics of the v1 law-firm AI Employee SKU and proposes a launch price. Per the issue's revised framing, this is a product attribute we need regardless of any specific customer meeting. The prior framing (pricing response framework for a specific 2026-06 PI meeting) is dismissed.
 
-| Component                                              | Light                          | Moderate (expected SMD median) | Heavy                                    |
-| ------------------------------------------------------ | ------------------------------ | ------------------------------ | ---------------------------------------- |
-| Workers Paid (shared, attributed per customer at 10)   | $0.50                          | $0.50                          | $0.50                                    |
-| Fly.io Hermes machine                                  | $5 (shared-cpu-1x, low active) | $10 (shared-cpu-1x active)     | $20 (performance-1x sustained)           |
-| CF Sandboxes (computer-use bursts)                     | $1 (rare GUI)                  | $5 (regular GUI)               | $15 (frequent GUI)                       |
-| Cloudflare Vectorize                                   | $0.50                          | $1                             | $2                                       |
-| D1 + R2 (memory layer)                                 | $0.50                          | $1                             | $2                                       |
-| AgentMail Builder ($20/mo / 10 inboxes)                | $2                             | $2                             | $5 (Scale-tier pro-rata)                 |
-| Composio Standard ($29/mo / 200K calls / 10 customers) | $3                             | $3                             | $5 (heavier may need Pro-tier amortized) |
-| Claude API tokens (with prompt caching)                | $20                            | $50                            | $120                                     |
-| **Total**                                              | **~$32/mo**                    | **~$72/mo**                    | **~$170/mo**                             |
+In scope:
 
-**Notes on the cost shape:**
+- Per-customer COGS model for the three customer profiles defined in platform-prd §15.1 (Light, Medium, Heavy).
+- v1 SKU pricing structure proposal (flat-monthly primary, tiered-by-profile alternative).
+- Test against the platform-prd §17.1 ≤40% COGS/MRR margin floor.
+- Defensible assumptions document for Captain review.
 
-- The Composio and AgentMail amortizations assume 10 active customers. At 5 customers, per-customer cost is roughly 2x amortized; at 25 customers, ~0.4x. Material but not dominant.
-- Claude API is the variable that scales most directly with customer usage. Prompt caching (1.25x base for 5min, 2x for 1hr, reads at 0.1x) is mandatory; without it, costs roughly 3-5x.
-- Fly.io machine sizing is the second-largest variable. A customer running a chat-only agent on shared-cpu-1x with low utilization sits at the low end; a customer running heavy multi-surface gateway with frequent long-horizon tasks pushes to performance-1x or 2x. Phase 2 re-evaluation should consider moving to Cloudflare-native (CF Agents + Claude Agent SDK) to collapse this line item entirely.
-- Infra cost is real but small. Even at the heavy end ($170/mo), it represents 3.4% of a $5K/mo retainer.
+Out of scope:
+
+- Contract terms (notice, escalation, scope-creep protocol). Filed at [`docs/strategy/ai-employee-service-contract-2026-05-13.md`](./ai-employee-service-contract-2026-05-13.md).
+- Customer-facing copy, landing pages, SOW variants.
+- Stack-cost evaluation as a standalone exercise. Filed at [`docs/strategy/ai-employee-stack-evaluation-2026-05-13.md`](./ai-employee-stack-evaluation-2026-05-13.md).
 
 ---
 
-## Support labor model
+## 2. Customer profiles (from platform-prd §15.1)
 
-Support labor dominates the cost stack. The model assumes Captain's internal rate of $175/hr at launch (per Decision #16). All hours are Captain or Captain-with-agent-fleet hours.
+Three load profiles. The Medium profile is the expected median for the law-firm v1 vertical; Light and Heavy bracket the plausible range. The shape parameters are authoritative in platform-prd §15.1 and reproduced here for context.
 
-### Three regimes by customer-count phase
+| Profile    | Drafts per week | Memory edits per week | Practice areas | Connectors |
+| ---------- | --------------- | --------------------- | -------------- | ---------- |
+| **Light**  | 20              | 2                     | 1              | 4          |
+| **Medium** | 50              | 5                     | 1              | 6          |
+| **Heavy**  | 150             | 10                    | 2              | 8          |
 
-| Phase                                                       | Customer count | Onboarding (one-time)    | Steady-state per customer per month |
-| ----------------------------------------------------------- | -------------- | ------------------------ | ----------------------------------- |
-| **Phase 1** (learning)                                      | 1-5            | 80-120 hours / $14K-$21K | 8-12 hours/week / $1,400-$2,100/mo  |
-| **Phase 1.5** (systematization)                             | 6-15           | 40-80 hours / $7K-$14K   | 4-6 hours/week / $700-$1,050/mo     |
-| **Phase 2** (automation, Captain's rate scaling to $200/hr) | 16+            | 20-40 hours / $4K-$8K    | 2-4 hours/week / $350-$800/mo       |
+Two derived assumptions used throughout this model (documented here so the math is auditable):
 
-### What drives the trajectory
+- **Tokens per draft.** Inbox triage, status-update, and signing-coordinator drafts average ~8K input tokens (matter context + voice samples + thread history) and ~600 output tokens (the draft itself). Demand-letter-text-only drafts (PI-overlay only) average ~25K input and ~2K output. Light is assumed 100% inbox/status/signing; Medium is 90% inbox/status/signing + 10% PI drafts; Heavy is 80% inbox/status/signing + 20% PI drafts.
+- **Prompt-cache hit rate.** Persistent voice samples, person-mappings, and matter-context blocks are stable across drafts and qualify for the 5-minute and 1-hour caches per [Anthropic prompt-caching docs](https://platform.claude.com/docs/en/docs/about-claude/pricing#prompt-caching). Modeled at **75% cache-read share of input tokens** (voice library + memory rules cached; per-draft thread context not cached).
 
-**Onboarding compression** comes from the playbook itself becoming a deliverable. The first customer's onboarding includes building the vertical pack from scratch; customer 5 reuses 80% of customer 4's pack; customer 15 reuses 95% of the v1 marketing-agencies pack.
-
-**Steady-state compression** comes from three places:
-
-- **Agent self-service** — by Phase 1.5, the customer's agent handles routine customer questions instead of escalating to Captain.
-- **Watchdog and observability automation** — Phase 1.5 builds out monitoring that catches issues before manual discovery.
-- **Pattern libraries** — Phase 2 has runbooks for the top 20 issue patterns; resolution time drops from "investigate" to "apply runbook 7."
-
-### Support hours allocation guidance
-
-For Phase 1 (1-5 customers), realistic allocation per customer per month:
-
-| Task                               | Hours/month        | Notes                                                    |
-| ---------------------------------- | ------------------ | -------------------------------------------------------- |
-| Customer success check-in (weekly) | 4                  | Day-7, Day-30, Day-60, Day-90 cadence                    |
-| Skill iteration / customization    | 8-16               | New skills, vertical pack tuning                         |
-| Incident response                  | 4-8                | Variable; bound by SLA                                   |
-| Reporting / dashboard maintenance  | 2-4                | Customer-facing health metrics                           |
-| Vendor coordination                | 1-3                | Hermes upgrades, MCP changes, Fly issues                 |
-| Customer escalations               | 4-8                | The customer pings us with an ad-hoc question or request |
-| **Total**                          | **23-43 hours/mo** | Roughly 5-10 hours/week                                  |
-
-This is consistent with the operator data points in the functional shape research: agency-retainer pattern reports 5-10 hours/week per customer maintenance once stable.
+These two assumptions are the dominant uncertainties in the model. If actuals diverge materially, the §6 revision triggers fire.
 
 ---
 
-## Margin analysis
+## 3. Per-driver COGS lines (sourced)
 
-### Year 1 per customer (Phase 1)
+This section models each of the nine cost drivers enumerated in platform-prd §15.1, per profile per month. Every line is cited; figures use 2026-05 published rates.
 
-| Line item                                                        | Value        |
-| ---------------------------------------------------------------- | ------------ |
-| Revenue ($5K/mo × 12 months)                                     | $60,000      |
-| Onboarding cost (one-time, Phase 1 mid-range)                    | -$17,500     |
-| Infra cost ($72/mo × 12)                                         | -$864        |
-| Support cost ($1,750/mo × 11 months, excluding onboarding month) | -$19,250     |
-| **Total cost Y1**                                                | **-$37,614** |
-| **Gross profit Y1**                                              | **$22,386**  |
-| **Gross margin Y1**                                              | **~37%**     |
+### 3.1 Claude API tokens (Anthropic billing)
 
-### Year 2 per customer (Phase 1.5 — systematization)
+**Source:** [Anthropic API pricing page](https://platform.claude.com/docs/en/docs/about-claude/pricing) (accessed 2026-05-21). Model assumed: Claude Sonnet 4.6 at $3/MTok input, $15/MTok output, 5-minute cache writes at 1.25x ($3.75/MTok), cache reads at 0.1x ($0.30/MTok). The platform-prd §7.8 stack pin allows model choice; Sonnet 4.6 is the v1 default for cost-per-draft economics. Captain may override to Opus 4.7 ($5 input / $25 output / $0.50 cache reads) for specific high-judgment skills; the heavy-tier infra cost line below absorbs that headroom.
 
-| Line item                                         | Value        |
-| ------------------------------------------------- | ------------ |
-| Revenue                                           | $60,000      |
-| Infra cost ($75/mo × 12)                          | -$900        |
-| Support cost ($875/mo × 12 — Phase 1.5 mid-range) | -$10,500     |
-| **Total cost Y2**                                 | **-$11,400** |
-| **Gross profit Y2**                               | **$48,600**  |
-| **Gross margin Y2**                               | **~81%**     |
+**Monthly draft volume by profile (4.33 weeks/month):**
 
-### Year 3+ per customer (Phase 2 — automation)
+- Light: 20 drafts/week × 4.33 = ~87 drafts/month, all inbox-class (~8K input + 600 output each).
+- Medium: 50 drafts/week × 4.33 = ~217 drafts/month, 90% inbox-class + 10% PI-class.
+- Heavy: 150 drafts/week × 4.33 = ~650 drafts/month, 80% inbox-class + 20% PI-class.
 
-| Line item                                       | Value       |
-| ----------------------------------------------- | ----------- |
-| Revenue                                         | $60,000     |
-| Infra cost ($75/mo × 12)                        | -$900       |
-| Support cost ($525/mo × 12 — Phase 2 mid-range) | -$6,300     |
-| **Total cost Y3+**                              | **-$7,200** |
-| **Gross profit Y3+**                            | **$52,800** |
-| **Gross margin Y3+**                            | **~88%**    |
+**Math (Light):**
 
-### Blended Y1+Y2 (the typical retained customer)
+- Input tokens: 87 × 8,000 = 696K. With 75% cache reads: 174K @ $3/MTok + 522K @ $0.30/MTok = $0.52 + $0.16 = $0.68. Cache writes (assume 5% of input rotates per month): 35K @ $3.75/MTok = $0.13. Subtotal input: ~$0.81.
+- Output tokens: 87 × 600 = 52K @ $15/MTok = $0.78.
+- **Light Claude API: ~$1.59/mo.**
 
-Two-year revenue: $120,000. Two-year cost: $49,014. Two-year gross profit: $70,986. Blended margin: **~59%**.
+**Math (Medium):**
 
-### LTV framework
+- Inbox-class: 195 drafts × 8K input = 1.56M. With 75% cache reads: 390K @ $3/MTok + 1.17M @ $0.30/MTok = $1.17 + $0.35 = $1.52. PI-class: 22 drafts × 25K input = 550K. With 75% cache reads: 138K @ $3/MTok + 412K @ $0.30/MTok = $0.41 + $0.12 = $0.53. Cache writes (5%): ~106K @ $3.75/MTok = $0.40. Subtotal input: ~$2.45.
+- Output: 195 × 600 + 22 × 2,000 = 117K + 44K = 161K @ $15/MTok = $2.42.
+- **Medium Claude API: ~$4.87/mo.**
 
-Conservative retention assumption (informed by AI-SDR cancellation data in the functional shape research):
+**Math (Heavy):**
 
-| Year     | Probability of retention to this year | Annual gross profit | Expected gross profit    |
-| -------- | ------------------------------------- | ------------------- | ------------------------ |
-| Y1       | 100% (all paying customers)           | $22,386             | $22,386                  |
-| Y2       | 70% (30% Y1 churn — 60-90 day cliff)  | $48,600             | $34,020                  |
-| Y3       | 56% (80% Y2-to-Y3 retention)          | $52,800             | $29,568                  |
-| Y4       | 48% (85% Y3-to-Y4)                    | $52,800             | $25,344                  |
-| Y5+ tail | Continues tapering                    | —                   | ~$30,000 cumulative tail |
+- Inbox-class: 520 drafts × 8K = 4.16M. With 75% cache reads: 1.04M @ $3 + 3.12M @ $0.30 = $3.12 + $0.94 = $4.06. PI-class: 130 drafts × 25K = 3.25M. With 75% cache reads: 813K @ $3 + 2.44M @ $0.30 = $2.44 + $0.73 = $3.17. Cache writes (5%): ~370K @ $3.75/MTok = $1.39. Subtotal input: ~$8.62.
+- Output: 520 × 600 + 130 × 2,000 = 312K + 260K = 572K @ $15/MTok = $8.58.
+- **Heavy Claude API: ~$17.20/mo.**
 
-**Expected lifetime gross profit per customer: ~$141K** (cumulative across the full tail).
+Token spend is the most variable line. If Captain elects Opus 4.7 for a sub-skill (e.g. PI demand-letter drafting) the per-draft cost rises ~3x for that skill. The Heavy figure includes one Opus-class skill's worth of headroom; if multiple skills move to Opus, this line scales accordingly. The §17.1 ≤40% margin floor is the gate; if token mix drives a customer above it, the §6 revision triggers fire.
 
-This is conservative — Phase 2+ retention rates may improve materially if the agent demonstrably reduces customer churn from their other operational pain. The $141K is a low-end planning number.
+### 3.2 Fly.io Machine compute (Fly.io billing)
 
-### CAC framework
+**Source:** [Fly.io pricing page](https://fly.io/docs/about/pricing/) (accessed 2026-05-21). Shared-CPU-1x at 256MB baseline = $2.02/mo + ~$5/GB extra RAM per month; performance-1x at 2GB baseline = $32.19/mo. Persistent volume at $0.15/GB-mo. Per platform-prd §7.1, one Hermes Machine per customer.
 
-Target LTV:CAC of **6:1** (mid-market SaaS benchmark; SMB services tends higher because retention is longer).
+| Profile | Machine size           | RAM allocated | Monthly compute | Volume (10GB) | Total Fly   |
+| ------- | ---------------------- | ------------- | --------------- | ------------- | ----------- |
+| Light   | shared-cpu-1x          | 1 GB          | ~$5.00          | $1.50         | **~$6.50**  |
+| Medium  | shared-cpu-1x (active) | 2 GB          | ~$10.00         | $1.50         | **~$11.50** |
+| Heavy   | performance-1x         | 2 GB          | ~$32.19         | $1.50         | **~$33.69** |
 
-LTV $141K → CAC ceiling $23K per customer.
+The Heavy-tier performance-1x bump is the larger draft volume + multi-practice-area memory working set. Light and Medium fit comfortably on shared-cpu-1x.
 
-Phase 1 acquisition through warm channels (Vistage, EO Arizona, accountant/bookkeeper referrals, content) realistically lands at **$2-5K per customer** — well below the ceiling.
+### 3.3 Cloudflare D1, R2, Vectorize, Workers (Cloudflare billing)
 
-At scale with outbound + paid + content, $5-10K per customer is reasonable and still within budget. The LTV:CAC math is not the constraint at any near-term phase.
+**Sources:** [Cloudflare D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), [Cloudflare R2 pricing](https://developers.cloudflare.com/r2/pricing/), [Cloudflare Vectorize pricing](https://developers.cloudflare.com/vectorize/platform/pricing/) (all accessed 2026-05-21). Workers Paid plan: $5/mo base, shared across all customers, amortized at 10 customers = $0.50/customer/mo.
 
----
+**Workers Paid base allowances (per account, shared across all customers):** D1 25B reads, 50M writes, 5 GB storage; R2 10 GB storage, 1M Class A, 10M Class B; Vectorize 50M queried + 10M stored vector dimensions. For Phase 1 customer counts (1 to 5 customers), every profile fits well inside the free allowances and the marginal Cloudflare cost is the $0.50 Workers Paid attribution. The model uses small non-zero placeholders to capture growth past Phase 1.5 and to acknowledge per-customer D1 audit-log write volume:
 
-## Sensitivity analysis
+| Profile | D1 (audit log writes + memory) | R2 (vault + drafts) | Vectorize (memory recall) | Workers Paid share | Total CF   |
+| ------- | ------------------------------ | ------------------- | ------------------------- | ------------------ | ---------- |
+| Light   | $0.20                          | $0.20               | $0.30                     | $0.50              | **~$1.20** |
+| Medium  | $0.50                          | $0.30               | $0.50                     | $0.50              | **~$1.80** |
+| Heavy   | $1.20                          | $0.60               | $1.20                     | $0.50              | **~$3.50** |
 
-What breaks the pricing model?
+Cloudflare is a rounding-error line at Phase 1 customer counts. The figures track per-customer attribution as customer count grows past the free-tier headroom.
 
-### Support hours double (16-24 hours/week per customer Phase 1)
+### 3.4 AgentMail (AgentMail billing)
 
-| Line item                | Value        |
-| ------------------------ | ------------ |
-| Revenue                  | $60,000      |
-| Onboarding (unchanged)   | -$17,500     |
-| Infra (unchanged)        | -$864        |
-| Support ($3,500/mo × 11) | -$38,500     |
-| **Total cost Y1**        | **-$56,864** |
-| **Gross profit Y1**      | **$3,136**   |
-| **Gross margin Y1**      | **~5%**      |
+**Source:** [AgentMail pricing page](https://agentmail.to/pricing) (accessed 2026-05-21). Developer tier $20/mo for 10 inboxes / 10K emails. Startup tier $200/mo for 150 inboxes / 150K emails. Per platform-prd §7, AgentMail provides the agent's internal-facing identity (e.g. `marcus@smith-pi-firm.agents.smd.services`); external send is reviewer-as-sender per ADR 0005, so AgentMail does NOT scale with external draft volume, only with internal-comms volume.
 
-**This is the breaking point.** If Phase 1 customers consistently require 16+ hours/week of Captain attention, the math collapses. Mitigation: contractual scope guardrails (see service contract implications below), graduated autonomy that reduces customer dependence, and a hard rule that customers requiring >12 hours/week are escalated to either a custom scope quote or termination.
+Amortized at 10 customers on Developer tier: $2/customer/mo for all profiles. Heavy tier moves to Startup at customer count 11+, attributed at ~$5/customer/mo when amortized across 40 active customers.
 
-### Token spend doubles (Claude API to $40-160/mo, infra avg to $120/mo)
+| Profile | AgentMail |
+| ------- | --------- |
+| Light   | **$2.00** |
+| Medium  | **$2.00** |
+| Heavy   | **$5.00** |
 
-| Line item            | Value        |
-| -------------------- | ------------ |
-| Revenue              | $60,000      |
-| Onboarding           | -$17,500     |
-| Infra ($120/mo × 12) | -$1,440      |
-| Support              | -$19,250     |
-| **Total cost Y1**    | **-$38,190** |
-| **Gross margin Y1**  | **~36%**     |
+### 3.5 Composio (Composio billing)
 
-Negligible impact. Token spend doubling adds $576 to the annual cost — <1% margin shift. Not a real risk.
+**Source:** [Composio pricing page](https://composio.dev/pricing) (accessed 2026-05-21). Ridiculously Cheap tier $29/mo for 200K tool calls; Serious Business tier $229/mo for 2M tool calls; overage $0.299/1K calls on the lower tier, $0.249/1K on the upper. Per platform-prd §7.2, Composio is one source of connector adapters; native MCP and custom MCP wrappers also exist. Composio amortizes per-customer at $3/customer/mo (Ridiculously Cheap shared across 10 customers) at Phase 1 volume.
 
-### Onboarding stretches 2x (8 weeks instead of 4)
+**Tool-call estimate by profile** (one tool call per draft for inbox read + thread fetch + draft create + label apply ≈ 4 calls/draft, plus background reads):
 
-| Line item                       | Value        |
-| ------------------------------- | ------------ |
-| Revenue                         | $60,000      |
-| Onboarding ($35K, double)       | -$35,000     |
-| Infra                           | -$864        |
-| Support ($1,750/mo × 10 months) | -$17,500     |
-| **Total cost Y1**               | **-$53,364** |
-| **Gross profit Y1**             | **$6,636**   |
-| **Gross margin Y1**             | **~11%**     |
+- Light: 87 drafts × 4 calls + ~500 background reads = ~850 calls/mo. Well inside shared-tier allowance.
+- Medium: 217 × 4 + ~1.5K background = ~2,400 calls/mo. Inside allowance.
+- Heavy: 650 × 4 + ~5K background = ~7,600 calls/mo. Inside allowance (Ridiculously Cheap shared = 20K/customer at 10-customer amortization).
 
-Tight but survivable in Y1; Y2+ unchanged. Mitigation: structured onboarding playbook with customer-side prerequisite gates, shadow-mode period reduces ambiguity, hard 80-hour cap on onboarding hours (anything beyond is a paid scope expansion).
+Heavy may require a per-customer Composio attribution bump if multiple PM adapters route through Composio rather than native MCP. Modeled at $5 for Heavy as headroom; $3 otherwise.
 
-### Y1 churn hits 60% instead of 30%
+| Profile | Composio  |
+| ------- | --------- |
+| Light   | **$3.00** |
+| Medium  | **$3.00** |
+| Heavy   | **$5.00** |
 
-LTV halves to ~$70K. CAC ceiling drops to $12K — still well above realistic warm-channel acquisition cost. The pricing model survives but the customer-success engine must be much sharper. Mitigation: structured Day-7 / Day-30 / Day-60 / Day-90 check-ins, shared KPI dashboard, fast-response incident protocol, the onboarding-as-paid-stage framing that gives customers a clean exit at Day 90 without bad blood.
+### 3.6 Connector-specific costs (third-party API costs)
 
-### Multi-failure scenario (support doubles AND onboarding stretches AND Y1 churn at 60%)
+**Sources:** Per-vendor pricing as noted inline. Per platform-prd §15.1, this driver captures third-party API costs distinct from Composio's per-tool-call fee. For law-firm v1, the most relevant are:
 
-Y1 cost: ~$74K. Y1 gross profit per customer: **-$14K (loss)**. LTV gross profit per customer: ~$25K (just Y1's of survivors, no Y2+ accumulation worth modeling at this churn).
+- **CourtListener API** ([courtlistener.com/help/api/rest/](https://www.courtlistener.com/help/api/rest/)): Free tier supports the read-only `CourtAccess` interface per platform-prd §7.2.1; no per-call cost.
+- **DocuSign / PandaDoc envelope APIs**: Read-only `ESign` interface per platform-prd §7.2.1 (no `send_envelope`, drafts only). Pass-through cost; customer pays directly for their own envelope volume.
+- **LawPay / Stripe payment lookups**: Read-only `Payments` interface per platform-prd §7.2.1. Pass-through cost; customer pays directly.
+- **PM connector subscriptions (Filevine, Clio, SmartAdvocate)**: Customer pays for their own PM seat. SMD pays $0 incremental for the adapter API access (per-firm OAuth tokens, not per-call SMD billing).
 
-This is the worst plausible case. It survives because most variables move toward Phase 1.5 / 2 quickly as customer count grows — the pain is concentrated in the first 1-2 customers, and the marginal cost of customer N drops fast.
+Result: third-party connector cost is **$0/mo per customer for SMD** in the law-firm v1 model. The customer's own vendor bills remain the customer's responsibility. This line item exists in the COGS model as a placeholder for future verticals (e.g. an accounting vertical might require QuickBooks Online API quota purchase) but is zero for law-firm v1.
 
----
+| Profile | Connector-specific |
+| ------- | ------------------ |
+| Light   | **$0.00**          |
+| Medium  | **$0.00**          |
+| Heavy   | **$0.00**          |
 
-## Pricing starting position
+### 3.7 Captain operations time (internal time log)
 
-**Single flat tier at $5,000/mo. 6-month initial term for Phase 1 (customers 1-5) with 90-day evaluation window. 12-month commitment pattern locks for customer 6+ once Phase 1.5 data validates the assumptions.**
+**Source:** [`CLAUDE.md`](../../CLAUDE.md) and platform-prd §15.1 specify $200/hr loaded cost. The platform-prd §15.2 Captain CLI computes this automatically: `cost_cents = (minutes * 200 * 100) / 60`. Per #806, the activity-tag taxonomy is the closed enum that feeds the per-customer COGS attribution.
 
-This is the best starting position the available data supports. The market is newly emerging; the operator data is thin; locking these numbers as firm benchmarks would be overconfidence. The structure binds the starting position to explicit revision triggers (see below) so each Phase 1 customer becomes a data point that improves the next.
+**Steady-state weekly hours by profile** (post-onboarding, week 4+, per platform-prd §4 "Captain operational budget per customer ≤2 hours/week" hard constraint plus Phase 1 learning overhead):
 
-### Why $5K (and not $3K or $7.5K)
+| Phase                                 | Customer count | Steady-state hours/week per Light | per Medium | per Heavy |
+| ------------------------------------- | -------------- | --------------------------------- | ---------- | --------- |
+| **Phase 1** (learning, 1-5 customers) | 1-5            | 4                                 | 6          | 10        |
+| **Phase 1.5** (systematization, 6-15) | 6-15           | 2                                 | 3          | 5         |
+| **Phase 2** (automation, 16+)         | 16+            | 1                                 | 2          | 3         |
 
-- **Below $3K** — Y1 gross profit per customer goes negative. Pre-launch the firm cannot subsidize losses on first-customer acquisition; we're trying to reach profitability, not buy market share.
-- **$3-4K range** — Y1 margin under 20%. Possible but tight. Loses the market-consensus mid-mark positioning.
-- **$5K** — Lands at the mid-market mark per research consensus. Y1 margin 37% (acceptable, given Phase 1 onboarding intensity); Y2+ margin 80%+ (excellent).
-- **$7.5-10K range** — Better margin, but competes with fractional CTO and FDE deployments where buyer expectations are higher. Premature for a pre-launch SKU.
+Phase 1 is the dominant unit-economics constraint. Customer 1 of the Heavy profile costs ~40 hours/month of Captain time at steady state, which at $200/hr is $8,000/mo. Phase 1.5 compression comes from the playbook deliverable becoming reusable; Phase 2 compression comes from the runbook library plus designated backup operator per platform-prd §4.
 
-### Why flat (and not metered or outcome-priced)
+**Phase 1 monthly Captain cost per customer** (4.33 weeks/month × hours/week × $200/hr):
 
-- **Metered** — burns the simplicity advantage. Customers stop using the agent because they're worried about the meter. Operators in the research consistently move away from credit-based pricing for this reason.
-- **Outcome-priced** — works for large vendors (Fin, Sierra) because their customers can instrument outcomes. SMB customers can't reliably count outcomes (they're not instrumented). Outcome pricing also introduces revenue uncertainty for the operator at exactly the wrong phase.
-- **Flat retainer** — matches how the buyer mentally accounts for the cost being replaced (a hire). Predictable revenue for SMD. Customer self-selects on whether they get $5K of value per month.
+| Profile | Hours/week | Monthly hours | Captain cost   |
+| ------- | ---------- | ------------- | -------------- |
+| Light   | 4          | ~17           | **~$3,464/mo** |
+| Medium  | 6          | ~26           | **~$5,196/mo** |
+| Heavy   | 10         | ~43           | **~$8,660/mo** |
 
-### Why single tier (and not entry/standard/premium)
+This is the dominant line in the entire COGS model by an order of magnitude. Every other driver is rounding error against Captain hours. The pricing model survives if and only if (a) the steady-state hours/week assumption holds at the cap and (b) the Phase 1.5 compression trajectory materializes as customer count grows.
 
-- **Sales complexity** — three tiers means three pricing conversations and the customer trying to game which tier to buy. Single tier collapses this.
-- **Capacity planning** — three tiers means three capacity models. Pre-revenue, we don't have data to set the tier boundaries.
-- **Customer self-selection** — single tier means the customer either sees $5K of value or doesn't. Cleaner conversion signal than tier-shopping.
-- **Re-evaluate after 5 customers** — Phase 1.5 data will indicate whether to add a capacity-light tier ($2.5-3K, single skill, single vertical pack, capped support) or a premium tier ($10-15K, dedicated support, custom skills, faster SLA).
+### 3.8 Onboarding cost (one-time, amortized across Y1)
 
-### Why 12-month commitment
+**Source:** platform-prd §16 Demo Framework and law-firm-prd §11.8 Beta-1 Day-1 / Week-1 / Week-4 walkthrough plus §11.9 Calibration session split. Onboarding includes: aircraft-carrier pre-provisioning (per §16.2), 90-minute partner session + 4-6 hour paralegal-with-Captain session (per §11.9), voice sample upload + categorization, 30-sample minimum + blind-test gate (per §9.6), and the Day-1 / Week-1 / Week-4 partner ritual setup.
 
-- **Aligns with the SaaS retention reality.** AI-SDR data shows day-60-90 cliff is the natural cancellation point regardless of contract length. A 12-month commitment with a 90-day evaluation window gives the customer optionality at the natural cliff while reducing month-to-month churn after.
-- **Smooths revenue.** Pre-launch, predictable annual revenue per customer is critical for cash flow planning.
-- **Aligns incentives.** Customer commits to letting the agent learn their business; SMD commits to making it work.
+Phase 1 onboarding budget (one-time, customer 1 = highest, customer 5 = 80% reuse):
 
-### Why 90-day evaluation window
+| Profile | Customer 1 onboarding | Amortized over 12 months |
+| ------- | --------------------- | ------------------------ |
+| Light   | 60 hours / $12,000    | $1,000/mo                |
+| Medium  | 80 hours / $16,000    | $1,333/mo                |
+| Heavy   | 120 hours / $24,000   | $2,000/mo                |
 
-- **Honest about reality.** First 90 days are when failures surface, when trust is built or broken, when customers decide whether to renew.
-- **Reduces sales friction.** "If after 90 days you're not seeing value, we part ways" is a closer-friendly story.
-- **Reduces churn risk.** Customers who would have churned at Day-90 anyway will use the evaluation window cleanly; everyone else commits.
+These are Phase 1 figures. Customer 5+ should drop by ~30%; customer 15+ by ~60% per the playbook-deliverable trajectory. The unit-economics test below uses customer-1-of-each-profile (worst case) so the pricing model is defensible against the first paid customer of each shape.
 
 ---
 
-## Revision triggers
+## 4. Total COGS by profile (Phase 1, customer 1)
 
-The starting position above commits to a specific number ($5K), term length (6 months Phase 1 / 12 months Phase 1.5+), and support cap (10 hrs/week). Each of these is bound to a concrete data checkpoint at which we revisit.
+Summing the nine drivers (with onboarding amortized over 12 months):
 
-| Trigger                             | What we re-evaluate                                                                                                                                                | Action if data deviates                                                                                                                                                       |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Customer 1 onboarding completes** | Did the 80-hour onboarding cap hold? Did the customer accept the $5K price without negotiation pressure? Was the 10 hrs/week steady-state realistic in week 5-8?   | If onboarding hit 120+ hours, revise scope or raise cap. If $5K was a struggle, test $4K with customer 2. If steady-state is 15+ hours/week, adjust cap for customer 2.       |
-| **Customer 3 enters steady-state**  | Are we consistently at the support-hour cap or under? Are renewal signals strong (Day-30 satisfaction)? Is per-customer infra cost tracking against the model?     | If support is sustained above cap, raise price (test $6K with customer 4) or tighten scope. If renewal signals weak, escalate customer success engineering before customer 4. |
-| **Customer 5 reaches Day-60**       | Are we ready to transition Phase 1.5 (systematization)? Does the v1 marketing-agencies pack hold up across customers, or is each customer requiring custom skills? | If pack holds up, lock $5K/mo and 12-month commitment for customer 6+. If each customer needs custom skills, the model is broken; revisit scope of the productized SKU.       |
-| **Customer 5 renewal decision**     | Among customers 1-3 who hit their renewal window during this phase, what's the renewal rate?                                                                       | If <70% renew at the 6-month mark, the price-value equation is wrong somewhere; adjust before scaling.                                                                        |
-| **Quarterly (every 90 days)**       | Market data refresh — pricing shifts among operators we track, new tooling that changes our cost stack, churn-pattern data in published case studies.              | Update the doc with new evidence; revise starting positions for new customers if signal warrants.                                                                             |
+| Driver                             | Light       | Medium      | Heavy        |
+| ---------------------------------- | ----------- | ----------- | ------------ |
+| Claude API tokens                  | $1.59       | $4.87       | $17.20       |
+| Fly.io Machine compute             | $6.50       | $11.50      | $33.69       |
+| Cloudflare D1/R2/Vectorize/Workers | $1.20       | $1.80       | $3.50        |
+| AgentMail                          | $2.00       | $2.00       | $5.00        |
+| Composio                           | $3.00       | $3.00       | $5.00        |
+| Connector-specific (third party)   | $0.00       | $0.00       | $0.00        |
+| Captain operations time            | $3,464.00   | $5,196.00   | $8,660.00    |
+| Onboarding amortized (Y1)          | $1,000.00   | $1,333.00   | $2,000.00    |
+| **Total Phase 1 COGS per month**   | **~$4,478** | **~$6,552** | **~$10,724** |
 
-These triggers are operational discipline, not contract clauses. Customers don't see them. They drive whether we ship customer 4 with the same terms as customer 3, or different terms.
+Captain operations time is 77% to 81% of total COGS across all three profiles. Infra is <0.5%.
 
----
+**Phase 1.5 totals** (customer count 6 to 15, steady-state hours drop to 2/3/5 hours/week and onboarding amortizes to $500/$667/$1,000 per month based on reusing the playbook deliverable):
 
-## Implications for service contract (#773)
-
-The margin math drives several contract terms that #773 should lock:
-
-**Onboarding scope is bounded.**
-
-- Maximum 80 hours of Captain time in the onboarding period.
-- Customer-side prerequisites enumerated (clean CRM data, OAuth admin consent, named champion, data audit).
-- If customer-side prerequisites slip, onboarding pauses; clock resumes when prerequisites complete.
-- Above 80 hours, customer is quoted a scope expansion at $200/hr.
-
-**Steady-state support is bounded.**
-
-- 10 hours per week per customer included in the retainer.
-- Hours tracked, monthly statement provided.
-- Customer requesting >10 hours/week is offered: (a) reduced scope, (b) higher-tier package (when tiers exist), or (c) end of engagement at next renewal.
-- This is the single most important guardrail in the contract. Without it, the pricing model collapses.
-
-**Trust ceiling per task is enumerated in the SOW.**
-
-- Per Captain confirmation, the SOW lists each task as autonomous / draft-for-review / refused.
-- Customers requesting more autonomy than the SOW allows trigger a scope conversation, not a quiet expansion.
-- This protects margin (no scope creep) and protects the firm (no Air Canada-style liability exposure).
-
-**Day 60-90 evaluation period.**
-
-- Customer can terminate at Day-90 with 30 days notice, no penalty.
-- After Day-90, the 12-month commitment kicks in (early termination = balance of contract paid).
-- This is the cancellation-curve mitigation — the natural decision point becomes a contractual decision point.
-
-**Incident-response SLA.**
-
-- AI-generated customer-facing artifact errors: 4-hour acknowledgment, 24-hour remediation.
-- Internal-only errors: 1 business day.
-- Other issues: best-effort.
-- Hard SLA outside business hours is not committed; on-call infrastructure is Phase 2+.
+| Profile | Captain Phase 1.5 | Onboarding amortized | Other infra (unchanged) | Total Phase 1.5 |
+| ------- | ----------------- | -------------------- | ----------------------- | --------------- |
+| Light   | ~$1,732           | ~$500                | ~$14                    | **~$2,246/mo**  |
+| Medium  | ~$2,598           | ~$667                | ~$23                    | **~$3,288/mo**  |
+| Heavy   | ~$4,330           | ~$1,000              | ~$64                    | **~$5,394/mo**  |
 
 ---
 
-## Captain decisions queued
+## 5. Pricing structure and ≤40% COGS/MRR test
 
-Three starting positions, each bound to the revision triggers above. **These are not lock-it-in commitments — they are the best starting position the data supports, subject to revision at each named trigger.**
+### 5.1 The platform-prd §17.1 margin floor
 
-1. **Adopt $5K/mo flat single tier as customer-1 starting position.** Revisit at customer 1 onboarding completion and customer 3 steady-state.
-2. **Adopt 6-month initial term + 90-day evaluation window for Phase 1 (customers 1-5).** 12-month commitment pattern locks for customer 6+ once Phase 1.5 data validates assumptions. Revisit at customer 5 renewal-decision data point.
-3. **Adopt 10 hours/week support cap as customer-1 starting position.** Track actuals. Revisit at customer 1 steady-state (week 5-8) and customer 3 steady-state. This remains the most important margin guardrail; even if the specific number changes, _some_ cap is non-negotiable.
+Per platform-prd §17.1 (Per-customer success metrics) and §15.1 (margin discipline), every priced profile must show COGS ≤40% of MRR. The MRR floor for each profile is therefore COGS / 0.40:
 
-These three starting positions close #772 and unblock #773 (service contract terms — codifies the contract shape and the revision discipline), #774 (service name), and #775 (copy/surfaces). Captain confirmation as "starting positions subject to revision triggers" is what proceeds the work.
+| Profile | Phase 1 COGS | Phase 1 MRR floor (40%) | Phase 1.5 COGS | Phase 1.5 MRR floor |
+| ------- | ------------ | ----------------------- | -------------- | ------------------- |
+| Light   | $4,478       | **$11,195**             | $2,246         | $5,615              |
+| Medium  | $6,552       | **$16,380**             | $3,288         | $8,220              |
+| Heavy   | $10,724      | **$26,810**             | $5,394         | $13,485             |
+
+A v1 pricing decision that holds the ≤40% margin floor under Phase 1 conditions implies a launch price of **$11K/mo minimum for Light, $16K/mo for Medium, $27K/mo for Heavy**. This is materially higher than the $5K/mo placeholder in ADR 0004's reference to market practice and higher than the prior version of this doc.
+
+### 5.2 Why the prior $5K/mo figure does not hold
+
+The prior version of this doc (authored against #772 before the law-firm-vertical pivot and before #806 locked the $200/hr loaded Captain rate) modeled Captain time at $175/hr and assumed agency-retainer 5-10 hours/week support intensity for a generic AI agent. Two changes drive the higher v1 figures:
+
+- **Captain loaded rate moved to $200/hr** per `CLAUDE.md` and platform-prd §15.1. The decision-stack #16 "$175/hr launch rate" applies to scope-based external billing; the productized SKU's COGS model uses internal loaded cost because every Captain hour spent on a productized customer is an opportunity cost against billable scope hours.
+- **Law-firm vertical Captain hours run higher than generic agent agency intensity.** Voice calibration (per platform-prd §9.6 blind-test gate), per-state engagement-letter clause library tuning, citation-refusal-substrate testing per matter, and Day-1 / Week-1 / Week-4 partner ritual setup all push first-customer Captain hours above the generic agency benchmark. The platform-prd §4 hard constraint of ≤2 hours/week steady-state is the Phase 2 target, not the Phase 1 reality.
+
+The pricing model recovers margin sharply at Phase 1.5 once the playbook deliverable is reusable. The v1 price must defend Phase 1 economics; Phase 1.5+ economics become attractive.
+
+### 5.3 v1 SKU pricing proposal: flat-monthly at the Medium profile floor
+
+**Primary recommendation: flat-monthly $16,000/mo per law-firm customer. Single tier at launch. Re-evaluate after 5 customers.**
+
+This structure has three properties the issue requires:
+
+- **Defensible against the COGS model.** $16K MRR vs. Medium-profile $6,552 Phase 1 COGS = 41% COGS ratio, just inside the 40% floor for the Medium customer (the expected v1 median per platform-prd §15.1 framing). Light customers run at ~28% COGS ratio (better margin); Heavy customers run at ~67% COGS ratio (above the floor, triggers a tiered conversation or scope-cap negotiation per §6).
+- **Flat-monthly per platform-prd §15 and ADR 0004.** Customers buy "the AI Employee," not "N seats" or "M resolutions." Pricing positions against headcount substitution per platform-prd §15 ($55-95k loaded paralegal salary as the anchor).
+- **Single tier maximizes Phase 1 sales velocity.** Per the prior version of this doc's correct analysis, tiering pre-revenue is premature optimization. Three tiers means three pricing conversations and the customer trying to game which tier to buy.
+
+**Margin reality check at $16K/mo flat:**
+
+| Profile | Phase 1 COGS / MRR | Phase 1.5 COGS / MRR | Phase 2 COGS / MRR |
+| ------- | ------------------ | -------------------- | ------------------ |
+| Light   | 28%                | 14%                  | ~7%                |
+| Medium  | **41%** (at floor) | 21%                  | ~10%               |
+| Heavy   | 67% (above floor)  | 34%                  | ~17%               |
+
+Heavy customers at Phase 1 breach the margin floor. Mitigation: scope-cap negotiation at SOW (e.g. 100 drafts/week cap with overage conversation triggered above), or escalation to a custom-scope quote per platform-prd §16.5 "What to do if discovery reveals a system we haven't pre-built." Phase 1.5 brings Heavy comfortably back under the floor.
+
+### 5.4 Alternative structure: tiered-by-profile
+
+If after 5 customers the data shows the Light/Medium/Heavy distribution is bimodal (many Lights AND many Heavies, few Mediums), a tiered structure becomes the cleaner answer:
+
+| Tier               | Price      | Target profile | Phase 1 COGS / MRR |
+| ------------------ | ---------- | -------------- | ------------------ |
+| **Capacity-light** | $11,500/mo | Light          | 39%                |
+| **Standard**       | $16,500/mo | Medium         | 40%                |
+| **Capacity-heavy** | $27,000/mo | Heavy          | 40%                |
+
+**Why tiering is not the v1 recommendation:**
+
+- Pre-revenue, we don't have data to set the tier boundaries reliably. The Light/Medium/Heavy parameter cuts in §2 are reasonable estimates; they're not validated against customer count.
+- Three tiers means three pricing conversations and tier-shopping behavior. Single-tier collapses this to "do they see $16K of value per month."
+- The tiered structure also requires SOW-time profile classification, which the customer experiences as scope-grilling. Flat-monthly with a scope-cap conversation is cleaner.
+
+Tiering is the natural response if customer 6+ data shows the bimodal distribution. The §6 revision triggers fire at customer 5 to make this call.
+
+### 5.5 What was considered and rejected
+
+- **Metered (per-draft, per-tool-call, per-token).** Burns the headcount-substitution framing. Customers stop using the agent because they're worried about the meter. Operators in the [Vasilescu/Isenberg podcast research cited in ADR 0004](https://www.youtube.com/watch?v=BI-MNjm1tTQ) consistently move away from credit-based pricing.
+- **Outcome-priced (per-case-resolved, per-settlement-collected).** Works for vendors who can instrument outcomes (Fin, Sierra at scale). Law firms cannot reliably attribute settlement outcomes to a single agent action. Also introduces revenue uncertainty at exactly the wrong phase.
+- **Hourly-billed productized.** Defeats the SKU framing per ADR 0004. The product is a productized service, not a scoped engagement.
 
 ---
 
-## Risks tracked
+## 6. Assumptions ledger and revision triggers
 
-- **Phase 1 support drift** — if Captain finds himself in 16+ hours/week per customer, the model breaks. Track weekly hours per customer from customer 1.
-- **Onboarding cost overrun** — first customer is the highest-risk; the playbook hasn't been built. Budget $25K for customer 1; expect the second to land at $15-17K; third should drop to $10-12K.
-- **Churn at 60-day cliff** — operator data points to this as the highest-risk period. Day-7 / Day-30 / Day-60 / Day-90 check-in cadence is mandatory.
-- **Token spend escalation under bad agent loops** — the $47K agent loop case from the functional shape research is a real risk. Hard token budgets per customer per day enforced in code, not as alerts.
-- **Vertical pack scope creep** — v1 marketing-agencies pack should be 6-8 skills, not 15. Adding skills costs Captain hours that come out of margin. Bound the v1 scope and quote expansions.
+Every figure in this model is bound to a named assumption. If the assumption breaks, the model breaks. This section enumerates assumptions so Captain (or any future reviewer) can audit and override.
+
+### 6.1 Token-volume assumptions
+
+| Assumption                              | Value                                         | Source                                                                                                                                        |
+| --------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Inbox/status/signing draft input tokens | ~8K input + 600 output                        | Estimated from skill-spec input shape (matter context + voice samples + thread history). Refine with customer 1 actuals.                      |
+| PI demand-letter draft input tokens     | ~25K input + 2K output                        | Estimated from law-firm-prd §6.2 PI overlay spec. Refine with first PI demand-letter draft actuals.                                           |
+| Prompt-cache hit rate                   | 75% of input tokens                           | Voice library + memory rules + matter context are cache-stable; per-draft thread context is not. Validate with first 30 draft observations.   |
+| Cache rotation                          | 5% of input tokens written to cache per month | Memory edits + voice sample refresh. Validate.                                                                                                |
+| Default model                           | Claude Sonnet 4.6                             | Per platform-prd §7.8 stack pin "claude-opus-4-7" in §7.3 customer.yaml example is for the demo customer; Sonnet is the v1 economics default. |
+| Drafts per week per profile             | 20 / 50 / 150                                 | platform-prd §15.1                                                                                                                            |
+
+### 6.2 Captain-hours assumptions
+
+| Assumption                             | Value                | Source                                                                                                           |
+| -------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Captain loaded rate                    | $200/hr              | `CLAUDE.md`, platform-prd §15.1, #806 Captain CLI spec                                                           |
+| Phase 1 steady-state hours/week Light  | 4                    | Estimated from §3.7 task table. Refine with customer 1 of Light profile.                                         |
+| Phase 1 steady-state hours/week Medium | 6                    | Estimated. Refine with customer 1 of Medium profile.                                                             |
+| Phase 1 steady-state hours/week Heavy  | 10                   | Estimated. Refine with customer 1 of Heavy profile. Validates the §17.1 ≤40% COGS/MRR margin floor.              |
+| Phase 1.5 compression                  | 50% of Phase 1 hours | Estimated from playbook-deliverable reusability assumption.                                                      |
+| Onboarding hours customer 1            | 60/80/120 by profile | Estimated from platform-prd §16.2 aircraft-carrier + §11.8 Day-1/Week-1/Week-4 + §11.9 calibration session split |
+
+### 6.3 Cost-driver assumptions (vendor billing shapes)
+
+All vendor pricing figures are sourced from 2026-05-21 pricing pages and may shift. Quarterly refresh trigger fires automatically (see §6.4).
+
+### 6.4 Revision triggers
+
+The v1 pricing proposal is bound to the following data checkpoints. At each, Captain reviews the actuals against the model and decides whether to revise.
+
+| Trigger                                    | What we re-evaluate                                                                                                                                                                              | Action if data deviates                                                                                                                                                                         |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Customer 1 onboarding completes**        | Did onboarding land within the 60/80/120-hour budget per profile? Did the customer accept the $16K/mo price without negotiation pressure? Was the prompt-cache hit rate near the 75% assumption? | If onboarding hit 1.5x budget, revise onboarding amortization. If price was a struggle, escalate to Captain for tier-restructure call. If cache hit rate <50%, re-model Claude API spend.       |
+| **Customer 1 reaches Day 30 steady-state** | Are steady-state hours/week tracking against the 4/6/10 assumption per profile? Is the cost-telemetry dashboard surfacing the per-customer COGS attribution correctly?                           | If hours are 1.5x assumption, this is the breaking point per §5.3. Trigger scope-cap renegotiation or terminate at Day-90 evaluation window.                                                    |
+| **Customer 3 enters steady-state**         | Are we consistently at or under the assumed support cap? Is the per-customer cost dashboard validating the model? Renewal signals strong at the Day-30 mark?                                     | If hours sustained above cap, raise price (test $18K with customer 4) or tighten scope-cap. If renewal signals weak, escalate customer success before customer 4.                               |
+| **Customer 5 reaches Day 60**              | Is the Light/Medium/Heavy distribution unimodal (most customers Medium) or bimodal (Light + Heavy with few Medium)? Phase 1.5 transition readiness?                                              | If unimodal, lock $16K/mo single tier for customer 6+. If bimodal, switch to the §5.4 tiered structure. If each customer requires custom skills, the SKU model is broken; revisit per ADR 0004. |
+| **Customer 5 renewal decision**            | Among customers 1-3 who hit their renewal window, what's the renewal rate?                                                                                                                       | If <70% renew at 6-month mark, the price-value equation is wrong; adjust before scaling.                                                                                                        |
+| **Quarterly (every 90 days)**              | Vendor pricing shifts (Anthropic, Composio, Fly, Cloudflare, AgentMail); new tooling that changes the cost stack; new operator data on Captain-hour benchmarks.                                  | Update the doc with new evidence; revise v1 pricing for new customers if signal warrants.                                                                                                       |
+
+These triggers are operational discipline, not contract clauses. Customers do not see them. They drive whether customer 4 ships with the same terms as customer 3, or different terms.
 
 ---
 
-## Sources
+## 7. Risks
 
-- [Stack evaluation companion doc](./ai-employee-stack-evaluation-2026-05-13.md) — cost shape inputs
-- [Functional shape research](./ai-employee-functional-shape-2026-05-13.md) — market pricing patterns, retention data, support-hour benchmarks
-- [ADR 0004 — Productized AI Employee Offering](../adr/0004-productized-ai-employee-offering.md)
-- [Decision Stack #16 — Pricing model](../adr/decision-stack.md) — Captain's internal rate ($175/hr at launch, $200/hr after first case study)
-- [Source episode — The $1M+ Solo AI Agent Business](https://www.youtube.com/watch?v=BI-MNjm1tTQ) (Greg Isenberg + Nick Vasilescu, 2026-05-12)
+- **Phase 1 Captain-hour drift.** If first-customer hours land at 1.5x to 2x the modeled assumption (i.e. Light at 6 hours/week, Medium at 9, Heavy at 15), the Medium-profile breakeven price moves to $24K/mo and the SKU becomes a hard sell against the headcount-substitution anchor. This is the dominant risk. Mitigation: scope-cap contractual guardrails per service-contract doc; weekly Captain-hour tracking from customer 1; Captain-veto rights on Day-30 renewal if hours overrun.
+- **Cache hit rate lower than 75%.** Drops Claude API spend efficiency; not a material margin risk at current per-draft costs (Heavy Claude API is $17/mo even if cache rate halves), but worth tracking.
+- **Vendor pricing shifts.** Anthropic's pricing for Sonnet/Opus has shifted twice in 12 months. Composio, Fly, and Cloudflare are more stable but not immune. Quarterly refresh trigger fires automatically.
+- **The 40% margin floor is a benchmark, not a law.** Per platform-prd §17.1 the floor is a kill criterion; Captain may elect to operate above it for strategic reasons (e.g. anchor customer at a logo-significant firm). The model defends the floor; Captain decides whether to apply it.
+- **Multi-practice-area customers (PI + WC, PI + family, etc.) move toward Heavy faster than modeled.** The Heavy profile assumes 2 practice areas; a third drives token spend, Captain hours, and connector complexity up.
+
+---
+
+## 8. Captain decisions queued
+
+These are PROPOSALS subject to Captain review. None auto-execute.
+
+1. **Adopt flat-monthly $16,000/mo per law-firm customer as the v1 launch price.** Single tier. Re-evaluate after 5 customers per §5.4 tiering trigger.
+2. **Adopt Captain $200/hr loaded rate for productized-SKU COGS modeling**, distinct from the decision-stack #16 $175/hr launch rate for scope-based external billing. This is the platform-prd §15.1 and #806 figure; this doc confirms its use.
+3. **Adopt scope-cap conversation at SOW for Heavy customers** rather than tiered pricing at launch. Customer-shape classification at SOW; scope-cap negotiation if the customer profile exceeds the Medium envelope; Phase 1.5 customer 6+ revisit per §5.4.
+4. **Adopt the assumptions ledger (§6.1, §6.2) as the audit trail** for every figure in the model. Customer 1 actuals trigger first revision.
+
+These four queue against [#794](https://github.com/venturecrane/ss-console/issues/794) for Captain finalization. Once approved, this doc unblocks any customer-facing pricing conversation and links from platform-prd §15 + law-firm-prd §11.7.
+
+---
+
+## 9. Sources
+
+- [Anthropic API pricing page](https://platform.claude.com/docs/en/docs/about-claude/pricing) (accessed 2026-05-21)
+- [Composio pricing page](https://composio.dev/pricing) (accessed 2026-05-21)
+- [Fly.io pricing page](https://fly.io/docs/about/pricing/) (accessed 2026-05-21)
+- [Cloudflare D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/) (accessed 2026-05-21)
+- [Cloudflare R2 pricing](https://developers.cloudflare.com/r2/pricing/) (accessed 2026-05-21)
+- [Cloudflare Vectorize pricing](https://developers.cloudflare.com/vectorize/platform/pricing/) (accessed 2026-05-21)
+- [AgentMail pricing page](https://agentmail.to/pricing) (accessed 2026-05-21)
+- [`CLAUDE.md`](../../CLAUDE.md) Captain $200/hr loaded rate
+- [`docs/pm/ai-employee/platform-prd.md`](../pm/ai-employee/platform-prd.md) §15 Pricing Posture, §15.1 Cost telemetry and SKU margin discipline, §15.2 Captain CLI for operations time-logging, §17.1 Per-customer success metrics
+- [`docs/pm/ai-employee/law-firm-prd.md`](../pm/ai-employee/law-firm-prd.md) §11.7 The order-taking moment, §11.8 Beta-1 Day-1/Week-1/Week-4, §11.9 Calibration session split
+- [ADR 0004 Productized AI Employee Offering](../adr/0004-productized-ai-employee-offering.md)
+- [`docs/strategy/ai-employee-stack-evaluation-2026-05-13.md`](./ai-employee-stack-evaluation-2026-05-13.md) cost-shape inputs
+- [`docs/strategy/ai-employee-service-contract-2026-05-13.md`](./ai-employee-service-contract-2026-05-13.md) contract guardrails companion
+- [The Startup Ideas Podcast "The $1M+ Solo AI Agent Business"](https://www.youtube.com/watch?v=BI-MNjm1tTQ) (Greg Isenberg + Nick Vasilescu, 2026-05-12) market-pricing operator anecdotes

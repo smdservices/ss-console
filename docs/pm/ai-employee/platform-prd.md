@@ -1037,13 +1037,13 @@ Customers who want to keep paying for memory storage and audit log access but pa
 
 ## 15. Pricing Posture
 
-This PRD does not redefine pricing; it references `docs/strategy/ai-employee-pricing-2026-05-13.md`. **However, the pricing strategy doc must be updated with COGS modeling before any pricing commitment to a customer.** §15.1 specifies what that modeling must cover.
+This PRD does not redefine pricing; it references [`docs/strategy/ai-employee-pricing-2026-05-13.md`](../../strategy/ai-employee-pricing-2026-05-13.md) for the v1 law-firm SKU price, the per-driver COGS model across the §15.1 Light/Medium/Heavy customer profiles, and the assumptions ledger. The pricing doc is a PROPOSAL; Captain finalizes before any customer engagement.
 
 Operational consequences for the platform:
 
 - **Flat-monthly per-customer SKU** is the structural choice. Customers buy "the AI Employee," not "N seats" or "M resolutions" or "P cases."
-- **Pricing positions against headcount, not against tools.** $55-95k loaded paralegal salary is the comparison anchor — though see §6.5 below for buyer-fragility caveat.
-- **Specific pricing tiers and price points** are pending finalization in the pricing strategy doc, gated on §15.1 cost modeling.
+- **Pricing positions against headcount, not against tools.** $55-95k loaded paralegal salary is the comparison anchor (see §6.5 below for buyer-fragility caveat).
+- **Specific v1 launch price and tier structure** live in the pricing doc, defended against the §15.1 cost model and the §17.1 ≤40% COGS/MRR margin floor.
 
 ### 15.1 Cost telemetry and SKU margin discipline
 
@@ -1072,9 +1072,9 @@ Three customer profiles:
 2. **Medium**: 50 drafts/week, 5 memory edits/week, 1 practice area, 6 connectors
 3. **Heavy**: 150 drafts/week, 10 memory edits/week, 2 practice areas, 8 connectors
 
-For each profile: total variable cost per month + amortized fixed cost per month + Captain time at loaded $200/hr = total COGS. Then test against three SKU price points ($1.5k, $2.5k, $5k/mo) — identify which profiles break the 40%-COGS margin floor.
+For each profile: total variable cost per month + amortized fixed cost per month + Captain time at loaded $200/hr = total COGS. The pricing doc tests COGS against the §17.1 ≤40% COGS/MRR margin floor across Phase 1, Phase 1.5, and Phase 2 customer-count regimes, and proposes a v1 launch price defensible against the floor. Specific price points belong in the pricing doc, not here.
 
-**Output**: a written cost-modeling deliverable in the pricing strategy doc, with named worst-case scenarios and recommended usage caps. Captain reviews and signs off before any pricing is committed to a customer.
+**Output**: a written cost-modeling deliverable in the pricing strategy doc, with named worst-case scenarios, recommended usage caps, and an auditable assumptions ledger. Captain reviews and signs off before any pricing is committed to a customer.
 
 **Internal cost dashboard (Captain-only in v1)**: a control-plane view showing per-customer per-day cost driver attribution. This is the operational signal for SKU margin defense and for identifying customers approaching usage caps.
 
