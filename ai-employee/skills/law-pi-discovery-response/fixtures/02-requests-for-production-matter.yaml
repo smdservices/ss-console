@@ -1,0 +1,287 @@
+# [SYNTHETIC FIXTURE - NOT A REAL MATTER]
+# Fixture 02: same PI matter as fixture 01, now served a First Request for
+# Production of Documents. The skill produces a draft with a per-request
+# response table where the responsive-document column is sourced from the
+# matter folder, plus a privilege-log skeleton with three rows (TBD
+# privilege-claim cells).
+
+matter:
+  id: 'matter_synthetic_disc_02'
+  client_name: 'Janet Holloway'
+  matter_type: 'auto-accident'
+  status: 'open'
+  opened_at: '2026-05-01T14:22:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE - NOT A REAL MATTER]'
+    date_of_incident: '2026-04-28'
+    incident_location: 'Intersection of Camelback Road and 24th Street, Phoenix, Arizona'
+    client_role: 'operator of stopped 2021 Toyota Camry'
+    opposing_party_name: 'David Kerr'
+    opposing_counsel_name: 'Theodora Whitfield'
+    opposing_counsel_firm: 'Whitfield Reardon, PLLC'
+    opposing_counsel_email: 'twhitfield@whitfield-reardon.invalid'
+    opposing_counsel_address: '4477 N Central Avenue, Suite 1500, Phoenix AZ 85012'
+    claim_number: 'SM-2026-049182'
+    case_caption: 'Holloway v. Kerr'
+    case_number: 'CV2026-006491'
+    case_court: 'Maricopa County Superior Court'
+    documents_folder_path: '/matters/matter_synthetic_disc_02'
+
+documents:
+  - id: 'doc_01'
+    path: '/matters/matter_synthetic_disc_02/medical/2026-04-28_mercy_general_ed.pdf'
+    filename: '2026-04-28_mercy_general_ed.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 184320
+    created_at: '2026-05-02T09:14:00Z'
+    modified_at: '2026-05-02T09:14:00Z'
+    current_version: 'v1'
+    classification: 'medical_record'
+
+  - id: 'doc_02'
+    path: '/matters/matter_synthetic_disc_02/medical/2026-05-12_phoenix_imaging_mri.pdf'
+    filename: '2026-05-12_phoenix_imaging_mri.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 312456
+    created_at: '2026-05-12T16:00:00Z'
+    modified_at: '2026-05-12T16:00:00Z'
+    current_version: 'v1'
+    classification: 'medical_record'
+
+  - id: 'doc_03'
+    path: '/matters/matter_synthetic_disc_02/medical/2026-05-18_phoenix_ortho_initial.pdf'
+    filename: '2026-05-18_phoenix_ortho_initial.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 142336
+    created_at: '2026-05-18T11:30:00Z'
+    modified_at: '2026-05-18T11:30:00Z'
+    current_version: 'v1'
+    classification: 'medical_record'
+
+  - id: 'doc_04'
+    path: '/matters/matter_synthetic_disc_02/medical/2026-06-04_phoenix_ortho_followup.pdf'
+    filename: '2026-06-04_phoenix_ortho_followup.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 98112
+    created_at: '2026-06-04T14:15:00Z'
+    modified_at: '2026-06-04T14:15:00Z'
+    current_version: 'v1'
+    classification: 'medical_record'
+
+  - id: 'doc_05'
+    path: '/matters/matter_synthetic_disc_02/medical/2026-06-12_valley_pt_summary.pdf'
+    filename: '2026-06-12_valley_pt_summary.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 124928
+    created_at: '2026-06-12T17:20:00Z'
+    modified_at: '2026-06-12T17:20:00Z'
+    current_version: 'v1'
+    classification: 'medical_record'
+
+  - id: 'doc_06'
+    path: '/matters/matter_synthetic_disc_02/billing/2026-05-06_mercy_general_billing.pdf'
+    filename: '2026-05-06_mercy_general_billing.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 56320
+    created_at: '2026-05-06T10:00:00Z'
+    modified_at: '2026-05-06T10:00:00Z'
+    current_version: 'v1'
+    classification: 'billing_statement'
+
+  - id: 'doc_07'
+    path: '/matters/matter_synthetic_disc_02/billing/2026-06-05_phoenix_ortho_billing.pdf'
+    filename: '2026-06-05_phoenix_ortho_billing.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 48128
+    created_at: '2026-06-05T11:00:00Z'
+    modified_at: '2026-06-05T11:00:00Z'
+    current_version: 'v1'
+    classification: 'billing_statement'
+
+  - id: 'doc_08'
+    path: '/matters/matter_synthetic_disc_02/employment/2026-06-01_abc_manufacturing_letter.pdf'
+    filename: '2026-06-01_abc_manufacturing_letter.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 24576
+    created_at: '2026-06-01T09:00:00Z'
+    modified_at: '2026-06-01T09:00:00Z'
+    current_version: 'v1'
+    classification: 'employment_verification'
+
+  - id: 'doc_09'
+    path: '/matters/matter_synthetic_disc_02/employment/2026-06-15_abc_pay_stubs.pdf'
+    filename: '2026-06-15_abc_pay_stubs.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 89600
+    created_at: '2026-06-15T10:30:00Z'
+    modified_at: '2026-06-15T10:30:00Z'
+    current_version: 'v1'
+    classification: 'employment_verification'
+
+  - id: 'doc_30'
+    path: '/matters/matter_synthetic_disc_02/photos/2026-04-28_scene_intersection.jpg'
+    filename: '2026-04-28_scene_intersection.jpg'
+    mime_type: 'image/jpeg'
+    size_bytes: 2456112
+    created_at: '2026-04-28T16:30:00Z'
+    modified_at: '2026-04-28T16:30:00Z'
+    current_version: 'v1'
+    classification: 'photograph'
+
+  - id: 'doc_31'
+    path: '/matters/matter_synthetic_disc_02/photos/2026-04-28_vehicle_damage_rear.jpg'
+    filename: '2026-04-28_vehicle_damage_rear.jpg'
+    mime_type: 'image/jpeg'
+    size_bytes: 2891264
+    created_at: '2026-04-28T16:35:00Z'
+    modified_at: '2026-04-28T16:35:00Z'
+    current_version: 'v1'
+    classification: 'photograph'
+
+  - id: 'doc_42'
+    path: '/matters/matter_synthetic_disc_02/internal/2026-05-22_client_intake_notes.pdf'
+    filename: '2026-05-22_client_intake_notes.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 67584
+    created_at: '2026-05-22T13:45:00Z'
+    modified_at: '2026-05-22T13:45:00Z'
+    current_version: 'v1'
+    classification: 'client_communication'
+
+  - id: 'doc_47'
+    path: '/matters/matter_synthetic_disc_02/internal/2026-05-30_internal_strategy_memo.pdf'
+    filename: '2026-05-30_internal_strategy_memo.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 56832
+    created_at: '2026-05-30T16:00:00Z'
+    modified_at: '2026-05-30T16:00:00Z'
+    current_version: 'v1'
+    classification: 'attorney_work_product'
+
+  - id: 'doc_51'
+    path: '/matters/matter_synthetic_disc_02/expert/2026-06-04_expert_comm_dr_voss.pdf'
+    filename: '2026-06-04_expert_comm_dr_voss.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 38912
+    created_at: '2026-06-04T17:30:00Z'
+    modified_at: '2026-06-04T17:30:00Z'
+    current_version: 'v1'
+    classification: 'expert_communication'
+
+  - id: 'doc_100'
+    path: '/matters/matter_synthetic_disc_02/discovery/2026-06-15_kerr_first_rfp.pdf'
+    filename: '2026-06-15_kerr_first_rfp.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 168960
+    created_at: '2026-06-15T14:00:00Z'
+    modified_at: '2026-06-15T14:00:00Z'
+    current_version: 'v1'
+    classification: 'discovery_request'
+
+discovery_request:
+  document_id: 'doc_100'
+  kind: 'requests_for_production'
+  set_ordinal: 'First Request'
+  served_at: '2026-06-15T13:00:00-07:00'
+  served_by: 'Theodora Whitfield'
+  served_by_firm: 'Whitfield Reardon, PLLC'
+  served_on_behalf_of: 'David Kerr'
+  case_caption: 'Holloway v. Kerr'
+  case_number: 'CV2026-006491'
+  case_court: 'Maricopa County Superior Court'
+  response_due_at: '2026-07-15T17:00:00-07:00'
+  jurisdiction_rule_applied: 'Ariz. R. Civ. P. 34 (30-day response window)'
+  numbered_items:
+    - number: 1
+      text: "All medical records concerning the plaintiff's treatment for injuries arising from the subject incident, from the date of incident through the date of response."
+      expected_objection_categories: []
+      expected_responsive_docs: ['doc_01', 'doc_02', 'doc_03', 'doc_04', 'doc_05']
+
+    - number: 2
+      text: 'All billing statements, invoices, and itemized charges from any healthcare provider that examined or treated the plaintiff for injuries arising from the subject incident.'
+      expected_objection_categories: []
+      expected_responsive_docs: ['doc_06', 'doc_07']
+
+    - number: 3
+      text: 'All medical records concerning the plaintiff for the ten years prior to the subject incident, regardless of provider or condition.'
+      expected_objection_categories:
+        ['overbroad', 'unduly burdensome', 'not proportional to the needs of the case']
+      expected_responsive_docs: []
+
+    - number: 4
+      text: "All employment records, including W-2s, pay stubs, and employer letters, concerning the plaintiff's employment with the plaintiff's current employer from the date of incident through the date of response."
+      expected_objection_categories: []
+      expected_responsive_docs: ['doc_08', 'doc_09']
+
+    - number: 5
+      text: 'All communications between the plaintiff and any prior counsel, attorney, or legal representative concerning the subject incident or any related matter.'
+      expected_objection_categories:
+        [
+          'seeks information protected by attorney-client privilege',
+          'seeks information protected by the work-product doctrine',
+        ]
+      expected_responsive_docs: []
+
+    - number: 6
+      text: 'All photographs, videos, and other visual depictions of the scene of the subject incident, of either vehicle involved in the subject incident, or of any injuries claimed by the plaintiff.'
+      expected_objection_categories: []
+      expected_responsive_docs: ['doc_30', 'doc_31']
+
+    - number: 7
+      text: "All communications between the plaintiff's counsel of record and any expert, consulting expert, or treating provider regarding the subject incident."
+      expected_objection_categories: ['seeks information protected by the work-product doctrine']
+      expected_responsive_docs: []
+
+    - number: 8
+      text: "All documents reflecting the plaintiff's mental impressions or litigation strategy regarding the subject incident."
+      expected_objection_categories: ['seeks information protected by the work-product doctrine']
+      expected_responsive_docs: []
+
+    - number: 9
+      text: "All documents in the possession, custody, or control of the plaintiff or the plaintiff's counsel that touch upon, relate to, or concern the subject incident in any way."
+      expected_objection_categories:
+        [
+          'overbroad',
+          'unduly burdensome',
+          'vague and ambiguous',
+          'not proportional to the needs of the case',
+        ]
+      expected_responsive_docs: []
+
+    - number: 10
+      text: "All insurance policies under which the plaintiff or any member of the plaintiff's household is or may be insured, including all declarations pages."
+      expected_objection_categories: ['not proportional to the needs of the case']
+      expected_responsive_docs: []
+
+customer_yaml_excerpt:
+  customer_slug: 'holcomb-reyes'
+  firm_name: 'Holcomb & Reyes, LLP'
+  practice_areas: ['personal-injury']
+  supervising_partner:
+    first_name: 'Sarah'
+    last_name: 'Holcomb'
+    title: 'Managing Partner'
+    reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'
+    direct_email: 'sarah.holcomb@holcomb-reyes.invalid'
+    direct_phone: '(602) 555-0142'
+  signature_block: |
+    Sarah Holcomb
+    Managing Partner
+    Holcomb & Reyes, LLP
+    1810 N Central Avenue, Suite 800
+    Phoenix, AZ 85004
+    (602) 555-0142
+    sarah.holcomb@holcomb-reyes.invalid
+  voice:
+    layer2_samples_count: 35
+  memory_rules:
+    objection_categories:
+      rule_id: 'obj_categories_v1'
+      rule_version: '2026-05-15'
+      # categories list is identical to fixture 01; abbreviated here by reference
+      categories_ref: 'see fixtures/01-interrogatories-matter.yaml customer_yaml_excerpt.memory_rules.objection_categories'
+  jurisdiction_rules:
+    arizona_state_court:
+      requests_for_production_response_window_days: 30
+      rule_citation_for_partner_reference: 'Ariz. R. Civ. P. 34'
