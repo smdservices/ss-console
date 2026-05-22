@@ -433,6 +433,8 @@ Eight base invariants gate every Hermes container boot:
 
 Invariants 1-5 + 7 + 8 are platform-universal. Invariant 6 (citation-refusal) is law-firm-vertical specific (see `law-firm-prd.md` §9); other regulated verticals get their own invariant 6 equivalents.
 
+**Provenance.** Invariants #1-#5 ship from [PR #812](https://github.com/venturecrane/ss-console/pull/812) and gate Phase 0. Invariants #6 (citation enforcement on fact-bearing fields) and #7 (cross-Machine query prohibition) ship from [PR #958](https://github.com/venturecrane/ss-console/pull/958) per [issue #865](https://github.com/venturecrane/ss-console/issues/865) and the spec at [`docs/specs/ai-employee/safety-invariants.md`](../../specs/ai-employee/safety-invariants.md); invariant #7's audit-log immutability layer pairs with [`docs/specs/ai-employee/audit-log-immutability.md`](../../specs/ai-employee/audit-log-immutability.md) from [issue #892](https://github.com/venturecrane/ss-console/issues/892). Invariant #8 (fabrication discipline as runtime pre-output filter) is specified at [`docs/specs/ai-employee/fabrication-filter.md`](../../specs/ai-employee/fabrication-filter.md), tracked as [issue #798](https://github.com/venturecrane/ss-console/issues/798), and is the open Phase 1 item: not yet runtime-enforced. See §20 for the phase-by-phase gate map.
+
 ### 7.6 Storage architecture (per customer)
 
 - **D1 (SQLite-shaped)**: structured memory — rules, person-mappings, case-acceptance criteria, configuration state, audit log
@@ -1343,7 +1345,7 @@ Open architectural decisions:
 Scope:
 
 - Hermes runtime on Fly.io Machines
-- Five base safety invariants (per §7.5)
+- Five base safety invariants #1-#5 (per §7.5), shipped via [PR #812](https://github.com/venturecrane/ss-console/pull/812). These are the foundation set: destructive-operation refusal (#1), external-send refusal (#2), commitment-execution refusal (#3), sticky stop (#4), code-enforced trust ceilings (#5).
 - Composio Gmail/Outlook round-trip
 - Provisioning script (`bin/provision-customer.sh`)
 - First customer-zero (`hermes-smd`) live
@@ -1360,7 +1362,8 @@ Status: largely complete per `ai-employee-smd-customer-zero` branch progress.
 - Pre-commit + CI validation hook wired against the canonical configs repo per [ADR 0012](../../adr/0012-customer-yaml-storage.md) §5 — blocks merges that carry literal secrets or break schema (validator module lands in this PR; CI workflow + configs-repo location land in the follow-on ADR 0012 implementation phase)
 - Capability-interface contracts defined for: Email, Calendar, DocumentStorage, ESign, PracticeManagement, CourtAccess, Payments, Accounting
 - Per-customer Fly.io Machine + D1 + R2 + Vectorize bound
-- Safety substrate with 8 invariants live (including new #7 cross-Machine query prohibition and #8 fabrication discipline)
+- Safety substrate expanded from 5 base invariants (#1-#5, shipped in Phase 0 via [PR #812](https://github.com/venturecrane/ss-console/pull/812)) to 8 total. Phase 1 adds: invariant #6 citation enforcement on fact-bearing fields (the runtime-enforcement layer that pairs with the law-vertical `citation_filter.py`; spec at [`docs/specs/ai-employee/safety-invariants.md`](../../specs/ai-employee/safety-invariants.md), shipped via [PR #958](https://github.com/venturecrane/ss-console/pull/958) / [issue #865](https://github.com/venturecrane/ss-console/issues/865)); invariant #7 cross-Machine query prohibition (boot-time storage-binding check; same spec; shipped via [PR #958](https://github.com/venturecrane/ss-console/pull/958), with audit-log immutability per [`docs/specs/ai-employee/audit-log-immutability.md`](../../specs/ai-employee/audit-log-immutability.md) from [issue #892](https://github.com/venturecrane/ss-console/issues/892)); invariant #8 fabrication discipline as a runtime pre-output filter (spec at [`docs/specs/ai-employee/fabrication-filter.md`](../../specs/ai-employee/fabrication-filter.md), tracked as [issue #798](https://github.com/venturecrane/ss-console/issues/798), not yet runtime-enforced).
+- **Phase 1 ship gate on invariants:** #1-#7 must be runtime-enforced before Phase 1 closes. Invariant #8 is the open item; #798 lands the runtime filter before first external draft.
 - Automated `bin/provision-customer.sh` AND `bin/decommission-customer.sh`
 
 **Connectors (minimal v1 floor — not the full Tier-0 catalog):**
@@ -1416,6 +1419,8 @@ Status: largely complete per `ai-employee-smd-customer-zero` branch progress.
 ### Phase 2 — First vertical pack (in flight: law-firm)
 
 Scope per `law-firm-prd.md`. Phase 2 closes when the law-firm demo to the named PI firm is delivered and the first paying customer (if the firm signs as beta-1) is provisioned.
+
+**Invariant gate to unlock Phase 2 external drafting:** invariant #8 (fabrication discipline, [issue #798](https://github.com/venturecrane/ss-console/issues/798)) must be runtime-enforced before any draft is sent for partner review at the beta-1 firm. All 8 invariants must be runtime-enforced before first external send.
 
 ### Phase 3 — Second vertical pack
 
