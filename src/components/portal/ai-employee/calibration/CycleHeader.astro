@@ -1,0 +1,100 @@
+---
+/**
+ * Cycle header for the AI Employee calibration surface.
+ *
+ * Renders the cycle state, persona name, planning window, and the
+ * required assistant-not-replacement framing per the issue acceptance
+ * criteria. The framing is built in `src/lib/portal/ai-employee/calibration.ts`
+ * (`buildAssistantFraming`) so the literal text lives in one place.
+ *
+ * When `cycle` is null (state is `not_started` or `no_persona`), the
+ * component still renders the framing and the planning-window meta —
+ * the partner needs the posture before the empty-state action below.
+ */
+
+import {
+  buildAssistantFraming,
+  CALIBRATION_SESSION_MINUTES,
+  CALIBRATION_SESSIONS_PER_CYCLE,
+  CALIBRATION_WINDOW_DAYS,
+  formatCalibrationCycleState,
+  type CalibrationCycle,
+} from '../../../../lib/portal/ai-employee/calibration'
+
+interface Props {
+  /** Active persona name from `customer.yaml`. Null when no persona is configured. */
+  personaName: string | null
+  /** Active cycle, or null when not started / no persona. */
+  cycle: CalibrationCycle | null
+}
+
+const { personaName, cycle } = Astro.props
+
+const framing = personaName ? buildAssistantFraming(personaName) : null
+---
+
+<section
+  class="mt-stack border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] p-card"
+>
+  <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+    <div class="min-w-0 flex-1">
+      <p
+        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]"
+      >
+        Calibration cycle
+      </p>
+      <h2
+        class="mt-2 font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+      >
+        {
+          cycle
+            ? formatCalibrationCycleState(cycle.state)
+            : formatCalibrationCycleState('not_started')
+        }
+      </h2>
+      {
+        cycle && (
+          <p class="mt-2 font-['JetBrains_Mono'] text-xs text-[color:var(--ss-color-text-muted)] break-all">
+            {cycle.id}
+          </p>
+        )
+      }
+    </div>
+    <dl class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm md:text-right">
+      {
+        personaName && (
+          <>
+            <dt class="font-['Archivo_Narrow'] uppercase tracking-[0.14em] text-xs text-[color:var(--ss-color-text-muted)] md:order-1">
+              Persona
+            </dt>
+            <dd class="text-[color:var(--ss-color-text-primary)] md:order-2">{personaName}</dd>
+          </>
+        )
+      }
+      <dt
+        class="font-['Archivo_Narrow'] uppercase tracking-[0.14em] text-xs text-[color:var(--ss-color-text-muted)] md:order-3"
+      >
+        Window
+      </dt>
+      <dd class="text-[color:var(--ss-color-text-primary)] md:order-4">
+        {CALIBRATION_SESSIONS_PER_CYCLE} sessions over {CALIBRATION_WINDOW_DAYS} days
+      </dd>
+      <dt
+        class="font-['Archivo_Narrow'] uppercase tracking-[0.14em] text-xs text-[color:var(--ss-color-text-muted)] md:order-5"
+      >
+        Length
+      </dt>
+      <dd class="text-[color:var(--ss-color-text-primary)] md:order-6">
+        {CALIBRATION_SESSION_MINUTES} minutes each
+      </dd>
+    </dl>
+  </div>
+
+  {
+    framing && (
+      <p class="mt-6 pt-6 border-t-[2px] border-[color:var(--ss-color-border-subtle)] text-body text-[color:var(--ss-color-text-primary)]">
+        {framing}
+      </p>
+    )
+  }
+</section>
