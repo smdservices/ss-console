@@ -1,0 +1,136 @@
+# [SYNTHETIC FIXTURE - NOT A REAL MATTER]
+# Fixture 03: same PI matter served a First Set of Requests for Admission.
+# The skill produces a per-RFA response table where every admit-or-deny cell
+# is a TBD marker. No responsive-document scan. No privilege log (RFAs do
+# not produce documents).
+
+matter:
+  id: 'matter_synthetic_disc_03'
+  client_name: 'Janet Holloway'
+  matter_type: 'auto-accident'
+  status: 'open'
+  opened_at: '2026-05-01T14:22:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE - NOT A REAL MATTER]'
+    date_of_incident: '2026-04-28'
+    incident_location: 'Intersection of Camelback Road and 24th Street, Phoenix, Arizona'
+    client_role: 'operator of stopped 2021 Toyota Camry'
+    opposing_party_name: 'David Kerr'
+    opposing_counsel_name: 'Theodora Whitfield'
+    opposing_counsel_firm: 'Whitfield Reardon, PLLC'
+    opposing_counsel_email: 'twhitfield@whitfield-reardon.invalid'
+    opposing_counsel_address: '4477 N Central Avenue, Suite 1500, Phoenix AZ 85012'
+    claim_number: 'SM-2026-049182'
+    case_caption: 'Holloway v. Kerr'
+    case_number: 'CV2026-006491'
+    case_court: 'Maricopa County Superior Court'
+    documents_folder_path: '/matters/matter_synthetic_disc_03'
+
+documents:
+  - id: 'doc_01'
+    path: '/matters/matter_synthetic_disc_03/medical/2026-04-28_mercy_general_ed.pdf'
+    filename: '2026-04-28_mercy_general_ed.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 184320
+    created_at: '2026-05-02T09:14:00Z'
+    modified_at: '2026-05-02T09:14:00Z'
+    current_version: 'v1'
+    classification: 'medical_record'
+
+  - id: 'doc_02'
+    path: '/matters/matter_synthetic_disc_03/medical/2026-05-12_phoenix_imaging_mri.pdf'
+    filename: '2026-05-12_phoenix_imaging_mri.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 312456
+    created_at: '2026-05-12T16:00:00Z'
+    modified_at: '2026-05-12T16:00:00Z'
+    current_version: 'v1'
+    classification: 'medical_record'
+
+  - id: 'doc_101'
+    path: '/matters/matter_synthetic_disc_03/discovery/2026-06-20_kerr_first_rfa.pdf'
+    filename: '2026-06-20_kerr_first_rfa.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 142080
+    created_at: '2026-06-20T14:00:00Z'
+    modified_at: '2026-06-20T14:00:00Z'
+    current_version: 'v1'
+    classification: 'discovery_request'
+
+discovery_request:
+  document_id: 'doc_101'
+  kind: 'requests_for_admission'
+  set_ordinal: 'First Set'
+  served_at: '2026-06-20T13:00:00-07:00'
+  served_by: 'Theodora Whitfield'
+  served_by_firm: 'Whitfield Reardon, PLLC'
+  served_on_behalf_of: 'David Kerr'
+  case_caption: 'Holloway v. Kerr'
+  case_number: 'CV2026-006491'
+  case_court: 'Maricopa County Superior Court'
+  response_due_at: '2026-07-20T17:00:00-07:00'
+  jurisdiction_rule_applied: 'Ariz. R. Civ. P. 36 (30-day response window)'
+  numbered_items:
+    - number: 1
+      text: 'Admit that the plaintiff was the operator of a 2021 Toyota Camry on April 28, 2026 at the location of the subject incident.'
+      expected_objection_categories: []
+
+    - number: 2
+      text: 'Admit that the plaintiff was stopped at the intersection of Camelback Road and 24th Street in Phoenix, Arizona at the time of the subject incident.'
+      expected_objection_categories: []
+
+    - number: 3
+      text: "Admit that the defendant's vehicle did not cause the plaintiff's L4-L5 disc herniation diagnosed on the MRI dated May 12, 2026."
+      expected_objection_categories: ['premature', 'seeks expert opinion']
+
+    - number: 4
+      text: 'Admit that the plaintiff was wearing a seatbelt at the time of the subject incident.'
+      expected_objection_categories: []
+
+    - number: 5
+      text: "Admit that the plaintiff's medical specials, as of the date of these requests, exceed $25,000."
+      expected_objection_categories: ['premature', 'seeks expert opinion']
+
+    - number: 6
+      text: 'Admit that the plaintiff did not seek medical treatment within twenty-four hours of the subject incident.'
+      expected_objection_categories: []
+
+    - number: 7
+      text: 'Admit that the plaintiff has consulted with counsel regarding the subject incident.'
+      expected_objection_categories: ['seeks information protected by attorney-client privilege']
+
+    - number: 8
+      text: 'Admit that the plaintiff intends to claim damages in excess of $100,000 at trial.'
+      expected_objection_categories: ['premature', 'seeks expert opinion']
+
+customer_yaml_excerpt:
+  customer_slug: 'holcomb-reyes'
+  firm_name: 'Holcomb & Reyes, LLP'
+  practice_areas: ['personal-injury']
+  supervising_partner:
+    first_name: 'Sarah'
+    last_name: 'Holcomb'
+    title: 'Managing Partner'
+    reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'
+    direct_email: 'sarah.holcomb@holcomb-reyes.invalid'
+    direct_phone: '(602) 555-0142'
+  signature_block: |
+    Sarah Holcomb
+    Managing Partner
+    Holcomb & Reyes, LLP
+    1810 N Central Avenue, Suite 800
+    Phoenix, AZ 85004
+    (602) 555-0142
+    sarah.holcomb@holcomb-reyes.invalid
+  voice:
+    layer2_samples_count: 35
+  memory_rules:
+    objection_categories:
+      rule_id: 'obj_categories_v1'
+      rule_version: '2026-05-15'
+      categories_ref: 'see fixtures/01-interrogatories-matter.yaml customer_yaml_excerpt.memory_rules.objection_categories'
+  jurisdiction_rules:
+    arizona_state_court:
+      requests_for_admission_response_window_days: 30
+      rule_citation_for_partner_reference: 'Ariz. R. Civ. P. 36'
