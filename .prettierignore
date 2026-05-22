@@ -20,6 +20,9 @@ docs/spikes/
 docs/style/UI-PATTERNS.md
 # Playwright MCP output (screenshots, console dumps, snapshots)
 .playwright-mcp/
+# Pytest cache directories (gitignored locally; never authored)
+.pytest_cache/
+**/.pytest_cache/
 # Git worktrees — checked-out copies of other branches owned by parallel
 # work. The branch that owns the source is responsible for formatting it,
 # not whichever branch happens to have a worktree on disk right now.
