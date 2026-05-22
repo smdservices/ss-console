@@ -115,6 +115,44 @@ id = "daf6a3220f8f42f28f3da7e82f663088"
 [observability]
 enabled = true
 
+# ---------- Audit-log Logpush mirror (per docs/specs/ai-employee/audit-log-immutability.md) ----------
+# Issue #892. The per-customer AI Employee audit_log table is mirrored to an
+# immutable R2 archive bucket with bucket-level Object Lock. Even a compromised
+# Worker cannot delete a row from an Object-Lock bucket inside the retention
+# window. The mirror is the compliance-grade copy that the periodic integrity
+# check (ai-employee/adapter/audit_log_integrity.py) compares against the D1
+# rows.
+#
+# This block is forward-config: the bucket lives on the per-customer Hermes
+# Worker (hermes-{slug}), not on ss-web. Migration 0002 documents the
+# Hermes-side wrangler.toml fragment; this block declares the canonical
+# bucket-naming pattern + retention defaults so the provisioner script
+# (bin/provision-customer.sh, owned by issue #800 follow-on) configures every
+# new customer's Logpush sink to the same shape.
+#
+# Bucket naming: smd-audit-archive-{customer_slug}
+#   Object key: {YYYY}/{MM}/{DD}/{ulid}.json
+#   Object Lock: Compliance Mode (cannot be unlocked by account admin)
+#   Retention: law=7y, default=3y (set per-vertical at bucket create time)
+#
+# The Logpush job filters for INSERT statements against audit_log only. The
+# Worker-layer wrapper (D1Executor) rejects UPDATE/DELETE; if the wrapper is
+# ever bypassed, the integrity check surfaces drift between D1 and the mirror
+# at the next run.
+#
+# To wire the real LogpushMirror implementation when Hermes-side deployment
+# lands, replace NoopLogpushMirror in audit_log.py wiring with the R2-backed
+# implementation that POSTs to the bucket above. The Protocol shape is fixed —
+# the swap is one constructor argument.
+#
+# [audit_log_mirror]
+# bucket_pattern = "smd-audit-archive-{slug}"
+# object_lock_mode = "compliance"
+# retention_days_default = 1095   # 3 years
+# retention_days_law = 2555       # 7 years
+# logpush_cadence_seconds = 60
+# integrity_check_cron = "0 * * * *"
+
 # ---------- Staging environment ----------
 # Used for pre-cutover validation on a workers.dev hostname. Deploy with:
 #   wrangler deploy --env staging

@@ -1,0 +1,18 @@
+{
+  "body_byte_count": 3414,
+  "body_sha256": "8d07cfdfff0806539a69d852f628b56c38b76411f0ba132bea520273399c5f9b",
+  "envelope": {
+    "bcc": [],
+    "cc": [],
+    "drafted_by_skill": "law-pi-opposing-counsel-response",
+    "matter_ref": "matter_synthetic_opp_02",
+    "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
+    "subject": "Re: Meet and confer regarding motion for summary judgment, Holloway v. Kerr",
+    "thread_id": "thread_motion_18",
+    "to": ["twhitfield@whitfield-reardon.invalid"]
+  },
+  "fixture_name": "02-motion-correspondence-matter",
+  "kind": "draft",
+  "skill_slug": "law-pi-opposing-counsel-response",
+  "skill_version": "0.1.0"
+}

@@ -732,6 +732,8 @@ The customer can promote a `draft_for_review` skill to `autonomous` for skills w
 - Reversible at any time (demotion is one-click)
 - Subject to platform-level guardrails — some skills are non-promotable regardless of customer wishes (see §11.2)
 
+**Promotion is also actively recommended.** Promotion is a hidden Skills-tab action until the principal goes looking for it; without a prompt the §14.3 success metric ("≥2 skills promoted by day 60") slips. The Today tab surfaces a recommendation card for any skill that meets the promotion-ready criteria. See §12.1 for the criteria, card shape, and dismiss + re-surface contract.
+
 ### 11.4 Audit log
 
 Every action at every ceiling is logged. Every promotion/demotion is logged. The audit log is exportable (compliance evidence) and queryable in the dashboard (Activity tab and a dedicated Audit view).
@@ -752,12 +754,30 @@ The full dashboard vision is 16 tabs. **V1 ships 7 tabs**, sized to what a singl
 
 **V1 information views (4 tabs):**
 
-| View       | Primary user      | Content                                                                                                    |
-| ---------- | ----------------- | ---------------------------------------------------------------------------------------------------------- |
-| **Today**  | Principal         | Headline metrics (drafts pending review, items flagged, recent absorbed corrections), action queue summary |
-| **Queue**  | Operator          | All pending drafts, sortable by skill / age / priority / matter                                            |
-| **Memory** | Both              | What the agent knows (per §10) — read, edit, delete                                                        |
-| **Audit**  | Both + Compliance | Full audit log, exportable, queryable                                                                      |
+| View       | Primary user      | Content                                                                                                                                                         |
+| ---------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Today**  | Principal         | Headline metrics (drafts pending review, items flagged, recent absorbed corrections), action queue summary, trust-ceiling promotion recommendations (see below) |
+| **Queue**  | Operator          | All pending drafts, sortable by skill / age / priority / matter                                                                                                 |
+| **Memory** | Both              | What the agent knows (per §10) — read, edit, delete                                                                                                             |
+| **Audit**  | Both + Compliance | Full audit log, exportable, queryable                                                                                                                           |
+
+**Today tab — trust-ceiling promotion recommendation card.** When a skill has maintained a ≥90% approval rate over 4 consecutive weeks, the Today tab surfaces a "Promotion ready" recommendation card with one-click navigation to the Skills tab. Per §11.3 the actual promotion is a Skills-tab action; this card is the surface that initiates the conversation rather than waiting for the principal to go looking.
+
+Promotion-readiness criteria, evaluated per skill:
+
+- The skill currently sits at `draft_for_review`. Already-autonomous and `refused` skills are not candidates.
+- The skill is promotable per §11.2 — trust accounting, court filing, settlement authority, and other judgment-bearing skills are permanently `draft_for_review` and never surface as candidates regardless of approval rate.
+- Approval rate has been ≥90% in each of the 4 most recent rolling weeks. The threshold is per-week and not an average: a single weak week resets the streak. A week with zero reviewed drafts is not a passing week (silence does not qualify).
+- The card has not been dismissed within the cooldown window (7 days at v1). After the cooldown the card re-surfaces if the criteria still hold — a deferred decision is not a permanent veto.
+
+Card shape:
+
+- Title: "{skill name} ready for promotion?"
+- Body: the actual aggregated approval rate (draft-weighted across the 4-week window), the number of weeks the streak has held, and the total drafts reviewed in the window. Example shape: "92% approval over the last 4 weeks, across 47 drafts. Promote to autonomous?" Numbers are read from the resolver and never fabricated; when the stats bridge is not wired the card does not render at all (per docs/style/empty-state-pattern.md).
+- Actions: \[Review on Skills tab\] navigates to the Skills settings page focused on the candidate skill. \[Dismiss for now\] records the dismissal and suppresses the card for the cooldown.
+- Role gate: principal-only. Operator and compliance do not see the card — the trust-ceiling promotion is a firm-level decision per §11.3.
+
+When no skills qualify, the recommendation section does not render. No empty-state copy, no "all skills are appropriately configured" filler. The section's presence is itself the signal that an action is being recommended; its absence is meaningful by being unremarkable.
 
 **V1 configuration views (3 tabs):**
 
