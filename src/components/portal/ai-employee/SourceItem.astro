@@ -1,0 +1,68 @@
+---
+/**
+ * One row in the draft sourcing block (#807).
+ *
+ * Each source item shows: kind (chip), title/identifier, optional
+ * detail line, and optional link affordance. The visual contract is
+ * tied to the SourceKind closed vocabulary in
+ * `src/lib/portal/ai-employee/drafts.ts` — adding a kind requires both
+ * a vocabulary entry and a render path here, not a generic fallback.
+ *
+ * Per the no-fabrication policy (CLAUDE.md Pattern A/B), every field is
+ * read from the resolved `SourceItem`. Missing optional fields render
+ * nothing rather than a placeholder. The parent block guarantees only
+ * populated sources reach this component — the empty-state case is the
+ * parent's responsibility.
+ *
+ * Anchors:
+ *   - Rule 1 (status display): the kind chip is a category eyebrow, not
+ *     a state pill. Treatment matches `formatSourceKind` labels.
+ *   - Rule 2 (redundancy ban): no pill + prose duplication. The kind
+ *     appears once as a chip; the title and detail carry distinct
+ *     facts.
+ *   - Empty-state pattern: when `detail` or `href` is null, the line
+ *     simply omits — never "TBD" or "n/a" placeholders.
+ */
+
+import { formatSourceKind, type SourceItem } from '../../../lib/portal/ai-employee/drafts'
+
+interface Props {
+  source: SourceItem
+}
+
+const { source } = Astro.props
+const kindLabel = formatSourceKind(source.kind)
+---
+
+<li
+  class="flex flex-col gap-1 border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-surface)] px-4 md:px-5 py-3 md:py-4"
+>
+  <div class="flex flex-wrap items-baseline gap-2">
+    <span
+      class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+    >
+      {kindLabel}
+    </span>
+    {
+      source.href ? (
+        <a
+          href={source.href}
+          class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)] underline decoration-2 underline-offset-4 decoration-[color:var(--ss-color-action)] hover:decoration-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+        >
+          {source.title}
+        </a>
+      ) : (
+        <span class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)]">
+          {source.title}
+        </span>
+      )
+    }
+  </div>
+  {
+    source.detail !== null && source.detail !== '' && (
+      <p class="font-mono text-sm text-[color:var(--ss-color-text-secondary)] break-words m-0">
+        {source.detail}
+      </p>
+    )
+  }
+</li>
