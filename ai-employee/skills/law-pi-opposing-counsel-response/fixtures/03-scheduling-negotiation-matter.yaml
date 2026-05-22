@@ -1,0 +1,181 @@
+# [SYNTHETIC FIXTURE - NOT A REAL MATTER]
+# Fixture 03: PI matter served a scheduling letter proposing a deposition date,
+# with an attached proposed stipulation to extend the discovery-cutoff
+# deadline as a condition. The skill produces a verbatim scheduling-inbound
+# recital, a 3-row scheduling history table, a tone-classification label
+# (routine), and a TBD-marker substantive-response section that explicitly
+# forbids scheduling-commitment authoring.
+
+matter:
+  id: 'matter_synthetic_opp_03'
+  client_name: 'Janet Holloway'
+  matter_type: 'auto-accident'
+  status: 'open'
+  opened_at: '2026-05-01T14:22:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE - NOT A REAL MATTER]'
+    date_of_incident: '2026-04-28'
+    incident_location: 'Intersection of Camelback Road and 24th Street, Phoenix, Arizona'
+    client_role: 'operator of stopped 2021 Toyota Camry'
+    opposing_party_name: 'David Kerr'
+    opposing_counsel_name: 'Theodora Whitfield'
+    opposing_counsel_firm: 'Whitfield Reardon, PLLC'
+    opposing_counsel_email: 'twhitfield@whitfield-reardon.invalid'
+    opposing_counsel_address: '4477 N Central Avenue, Suite 1500, Phoenix AZ 85012'
+    claim_number: 'SM-2026-049182'
+    case_caption: 'Holloway v. Kerr'
+    case_number: 'CV2026-006491'
+    case_court: 'Maricopa County Superior Court'
+    scheduling_thread_id: 'thread_scheduling_07'
+
+email_thread:
+  thread_id: 'thread_scheduling_07'
+  thread_tag: 'scheduling'
+  messages:
+    - id: 'msg_outbound_07_15_2026_initial_deposition_proposal'
+      thread_id: 'thread_scheduling_07'
+      direction: 'outbound'
+      sender_name: 'Sarah Holcomb'
+      sender_email: 'sarah.holcomb@holcomb-reyes.invalid'
+      recipient_emails: ['twhitfield@whitfield-reardon.invalid']
+      subject: 'Deposition scheduling, Holloway v. Kerr'
+      sent_at: '2026-07-15T13:30:00-07:00'
+      body_text: 'Counsel, in accordance with the pretrial schedule, the firm proposes the deposition of plaintiff Janet Holloway during the week of August 10 through August 14, 2026 at our offices. Please advise of availability within the proposed window.'
+      attachments: []
+      synopsis: 'Firm initial proposal for deposition window of August 10 through August 14, 2026.'
+
+    - id: 'msg_inbound_07_22_2026_alt_dates_request'
+      thread_id: 'thread_scheduling_07'
+      direction: 'inbound'
+      sender_name: 'Theodora Whitfield'
+      sender_email: 'twhitfield@whitfield-reardon.invalid'
+      recipient_emails: ['sarah.holcomb@holcomb-reyes.invalid']
+      subject: 'Re: Deposition scheduling, Holloway v. Kerr'
+      received_at: '2026-07-22T16:18:00-07:00'
+      body_text: 'Counsel, the proposed window does not work for defendant. Please provide alternative dates in the second half of August or first half of September.'
+      attachments: []
+      synopsis: 'Opposing request for alternative deposition dates outside the initial proposed window.'
+
+    - id: 'msg_outbound_07_30_2026_narrowed_window'
+      thread_id: 'thread_scheduling_07'
+      direction: 'outbound'
+      sender_name: 'Sarah Holcomb'
+      sender_email: 'sarah.holcomb@holcomb-reyes.invalid'
+      recipient_emails: ['twhitfield@whitfield-reardon.invalid']
+      subject: 'Re: Deposition scheduling, Holloway v. Kerr'
+      sent_at: '2026-07-30T10:45:00-07:00'
+      body_text: 'Counsel, the firm proposes a narrowed window of August 24 through August 28, 2026 at our offices. Please confirm by close of business on August 5, 2026.'
+      attachments: []
+      synopsis: 'Firm narrowed proposal for deposition window of August 24 through August 28, 2026.'
+
+    - id: 'msg_inbound_08_05_2026_scheduling'
+      thread_id: 'thread_scheduling_07'
+      direction: 'inbound'
+      sender_name: 'Theodora Whitfield'
+      sender_email: 'twhitfield@whitfield-reardon.invalid'
+      recipient_emails: ['sarah.holcomb@holcomb-reyes.invalid']
+      subject: 'Proposed stipulation re deposition and discovery extension, Holloway v. Kerr'
+      received_at: '2026-08-05T11:22:00-07:00'
+      body_text: |
+        Counsel,
+
+        Confirming our prior exchanges, defendant proposes the deposition of plaintiff Janet Holloway on August 27, 2026 at 9:00 AM at the offices of Whitfield Reardon, PLLC, 4477 N Central Avenue, Suite 1500, Phoenix, Arizona.
+
+        As discussed, defendant proposes a stipulation to extend the discovery-cutoff deadline from October 31, 2026 to November 30, 2026 to accommodate the rescheduled deposition and any follow-on written discovery. The proposed stipulation is attached for your review.
+
+        Defendant's proposal is conditioned on plaintiff's agreement to the discovery-cutoff extension. If the firm declines the extension, defendant will seek alternative deposition dates.
+
+        Please confirm by August 12, 2026.
+
+        Regards,
+        Theodora Whitfield
+        Whitfield Reardon, PLLC
+      attachments:
+        - filename: 'proposed_stipulation_extension_2026-08-05.pdf'
+          mime_type: 'application/pdf'
+      synopsis: "Opposing proposed deposition date of August 27, 2026 at opposing counsel's offices, conditioned on stipulation to extend discovery cutoff from October 31 to November 30, 2026."
+
+inbound_message:
+  message_id: 'msg_inbound_08_05_2026_scheduling'
+  expected_correspondence_kind: 'scheduling_correspondence'
+  detection_confidence: 0.94
+  factual_claims:
+    - claim_id: 1
+      paragraph: 1
+      text: 'Confirming our prior exchanges, defendant proposes the deposition of plaintiff Janet Holloway on August 27, 2026 at 9:00 AM at the offices of Whitfield Reardon, PLLC, 4477 N Central Avenue, Suite 1500, Phoenix, Arizona.'
+    - claim_id: 2
+      paragraph: 2
+      text: 'As discussed, defendant proposes a stipulation to extend the discovery-cutoff deadline from October 31, 2026 to November 30, 2026 to accommodate the rescheduled deposition and any follow-on written discovery.'
+    - claim_id: 3
+      paragraph: 3
+      text: "Defendant's proposal is conditioned on plaintiff's agreement to the discovery-cutoff extension."
+    - claim_id: 4
+      paragraph: 4
+      text: 'Please confirm by August 12, 2026.'
+
+customer_yaml_excerpt:
+  customer_slug: 'holcomb-reyes'
+  firm_name: 'Holcomb & Reyes, LLP'
+  practice_areas: ['personal-injury']
+  supervising_partner:
+    first_name: 'Sarah'
+    last_name: 'Holcomb'
+    title: 'Managing Partner'
+    reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'
+    direct_email: 'sarah.holcomb@holcomb-reyes.invalid'
+    direct_phone: '(602) 555-0142'
+  signature_block: |
+    Sarah Holcomb
+    Managing Partner
+    Holcomb & Reyes, LLP
+    1810 N Central Avenue, Suite 800
+    Phoenix, AZ 85004
+    (602) 555-0142
+    sarah.holcomb@holcomb-reyes.invalid
+  voice:
+    layer2_samples_count: 35
+  memory_rules:
+    correspondence_tone_categories:
+      rule_id: 'tone_categories_v1'
+      rule_version: '2026-05-15'
+      categories:
+        - label: 'routine'
+          keywords: ['confirming', 'as discussed', 'enclosed', 'pursuant to', 'in accordance with']
+          applies_to:
+            ['settlement_counter_offer', 'motion_correspondence', 'scheduling_correspondence']
+        - label: 'contested'
+          keywords: ['disagree', 'object', 'reject', 'inadequate', 'unsatisfactory', 'unacceptable']
+          applies_to:
+            ['settlement_counter_offer', 'motion_correspondence', 'scheduling_correspondence']
+        - label: 'hostile'
+          keywords:
+            [
+              'frivolous',
+              'sanctions',
+              'bad faith',
+              'unreasonable',
+              'will not tolerate',
+              'meritless',
+            ]
+          applies_to:
+            ['settlement_counter_offer', 'motion_correspondence', 'scheduling_correspondence']
+        - label: 'procedural'
+          keywords:
+            ['continuance', 'extension', 'meet and confer', 'stipulation', 'protective order']
+          applies_to: ['motion_correspondence', 'scheduling_correspondence']
+        - label: 'urgent'
+          keywords:
+            [
+              'immediately',
+              'no later than',
+              'time-sensitive',
+              'deadline',
+              'before close of business',
+            ]
+          applies_to:
+            ['settlement_counter_offer', 'motion_correspondence', 'scheduling_correspondence']
+  response_window_rules:
+    scheduling_correspondence:
+      response_window_days: null
+      note: 'Scheduling responses follow the inbound-stated deadline absent firm-default override.'

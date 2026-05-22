@@ -1,0 +1,179 @@
+# [SYNTHETIC FIXTURE - NOT A REAL MATTER]
+# Fixture 01: PI matter served a settlement counter-offer from opposing counsel.
+# The skill produces a verbatim inbound-claim recital quoting the offer amount,
+# payment timing, and release condition; a 4-row prior-correspondence table
+# sourced from the settlement EmailThread; a tone-classification label
+# (contested); and a TBD-marker substantive-response section that explicitly
+# forbids settlement-number authoring.
+
+matter:
+  id: 'matter_synthetic_opp_01'
+  client_name: 'Janet Holloway'
+  matter_type: 'auto-accident'
+  status: 'open'
+  opened_at: '2026-05-01T14:22:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE - NOT A REAL MATTER]'
+    date_of_incident: '2026-04-28'
+    incident_location: 'Intersection of Camelback Road and 24th Street, Phoenix, Arizona'
+    client_role: 'operator of stopped 2021 Toyota Camry'
+    opposing_party_name: 'David Kerr'
+    opposing_counsel_name: 'Theodora Whitfield'
+    opposing_counsel_firm: 'Whitfield Reardon, PLLC'
+    opposing_counsel_email: 'twhitfield@whitfield-reardon.invalid'
+    opposing_counsel_address: '4477 N Central Avenue, Suite 1500, Phoenix AZ 85012'
+    claim_number: 'SM-2026-049182'
+    case_caption: 'Holloway v. Kerr'
+    case_number: 'CV2026-006491'
+    case_court: 'Maricopa County Superior Court'
+    settlement_thread_id: 'thread_settlement_42'
+
+email_thread:
+  thread_id: 'thread_settlement_42'
+  thread_tag: 'settlement'
+  messages:
+    - id: 'msg_outbound_04_18_2026_demand'
+      thread_id: 'thread_settlement_42'
+      direction: 'outbound'
+      sender_name: 'Sarah Holcomb'
+      sender_email: 'sarah.holcomb@holcomb-reyes.invalid'
+      recipient_emails: ['twhitfield@whitfield-reardon.invalid']
+      subject: 'Demand for settlement, Holloway v. Kerr, claim SM-2026-049182'
+      sent_at: '2026-04-18T15:00:00-07:00'
+      body_text: 'Counsel, enclosed please find our demand package on behalf of Janet Holloway. The package includes the medical chronology, billing tabulation, and supporting exhibits. We request a response within thirty days.'
+      attachments:
+        - filename: '2026-04-18_holloway_demand_package.pdf'
+          mime_type: 'application/pdf'
+      synopsis: 'Firm demand package transmitted with medical chronology and billing tabulation.'
+
+    - id: 'msg_inbound_04_25_2026_initial_offer'
+      thread_id: 'thread_settlement_42'
+      direction: 'inbound'
+      sender_name: 'Theodora Whitfield'
+      sender_email: 'twhitfield@whitfield-reardon.invalid'
+      recipient_emails: ['sarah.holcomb@holcomb-reyes.invalid']
+      subject: 'Re: Demand for settlement, Holloway v. Kerr'
+      received_at: '2026-04-25T11:32:00-07:00'
+      body_text: 'Counsel, we have reviewed your demand package. Defendant offers the sum of $35,000 in full and final settlement of all claims arising from the subject incident, payable within thirty days of execution of a standard mutual release. This offer is made without prejudice and is open for fourteen days.'
+      attachments: []
+      synopsis: 'Opposing initial offer of $35,000, payable within thirty days, mutual release condition.'
+
+    - id: 'msg_outbound_05_05_2026_followup'
+      thread_id: 'thread_settlement_42'
+      direction: 'outbound'
+      sender_name: 'Sarah Holcomb'
+      sender_email: 'sarah.holcomb@holcomb-reyes.invalid'
+      recipient_emails: ['twhitfield@whitfield-reardon.invalid']
+      subject: 'Re: Demand for settlement, Holloway v. Kerr'
+      sent_at: '2026-05-05T14:15:00-07:00'
+      body_text: 'Counsel, the offer of April 25, 2026 does not address the medical specials documented in the demand package. We renew the demand. Awaiting your response within ten days.'
+      attachments: []
+      synopsis: 'Firm follow-up; renewed demand; cited inadequacy of initial offer relative to documented specials.'
+
+    - id: 'msg_inbound_05_12_2026_counter_offer'
+      thread_id: 'thread_settlement_42'
+      direction: 'inbound'
+      sender_name: 'Theodora Whitfield'
+      sender_email: 'twhitfield@whitfield-reardon.invalid'
+      recipient_emails: ['sarah.holcomb@holcomb-reyes.invalid']
+      subject: 'Settlement counter-offer, Holloway v. Kerr'
+      received_at: '2026-05-12T10:08:00-07:00'
+      body_text: |
+        Counsel,
+
+        We have considered your follow-up of May 5, 2026 and find your prior demand inadequate to the documented facts. Without conceding any element of liability or damages, defendant offers the sum of $72,500 in full and final settlement of all claims arising from the subject incident, payable within thirty days of execution of a standard mutual release. This counter-offer is made without prejudice and supersedes the offer of April 25, 2026.
+
+        The counter-offer is conditioned on a confidentiality clause limited to non-disparagement and on dismissal with prejudice of any companion claim. The counter-offer is open for fourteen days from the date of this correspondence.
+
+        We trust this resolves the matter; if not, defendant reserves all rights and remedies.
+
+        Regards,
+        Theodora Whitfield
+        Whitfield Reardon, PLLC
+      attachments: []
+      synopsis: 'Opposing counter-offer of $72,500, payable within thirty days, mutual release with confidentiality clause and dismissal-with-prejudice condition.'
+
+inbound_message:
+  message_id: 'msg_inbound_05_12_2026_counter_offer'
+  expected_correspondence_kind: 'settlement_counter_offer'
+  detection_confidence: 0.95
+  factual_claims:
+    - claim_id: 1
+      paragraph: 1
+      text: 'Defendant offers the sum of $72,500 in full and final settlement of all claims arising from the subject incident, payable within thirty days of execution of a standard mutual release.'
+    - claim_id: 2
+      paragraph: 1
+      text: 'This counter-offer is made without prejudice and supersedes the offer of April 25, 2026.'
+    - claim_id: 3
+      paragraph: 2
+      text: 'The counter-offer is conditioned on a confidentiality clause limited to non-disparagement and on dismissal with prejudice of any companion claim.'
+    - claim_id: 4
+      paragraph: 2
+      text: 'The counter-offer is open for fourteen days from the date of this correspondence.'
+
+customer_yaml_excerpt:
+  customer_slug: 'holcomb-reyes'
+  firm_name: 'Holcomb & Reyes, LLP'
+  practice_areas: ['personal-injury']
+  supervising_partner:
+    first_name: 'Sarah'
+    last_name: 'Holcomb'
+    title: 'Managing Partner'
+    reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'
+    direct_email: 'sarah.holcomb@holcomb-reyes.invalid'
+    direct_phone: '(602) 555-0142'
+  signature_block: |
+    Sarah Holcomb
+    Managing Partner
+    Holcomb & Reyes, LLP
+    1810 N Central Avenue, Suite 800
+    Phoenix, AZ 85004
+    (602) 555-0142
+    sarah.holcomb@holcomb-reyes.invalid
+  voice:
+    layer2_samples_count: 35
+  memory_rules:
+    correspondence_tone_categories:
+      rule_id: 'tone_categories_v1'
+      rule_version: '2026-05-15'
+      categories:
+        - label: 'routine'
+          keywords: ['confirming', 'as discussed', 'enclosed', 'pursuant to', 'in accordance with']
+          applies_to:
+            ['settlement_counter_offer', 'motion_correspondence', 'scheduling_correspondence']
+        - label: 'contested'
+          keywords: ['disagree', 'object', 'reject', 'inadequate', 'unsatisfactory', 'unacceptable']
+          applies_to:
+            ['settlement_counter_offer', 'motion_correspondence', 'scheduling_correspondence']
+        - label: 'hostile'
+          keywords:
+            [
+              'frivolous',
+              'sanctions',
+              'bad faith',
+              'unreasonable',
+              'will not tolerate',
+              'meritless',
+            ]
+          applies_to:
+            ['settlement_counter_offer', 'motion_correspondence', 'scheduling_correspondence']
+        - label: 'procedural'
+          keywords:
+            ['continuance', 'extension', 'meet and confer', 'stipulation', 'protective order']
+          applies_to: ['motion_correspondence', 'scheduling_correspondence']
+        - label: 'urgent'
+          keywords:
+            [
+              'immediately',
+              'no later than',
+              'time-sensitive',
+              'deadline',
+              'before close of business',
+            ]
+          applies_to:
+            ['settlement_counter_offer', 'motion_correspondence', 'scheduling_correspondence']
+  response_window_rules:
+    settlement_counter_offer:
+      response_window_days: null
+      note: 'Settlement counter-offer responses follow the offer-window timing stated in the inbound; no fixed firm default applies.'
