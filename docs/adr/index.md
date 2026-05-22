@@ -23,3 +23,5 @@ Architecture Decision Records (ADRs) capturing strategic and technical decisions
 - [0010-per-customer-oauth-token-storage.md](./0010-per-customer-oauth-token-storage.md) - Per-customer OAuth token storage location (Infisical vs. Fly volume)
 - [0011-multi-persona-per-customer.md](./0011-multi-persona-per-customer.md) - Multi-persona per customer: schema-locked at v1 (`personas: []` array length=1), runtime deferred to Phase 2
 - [0012-customer-yaml-storage.md](./0012-customer-yaml-storage.md) - customer.yaml storage: git as source of truth, portal D1 + per-customer R2 as materialized replicas
+- [0013-ai-employee-positioning-doctrine.md](./0013-ai-employee-positioning-doctrine.md) - AI Employee positioning doctrine: portable persona, firm-owned memory, reviewer-as-sender as ethics architecture; Eve wedge line, legal-vertical opener, combined moat stack
+- [0014-pi-vertical-adapter-build-priority.md](./0014-pi-vertical-adapter-build-priority.md) - PI vertical adapter build priority: Filevine first, CASEpeer second, SmartAdvocate third; other PI practice-management systems built on demand
