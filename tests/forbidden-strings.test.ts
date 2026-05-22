@@ -375,6 +375,18 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // <option>s, not list rows. The agenda itself is rendered through
   // <CalendarAgenda>, which iterates via <CalendarItemRow>.
   resolve('src/pages/portal/products/ai-employee/calendar/index.astro'),
+  // `products/ai-employee/notifications/index.astro` (#876) iterates
+  // notifications through the dedicated <NotificationRow> primitive,
+  // not PortalListItem. A notification row's vocabulary (type chip +
+  // unread dot + summary + when + per-row mark-read action) does not
+  // fit either of PortalListItem's two variants (status / document)
+  // without rendering a misleading "$0" cell or omitting the unread
+  // affordance. Same justification as DraftRow / MatterRow /
+  // AuditEntryRow / CalendarItemRow. The .map( hits on this page
+  // include the filter form's type checkboxes and the sort <option>s
+  // alongside the row iteration; row rendering itself goes through
+  // <NotificationRow>.
+  resolve('src/pages/portal/products/ai-employee/notifications/index.astro'),
 ]
 
 /** Collect every `index.astro` under `src/pages/portal/` EXCEPT the home. */
