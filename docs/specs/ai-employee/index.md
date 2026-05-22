@@ -32,6 +32,7 @@ Build agents consuming these specs should treat the PRDs as **vision/doctrine** 
 | [refusal-handling.md](refusal-handling.md)                     | [#866](https://github.com/venturecrane/ss-console/issues/866) | Runtime semantics when `trust_ceiling.enforce()` returns `refuse` (abort + notification + cascade alert) |
 | [calibration-session.md](calibration-session.md)               | [#867](https://github.com/venturecrane/ss-console/issues/867) | Four 90-minute calibration sessions over two weeks; portal surface + integration seams                   |
 | [audit-log-immutability.md](audit-log-immutability.md)         | [#892](https://github.com/venturecrane/ss-console/issues/892) | Worker-layer enforcement, Logpush mirror protocol, integrity check, Captain exception process            |
+| [no-pm-system-mode.md](no-pm-system-mode.md)                   | [#853](https://github.com/venturecrane/ss-console/issues/853) | Customer.yaml + capability bindings for customers without an external practice-management vendor         |
 
 ## Open ambiguities requiring Captain decision
 
