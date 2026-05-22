@@ -26,6 +26,7 @@ Build agents consuming these specs should treat the PRDs as **vision/doctrine** 
 | [day-1-onboarding.md](day-1-onboarding.md)                     | [#803](https://github.com/venturecrane/ss-console/issues/803) | First-hour dashboard walkthrough screens                                                             |
 | [cost-telemetry-events.md](cost-telemetry-events.md)           | [#804](https://github.com/venturecrane/ss-console/issues/804) | Per-customer cost emission for all 9+ drivers                                                        |
 | [decommission-drain.md](decommission-drain.md)                 | [#805](https://github.com/venturecrane/ss-console/issues/805) | 60s drain window before substrate deletion                                                           |
+| [decommission-customer.md](decommission-customer.md)           | [#820](https://github.com/venturecrane/ss-console/issues/820) | Full per-customer off-boarding pipeline; 9 idempotent steps                                          |
 | [sticky-stop.md](sticky-stop.md)                               | [#843](https://github.com/venturecrane/ss-console/issues/843) | System-initiated circuit breaker for runaway agent loops (WARN/SOFT/HARD)                            |
 | [safety-invariants.md](safety-invariants.md)                   | [#865](https://github.com/venturecrane/ss-console/issues/865) | Invariants #6 (citation enforcement on fact-bearing fields) and #7 (cross-Machine query prohibition) |
 
