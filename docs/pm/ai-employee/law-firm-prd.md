@@ -791,7 +791,9 @@ The demo's last 15+ minutes are explicit: we are taking the order, not pitching.
 - "Who at your firm would be the day-to-day operator?"
 - "What questions would your ethics counsel want answered before you'd commit?"
 
-The answers shape: skill prioritization, connector roadmap, beta-1 contract terms, persona configuration.
+The answers shape: skill prioritization, connector roadmap, beta-1 contract terms, persona configuration, and customer-profile classification (Light/Medium/Heavy per platform-prd §15.1) which feeds the pricing conversation.
+
+**Pricing.** The v1 law-firm SKU price, COGS model, and assumptions ledger live in [`docs/strategy/ai-employee-pricing-2026-05-13.md`](../../strategy/ai-employee-pricing-2026-05-13.md). Captain finalizes before quoting any customer. The order-taking conversation does not require a pricing commitment in the room; the pricing doc supports either an in-meeting quote (if the firm is ready) or a follow-on quote in writing (the more common path).
 
 ### 11.8 Beta-1 Day-1 / Week-1 / Week-4 partner experience
 
