@@ -217,31 +217,38 @@ The unmet need: **one identity, every surface, persistent memory, customer voice
 
 The legal-AI landscape clusters into seven shapes; AI Employee occupies a distinct white space adjacent to all of them.
 
-| Shape                               | Examples                                                        | Where it ends                                                                          |
-| ----------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| **BigLaw research desk**            | Harvey ($11B val), CoCounsel (Westlaw), Lexis+ Protégé          | $100-$1200/seat/mo; research-shaped; no operational reach; BigLaw-only                 |
-| **Contract drafting in Word**       | Spellbook ($20-$350/seat)                                       | Single-skill, Word-bound, no matter awareness                                          |
-| **PI demand-letter shop**           | EvenUp ($300-800/case), Precedent, Tavrn, Supio                 | Per-case; demand-only; not a teammate                                                  |
-| **Workflow-AI for plaintiff firms** | Eve Legal (800-1000+ firms)                                     | Per-seat; episodic tasks + nightly auditor; no versioned memory, no reviewer-as-sender |
-| **PM-embedded capability menu**     | Clio Manage AI, MyCase IQ, Filevine AI, Smokeball Archie        | Feature menu, not agent identity; locked to one tool                                   |
-| **Front-of-funnel intake AI**       | Lawmatics, Lead Docket AI, Intaker                              | Stops at conversion                                                                    |
-| **Platform horizontal AI**          | Microsoft 365 Copilot (with absorbed Robin AI tech, April 2026) | Generic — doesn't know matter, firm rules, or partner voice                            |
+| Shape                               | Examples                                                                           | Where it ends                                                                                                                      |
+| ----------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **BigLaw research desk**            | Harvey ($11B val), CoCounsel (Westlaw), Lexis+ Protégé                             | $1,200-$2,000+/seat/mo with a 20-seat minimum; research-shaped; no operational reach; BigLaw-only                                  |
+| **Contract drafting in Word**       | Spellbook ($20-$350/seat)                                                          | Single-skill, Word-bound, no matter awareness                                                                                      |
+| **PI pre-litigation lifecycle**     | EvenUp (PLAAS, launched May 13, 2026), Precedent, Tavrn, Supio                     | EvenUp PLAAS is a managed service (AI + U.S.-based human case managers); no named AI teammate; no customer-editable memory         |
+| **Workflow-AI for plaintiff firms** | Eve Legal (1,000+ plaintiff firms; AI Workforce: Agents + Auditor + Analyst)       | Per-seat; autonomous task execution focus; no reviewer-as-sender architecture; no customer-editable memory                         |
+| **End-to-end PI operating system**  | Law Practice AI (300+ PI firms; launched April 2026; "five-solution" framing)      | Vertical SaaS with discrete workflow tools; no verified persistent-identity agent, reviewer-as-sender, or customer-editable memory |
+| **PM-embedded capability menu**     | Clio Manage AI, MyCase IQ, Filevine AI, Smokeball Archie (+ CoCounsel, Mar 2026)   | Feature menu, not agent identity; locked to one tool                                                                               |
+| **Front-of-funnel intake AI**       | Lawmatics AI Suite (QualifyAI + EngageAI + MerlinAI, March 2026), Lead Docket AI   | Intake + early-lifecycle agentic operations; no matter-lifecycle continuity                                                        |
+| **Platform horizontal AI**          | Microsoft 365 Copilot (hired Robin AI's engineering team + IP; Robin AI shuttered) | Generic. Doesn't know matter, firm rules, or partner voice                                                                         |
+
+**Horizon threat: Harvey downmarket.** Harvey raised $200M in March 2026 at an $11B valuation and has begun explicit mid-market positioning ("How Harvey Helps Mid-Sized Law Firms Scale Legal Work"). The 20-seat minimum keeps Harvey out of AI Employee's SMB target in Phase 1-2, but a future solo/small-firm tier becomes a Phase 3-4 threat. Track but do not optimize against in v1.
+
+**Watch item: Smokeball + CoCounsel (March 2026).** Smokeball and Thomson Reuters announced a partnership integrating CoCounsel directly into Smokeball, creating a PM + research + drafting stack with Archie's agentic reasoning as the coordination layer. Not PI-relevant directly (Smokeball does not dominate PI practice management), but signals strategic direction for PM vendors. If Filevine or Clio announces a comparable partnership, the Tier-1 PM adapter strategy carries new competitive risk.
 
 ### The four pillars of differentiation
 
-**1. Productized as an employee, not a tool.** Flat-monthly per-customer SKU. Reframes the buying decision from "how many seats" to "do we want this team member" — the cognitive model customers already use for headcount.
+No competitor in 2026 ships editable customer-owned memory plus reviewer-as-sender plus flat-per-firm pricing under one identity. Each pillar appears in isolation across the field; the specific combination remains uncopied.
 
-**2. Multi-skill across the lifecycle under one identity.** Every other operational AI is either single-skill (EvenUp = demands) or single-surface (Lawmatics = intake). AI Employee covers intake → conflict → engagement → status → signing → billing → red-flag → closing under one persona, one memory, one voice.
+**1. Productized as an employee, not a tool.** Flat-monthly per-customer SKU. Reframes the buying decision from "how many seats" to "do we want this team member": the cognitive model customers already use for headcount.
 
-**3. Versioned, customer-editable memory.** No 2026 competitor exposes what the agent has learned as a human-readable, edit-controlled artifact. Supio gestures at voice learning for demands; Eve has firm-level case-value learning. Neither lets the customer read or edit. This is both a UX differentiator and a trust mechanism.
+**2. Multi-skill across the lifecycle under one persistent identity.** Every other operational AI is either single-skill (Supio = demands), single-surface (Lawmatics = intake), or task-execution-focused without a named teammate (Eve's AI Workforce, EvenUp's PLAAS). AI Employee covers intake, conflict, engagement, status, signing, billing, red-flag, and closing under one persona, one memory, one voice.
 
-**4. Reviewer-as-sender as core abstraction.** Every defensible governance pattern in 2026 ABA guidance says "named human reviewer per output." No vendor builds this into the product flow. AI Employee does — drafts go to drafts, reviewer sends from their own identity, audit log captures the diff between draft and send.
+**3. Versioned, customer-editable memory.** No 2026 competitor exposes what the agent has learned as a human-readable, edit-controlled artifact. Supio gestures at voice learning for demands. Eve has firm-level case-value learning. EvenUp's Firmwide Knowledge Base applies firm standards across documents. None let the customer read or edit. This is both a UX differentiator and a trust mechanism.
+
+**4. Reviewer-as-sender as core abstraction.** Every defensible governance pattern in 2026 ABA guidance says "named human reviewer per output." No vendor builds this into the product flow. AI Employee does: drafts go to drafts, reviewer sends from their own identity, audit log captures the diff between draft and send.
 
 ### Demo-day positioning one-liner
 
-> "Harvey is a research desk. EvenUp is a demand-letter shop. Clio Duo is a feature inside your PM. Hermes is the staffer — one identity, every surface, drafts in your voice, never sends, and you can read and edit what it knows about your firm."
+> "Harvey is a research desk. EvenUp PLAAS is a managed service with staff. Clio Duo is a feature inside your PM. Eve runs AI agents that execute tasks. Hermes is the staffer with one identity across every surface, drafts in your voice, never sends, and you can read and edit what it knows about your firm. No one else ships editable customer-owned memory plus reviewer-as-sender plus flat-per-firm under one identity."
 
-This frame adapts per vertical by swapping references. For non-legal verticals: "Tool X solves this slice. Tool Y solves that slice. Hermes is the staffer — one identity, every surface, drafts in your voice, never sends, and you can read and edit what it knows about your business."
+This frame adapts per vertical by swapping references. For non-legal verticals: "Tool X solves this slice. Tool Y solves that slice. Hermes is the staffer with one identity across every surface, drafts in your voice, never sends, and you can read and edit what it knows about your business."
 
 ### 6.5 Two demo framings (substitution vs. capacity multiplier)
 
@@ -1051,6 +1058,78 @@ For each profile: total variable cost per month + amortized fixed cost per month
 
 **Internal cost dashboard (Captain-only in v1)**: a control-plane view showing per-customer per-day cost driver attribution. This is the operational signal for SKU margin defense and for identifying customers approaching usage caps.
 
+### 15.2 Captain CLI for operations time-logging
+
+Captain operations time is one of the nine cost drivers in §15.1 and the only one not auto-instrumented from a vendor API. Without a logging mechanism the per-customer COGS model is incomplete and the §17.1 ≤40%-COGS/MRR kill criterion is unobservable.
+
+**Command shape (canonical):**
+
+```
+crane ai-employee log-time --customer {slug} --minutes {N} --activity {tag} [--note "{text}"] [--date YYYY-MM-DD]
+```
+
+**Flags:**
+
+| Flag                | Required | Type                          | Description                                                                                                       |
+| ------------------- | -------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `--customer {slug}` | yes      | string                        | Customer slug matching `customer.yaml.customer_id`; routes the row to that customer's D1                          |
+| `--minutes {N}`     | yes      | integer                       | Whole minutes spent on the activity; must be > 0 and ≤ 600 (10 hours); fractional minutes are rejected            |
+| `--activity {tag}`  | yes      | enum (closed list, see below) | Activity tag from the v1 taxonomy; freeform strings are rejected                                                  |
+| `--note "{text}"`   | no       | string ≤ 280 chars            | Optional free-text context (e.g. ticket ID, incident reference); stored verbatim, never used for cost attribution |
+| `--date YYYY-MM-DD` | no       | ISO date                      | Backdate entry for time logged late; defaults to today UTC; must be ≤ 7 days in the past and not in the future    |
+
+**Activity-tag taxonomy (v1, closed enum).** Freeform strings are explicitly rejected by the CLI. New tags require a PR to extend this list.
+
+| Tag                     | Description                                                                                           |
+| ----------------------- | ----------------------------------------------------------------------------------------------------- |
+| `voice-calibration`     | Voice samples review, blind-test scoring, recipient-cohort tuning (§9.6)                              |
+| `oauth-refresh`         | Token re-bind, re-consent flows, connector re-authorization (§7, oauth-lifecycle.md)                  |
+| `regression-triage`     | Investigating a skill regression, draft-quality drop, or memory misbehavior                           |
+| `customer-onboarding`   | Day-1 walkthrough, pre-provisioning, initial calibration (§16.2, day-1-onboarding.md)                 |
+| `customer-offboarding`  | Decommission execution, evidence-packet final export (decommission-customer.md)                       |
+| `incident-response`     | Live incident handling, sticky-stop investigation, safety-invariant follow-up                         |
+| `skill-review`          | Reviewing a skill's outputs at the request of the customer, or for a quality audit                    |
+| `evidence-packet-prep`  | Generating, reviewing, or amending a compliance evidence packet                                       |
+| `customer-meeting-prep` | Preparing for a recurring customer check-in or escalation meeting                                     |
+| `customer-meeting`      | The meeting itself                                                                                    |
+| `demo-prep`             | Pre-provisioning the aircraft-carrier moment, voice scraping, synthetic data shaping                  |
+| `demo-run`              | Delivering the demo (discovery, live configuration, drill-down, differentiation set-pieces per §16.1) |
+
+**Behavior:**
+
+- Loaded cost is computed automatically as `cost_cents = (minutes * 200 * 100) / 60` per CLAUDE.md (the $200/hr Captain rate). The CLI never accepts a dollar amount from the user.
+- Each invocation writes one event row to the per-customer D1 (per d1-schema.md cost_telemetry extension). The CLI is intentionally event-sourced, not UPSERT-keyed: re-running the same command with the same flags writes a second row. Captain may log two 15-minute calibration sessions on the same day for the same customer and both must persist.
+- The CLI resolves the customer's D1 binding via the configs repo (per ADR 0012); unknown slugs fail before any write.
+- On success, prints a one-line confirmation: `logged {minutes}m for {slug} ({activity}) = ${dollars} at $200/hr`.
+- On failure, prints a single error line to stderr and exits non-zero.
+
+**Output (stdout, success):**
+
+```
+logged 30m for acme-pi-law (voice-calibration) = $100.00 at $200/hr
+```
+
+**Error modes:**
+
+| Condition                                          | Exit code | Message                                                                       |
+| -------------------------------------------------- | --------- | ----------------------------------------------------------------------------- |
+| Unknown `--customer` slug                          | 2         | `unknown customer: {slug}` (lists nearest matches if any)                     |
+| Missing required flag                              | 2         | `missing required flag: --{flag}`                                             |
+| `--activity` not in the closed taxonomy            | 2         | `unknown activity: {tag}; allowed: {comma-separated list}`                    |
+| `--minutes` not a positive integer or > 600        | 2         | `invalid minutes: {value}; must be a positive integer ≤ 600`                  |
+| `--date` more than 7 days in the past or in future | 2         | `invalid date: {value}; must be within the last 7 days and not in the future` |
+| `--note` exceeds 280 chars                         | 2         | `note too long: {N} chars; max 280`                                           |
+| D1 binding unavailable for the customer            | 3         | `cannot reach D1 for {slug}: {detail}` (Captain alerted via stderr)           |
+| Underlying D1 write fails after one retry          | 3         | `D1 write failed for {slug}: {detail}`                                        |
+
+**Idempotency:** none, by design. The cost_telemetry feed is event-sourced for captain_time; correcting a mis-logged entry is a follow-on operation (a separate `crane ai-employee log-time --reverse` is a Phase 4 follow-on, not in scope here).
+
+**Audit:** every successful invocation writes an `audit_log` row with `action_type: CAPTAIN_TIME_LOGGED`, `actor: captain`, and metadata containing the activity tag, minutes, computed cost cents, and date. This makes the time log inspectable in the Captain dashboard alongside other administrative events.
+
+**Help text:** `crane ai-employee log-time --help` prints the flag table, the activity-tag taxonomy with one-line descriptions, and an example invocation.
+
+**Implementation contract:** the per-event schema, write path, and audit-row shape are spec'd at [`docs/specs/ai-employee/cost-telemetry-events.md`](../../specs/ai-employee/cost-telemetry-events.md) §"Captain time logging". The D1 columns added to support per-event rows are at [`docs/specs/ai-employee/d1-schema.md`](../../specs/ai-employee/d1-schema.md) `captain_time_events` table.
+
 ---
 
 ## 16. Demo Framework
@@ -1147,6 +1226,8 @@ Vertical PRDs specify the pre-build set for their buyer profile.
 | Compliance audit log requests                                 | Available in ≤60 seconds                                                | Outcome                              |
 | **Captain weekly hours per customer**                         | ≤2 hrs/wk at steady state (week 4+); >3 hrs/wk is an operational defect | Leading (operational sustainability) |
 | **Per-customer monthly COGS / MRR**                           | ≤40%; >40% triggers SKU re-pricing or usage cap                         | Leading (margin)                     |
+
+The COGS numerator sums all nine §15.1 cost drivers, including `captain_time`. The Captain CLI at §15.2 is the sole emission path for `captain_time`; if it is not in use, the COGS/MRR ratio understates true cost and this kill criterion is unobservable.
 
 ### 17.2 Per-customer kill criteria
 
@@ -1307,6 +1388,7 @@ Status: largely complete per `ai-employee-smd-customer-zero` branch progress.
 - Operations runbook at `docs/runbooks/ai-employee-ops.md`
 - Captain operational budget instrumented (≤2 hrs/wk/customer)
 - Cost telemetry instrumented per §15.1 (Captain-only dashboard)
+- Captain CLI time-logging command (`crane ai-employee log-time`) shipped per §15.2 with the closed v1 activity-tag taxonomy enforced
 - Backup operator designated by name (gate before customer #5, not customer #1)
 
 **Single skill version** in v1; per-customer skill pinning is Phase 4.

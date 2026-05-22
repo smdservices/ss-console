@@ -376,7 +376,7 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // <CalendarAgenda>, which iterates via <CalendarItemRow>.
   resolve('src/pages/portal/products/ai-employee/calendar/index.astro'),
   // `products/ai-employee/settings/advanced/index.astro` is the
-  // customer.yaml editor (#877) — a structured FORM, not a list
+  // customer.yaml editor (#877): a structured FORM, not a list
   // surface. The only `.map(` on the page is the frontmatter
   // `resolved.errors.map((e) => e.path)` call that joins validation-
   // error paths into a status banner. Form sections (PersonaFields,
@@ -384,9 +384,21 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // ScopeFields) live under
   // `src/components/portal/ai-employee/customer-yaml-editor/` and
   // render typed inputs per field group, not list-row cards. The
-  // PortalListItem primitive is the wrong shape here — there is no
+  // PortalListItem primitive is the wrong shape here. There is no
   // status/document repeating-card vocabulary to enforce.
   resolve('src/pages/portal/products/ai-employee/settings/advanced/index.astro'),
+  // `products/ai-employee/notifications/index.astro` (#876) iterates
+  // notifications through the dedicated <NotificationRow> primitive,
+  // not PortalListItem. A notification row's vocabulary (type chip +
+  // unread dot + summary + when + per-row mark-read action) does not
+  // fit either of PortalListItem's two variants (status / document)
+  // without rendering a misleading "$0" cell or omitting the unread
+  // affordance. Same justification as DraftRow / MatterRow /
+  // AuditEntryRow / CalendarItemRow. The .map( hits on this page
+  // include the filter form's type checkboxes and the sort <option>s
+  // alongside the row iteration; row rendering itself goes through
+  // <NotificationRow>.
+  resolve('src/pages/portal/products/ai-employee/notifications/index.astro'),
 ]
 
 /** Collect every `index.astro` under `src/pages/portal/` EXCEPT the home. */
