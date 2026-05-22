@@ -1,0 +1,176 @@
+---
+/**
+ * One row in the AI Employee calendar agenda.
+ *
+ * Used only by CalendarAgenda. Lives in its own file so the row's
+ * cell vocabulary (time / title / type / source / matter / conflict)
+ * can be tested and revised independently of the agenda chrome.
+ *
+ * Per #872 (and PortalListItem precedent), the row is a link to the
+ * item detail page at `/portal/products/ai-employee/calendar/[id]` —
+ * that page lands in a follow-on issue alongside the drag-drop
+ * reschedule machinery; this PR provides the working link target.
+ *
+ * Plainspoken aesthetic (mirrors DraftRow): 2px ink divider between
+ * rows, file-style mono numerics for the time range, Archivo Narrow
+ * uppercase labels for column captions, type chip on the right. The
+ * outer 3px ink frame is provided by CalendarAgenda — this component
+ * is borderless at the row level so consecutive rows stitch cleanly.
+ *
+ * Why not PortalListItem? PortalListItem's variants are status (title +
+ * money + meta) and document (icon + title + eyebrow). Neither fits
+ * the calendar's six-cell vocabulary (time-range / title / type /
+ * source-skill / related-matter / conflict). A new primitive is the
+ * honest answer — bending PortalListItem to fit would distort both
+ * surfaces. Same justification DraftRow already records.
+ *
+ * Conflict signal: the row carries `aria-describedby` referencing the
+ * conflict indicator id when the item has conflicts, so screen-reader
+ * users hear "2 time conflicts" as part of the row context.
+ */
+
+import StatusPill from '../StatusPill.astro'
+import ConflictIndicator from './ConflictIndicator.astro'
+import {
+  formatCalendarItemType,
+  formatTimeRange,
+  type CalendarItem,
+} from '../../../lib/portal/ai-employee/calendar'
+
+interface Props {
+  item: CalendarItem
+  /**
+   * Number of OTHER items in the same agenda that overlap with this
+   * one in time. Computed by detectConflicts in the host page and
+   * passed through. Zero = no conflict.
+   */
+  conflictCount: number
+  /**
+   * Short serial shown in the № cell. Defaults to the first two
+   * uppercase characters of the id. The agenda passes the row index
+   * for stable visual rhythm even when ids change underneath.
+   */
+  serial?: string
+}
+
+const { item, conflictCount, serial } = Astro.props
+const resolvedSerial = serial ?? item.id.slice(0, 2).toUpperCase()
+
+// `ai_scheduled` is the higher-trust state — already on the customer's
+// calendar. Render with the success tone so reviewers can spot the
+// already-committed items at scan time. `ai_proposed` is the
+// review-needed state and uses the warning tone to mirror DraftRow's
+// pattern for "needs human action" rows.
+const typeTone = item.type === 'ai_scheduled' ? 'success' : 'warning'
+const typeLabel = formatCalendarItemType(item.type).toUpperCase()
+
+const time = formatTimeRange(item.startsAt, item.endsAt)
+const conflictId = conflictCount > 0 ? `conflict-${item.id}` : undefined
+---
+
+<a
+  href={`/portal/products/ai-employee/calendar/${item.id}`}
+  aria-describedby={conflictId}
+  class="group block bg-[color:var(--ss-color-surface)] border-b-[2px] border-[color:var(--ss-color-text-primary)] last:border-b-0 transition-colors hover:bg-[color:var(--ss-color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
+>
+  <div
+    class="md:grid md:grid-cols-[56px_minmax(0,1.4fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_auto_48px] md:items-stretch"
+  >
+    {/* № cell */}
+    <div
+      class="flex md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-primary)] items-center justify-center md:min-h-[96px] py-3 md:py-0 font-['Archivo'] font-black text-num-cell"
+      aria-hidden="true"
+    >
+      № {resolvedSerial}
+    </div>
+
+    {/* When / time range */}
+    <div
+      class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-4 flex flex-col justify-center gap-1 min-w-0"
+    >
+      <span
+        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
+      >
+        When
+      </span>
+      <span class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)] truncate">
+        {time.datePart}
+      </span>
+      <span class="font-mono text-sm text-[color:var(--ss-color-text-secondary)] truncate">
+        {time.timePart}
+        {time.tzPart && ` ${time.tzPart}`}
+      </span>
+    </div>
+
+    {/* Title + location */}
+    <div
+      class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-4 flex flex-col justify-center gap-1 min-w-0"
+    >
+      <span
+        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
+      >
+        Title
+      </span>
+      <span class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)] truncate">
+        {item.title}
+      </span>
+      {
+        item.location && (
+          <span class="font-mono text-sm text-[color:var(--ss-color-text-secondary)] truncate">
+            {item.location}
+          </span>
+        )
+      }
+    </div>
+
+    {/* Source skill */}
+    <div
+      class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-4 flex flex-col justify-center gap-1 min-w-0"
+    >
+      <span
+        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
+      >
+        Source
+      </span>
+      <span class="font-mono text-sm text-[color:var(--ss-color-text-primary)] truncate">
+        {item.skill}
+      </span>
+    </div>
+
+    {/* Related matter */}
+    <div
+      class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-4 flex flex-col justify-center gap-1 min-w-0"
+    >
+      <span
+        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
+      >
+        Matter
+      </span>
+      {
+        item.relatedMatterTitle ? (
+          <span class="font-mono text-sm text-[color:var(--ss-color-text-primary)] truncate">
+            {item.relatedMatterTitle}
+          </span>
+        ) : (
+          <span class="font-mono text-sm text-[color:var(--ss-color-text-muted)]">None</span>
+        )
+      }
+    </div>
+
+    {/* Type chip + conflict indicator */}
+    <div
+      class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-4 flex flex-col items-start md:items-end justify-center gap-1.5"
+    >
+      <StatusPill tone={typeTone} label={typeLabel} />
+      <ConflictIndicator conflictCount={conflictCount} id={conflictId} />
+    </div>
+
+    {/* Arrow */}
+    <div
+      aria-hidden="true"
+      class="hidden md:flex items-center justify-center font-['Archivo'] font-black text-2xl text-[color:var(--ss-color-primary)] transition-transform group-hover:translate-x-0.5"
+    >
+      →
+    </div>
+  </div>
+</a>
