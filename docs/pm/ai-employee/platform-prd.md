@@ -217,31 +217,38 @@ The unmet need: **one identity, every surface, persistent memory, customer voice
 
 The legal-AI landscape clusters into seven shapes; AI Employee occupies a distinct white space adjacent to all of them.
 
-| Shape                               | Examples                                                        | Where it ends                                                                          |
-| ----------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| **BigLaw research desk**            | Harvey ($11B val), CoCounsel (Westlaw), Lexis+ Protégé          | $100-$1200/seat/mo; research-shaped; no operational reach; BigLaw-only                 |
-| **Contract drafting in Word**       | Spellbook ($20-$350/seat)                                       | Single-skill, Word-bound, no matter awareness                                          |
-| **PI demand-letter shop**           | EvenUp ($300-800/case), Precedent, Tavrn, Supio                 | Per-case; demand-only; not a teammate                                                  |
-| **Workflow-AI for plaintiff firms** | Eve Legal (800-1000+ firms)                                     | Per-seat; episodic tasks + nightly auditor; no versioned memory, no reviewer-as-sender |
-| **PM-embedded capability menu**     | Clio Manage AI, MyCase IQ, Filevine AI, Smokeball Archie        | Feature menu, not agent identity; locked to one tool                                   |
-| **Front-of-funnel intake AI**       | Lawmatics, Lead Docket AI, Intaker                              | Stops at conversion                                                                    |
-| **Platform horizontal AI**          | Microsoft 365 Copilot (with absorbed Robin AI tech, April 2026) | Generic — doesn't know matter, firm rules, or partner voice                            |
+| Shape                               | Examples                                                                           | Where it ends                                                                                                                      |
+| ----------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **BigLaw research desk**            | Harvey ($11B val), CoCounsel (Westlaw), Lexis+ Protégé                             | $1,200-$2,000+/seat/mo with a 20-seat minimum; research-shaped; no operational reach; BigLaw-only                                  |
+| **Contract drafting in Word**       | Spellbook ($20-$350/seat)                                                          | Single-skill, Word-bound, no matter awareness                                                                                      |
+| **PI pre-litigation lifecycle**     | EvenUp (PLAAS, launched May 13, 2026), Precedent, Tavrn, Supio                     | EvenUp PLAAS is a managed service (AI + U.S.-based human case managers); no named AI teammate; no customer-editable memory         |
+| **Workflow-AI for plaintiff firms** | Eve Legal (1,000+ plaintiff firms; AI Workforce: Agents + Auditor + Analyst)       | Per-seat; autonomous task execution focus; no reviewer-as-sender architecture; no customer-editable memory                         |
+| **End-to-end PI operating system**  | Law Practice AI (300+ PI firms; launched April 2026; "five-solution" framing)      | Vertical SaaS with discrete workflow tools; no verified persistent-identity agent, reviewer-as-sender, or customer-editable memory |
+| **PM-embedded capability menu**     | Clio Manage AI, MyCase IQ, Filevine AI, Smokeball Archie (+ CoCounsel, Mar 2026)   | Feature menu, not agent identity; locked to one tool                                                                               |
+| **Front-of-funnel intake AI**       | Lawmatics AI Suite (QualifyAI + EngageAI + MerlinAI, March 2026), Lead Docket AI   | Intake + early-lifecycle agentic operations; no matter-lifecycle continuity                                                        |
+| **Platform horizontal AI**          | Microsoft 365 Copilot (hired Robin AI's engineering team + IP; Robin AI shuttered) | Generic. Doesn't know matter, firm rules, or partner voice                                                                         |
+
+**Horizon threat: Harvey downmarket.** Harvey raised $200M in March 2026 at an $11B valuation and has begun explicit mid-market positioning ("How Harvey Helps Mid-Sized Law Firms Scale Legal Work"). The 20-seat minimum keeps Harvey out of AI Employee's SMB target in Phase 1-2, but a future solo/small-firm tier becomes a Phase 3-4 threat. Track but do not optimize against in v1.
+
+**Watch item: Smokeball + CoCounsel (March 2026).** Smokeball and Thomson Reuters announced a partnership integrating CoCounsel directly into Smokeball, creating a PM + research + drafting stack with Archie's agentic reasoning as the coordination layer. Not PI-relevant directly (Smokeball does not dominate PI practice management), but signals strategic direction for PM vendors. If Filevine or Clio announces a comparable partnership, the Tier-1 PM adapter strategy carries new competitive risk.
 
 ### The four pillars of differentiation
 
-**1. Productized as an employee, not a tool.** Flat-monthly per-customer SKU. Reframes the buying decision from "how many seats" to "do we want this team member" — the cognitive model customers already use for headcount.
+No competitor in 2026 ships editable customer-owned memory plus reviewer-as-sender plus flat-per-firm pricing under one identity. Each pillar appears in isolation across the field; the specific combination remains uncopied.
 
-**2. Multi-skill across the lifecycle under one identity.** Every other operational AI is either single-skill (EvenUp = demands) or single-surface (Lawmatics = intake). AI Employee covers intake → conflict → engagement → status → signing → billing → red-flag → closing under one persona, one memory, one voice.
+**1. Productized as an employee, not a tool.** Flat-monthly per-customer SKU. Reframes the buying decision from "how many seats" to "do we want this team member": the cognitive model customers already use for headcount.
 
-**3. Versioned, customer-editable memory.** No 2026 competitor exposes what the agent has learned as a human-readable, edit-controlled artifact. Supio gestures at voice learning for demands; Eve has firm-level case-value learning. Neither lets the customer read or edit. This is both a UX differentiator and a trust mechanism.
+**2. Multi-skill across the lifecycle under one persistent identity.** Every other operational AI is either single-skill (Supio = demands), single-surface (Lawmatics = intake), or task-execution-focused without a named teammate (Eve's AI Workforce, EvenUp's PLAAS). AI Employee covers intake, conflict, engagement, status, signing, billing, red-flag, and closing under one persona, one memory, one voice.
 
-**4. Reviewer-as-sender as core abstraction.** Every defensible governance pattern in 2026 ABA guidance says "named human reviewer per output." No vendor builds this into the product flow. AI Employee does — drafts go to drafts, reviewer sends from their own identity, audit log captures the diff between draft and send.
+**3. Versioned, customer-editable memory.** No 2026 competitor exposes what the agent has learned as a human-readable, edit-controlled artifact. Supio gestures at voice learning for demands. Eve has firm-level case-value learning. EvenUp's Firmwide Knowledge Base applies firm standards across documents. None let the customer read or edit. This is both a UX differentiator and a trust mechanism.
+
+**4. Reviewer-as-sender as core abstraction.** Every defensible governance pattern in 2026 ABA guidance says "named human reviewer per output." No vendor builds this into the product flow. AI Employee does: drafts go to drafts, reviewer sends from their own identity, audit log captures the diff between draft and send.
 
 ### Demo-day positioning one-liner
 
-> "Harvey is a research desk. EvenUp is a demand-letter shop. Clio Duo is a feature inside your PM. Hermes is the staffer — one identity, every surface, drafts in your voice, never sends, and you can read and edit what it knows about your firm."
+> "Harvey is a research desk. EvenUp PLAAS is a managed service with staff. Clio Duo is a feature inside your PM. Eve runs AI agents that execute tasks. Hermes is the staffer with one identity across every surface, drafts in your voice, never sends, and you can read and edit what it knows about your firm. No one else ships editable customer-owned memory plus reviewer-as-sender plus flat-per-firm under one identity."
 
-This frame adapts per vertical by swapping references. For non-legal verticals: "Tool X solves this slice. Tool Y solves that slice. Hermes is the staffer — one identity, every surface, drafts in your voice, never sends, and you can read and edit what it knows about your business."
+This frame adapts per vertical by swapping references. For non-legal verticals: "Tool X solves this slice. Tool Y solves that slice. Hermes is the staffer with one identity across every surface, drafts in your voice, never sends, and you can read and edit what it knows about your business."
 
 ### 6.5 Two demo framings (substitution vs. capacity multiplier)
 
