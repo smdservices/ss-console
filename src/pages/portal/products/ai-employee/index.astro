@@ -10,7 +10,12 @@ import {
 import PortalHeader from '../../../../components/portal/PortalHeader.astro'
 import PortalTabs from '../../../../components/portal/PortalTabs.astro'
 import PortalPageHead from '../../../../components/portal/PortalPageHead.astro'
+import PromotionCardList from '../../../../components/portal/ai-employee/PromotionCardList.astro'
 import SkipToMain from '../../../../components/SkipToMain.astro'
+import {
+  listPromotionReadySkills,
+  type PromotionCandidate,
+} from '../../../../lib/portal/ai-employee/promotion-cards'
 import { SignOutButton } from '@clerk/astro/components'
 import { env } from 'cloudflare:workers'
 
@@ -122,6 +127,19 @@ if (access) {
       'A full record of every action your AI Employee takes: drafts created, sends approved, identity changes.',
   })
 }
+
+// Promotion recommendation cards (per #811). Principal-only because the
+// trust-ceiling promotion is the firm's decision per §11.3 — operator
+// and compliance roles do not see the prompt. The resolver returns an
+// empty list today (Hermes stats bridge not wired); when it does the
+// PromotionCardList wrapper renders nothing, so no fabricated copy
+// reaches the page. The dismissals table is wired so the empty case is
+// honest: even when bridge data lands later, a dismissed card stays
+// suppressed for the cooldown.
+let promotionCandidates: PromotionCandidate[] = []
+if (access?.roles.includes('principal')) {
+  promotionCandidates = await listPromotionReadySkills(env.DB, client.id)
+}
 ---
 
 <!doctype html>
@@ -224,6 +242,7 @@ if (access) {
         surfaceState === 'active' && (
           <div class="mt-10 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-10 lg:gap-12 lg:items-start">
             <div class="flex flex-col gap-8 min-w-0">
+              <PromotionCardList candidates={promotionCandidates} />
               <section>
                 <p class="mb-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
                   Sections
