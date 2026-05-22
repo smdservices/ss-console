@@ -357,6 +357,16 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // /portal/products/ai-employee/drafts/index.astro and matters/index.astro
   // and WILL use PortalListItem.
   resolve('src/pages/portal/products/ai-employee/index.astro'),
+  // `products/ai-employee/calendar/index.astro` is the AI Employee
+  // calendar agenda (#872). It renders list rows through the
+  // dedicated <CalendarItemRow> primitive (mirrors DraftRow's
+  // justification — the six-cell calendar vocabulary, time-range /
+  // title / type / source / matter / conflict, does not fit
+  // PortalListItem's status or document variants). The .map( hits on
+  // this page render the filter form's type checkboxes and sort
+  // <option>s, not list rows. The agenda itself is rendered through
+  // <CalendarAgenda>, which iterates via <CalendarItemRow>.
+  resolve('src/pages/portal/products/ai-employee/calendar/index.astro'),
 ]
 
 /** Collect every `index.astro` under `src/pages/portal/` EXCEPT the home. */
