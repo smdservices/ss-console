@@ -60,6 +60,11 @@ function makeDraft(overrides: Partial<DraftDetail> = {}): DraftDetail {
     reviewerEmail: 'pat.owner@smithlaw.com',
     sendStatus: 'pending',
     sendError: null,
+    // sources[] is required on DraftDetail per #807. The send-as flow
+    // never reads this field — the sourcing block is a separate detail
+    // surface. Empty array keeps the helper type-correct without
+    // adding fabricated content.
+    sources: [],
     ...overrides,
   }
 }

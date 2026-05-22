@@ -2,6 +2,7 @@
 import '../../../../../styles/global.css'
 import { BRAND_NAME } from '../../../../../lib/config/brand'
 import { resolveAiEmployeeAccess } from '../../../../../lib/portal/ai-employee-access'
+import { getActivePersona } from '../../../../../lib/portal/customer-config'
 import { getDraft } from '../../../../../lib/portal/ai-employee/drafts'
 import { DEFAULT_UNDO_WINDOW_MS } from '../../../../../lib/portal/ai-employee/send-as'
 import PortalHeader from '../../../../../components/portal/PortalHeader.astro'
@@ -9,6 +10,7 @@ import PortalTabs from '../../../../../components/portal/PortalTabs.astro'
 import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
 import SkipToMain from '../../../../../components/SkipToMain.astro'
 import DraftDetail from '../../../../../components/portal/ai-employee/DraftDetail.astro'
+import DraftSourcingBlock from '../../../../../components/portal/ai-employee/DraftSourcingBlock.astro'
 import { SignOutButton } from '@clerk/astro/components'
 import { env } from 'cloudflare:workers'
 
@@ -76,6 +78,18 @@ const callerRole: 'principal' | 'operator' = roles.includes('principal') ? 'prin
 // Undo window — pending bridge wiring for the per-customer override.
 // DEFAULT_UNDO_WINDOW_MS is 5_000 per the issue's stated default.
 const undoWindowMs = DEFAULT_UNDO_WINDOW_MS
+
+// Active persona name for the sourcing block header (#807). Per ADR
+// 0011, this comes from the per-customer `customer.yaml` projection;
+// the resolver returns null when no row exists or no persona is
+// active. The sourcing block falls back to "your AI Employee" in that
+// case — never a hardcoded fixture name (no "Marcus" in shipped
+// user-facing copy). The fetch happens regardless of whether the
+// draft exists so the empty-state path also gets the right persona
+// (consistent block header across not-found and found views would be
+// premature — we only render the block when a draft exists).
+const activePersona = draft !== null ? await getActivePersona(env.DB, client.id) : null
+const personaDisplayName = activePersona ? activePersona.name : null
 ---
 
 <!doctype html>
@@ -149,7 +163,7 @@ const undoWindowMs = DEFAULT_UNDO_WINDOW_MS
               h1={draft.subject ?? 'Draft for review'}
               meta={null}
             />
-            <div class="mt-8">
+            <div class="mt-8 flex flex-col gap-stack">
               <DraftDetail
                 draft={draft}
                 callerRole={callerRole}
@@ -157,6 +171,7 @@ const undoWindowMs = DEFAULT_UNDO_WINDOW_MS
                 reviewerDisplayName={user.name && user.name !== user.email ? user.name : null}
                 undoWindowMs={undoWindowMs}
               />
+              <DraftSourcingBlock sources={draft.sources} personaName={personaDisplayName} />
             </div>
           </Fragment>
         )
