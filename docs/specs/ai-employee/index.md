@@ -15,21 +15,22 @@ Build agents consuming these specs should treat the PRDs as **vision/doctrine** 
 
 ## P1 — Beta-1 dependencies
 
-| Spec                                                           | Issue                                                         | Scope                                                                                                |
-| -------------------------------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| [d1-schema.md](d1-schema.md)                                   | [#800](https://github.com/venturecrane/ss-console/issues/800) | 11 D1 tables; per-customer isolation via binding layer                                               |
-| [r2-vectorize-naming.md](r2-vectorize-naming.md)               | [#801](https://github.com/venturecrane/ss-console/issues/801) | Per-customer R2 + Vectorize naming; invariant #7 boot-check                                          |
-| [voice-gate-fallback.md](voice-gate-fallback.md)               | [#797](https://github.com/venturecrane/ss-console/issues/797) | Pass / Near-pass / Fail states; internal-drafts-only mode                                            |
-| [fabrication-filter.md](fabrication-filter.md)                 | [#798](https://github.com/venturecrane/ss-console/issues/798) | Invariant #8 as runtime pre-output filter; `client_facing_fields` skill anatomy                      |
-| [mobile-approval-flow.md](mobile-approval-flow.md)             | [#799](https://github.com/venturecrane/ss-console/issues/799) | V1 mobile screen sequence; 60-second partner loop                                                    |
-| [compliance-evidence-packet.md](compliance-evidence-packet.md) | [#802](https://github.com/venturecrane/ss-console/issues/802) | Susan-readable compliance packet contents                                                            |
-| [day-1-onboarding.md](day-1-onboarding.md)                     | [#803](https://github.com/venturecrane/ss-console/issues/803) | First-hour dashboard walkthrough screens                                                             |
-| [cost-telemetry-events.md](cost-telemetry-events.md)           | [#804](https://github.com/venturecrane/ss-console/issues/804) | Per-customer cost emission for all 9+ drivers                                                        |
-| [decommission-drain.md](decommission-drain.md)                 | [#805](https://github.com/venturecrane/ss-console/issues/805) | 60s drain window before substrate deletion                                                           |
-| [decommission-customer.md](decommission-customer.md)           | [#820](https://github.com/venturecrane/ss-console/issues/820) | Full per-customer off-boarding pipeline; 9 idempotent steps                                          |
-| [sticky-stop.md](sticky-stop.md)                               | [#843](https://github.com/venturecrane/ss-console/issues/843) | System-initiated circuit breaker for runaway agent loops (WARN/SOFT/HARD)                            |
-| [safety-invariants.md](safety-invariants.md)                   | [#865](https://github.com/venturecrane/ss-console/issues/865) | Invariants #6 (citation enforcement on fact-bearing fields) and #7 (cross-Machine query prohibition) |
-| [audit-log-immutability.md](audit-log-immutability.md)         | [#892](https://github.com/venturecrane/ss-console/issues/892) | Worker-layer enforcement, Logpush mirror protocol, integrity check, Captain exception process        |
+| Spec                                                           | Issue                                                         | Scope                                                                                                    |
+| -------------------------------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| [d1-schema.md](d1-schema.md)                                   | [#800](https://github.com/venturecrane/ss-console/issues/800) | 11 D1 tables; per-customer isolation via binding layer                                                   |
+| [r2-vectorize-naming.md](r2-vectorize-naming.md)               | [#801](https://github.com/venturecrane/ss-console/issues/801) | Per-customer R2 + Vectorize naming; invariant #7 boot-check                                              |
+| [voice-gate-fallback.md](voice-gate-fallback.md)               | [#797](https://github.com/venturecrane/ss-console/issues/797) | Pass / Near-pass / Fail states; internal-drafts-only mode                                                |
+| [fabrication-filter.md](fabrication-filter.md)                 | [#798](https://github.com/venturecrane/ss-console/issues/798) | Invariant #8 as runtime pre-output filter; `client_facing_fields` skill anatomy                          |
+| [mobile-approval-flow.md](mobile-approval-flow.md)             | [#799](https://github.com/venturecrane/ss-console/issues/799) | V1 mobile screen sequence; 60-second partner loop                                                        |
+| [compliance-evidence-packet.md](compliance-evidence-packet.md) | [#802](https://github.com/venturecrane/ss-console/issues/802) | Susan-readable compliance packet contents                                                                |
+| [day-1-onboarding.md](day-1-onboarding.md)                     | [#803](https://github.com/venturecrane/ss-console/issues/803) | First-hour dashboard walkthrough screens                                                                 |
+| [cost-telemetry-events.md](cost-telemetry-events.md)           | [#804](https://github.com/venturecrane/ss-console/issues/804) | Per-customer cost emission for all 9+ drivers                                                            |
+| [decommission-drain.md](decommission-drain.md)                 | [#805](https://github.com/venturecrane/ss-console/issues/805) | 60s drain window before substrate deletion                                                               |
+| [decommission-customer.md](decommission-customer.md)           | [#820](https://github.com/venturecrane/ss-console/issues/820) | Full per-customer off-boarding pipeline; 9 idempotent steps                                              |
+| [sticky-stop.md](sticky-stop.md)                               | [#843](https://github.com/venturecrane/ss-console/issues/843) | System-initiated circuit breaker for runaway agent loops (WARN/SOFT/HARD)                                |
+| [safety-invariants.md](safety-invariants.md)                   | [#865](https://github.com/venturecrane/ss-console/issues/865) | Invariants #6 (citation enforcement on fact-bearing fields) and #7 (cross-Machine query prohibition)     |
+| [refusal-handling.md](refusal-handling.md)                     | [#866](https://github.com/venturecrane/ss-console/issues/866) | Runtime semantics when `trust_ceiling.enforce()` returns `refuse` (abort + notification + cascade alert) |
+| [audit-log-immutability.md](audit-log-immutability.md)         | [#892](https://github.com/venturecrane/ss-console/issues/892) | Worker-layer enforcement, Logpush mirror protocol, integrity check, Captain exception process            |
 
 ## Open ambiguities requiring Captain decision
 

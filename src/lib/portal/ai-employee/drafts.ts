@@ -467,6 +467,77 @@ export async function getDraft(
  */
 export type DraftSendStatus = 'pending' | 'sending' | 'sent' | 'send_failed'
 
+/**
+ * Closed vocabulary of source kinds the sourcing block surfaces (#807).
+ * Derived from the skill output structure documented in the platform PRD
+ * §12 and the per-skill citation policies under
+ * `ai-employee/skills/<skill>/references/citation-policy.md`. Each kind
+ * has a distinct visual treatment and link affordance in the UI (see
+ * `SourceItem.astro`):
+ *
+ *   matter_document  — A document on the matter record (intake form,
+ *                      filing, exhibit). Links to the matter detail
+ *                      page when `href` is populated.
+ *   memory_rule      — A firm-authored memory rule the skill consulted
+ *                      ("we don't take medmal under $1M"). Surfaces
+ *                      the rule text inline rather than linking out.
+ *   voice_sample     — A voice sample anchor the skill used to match
+ *                      tone (e.g. "to-client/anxious"). Surfaces the
+ *                      cohort tag rather than the sample body.
+ *   system_of_record — A field read from an external system of record
+ *                      (Filevine, Microsoft Graph, etc.). Surfaces the
+ *                      field name and the provider slug.
+ *   verbatim_quote   — A passage from an inbound message the skill
+ *                      quoted unchanged in the draft. Surfaces the
+ *                      inbound message id for traceability.
+ *
+ * The vocabulary is closed because the sourcing block's visual contract
+ * is closed — a new source kind requires a new row treatment, not a
+ * generic "other" fallback. Adding a kind is a deliberate design
+ * decision, not a runtime extension point.
+ */
+export type SourceKind =
+  | 'matter_document'
+  | 'memory_rule'
+  | 'voice_sample'
+  | 'system_of_record'
+  | 'verbatim_quote'
+
+export const SOURCE_KINDS: readonly SourceKind[] = [
+  'matter_document',
+  'memory_rule',
+  'voice_sample',
+  'system_of_record',
+  'verbatim_quote',
+] as const
+
+/**
+ * One row in the sourcing block ("What [persona] used to write this").
+ * Every field is read from the draft's actual source attribution —
+ * never synthesized at render time. Per CLAUDE.md no-fabrication policy
+ * (Pattern A/B), an empty `sources[]` array renders the empty state
+ * rather than a fabricated list.
+ *
+ *   kind        — Closed-vocabulary kind. See SourceKind.
+ *   title       — Short identifier for the source (e.g.
+ *                 "Filevine #M-2026-0142", "we don't take medmal under
+ *                 $1M", "to-client/anxious"). Never invented — when
+ *                 the underlying field is absent, the resolver should
+ *                 omit the row, not fabricate a title.
+ *   detail      — Optional secondary line. Per kind: matter document
+ *                 case name; memory rule scope; voice sample cohort;
+ *                 system of record provider; verbatim quote message
+ *                 id. Null when the underlying field is absent.
+ *   href        — Optional link target. Matter documents link to the
+ *                 matter detail page; everything else is inline (null).
+ */
+export interface SourceItem {
+  kind: SourceKind
+  title: string
+  detail: string | null
+  href: string | null
+}
+
 export interface DraftDetail extends Draft {
   bodyPlain: string
   personaName: string
@@ -474,6 +545,18 @@ export interface DraftDetail extends Draft {
   reviewerEmail: string
   sendStatus: DraftSendStatus
   sendError: string | null
+  /**
+   * Source attribution surfaced by the "what [persona] used" sourcing
+   * block (#807). Always present as an array (closed contract); empty
+   * array signals the empty state. The Hermes bridge populates this
+   * from the per-draft source records that skills emit per
+   * `src/lib/ai-employee/capabilities/types.ts` (FieldCoverage +
+   * skill-emit attribution). Until the bridge wires source attribution
+   * through (#821 + a follow-on), every draft surfaces `sources: []`
+   * and the UI renders the empty state — no placeholder rows, no
+   * fabricated kinds.
+   */
+  sources: SourceItem[]
 }
 
 /**
@@ -506,3 +589,66 @@ export function formatDraftSendStatus(status: DraftSendStatus): string {
       return 'Send failed'
   }
 }
+
+/**
+ * Human label for a SourceKind value. Closed vocabulary; see SourceKind.
+ * Used by the sourcing block as the per-row chip text. Sentence case so
+ * the chip reads as a label rather than a command.
+ */
+export function formatSourceKind(kind: SourceKind): string {
+  switch (kind) {
+    case 'matter_document':
+      return 'Matter document'
+    case 'memory_rule':
+      return 'Memory rule'
+    case 'voice_sample':
+      return 'Voice sample'
+    case 'system_of_record':
+      return 'System of record'
+    case 'verbatim_quote':
+      return 'Verbatim quote'
+  }
+}
+
+/**
+ * Group sources by kind, preserving the input order within each group.
+ * The sourcing block surfaces sources grouped by kind so a reviewer
+ * scans by category first ("which memory rules?", "which matter
+ * documents?") before drilling into specifics. The grouping is stable —
+ * a reviewer who returns to the page sees the same arrangement they
+ * left.
+ *
+ * The result follows the SOURCE_KINDS declaration order so the visual
+ * order is consistent across drafts (matter documents first, verbatim
+ * quotes last) regardless of which kinds happen to be present.
+ */
+export function groupSourcesByKind(
+  sources: readonly SourceItem[]
+): Array<{ kind: SourceKind; items: SourceItem[] }> {
+  const buckets = new Map<SourceKind, SourceItem[]>()
+  for (const source of sources) {
+    const existing = buckets.get(source.kind)
+    if (existing) {
+      existing.push(source)
+    } else {
+      buckets.set(source.kind, [source])
+    }
+  }
+  const groups: Array<{ kind: SourceKind; items: SourceItem[] }> = []
+  for (const kind of SOURCE_KINDS) {
+    const items = buckets.get(kind)
+    if (items && items.length > 0) {
+      groups.push({ kind, items })
+    }
+  }
+  return groups
+}
+
+/**
+ * Default collapse threshold for the sourcing block — when total source
+ * count exceeds this, the block renders collapsed by default with an
+ * expand affordance. Three is the threshold per the issue spec: a
+ * reviewer can scan three rows without expansion, more than that
+ * benefits from the collapse.
+ */
+export const SOURCE_BLOCK_COLLAPSE_THRESHOLD = 3
