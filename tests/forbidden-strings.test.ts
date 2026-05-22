@@ -352,11 +352,19 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // landing (one customer per render), not a list of products. The
   // small `.map(roles, …)` inside the sidebar renders a bullet list of
   // granted role names (principal / operator / compliance) — text
-  // items inside a chrome card, not a list-row card surface. Drafts
-  // (#869) and Matters (#871) list views will live under
-  // /portal/products/ai-employee/drafts/index.astro and matters/index.astro
-  // and WILL use PortalListItem.
+  // items inside a chrome card, not a list-row card surface.
   resolve('src/pages/portal/products/ai-employee/index.astro'),
+  // `products/ai-employee/matters/index.astro` (#871) iterates matters
+  // through the dedicated `<MattersListTable>` + `<MatterRow>`
+  // primitives, not PortalListItem. Matters carry phase + last AI
+  // action as their scan-time fields, not a money figure, and do not
+  // fit either of PortalListItem's two variants (status / document)
+  // without rendering a misleading "$0" cell. Per UI-PATTERNS R7's
+  // "When to split" guidance, matters are the third variant; they live
+  // in their own component pair until a second AI Employee surface
+  // (calendar, audit list view) shares the row shape, at which point
+  // MatterRow is promoted into PortalListItem as a third variant.
+  resolve('src/pages/portal/products/ai-employee/matters/index.astro'),
   // `products/ai-employee/calendar/index.astro` is the AI Employee
   // calendar agenda (#872). It renders list rows through the
   // dedicated <CalendarItemRow> primitive (mirrors DraftRow's
