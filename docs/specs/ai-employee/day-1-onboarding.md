@@ -5,8 +5,21 @@
 ## Source
 
 - platform-prd.md §16 (Demo Framework)
+- platform-prd.md §16.2 (aircraft carrier moment: pre-provisioned + live-calibrated)
 - law-firm-prd.md §11.8 (Day-1 / Week-1 / Week-4 partner experience)
+- law-firm-prd.md §11.9 (Calibration session split: partner + paralegal)
 - `docs/pm/ai-employee/prd-contributions/round-1/ux-lead.md` User Journey section
+
+## Cross-spec dependencies
+
+The screens in this spec compose other specs. A reader implementing one screen reaches for these:
+
+- [customer-yaml-schema.md](./customer-yaml-schema.md) populates `personas[]`, `voice_library`, `connectors[]`, and `users[]`. Several screens render directly from these fields. If a field is unpopulated at provision time, the screen renders the empty-state per `docs/style/empty-state-pattern.md`, never invented copy.
+- [voice-gate-fallback.md](./voice-gate-fallback.md) owns the blind-test state surfaced in Screen 3. The screen reads the latest `VOICE_GATE_*` event and follows the three-state contract (Pass / Near-pass / Fail).
+- [capability-contracts.md](./capability-contracts.md) defines the `Email` interface as Pattern A only at v1. Screen 5 (Trust ceiling explainer) and Screen 7 (first trust promotion) must reflect the Pattern A rule: drafts land in the reviewer's drafts folder; no agent-held send token; nothing autonomous can produce an external send in v1.
+- [dashboard-roles.md](./dashboard-roles.md) drives Screen 4 (Skills) and the Operator / Compliance branches in Operator onboarding (parallel) below.
+- [mobile-approval-flow.md](./mobile-approval-flow.md) is the surface the principal lands on at Screen 9 if they finished on a phone.
+- [d1-schema.md](./d1-schema.md) defines the `audit_log` action-type vocabulary used by every screen's audit event (`WELCOME_VIEWED`, `WALKTHROUGH_STEP_COMPLETED`, `TRUST_PROMOTED`, `ONBOARDING_COMPLETED`, `MOBILE_UPLOAD_FALLBACK`).
 
 ## Contract
 
@@ -231,6 +244,86 @@ This is the first real audit-log event of the trust-building loop. `TRUST_PROMOT
 
 Audit event: `ONBOARDING_COMPLETED`. Lands on Today tab.
 
+### Per-screen gating
+
+Each screen has explicit prerequisites. If a prerequisite is unmet, the screen renders an empty-state stub (per `docs/style/empty-state-pattern.md`) and the walkthrough does not advance past it. Captain receives an escalation per `escalation.failure_recipients` from customer.yaml.
+
+| Screen                           | Prerequisite                                                                                                                              | If unmet                                                                                                           |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| 1. Welcome / orient              | customer.yaml present and validated; at least one `personas[]` entry with `status: active`; principal user resolvable per dashboard-roles | Walkthrough cannot start. Principal lands on an "onboarding not yet provisioned" screen and Captain is paged.      |
+| 2. Persona review                | personas[0] populated with `name`, `tone`. `signature_html` and `avatar_url` optional (Step 0 provisioning generates if absent).          | Empty-state stub on the missing field; tap-to-edit opens Persona tab. Screen marks itself complete only on Save.   |
+| 3. Voice review                  | `voice_library.samples_path` present; voice gate has run at least once per voice-gate-fallback.md (Pass, Near-pass, or Fail recorded).    | If no gate run yet, the screen shows "Gate not yet run, calibration scheduled" with a Captain contact button.      |
+| 3. Voice review (gate Near-pass) | Same prereqs as Pass.                                                                                                                     | Screen surfaces voice-gate-fallback.md near-pass calibration cycle copy and the "Run a test draft" CTA.            |
+| 3. Voice review (gate Fail)      | Same prereqs as Pass.                                                                                                                     | Screen surfaces voice-gate-fallback.md Path A / Path B disclosure script and disables Step 6's external-skill CTA. |
+| 4. Skills configuration          | `personas[0].skills[]` non-empty; every skill resolved against the SKILL.md registry per capability-contracts.md.                         | Screen shows the empty-state stub "No skills enabled yet" and disables the "Looks good" CTA.                       |
+| 5. Trust ceiling explainer       | None beyond Screen 4.                                                                                                                     | n/a.                                                                                                               |
+| 6. Voice samples upload          | None. This screen is OPTIONAL; the skip path is supported and audited.                                                                    | Skip writes `WALKTHROUGH_STEP_COMPLETED` with `outcome: skipped`.                                                  |
+| 7. Trust ceiling first promotion | Voice gate state is Pass (per voice-gate-fallback.md). On Near-pass or Fail, the screen is hidden.                                        | Screen hidden; walkthrough advances directly to Screen 8.                                                          |
+| 8. Daily digest setup            | None.                                                                                                                                     | n/a.                                                                                                               |
+| 9. Go-live confirmation          | Screens 1, 2, 3, 4, 8 all complete (status `completed` or `skipped`). Screens 5, 6, 7 may be incomplete and onboarding still completes.   | If a required prereq screen is incomplete, Screen 9 cannot render and the walkthrough resumes at the gap.          |
+
+The state machine resolves prerequisites at the start of every walkthrough turn so a resumed session always sees the current gate state, even if voice-gate-fallback.md transitioned between sessions.
+
+### Done criteria
+
+"Onboarding complete" has a precise definition. It is the state where the system commits to running the steady-state loop (morning digest, draft queue, audit log) without further walkthrough prompts.
+
+**For the customer:**
+
+- Principal has read Screen 1, reviewed persona and voice (Screens 2 and 3), confirmed skill set (Screen 4), and set digest cadence (Screen 8).
+- Steady-state Today tab is the default dashboard landing surface from this point onward.
+- Walkthrough never auto-opens again. A persistent "Walkthrough" entry remains in the More menu for the principal to revisit.
+
+**For the system:**
+
+- `audit_log` contains `ONBOARDING_COMPLETED` (action_type per d1-schema.md, actor = principal, metadata captures which screens completed vs skipped, mobile vs desktop, captain-led vs self-service).
+- `customer_configs` projection sets `onboarding_completed_at` to the audit-event timestamp.
+- The morning-digest scheduler is armed for the next 8am local (or the time selected at Screen 8).
+- The inbox-triage skill is active at `draft_for_review` per the customer.yaml ceiling.
+- Voice gate state is Pass, OR (Near-pass / Fail) and the corresponding voice-gate-fallback.md fallback mode is active and surfaced in the dashboard banner.
+- Trust ceiling for any `external_send` skill is gated by `external_send_blocked_by_voice_gate` (zero or one) per voice-gate-fallback.md.
+
+Onboarding does not "complete" while any required-screen is incomplete. Captain-led path (next section) writes the same `ONBOARDING_COMPLETED` event with `metadata.captain_led: true`.
+
+### Captain walk-through cadence (co-existing path)
+
+Per the synthesis-round-1 finding and the ambiguity already filed below: partners frequently skip self-service onboarding. The spec accommodates a Captain-led live walk-through during the signed-and-shipped demo close. This is not a fallback; it is a first-class second path that runs alongside the self-service walkthrough.
+
+**When Captain runs it:**
+
+- Inside the signed-and-shipped demo close, while the partner and (typically) the paralegal are still in the room or on the same video call. Captain shares screen and drives the dashboard.
+- Within 24 hours of beta-1 sign per law-firm-prd.md §11.8 (Day-1 schedule). The 60 minutes with the partner from §11.8 is the natural anchor for the principal's walk; the 4 hours with the paralegal from §11.9 is the natural anchor for the operator's walk.
+
+**What Captain runs:**
+
+| Walkthrough step      | Captain-led behavior                                                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Step 0 welcome email  | Captain sends after the meeting, not before. Email subject reads "Marcus is live at {firm-name}" instead of the self-service variant. |
+| Screen 1              | Captain narrates "Here is what we configured for you" while the partner watches. No "Start walkthrough" click; Captain advances.      |
+| Screen 2 persona      | Captain confirms the persona name aloud and captures any partner edits live.                                                          |
+| Screen 3 voice        | Captain runs one test draft against a synthetic scenario per platform-prd.md §16.2 so the partner sees calibrated voice on screen.    |
+| Screen 4 skills       | Captain reads the four default skills aloud, confirms each, opens any drawer the partner asks about.                                  |
+| Screen 5 trust        | Captain reads the three-level explainer; no quiz, no required acknowledgement.                                                        |
+| Screen 6 voice upload | Optional. Captain offers; partner usually defers to paralegal session.                                                                |
+| Screen 7 promotion    | Skipped in the partner session. Captain promotes morning-digest later, after the paralegal session, with partner async sign-off.      |
+| Screen 8 digest       | Captain sets cadence to 8am unless partner names a different time.                                                                    |
+| Screen 9 go-live      | Captain confirms aloud "Marcus is now watching your inbox. You will see the first digest tomorrow morning."                           |
+
+**What gets written:**
+
+- Every screen still writes `WALKTHROUGH_STEP_COMPLETED` with `metadata.actor: captain`, `metadata.captain_led: true`, `metadata.principal_present: true`.
+- `ONBOARDING_COMPLETED` event writes with `metadata.captain_led: true` at the end of Screen 9.
+- The compliance evidence packet (per compliance-evidence-packet.md) renders Captain-led onboarding identically to self-service for audit purposes; the only difference is the `actor` metadata field.
+
+**What follows automatically:**
+
+- The principal receives a follow-up email within 1 hour titled "What we covered" with a 12-minute video walkthrough link, a bookmark to the dashboard, and Captain contact details. The video walkthrough is the same content as the self-service flow, narrated by Captain; it is not a re-run requirement.
+- The paralegal (Operator) walkthrough runs separately per the Operator onboarding section below, either Captain-led in the §11.9 4-hour session or self-service after the meeting closes.
+
+**Hybrid is supported:**
+
+- Captain may run Screens 1 through 5 live, then hand the partner the dashboard and let the partner finish Screens 6 through 9 on their own time. The state machine resumes from the last completed step regardless of actor. The audit log shows the actor change as the actor metadata field flips between captain and principal mid-walkthrough.
+
 ### Operator onboarding (parallel, separate)
 
 If `customer.yaml.users` includes an operator, they receive a separate welcome email. Their walkthrough is the same sequence, except:
@@ -238,6 +331,24 @@ If `customer.yaml.users` includes an operator, they receive a separate welcome e
 - Screen 5 (trust ceiling explainer) reads "Your principal sets these. You can see them but not promote."
 - Screen 7 (first promotion) is skipped (operator cannot promote).
 - Skip-tab buttons hidden for tabs they don't have access to (per dashboard-roles.md).
+
+### Mobile-specific behavior
+
+Per mobile-approval-flow.md, the partner may complete onboarding on a phone. This is supported as a first-class flow, not a degraded one. Mobile-specific notes per screen:
+
+| Screen | Mobile behavior                                                                                                                                        |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1      | Welcome card stacks vertically. Both CTAs are 56pt-tall full-width buttons (per mobile-approval-flow.md touch-target rule).                            |
+| 2      | "Edit persona" opens the Persona tab in a full-bleed sheet, not a side drawer.                                                                         |
+| 3      | "Run a test draft" opens the Voice test sandbox on a full-screen modal; the partner types into a 16pt-minimum text input to prevent iOS zoom.          |
+| 4      | Skills list renders as stacked cards, one per row. Skill drawer is a full-bleed sheet.                                                                 |
+| 5      | The three-level explainer is a swipeable card stack on mobile, vertical-list on desktop. Either is acceptable; the audit event is identical.           |
+| 6      | The file picker dispatches the native iOS / Android picker (`<input type="file" capture>` accepted). Supports `.eml`, `.msg`, `.txt`, `.docx`, `.pdf`. |
+| 7      | Standard mobile button rules.                                                                                                                          |
+| 8      | Time options render as a native time-picker on iOS / Android; the four discrete options also remain selectable for accessibility.                      |
+| 9      | "Take me to Today" lands on the mobile Today surface per mobile-approval-flow.md Screen 2.                                                             |
+
+If the mobile file picker fails on the partner's specific device (MDM lock-down per mobile-approval-flow.md ambiguity), the walkthrough writes `MOBILE_UPLOAD_FALLBACK` to `audit_log`, Step 6 marks itself `skipped`, and the partner sees a banner instructing them to open the dashboard on a laptop later. Onboarding still completes per the done criteria above.
 
 ### Compliance onboarding
 
