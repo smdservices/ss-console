@@ -30,6 +30,7 @@ Build agents consuming these specs should treat the PRDs as **vision/doctrine** 
 | [sticky-stop.md](sticky-stop.md)                               | [#843](https://github.com/venturecrane/ss-console/issues/843) | System-initiated circuit breaker for runaway agent loops (WARN/SOFT/HARD)                                |
 | [safety-invariants.md](safety-invariants.md)                   | [#865](https://github.com/venturecrane/ss-console/issues/865) | Invariants #6 (citation enforcement on fact-bearing fields) and #7 (cross-Machine query prohibition)     |
 | [refusal-handling.md](refusal-handling.md)                     | [#866](https://github.com/venturecrane/ss-console/issues/866) | Runtime semantics when `trust_ceiling.enforce()` returns `refuse` (abort + notification + cascade alert) |
+| [audit-log-immutability.md](audit-log-immutability.md)         | [#892](https://github.com/venturecrane/ss-console/issues/892) | Worker-layer enforcement, Logpush mirror protocol, integrity check, Captain exception process            |
 
 ## Open ambiguities requiring Captain decision
 
@@ -39,7 +40,7 @@ These were flagged as `[AMBIGUITY: ...]` markers in the specs. Listed here for t
 2. **TypeScript vs Python adapter layer** (capability-contracts.md) — PR #812 ships Python adapters; capability interfaces are spec'd in TypeScript. Dual-language with re-declaration, or convergence?
 3. **Calendar RSVP draft pattern** (capability-contracts.md) — `respond_to_invitation_draft` returns `DraftRef` but most calendar systems treat RSVP as a single API call. Confirm shape.
 4. **Re-consent callback URL** (oauth-lifecycle.md) — `admin.smd.services/ai-employee/oauth/{connector}/callback` requires admin subdomain be reachable from customer browsers; admin auth is role-gated. Resolve with unauthenticated callback path or portal-subdomain proxy.
-5. **D1 audit-log immutability** (d1-schema.md) — Cloudflare D1 lacks per-role permissions; immutability enforced at Worker layer. Accept with Logpush mirror, or defer launch until D1 ships per-role permissions?
+5. **D1 audit-log immutability** (d1-schema.md) — Cloudflare D1 lacks per-role permissions; immutability enforced at Worker layer. Accept with Logpush mirror, or defer launch until D1 ships per-role permissions? **Resolved 2026-05-21 (#892):** Worker-layer enforcement (`D1Executor` wrapper in `ai-employee/adapter/audit_log_immutability.py`) + Logpush mirror protocol + periodic integrity check; Captain-supervised redaction is the only legitimate mutation path. See [audit-log-immutability.md](audit-log-immutability.md).
 6. **Vectorize index quota** (r2-vectorize-naming.md) — Wrangler/CF bulk-delete throttling may stretch heavy-customer decommissioning past the 60s drain window. Validate with synthetic fixture before launch.
 7. **Voice-gate judge pool size** (voice-gate-fallback.md) — For solo practitioners, 3 judges is structurally hard. Captain proxies, or relax threshold for low-judge cohorts?
 8. **Internal-drafts-only retainer math** (voice-gate-fallback.md) — Pricing strategy doc doesn't yet specify; spec assumes 50-60%. Resolve before customer #1 signs.
