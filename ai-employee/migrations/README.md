@@ -16,6 +16,7 @@ Forward-only. There is no rollback path because audit-log immutability would be 
 ## Migration files
 
 - `0001_per_customer_schema.sql` — initial schema (11 tables per `docs/specs/ai-employee/d1-schema.md`): audit log, memory rules, person mappings, skill state, draft queue, cost telemetry, invariant boot checks, voice samples, recipient cohorts, sent-folder state, escalation events.
+- `0002_audit_log_indexes.sql` — additional indexes for the audit_log writer (issue #891): timestamp DESC, skill_name + ts DESC, action_type + ts DESC. Documents the Logpush backup configuration plan that lives on the per-customer Hermes Worker deployment side.
 
 ## Schema reference
 
