@@ -1051,6 +1051,78 @@ For each profile: total variable cost per month + amortized fixed cost per month
 
 **Internal cost dashboard (Captain-only in v1)**: a control-plane view showing per-customer per-day cost driver attribution. This is the operational signal for SKU margin defense and for identifying customers approaching usage caps.
 
+### 15.2 Captain CLI for operations time-logging
+
+Captain operations time is one of the nine cost drivers in §15.1 and the only one not auto-instrumented from a vendor API. Without a logging mechanism the per-customer COGS model is incomplete and the §17.1 ≤40%-COGS/MRR kill criterion is unobservable.
+
+**Command shape (canonical):**
+
+```
+crane ai-employee log-time --customer {slug} --minutes {N} --activity {tag} [--note "{text}"] [--date YYYY-MM-DD]
+```
+
+**Flags:**
+
+| Flag                | Required | Type                          | Description                                                                                                       |
+| ------------------- | -------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `--customer {slug}` | yes      | string                        | Customer slug matching `customer.yaml.customer_id`; routes the row to that customer's D1                          |
+| `--minutes {N}`     | yes      | integer                       | Whole minutes spent on the activity; must be > 0 and ≤ 600 (10 hours); fractional minutes are rejected            |
+| `--activity {tag}`  | yes      | enum (closed list, see below) | Activity tag from the v1 taxonomy; freeform strings are rejected                                                  |
+| `--note "{text}"`   | no       | string ≤ 280 chars            | Optional free-text context (e.g. ticket ID, incident reference); stored verbatim, never used for cost attribution |
+| `--date YYYY-MM-DD` | no       | ISO date                      | Backdate entry for time logged late; defaults to today UTC; must be ≤ 7 days in the past and not in the future    |
+
+**Activity-tag taxonomy (v1, closed enum).** Freeform strings are explicitly rejected by the CLI. New tags require a PR to extend this list.
+
+| Tag                     | Description                                                                                           |
+| ----------------------- | ----------------------------------------------------------------------------------------------------- |
+| `voice-calibration`     | Voice samples review, blind-test scoring, recipient-cohort tuning (§9.6)                              |
+| `oauth-refresh`         | Token re-bind, re-consent flows, connector re-authorization (§7, oauth-lifecycle.md)                  |
+| `regression-triage`     | Investigating a skill regression, draft-quality drop, or memory misbehavior                           |
+| `customer-onboarding`   | Day-1 walkthrough, pre-provisioning, initial calibration (§16.2, day-1-onboarding.md)                 |
+| `customer-offboarding`  | Decommission execution, evidence-packet final export (decommission-customer.md)                       |
+| `incident-response`     | Live incident handling, sticky-stop investigation, safety-invariant follow-up                         |
+| `skill-review`          | Reviewing a skill's outputs at the request of the customer, or for a quality audit                    |
+| `evidence-packet-prep`  | Generating, reviewing, or amending a compliance evidence packet                                       |
+| `customer-meeting-prep` | Preparing for a recurring customer check-in or escalation meeting                                     |
+| `customer-meeting`      | The meeting itself                                                                                    |
+| `demo-prep`             | Pre-provisioning the aircraft-carrier moment, voice scraping, synthetic data shaping                  |
+| `demo-run`              | Delivering the demo (discovery, live configuration, drill-down, differentiation set-pieces per §16.1) |
+
+**Behavior:**
+
+- Loaded cost is computed automatically as `cost_cents = (minutes * 200 * 100) / 60` per CLAUDE.md (the $200/hr Captain rate). The CLI never accepts a dollar amount from the user.
+- Each invocation writes one event row to the per-customer D1 (per d1-schema.md cost_telemetry extension). The CLI is intentionally event-sourced, not UPSERT-keyed: re-running the same command with the same flags writes a second row. Captain may log two 15-minute calibration sessions on the same day for the same customer and both must persist.
+- The CLI resolves the customer's D1 binding via the configs repo (per ADR 0012); unknown slugs fail before any write.
+- On success, prints a one-line confirmation: `logged {minutes}m for {slug} ({activity}) = ${dollars} at $200/hr`.
+- On failure, prints a single error line to stderr and exits non-zero.
+
+**Output (stdout, success):**
+
+```
+logged 30m for acme-pi-law (voice-calibration) = $100.00 at $200/hr
+```
+
+**Error modes:**
+
+| Condition                                          | Exit code | Message                                                                       |
+| -------------------------------------------------- | --------- | ----------------------------------------------------------------------------- |
+| Unknown `--customer` slug                          | 2         | `unknown customer: {slug}` (lists nearest matches if any)                     |
+| Missing required flag                              | 2         | `missing required flag: --{flag}`                                             |
+| `--activity` not in the closed taxonomy            | 2         | `unknown activity: {tag}; allowed: {comma-separated list}`                    |
+| `--minutes` not a positive integer or > 600        | 2         | `invalid minutes: {value}; must be a positive integer ≤ 600`                  |
+| `--date` more than 7 days in the past or in future | 2         | `invalid date: {value}; must be within the last 7 days and not in the future` |
+| `--note` exceeds 280 chars                         | 2         | `note too long: {N} chars; max 280`                                           |
+| D1 binding unavailable for the customer            | 3         | `cannot reach D1 for {slug}: {detail}` (Captain alerted via stderr)           |
+| Underlying D1 write fails after one retry          | 3         | `D1 write failed for {slug}: {detail}`                                        |
+
+**Idempotency:** none, by design. The cost_telemetry feed is event-sourced for captain_time; correcting a mis-logged entry is a follow-on operation (a separate `crane ai-employee log-time --reverse` is a Phase 4 follow-on, not in scope here).
+
+**Audit:** every successful invocation writes an `audit_log` row with `action_type: CAPTAIN_TIME_LOGGED`, `actor: captain`, and metadata containing the activity tag, minutes, computed cost cents, and date. This makes the time log inspectable in the Captain dashboard alongside other administrative events.
+
+**Help text:** `crane ai-employee log-time --help` prints the flag table, the activity-tag taxonomy with one-line descriptions, and an example invocation.
+
+**Implementation contract:** the per-event schema, write path, and audit-row shape are spec'd at [`docs/specs/ai-employee/cost-telemetry-events.md`](../../specs/ai-employee/cost-telemetry-events.md) §"Captain time logging". The D1 columns added to support per-event rows are at [`docs/specs/ai-employee/d1-schema.md`](../../specs/ai-employee/d1-schema.md) `captain_time_events` table.
+
 ---
 
 ## 16. Demo Framework
@@ -1147,6 +1219,8 @@ Vertical PRDs specify the pre-build set for their buyer profile.
 | Compliance audit log requests                                 | Available in ≤60 seconds                                                | Outcome                              |
 | **Captain weekly hours per customer**                         | ≤2 hrs/wk at steady state (week 4+); >3 hrs/wk is an operational defect | Leading (operational sustainability) |
 | **Per-customer monthly COGS / MRR**                           | ≤40%; >40% triggers SKU re-pricing or usage cap                         | Leading (margin)                     |
+
+The COGS numerator sums all nine §15.1 cost drivers, including `captain_time`. The Captain CLI at §15.2 is the sole emission path for `captain_time`; if it is not in use, the COGS/MRR ratio understates true cost and this kill criterion is unobservable.
 
 ### 17.2 Per-customer kill criteria
 
@@ -1307,6 +1381,7 @@ Status: largely complete per `ai-employee-smd-customer-zero` branch progress.
 - Operations runbook at `docs/runbooks/ai-employee-ops.md`
 - Captain operational budget instrumented (≤2 hrs/wk/customer)
 - Cost telemetry instrumented per §15.1 (Captain-only dashboard)
+- Captain CLI time-logging command (`crane ai-employee log-time`) shipped per §15.2 with the closed v1 activity-tag taxonomy enforced
 - Backup operator designated by name (gate before customer #5, not customer #1)
 
 **Single skill version** in v1; per-customer skill pinning is Phase 4.
