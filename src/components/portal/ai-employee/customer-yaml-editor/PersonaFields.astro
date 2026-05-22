@@ -1,0 +1,54 @@
+---
+/**
+ * PersonaFields — form section for the customer.yaml personas array.
+ *
+ * v1 renders exactly one persona (ADR 0011 — length cap of 1 from the
+ * customer side). Captain-only fields (signature_html, avatar_url,
+ * voice/escalation overrides, persona skill catalog membership) are
+ * NOT exposed; the principal edits name, title, tone, pronouns,
+ * send-as identity, and per-skill trust ceiling.
+ *
+ * Per-persona rendering lives in PersonaRow.astro to keep this
+ * component's render body under the function-line ceiling.
+ */
+
+import type { EditablePersona } from '../../../../lib/portal/ai-employee/customer-yaml-editor'
+import type { ValidationError } from '../../../../lib/ai-employee/customer-yaml'
+import PersonaRow from './PersonaRow.astro'
+
+interface Props {
+  personas: EditablePersona[]
+  errors: ValidationError[]
+}
+
+const { personas, errors } = Astro.props
+---
+
+<section class="mt-12">
+  <header class="border-b-[2px] border-[color:var(--ss-color-text-primary)] pb-3 mb-6">
+    <p
+      class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]"
+    >
+      § 01
+    </p>
+    <h2
+      class="mt-1 font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+    >
+      Persona
+    </h2>
+    <p class="mt-2 text-sm text-[color:var(--ss-color-text-secondary)]">
+      Identity, voice, and skill ceilings for your AI Employee. Length is fixed at one persona;
+      Captain provisions additional personas separately.
+    </p>
+  </header>
+
+  {
+    personas.length === 0 ? (
+      <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+        No persona configured. Contact Captain.
+      </p>
+    ) : (
+      personas.map((persona, idx) => <PersonaRow persona={persona} index={idx} errors={errors} />)
+    )
+  }
+</section>
