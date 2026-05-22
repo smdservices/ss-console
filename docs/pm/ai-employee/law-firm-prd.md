@@ -37,7 +37,7 @@ Per the platform PRD §0, this vertical PRD documents **the law-firm vision in f
 **V1 commitment** (per platform PRD §20 Phase 1, mirrored for the law-firm vertical):
 
 - **PI overlay only** as the practice-area pack at first customer engagement. Other practice-area overlays (family, estate, corporate, criminal, immigration, bankruptcy, employment, IP, tax, civil-lit, WC, SSD) are roadmap, not v1 commitment.
-- **Citation-refusal substrate (invariant 6)** ships in v1 (already in flight on the `ai-employee-smd-customer-zero` branch).
+- **Citation-refusal substrate (invariant 6)** ships in v1. The law-vertical refusal layer (`citation_filter.py`) ships from [PR #812](https://github.com/venturecrane/ss-console/pull/812); the platform's citation-enforcement layer on fact-bearing fields ships from [PR #958](https://github.com/venturecrane/ss-console/pull/958) per [issue #865](https://github.com/venturecrane/ss-console/issues/865). Both layers are required.
 - **Per-state engagement-letter clause library** ships in v1 with PA + Utah + the firm's home state explicitly; other states roadmap.
 - **Tier-1 PM adapter for the first customer's actual PM system** — built within 7 days of the meeting, not pre-built for all 6 likely systems. Pre-build only the most-likely 2-3 in advance (Filevine, Clio, SmartAdvocate based on probability).
 - **PI specialized skills**: minimum is `pi-intake-triage`; `pi-demand-letter-text-only` only if Captain authorizes the legal-sensitivity risk in advance.
@@ -567,7 +567,7 @@ The platform's `law-privilege-scope-guard` skill (§6.3) additionally pattern-de
 
 ## 9. Citation-Refusal Substrate (Invariant 6)
 
-The platform's safety substrate (platform PRD §7.5) ships five base invariants. The law-firm vertical adds **invariant 6: citation refusal**.
+The platform's safety substrate (platform PRD §7.5) defines 8 invariants total: 5 base invariants (#1-#5, shipped via [PR #812](https://github.com/venturecrane/ss-console/pull/812)) plus #6 citation enforcement, #7 cross-Machine query prohibition (both shipped via [PR #958](https://github.com/venturecrane/ss-console/pull/958)), and #8 fabrication discipline (tracked as [issue #798](https://github.com/venturecrane/ss-console/issues/798); not yet runtime-enforced). The law-firm vertical's contribution is **invariant 6: citation refusal**, which has two layers: a law-vertical refusal layer (`citation_filter.py`, shipped via PR #812) that refuses any output matching a legal-citation pattern, and a platform-level citation-enforcement layer (per the safety-invariants spec) that requires a `Citation` attached to every fact-bearing field.
 
 ### 9.1 The rule
 
