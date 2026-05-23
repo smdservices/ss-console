@@ -1,0 +1,39 @@
+---
+/**
+ * V4 /book slot-picker state. Replaces the chat shell that used to gate
+ * the calendar behind a multi-turn AI conversation. The intake form
+ * submits directly to /api/intake/send (which creates the entity and
+ * fires backstage enrichment), and the page transitions straight to
+ * this section. Prospect picks a time and confirms.
+ *
+ * Plainspoken register: cream paper, ink, thick borders, zero radius.
+ */
+
+import SlotPicker from './SlotPicker.astro'
+---
+
+<section id="intake-slots" class="ss-slots" hidden>
+  <header class="mb-stack">
+    <p class="ss-eyebrow">Pick a time</p>
+    <h2 class="ss-headline">When works for you?</h2>
+    <p class="ss-lede">
+      Open times this week. Pick whatever fits and we will send a calendar invite.
+    </p>
+  </header>
+
+  <SlotPicker />
+
+  <div id="selected-slot-banner" class="ss-selected-slot" hidden>
+    <span id="selected-slot-text"></span>
+    <button type="button" id="change-slot-btn" class="ss-quiet-link">Change</button>
+  </div>
+
+  <div id="slot-error" class="ss-error mt-row" hidden></div>
+  <div id="slot-taken" class="ss-error mt-row" hidden>
+    That time was just taken. Please choose another time above.
+  </div>
+
+  <button id="confirm-slot-btn" type="button" disabled class="ss-primary mt-stack">
+    Confirm time
+  </button>
+</section>
