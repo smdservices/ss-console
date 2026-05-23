@@ -298,6 +298,7 @@
 .ss-error {
   color: var(--ss-color-error, #7c1d1d);
   font-size: 0.8125rem;
+  min-height: 1.25rem;
 }
 
 .ss-quiet-link {

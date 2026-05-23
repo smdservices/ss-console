@@ -15,10 +15,11 @@ export interface BookElements {
   introForm: HTMLFormElement
   introError: HTMLElement
   introStartBtn: HTMLButtonElement
+  introSendBtn: HTMLButtonElement
   introEmail: HTMLInputElement
   introName: HTMLInputElement
+  introBusinessName: HTMLInputElement
   introMessage: HTMLTextAreaElement
-  introBusinessNameHidden: HTMLInputElement | null
   slots: HTMLElement
   slotPicker: HTMLElement & { refetchSlots?: () => void }
   selectedSlotBanner: HTMLElement
@@ -30,10 +31,9 @@ export interface BookElements {
   closed: HTMLElement
   closedBooked: HTMLElement
   closedBookedSlot: HTMLElement
-  closedBookedMeetRow: HTMLElement
-  closedBookedMeetLink: HTMLAnchorElement
   closedBookedManageRow: HTMLElement
   closedBookedManageLink: HTMLAnchorElement
+  closedSent: HTMLElement
   prefillTokenStore: HTMLInputElement | null
 }
 
@@ -47,26 +47,24 @@ interface IntroParts {
   introForm: HTMLFormElement | null
   introError: HTMLElement | null
   introStartBtn: HTMLButtonElement | null
+  introSendBtn: HTMLButtonElement | null
   introEmail: HTMLInputElement | null
   introName: HTMLInputElement | null
+  introBusinessName: HTMLInputElement | null
   introMessage: HTMLTextAreaElement | null
-  introBusinessNameHidden: HTMLInputElement | null
 }
 
 function locateIntroParts(): IntroParts {
-  const introForm = el('intro-form', HTMLFormElement)
-  const introBusinessNameHidden = introForm
-    ? introForm.querySelector<HTMLInputElement>('input[name="business_name"]')
-    : null
   return {
     intro: el('intake-intro', HTMLElement),
-    introForm,
+    introForm: el('intro-form', HTMLFormElement),
     introError: el('intro-error', HTMLElement),
     introStartBtn: el('intro-start-btn', HTMLButtonElement),
+    introSendBtn: el('intro-send-btn', HTMLButtonElement),
     introEmail: el('intro-email', HTMLInputElement),
     introName: el('intro-name', HTMLInputElement),
+    introBusinessName: el('intro-business-name', HTMLInputElement),
     introMessage: el('intro-message', HTMLTextAreaElement),
-    introBusinessNameHidden,
   }
 }
 
@@ -99,10 +97,9 @@ interface ClosedParts {
   closed: HTMLElement | null
   closedBooked: HTMLElement | null
   closedBookedSlot: HTMLElement | null
-  closedBookedMeetRow: HTMLElement | null
-  closedBookedMeetLink: HTMLAnchorElement | null
   closedBookedManageRow: HTMLElement | null
   closedBookedManageLink: HTMLAnchorElement | null
+  closedSent: HTMLElement | null
 }
 
 function locateClosedParts(): ClosedParts {
@@ -110,10 +107,9 @@ function locateClosedParts(): ClosedParts {
     closed: el('intake-closed', HTMLElement),
     closedBooked: el('closed-booked', HTMLElement),
     closedBookedSlot: el('closed-booked-slot', HTMLElement),
-    closedBookedMeetRow: el('closed-booked-meet-row', HTMLElement),
-    closedBookedMeetLink: el('closed-booked-meet-link', HTMLAnchorElement),
     closedBookedManageRow: el('closed-booked-manage-row', HTMLElement),
     closedBookedManageLink: el('closed-booked-manage-link', HTMLAnchorElement),
+    closedSent: el('closed-sent', HTMLElement),
   }
 }
 
@@ -122,8 +118,10 @@ const REQUIRED_KEYS: ReadonlyArray<keyof BookElements> = [
   'introForm',
   'introError',
   'introStartBtn',
+  'introSendBtn',
   'introEmail',
   'introName',
+  'introBusinessName',
   'introMessage',
   'slots',
   'slotPicker',
@@ -136,10 +134,9 @@ const REQUIRED_KEYS: ReadonlyArray<keyof BookElements> = [
   'closed',
   'closedBooked',
   'closedBookedSlot',
-  'closedBookedMeetRow',
-  'closedBookedMeetLink',
   'closedBookedManageRow',
   'closedBookedManageLink',
+  'closedSent',
 ]
 
 export function locateElements(): BookElements | null {

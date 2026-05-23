@@ -15,6 +15,7 @@ export interface BookState {
   shellState: ShellState
   email: string | null
   name: string | null
+  businessName: string | null
   currentSlot: BookingSlot | null
   slotsFetched: boolean
 }
@@ -37,7 +38,11 @@ export interface BookingResponse {
 // ---------- State transitions ----------
 
 function scrollShellTop(els: BookElements): void {
-  els.shell.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  // Scroll the whole window to the top so the new state's heading
+  // lands below the sticky nav rather than behind it. element.scrollIntoView
+  // doesn't know about the sticky-nav offset; resetting window scroll does.
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+  void els
 }
 
 export function showIntro(els: BookElements, state: BookState): void {
@@ -47,6 +52,7 @@ export function showIntro(els: BookElements, state: BookState): void {
   els.slots.hidden = true
   els.closed.hidden = true
   els.closedBooked.hidden = true
+  els.closedSent.hidden = true
 }
 
 export function showSlots(els: BookElements, state: BookState): void {
@@ -70,16 +76,24 @@ export function showClosedBooked(els: BookElements, state: BookState, body: Book
   els.slots.hidden = true
   els.closed.hidden = false
   els.closedBooked.hidden = false
+  els.closedSent.hidden = true
 
   els.closedBookedSlot.textContent = body.slot_label ?? 'Your call is booked.'
-  if (body.meet_url) {
-    els.closedBookedMeetRow.hidden = false
-    els.closedBookedMeetLink.href = body.meet_url
-  }
   if (body.manage_url) {
     els.closedBookedManageRow.hidden = false
     els.closedBookedManageLink.href = body.manage_url
   }
+  scrollShellTop(els)
+}
+
+export function showClosedSent(els: BookElements, state: BookState): void {
+  state.shellState = 'closed'
+  els.shell.dataset.state = 'closed'
+  els.intro.hidden = true
+  els.slots.hidden = true
+  els.closed.hidden = false
+  els.closedBooked.hidden = true
+  els.closedSent.hidden = false
   scrollShellTop(els)
 }
 
@@ -118,11 +132,12 @@ export function handleSlotSelected(event: Event, els: BookElements, state: BookS
 // ---------- Helpers ----------
 
 export function showIntroError(els: BookElements, message: string): void {
+  // Set textContent without toggling `hidden`; the .ss-error CSS reserves
+  // min-height so showing or clearing the error does not reflow the form
+  // actions row below it.
   els.introError.textContent = message
-  els.introError.hidden = false
 }
 
 export function clearIntroError(els: BookElements): void {
-  els.introError.hidden = true
   els.introError.textContent = ''
 }
