@@ -16,10 +16,25 @@ interface Props {
     name?: string
     email?: string
     businessName?: string
+    /**
+     * Productized SKU the prospect is inquiring about. Set when /book
+     * is reached via a marketing CTA with `?interest=<sku>`. When set,
+     * the card surfaces an acknowledgment chip in place of the generic
+     * "Intake" eyebrow and the submission carries the value through to
+     * the context metadata + admin notification.
+     *
+     * Allowed values: 'ai-employee' (others are filtered upstream).
+     */
+    interest?: string
   }
 }
 
 const { values = {} } = Astro.props
+
+const INTEREST_LABELS: Record<string, string> = {
+  'ai-employee': 'AI Employee',
+}
+const interestLabel = values.interest ? INTEREST_LABELS[values.interest] : null
 
 // `businessName` is preserved as a hidden field for admin-issued
 // pre-filled links. It is not displayed on the intro card.
@@ -27,7 +42,16 @@ const { values = {} } = Astro.props
 
 <section id="intake-intro" class="ss-intro">
   <header class="mb-stack">
-    <p class="ss-eyebrow">Intake</p>
+    {
+      interestLabel ? (
+        <p class="ss-intent-chip">
+          <span class="ss-intent-chip-label">Inquiring about</span>
+          <span class="ss-intent-chip-value">{interestLabel}</span>
+        </p>
+      ) : (
+        <p class="ss-eyebrow">Intake</p>
+      )
+    }
     <h1 class="ss-headline">Tell us about the business.</h1>
     <p class="ss-lede">
       A short conversation, then a real time on the calendar if it is worth a call.
@@ -88,6 +112,8 @@ const { values = {} } = Astro.props
         <input type="hidden" name="business_name" value={values.businessName} />
       )
     }
+
+    {values.interest && <input type="hidden" name="interest" value={values.interest} />}
 
     <div id="intro-error" class="ss-error" hidden></div>
 
