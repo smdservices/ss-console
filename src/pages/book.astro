@@ -5,7 +5,7 @@ import Base from '../layouts/Base.astro'
 import Nav from '../components/Nav.astro'
 import Footer from '../components/Footer.astro'
 import IntakeIntroCard from '../components/booking/IntakeIntroCard.astro'
-import IntakeChat from '../components/booking/IntakeChat.astro'
+import IntakeSlots from '../components/booking/IntakeSlots.astro'
 import IntakeClosed from '../components/booking/IntakeClosed.astro'
 import { getEntity } from '../lib/db/entities'
 import { getContact } from '../lib/db/contacts'
@@ -62,17 +62,10 @@ if (prefillToken) {
 
 <Base
   title="Let's Talk | SMD Services"
-  description="Tell us about the business. A short conversation, then a real time on the calendar if it is worth a call."
+  description="Tell us about the business and pick a time on the calendar."
 >
   <Nav />
   <main id="main" role="main" class="ss-book-main">
-    <!-- Persistent header off-ramp: always visible, in all three states. -->
-    <header class="ss-book-header">
-      <a href="#chat-pick-time" id="header-pick-time-link" class="ss-quiet-link">
-        Or pick a time to talk
-      </a>
-    </header>
-
     <section class="ss-book-section">
       <div class="ss-book-frame">
         {
@@ -86,9 +79,10 @@ if (prefillToken) {
         }
 
         <!--
-          Single root #unified-intake — the original event hub. The three
-          state sections (intro, chat, closed) live inside. unified-intake.ts
-          dispatches/listens on this root.
+          Single root #unified-intake — the event hub. Three state sections
+          (intro form → slot picker → closed) live inside. The page
+          controller (src/scripts/book.ts) toggles data-state and visibility
+          as the prospect moves through the flow.
         -->
         <div id="unified-intake" data-state="intro">
           <IntakeIntroCard
@@ -100,7 +94,7 @@ if (prefillToken) {
             }}
           />
 
-          <IntakeChat />
+          <IntakeSlots />
 
           <IntakeClosed />
         </div>

@@ -66,22 +66,25 @@ describe('intake surfaces', () => {
     'utf-8'
   )
 
-  // /book was refactored across two passes:
+  // /book was refactored across three passes:
   //   - V2: categorical IntakeQuestionnaire → UnifiedIntake (4 required
   //     fields + textarea + AI follow-up, all in one form).
-  //   - V3: UnifiedIntake → three-state shell (IntakeIntroCard 3 fields,
-  //     IntakeChat for the live conversation, IntakeClosed acknowledgment).
+  //   - V3: UnifiedIntake → three-state shell with AI chat gating
+  //     (IntakeIntroCard, IntakeChat, IntakeClosed).
+  //   - V4: chat removed. AI runs backstage. Visible flow is intro form
+  //     → slot picker → confirmation (IntakeIntroCard, IntakeSlots,
+  //     IntakeClosed). See Captain decision on Direction A.
   // /get-started keeps using the shared questionnaire for the post-booking
   // prep flow, where the categorical fields still serve a purpose.
 
-  it('/book renders the V3 three-state intake shell', () => {
+  it('/book renders the V4 three-state intake shell (intro → slots → closed)', () => {
     expect(bookSrc).toContain(
       "import IntakeIntroCard from '../components/booking/IntakeIntroCard.astro'"
     )
-    expect(bookSrc).toContain("import IntakeChat from '../components/booking/IntakeChat.astro'")
+    expect(bookSrc).toContain("import IntakeSlots from '../components/booking/IntakeSlots.astro'")
     expect(bookSrc).toContain("import IntakeClosed from '../components/booking/IntakeClosed.astro'")
     expect(bookSrc).toContain('<IntakeIntroCard')
-    expect(bookSrc).toContain('<IntakeChat')
+    expect(bookSrc).toContain('<IntakeSlots')
     expect(bookSrc).toContain('<IntakeClosed')
   })
 
