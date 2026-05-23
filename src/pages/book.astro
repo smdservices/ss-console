@@ -32,8 +32,7 @@ let prefillTokenError: 'expired' | 'invalid' | null = null
 // boundary in /api/intake/send.ts.
 const ALLOWED_INTERESTS = new Set<string>(['ai-employee'])
 const interestParam = Astro.url.searchParams.get('interest')
-const interest =
-  interestParam && ALLOWED_INTERESTS.has(interestParam) ? interestParam : undefined
+const interest = interestParam && ALLOWED_INTERESTS.has(interestParam) ? interestParam : undefined
 
 if (prefillToken) {
   const verify = await verifyBookingLink(prefillToken)
