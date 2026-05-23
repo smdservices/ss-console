@@ -1,12 +1,15 @@
 ---
 /**
- * V4 /book intro card. Three fields (email, name, message) plus a mic
- * button on the message textarea. Single primary "Pick a time" button.
+ * V4 /book intro card. Four fields (email, name, business, message)
+ * plus a mic button on the message textarea. Two CTAs: primary
+ * "Pick a time" lands on the slot picker; secondary "Just send a
+ * note" submits the message without booking and shows a short
+ * acknowledgment.
  *
  * On submit, the page controller (src/scripts/book.ts) POSTs the form
- * to /api/intake/send and transitions directly to the slot picker
- * state. No chat conversation; AI runs backstage to prepare a brief
- * for the call.
+ * to /api/intake/send. Where it transitions next (slot picker vs sent
+ * confirmation) depends on which button was clicked. AI runs backstage
+ * to prepare a brief for the call.
  *
  * Plainspoken Sign Shop register: cream paper, ink, thick borders,
  * zero radius.
@@ -37,8 +40,9 @@ const INTEREST_LABELS: Record<string, string> = {
 }
 const interestLabel = values.interest ? INTEREST_LABELS[values.interest] : null
 
-// `businessName` is preserved as a hidden field for admin-issued
-// pre-filled links. It is not displayed on the intro card.
+// `businessName` from prefill is rendered as the initial value of the
+// visible Business field so an admin-issued prefill link doesn't ask
+// the user to retype what we already know.
 ---
 
 <section id="intake-intro" class="ss-intro">
@@ -85,6 +89,19 @@ const interestLabel = values.interest ? INTEREST_LABELS[values.interest] : null
     </div>
 
     <div class="ss-field">
+      <label for="intro-business-name" class="ss-field-label">Business</label>
+      <input
+        id="intro-business-name"
+        name="business_name"
+        type="text"
+        autocomplete="organization"
+        required
+        class="ss-input"
+        value={values.businessName ?? ''}
+      />
+    </div>
+
+    <div class="ss-field">
       <label for="intro-message" class="ss-field-label">What is going on?</label>
       <div class="ss-textarea-wrap">
         <textarea
@@ -106,17 +123,12 @@ const interestLabel = values.interest ? INTEREST_LABELS[values.interest] : null
       </div>
     </div>
 
-    {
-      values.businessName && (
-        <input type="hidden" name="business_name" value={values.businessName} />
-      )
-    }
-
     {values.interest && <input type="hidden" name="interest" value={values.interest} />}
 
-    <div id="intro-error" class="ss-error" hidden></div>
+    <div id="intro-error" class="ss-error" aria-live="polite"></div>
 
     <div class="ss-form-actions">
+      <button type="button" id="intro-send-btn" class="ss-quiet-link">Just send a note</button>
       <button type="submit" id="intro-start-btn" class="ss-primary">Pick a time</button>
     </div>
 
