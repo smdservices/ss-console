@@ -46,6 +46,18 @@ const MAX_MESSAGE_CHARS = 5000
  */
 const MIN_FORM_FILL_MS = 2000
 
+/**
+ * Productized SKU codes that may be carried through /book?interest=<sku>
+ * from a marketing CTA. Strict allow-list: values not in this set are
+ * silently dropped to null rather than rejected, so a stale URL or
+ * cached link cannot break a legitimate submission. Extending this list
+ * requires an explicit code change.
+ */
+const ALLOWED_INTERESTS = new Set<string>(['ai-employee'])
+const INTEREST_LABELS: Record<string, string> = {
+  'ai-employee': 'AI Employee',
+}
+
 interface ValidatedSendBody {
   name: string
   email: string
@@ -53,6 +65,7 @@ interface ValidatedSendBody {
   phone: string | null
   website: string | null
   messageRaw: string
+  interest: string | null
 }
 
 /**
@@ -92,6 +105,9 @@ function validateSendBody(body: Record<string, unknown>): ValidatedSendBody | Re
     })
   }
 
+  const interestRaw = trimString(body.interest)
+  const interest = interestRaw && ALLOWED_INTERESTS.has(interestRaw) ? interestRaw : null
+
   return {
     name: name!,
     email: email!,
@@ -99,6 +115,7 @@ function validateSendBody(body: Record<string, unknown>): ValidatedSendBody | Re
     phone,
     website: trimString(body.website),
     messageRaw,
+    interest,
   }
 }
 
@@ -207,6 +224,7 @@ async function handlePost({ request, clientAddress }: APIContext): Promise<Respo
         phone: validated.phone ?? '',
         website: validated.website,
         userMessage: validated.messageRaw || null,
+        interest: validated.interest,
       },
       { source: 'website_intake_send' }
     )
@@ -233,23 +251,32 @@ async function handlePost({ request, clientAddress }: APIContext): Promise<Respo
     console.error('[api/intake/send] Admin notification failed:', emailErr)
   }
 
-  // Issue a signed conversation cookie so /api/intake/continue can
-  // authenticate follow-up turns. Only set the cookie when we actually
-  // started a conversation (i.e. there was a non-empty message that
-  // produced an AI reply).
+  return buildIntakeSendResponse(intakeResult.entityId, conversationId, aiReply)
+}
+
+/**
+ * Build the success response for /api/intake/send. Issues a signed
+ * conversation cookie so /api/intake/continue can authenticate follow-up
+ * turns, but only when we actually started a conversation (non-empty
+ * message → AI reply).
+ */
+async function buildIntakeSendResponse(
+  entityId: string,
+  conversationId: string,
+  aiReply: string | null
+): Promise<Response> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (aiReply) {
     const token = await signConversationToken({
       conversation_id: conversationId,
-      entity_id: intakeResult.entityId,
+      entity_id: entityId,
     })
     headers['Set-Cookie'] = buildConversationCookieHeader(token, DEFAULT_CONVERSATION_TTL_SECONDS)
   }
-
   return new Response(
     JSON.stringify({
       ok: true,
-      entity_id: intakeResult.entityId,
+      entity_id: entityId,
       ai_reply: aiReply,
       can_continue: aiReply !== null,
     }),
@@ -268,6 +295,7 @@ interface AdminNotificationParams {
   message: string
   aiReply: string | null
   entityId: string
+  interest: string | null
 }
 
 async function sendAdminNotification(
@@ -282,9 +310,12 @@ async function sendAdminNotification(
   const escapedWebsite = params.website ? escapeHtml(params.website) : null
   const escapedMessage = params.message ? escapeHtml(params.message) : null
   const escapedAiReply = params.aiReply ? escapeHtml(params.aiReply) : null
+  const interestLabel = params.interest ? INTEREST_LABELS[params.interest] : null
+  const escapedInterest = interestLabel ? escapeHtml(interestLabel) : null
 
   const html = [
     `<p><strong>${escapedName}</strong> &lt;${escapedEmail}&gt; from <strong>${escapedBusiness}</strong> sent a message via the Send path on /book.</p>`,
+    escapedInterest ? `<p><strong>Inquiring about:</strong> ${escapedInterest}</p>` : '',
     escapedPhone ? `<p>Phone: ${escapedPhone}</p>` : '',
     escapedWebsite ? `<p>Website: <a href="${escapedWebsite}">${escapedWebsite}</a></p>` : '',
     '<hr>',
@@ -300,10 +331,11 @@ async function sendAdminNotification(
     .filter(Boolean)
     .join('')
 
+  const subjectPrefix = interestLabel ? `[${interestLabel}] ` : ''
   await sendEmail(workerEnv.RESEND_API_KEY, {
     to: NOTIFY_EMAIL,
     reply_to: params.email,
-    subject: `[Send-path lead] ${params.businessName}`,
+    subject: `${subjectPrefix}[Send-path lead] ${params.businessName}`,
     html,
   })
 }
