@@ -48,13 +48,11 @@ const interestLabel = values.interest ? INTEREST_LABELS[values.interest] : null
 <section id="intake-intro" class="ss-intro">
   <header class="mb-stack">
     {
-      interestLabel ? (
+      interestLabel && (
         <p class="ss-intent-chip">
           <span class="ss-intent-chip-label">Inquiring about</span>
           <span class="ss-intent-chip-value">{interestLabel}</span>
         </p>
-      ) : (
-        <p class="ss-eyebrow">Intake</p>
       )
     }
     <h1 class="ss-headline">Tell us about the business.</h1>

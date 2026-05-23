@@ -34,6 +34,7 @@ export interface BookElements {
   closedBookedManageRow: HTMLElement
   closedBookedManageLink: HTMLAnchorElement
   closedSent: HTMLElement
+  closedSentBookBtn: HTMLButtonElement
   prefillTokenStore: HTMLInputElement | null
 }
 
@@ -100,6 +101,7 @@ interface ClosedParts {
   closedBookedManageRow: HTMLElement | null
   closedBookedManageLink: HTMLAnchorElement | null
   closedSent: HTMLElement | null
+  closedSentBookBtn: HTMLButtonElement | null
 }
 
 function locateClosedParts(): ClosedParts {
@@ -110,6 +112,7 @@ function locateClosedParts(): ClosedParts {
     closedBookedManageRow: el('closed-booked-manage-row', HTMLElement),
     closedBookedManageLink: el('closed-booked-manage-link', HTMLAnchorElement),
     closedSent: el('closed-sent', HTMLElement),
+    closedSentBookBtn: el('closed-sent-book-btn', HTMLButtonElement),
   }
 }
 
@@ -137,6 +140,7 @@ const REQUIRED_KEYS: ReadonlyArray<keyof BookElements> = [
   'closedBookedManageRow',
   'closedBookedManageLink',
   'closedSent',
+  'closedSentBookBtn',
 ]
 
 export function locateElements(): BookElements | null {

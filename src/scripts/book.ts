@@ -237,6 +237,15 @@ function bindSlots(els: BookElements, state: BookState): void {
   })
 }
 
+function bindClosedSent(els: BookElements, state: BookState): void {
+  // After "Just send a note" lands in the sent state, give the prospect
+  // a way to pick a time without re-entering identity. State already
+  // carries name/email/businessName from the intake submission.
+  els.closedSentBookBtn.addEventListener('click', () => {
+    showSlots(els, state)
+  })
+}
+
 ;(() => {
   const els = locateElements()
   if (!els) return
@@ -251,6 +260,7 @@ function bindSlots(els: BookElements, state: BookState): void {
   showIntro(els, state)
   bindIntro(els, state)
   bindSlots(els, state)
+  bindClosedSent(els, state)
 })()
 
 export {}
