@@ -23,7 +23,7 @@ This ADR pins our overlay's posture toward GEPA before the first customer Machin
 
 GEPA differs from Honcho and the Skill Curator in three structural ways that change the disposition calculus:
 
-1. **What it mutates is the most foundational artifact in the system.** Honcho infers persona preferences (downstream config). The Skill Curator suggests skill changes (executable behavior, but bounded per-skill). GEPA evolves *prompt architecture* — the prompts that shape agent reasoning itself. A prompt-architecture change affects every skill, every output, every customer interaction the agent has.
+1. **What it mutates is the most foundational artifact in the system.** Honcho infers persona preferences (downstream config). The Skill Curator suggests skill changes (executable behavior, but bounded per-skill). GEPA evolves _prompt architecture_ — the prompts that shape agent reasoning itself. A prompt-architecture change affects every skill, every output, every customer interaction the agent has.
 2. **The value proposition is autonomous PR generation, not autonomous behavior change.** Honcho and the Curator both run silently and modify state inside the customer Machine. GEPA's design is to **emit PRs against the Hermes codebase itself**, gated by constraint checks (tests, size limits, benchmarks). The artifact GEPA produces is a code change to the agent runtime.
 3. **The natural scope is cross-customer.** Prompt architecture is not a per-customer concern — it lives at the fork level (`venturecrane/hermes-agent` per [ADR 0015](./0015-hermes-fork-vs-upstream.md)) and applies to every customer Machine pinning that fork ref. A per-customer prompt-arch change is conceptually incoherent; a cross-customer prompt-arch change violates [ADR 0009](./0009-cross-machine-query-prohibition.md) if it's driven by trace data from inside customer Machines.
 
@@ -142,7 +142,7 @@ Reason for rejection: confused middle ground. GEPA's constraint-gate analysis ex
 
 ### Defer this decision until customer #1 ships: ruled out
 
-Reason for rejection: a default-on subsystem that mutates prompt architecture is exactly the class of thing that needs an explicit decision *before* the first Machine boots, not after. The boot-time disable check (§1) is the structural guarantee that makes this decision real; the guarantee has to exist in the overlay before any customer Machine pins a fork ref.
+Reason for rejection: a default-on subsystem that mutates prompt architecture is exactly the class of thing that needs an explicit decision _before_ the first Machine boots, not after. The boot-time disable check (§1) is the structural guarantee that makes this decision real; the guarantee has to exist in the overlay before any customer Machine pins a fork ref.
 
 ---
 
