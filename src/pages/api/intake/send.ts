@@ -67,6 +67,7 @@ function validateSendBody(body: Record<string, unknown>): ValidatedSendBody | Re
   if (!name) fieldErrors.name = 'Name is required.'
   if (!email) fieldErrors.email = 'Email is required.'
   else if (!isValidEmail(email)) fieldErrors.email = 'Email looks invalid.'
+  if (!businessName) fieldErrors.business_name = 'Business name is required.'
   if (!messageRaw) fieldErrors.message = 'Tell us a bit about the business.'
 
   if (Object.keys(fieldErrors).length > 0) {
@@ -90,17 +91,12 @@ function validateSendBody(body: Record<string, unknown>): ValidatedSendBody | Re
   return {
     name: name!,
     email: email!,
-    businessName: businessName ?? deriveBusinessNameFromEmail(email!),
+    businessName: businessName!,
     phone,
     website: trimString(body.website),
     messageRaw,
     interest,
   }
-}
-
-function deriveBusinessNameFromEmail(email: string): string {
-  const domain = email.split('@')[1] ?? ''
-  return domain || 'Unknown'
 }
 
 async function handlePost({ request, clientAddress, locals }: APIContext): Promise<Response> {
