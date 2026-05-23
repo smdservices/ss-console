@@ -1,26 +1,19 @@
 ---
 /**
- * V3 /book closed-state acknowledgment card. Two flavors:
+ * V4 /book closed-state acknowledgment card. Single flavor: 'booked'.
  *
- *   - 'booked'   — replaces the chat after the prospect confirms a slot.
- *                  Shows the confirmed time and (optional) Google Meet
- *                  link / reschedule link.
+ * Replaces the slot picker after the prospect confirms a time. Shows
+ * the confirmed slot label and (optional) Google Meet link / reschedule
+ * link. The V3 'done' flavor was retired with the chat surface; there
+ * is no longer a path that lands in this state without a confirmed
+ * booking.
  *
- *   - 'done'     — replaces the chat after the prospect clicks Done.
- *                  Short acknowledgment line. The only affordance is the
- *                  primary "Pick a time to talk" CTA.
- *
- * Pre-rendered hidden; book.ts reveals the appropriate flavor via
- * data-flavor attribute and populates fields (slot text, meet link).
- *
- * Per the no-fabricated-content policy: the Done card MUST NOT promise
- * follow-up outreach. Tests/forbidden-strings.test.ts blocks regression
- * patterns scoped to this file.
+ * Pre-rendered hidden; book.ts reveals the card via data-state and
+ * populates fields (slot text, meet link).
  */
 ---
 
 <section id="intake-closed" class="ss-closed" hidden>
-  <!-- Booked flavor -->
   <div id="closed-booked" class="ss-closed-card" hidden data-flavor="booked">
     <p class="ss-eyebrow">Confirmed</p>
     <p id="closed-booked-slot" class="ss-headline-sm"></p>
@@ -32,18 +25,5 @@
     <div id="closed-booked-manage-row" class="ss-stack" hidden>
       <a id="closed-booked-manage-link" href="#" class="ss-quiet-link"> Reschedule or cancel </a>
     </div>
-  </div>
-
-  <!--
-    Done flavor. Copy authored by Captain — placeholder lives in the
-    component for now. Forbidden-strings test scopes regression
-    patterns ("we'll", "we will", "review your", "get back",
-    "in touch") to this component to prevent fabricated follow-up
-    promises from sneaking in.
-  -->
-  <div id="closed-done" class="ss-closed-card" hidden data-flavor="done">
-    <p class="ss-eyebrow">Got it</p>
-    <p class="ss-headline-sm">Thanks for sharing.</p>
-    <a href="#" id="closed-done-pick-time" class="ss-primary mt-stack"> Pick a time to talk </a>
   </div>
 </section>

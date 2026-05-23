@@ -1,14 +1,15 @@
 ---
 /**
- * V3 /book intro card. Three fields (email, name, message) plus a mic
- * button on the message textarea. Single primary "Start" button.
+ * V4 /book intro card. Three fields (email, name, message) plus a mic
+ * button on the message textarea. Single primary "Pick a time" button.
  *
- * On submit, dispatches `unified-send` (CustomEvent) on `#unified-intake`
- * carrying { name, email, message, rendered_at }. The page-level
- * controller (src/scripts/book.ts) takes the call from there.
+ * On submit, the page controller (src/scripts/book.ts) POSTs the form
+ * to /api/intake/send and transitions directly to the slot picker
+ * state. No chat conversation; AI runs backstage to prepare a brief
+ * for the call.
  *
- * Plainspoken Sign Shop register: cream paper, ink, hairline borders,
- * zero radius (handled by tailwind utilities pinned to `rounded-none`).
+ * Plainspoken Sign Shop register: cream paper, ink, thick borders,
+ * zero radius.
  */
 
 interface Props {
@@ -53,9 +54,7 @@ const interestLabel = values.interest ? INTEREST_LABELS[values.interest] : null
       )
     }
     <h1 class="ss-headline">Tell us about the business.</h1>
-    <p class="ss-lede">
-      A short conversation, then a real time on the calendar if it is worth a call.
-    </p>
+    <p class="ss-lede">A few details, then pick a time that works.</p>
   </header>
 
   <form id="intro-form" class="ss-form" novalidate>
@@ -118,10 +117,7 @@ const interestLabel = values.interest ? INTEREST_LABELS[values.interest] : null
     <div id="intro-error" class="ss-error" hidden></div>
 
     <div class="ss-form-actions">
-      <a href="#chat-pick-time" class="ss-quiet-link" id="intro-pick-time-link">
-        Or pick a time to talk
-      </a>
-      <button type="submit" id="intro-start-btn" class="ss-primary">Start</button>
+      <button type="submit" id="intro-start-btn" class="ss-primary">Pick a time</button>
     </div>
 
     <div id="intro-voice-unsupported" class="ss-helper" hidden>
