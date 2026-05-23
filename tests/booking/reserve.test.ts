@@ -243,19 +243,26 @@ describe('POST /api/booking/reserve', () => {
       expect(json.error).toBe('slot_unavailable')
     })
 
-    it('rejects bookings missing phone (no prefill_token) with 400', async () => {
+    it('accepts bookings without phone (V3 intake form drops the phone field)', async () => {
+      // Phone was historically required for non-prefill-token bookings, but
+      // the V3 unified intake form no longer collects it. Reserve treats
+      // phone as optional; admin send-link flows continue to work
+      // unchanged via prefill_token.
       const res = await POST(
         buildContext({
           body: validBody({ phone: '' }),
         })
       )
-      expect(res.status).toBe(400)
-      const json = await parseJson<{
-        error: string
-        field_errors?: { phone?: string }
-      }>(res)
-      expect(json.error).toBe('validation_failed')
-      expect(json.field_errors?.phone).toBe('Phone is required.')
+      expect(res.status).toBe(201)
+    })
+
+    it('accepts bookings without business_name and derives it from the email domain', async () => {
+      const res = await POST(
+        buildContext({
+          body: validBody({ business_name: '', email: 'jane@acme.com' }),
+        })
+      )
+      expect(res.status).toBe(201)
     })
   })
 
