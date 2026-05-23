@@ -69,6 +69,11 @@ interface ValidatedInput {
   prefillTokenRaw: string | null
 }
 
+function deriveBusinessNameFromEmail(email: string): string {
+  const domain = email.split('@')[1] ?? ''
+  return domain || 'Unknown'
+}
+
 function validateSlotTiming(slotStartUtc: string): { slotEndUtc: string } | Response {
   const slotStart = new Date(slotStartUtc)
   if (isNaN(slotStart.getTime())) {
@@ -89,32 +94,28 @@ function validateSlotTiming(slotStartUtc: string): { slotEndUtc: string } | Resp
 function validateReserveInput(body: Record<string, unknown>): ValidatedInput | Response {
   const name = trimString(body.name)
   const email = trimString(body.email)
-  const businessName = trimString(body.business_name)
+  const businessNameRaw = trimString(body.business_name)
   const phone = trimString(body.phone)
   const slotStartUtc = trimString(body.slot_start_utc)
 
-  if (!name || !email || !businessName || !slotStartUtc) {
+  if (!name || !email || !slotStartUtc) {
     return jsonResponse(400, {
       error: 'validation_failed',
-      message: 'name, email, business_name, and slot_start_utc are required',
-    })
-  }
-
-  // Phone is required for new website-driven bookings (the unified intake
-  // collects it). Admin "Send booking link" flow may still come through
-  // without phone — those carry a prefill_token and we don't want to break
-  // pre-existing booking-link campaigns.
-  if (!phone && !body.prefill_token) {
-    return jsonResponse(400, {
-      error: 'validation_failed',
-      message: 'Phone is required.',
-      field_errors: { phone: 'Phone is required.' },
+      message: 'name, email, and slot_start_utc are required',
     })
   }
 
   if (!isValidEmail(email)) {
     return jsonResponse(400, { error: 'validation_failed', message: 'Invalid email address' })
   }
+
+  // business_name and phone are optional for web intakes. The V3 unified
+  // intake form drops both fields in favor of a simpler "email + name +
+  // message" shape. When business_name is absent we derive it from the
+  // email domain so downstream entity rows and email/calendar templates
+  // still have something to render. The admin "Send booking link" flow
+  // continues to bypass all of this via prefill_token + PreSeededIntake.
+  const businessName = businessNameRaw ?? deriveBusinessNameFromEmail(email)
 
   const slotTiming = validateSlotTiming(slotStartUtc)
   if (slotTiming instanceof Response) return slotTiming
