@@ -75,14 +75,17 @@ function readIntroFormPayload(els: BookElements): {
   email: string
   message: string
   business_name: string | null
+  interest: string | null
 } {
   const fd = new FormData(els.introForm)
   const business = readStringField(fd, 'business_name')
+  const interest = readStringField(fd, 'interest')
   return {
     name: readStringField(fd, 'name'),
     email: readStringField(fd, 'email'),
     message: readStringField(fd, 'message'),
     business_name: business.length > 0 ? business : null,
+    interest: interest.length > 0 ? interest : null,
   }
 }
 

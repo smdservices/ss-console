@@ -33,6 +33,15 @@ export interface IntakeInput {
   yearsInBusiness?: number | null
   biggestChallenge?: string | null
   howHeard?: string | null
+  /**
+   * Productized SKU the prospect arrived inquiring about (e.g.
+   * 'ai-employee'). Set when /book is reached from a product-detail
+   * marketing CTA. Stored in context metadata and surfaced in the
+   * admin notification so sales can route the lead. Allowed values
+   * are validated at the API boundary; this field accepts the
+   * canonical code, not the display label.
+   */
+  interest?: string | null
 }
 
 /**
@@ -206,8 +215,16 @@ async function resolveMeeting(
   return none
 }
 
+const INTEREST_LABELS: Record<string, string> = {
+  'ai-employee': 'AI Employee',
+}
+
 function buildIntakeLines(input: IntakeInput): string[] {
   const lines: string[] = []
+  if (input.interest) {
+    const label = INTEREST_LABELS[input.interest] ?? input.interest
+    lines.push(`Inquiring about: ${label}`)
+  }
   if (input.vertical) lines.push(`Vertical: ${input.vertical}`)
   if (input.employeeCount) lines.push(`Employees: ${input.employeeCount}`)
   if (input.yearsInBusiness) lines.push(`Years in business: ${input.yearsInBusiness}`)
@@ -261,6 +278,7 @@ export async function processIntakeSubmission(
         years_in_business: input.yearsInBusiness,
         biggest_challenge: input.biggestChallenge,
         how_heard: input.howHeard,
+        interest: input.interest,
       },
     })
     contextId = contextEntry.id
