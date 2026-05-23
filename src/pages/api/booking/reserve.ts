@@ -327,10 +327,11 @@ interface GoogleSyncArgs {
   dbResult: DbCommitResult
   holdId: string
   preSeeded: PreSeededIntake | null
+  manageUrl: string
 }
 
 async function syncGoogleCalendarAndPromote(args: GoogleSyncArgs): Promise<string | Response> {
-  const { accessToken, calendarId, input, dbResult, holdId, preSeeded } = args
+  const { accessToken, calendarId, input, dbResult, holdId, preSeeded, manageUrl } = args
   const { name, email, businessName, slotStartUtc, slotEndUtc } = input
   // prettier-ignore
   const { assessmentId, meetingId, entityId, scheduleId, meetingScheduleId, entityCreated, contactCreated, contactId, contextId, previousAssessmentScheduledAt, previousMeetingScheduledAt } = dbResult
@@ -340,7 +341,13 @@ async function syncGoogleCalendarAndPromote(args: GoogleSyncArgs): Promise<strin
   try {
     const eventResult = await createGoogleCalendarEvent(accessToken, calendarId, {
       summary: `Assessment: ${businessName} (${name})`,
-      description: buildEventDescription(name, email, businessName, dbResult.intakeLines),
+      description: buildEventDescription(
+        name,
+        email,
+        businessName,
+        dbResult.intakeLines,
+        manageUrl
+      ),
       startUtc: slotStartUtc,
       endUtc: slotEndUtc,
       guestEmail: email,
@@ -535,6 +542,17 @@ async function handlePost({ request }: APIContext): Promise<Response> {
     return jsonResponse(500, { error: 'Internal server error' })
   }
 
+  // Build the manage URL once, up front, so we can thread it through the
+  // calendar event description (where reschedule needs to be findable from
+  // the calendar app, not just the confirmation email).
+  let appBaseUrl: string
+  try {
+    appBaseUrl = requireAppBaseUrl(env)
+  } catch {
+    appBaseUrl = 'https://smd.services'
+  }
+  const manageUrl = `${appBaseUrl}/book/manage?token=${dbResult.manageToken}`
+
   // Phase 3: Google Calendar sync + entity stage promotion
   const calendarId = integration.calendar_id || BOOKING_CONFIG.consultant.calendar_id
   const googleSyncResult = await syncGoogleCalendarAndPromote({
@@ -544,6 +562,7 @@ async function handlePost({ request }: APIContext): Promise<Response> {
     dbResult,
     holdId: holdResult.id!,
     preSeeded,
+    manageUrl,
   })
   if (googleSyncResult instanceof Response) return googleSyncResult
   const googleMeetUrl = googleSyncResult
@@ -552,16 +571,8 @@ async function handlePost({ request }: APIContext): Promise<Response> {
   await releaseHold(env.DB, holdResult.id!)
 
   const { slotStartUtc, slotEndUtc, guestTimezone } = validated
-  const { assessmentId, meetingId, scheduleId, meetingScheduleId, manageToken } = dbResult
+  const { assessmentId, meetingId, scheduleId, meetingScheduleId } = dbResult
   const displayTz = guestTimezone || BOOKING_CONFIG.consultant.timezone
-
-  let appBaseUrl: string
-  try {
-    appBaseUrl = requireAppBaseUrl(env)
-  } catch {
-    appBaseUrl = 'https://smd.services'
-  }
-  const manageUrl = `${appBaseUrl}/book/manage?token=${manageToken}`
 
   // Phase 4: Confirmation emails (best-effort)
   await sendConfirmationEmails({ input: validated, dbResult, googleMeetUrl, manageUrl })
