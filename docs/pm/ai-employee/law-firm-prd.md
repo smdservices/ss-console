@@ -40,12 +40,10 @@ Per the platform PRD §0, this vertical PRD documents **the law-firm vision in f
 - **Citation-refusal substrate (invariant 6)** ships in v1. The law-vertical refusal layer (`citation_filter.py`) ships from [PR #812](https://github.com/venturecrane/ss-console/pull/812); the platform's citation-enforcement layer on fact-bearing fields ships from [PR #958](https://github.com/venturecrane/ss-console/pull/958) per [issue #865](https://github.com/venturecrane/ss-console/issues/865). Both layers are required.
 - **Per-state engagement-letter clause library** ships in v1 with PA + Utah + the firm's home state explicitly; other states roadmap.
 - **Tier-1 PM adapter for the first customer's actual PM system** — built within 7 days of the meeting, not pre-built for all 6 likely systems. Pre-build only the most-likely 2-3 in advance (Filevine, Clio, SmartAdvocate based on probability).
-- **PI specialized skills**: minimum is `pi-intake-triage`; `pi-demand-letter-text-only` only if Captain authorizes the legal-sensitivity risk in advance.
+- **PI specialized skills**: minimum is `pi-intake-triage`. `pi-demand-letter-text-only` is **deferred to Phase 3+**; v1 uses `pi-demand-letter-evidence-packet` per §6.2 (assembles the inputs a partner needs to draft a demand letter, without authoring legal-judgment text).
 - **Walk-in-cold demo strategy** ships in v1 (this is the urgent capability for the 2026-06 meeting).
 
 The expansion roadmap in §13 (WC / SSD / immigration / estate / family next) is **planning, not commitment**. Each round of expansion gated on platform PRD's customer-count gates (Phase 4 = ≥3 customers).
-
-**Captain-veto reservation**: the demand-letter-text-only skill, even constrained to text-only with citation-refusal substrate, is the highest legal-sensitivity skill in the v1 set. Captain may decide not to ship it for the first meeting and instead position it as roadmap. The decision is Captain's; the PRD documents both paths.
 
 ---
 
@@ -1073,7 +1071,6 @@ Platform-level risks (platform PRD §18) apply. Law-firm-specific risks:
 Specific to the law-firm vertical:
 
 - **Default persona name suggestions per practice area.** Worth a short curated list (3-5 names per practice) that's vertical-appropriate. Currently undefined; suggested at onboarding by SMD.
-- **Demand-letter scope on launch.** `pi-demand-letter-text-only` ships in v1 of the PI overlay, but it's the most legally-sensitive operational skill. Captain decision: do we ship it with the first demo, or hold for beta-1?
 - **Court e-filing connector strategy.** Tyler Odyssey / InfoTrack / state-by-state. Most likely build-as-discovered, but if a specific state is critical for Arizona / Phoenix expansion, may warrant pre-build.
 - **MSA (Medicare Set-Aside) skill for PI.** Specialized workflow. Probably defer to first PI customer that actively needs it.
 - **Lien-resolution-services connector (Synergy, Garretson, ARM, Episource).** Portal-automation only; build-on-demand.
@@ -1090,19 +1087,38 @@ ADRs to author:
 
 ## 17. Phased Rollout
 
+### Phase mapping (law-firm ↔ platform)
+
+The law-firm vertical's phases are scoped narrower than the platform PRD's phases and ride on top of them:
+
+| Law-firm phase                    | Platform-PRD phase                                       | What ships                                                   |
+| --------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------ |
+| Phase 1 (PI overlay + first demo) | Platform Phase 1 (spine) + Phase 2 (first vertical pack) | Demo-readiness target below                                  |
+| Phase 2 (beta-1 deployment)       | Platform Phase 2 (vertical pack closed)                  | Production-deployment minimum below + post-signing additions |
+| Phase 3 (WC + SSD overlay packs)  | Platform Phase 3 (second vertical pack)                  | Additional practice-area overlays                            |
+| Phase 4 (multi-vertical)          | Platform Phase 4 (multi-customer ops, ≥3 customers)      | Cross-practice expansion                                     |
+
 ### Phase 1 — PI overlay + first demo (current focus)
 
-Scope:
+Phase 1 has two distinct scopes that must not be conflated: a **demo-readiness target** (what's pre-built read-only for the 2026-06 meeting) and a **production-deployment minimum** (what's operational write-capable if and when a firm signs as beta-1).
+
+**Demo-readiness target** (all pre-built read-only by demo day):
 
 - 6 specialized dedicated skills (4 of 6 are PI-relevant: medical-records-chronology, plus the PI-specific overlay skills); the other 2 (IP docketing, RE closing) ship later
 - PI overlay pack (8 skills authored with full anatomy)
-- Tier-0 connectors live (Microsoft Graph + Google Workspace + CourtListener + DocuSign + QuickBooks + LawPay)
-- Tier-1 connectors live: Filevine, SmartAdvocate, Clio, CASEpeer-via-Zapier, Neos, MyCase
+- Tier-0 connectors live, **read-only**: Microsoft Graph + Google Workspace + CourtListener + DocuSign + QuickBooks + LawPay
+- Tier-1 PM connectors pre-built **read-only** for the most-likely firm systems: Filevine, SmartAdvocate, Clio, CASEpeer-via-Zapier, Neos, MyCase
 - Tier-2 priority: Lawmatics + Lead Docket + CallRail + LawToolBox
 - Citation-refusal substrate (invariant 6) passing 100+ adversarial fixtures
 - 200 synthetic PI fixtures (150 generated + 50 hand-authored adversarial)
 - Walk-in-cold demo design rehearsed with Captain dry-run
 - Compliance: DPA template, per-state engagement clause library covering PA + UT explicitly + AZ as the home state, audit-log export ready
+
+**Production-deployment minimum** (per platform PRD §20 Phase 1; ships within 7 days of the firm signing):
+
+- Tier-0 connector floor write-capable: Microsoft Graph (Outlook + Calendar + OneDrive) + CourtListener / PACER + DocuSign + LawPay + QuickBooks Online
+- **One PM adapter operational write-capable**, built against the firm's actual PM system identified during the meeting (Filevine / Clio / SmartAdvocate / CASEpeer / Neos / MyCase — chosen by the meeting). Other Tier-1 PMs remain read-only until that firm or a later firm requires them write-capable.
+- 1-2 PI-specialized skills active: minimum `pi-intake-triage`. Demand-letter category v1 uses `pi-demand-letter-evidence-packet` (no legal-judgment authoring); `pi-demand-letter-text-only` deferred to Phase 3+ per §6.2.
 
 Closes when: the PI firm meeting happens and the firm decides to engage as beta-1 or pass.
 
