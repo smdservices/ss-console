@@ -75,11 +75,15 @@ export function buildEventDescription(
   name: string,
   email: string,
   businessName: string,
-  intakeLines: string[]
+  intakeLines: string[],
+  manageUrl?: string
 ): string {
   const lines = [`Guest: ${name} <${email}>`, `Business: ${businessName}`]
   if (intakeLines.length > 0) {
     lines.push('', '--- Intake ---', ...intakeLines)
+  }
+  if (manageUrl) {
+    lines.push('', `Reschedule or cancel: ${manageUrl}`)
   }
   return lines.join('\n')
 }
