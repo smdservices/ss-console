@@ -1,0 +1,335 @@
+---
+export const prerender = false
+
+import Base from '../layouts/Base.astro'
+import Nav from '../components/Nav.astro'
+import Footer from '../components/Footer.astro'
+import CtaButton from '../components/CtaButton.astro'
+
+const productSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: 'AI Employee',
+  description:
+    'A dedicated AI worker that joins your team, learns your operation, and takes on recurring work. Set up for your business, on isolated infrastructure, with the memory it builds belonging to you.',
+  brand: { '@type': 'Brand', name: 'SMD Services' },
+  offers: {
+    '@type': 'Offer',
+    priceCurrency: 'USD',
+    price: '5000.00',
+    priceSpecification: {
+      '@type': 'UnitPriceSpecification',
+      price: '5000.00',
+      priceCurrency: 'USD',
+      referenceQuantity: { '@type': 'QuantitativeValue', value: '1', unitCode: 'MON' },
+    },
+    availability: 'https://schema.org/InStock',
+    seller: { '@type': 'Organization', name: 'SMD Services' },
+  },
+}
+
+const roleLenses = [
+  {
+    title: 'Intake coordinator',
+    body: 'Reads new inquiries as they come in. Pulls the details from the message, checks them against your records, drafts a response, books the call, opens the file.',
+  },
+  {
+    title: 'Ops coordinator',
+    body: 'Watches the work in flight. Spots the steps that did not happen, the follow-ups that are overdue, the handoffs that stalled. Nudges the right person or drafts the message.',
+  },
+  {
+    title: 'Client services lead',
+    body: 'Handles recurring client communication. Status updates, scheduling, the questions you answer the same way every time. Drafts go to a reviewer until the agent owns them outright.',
+  },
+]
+---
+
+<Base
+  title="AI Employee | SMD Services"
+  description="A dedicated AI worker that joins your team, learns your operation, and takes on the recurring work. Flat monthly subscription. Set up for your business, on isolated infrastructure, with the memory it builds belonging to you."
+>
+  <Nav />
+  <main id="main" role="main">
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(productSchema)} />
+
+    <!-- § 01 Hero -->
+    <section
+      class="relative overflow-hidden bg-[color:var(--ss-color-background)] px-6 pt-24 pb-32"
+    >
+      <div class="mx-auto max-w-4xl text-center">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
+          >§ 01</span
+        >
+        <h1
+          class="mb-8 font-['Archivo'] text-5xl md:text-7xl font-black uppercase leading-[1.05] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
+        >
+          A Worker That Joins Your Team.
+        </h1>
+        <p
+          class="mx-auto mb-12 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          A dedicated AI worker, set up for your business, sitting inside the tools you already use.
+          It learns your operation, handles the recurring work, and follows your lead on what to own
+          and what to hand back.
+        </p>
+        <CtaButton href="/book?interest=ai-employee" data-ev="ai-employee-hero-cta"
+          >Get in touch</CtaButton
+        >
+      </div>
+    </section>
+
+    <!-- § 02 What you get -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-4xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 02</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          What You Actually Get.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            You get a worker, not a tool. We build one for your business and give it a role. Say you
+            need an intake coordinator. The agent reads incoming inquiries, pulls the details that
+            matter, drafts the first response in your voice, books the call, and updates your
+            records. The work moves the same way it always did. The person doing it changed.
+          </p>
+          <p>
+            One dedicated worker, scoped to a role, on infrastructure set up for your business
+            alone. It picks up the recurring work that fills your team's day and gives them the room
+            to do the work only they can do.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 03 Pricing -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+      <div class="mx-auto max-w-4xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 03</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Pricing.
+        </h2>
+        <div class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-white p-10 md:p-12">
+          <p
+            class="font-['JetBrains_Mono'] text-sm font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)] mb-4"
+          >
+            Monthly subscription
+          </p>
+          <p
+            class="font-['Archivo'] text-6xl md:text-7xl font-black tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
+          >
+            $5,000<span class="text-2xl md:text-3xl font-bold tracking-normal">&nbsp;/ month</span>
+          </p>
+          <p
+            class="mt-6 font-['Archivo'] text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+          >
+            Flat. Setup and ongoing operation included. No additional fees.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 04 How it learns -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-4xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 04</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          How It Learns To Be Trusted.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            The agent does not start by acting. It starts by watching. We sit it next to the work,
+            let it observe how your team handles real situations, and check its judgment against
+            yours.
+          </p>
+          <p>
+            When you trust it on a piece of work, it moves up. Drafts go to a reviewer on your team,
+            who sends them. As you sign off on specific work types, the agent takes those over
+            fully. Other work stays in draft. Anything outside what you have authorized gets
+            escalated to a person.
+          </p>
+          <p>
+            You decide what the agent owns and what it does not. That decision is in writing, it is
+            part of the service contract, and you can change it any time.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 05 Different from the AI you've tried -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+      <div class="mx-auto max-w-4xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 05</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Different From The AI You Have Already Tried.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            You have probably opened a chatbot, typed a question, gotten a clean answer, and then
+            gone back to doing the work yourself. That is a tool. This is not that.
+          </p>
+          <p>
+            The AI Employee owns recurring work end-to-end. It does not wait for someone to prompt
+            it. It picks up an inquiry, runs it through the steps your team would run, and either
+            completes the work or hands it to a reviewer with a draft.
+          </p>
+          <p>
+            It lives inside your email, your calendar, your practice management software, your CRM,
+            whatever you already use. Your team does not learn a new app. They open the same inbox
+            they always opened and find the work further along than they left it.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 06 Yours alone -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-4xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 06</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Yours Alone.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            Each customer's worker runs on its own isolated infrastructure. Your worker has its own
+            namespace, its own memory, its own access. Nothing is shared with anyone else's
+            operation.
+          </p>
+          <p>
+            The understanding the agent builds, your voice, your work patterns, the situations it
+            knows how to handle, belongs to you. If our relationship ever ends, that memory goes
+            with you.
+          </p>
+          <p>
+            Every action the agent takes is logged. What it did, when, and why. You can review any
+            decision at any time.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 07 Where it fits -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 07</span
+        >
+        <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Where It Fits.
+        </h2>
+        <p
+          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          A few shapes the role can take. The role is shaped to your operation. These are starting
+          points.
+        </p>
+
+        <div
+          class="grid grid-cols-1 md:grid-cols-3 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
+        >
+          {
+            roleLenses.map((lens, i) => (
+              <div
+                class:list={[
+                  'flex flex-col gap-4 p-8 min-h-[16rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
+                  i % 3 !== 2 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
+                ]}
+              >
+                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
+                  {lens.title}
+                </p>
+                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                  {lens.body}
+                </p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- § 08 How we start -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-4xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 08</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          How We Start.
+        </h2>
+        <div
+          class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)] mb-12"
+        >
+          <p>
+            A conversation first. We sit with you, learn how your operation actually runs, look at
+            the work that is eating your team's time, and figure out where a dedicated worker would
+            fit.
+          </p>
+          <p>
+            If the fit is not right, we tell you. If it is, we scope the role together, agree on the
+            trust matrix, and start setup. The worker comes online in observation mode. Trust
+            graduates from there.
+          </p>
+        </div>
+        <CtaButton href="/book?interest=ai-employee" data-ev="ai-employee-section-cta"
+          >Start the conversation</CtaButton
+        >
+      </div>
+    </section>
+
+    <!-- § 09 Final CTA -->
+    <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
+      <div class="mx-auto max-w-5xl text-center">
+        <span
+          class="inline-block bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
+          >§ 09</span
+        >
+        <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
+        >
+          Ready When You Are.
+        </h2>
+        <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
+          Tell us what your team is spending their time on. We will figure out the rest together.
+        </p>
+        <CtaButton
+          variant="outline-white"
+          href="/book?interest=ai-employee"
+          data-ev="ai-employee-final-cta">Get in touch</CtaButton
+        >
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Base>

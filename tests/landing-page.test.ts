@@ -25,6 +25,13 @@ function readAllSrcFiles(): string[] {
   return files
 }
 
+// Marketing surfaces for the scope-based consulting funnel. The "no dollar
+// amounts" check below applies to these files. Productized SKU detail pages
+// (e.g. src/pages/ai-employee.astro for the AI Employee subscription) are
+// intentionally EXCLUDED from this list — those surfaces may publish a
+// price because the offering is a fixed product, not a custom scope. New
+// home-page sections SHOULD be added here so a future edit cannot
+// accidentally publish a price on the home funnel.
 function readMarketingFiles(): string[] {
   return [
     resolve('src/pages/index.astro'),
@@ -34,6 +41,7 @@ function readMarketingFiles(): string[] {
     join(componentsDir, 'HowWeEngage.astro'),
     join(componentsDir, 'HowWePrice.astro'),
     join(componentsDir, 'WhatYouGet.astro'),
+    join(componentsDir, 'AiEmployeeIntro.astro'),
     join(componentsDir, 'CaseStudies.astro'),
     join(componentsDir, 'About.astro'),
     join(componentsDir, 'FinalCta.astro'),
