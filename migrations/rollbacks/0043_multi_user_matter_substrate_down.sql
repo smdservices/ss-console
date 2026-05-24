@@ -1,4 +1,4 @@
--- Manual rollback for migration 0042. NOT auto-applied.
+-- Manual rollback for migration 0043. NOT auto-applied.
 -- See migrations/rollbacks/README.md.
 --
 -- DESTRUCTIVE: dropping these tables removes every matter assignment,
