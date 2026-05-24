@@ -175,7 +175,7 @@ function validateSections(
   const machine = checkMachine(root, errors)
   const users = checkUsers(root, errors)
   const personas = checkPersonas(root, errors)
-  const connectors = checkConnectors(root, errors)
+  const connectors = checkConnectors(root, customerId, errors)
   const scope = checkScope(root, errors)
   const escalation = checkEscalation(root, errors)
   const memory = checkMemory(root, customerId, errors)

@@ -89,6 +89,7 @@ connectors:
     enabled: <boolean> # OPTIONAL; default true
     scopes: <list<string>> # OPTIONAL; oauth scopes this connector needs
     token_ref: <string> # OPTIONAL; Infisical reference; see Secret Exclusion
+    composio_connection_id: <string> # REQUIRED iff backend starts with "composio:"; see "Composio per-connection isolation" below
 
 scope: # email / folder visibility envelope
   email_folders_visible: <list<string>>
@@ -215,26 +216,51 @@ References are resolved by `bin/provision-customer.sh` at deploy time and inject
 
 Allowlisted fields are still scanned for **provider-shaped keys** (the patterns in §1-7 above); an OpenAI key smuggled into `signature_html` is still rejected.
 
+## Composio per-connection isolation
+
+**Added by [#850](https://github.com/venturecrane/ss-console/issues/850).** Composio manages OAuth for Gmail, Slack, and GitHub connectors (`backend: composio:*`). The provisioner stages one tenant-wide `COMPOSIO_API_KEY` per fleet and scopes per-customer access by **connection ID** — every Composio API call carries a connection ID that names whose OAuth credential the action runs against. A misrouted connection ID is a cross-customer leakage vector that [ADR 0009](../../adr/0009-cross-machine-query-prohibition.md)'s structural per-Machine isolation alone does not cover.
+
+The contract is enforced at two layers:
+
+1. **Authoring-time validator** — `connectors.<CapabilityName>.composio_connection_id` is REQUIRED when `backend` starts with `composio:`, must be ABSENT otherwise, and must match the shape `conn_{customer_id}_{suffix}` where suffix is 4-80 chars of `[A-Za-z0-9_-]`. The slug captured in the ID MUST equal `customer_id` — a mismatch is an `IsolationViolation`.
+
+2. **Runtime backstop** — [`ai-employee/adapter/connectors/composio_assertion.py::ComposioConnectionGuard`](../../../ai-employee/adapter/connectors/composio_assertion.py) wraps every Composio API call site. The guard is constructed per Machine against the bound customer slug and refuses any call whose connection ID doesn't match. Refusal raises `ComposioIsolationError` and writes one `INVARIANT_VIOLATION` audit row.
+
+Example:
+
+```yaml
+connectors:
+  Email:
+    adapter: gmail
+    backend: composio:gmail
+    token_ref: 'infisical:/ai-employee/smith-pi-firm/email/refresh'
+    composio_connection_id: 'conn_smith-pi-firm_2bcae9a8'
+```
+
 ## Failure modes
 
-| Condition                                                  | Validator behavior                                                                                                                                                                              |
-| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Missing required field                                     | Reject with `MissingField` error naming the JSONPath                                                                                                                                            |
-| Required string is empty                                   | Reject with `EmptyField` error                                                                                                                                                                  |
-| Enum field value not in accepted set                       | Reject with `EnumViolation` error listing accepted values                                                                                                                                       |
-| `customer_id` does not match `^[a-z0-9][a-z0-9-]{0,31}$`   | Reject with `InvalidSlug` error                                                                                                                                                                 |
-| `personas` array is empty OR has no `status: active` entry | Reject with `MissingActivePersona` error                                                                                                                                                        |
-| Persona slug duplicated within `personas[]`                | Reject with `DuplicatePersonaSlug` error                                                                                                                                                        |
-| `connectors` key not in `CapabilityName` union             | Reject with `UnknownCapability` error                                                                                                                                                           |
-| `trust_ceiling` raises above SKILL.md authored ceiling     | Reject with `TrustCeilingExceeded` error (validator surfaces both values; ceiling-floor lookup happens at provision time, not in this validator at v1)                                          |
-| Secret pattern matched in any value                        | Reject with `SecretDetected` error naming the JSONPath + pattern category; the matched **substring is NOT echoed** in the error (avoid log/transcript leak)                                     |
-| Banned field name encountered                              | Reject with `BannedFieldName` error naming the JSONPath                                                                                                                                         |
-| `token_ref` does not begin with `infisical:`               | Reject with `InvalidTokenRef` error                                                                                                                                                             |
-| `memory.d1_namespace` ≠ `customer_id`                      | Reject with `IsolationViolation` error (cross-Machine query prevention; see [r2-vectorize-naming.md](./r2-vectorize-naming.md) + [ADR 0009](../../adr/0009-cross-machine-query-prohibition.md)) |
-| `memory.r2_vault_path` ≠ `vaults/{customer_id}/`           | Reject with `IsolationViolation` error                                                                                                                                                          |
-| `memory.vectorize_index` ≠ `hermes-{customer_id}-vault`    | Reject with `IsolationViolation` error                                                                                                                                                          |
-| `vertical: law-firm` without `practice_areas`              | Reject with `MissingField` error citing `practice_areas`                                                                                                                                        |
-| `pause.active: true` without `pause.reason`                | Reject with `MissingField` error citing `pause.reason`                                                                                                                                          |
+| Condition                                                  | Validator behavior                                                                                                                                                                                 |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Missing required field                                     | Reject with `MissingField` error naming the JSONPath                                                                                                                                               |
+| Required string is empty                                   | Reject with `EmptyField` error                                                                                                                                                                     |
+| Enum field value not in accepted set                       | Reject with `EnumViolation` error listing accepted values                                                                                                                                          |
+| `customer_id` does not match `^[a-z0-9][a-z0-9-]{0,31}$`   | Reject with `InvalidSlug` error                                                                                                                                                                    |
+| `personas` array is empty OR has no `status: active` entry | Reject with `MissingActivePersona` error                                                                                                                                                           |
+| Persona slug duplicated within `personas[]`                | Reject with `DuplicatePersonaSlug` error                                                                                                                                                           |
+| `connectors` key not in `CapabilityName` union             | Reject with `UnknownCapability` error                                                                                                                                                              |
+| `trust_ceiling` raises above SKILL.md authored ceiling     | Reject with `TrustCeilingExceeded` error (validator surfaces both values; ceiling-floor lookup happens at provision time, not in this validator at v1)                                             |
+| Secret pattern matched in any value                        | Reject with `SecretDetected` error naming the JSONPath + pattern category; the matched **substring is NOT echoed** in the error (avoid log/transcript leak)                                        |
+| Banned field name encountered                              | Reject with `BannedFieldName` error naming the JSONPath                                                                                                                                            |
+| `token_ref` does not begin with `infisical:`               | Reject with `InvalidTokenRef` error                                                                                                                                                                |
+| `backend: composio:*` without `composio_connection_id`     | Reject with `MissingField` error (per-connection isolation cannot be enforced without it; see [composio_assertion.py](../../../ai-employee/adapter/connectors/composio_assertion.py) + issue #850) |
+| `composio_connection_id` malformed                         | Reject with `InvalidFormat` error (shape: `conn_{customer_id}_{suffix}`, suffix is 4-80 chars of `[A-Za-z0-9_-]`)                                                                                  |
+| `composio_connection_id` slug ≠ `customer_id`              | Reject with `IsolationViolation` error (cross-customer leakage vector — see [ADR 0009](../../adr/0009-cross-machine-query-prohibition.md) + issue #850)                                            |
+| `composio_connection_id` set on non-composio backend       | Reject with `IsolationViolation` error (the field is meaningful only when Composio mediates OAuth)                                                                                                 |
+| `memory.d1_namespace` ≠ `customer_id`                      | Reject with `IsolationViolation` error (cross-Machine query prevention; see [r2-vectorize-naming.md](./r2-vectorize-naming.md) + [ADR 0009](../../adr/0009-cross-machine-query-prohibition.md))    |
+| `memory.r2_vault_path` ≠ `vaults/{customer_id}/`           | Reject with `IsolationViolation` error                                                                                                                                                             |
+| `memory.vectorize_index` ≠ `hermes-{customer_id}-vault`    | Reject with `IsolationViolation` error                                                                                                                                                             |
+| `vertical: law-firm` without `practice_areas`              | Reject with `MissingField` error citing `practice_areas`                                                                                                                                           |
+| `pause.active: true` without `pause.reason`                | Reject with `MissingField` error citing `pause.reason`                                                                                                                                             |
 
 All errors are returned as a list; the validator does not short-circuit on the first error. Authors get the full picture in one round-trip.
 

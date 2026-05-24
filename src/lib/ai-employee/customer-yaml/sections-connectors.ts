@@ -2,19 +2,39 @@
  * Connectors section validator. The `connectors:` map is keyed by the
  * closed CapabilityName union (ADR 0006) and binds each capability to one
  * adapter slug + backend prefix + optional Infisical token_ref.
+ *
+ * For Composio-managed connectors (`backend: composio:*`) we additionally
+ * require a `composio_connection_id` of the shape
+ * `conn_{customer_id}_{suffix}`. Composio's tenant model stages one
+ * `COMPOSIO_API_KEY` per fleet and scopes per-customer access by
+ * connection ID; without an authored-and-checked binding to the customer
+ * slug a misrouted ID is a cross-customer leakage vector (issue #850).
+ * The runtime backstop lives at
+ * `ai-employee/adapter/connectors/composio_assertion.py`.
  */
 
 import type { CapabilityName } from '../capabilities/types'
 import {
   ACCEPTED_BACKEND_PREFIXES,
   ACCEPTED_CAPABILITY_NAMES,
+  SLUG_PATTERN,
   type Connector,
   type ValidationError,
 } from './types'
 import { isPlainObject } from './helpers'
 
+const COMPOSIO_BACKEND_PREFIX = 'composio:'
+
+/**
+ * Connection-ID suffix shape. Mirrors the regex in
+ * `composio_assertion.py::_CONNECTION_ID_SUFFIX` — keep the two in sync.
+ * Allowed: 4-80 chars of [A-Za-z0-9_-].
+ */
+const CONNECTION_ID_SUFFIX_PATTERN = /^[A-Za-z0-9_-]{4,80}$/
+
 export function checkConnectors(
   root: Record<string, unknown>,
+  customerId: string | null,
   errors: ValidationError[]
 ): Partial<Record<CapabilityName, Connector>> {
   const raw = root['connectors']
@@ -28,7 +48,7 @@ export function checkConnectors(
   }
   const out: Partial<Record<CapabilityName, Connector>> = {}
   for (const [key, value] of Object.entries(raw)) {
-    const connector = checkOneConnector(key, value, errors)
+    const connector = checkOneConnector(key, value, customerId, errors)
     if (connector !== null) out[key as CapabilityName] = connector
   }
   return out
@@ -37,6 +57,7 @@ export function checkConnectors(
 function checkOneConnector(
   key: string,
   value: unknown,
+  customerId: string | null,
   errors: ValidationError[]
 ): Connector | null {
   if (!ACCEPTED_CAPABILITY_NAMES.has(key as CapabilityName)) {
@@ -63,9 +84,24 @@ function checkOneConnector(
   if (!checkTokenRef(key, value['token_ref'], errors)) return null
   const scopes = checkScopes(key, value['scopes'], errors)
   if (scopes === null) return null
+  const connectionId = checkComposioConnectionId(
+    key,
+    value['composio_connection_id'],
+    backend,
+    customerId,
+    errors
+  )
+  if (connectionId === undefined) return null
   const enabled = typeof value['enabled'] === 'boolean' ? value['enabled'] : true
   const tokenRef = typeof value['token_ref'] === 'string' ? value['token_ref'] : null
-  return { adapter, backend, enabled, scopes, token_ref: tokenRef }
+  return {
+    adapter,
+    backend,
+    enabled,
+    scopes,
+    token_ref: tokenRef,
+    composio_connection_id: connectionId,
+  }
 }
 
 function checkAdapter(key: string, adapter: unknown, errors: ValidationError[]): string | null {
@@ -135,4 +171,112 @@ function checkScopes(key: string, scopes: unknown, errors: ValidationError[]): s
     return null
   }
   return scopes
+}
+
+/**
+ * Returns the validated connection ID string, `null` if absent (legal for
+ * non-composio backends), or `undefined` to signal a hard failure that
+ * should drop the whole connector from the output.
+ */
+function checkComposioConnectionId(
+  key: string,
+  raw: unknown,
+  backend: string,
+  customerId: string | null,
+  errors: ValidationError[]
+): string | null | undefined {
+  const isComposio = backend.startsWith(COMPOSIO_BACKEND_PREFIX)
+  const path = `connectors.${key}.composio_connection_id`
+
+  if (raw === undefined || raw === null) {
+    if (isComposio) {
+      errors.push({
+        code: 'MissingField',
+        path,
+        message:
+          'composio_connection_id is required for backend "composio:*" — per-customer ' +
+          'connection isolation cannot be enforced without it (issue #850)',
+      })
+      return undefined
+    }
+    return null
+  }
+
+  if (typeof raw !== 'string') {
+    errors.push({
+      code: 'TypeMismatch',
+      path,
+      message: 'composio_connection_id must be a string when present',
+    })
+    return undefined
+  }
+
+  if (!isComposio) {
+    errors.push({
+      code: 'IsolationViolation',
+      path,
+      message:
+        'composio_connection_id may only be set when backend starts with "composio:" — ' +
+        'remove it from non-composio connectors to avoid implying isolation that is not enforced',
+    })
+    return undefined
+  }
+
+  return checkComposioConnectionIdShape(path, raw, customerId, errors)
+}
+
+function checkComposioConnectionIdShape(
+  path: string,
+  raw: string,
+  customerId: string | null,
+  errors: ValidationError[]
+): string | undefined {
+  const parsed = parseComposioConnectionId(raw)
+  if (parsed === null) {
+    errors.push({
+      code: 'InvalidFormat',
+      path,
+      message:
+        'composio_connection_id must match shape "conn_{customer_id}_{suffix}" ' +
+        'where suffix is 4-80 chars of [A-Za-z0-9_-]; see ' +
+        'ai-employee/adapter/connectors/composio_assertion.py',
+    })
+    return undefined
+  }
+
+  if (customerId !== null && parsed.slug !== customerId) {
+    errors.push({
+      code: 'IsolationViolation',
+      path,
+      message:
+        `composio_connection_id is bound to slug "${parsed.slug}" but customer_id is ` +
+        `"${customerId}" — Composio connection IDs MUST embed the customer_id ` +
+        '(cross-customer leakage vector; see ADR 0009 and issue #850)',
+    })
+    return undefined
+  }
+  return raw
+}
+
+/**
+ * Parse a `conn_{slug}_{suffix}` ID. Returns the slug + suffix when the
+ * shape matches, or null otherwise.
+ *
+ * Implementation note: we avoid a single mega-regex with `{2,40}` style
+ * quantifiers so the slug-vs-suffix split is unambiguous when the slug
+ * itself contains dashes (e.g. `smith-pi-firm`). Strategy: strip the
+ * `conn_` prefix, find the LAST underscore — slug is everything before
+ * it, suffix is everything after — then validate each piece against the
+ * shared patterns.
+ */
+function parseComposioConnectionId(raw: string): { slug: string; suffix: string } | null {
+  if (!raw.startsWith('conn_')) return null
+  const tail = raw.slice('conn_'.length)
+  const lastUnderscore = tail.lastIndexOf('_')
+  if (lastUnderscore <= 0 || lastUnderscore === tail.length - 1) return null
+  const slug = tail.slice(0, lastUnderscore)
+  const suffix = tail.slice(lastUnderscore + 1)
+  if (!SLUG_PATTERN.test(slug)) return null
+  if (!CONNECTION_ID_SUFFIX_PATTERN.test(suffix)) return null
+  return { slug, suffix }
 }
