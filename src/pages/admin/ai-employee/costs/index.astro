@@ -9,6 +9,7 @@ import {
   thirtyDayCogsToMonthlyEstimateCents,
   type CustomerCostSummary,
 } from '../../../../lib/admin/cost-query'
+import { listOpenAlerts } from '../../../../lib/admin/cost-anomaly'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -42,6 +43,7 @@ if (session.role !== 'admin') {
 const cfConfigMissing = !env.CF_ACCOUNT_ID || !env.CF_D1_API_TOKEN
 
 const customers = await listCostCustomers(env.DB)
+const openAlerts = await listOpenAlerts(env.DB)
 
 interface CustomerCard {
   customer_slug: string
@@ -227,6 +229,79 @@ const totalCogs30dCents = rows.reduce((sum, r) => sum + r.cogs30dCents, 0)
       )
     }
 
+    {
+      openAlerts.length > 0 && (
+        <div
+          class="rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-attention)] bg-white p-card"
+          data-cost-anomaly-banner
+        >
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)]">
+              {openAlerts.length} open cost anomal{openAlerts.length === 1 ? 'y' : 'ies'}
+            </h3>
+            <span class="text-xs text-[color:var(--ss-color-text-muted)]">
+              Daily cost ≥ threshold of 7-day rolling average. Detected by{' '}
+              <code>ss-cost-anomaly</code> at 03:00 UTC.
+            </span>
+          </div>
+          <ul class="space-y-2 text-sm">
+            {openAlerts.map((alert) => {
+              const ratio = (alert.ratio_bps / 100).toFixed(0)
+              const daily = formatCurrency(alert.daily_cents)
+              const avg = formatCurrency(alert.rolling_avg_cents)
+              const driverLabel = alert.driver === '' ? 'all drivers (aggregate)' : alert.driver
+              return (
+                <li
+                  class="flex items-start justify-between gap-4 border-b border-[color:var(--ss-color-border-subtle)] pb-2 last:border-0 last:pb-0"
+                  data-alert-entity={alert.entity_id}
+                  data-alert-date={alert.alert_date}
+                  data-alert-driver={alert.driver}
+                >
+                  <div class="flex-1 min-w-0">
+                    <a
+                      href={`/admin/ai-employee/costs/${encodeURIComponent(alert.customer_slug)}`}
+                      class="font-medium text-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-primary)]"
+                    >
+                      {alert.customer_slug}
+                    </a>
+                    <span class="text-[color:var(--ss-color-text-secondary)]">
+                      {' '}
+                      · {alert.alert_date}
+                    </span>
+                    <p class="text-xs text-[color:var(--ss-color-text-secondary)] mt-0.5">
+                      Top driver: {driverLabel} · {daily} vs {avg} 7-day avg ·{' '}
+                      <span class="font-semibold">{ratio}%</span>
+                    </p>
+                    {alert.snoozed_until && (
+                      <p class="text-xs text-[color:var(--ss-color-text-muted)] mt-0.5">
+                        Snoozed until {alert.snoozed_until}
+                      </p>
+                    )}
+                  </div>
+                  <div class="flex gap-2 shrink-0">
+                    <button
+                      type="button"
+                      data-cost-anomaly-snooze
+                      class="text-xs text-[color:var(--ss-color-action)] hover:underline"
+                    >
+                      Snooze 7d
+                    </button>
+                    <button
+                      type="button"
+                      data-cost-anomaly-ack
+                      class="text-xs text-[color:var(--ss-color-action)] hover:underline"
+                    >
+                      Acknowledge
+                    </button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )
+    }
+
     <div
       class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card"
     >
@@ -374,3 +449,72 @@ const totalCogs30dCents = rows.reduce((sum, r) => sum + r.cogs30dCents, 0)
     }
   </div>
 </AdminLayout>
+
+<script>
+  // Cost anomaly snooze/ack — POST to the admin API, then reload to
+  // re-render the banner. No optimistic UI: a re-load is cheap, and we
+  // want to confirm the alert disappeared (vs an undetected backend
+  // failure leaving it stale on screen).
+  function init() {
+    const banner = document.querySelector('[data-cost-anomaly-banner]')
+    if (!banner) return
+
+    function readIdentity(li: HTMLElement) {
+      return {
+        entity_id: li.dataset.alertEntity ?? '',
+        alert_date: li.dataset.alertDate ?? '',
+        driver: li.dataset.alertDriver ?? '',
+      }
+    }
+
+    function sevenDaysFromNowIso(): string {
+      const d = new Date(Date.now() + 7 * 86_400_000)
+      // YYYY-MM-DDTHH:mm:ssZ — matches the ISO_RE in [action].ts.
+      return d.toISOString().replace(/\.\d{3}Z$/, 'Z')
+    }
+
+    async function post(action: 'snooze' | 'acknowledge', body: Record<string, unknown>) {
+      const res = await fetch(`/api/admin/ai-employee/costs/anomalies/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        alert(`Failed: ${res.status} ${text}`)
+        return false
+      }
+      return true
+    }
+
+    banner.querySelectorAll<HTMLButtonElement>('[data-cost-anomaly-snooze]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const li = btn.closest<HTMLElement>('[data-alert-entity]')
+        if (!li) return
+        const identity = readIdentity(li)
+        btn.disabled = true
+        const ok = await post('snooze', { ...identity, snoozed_until: sevenDaysFromNowIso() })
+        if (ok) window.location.reload()
+        else btn.disabled = false
+      })
+    })
+
+    banner.querySelectorAll<HTMLButtonElement>('[data-cost-anomaly-ack]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const li = btn.closest<HTMLElement>('[data-alert-entity]')
+        if (!li) return
+        const identity = readIdentity(li)
+        btn.disabled = true
+        const ok = await post('acknowledge', identity)
+        if (ok) window.location.reload()
+        else btn.disabled = false
+      })
+    })
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init)
+  } else {
+    init()
+  }
+</script>
