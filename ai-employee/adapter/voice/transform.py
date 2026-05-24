@@ -186,6 +186,26 @@ the schema enforces).
 """
 
 
+GENERAL_VOICE_COHORT = "__general__"
+"""Sentinel slug for the cohort-agnostic profile.
+
+Used in the same shape as :data:`GENERAL_VOICE_USER_ID`: when no
+recipient cohort is specified, OR when the requested cohort has no
+matching profile, OR when the cohort-specific profile has insufficient
+samples, the bundle falls back to the cohort-agnostic profile (still
+attributed to the resolved user). The bundle's two-axis fallback
+ladder is:
+
+  (user_id, cohort)        -- most specific
+  → (user_id, __general__) -- per-user, cohort-agnostic
+  → (__general__, __general__) -- customer-wide composite
+
+Reserved as a cohort slug — `voice_cohorts.cohorts[]` cannot contain
+this value (the leading-underscore form falls outside the schema's
+COHORT_SLUG_PATTERN).
+"""
+
+
 _BUCKET_DELTA_TOLERANCE = 0.15
 """Maximum probability-mass delta per sentence-length bucket before the
 transform attempts a redistribution. 0.15 means the bucket's share of
@@ -370,24 +390,39 @@ class TransformResult:
     through to the audit row + dashboard surface so reviewers can see
     whose voice shaped their draft."""
 
+    selected_voice_cohort: str = GENERAL_VOICE_COHORT
+    """The recipient-cohort profile actually applied to this draft.
+    Equals the requested cohort slug when the per-(user, cohort)
+    profile was selected, or :data:`GENERAL_VOICE_COHORT` when the
+    fallback ladder landed on the cohort-agnostic per-user or general
+    profile (cohort not specified, no per-cohort samples for this
+    user, or below `min_samples_per_cohort`). Issue #857."""
+
 
 @dataclass(frozen=True)
 class VoiceProfileBundle:
-    """Per-customer collection of voice profiles, keyed by user identity.
+    """Per-customer collection of voice profiles, keyed by user identity
+    and recipient cohort.
 
     Built by the voice-profile loader at runtime — one bundle per
     customer Machine, refreshed when samples are ingested. The bundle
-    holds:
+    holds three tiers, deliberately redundant so the fallback ladder
+    can short-circuit cleanly:
 
-    * A general profile aggregated across every sample, regardless of
-      which user authored the source message. This is what every
-      customer has from day one.
-    * Zero or more per-user profiles, keyed by the user's
-      `voice_profile_id` slug from customer.yaml. Each is aggregated
-      from samples tagged with that user.
+    * `general` — customer-wide composite aggregated across every
+      sample regardless of user or cohort. The terminal fallback.
+    * `per_user` — per-user, cohort-agnostic profiles keyed by the
+      user's `voice_profile_id` slug. Aggregated across the user's
+      samples regardless of cohort. Optional; empty dict when no
+      per-user profiles are configured.
+    * `per_user_cohort` — per-(user, cohort) profiles keyed by
+      `(voice_profile_id, cohort_id)` tuples. Aggregated across the
+      user's samples tagged with that cohort. Optional; empty dict
+      when the customer has not partitioned samples by cohort.
 
-    The bundle is read-only — once constructed, callers select profiles
-    via :meth:`select`.
+    The bundle is read-only. Callers select profiles via
+    :meth:`select` (legacy 2-tuple, kept for PR-1 callers) or
+    :meth:`select_with_cohort` (3-tuple, the cohort-aware path).
     """
 
     general: "VoiceProfile"
@@ -397,30 +432,40 @@ class VoiceProfileBundle:
     caller; use :meth:`select` rather than indexing directly so the
     fallback rule is enforced in one place."""
 
-    def select(self, reviewer_user_id: Optional[str]) -> tuple:
-        """Pick the right profile for this reviewer.
+    per_user_cohort: dict = field(default_factory=dict)
+    """Mapping from `(voice_profile_id, cohort_id)` tuples →
+    VoiceProfile. Empty dict when no per-(user, cohort) profiles are
+    configured — in that case the bundle behaves exactly like the
+    cohort-agnostic PR-1 bundle. The dict is opaque to the caller;
+    use :meth:`select_with_cohort` so the two-axis fallback ladder is
+    enforced in one place. Issue #857."""
 
-        Selection rule:
+    min_samples_per_cohort: int = MIN_PROFILE_SAMPLE_COUNT
+    """Minimum sample count below which a per-(user, cohort) profile
+    is rejected in favor of the cohort-agnostic per-user (or general)
+    fallback. Defaults to `MIN_PROFILE_SAMPLE_COUNT`; customers may
+    override via `customer.yaml :: voice_cohorts.min_samples_per_cohort`
+    to tighten or relax the floor per their per-cohort sample volume.
+    Issue #857."""
+
+    def select(self, reviewer_user_id: Optional[str]) -> tuple:
+        """Pick the right profile for this reviewer, cohort-agnostic.
+
+        Legacy 2-tuple entry point preserved from PR #1029 (#858) so
+        cohort-unaware callers keep working without change. Returns
+        `(profile, selected_user_id)`. Cohort-aware callers should
+        use :meth:`select_with_cohort` instead.
+
+        Selection rule (cohort-agnostic):
 
         1. If `reviewer_user_id` is None or the empty string, return
-           the general profile. This is the legacy path — callers that
-           never wire reviewer identity get the same behavior they had
-           before per-user voice landed.
-        2. If `reviewer_user_id` is set but has no matching per-user
-           profile in the bundle, return the general profile. Callers
-           don't need to know which users have per-user profiles
-           configured.
-        3. If a per-user profile exists but has fewer than
-           :data:`MIN_PROFILE_SAMPLE_COUNT` samples, return the general
-           profile. Reshaping against a noisy per-user target is worse
-           than reshaping against the firm-wide composite.
+           the customer general profile.
+        2. If `reviewer_user_id` has no matching per-user profile,
+           return the customer general profile.
+        3. If the per-user profile has fewer than
+           :data:`MIN_PROFILE_SAMPLE_COUNT` samples, return the
+           customer general profile.
         4. Otherwise return the per-user profile.
-
-        Returns a tuple `(profile, selected_user_id)`. The
-        `selected_user_id` is the slug actually used —
-        :data:`GENERAL_VOICE_USER_ID` for the general path, the user's
-        slug for the per-user path. Callers thread this through to the
-        audit row + dashboard surface.
         """
         if not reviewer_user_id:
             return self.general, GENERAL_VOICE_USER_ID
@@ -430,6 +475,54 @@ class VoiceProfileBundle:
         if candidate.sample_count < MIN_PROFILE_SAMPLE_COUNT:
             return self.general, GENERAL_VOICE_USER_ID
         return candidate, reviewer_user_id
+
+    def select_with_cohort(
+        self,
+        reviewer_user_id: Optional[str],
+        recipient_cohort: Optional[str],
+    ) -> tuple:
+        """Pick the right profile for this (reviewer, cohort) pair.
+
+        Two-axis fallback ladder, most-specific first. Issue #857.
+
+        1. **(user, cohort)** — `per_user_cohort[(user, cohort)]` when
+           present AND `sample_count >= self.min_samples_per_cohort`.
+           Returned as `(profile, user, cohort)`.
+        2. **(user, __general__)** — `per_user[user]` when present AND
+           `sample_count >= MIN_PROFILE_SAMPLE_COUNT`. Returned as
+           `(profile, user, __general__)`.
+        3. **(__general__, __general__)** — `self.general`. Returned
+           as `(general_profile, __general__, __general__)`.
+
+        Each step's outcome is recorded so the audit row + dashboard
+        can attribute which fallback the bundle landed on. Returns
+        `(profile, selected_user_id, selected_cohort_id)`.
+
+        `recipient_cohort` of None or empty string is treated as
+        "cohort not specified" and skips straight to step 2 (the
+        cohort-agnostic per-user lookup), preserving the PR-1
+        behavior for callers that don't yet thread cohort through.
+        `reviewer_user_id` of None / empty string skips to step 3.
+        """
+        if not reviewer_user_id:
+            return self.general, GENERAL_VOICE_USER_ID, GENERAL_VOICE_COHORT
+
+        if recipient_cohort:
+            cohort_candidate = self.per_user_cohort.get((reviewer_user_id, recipient_cohort))
+            if (
+                cohort_candidate is not None
+                and cohort_candidate.sample_count >= self.min_samples_per_cohort
+            ):
+                return cohort_candidate, reviewer_user_id, recipient_cohort
+
+        user_candidate = self.per_user.get(reviewer_user_id)
+        if (
+            user_candidate is not None
+            and user_candidate.sample_count >= MIN_PROFILE_SAMPLE_COUNT
+        ):
+            return user_candidate, reviewer_user_id, GENERAL_VOICE_COHORT
+
+        return self.general, GENERAL_VOICE_USER_ID, GENERAL_VOICE_COHORT
 
 
 @dataclass(frozen=True)
@@ -600,6 +693,7 @@ class DraftTransformer:
         draft: str,
         profile: "VoiceProfile | VoiceProfileBundle",
         reviewer_user_id: Optional[str] = None,
+        recipient_cohort: Optional[str] = None,
     ) -> TransformResult:
         """Rewrite ``draft`` so its surface shape matches ``profile``.
 
@@ -615,25 +709,33 @@ class DraftTransformer:
             profile: Either a :class:`VoiceProfile` (legacy single-voice
                 path — every reviewer gets the same profile) or a
                 :class:`VoiceProfileBundle` (per-customer collection
-                with optional per-user profiles). When a bundle is
-                provided, ``reviewer_user_id`` selects which profile to
-                apply; see :meth:`VoiceProfileBundle.select` for the
-                selection rule (general → per-user when present and
-                ≥ MIN_PROFILE_SAMPLE_COUNT).
+                with optional per-user + per-(user, cohort) profiles).
+                When a bundle is provided, `reviewer_user_id` +
+                `recipient_cohort` select which profile to apply per
+                :meth:`VoiceProfileBundle.select_with_cohort`'s
+                fallback ladder.
             reviewer_user_id: The `voice_profile_id` slug of the user
                 who will approve and send this draft. Looked up against
-                the bundle's per-user profiles; ignored when ``profile``
-                is a bare :class:`VoiceProfile`. ``None`` means the
-                caller did not thread reviewer identity through and the
-                general profile applies.
+                the bundle's per-user / per-(user, cohort) tables;
+                ignored when `profile` is a bare :class:`VoiceProfile`.
+                `None` means the caller did not thread reviewer identity
+                through and the general profile applies.
+            recipient_cohort: The recipient-cohort slug for the draft's
+                target audience (`client`, `opposing-counsel`, `court`,
+                `internal`, or a customer-extended slug per
+                `customer.yaml :: voice_cohorts.cohorts`). Looked up
+                against the bundle's `per_user_cohort` table; ignored
+                when `profile` is a bare :class:`VoiceProfile`. `None`
+                falls back to the cohort-agnostic per-user (or general)
+                profile. Issue #857.
 
         Returns:
             A :class:`TransformResult` recording the outcome plus the
-            `selected_voice_user_id` the bundle resolved to (for audit
-            attribution).
+            `selected_voice_user_id` and `selected_voice_cohort` the
+            bundle resolved to (for audit attribution).
         """
-        resolved_profile, selected_user_id = _resolve_profile_selection(
-            profile, reviewer_user_id
+        resolved_profile, selected_user_id, selected_cohort = _resolve_profile_selection(
+            profile, reviewer_user_id, recipient_cohort
         )
 
         if not draft or not draft.strip():
@@ -643,6 +745,7 @@ class DraftTransformer:
                 source_draft=draft,
                 profile_sample_count=resolved_profile.sample_count,
                 selected_voice_user_id=selected_user_id,
+                selected_voice_cohort=selected_cohort,
             )
 
         if resolved_profile.sample_count < MIN_PROFILE_SAMPLE_COUNT:
@@ -656,6 +759,7 @@ class DraftTransformer:
                     f"minimum is {MIN_PROFILE_SAMPLE_COUNT}"
                 ),
                 selected_voice_user_id=selected_user_id,
+                selected_voice_cohort=selected_cohort,
             )
 
         current = draft
@@ -667,7 +771,7 @@ class DraftTransformer:
             if greeting_change:
                 if _has_introduced_disallowed_tokens(current, after_greeting):
                     return _fabrication_guard_passthrough(
-                        draft, resolved_profile, selected_user_id
+                        draft, resolved_profile, selected_user_id, selected_cohort
                     )
                 current = after_greeting
                 pass_changes.append(greeting_change)
@@ -676,7 +780,7 @@ class DraftTransformer:
             if signoff_change:
                 if _has_introduced_disallowed_tokens(current, after_signoff):
                     return _fabrication_guard_passthrough(
-                        draft, resolved_profile, selected_user_id
+                        draft, resolved_profile, selected_user_id, selected_cohort
                     )
                 current = after_signoff
                 pass_changes.append(signoff_change)
@@ -687,7 +791,7 @@ class DraftTransformer:
             if sentence_changes:
                 if _has_introduced_disallowed_tokens(current, after_sentences):
                     return _fabrication_guard_passthrough(
-                        draft, resolved_profile, selected_user_id
+                        draft, resolved_profile, selected_user_id, selected_cohort
                     )
                 current = after_sentences
                 pass_changes.extend(sentence_changes)
@@ -698,7 +802,7 @@ class DraftTransformer:
             if paragraph_change:
                 if _has_introduced_disallowed_tokens(current, after_paragraphs):
                     return _fabrication_guard_passthrough(
-                        draft, resolved_profile, selected_user_id
+                        draft, resolved_profile, selected_user_id, selected_cohort
                     )
                 current = after_paragraphs
                 pass_changes.append(paragraph_change)
@@ -714,6 +818,7 @@ class DraftTransformer:
                 source_draft=draft,
                 profile_sample_count=resolved_profile.sample_count,
                 selected_voice_user_id=selected_user_id,
+                selected_voice_cohort=selected_cohort,
             )
 
         return TransformResult(
@@ -723,6 +828,7 @@ class DraftTransformer:
             profile_sample_count=resolved_profile.sample_count,
             changes_applied=changes,
             selected_voice_user_id=selected_user_id,
+            selected_voice_cohort=selected_cohort,
         )
 
 
@@ -1167,6 +1273,7 @@ def _fabrication_guard_passthrough(
     draft: str,
     profile: VoiceProfile,
     selected_user_id: str = GENERAL_VOICE_USER_ID,
+    selected_cohort: str = GENERAL_VOICE_COHORT,
 ) -> TransformResult:
     """Return a passthrough result with the fabrication-guard status."""
     return TransformResult(
@@ -1176,6 +1283,7 @@ def _fabrication_guard_passthrough(
         profile_sample_count=profile.sample_count,
         notes="proposed rewrite introduced an entity-shaped token; aborted",
         selected_voice_user_id=selected_user_id,
+        selected_voice_cohort=selected_cohort,
     )
 
 
@@ -1187,17 +1295,18 @@ def _fabrication_guard_passthrough(
 def _resolve_profile_selection(
     profile: "VoiceProfile | VoiceProfileBundle",
     reviewer_user_id: Optional[str],
+    recipient_cohort: Optional[str] = None,
 ) -> tuple:
-    """Resolve the (profile, selected_user_id) pair to apply.
+    """Resolve the (profile, selected_user_id, selected_cohort) triple.
 
-    Centralizes the per-user-vs-general selection so the transformer's
-    happy path and every passthrough path agree on which profile they
-    refer to. Bare :class:`VoiceProfile` callers get the legacy
-    single-voice behavior with `selected_user_id = GENERAL_VOICE_USER_ID`.
+    Centralizes the selection so the transformer's happy path and every
+    passthrough path agree on which profile they refer to. Bare
+    :class:`VoiceProfile` callers get the legacy single-voice behavior
+    with both selection markers set to their `__general__` sentinels.
     """
     if isinstance(profile, VoiceProfileBundle):
-        return profile.select(reviewer_user_id)
-    return profile, GENERAL_VOICE_USER_ID
+        return profile.select_with_cohort(reviewer_user_id, recipient_cohort)
+    return profile, GENERAL_VOICE_USER_ID, GENERAL_VOICE_COHORT
 
 
 # ---------------------------------------------------------------------------
@@ -1210,26 +1319,32 @@ def transform_draft(
     draft: str,
     profile: "VoiceProfile | VoiceProfileBundle",
     reviewer_user_id: Optional[str] = None,
+    recipient_cohort: Optional[str] = None,
 ) -> TransformResult:
     """Top-level functional entry point.
 
     Equivalent to
     ``DraftTransformer().transform(draft=draft, profile=profile,
-    reviewer_user_id=reviewer_user_id)``.
+    reviewer_user_id=reviewer_user_id, recipient_cohort=recipient_cohort)``.
     Provided for callers that prefer a function over a class instance.
 
-    `reviewer_user_id` only matters when `profile` is a
-    :class:`VoiceProfileBundle`. With a bare :class:`VoiceProfile` the
-    argument is accepted (so callers don't branch on profile shape) but
-    has no effect — every reviewer gets the same profile.
+    `reviewer_user_id` and `recipient_cohort` only matter when
+    `profile` is a :class:`VoiceProfileBundle`. With a bare
+    :class:`VoiceProfile` they are accepted (so callers don't branch
+    on profile shape) but have no effect — every reviewer / cohort
+    gets the same profile.
     """
     return DraftTransformer().transform(
-        draft=draft, profile=profile, reviewer_user_id=reviewer_user_id
+        draft=draft,
+        profile=profile,
+        reviewer_user_id=reviewer_user_id,
+        recipient_cohort=recipient_cohort,
     )
 
 
 __all__ = [
     "DraftTransformer",
+    "GENERAL_VOICE_COHORT",
     "GENERAL_VOICE_USER_ID",
     "MAX_TRANSFORM_PASSES",
     "MIN_PROFILE_SAMPLE_COUNT",

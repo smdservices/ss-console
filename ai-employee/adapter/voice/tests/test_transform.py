@@ -34,6 +34,7 @@ sys.path.insert(0, str(_HERE.parents[3]))  # ai-employee/ on sys.path
 
 from adapter.voice import (  # noqa: E402
     DraftTransformer,
+    GENERAL_VOICE_COHORT,
     GENERAL_VOICE_USER_ID,
     GreetingStyle,
     MIN_PROFILE_SAMPLE_COUNT,
@@ -713,3 +714,200 @@ def test_bundle_select_returns_tuple_directly():
     chosen5, who5 = bundle.select("nobody-knows-me")
     assert who5 == GENERAL_VOICE_USER_ID
     assert chosen5 is general
+
+
+# ---------------------------------------------------------------------------
+# Per-cohort voice variation — VoiceProfileBundle.select_with_cohort (#857)
+# ---------------------------------------------------------------------------
+
+
+def test_bundle_select_with_cohort_full_match():
+    """All three tiers populated; the most-specific (user, cohort) wins."""
+    general = _profile(samples_count=30)
+    sarah = _profile(samples_count=20, greeting=GreetingStyle.FORMAL_NAMED)
+    sarah_for_client = _profile(samples_count=15, greeting=GreetingStyle.FIRST_NAME)
+    bundle = VoiceProfileBundle(
+        general=general,
+        per_user={"partner-sarah": sarah},
+        per_user_cohort={("partner-sarah", "client"): sarah_for_client},
+    )
+    chosen, who, cohort = bundle.select_with_cohort("partner-sarah", "client")
+    assert chosen is sarah_for_client
+    assert who == "partner-sarah"
+    assert cohort == "client"
+
+
+def test_bundle_select_with_cohort_falls_back_to_per_user_when_cohort_missing():
+    """Reviewer has a per-user profile but no profile for this cohort →
+    use the cohort-agnostic per-user profile."""
+    general = _profile(samples_count=30)
+    sarah = _profile(samples_count=20)
+    bundle = VoiceProfileBundle(
+        general=general,
+        per_user={"partner-sarah": sarah},
+        per_user_cohort={("partner-sarah", "client"): _profile(samples_count=15)},
+    )
+    chosen, who, cohort = bundle.select_with_cohort("partner-sarah", "court")
+    assert chosen is sarah
+    assert who == "partner-sarah"
+    assert cohort == GENERAL_VOICE_COHORT
+
+
+def test_bundle_select_with_cohort_falls_back_when_cohort_profile_too_thin():
+    """Per-(user, cohort) below min_samples_per_cohort → step down to
+    cohort-agnostic per-user profile."""
+    general = _profile(samples_count=30)
+    sarah = _profile(samples_count=20)
+    thin_cohort = _profile(samples_count=3)  # below default MIN=5
+    bundle = VoiceProfileBundle(
+        general=general,
+        per_user={"partner-sarah": sarah},
+        per_user_cohort={("partner-sarah", "court"): thin_cohort},
+    )
+    chosen, who, cohort = bundle.select_with_cohort("partner-sarah", "court")
+    assert chosen is sarah
+    assert who == "partner-sarah"
+    assert cohort == GENERAL_VOICE_COHORT
+
+
+def test_bundle_select_with_cohort_respects_custom_min_samples_per_cohort():
+    """Customer override of min_samples_per_cohort tightens / relaxes the
+    per-cohort floor."""
+    general = _profile(samples_count=30)
+    sarah = _profile(samples_count=20)
+    cohort_profile = _profile(samples_count=8)
+    # With default MIN=5, 8 passes — selected.
+    bundle_default = VoiceProfileBundle(
+        general=general,
+        per_user={"partner-sarah": sarah},
+        per_user_cohort={("partner-sarah", "client"): cohort_profile},
+    )
+    chosen, _, cohort = bundle_default.select_with_cohort("partner-sarah", "client")
+    assert chosen is cohort_profile
+    assert cohort == "client"
+    # With customer-tightened floor of 10, 8 fails — falls back to user.
+    bundle_strict = VoiceProfileBundle(
+        general=general,
+        per_user={"partner-sarah": sarah},
+        per_user_cohort={("partner-sarah", "client"): cohort_profile},
+        min_samples_per_cohort=10,
+    )
+    chosen2, _, cohort2 = bundle_strict.select_with_cohort("partner-sarah", "client")
+    assert chosen2 is sarah
+    assert cohort2 == GENERAL_VOICE_COHORT
+
+
+def test_bundle_select_with_cohort_no_user_falls_back_to_general():
+    """No reviewer id → straight to customer general, regardless of cohort."""
+    general = _profile(samples_count=30)
+    sarah = _profile(samples_count=20)
+    bundle = VoiceProfileBundle(
+        general=general,
+        per_user={"partner-sarah": sarah},
+        per_user_cohort={("partner-sarah", "client"): _profile(samples_count=15)},
+    )
+    chosen, who, cohort = bundle.select_with_cohort(None, "client")
+    assert chosen is general
+    assert who == GENERAL_VOICE_USER_ID
+    assert cohort == GENERAL_VOICE_COHORT
+
+
+def test_bundle_select_with_cohort_no_cohort_skips_to_per_user():
+    """Reviewer id but no cohort → skip the (user, cohort) layer."""
+    general = _profile(samples_count=30)
+    sarah = _profile(samples_count=20, greeting=GreetingStyle.FORMAL_NAMED)
+    bundle = VoiceProfileBundle(
+        general=general,
+        per_user={"partner-sarah": sarah},
+        per_user_cohort={("partner-sarah", "client"): _profile(samples_count=15)},
+    )
+    chosen, who, cohort = bundle.select_with_cohort("partner-sarah", None)
+    assert chosen is sarah
+    assert who == "partner-sarah"
+    assert cohort == GENERAL_VOICE_COHORT
+
+
+def test_bundle_select_with_cohort_user_only_in_cohort_table_falls_back():
+    """If a reviewer has cohort-specific profiles but no cohort-agnostic
+    per-user profile, an unmatched cohort falls all the way through to
+    the general profile.
+
+    This is a real shape — early adopters may have cohort-tagged samples
+    but no general-tagged samples for a user yet.
+    """
+    general = _profile(samples_count=30)
+    bundle = VoiceProfileBundle(
+        general=general,
+        per_user={},
+        per_user_cohort={("partner-sarah", "client"): _profile(samples_count=15)},
+    )
+    # Asking for an uncovered cohort: no per-user fallback exists.
+    chosen, who, cohort = bundle.select_with_cohort("partner-sarah", "court")
+    assert chosen is general
+    assert who == GENERAL_VOICE_USER_ID
+    assert cohort == GENERAL_VOICE_COHORT
+
+
+def test_transform_draft_threads_cohort_through_to_result():
+    """End-to-end: transform_draft accepts recipient_cohort and the
+    result records both selected_voice_user_id and selected_voice_cohort."""
+    general = _profile(samples_count=30, greeting=GreetingStyle.SEMI_FORMAL)
+    sarah = _profile(samples_count=20, greeting=GreetingStyle.FORMAL_NAMED)
+    sarah_for_client = _profile(
+        samples_count=15,
+        greeting=GreetingStyle.FIRST_NAME,
+        signoff=SignoffStyle.THANKS,
+    )
+    bundle = VoiceProfileBundle(
+        general=general,
+        per_user={"partner-sarah": sarah},
+        per_user_cohort={("partner-sarah", "client"): sarah_for_client},
+    )
+
+    draft = "Dear Mr. Smith,\n\nFollowing up.\n\nSincerely,\nMarcus"
+    result = transform_draft(
+        draft=draft,
+        profile=bundle,
+        reviewer_user_id="partner-sarah",
+        recipient_cohort="client",
+    )
+    assert result.selected_voice_user_id == "partner-sarah"
+    assert result.selected_voice_cohort == "client"
+    assert result.status == TransformStatus.TRANSFORMED
+    # Per-(user, cohort) is first_name/thanks → swap from formal
+    assert result.transformed_draft.startswith("Hi Smith,")
+
+
+def test_transform_draft_records_general_cohort_on_legacy_path():
+    """Bare VoiceProfile callers (no bundle) always see GENERAL cohort."""
+    profile = _profile(samples_count=30)
+    draft = "Dear Mr. Smith,\n\nFollowing up.\n\nSincerely,\nMarcus"
+    result = transform_draft(
+        draft=draft,
+        profile=profile,
+        reviewer_user_id="partner-sarah",
+        recipient_cohort="client",
+    )
+    assert result.selected_voice_user_id == GENERAL_VOICE_USER_ID
+    assert result.selected_voice_cohort == GENERAL_VOICE_COHORT
+
+
+def test_transform_draft_records_cohort_on_passthrough_paths():
+    """Empty draft + insufficient-profile passthroughs both surface
+    selected_voice_cohort so the dashboard can attribute attempts."""
+    general = _profile(samples_count=30)
+    sarah_for_client = _profile(samples_count=15)
+    bundle = VoiceProfileBundle(
+        general=general,
+        per_user={},
+        per_user_cohort={("partner-sarah", "client"): sarah_for_client},
+    )
+    empty = transform_draft(
+        draft="",
+        profile=bundle,
+        reviewer_user_id="partner-sarah",
+        recipient_cohort="client",
+    )
+    assert empty.status == TransformStatus.PASSTHROUGH_EMPTY_DRAFT
+    assert empty.selected_voice_user_id == "partner-sarah"
+    assert empty.selected_voice_cohort == "client"

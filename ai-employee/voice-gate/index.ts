@@ -24,12 +24,14 @@ export type {
 
 export {
   RECIPIENT_COHORTS,
+  REQUIRED_COHORTS_FOR_ALL_RUN,
   VOICE_GATE_MAX_NEAR_PASS_CYCLES,
   VOICE_GATE_MIN_DAYS_BETWEEN_CYCLES,
   VOICE_GATE_NEAR_PASS_LOWER_PCT,
   VOICE_GATE_PASS_THRESHOLD_PCT,
   auditActionFor,
   buildAuditMetadata,
+  missingRequiredCohorts,
   scoreRun,
   stateForScore,
 } from './scoring.js'

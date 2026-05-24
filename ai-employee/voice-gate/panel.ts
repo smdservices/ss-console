@@ -23,7 +23,7 @@
  * the caller passes drafts in.
  */
 
-import { RECIPIENT_COHORTS } from './scoring.js'
+import { missingRequiredCohorts } from './scoring.js'
 import type { BlindTestDraft, BlindTestRun, JudgeIdentification, RecipientCohort } from './types.js'
 
 /**
@@ -110,7 +110,7 @@ function validateCohortConsistency(input: CreatePanelSessionInput): string[] {
     return []
   }
   const seenCohorts = new Set(input.drafts.map((d) => d.cohort))
-  const missing = RECIPIENT_COHORTS.filter((c) => !seenCohorts.has(c))
+  const missing = missingRequiredCohorts(seenCohorts)
   if (missing.length > 0) {
     return [`'all' cohort run missing drafts for: ${missing.join(', ')}`]
   }

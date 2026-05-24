@@ -50,14 +50,62 @@ export const VOICE_GATE_MAX_NEAR_PASS_CYCLES = 2
 export const VOICE_GATE_MIN_DAYS_BETWEEN_CYCLES = 7
 
 /**
- * Cohorts the v1 model recognizes. Imported from PRD §9.3 Layer 3 v1.
+ * Cohorts the v1 model recognizes. Aligned with the schema's
+ * `BASE_VOICE_COHORTS` (`src/lib/ai-employee/customer-yaml/types.ts`).
+ * Issue #857 added `court` and `internal` here when the cohort
+ * vocabulary was lifted into the schema; `internal-team` is the
+ * legacy alias retained for archived blind-test runs and is included
+ * here so existing fixtures keep loading.
+ *
  * Centralized here so scoring + fixture loading + panel agree.
  */
 export const RECIPIENT_COHORTS: ReadonlyArray<RecipientCohort> = [
   'client',
   'opposing-counsel',
+  'court',
+  'internal',
   'internal-team',
 ]
+
+/**
+ * Cohorts required for a valid `'all'` blind-test run. Mirrors the
+ * historical three-cohort baseline (client, opposing-counsel, internal
+ * OR internal-team). `court` is accepted (in `RECIPIENT_COHORTS`) but
+ * NOT required so transactional firms with no court practice can still
+ * pass an `'all'` run.
+ *
+ * `internal` / `internal-team` are interchangeable for coverage — a
+ * run with either satisfies the internal slot. Issue #857.
+ */
+export const REQUIRED_COHORTS_FOR_ALL_RUN: ReadonlyArray<RecipientCohort> = [
+  'client',
+  'opposing-counsel',
+]
+
+/**
+ * Equivalence classes for cohort coverage. The internal slot is
+ * satisfied by either `internal` or the legacy `internal-team` alias.
+ */
+const INTERNAL_COHORT_EQUIVALENTS: ReadonlySet<RecipientCohort> = new Set([
+  'internal',
+  'internal-team',
+])
+
+/**
+ * Resolve which cohorts of `REQUIRED_COHORTS_FOR_ALL_RUN` (plus the
+ * internal-equivalence class) are NOT covered by a draft set. Used by
+ * the panel layer to flag missing-cohort 'all' runs without forcing
+ * customers to cover the optional `court` cohort.
+ */
+export function missingRequiredCohorts(seen: ReadonlySet<RecipientCohort>): RecipientCohort[] {
+  const missing: RecipientCohort[] = []
+  for (const c of REQUIRED_COHORTS_FOR_ALL_RUN) {
+    if (!seen.has(c)) missing.push(c)
+  }
+  const hasInternal = [...INTERNAL_COHORT_EQUIVALENTS].some((c) => seen.has(c))
+  if (!hasInternal) missing.push('internal')
+  return missing
+}
 
 /**
  * Map a gate state to the audit_log action_type per d1-schema.md §1.
@@ -198,8 +246,17 @@ export function scoreRun(run: BlindTestRun): GateResult {
   const state: GateState = cycleCountForcesfail ? 'fail' : naturalState
 
   const per_cohort = perCohortBreakdown(run)
+  // Skip cohorts that had no agent-drafted judgments in the run — they
+  // were absent (not under-performing). #857 expanded RECIPIENT_COHORTS
+  // so most runs won't cover every entry; flagging an absent cohort as
+  // "below threshold" would mislead Captain into recalibrating something
+  // they never tested.
   const below_threshold_cohorts: RecipientCohort[] = per_cohort
-    ? RECIPIENT_COHORTS.filter((c) => per_cohort[c].score_pct < VOICE_GATE_PASS_THRESHOLD_PCT)
+    ? RECIPIENT_COHORTS.filter(
+        (c) =>
+          per_cohort[c].total_agent_judgments > 0 &&
+          per_cohort[c].score_pct < VOICE_GATE_PASS_THRESHOLD_PCT
+      )
     : []
 
   let failure_record: FailureRecord | undefined
