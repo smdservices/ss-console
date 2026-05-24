@@ -12,11 +12,24 @@
  */
 
 /**
- * Recipient cohort for blind-test framing. Three v1 cohorts per PRD §9.3
- * Layer 3. New cohorts must be added here AND threaded through the panel
- * + fixture loader; the closed union prevents silent drift.
+ * Recipient cohort for blind-test framing. Aligned with the schema's
+ * `BASE_VOICE_COHORTS` (`src/lib/ai-employee/customer-yaml/types.ts`).
+ *
+ * v1 base cohorts per PRD §9.3 Layer 3: `client`, `opposing-counsel`,
+ * `court`, `internal`. Issue #857 added `court` and `internal` to the
+ * union when the cohort vocabulary was lifted into the schema.
+ *
+ * `internal-team` is preserved as a legacy alias so archived blind-
+ * test runs scored against the old PR-#857-predates label keep
+ * rendering. New runs should use `internal`. The legacy slug stays in
+ * the union but does NOT appear in `BASE_VOICE_COHORTS`; customers
+ * who want it must opt in via their own `voice_cohorts.cohorts[]`
+ * declaration.
+ *
+ * New cohorts must be added here AND threaded through the panel +
+ * fixture loader + scoring; the closed union prevents silent drift.
  */
-export type RecipientCohort = 'client' | 'opposing-counsel' | 'internal-team'
+export type RecipientCohort = 'client' | 'opposing-counsel' | 'court' | 'internal' | 'internal-team'
 
 /**
  * Authorship label attached to a draft. The blind test hides this label

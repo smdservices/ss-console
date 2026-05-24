@@ -77,8 +77,17 @@ describe('voice-gate threshold constants', () => {
     expect(VOICE_GATE_MAX_NEAR_PASS_CYCLES).toBe(2)
   })
 
-  it('RECIPIENT_COHORTS lists the three v1 cohorts', () => {
-    expect([...RECIPIENT_COHORTS].sort()).toEqual(['client', 'internal-team', 'opposing-counsel'])
+  it('RECIPIENT_COHORTS lists the v1+#857 cohorts', () => {
+    // #857 added `court` and `internal` to align the harness with the
+    // schema's BASE_VOICE_COHORTS. `internal-team` remains as a legacy
+    // alias so archived blind-test runs continue to load.
+    expect([...RECIPIENT_COHORTS].sort()).toEqual([
+      'client',
+      'court',
+      'internal',
+      'internal-team',
+      'opposing-counsel',
+    ])
   })
 })
 

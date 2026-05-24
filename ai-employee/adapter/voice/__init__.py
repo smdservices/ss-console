@@ -87,6 +87,7 @@ from .state import (
 )
 from .transform import (
     DraftTransformer,
+    GENERAL_VOICE_COHORT,
     GENERAL_VOICE_USER_ID,
     MAX_TRANSFORM_PASSES,
     MIN_PROFILE_SAMPLE_COUNT,
@@ -107,6 +108,7 @@ __all__ = [
     "CursorStore",
     "DraftTransformer",
     "EmailSource",
+    "GENERAL_VOICE_COHORT",
     "GENERAL_VOICE_USER_ID",
     "FilterResult",
     "GreetingStyle",
