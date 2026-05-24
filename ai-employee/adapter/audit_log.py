@@ -145,12 +145,6 @@ ACCEPTED_ACTION_TYPES = frozenset(
         "CURATOR_DRAFT",
         "CURATOR_PROMOTION",
         "CURATOR_DISMISSAL",
-        # GEPA self-evolution overlay (ADR 0018) — disabled inside customer
-        # Machines. Emitted once per Machine boot when the disable check
-        # passes (so the audit corpus carries explicit evidence the discipline
-        # is being applied, not just the default-on assumption upstream would
-        # otherwise satisfy passively).
-        "GEPA_DISABLED_VERIFIED",
     }
 )
 
