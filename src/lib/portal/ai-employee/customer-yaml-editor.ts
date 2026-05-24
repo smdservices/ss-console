@@ -437,6 +437,7 @@ function lockedFromCurrent(
   | 'machine'
   | 'memory'
   | 'users'
+  | 'compliance_enabled'
 > {
   return {
     schema_version: current.schema_version,
@@ -450,6 +451,7 @@ function lockedFromCurrent(
     machine: current.machine,
     memory: current.memory,
     users: current.users,
+    compliance_enabled: current.compliance_enabled,
   }
 }
 

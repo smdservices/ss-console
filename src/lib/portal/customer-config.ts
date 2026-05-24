@@ -58,6 +58,23 @@ export interface CustomerConfigRow {
   business_hours: unknown
   connectors: unknown
   scope: unknown
+  /**
+   * Projected from `customer.yaml.compliance_enabled` per issue #895.
+   * When `false`, the dedicated Compliance dashboard view does not
+   * render even for users who hold the `compliance` product_role —
+   * the firm has not opted in to the separation-of-duties posture this
+   * view represents. RBAC on the existing audit surface is independent
+   * of this flag.
+   */
+  compliance_enabled: boolean
+  /**
+   * Projected from `customer.yaml.vertical` per issue #895. Drives the
+   * per-vertical audit retention default surfaced on the Compliance
+   * dashboard. Distinct from the prospect-side `entities.vertical`
+   * field (different taxonomy, different purpose). Nullable so the row
+   * can backfill before CI sync writes the column.
+   */
+  vertical: string | null
   git_sha: string
   synced_at: string
 }
@@ -73,6 +90,8 @@ interface CustomerConfigDbRow {
   business_hours_json: string | null
   connectors_json: string | null
   scope_json: string | null
+  compliance_enabled: number
+  vertical: string | null
   git_sha: string
   synced_at: string
 }
@@ -117,6 +136,8 @@ function projectRow(row: CustomerConfigDbRow): CustomerConfigRow {
     business_hours: parseJsonNullable(row.business_hours_json),
     connectors: parseJsonNullable(row.connectors_json),
     scope: parseJsonNullable(row.scope_json),
+    compliance_enabled: row.compliance_enabled === 1,
+    vertical: row.vertical,
     git_sha: row.git_sha,
     synced_at: row.synced_at,
   }
