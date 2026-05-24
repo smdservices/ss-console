@@ -15,8 +15,14 @@ Per-customer namespace isolation enforcement (issue #861, ADR 0009)
 lives in `namespace_assertion.py`. Production wiring constructs the
 three `Namespaced*` wrappers below at Machine boot and hands the
 wrapped instances to every caller that touches D1, R2, or Vectorize.
+The factory helpers (`namespaced_executor_from_env` in `d1_env.py`,
+`memory.build_namespaced_memory_runner`, and
+`voice.build_namespaced_voice_runner`) are the recommended migration
+entry points for the fork's overlay — see issue
+[#1009](https://github.com/venturecrane/ss-console/issues/1009).
 """
 
+from .d1_env import namespaced_executor_from_env
 from .namespace_assertion import (
     NamespaceAssertionError,
     NamespacedD1Executor,
@@ -31,4 +37,5 @@ __all__ = [
     "NamespacedD1Executor",
     "NamespacedR2Client",
     "NamespacedVectorizeClient",
+    "namespaced_executor_from_env",
 ]
