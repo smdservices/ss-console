@@ -11,7 +11,7 @@ vertical: marketing-agency
 fly_region: iad
 
 model: claude-opus-4-7
-hermes_ref: v0.0.0-fixture
+hermes_ref: v0.0.0-smd.0
 
 machine:
   size: shared-cpu-1x

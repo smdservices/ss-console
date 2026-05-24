@@ -286,7 +286,12 @@ function reconstructProjection(row: Awaited<ReturnType<typeof getCustomerConfig>
     vertical: 'mixed',
     fly_region: 'iad',
     model: 'unknown',
-    hermes_ref: 'unknown',
+    // 'unknown' was the pre-ADR-0015 sentinel; the validator now enforces
+    // the fork-tag pattern, so the placeholder needs to satisfy it. The
+    // reconstructed projection has no real ref to point at (the DB row
+    // doesn't carry hermes_ref yet); v0.0.0-smd.0 is the unambiguous
+    // "no fork ref yet" sentinel within the fork-tag scheme.
+    hermes_ref: 'v0.0.0-smd.0',
     machine: { size: 'unknown', memory_mb: 256 },
     users: [],
     personas: row.personas,
