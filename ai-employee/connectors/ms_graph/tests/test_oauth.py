@@ -27,8 +27,10 @@ import pytest
 try:
     from connectors.ms_graph.oauth import (
         AUTHORIZE_URL,
+        MAIL_SEND_SCOPE,
         MSGraphOAuth,
         PHASE_1_SCOPES,
+        PHASE_2_SCOPES,
         REFRESH_MARGIN_SECONDS,
         TOKEN_URL,
         TokenSet,
@@ -38,8 +40,10 @@ try:
 except ModuleNotFoundError:
     from ms_graph.oauth import (  # type: ignore[no-redef]
         AUTHORIZE_URL,
+        MAIL_SEND_SCOPE,
         MSGraphOAuth,
         PHASE_1_SCOPES,
+        PHASE_2_SCOPES,
         REFRESH_MARGIN_SECONDS,
         TOKEN_URL,
         TokenSet,
@@ -186,15 +190,19 @@ def test_token_store_atomic_replace(tmp_path: Path) -> None:
 # ----- MSGraphOAuth construction -----
 
 
-def test_oauth_rejects_mail_send_scope(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="Mail.Send is a wave-2 scope"):
-        MSGraphOAuth(
-            client_id="x",
-            client_secret="y",
-            redirect_uri="https://portal.example/ai-employee/oauth/microsoft-graph/callback",
-            scopes=("Mail.Read", "Mail.Send"),
-            token_store=TokenStore(tmp_path / "microsoft.json"),
-        )
+def test_oauth_accepts_mail_send_scope_when_explicitly_requested(tmp_path: Path) -> None:
+    """Wave-2 (#881) -- customers opting in to reviewer-as-sender pass
+    PHASE_2_SCOPES (which adds Mail.Send) and the OAuth client accepts
+    it. The Phase-1 default (PHASE_1_SCOPES) still excludes Mail.Send,
+    so a customer who has not opted in cannot accidentally request it."""
+    oauth = MSGraphOAuth(
+        client_id="x",
+        client_secret="y",
+        redirect_uri="https://portal.example/ai-employee/oauth/microsoft-graph/callback",
+        scopes=PHASE_2_SCOPES,
+        token_store=TokenStore(tmp_path / "microsoft.json"),
+    )
+    assert MAIL_SEND_SCOPE in oauth.scopes
 
 
 def test_oauth_requires_client_id(tmp_path: Path) -> None:
@@ -495,3 +503,34 @@ def test_phase_1_scopes_match_lifecycle_spec() -> None:
         "Files.ReadWrite.AppFolder",
     }
     assert set(PHASE_1_SCOPES) == required
+
+
+# ----- Wave-2 scopes (#881) -----
+
+
+def test_phase_2_scopes_extend_phase_1_with_mail_send() -> None:
+    """Wave-2 reviewer-as-sender opts in to Mail.Send on top of the
+    Phase-1 set. PHASE_2_SCOPES must be a strict superset so a customer
+    who is on PHASE_2 keeps every Phase-1 capability."""
+    assert set(PHASE_1_SCOPES).issubset(set(PHASE_2_SCOPES))
+    assert MAIL_SEND_SCOPE in PHASE_2_SCOPES
+    # And the only addition is Mail.Send; nothing else creeps in.
+    assert set(PHASE_2_SCOPES) - set(PHASE_1_SCOPES) == {MAIL_SEND_SCOPE}
+
+
+def test_authorize_url_with_phase_2_scopes_includes_mail_send(tmp_path: Path) -> None:
+    """When the customer is on the wave-2 consent, the authorize URL
+    advertises Mail.Send so the Entra consent prompt asks for it."""
+    oauth = MSGraphOAuth(
+        client_id="abc-123",
+        client_secret="secret",
+        redirect_uri="https://portal.smd.services/ai-employee/oauth/microsoft-graph/callback",
+        scopes=PHASE_2_SCOPES,
+        token_store=TokenStore(tmp_path / "microsoft.json"),
+    )
+    url = oauth.authorize_url(state="signed-state-token")
+    assert "Mail.Send" in url
+    # Phase-1 scopes still all present so wave-2 doesn't accidentally
+    # narrow the grant.
+    for scope in PHASE_1_SCOPES:
+        assert scope in url

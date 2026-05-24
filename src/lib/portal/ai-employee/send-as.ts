@@ -16,12 +16,17 @@
  * "agent" or "system" sender. A code path that wants to send without
  * a reviewer cannot compile.
  *
- * **Connector wiring is pending #822 (Microsoft Graph OAuth).** Today
- * the function returns `{ status: 'pending_connector' }` and queues the
- * audit row. The UI flow is fully working end-to-end — the network
- * send is the only stub. When #822 lands, the body of
- * `dispatchViaConnector` swaps in the Graph SMTP call; the rest of
- * the module stays put.
+ * **Connector wiring lands across two PRs.** The Microsoft Graph send
+ * surface ships in Python at
+ * `ai-employee/connectors/ms_graph/send.py:send_draft_as_reviewer`
+ * (issue #881, wave-2). The portal Worker reaches the per-customer
+ * Hermes Machine via the Hermes bridge that is still tracked in #821.
+ * Until the bridge lands, `sendAsReviewer` returns
+ * `{ status: 'pending_connector' }` and the audit row is queued. The
+ * UI flow is fully working end-to-end — the network send is the only
+ * stub. When #821 lands, the body of `dispatchViaConnector` swaps in
+ * the bridge call to the Python module; the rest of this module stays
+ * put.
  *
  * **Audit emission.** Every send attempt — successful, pending, or
  * failed — emits a `send_approved` event via `recordSendApprovedAudit`.
@@ -112,6 +117,15 @@ export interface SendResult {
  *                     match the metadata shape the issue specifies
  *                     ({ approver_id, draft_hash, reviewer_email,
  *                        send_window_ms, timestamp })
+ *   personaSlug     — Canonical persona slug for the AI Employee that
+ *                     drafted the message (per ADR 0011 §3). Nullable
+ *                     at v1 — every customer ships with a single
+ *                     persona and the writer populates from
+ *                     `customer.yaml.personas[0].slug`. Carried on
+ *                     every send audit so Phase 2's multi-persona
+ *                     back-fill rule (ADR 0011 §6) has a stable join
+ *                     key. The bridge's per-customer Hermes D1 maps
+ *                     this to the `audit_log.persona_slug` column.
  *   sendWindowMs    — configured undo window the send was committed
  *                     against (or 0 if Undo was used / send was
  *                     dispatched without an undo window)
@@ -124,6 +138,7 @@ export interface SendApprovedAuditEvent {
   draftId: string
   draftHash: string
   reviewerEmail: string
+  personaSlug: string | null
   sendWindowMs: number
   timestamp: string
   sendStatus: SendStatus
@@ -215,23 +230,34 @@ export async function sendAsReviewer(draft: DraftDetail, reviewer: Reviewer): Pr
 }
 
 /**
- * Connector dispatch — Microsoft Graph SMTP send wired through the
- * reviewer's OAuth grant. This is the only function in the module
- * that does network I/O. Today it returns the pending_connector
- * sentinel because #822 has not landed. When the connector ships,
- * replace the body with the Graph call and leave the call sites
- * unchanged.
+ * Connector dispatch — bridge call to the per-customer Hermes Machine
+ * that holds the reviewer's OAuth grant and invokes
+ * `ai-employee/connectors/ms_graph/send.py:send_draft_as_reviewer`.
+ *
+ * The Python module is the wave-2 reviewer-as-sender concrete impl
+ * (issue #881). The portal Worker cannot reach it directly because
+ * the per-customer Machine binding is owned by Hermes; the Hermes
+ * bridge is the seam, tracked in #821.
+ *
+ * Today this returns the `pending_connector` sentinel because the
+ * bridge has not landed. When #821 ships, replace the body with the
+ * bridge call (HTTP POST to the Hermes Machine's internal send
+ * endpoint) and translate the Python `SendOutcome` shape into the
+ * TS `SendResult` shape. The mapping is 1:1:
+ *
+ *   Python SendOutcome.status="sent"   -> SendResult.status="sent"
+ *   Python SendOutcome.status="failed" -> SendResult.status="failed"
  *
  * The function is split out from `sendAsReviewer` so the validation
  * (reviewer-as-sender invariant, draft integrity) stays in the
  * exported surface and the network call is the one mutation point
- * for the connector PR.
+ * for the bridge PR.
  */
 // eslint-disable-next-line @typescript-eslint/require-await
 async function dispatchViaConnector(_draft: DraftDetail, reviewer: Reviewer): Promise<SendResult> {
   // Connector pending. The UI surfaces this honestly — the audit row
   // records the approver action, but no message has gone out yet.
-  // When #822 lands, the body of this function changes; nothing else.
+  // When #821 lands, the body of this function changes; nothing else.
   return {
     status: 'pending_connector',
     reviewerEmail: reviewer.email,
@@ -279,6 +305,7 @@ export function buildSendApprovedAuditEvent(input: {
   draftId: string
   draftHash: string
   reviewerEmail: string
+  personaSlug: string | null
   sendWindowMs: number
   sendStatus: SendStatus
   now?: Date
@@ -290,6 +317,7 @@ export function buildSendApprovedAuditEvent(input: {
     draftId: input.draftId,
     draftHash: input.draftHash,
     reviewerEmail: input.reviewerEmail,
+    personaSlug: input.personaSlug,
     sendWindowMs: input.sendWindowMs,
     timestamp: ts,
     sendStatus: input.sendStatus,

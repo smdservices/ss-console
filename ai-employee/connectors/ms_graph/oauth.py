@@ -49,7 +49,8 @@ REFRESH_MARGIN_SECONDS = 600
 
 # Phase 1 delegated scopes per oauth-lifecycle.md. `offline_access` is
 # required to receive a refresh token. `Mail.Send` is intentionally
-# excluded -- wave-2 issue #881.
+# excluded from the Phase-1 set -- it is wave-2 and lives in
+# PHASE_2_SCOPES below.
 PHASE_1_SCOPES: tuple[str, ...] = (
     "offline_access",
     "User.Read",
@@ -60,6 +61,16 @@ PHASE_1_SCOPES: tuple[str, ...] = (
     "Files.Read",
     "Files.ReadWrite.AppFolder",
 )
+
+# Wave-2 (issue #881) scope addition for reviewer-as-sender per
+# [ADR 0005](../../../../docs/adr/0005-reviewer-as-sender.md). The send
+# itself is fired by the dashboard as a partner-tap action against an
+# existing draft created via the Phase-1 `Mail.ReadWrite` scope; the
+# agent never holds a send token, the reviewer always does. Customers
+# opt into wave-2 by re-consenting against PHASE_2_SCOPES, which adds
+# `Mail.Send` on top of PHASE_1_SCOPES.
+MAIL_SEND_SCOPE = "Mail.Send"
+PHASE_2_SCOPES: tuple[str, ...] = PHASE_1_SCOPES + (MAIL_SEND_SCOPE,)
 
 
 @dataclass
@@ -261,11 +272,6 @@ class MSGraphOAuth:
             raise ValueError("client_secret is required")
         if not redirect_uri:
             raise ValueError("redirect_uri is required")
-        # Defense-in-depth: refuse to ship with Mail.Send scope -- wave-2 only.
-        if any(scope.lower() == "mail.send" for scope in scopes):
-            raise ValueError(
-                "Mail.Send is a wave-2 scope (issue #881); Phase 1 ships read + draft only"
-            )
         self.client_id = client_id
         self.client_secret = client_secret
         self.redirect_uri = redirect_uri
@@ -409,8 +415,10 @@ class MSGraphOAuth:
 __all__ = [
     "AUTHORIZE_URL",
     "DEFAULT_TOKEN_PATH",
+    "MAIL_SEND_SCOPE",
     "MSGraphOAuth",
     "PHASE_1_SCOPES",
+    "PHASE_2_SCOPES",
     "REFRESH_MARGIN_SECONDS",
     "TOKEN_URL",
     "TokenSet",
