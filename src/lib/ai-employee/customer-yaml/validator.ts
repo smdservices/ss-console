@@ -55,6 +55,7 @@ import {
   checkScope,
   checkVoiceLibrary,
 } from './sections-other'
+import { checkVoiceCohorts } from './sections-voice'
 
 export type {
   CustomerYaml,
@@ -74,6 +75,8 @@ export type {
   Memory,
   MemoryRetention,
   VoiceLibrary,
+  VoiceCohorts,
+  BaseVoiceCohort,
   BusinessHours,
   Logging,
   Pause,
@@ -97,8 +100,10 @@ export {
   ACCEPTED_BACKEND_PREFIXES,
   ACCEPTED_SCHEMA_VERSIONS,
   AUDIT_LOG_DAYS_MAX,
+  BASE_VOICE_COHORTS,
   VERTICAL_AUDIT_LOG_DAYS_DEFAULTS,
 } from './types'
+export { resolveCohortVocabulary } from './sections-voice'
 
 export interface ValidateOptions {
   /** Raw YAML text. When provided, scanRawYaml runs as the first pass so a
@@ -157,6 +162,7 @@ interface ParsedSections {
   escalation: ReturnType<typeof checkEscalation>
   memory: Memory | null
   voiceLibrary: ReturnType<typeof checkVoiceLibrary>
+  voiceCohorts: ReturnType<typeof checkVoiceCohorts>
   businessHours: ReturnType<typeof checkBusinessHours>
   logging: ReturnType<typeof checkLogging>
   pause: ReturnType<typeof checkPause>
@@ -195,6 +201,7 @@ function validateSections(
     escalation,
     memory,
     voiceLibrary: checkVoiceLibrary(root, errors),
+    voiceCohorts: checkVoiceCohorts(root, errors),
     businessHours: checkBusinessHours(root, errors),
     logging: checkLogging(root, errors),
     pause: checkPause(root, errors),
@@ -220,6 +227,7 @@ function assembleCustomerYaml(root: Record<string, unknown>, p: ParsedSections):
     scope: p.scope,
     escalation: p.escalation,
     voice_library: p.voiceLibrary,
+    voice_cohorts: p.voiceCohorts,
     business_hours: p.businessHours,
     memory: p.memory as Memory,
     logging: p.logging,

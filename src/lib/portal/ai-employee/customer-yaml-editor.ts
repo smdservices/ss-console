@@ -399,6 +399,10 @@ export function applyEditableChanges(
       changes.voiceLibrary.samples_path === null
         ? null
         : { samples_path: changes.voiceLibrary.samples_path },
+    // voice_cohorts is not user-editable in the portal yet (#857
+    // schema lands the field; in-product editor is a follow-on).
+    // Preserve the current value verbatim.
+    voice_cohorts: current.voice_cohorts,
     business_hours: changes.businessHours,
     logging: changes.logging
       ? {
@@ -607,6 +611,7 @@ function reconstructFromProjection(row: CustomerConfigRow): unknown {
       acknowledgement_window_minutes: escalation.acknowledgement_window_minutes ?? null,
     },
     voice_library: row.voice_library ?? null,
+    voice_cohorts: null,
     business_hours: row.business_hours ?? null,
     memory: {
       d1_namespace: row.customer_slug,

@@ -111,6 +111,13 @@ escalation: # default; per-persona override allowed via personas[].escalation_ov
 voice_library: # OPTIONAL; shared across personas unless overridden
   samples_path: <string> # OPTIONAL; r2:// path
 
+voice_cohorts: # OPTIONAL; recipient-cohort taxonomy (issue #857)
+  cohorts: <list<slug>> # ≥1 entry; each entry matches ^[a-z0-9][a-z0-9-]{0,31}$
+  # Omission of `voice_cohorts:` accepts the base set:
+  # ["client", "opposing-counsel", "court", "internal"]
+  min_samples_per_cohort: <int> # OPTIONAL; positive integer; overrides
+  # the Layer 2 module default for the per-(user,cohort) fallback floor
+
 business_hours: # OPTIONAL; defaults to M-F 08:00-18:00 in fly_region tz
   timezone: <string> # IANA tz
   days: <list<string>> # ["mon", "tue", ...]
@@ -260,6 +267,56 @@ The `users[].voice_profile_id` field is the seam:
 
 One persona, one customer Machine, N users with distinct voice profiles. Multi-persona runtime support is Phase 2; multi-user voice is v1 (this PR).
 
+## Per-recipient cohort voice variation
+
+**Added by [#857](https://github.com/venturecrane/ss-console/issues/857).** Reviewers write differently to different audiences — a partner's voice to an anxious client is not their voice to opposing counsel. PRD §9.3 Layer 3 declared per-recipient cohorts as v1 (not deferred); this PR lifts the cohort vocabulary out of informal sample tagging and into the schema.
+
+**Base cohort taxonomy.** Customers ship by default with the four base cohorts:
+
+- `client` — communications to the customer's own clients
+- `opposing-counsel` — communications to lawyers on the other side
+- `court` — communications to courts, clerks, judges, administrative bodies
+- `internal` — communications among the firm's own staff
+
+Slug names align with the voice-gate harness ([`ai-employee/voice-gate/types.ts`](../../../ai-employee/voice-gate/types.ts) :: `RecipientCohort`). The harness historically shipped three cohorts (`client`, `opposing-counsel`, `internal-team`); this PR adds `court` and `internal` to the harness's `RECIPIENT_COHORTS` array so the schema's four-cohort base set is acceptable to the blind-test gate. The legacy `internal-team` slug is kept in the harness union so archived blind-test runs scored against it continue to render — customers who shipped on the old vocabulary do not have to re-migrate. Schema-side, `BASE_VOICE_COHORTS` uses `internal`; customers may opt into either slug via their own `voice_cohorts.cohorts[]` declaration.
+
+**Customer extensions.** A customer's `voice_cohorts:` block names the cohort vocabulary that customer's voice samples are partitioned into. A transactional firm with no court practice may drop the `court` cohort:
+
+```yaml
+voice_cohorts:
+  cohorts:
+    - client
+    - opposing-counsel
+    - internal
+```
+
+A firm with a unique audience (mediation panels, expert witnesses) may add custom cohorts:
+
+```yaml
+voice_cohorts:
+  cohorts:
+    - client
+    - opposing-counsel
+    - court
+    - internal
+    - mediator
+    - expert-witness
+```
+
+When `voice_cohorts:` is omitted, the customer accepts `BASE_VOICE_COHORTS` (the four base names). The Layer 2 transform reads the resolved vocabulary via `resolveCohortVocabulary(customer.voice_cohorts)` so the absence-vs-present branch lives in one place.
+
+**Sample tagging.** Voice samples are already written to R2 at `{customer-slug}/voice/cohort/{cohort-id}/{ulid}.json` (see [`adapter/voice/pipeline.py`](../../../ai-employee/adapter/voice/pipeline.py) :: `_ingest_one`). The cohort vocabulary declared here is what `CohortResolver` is allowed to assign; cohorts not in the customer's declared list are coerced to the `unassigned` sentinel by the resolver.
+
+**Selection rule (Layer 2 fallback ladder).** Given a draft, a reviewer, and a recipient cohort, the transform picks profiles in this priority order:
+
+1. **Per-(user, cohort)** — `users[i].voice_profile_id` × cohort id. Picked when samples ≥ `min_samples_per_cohort` (default `MIN_PROFILE_SAMPLE_COUNT`).
+2. **Per-user general** — `users[i].voice_profile_id` aggregated across that user's samples regardless of cohort.
+3. **Customer general** — the firm-wide composite (every sample, every user, every cohort).
+
+The fallback is enforced in `VoiceProfileBundle.select(reviewer_user_id, recipient_cohort)`. Each step's outcome is recorded in `TransformResult.selected_voice_user_id` and `TransformResult.selected_voice_cohort` so the audit row and dashboard surface know which profile actually shaped the draft.
+
+**Blind-test gate scoping.** The voice-gate harness (`runVoiceGate({ ..., cohort })`) already scopes per cohort; the blind-test gate (#823) is exercised per cohort separately. The schema additions in this PR feed the harness's cohort vocabulary; the harness's three-state contract (pass / near-pass / fail) is unchanged.
+
 ## Failure modes
 
 | Condition                                                  | Validator behavior                                                                                                                                                                                 |
@@ -286,6 +343,10 @@ One persona, one customer Machine, N users with distinct voice profiles. Multi-p
 | `pause.active: true` without `pause.reason`                | Reject with `MissingField` error citing `pause.reason`                                                                                                                                             |
 | `users[].voice_profile_id` malformed slug                  | Reject with `InvalidSlug` error                                                                                                                                                                    |
 | Duplicate `users[].voice_profile_id` across users          | Reject with `DuplicateVoiceProfileId` error (per-user attribution model — two users cannot share a profile)                                                                                        |
+| `voice_cohorts:` present but `voice_cohorts.cohorts` empty | Reject with `EmptyList` error (the field's purpose is to declare cohorts; an empty list is an authoring mistake)                                                                                   |
+| `voice_cohorts.cohorts[]` entry malformed slug             | Reject with `InvalidSlug` error                                                                                                                                                                    |
+| Duplicate `voice_cohorts.cohorts[]` entry                  | Reject with `DuplicateVoiceCohort` error                                                                                                                                                           |
+| `voice_cohorts.min_samples_per_cohort` ≤ 0 or non-integer  | Reject with `TypeMismatch` error                                                                                                                                                                   |
 
 All errors are returned as a list; the validator does not short-circuit on the first error. Authors get the full picture in one round-trip.
 

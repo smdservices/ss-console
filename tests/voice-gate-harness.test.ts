@@ -12,7 +12,6 @@
 import { describe, it, expect } from 'vitest'
 
 import {
-  RECIPIENT_COHORTS,
   buildAuditRow,
   loadFixtureSet,
   runVoiceGate,
@@ -154,9 +153,17 @@ describe('fixture loader', () => {
   it('round-trips the bundled synthetic set', async () => {
     const set = await loadFixtureSet()
     expect(set.customer_slug).toBe('smith-pi-firm')
-    // 3 cohorts × 3 drafts each = 9 total
+    // 3 cohorts × 3 drafts each = 9 total in the bundled fixture.
+    // #857 added `court` and `internal` to RECIPIENT_COHORTS — the
+    // bundled fixture does NOT cover them (an authoring decision: the
+    // synthetic set predates the cohort expansion and is preserved as
+    // legacy-compat). Iterate the fixture's own cohort set rather than
+    // the full union so this test stays specific to what the fixture
+    // actually ships.
     expect(set.drafts).toHaveLength(9)
-    for (const cohort of RECIPIENT_COHORTS) {
+    const fixtureCohorts = new Set(set.drafts.map((d) => d.cohort))
+    expect(fixtureCohorts).toEqual(new Set(['client', 'opposing-counsel', 'internal-team']))
+    for (const cohort of fixtureCohorts) {
       const cohortDrafts = set.drafts.filter((d) => d.cohort === cohort)
       expect(cohortDrafts).toHaveLength(3)
       const customerCount = cohortDrafts.filter((d) => d.authorship === 'customer').length
