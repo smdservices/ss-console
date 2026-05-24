@@ -224,6 +224,14 @@
   border-color: var(--ss-color-attention, #b77400);
   color: var(--ss-color-attention, #6b4400);
 }
+.ss-banner-success {
+  border-color: var(--ss-color-complete, #2f6a3f);
+  color: var(--ss-color-complete, #2f6a3f);
+}
+.ss-banner-error {
+  border-color: var(--ss-color-error, #7c1d1d);
+  color: var(--ss-color-error, #7c1d1d);
+}
 
 /* ---------- Common bits ---------- */
 .ss-eyebrow {
