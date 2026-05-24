@@ -4,6 +4,10 @@ import { getPortalClient } from '../../../../../lib/portal/session'
 import { getProductSubscription, listProductRoles } from '../../../../../lib/portal/product-access'
 import type { PortalUserRow } from '../../../../../lib/auth/clerk-bridge'
 import type { Entity } from '../../../../../lib/db/entities'
+import {
+  buildInviteAuditEvent,
+  recordRbacAuditEvent,
+} from '../../../../../lib/portal/ai-employee/rbac-audit'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -32,6 +36,11 @@ import { env } from 'cloudflare:workers'
  * 'org:member'. Org-admin Clerk role is reserved for SMD-side
  * accounts. Product roles (principal | operator | compliance) are a
  * separate axis managed via role-action.ts after the invitee accepts.
+ *
+ * Audit: every successful invitation emits an `audit:rbac_event` log
+ * line with `subAction: 'invite_sent'` via `recordRbacAuditEvent`.
+ * Failed invitations (validation, Clerk rejection, duplicate) are not
+ * audited — nothing was sent to the invitee.
  */
 
 const PRODUCT_SLUG = 'ai-employee'
@@ -98,14 +107,16 @@ export const POST: APIRoute = async (context: APIContext) => {
   if (!email) return redirectWithStatus('invalid_email')
 
   const redirectUrl = `${new URL(context.request.url).origin}/portal/products/ai-employee`
+  let invitationId: string
   try {
-    await clerkClient(context).organizations.createOrganizationInvitation({
+    const invitation = await clerkClient(context).organizations.createOrganizationInvitation({
       organizationId: ctx.client.clerk_org_id,
       emailAddress: email,
       role: 'org:member',
       inviterUserId: ctx.user.clerk_user_id,
       redirectUrl,
     })
+    invitationId = invitation.id
   } catch (err) {
     // Clerk's typed errors: duplicate, already-member, etc. We don't
     // surface raw Clerk error codes to the principal. Instead map a
@@ -117,6 +128,19 @@ export const POST: APIRoute = async (context: APIContext) => {
     console.error('Clerk invitation failed', { email, message })
     return redirectWithStatus('invite_failed')
   }
+
+  await recordRbacAuditEvent(
+    buildInviteAuditEvent({
+      customer_id: ctx.client.id,
+      product_slug: PRODUCT_SLUG,
+      actorUserId: ctx.user.id,
+      actorClerkUserId: ctx.user.clerk_user_id,
+      actorEmail: ctx.user.email,
+      inviteeEmail: email,
+      clerkOrgId: ctx.client.clerk_org_id,
+      clerkInvitationId: invitationId,
+    })
+  )
 
   return redirectWithStatus('invited')
 }

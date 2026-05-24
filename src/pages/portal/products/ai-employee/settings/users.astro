@@ -3,6 +3,7 @@ import '../../../../../styles/global.css'
 import { BRAND_NAME } from '../../../../../lib/config/brand'
 import { getPortalClient } from '../../../../../lib/portal/session'
 import { getProductSubscription, listProductRoles } from '../../../../../lib/portal/product-access'
+import { listClerkOrgParticipants } from '../../../../../lib/portal/clerk-org-members'
 import PortalHeader from '../../../../../components/portal/PortalHeader.astro'
 import PortalTabs from '../../../../../components/portal/PortalTabs.astro'
 import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
@@ -38,13 +39,24 @@ import { env } from 'cloudflare:workers'
  * Self-protection: server-side, the action endpoint blocks revoking
  * your own LAST principal grant (would lock the customer out).
  *
- * Not yet shipped (next slice):
- *   - Invite-new-member flow (Clerk Organization invitation API)
- *   - Audit-log entries on each role change
- *   - Listing Clerk Organization members who don't yet have a local
- *     users row (so principals can grant roles to invitees who haven't
- *     signed in yet — currently new members appear here only after
- *     their first portal sign-in JIT-creates the local users row).
+ * Invite-new-member flow lives at
+ * `/api/portal/products/ai-employee/invitations` (Clerk Organization
+ * invitation API). After the invitee accepts and signs in for the
+ * first time, the JIT bridge creates their local users row and they
+ * appear in the granted-access list above so the principal can grant
+ * them a role.
+ *
+ * Pending Clerk Organization invitations (sent but not accepted) are
+ * rendered in their own section below the granted-access list so
+ * principals see the full picture of "who's on this account": joined
+ * members + members invited but not yet signed in. Pending invitees
+ * do not have a local users row yet, so they cannot be granted
+ * product roles — that happens after first sign-in.
+ *
+ * Role-management mutations (grant, revoke, invite) emit
+ * `audit:rbac_event` log lines via the rbac-audit module. A
+ * Hermes-side tail-log drain consumes these and persists them to the
+ * per-customer audit_log (drain wiring tracked in #821).
  */
 
 const PRODUCT_SLUG = 'ai-employee'
@@ -142,6 +154,29 @@ function formatLastLogin(iso: string | null): string {
   if (Number.isNaN(d.getTime())) return 'Never'
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
+
+function formatInviteDate(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+// Pending Clerk Organization invitations. The principal needs visibility
+// into who has been invited but not yet signed in. The local member list
+// above only contains users whose first sign-in JIT-created a local users
+// row — pending invitees haven't done that yet. Reading directly from
+// Clerk closes that visibility gap.
+//
+// We surface invites only when the entity is bound to a Clerk Org. If
+// the customer has not been bound yet, there are no invitations to list
+// (the invite form returns `no_clerk_org`). A Clerk failure renders the
+// page without the invitations section but does not break the page —
+// the local members above are the load-bearing surface.
+const clerkParticipants = client.clerk_org_id
+  ? await listClerkOrgParticipants(Astro, client.clerk_org_id)
+  : null
+const pendingInvites = clerkParticipants?.pendingInvites ?? []
 
 // Status banner — set by the role-action and invitations endpoints on redirect.
 const status = Astro.url.searchParams.get('status')
@@ -337,6 +372,71 @@ const banner = status ? (STATUS_BANNERS[status] ?? null) : null
           New team members appear here after they accept their invitation and sign in for the first
           time. Grant them a role with the buttons above once they appear.
         </p>
+      </section>
+
+      <section class="mt-12">
+        <p
+          class="mb-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        >
+          Pending invitations
+          {
+            pendingInvites.length > 0 && (
+              <span class="ml-2 normal-case tracking-normal font-normal text-[color:var(--ss-color-text-muted)]">
+                {pendingInvites.length}
+              </span>
+            )
+          }
+        </p>
+
+        {
+          clerkParticipants?.failed ? (
+            <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                We could not load pending invitations from Clerk right now. New invitations will
+                still send; refresh in a moment to see them here.
+              </p>
+            </div>
+          ) : pendingInvites.length === 0 ? (
+            <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                No pending invitations. Invite someone with the form below.
+              </p>
+            </div>
+          ) : (
+            <div class="border-[3px] border-[color:var(--ss-color-text-primary)]">
+              {pendingInvites.map((inv, idx) => (
+                <div
+                  class:list={[
+                    'px-5 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-6',
+                    idx > 0 ? 'border-t-[2px] border-[color:var(--ss-color-text-primary)]' : '',
+                  ]}
+                >
+                  <div class="flex flex-col gap-0.5 min-w-0">
+                    <span class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)] truncate">
+                      {inv.email}
+                    </span>
+                    <span class="text-xs text-[color:var(--ss-color-text-muted)]">
+                      Invited {formatInviteDate(inv.invitedAt)}
+                      {inv.expiresAt && <span> · Expires {formatInviteDate(inv.expiresAt)}</span>}
+                    </span>
+                  </div>
+                  <span class="inline-flex items-center px-3 py-1.5 text-xs font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold border-[2px] border-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-text-primary)]">
+                    Awaiting sign-in
+                  </span>
+                </div>
+              ))}
+            </div>
+          )
+        }
+
+        {
+          clerkParticipants?.truncated && (
+            <p class="mt-3 text-xs text-[color:var(--ss-color-text-muted)]">
+              Showing the first {pendingInvites.length} invitations. More exist than this page can
+              display.
+            </p>
+          )
+        }
       </section>
 
       <section class="mt-12">
