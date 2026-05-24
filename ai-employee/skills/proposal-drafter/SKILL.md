@@ -1,34 +1,44 @@
 ---
 name: proposal-drafter
-description: 'Reads meeting-recording transcripts (Fathom/Fireflies/Granola), pulls scope themes, drafts a proposal from authored pricing matrix + SOW templates. Owner edits, prices, ships.'
-version: pending
-vertical: marketing-agency
+description: Drafts proposal from meeting transcript + SOW templates.
+version: 0.1.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
 prerequisites:
-  connectors:
-    - fireflies | fathom | granola # meeting recordings — any subset
-    - google_drive | dropbox # SOW templates + pricing matrix lookup
-    - slack # internal output
+  skills: []
+  commands: []
 metadata:
   hermes:
     tags: [Marketing, Agency, NewBusiness, DraftForReview]
+  smd:
+    vertical: marketing-agency
+    trust_ceiling: draft_for_review
     action_class: read + internal_write
-trust_ceiling: draft_for_review # never ships pricing to a prospect; owner approves every number
+    connectors:
+      - fireflies
+      - fathom
+      - granola
+      - google_drive
+      - dropbox
+      - slack
 ---
 
 # Proposal Drafter
 
 Takes a discovery-call transcript, extracts the prospect's stated objectives + scope signals, drafts a proposal that maps those signals to the agency's authored service-line packages + pricing matrix. The owner reads, sets prices, and ships from their own inbox.
 
-## Why this exists
+## When to Use
 
 The discovery-to-proposal handoff is where agency owners lose deals. After a 45-minute discovery call, the next-day proposal is supposed to: (a) prove you listened, (b) shape an engagement that's the right size, (c) land in the prospect's hands before they cool. Owners writing proposals from memory after 3-5 calls a day produces uneven quality and 24-48h delays. Deals slip through.
 
 This skill turns a transcript + the agency's library into a 70%-complete draft. Owner reads in 10 minutes, sets the actual prices (which the agent never invents), edits the scope-fit narrative, ships.
 
-## How to invoke
+## Prerequisites
+
+See frontmatter.
+
+## How to Run
 
 Triggered when a discovery-call transcript lands in the recording app (via webhook or daily polling):
 
@@ -42,7 +52,7 @@ Manual invocation for a specific call:
 hermes run proposal-drafter --transcript fireflies://meeting-abc123
 ```
 
-## What the agent does
+## Procedure
 
 1. **Pull the transcript.** Read the full transcript from the recording app via its MCP/Composio connector. Also pull any meeting-recorder-generated summary/notes if present (these often surface decisions the agent should reflect in the draft).
 2. **Extract scope signals.** Per `references/categorization-rubric.md`, identify:
@@ -56,7 +66,7 @@ hermes run proposal-drafter --transcript fireflies://meeting-abc123
 5. **Surface conversation snippets.** Beneath each section, surface the verbatim transcript line(s) that justify it ("They said: 'We've stopped tracking conversion in Q2 because the dashboard was wrong.'"). Owner can verify the agent didn't hallucinate intent.
 6. **Write to drafts.** `customer_notes/drafts/proposals/{prospect}/proposal-YYYY-MM-DD.md`. Slack thread post in `proposals-drafts` channel with prospect name + draft permalink + any red flags surfaced.
 
-## Trust ceiling
+### Trust Ceiling
 
 **draft_for_review** locked. The agent NEVER ships proposals — proposals are sales artifacts with money on them.
 
@@ -75,7 +85,7 @@ The agent MUST NOT:
 - Promise specific timeframes ("Our team will start October 15"). The owner authors timelines.
 - Reference "case studies" or "client examples" the agent didn't see in the agency's authored materials.
 
-## Voice rules specific to proposals
+### Voice Rules
 
 - Use the prospect's words for their objectives. Don't paraphrase; quote.
 - Lead with their objective, not the agency's services. "You want to ship paid social against ICP-B segments." Then service.
@@ -83,7 +93,11 @@ The agent MUST NOT:
 - No em dashes. No "we're excited to partner." No "We're the right fit for you" — that's the prospect's call.
 - Where the call surfaced something specific the agency has the agent rephrase neutrally without commitments ("You mentioned working with X — we can speak to that approach in a follow-up if it'd help.").
 
-## What "good" looks like
+## Pitfalls
+
+Common failure modes: inventing prices or timelines (forbidden), paraphrasing rather than quoting prospect language, picking a service-line match where the transcript supports two, and hiding rather than surfacing red flags (e.g., a $20K budget vs. $50K+ matched service lines).
+
+## Verification
 
 1. Every section's claim has a transcript quote underneath as audit trail.
 2. Service-line matches are defensible from the transcript (not generic mappings).

@@ -1,36 +1,43 @@
 ---
 name: status-report-assembler
-description: 'Drafts weekly client status reports by pulling from PM tools (Asana/ClickUp/Monday), web analytics (GA4), and paid platforms (Meta/Google/LinkedIn Ads). Owner reads, edits, ships.'
-version: pending
-vertical: marketing-agency
+description: Weekly client status report from PM tools + analytics.
+version: 0.1.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
 prerequisites:
-  connectors:
-    - asana | clickup | monday # PM tool — one of
-    - google_analytics # web analytics
-    - meta_ads | google_ads | linkedin_ads # paid platforms (any subset)
-    - slack # internal output
-    - gmail # external send (draft only — owner ships)
+  skills: []
+  commands: []
 metadata:
   hermes:
     tags: [Marketing, Agency, ClientReporting, DraftForReview]
+  smd:
+    vertical: marketing-agency
+    trust_ceiling: draft_for_review
     action_class: read + internal_write
-trust_ceiling: draft_for_review # never autoship to a client; always owner-reviewed
+    connectors:
+      - asana | clickup | monday
+      - google_analytics
+      - meta_ads | google_ads | linkedin_ads
+      - slack
+      - gmail
 ---
 
 # Status Report Assembler
 
 Reads the work the agency completed for each retainer client over the past week, pulls the metrics that prove it, drafts a client-facing status note. Output lands in the agency's internal "drafts" folder + Slack thread for the owner to review. The agent never sends to clients; the owner ships.
 
-## Why this exists
+## When to Use
 
 Friday-night status report assembly is the canonical agency-owner bottleneck. Each client wants weekly proof of value: what shipped, what moved, what's next. Pulling that proof from 4-6 tools per client, 10-30 clients, every week, is 4-8 hours of the owner's time. Most owners do it badly under time pressure — clients notice; retention erodes.
 
 This skill reduces it to: owner reads 30 drafts on Friday morning, edits/approves each in 1-2 minutes, ships from their own inbox. Saves the weekend.
 
-## How to invoke
+## Prerequisites
+
+Requires a PM tool connector (Asana / ClickUp / Monday), Google Analytics, at least one paid-media connector if the client runs paid, plus Slack and Gmail. See frontmatter.
+
+## How to Run
 
 Weekly cadence (Fridays at 0700 PT) via cron-skill:
 
@@ -50,7 +57,7 @@ Custom window:
 hermes run status-report-assembler --window "last 14 days"
 ```
 
-## What the agent does (per client)
+## Procedure
 
 1. **Pull PM activity.** From the client's PM tool (per `customer.yaml` connector binding for that client's workspace), fetch completed tasks + tickets in the window. Group by epic/category. Note any blockers logged.
 2. **Pull analytics.** GA4 (or alternative) for the client's site: sessions, conversions, top pages, week-over-week deltas. Use `references/output-format.md` for which metrics are standard vs optional.
@@ -60,7 +67,7 @@ hermes run status-report-assembler --window "last 14 days"
 6. **Voice-match.** Read prior shipped reports from the client (stored in drafts folder + their inbox). Match voice — formality level, paragraph density, technical depth.
 7. **Write to drafts folder.** `customer_notes/drafts/{client}/status-YYYY-MM-DD.md`. Add a Slack thread message in the agency's `client-status-drafts` channel: client name + draft length + any flagged anomalies + draft permalink.
 
-## Trust ceiling
+### Trust Ceiling
 
 **draft_for_review** for all clients. No exceptions. Even if a client has explicitly said "the agent can send weekly," the SOW provision and the substrate enforce draft-only for external sends.
 
@@ -78,7 +85,11 @@ The agent MUST NOT:
 - Promise specific results in next-week-priorities (the owner authors goals)
 - Hallucinate metrics — every number must be sourceable to a tool call
 
-## What "good" looks like
+## Pitfalls
+
+Common failures: hallucinated metrics (every number must trace to a tool call), invented next-week-priorities (use placeholders when owner hasn't authored goals), voice drift from prior shipped reports.
+
+## Verification
 
 A successful weekly run satisfies:
 

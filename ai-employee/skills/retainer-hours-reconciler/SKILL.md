@@ -1,30 +1,32 @@
 ---
 name: retainer-hours-reconciler
-description: 'Pulls actual hours logged in Harvest/Toggl/Float, maps to SOW retainer caps, surfaces utilization patterns that an owner is losing money on if not addressed.'
-version: pending
-vertical: marketing-agency
+description: Reconciles tracked hours vs SOW retainer caps for owner.
+version: 0.1.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
 prerequisites:
-  connectors:
-    - harvest # primary; agency-default for time + invoicing
-    - toggl # alternate time-tracking
-    - float # alternate resourcing
-    - slack # output gateway
   skills: []
+  commands: []
 metadata:
   hermes:
     tags: [Marketing, Agency, RetainerOps, Slack]
+  smd:
+    vertical: marketing-agency
+    trust_ceiling: autonomous
     action_class: read + internal_write
-trust_ceiling: autonomous # surfaces patterns; never sends to clients without owner approval
+    connectors:
+      - harvest
+      - toggl
+      - float
+      - slack
 ---
 
 # Retainer Hours Reconciler
 
 Reads time entries from the agency's time-tracking tool, maps them against the SOW retainer caps for each client, and posts a weekly utilization report to a designated Slack channel. The agent is autonomous on the read + reporting flow; it does NOT message clients, change time entries, or modify SOWs.
 
-## Why this exists
+## When to Use
 
 Agency owners lose more money to retainer mismanagement than to bad sales. The two recurring failure modes:
 
@@ -33,7 +35,11 @@ Agency owners lose more money to retainer mismanagement than to bad sales. The t
 
 This skill catches both before they cost money. Weekly Slack post, every Monday morning.
 
-## How to invoke
+## Prerequisites
+
+See frontmatter.
+
+## How to Run
 
 Weekly cadence (Mondays at 0800 PT) via Hermes' cron-skill mechanism:
 
@@ -53,7 +59,7 @@ Pull a different time window (default: month-to-date):
 hermes run retainer-hours-reconciler --window "last 7 days"
 ```
 
-## What the agent does
+## Procedure
 
 1. **Pull time entries.** For each active retainer client, fetch all time entries in the current month from Harvest (or Toggl/Float per `customer.yaml` connector binding). Sum by client + by service line (account-management, strategy, production, etc.).
 2. **Resolve SOW caps.** Look up the client's current SOW from the agency's SOW store (Notion / Google Drive / `customer.yaml` SOW pointer). Extract monthly retainer hours + per-service caps if specified.
@@ -67,7 +73,7 @@ hermes run retainer-hours-reconciler --window "last 7 days"
 5. **Surface threading patterns.** If a single service line (e.g., strategy) is at 200% while production is at 30%, surface that — it suggests scope misalignment.
 6. **Post the report.** Slack channel (designated in `customer.yaml`). Format below.
 
-## Trust ceiling
+### Trust Ceiling
 
 Customer-zero and paying-customer ceiling: **autonomous** for read + internal Slack post.
 
@@ -88,7 +94,11 @@ The agent MUST NOT:
 
 If the owner replies in the Slack thread "Yes, increase Acme's cap to 80 hours," the agent does NOT modify the SOW — it logs the operator instruction and surfaces it in next week's report as a "pending SOW update." SOW changes are human work.
 
-## What "good" looks like
+## Pitfalls
+
+Common failure modes: mistaking projected EOM for actual hours, posting to a non-`retainer-ops` channel, repeating noisy alarms three weeks in a row without rubric calibration, and silently promoting a previously critical client to "OK."
+
+## Verification
 
 A successful weekly run satisfies:
 

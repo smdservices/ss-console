@@ -1,6 +1,6 @@
 ---
 name: law-pi-settlement-prep
-description: "Settlement-conference partner-prep memo assembler for personal-injury law firms. Reads one active PI matter through the PracticeManagement capability, the matter's medical, billing, employment, and incident records through DocumentStorage, and the firm's comparable-verdict memory rule, then writes a factual internal prep memo into the supervising partner's drafts folder via Email.create_draft. The memo is INTERNAL ONLY: the recipient is the partner's own mailbox, not opposing counsel, not the mediator, not the client. The skill writes the matter-facts summary, the chronology, the damages tabulation, a structural strengths analysis (sourced facts only), a structural weaknesses analysis (sourced facts only), a comparable-verdict table sourced from the firm's memory-rule corpus with per-row source citations, and an opposing-counsel prior-pattern table from the firm's carrier and opposing-counsel memory rules. The skill DOES NOT author the settlement bracket recommendation, the recommended posture, the prose framing of strengths or weaknesses as legal arguments, or any case-strategy language; those sections render as TBD markers for the partner to author. Per ADR 0005 the partner is the sender (and here also the recipient, since the memo is internal); per platform PRD §7.5 invariant #8 every authored figure, document ID, comparable-verdict citation, and named person is sourced from the matter record or memory rule or rendered as TBD, never inferred; per law-firm PRD §5 settlement-value analysis is third-rail and the skill never produces a value the firm has not already authored into the comparable-verdict memory rule. STRICT VOICE RULE: no em dashes anywhere in output, including section headers and table delimiters. Commas, periods, short sentences. No corporate filler. The memo is internal and the agent's persona is visible per ADR 0005 internal-destinations posture, but voice still matches the partner's prior internal prep memos in Layer 2 voice samples. CITATION POLICY: the skill must never produce, repeat, or reformulate legal citations (case-name-shaped strings with reporter cites, statute references, court rule references, treatise pinpoints) in skill-authored prose. The comparable-verdict table carries through verdict citations verbatim from the firm's memory-rule corpus, which the partner authored; those carry-through citations are not the skill's authoring under the verbatim-quote carve-out. The skill validates that every comparable verdict cited is a present row in the firm's memory rule; if the memory rule is empty or stale, the table renders as TBD and the skill marks the bracket-recommendation section as architecturally non-derivable."
+description: "Drafts internal PI settlement-prep memo for partner."
 version: 0.1.0
 author: SMD Services
 license: MIT
@@ -8,70 +8,71 @@ platforms: [linux, macos]
 prerequisites:
   skills: []
   commands: []
-client_facing_fields:
-  - name: client_name
-    sourced_from: matter_attribute
-  - name: claim_number
-    sourced_from: matter_attribute
-  - name: case_caption
-    sourced_from: matter_attribute
-  - name: case_number
-    sourced_from: matter_attribute
-  - name: date_of_incident
-    sourced_from: matter_attribute
-  - name: incident_location
-    sourced_from: matter_attribute
-  - name: opposing_counsel_name
-    sourced_from: matter_attribute
-  - name: opposing_counsel_firm
-    sourced_from: matter_attribute
-  - name: opposing_carrier_name
-    sourced_from: matter_attribute
-  - name: settlement_conference_date
-    sourced_from: matter_attribute
-  - name: medical_provider_list
-    sourced_from: system_of_record
-  - name: medical_specials_total
-    sourced_from: system_of_record
-  - name: billing_document_index
-    sourced_from: system_of_record
-  - name: lost_wages_total
-    sourced_from: system_of_record
-  - name: employment_verification_document_index
-    sourced_from: system_of_record
-  - name: incident_evidence_document_index
-    sourced_from: system_of_record
-  - name: chronology_event_list
-    sourced_from: system_of_record
-  - name: strengths_fact_list
-    sourced_from: system_of_record
-  - name: weaknesses_fact_list
-    sourced_from: system_of_record
-  - name: comparable_verdict_table
-    sourced_from: memory_rule
-  - name: opposing_counsel_prior_pattern_table
-    sourced_from: memory_rule
-  - name: carrier_prior_pattern_table
-    sourced_from: memory_rule
-  - name: settlement_bracket_recommendation
-    sourced_from: none
-  - name: recommended_posture
-    sourced_from: none
-  - name: strengths_legal_argument_prose
-    sourced_from: none
-  - name: weaknesses_legal_argument_prose
-    sourced_from: none
-  - name: case_strategy_language
-    sourced_from: none
-  - name: partner_signoff
-    sourced_from: memory_rule
 metadata:
   hermes:
     tags: [Law, PI, Settlement, Prep, InternalMemo, Draft]
+  smd:
     vertical: law-firm-pi
     trust_ceiling: draft_for_review
     trust_ceiling_locked: true
     capabilities: [PracticeManagement, DocumentStorage, Email]
+    client_facing_fields:
+      - name: client_name
+        sourced_from: matter_attribute
+      - name: claim_number
+        sourced_from: matter_attribute
+      - name: case_caption
+        sourced_from: matter_attribute
+      - name: case_number
+        sourced_from: matter_attribute
+      - name: date_of_incident
+        sourced_from: matter_attribute
+      - name: incident_location
+        sourced_from: matter_attribute
+      - name: opposing_counsel_name
+        sourced_from: matter_attribute
+      - name: opposing_counsel_firm
+        sourced_from: matter_attribute
+      - name: opposing_carrier_name
+        sourced_from: matter_attribute
+      - name: settlement_conference_date
+        sourced_from: matter_attribute
+      - name: medical_provider_list
+        sourced_from: system_of_record
+      - name: medical_specials_total
+        sourced_from: system_of_record
+      - name: billing_document_index
+        sourced_from: system_of_record
+      - name: lost_wages_total
+        sourced_from: system_of_record
+      - name: employment_verification_document_index
+        sourced_from: system_of_record
+      - name: incident_evidence_document_index
+        sourced_from: system_of_record
+      - name: chronology_event_list
+        sourced_from: system_of_record
+      - name: strengths_fact_list
+        sourced_from: system_of_record
+      - name: weaknesses_fact_list
+        sourced_from: system_of_record
+      - name: comparable_verdict_table
+        sourced_from: memory_rule
+      - name: opposing_counsel_prior_pattern_table
+        sourced_from: memory_rule
+      - name: carrier_prior_pattern_table
+        sourced_from: memory_rule
+      - name: settlement_bracket_recommendation
+        sourced_from: none
+      - name: recommended_posture
+        sourced_from: none
+      - name: strengths_legal_argument_prose
+        sourced_from: none
+      - name: weaknesses_legal_argument_prose
+        sourced_from: none
+      - name: case_strategy_language
+        sourced_from: none
+      - name: partner_signoff
+        sourced_from: memory_rule
 ---
 
 # Law PI Settlement Negotiation Prep Memo (Internal, Factual Assembly)
@@ -80,25 +81,15 @@ Reads one active personal-injury matter at the pre-settlement-conference stage a
 
 The skill is configured per-customer through `~/.hermes/customers/{customer_slug}/customer.yaml`, which supplies the firm name, the supervising partner's first name and signature block, the partner's reviewer email account ID for `Email.create_draft`, the firm's voice samples for Layer 2 voice match, the firm's comparable-verdict memory rule (the cited verdict corpus the firm has authored), the firm's opposing-counsel and carrier prior-pattern memory rules, and the practice-area filter.
 
-## Scope alignment with law-firm-prd §5 and §6.2
+## When to Use
 
-The law-firm PRD §5 third-rail map names "settlement-value analysis" and "settlement authority / negotiation positions" as work the agent must never do. The PRD §6.2 places settlement and resolution work in Pillar 7 (Settlement + resolution) and characterizes the mechanical operations there (statement prep, lien tracking, 1099 prep, closing letters) as agent-suitable, while the value-bearing work (settlement-value analysis, demand authorship with case-law / valuation, lien-strategy advice) is third-rail.
+Use when the supervising partner has a settlement conference scheduled for one active PI matter and needs an internal prep memo assembled. The skill writes the matter-facts summary, chronology, damages tabulation, sourced strengths and weaknesses fact lists, comparable-verdict table from the firm's memory rule, and opposing-counsel and carrier prior-pattern tables. The partner authors the settlement bracket recommendation, recommended posture, and legal-argument framing as TBD sections.
 
-This skill operationalizes a pre-conference prep memo that lives at the seam: the partner needs the matter file, the chronology, the damages tabulation, the strengths-and-weaknesses summary, the comparable verdicts, and any prior-pattern data the firm has on the opposing counsel or carrier, all assembled in one document the partner can scan in fifteen minutes before walking into the conference. The skill provides that assembly. The skill does NOT provide:
+## Prerequisites
 
-- A settlement bracket recommendation. Bracket recommendations require valuation judgment; valuation judgment is partner work. Bracket-recommendation section renders as TBD.
-- A recommended posture (open low / open high, anchor strategy, walk-away point). Posture is negotiation strategy; strategy is partner work. Posture section renders as TBD.
-- A characterization of strengths as legal arguments ("the comparative-negligence defense is weak"). The skill lists sourced facts that bear on the strength; the partner authors the argument framing.
-- A characterization of weaknesses as legal exposures ("the prior-back-injury history undermines causation"). Same split.
-- Any case-strategy language.
+PracticeManagement, DocumentStorage, and Email capability adapters; per-customer config at `~/.hermes/customers/{customer_slug}/customer.yaml` including Layer 2 voice samples (with internal-memo-tagged samples), the firm's comparable-verdict memory rule, and the opposing-counsel and carrier prior-pattern memory rules. See frontmatter.
 
-The comparable-verdict table is the architecturally interesting middle case. The firm authors a verdict corpus into a memory rule: each row records the case name, verdict amount, jurisdiction, key facts that match the comparison criterion, and the source the firm cites (a published opinion, a jury verdict reporter, a partner's prior matter file, a verbatim partner note). The skill matches the matter's facts against the corpus and surfaces the rows the partner has already authored as comparable. The skill does NOT invent verdicts. The skill does NOT extrapolate from the corpus. If the corpus is missing or stale, the comparable-verdict table renders as TBD and the skill marks the bracket-recommendation section as architecturally non-derivable, noting that without a populated corpus the prep memo has no quantitative anchor.
-
-The opposing-counsel and carrier prior-pattern tables are also memory-rule sourced. The firm authors a pattern corpus per opposing counsel and per carrier: prior settlement timing, prior offer patterns (first-offer ratio to demand, days from demand to first offer, days to settle), prior conference behavior (early settlement at mediation vs. trial-eve settlements), and any partner-authored note about that opposing counsel's posture. If the corpus is missing for the named opposing counsel or the named carrier, the pattern table renders the corpus-absent prose ("no prior-pattern data on this opposing counsel in firm memory") rather than inventing observations.
-
-The skill name `law-pi-settlement-prep` is operational shorthand for this internal-memo variant. If Captain decides the bracket-recommendation TBD section creates room for the skill to drift into valuation authoring, the fix is configuration: rename the TBD marker to omit the word "bracket" entirely, or strip the section from the template so the partner authors that thinking in a separate document. The current spec includes the section as a TBD marker because the partner needs the placeholder during the scan; the architectural enforcement is that the section is `none`-tagged and the fabrication filter blocks any non-empty render.
-
-## How to invoke
+## How to Run
 
 Generate a prep memo from a matter ID and a settlement-conference date already in `matter.custom_fields`:
 
@@ -118,7 +109,7 @@ Dry-run (writes the memo to `~/.hermes/customer_notes/{customer_slug}/` and retu
 hermes run law-pi-settlement-prep --matter-id <id> --dry-run
 ```
 
-## What the agent does, in order
+## Procedure
 
 1. **Load customer config.** Read `~/.hermes/customers/{customer_slug}/customer.yaml` for firm name, supervising partner's reviewer account ID, partner's signature block, voice samples (Layer 2), the firm's comparable-verdict memory rule, the firm's opposing-counsel prior-pattern memory rule, the firm's carrier prior-pattern memory rule, and the practice-area filter. If `practice_areas` does not include `personal-injury`, the skill refuses with `out_of_scope` and writes no memo.
 2. **Load the matter via PracticeManagement.** Call `practice_management.get_matter(matter_id)`. If the matter is null or its `matter_type` does not indicate PI, refuse with `matter_not_found` or `matter_wrong_type`. The skill never creates or modifies a matter.
@@ -145,7 +136,7 @@ hermes run law-pi-settlement-prep --matter-id <id> --dry-run
 16. **Write the matter-internal sourcing note.** In parallel, write `~/.hermes/customer_notes/{customer_slug}/pi-settlement-prep-YYYY-MM-DD-<matter-id>.md` containing the section-by-section sourcing index (which `StoredDocument.id` populated which row in the damages tables, which `custom_field` populated which named field, which memory-rule rows populated the comparable-verdict and prior-pattern tables, which fields rendered as TBD and why). This is the audit trail the dashboard's sourcing block reads from.
 17. **Emit telemetry.** A skill-invocation event records: matter id (hashed), conference date (relative offset only, not the date itself), strength-fact count, weakness-fact count, comparable-verdict row count, opposing-counsel-pattern row count, carrier-pattern row count, TBD-marker count, voice-gate score, memo size in bytes, adapter calls made. No matter content leaves the customer's machine boundary.
 
-## Trust ceiling
+### Trust Ceiling
 
 `draft_for_review`. The ceiling is **locked at v1 and cannot be promoted to `autonomous`** per PRD §11.2 ("anything touching trust accounting, court filing, settlement authority, judgment-bearing work: `draft_for_review` permanently"). A settlement-conference prep memo informs settlement-authority decisions by definition. Promotion is architecturally blocked.
 
@@ -173,7 +164,7 @@ The agent MUST NOT, without explicit partner instruction in a different invocati
 
 If the skill cannot find a piece of source data the partner expects (e.g., the carrier name is missing on the matter), the memo's corresponding section renders as a TBD marker and the sourcing note lists the missing item. The partner sees the TBD on review and fills it in. The skill does not guess.
 
-## Voice rules (Layer 2 - partner internal-memo corpus match)
+### Voice Rules (Layer 2 - partner internal-memo corpus match)
 
 The factual prose sections (matter-facts summary, chronology lead-in, damages-table captions, strengths and weaknesses list lead-ins) must read as if the supervising partner wrote them. The internal-memo envelope differs from the external-correspondence envelope. Internal memos are dense, plain, partner-to-self prose. Voice samples for this skill should be drawn from the partner's prior internal prep memos, case-strategy memoranda, and partner-to-self note files; the firm's external-correspondence voice samples (demand-letter prose, opposing-counsel correspondence) are weaker anchors for this register.
 
@@ -192,7 +183,7 @@ See `references/voice.md` for the long form. Hard rules:
 
 If the assembled prose cannot pass these rules, the skill omits the prose lead-ins and emits the structured tables only. The partner prefers structured rows to expand than a flawed paragraph to dismantle.
 
-## Citation policy (law-firm vertical, invariant #6)
+### Citation Policy (law-firm vertical, invariant #6)
 
 The skill must never produce, repeat, or reformulate legal citations in skill-authored prose. The comparable-verdict table is the narrow carve-out: the rows surface verbatim from the firm's memory-rule corpus, which the partner authored, and the citation in the row's `source` column is the partner's authoring under the verbatim-quote carve-out.
 
@@ -208,7 +199,7 @@ If a matter custom_field (e.g., `case_summary`) contains citations and the skill
 
 If the assembled memo would otherwise contain a citation-shaped string in skill-authored prose (outside the verbatim comparable-verdict rows), the skill replaces the string with `[CITATION REMOVED - partner inserts after review]` and logs a citation-refusal event. Code-level enforcement lives in the citation-refusal substrate at `ai-employee/safety-substrate/citation_filter.py`. See `references/citation-policy.md`.
 
-## Fabrication policy (platform invariant #8)
+### Fabrication Policy (platform invariant #8)
 
 Every client-facing field is declared in the skill's frontmatter `client_facing_fields` block with one of: `matter_attribute`, `system_of_record`, `memory_rule`, `none`. Fields tagged `none` MUST render as a TBD marker; rendering plausible content into a `none`-tagged field is a `block`-severity fabrication-filter violation per the spec at `docs/specs/ai-employee/fabrication-filter.md`.
 
@@ -220,7 +211,7 @@ The strengths and weaknesses fact lists are tagged `system_of_record` because ea
 
 See `references/fabrication-policy.md` for the per-section sourcing contract.
 
-## Refusal cases
+### Refusal Cases
 
 The skill emits a refusal (writes no memo, returns a structured error) under any of:
 
@@ -235,7 +226,11 @@ The skill emits a refusal (writes no memo, returns a structured error) under any
 
 When the skill can author a partial memo (some sections sourced, some TBD), it proceeds. When it cannot meet a refusal criterion, it writes no memo and logs the refusal.
 
-## What good looks like
+## Pitfalls
+
+See `### Refusal Cases` in Procedure. Common failure modes include authoring a settlement bracket recommendation or recommended posture (both `none`-tagged), inventing or extrapolating from comparable-verdict rows, aggregating verdict amounts to produce a derived figure, and rendering dollar amounts in skill-authored prose outside the damages tabulation and verbatim comparable-verdict rows.
+
+## Verification
 
 A successful run satisfies all of:
 
@@ -274,3 +269,21 @@ A successful run satisfies all of:
 - Law-firm PRD §5 - third-rail map. Settlement-value analysis is named as third-rail; this skill produces no value the partner has not already authored into the comparable-verdict memory rule.
 - Law-firm PRD §6.2 - pillar map; this skill operationalizes the prep work that sits at the seam of Pillar 7 (Settlement + resolution) without crossing into the judgment-bearing core.
 - Law-firm PRD §11.2 - demo scenario list; the settlement-conference-prep scenario is the partner's "I have a conference Friday morning and the matter file is twenty inches of paper" use case this skill addresses.
+
+## Scope alignment with law-firm-prd §5 and §6.2
+
+The law-firm PRD §5 third-rail map names "settlement-value analysis" and "settlement authority / negotiation positions" as work the agent must never do. The PRD §6.2 places settlement and resolution work in Pillar 7 (Settlement + resolution) and characterizes the mechanical operations there (statement prep, lien tracking, 1099 prep, closing letters) as agent-suitable, while the value-bearing work (settlement-value analysis, demand authorship with case-law / valuation, lien-strategy advice) is third-rail.
+
+This skill operationalizes a pre-conference prep memo that lives at the seam: the partner needs the matter file, the chronology, the damages tabulation, the strengths-and-weaknesses summary, the comparable verdicts, and any prior-pattern data the firm has on the opposing counsel or carrier, all assembled in one document the partner can scan in fifteen minutes before walking into the conference. The skill provides that assembly. The skill does NOT provide:
+
+- A settlement bracket recommendation. Bracket recommendations require valuation judgment; valuation judgment is partner work. Bracket-recommendation section renders as TBD.
+- A recommended posture (open low / open high, anchor strategy, walk-away point). Posture is negotiation strategy; strategy is partner work. Posture section renders as TBD.
+- A characterization of strengths as legal arguments ("the comparative-negligence defense is weak"). The skill lists sourced facts that bear on the strength; the partner authors the argument framing.
+- A characterization of weaknesses as legal exposures ("the prior-back-injury history undermines causation"). Same split.
+- Any case-strategy language.
+
+The comparable-verdict table is the architecturally interesting middle case. The firm authors a verdict corpus into a memory rule: each row records the case name, verdict amount, jurisdiction, key facts that match the comparison criterion, and the source the firm cites (a published opinion, a jury verdict reporter, a partner's prior matter file, a verbatim partner note). The skill matches the matter's facts against the corpus and surfaces the rows the partner has already authored as comparable. The skill does NOT invent verdicts. The skill does NOT extrapolate from the corpus. If the corpus is missing or stale, the comparable-verdict table renders as TBD and the skill marks the bracket-recommendation section as architecturally non-derivable, noting that without a populated corpus the prep memo has no quantitative anchor.
+
+The opposing-counsel and carrier prior-pattern tables are also memory-rule sourced. The firm authors a pattern corpus per opposing counsel and per carrier: prior settlement timing, prior offer patterns (first-offer ratio to demand, days from demand to first offer, days to settle), prior conference behavior (early settlement at mediation vs. trial-eve settlements), and any partner-authored note about that opposing counsel's posture. If the corpus is missing for the named opposing counsel or the named carrier, the pattern table renders the corpus-absent prose ("no prior-pattern data on this opposing counsel in firm memory") rather than inventing observations.
+
+The skill name `law-pi-settlement-prep` is operational shorthand for this internal-memo variant. If Captain decides the bracket-recommendation TBD section creates room for the skill to drift into valuation authoring, the fix is configuration: rename the TBD marker to omit the word "bracket" entirely, or strip the section from the template so the partner authors that thinking in a separate document. The current spec includes the section as a TBD marker because the partner needs the placeholder during the scan; the architectural enforcement is that the section is `none`-tagged and the fabrication filter blocks any non-empty render.
