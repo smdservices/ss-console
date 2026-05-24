@@ -67,6 +67,13 @@ export interface MatterLastAction {
  *   lastAction        — most recent AI action on this matter, or null
  *                       if the matter has not yet been touched by the
  *                       AI Employee
+ *   assigneeUserIds   — set of local users.id values currently assigned
+ *                       to this matter (per matter_assignments). Empty
+ *                       when no one is explicitly assigned — the firm's
+ *                       principals are the implicit fallback per #882.
+ *                       Stitched in by the page from the portal D1, not
+ *                       by the Hermes resolver; the resolver returns []
+ *                       and the page populates.
  */
 export interface Matter {
   id: string
@@ -75,6 +82,7 @@ export interface Matter {
   phase: MatterPhase
   openedAt: string
   lastAction: MatterLastAction | null
+  assigneeUserIds: string[]
 }
 
 /**
@@ -121,6 +129,12 @@ export interface MatterAuditRef {
  * Detail-page payload. `facts` is the short statement-of-facts text the
  * AI Employee maintains on the matter; the other arrays are the
  * adjacent sections.
+ *
+ * `assigneeUserIds` mirrors the Matter list shape — the page stitches
+ * this from the portal D1 matter_assignments table, not the Hermes
+ * resolver. See `listMatterAssignments` in
+ * `src/lib/portal/ai-employee/matter-assignment.ts` for the richer
+ * assignment row shape the detail page renders.
  */
 export interface MatterDetail {
   id: string
@@ -133,6 +147,7 @@ export interface MatterDetail {
   draftsInFlight: MatterDraftRef[]
   recentAudit: MatterAuditRef[]
   lastAction: MatterLastAction | null
+  assigneeUserIds: string[]
 }
 
 /**
@@ -150,6 +165,26 @@ export interface MatterDetail {
 // eslint-disable-next-line @typescript-eslint/require-await
 export async function listMatters(_db: D1Database, _entityId: string): Promise<Matter[]> {
   return []
+}
+
+/**
+ * Filter a matter list to those assigned to the given user.  Pure on
+ * its arguments so the multi-paralegal "my matters" view (#882) can
+ * scope the page's matter array without a separate DB read — the page
+ * already pre-loaded `assignedMatterIds` once for the toggle counter.
+ *
+ * A matter with no assignees is treated as "unassigned to anyone" and
+ * filtered out from the "mine" view.  Unassigned matters surface only
+ * on the "all" view, which is the principal's default.  Per #882 a
+ * matter without an explicit assignee falls back to the firm's
+ * principals at routing time — the UI mirrors that by hiding it from
+ * non-principal "mine" views.
+ */
+export function filterMattersByAssignee(
+  matters: readonly Matter[],
+  assignedMatterIds: ReadonlySet<string>
+): Matter[] {
+  return matters.filter((m) => assignedMatterIds.has(m.id))
 }
 
 /**

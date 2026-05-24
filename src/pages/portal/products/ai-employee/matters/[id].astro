@@ -10,6 +10,7 @@ import MatterFactsSection from '../../../../../components/portal/ai-employee/Mat
 import MatterTimelineSection from '../../../../../components/portal/ai-employee/MatterTimelineSection.astro'
 import MatterDraftsSection from '../../../../../components/portal/ai-employee/MatterDraftsSection.astro'
 import MatterAuditSection from '../../../../../components/portal/ai-employee/MatterAuditSection.astro'
+import MatterAssignmentSection from '../../../../../components/portal/ai-employee/MatterAssignmentSection.astro'
 import SkipToMain from '../../../../../components/SkipToMain.astro'
 import { SignOutButton } from '@clerk/astro/components'
 import { env } from 'cloudflare:workers'
@@ -20,27 +21,38 @@ import {
   resolveMatterPhaseTone,
   MATTER_PHASE_LABEL,
 } from '../../../../../lib/portal/ai-employee/matters'
+import {
+  listMatterAssignments,
+  type MatterAssignment,
+} from '../../../../../lib/portal/ai-employee/matter-assignment'
 
 /**
  * AI Employee — Matter detail.
  *
  * URL: portal.smd.services/portal/products/ai-employee/matters/[id]
  *
- * Per #871, the detail page surfaces four sections for one matter:
+ * Per #871, the detail page surfaces five sections for one matter:
  *
  *   1. Facts             — AI Employee's statement-of-facts text
- *   2. Timeline          — material events on the matter, reverse chronological
- *   3. Drafts in flight  — drafts prepared for this matter, link out to the
+ *   2. Assigned to       — multi-paralegal assignment (per #882)
+ *   3. Timeline          — material events on the matter, reverse chronological
+ *   4. Drafts in flight  — drafts prepared for this matter, link out to the
  *                          drafts surface filtered by matter id
- *   4. Audit history     — recent audit events scoped to this matter, link out
+ *   5. Audit history     — recent audit events scoped to this matter, link out
  *                          to the audit viewer scoped the same way
  *
- * Data source lives on the per-customer Hermes Machine D1 (ADR 0007 +
- * 0009). The portal Worker cannot bind directly to a per-customer D1;
- * the read path is pending Hermes runtime wiring (#821). Until that
- * lands, `getMatter` returns null for every id and this surface
- * renders the not-found state per docs/style/empty-state-pattern.md —
- * no fabricated matter, no placeholder facts, no synthetic timeline.
+ * The Hermes-owned matter data (facts, timeline, drafts, audit) is
+ * still gated on the bridge in #821 — `getMatter` returns null today
+ * and the page renders not-found.  The new Assigned-to section reads
+ * directly from the portal D1 (`matter_assignments`), which means it
+ * works end-to-end even while the Hermes bridge is pending.  This is
+ * intentional: the multi-paralegal AC requires assignment mutation to
+ * be observable now, not after #821 lands.
+ *
+ * The page renders the assignment section only when the matter
+ * resolves on Hermes — assigning users to a matter that doesn't exist
+ * yet would be fabrication.  When the matter resolves and the section
+ * renders, it operates on the live portal-D1 assignment table.
  *
  * Access gate (see resolveAiEmployeeAccess):
  *   - Clerk session (middleware)
@@ -58,13 +70,15 @@ import {
  *     stable so no follow-up is needed on this page when audit lands.
  */
 
+const PRODUCT_SLUG = 'ai-employee'
+
 const access = await resolveAiEmployeeAccess(env.DB, Astro.locals, {
   allowedRoles: ['principal', 'operator', 'compliance'],
 })
 if (access.kind === 'redirect') {
   return Astro.redirect(access.to)
 }
-const { client } = access
+const { client, roles } = access
 
 const matterId = Astro.params.id
 if (!matterId || typeof matterId !== 'string') {
@@ -87,6 +101,52 @@ if (matter) {
   phaseLabel = MATTER_PHASE_LABEL[matter.phase]
   ageCaption = formatMatterAge(matter.openedAt)
 }
+
+// Assignment section state.  Only loaded when the matter resolves to
+// avoid assigning users to a matter that does not exist on the Hermes
+// side.  The assignableMembers query lists every local user who holds
+// any active product_role on (entity, 'ai-employee') and is NOT already
+// assigned — those rows surface in the section's "Assign someone"
+// dropdown.
+const canMutateAssignments = roles.includes('principal') || roles.includes('operator')
+let assignments: MatterAssignment[] = []
+let assignableMembers: Array<{ id: string; name: string; email: string }> = []
+if (matter) {
+  assignments = await listMatterAssignments(env.DB, client.id, matterId)
+  const assignedIds = new Set(assignments.map((a) => a.assigneeUserId))
+  const memberRowsRaw = await env.DB.prepare(
+    `SELECT DISTINCT u.id    AS id,
+                     u.name  AS name,
+                     u.email AS email
+       FROM product_roles pr
+       JOIN users u ON u.id = pr.user_id
+      WHERE pr.entity_id = ?
+        AND pr.product_slug = ?
+        AND pr.revoked_at IS NULL
+      ORDER BY u.name, u.email`
+  )
+    .bind(client.id, PRODUCT_SLUG)
+    .all<{ id: string; name: string; email: string }>()
+  assignableMembers = (memberRowsRaw.results ?? []).filter((m) => !assignedIds.has(m.id))
+}
+
+// Status banner — set by the matter-assignment endpoint on redirect.
+const status = Astro.url.searchParams.get('status')
+type BannerStatus = { text: string; tone: 'success' | 'error' | 'info' }
+const STATUS_BANNERS: Record<string, BannerStatus> = {
+  assigned: { text: 'Assignment added.', tone: 'success' },
+  unassigned: { text: 'Assignment removed.', tone: 'success' },
+  no_change: { text: 'No change applied.', tone: 'info' },
+  invalid_action: { text: 'Invalid action.', tone: 'error' },
+  invalid_matter: { text: 'Invalid matter.', tone: 'error' },
+  invalid_user: { text: 'Invalid user.', tone: 'error' },
+  user_not_found: { text: 'That user is not on your firm.', tone: 'error' },
+  user_no_role: {
+    text: 'That user does not have an AI Employee role yet. Grant a role first, then assign.',
+    tone: 'error',
+  },
+}
+const banner = status ? (STATUS_BANNERS[status] ?? null) : null
 ---
 
 <!doctype html>
@@ -161,6 +221,22 @@ if (matter) {
               meta={ageCaption}
             />
 
+            {banner && (
+              <div
+                role="status"
+                class:list={[
+                  'mt-6 px-4 py-3 border-[3px] text-sm',
+                  banner.tone === 'success'
+                    ? 'border-[color:var(--ss-color-complete)] bg-[color:var(--ss-color-complete)]/10 text-[color:var(--ss-color-complete)]'
+                    : banner.tone === 'error'
+                      ? 'border-[color:var(--ss-color-error)] bg-[color:var(--ss-color-error)]/10 text-[color:var(--ss-color-error)]'
+                      : 'border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-primary)]',
+                ]}
+              >
+                {banner.text}
+              </div>
+            )}
+
             <section class="mt-stack flex items-baseline gap-4 flex-wrap" aria-label="Matter phase">
               {phaseTone && phaseStamp && (
                 <StatusPill tone={phaseTone} label={phaseStamp} size="base" />
@@ -173,6 +249,12 @@ if (matter) {
             </section>
 
             <MatterFactsSection facts={matter.facts} />
+            <MatterAssignmentSection
+              matterId={matter.id}
+              assignments={assignments}
+              assignableMembers={assignableMembers}
+              canMutate={canMutateAssignments}
+            />
             <MatterTimelineSection entries={matter.timeline} />
             <MatterDraftsSection matterId={matter.id} drafts={matter.draftsInFlight} />
             <MatterAuditSection matterId={matter.id} events={matter.recentAudit} />
