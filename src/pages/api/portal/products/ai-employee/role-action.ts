@@ -9,6 +9,10 @@ import {
 } from '../../../../../lib/portal/product-roles-mutations'
 import type { PortalUserRow } from '../../../../../lib/auth/clerk-bridge'
 import type { Entity } from '../../../../../lib/db/entities'
+import {
+  buildRoleAuditEvent,
+  recordRbacAuditEvent,
+} from '../../../../../lib/portal/ai-employee/rbac-audit'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -32,6 +36,13 @@ import { env } from 'cloudflare:workers'
  *
  * Returns a 303 redirect back to the user-list page with a `status`
  * query param so the page can surface a banner.
+ *
+ * Audit: every successful grant or revoke emits an `audit:rbac_event`
+ * log line via `recordRbacAuditEvent`. No-op cases (idempotent re-grant
+ * of an active role, idempotent re-revoke of an already-revoked role)
+ * are NOT audited — nothing changed. The lock-out self-protection
+ * (`cannot_revoke_last_principal`) is also not audited; it never
+ * mutated state.
  */
 
 const PRODUCT_SLUG = 'ai-employee'
@@ -94,11 +105,15 @@ function parseForm(formData: FormData): ParsedAction | string {
   return { kind: action, targetUserId, role }
 }
 
-async function targetUserExists(userId: string, orgId: string): Promise<boolean> {
-  const row = await env.DB.prepare('SELECT id FROM users WHERE id = ? AND org_id = ?')
+interface TargetUserRow {
+  id: string
+  email: string
+}
+
+async function loadTargetUser(userId: string, orgId: string): Promise<TargetUserRow | null> {
+  return await env.DB.prepare('SELECT id, email FROM users WHERE id = ? AND org_id = ?')
     .bind(userId, orgId)
-    .first<{ id: string }>()
-  return row !== null
+    .first<TargetUserRow>()
 }
 
 /**
@@ -123,7 +138,32 @@ async function isSafeSelfPrincipalRevoke(
   return (row?.n ?? 0) > 0
 }
 
-async function handleRevoke(ctx: AuthorizedContext, parsed: ParsedAction): Promise<Response> {
+async function emitRoleAudit(
+  ctx: AuthorizedContext,
+  parsed: ParsedAction,
+  target: TargetUserRow,
+  subAction: 'role_granted' | 'role_revoked'
+): Promise<void> {
+  await recordRbacAuditEvent(
+    buildRoleAuditEvent({
+      subAction,
+      customer_id: ctx.client.id,
+      product_slug: PRODUCT_SLUG,
+      actorUserId: ctx.user.id,
+      actorClerkUserId: ctx.user.clerk_user_id,
+      actorEmail: ctx.user.email,
+      targetUserId: target.id,
+      targetEmail: target.email,
+      role: parsed.role,
+    })
+  )
+}
+
+async function handleRevoke(
+  ctx: AuthorizedContext,
+  parsed: ParsedAction,
+  target: TargetUserRow
+): Promise<Response> {
   if (!(await isSafeSelfPrincipalRevoke(ctx, parsed))) {
     return redirectWithStatus('cannot_revoke_last_principal')
   }
@@ -133,10 +173,15 @@ async function handleRevoke(ctx: AuthorizedContext, parsed: ParsedAction): Promi
     productSlug: PRODUCT_SLUG,
     role: parsed.role,
   })
+  if (changed) await emitRoleAudit(ctx, parsed, target, 'role_revoked')
   return redirectWithStatus(changed ? 'revoked' : 'no_change')
 }
 
-async function handleGrant(ctx: AuthorizedContext, parsed: ParsedAction): Promise<Response> {
+async function handleGrant(
+  ctx: AuthorizedContext,
+  parsed: ParsedAction,
+  target: TargetUserRow
+): Promise<Response> {
   const changed = await grantProductRole(env.DB, {
     orgId: ctx.orgId,
     userId: parsed.targetUserId,
@@ -145,6 +190,7 @@ async function handleGrant(ctx: AuthorizedContext, parsed: ParsedAction): Promis
     role: parsed.role,
     grantedBy: ctx.user.id,
   })
+  if (changed) await emitRoleAudit(ctx, parsed, target, 'role_granted')
   return redirectWithStatus(changed ? 'granted' : 'no_change')
 }
 
@@ -157,9 +203,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const parsed = parseForm(formData)
   if (typeof parsed === 'string') return redirectWithStatus(parsed)
 
-  if (!(await targetUserExists(parsed.targetUserId, ctx.orgId))) {
+  const target = await loadTargetUser(parsed.targetUserId, ctx.orgId)
+  if (target === null) {
     return redirectWithStatus('user_not_found')
   }
 
-  return parsed.kind === 'revoke' ? handleRevoke(ctx, parsed) : handleGrant(ctx, parsed)
+  return parsed.kind === 'revoke'
+    ? handleRevoke(ctx, parsed, target)
+    : handleGrant(ctx, parsed, target)
 }
