@@ -20,6 +20,11 @@ See ADR 0006, 0008, 0009 and ``docs/specs/ai-employee/memory-ingestion.md``.
 
 from __future__ import annotations
 
+from .namespaced import (
+    RawR2Client,
+    RawVectorizeClient,
+    build_namespaced_memory_runner,
+)
 from .pipeline import (
     DocumentChunker,
     EmbeddingClient,
@@ -47,9 +52,12 @@ __all__ = [
     "MemorySourceState",
     "NoPracticeManagementSource",
     "PracticeManagementSourceAdapter",
+    "RawR2Client",
+    "RawVectorizeClient",
     "SourceDescriptor",
     "SourceStateStore",
     "StorageError",
+    "build_namespaced_memory_runner",
     "decommission_source",
     "read_source_states",
 ]

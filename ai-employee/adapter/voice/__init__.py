@@ -51,6 +51,10 @@ from .filter import (
     REASON_TOO_SHORT,
     compute_body_digest,
 )
+from .namespaced import (
+    RawR2Client as NamespacedRawR2Client,
+    build_namespaced_voice_runner,
+)
 from .pipeline import (
     CohortResolver,
     CursorStore,
@@ -101,6 +105,7 @@ __all__ = [
     "IngestionResult",
     "IngestionStateUpdate",
     "MIN_WORD_COUNT_FOR_SAMPLE",
+    "NamespacedRawR2Client",
     "NoEmailSource",
     "PartnerAuthoredFilter",
     "QueryExecutor",
@@ -123,6 +128,7 @@ __all__ = [
     "VoiceSourceState",
     "VoiceSourceStateStore",
     "WriteExecutor",
+    "build_namespaced_voice_runner",
     "compute_body_digest",
     "decommission_source",
     "enforce_retention",
