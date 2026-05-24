@@ -20,7 +20,13 @@
  */
 
 import { scanParsedValue, scanRawYaml, type ScanOptions } from './secret-detector'
-import { checkEnum, checkRequiredString, isPlainObject, secretFindingToError } from './helpers'
+import {
+  checkEnum,
+  checkHermesRef,
+  checkRequiredString,
+  isPlainObject,
+  secretFindingToError,
+} from './helpers'
 import {
   ACCEPTED_VERTICALS,
   type CustomerYaml,
@@ -165,6 +171,7 @@ function validateSections(
   checkRequiredString(root, 'fly_region', errors)
   checkRequiredString(root, 'model', errors)
   checkRequiredString(root, 'hermes_ref', errors)
+  checkHermesRef(root, errors)
   const machine = checkMachine(root, errors)
   const users = checkUsers(root, errors)
   const personas = checkPersonas(root, errors)

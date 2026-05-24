@@ -16,19 +16,41 @@ Hermes fork (per [ADR 0015](../../docs/adr/0015-hermes-fork-vs-upstream.md))
 constructs a `hermes_hook.HookRegistry`, imports this module, and calls
 `register(registry)`.
 
-The seam upstream is `agent/tool_guardrails.py`; the overlay layer wraps
-it and exposes the `HookRegistry` interface declared in
-`hermes_hook.py`. The adapter side (here) does not touch upstream files
-and does not depend on the fork's internal layout - the contract is the
-`HookRegistry` shape.
+Dual-surface contract
+---------------------
+
+`register()` installs hooks against TWO surfaces:
+
+1.  The in-tree `hermes_hook.HookRegistry` (this directory's
+    `hermes_hook.py`). This is the stable adapter contract: the
+    `FakeHermesRuntime` exercises it in tests, and the runtime overlay
+    drives it in production. The registration is unconditional.
+
+2.  The SMD overlay surface (`smd.hooks.*` in the venturecrane fork of
+    NousResearch/hermes-agent, per ADR 0015). The overlay binds the
+    in-tree registry into the actual upstream tool-dispatch loop. The
+    registration is best-effort: in dev / test / pre-overlay-fork
+    environments the `smd` package is absent or the consumer hooks raise
+    `NotImplementedError`, both of which are caught and logged. The
+    in-tree registration above does not depend on overlay availability.
+
+The dual-surface shape is what ADR 0015 §Decision specifies: "The
+adapter contract is stable across overlay-vs-upstream migration." The
+in-tree HookRegistry IS the stable contract. The `smd.hooks.*` call is
+how the runtime overlay observes and acts on that contract once the
+fork's consumer hooks are implemented (per `venturecrane/hermes-agent`
+follow-on work tracked from ss-console #842, #843, #864, #948, #953,
+and ADR 0006).
 
 Phase A.5
 ---------
 
-This file replaces the original Phase A stub. The stub asserted the
+This file replaced the original Phase A stub. The stub asserted the
 upstream seam was `agent/tool_router.py`; PR #829's runbook discovered
 the real seam at `agent/tool_guardrails.py`; ADR 0015 locked the
-overlay-plus-thin-fork strategy; this PR rewires `register()` accordingly.
+overlay-plus-thin-fork strategy; PR #1014 shipped the customer.yaml
+fork-tag validator; this PR wires `register()` against the overlay
+surface as the second leg of ADR 0015's verification list.
 
 The hook surface is testable in isolation via `hermes_hook.FakeHermesRuntime`;
 the integration tests in `tests/test_aie_adapter.py` drive the full
@@ -58,6 +80,20 @@ from .hermes_hook import (
     ToolCallResult,
     TrustCeilingEnforcer,
 )
+from .boot_checks import (
+    GepaEnabledError,
+    verify_gepa_disabled,
+)
+from .curator_interceptor import (
+    CuratorDraftStateError,
+    CuratorEvidenceRequired,
+    CuratorInterceptor,
+    CuratorNativeWriteBlocked,
+    CuratorTargetRequired,
+    DraftType,
+    SkillDraft,
+    verify_curator_intercepted,
+)
 from .honcho_interceptor import (
     HonchoEvidenceRequired,
     HonchoInterceptor,
@@ -76,6 +112,18 @@ from .trust_ceiling import ActionClass, Ceiling, enforce
 HONCHO_AUDIT_ACTION_OBSERVATION = "HONCHO_OBSERVATION"
 HONCHO_AUDIT_ACTION_PROMOTION = "HONCHO_PROMOTION"
 HONCHO_AUDIT_ACTION_DISMISSAL = "HONCHO_DISMISSAL"
+
+# Audit action_type classes emitted by the Skill Curator overlay (ADR 0017 §8).
+# Same import-surface rationale as the Honcho constants above.
+CURATOR_AUDIT_ACTION_DRAFT = "CURATOR_DRAFT"
+CURATOR_AUDIT_ACTION_PROMOTION = "CURATOR_PROMOTION"
+CURATOR_AUDIT_ACTION_DISMISSAL = "CURATOR_DISMISSAL"
+
+# Audit action_type emitted once per Machine boot when the GEPA disable
+# check passes (ADR 0018 §4). No corresponding "enabled" or "failed"
+# action_type — a failed disable check halts boot and escalates via
+# sticky-stop, not via an audit row.
+GEPA_AUDIT_ACTION_DISABLED_VERIFIED = "GEPA_DISABLED_VERIFIED"
 
 log = logging.getLogger("aie.adapter")
 
@@ -322,6 +370,74 @@ def _make_compaction_hook():
     return compaction
 
 
+# Per-surface descriptors for the SMD overlay layer in the
+# venturecrane/hermes-agent fork. The tuple is (import path, short label
+# for logging). Adding a fifth surface here is the only edit a new
+# overlay hook requires on this side. Per ADR 0015 the adapter does not
+# depend on the overlay's internal layout - only on this contract.
+_OVERLAY_SURFACES: tuple[tuple[str, str], ...] = (
+    ("smd.hooks.audit_emission", "audit_emission"),
+    ("smd.hooks.sticky_stop", "sticky_stop"),
+    ("smd.hooks.trust_ceiling", "trust_ceiling"),
+    ("smd.hooks.capability_adapter", "capability_adapter"),
+)
+
+
+def _register_overlay_surface(registry: HookRegistry, customer_id: str) -> int:
+    """Best-effort registration with the SMD overlay's per-surface hooks.
+
+    For each entry in _OVERLAY_SURFACES, import the module and call its
+    `register_smd_adapter(registry, customer_id=...)`. Per-surface errors
+    are caught so one not-yet-implemented hook does not block the others.
+
+    Caught errors:
+      ModuleNotFoundError: smd package absent from PYTHONPATH (dev / test
+                           / customer Machine without the fork installed).
+      NotImplementedError: the surface module exists but its
+                           register_smd_adapter is still a scaffold per
+                           ADR 0015 PR 1; consumer follows per the
+                           tracking issues called out in the module's
+                           own docstring.
+
+    Returns the count of surfaces that registered successfully (0 in the
+    fully-absent / fully-scaffolded case).
+    """
+    registered = 0
+    for module_path, label in _OVERLAY_SURFACES:
+        try:
+            module = __import__(module_path, fromlist=["register_smd_adapter"])
+            register_fn = getattr(module, "register_smd_adapter")
+            register_fn(registry, customer_id=customer_id)
+            registered += 1
+            log.info("SMD overlay surface registered: %s", label)
+        except ModuleNotFoundError:
+            # The smd package is not on PYTHONPATH. Expected in dev / test
+            # and in any environment that runs the adapter without the
+            # venturecrane/hermes-agent fork installed.
+            log.info(
+                "SMD overlay surface %s unavailable (smd package not on "
+                "PYTHONPATH); continuing with in-tree HookRegistry only",
+                label,
+            )
+            # All overlay surfaces share the same import root; if the smd
+            # package isn't installed, none of them will be. Bail early.
+            return registered
+        except NotImplementedError:
+            # The overlay surface exists but its consumer is still a
+            # scaffold per ADR 0015 PR 1. Per-surface skip; the other
+            # surfaces may or may not be in the same state.
+            log.warning(
+                "SMD overlay surface %s is a scaffold "
+                "(register_smd_adapter raised NotImplementedError); "
+                "continuing with in-tree HookRegistry only for this "
+                "surface. See venturecrane/hermes-agent smd/hooks/%s.py "
+                "for the tracking issue.",
+                label,
+                label,
+            )
+    return registered
+
+
 def register(
     registry: Optional[HookRegistry] = None,
     *,
@@ -360,6 +476,11 @@ def register(
       5. Build the compaction hook (re-inject pinned slots; safety
          invariant #4).
       6. Register all four against the supplied registry.
+      7. Best-effort: register the same registry against the SMD overlay
+         surface (`smd.hooks.*` in the venturecrane/hermes-agent fork)
+         so the runtime overlay can drive the hooks. Absent overlay
+         (dev/test) or scaffold overlay (pre-implementation) are caught
+         and logged; the in-tree registration above is unaffected.
     """
     if registry is None:
         registry = HookRegistry()
@@ -375,10 +496,15 @@ def register(
     registry.register_refusal(_make_refusal_hook(refusal_handler))
     registry.register_compaction(_make_compaction_hook())
 
+    overlay_count = _register_overlay_surface(registry, customer_id)
+
     log.info(
-        "AIEmployee adapter registered for customer=%s: 4 hooks installed "
-        "(pre_tool, post_tool, refusal, compaction); pinned slots=%s",
+        "AIEmployee adapter registered for customer=%s: 4 in-tree hooks "
+        "installed (pre_tool, post_tool, refusal, compaction); %d/%d SMD "
+        "overlay surface(s) bound; pinned slots=%s",
         customer_id,
+        overlay_count,
+        len(_OVERLAY_SURFACES),
         sorted(registry.pinned_slots.keys()),
     )
     return registry
@@ -388,9 +514,20 @@ def register(
 __all__ = [
     "ActionClass",
     "BlockedToolCall",
+    "CURATOR_AUDIT_ACTION_DISMISSAL",
+    "CURATOR_AUDIT_ACTION_DRAFT",
+    "CURATOR_AUDIT_ACTION_PROMOTION",
     "Ceiling",
+    "CuratorDraftStateError",
+    "CuratorEvidenceRequired",
+    "CuratorInterceptor",
+    "CuratorNativeWriteBlocked",
+    "CuratorTargetRequired",
     "DEFAULT_PINNED_SLOT_KEYS",
     "DefaultTrustCeilingEnforcer",
+    "DraftType",
+    "GEPA_AUDIT_ACTION_DISABLED_VERIFIED",
+    "GepaEnabledError",
     "HONCHO_AUDIT_ACTION_DISMISSAL",
     "HONCHO_AUDIT_ACTION_OBSERVATION",
     "HONCHO_AUDIT_ACTION_PROMOTION",
@@ -403,10 +540,13 @@ __all__ = [
     "HookRegistry",
     "ObservationType",
     "PinnedSlots",
+    "SkillDraft",
     "ToolCallContext",
     "ToolCallResult",
     "TrustCeilingEnforcer",
     "enforce",
     "register",
+    "verify_curator_intercepted",
+    "verify_gepa_disabled",
     "verify_honcho_intercepted",
 ]

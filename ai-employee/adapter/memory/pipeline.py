@@ -594,6 +594,13 @@ def _build_vector_record(
     }
 
 
+# Public surface (`from adapter.memory.pipeline import *`) excludes the
+# raw `StorageClient` Protocol as of issue #861's TOCTOU hardening:
+# external callers MUST go through
+# `adapter.memory.build_namespaced_memory_runner(...)`, which wraps a
+# raw R2 + Vectorize pair in the namespace-asserting bridge before
+# handing it to the runner. The Protocol remains importable by explicit
+# name for the bridge in `namespaced.py` and for tests.
 __all__ = [
     "DocumentChunker",
     "EmbeddingClient",
@@ -607,6 +614,5 @@ __all__ = [
     "PracticeManagementSource",
     "PracticeManagementSourceAdapter",
     "SourceDescriptor",
-    "StorageClient",
     "StorageError",
 ]
