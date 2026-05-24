@@ -11,11 +11,16 @@ import PortalHeader from '../../../../components/portal/PortalHeader.astro'
 import PortalTabs from '../../../../components/portal/PortalTabs.astro'
 import PortalPageHead from '../../../../components/portal/PortalPageHead.astro'
 import PromotionCardList from '../../../../components/portal/ai-employee/PromotionCardList.astro'
+import AlivenessHeader from '../../../../components/portal/ai-employee/AlivenessHeader.astro'
 import SkipToMain from '../../../../components/SkipToMain.astro'
 import {
   listPromotionReadySkills,
   type PromotionCandidate,
 } from '../../../../lib/portal/ai-employee/promotion-cards'
+import {
+  resolveAlivenessSignal,
+  type AlivenessSignal,
+} from '../../../../lib/portal/ai-employee/aliveness'
 import { SignOutButton } from '@clerk/astro/components'
 import { env } from 'cloudflare:workers'
 
@@ -126,6 +131,19 @@ if (access) {
     description:
       'A full record of every action your AI Employee takes: drafts created, sends approved, identity changes.',
   })
+}
+
+// Aliveness signal (per #875). Per-customer "where is the agent right
+// now" header: idle / running / sticky_stop / offline + last-action
+// timestamp. The Hermes bridge (#821) is not wired today, so the
+// resolver returns null and the AlivenessHeader component renders
+// nothing (empty-state pattern). When the bridge lands, the chip
+// appears without further page changes. Surfaced for any role so
+// operators and compliance see the same posture the principal sees;
+// access to the surface is already role-gated upstream.
+let alivenessSignal: AlivenessSignal | null = null
+if (access) {
+  alivenessSignal = await resolveAlivenessSignal(access.subscription)
 }
 
 // Promotion recommendation cards (per #811). Principal-only because the
@@ -240,94 +258,99 @@ if (access?.roles.includes('principal')) {
 
       {
         surfaceState === 'active' && (
-          <div class="mt-10 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-10 lg:gap-12 lg:items-start">
-            <div class="flex flex-col gap-8 min-w-0">
-              <PromotionCardList candidates={promotionCandidates} />
-              <section>
-                <p class="mb-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
-                  Sections
-                </p>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-px bg-[color:var(--ss-color-text-primary)] border-[3px] border-[color:var(--ss-color-text-primary)]">
-                  {sectionCards.map((s, i) => {
-                    const anchor = String(i + 1).padStart(2, '0')
-                    return (
-                      <a
-                        href={s.href}
-                        class="block bg-[color:var(--ss-color-background)] p-6 md:p-8 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
-                      >
-                        <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]">
-                          § {anchor}
-                        </p>
-                        <h2 class="mt-2 font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
-                          {s.label}
-                        </h2>
-                        <p class="mt-3 text-sm text-[color:var(--ss-color-text-secondary)]">
-                          {s.description}
-                        </p>
-                      </a>
-                    )
-                  })}
-                </div>
-              </section>
+          <>
+            <div class="mt-8">
+              <AlivenessHeader signal={alivenessSignal} />
             </div>
+            <div class="mt-10 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-10 lg:gap-12 lg:items-start">
+              <div class="flex flex-col gap-8 min-w-0">
+                <PromotionCardList candidates={promotionCandidates} />
+                <section>
+                  <p class="mb-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
+                    Sections
+                  </p>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-px bg-[color:var(--ss-color-text-primary)] border-[3px] border-[color:var(--ss-color-text-primary)]">
+                    {sectionCards.map((s, i) => {
+                      const anchor = String(i + 1).padStart(2, '0')
+                      return (
+                        <a
+                          href={s.href}
+                          class="block bg-[color:var(--ss-color-background)] p-6 md:p-8 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
+                        >
+                          <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]">
+                            § {anchor}
+                          </p>
+                          <h2 class="mt-2 font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+                            {s.label}
+                          </h2>
+                          <p class="mt-3 text-sm text-[color:var(--ss-color-text-secondary)]">
+                            {s.description}
+                          </p>
+                        </a>
+                      )
+                    })}
+                  </div>
+                </section>
+              </div>
 
-            <aside class="flex flex-col gap-8 min-w-0">
-              <section class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
-                <div class="bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
-                  Your roles
-                </div>
-                <div class="px-5 md:px-7 py-6">
-                  <ul
-                    class="space-y-1 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)]"
-                    role="list"
-                  >
-                    {access?.roles.map((role) => (
-                      <li>· {role}</li>
-                    ))}
-                  </ul>
-                </div>
-              </section>
-
-              {access?.roles.includes('principal') && (
+              <aside class="flex flex-col gap-8 min-w-0">
                 <section class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
                   <div class="bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
-                    Manage
+                    Your roles
                   </div>
-                  <ul
-                    class="divide-y-[2px] divide-[color:var(--ss-color-text-primary)]"
-                    role="list"
-                  >
-                    <li>
-                      <a
-                        href="/portal/products/ai-employee/settings/users"
-                        class="block px-5 md:px-7 py-4 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
-                      >
-                        <p class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)]">
-                          Users
-                        </p>
-                        <p class="mt-1 text-sm text-[color:var(--ss-color-text-secondary)]">
-                          Invite team members and manage roles.
-                        </p>
-                      </a>
-                    </li>
-                    <li>
-                      <a
-                        href="/portal/products/ai-employee/settings"
-                        class="block px-5 md:px-7 py-4 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
-                      >
-                        <p class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)]">
-                          Settings
-                        </p>
-                        <p class="mt-1 text-sm text-[color:var(--ss-color-text-secondary)]">
-                          Configure your AI Employee.
-                        </p>
-                      </a>
-                    </li>
-                  </ul>
+                  <div class="px-5 md:px-7 py-6">
+                    <ul
+                      class="space-y-1 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)]"
+                      role="list"
+                    >
+                      {access?.roles.map((role) => (
+                        <li>· {role}</li>
+                      ))}
+                    </ul>
+                  </div>
                 </section>
-              )}
-            </aside>
-          </div>
+
+                {access?.roles.includes('principal') && (
+                  <section class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
+                    <div class="bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
+                      Manage
+                    </div>
+                    <ul
+                      class="divide-y-[2px] divide-[color:var(--ss-color-text-primary)]"
+                      role="list"
+                    >
+                      <li>
+                        <a
+                          href="/portal/products/ai-employee/settings/users"
+                          class="block px-5 md:px-7 py-4 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
+                        >
+                          <p class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)]">
+                            Users
+                          </p>
+                          <p class="mt-1 text-sm text-[color:var(--ss-color-text-secondary)]">
+                            Invite team members and manage roles.
+                          </p>
+                        </a>
+                      </li>
+                      <li>
+                        <a
+                          href="/portal/products/ai-employee/settings"
+                          class="block px-5 md:px-7 py-4 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
+                        >
+                          <p class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)]">
+                            Settings
+                          </p>
+                          <p class="mt-1 text-sm text-[color:var(--ss-color-text-secondary)]">
+                            Configure your AI Employee.
+                          </p>
+                        </a>
+                      </li>
+                    </ul>
+                  </section>
+                )}
+              </aside>
+            </div>
+          </>
         )
       }
     </main>
