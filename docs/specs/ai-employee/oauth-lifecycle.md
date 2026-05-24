@@ -13,24 +13,24 @@
 
 ### Storage
 
-| Token kind                      | Location                                                               | Format                                                                  | Access                                                |
-| ------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------- |
-| Long-lived OAuth refresh token  | Infisical: `/ai-employee/{customer-slug}/{connector}/refresh_token`    | encrypted at rest                                                       | Read at Machine boot + on refresh failure             |
-| Short-lived access token        | Fly Machine volume: `/data/tokens/{connector}.json` (chmod 0600)       | JSON with `expires_at` (epoch seconds), `access_token`, `refresh_token` | Read on every connector request; rewritten on refresh |
-| Provisioning-time consent state | Infisical: `/ai-employee/{customer-slug}/{connector}/consent_log.json` | timestamp + scopes granted + user email                                 | Captain-only read                                     |
+Per [ADR 0010](../../adr/0010-per-customer-oauth-token-storage.md), customer-side OAuth tokens live exclusively on the per-customer Fly volume — never in Infisical, never in a shared store.
 
-**Why both:** Infisical is the durable secret store and survives Machine destruction. The file-based cache (matching PR #812's LawPay impl) keeps hot-path latency low — no Infisical hop per API call. Refresh failure invalidates the local file and falls back to Infisical to re-bootstrap or to surface an alert.
+| Token kind                      | Location                                                            | Format                                                                                                          | Access                                                |
+| ------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| OAuth tokens (access + refresh) | Fly Machine volume: `/opt/data/oauth/{connector}.json` (chmod 0600) | JSON `{ access_token, refresh_token, scopes[], expires_at, obtained_at, provider }` per ADR 0010 §Storage shape | Read on every connector request; rewritten on refresh |
+| Provisioning-time consent state | D1 `audit_log` table (`CONNECTOR_CONSENT_GRANTED` events)           | timestamp + scopes granted + user email                                                                         | Captain query via audit-log view                      |
+
+**Why Fly volume only:** ADR 0010 enumerates the tradeoffs in full. Summary: per-customer isolation is architectural (one volume per Machine, not a shared trust boundary); ADR 0009 (cross-Machine query prohibition) aligns naturally with Fly volumes and is in tension with Infisical; refresh latency is sub-ms vs ~50-200ms per Infisical roundtrip; volume loss on decommission is correct semantics (customer ends; data ends). Consent state moves to `audit_log` because it's an event record, not a credential.
 
 ### Refresh policy
 
 ```
 For every connector request:
-  tokens = read /data/tokens/{connector}.json
+  tokens = read /opt/data/oauth/{connector}.json
   if tokens.expires_at - now() < 600:   # 10-minute safety margin
     new_tokens = refresh(tokens.refresh_token)
     if new_tokens.ok:
-      atomic_write /data/tokens/{connector}.json
-      mirror new_tokens.refresh_token to Infisical
+      atomic_write /opt/data/oauth/{connector}.json
     else:
       enter degraded mode (see Failure modes)
 ```
@@ -46,8 +46,8 @@ When a refresh token itself is revoked or expired (Microsoft: 90 days unused; La
 3. Audit-log event `CONNECTOR_AUTH_EXPIRED` written with connector, scopes lost, timestamp.
 4. Captain alert fired (control plane notification — see Captain alert mechanism below).
 5. Captain initiates re-consent: runs `bin/reauth-connector.sh {customer-slug} {connector}` which generates an OAuth authorize URL and emails it to the customer's principal user.
-6. Customer clicks the link, completes OAuth consent in their browser. Callback hits `https://admin.smd.services/ai-employee/oauth/{connector}/callback`.
-7. Captain receives confirmation. New tokens written to Infisical + Machine. Connector status restored.
+6. Customer clicks the link, completes OAuth consent in their browser. Callback hits `https://portal.smd.services/ai-employee/oauth/{connector}/callback` (portal subdomain; customer-facing). The portal callback handler proxies the OAuth code back to the customer's per-Machine `/opt/data/oauth/` write path via the per-customer Fly internal network. The admin subdomain stays role-gated for SMD operations only.
+7. Captain receives confirmation. New tokens written to the Machine's Fly volume at `/opt/data/oauth/{connector}.json` per ADR 0010. Connector status restored.
 8. Audit-log event `CONNECTOR_AUTH_RESTORED`.
 
 No silent re-auth. The customer is always in the loop because consent is the legal basis for data access.
@@ -79,15 +79,15 @@ Scopes declared per adapter in `ai-employee/connectors/<capability>/<system>/oau
 
 ## Failure modes
 
-| Failure                                                             | Symptom                              | Behavior                                                                          | Audit event                                            |
-| ------------------------------------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| Access token expired, refresh succeeds silently                     | none visible                         | request retries with new token                                                    | `CONNECTOR_TOKEN_REFRESHED` (every 10th, sampled)      |
-| Refresh token revoked (admin action upstream)                       | refresh API returns `invalid_grant`  | enter `auth_expired`; alert Captain; re-consent flow                              | `CONNECTOR_AUTH_EXPIRED`                               |
-| Refresh token expired (idle TTL)                                    | refresh API returns `invalid_grant`  | same as above                                                                     | `CONNECTOR_AUTH_EXPIRED`                               |
-| Network failure during refresh                                      | http error                           | retry 3x with exponential backoff (1s/4s/16s); then degraded                      | `CONNECTOR_REFRESH_RETRY_EXHAUSTED`                    |
-| Infisical unreachable at boot                                       | Machine boot fails                   | exit 4; Captain alerted via Fly health check                                      | (no D1 yet — written to platform audit log)            |
-| New refresh token issued but Infisical mirror fails                 | local file updated; Infisical stale  | Captain alerted on next boot; manual sync via `bin/reauth-connector.sh --recover` | `CONNECTOR_INFISICAL_DRIFT`                            |
-| Customer revokes consent in their own dashboard (Microsoft, Google) | next refresh returns `invalid_grant` | same as auth_expired                                                              | `CONNECTOR_AUTH_EXPIRED` (sub_type=`customer_revoked`) |
+| Failure                                                             | Symptom                              | Behavior                                                                   | Audit event                                            |
+| ------------------------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Access token expired, refresh succeeds silently                     | none visible                         | request retries with new token                                             | `CONNECTOR_TOKEN_REFRESHED` (every 10th, sampled)      |
+| Refresh token revoked (admin action upstream)                       | refresh API returns `invalid_grant`  | enter `auth_expired`; alert Captain; re-consent flow                       | `CONNECTOR_AUTH_EXPIRED`                               |
+| Refresh token expired (idle TTL)                                    | refresh API returns `invalid_grant`  | same as above                                                              | `CONNECTOR_AUTH_EXPIRED`                               |
+| Network failure during refresh                                      | http error                           | retry 3x with exponential backoff (1s/4s/16s); then degraded               | `CONNECTOR_REFRESH_RETRY_EXHAUSTED`                    |
+| Fly volume read failure at boot                                     | Machine boot fails                   | exit 4; Captain alerted via Fly health check                               | (no D1 yet — written to platform audit log)            |
+| Atomic write of refreshed token fails                               | local file possibly stale            | retry once; on second failure, Captain alerted + connector marked degraded | `CONNECTOR_TOKEN_WRITE_FAILED`                         |
+| Customer revokes consent in their own dashboard (Microsoft, Google) | next refresh returns `invalid_grant` | same as auth_expired                                                       | `CONNECTOR_AUTH_EXPIRED` (sub_type=`customer_revoked`) |
 
 ## Verification
 
@@ -98,13 +98,15 @@ Scopes declared per adapter in `ai-employee/connectors/<capability>/<system>/oau
 
 ## Implementation notes
 
-- Reference Python impl at `ai-employee/connectors/lawpay/src/ai_employee_lawpay/oauth.py` already exists in PR #812; extend with Infisical sync hook.
-- New module: `ai-employee/adapter/oauth_lifecycle.py` provides shared `TokenStore`, `RefreshScheduler`, `ReauthFlow` classes used by all connectors.
+- Reference Python impl at `ai-employee/connectors/lawpay/src/ai_employee_lawpay/oauth.py` already exists in PR #812 and follows the ADR 0010 Fly-volume pattern. No Infisical hook needed.
+- New module: `ai-employee/adapter/oauth_lifecycle.py` provides shared `TokenStore` (Fly-volume-backed), `RefreshScheduler`, `ReauthFlow` classes used by all connectors.
 - New script: `bin/reauth-connector.sh` (Captain-invoked, generates URL, emails customer).
-- Cloudflare Worker at `src/pages/api/ai-employee/oauth/[connector]/callback.ts` handles OAuth callbacks for Captain-initiated re-auth.
+- Astro route at `src/pages/portal/products/ai-employee/oauth/[connector]/callback.astro` handles OAuth callbacks on the portal subdomain (customer-facing); proxies the code to the per-customer Machine via Fly internal network. Admin subdomain stays role-gated.
 - Daily probe Worker: `infra/workers/oauth-probe/worker.ts`; scheduled cron 0 5 \* \* \* (5am UTC, before morning digest at 8am).
 - Audit log events live in D1 `audit_log` table per d1-schema.md.
 
-[AMBIGUITY: Composio-managed connectors (Gmail, Slack, GitHub per PR #812 customer-zero yaml) handle OAuth refresh inside Composio's infra. The spec's local-file + Infisical pattern applies only to `build:` adapters. Confirm Composio's auth_expired surfacing matches our `CapabilityError.auth_expired` shape, or write an adapter to translate Composio errors.]
+## Resolved decisions
 
-[AMBIGUITY: Re-consent callback URL `admin.smd.services/ai-employee/oauth/{connector}/callback` requires admin subdomain to be reachable from customer browsers. CLAUDE.md notes admin auth is gated to `admin` role. Either expose a separate unauthenticated callback path or proxy via portal subdomain.]
+**Composio-managed connectors (Gmail, Slack, GitHub).** Composio handles OAuth refresh inside its own infra; we do not store or refresh those tokens. Each Composio-managed connector adapter wraps Composio's error response and re-raises as `CapabilityError.auth_expired` per `capability-contracts.md`. The Fly-volume token-storage pattern (ADR 0010) applies only to `build:` adapters. Implementation: see `ai-employee/adapter/connectors/composio_*.py` adapter-translation pattern.
+
+**Re-consent callback URL.** Callbacks land on the portal subdomain (`portal.smd.services/ai-employee/oauth/{connector}/callback`), not admin. Customer-facing OAuth flows belong on the portal where the authenticated customer is already operating; the admin subdomain stays role-gated for SMD operations only. The portal callback handler proxies the OAuth code to the per-customer Machine's `/opt/data/oauth/` write path via the Fly internal network. No new attack surface on admin.
