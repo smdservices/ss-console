@@ -151,6 +151,38 @@ describe('getCustomerConfig', () => {
     expect(result?.connectors).toBeNull()
     expect(result?.scope).toBeNull()
   })
+
+  it('defaults compliance_enabled to false when the projection column was not populated', async () => {
+    await seedEntity(db)
+    await seedConfig(db, { personas: [makePersona()] })
+    const result = await getCustomerConfig(db, ENTITY_ID)
+    expect(result?.compliance_enabled).toBe(false)
+  })
+
+  it('projects compliance_enabled=true and vertical when explicitly set (#895)', async () => {
+    await seedEntity(db)
+    await seedConfig(db, { personas: [makePersona()] })
+    // Update directly — the seed helper doesn't accept the new columns
+    // because they default; the row is freshly written without them.
+    await db
+      .prepare(
+        `UPDATE customer_configs
+            SET compliance_enabled = 1, vertical = 'law-firm'
+          WHERE entity_id = ?`
+      )
+      .bind(ENTITY_ID)
+      .run()
+    const result = await getCustomerConfig(db, ENTITY_ID)
+    expect(result?.compliance_enabled).toBe(true)
+    expect(result?.vertical).toBe('law-firm')
+  })
+
+  it('keeps vertical null when not yet projected', async () => {
+    await seedEntity(db)
+    await seedConfig(db, { personas: [makePersona()] })
+    const result = await getCustomerConfig(db, ENTITY_ID)
+    expect(result?.vertical).toBeNull()
+  })
 })
 
 describe('getActivePersona', () => {

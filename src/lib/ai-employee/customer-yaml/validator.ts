@@ -48,6 +48,7 @@ import { checkPersonas } from './sections-personas'
 import { checkConnectors } from './sections-connectors'
 import {
   checkBusinessHours,
+  checkComplianceEnabled,
   checkEscalation,
   checkLogging,
   checkMemory,
@@ -166,6 +167,7 @@ interface ParsedSections {
   businessHours: ReturnType<typeof checkBusinessHours>
   logging: ReturnType<typeof checkLogging>
   pause: ReturnType<typeof checkPause>
+  complianceEnabled: boolean
 }
 
 function validateSections(
@@ -205,6 +207,7 @@ function validateSections(
     businessHours: checkBusinessHours(root, errors),
     logging: checkLogging(root, errors),
     pause: checkPause(root, errors),
+    complianceEnabled: checkComplianceEnabled(root, errors),
   }
 }
 
@@ -232,5 +235,6 @@ function assembleCustomerYaml(root: Record<string, unknown>, p: ParsedSections):
     memory: p.memory as Memory,
     logging: p.logging,
     pause: p.pause,
+    compliance_enabled: p.complianceEnabled,
   }
 }

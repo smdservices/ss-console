@@ -21,6 +21,7 @@ import {
   resolveAlivenessSignal,
   type AlivenessSignal,
 } from '../../../../lib/portal/ai-employee/aliveness'
+import { getCustomerConfig } from '../../../../lib/portal/customer-config'
 import { SignOutButton } from '@clerk/astro/components'
 import { env } from 'cloudflare:workers'
 
@@ -97,12 +98,23 @@ if (!subscription) {
 // surfaces (drafts, matters, calendar) and every role sees Audit.
 // Each destination uses resolveAiEmployeeAccess to enforce the gate
 // server-side; this list is the visual filter only.
+//
+// Compliance card surfacing (per #895): when the firm has opted in to
+// the dedicated Compliance view (customer.yaml.compliance_enabled =
+// true), surface the card to compliance and principal roles. Operators
+// never see it — their workflow surfaces are drafts/matters/calendar.
+// When the firm has NOT opted in, surface only to compliance-role
+// users so they have a path to confirm the firm's posture; the
+// destination renders an explicit "not enabled for this firm" empty
+// state per docs/style/empty-state-pattern.md.
 interface SectionCard {
   href: string
   label: string
   description: string
 }
 const sectionCards: SectionCard[] = []
+const customerConfig = access ? await getCustomerConfig(env.DB, client.id) : null
+const complianceViewEnabled = customerConfig?.compliance_enabled ?? false
 if (access) {
   const userRoles = access.roles
   const ACTIVE_DOER_ROLES = ['operator', 'principal']
@@ -131,6 +143,18 @@ if (access) {
     description:
       'A full record of every action your AI Employee takes: drafts created, sends approved, identity changes.',
   })
+  const isCompliance = userRoles.includes('compliance')
+  const isPrincipal = userRoles.includes('principal')
+  const showComplianceCard =
+    (complianceViewEnabled && (isCompliance || isPrincipal)) || isCompliance
+  if (showComplianceCard) {
+    sectionCards.push({
+      href: '/portal/products/ai-employee/compliance',
+      label: 'Compliance',
+      description:
+        'Separation-of-duties view: audit history, retention posture, and evidence packet entry.',
+    })
+  }
 }
 
 // Aliveness signal (per #875). Per-customer "where is the agent right
