@@ -6,7 +6,7 @@
  * persisting these saves keystrokes and re-clicks each time the
  * reviewer comes back.
  *
- * Persistence lives in portal D1 `audit_saved_queries` (migration 0043).
+ * Persistence lives in portal D1 `audit_saved_queries` (migration 0044).
  * The audit log itself lives on the per-customer Hermes Machine D1; saved
  * queries are reviewer state, not customer state, so they live on the
  * portal side and key off `(user_id, entity_id)`.
