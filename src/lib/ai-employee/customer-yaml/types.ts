@@ -197,6 +197,7 @@ export type ValidationErrorCode =
   | 'InvalidBackend'
   | 'EmptyList'
   | 'SchemaVersionUnsupported'
+  | 'InvalidFormat'
 
 export interface ValidationError {
   code: ValidationErrorCode

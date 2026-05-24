@@ -47,7 +47,7 @@ function validFixture(): Record<string, unknown> {
     practice_areas: ['personal-injury', 'workers-comp'],
     fly_region: 'lax',
     model: 'claude-opus-4-7',
-    hermes_ref: 'v2026.5.7',
+    hermes_ref: 'v2026.5.7-smd.0',
     machine: {
       size: 'performance-1x',
       memory_mb: 1024,
@@ -642,5 +642,116 @@ describe('validate — aggregate error behavior', () => {
     for (const input of adversarial) {
       expect(() => validate(input)).not.toThrow()
     }
+  })
+})
+
+// -----------------------------------------------------------------------------
+// hermes_ref fork-tag enforcement (ADR 0015)
+// -----------------------------------------------------------------------------
+
+describe('validate — hermes_ref fork-tag enforcement (ADR 0015)', () => {
+  it('accepts a fork tag at the initial -smd.0 revision', () => {
+    const f = validFixture()
+    f['hermes_ref'] = 'v2026.5.7-smd.0'
+    const r = validate(f)
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    }
+    expect(r.value.hermes_ref).toBe('v2026.5.7-smd.0')
+  })
+
+  it('accepts a fork tag at a higher SMD revision', () => {
+    const f = validFixture()
+    f['hermes_ref'] = 'v2026.5.7-smd.12'
+    expect(validate(f).ok).toBe(true)
+  })
+
+  it('accepts a fork tag built on a SemVer upstream', () => {
+    const f = validFixture()
+    f['hermes_ref'] = 'v0.14.0-smd.0'
+    expect(validate(f).ok).toBe(true)
+  })
+
+  it('accepts a fork tag with SemVer pre-release identifiers', () => {
+    const f = validFixture()
+    f['hermes_ref'] = 'v0.14.0-rc.1-smd.0'
+    expect(validate(f).ok).toBe(true)
+  })
+
+  it('rejects a bare upstream tag (no -smd.N suffix)', () => {
+    const f = validFixture()
+    f['hermes_ref'] = 'v2026.5.7'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'hermes_ref' && e.code === 'InvalidFormat')).toBe(true)
+  })
+
+  it('rejects a missing v-prefix', () => {
+    const f = validFixture()
+    f['hermes_ref'] = '2026.5.7-smd.0'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidFormat')
+  })
+
+  it('rejects an -smd.N suffix with a non-integer counter', () => {
+    const f = validFixture()
+    f['hermes_ref'] = 'v2026.5.7-smd.beta'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidFormat')
+  })
+
+  it('rejects an -smd suffix without a counter', () => {
+    const f = validFixture()
+    f['hermes_ref'] = 'v2026.5.7-smd'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidFormat')
+  })
+
+  it('rejects an -smd.N counter with leading zeros', () => {
+    const f = validFixture()
+    f['hermes_ref'] = 'v2026.5.7-smd.01'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidFormat')
+  })
+
+  it('rejects an arbitrary content-hash SHA', () => {
+    const f = validFixture()
+    f['hermes_ref'] = '7ce6b504a269ac3f9aed5b406b7a18c432e2fdb5'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidFormat')
+  })
+
+  it('rejects the empty string with MissingField/EmptyField, not InvalidFormat', () => {
+    const f = validFixture()
+    f['hermes_ref'] = ''
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    // The required-string check fires first and exclusively when the value
+    // is empty; the fork-tag check intentionally no-ops on the empty case
+    // so authors only see one error per defect.
+    expect(codesOf(r.errors)).toContain('EmptyField')
+    expect(codesOf(r.errors)).not.toContain('InvalidFormat')
+  })
+
+  it('rejects a missing field with MissingField, not InvalidFormat', () => {
+    const f = validFixture()
+    delete f['hermes_ref']
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('MissingField')
+    expect(codesOf(r.errors)).not.toContain('InvalidFormat')
   })
 })

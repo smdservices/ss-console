@@ -31,6 +31,36 @@ export function checkRequiredString(
   }
 }
 
+// Fork-tag pattern per ADR 0015 (docs/adr/0015-hermes-fork-vs-upstream.md).
+// hermes_ref MUST pin a fork tag of the form v{semver}-smd.{n}:
+//   - {semver} is a SemVer-2.0 core version (X.Y.Z, with optional pre-release
+//     and build metadata). The fork's tag scheme uses date-based upstream
+//     references (e.g. v2026.5.7); SemVer accommodates that since each
+//     dot-separated identifier is numeric.
+//   - {n} is a non-negative integer SMD revision counter (0 for "fork exists,
+//     no SMD code yet"; increments per SMD-side change).
+// Bare upstream tags (no -smd.N suffix) are rejected: per ADR 0015 §Decision,
+// customer.yaml pins the fork ref, not the upstream ref.
+const FORK_TAG_PATTERN =
+  /^v(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*))+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?-smd\.(?:0|[1-9]\d*)$/
+
+export function checkHermesRef(root: Record<string, unknown>, errors: ValidationError[]): void {
+  const v = root['hermes_ref']
+  // Required-string check already runs upstream of this; no-op cleanly when
+  // the field is absent or wrong-typed so we don't duplicate that error.
+  if (typeof v !== 'string' || v.length === 0) return
+  if (!FORK_TAG_PATTERN.test(v)) {
+    errors.push({
+      code: 'InvalidFormat',
+      path: 'hermes_ref',
+      message:
+        'hermes_ref must pin a fork tag of the form v{upstream}-smd.{n} ' +
+        '(e.g. v2026.5.7-smd.0); bare upstream tags are not accepted. ' +
+        'See ADR 0015 and venturecrane/hermes-agent releases.',
+    })
+  }
+}
+
 export function checkEnum<T extends string>(
   root: Record<string, unknown>,
   field: string,

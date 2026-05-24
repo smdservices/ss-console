@@ -31,7 +31,7 @@ fly_region: <string> # Fly.io region slug (e.g. iad, lax, ord)
 # ---- RUNTIME (REQUIRED) ----
 
 model: <string> # Anthropic model ID (e.g. claude-opus-4-7)
-hermes_ref: <string> # Hermes content-hash SHA or date tag (e.g. v2026.5.7)
+hermes_ref: <string> # Fork tag from venturecrane/hermes-agent per ADR 0015 (e.g. v2026.5.7-smd.0)
 
 machine:
   size: <string> # Fly VM class (performance-1x, etc.)
