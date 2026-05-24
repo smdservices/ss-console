@@ -566,6 +566,19 @@ export interface DraftDetail extends Draft {
    * fabricated kinds.
    */
   sources: SourceItem[]
+  /**
+   * Human-readable label naming the voice profile Layer 2 applied to
+   * this draft. Populated when the customer has per-user voice
+   * profiles configured (issue #858) and the reviewer's profile was
+   * selected; null otherwise. The empty-state path renders nothing
+   * (per docs/style/empty-state-pattern.md — no fabricated
+   * attribution when the bridge hasn't supplied a label).
+   *
+   * Examples: `"Partner Sarah's voice"`, `"General firm voice"`. The
+   * Hermes bridge owns the label text — the dashboard renders it
+   * verbatim and does not invent fallbacks.
+   */
+  voiceProfileLabel: string | null
 }
 
 /**

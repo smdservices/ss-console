@@ -214,6 +214,16 @@ const personaDraftedDate = (() => {
       >
         Drafted by {draft.personaName} · {personaDraftedDate}
       </p>
+      {
+        draft.voiceProfileLabel !== null && draft.voiceProfileLabel !== '' && (
+          <p
+            data-testid="voice-attribution"
+            class="mt-1 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]"
+          >
+            Shaped in {draft.voiceProfileLabel}
+          </p>
+        )
+      }
       <p
         class="mt-1 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]"
       >

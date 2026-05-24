@@ -125,6 +125,22 @@ export interface User {
   email: string
   role: UserRole
   full_name: string
+  /**
+   * Optional per-user voice profile slug. When set, Layer 2 voice transform
+   * selects this user's profile (samples tagged with this slug) for any
+   * draft attributed to this reviewer. When null, the user inherits the
+   * customer-level general voice profile.
+   *
+   * Distinct from persona (ADR 0011): persona is the AI agent's identity
+   * (Marcus); voice_profile_id is the human reviewer's writing voice
+   * (Partner Sarah vs. Associate Mike vs. Paralegal Jane). One persona,
+   * multiple per-user voices.
+   *
+   * Slug rules match SLUG_PATTERN: ^[a-z0-9][a-z0-9-]{0,31}$. Slugs are
+   * unique within users[] — two users cannot share a voice_profile_id
+   * (sharing a profile would defeat the per-user attribution model).
+   */
+  voice_profile_id: string | null
 }
 
 export interface Connector {
@@ -248,6 +264,7 @@ export type ValidationErrorCode =
   | 'InvalidFormat'
   | 'RetentionOverrideBelowDefault'
   | 'RetentionOverrideUnreasonable'
+  | 'DuplicateVoiceProfileId'
 
 export interface ValidationError {
   code: ValidationErrorCode

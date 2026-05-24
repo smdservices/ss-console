@@ -34,12 +34,14 @@ sys.path.insert(0, str(_HERE.parents[3]))  # ai-employee/ on sys.path
 
 from adapter.voice import (  # noqa: E402
     DraftTransformer,
+    GENERAL_VOICE_USER_ID,
     GreetingStyle,
     MIN_PROFILE_SAMPLE_COUNT,
     SignoffStyle,
     StructuralDiff,
     TransformStatus,
     VoiceProfile,
+    VoiceProfileBundle,
     build_voice_profile,
     extract_structural_diff,
     transform_draft,
@@ -536,3 +538,178 @@ def test_class_and_function_entry_points_produce_same_result():
     assert via_function.status == via_class.status
     assert via_function.transformed_draft == via_class.transformed_draft
     assert via_function.changes_applied == via_class.changes_applied
+
+
+# ---------------------------------------------------------------------------
+# Multi-user voice — VoiceProfileBundle (#858)
+# ---------------------------------------------------------------------------
+
+
+def test_bare_profile_records_general_user_id():
+    """Legacy single-profile callers always get the GENERAL sentinel."""
+    draft = "Dear Mr. Smith,\n\nFollowing up.\n\nSincerely,\nMarcus"
+    profile = _profile(greeting=GreetingStyle.FIRST_NAME, signoff=SignoffStyle.THANKS)
+    result = transform_draft(draft=draft, profile=profile)
+    assert result.selected_voice_user_id == GENERAL_VOICE_USER_ID
+
+
+def test_bare_profile_ignores_reviewer_user_id_argument():
+    """Bare VoiceProfile callers can pass reviewer_user_id; it has no effect.
+
+    Lets the skill pipeline thread the argument unconditionally without
+    branching on profile shape.
+    """
+    draft = "Dear Mr. Smith,\n\nFollowing up.\n\nSincerely,\nMarcus"
+    profile = _profile(greeting=GreetingStyle.FIRST_NAME, signoff=SignoffStyle.THANKS)
+    a = transform_draft(draft=draft, profile=profile)
+    b = transform_draft(draft=draft, profile=profile, reviewer_user_id="partner-sarah")
+    assert a.status == b.status
+    assert a.transformed_draft == b.transformed_draft
+    assert a.selected_voice_user_id == b.selected_voice_user_id == GENERAL_VOICE_USER_ID
+
+
+def test_bundle_with_no_reviewer_id_falls_back_to_general():
+    """Bundle + None reviewer_user_id selects the general profile."""
+    general = _profile(greeting=GreetingStyle.FIRST_NAME, signoff=SignoffStyle.THANKS)
+    sarah = _profile(greeting=GreetingStyle.FORMAL_NAMED, signoff=SignoffStyle.SINCERELY)
+    bundle = VoiceProfileBundle(general=general, per_user={"partner-sarah": sarah})
+
+    draft = "Dear Mr. Smith,\n\nFollowing up.\n\nSincerely,\nMarcus"
+    result = transform_draft(draft=draft, profile=bundle)
+    assert result.selected_voice_user_id == GENERAL_VOICE_USER_ID
+    # General profile is first_name/thanks — the formal draft should swap.
+    assert result.status == TransformStatus.TRANSFORMED
+    assert result.transformed_draft.startswith("Hi Smith,")
+
+
+def test_bundle_per_user_profile_selected_when_reviewer_id_matches():
+    """Bundle + matching reviewer_user_id selects that user's profile.
+
+    Sarah's profile is formal/sincerely; if her profile is applied, the
+    draft starts already-formal and there's no greeting swap.
+    """
+    general = _profile(greeting=GreetingStyle.FIRST_NAME, signoff=SignoffStyle.THANKS)
+    sarah = _profile(greeting=GreetingStyle.FORMAL_NAMED, signoff=SignoffStyle.SINCERELY)
+    bundle = VoiceProfileBundle(general=general, per_user={"partner-sarah": sarah})
+
+    formal_draft = "Dear Mr. Smith,\n\nFollowing up.\n\nSincerely,\nMarcus"
+    result = transform_draft(
+        draft=formal_draft, profile=bundle, reviewer_user_id="partner-sarah"
+    )
+    assert result.selected_voice_user_id == "partner-sarah"
+    # Already matches the formal target — no greeting / signoff swap.
+    assert "greeting_swap" not in result.changes_applied
+    assert "signoff_swap" not in result.changes_applied
+
+
+def test_bundle_falls_back_to_general_when_reviewer_id_unknown():
+    """Bundle + reviewer_user_id with no entry → general profile.
+
+    Callers don't have to know which users have per-user profiles
+    configured.
+    """
+    general = _profile(greeting=GreetingStyle.FIRST_NAME, signoff=SignoffStyle.THANKS)
+    sarah = _profile(greeting=GreetingStyle.FORMAL_NAMED, signoff=SignoffStyle.SINCERELY)
+    bundle = VoiceProfileBundle(general=general, per_user={"partner-sarah": sarah})
+
+    draft = "Dear Mr. Smith,\n\nFollowing up.\n\nSincerely,\nMarcus"
+    result = transform_draft(
+        draft=draft, profile=bundle, reviewer_user_id="associate-mike-no-profile"
+    )
+    assert result.selected_voice_user_id == GENERAL_VOICE_USER_ID
+    # General is first_name/thanks → swap applies
+    assert result.status == TransformStatus.TRANSFORMED
+
+
+def test_bundle_falls_back_when_per_user_profile_is_insufficient():
+    """Per-user profile with < MIN samples falls back to general.
+
+    Defense-in-depth: reshaping against a noisy per-user target is
+    worse than reshaping against the firm-wide composite.
+    """
+    general = _profile(samples_count=30)
+    # Sarah's profile has only 2 samples — well under the floor
+    sarah = _profile(
+        samples_count=MIN_PROFILE_SAMPLE_COUNT - 1,
+        greeting=GreetingStyle.FORMAL_NAMED,
+        signoff=SignoffStyle.SINCERELY,
+    )
+    bundle = VoiceProfileBundle(general=general, per_user={"partner-sarah": sarah})
+
+    draft = "Dear Mr. Smith,\n\nFollowing up.\n\nSincerely,\nMarcus"
+    result = transform_draft(
+        draft=draft, profile=bundle, reviewer_user_id="partner-sarah"
+    )
+    # Per-user profile was rejected, general kicked in
+    assert result.selected_voice_user_id == GENERAL_VOICE_USER_ID
+
+
+def test_bundle_with_empty_per_user_dict_equivalent_to_bare_profile():
+    """A bundle with no per-user profiles behaves like the legacy path."""
+    profile = _profile(greeting=GreetingStyle.FIRST_NAME, signoff=SignoffStyle.THANKS)
+    bundle = VoiceProfileBundle(general=profile, per_user={})
+
+    draft = "Dear Mr. Smith,\n\nFollowing up.\n\nSincerely,\nMarcus"
+    via_bare = transform_draft(draft=draft, profile=profile)
+    via_bundle = transform_draft(draft=draft, profile=bundle)
+    via_bundle_with_id = transform_draft(
+        draft=draft, profile=bundle, reviewer_user_id="anyone"
+    )
+    assert via_bare.transformed_draft == via_bundle.transformed_draft
+    assert via_bare.transformed_draft == via_bundle_with_id.transformed_draft
+    assert via_bundle.selected_voice_user_id == GENERAL_VOICE_USER_ID
+    assert via_bundle_with_id.selected_voice_user_id == GENERAL_VOICE_USER_ID
+
+
+def test_bundle_passthrough_paths_carry_selected_user_id():
+    """Empty draft / insufficient profile / fabrication-guard all report
+    the resolved user id so the dashboard knows whose voice was attempted."""
+    general = _profile()
+    sarah = _profile(greeting=GreetingStyle.FORMAL_NAMED, signoff=SignoffStyle.SINCERELY)
+    bundle = VoiceProfileBundle(general=general, per_user={"partner-sarah": sarah})
+
+    # Empty draft
+    r = transform_draft(draft="", profile=bundle, reviewer_user_id="partner-sarah")
+    assert r.status == TransformStatus.PASSTHROUGH_EMPTY_DRAFT
+    assert r.selected_voice_user_id == "partner-sarah"
+
+    # Below MIN — general profile (still ≥ MIN) wins, so this stays
+    # transformed-or-no-change. The defensive check below covers the
+    # case where the general profile itself is small.
+    tiny_general = _profile(samples_count=MIN_PROFILE_SAMPLE_COUNT - 1)
+    tiny_bundle = VoiceProfileBundle(general=tiny_general, per_user={})
+    r2 = transform_draft(draft="Hi,\n\nfoo.\n\nThanks,\nA", profile=tiny_bundle)
+    assert r2.status == TransformStatus.PASSTHROUGH_INSUFFICIENT_PROFILE
+    assert r2.selected_voice_user_id == GENERAL_VOICE_USER_ID
+
+
+def test_bundle_select_returns_tuple_directly():
+    """VoiceProfileBundle.select is the testable contract for callers
+    that want to inspect the selection without invoking the transform."""
+    general = _profile(samples_count=20)
+    sarah = _profile(samples_count=15, greeting=GreetingStyle.FORMAL_NAMED)
+    mike_thin = _profile(samples_count=2)  # < MIN
+    bundle = VoiceProfileBundle(
+        general=general,
+        per_user={"partner-sarah": sarah, "associate-mike": mike_thin},
+    )
+
+    chosen, who = bundle.select("partner-sarah")
+    assert who == "partner-sarah"
+    assert chosen is sarah
+
+    chosen2, who2 = bundle.select("associate-mike")
+    assert who2 == GENERAL_VOICE_USER_ID
+    assert chosen2 is general
+
+    chosen3, who3 = bundle.select(None)
+    assert who3 == GENERAL_VOICE_USER_ID
+    assert chosen3 is general
+
+    chosen4, who4 = bundle.select("")
+    assert who4 == GENERAL_VOICE_USER_ID
+    assert chosen4 is general
+
+    chosen5, who5 = bundle.select("nobody-knows-me")
+    assert who5 == GENERAL_VOICE_USER_ID
+    assert chosen5 is general

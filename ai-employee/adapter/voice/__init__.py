@@ -87,11 +87,13 @@ from .state import (
 )
 from .transform import (
     DraftTransformer,
+    GENERAL_VOICE_USER_ID,
     MAX_TRANSFORM_PASSES,
     MIN_PROFILE_SAMPLE_COUNT,
     TransformResult,
     TransformStatus,
     VoiceProfile,
+    VoiceProfileBundle,
     build_voice_profile,
     transform_draft,
 )
@@ -105,6 +107,7 @@ __all__ = [
     "CursorStore",
     "DraftTransformer",
     "EmailSource",
+    "GENERAL_VOICE_USER_ID",
     "FilterResult",
     "GreetingStyle",
     "INGEST_STATUS_ERROR",
@@ -141,6 +144,7 @@ __all__ = [
     "VoiceIngestionItem",
     "VoiceIngestionRunner",
     "VoiceProfile",
+    "VoiceProfileBundle",
     "VoiceSourceState",
     "VoiceSourceStateStore",
     "WriteExecutor",
