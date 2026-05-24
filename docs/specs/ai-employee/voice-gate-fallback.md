@@ -78,6 +78,12 @@ Captain runs the disclosure protocol:
 - Dashboard banner: `src/components/ai-employee/VoiceGateBanner.tsx` reads the latest `audit_log` `VOICE_GATE_*` event for this customer.
 - Cross-reference law-firm-prd.md §11.9 (Calibration session split) — the per-cohort calibration session feeds the sample set used in the gate.
 
-[AMBIGUITY: The judge pool — "3 people who know the reviewer well" — assumes the partner can recruit 3 colleagues willing to serve. For solo practitioners, this is structurally hard. Either (a) Captain proxies for a missing judge, with caveat noted in audit log, or (b) gate threshold relaxes to a customer + Captain pair when 3rd judge not available. Captain decision needed.]
+## Resolved decision — judge pool for solo practitioners
+
+**Captain proxies for missing judges. Audit log records the proxy explicitly.**
+
+For solo practitioners (no firm staff to recruit as judges), Captain serves as one or two of the three judges. The audit log records `judge_panel: {N}_customer_chosen + {3-N}_captain_proxy` so the calibration record is honest and reviewable. The relaxed-threshold fallback at "Judge pool too small" in the Edge cases section above remains as a last-resort path **only when Captain is unavailable** (vacation, illness, oncall conflict) — not as the default solo-practitioner pattern.
+
+Why this over a relaxed threshold: the blind-test gate exists to enforce independent verification. Relaxing the threshold for the solo cohort weakens the safety floor exactly where independent verification matters most (a solo practitioner has the least staff oversight to catch a voice mismatch in flight). Captain time is a real cost (~30-60 min per gate per customer); we accept that cost to preserve the floor.
 
 [AMBIGUITY: Pricing strategy doc (`docs/strategy/ai-employee-pricing-2026-05-13.md`) does not yet specify internal-drafts-only retainer math. This spec assumes 50-60% but the actual number is gated on §15.1 cost modeling. Resolve before first customer signs.]
