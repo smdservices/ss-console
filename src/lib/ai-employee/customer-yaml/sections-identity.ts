@@ -14,6 +14,50 @@ import {
 } from './types'
 import { isPlainObject } from './helpers'
 
+/**
+ * Per-user voice profile slug — validates against SLUG_PATTERN and
+ * enforces uniqueness across users[]. Sharing a profile defeats the
+ * per-user attribution model, so duplicates are an authoring error.
+ *
+ * Returns the slug on success, '' when the field is absent (legacy
+ * users continue to work), or null when the field is present but
+ * invalid (the matching ValidationError has been pushed).
+ */
+function checkVoiceProfileId(
+  raw: unknown,
+  i: number,
+  seenVoiceProfileIds: Set<string>,
+  errors: ValidationError[]
+): string | null {
+  if (raw === undefined || raw === null) return null
+  if (typeof raw !== 'string') {
+    errors.push({
+      code: 'TypeMismatch',
+      path: `users[${i}].voice_profile_id`,
+      message: 'users[].voice_profile_id must be a string when present',
+    })
+    return null
+  }
+  if (!SLUG_PATTERN.test(raw)) {
+    errors.push({
+      code: 'InvalidSlug',
+      path: `users[${i}].voice_profile_id`,
+      message: 'users[].voice_profile_id must match ^[a-z0-9][a-z0-9-]{0,31}$',
+    })
+    return null
+  }
+  if (seenVoiceProfileIds.has(raw)) {
+    errors.push({
+      code: 'DuplicateVoiceProfileId',
+      path: `users[${i}].voice_profile_id`,
+      message: `users[].voice_profile_id "${raw}" is duplicated; two users cannot share a voice profile`,
+    })
+    return raw
+  }
+  seenVoiceProfileIds.add(raw)
+  return raw
+}
+
 export function checkSchemaVersion(
   root: Record<string, unknown>,
   errors: ValidationError[]
@@ -194,14 +238,20 @@ export function checkUsers(root: Record<string, unknown>, errors: ValidationErro
     return []
   }
   const out: User[] = []
+  const seenVoiceProfileIds = new Set<string>()
   for (let i = 0; i < raw.length; i++) {
-    const u = checkOneUser(raw[i], i, errors)
+    const u = checkOneUser(raw[i], i, seenVoiceProfileIds, errors)
     if (u !== null) out.push(u)
   }
   return out
 }
 
-function checkOneUser(u: unknown, i: number, errors: ValidationError[]): User | null {
+function checkOneUser(
+  u: unknown,
+  i: number,
+  seenVoiceProfileIds: Set<string>,
+  errors: ValidationError[]
+): User | null {
   if (!isPlainObject(u)) {
     errors.push({
       code: 'TypeMismatch',
@@ -238,10 +288,12 @@ function checkOneUser(u: unknown, i: number, errors: ValidationError[]): User | 
     })
     valid = false
   }
+  const voiceProfileId = checkVoiceProfileId(u['voice_profile_id'], i, seenVoiceProfileIds, errors)
   if (!valid) return null
   return {
     email: email as string,
     role: role as UserRole,
     full_name: fullName as string,
+    voice_profile_id: voiceProfileId,
   }
 }

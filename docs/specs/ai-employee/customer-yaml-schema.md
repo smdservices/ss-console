@@ -44,6 +44,11 @@ users:
   - email: <string>
     role: <enum> # principal | operator | compliance
     full_name: <string>
+    voice_profile_id: <slug> # OPTIONAL; ^[a-z0-9][a-z0-9-]{0,31}$; unique within users[]
+    # When set, Layer 2 voice transform selects this user's profile
+    # for drafts attributed to this reviewer. When omitted, the user
+    # inherits the customer-level general voice. See ADR 0011 for the
+    # multi-user-vs-multi-persona distinction.
 
 # ---- PERSONAS (REQUIRED; ARRAY; length ≥ 1) ----
 # Per ADR 0011: array at v1, length=1 in practice; Phase 2 may grow.
@@ -237,6 +242,24 @@ connectors:
     composio_connection_id: 'conn_smith-pi-firm_2bcae9a8'
 ```
 
+## Multi-user voice profiles
+
+**Added by [#858](https://github.com/venturecrane/ss-console/issues/858).** A customer may have multiple humans on portal access — for example, a principal partner who personally writes the firm's most consequential email and an associate attorney whose drafts go out under the associate's identity. The reviewer-as-sender model ([ADR 0005](../../adr/0005-reviewer-as-sender.md)) attributes every shipped message to the user who approved it; Layer 2 voice transform shapes the draft to match _that reviewer's_ writing voice, not a single firm-wide composite.
+
+The `users[].voice_profile_id` field is the seam:
+
+- When set, voice samples ingested while this user's identity was the sent-folder author are tagged with the user's profile slug. Layer 2 looks up the per-user profile and reshapes the draft to match.
+- When omitted, the user inherits the customer-level **general voice profile** — the aggregate across every sample regardless of authorship. This is the default and what every existing customer uses until per-user calibration runs.
+- When the per-user profile has fewer than `MIN_PROFILE_SAMPLE_COUNT` samples ([`adapter/voice/transform.py`](../../../ai-employee/adapter/voice/transform.py)), Layer 2 falls back to the general profile rather than reshape against a noisy target.
+
+**Distinct from multi-persona.** Per [ADR 0011](../../adr/0011-multi-persona-per-customer.md), a customer's deployment runs one or more **personas** — AI agent identities (Marcus the paralegal-substrate, Casey the intake-handler). v1 ships with one persona. Multi-user voice is orthogonal: a single persona may draft on behalf of several human reviewers, each with their own voice profile. The architecture is:
+
+- **Persona** (Marcus) — the AI agent's identity (signature, send-as inbox, skills, trust ceilings)
+- **User** (Partner Sarah) — the human who reviews and approves drafts; carries an optional `voice_profile_id`
+- **Voice profile** — the writing-style signature aggregated from samples tagged with one user's slug
+
+One persona, one customer Machine, N users with distinct voice profiles. Multi-persona runtime support is Phase 2; multi-user voice is v1 (this PR).
+
 ## Failure modes
 
 | Condition                                                  | Validator behavior                                                                                                                                                                                 |
@@ -261,6 +284,8 @@ connectors:
 | `memory.vectorize_index` ≠ `hermes-{customer_id}-vault`    | Reject with `IsolationViolation` error                                                                                                                                                             |
 | `vertical: law-firm` without `practice_areas`              | Reject with `MissingField` error citing `practice_areas`                                                                                                                                           |
 | `pause.active: true` without `pause.reason`                | Reject with `MissingField` error citing `pause.reason`                                                                                                                                             |
+| `users[].voice_profile_id` malformed slug                  | Reject with `InvalidSlug` error                                                                                                                                                                    |
+| Duplicate `users[].voice_profile_id` across users          | Reject with `DuplicateVoiceProfileId` error (per-user attribution model — two users cannot share a profile)                                                                                        |
 
 All errors are returned as a list; the validator does not short-circuit on the first error. Authors get the full picture in one round-trip.
 

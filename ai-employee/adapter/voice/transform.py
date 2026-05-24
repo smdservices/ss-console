@@ -171,6 +171,21 @@ the long bucket on the next iteration if needed; more than two passes
 risks oscillation."""
 
 
+GENERAL_VOICE_USER_ID = "__general__"
+"""Sentinel slug for the customer-level general voice profile.
+
+The general profile aggregates every sample regardless of reviewer
+attribution. Customers without any per-user voice profiles configured
+have only the general profile; customers with per-user profiles still
+maintain the general one as the fallback when a per-user profile has
+insufficient samples (per :data:`MIN_PROFILE_SAMPLE_COUNT`).
+
+Reserved as a slug — `users[].voice_profile_id` cannot equal this
+value (the leading-underscore form falls outside the `SLUG_PATTERN`
+the schema enforces).
+"""
+
+
 _BUCKET_DELTA_TOLERANCE = 0.15
 """Maximum probability-mass delta per sentence-length bucket before the
 transform attempts a redistribution. 0.15 means the bucket's share of
@@ -346,6 +361,75 @@ class TransformResult:
     profile_sample_count: int
     changes_applied: list = field(default_factory=list)
     notes: Optional[str] = None
+    selected_voice_user_id: str = GENERAL_VOICE_USER_ID
+    """The voice profile actually applied to this draft. Equals the
+    reviewer's `voice_profile_id` slug when their per-user profile was
+    selected, or :data:`GENERAL_VOICE_USER_ID` when the customer's
+    general profile was used (no reviewer specified, no per-user
+    profile configured, or insufficient per-user samples). Threaded
+    through to the audit row + dashboard surface so reviewers can see
+    whose voice shaped their draft."""
+
+
+@dataclass(frozen=True)
+class VoiceProfileBundle:
+    """Per-customer collection of voice profiles, keyed by user identity.
+
+    Built by the voice-profile loader at runtime — one bundle per
+    customer Machine, refreshed when samples are ingested. The bundle
+    holds:
+
+    * A general profile aggregated across every sample, regardless of
+      which user authored the source message. This is what every
+      customer has from day one.
+    * Zero or more per-user profiles, keyed by the user's
+      `voice_profile_id` slug from customer.yaml. Each is aggregated
+      from samples tagged with that user.
+
+    The bundle is read-only — once constructed, callers select profiles
+    via :meth:`select`.
+    """
+
+    general: "VoiceProfile"
+    per_user: dict
+    """Mapping from `voice_profile_id` slug → VoiceProfile. Empty dict
+    when no per-user profiles are configured. The dict is opaque to the
+    caller; use :meth:`select` rather than indexing directly so the
+    fallback rule is enforced in one place."""
+
+    def select(self, reviewer_user_id: Optional[str]) -> tuple:
+        """Pick the right profile for this reviewer.
+
+        Selection rule:
+
+        1. If `reviewer_user_id` is None or the empty string, return
+           the general profile. This is the legacy path — callers that
+           never wire reviewer identity get the same behavior they had
+           before per-user voice landed.
+        2. If `reviewer_user_id` is set but has no matching per-user
+           profile in the bundle, return the general profile. Callers
+           don't need to know which users have per-user profiles
+           configured.
+        3. If a per-user profile exists but has fewer than
+           :data:`MIN_PROFILE_SAMPLE_COUNT` samples, return the general
+           profile. Reshaping against a noisy per-user target is worse
+           than reshaping against the firm-wide composite.
+        4. Otherwise return the per-user profile.
+
+        Returns a tuple `(profile, selected_user_id)`. The
+        `selected_user_id` is the slug actually used —
+        :data:`GENERAL_VOICE_USER_ID` for the general path, the user's
+        slug for the per-user path. Callers thread this through to the
+        audit row + dashboard surface.
+        """
+        if not reviewer_user_id:
+            return self.general, GENERAL_VOICE_USER_ID
+        candidate = self.per_user.get(reviewer_user_id)
+        if candidate is None:
+            return self.general, GENERAL_VOICE_USER_ID
+        if candidate.sample_count < MIN_PROFILE_SAMPLE_COUNT:
+            return self.general, GENERAL_VOICE_USER_ID
+        return candidate, reviewer_user_id
 
 
 @dataclass(frozen=True)
@@ -514,7 +598,8 @@ class DraftTransformer:
         self,
         *,
         draft: str,
-        profile: VoiceProfile,
+        profile: "VoiceProfile | VoiceProfileBundle",
+        reviewer_user_id: Optional[str] = None,
     ) -> TransformResult:
         """Rewrite ``draft`` so its surface shape matches ``profile``.
 
@@ -527,30 +612,50 @@ class DraftTransformer:
             draft: The skill-authored draft body. Plain text; the
                 transformer does not handle HTML. Leading/trailing
                 whitespace is preserved.
-            profile: The customer's aggregated voice signature for the
-                active cohort.
+            profile: Either a :class:`VoiceProfile` (legacy single-voice
+                path — every reviewer gets the same profile) or a
+                :class:`VoiceProfileBundle` (per-customer collection
+                with optional per-user profiles). When a bundle is
+                provided, ``reviewer_user_id`` selects which profile to
+                apply; see :meth:`VoiceProfileBundle.select` for the
+                selection rule (general → per-user when present and
+                ≥ MIN_PROFILE_SAMPLE_COUNT).
+            reviewer_user_id: The `voice_profile_id` slug of the user
+                who will approve and send this draft. Looked up against
+                the bundle's per-user profiles; ignored when ``profile``
+                is a bare :class:`VoiceProfile`. ``None`` means the
+                caller did not thread reviewer identity through and the
+                general profile applies.
 
         Returns:
-            A :class:`TransformResult` recording the outcome.
+            A :class:`TransformResult` recording the outcome plus the
+            `selected_voice_user_id` the bundle resolved to (for audit
+            attribution).
         """
+        resolved_profile, selected_user_id = _resolve_profile_selection(
+            profile, reviewer_user_id
+        )
+
         if not draft or not draft.strip():
             return TransformResult(
                 status=TransformStatus.PASSTHROUGH_EMPTY_DRAFT,
                 transformed_draft=draft,
                 source_draft=draft,
-                profile_sample_count=profile.sample_count,
+                profile_sample_count=resolved_profile.sample_count,
+                selected_voice_user_id=selected_user_id,
             )
 
-        if profile.sample_count < MIN_PROFILE_SAMPLE_COUNT:
+        if resolved_profile.sample_count < MIN_PROFILE_SAMPLE_COUNT:
             return TransformResult(
                 status=TransformStatus.PASSTHROUGH_INSUFFICIENT_PROFILE,
                 transformed_draft=draft,
                 source_draft=draft,
-                profile_sample_count=profile.sample_count,
+                profile_sample_count=resolved_profile.sample_count,
                 notes=(
-                    f"profile has {profile.sample_count} samples, "
+                    f"profile has {resolved_profile.sample_count} samples, "
                     f"minimum is {MIN_PROFILE_SAMPLE_COUNT}"
                 ),
+                selected_voice_user_id=selected_user_id,
             )
 
         current = draft
@@ -558,35 +663,43 @@ class DraftTransformer:
         for _ in range(MAX_TRANSFORM_PASSES):
             pass_changes: list = []
 
-            after_greeting, greeting_change = _apply_greeting_swap(current, profile)
+            after_greeting, greeting_change = _apply_greeting_swap(current, resolved_profile)
             if greeting_change:
                 if _has_introduced_disallowed_tokens(current, after_greeting):
-                    return _fabrication_guard_passthrough(draft, profile)
+                    return _fabrication_guard_passthrough(
+                        draft, resolved_profile, selected_user_id
+                    )
                 current = after_greeting
                 pass_changes.append(greeting_change)
 
-            after_signoff, signoff_change = _apply_signoff_swap(current, profile)
+            after_signoff, signoff_change = _apply_signoff_swap(current, resolved_profile)
             if signoff_change:
                 if _has_introduced_disallowed_tokens(current, after_signoff):
-                    return _fabrication_guard_passthrough(draft, profile)
+                    return _fabrication_guard_passthrough(
+                        draft, resolved_profile, selected_user_id
+                    )
                 current = after_signoff
                 pass_changes.append(signoff_change)
 
             after_sentences, sentence_changes = _apply_sentence_redistribution(
-                current, profile
+                current, resolved_profile
             )
             if sentence_changes:
                 if _has_introduced_disallowed_tokens(current, after_sentences):
-                    return _fabrication_guard_passthrough(draft, profile)
+                    return _fabrication_guard_passthrough(
+                        draft, resolved_profile, selected_user_id
+                    )
                 current = after_sentences
                 pass_changes.extend(sentence_changes)
 
             after_paragraphs, paragraph_change = _apply_paragraph_density(
-                current, profile
+                current, resolved_profile
             )
             if paragraph_change:
                 if _has_introduced_disallowed_tokens(current, after_paragraphs):
-                    return _fabrication_guard_passthrough(draft, profile)
+                    return _fabrication_guard_passthrough(
+                        draft, resolved_profile, selected_user_id
+                    )
                 current = after_paragraphs
                 pass_changes.append(paragraph_change)
 
@@ -599,15 +712,17 @@ class DraftTransformer:
                 status=TransformStatus.PASSTHROUGH_NO_CHANGE_NEEDED,
                 transformed_draft=draft,
                 source_draft=draft,
-                profile_sample_count=profile.sample_count,
+                profile_sample_count=resolved_profile.sample_count,
+                selected_voice_user_id=selected_user_id,
             )
 
         return TransformResult(
             status=TransformStatus.TRANSFORMED,
             transformed_draft=current,
             source_draft=draft,
-            profile_sample_count=profile.sample_count,
+            profile_sample_count=resolved_profile.sample_count,
             changes_applied=changes,
+            selected_voice_user_id=selected_user_id,
         )
 
 
@@ -1049,7 +1164,9 @@ def _has_introduced_disallowed_tokens(before: str, after: str) -> bool:
 
 
 def _fabrication_guard_passthrough(
-    draft: str, profile: VoiceProfile
+    draft: str,
+    profile: VoiceProfile,
+    selected_user_id: str = GENERAL_VOICE_USER_ID,
 ) -> TransformResult:
     """Return a passthrough result with the fabrication-guard status."""
     return TransformResult(
@@ -1058,7 +1175,29 @@ def _fabrication_guard_passthrough(
         source_draft=draft,
         profile_sample_count=profile.sample_count,
         notes="proposed rewrite introduced an entity-shaped token; aborted",
+        selected_voice_user_id=selected_user_id,
     )
+
+
+# ---------------------------------------------------------------------------
+# Profile-bundle resolution
+# ---------------------------------------------------------------------------
+
+
+def _resolve_profile_selection(
+    profile: "VoiceProfile | VoiceProfileBundle",
+    reviewer_user_id: Optional[str],
+) -> tuple:
+    """Resolve the (profile, selected_user_id) pair to apply.
+
+    Centralizes the per-user-vs-general selection so the transformer's
+    happy path and every passthrough path agree on which profile they
+    refer to. Bare :class:`VoiceProfile` callers get the legacy
+    single-voice behavior with `selected_user_id = GENERAL_VOICE_USER_ID`.
+    """
+    if isinstance(profile, VoiceProfileBundle):
+        return profile.select(reviewer_user_id)
+    return profile, GENERAL_VOICE_USER_ID
 
 
 # ---------------------------------------------------------------------------
@@ -1069,23 +1208,35 @@ def _fabrication_guard_passthrough(
 def transform_draft(
     *,
     draft: str,
-    profile: VoiceProfile,
+    profile: "VoiceProfile | VoiceProfileBundle",
+    reviewer_user_id: Optional[str] = None,
 ) -> TransformResult:
     """Top-level functional entry point.
 
-    Equivalent to ``DraftTransformer().transform(draft=draft, profile=profile)``.
+    Equivalent to
+    ``DraftTransformer().transform(draft=draft, profile=profile,
+    reviewer_user_id=reviewer_user_id)``.
     Provided for callers that prefer a function over a class instance.
+
+    `reviewer_user_id` only matters when `profile` is a
+    :class:`VoiceProfileBundle`. With a bare :class:`VoiceProfile` the
+    argument is accepted (so callers don't branch on profile shape) but
+    has no effect — every reviewer gets the same profile.
     """
-    return DraftTransformer().transform(draft=draft, profile=profile)
+    return DraftTransformer().transform(
+        draft=draft, profile=profile, reviewer_user_id=reviewer_user_id
+    )
 
 
 __all__ = [
     "DraftTransformer",
+    "GENERAL_VOICE_USER_ID",
     "MAX_TRANSFORM_PASSES",
     "MIN_PROFILE_SAMPLE_COUNT",
     "TransformResult",
     "TransformStatus",
     "VoiceProfile",
+    "VoiceProfileBundle",
     "build_voice_profile",
     "transform_draft",
 ]

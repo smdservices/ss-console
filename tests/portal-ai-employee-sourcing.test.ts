@@ -213,6 +213,7 @@ describe('DraftDetail.sources field shape', () => {
       sendStatus: 'pending',
       sendError: null,
       sources: [],
+      voiceProfileLabel: null,
     }
     expect(Array.isArray(detail.sources)).toBe(true)
     expect(detail.sources).toEqual([])
@@ -268,6 +269,7 @@ describe('DraftDetail.sources field shape', () => {
       sendStatus: 'pending',
       sendError: null,
       sources,
+      voiceProfileLabel: null,
     }
     expect(detail.sources).toHaveLength(5)
     expect(new Set(detail.sources.map((s) => s.kind))).toEqual(new Set(SOURCE_KINDS))
