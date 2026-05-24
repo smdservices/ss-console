@@ -1,20 +1,24 @@
 /**
  * V4 /book client controller.
  *
- * Three-state shell: intro → (slots | sent) → closed.
+ * Three-state shell: intro → slots → closed.
  *
  *   intro   : IntakeIntroCard form. Two CTAs:
  *               - "Pick a time" submits via /api/intake/send and
  *                 transitions to the slot picker.
  *               - "Just send a note" submits via /api/intake/send and
- *                 transitions straight to the sent acknowledgment.
+ *                 transitions to the slot picker with a "Got your note"
+ *                 banner above it. No terminal acknowledgment state —
+ *                 the slot picker is on screen either way, so the
+ *                 prospect can book if they want, or close the tab if
+ *                 they do not.
  *             Both paths create the entity and fire backstage enrichment.
  *   slots   : IntakeSlots wrapping SlotPicker + selected-slot banner +
  *             confirm button. Pick a time, hit confirm, POST /api/booking/reserve.
- *   closed  : IntakeClosed acknowledgment card. Two variants — booked
- *             (confirmed slot) and sent (message-only path). The Google
- *             Meet join link is no longer surfaced here; it lives on
- *             the calendar invite and confirmation email.
+ *   closed  : IntakeClosed acknowledgment card. Single 'booked' variant —
+ *             surfaces the confirmed slot and reschedule link. Google
+ *             Meet join link lives on the calendar invite and
+ *             confirmation email.
  *
  * DOM location lives in book-elements.ts. State transitions and slot-
  * selected handling live in book-render.ts. This file owns network
@@ -26,7 +30,6 @@ import {
   clearIntroError,
   handleSlotSelected,
   showClosedBooked,
-  showClosedSent,
   showIntro,
   showIntroError,
   showSlots,
@@ -129,11 +132,11 @@ async function submitIntake(
     state.email = payload.email
     state.name = payload.name
     state.businessName = payload.business_name
-    if (intent === 'book') {
-      showSlots(els, state)
-    } else {
-      showClosedSent(els, state)
-    }
+    // Both intents land on the slot picker. The 'send' path adds an
+    // acknowledgment banner above it so the message-was-received
+    // confirmation is on-screen with zero extra clicks. If the prospect
+    // does nothing from here, that is fine.
+    showSlots(els, state, { ack: intent === 'send' })
   } catch (err) {
     console.error('[book] /api/intake/send error:', err)
     showIntroError(els, 'Could not reach the server. Check your connection and try again.')
@@ -237,15 +240,6 @@ function bindSlots(els: BookElements, state: BookState): void {
   })
 }
 
-function bindClosedSent(els: BookElements, state: BookState): void {
-  // After "Just send a note" lands in the sent state, give the prospect
-  // a way to pick a time without re-entering identity. State already
-  // carries name/email/businessName from the intake submission.
-  els.closedSentBookBtn.addEventListener('click', () => {
-    showSlots(els, state)
-  })
-}
-
 ;(() => {
   const els = locateElements()
   if (!els) return
@@ -260,7 +254,6 @@ function bindClosedSent(els: BookElements, state: BookState): void {
   showIntro(els, state)
   bindIntro(els, state)
   bindSlots(els, state)
-  bindClosedSent(els, state)
 })()
 
 export {}
