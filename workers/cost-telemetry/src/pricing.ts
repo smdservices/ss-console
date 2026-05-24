@@ -1,0 +1,59 @@
+/**
+ * Pricing JSON references for the cost telemetry worker.
+ *
+ * Source of truth is the JSON files at
+ * `ai-employee/adapter/cost_telemetry/`. The Python ingest module
+ * loads them at runtime; the TS worker can't read files in a Worker
+ * runtime, so the JSON shapes are imported here. Keep these in sync
+ * with the JSON files — the unit tests assert structural parity.
+ */
+
+import anthropicJson from '../../../ai-employee/adapter/cost_telemetry/anthropic_pricing.json'
+import composioJson from '../../../ai-employee/adapter/cost_telemetry/composio_pricing.json'
+
+export interface AnthropicModelPricing {
+  input_per_million_cents: number
+  output_per_million_cents: number
+}
+
+export interface AnthropicPricing {
+  models: Record<string, AnthropicModelPricing>
+}
+
+export interface ComposioPricing {
+  default_per_action_cents: number
+  toolkit_overrides: Record<string, number>
+}
+
+export const anthropicPricing: AnthropicPricing = anthropicJson
+export const composioPricing: ComposioPricing = composioJson
+
+export function computeAnthropicCents(
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+  pricing: AnthropicPricing = anthropicPricing
+): { inputCents: number; outputCents: number; warning: string | null } {
+  const entry = pricing.models[model]
+  if (!entry) {
+    return {
+      inputCents: 0,
+      outputCents: 0,
+      warning: `model ${model} not in anthropic_pricing.json; wrote tokens with amount_cents=0`,
+    }
+  }
+  const inputCents = Math.floor((inputTokens * entry.input_per_million_cents) / 1_000_000)
+  const outputCents = Math.floor((outputTokens * entry.output_per_million_cents) / 1_000_000)
+  return { inputCents, outputCents, warning: null }
+}
+
+export function computeComposioCents(
+  toolkit: string,
+  actionCount: number,
+  pricing: ComposioPricing = composioPricing
+): number {
+  const overrides = pricing.toolkit_overrides ?? {}
+  const perAction =
+    typeof overrides[toolkit] === 'number' ? overrides[toolkit] : pricing.default_per_action_cents
+  return actionCount * perAction
+}
