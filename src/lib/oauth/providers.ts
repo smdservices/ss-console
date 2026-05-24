@@ -27,6 +27,8 @@
 
 import { env } from 'cloudflare:workers'
 
+import { microsoftGraphProvider } from './providers/ms-graph.js'
+
 export interface ProviderTokenResponse {
   /** Short-lived access token. */
   access_token: string
@@ -55,7 +57,6 @@ export interface OAuthProvider {
   exchange_code(args: { code: string; redirect_uri: string }): Promise<ProviderTokenResponse>
 }
 
-const MS_GRAPH_TOKEN_URL = 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 
 interface RawTokenJson {
@@ -100,32 +101,6 @@ async function postFormForToken(
   }
 }
 
-const microsoftGraph: OAuthProvider = {
-  slug: 'microsoft-graph',
-  label: 'Microsoft Graph',
-  token_url: MS_GRAPH_TOKEN_URL,
-  async exchange_code({ code, redirect_uri }) {
-    const clientId = env.MICROSOFT_GRAPH_CLIENT_ID
-    const clientSecret = env.MICROSOFT_GRAPH_CLIENT_SECRET
-    if (!clientId || !clientSecret) {
-      throw new Error(
-        'Microsoft Graph client credentials are not configured (MICROSOFT_GRAPH_CLIENT_ID / MICROSOFT_GRAPH_CLIENT_SECRET).'
-      )
-    }
-    return postFormForToken(
-      MS_GRAPH_TOKEN_URL,
-      new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        code,
-        redirect_uri,
-        grant_type: 'authorization_code',
-      }),
-      microsoftGraph.label
-    )
-  },
-}
-
 const googleWorkspace: OAuthProvider = {
   slug: 'google-workspace',
   label: 'Google Workspace',
@@ -153,7 +128,7 @@ const googleWorkspace: OAuthProvider = {
 }
 
 const PROVIDERS: Record<string, OAuthProvider> = {
-  [microsoftGraph.slug]: microsoftGraph,
+  [microsoftGraphProvider.slug]: microsoftGraphProvider,
   [googleWorkspace.slug]: googleWorkspace,
 }
 
