@@ -1,16 +1,41 @@
 ---
-title: Customer-Owned Memory Artifact — Voice Samples, Rules, Draft History in Customer-Specific R2/Vectorize Namespaces, Portable on Offboarding
+title: Customer-Owned Memory Artifact — SUPERSEDED, Decomposed into Honcho Mirror + Audit Log + Voice Samples
 date: 2026-05-20
-status: accepted
+status: superseded
+superseded-date: 2026-05-24
 captain: Scott Durgan
 supersedes: none
 related-prd: docs/pm/ai-employee/platform-prd.md §10, §13.3, §3 (P3, P9)
 related-issue: https://github.com/venturecrane/ss-console/issues/828
 ---
 
-# ADR 0008 — Customer-Owned Memory Artifact
+# ADR 0008 — Customer-Owned Memory Artifact (SUPERSEDED)
 
-**Status:** Accepted (Captain decision; embedded in the AI Employee PRDs since first draft; recorded here as a standalone ADR per [#828](https://github.com/venturecrane/ss-console/issues/828)).
+**Status:** **Superseded 2026-05-24.** The principles (P3 customer ownership, P9 portability on offboarding) survive intact and remain authoritative in PRD §10. The supersession applies to the _implementation framing_, which this ADR cast as a single monolithic artifact and which is more accurately the union of three concrete subsystems.
+
+## Supersession note (2026-05-24)
+
+The "customer-owned memory artifact" is not a separate system. It is the union of three concrete per-customer subsystems, each independently customer-owned, portable, and operationally readable:
+
+1. **D1 `persona_observations`** — the mirror of Honcho's conclusions (see [ADR 0016 rewrite](./0016-honcho-disposition.md)). Carries provenance (`source_message_ids`, `confidence`, `evidence_status`) and is the customer-readable record of "what the AI Employee has learned about how to communicate on your behalf."
+2. **R2 `vaults/<customer-slug>/voice/`** — the voice-samples vault. The customer's authored samples (real sent communications) that anchor the agent's drafts. Customer-readable, customer-editable; offboarding exports the bucket prefix.
+3. **D1 `audit_log`** — the immutable per-tool-call ledger (emitted by `hermes-smd-audit` plugin via Hermes' `post_tool_call` + `post_llm_call` hooks). Customer-readable, append-only, retained per audit-log retention policy (already shipped via PR #1024).
+
+The substrate for #1 is Honcho (`plastic-labs/honcho`, AGPL-3.0), run unmodified per customer Machine — see ADR 0016. Hard rules and person-mappings the original ADR mentioned live as part of #1 (Honcho conclusions) and/or in customer-authored skill content.
+
+**What this changes:** the original framing implied a single monolithic store to be designed and built from scratch. The corrected framing is that the customer-owned memory is composed of native Hermes/Honcho state + a thin D1 mirror + an R2 voice vault, with each piece serving a distinct lifecycle (real-time learning, authored samples, immutable audit). The principles do not change. The build scope does — three smaller surfaces to wire and own, no monolithic memory artifact to design.
+
+**Where the original ADR's content still applies:** the principles (P3, P9), the offboarding/portability rationale, the trust mechanism (read/edit/delete by customer), and the per-customer namespacing requirement are all preserved unchanged. They now apply to each of the three subsystems above.
+
+---
+
+## Historical content (preserved for provenance)
+
+The remainder of this file is the original ADR text as authored 2026-05-20. The principles are still authoritative; the implementation framing has been corrected per the supersession note above.
+
+---
+
+**Original status:** Accepted (Captain decision; embedded in the AI Employee PRDs since first draft; recorded here as a standalone ADR per [#828](https://github.com/venturecrane/ss-console/issues/828)).
 
 **Source:** Platform PRD principles P3 ("Memory is the customer's, readable and editable") and P9 ("No lock-in. Exit is easy by design"). Architecture §10 (Memory Model & Learning Loop) is the implementation; this ADR captures the data-ownership and portability rationale.
 

@@ -360,9 +360,36 @@ Then load this venture's spec for palette and tone: `crane_doc('ss', 'design-spe
 
 The catalog is the shared vocabulary across all eight ventures — eight named patterns (status display by context, redundancy ban, button hierarchy, heading skip ban, typography scale, spacing rhythm, shared primitives, actions and menus) plus the components map (atoms / molecules / organisms with per-venture implementations). The catalog is a map, not a library — each venture maintains its own source. Cite a pattern by its file slug (`patterns/03-button-hierarchy.md`, etc.) when referencing it in PRs and skill output.
 
+## AI Employee Architecture (locked 2026-05-24)
+
+The Phase 1 AI Employee SKU (productized retainer offering, per ADR 0004) runs as a per-customer Fly.io Machine hosting the Nous Research Hermes Agent runtime (`NousResearch/hermes-agent`, MIT). The architectural posture was substantially realigned on 2026-05-24 after six rounds of focused research. Three principles govern all AI Employee work:
+
+1. **Hermes is the substrate. Trust it.** Skills, Honcho memory, the Curator, profiles, the tool registry, the plugin hook surface, MCP integration, and approval/guardrail machinery are all native and not reinvented. Teknium's May 2026 hard rule applies: plugins MUST NOT modify Hermes core files. Our overlay is plugin code, hosted in a separate repo (`venturecrane/hermes-smd-overlay`).
+2. **Build only what Hermes won't.** Sample-driven voice transformation, compliance-grade audit emission, content-class trust ceilings, draft routing through reviewer-as-sender, curated vertical skill catalogs, and the customer-facing business surface are the durable moat. None of these are on Hermes' roadmap.
+3. **Mirror, don't gate.** Where Hermes' learning loop creates state (Honcho conclusions, agent-authored skills), our overlay captures a parallel record in per-customer D1 with provenance. Captain dismissal physically removes the state from Hermes. Reviewer-as-sender does the per-draft safety job; no queue stands between the agent and its work.
+
+Load these ADRs before any AI Employee architectural work:
+
+- **ADR 0004** — Productized AI Employee offering (the SKU itself)
+- **ADR 0006** — Capability-adapter pattern (typed contracts as TS-side ergonomic; runtime via plugin + MCP)
+- **ADR 0007** — Per-customer Machine isolation
+- **ADR 0010** — Per-customer OAuth token storage on Fly volume
+- **ADR 0011** — Multi-persona per customer (persona = Hermes profile)
+- **ADR 0012** — customer.yaml storage (Git source of truth → D1+R2 materialized)
+- **ADR 0015** — Hermes fork posture (pin-only fork, plugin-only overlay)
+- **ADR 0016** — Honcho disposition (mirror, don't gate; tuned config; TTL archival)
+- **ADR 0017** — Skill Curator disposition (trust Hermes-native; mirror to D1 inventory)
+- **ADR 0019** _(forthcoming)_ — customer.yaml → per-profile config translation
+- **ADR 0020** _(forthcoming)_ — Connector strategy (MCP-first; BUILD only where no acceptable MCP)
+
+Connectors are wired by `customer.yaml.connectors{}` backend prefix: `mcp:` (vendor or vetted-community MCP server), `build:` (Python adapter we maintain), `composio:` (long-tail via Composio with per-connection isolation guard), `synthetic:` (no_pm substrate).
+
+Recent merges that this architectural realignment supersedes (these will be removed or refactored as the overlay plugin repo ships): the `smd.hooks.*` dual-surface scaffolding in `ai-employee/adapter/aie_adapter.py`, the Honcho interceptor (`honcho_interceptor.py`), the Curator interceptor (`curator_interceptor.py`), the GEPA boot-check (`boot_checks.py` — verifies a Hermes subsystem that does not exist; ADR 0018 superseded).
+
 ## Key Reference
 
 - **Decision Stack:** `docs/adr/decision-stack.md` (29 locked decisions across 6 layers — buy box, scope, pricing, assessment, distribution, delivery. Source of truth for all collateral and processes.)
+- **AI Employee ADRs:** `docs/adr/0004-*.md` through `docs/adr/0018-*.md` (and forthcoming 0019, 0020). Always cite the ADR number when referencing an architectural decision.
 - **Package 2 Deep Dive:** `~/Desktop/services-package-2-deep-dive.md` (full problem analysis, delivery model, positioning)
 - `docs/` — Venture documentation as it develops
 
