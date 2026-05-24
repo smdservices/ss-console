@@ -1,6 +1,6 @@
 ---
 name: law-pi-opposing-counsel-response
-description: "Drafts factual PI opposing-counsel reply for partner."
+description: 'Drafts factual PI opposing-counsel reply for partner.'
 version: 0.1.0
 author: SMD Services
 license: MIT

@@ -1,6 +1,6 @@
 ---
 name: law-client-status-update
-description: "Drafts client status update from Clio + Gmail for attorney."
+description: 'Drafts client status update from Clio + Gmail for attorney.'
 version: 0.1.0
 author: SMD Services
 license: MIT

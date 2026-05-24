@@ -1,6 +1,6 @@
 ---
 name: law-pi-demand-letter-draft
-description: "Drafts factual PI demand-letter chronology for partner."
+description: 'Drafts factual PI demand-letter chronology for partner.'
 version: 0.1.0
 author: SMD Services
 license: MIT

@@ -1,6 +1,6 @@
 ---
 name: law-pi-discovery-response
-description: "Drafts factual PI discovery-response objections for partner."
+description: 'Drafts factual PI discovery-response objections for partner.'
 version: 0.1.0
 author: SMD Services
 license: MIT

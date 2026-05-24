@@ -1,6 +1,6 @@
 ---
 name: law-pi-settlement-prep
-description: "Drafts internal PI settlement-prep memo for partner."
+description: 'Drafts internal PI settlement-prep memo for partner.'
 version: 0.1.0
 author: SMD Services
 license: MIT
