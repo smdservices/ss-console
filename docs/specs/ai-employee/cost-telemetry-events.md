@@ -200,6 +200,8 @@ Alert fires when `ratio > 0.40` for two consecutive months. Audit event `COGS_RA
   - d1-schema.md (cost_telemetry table)
   - decommission-drain.md (final cost_telemetry export before D1 deletion)
 
-[AMBIGUITY: Composio managed connectors (Gmail, Slack, GitHub) charge per-action; their per-action prices vary by toolkit and aren't published as a static JSON. Either (a) hardcode per-toolkit pricing in a manual file we update when Composio changes prices, or (b) pull pricing dynamically per their API if available. Captain decision.]
+## Resolved decisions
 
-[AMBIGUITY: D1 metering doesn't currently expose per-database read/write counts via a simple API — Cloudflare GraphQL Analytics is the mechanism. Validate access pattern against the live Cloudflare account before committing to the nightly pull approach.]
+**Composio per-action pricing.** Hardcode per-toolkit pricing in `ai-employee/adapter/cost_telemetry/composio_pricing.json`, updated manually when Composio changes prices. Composio does not publish per-action pricing via API as of 2026-05; manual maintenance is the only path. Anomaly check: if a billing-period rollup shows a Composio cost-driver delta >2× the prior period for any single toolkit, alert Captain to refresh `composio_pricing.json` against Composio's current published rates.
+
+**D1 metering access pattern.** Plan around Cloudflare GraphQL Analytics for the nightly D1 read/write pull. The #824 implementation work includes a validation spike against the live Cloudflare account as its first step. **Fallback:** if GraphQL Analytics access turns out to be unworkable for our auth model or rate limits, defer D1 cost-driver instrumentation to phase 2 — Anthropic API tokens dominate the COGS surface (per `docs/strategy/ai-employee-stack-evaluation-2026-05-13.md`); D1 will not be the kill-criterion driver in v1, so a temporary gap is acceptable.

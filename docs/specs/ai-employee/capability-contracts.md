@@ -217,11 +217,12 @@ Adapter conformance suite at `ai-employee/capabilities/tests/conformance/<capabi
 
 ## Implementation notes
 
-- Interfaces declared in `ai-employee/capabilities/<name>.ts`; concrete adapters at `ai-employee/connectors/<capability>/<system>/`.
-- The substrate at PR #812 has Python adapters (LawPay, ShipStation). Either (a) accept dual-language adapters with capability interface re-declared in Python via `typing.Protocol`, or (b) rewrite Python adapters to TypeScript before Phase 1 lock. See AMBIGUITY below.
+- TypeScript interface signatures at `ai-employee/capabilities/<name>.ts` are the **doctrinal contract** — the binding API shape. Concrete adapters live at `ai-employee/connectors/<capability>/<system>/` and are implemented in **Python** (matching PR #812 and the rest of the substrate at `ai-employee/adapter/`). Each adapter re-declares the capability interface in Python via `typing.Protocol` to enforce the contract at runtime in the implementation language.
 - Skill `SKILL.md` frontmatter declares `requires_capabilities: [Email, PracticeManagement]` — runtime fails skill activation if customer.yaml lacks bindings for declared capabilities.
-- The full TypeScript domain types (Matter, EmailThread, etc.) live in `ai-employee/capabilities/types.ts`. Phase 1 ships minimum-field shapes per Tech Lead's draft; Phase 2 expands per vertical PRDs.
+- The full TypeScript domain types (Matter, EmailThread, etc.) live in `ai-employee/capabilities/types.ts` as the doctrinal shape; Python `dataclass` mirrors live alongside each adapter for runtime use. Phase 1 ships minimum-field shapes per Tech Lead's draft; Phase 2 expands per vertical PRDs.
 
-[AMBIGUITY: PR #812 implements LawPay and ShipStation adapters in Python (`uv` workspace, FastAPI servers). The spec's TypeScript signatures assume a TS adapter layer. Captain decision: dual-language with capability re-declaration in Python, or convergence on TypeScript? This blocks Phase 1 adapter implementation.]
+## Resolved decisions
 
-[AMBIGUITY: Calendar.respond_to_invitation_draft returns a `DraftRef` (reviewer-confirms-then-sends), but most calendar systems treat RSVP as a single API call. Pattern A discipline says no programmatic action; this implies all calendar RSVPs are partner-tap actions. Confirm or reshape Calendar interface.]
+**Adapter language: Python runtime, TypeScript doctrine.** The substrate is already Python end-to-end (Hermes overlay, audit log, memory pipeline, voice pipeline, trust ceiling — all Python; see `ai-employee/adapter/`). PR #812's LawPay and ShipStation Python adapters are correct as shipped. TypeScript signatures here document the contract; Python `typing.Protocol` declarations in each adapter enforce it at runtime. No TS-adapter migration. This avoids a translation layer for no functional gain and keeps the connector adapters co-located with the Python substrate they interact with.
+
+**Calendar.respond_to_invitation_draft shape.** The `DraftRef` return type is correct as written. RSVP-as-single-API-call is true at the calendar-provider level, but Pattern A discipline (reviewer-as-sender, ADR 0005) requires the partner to confirm before any commitment is recorded on their behalf. The adapter's `respond_to_invitation_draft` returns a `DraftRef`; the partner taps Accept/Decline in the dashboard; the dashboard fires the actual API call as a partner-tap action. Same pattern as Email: agent drafts, partner sends. No interface reshape needed.
