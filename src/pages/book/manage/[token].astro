@@ -59,17 +59,6 @@ import SlotPicker from '../../../components/booking/SlotPicker.astro'
               <dt class="ss-eyebrow">Guest</dt>
               <dd id="details-guest" class="ss-detail-value"></dd>
             </div>
-            <div id="details-meet-row" hidden>
-              <dt class="ss-eyebrow">Video call</dt>
-              <dd class="ss-detail-value">
-                <a
-                  id="details-meet-link"
-                  href="#"
-                  class="ss-quiet-link"
-                  target="_blank"
-                  rel="noopener"></a>
-              </dd>
-            </div>
           </dl>
 
           <div class="ss-form-actions mt-stack">
@@ -152,6 +141,7 @@ import SlotPicker from '../../../components/booking/SlotPicker.astro'
 
     let bookingData = null
     let currentSlot = null
+    let slotsFetched = false
 
     const STATES = ['loading', 'details', 'reschedule', 'cancel', 'result']
 
@@ -225,12 +215,6 @@ import SlotPicker from '../../../components/booking/SlotPicker.astro'
         document.getElementById('details-slot').textContent = data.slot_label
         document.getElementById('details-meeting-label').textContent = data.meeting_label
         document.getElementById('details-guest').textContent = data.guest_name
-        if (data.google_meet_url) {
-          const link = document.getElementById('details-meet-link')
-          link.href = data.google_meet_url
-          link.textContent = 'Open meeting link'
-          document.getElementById('details-meet-row').hidden = false
-        }
         setState('details')
       } catch (err) {
         showResult(
@@ -247,6 +231,14 @@ import SlotPicker from '../../../components/booking/SlotPicker.astro'
       if (!bookingData) return
       document.getElementById('reschedule-current').textContent = bookingData.slot_label
       setState('reschedule')
+      // SlotPicker does not auto-fetch on mount — the parent must call
+      // refetchSlots() when revealing the picker. Without this the
+      // loading skeleton spins forever. /book follows the same pattern.
+      const picker = document.getElementById('slot-picker')
+      if (!slotsFetched && picker && typeof picker.refetchSlots === 'function') {
+        picker.refetchSlots()
+        slotsFetched = true
+      }
     })
 
     document.getElementById('reschedule-back-btn').addEventListener('click', function () {
