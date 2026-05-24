@@ -459,6 +459,15 @@ def writer_from_env() -> AuditLogWriter:
     return AuditLogWriter(executor)
 
 
+# Public surface (`from adapter.audit_log import *`) excludes the raw
+# `HttpD1Executor` and `SqliteExecutor` constructors as of issue #861's
+# TOCTOU hardening: external callers MUST go through
+# `adapter.d1_env.namespaced_executor_from_env(...)` so every D1 access
+# is bound to a customer slug. The raw classes remain importable by
+# explicit name for the in-tree writer path (per the audit-log
+# immutability design at `audit_log_immutability.py`) and for tests,
+# but they are not advertised. A future PR can mark them
+# underscore-private once the in-tree consumers migrate.
 __all__ = [
     "ACCEPTED_ACTION_TYPES",
     "ActorRole",
@@ -466,7 +475,5 @@ __all__ = [
     "AuditLogWriter",
     "AuditWriteError",
     "Executor",
-    "HttpD1Executor",
-    "SqliteExecutor",
     "writer_from_env",
 ]
