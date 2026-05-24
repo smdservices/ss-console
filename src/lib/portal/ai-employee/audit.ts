@@ -233,6 +233,22 @@ export interface AuditEntry {
 export interface AuditListParams {
   skills: readonly string[]
   actions: readonly string[]
+  /**
+   * Multi-select actor filter. Matches verbatim against
+   * `AuditEntry.actor` (case-sensitive — actor values are stable
+   * identifiers, not user-typed text). Empty array = all actors. Per
+   * AC of #896 — the actor column was previously only searchable
+   * via the free-text `q` filter, which conflated identity matches
+   * with substring matches inside `reason`/`target`.
+   */
+  actors: readonly string[]
+  /**
+   * Multi-select decision filter. Each value must be a member of
+   * `AUDIT_DECISIONS`; unknown values drop silently to keep the
+   * surface stable under bookmark drift. Empty array = all decisions
+   * (and rows with no decision attached).
+   */
+  decisions: readonly AuditDecision[]
   from: string | null
   to: string | null
   matter: string | null
@@ -305,6 +321,35 @@ export function parseAuditListParams(searchParams: URLSearchParams): AuditListPa
     )
   )
 
+  // Multi-select actor: free-form identifiers (`agent`, `captain`, or a
+  // `person_mappings.id`). No closed vocabulary to validate against —
+  // these are runtime identities — but we deduplicate and strip empties
+  // the same way as skill.
+  const rawActorParams = searchParams.getAll('actor')
+  const actors = Array.from(
+    new Set(
+      rawActorParams
+        .flatMap((value) => value.split(','))
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0)
+    )
+  )
+
+  // Multi-select decision: validated against the closed AUDIT_DECISIONS
+  // vocabulary. Unknown values drop silently rather than poisoning the
+  // filter set.
+  const rawDecisionParams = searchParams.getAll('decision')
+  const decisions = Array.from(
+    new Set(
+      rawDecisionParams
+        .flatMap((value) => value.split(','))
+        .map((value) => value.trim())
+        .filter((value): value is AuditDecision =>
+          (AUDIT_DECISIONS as readonly string[]).includes(value)
+        )
+    )
+  )
+
   const from = normalizeIsoTimestamp(searchParams.get('from'))
   const to = normalizeIsoTimestamp(searchParams.get('to'))
 
@@ -328,7 +373,7 @@ export function parseAuditListParams(searchParams: URLSearchParams): AuditListPa
       ? Math.min(Math.floor(rawPageSize), MAX_AUDIT_PAGE_SIZE)
       : DEFAULT_AUDIT_PAGE_SIZE
 
-  return { skills, actions, from, to, matter, q, sort, page, pageSize }
+  return { skills, actions, actors, decisions, from, to, matter, q, sort, page, pageSize }
 }
 
 /**
@@ -377,6 +422,16 @@ export function applyAuditFilters(
   if (params.actions.length > 0) {
     const wanted = new Set(params.actions)
     result = result.filter((row) => wanted.has(row.action))
+  }
+
+  if (params.actors.length > 0) {
+    const wanted = new Set(params.actors)
+    result = result.filter((row) => wanted.has(row.actor))
+  }
+
+  if (params.decisions.length > 0) {
+    const wanted = new Set<AuditDecision>(params.decisions)
+    result = result.filter((row) => row.decision !== null && wanted.has(row.decision))
   }
 
   if (params.from !== null) {
@@ -606,6 +661,23 @@ export function distinctAuditActions(rows: readonly AuditEntry[]): string[] {
 }
 
 /**
+ * Collect the distinct actors present in an audit list, sorted
+ * alphabetically. Used by the page to populate the actor multi-select
+ * from whatever rows the current page returned. Actor values are
+ * stable identifiers (e.g. `agent`, `captain`, a `person_mappings.id`)
+ * so the surface uses verbatim equality rather than substring matching.
+ */
+export function distinctAuditActors(rows: readonly AuditEntry[]): string[] {
+  const seen = new Set<string>()
+  for (const row of rows) {
+    if (row.actor.length > 0) {
+      seen.add(row.actor)
+    }
+  }
+  return Array.from(seen).sort()
+}
+
+/**
  * Server-side resolver invoked by the audit list page. Today this
  * returns an empty list with the correct shape — the per-customer
  * Hermes bridge that feeds real audit rows is tracked in #821. When the
@@ -623,6 +695,23 @@ export async function listAuditEntries(
 ): Promise<AuditListPage> {
   const rows = await fetchAuditEntriesFromHermes(_subscription)
   return buildAuditListPage(rows, params)
+}
+
+/**
+ * Filtered+sorted but NOT paginated. The export endpoints (`#896`)
+ * download the full result set for the active query — paginating would
+ * defeat the compliance use case (a reviewer exporting "everything in
+ * the Smith matter window" must not silently truncate at page 1).
+ * Shares fetch + filter + sort with `listAuditEntries`; the only
+ * difference is the missing pagination step.
+ */
+export async function listAuditEntriesUnpaginated(
+  _subscription: SubscriptionRow,
+  params: AuditListParams
+): Promise<AuditEntry[]> {
+  const rows = await fetchAuditEntriesFromHermes(_subscription)
+  const filtered = applyAuditFilters(rows, params)
+  return applyAuditSort(filtered, params.sort)
 }
 
 /**

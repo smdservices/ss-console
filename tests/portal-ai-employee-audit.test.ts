@@ -29,11 +29,13 @@ import {
   decisionTone,
   defaultAuditDateRange,
   distinctAuditActions,
+  distinctAuditActors,
   distinctAuditSkills,
   formatAuditAction,
   formatAuditDecision,
   formatAuditTimestamp,
   listAuditEntries,
+  listAuditEntriesUnpaginated,
   paginateAuditEntries,
   parseAuditListParams,
   type AuditEntry,
@@ -60,6 +62,8 @@ function makeEntry(overrides: Partial<AuditEntry> = {}): AuditEntry {
 const baseParams: AuditListParams = {
   skills: [],
   actions: [],
+  actors: [],
+  decisions: [],
   from: null,
   to: null,
   matter: null,
@@ -479,5 +483,117 @@ describe('listAuditEntries', () => {
     expect(page.page).toBe(1)
     expect(page.pageCount).toBe(1)
     expect(page.pageSize).toBe(DEFAULT_AUDIT_PAGE_SIZE)
+  })
+})
+
+// -----------------------------------------------------------------------------
+// #896 — actor + decision filters
+// -----------------------------------------------------------------------------
+
+describe('parseAuditListParams — actor + decision (#896)', () => {
+  it('parses repeated ?actor= params into a deduped array', () => {
+    const params = parseAuditListParams(
+      new URLSearchParams('actor=person-1&actor=agent&actor=person-1')
+    )
+    expect(params.actors.slice().sort()).toEqual(['agent', 'person-1'])
+  })
+
+  it('parses comma-separated ?actor= values', () => {
+    const params = parseAuditListParams(new URLSearchParams('actor=agent,captain,person-2'))
+    expect(params.actors.slice().sort()).toEqual(['agent', 'captain', 'person-2'])
+  })
+
+  it('parses ?decision= values restricted to the closed vocabulary', () => {
+    const params = parseAuditListParams(
+      new URLSearchParams('decision=allow&decision=refuse&decision=bogus')
+    )
+    expect(params.decisions.slice().sort()).toEqual(['allow', 'refuse'])
+  })
+
+  it('returns empty arrays when neither param is present', () => {
+    const params = parseAuditListParams(new URLSearchParams(''))
+    expect(params.actors).toEqual([])
+    expect(params.decisions).toEqual([])
+  })
+})
+
+describe('applyAuditFilters — actor + decision (#896)', () => {
+  const rows: AuditEntry[] = [
+    makeEntry({ id: 'a', actor: 'agent', decision: 'allow' }),
+    makeEntry({ id: 'b', actor: 'person-1', decision: 'refuse' }),
+    makeEntry({ id: 'c', actor: 'captain', decision: 'draft_for_review' }),
+    makeEntry({ id: 'd', actor: 'agent', decision: null }),
+  ]
+
+  it('filters by actor verbatim (multi-select OR)', () => {
+    const filtered = applyAuditFilters(rows, { ...baseParams, actors: ['agent', 'captain'] })
+    expect(filtered.map((r) => r.id).sort()).toEqual(['a', 'c', 'd'])
+  })
+
+  it('filters by decision (multi-select OR)', () => {
+    const filtered = applyAuditFilters(rows, { ...baseParams, decisions: ['refuse'] })
+    expect(filtered.map((r) => r.id)).toEqual(['b'])
+  })
+
+  it('drops rows with null decision when a decision filter is active', () => {
+    const filtered = applyAuditFilters(rows, { ...baseParams, decisions: ['allow'] })
+    expect(filtered.map((r) => r.id)).toEqual(['a'])
+  })
+
+  it('combines actor + decision filters as AND', () => {
+    const filtered = applyAuditFilters(rows, {
+      ...baseParams,
+      actors: ['agent'],
+      decisions: ['allow'],
+    })
+    expect(filtered.map((r) => r.id)).toEqual(['a'])
+  })
+
+  it('returns all rows when both arrays are empty', () => {
+    const filtered = applyAuditFilters(rows, baseParams)
+    expect(filtered.map((r) => r.id)).toEqual(['a', 'b', 'c', 'd'])
+  })
+})
+
+describe('distinctAuditActors (#896)', () => {
+  it('returns the unique actors sorted alphabetically', () => {
+    const rows = [
+      makeEntry({ id: '1', actor: 'person-2' }),
+      makeEntry({ id: '2', actor: 'agent' }),
+      makeEntry({ id: '3', actor: 'person-2' }),
+      makeEntry({ id: '4', actor: 'captain' }),
+    ]
+    expect(distinctAuditActors(rows)).toEqual(['agent', 'captain', 'person-2'])
+  })
+
+  it('skips rows with empty actor strings', () => {
+    const rows = [makeEntry({ actor: '' }), makeEntry({ actor: 'agent' })]
+    expect(distinctAuditActors(rows)).toEqual(['agent'])
+  })
+
+  it('returns an empty array for an empty input', () => {
+    expect(distinctAuditActors([])).toEqual([])
+  })
+})
+
+describe('listAuditEntriesUnpaginated (#896)', () => {
+  it('returns the full filtered+sorted result set with no pagination metadata', async () => {
+    // Bridge stub returns []; the contract test is that the function
+    // exists, accepts the same params, and returns AuditEntry[] not a
+    // page envelope. The export endpoints depend on this shape.
+    const stubSubscription: SubscriptionRow = {
+      id: 'sub-test',
+      org_id: 'org-test',
+      entity_id: 'ent-test',
+      product_slug: 'ai-employee',
+      status: 'active',
+      started_at: '2026-05-21T00:00:00Z',
+      ended_at: null,
+      settings_json: null,
+      created_at: '2026-05-21T00:00:00Z',
+      updated_at: '2026-05-21T00:00:00Z',
+    }
+    const rows = await listAuditEntriesUnpaginated(stubSubscription, baseParams)
+    expect(rows).toEqual([])
   })
 })

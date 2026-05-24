@@ -26,8 +26,11 @@
 
 import {
   AUDIT_ACTION_TYPES,
+  AUDIT_DECISIONS,
   AUDIT_SORTS,
+  type AuditDecision,
   type AuditSort,
+  formatAuditDecision,
 } from '../../../lib/portal/ai-employee/audit'
 
 interface Props {
@@ -37,6 +40,11 @@ interface Props {
    */
   skills: readonly string[]
   actions: readonly string[]
+  /** Actor multi-select state. Per #896, actor identity is a first-class
+   * filter dimension separate from the free-text `q` search. */
+  actors: readonly string[]
+  /** Decision multi-select state. Per #896. */
+  decisions: readonly AuditDecision[]
   from: string | null
   to: string | null
   matter: string | null
@@ -49,9 +57,31 @@ interface Props {
    * stays visible in the empty state.
    */
   availableSkills: readonly string[]
+  /** Actors observed across the current page. Drives the actor
+   * multi-select; same empty-state treatment as skills. */
+  availableActors: readonly string[]
+  /**
+   * URL query string the form will round-trip via the "Save query"
+   * action. Pre-populated server-side so the save endpoint sees
+   * exactly the same params the page is rendering.
+   */
+  currentQueryString: string
 }
 
-const { skills, actions, from, to, matter, q, sort, availableSkills } = Astro.props
+const {
+  skills,
+  actions,
+  actors,
+  decisions,
+  from,
+  to,
+  matter,
+  q,
+  sort,
+  availableSkills,
+  availableActors,
+  currentQueryString,
+} = Astro.props
 
 const SORT_LABELS: Record<AuditSort, string> = {
   ts_desc: 'Newest first',
@@ -60,6 +90,8 @@ const SORT_LABELS: Record<AuditSort, string> = {
 
 const selectedSkills = new Set(skills)
 const selectedActions = new Set(actions)
+const selectedActors = new Set(actors)
+const selectedDecisions = new Set<AuditDecision>(decisions)
 
 // Strip time component from an ISO datetime for the `<input type="date">`
 // re-hydration. The resolver accepts both ISO date and ISO datetime so
@@ -103,7 +135,7 @@ function toDateValue(value: string | null): string {
   }
 
   <div
-    class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto_auto_auto_auto] gap-3 md:gap-4 md:items-end"
+    class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 md:items-end"
   >
     {/* Skill multi-select */}
     <div class="flex flex-col gap-1.5 min-w-0">
@@ -167,6 +199,74 @@ function toDateValue(value: string | null): string {
           AUDIT_ACTION_TYPES.map((action) => (
             <option value={action} selected={selectedActions.has(action)}>
               {action}
+            </option>
+          ))
+        }
+      </select>
+    </div>
+
+    {/* Actor multi-select (per #896) */}
+    <div class="flex flex-col gap-1.5 min-w-0">
+      <label
+        for="audit-filter-actor"
+        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+      >
+        Actor
+      </label>
+      <select
+        id="audit-filter-actor"
+        name="actor"
+        multiple
+        size={Math.min(Math.max(availableActors.length, 1), 4)}
+        disabled={availableActors.length === 0}
+        class="border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-mono text-sm text-[color:var(--ss-color-text-primary)] disabled:bg-[color:var(--ss-color-border-subtle)] disabled:text-[color:var(--ss-color-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+        aria-describedby={availableActors.length === 0 ? 'audit-filter-actor-empty' : undefined}
+      >
+        {
+          availableActors.length === 0 ? (
+            <option value="" disabled>
+              No actors yet
+            </option>
+          ) : (
+            availableActors.map((actor) => (
+              <option value={actor} selected={selectedActors.has(actor)}>
+                {actor}
+              </option>
+            ))
+          )
+        }
+      </select>
+      {
+        availableActors.length === 0 && (
+          <span
+            id="audit-filter-actor-empty"
+            class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-muted)]"
+          >
+            Actors appear as audit rows land
+          </span>
+        )
+      }
+    </div>
+
+    {/* Decision multi-select (per #896) */}
+    <div class="flex flex-col gap-1.5 min-w-0">
+      <label
+        for="audit-filter-decision"
+        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+      >
+        Decision
+      </label>
+      <select
+        id="audit-filter-decision"
+        name="decision"
+        multiple
+        size={AUDIT_DECISIONS.length}
+        class="border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-mono text-sm text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+      >
+        {
+          AUDIT_DECISIONS.map((d) => (
+            <option value={d} selected={selectedDecisions.has(d)}>
+              {formatAuditDecision(d)}
             </option>
           ))
         }
@@ -264,3 +364,65 @@ function toDateValue(value: string | null): string {
     />
   </div>
 </form>
+
+{
+  /* Sibling controls below the filter form: export links (GET) + save-query form (POST).
+    Kept outside the filter <form> so submitting Apply doesn't accidentally trigger
+    a save, and so the export links carry the current query string (not pending
+    edits in the filter inputs). */
+}
+<div
+  class="border-[3px] border-t-0 border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] p-4 md:p-5 flex flex-col md:flex-row md:items-end md:justify-between gap-4"
+  aria-label="Export and saved queries"
+>
+  <div class="flex flex-col md:flex-row gap-3 md:items-end">
+    <a
+      href={`/api/portal/ai-employee/audit/export.csv${currentQueryString.length > 0 ? `?${currentQueryString}` : ''}`}
+      class="inline-flex items-center justify-center min-h-11 px-4 py-2 border-[3px] border-[color:var(--ss-color-text-primary)] font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-colors"
+      download
+    >
+      Export CSV
+    </a>
+    <a
+      href={`/api/portal/ai-employee/audit/export.json${currentQueryString.length > 0 ? `?${currentQueryString}` : ''}`}
+      class="inline-flex items-center justify-center min-h-11 px-4 py-2 border-[3px] border-[color:var(--ss-color-text-primary)] font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-colors"
+      download
+    >
+      Export JSON
+    </a>
+  </div>
+
+  <form
+    method="POST"
+    action="/api/portal/ai-employee/audit/saved-queries"
+    class="flex flex-col md:flex-row gap-3 md:items-end"
+    aria-label="Save the current filter set"
+  >
+    <input type="hidden" name="queryString" value={currentQueryString} />
+    <input type="hidden" name="returnTo" value="/portal/products/ai-employee/audit" />
+    <div class="flex flex-col gap-1.5 min-w-0">
+      <label
+        for="audit-save-name"
+        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+      >
+        Save filter set
+      </label>
+      <input
+        type="text"
+        id="audit-save-name"
+        name="name"
+        required
+        maxlength="80"
+        placeholder="e.g. Smith matter refusals"
+        autocomplete="off"
+        class="w-full md:w-64 border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-mono text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+      />
+    </div>
+    <button
+      type="submit"
+      class="inline-flex items-center justify-center min-h-11 px-5 py-2 border-[3px] border-[color:var(--ss-color-text-primary)] font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-colors"
+    >
+      Save
+    </button>
+  </form>
+</div>

@@ -7,16 +7,19 @@ import {
 } from '../../../../../lib/portal/ai-employee-access'
 import {
   defaultAuditDateRange,
+  distinctAuditActors,
   distinctAuditSkills,
   listAuditEntries,
   parseAuditListParams,
 } from '../../../../../lib/portal/ai-employee/audit'
+import { listSavedQueries } from '../../../../../lib/portal/ai-employee/audit-saved-queries'
 import PortalHeader from '../../../../../components/portal/PortalHeader.astro'
 import PortalTabs from '../../../../../components/portal/PortalTabs.astro'
 import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
 import SkipToMain from '../../../../../components/SkipToMain.astro'
 import AuditFilterBar from '../../../../../components/portal/ai-employee/AuditFilterBar.astro'
 import AuditLogTable from '../../../../../components/portal/ai-employee/AuditLogTable.astro'
+import SavedQueriesPanel from '../../../../../components/portal/ai-employee/SavedQueriesPanel.astro'
 import { SignOutButton } from '@clerk/astro/components'
 import { env } from 'cloudflare:workers'
 
@@ -72,7 +75,7 @@ const access = await resolveAiEmployeeAccess(env.DB, Astro.locals, {
 if (access.kind === 'redirect') {
   return Astro.redirect(access.to)
 }
-const { client, subscription, roles } = access
+const { user, client, subscription, roles } = access
 
 // Belt-and-braces role check per the issue's explicit requirement: the
 // audit log is sensitive and the surface must verify the resolved role
@@ -105,6 +108,33 @@ const auditPage = await listAuditEntries(subscription, resolvedParams)
 // #821 lands. Empty list today is honest — there are no skills to
 // surface until rows arrive.
 const availableSkills = distinctAuditSkills(auditPage.rows)
+const availableActors = distinctAuditActors(auditPage.rows)
+
+// Saved queries panel (per #896). Per-user, per-customer state stored
+// in portal D1 (not on the per-customer Hermes Machine — saved queries
+// are reviewer state, not audit history). Empty list shows the panel
+// with an explainer rather than hiding the surface.
+const savedQueries = await listSavedQueries(env.DB, user.id, client.id)
+
+// Build the URL query string that mirrors the current page state. The
+// filter bar threads it into the export links + save-query form so the
+// downstream actions reflect exactly what the page is rendering. We
+// reconstruct from the parsed params (not Astro.url.searchParams) so
+// the string is normalized — e.g. the default 7-day window is
+// surfaced explicitly when the URL omits from/to.
+const queryStringForLinks = (() => {
+  const sp = new URLSearchParams()
+  for (const v of resolvedParams.skills) sp.append('skill', v)
+  for (const v of resolvedParams.actions) sp.append('action', v)
+  for (const v of resolvedParams.actors) sp.append('actor', v)
+  for (const v of resolvedParams.decisions) sp.append('decision', v)
+  if (resolvedParams.from !== null) sp.set('from', resolvedParams.from)
+  if (resolvedParams.to !== null) sp.set('to', resolvedParams.to)
+  if (resolvedParams.matter !== null) sp.set('matter', resolvedParams.matter)
+  if (resolvedParams.q !== null) sp.set('q', resolvedParams.q)
+  if (resolvedParams.sort !== 'ts_desc') sp.set('sort', resolvedParams.sort)
+  return sp.toString()
+})()
 
 // Empty-state copy varies based on whether a matter filter is active.
 // The base copy is the same shape as the drafts page; the matter
@@ -162,13 +192,19 @@ const emptyBody = matterFilter
         <AuditFilterBar
           skills={resolvedParams.skills}
           actions={resolvedParams.actions}
+          actors={resolvedParams.actors}
+          decisions={resolvedParams.decisions}
           from={resolvedParams.from}
           to={resolvedParams.to}
           matter={resolvedParams.matter}
           q={resolvedParams.q}
           sort={resolvedParams.sort}
           availableSkills={availableSkills}
+          availableActors={availableActors}
+          currentQueryString={queryStringForLinks}
         />
+
+        <SavedQueriesPanel queries={savedQueries} />
 
         {
           auditPage.totalCount === 0 ? (

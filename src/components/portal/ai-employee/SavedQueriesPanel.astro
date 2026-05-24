@@ -1,0 +1,79 @@
+---
+/**
+ * Saved-queries panel on the audit page (issue #896).
+ *
+ * Renders the caller's saved filter sets as a list with two affordances
+ * per row:
+ *   - Re-apply: link to /portal/products/ai-employee/audit?{params} so
+ *     clicking the name lands the reviewer on the same filter set.
+ *   - Delete: HTML form POST to the delete endpoint. No JS; the
+ *     standard portal mark-read pattern.
+ *
+ * Empty state per docs/style/empty-state-pattern.md: when the user has
+ * no saved queries we render a short explainer rather than hiding the
+ * panel entirely. The panel's presence is its own contract — reviewers
+ * scanning the page know the feature exists and where to find it.
+ */
+
+import type { SavedQuery } from '../../../lib/portal/ai-employee/audit-saved-queries'
+import { savedQueryToSearchParams } from '../../../lib/portal/ai-employee/audit-saved-queries'
+
+interface Props {
+  queries: readonly SavedQuery[]
+}
+
+const { queries } = Astro.props
+
+function reapplyHref(query: SavedQuery): string {
+  const sp = savedQueryToSearchParams(query)
+  const qs = sp.toString()
+  return qs.length > 0
+    ? `/portal/products/ai-employee/audit?${qs}`
+    : '/portal/products/ai-employee/audit'
+}
+---
+
+<section
+  aria-label="Saved queries"
+  class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
+>
+  <div
+    class="bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold"
+  >
+    Saved queries
+  </div>
+  {
+    queries.length === 0 ? (
+      <div class="px-5 md:px-7 py-6">
+        <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+          Name a filter set and save it from the bar above to re-apply it later.
+        </p>
+      </div>
+    ) : (
+      <ul class="divide-y-[2px] divide-[color:var(--ss-color-text-primary)]" role="list">
+        {queries.map((query) => (
+          <li class="flex items-center gap-4 px-5 md:px-7 py-4">
+            <a
+              href={reapplyHref(query)}
+              class="flex-1 min-w-0 font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded truncate"
+            >
+              {query.name}
+            </a>
+            <form
+              method="POST"
+              action={`/api/portal/ai-employee/audit/saved-queries/${query.id}/delete`}
+            >
+              <input type="hidden" name="returnTo" value="/portal/products/ai-employee/audit" />
+              <button
+                type="submit"
+                class="inline-flex items-center min-h-9 px-3 py-1 border-[2px] border-[color:var(--ss-color-text-primary)] font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-colors"
+              >
+                Delete
+              </button>
+            </form>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</section>
