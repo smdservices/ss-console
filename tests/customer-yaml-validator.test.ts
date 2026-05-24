@@ -881,6 +881,121 @@ describe('validate — hermes_ref fork-tag enforcement (ADR 0015)', () => {
 })
 
 // -----------------------------------------------------------------------------
+// users[].voice_profile_id — multi-user voice (#858)
+//
+// Per-user voice profiles let a customer attach distinct writing-voice
+// signatures to individual reviewers (partner Sarah vs. associate Mike
+// vs. paralegal Jane). The field is optional and backwards-compatible:
+// customers without per-user voice ship the field absent and every
+// reviewer inherits the customer-level general voice.
+// -----------------------------------------------------------------------------
+
+describe('validate — users[].voice_profile_id (#858)', () => {
+  it('accepts users without voice_profile_id (backwards compat)', () => {
+    const r = validate(validFixture())
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    }
+    expect(r.value.users[0].voice_profile_id).toBeNull()
+    expect(r.value.users[1].voice_profile_id).toBeNull()
+  })
+
+  it('accepts users with a well-formed voice_profile_id slug', () => {
+    const f = validFixture()
+    ;(f['users'] as Array<Record<string, unknown>>)[0].voice_profile_id = 'partner-sarah'
+    ;(f['users'] as Array<Record<string, unknown>>)[1].voice_profile_id = 'paralegal-mike'
+    const r = validate(f)
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    }
+    expect(r.value.users[0].voice_profile_id).toBe('partner-sarah')
+    expect(r.value.users[1].voice_profile_id).toBe('paralegal-mike')
+  })
+
+  it('rejects a non-string voice_profile_id', () => {
+    const f = validFixture()
+    ;(f['users'] as Array<Record<string, unknown>>)[0].voice_profile_id = 42
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.code === 'TypeMismatch' && e.path === 'users[0].voice_profile_id')
+    ).toBe(true)
+  })
+
+  it('rejects voice_profile_id with uppercase', () => {
+    const f = validFixture()
+    ;(f['users'] as Array<Record<string, unknown>>)[0].voice_profile_id = 'Partner-Sarah'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.code === 'InvalidSlug' && e.path === 'users[0].voice_profile_id')
+    ).toBe(true)
+  })
+
+  it('rejects voice_profile_id with leading dash', () => {
+    const f = validFixture()
+    ;(f['users'] as Array<Record<string, unknown>>)[0].voice_profile_id = '-sarah'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidSlug')
+  })
+
+  it('rejects voice_profile_id over 32 chars', () => {
+    const f = validFixture()
+    ;(f['users'] as Array<Record<string, unknown>>)[0].voice_profile_id = 'a'.repeat(33)
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidSlug')
+  })
+
+  it('rejects duplicate voice_profile_id across users', () => {
+    // Two users sharing a profile would defeat the per-user attribution
+    // model — the transform could not tell which reviewer's voice was
+    // actually applied. Treat as an authoring error.
+    const f = validFixture()
+    ;(f['users'] as Array<Record<string, unknown>>)[0].voice_profile_id = 'shared-slug'
+    ;(f['users'] as Array<Record<string, unknown>>)[1].voice_profile_id = 'shared-slug'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('DuplicateVoiceProfileId')
+    expect(r.errors.some((e) => e.path === 'users[1].voice_profile_id')).toBe(true)
+  })
+
+  it('allows mix of users with and without voice_profile_id', () => {
+    const f = validFixture()
+    ;(f['users'] as Array<Record<string, unknown>>)[0].voice_profile_id = 'partner-sarah'
+    // users[1] left without voice_profile_id — inherits general voice
+    const r = validate(f)
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    }
+    expect(r.value.users[0].voice_profile_id).toBe('partner-sarah')
+    expect(r.value.users[1].voice_profile_id).toBeNull()
+  })
+
+  it('does not echo voice_profile_id values in unrelated error messages', () => {
+    // The slug itself is not secret, but the validator should not
+    // surface it in errors unrelated to it. Smoke test that duplicate
+    // detection cites the field by path, not by mixing it into other
+    // error messages.
+    const f = validFixture()
+    ;(f['users'] as Array<Record<string, unknown>>)[0].voice_profile_id = 'real-slug'
+    ;(f['users'] as Array<Record<string, unknown>>)[1].voice_profile_id = 'real-slug'
+    delete f['vertical']
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    const verticalErr = r.errors.find((e) => e.path === 'vertical')
+    expect(verticalErr?.message).not.toContain('real-slug')
+  })
+})
+
+// -----------------------------------------------------------------------------
 // memory.retention block — audit-retention.md (#893)
 // -----------------------------------------------------------------------------
 

@@ -66,6 +66,10 @@ function makeDraft(overrides: Partial<DraftDetail> = {}): DraftDetail {
     // surface. Empty array keeps the helper type-correct without
     // adding fabricated content.
     sources: [],
+    // voiceProfileLabel is required on DraftDetail per #858. The
+    // send-as flow never reads it — voice attribution is a separate
+    // surface on the detail page.
+    voiceProfileLabel: null,
     ...overrides,
   }
 }
