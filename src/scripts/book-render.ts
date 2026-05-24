@@ -51,16 +51,28 @@ export function showIntro(els: BookElements, state: BookState): void {
   els.intro.hidden = false
   els.slots.hidden = true
   els.closed.hidden = true
-  els.closedBooked.hidden = true
-  els.closedSent.hidden = true
+  els.slotsNoteAck.hidden = true
 }
 
-export function showSlots(els: BookElements, state: BookState): void {
+export interface ShowSlotsOptions {
+  // When true, surface the "Got your note" acknowledgment banner above
+  // the slot picker. Used by the "Just send a note" path so the prospect
+  // lands directly on the calendar with a soft confirmation that the
+  // message was received — no extra click to reach the slots.
+  ack?: boolean
+}
+
+export function showSlots(
+  els: BookElements,
+  state: BookState,
+  options: ShowSlotsOptions = {}
+): void {
   state.shellState = 'slots'
   els.shell.dataset.state = 'slots'
   els.intro.hidden = true
   els.slots.hidden = false
   els.closed.hidden = true
+  els.slotsNoteAck.hidden = !options.ack
 
   if (!state.slotsFetched && els.slotPicker.refetchSlots) {
     els.slotPicker.refetchSlots()
@@ -75,25 +87,12 @@ export function showClosedBooked(els: BookElements, state: BookState, body: Book
   els.intro.hidden = true
   els.slots.hidden = true
   els.closed.hidden = false
-  els.closedBooked.hidden = false
-  els.closedSent.hidden = true
 
   els.closedBookedSlot.textContent = body.slot_label ?? 'Your call is booked.'
   if (body.manage_url) {
     els.closedBookedManageRow.hidden = false
     els.closedBookedManageLink.href = body.manage_url
   }
-  scrollShellTop(els)
-}
-
-export function showClosedSent(els: BookElements, state: BookState): void {
-  state.shellState = 'closed'
-  els.shell.dataset.state = 'closed'
-  els.intro.hidden = true
-  els.slots.hidden = true
-  els.closed.hidden = false
-  els.closedBooked.hidden = true
-  els.closedSent.hidden = false
   scrollShellTop(els)
 }
 
