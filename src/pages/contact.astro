@@ -6,88 +6,82 @@ import Footer from '../components/Footer.astro'
 
 <Base title="Contact | SMD Services" description="Get in touch with SMD Services.">
   <Nav />
-  <main id="main" role="main" class="px-6 py-20">
-    <div class="mx-auto max-w-xl">
-      <h1 class="text-3xl font-bold text-[color:var(--ss-color-text-primary)]">Contact Us</h1>
+  <main id="main" role="main">
+    <section class="ss-contact-section">
+      <div class="ss-book-frame">
+        <header class="mb-stack">
+          <h1 class="ss-headline">Contact Us</h1>
+        </header>
 
-      <div id="form-status" class="mt-6" aria-live="polite"></div>
+        <div id="form-status" class="ss-form-status" aria-live="polite"></div>
 
-      <form id="contact-form" class="mt-8 space-y-5">
-        <div>
-          <label
-            for="name"
-            class="mb-1 block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-            >Name</label
-          >
-          <input
-            type="text"
-            id="name"
-            name="name"
-            required
-            maxlength="200"
-            autocomplete="name"
-            class="w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] px-3 py-2 text-[color:var(--ss-color-text-primary)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-        </div>
+        <form id="contact-form" class="ss-form" novalidate>
+          <div class="ss-field">
+            <label for="name" class="ss-field-label">Name</label>
+            <input
+              id="name"
+              name="name"
+              type="text"
+              required
+              maxlength="200"
+              autocomplete="name"
+              class="ss-input"
+            />
+          </div>
 
-        <div>
-          <label
-            for="email"
-            class="mb-1 block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-            >Email</label
-          >
-          <input
-            type="email"
-            id="email"
-            name="email"
-            required
-            maxlength="254"
-            autocomplete="email"
-            class="w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] px-3 py-2 text-[color:var(--ss-color-text-primary)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-        </div>
+          <div class="ss-field">
+            <label for="email" class="ss-field-label">Email</label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              maxlength="254"
+              autocomplete="email"
+              class="ss-input"
+            />
+          </div>
 
-        <div>
-          <label
-            for="message"
-            class="mb-1 block text-sm font-medium text-[color:var(--ss-color-text-primary)]"
-            >Message</label
-          >
-          <textarea
-            id="message"
-            name="message"
-            required
-            maxlength="5000"
-            rows="6"
-            class="w-full rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] px-3 py-2 text-[color:var(--ss-color-text-primary)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          ></textarea>
-        </div>
+          <div class="ss-field">
+            <label for="message" class="ss-field-label">Message</label>
+            <div class="ss-textarea-wrap">
+              <textarea
+                id="message"
+                name="message"
+                rows="6"
+                required
+                maxlength="5000"
+                class="ss-textarea"></textarea>
+            </div>
+          </div>
 
-        {/* Honeypot — hidden from real users */}
-        <div class="absolute -left-[9999px]" aria-hidden="true">
-          <label for="website">Website</label>
-          <input type="text" id="website" name="website" tabindex="-1" autocomplete="off" />
-        </div>
+          <!-- Honeypot — hidden from real users -->
+          <div class="ss-honeypot" aria-hidden="true">
+            <label for="website">Website</label>
+            <input type="text" id="website" name="website" tabindex="-1" autocomplete="off" />
+          </div>
 
-        <button
-          type="submit"
-          data-ev="contact-submit"
-          class="rounded-[var(--ss-radius-card)] bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-80"
-        >
-          Send Message
-        </button>
-      </form>
-    </div>
+          <div class="ss-form-actions">
+            <button
+              type="submit"
+              id="contact-submit-btn"
+              data-ev="contact-submit"
+              class="ss-primary">Send message</button
+            >
+          </div>
+        </form>
+      </div>
+    </section>
   </main>
   <Footer />
 
   <script is:inline>
     const form = document.getElementById('contact-form')
     if (form) {
-      form.addEventListener('submit', async (e) => {
+      form.addEventListener('submit', async function (e) {
         e.preventDefault()
         const status = document.getElementById('form-status')
-        const button = form.querySelector('button[type="submit"]')
+        const button = document.getElementById('contact-submit-btn')
 
         button.disabled = true
         button.textContent = 'Sending...'
@@ -100,6 +94,10 @@ import Footer from '../components/Footer.astro'
           website: form.elements.namedItem('website').value,
         }
 
+        function setBanner(variant, html) {
+          status.innerHTML = '<div class="ss-banner ss-banner-' + variant + '">' + html + '</div>'
+        }
+
         try {
           const res = await fetch('/api/contact', {
             method: 'POST',
@@ -108,27 +106,44 @@ import Footer from '../components/Footer.astro'
           })
 
           if (res.ok) {
-            status.innerHTML =
-              '<div class="rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-complete)]/30 bg-[color:var(--ss-color-complete)]/5 px-4 py-3 text-sm text-[color:var(--ss-color-complete)]">Message sent. We\'ll get back to you soon.</div>'
+            setBanner('success', 'Message sent.')
             form.reset()
             form.style.display = 'none'
+            return
+          }
+          const body = await res.json()
+          if (res.status === 400 && body.fields) {
+            const msgs = Object.values(body.fields).join('. ')
+            setBanner('error', msgs)
           } else {
-            const body = await res.json()
-            if (res.status === 400 && body.fields) {
-              const msgs = Object.values(body.fields).join('. ')
-              status.innerHTML = `<div class="rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-error)]/30 bg-[color:var(--ss-color-error)]/5 px-4 py-3 text-sm text-[color:var(--ss-color-error)]">${msgs}</div>`
-            } else {
-              throw new Error(body.error || 'Request failed')
-            }
+            throw new Error(body.error || 'Request failed')
           }
         } catch {
-          status.innerHTML =
-            '<div class="rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-error)]/30 bg-[color:var(--ss-color-error)]/5 px-4 py-3 text-sm text-[color:var(--ss-color-error)]">Something went wrong. Please email <a href="mailto:team@smd.services" class="underline">team@smd.services</a> directly.</div>'
+          setBanner(
+            'error',
+            'Something went wrong. Please email <a href="mailto:team@smd.services" class="ss-quiet-link">team@smd.services</a> directly.'
+          )
         } finally {
           button.disabled = false
-          button.textContent = 'Send Message'
+          button.textContent = 'Send message'
         }
       })
     }
   </script>
+
+  <style>
+    .ss-contact-section {
+      padding: 4rem 1.5rem 6rem;
+    }
+    .ss-form-status:empty {
+      display: none;
+    }
+    .ss-form-status {
+      margin-bottom: 1.5rem;
+    }
+    .ss-honeypot {
+      position: absolute;
+      left: -9999px;
+    }
+  </style>
 </Base>
