@@ -139,6 +139,12 @@ ACCEPTED_ACTION_TYPES = frozenset(
         "HONCHO_OBSERVATION",
         "HONCHO_PROMOTION",
         "HONCHO_DISMISSAL",
+        # Skill Curator overlay (ADR 0017) — observer-only skill drafts.
+        # Emitted by the CuratorInterceptor on every draft write,
+        # Captain promotion (crane-console PR), and dismissal.
+        "CURATOR_DRAFT",
+        "CURATOR_PROMOTION",
+        "CURATOR_DISMISSAL",
     }
 )
 
