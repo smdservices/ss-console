@@ -1,39 +1,28 @@
 ---
 /**
- * V4 /book closed-state acknowledgment card. Two flavors:
+ * V4 /book closed-state acknowledgment card.
  *
- *   - 'booked' — replaces the slot picker after the prospect confirms
- *                a time. Shows the confirmed slot label and (optional)
- *                reschedule link. The Google Meet join link is no
- *                longer surfaced here — it lives on the calendar
- *                invite and confirmation email where it belongs.
+ * Single variant: 'booked' — replaces the slot picker after the
+ * prospect confirms a time. Shows the confirmed slot label and
+ * (optional) reschedule link. The Google Meet join link is not
+ * surfaced here — it lives on the calendar invite and confirmation
+ * email where it belongs.
  *
- *   - 'sent'   — replaces the intro card after the prospect uses the
- *                "Just send a note" path. Short acknowledgment with
- *                no fabricated follow-up promise.
+ * The "Just send a note" path does NOT terminate here. It transitions
+ * directly to the slot picker with a "Got your note" banner so the
+ * prospect can optionally pick a time without an extra click. See
+ * IntakeSlots.astro / book.ts.
  *
- * Pre-rendered hidden; book.ts reveals the appropriate flavor and
- * populates the slot text for the booked variant.
+ * Pre-rendered hidden; book.ts reveals it and populates the slot text.
  */
 ---
 
 <section id="intake-closed" class="ss-closed" hidden>
-  <div id="closed-booked" class="ss-closed-card" hidden data-flavor="booked">
+  <div id="closed-booked" class="ss-closed-card" data-flavor="booked">
     <p class="ss-eyebrow">Confirmed</p>
     <p id="closed-booked-slot" class="ss-headline-sm"></p>
     <div id="closed-booked-manage-row" class="ss-stack" hidden>
       <a id="closed-booked-manage-link" href="#" class="ss-quiet-link"> Reschedule or cancel </a>
     </div>
-  </div>
-
-  <div id="closed-sent" class="ss-closed-card" hidden data-flavor="sent">
-    <p class="ss-eyebrow">Got it</p>
-    <p class="ss-headline-sm">Thanks for the message.</p>
-    <p class="ss-lede mt-stack">
-      Want to put time on the calendar too? We already have your details.
-    </p>
-    <button type="button" id="closed-sent-book-btn" class="ss-primary mt-stack">
-      Pick a time to talk
-    </button>
   </div>
 </section>
