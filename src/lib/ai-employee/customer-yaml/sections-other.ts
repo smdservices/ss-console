@@ -6,15 +6,19 @@
 import {
   ACCEPTED_LOG_LEVELS,
   ACCEPTED_LOG_SHIPS,
+  AUDIT_LOG_DAYS_MAX,
+  VERTICAL_AUDIT_LOG_DAYS_DEFAULTS,
   type BusinessHours,
   type Escalation,
   type LogLevel,
   type LogShip,
   type Logging,
   type Memory,
+  type MemoryRetention,
   type Pause,
   type Scope,
   type ValidationError,
+  type Vertical,
   type VoiceLibrary,
 } from './types'
 import { isPlainObject, optionalStringList, requireStringList } from './helpers'
@@ -139,6 +143,7 @@ function checkAckWindow(a: unknown, errors: ValidationError[]): number | null {
 export function checkMemory(
   root: Record<string, unknown>,
   customerId: string | null,
+  vertical: Vertical | null,
   errors: ValidationError[]
 ): Memory | null {
   const raw = root['memory']
@@ -153,8 +158,9 @@ export function checkMemory(
   const d1 = checkMemoryField(raw, 'd1_namespace', customerId, errors)
   const r2 = checkMemoryR2(raw['r2_vault_path'], customerId, errors)
   const vec = checkMemoryVectorize(raw['vectorize_index'], customerId, errors)
+  const retention = checkMemoryRetention(raw['retention'], vertical, errors)
   if (d1 === null || r2 === null || vec === null) return null
-  return { d1_namespace: d1, r2_vault_path: r2, vectorize_index: vec }
+  return { d1_namespace: d1, r2_vault_path: r2, vectorize_index: vec, retention }
 }
 
 function checkMemoryField(
@@ -201,6 +207,98 @@ function checkMemoryR2(
       path: 'memory.r2_vault_path',
       message: `memory.r2_vault_path must equal "vaults/${customerId}/"`,
     })
+  }
+  return v
+}
+
+/**
+ * Validate the optional `memory.retention.*` block. Every `*_days` field is
+ * optional; missing fields stay `null` and the runtime retention runner
+ * (Python `MemoryRetentionPolicy.from_customer_yaml`) falls back to its own
+ * defaults. `audit_log_days` has additional rules per audit-retention.md:
+ * override-up-only relative to the vertical default, capped at AUDIT_LOG_DAYS_MAX.
+ */
+export function checkMemoryRetention(
+  raw: unknown,
+  vertical: Vertical | null,
+  errors: ValidationError[]
+): MemoryRetention | null {
+  if (raw === undefined || raw === null) return null
+  if (!isPlainObject(raw)) {
+    errors.push({
+      code: 'TypeMismatch',
+      path: 'memory.retention',
+      message: 'memory.retention must be an object when present',
+    })
+    return null
+  }
+  return {
+    matters_days: checkRetentionInt(raw['matters_days'], 'memory.retention.matters_days', errors),
+    documents_days: checkRetentionInt(
+      raw['documents_days'],
+      'memory.retention.documents_days',
+      errors
+    ),
+    recipients_days: checkRetentionInt(
+      raw['recipients_days'],
+      'memory.retention.recipients_days',
+      errors
+    ),
+    voice_samples_days: checkRetentionInt(
+      raw['voice_samples_days'],
+      'memory.retention.voice_samples_days',
+      errors
+    ),
+    audit_log_days: checkAuditLogDays(raw['audit_log_days'], vertical, errors),
+    drafts_days: checkRetentionInt(raw['drafts_days'], 'memory.retention.drafts_days', errors),
+  }
+}
+
+function checkRetentionInt(v: unknown, path: string, errors: ValidationError[]): number | null {
+  if (v === undefined || v === null) return null
+  if (typeof v !== 'number' || !Number.isInteger(v) || v <= 0) {
+    errors.push({
+      code: 'TypeMismatch',
+      path,
+      message: `${path} must be a positive integer when present`,
+    })
+    return null
+  }
+  return v
+}
+
+function checkAuditLogDays(
+  v: unknown,
+  vertical: Vertical | null,
+  errors: ValidationError[]
+): number | null {
+  if (v === undefined || v === null) return null
+  const path = 'memory.retention.audit_log_days'
+  if (typeof v !== 'number' || !Number.isInteger(v) || v <= 0) {
+    errors.push({
+      code: 'TypeMismatch',
+      path,
+      message: `${path} must be a positive integer when present`,
+    })
+    return null
+  }
+  if (v > AUDIT_LOG_DAYS_MAX) {
+    errors.push({
+      code: 'RetentionOverrideUnreasonable',
+      path,
+      message: `${path}=${v} exceeds sanity cap of ${AUDIT_LOG_DAYS_MAX} days; likely a day-vs-year typo`,
+    })
+    return v
+  }
+  if (vertical !== null) {
+    const min = VERTICAL_AUDIT_LOG_DAYS_DEFAULTS[vertical]
+    if (v < min) {
+      errors.push({
+        code: 'RetentionOverrideBelowDefault',
+        path,
+        message: `${path}=${v} is below the ${vertical} default of ${min} days; override-up-only`,
+      })
+    }
   }
   return v
 }

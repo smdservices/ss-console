@@ -67,13 +67,14 @@ Per the issue, the 9 steps are:
 from __future__ import annotations
 
 import asyncio
+import csv
 import enum
 import json
 import logging
 import os
 import shutil
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Awaitable, Callable, Optional, Protocol
 
@@ -210,6 +211,31 @@ class NoOpFlyStub:
 # ---------------------------------------------------------------------------
 
 
+class AuditLogPreserver(Protocol):
+    """Export the customer's audit_log table to cold storage and report
+    the preservation manifest.
+
+    Per ``docs/specs/ai-employee/audit-retention.md`` §"Decommission carve-out"
+    the audit log is NOT deleted alongside memory + voice — it must survive
+    until the per-vertical retention window elapses. This Protocol covers
+    the export step that runs BEFORE step 2's canonical
+    ``decommission_source`` hooks fire.
+
+    Production wires this to a D1 → CSV exporter that streams the per-customer
+    audit_log table out via ``wrangler d1 execute`` and copies it under
+    ``{archive_root}/{slug}/``. The default :class:`InMemoryAuditLogPreserver`
+    implementation writes a stub manifest sufficient for the script-level
+    contract test.
+    """
+
+    async def preserve(
+        self,
+        customer_slug: str,
+        archive_dir: Path,
+        audit_log_days: int,
+    ) -> dict: ...
+
+
 class MemoryDecommissionRunner(Protocol):
     """Wraps adapter.memory.state.decommission_source for one source.
 
@@ -277,7 +303,13 @@ class FilesystemTombstoner:
     def __init__(self, customers_root: Path) -> None:
         self._root = customers_root
 
-    def tombstone(self, customer_slug: str, *, now: Optional[datetime] = None) -> dict:
+    def tombstone(
+        self,
+        customer_slug: str,
+        *,
+        now: Optional[datetime] = None,
+        audit_log_preserve_until: Optional[str] = None,
+    ) -> dict:
         when = now if now is not None else datetime.now(timezone.utc)
         date_part = when.strftime("%Y-%m-%d")
         live_dir = self._root / customer_slug
@@ -303,12 +335,18 @@ class FilesystemTombstoner:
         # Move the directory and drop a marker file at its root.
         live_dir.rename(tomb_dir)
         marker = tomb_dir / "DECOMMISSIONED.md"
+        preserve_line = (
+            f"audit_log_preserve_until: {audit_log_preserve_until}\n"
+            if audit_log_preserve_until
+            else ""
+        )
         marker.write_text(
             "# Decommissioned\n\n"
             f"This directory contained the customer config for `{customer_slug}` until "
             f"{when.isoformat()}.\n\n"
             "The customer was decommissioned by `ai-employee/bin/decommission-customer.sh`.\n\n"
-            "The directory is preserved as historical record per the audit-history requirement.\n",
+            "The directory is preserved as historical record per the audit-history requirement.\n"
+            + (f"\n{preserve_line}" if preserve_line else ""),
             encoding="utf-8",
         )
         return {
@@ -316,6 +354,7 @@ class FilesystemTombstoner:
             "reason": None,
             "tombstone_path": str(tomb_dir),
             "marker_path": str(marker),
+            "audit_log_preserve_until": audit_log_preserve_until,
         }
 
     def plan(self, customer_slug: str, *, now: Optional[datetime] = None) -> dict:
@@ -415,6 +454,166 @@ class InMemoryComplianceArchiver:
 
 
 # ---------------------------------------------------------------------------
+# Audit-log retention policy (mirror of src/lib/ai-employee/customer-yaml/types.ts)
+#
+# Kept in sync with VERTICAL_AUDIT_LOG_DAYS_DEFAULTS on the TypeScript side.
+# Both tables encode the same policy from
+# docs/specs/ai-employee/audit-retention.md §"Per-vertical defaults" — when one
+# changes the other MUST change in the same PR so the validator and the
+# decommission runner never disagree on the resolved retention window.
+# ---------------------------------------------------------------------------
+
+
+VERTICAL_AUDIT_LOG_DAYS_DEFAULTS: dict[str, int] = {
+    "law-firm": 2555,
+    "marketing-agency": 1095,
+    "real-estate": 2555,
+    "manufacturing": 2555,
+    "insurance": 2555,
+    "mixed": 2555,
+}
+
+_AUDIT_LOG_DAYS_FALLBACK = 2555
+
+
+def resolve_audit_log_days(customer_yaml: Optional[dict]) -> int:
+    """Resolve `audit_log_days` from a parsed customer.yaml dict.
+
+    Reads ``memory.retention.audit_log_days`` if present (overrides the
+    per-vertical default); otherwise looks up the per-vertical default by
+    ``vertical``; otherwise returns the conservative 2555-day fallback.
+    Mirrors the override-up-only guarantee in the TypeScript validator —
+    by the time customer.yaml reaches the decommission script it has
+    already been validated, so the override is known to satisfy the
+    vertical minimum.
+    """
+    if not isinstance(customer_yaml, dict):
+        return _AUDIT_LOG_DAYS_FALLBACK
+    memory = customer_yaml.get("memory")
+    if isinstance(memory, dict):
+        retention = memory.get("retention")
+        if isinstance(retention, dict):
+            override = retention.get("audit_log_days")
+            if isinstance(override, int) and override > 0:
+                return override
+    vertical = customer_yaml.get("vertical")
+    if isinstance(vertical, str) and vertical in VERTICAL_AUDIT_LOG_DAYS_DEFAULTS:
+        return VERTICAL_AUDIT_LOG_DAYS_DEFAULTS[vertical]
+    return _AUDIT_LOG_DAYS_FALLBACK
+
+
+def _load_customer_yaml(customers_root: Path, slug: str) -> Optional[dict]:
+    """Best-effort load of the customer.yaml under customers/<slug>/.
+
+    Returns None if the file is missing or unparseable — the pipeline
+    falls back to the per-vertical default (and then the conservative
+    2555-day fallback). Decommission must not fail closed on a missing
+    YAML at this step; the YAML may already be gone if a previous
+    decommission attempt tombstoned the directory.
+    """
+    yaml_path = customers_root / slug / "customer.yaml"
+    if not yaml_path.is_file():
+        return None
+    try:
+        import yaml as _yaml  # type: ignore[import-untyped]
+
+        parsed = _yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+        return parsed if isinstance(parsed, dict) else None
+    except Exception:  # noqa: BLE001
+        log.warning("decommission: customer.yaml parse failed at %s", yaml_path)
+        return None
+
+
+class InMemoryAuditLogPreserver:
+    """Default audit-log preserver — writes a stub manifest into archive_dir.
+
+    Production wires a real D1 → CSV exporter that streams the per-customer
+    ``audit_log`` table; this stub satisfies the script-level idempotency
+    + manifest contract so the decommission flow is testable end-to-end
+    without a live D1. The manifest names the customer, the resolved
+    retention window, the deadline, and the (stubbed) export path so
+    the audit row recorded by the pipeline carries the same shape it
+    would under production wiring.
+
+    Idempotent: re-running on the same UTC date returns a manifest with
+    ``skipped: True`` because the dated manifest is already present.
+    """
+
+    async def preserve(
+        self,
+        customer_slug: str,
+        archive_dir: Path,
+        audit_log_days: int,
+    ) -> dict:
+        archive_dir.mkdir(parents=True, exist_ok=True)
+        now = datetime.now(timezone.utc)
+        date_part = now.strftime("%Y-%m-%d")
+        manifest_path = archive_dir / f"audit-log-manifest-{date_part}.json"
+        csv_path = archive_dir / f"audit-log-{date_part}.csv"
+        preserve_until = (now + timedelta(days=audit_log_days)).isoformat()
+
+        if manifest_path.exists():
+            return {
+                "skipped": True,
+                "reason": "audit_log_already_preserved_today",
+                "audit_log_days": audit_log_days,
+                "preserve_until": preserve_until,
+                "archive_path": str(manifest_path),
+                "rows_preserved": 0,
+                "stub": True,
+            }
+
+        # Stub CSV: header-only file. Production replaces this with a real
+        # D1 export that streams every row of audit_log under the customer's
+        # database binding.
+        with csv_path.open("w", encoding="utf-8", newline="") as fp:
+            writer = csv.writer(fp)
+            writer.writerow(
+                [
+                    "id",
+                    "ts",
+                    "action_type",
+                    "actor",
+                    "actor_role",
+                    "skill_name",
+                    "matter_ref",
+                    "input_digest",
+                    "output_digest",
+                    "diff_digest",
+                    "trust_ceiling",
+                    "metadata",
+                ]
+            )
+
+        manifest = {
+            "customer_slug": customer_slug,
+            "exported_at": now.isoformat(),
+            "preserve_until": preserve_until,
+            "audit_log_days": audit_log_days,
+            "csv_path": str(csv_path),
+            "rows_preserved": 0,
+            "stub": True,
+            "note": (
+                "stub manifest from bin/lib/decommission.py InMemoryAuditLogPreserver; "
+                "replace with d1-to-r2 audit-log exporter when wired"
+            ),
+        }
+        manifest_path.write_text(
+            json.dumps(manifest, sort_keys=True, indent=2),
+            encoding="utf-8",
+        )
+        return {
+            "skipped": False,
+            "audit_log_days": audit_log_days,
+            "preserve_until": preserve_until,
+            "archive_path": str(manifest_path),
+            "csv_path": str(csv_path),
+            "rows_preserved": 0,
+            "stub": True,
+        }
+
+
+# ---------------------------------------------------------------------------
 # Audit helpers
 # ---------------------------------------------------------------------------
 
@@ -459,7 +658,15 @@ class DecommissionPipeline:
     agentmail: AgentMailProvisioner = field(default_factory=NoOpAgentMailStub)
     fly: FlyMachineManager = field(default_factory=NoOpFlyStub)
     archiver: ComplianceArchiver = field(default_factory=InMemoryComplianceArchiver)
+    audit_log_preserver: AuditLogPreserver = field(
+        default_factory=InMemoryAuditLogPreserver
+    )
     tombstoner: Optional[FilesystemTombstoner] = None
+    # Parsed customer.yaml (or None when the file is missing/unparseable).
+    # Drives `resolve_audit_log_days` for the step-2 carve-out. Tests inject
+    # this directly; the CLI loads it from disk before constructing the
+    # pipeline (see decommission_cli.py).
+    customer_yaml: Optional[dict] = None
 
     # Memory + voice sources to decommission. Defaults match the
     # canonical PracticeManagement + Email source kinds the pipelines
@@ -501,6 +708,11 @@ class DecommissionPipeline:
                 detail={
                     "memory_sources": list(self.memory_sources),
                     "voice_sources": list(self.voice_sources),
+                    "audit_log_days": resolve_audit_log_days(self.customer_yaml),
+                    "audit_log_preserve_until": (
+                        datetime.now(timezone.utc)
+                        + timedelta(days=resolve_audit_log_days(self.customer_yaml))
+                    ).isoformat(),
                 },
             ),
             StepResult(
@@ -654,6 +866,34 @@ class DecommissionPipeline:
         return StepResult(name=name, status=status, detail=detail)
 
     async def _step_d1_memory_voice(self) -> dict:
+        # AUDIT-LOG CARVE-OUT (audit-retention.md #893).
+        # The audit_log table is exported to cold storage BEFORE the
+        # canonical memory + voice hooks run. The export must succeed
+        # before any per-customer substrate is touched — that way a
+        # mid-step failure leaves the trail intact and the rerun
+        # re-attempts the preservation against still-present data.
+        audit_log_days = resolve_audit_log_days(self.customer_yaml)
+        archive_dir = self.archive_root / self.customer_slug
+        audit_log_manifest = await self.audit_log_preserver.preserve(
+            self.customer_slug, archive_dir, audit_log_days
+        )
+        # Emit a discrete audit row so the decommission report names the
+        # carve-out independently of the canonical memory + voice rows.
+        await self._write_audit_row(
+            action_type="DECOMMISSION_DRAIN_COMPLETE",
+            metadata=_audit_metadata(
+                "02_d1_memory_voice/audit_log_preserved",
+                self.customer_slug,
+                detail={
+                    "audit_log_days": audit_log_days,
+                    "preserve_until": audit_log_manifest.get("preserve_until"),
+                    "archive_path": audit_log_manifest.get("archive_path"),
+                    "rows_preserved": audit_log_manifest.get("rows_preserved", 0),
+                    "skipped": bool(audit_log_manifest.get("skipped")),
+                },
+            ),
+        )
+
         memory_results: list[dict] = []
         for source_kind, source_id in self.memory_sources:
             if self.memory_runner is None:
@@ -684,7 +924,15 @@ class DecommissionPipeline:
             not memory_results and not voice_results
         )
         return {
-            "skipped": all_skipped and (self.memory_runner is None and self.voice_runner is None),
+            # Step is only "skipped" if every component was skipped: memory
+            # runner, voice runner, AND audit-log preservation. Preserving
+            # audit log counts as work; if it ran, the step ran.
+            "skipped": (
+                all_skipped
+                and (self.memory_runner is None and self.voice_runner is None)
+                and bool(audit_log_manifest.get("skipped"))
+            ),
+            "audit_log_preserved": audit_log_manifest,
             "memory_runs": memory_results,
             "voice_runs": voice_results,
         }
@@ -728,7 +976,15 @@ class DecommissionPipeline:
 
     async def _step_tombstone(self) -> dict:
         # Tombstoner is sync; wrap to keep the step interface uniform.
-        return self.tombstoner.tombstone(self.customer_slug)
+        # Pass the resolved preserve-until so the marker file names the
+        # audit-log retention deadline alongside the tombstone date.
+        audit_log_days = resolve_audit_log_days(self.customer_yaml)
+        preserve_until = (
+            datetime.now(timezone.utc) + timedelta(days=audit_log_days)
+        ).isoformat()
+        return self.tombstoner.tombstone(
+            self.customer_slug, audit_log_preserve_until=preserve_until
+        )
 
     # --- audit-row helpers --------------------------------------------------
 
@@ -764,6 +1020,7 @@ class DecommissionPipeline:
 
 __all__ = [
     "AgentMailProvisioner",
+    "AuditLogPreserver",
     "ComplianceArchiver",
     "ComposioConnectionManager",
     "DecommissionPipeline",
@@ -771,6 +1028,7 @@ __all__ = [
     "DefaultDrainCoordinator",
     "FilesystemTombstoner",
     "FlyMachineManager",
+    "InMemoryAuditLogPreserver",
     "InMemoryComplianceArchiver",
     "MemoryDecommissionRunner",
     "NoOpAgentMailStub",
@@ -780,5 +1038,7 @@ __all__ = [
     "StepResult",
     "StepStatus",
     "VectorizeIndexDeleter",
+    "VERTICAL_AUDIT_LOG_DAYS_DEFAULTS",
     "VoiceDecommissionRunner",
+    "resolve_audit_log_days",
 ]
