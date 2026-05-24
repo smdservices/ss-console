@@ -24,6 +24,7 @@ fixture.
 from __future__ import annotations
 
 import asyncio
+import json
 import shutil
 import sqlite3
 import sys
@@ -409,3 +410,281 @@ def test_compliance_archiver_writes_manifest(tmp_path):
     result = _run(archiver.archive("smd", archive_dir))
     assert Path(result["archive_path"]).exists()
     assert result["stub"] is True
+
+
+# ---------------------------------------------------------------------------
+# Tests: audit-log retention carve-out (audit-retention.md, #893)
+#
+# The step 2 "02_d1_memory_voice" pipeline runs an audit-log preservation
+# branch BEFORE the canonical memory + voice cleanup hooks. The preserver
+# writes a CSV + manifest under the archive dir, and the pipeline emits a
+# dedicated audit row naming the preservation deadline.
+# ---------------------------------------------------------------------------
+
+
+from bin.lib.decommission import (  # noqa: E402
+    InMemoryAuditLogPreserver,
+    VERTICAL_AUDIT_LOG_DAYS_DEFAULTS,
+    resolve_audit_log_days,
+)
+
+
+def test_resolve_audit_log_days_law_firm_default():
+    assert resolve_audit_log_days({"vertical": "law-firm"}) == 2555
+
+
+def test_resolve_audit_log_days_marketing_agency_default():
+    assert resolve_audit_log_days({"vertical": "marketing-agency"}) == 1095
+
+
+def test_resolve_audit_log_days_override_wins():
+    yaml = {
+        "vertical": "law-firm",
+        "memory": {"retention": {"audit_log_days": 3650}},
+    }
+    assert resolve_audit_log_days(yaml) == 3650
+
+
+def test_resolve_audit_log_days_missing_yaml_returns_fallback():
+    assert resolve_audit_log_days(None) == 2555
+    assert resolve_audit_log_days({}) == 2555
+    assert resolve_audit_log_days({"vertical": "unknown-vertical"}) == 2555
+
+
+def test_resolve_audit_log_days_ignores_invalid_override():
+    yaml = {
+        "vertical": "law-firm",
+        "memory": {"retention": {"audit_log_days": "seven-years"}},
+    }
+    # Non-int override falls through to the vertical default rather than
+    # crashing the decommission script mid-flight. The validator already
+    # rejected this case at commit time.
+    assert resolve_audit_log_days(yaml) == 2555
+
+
+def test_vertical_defaults_table_matches_typescript_constants():
+    # The Python table here MUST match VERTICAL_AUDIT_LOG_DAYS_DEFAULTS
+    # in src/lib/ai-employee/customer-yaml/types.ts. This test guards
+    # against drift between the two policy sources.
+    assert VERTICAL_AUDIT_LOG_DAYS_DEFAULTS == {
+        "law-firm": 2555,
+        "marketing-agency": 1095,
+        "real-estate": 2555,
+        "manufacturing": 2555,
+        "insurance": 2555,
+        "mixed": 2555,
+    }
+
+
+def test_audit_log_preserver_writes_csv_and_manifest(tmp_path):
+    preserver = InMemoryAuditLogPreserver()
+    archive_dir = tmp_path / "archive" / "smd"
+    result = _run(preserver.preserve("smd", archive_dir, 2555))
+    assert result["skipped"] is False
+    assert result["audit_log_days"] == 2555
+    assert Path(result["archive_path"]).exists()
+    assert Path(result["csv_path"]).exists()
+    # CSV is header-only in the stub but the header row must match
+    # the audit_log table schema so the production exporter is a drop-in.
+    csv_text = Path(result["csv_path"]).read_text(encoding="utf-8")
+    assert "action_type" in csv_text
+    assert "metadata" in csv_text
+    # Manifest carries the preservation deadline.
+    manifest = json.loads(Path(result["archive_path"]).read_text(encoding="utf-8"))
+    assert manifest["audit_log_days"] == 2555
+    assert "preserve_until" in manifest
+
+
+def test_audit_log_preserver_is_idempotent_same_day(tmp_path):
+    preserver = InMemoryAuditLogPreserver()
+    archive_dir = tmp_path / "archive" / "smd"
+    first = _run(preserver.preserve("smd", archive_dir, 2555))
+    second = _run(preserver.preserve("smd", archive_dir, 2555))
+    assert first["skipped"] is False
+    assert second["skipped"] is True
+    assert second["reason"] == "audit_log_already_preserved_today"
+
+
+def test_step_2_runs_audit_log_preservation_before_memory_voice(tmp_path):
+    customers_root = _copy_fixture(tmp_path)
+    writer, conn = _make_audit(tmp_path)
+    pipeline = DecommissionPipeline(
+        customer_slug="smd",
+        customers_root=customers_root,
+        archive_root=tmp_path / "archive",
+        audit_writer=writer,
+        memory_runner=_RecordingMemoryRunner(),
+        voice_runner=_RecordingVoiceRunner(),
+        r2_deleter=_RecordingR2Deleter(),
+        vectorize_deleter=_RecordingVectorizeDeleter(),
+        # smd fixture is marketing-agency → 1095-day default. Override
+        # ratchets up to 5 years (1825 days).
+        customer_yaml={
+            "vertical": "marketing-agency",
+            "memory": {"retention": {"audit_log_days": 1825}},
+        },
+    )
+    results = _run(pipeline.run())
+    step2 = next(r for r in results if r.name == "02_d1_memory_voice")
+    preserved = step2.detail["audit_log_preserved"]
+    assert preserved["audit_log_days"] == 1825
+    assert Path(preserved["archive_path"]).exists()
+    # Carve-out emits its own audit row distinct from the canonical
+    # memory + voice cleanup row.
+    rows = conn.execute(
+        "SELECT metadata FROM audit_log "
+        "WHERE action_type = 'DECOMMISSION_DRAIN_COMPLETE'"
+    ).fetchall()
+    carve_out = [r[0] for r in rows if "audit_log_preserved" in (r[0] or "")]
+    assert carve_out, "expected at least one audit row tagged with audit_log_preserved"
+    # The carve-out row records the resolved retention window + deadline.
+    payload = " ".join(carve_out)
+    assert "1825" in payload
+    assert "preserve_until" in payload
+
+
+def test_step_2_falls_back_to_vertical_default_when_no_override(tmp_path):
+    customers_root = _copy_fixture(tmp_path)
+    writer, _conn = _make_audit(tmp_path)
+    pipeline = DecommissionPipeline(
+        customer_slug="smd",
+        customers_root=customers_root,
+        archive_root=tmp_path / "archive",
+        audit_writer=writer,
+        memory_runner=_RecordingMemoryRunner(),
+        voice_runner=_RecordingVoiceRunner(),
+        r2_deleter=_RecordingR2Deleter(),
+        vectorize_deleter=_RecordingVectorizeDeleter(),
+        # marketing-agency vertical without override → 1095-day default.
+        customer_yaml={"vertical": "marketing-agency"},
+    )
+    results = _run(pipeline.run())
+    step2 = next(r for r in results if r.name == "02_d1_memory_voice")
+    assert step2.detail["audit_log_preserved"]["audit_log_days"] == 1095
+
+
+def test_step_2_uses_2555_fallback_when_customer_yaml_missing(tmp_path):
+    customers_root = _copy_fixture(tmp_path)
+    writer, _conn = _make_audit(tmp_path)
+    pipeline = DecommissionPipeline(
+        customer_slug="smd",
+        customers_root=customers_root,
+        archive_root=tmp_path / "archive",
+        audit_writer=writer,
+        memory_runner=_RecordingMemoryRunner(),
+        voice_runner=_RecordingVoiceRunner(),
+        r2_deleter=_RecordingR2Deleter(),
+        vectorize_deleter=_RecordingVectorizeDeleter(),
+        # No customer_yaml at all.
+    )
+    results = _run(pipeline.run())
+    step2 = next(r for r in results if r.name == "02_d1_memory_voice")
+    assert step2.detail["audit_log_preserved"]["audit_log_days"] == 2555
+
+
+def test_tombstone_marker_records_audit_log_preserve_until(tmp_path):
+    customers_root = _copy_fixture(tmp_path)
+    writer, _conn = _make_audit(tmp_path)
+    pipeline = DecommissionPipeline(
+        customer_slug="smd",
+        customers_root=customers_root,
+        archive_root=tmp_path / "archive",
+        audit_writer=writer,
+        memory_runner=_RecordingMemoryRunner(),
+        voice_runner=_RecordingVoiceRunner(),
+        r2_deleter=_RecordingR2Deleter(),
+        vectorize_deleter=_RecordingVectorizeDeleter(),
+        customer_yaml={"vertical": "law-firm"},
+    )
+    _run(pipeline.run())
+    tomb = list(customers_root.glob("smd.decommissioned.*"))
+    assert len(tomb) == 1
+    marker = (tomb[0] / "DECOMMISSIONED.md").read_text(encoding="utf-8")
+    assert "audit_log_preserve_until:" in marker
+
+
+def test_decommission_does_not_delete_audit_log_rows(tmp_path):
+    # The audit log written by the script's local writer is the trail of
+    # the decommission itself. It must survive the run unchanged — the
+    # pipeline never DELETEs from audit_log, no matter what step 2 does.
+    customers_root = _copy_fixture(tmp_path)
+    writer, conn = _make_audit(tmp_path)
+    pipeline = DecommissionPipeline(
+        customer_slug="smd",
+        customers_root=customers_root,
+        archive_root=tmp_path / "archive",
+        audit_writer=writer,
+        memory_runner=_RecordingMemoryRunner(),
+        voice_runner=_RecordingVoiceRunner(),
+        r2_deleter=_RecordingR2Deleter(),
+        vectorize_deleter=_RecordingVectorizeDeleter(),
+        customer_yaml={"vertical": "law-firm"},
+    )
+    _run(pipeline.run())
+    # Snapshot the row count.
+    n_after_first = conn.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0]
+    assert n_after_first > 0
+    # Re-run live: every step idempotent, audit log keeps growing (the
+    # rerun's audit rows ADD; they never replace).
+    _run(pipeline.run())
+    n_after_second = conn.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0]
+    assert n_after_second > n_after_first
+
+
+def test_plan_step_2_surfaces_resolved_retention_window(tmp_path):
+    customers_root = _copy_fixture(tmp_path)
+    writer, _conn = _make_audit(tmp_path)
+    pipeline = DecommissionPipeline(
+        customer_slug="smd",
+        customers_root=customers_root,
+        archive_root=tmp_path / "archive",
+        audit_writer=writer,
+        memory_runner=_RecordingMemoryRunner(),
+        voice_runner=_RecordingVoiceRunner(),
+        customer_yaml={"vertical": "law-firm"},
+    )
+    plan = _run(pipeline.plan())
+    step2 = next(r for r in plan if r.name == "02_d1_memory_voice")
+    assert step2.detail["audit_log_days"] == 2555
+    assert "audit_log_preserve_until" in step2.detail
+
+
+def test_audit_log_preservation_runs_before_substrate_deletion(tmp_path):
+    # Audit log must be exported BEFORE memory + voice are wiped, so a
+    # mid-step failure leaves the substrate intact for the rerun. We
+    # verify ordering by using a memory runner that asserts the archive
+    # dir already contains a manifest before its first call.
+    customers_root = _copy_fixture(tmp_path)
+    writer, _conn = _make_audit(tmp_path)
+    archive_root = tmp_path / "archive"
+
+    class _OrderAssertingMemoryRunner:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str]] = []
+
+        async def run(self, source_kind: str, source_id: str) -> dict:
+            manifests = list((archive_root / "smd").glob("audit-log-manifest-*.json"))
+            assert manifests, (
+                "audit-log preservation must run BEFORE memory cleanup; "
+                "no manifest found in archive when memory runner fired"
+            )
+            self.calls.append((source_kind, source_id))
+            return {
+                "items_removed": 1,
+                "r2_objects_removed": 1,
+                "vectorize_vectors_removed": 0,
+                "skipped": False,
+            }
+
+    pipeline = DecommissionPipeline(
+        customer_slug="smd",
+        customers_root=customers_root,
+        archive_root=archive_root,
+        audit_writer=writer,
+        memory_runner=_OrderAssertingMemoryRunner(),
+        voice_runner=_RecordingVoiceRunner(),
+        r2_deleter=_RecordingR2Deleter(),
+        vectorize_deleter=_RecordingVectorizeDeleter(),
+        customer_yaml={"vertical": "law-firm"},
+    )
+    _run(pipeline.run())

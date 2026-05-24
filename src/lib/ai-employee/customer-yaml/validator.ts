@@ -72,6 +72,7 @@ export type {
   Scope,
   Escalation,
   Memory,
+  MemoryRetention,
   VoiceLibrary,
   BusinessHours,
   Logging,
@@ -95,6 +96,8 @@ export {
   ACCEPTED_LOG_SHIPS,
   ACCEPTED_BACKEND_PREFIXES,
   ACCEPTED_SCHEMA_VERSIONS,
+  AUDIT_LOG_DAYS_MAX,
+  VERTICAL_AUDIT_LOG_DAYS_DEFAULTS,
 } from './types'
 
 export interface ValidateOptions {
@@ -178,7 +181,7 @@ function validateSections(
   const connectors = checkConnectors(root, customerId, errors)
   const scope = checkScope(root, errors)
   const escalation = checkEscalation(root, errors)
-  const memory = checkMemory(root, customerId, errors)
+  const memory = checkMemory(root, customerId, vertical, errors)
   return {
     schemaVersion,
     customerId,

@@ -310,6 +310,7 @@ function reconstructProjection(row: Awaited<ReturnType<typeof getCustomerConfig>
       d1_namespace: row.customer_slug,
       r2_vault_path: `vaults/${row.customer_slug}/`,
       vectorize_index: `hermes-${row.customer_slug}-vault`,
+      retention: null,
     },
   }
 }
