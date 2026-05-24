@@ -44,6 +44,7 @@ from bin.lib.decommission import (  # noqa: E402
     FilesystemTombstoner,
     StepResult,
     StepStatus,
+    _load_customer_yaml,
 )
 
 log = logging.getLogger("aie.bin.decommission_cli")
@@ -208,12 +209,20 @@ async def _run(args: argparse.Namespace) -> int:
         print(f"[preflight] audit writer init failed: {exc}", file=sys.stderr)
         return 4
 
+    # Load customer.yaml so the audit-log retention carve-out resolves the
+    # right per-vertical default + override (audit-retention.md #893). Missing
+    # YAML is tolerated: the pipeline falls back to the conservative 2555-day
+    # window. We do this before the pipeline is constructed so a YAML parse
+    # error surfaces here, not mid-step.
+    customer_yaml = _load_customer_yaml(customers_root, args.slug)
+
     pipeline = DecommissionPipeline(
         customer_slug=args.slug,
         customers_root=customers_root,
         archive_root=archive_root,
         audit_writer=audit_writer,
         actor=args.actor,
+        customer_yaml=customer_yaml,
     )
 
     try:

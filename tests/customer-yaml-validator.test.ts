@@ -879,3 +879,146 @@ describe('validate — hermes_ref fork-tag enforcement (ADR 0015)', () => {
     expect(codesOf(r.errors)).not.toContain('InvalidFormat')
   })
 })
+
+// -----------------------------------------------------------------------------
+// memory.retention block — audit-retention.md (#893)
+// -----------------------------------------------------------------------------
+
+describe('validate — memory.retention', () => {
+  function withRetention(retention: Record<string, unknown>): Record<string, unknown> {
+    const f = validFixture()
+    const memory = f['memory'] as Record<string, unknown>
+    memory['retention'] = retention
+    return f
+  }
+
+  it('accepts a customer.yaml with no retention block', () => {
+    const r = validate(validFixture())
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    }
+    expect(r.value.memory.retention).toBeNull()
+  })
+
+  it('accepts retention.audit_log_days equal to the law-firm default (2555)', () => {
+    const r = validate(withRetention({ audit_log_days: 2555 }))
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    }
+    expect(r.value.memory.retention?.audit_log_days).toBe(2555)
+  })
+
+  it('accepts retention.audit_log_days above the law-firm default (override-up)', () => {
+    const r = validate(withRetention({ audit_log_days: 3650 }))
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    }
+    expect(r.value.memory.retention?.audit_log_days).toBe(3650)
+  })
+
+  it('rejects retention.audit_log_days below the law-firm default', () => {
+    const r = validate(withRetention({ audit_log_days: 1825 }))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('RetentionOverrideBelowDefault')
+    expect(r.errors.some((e) => e.path === 'memory.retention.audit_log_days')).toBe(true)
+  })
+
+  it('rejects retention.audit_log_days above the sanity cap (>36500)', () => {
+    const r = validate(withRetention({ audit_log_days: 73000 }))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('RetentionOverrideUnreasonable')
+  })
+
+  it('rejects non-positive retention.audit_log_days', () => {
+    const r = validate(withRetention({ audit_log_days: 0 }))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('TypeMismatch')
+  })
+
+  it('rejects non-integer retention.audit_log_days', () => {
+    const r = validate(withRetention({ audit_log_days: 2555.5 }))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('TypeMismatch')
+  })
+
+  it('rejects non-object retention block', () => {
+    const f = validFixture()
+    const memory = f['memory'] as Record<string, unknown>
+    memory['retention'] = 'never'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'memory.retention')).toBe(true)
+  })
+
+  it('uses the marketing-agency default (1095) when vertical=marketing-agency', () => {
+    // 1095 is the marketing-agency floor; 2555 is the law-firm floor.
+    // For marketing-agency, 1095 passes; for law-firm, 1095 would be rejected.
+    const f = validFixture()
+    f['vertical'] = 'marketing-agency'
+    delete f['practice_areas']
+    const memory = f['memory'] as Record<string, unknown>
+    memory['retention'] = { audit_log_days: 1095 }
+    const r = validate(f)
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    }
+    expect(r.value.memory.retention?.audit_log_days).toBe(1095)
+  })
+
+  it('rejects below-marketing-agency-default audit_log_days for marketing-agency vertical', () => {
+    const f = validFixture()
+    f['vertical'] = 'marketing-agency'
+    delete f['practice_areas']
+    const memory = f['memory'] as Record<string, unknown>
+    memory['retention'] = { audit_log_days: 365 }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('RetentionOverrideBelowDefault')
+  })
+
+  it('accepts the other retention.*_days fields as positive integers', () => {
+    const r = validate(
+      withRetention({
+        matters_days: 730,
+        documents_days: 365,
+        recipients_days: 730,
+        voice_samples_days: 365,
+        audit_log_days: 2555,
+        drafts_days: 90,
+      })
+    )
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    }
+    const ret = r.value.memory.retention
+    expect(ret?.matters_days).toBe(730)
+    expect(ret?.documents_days).toBe(365)
+    expect(ret?.recipients_days).toBe(730)
+    expect(ret?.voice_samples_days).toBe(365)
+    expect(ret?.drafts_days).toBe(90)
+  })
+
+  it('rejects non-positive matters_days', () => {
+    const r = validate(withRetention({ matters_days: -1 }))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'memory.retention.matters_days')).toBe(true)
+  })
+
+  it('reports the supplied value and the vertical minimum in the below-default error', () => {
+    const r = validate(withRetention({ audit_log_days: 1000 }))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    const err = r.errors.find((e) => e.code === 'RetentionOverrideBelowDefault')
+    expect(err).toBeDefined()
+    expect(err?.message).toContain('1000')
+    expect(err?.message).toContain('2555')
+    expect(err?.message).toContain('law-firm')
+  })
+})

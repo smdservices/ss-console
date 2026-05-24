@@ -32,6 +32,29 @@ export const ACCEPTED_VERTICALS = [
 ] as const
 export type Vertical = (typeof ACCEPTED_VERTICALS)[number]
 
+/**
+ * Per-vertical audit-log retention defaults (days). See
+ * docs/specs/ai-employee/audit-retention.md §"Per-vertical defaults" for the
+ * rationale per vertical. The customer.yaml override (`memory.retention.audit_log_days`)
+ * is enforced override-up-only against this table — the supplied value MUST
+ * be ≥ the vertical's default.
+ */
+export const VERTICAL_AUDIT_LOG_DAYS_DEFAULTS: Readonly<Record<Vertical, number>> = {
+  'law-firm': 2555,
+  'marketing-agency': 1095,
+  'real-estate': 2555,
+  manufacturing: 2555,
+  insurance: 2555,
+  mixed: 2555,
+} as const
+
+/**
+ * Absolute upper bound on `audit_log_days` overrides. Values past this are
+ * almost always typos (day-vs-year confusion). 100 years comfortably covers
+ * the realistic litigation horizon for every supported vertical.
+ */
+export const AUDIT_LOG_DAYS_MAX = 36500
+
 export const ACCEPTED_TRUST_CEILINGS = ['autonomous', 'draft_for_review', 'refused'] as const
 export type TrustCeiling = (typeof ACCEPTED_TRUST_CEILINGS)[number]
 
@@ -139,10 +162,29 @@ export interface BusinessHours {
   end: string
 }
 
+/**
+ * Per-data-type retention windows declared on `customer.yaml.memory.retention.*`.
+ * Every field is optional; missing fields fall back to module-level defaults
+ * defined by the runtime retention runner (Python: `MemoryRetentionPolicy`).
+ *
+ * `audit_log_days` is the one field this validator enforces beyond "positive
+ * integer" — see docs/specs/ai-employee/audit-retention.md for the override-up-only
+ * rules and the vertical-default minimums.
+ */
+export interface MemoryRetention {
+  matters_days: number | null
+  documents_days: number | null
+  recipients_days: number | null
+  voice_samples_days: number | null
+  audit_log_days: number | null
+  drafts_days: number | null
+}
+
 export interface Memory {
   d1_namespace: string
   r2_vault_path: string
   vectorize_index: string
+  retention: MemoryRetention | null
 }
 
 export interface VoiceLibrary {
@@ -204,6 +246,8 @@ export type ValidationErrorCode =
   | 'EmptyList'
   | 'SchemaVersionUnsupported'
   | 'InvalidFormat'
+  | 'RetentionOverrideBelowDefault'
+  | 'RetentionOverrideUnreasonable'
 
 export interface ValidationError {
   code: ValidationErrorCode
