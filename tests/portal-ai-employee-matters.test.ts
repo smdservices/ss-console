@@ -18,12 +18,14 @@
 import { describe, it, expect } from 'vitest'
 import { createTestD1 } from '@venturecrane/crane-test-harness'
 import {
+  filterMattersByAssignee,
   listMatters,
   getMatter,
   formatMatterAge,
   resolveMatterPhaseStamp,
   resolveMatterPhaseTone,
   MATTER_PHASE_LABEL,
+  type Matter,
   type MatterPhase,
 } from '../src/lib/portal/ai-employee/matters'
 
@@ -124,5 +126,49 @@ describe('MATTER_PHASE_LABEL', () => {
     expect(MATTER_PHASE_LABEL.pre_suit).toBe('Pre-Suit')
     expect(MATTER_PHASE_LABEL.discovery).toBe('Discovery')
     expect(MATTER_PHASE_LABEL.pre_trial).toBe('Pre-Trial')
+  })
+})
+
+describe('filterMattersByAssignee', () => {
+  function makeMatter(id: string): Matter {
+    return {
+      id,
+      clientName: `Client ${id}`,
+      matterType: 'Auto Accident',
+      phase: 'pre_suit',
+      openedAt: '2026-05-01T00:00:00Z',
+      lastAction: null,
+      assigneeUserIds: [],
+    }
+  }
+
+  it('returns the subset whose id is in the assigned set', () => {
+    const matters: Matter[] = [
+      makeMatter('matter-smith'),
+      makeMatter('matter-jones'),
+      makeMatter('matter-doe'),
+    ]
+    const result = filterMattersByAssignee(matters, new Set(['matter-smith', 'matter-doe']))
+    expect(result.map((m) => m.id)).toEqual(['matter-smith', 'matter-doe'])
+  })
+
+  it('returns empty array when the assigned set is empty (mine view, no assignments)', () => {
+    const matters: Matter[] = [makeMatter('matter-smith')]
+    expect(filterMattersByAssignee(matters, new Set())).toEqual([])
+  })
+
+  it('returns empty array when the matter list is empty', () => {
+    expect(filterMattersByAssignee([], new Set(['matter-smith']))).toEqual([])
+  })
+
+  it('preserves the source order of matters', () => {
+    const matters: Matter[] = [
+      makeMatter('m-1'),
+      makeMatter('m-2'),
+      makeMatter('m-3'),
+      makeMatter('m-4'),
+    ]
+    const result = filterMattersByAssignee(matters, new Set(['m-3', 'm-1', 'm-4']))
+    expect(result.map((m) => m.id)).toEqual(['m-1', 'm-3', 'm-4'])
   })
 })

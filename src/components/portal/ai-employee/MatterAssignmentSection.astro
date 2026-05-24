@@ -1,0 +1,146 @@
+---
+/**
+ * Matter assignment section of a matter detail page.  Per #882, this
+ * surfaces the currently-assigned paralegals and (when the caller is
+ * principal or operator) lets them assign / unassign other firm members.
+ *
+ * Empty-state behavior: when no one is explicitly assigned, the section
+ * renders the prose line "No one assigned" and the routing fallback
+ * note ("New actions on this matter route to the firm's principals.").
+ * This is metadata about the state, not a fabricated assignee.
+ *
+ * The "assign" form lists every firm member who currently holds any
+ * AI Employee product role on this entity but is NOT already assigned.
+ * A user already on the matter is rendered in the active-assignments
+ * list with an "Unassign" button instead.
+ *
+ * The compliance role sees this section as read-only (no buttons,
+ * no form) because compliance is the audit role; routine matter
+ * handoffs are an operator/principal concern.
+ */
+
+import type { MatterAssignment } from '../../../lib/portal/ai-employee/matter-assignment'
+
+interface AssignableMember {
+  id: string
+  name: string
+  email: string
+}
+
+interface Props {
+  matterId: string
+  assignments: MatterAssignment[]
+  /** Members who hold any product_role on this entity and are NOT in `assignments`. */
+  assignableMembers: AssignableMember[]
+  canMutate: boolean
+}
+
+const { matterId, assignments, assignableMembers, canMutate } = Astro.props
+
+function formatAssignedAt(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+---
+
+<section aria-labelledby="matter-assignment-heading" class="mt-section">
+  <h2
+    id="matter-assignment-heading"
+    class="font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0"
+  >
+    Assigned to
+  </h2>
+
+  <div class="mt-stack border-[3px] border-[color:var(--ss-color-text-primary)]">
+    {
+      assignments.length === 0 ? (
+        <div class="p-card">
+          <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)] m-0">
+            No one assigned
+          </p>
+          <p class="mt-2 text-sm text-[color:var(--ss-color-text-secondary)]">
+            New actions on this matter route to the firm's principals.
+          </p>
+        </div>
+      ) : (
+        assignments.map((a, idx) => (
+          <div
+            class:list={[
+              'px-5 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3',
+              idx > 0 ? 'border-t-[2px] border-[color:var(--ss-color-text-primary)]' : '',
+            ]}
+          >
+            <div class="flex flex-col gap-0.5 min-w-0">
+              <span class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)] truncate">
+                {a.assigneeName || a.assigneeEmail}
+              </span>
+              <span class="text-sm text-[color:var(--ss-color-text-secondary)] truncate">
+                {a.assigneeEmail}
+              </span>
+              <span class="text-xs text-[color:var(--ss-color-text-muted)]">
+                Assigned {formatAssignedAt(a.assignedAt)}
+              </span>
+            </div>
+
+            {canMutate && (
+              <form
+                method="POST"
+                action="/api/portal/products/ai-employee/matter-assignment"
+                class="inline-flex"
+              >
+                <input type="hidden" name="action" value="unassign" />
+                <input type="hidden" name="matterId" value={matterId} />
+                <input type="hidden" name="userId" value={a.assigneeUserId} />
+                <button
+                  type="submit"
+                  class="inline-flex items-center px-3 py-1.5 text-xs font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold border-[2px] border-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-error)] hover:border-[color:var(--ss-color-error)] hover:text-[color:var(--ss-color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+                >
+                  Unassign
+                </button>
+              </form>
+            )}
+          </div>
+        ))
+      )
+    }
+  </div>
+
+  {
+    canMutate && assignableMembers.length > 0 && (
+      <div class="mt-stack">
+        <p class="mb-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
+          Assign someone
+        </p>
+        <form
+          method="POST"
+          action="/api/portal/products/ai-employee/matter-assignment"
+          class="flex flex-col sm:flex-row gap-3 max-w-2xl"
+        >
+          <input type="hidden" name="action" value="assign" />
+          <input type="hidden" name="matterId" value={matterId} />
+          <label class="flex-1 sr-only" for={`assign-user-${matterId}`}>
+            Choose firm member
+          </label>
+          <select
+            id={`assign-user-${matterId}`}
+            name="userId"
+            required
+            class="flex-1 px-4 py-2 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+          >
+            <option value="">Choose a firm member…</option>
+            {assignableMembers.map((m) => (
+              <option value={m.id}>{m.name || m.email}</option>
+            ))}
+          </select>
+          <button
+            type="submit"
+            class="inline-flex items-center justify-center px-5 py-2 font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold text-sm border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-primary)] hover:border-[color:var(--ss-color-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+          >
+            Assign
+          </button>
+        </form>
+      </div>
+    )
+  }
+</section>

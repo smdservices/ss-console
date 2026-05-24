@@ -30,16 +30,34 @@
  * persisted in the row's metadata so a reviewer can tell a grant from
  * a revoke from an invite.
  *
- *   role_granted   — Principal granted a product role to a user
- *   role_revoked   — Principal revoked a product role from a user
- *   invite_sent    — Principal sent a Clerk Organization invitation
+ *   role_granted             — Principal granted a product role to a user
+ *   role_revoked             — Principal revoked a product role from a user
+ *   invite_sent              — Principal sent a Clerk Organization invitation
+ *   matter_assigned          — User assigned to a matter (per #882)
+ *   matter_unassigned        — User unassigned from a matter (per #882)
+ *   pto_set                  — User marked self (or another) away (per #882)
+ *   pto_cleared              — Away state cleared (per #882)
+ *   notification_prefs_updated — Per-user notification routing rules edited
  */
-export type RbacSubAction = 'role_granted' | 'role_revoked' | 'invite_sent'
+export type RbacSubAction =
+  | 'role_granted'
+  | 'role_revoked'
+  | 'invite_sent'
+  | 'matter_assigned'
+  | 'matter_unassigned'
+  | 'pto_set'
+  | 'pto_cleared'
+  | 'notification_prefs_updated'
 
 export const RBAC_SUB_ACTIONS: readonly RbacSubAction[] = [
   'role_granted',
   'role_revoked',
   'invite_sent',
+  'matter_assigned',
+  'matter_unassigned',
+  'pto_set',
+  'pto_cleared',
+  'notification_prefs_updated',
 ] as const
 
 /**
@@ -81,7 +99,62 @@ export interface InviteSentAuditEvent extends RbacAuditEventBase {
   clerkInvitationId: string
 }
 
-export type RbacAuditEvent = RoleGrantedAuditEvent | RoleRevokedAuditEvent | InviteSentAuditEvent
+export interface MatterAssignedAuditEvent extends RbacAuditEventBase {
+  subAction: 'matter_assigned'
+  matterId: string
+  assigneeUserId: string
+  assigneeEmail: string
+}
+
+export interface MatterUnassignedAuditEvent extends RbacAuditEventBase {
+  subAction: 'matter_unassigned'
+  matterId: string
+  assigneeUserId: string
+  assigneeEmail: string
+}
+
+export interface PtoSetAuditEvent extends RbacAuditEventBase {
+  subAction: 'pto_set'
+  awayUserId: string
+  awayEmail: string
+  backupUserId: string | null
+  backupEmail: string | null
+}
+
+export interface PtoClearedAuditEvent extends RbacAuditEventBase {
+  subAction: 'pto_cleared'
+  awayUserId: string
+  awayEmail: string
+}
+
+export interface NotificationPrefsUpdatedAuditEvent extends RbacAuditEventBase {
+  subAction: 'notification_prefs_updated'
+  /**
+   * Target user whose preferences were edited. Same as actorUserId for
+   * self-service edits; differs when a principal edits another user's
+   * preferences (deferred — current UI is self-service only).
+   */
+  targetUserId: string
+  targetEmail: string
+  /**
+   * Compact summary of the new preference set, sorted alphabetically by
+   * event_type then scope. Per-row tuple shape mirrors the
+   * user_notification_prefs table so a reviewer can read the post-edit
+   * state at a glance. We record state, not diff, because the diff is
+   * recoverable from the prior row's `prefsSnapshot` field.
+   */
+  prefsSnapshot: ReadonlyArray<{ event_type: string; scope: string }>
+}
+
+export type RbacAuditEvent =
+  | RoleGrantedAuditEvent
+  | RoleRevokedAuditEvent
+  | InviteSentAuditEvent
+  | MatterAssignedAuditEvent
+  | MatterUnassignedAuditEvent
+  | PtoSetAuditEvent
+  | PtoClearedAuditEvent
+  | NotificationPrefsUpdatedAuditEvent
 
 export interface BuildRoleEventInput {
   subAction: 'role_granted' | 'role_revoked'
@@ -140,6 +213,132 @@ export function buildInviteAuditEvent(input: BuildInviteEventInput): InviteSentA
     inviteeEmail: input.inviteeEmail,
     clerkOrgId: input.clerkOrgId,
     clerkInvitationId: input.clerkInvitationId,
+    timestamp,
+  }
+}
+
+export interface BuildMatterAssignmentEventInput {
+  subAction: 'matter_assigned' | 'matter_unassigned'
+  customer_id: string
+  product_slug: string
+  actorUserId: string
+  actorClerkUserId: string | null
+  actorEmail: string
+  matterId: string
+  assigneeUserId: string
+  assigneeEmail: string
+  now?: Date
+}
+
+export function buildMatterAssignmentAuditEvent(
+  input: BuildMatterAssignmentEventInput
+): MatterAssignedAuditEvent | MatterUnassignedAuditEvent {
+  const timestamp = (input.now ?? new Date()).toISOString()
+  return {
+    type: 'audit:rbac_event',
+    subAction: input.subAction,
+    customer_id: input.customer_id,
+    product_slug: input.product_slug,
+    actorUserId: input.actorUserId,
+    actorClerkUserId: input.actorClerkUserId,
+    actorEmail: input.actorEmail,
+    matterId: input.matterId,
+    assigneeUserId: input.assigneeUserId,
+    assigneeEmail: input.assigneeEmail,
+    timestamp,
+  }
+}
+
+export interface BuildPtoSetEventInput {
+  customer_id: string
+  product_slug: string
+  actorUserId: string
+  actorClerkUserId: string | null
+  actorEmail: string
+  awayUserId: string
+  awayEmail: string
+  backupUserId: string | null
+  backupEmail: string | null
+  now?: Date
+}
+
+export function buildPtoSetAuditEvent(input: BuildPtoSetEventInput): PtoSetAuditEvent {
+  const timestamp = (input.now ?? new Date()).toISOString()
+  return {
+    type: 'audit:rbac_event',
+    subAction: 'pto_set',
+    customer_id: input.customer_id,
+    product_slug: input.product_slug,
+    actorUserId: input.actorUserId,
+    actorClerkUserId: input.actorClerkUserId,
+    actorEmail: input.actorEmail,
+    awayUserId: input.awayUserId,
+    awayEmail: input.awayEmail,
+    backupUserId: input.backupUserId,
+    backupEmail: input.backupEmail,
+    timestamp,
+  }
+}
+
+export interface BuildPtoClearedEventInput {
+  customer_id: string
+  product_slug: string
+  actorUserId: string
+  actorClerkUserId: string | null
+  actorEmail: string
+  awayUserId: string
+  awayEmail: string
+  now?: Date
+}
+
+export function buildPtoClearedAuditEvent(input: BuildPtoClearedEventInput): PtoClearedAuditEvent {
+  const timestamp = (input.now ?? new Date()).toISOString()
+  return {
+    type: 'audit:rbac_event',
+    subAction: 'pto_cleared',
+    customer_id: input.customer_id,
+    product_slug: input.product_slug,
+    actorUserId: input.actorUserId,
+    actorClerkUserId: input.actorClerkUserId,
+    actorEmail: input.actorEmail,
+    awayUserId: input.awayUserId,
+    awayEmail: input.awayEmail,
+    timestamp,
+  }
+}
+
+export interface BuildNotificationPrefsEventInput {
+  customer_id: string
+  product_slug: string
+  actorUserId: string
+  actorClerkUserId: string | null
+  actorEmail: string
+  targetUserId: string
+  targetEmail: string
+  prefsSnapshot: ReadonlyArray<{ event_type: string; scope: string }>
+  now?: Date
+}
+
+export function buildNotificationPrefsAuditEvent(
+  input: BuildNotificationPrefsEventInput
+): NotificationPrefsUpdatedAuditEvent {
+  const timestamp = (input.now ?? new Date()).toISOString()
+  const sortedSnapshot = [...input.prefsSnapshot].sort((a, b) => {
+    const byType = a.event_type.localeCompare(b.event_type)
+    if (byType !== 0) return byType
+    return a.scope.localeCompare(b.scope)
+  })
+  return {
+    type: 'audit:rbac_event',
+    subAction: 'notification_prefs_updated',
+    customer_id: input.customer_id,
+    product_slug: input.product_slug,
+    actorUserId: input.actorUserId,
+    actorClerkUserId: input.actorClerkUserId,
+    actorEmail: input.actorEmail,
+    targetUserId: input.targetUserId,
+    targetEmail: input.targetEmail,
+    prefsSnapshot: sortedSnapshot,
     timestamp,
   }
 }
