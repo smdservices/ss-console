@@ -460,6 +460,130 @@ describe('validate — connectors', () => {
 })
 
 // -----------------------------------------------------------------------------
+// Composio per-connection isolation (issue #850)
+//
+// The validator must require a composio_connection_id whenever backend
+// starts with "composio:", and that ID must embed the customer_id slug.
+// The runtime backstop lives at
+// ai-employee/adapter/connectors/composio_assertion.py.
+// -----------------------------------------------------------------------------
+
+describe('validate — composio per-connection isolation', () => {
+  function fixtureWithComposioEmail(connectionId: string | null): Record<string, unknown> {
+    const f = validFixture()
+    const entry: Record<string, unknown> = {
+      adapter: 'gmail',
+      backend: 'composio:gmail',
+      token_ref: 'infisical:/ai-employee/smith-pi-firm/email/refresh',
+    }
+    if (connectionId !== null) entry['composio_connection_id'] = connectionId
+    ;(f['connectors'] as Record<string, unknown>)['Email'] = entry
+    return f
+  }
+
+  it('accepts a well-formed composio connection ID bound to customer_id', () => {
+    const r = validate(fixtureWithComposioEmail('conn_smith-pi-firm_xyz-1234'))
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors, null, 2)}`)
+    }
+    expect(r.value.connectors.Email?.composio_connection_id).toBe('conn_smith-pi-firm_xyz-1234')
+  })
+
+  it('requires composio_connection_id when backend is composio:*', () => {
+    const r = validate(fixtureWithComposioEmail(null))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) => e.code === 'MissingField' && e.path === 'connectors.Email.composio_connection_id'
+      )
+    ).toBe(true)
+  })
+
+  it('rejects composio_connection_id that does not match conn_{slug}_{suffix}', () => {
+    const r = validate(fixtureWithComposioEmail('not-a-conn-id'))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) => e.code === 'InvalidFormat' && e.path === 'connectors.Email.composio_connection_id'
+      )
+    ).toBe(true)
+  })
+
+  it('rejects composio_connection_id whose slug differs from customer_id (cross-customer leak)', () => {
+    const r = validate(fixtureWithComposioEmail('conn_other-customer_xyz-1234'))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) =>
+          e.code === 'IsolationViolation' && e.path === 'connectors.Email.composio_connection_id'
+      )
+    ).toBe(true)
+  })
+
+  it('rejects composio_connection_id with too-short suffix', () => {
+    const r = validate(fixtureWithComposioEmail('conn_smith-pi-firm_abc'))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidFormat')
+  })
+
+  it('rejects composio_connection_id when present on a non-composio backend', () => {
+    const f = validFixture()
+    ;(f['connectors'] as Record<string, Record<string, unknown>>)['Email'][
+      'composio_connection_id'
+    ] = 'conn_smith-pi-firm_xyz-1234'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) =>
+          e.code === 'IsolationViolation' && e.path === 'connectors.Email.composio_connection_id'
+      )
+    ).toBe(true)
+  })
+
+  it('rejects non-string composio_connection_id', () => {
+    const f = fixtureWithComposioEmail(null)
+    ;(f['connectors'] as Record<string, Record<string, unknown>>)['Email'][
+      'composio_connection_id'
+    ] = 12345
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('TypeMismatch')
+  })
+
+  it('accepts a composio_connection_id with the maximum suffix length', () => {
+    const longSuffix = 'a'.repeat(80)
+    const r = validate(fixtureWithComposioEmail(`conn_smith-pi-firm_${longSuffix}`))
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors, null, 2)}`)
+    }
+  })
+
+  it('rejects a composio_connection_id with a suffix longer than 80 chars', () => {
+    const tooLong = 'a'.repeat(81)
+    const r = validate(fixtureWithComposioEmail(`conn_smith-pi-firm_${tooLong}`))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidFormat')
+  })
+
+  it('handles multi-dash customer slugs in the connection ID', () => {
+    const f = fixtureWithComposioEmail('conn_smith-pi-firm_a-b-c-d')
+    const r = validate(f)
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors, null, 2)}`)
+    }
+    expect(r.value.connectors.Email?.composio_connection_id).toBe('conn_smith-pi-firm_a-b-c-d')
+  })
+})
+
+// -----------------------------------------------------------------------------
 // Memory: isolation invariants
 // -----------------------------------------------------------------------------
 
