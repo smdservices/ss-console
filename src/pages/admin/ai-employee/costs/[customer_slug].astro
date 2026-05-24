@@ -1,0 +1,396 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro'
+import {
+  DRIVER_CATEGORIES,
+  DRIVER_CATEGORY_LABELS,
+  cogsRatio,
+  defaultWindow,
+  fetchCustomerCostRows,
+  listCostCustomers,
+  summarizeCostRows,
+  thirtyDayCogsToMonthlyEstimateCents,
+  type DriverCategory,
+} from '../../../../lib/admin/cost-query'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Captain cost dashboard — per-customer drill-down.
+ *
+ * Issue #885 (PRD §15.1). Shows the 30-day per-driver breakdown, the
+ * per-category aggregation, the per-day timeline + 7-day rolling avg,
+ * and the COGS/MRR ratio for one AI Employee customer.
+ *
+ * Fabrication discipline (CLAUDE.md Pattern A/B): the page only displays
+ * what cost_telemetry actually contains. The schema groups Anthropic
+ * usage into `claude_api_input_tokens` / `claude_api_output_tokens`
+ * across all models and Composio into a single `composio_actions`
+ * driver. Per-model and per-toolkit decomposition is phase-2 work; the
+ * page surfaces what is recorded and explicitly says so rather than
+ * fabricating attribution.
+ */
+
+const session = Astro.locals.session!
+if (session.role !== 'admin') {
+  return Astro.redirect('/auth/login')
+}
+
+const { customer_slug } = Astro.params
+if (!customer_slug) {
+  return new Response('Customer slug required', { status: 400 })
+}
+
+const customers = await listCostCustomers(env.DB)
+const customer = customers.find((c) => c.customer_slug === customer_slug)
+if (!customer) {
+  return new Response('Customer not found', { status: 404 })
+}
+
+const window = defaultWindow()
+const cfConfigMissing = !env.CF_ACCOUNT_ID || !env.CF_D1_API_TOKEN
+
+let fetchError: string | null = null
+let summary: ReturnType<typeof summarizeCostRows> | null = null
+let skippedReason: string | null = null
+
+if (!customer.per_customer_d1_database_id) {
+  skippedReason = 'No per-customer D1 configured yet (connectors_json missing the database id)'
+} else if (cfConfigMissing) {
+  skippedReason = 'CF_ACCOUNT_ID / CF_D1_API_TOKEN not configured on this Worker'
+} else {
+  const result = await fetchCustomerCostRows(
+    { CF_ACCOUNT_ID: env.CF_ACCOUNT_ID!, CF_D1_API_TOKEN: env.CF_D1_API_TOKEN! },
+    customer.per_customer_d1_database_id,
+    window.start,
+    window.end
+  )
+  if (result.error) {
+    fetchError = result.error
+  } else {
+    summary = summarizeCostRows(customer_slug, window.start, window.end, result.rows)
+  }
+}
+
+function formatCurrency(cents: number): string {
+  const dollars = cents / 100
+  return dollars.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
+function formatUnits(units: number, unitType: string | null): string {
+  if (units === 0) return '0'
+  const fmt = units.toLocaleString('en-US', {
+    maximumFractionDigits: 2,
+  })
+  return unitType ? `${fmt} ${unitType}` : fmt
+}
+
+function formatBps(bps: number | null): string {
+  if (bps === null) return '—'
+  return `${(bps / 100).toFixed(1)}%`
+}
+
+const total30dCents = summary?.totalCents ?? 0
+const monthlyEstimateCents = thirtyDayCogsToMonthlyEstimateCents(total30dCents)
+const ratio = cogsRatio(monthlyEstimateCents, customer.monthly_revenue_cents)
+
+const latestRolling = summary?.rolling7dCents.length
+  ? (summary.rolling7dCents[summary.rolling7dCents.length - 1].avg_cents ?? null)
+  : null
+
+const maxDailyCents = summary ? Math.max(1, ...summary.byDay.map((d) => d.total_cents)) : 1
+const maxRollingCents = summary
+  ? Math.max(1, ...summary.rolling7dCents.map((d) => d.avg_cents ?? 0))
+  : 1
+const maxCategoryCents = summary
+  ? Math.max(1, ...DRIVER_CATEGORIES.map((cat) => summary!.byCategory[cat]))
+  : 1
+
+function barWidth(value: number, max: number): string {
+  if (value === 0) return '0%'
+  const pct = Math.max((value / max) * 100, 2)
+  return `${pct}%`
+}
+
+function statusColor(status: 'unpriced' | 'healthy' | 'watch' | 'kill'): string {
+  switch (status) {
+    case 'kill':
+      return 'text-[color:var(--ss-color-error)]'
+    case 'watch':
+      return 'text-[color:var(--ss-color-attention)]'
+    case 'healthy':
+      return 'text-[color:var(--ss-color-text-primary)]'
+    case 'unpriced':
+      return 'text-[color:var(--ss-color-text-muted)]'
+  }
+}
+
+const nonZeroCategories = summary
+  ? DRIVER_CATEGORIES.filter((cat) => (summary!.byCategory[cat as DriverCategory] ?? 0) > 0)
+  : []
+
+const exportHref = `/api/admin/ai-employee/costs/export?customer_slug=${encodeURIComponent(customer_slug)}&start=${window.start}&end=${window.end}`
+---
+
+<AdminLayout
+  title={`Cost — ${customer.entity_name ?? customer_slug}`}
+  breadcrumbs={[
+    { label: 'Dashboard', href: '/admin' },
+    { label: 'AI Employee' },
+    { label: 'Costs', href: '/admin/ai-employee/costs' },
+    { label: customer.entity_name ?? customer_slug },
+  ]}
+>
+  <div class="space-y-card">
+    <header class="flex items-end justify-between gap-4">
+      <div>
+        <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+          {customer.entity_name ?? customer_slug}
+        </h2>
+        <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+          <code>{customer_slug}</code> · 30-day window ({window.start} through {window.end})
+        </p>
+      </div>
+      {
+        customer.per_customer_d1_database_id && !cfConfigMissing && (
+          <a
+            href={exportHref}
+            class="inline-flex items-center min-h-11 px-3 text-sm font-medium border border-[color:var(--ss-color-border)] rounded-[var(--ss-radius-card)] text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+          >
+            Export CSV
+          </a>
+        )
+      }
+    </header>
+
+    {
+      skippedReason && (
+        <div class="rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-attention)] bg-white p-card">
+          <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-2">
+            Cost data unavailable
+          </h3>
+          <p class="text-sm text-[color:var(--ss-color-text-secondary)]">{skippedReason}</p>
+        </div>
+      )
+    }
+
+    {
+      fetchError && (
+        <div class="rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-error)] bg-white p-card">
+          <h3 class="text-base font-semibold text-[color:var(--ss-color-error)] mb-2">
+            D1 query failed
+          </h3>
+          <p class="text-sm text-[color:var(--ss-color-text-secondary)]">{fetchError}</p>
+        </div>
+      )
+    }
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-card">
+      <div
+        class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card"
+      >
+        <p class="text-xs uppercase tracking-wide text-[color:var(--ss-color-text-muted)]">
+          30-day COGS
+        </p>
+        <p class="text-2xl font-bold text-[color:var(--ss-color-text-primary)] mt-1">
+          {summary ? formatCurrency(total30dCents) : '—'}
+        </p>
+      </div>
+      <div
+        class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card"
+      >
+        <p class="text-xs uppercase tracking-wide text-[color:var(--ss-color-text-muted)]">
+          7-day avg / day
+        </p>
+        <p class="text-2xl font-bold text-[color:var(--ss-color-text-primary)] mt-1">
+          {latestRolling === null ? '—' : formatCurrency(latestRolling)}
+        </p>
+        {
+          summary && latestRolling === null && (
+            <p class="text-xs text-[color:var(--ss-color-text-muted)] mt-1">
+              Need ≥ 7 days of data
+            </p>
+          )
+        }
+      </div>
+      <div
+        class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card"
+      >
+        <p class="text-xs uppercase tracking-wide text-[color:var(--ss-color-text-muted)]">
+          Recurring revenue
+        </p>
+        <p class="text-2xl font-bold text-[color:var(--ss-color-text-primary)] mt-1">
+          {
+            customer.monthly_revenue_cents === null
+              ? '—'
+              : formatCurrency(customer.monthly_revenue_cents)
+          }
+        </p>
+        {
+          customer.monthly_revenue_cents === null && (
+            <p class="text-xs text-[color:var(--ss-color-text-muted)] mt-1">
+              No monthly_price_cents
+            </p>
+          )
+        }
+      </div>
+      <div
+        class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card"
+      >
+        <p class="text-xs uppercase tracking-wide text-[color:var(--ss-color-text-muted)]">
+          COGS / MRR
+        </p>
+        <p class={`text-2xl font-bold mt-1 ${statusColor(ratio.status)}`}>
+          {formatBps(ratio.basis_points)}
+        </p>
+        <p class="text-xs text-[color:var(--ss-color-text-muted)] mt-1">
+          {
+            ratio.status === 'kill'
+              ? 'Above 40% kill threshold'
+              : ratio.status === 'watch'
+                ? '30–40% watch zone'
+                : ratio.status === 'healthy'
+                  ? 'Below 30% threshold'
+                  : 'Unpriced — ratio undefined'
+          }
+        </p>
+      </div>
+    </div>
+
+    {
+      summary && (
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-card">
+          <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+            <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-4">
+              Breakdown by category
+            </h3>
+            {nonZeroCategories.length === 0 ? (
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                No cost data in this window yet. The nightly ingest writes one row per customer per
+                day at 02:00 UTC.
+              </p>
+            ) : (
+              <div class="space-y-row">
+                {nonZeroCategories.map((cat) => (
+                  <div class="flex items-center gap-row">
+                    <span class="text-sm text-[color:var(--ss-color-text-secondary)] w-40 shrink-0">
+                      {DRIVER_CATEGORY_LABELS[cat as DriverCategory]}
+                    </span>
+                    <div class="flex-1 bg-[color:var(--ss-color-border-subtle)] rounded-full h-5 overflow-hidden">
+                      <div
+                        class="h-full rounded-full bg-[color:var(--ss-color-text-primary)] flex items-center justify-end pr-2"
+                        style={`width: ${barWidth(summary!.byCategory[cat as DriverCategory], maxCategoryCents)}`}
+                      >
+                        <span class="text-xs font-medium text-white">
+                          {formatCurrency(summary!.byCategory[cat as DriverCategory])}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+            <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-4">
+              Breakdown by driver
+            </h3>
+            {summary.byDriver.length === 0 ? (
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                No driver-level rows in this window.
+              </p>
+            ) : (
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr class="text-left text-xs text-[color:var(--ss-color-text-secondary)] border-b border-[color:var(--ss-color-border)]">
+                      <th class="pb-2 font-medium">Driver</th>
+                      <th class="pb-2 font-medium">Category</th>
+                      <th class="pb-2 font-medium text-right">Units</th>
+                      <th class="pb-2 font-medium text-right">Cost</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-[color:var(--ss-color-border-subtle)]">
+                    {summary.byDriver.map((d) => (
+                      <tr>
+                        <td class="py-2 text-[color:var(--ss-color-text-primary)] font-mono text-xs">
+                          {d.driver}
+                        </td>
+                        <td class="py-2 text-[color:var(--ss-color-text-secondary)] text-xs">
+                          {DRIVER_CATEGORY_LABELS[d.category]}
+                        </td>
+                        <td class="py-2 text-right text-[color:var(--ss-color-text-secondary)] text-xs">
+                          {formatUnits(d.units, d.unit_type)}
+                        </td>
+                        <td class="py-2 text-right text-[color:var(--ss-color-text-primary)]">
+                          {formatCurrency(d.total_cents)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p class="text-xs text-[color:var(--ss-color-text-muted)] mt-3 pt-3 border-t border-[color:var(--ss-color-border-subtle)]">
+              The cost_telemetry schema records one row per (date, driver). Per-model (e.g. Opus vs.
+              Haiku) and per-toolkit (e.g. Gmail vs. Slack) decomposition is phase-2 work — current
+              v1 emission rolls those up into the driver.
+            </p>
+          </div>
+        </div>
+      )
+    }
+
+    {
+      summary && (
+        <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+          <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-4">
+            Daily cost — 30-day timeline
+          </h3>
+          {summary.byDay.every((d) => d.total_cents === 0) ? (
+            <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+              No daily rows recorded yet in this window.
+            </p>
+          ) : (
+            <div class="space-y-1">
+              {summary.byDay.map((day, i) => {
+                const rolling = summary!.rolling7dCents[i].avg_cents
+                return (
+                  <div class="flex items-center gap-row text-xs">
+                    <span class="text-[color:var(--ss-color-text-secondary)] w-24 shrink-0 font-mono">
+                      {day.date}
+                    </span>
+                    <div class="flex-1 bg-[color:var(--ss-color-border-subtle)] rounded-full h-4 overflow-hidden relative">
+                      <div
+                        class="h-full bg-[color:var(--ss-color-text-secondary)] rounded-full"
+                        style={`width: ${barWidth(day.total_cents, maxDailyCents)}`}
+                      />
+                      {rolling !== null && (
+                        <div
+                          class="absolute top-0 h-4 border-r-2 border-[color:var(--ss-color-primary)]"
+                          style={`left: ${barWidth(rolling, maxRollingCents)}`}
+                          title={`7-day rolling avg: ${formatCurrency(rolling)}`}
+                        />
+                      )}
+                    </div>
+                    <span class="text-[color:var(--ss-color-text-secondary)] w-20 text-right tabular-nums">
+                      {formatCurrency(day.total_cents)}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          <p class="text-xs text-[color:var(--ss-color-text-muted)] mt-4 pt-3 border-t border-[color:var(--ss-color-border-subtle)]">
+            The orange marker on each row shows the 7-day rolling average ending that day. Days in
+            the first 6 of the window have no rolling value (insufficient prior data).
+          </p>
+        </div>
+      )
+    }
+  </div>
+</AdminLayout>
