@@ -23,6 +23,11 @@ docs/style/UI-PATTERNS.md
 # Pytest cache directories (gitignored locally; never authored)
 .pytest_cache/
 **/.pytest_cache/
+# Python virtualenvs created under ai-employee/connectors/*/ for local
+# adapter test loops. Site-packages docs (LICENSE.md, etc.) trip prettier
+# on whitespace/markdown rules we have no business enforcing on
+# vendored content. Gitignored separately in ai-employee/.gitignore.
+**/.venv/
 # Git worktrees — checked-out copies of other branches owned by parallel
 # work. The branch that owns the source is responsible for formatting it,
 # not whichever branch happens to have a worktree on disk right now.
