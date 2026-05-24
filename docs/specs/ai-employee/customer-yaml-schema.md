@@ -136,6 +136,12 @@ logging: # OPTIONAL
 pause: # OPTIONAL
   active: <boolean> # default false
   reason: <string> # required if active=true
+
+# ---- COMPLIANCE DASHBOARD VIEW (OPTIONAL; added by #895) ----
+# See dashboard-roles.md §"Dedicated Compliance dashboard view (#895)".
+# Defaults to false when omitted. RBAC on the existing audit surface is
+# unaffected by this field — it gates only the dedicated Compliance view.
+compliance_enabled: <boolean> # OPTIONAL; default false
 ```
 
 ## Memory retention

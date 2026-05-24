@@ -1301,3 +1301,58 @@ describe('validate — memory.retention', () => {
     expect(err?.message).toContain('law-firm')
   })
 })
+
+// -----------------------------------------------------------------------------
+// compliance_enabled (#895)
+// -----------------------------------------------------------------------------
+
+describe('validate — compliance_enabled (#895)', () => {
+  it('defaults to false when the field is omitted', () => {
+    const r = validate(validFixture())
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    }
+    expect(r.value.compliance_enabled).toBe(false)
+  })
+
+  it('accepts compliance_enabled: true', () => {
+    const f = validFixture()
+    f['compliance_enabled'] = true
+    const r = validate(f)
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    }
+    expect(r.value.compliance_enabled).toBe(true)
+  })
+
+  it('accepts compliance_enabled: false explicitly', () => {
+    const f = validFixture()
+    f['compliance_enabled'] = false
+    const r = validate(f)
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    }
+    expect(r.value.compliance_enabled).toBe(false)
+  })
+
+  it('rejects non-boolean compliance_enabled', () => {
+    const f = validFixture()
+    f['compliance_enabled'] = 'yes'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'compliance_enabled' && e.code === 'TypeMismatch')).toBe(
+      true
+    )
+  })
+
+  it('treats null as omitted (defaults to false)', () => {
+    const f = validFixture()
+    f['compliance_enabled'] = null
+    const r = validate(f)
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    }
+    expect(r.value.compliance_enabled).toBe(false)
+  })
+})

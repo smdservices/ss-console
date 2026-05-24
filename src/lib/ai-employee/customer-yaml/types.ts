@@ -286,6 +286,28 @@ export interface CustomerYaml {
   memory: Memory
   logging: Logging | null
   pause: Pause | null
+  /**
+   * Whether the Compliance dashboard view is enabled for this firm.
+   *
+   * Defaults to `false` when the field is omitted. Sub-50-attorney PI
+   * firms typically don't retain ethics counsel, so the Compliance role
+   * is folded into the principal. When `false`, users with the
+   * `compliance` product_role still authenticate and can hit the audit
+   * surface (RBAC unchanged), but the dedicated Compliance dashboard
+   * view does NOT render — the firm has not opted in to the separation
+   * of duties this view represents.
+   *
+   * When `true`, the Compliance dashboard view is the primary surface
+   * for compliance-role users: audit log entry, evidence packet
+   * generation, retention controls. The principal can see it too as a
+   * read-only summary.
+   *
+   * Wiring this through customer.yaml (rather than auto-deriving from
+   * "does any user have role: compliance") preserves the explicit-config
+   * posture: separation of duties is a deliberate firm decision, not a
+   * side effect of seat provisioning.
+   */
+  compliance_enabled: boolean
 }
 
 export type ValidationErrorCode =

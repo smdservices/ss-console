@@ -491,3 +491,32 @@ export function checkPause(root: Record<string, unknown>, errors: ValidationErro
   }
   return { active, reason: typeof reason === 'string' ? reason : null }
 }
+
+/**
+ * `compliance_enabled` is an optional top-level boolean. When omitted or
+ * explicitly false, the dedicated Compliance dashboard view does NOT
+ * render even for users who hold the `compliance` product_role — the
+ * firm has not opted in to the separation-of-duties posture this view
+ * represents. When true, the Compliance dashboard surfaces audit log
+ * entry, evidence packet generation, and retention controls.
+ *
+ * The field is deliberately a boolean rather than an enum so future
+ * tiers (e.g. read-only-counsel vs. ethics-officer) live in their own
+ * keys; this one stays focused on "is the dashboard view on".
+ */
+export function checkComplianceEnabled(
+  root: Record<string, unknown>,
+  errors: ValidationError[]
+): boolean {
+  const raw = root['compliance_enabled']
+  if (raw === undefined || raw === null) return false
+  if (typeof raw !== 'boolean') {
+    errors.push({
+      code: 'TypeMismatch',
+      path: 'compliance_enabled',
+      message: 'compliance_enabled must be a boolean when present',
+    })
+    return false
+  }
+  return raw
+}
