@@ -56,6 +56,7 @@ function makeDraft(overrides: Partial<DraftDetail> = {}): DraftDetail {
     bodyPlain:
       'Dear Counsel,\n\nPlease find our demand attached. We propose mediation on or before...\n\nRegards,\nPat',
     personaName: 'Marcus',
+    personaSlug: 'marcus',
     personaDraftedAt: '2026-05-21T14:00:00.000Z',
     reviewerEmail: 'pat.owner@smithlaw.com',
     sendStatus: 'pending',
@@ -173,13 +174,14 @@ describe('sendAsReviewer — reviewer-as-sender invariant', () => {
 })
 
 describe('buildSendApprovedAuditEvent — issue-specified metadata shape', () => {
-  it('produces every field the issue lists, plus a sendStatus', () => {
+  it('produces every field the issue lists, plus a sendStatus and personaSlug', () => {
     const event = buildSendApprovedAuditEvent({
       approverId: 'u-pat',
       approverEmail: 'pat.owner@smithlaw.com',
       draftId: 'd-870-1',
       draftHash: 'a'.repeat(64),
       reviewerEmail: 'pat.owner@smithlaw.com',
+      personaSlug: 'marcus',
       sendWindowMs: 5_000,
       sendStatus: 'pending_connector',
       now: new Date('2026-05-21T14:00:00.000Z'),
@@ -196,6 +198,29 @@ describe('buildSendApprovedAuditEvent — issue-specified metadata shape', () =>
     // Bound to the dispatch outcome so the audit log shows both the
     // approval and the connector result.
     expect(event.sendStatus).toBe('pending_connector')
+
+    // ADR 0011 §3 delta: persona_slug rides every send audit so
+    // Phase 2's multi-persona back-fill (§6) has a stable join key.
+    expect(event.personaSlug).toBe('marcus')
+  })
+
+  it('accepts null personaSlug for pre-bridge drafts', () => {
+    // The Hermes bridge (#821) is the source of truth for personaSlug.
+    // Until the bridge lands, the draft stub returns null and the
+    // audit row records null rather than fabricating a slug.
+    const event = buildSendApprovedAuditEvent({
+      approverId: 'u-pat',
+      approverEmail: 'pat.owner@smithlaw.com',
+      draftId: 'd-870-1',
+      draftHash: 'c'.repeat(64),
+      reviewerEmail: 'pat.owner@smithlaw.com',
+      personaSlug: null,
+      sendWindowMs: 5_000,
+      sendStatus: 'pending_connector',
+      now: new Date('2026-05-21T14:00:00.000Z'),
+    })
+
+    expect(event.personaSlug).toBeNull()
   })
 })
 
@@ -215,6 +240,7 @@ describe('recordSendApprovedAudit — log-line emission contract', () => {
           draftId: 'd-870-1',
           draftHash: 'b'.repeat(64),
           reviewerEmail: 'pat.owner@smithlaw.com',
+          personaSlug: 'marcus',
           sendWindowMs: 5_000,
           sendStatus: 'sent',
           now: new Date('2026-05-21T15:00:00.000Z'),
@@ -230,6 +256,7 @@ describe('recordSendApprovedAudit — log-line emission contract', () => {
     expect(parsed.approverId).toBe('u-pat')
     expect(parsed.draftHash).toBe('b'.repeat(64))
     expect(parsed.reviewerEmail).toBe('pat.owner@smithlaw.com')
+    expect(parsed.personaSlug).toBe('marcus')
     expect(parsed.sendWindowMs).toBe(5_000)
     expect(parsed.sendStatus).toBe('sent')
     expect(parsed.timestamp).toBe('2026-05-21T15:00:00.000Z')
