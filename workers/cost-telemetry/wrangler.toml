@@ -1,0 +1,43 @@
+# Cost Telemetry Worker — nightly cost-driver ingest for AI Employee
+# Per docs/specs/ai-employee/cost-telemetry-events.md "Nightly Captain job".
+#
+# The worker iterates every active AI Employee customer once per day at
+# 02:00 UTC. For each customer it pulls yesterday's Anthropic token usage
+# and Composio action usage, computes cents via the hardcoded pricing
+# JSON files at ai-employee/adapter/cost_telemetry/, and UPSERTs one or
+# more rows into the customer's per-customer cost_telemetry D1 table.
+#
+# The per-customer D1 database id is read from the central
+# customer_configs table (column lookup in src/index.ts). Per ADR 0009,
+# every customer has their own D1 database — there is no cross-customer
+# cost_telemetry table.
+#
+# Cloudflare D1/R2/Vectorize metering is deferred to phase 2 per the
+# validation-spike result documented in ai-employee/adapter/cost_ingest.py.
+# Token cost dominates the COGS surface; the missing source does not
+# block the §17.1 COGS/MRR kill criterion in v1.
+
+name = "ss-cost-telemetry"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Same central D1 database as ss-web — needed to enumerate customers
+# from customer_configs.
+[[d1_databases]]
+binding = "DB"
+database_name = "ss-console-db"
+database_id = "65171b23-d615-42a7-84e7-a4fac20d063c"
+
+# 02:00 UTC daily — matches the nightly cadence in cost-telemetry-events.md.
+[triggers]
+crons = ["0 2 * * *"]
+
+# Secrets (set via `wrangler secret put` after first deploy):
+#   CF_ACCOUNT_ID       — Cloudflare account id for per-customer D1 HTTP API
+#   CF_D1_API_TOKEN     — Token with D1:Edit scope across customer DBs
+#   ANTHROPIC_API_KEY   — Org-level key (per-customer keys would shift to
+#                         a per-customer secret lookup; v1 uses the org key
+#                         since billing rolls up at the org level)
+#   COMPOSIO_API_KEY    — Org-level Composio key for the usage API
+#   COST_INGEST_BEARER  — Bearer token for manual /run invocations
