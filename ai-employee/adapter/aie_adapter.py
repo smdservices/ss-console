@@ -58,6 +58,10 @@ from .hermes_hook import (
     ToolCallResult,
     TrustCeilingEnforcer,
 )
+from .boot_checks import (
+    GepaEnabledError,
+    verify_gepa_disabled,
+)
 from .curator_interceptor import (
     CuratorDraftStateError,
     CuratorEvidenceRequired,
@@ -92,6 +96,12 @@ HONCHO_AUDIT_ACTION_DISMISSAL = "HONCHO_DISMISSAL"
 CURATOR_AUDIT_ACTION_DRAFT = "CURATOR_DRAFT"
 CURATOR_AUDIT_ACTION_PROMOTION = "CURATOR_PROMOTION"
 CURATOR_AUDIT_ACTION_DISMISSAL = "CURATOR_DISMISSAL"
+
+# Audit action_type emitted once per Machine boot when the GEPA disable
+# check passes (ADR 0018 §4). No corresponding "enabled" or "failed"
+# action_type — a failed disable check halts boot and escalates via
+# sticky-stop, not via an audit row.
+GEPA_AUDIT_ACTION_DISABLED_VERIFIED = "GEPA_DISABLED_VERIFIED"
 
 log = logging.getLogger("aie.adapter")
 
@@ -416,6 +426,8 @@ __all__ = [
     "DEFAULT_PINNED_SLOT_KEYS",
     "DefaultTrustCeilingEnforcer",
     "DraftType",
+    "GEPA_AUDIT_ACTION_DISABLED_VERIFIED",
+    "GepaEnabledError",
     "HONCHO_AUDIT_ACTION_DISMISSAL",
     "HONCHO_AUDIT_ACTION_OBSERVATION",
     "HONCHO_AUDIT_ACTION_PROMOTION",
@@ -435,5 +447,6 @@ __all__ = [
     "enforce",
     "register",
     "verify_curator_intercepted",
+    "verify_gepa_disabled",
     "verify_honcho_intercepted",
 ]
