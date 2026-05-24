@@ -133,6 +133,18 @@ ACCEPTED_ACTION_TYPES = frozenset(
         "DECOMMISSION_INITIATED",
         "DECOMMISSION_DRAIN_COMPLETE",
         "DECOMMISSION_FINAL",
+        # Honcho overlay (ADR 0016) — proposer-only persona observations.
+        # Emitted by the HonchoInterceptor on every observation write,
+        # promotion (calibration-session approval), and dismissal.
+        "HONCHO_OBSERVATION",
+        "HONCHO_PROMOTION",
+        "HONCHO_DISMISSAL",
+        # Skill Curator overlay (ADR 0017) — observer-only skill drafts.
+        # Emitted by the CuratorInterceptor on every draft write,
+        # Captain promotion (crane-console PR), and dismissal.
+        "CURATOR_DRAFT",
+        "CURATOR_PROMOTION",
+        "CURATOR_DISMISSAL",
     }
 )
 

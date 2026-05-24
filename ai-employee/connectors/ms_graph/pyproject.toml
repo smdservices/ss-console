@@ -1,0 +1,29 @@
+[project]
+name = "ai-employee-ms-graph"
+version = "0.1.0"
+description = "Microsoft Graph adapter for SMD's AI Employee — Email, Calendar, OneDrive (DocumentStorage) capabilities. Phase 1 read + draft only; Mail.Send deferred to wave 2 (#881)."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "SMD Services" }]
+license = { text = "MIT" }
+dependencies = [
+  "httpx>=0.28.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+  "pytest-asyncio>=0.23.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ms_graph*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

@@ -58,7 +58,40 @@ from .hermes_hook import (
     ToolCallResult,
     TrustCeilingEnforcer,
 )
+from .curator_interceptor import (
+    CuratorDraftStateError,
+    CuratorEvidenceRequired,
+    CuratorInterceptor,
+    CuratorNativeWriteBlocked,
+    CuratorTargetRequired,
+    DraftType,
+    SkillDraft,
+    verify_curator_intercepted,
+)
+from .honcho_interceptor import (
+    HonchoEvidenceRequired,
+    HonchoInterceptor,
+    HonchoNativeWriteBlocked,
+    HonchoObservation,
+    HonchoObservationStateError,
+    ObservationType,
+    verify_honcho_intercepted,
+)
 from .trust_ceiling import ActionClass, Ceiling, enforce
+
+# Audit action_type classes emitted by the Honcho overlay (ADR 0016 §7).
+# Re-exported here so the overlay's dispatch path and operational tooling
+# have a single import surface; the values themselves are members of
+# `audit_log.ACCEPTED_ACTION_TYPES`.
+HONCHO_AUDIT_ACTION_OBSERVATION = "HONCHO_OBSERVATION"
+HONCHO_AUDIT_ACTION_PROMOTION = "HONCHO_PROMOTION"
+HONCHO_AUDIT_ACTION_DISMISSAL = "HONCHO_DISMISSAL"
+
+# Audit action_type classes emitted by the Skill Curator overlay (ADR 0017 §8).
+# Same import-surface rationale as the Honcho constants above.
+CURATOR_AUDIT_ACTION_DRAFT = "CURATOR_DRAFT"
+CURATOR_AUDIT_ACTION_PROMOTION = "CURATOR_PROMOTION"
+CURATOR_AUDIT_ACTION_DISMISSAL = "CURATOR_DISMISSAL"
 
 log = logging.getLogger("aie.adapter")
 
@@ -371,15 +404,36 @@ def register(
 __all__ = [
     "ActionClass",
     "BlockedToolCall",
+    "CURATOR_AUDIT_ACTION_DISMISSAL",
+    "CURATOR_AUDIT_ACTION_DRAFT",
+    "CURATOR_AUDIT_ACTION_PROMOTION",
     "Ceiling",
+    "CuratorDraftStateError",
+    "CuratorEvidenceRequired",
+    "CuratorInterceptor",
+    "CuratorNativeWriteBlocked",
+    "CuratorTargetRequired",
     "DEFAULT_PINNED_SLOT_KEYS",
     "DefaultTrustCeilingEnforcer",
+    "DraftType",
+    "HONCHO_AUDIT_ACTION_DISMISSAL",
+    "HONCHO_AUDIT_ACTION_OBSERVATION",
+    "HONCHO_AUDIT_ACTION_PROMOTION",
+    "HonchoEvidenceRequired",
+    "HonchoInterceptor",
+    "HonchoNativeWriteBlocked",
+    "HonchoObservation",
+    "HonchoObservationStateError",
     "HookActionClass",
     "HookRegistry",
+    "ObservationType",
     "PinnedSlots",
+    "SkillDraft",
     "ToolCallContext",
     "ToolCallResult",
     "TrustCeilingEnforcer",
     "enforce",
     "register",
+    "verify_curator_intercepted",
+    "verify_honcho_intercepted",
 ]
