@@ -475,3 +475,174 @@ def _make_tool_fn(return_value):
         return return_value
 
     return fn
+
+
+# ---------------------------------------------------------------------------
+# SMD overlay surface registration (ADR 0015 - PR 3)
+# ---------------------------------------------------------------------------
+#
+# register() must call smd.hooks.<surface>.register_smd_adapter(...) for
+# each overlay surface IN ADDITION to the in-tree HookRegistry wiring,
+# and must tolerate three states cleanly:
+#
+#   1. smd package absent      (dev / test / pre-fork-install)
+#   2. smd present but scaffold (PR 1 ships TODO stubs that raise
+#                                NotImplementedError)
+#   3. smd present and implemented (post-consumer-PRs steady state)
+#
+# In all three states the in-tree four-hook registration is unconditional
+# and must complete. The overlay registration is best-effort and logged.
+
+
+def _import_aie_adapter_module():
+    """Resolve the actual aie_adapter module so monkeypatch can mutate it
+    regardless of whether the test imports it as `adapter.aie_adapter` or
+    `aie_adapter` depending on PYTHONPATH ordering."""
+    import adapter.aie_adapter as mod
+
+    return mod
+
+
+def test_overlay_registration_absent_smd_package_does_not_break_register(caplog):
+    """State 1: smd is not on PYTHONPATH. register() returns a fully-wired
+    in-tree registry; the overlay branch is logged at INFO level and
+    returns 0 registered surfaces."""
+    mod = _import_aie_adapter_module()
+    # Sanity: no smd package available in this test environment.
+    with pytest.raises(ModuleNotFoundError):
+        __import__("smd.hooks.audit_emission")
+
+    with caplog.at_level("INFO", logger="aie.adapter"):
+        reg = mod.register()
+
+    assert isinstance(reg, HookRegistry)
+    # In-tree four-hook installation still completed: every re-register
+    # call should raise because each slot already holds a hook.
+    with pytest.raises(RuntimeError, match="pre_tool"):
+        reg.register_pre_tool(lambda ctx: None)  # type: ignore[arg-type]
+
+    # The bail-early branch logs once and stops; expect the "0/4 SMD overlay
+    # surface(s) bound" line in the summary.
+    summary_lines = [r.message for r in caplog.records if "SMD overlay surface" in r.message]
+    assert any("0/4 SMD overlay surface(s) bound" in m for m in summary_lines)
+
+
+def test_overlay_registration_scaffold_only_continues_per_surface(monkeypatch, caplog):
+    """State 2: every overlay surface raises NotImplementedError (the
+    initial scaffold shipped by PR 1). register() catches each, warns,
+    and registered_count is 0."""
+    mod = _import_aie_adapter_module()
+
+    fake_modules: dict[str, object] = {}
+
+    class _FakeOverlaySurface:
+        def __init__(self, label: str) -> None:
+            self.label = label
+
+        def register_smd_adapter(self, registry, *, customer_id):
+            raise NotImplementedError(
+                f"smd.hooks.{self.label}.register_smd_adapter is a scaffold"
+            )
+
+    for module_path, label in mod._OVERLAY_SURFACES:
+        fake_modules[module_path] = _FakeOverlaySurface(label)
+        monkeypatch.setitem(sys.modules, module_path, fake_modules[module_path])
+
+    with caplog.at_level("WARNING", logger="aie.adapter"):
+        reg = mod.register()
+
+    assert isinstance(reg, HookRegistry)
+    # In-tree wiring is unaffected.
+    with pytest.raises(RuntimeError, match="pre_tool"):
+        reg.register_pre_tool(lambda ctx: None)  # type: ignore[arg-type]
+
+    scaffold_warnings = [
+        r for r in caplog.records if "is a scaffold" in r.message and r.levelname == "WARNING"
+    ]
+    assert len(scaffold_warnings) == len(mod._OVERLAY_SURFACES), (
+        f"expected one scaffold-warning per surface, got {len(scaffold_warnings)}: "
+        f"{[r.message for r in scaffold_warnings]}"
+    )
+
+
+def test_overlay_registration_calls_each_surface_with_registry_and_customer_id(monkeypatch):
+    """State 3: implemented overlay surfaces. register_smd_adapter is
+    invoked once per surface with (registry, customer_id=...). The
+    registry passed to each is the SAME object returned by register()."""
+    mod = _import_aie_adapter_module()
+
+    calls: list[tuple[str, object, str]] = []
+
+    class _LiveOverlaySurface:
+        def __init__(self, label: str) -> None:
+            self.label = label
+
+        def register_smd_adapter(self, registry, *, customer_id):
+            calls.append((self.label, registry, customer_id))
+
+    for module_path, label in mod._OVERLAY_SURFACES:
+        monkeypatch.setitem(sys.modules, module_path, _LiveOverlaySurface(label))
+
+    reg = mod.register()
+
+    assert isinstance(reg, HookRegistry)
+    assert len(calls) == len(mod._OVERLAY_SURFACES), calls
+    expected_labels = [label for (_, label) in mod._OVERLAY_SURFACES]
+    assert [c[0] for c in calls] == expected_labels
+    for _, registry_arg, customer_id_arg in calls:
+        assert registry_arg is reg, "overlay call must receive the same registry"
+        # customer_id defaults to "unknown" when no customer.yaml is loaded.
+        assert isinstance(customer_id_arg, str) and len(customer_id_arg) > 0
+
+
+def test_overlay_registration_one_scaffold_does_not_block_other_surfaces(monkeypatch):
+    """Mixed state: one overlay surface is implemented, one raises
+    NotImplementedError, the rest are implemented. register() must still
+    invoke the implemented surfaces and skip only the scaffold one."""
+    mod = _import_aie_adapter_module()
+
+    successful_labels: list[str] = []
+
+    class _LiveOverlaySurface:
+        def __init__(self, label: str) -> None:
+            self.label = label
+
+        def register_smd_adapter(self, registry, *, customer_id):
+            successful_labels.append(self.label)
+
+    class _ScaffoldOverlaySurface:
+        def register_smd_adapter(self, registry, *, customer_id):
+            raise NotImplementedError("still a scaffold")
+
+    surfaces = mod._OVERLAY_SURFACES
+    scaffold_index = 1  # arbitrary middle surface
+    for i, (module_path, label) in enumerate(surfaces):
+        if i == scaffold_index:
+            monkeypatch.setitem(sys.modules, module_path, _ScaffoldOverlaySurface())
+        else:
+            monkeypatch.setitem(sys.modules, module_path, _LiveOverlaySurface(label))
+
+    reg = mod.register()
+
+    assert isinstance(reg, HookRegistry)
+    expected_successes = [
+        label for i, (_, label) in enumerate(surfaces) if i != scaffold_index
+    ]
+    assert successful_labels == expected_successes, (
+        f"expected implemented surfaces to register; got {successful_labels}"
+    )
+
+
+def test_overlay_helper_returns_zero_when_smd_root_missing():
+    """The _register_overlay_surface helper bails early on the first
+    ModuleNotFoundError because all overlay surfaces share the same root
+    package; the helper returns the count of surfaces registered so far
+    (0 in this case)."""
+    mod = _import_aie_adapter_module()
+    # Ensure smd is not on sys.modules.
+    for module_path, _ in mod._OVERLAY_SURFACES:
+        sys.modules.pop(module_path, None)
+
+    registry = HookRegistry()
+    count = mod._register_overlay_surface(registry, customer_id="test-customer")
+    assert count == 0
