@@ -447,6 +447,14 @@ export async function getDraft(
  *                    ADR 0005 §Decision). Used in the "drafted by"
  *                    preamble in the review UI. Never crosses the
  *                    external boundary.
+ *   personaSlug    — Internal canonical slug for the persona that
+ *                    drafted this message (e.g. "marcus") per ADR 0011
+ *                    §3. Nullable in v1 where every customer ships
+ *                    with a single persona; writers populate from
+ *                    `customer.yaml.personas[0].slug`. Carried through
+ *                    audit attribution (`send_approved.persona_slug`)
+ *                    so Phase 2's multi-persona back-fill rule (§6)
+ *                    has a stable join key.
  *   personaDraftedAt — ISO timestamp when the AI Employee created the
  *                      draft. Reviewer-facing chronology.
  *   reviewerEmail  — The email account the draft is staged into. This
@@ -541,6 +549,7 @@ export interface SourceItem {
 export interface DraftDetail extends Draft {
   bodyPlain: string
   personaName: string
+  personaSlug: string | null
   personaDraftedAt: string
   reviewerEmail: string
   sendStatus: DraftSendStatus

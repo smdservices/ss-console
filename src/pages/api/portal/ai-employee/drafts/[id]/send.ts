@@ -157,12 +157,19 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   // event records whether the connector actually shipped the
   // message, queued it, or refused — keeping the approval action
   // and the dispatch outcome bound in the same row.
+  //
+  // personaSlug carries the AI Employee identity that drafted the
+  // message (per ADR 0011 §3). v1 ships single-persona customers, so
+  // the draft's personaSlug is sourced from `customer.yaml.personas[0].slug`
+  // by the Hermes bridge. Nullable for forward-compatibility with the
+  // pre-bridge stub which returns null until #821 lands.
   const auditEvent = buildSendApprovedAuditEvent({
     approverId: reviewer.userId,
     approverEmail: reviewer.email,
     draftId,
     draftHash,
     reviewerEmail: result.reviewerEmail,
+    personaSlug: draft.personaSlug,
     sendWindowMs: undoWindowMs,
     sendStatus: result.status === 'queued_undo' ? 'pending_connector' : result.status,
   })
