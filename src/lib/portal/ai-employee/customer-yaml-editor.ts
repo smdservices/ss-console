@@ -469,6 +469,9 @@ function mergeConnectors(
       scopes: update.scopes,
       // token_ref locked — pulled from current, never from input.
       token_ref: existing.token_ref,
+      // composio_connection_id locked — issue #850, isolation enforcement
+      // requires this stay bound to the customer slug at provisioning.
+      composio_connection_id: existing.composio_connection_id,
     }
   }
   return merged

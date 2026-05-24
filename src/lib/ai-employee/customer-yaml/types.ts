@@ -110,6 +110,12 @@ export interface Connector {
   enabled: boolean
   scopes: string[]
   token_ref: string | null
+  /** Composio connection ID for Composio-managed connectors
+   * (`backend: composio:*`). Required when backend is composio:, must be
+   * absent for other backends. Shape is enforced as `conn_{customer_id}_{suffix}`
+   * — see ai-employee/adapter/connectors/composio_assertion.py for the
+   * runtime backstop (issue #850). */
+  composio_connection_id: string | null
 }
 
 export interface Scope {
