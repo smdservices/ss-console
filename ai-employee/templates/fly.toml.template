@@ -23,6 +23,7 @@ primary_region = "{{FLY_REGION}}"
   dockerfile = "../../templates/Dockerfile"
   [build.args]
     HERMES_REF = "{{HERMES_REF}}"
+    HERMES_UPSTREAM_SHA = "{{HERMES_UPSTREAM_SHA}}"
     CUSTOMER_SLUG = "{{CUSTOMER_SLUG}}"
 
 # Persistent volume hosting (10GB, was 1GB pre-§6 rework):

@@ -21,9 +21,22 @@
 #   - ai-employee/templates/bootstrap.sh
 
 # ---------- Build args ----------
-# Hermes uses date-based tags (v2026.MM.DD). Pinned to v2026.5.16 per §6.
-# Move to a SHA pin once the upstream tag-vs-SHA workflow stabilizes.
-ARG HERMES_REF=v2026.5.16
+# customer.yaml.hermes_ref pins a fork tag of the form vYYYY.M.D-smd.N per
+# ADR 0015 (rewritten) and SMD_FORK_POLICY.md on venturecrane/hermes-agent.
+# The customer.yaml validator (src/lib/ai-employee/customer-yaml/helpers.ts,
+# PR #1037) enforces that shape. We clone from the venturecrane fork because
+# only the fork carries those tags; for the no-patches discipline, the
+# post-clone assertion below verifies the tag points at the matching upstream
+# commit SHA — any divergence fails the build (load-bearing for AGPL §13
+# unmodified-deployment safe harbor).
+ARG HERMES_REF=v2026.5.16-smd.0
+
+# Upstream commit SHA at the equivalent NousResearch/hermes-agent tag. The
+# build orchestrator pins this alongside HERMES_REF. If the fork tag points
+# anywhere else, the fork is carrying patches and the build fails. The default
+# below is the SHA for upstream tag v2026.5.16, documented in
+# SMD_FORK_POLICY.md (venturecrane/hermes-agent) and SMD_CHANGELOG.md.
+ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 
 # Honcho upstream is plastic-labs/honcho (AGPL-3.0). Pinned via the pip
 # package version below. TODO(ci): add a CI assertion that the installed
@@ -42,10 +55,19 @@ ARG CUSTOMER_SLUG=customer-zero
 # ---------- Stage 1: clone Hermes at pinned ref ----------
 FROM alpine/git:2.45.2 AS hermes_source
 ARG HERMES_REF
+ARG HERMES_UPSTREAM_SHA
 WORKDIR /src
 RUN git clone --depth 1 --branch ${HERMES_REF} \
-    https://github.com/NousResearch/hermes-agent.git . \
- && git rev-parse HEAD > /src/HERMES_SHA
+    https://github.com/venturecrane/hermes-agent.git . \
+ && git rev-parse HEAD > /src/HERMES_SHA \
+ && INSTALLED_SHA="$(cat /src/HERMES_SHA)" \
+ && if [ "${INSTALLED_SHA}" != "${HERMES_UPSTREAM_SHA}" ]; then \
+      echo "FATAL: Hermes fork tag ${HERMES_REF} points at ${INSTALLED_SHA}" >&2 ; \
+      echo "       Expected upstream SHA ${HERMES_UPSTREAM_SHA}." >&2 ; \
+      echo "       The fork carries patches; AGPL §13 safe-harbor invalid." >&2 ; \
+      echo "       See ADR 0015 and SMD_FORK_POLICY.md on venturecrane/hermes-agent." >&2 ; \
+      exit 1 ; \
+    fi
 
 # ---------- Stage 2: runtime image ----------
 FROM ghcr.io/astral-sh/uv:0.11.6-python3.13-trixie AS uv_source

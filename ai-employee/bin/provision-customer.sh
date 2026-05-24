@@ -100,6 +100,21 @@ APP_NAME="hermes-${SLUG}"
 
 log "App: ${APP_NAME} · region: ${FLY_REGION} · machine: ${MACHINE_SIZE}/${MEMORY_MB}MB · hermes: ${HERMES_REF}"
 
+# ---------- Step 1b: resolve Hermes upstream SHA for no-patches assertion ----------
+# Strip the -smd.N (or -smd.security.N) suffix from the fork tag to get the
+# equivalent upstream tag. Look up its SHA via git ls-remote against
+# NousResearch/hermes-agent. The Dockerfile asserts the fork tag's HEAD
+# matches this SHA; any divergence fails the build (ADR 0015 no-patches
+# discipline, load-bearing for AGPL §13 unmodified-deployment safe harbor).
+UPSTREAM_REF="${HERMES_REF%-smd.*}"
+[ "${UPSTREAM_REF}" != "${HERMES_REF}" ] || die "hermes_ref ${HERMES_REF} does not match the vYYYY.M.D-smd.N fork-tag pattern (PR #1037 validator)"
+
+log "Resolving upstream SHA for ${UPSTREAM_REF} (stripped from ${HERMES_REF})..."
+HERMES_UPSTREAM_SHA=$(git ls-remote --tags https://github.com/NousResearch/hermes-agent.git "refs/tags/${UPSTREAM_REF}" | awk '{print $1}' | head -1)
+[ -n "${HERMES_UPSTREAM_SHA}" ] || die "Could not resolve upstream SHA for ${UPSTREAM_REF}; check the tag exists at NousResearch/hermes-agent"
+[ "${#HERMES_UPSTREAM_SHA}" -eq 40 ] || die "Resolved upstream SHA has unexpected length (got ${#HERMES_UPSTREAM_SHA}, expected 40): ${HERMES_UPSTREAM_SHA}"
+log "Upstream SHA: ${HERMES_UPSTREAM_SHA}"
+
 # ---------- Step 2: upload customer.yaml to R2 ----------
 # bootstrap.sh fetches this from R2 on first boot and writes it to
 # /opt/data/customer.yaml. Doing the upload BEFORE the Fly deploy means the
@@ -124,6 +139,7 @@ sed -e "s/{{CUSTOMER_SLUG}}/${SLUG}/g" \
     -e "s/{{MACHINE_SIZE}}/${MACHINE_SIZE}/g" \
     -e "s/{{MEMORY_MB}}/${MEMORY_MB}/g" \
     -e "s/{{HERMES_REF}}/${HERMES_REF}/g" \
+    -e "s/{{HERMES_UPSTREAM_SHA}}/${HERMES_UPSTREAM_SHA}/g" \
     -e "s|{{R2_BUCKET_CONFIG}}|${R2_BUCKET_CONFIG}|g" \
     "${TEMPLATE_DIR}/fly.toml.template" > "${RENDERED_DIR}/fly.toml"
 log "Rendered to ${RENDERED_DIR}/fly.toml"
@@ -206,7 +222,10 @@ fly secrets deploy -a "${APP_NAME}" 2>/dev/null || true
 
 # ---------- Step 7: deploy ----------
 log "Deploying ${APP_NAME}..."
-(cd "${REPO_ROOT}" && fly deploy --config "${RENDERED_DIR}/fly.toml" --build-arg HERMES_REF="${HERMES_REF}" --build-arg CUSTOMER_SLUG="${SLUG}")
+(cd "${REPO_ROOT}" && fly deploy --config "${RENDERED_DIR}/fly.toml" \
+  --build-arg HERMES_REF="${HERMES_REF}" \
+  --build-arg HERMES_UPSTREAM_SHA="${HERMES_UPSTREAM_SHA}" \
+  --build-arg CUSTOMER_SLUG="${SLUG}")
 
 # ---------- Step 8: boot smoke test ----------
 # The boot-smoke-test.sh script exercises the Postgres → Redis → Honcho →

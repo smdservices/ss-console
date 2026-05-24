@@ -6,7 +6,7 @@ Templates an operator copies during provisioning. Each file is read once at prov
 
 A customer Machine is a single Fly.io Machine running one container that supervises multiple processes under `tini`. Inside that container:
 
-- **Hermes Agent** (`NousResearch/hermes-agent`, pinned via `customer.yaml.hermes_ref`) — the substrate. Skills, profiles, the tool registry, the plugin hook surface, and MCP integration are all Hermes-native. We do not modify core files (ADR 0015).
+- **Hermes Agent** — the substrate. Skills, profiles, the tool registry, the plugin hook surface, and MCP integration are all Hermes-native. We do not modify core files (ADR 0015). Pinned via `customer.yaml.hermes_ref` to a fork tag (`vYYYY.M.D-smd.N`) on `venturecrane/hermes-agent`. The Dockerfile's stage-1 clone runs against the fork and asserts the cloned commit SHA matches the equivalent upstream tag's SHA from `NousResearch/hermes-agent` — divergence means the fork is patched and the build fails. This is the load-bearing enforcement of the no-patches discipline (ADR 0015 + AGPL §13 safe harbor).
 - **Honcho** — self-hosted from the upstream image, stock binary, configuration-only customization. Honcho's data store is the in-container Postgres; Redis is its cache.
 - **Postgres** — local data store for Honcho.
 - **Redis** — local cache for Honcho (AOF-persisted on the volume).
