@@ -3,6 +3,14 @@
 # Rendered by provision-customer.sh: every {{TOKEN}} substituted before
 # `fly deploy`. The template is the only fly.toml the repo holds; per-
 # customer rendered output is gitignored.
+#
+# Architecture (per §6 of the build plan):
+#   - Single Machine, single container, multi-process supervised by tini.
+#   - Inside the container: Postgres + Redis + Honcho (FastAPI) + Hermes
+#     Agent + customer-sync sidecar + the four hermes-smd-overlay plugins.
+#   - customer.yaml is NOT baked into the image. bootstrap.sh fetches it
+#     from R2 on first boot. The customer-sync sidecar polls R2 for
+#     non-structural edits at a 5-minute cadence.
 
 app = "hermes-{{CUSTOMER_SLUG}}"
 primary_region = "{{FLY_REGION}}"
@@ -17,22 +25,46 @@ primary_region = "{{FLY_REGION}}"
     HERMES_REF = "{{HERMES_REF}}"
     CUSTOMER_SLUG = "{{CUSTOMER_SLUG}}"
 
-# Persistent volume for Hermes state (SQLite + markdown vault + session files).
-# Memory layer per the stack eval also writes to D1/R2/Vectorize via MCP, but
-# Hermes' own local state lives here.
+# Persistent volume hosting (10GB, was 1GB pre-§6 rework):
+#   /opt/data/customer.yaml         — R2-mirrored live config (ADR 0019)
+#   /opt/data/honcho/pg/            — Postgres data dir (Honcho's store)
+#   /opt/data/honcho/redis/         — Redis AOF (Honcho's cache)
+#   /opt/data/audit.db              — per-customer audit log SQLite
+#   /opt/data/observations.db       — Honcho-mirror SQLite (ADR 0016)
+#   /opt/data/profiles/<slug>/      — Hermes per-persona profiles (ADR 0011)
+#   /opt/data/oauth/                — per-provider OAuth token files (ADR 0010)
+#   /opt/data/voice/samples-cache/  — voice samples warm cache (R2-backed)
+# 10GB headroom accommodates Postgres + Redis + SQLite growth and the voice
+# samples cache; we don't want to manage per-customer disk pressure.
 [mounts]
   source = "hermes_state"
   destination = "/opt/data"
 
 [env]
+  # Hermes runtime
   HERMES_HOME = "/opt/data"
   CUSTOMER_SLUG = "{{CUSTOMER_SLUG}}"
   HERMES_LOG_LEVEL = "info"
-  # AIEmployee adapter reads /app/customer.yaml at boot for skill version pins
-  # and trust-ceiling config; no env var needed.
 
-# Smallest machine class for customer-zero / lightweight workloads. Per-customer
-# customer.yaml can override via provision-customer.sh's --machine-size flag.
+  # R2 config bucket — bucket NAME is not a credential; the keys are
+  # (set via fly secrets). bootstrap.sh fetches s3://${R2_BUCKET_CONFIG}/vaults/${CUSTOMER_SLUG}/customer.yaml
+  # on first boot and the customer-sync sidecar polls the same key.
+  R2_BUCKET_CONFIG = "{{R2_BUCKET_CONFIG}}"
+
+  # Per-customer SQLite paths. The hermes-smd-audit and hermes-smd-memory-mirror
+  # plugins resolve these to absolute file paths under the mounted volume.
+  SMD_D1_AUDIT_BINDING = "/opt/data/audit.db"
+  SMD_D1_OBSERVATIONS_BINDING = "/opt/data/observations.db"
+
+  # Honcho is in-container. The plugin code reaches it on localhost; the
+  # Postgres database URL points at the in-container Postgres that bootstrap.sh
+  # starts before Honcho. Per ADR 0016, Honcho runs unmodified, stock binary.
+  HONCHO_BASE_URL = "http://localhost:8000"
+  HONCHO_DATABASE_URL = "postgresql://honcho@localhost:5432/honcho"
+
+# Smallest sensible machine class. Postgres + Redis + Honcho + Hermes need
+# more memory than the pre-§6 1024MB single-process Hermes did. Per-customer
+# customer.yaml.machine.memory_mb overrides this default at render time.
 [[vm]]
   size = "{{MACHINE_SIZE}}"
   memory = "{{MEMORY_MB}}"
@@ -40,13 +72,15 @@ primary_region = "{{FLY_REGION}}"
   cpus = 1
 
 # No public HTTP service — Hermes operates over MCP/gateway adapters, not as
-# a web server. SSH-only access via `fly ssh console`. No `[[services]]` block
-# because we don't expose ports; no `[processes]` block because the Dockerfile
-# ENTRYPOINT (tini -- bootstrap.sh) is the only process.
+# a web server. Honcho's FastAPI server binds to localhost only. SSH-only
+# access via `fly ssh console`. No `[[services]]` block because we don't
+# expose ports; no `[processes]` block because the Dockerfile ENTRYPOINT
+# (tini -- bootstrap.sh) is the only process and tini supervises the rest.
 
-# Restart policy: if the agent loop crashes, Fly restarts it. The safety
-# substrate re-runs on every start, so an unhealthy build can't loop into
-# production behavior.
+# Restart policy: if any child process under tini dies, tini reaps it and
+# bootstrap.sh re-sequences. If the whole container exits non-zero, Fly
+# restarts it. The safety substrate re-runs on every start, so an unhealthy
+# build can't loop into production behavior.
 [[restart]]
   policy = "on-failure"
   max_retries = 3

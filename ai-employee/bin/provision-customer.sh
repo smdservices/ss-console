@@ -1,14 +1,30 @@
 #!/usr/bin/env bash
-# provision-customer.sh — one command to stand up a customer's Hermes instance
+# provision-customer.sh — one command to stand up a customer's Hermes Machine
 #
 # Usage:
 #   ai-employee/bin/provision-customer.sh <slug>
 #
-# Reads ai-employee/customers/<slug>/customer.yaml, validates it, renders
+# Reads ai-employee/customers/<slug>/customer.yaml, validates it, uploads
+# customer.yaml to R2 (so bootstrap.sh can fetch it on first boot — no more
+# baking into the image per §6 of the build plan), renders
 # ai-employee/.rendered/<slug>/fly.toml (gitignored), creates the Fly app,
-# provisions the volume, prompts Captain for secrets (pasted via pbpaste —
-# values never appear in the chat transcript), deploys, runs the prod
-# smoke test.
+# provisions the volume (10GB — hosts Postgres + Redis + customer.yaml +
+# SQLite + voice cache), prompts Captain for secrets (pasted via pbpaste —
+# values never appear in the chat transcript), deploys, then runs the boot
+# smoke test (boot-smoke-test.sh) to verify the Postgres/Redis/Honcho/Hermes
+# dependency chain came up cleanly.
+#
+# Operator prerequisites (set in your shell / .envrc / direnv before running):
+#   R2_ENDPOINT_URL        — Cloudflare R2 endpoint (https://<account>.r2.cloudflarestorage.com)
+#   R2_ACCESS_KEY_ID       — R2 access key (operator-local, used for `aws s3 cp` upload)
+#   R2_SECRET_ACCESS_KEY   — R2 secret (operator-local)
+#   R2_BUCKET_CONFIG       — R2 bucket holding customer.yaml + voice vaults
+#                            (defaults to "smd-customer-config" if unset)
+#
+# The same R2_* values get pushed into the Machine as Fly secrets so bootstrap.sh
+# can pull customer.yaml back out. The operator's local R2 creds and the
+# Machine's R2 creds may be the same credential or different ones — they live
+# in different scopes.
 #
 # Idempotent: safe to re-run. If `fly apps create` finds the app already
 # exists, the script moves on; if secrets are already set, it skips
@@ -24,12 +40,27 @@ CUSTOMER_DIR="${REPO_ROOT}/ai-employee/customers/${SLUG}"
 CUSTOMER_YAML="${CUSTOMER_DIR}/customer.yaml"
 TEMPLATE_DIR="${REPO_ROOT}/ai-employee/templates"
 RENDERED_DIR="${REPO_ROOT}/ai-employee/.rendered/${SLUG}"
+BIN_DIR="${REPO_ROOT}/ai-employee/bin"
 
 [ -d "${CUSTOMER_DIR}" ] || { echo "FATAL: ${CUSTOMER_DIR} not found"; exit 1; }
 [ -f "${CUSTOMER_YAML}" ] || { echo "FATAL: ${CUSTOMER_YAML} missing"; exit 1; }
 
 log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [provision/${SLUG}] $*"; }
 die() { log "FATAL: $*"; exit 1; }
+
+# ---------- Step 0: verify operator R2 credentials ----------
+# These live in the operator's local shell (e.g., direnv / .envrc); they are
+# used by `aws s3 cp` for the customer.yaml upload below. The same logical
+# credentials (or scoped versions of them) are pushed to Fly secrets so the
+# Machine can fetch from R2 at boot — but those are set via pbpaste below,
+# not echoed here.
+R2_BUCKET_CONFIG="${R2_BUCKET_CONFIG:-smd-customer-config}"
+[ -n "${R2_ENDPOINT_URL:-}" ] || die "R2_ENDPOINT_URL not set in operator env (see header for prerequisites)"
+[ -n "${R2_ACCESS_KEY_ID:-}" ] || die "R2_ACCESS_KEY_ID not set in operator env"
+[ -n "${R2_SECRET_ACCESS_KEY:-}" ] || die "R2_SECRET_ACCESS_KEY not set in operator env"
+command -v aws >/dev/null 2>&1 || die "aws CLI not found (required for R2 customer.yaml upload)"
+command -v openssl >/dev/null 2>&1 || die "openssl not found (required for HONCHO_API_KEY generation)"
+command -v pbpaste >/dev/null 2>&1 || die "pbpaste not found (macOS-only; required for secret entry flow)"
 
 # ---------- Step 1: validate customer.yaml ----------
 log "Validating customer.yaml..."
@@ -49,9 +80,9 @@ with open('${CUSTOMER_YAML}') as f:
 m = c.get('machine', {})
 print(c['customer_id'])
 print(c['fly_region'])
-print(m.get('size', 'shared-cpu-1x'))
-print(m.get('memory_mb', 1024))
-print(c.get('hermes_ref', 'v0.13.0'))
+print(m.get('size', 'shared-cpu-2x'))
+print(m.get('memory_mb', 2048))
+print(c.get('hermes_ref', 'v2026.5.16-smd.0'))
 "
 # Portable line-array read (macOS bash 3.2 doesn't have mapfile)
 FIELDS=()
@@ -69,7 +100,23 @@ APP_NAME="hermes-${SLUG}"
 
 log "App: ${APP_NAME} · region: ${FLY_REGION} · machine: ${MACHINE_SIZE}/${MEMORY_MB}MB · hermes: ${HERMES_REF}"
 
-# ---------- Step 2: render fly.toml ----------
+# ---------- Step 2: upload customer.yaml to R2 ----------
+# bootstrap.sh fetches this from R2 on first boot and writes it to
+# /opt/data/customer.yaml. Doing the upload BEFORE the Fly deploy means the
+# first Machine boot can succeed (otherwise the boot would race against a
+# missing config). The customer-sync sidecar (from the overlay bootstrap/
+# package) polls this same key for non-structural updates.
+R2_CONFIG_KEY="vaults/${SLUG}/customer.yaml"
+log "Uploading customer.yaml to R2: s3://${R2_BUCKET_CONFIG}/${R2_CONFIG_KEY}"
+AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}" \
+AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}" \
+  aws s3 cp "${CUSTOMER_YAML}" "s3://${R2_BUCKET_CONFIG}/${R2_CONFIG_KEY}" \
+    --endpoint-url "${R2_ENDPOINT_URL}" \
+    --only-show-errors \
+  || die "R2 upload failed; bootstrap.sh would not be able to fetch customer.yaml"
+log "R2 upload OK"
+
+# ---------- Step 3: render fly.toml ----------
 log "Rendering fly.toml..."
 mkdir -p "${RENDERED_DIR}"
 sed -e "s/{{CUSTOMER_SLUG}}/${SLUG}/g" \
@@ -77,10 +124,11 @@ sed -e "s/{{CUSTOMER_SLUG}}/${SLUG}/g" \
     -e "s/{{MACHINE_SIZE}}/${MACHINE_SIZE}/g" \
     -e "s/{{MEMORY_MB}}/${MEMORY_MB}/g" \
     -e "s/{{HERMES_REF}}/${HERMES_REF}/g" \
+    -e "s|{{R2_BUCKET_CONFIG}}|${R2_BUCKET_CONFIG}|g" \
     "${TEMPLATE_DIR}/fly.toml.template" > "${RENDERED_DIR}/fly.toml"
 log "Rendered to ${RENDERED_DIR}/fly.toml"
 
-# ---------- Step 3: create Fly app (idempotent) ----------
+# ---------- Step 4: create Fly app (idempotent) ----------
 log "Creating Fly app (idempotent)..."
 if fly apps list --json | python3 -c "import sys, json; sys.exit(0 if '${APP_NAME}' in [a['Name'] for a in json.load(sys.stdin)] else 1)"; then
   log "App ${APP_NAME} exists; skipping create"
@@ -88,23 +136,27 @@ else
   fly apps create "${APP_NAME}" --org personal
 fi
 
-# ---------- Step 4: create volume (idempotent) ----------
-log "Creating persistent volume (idempotent)..."
+# ---------- Step 5: create volume (idempotent, 10GB) ----------
+# Volume hosts: Postgres data (Honcho), Redis AOF (Honcho), customer.yaml
+# (R2-mirrored copy), audit.db + observations.db SQLite, Hermes profiles
+# under /opt/data/profiles/, voice samples cache, OAuth token files (ADR
+# 0010). 10GB is the new floor (was 1GB pre-§6); per-customer fixed disk
+# pressure should not be a thing we manage on a per-customer basis.
+log "Creating persistent volume (idempotent, 10GB)..."
 if fly volumes list -a "${APP_NAME}" --json 2>/dev/null | python3 -c "import sys, json; data = json.load(sys.stdin) if sys.stdin.read else []" 2>/dev/null; then
-  # Check if hermes_state exists
   if ! fly volumes list -a "${APP_NAME}" --json | grep -q '"name":"hermes_state"'; then
-    fly volumes create hermes_state --size 1 --region "${FLY_REGION}" -a "${APP_NAME}" --yes
+    fly volumes create hermes_state --size 10 --region "${FLY_REGION}" -a "${APP_NAME}" --yes
   else
     log "Volume hermes_state exists; skipping create"
   fi
 else
-  fly volumes create hermes_state --size 1 --region "${FLY_REGION}" -a "${APP_NAME}" --yes || true
+  fly volumes create hermes_state --size 10 --region "${FLY_REGION}" -a "${APP_NAME}" --yes || true
 fi
 
-# ---------- Step 5: set secrets (paste flow; never echo values) ----------
+# ---------- Step 6: set secrets (paste flow; never echo values) ----------
 log "Setting secrets via pbpaste flow..."
 log "For each prompt: copy the secret to your clipboard, then press Enter."
-log "Values flow directly into 'fly secrets set' — never appear in this terminal or any chat transcript."
+log "Values flow directly into 'fly secrets import' — never appear in this terminal or any chat transcript."
 
 prompt_and_set() {
   local secret_name="$1"
@@ -129,30 +181,46 @@ prompt_and_set ANTHROPIC_API_KEY  "Anthropic API key for hermes-${SLUG}"
 prompt_and_set COMPOSIO_API_KEY   "Composio API key (Standard tier)"
 prompt_and_set AGENTMAIL_API_KEY  "AgentMail API key (Builder tier)"
 
+# R2 access for bootstrap.sh's customer.yaml fetch + customer-sync sidecar's
+# polling for non-structural config changes. R2_BUCKET_CONFIG is in fly.toml
+# [env] (it's the bucket name, not a credential); the keys are secrets.
+prompt_and_set R2_ACCESS_KEY_ID     "R2 access key ID (Machine-scoped, R/W on s3://${R2_BUCKET_CONFIG}/vaults/${SLUG}/)"
+prompt_and_set R2_SECRET_ACCESS_KEY "R2 secret access key (paired with R2_ACCESS_KEY_ID above)"
+prompt_and_set R2_ENDPOINT_URL      "R2 endpoint URL (Cloudflare account R2 endpoint)"
+
+# HONCHO_API_KEY — generated locally, sent to Fly via stdin, never stored
+# anywhere else. Honcho is self-hosted in this Machine; this is the shared
+# secret between the Hermes process and the in-Machine Honcho FastAPI server.
+# Rotating it means re-running provisioning (Captain-initiated restart per
+# ADR 0010 to preserve OAuth tokens on the volume).
+log "Generating HONCHO_API_KEY (openssl rand -hex 32) and staging directly to Fly..."
+openssl rand -hex 32 \
+  | { read -r _val; printf 'HONCHO_API_KEY=%s\n' "${_val}"; } \
+  | fly secrets import --stage -a "${APP_NAME}" >/dev/null
+log "Staged HONCHO_API_KEY (value never logged)"
+unset _val 2>/dev/null || true
+
 # Commit staged secrets
 log "Committing staged secrets..."
 fly secrets deploy -a "${APP_NAME}" 2>/dev/null || true
 
-# ---------- Step 6: deploy ----------
+# ---------- Step 7: deploy ----------
 log "Deploying ${APP_NAME}..."
 (cd "${REPO_ROOT}" && fly deploy --config "${RENDERED_DIR}/fly.toml" --build-arg HERMES_REF="${HERMES_REF}" --build-arg CUSTOMER_SLUG="${SLUG}")
 
-# ---------- Step 7: smoke test ----------
-log "Running post-deploy smoke test..."
-# Wait for the machine to be reachable
-sleep 5
-if fly status -a "${APP_NAME}" --json | python3 -c "import sys, json; d = json.load(sys.stdin); m = d.get('Machines', [{}])[0]; sys.exit(0 if m.get('state') == 'started' else 1)"; then
-  log "Smoke test: ${APP_NAME} machine is started ✓"
+# ---------- Step 8: boot smoke test ----------
+# The boot-smoke-test.sh script exercises the Postgres → Redis → Honcho →
+# customer.yaml → profiles → Hermes plugins dependency chain. It is the real
+# verification that bootstrap.sh's sequenced startup came up cleanly.
+log "Running boot smoke test..."
+if [ -x "${BIN_DIR}/boot-smoke-test.sh" ]; then
+  "${BIN_DIR}/boot-smoke-test.sh" "${SLUG}" \
+    || die "Boot smoke test failed — Machine is up but dependency chain is unhealthy. Inspect with 'fly logs -a ${APP_NAME}'."
 else
-  log "Smoke test: ${APP_NAME} machine is NOT started — check 'fly logs -a ${APP_NAME}'"
-  exit 2
+  die "boot-smoke-test.sh not found or not executable at ${BIN_DIR}/boot-smoke-test.sh"
 fi
 
-# Hermes version check
-log "Smoke test: checking Hermes version inside container..."
-fly ssh console -a "${APP_NAME}" --command "/opt/hermes/.venv/bin/hermes --version" || log "WARN: hermes --version did not succeed; safety substrate may have blocked startup. Check fly logs."
-
-# ---------- Step 8: connector prod-smoke-test ----------
+# ---------- Step 9: per-connector prod smoke tests ----------
 # For each enabled BUILD or COMPOSIO connector, run one read-only call
 # against the customer's tenant to surface auth / scope / shape issues
 # before any write capability is exercised.
@@ -167,4 +235,5 @@ log "Provisioning complete for ${APP_NAME}"
 log "Next steps:"
 log "  1. fly ssh console -a ${APP_NAME}     # interact with the container"
 log "  2. fly logs -a ${APP_NAME}            # watch the agent loop"
-log "  3. (if any Google-OAuth-using skills are enabled) run google-workspace setup inside the container"
+log "  3. (if any OAuth-using connectors are enabled) run the relevant OAuth setup inside the container"
+log "  4. customer.yaml live at s3://${R2_BUCKET_CONFIG}/${R2_CONFIG_KEY} (non-structural edits picked up by sidecar)"

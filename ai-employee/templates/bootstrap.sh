@@ -1,17 +1,42 @@
 #!/usr/bin/env bash
-# bootstrap.sh — container entrypoint for the AI Employee customer instance
+# bootstrap.sh — container entrypoint for the AI Employee customer Machine
 #
-# Runs at container start. Validates env, resolves skill version pins from
-# /app/customer.yaml, runs the safety-substrate invariant checks, then
-# starts the Hermes agent loop under the AIEmployee adapter.
+# Per §6 of the locked build plan and ADRs 0007/0010/0016/0019, this script
+# runs an 11-step sequenced startup under tini (PID 1, zombie reaper):
+#
+#   1.  Validate required env vars.
+#   2.  Verify (or fetch from R2) /opt/data/customer.yaml.
+#   3.  Start Postgres (Honcho's data store) as a supervised child.
+#   4.  Start Redis (Honcho's queue/cache) as a supervised child.
+#   5.  Run Honcho schema migrations (idempotent).
+#   6.  Start Honcho FastAPI server as a supervised child.
+#   7.  Run `hermes-smd bootstrap` (customer.yaml -> per-profile config + SOUL.md).
+#   8.  Run the safety-substrate invariant checks (Phase A.5 gate).
+#   9.  Pause guard.
+#   10. Start `hermes-smd customer-sync` sidecar (R2 poller).
+#   11. exec Hermes (becomes the foreground child of tini).
+#
+# Storage model:
+#   - customer.yaml is volume-mounted, NOT baked into the image.
+#   - Provisioning writes it to R2 at vaults/<slug>/customer.yaml.
+#   - First boot: fetch from R2 -> /opt/data/customer.yaml.
+#   - Subsequent boots: use the volume copy.
+#
+# Process supervision:
+#   - tini (PID 1) reaps zombies and forwards signals.
+#   - Postgres, Redis, Honcho, and the customer-sync sidecar are launched
+#     under restart wrappers so a crashed dependency self-heals.
+#   - The memory-mirror plugin handles graceful degradation when Honcho is
+#     unhealthy mid-session; this script does not health-monitor Honcho at
+#     runtime (only at startup).
 #
 # Fails fast on any of:
-#   - missing required env vars (secrets not set as Fly secrets)
-#   - customer.yaml malformed or skill versions un-resolvable
+#   - missing required env vars
+#   - customer.yaml missing AND not fetchable from R2
+#   - Postgres/Redis/Honcho not healthy within bounded retries
+#   - Honcho schema migration error
+#   - `hermes-smd bootstrap` error (bad customer.yaml structure)
 #   - safety-substrate invariant test failures
-#
-# The substrate gate is non-negotiable: if any of the five invariants fail
-# their fixtures, the agent does not start. This is the OpenClaw mitigation.
 
 set -euo pipefail
 
@@ -24,22 +49,70 @@ die() {
   exit 1
 }
 
+# Bounded retry helper: wait_for <description> <max_attempts> <sleep_seconds> <check_command...>
+wait_for() {
+  local desc="$1"
+  local max="$2"
+  local delay="$3"
+  shift 3
+  local attempt=1
+  while (( attempt <= max )); do
+    if "$@" >/dev/null 2>&1; then
+      log "${desc} ready (attempt ${attempt}/${max})"
+      return 0
+    fi
+    log "${desc} not ready, retry ${attempt}/${max} in ${delay}s..."
+    sleep "${delay}"
+    attempt=$(( attempt + 1 ))
+  done
+  return 1
+}
+
+# Restart-on-crash wrapper for foundational child processes. Logs a
+# fatal-style line on each crash so the audit plugin / operator sees the
+# transition; tini still reaps the dying child.
+supervise() {
+  local name="$1"
+  shift
+  (
+    while true; do
+      log "supervisor: starting ${name}"
+      if "$@"; then
+        log "supervisor: ${name} exited 0; restarting in 5s"
+      else
+        local rc=$?
+        log "supervisor: ${name} exited ${rc}; restarting in 5s"
+      fi
+      sleep 5
+    done
+  ) &
+  log "supervisor: ${name} pid=$!"
+}
+
 CUSTOMER_SLUG="${CUSTOMER_SLUG:-}"
 [ -n "${CUSTOMER_SLUG}" ] || die "CUSTOMER_SLUG env var is unset"
-
-CUSTOMER_YAML="/app/customer.yaml"
-[ -f "${CUSTOMER_YAML}" ] || die "customer.yaml missing at ${CUSTOMER_YAML}"
 
 log "Starting bootstrap for customer: ${CUSTOMER_SLUG}"
 log "Hermes SHA: $(cat /opt/hermes/HERMES_SHA 2>/dev/null || echo unknown)"
 
-# ---------- Step 1: validate required env vars ----------
-# Secrets are set via `fly secrets set` from provision-customer.sh.
-# Never echo values; only check presence.
+# ============================================================================
+# Step 1: validate required env vars
+# ============================================================================
+# Secrets are set via `fly secrets set` from provision-customer.sh. Never echo
+# values; only check presence.
 REQUIRED_ENV=(
   ANTHROPIC_API_KEY
   COMPOSIO_API_KEY
   AGENTMAIL_API_KEY
+  # R2 access for customer.yaml fetch (vaults/<slug>/customer.yaml).
+  R2_BUCKET_CONFIG
+  R2_ACCESS_KEY_ID
+  R2_SECRET_ACCESS_KEY
+  # D1 bindings for the audit + observations mirror tables (ADR 0016/0017).
+  SMD_D1_AUDIT_BINDING
+  SMD_D1_OBSERVATIONS_BINDING
+  # Honcho FastAPI access token, generated per-Machine at provisioning.
+  HONCHO_API_KEY
 )
 
 for var in "${REQUIRED_ENV[@]}"; do
@@ -54,30 +127,166 @@ done
 OPTIONAL_ENV=(
   GOOGLE_TOKEN_JSON
   GOOGLE_CLIENT_SECRET_JSON
+  # R2 endpoint URL override (defaults to the Cloudflare R2 S3 endpoint).
+  R2_ENDPOINT_URL
 )
 
 for var in "${OPTIONAL_ENV[@]}"; do
   if [ -n "${!var:-}" ]; then
     log "env check OK: ${var} present (optional)"
   else
-    log "env check: ${var} not set (skill that needs Google OAuth will refuse)"
+    log "env check: ${var} not set (default will apply)"
   fi
 done
 
-# ---------- Step 2: resolve skill version pins ----------
-# customer.yaml's skills[] entries pin to a content-hash. We verify each
-# pinned skill exists in /app/skills/ and matches the pinned hash. A pin
-# mismatch is a deploy error — the customer is on a skill version we don't
-# have in the image. Rollback or deploy a fresh image with the right SHAs.
-log "Resolving skill version pins from customer.yaml..."
-/opt/hermes/.venv/bin/python3 /app/adapter/resolve_skill_pins.py "${CUSTOMER_YAML}" /app/skills \
-  || die "Skill pin resolution failed; check customer.yaml versions vs /app/skills/ content"
-log "Skill pins resolved OK"
+# ============================================================================
+# Step 2: verify (or fetch) customer.yaml on the volume
+# ============================================================================
+# Storage model change (§6): customer.yaml lives on the volume, not baked
+# into the image. R2 at vaults/<slug>/customer.yaml is the source of truth;
+# provisioning writes it there. Bootstrap fetches to /opt/data on first boot
+# and uses the volume copy on subsequent boots.
+CUSTOMER_YAML="/opt/data/customer.yaml"
+R2_ENDPOINT_URL="${R2_ENDPOINT_URL:-https://${R2_ACCOUNT_ID:-}.r2.cloudflarestorage.com}"
+R2_CUSTOMER_YAML_URI="s3://${R2_BUCKET_CONFIG}/vaults/${CUSTOMER_SLUG}/customer.yaml"
 
-# ---------- Step 3: run safety substrate invariant checks ----------
-# Phase A.5 gate. The five invariants must hold across compaction, restart,
-# tool failure, prompt injection, ceiling-escalation attempts. Re-runs on
-# every container start so a Hermes SHA bump can't regress the floor.
+if [ -f "${CUSTOMER_YAML}" ]; then
+  log "customer.yaml present on volume: ${CUSTOMER_YAML}"
+else
+  log "customer.yaml missing on volume; fetching from R2: ${R2_CUSTOMER_YAML_URI}"
+  # awscli is installed in the Dockerfile. R2 speaks S3 with a custom endpoint.
+  AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}" \
+  AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}" \
+    aws s3 cp \
+      --endpoint-url "${R2_ENDPOINT_URL}" \
+      "${R2_CUSTOMER_YAML_URI}" \
+      "${CUSTOMER_YAML}" \
+    || die "Failed to fetch customer.yaml from R2 (${R2_CUSTOMER_YAML_URI})"
+  log "customer.yaml fetched from R2 -> ${CUSTOMER_YAML}"
+fi
+
+# ============================================================================
+# Step 3: start Postgres (Honcho data store)
+# ============================================================================
+# Honcho stores conclusions/observations in Postgres. Data dir lives on the
+# volume so it survives Machine restarts. Initialize on first boot; subsequent
+# boots reuse the cluster. Postgres runs as the hermes user (uid 10000) — the
+# image creates the data dir with hermes ownership.
+PGDATA="/opt/data/honcho/pg"
+PG_BIN="/usr/lib/postgresql/16/bin"
+export PGDATA
+
+if [ ! -s "${PGDATA}/PG_VERSION" ]; then
+  log "Postgres data dir empty; running initdb (first boot)"
+  mkdir -p "${PGDATA}"
+  "${PG_BIN}/initdb" \
+    --pgdata "${PGDATA}" \
+    --username "honcho" \
+    --auth-local "trust" \
+    --auth-host "trust" \
+    --encoding "UTF8" \
+    --locale "C" \
+    || die "Postgres initdb failed"
+  # Listen on localhost only; no external exposure.
+  cat >> "${PGDATA}/postgresql.conf" <<EOF
+listen_addresses = '127.0.0.1'
+port = 5432
+unix_socket_directories = '/tmp'
+EOF
+  log "Postgres cluster initialized"
+fi
+
+# Supervised start. pg_ctl backgrounds itself; we use postgres directly so
+# tini sees the process. The supervise() wrapper keeps it alive.
+supervise "postgres" "${PG_BIN}/postgres" -D "${PGDATA}"
+
+# Health-wait. 30 attempts × 1s = 30s ceiling.
+if ! wait_for "Postgres" 30 1 "${PG_BIN}/pg_isready" -h 127.0.0.1 -p 5432 -U honcho; then
+  die "Postgres did not become ready within 30s"
+fi
+
+# Ensure the honcho database exists (createdb is idempotent via DO block).
+"${PG_BIN}/psql" -h 127.0.0.1 -U honcho -d postgres -tAc \
+  "SELECT 1 FROM pg_database WHERE datname='honcho'" | grep -q 1 \
+  || "${PG_BIN}/createdb" -h 127.0.0.1 -U honcho honcho \
+  || die "Failed to create honcho database"
+log "Postgres ready (database=honcho)"
+
+# ============================================================================
+# Step 4: start Redis (Honcho cache/queue)
+# ============================================================================
+# AOF persistence keeps Honcho's queue durable across restarts. Data dir lives
+# on the volume.
+REDIS_DIR="/opt/data/honcho/redis"
+mkdir -p "${REDIS_DIR}"
+
+supervise "redis" redis-server \
+  --bind 127.0.0.1 \
+  --port 6379 \
+  --appendonly yes \
+  --dir "${REDIS_DIR}" \
+  --protected-mode no \
+  --save ""
+
+if ! wait_for "Redis" 30 1 redis-cli -h 127.0.0.1 -p 6379 ping; then
+  die "Redis did not become ready within 30s"
+fi
+log "Redis ready"
+
+# ============================================================================
+# Step 5: Honcho schema migrations
+# ============================================================================
+# Idempotent — Honcho's migration runner is safe to re-run on every boot.
+# Tuned config knobs from ADR 0016 are applied via env vars consumed by the
+# Honcho process itself (set in step 6) and via the hermes-smd bootstrap
+# translator in step 7 (writes them into each profile's memory-provider
+# config). We export DB/Redis URLs here so the migration runner can find them.
+export HONCHO_DB_URL="postgresql://honcho@127.0.0.1:5432/honcho"
+export HONCHO_REDIS_URL="redis://127.0.0.1:6379/0"
+
+log "Running Honcho schema migrations..."
+python3 -m honcho.migrations \
+  || die "Honcho schema migration failed"
+log "Honcho migrations applied"
+
+# ============================================================================
+# Step 6: start Honcho FastAPI server
+# ============================================================================
+# Local-only on port 8000; the memory-mirror plugin in Hermes talks to it via
+# 127.0.0.1.
+supervise "honcho" python3 -m honcho.server \
+  --host 127.0.0.1 \
+  --port 8000
+
+if ! wait_for "Honcho FastAPI" 60 1 curl -fsS http://127.0.0.1:8000/health; then
+  die "Honcho FastAPI did not become healthy within 60s"
+fi
+log "Honcho FastAPI ready"
+
+# ============================================================================
+# Step 7: hermes-smd bootstrap (customer.yaml -> per-profile config)
+# ============================================================================
+# Installed at image build time via `pip install hermes-smd-overlay`. Reads
+# /opt/data/customer.yaml, writes N profile directories under
+# $HERMES_HOME/profiles/<slug>/ with config.yaml and SOUL.md. Each profile's
+# memory-provider block is configured to talk to the local Honcho FastAPI
+# with the ADR 0016 tuned knobs.
+log "Running hermes-smd bootstrap (customer.yaml -> profiles)..."
+hermes-smd bootstrap \
+  --customer-yaml "${CUSTOMER_YAML}" \
+  --hermes-home "${HERMES_HOME}" \
+  --honcho-url "http://127.0.0.1:8000" \
+  --honcho-api-key "${HONCHO_API_KEY}" \
+  || die "hermes-smd bootstrap failed; check customer.yaml structure"
+log "Profile config(s) generated under ${HERMES_HOME}/profiles/"
+
+# ============================================================================
+# Step 8: safety substrate invariant checks (Phase A.5 gate)
+# ============================================================================
+# PRESERVED VERBATIM from the prior bootstrap.sh. The five invariants must
+# hold across compaction, restart, tool failure, prompt injection, and
+# ceiling-escalation attempts. Re-runs on every container start so a Hermes
+# SHA bump can't regress the floor. This is the OpenClaw mitigation.
 log "Running safety substrate invariant checks (Phase A.5 gate)..."
 if ! /opt/hermes/.venv/bin/python3 /app/safety-substrate/run_invariants.py \
        --customer "${CUSTOMER_SLUG}" \
@@ -88,10 +297,12 @@ Inspect /app/safety-substrate/logs/$(date -u +%Y%m%d).log for which invariant fa
 fi
 log "Safety substrate invariants PASSED"
 
-# ---------- Step 4: pause guard ----------
-# pause-customer.sh writes a sentinel at /opt/data/.paused. If present, we
-# log and exit cleanly — keeps the machine running but agent loop dormant
-# until the operator unpauses.
+# ============================================================================
+# Step 9: pause guard
+# ============================================================================
+# PRESERVED VERBATIM from the prior bootstrap.sh. pause-customer.sh writes a
+# sentinel at /opt/data/.paused; if present, we log and park on tail so
+# `fly ssh console` still works but the agent loop stays dormant.
 if [ -f /opt/data/.paused ]; then
   log "PAUSE sentinel present at /opt/data/.paused — agent will not start"
   log "Reason: $(cat /opt/data/.paused)"
@@ -99,37 +310,37 @@ if [ -f /opt/data/.paused ]; then
   exec tail -f /dev/null
 fi
 
-# ---------- Step 5: register AIEmployee adapter with Hermes ----------
-# The adapter wraps Hermes' tool dispatch with the trust-ceiling enforcement
-# layer. Skills declare their ceiling in SKILL.md frontmatter; the adapter
-# enforces it on every tool call regardless of what the model prompt says.
-log "Registering AIEmployee adapter..."
+# ============================================================================
+# Step 10: customer-sync sidecar (R2 poller)
+# ============================================================================
+# Polls R2 at vaults/<slug>/customer.yaml every 5 minutes. On non-structural
+# change: rewrites /opt/data/customer.yaml and signals Hermes (SIGHUP) to
+# reload profile config. On structural change: logs warning + posts to admin
+# portal, but does NOT restart (preserves OAuth tokens per ADR 0010).
+log "Starting customer-sync sidecar (R2 polling every 300s)..."
+AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}" \
+AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}" \
+  hermes-smd customer-sync \
+    --customer-yaml "${CUSTOMER_YAML}" \
+    --r2-bucket "${R2_BUCKET_CONFIG}" \
+    --r2-endpoint "${R2_ENDPOINT_URL}" \
+    --interval 300 \
+    &
+SIDECAR_PID=$!
+log "customer-sync sidecar pid=${SIDECAR_PID}"
+
+# ============================================================================
+# Step 11: launch Hermes (foreground under tini)
+# ============================================================================
+# Overlay plugins were installed at image build time and live under
+# ~/.hermes/plugins/. The first profile in personas[] (the only one in v1 per
+# the §7 validator) becomes the active session. `exec` so Hermes inherits
+# PID-1-ish ownership under tini cleanly — tini still reaps the foundational
+# children (Postgres, Redis, Honcho, sidecar) launched above.
+log "Launching Hermes (overlay plugins enabled)..."
 export PYTHONPATH="/app/adapter:/app:${PYTHONPATH:-}"
 export AIE_CUSTOMER_YAML="${CUSTOMER_YAML}"
 export AIE_SKILLS_DIR="/app/skills"
 export AIE_CONNECTORS_DIR="/app/connectors"
 
-# ---------- Step 6: start Hermes ----------
-# Container already runs as the hermes user (Dockerfile sets USER hermes).
-# The Hermes CLI loads skills from $HERMES_HOME/skills/ — bootstrap has
-# already symlinked /app/skills/ into the customer's volume.
-log "Symlinking skill library into HERMES_HOME..."
-mkdir -p "${HERMES_HOME}/skills"
-ln -sfn /app/skills/* "${HERMES_HOME}/skills/" 2>/dev/null || true
-
-log "Container alive; ready for interactive Hermes sessions via 'fly ssh console'"
-# Phase A: the container stays alive so Captain can SSH in and run
-# `hermes chat` or `hermes cron` interactively. We don't start a long-running
-# agent loop here because customer-zero's gateway is `cli` (per customer.yaml)
-# — there's nothing to listen on. Future gateways (Slack, email, AgentMail
-# inbox) become the foreground process when wired in.
-#
-# To use:
-#   fly ssh console -a hermes-smd
-#   /opt/hermes/.venv/bin/hermes chat                    # interactive REPL
-#   /opt/hermes/.venv/bin/hermes cron                    # run scheduled skills
-#   /opt/hermes/.venv/bin/hermes mcp list                # list configured MCP servers
-#
-# Phase A.5 swaps this for the AIEmployee-wrapped gateway command once the
-# adapter is registered with Hermes' tool dispatch.
-exec tail -f /dev/null
+exec /opt/hermes/.venv/bin/hermes chat
