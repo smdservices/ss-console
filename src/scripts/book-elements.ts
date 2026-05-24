@@ -21,6 +21,7 @@ export interface BookElements {
   introBusinessName: HTMLInputElement
   introMessage: HTMLTextAreaElement
   slots: HTMLElement
+  slotsNoteAck: HTMLElement
   slotPicker: HTMLElement & { refetchSlots?: () => void }
   selectedSlotBanner: HTMLElement
   selectedSlotText: HTMLElement
@@ -33,8 +34,6 @@ export interface BookElements {
   closedBookedSlot: HTMLElement
   closedBookedManageRow: HTMLElement
   closedBookedManageLink: HTMLAnchorElement
-  closedSent: HTMLElement
-  closedSentBookBtn: HTMLButtonElement
   prefillTokenStore: HTMLInputElement | null
 }
 
@@ -71,6 +70,7 @@ function locateIntroParts(): IntroParts {
 
 interface SlotParts {
   slots: HTMLElement | null
+  slotsNoteAck: HTMLElement | null
   slotPicker: (HTMLElement & { refetchSlots?: () => void }) | null
   selectedSlotBanner: HTMLElement | null
   selectedSlotText: HTMLElement | null
@@ -84,6 +84,7 @@ function locateSlotParts(): SlotParts {
   const slotPickerEl = document.getElementById('slot-picker')
   return {
     slots: el('intake-slots', HTMLElement),
+    slotsNoteAck: el('slots-note-ack', HTMLElement),
     slotPicker: slotPickerEl instanceof HTMLElement ? slotPickerEl : null,
     selectedSlotBanner: el('selected-slot-banner', HTMLElement),
     selectedSlotText: el('selected-slot-text', HTMLElement),
@@ -100,8 +101,6 @@ interface ClosedParts {
   closedBookedSlot: HTMLElement | null
   closedBookedManageRow: HTMLElement | null
   closedBookedManageLink: HTMLAnchorElement | null
-  closedSent: HTMLElement | null
-  closedSentBookBtn: HTMLButtonElement | null
 }
 
 function locateClosedParts(): ClosedParts {
@@ -111,8 +110,6 @@ function locateClosedParts(): ClosedParts {
     closedBookedSlot: el('closed-booked-slot', HTMLElement),
     closedBookedManageRow: el('closed-booked-manage-row', HTMLElement),
     closedBookedManageLink: el('closed-booked-manage-link', HTMLAnchorElement),
-    closedSent: el('closed-sent', HTMLElement),
-    closedSentBookBtn: el('closed-sent-book-btn', HTMLButtonElement),
   }
 }
 
@@ -127,6 +124,7 @@ const REQUIRED_KEYS: ReadonlyArray<keyof BookElements> = [
   'introBusinessName',
   'introMessage',
   'slots',
+  'slotsNoteAck',
   'slotPicker',
   'selectedSlotBanner',
   'selectedSlotText',
@@ -139,8 +137,6 @@ const REQUIRED_KEYS: ReadonlyArray<keyof BookElements> = [
   'closedBookedSlot',
   'closedBookedManageRow',
   'closedBookedManageLink',
-  'closedSent',
-  'closedSentBookBtn',
 ]
 
 export function locateElements(): BookElements | null {
