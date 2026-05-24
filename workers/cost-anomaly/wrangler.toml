@@ -1,0 +1,51 @@
+# Cost Anomaly Worker — nightly per-customer spike detection for AI Employee
+# Per #886. Wires on top of the cost telemetry data path shipped in PR #1023
+# (ss-cost-telemetry runs at 02:00 UTC) and the dashboard from PR #1026.
+#
+# Each night at 03:00 UTC the worker:
+#   1. Enumerates AI Employee customers from the central customer_configs.
+#   2. Reads the trailing 8 days of cost_telemetry for each customer via
+#      the D1 HTTP API (per-customer DBs per ADR 0009).
+#   3. Runs detectAnomaly() against the aggregate daily series.
+#   4. When a breach is detected, picks the top-1 driver by absolute delta
+#      and UPSERTs one alert row into central D1's cost_anomaly_alerts.
+#   5. Sends a single Captain digest email via Resend listing the new
+#      alerts. No email = no breaches that night.
+#
+# The dashboard banner (src/pages/admin/ai-employee/costs/index.astro)
+# reads from cost_anomaly_alerts and lets Captain snooze/ack from the same
+# surface. The snooze/ack mutations live in ss-web's admin API; this
+# worker is detect-and-notify only.
+
+name = "ss-cost-anomaly"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Central D1 — for customer enumeration and alert writes.
+[[d1_databases]]
+binding = "DB"
+database_name = "ss-console-db"
+database_id = "65171b23-d615-42a7-84e7-a4fac20d063c"
+
+# 03:00 UTC daily — runs after ss-cost-telemetry's 02:00 ingest so the
+# trailing-day data is fresh.
+[triggers]
+crons = ["0 3 * * *"]
+
+[vars]
+# Default anomaly threshold in basis points. 15000 = 150% per #886.
+# Override via wrangler.toml or `wrangler secret put` for customer-specific
+# tuning at scale (v1 ships one global value).
+ANOMALY_THRESHOLD_BPS = "15000"
+
+# Resend "From" header. Reads from the same domain as transactional email
+# (team@smd.services). Captain expects a recognizable sender.
+ALERT_FROM_EMAIL = "SMD Services Ops <team@smd.services>"
+
+# Secrets (set via `wrangler secret put` after first deploy):
+#   CF_ACCOUNT_ID         — Cloudflare account id for per-customer D1 HTTP API
+#   CF_D1_API_TOKEN       — Token with D1:Read scope across customer DBs
+#   RESEND_API_KEY        — Resend API key for Captain notification email
+#   ALERT_TO_EMAIL        — Captain inbox (e.g. smdurgan@venturecrane.com)
+#   COST_ANOMALY_BEARER   — Bearer token for manual /run invocations

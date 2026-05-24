@@ -1,0 +1,290 @@
+/**
+ * Cost Anomaly Worker — nightly per-customer cost spike detector.
+ *
+ * Wires on top of the data path from PR #1023 (ss-cost-telemetry, 02:00
+ * UTC ingest) and the dashboard from PR #1026. Runs at 03:00 UTC daily
+ * so the trailing-day data is fresh when detection runs.
+ *
+ * Flow:
+ *   1. Enumerate AI Employee customers from central customer_configs.
+ *   2. For each customer with a per-customer D1 id:
+ *      a. Read trailing 8 days of cost_telemetry via the D1 HTTP API.
+ *      b. Run detectAnomaly() on the aggregate daily series.
+ *      c. On breach, identify the top-1 driver by absolute delta and
+ *         UPSERT one alert row into central D1's cost_anomaly_alerts.
+ *   3. Send one digest email to Captain summarizing new alerts.
+ *
+ * Per ADR 0009, per-customer cost data lives in per-customer D1s; this
+ * worker addresses each one via the D1 HTTP API rather than declaring N
+ * bindings. The same pattern the dashboard query layer uses.
+ *
+ * Fabrication discipline (CLAUDE.md Pattern A/B): every figure in an
+ * alert traces to a real cost_telemetry row. The "top driver" attribution
+ * is `''` (aggregate sentinel) when no single driver dominated the delta.
+ * The schema does not record per-skill attribution; the alert names the
+ * driver, accurate to the data we have.
+ */
+
+import {
+  AGGREGATE_DRIVER_SENTINEL,
+  DEFAULT_THRESHOLD_BPS,
+  buildDailySeries,
+  detectAnomaly,
+  pickTopDriverByDelta,
+  upsertAlert,
+} from '../../../src/lib/admin/cost-anomaly'
+import {
+  fetchCustomerCostRows,
+  enumerateDates,
+  type CostQueryEnv,
+} from '../../../src/lib/admin/cost-query'
+import { listCustomers, type CustomerRow } from './customers'
+import { sendAnomalyDigest, type AlertNotificationItem } from './notify'
+
+export interface Env {
+  DB: D1Database
+  CF_ACCOUNT_ID: string
+  CF_D1_API_TOKEN: string
+  ANOMALY_THRESHOLD_BPS?: string
+  ALERT_FROM_EMAIL?: string
+  ALERT_TO_EMAIL?: string
+  RESEND_API_KEY?: string
+  COST_ANOMALY_BEARER?: string
+  ADMIN_BASE_URL?: string
+}
+
+interface PerCustomerOutcome {
+  customer_slug: string
+  status: 'skipped:no-d1' | 'skipped:insufficient-history' | 'no-anomaly' | 'anomaly' | 'error'
+  reason?: string
+  alert?: AlertNotificationItem
+}
+
+export interface RunSummary {
+  runDay: string
+  windowStart: string
+  windowEnd: string
+  thresholdBps: number
+  customersTotal: number
+  perCustomer: PerCustomerOutcome[]
+  alertsCreated: number
+  notification: { sent: boolean; reason?: string; resendId?: string }
+}
+
+const WINDOW_DAYS = 8
+
+function utcDateString(d: Date): string {
+  const yyyy = d.getUTCFullYear()
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(d.getUTCDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+/**
+ * Window = trailing WINDOW_DAYS calendar days ending yesterday inclusive.
+ * Half-open `[start, end)` to match `fetchCustomerCostRows`. The candidate
+ * day inside detectAnomaly is the last element of the dense series, i.e.
+ * yesterday.
+ */
+function computeWindow(now: Date = new Date()): {
+  windowStart: string
+  windowEnd: string
+  candidateDay: string
+} {
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  // `end` exclusive = today 00:00 UTC, so the series ends at yesterday.
+  const end = today
+  const start = new Date(end.getTime() - WINDOW_DAYS * 86_400_000)
+  const candidate = new Date(end.getTime() - 86_400_000)
+  return {
+    windowStart: utcDateString(start),
+    windowEnd: utcDateString(end),
+    candidateDay: utcDateString(candidate),
+  }
+}
+
+function parseThreshold(v: string | undefined): number {
+  if (!v) return DEFAULT_THRESHOLD_BPS
+  const n = Number(v)
+  if (!Number.isFinite(n) || n <= 10_000) return DEFAULT_THRESHOLD_BPS
+  return Math.round(n)
+}
+
+async function processCustomer(
+  env: Env,
+  costEnv: CostQueryEnv,
+  customer: CustomerRow,
+  window: { windowStart: string; windowEnd: string; candidateDay: string },
+  thresholdBps: number
+): Promise<PerCustomerOutcome> {
+  if (!customer.per_customer_d1_database_id) {
+    return {
+      customer_slug: customer.customer_slug,
+      status: 'skipped:no-d1',
+      reason: 'no per_customer_d1_database_id in connectors_json',
+    }
+  }
+
+  const fetched = await fetchCustomerCostRows(
+    costEnv,
+    customer.per_customer_d1_database_id,
+    window.windowStart,
+    window.windowEnd
+  )
+  if (fetched.error) {
+    return {
+      customer_slug: customer.customer_slug,
+      status: 'error',
+      reason: fetched.error,
+    }
+  }
+
+  const dates = enumerateDates(window.windowStart, window.windowEnd)
+  const series = buildDailySeries(fetched.rows, dates)
+  const detection = detectAnomaly(series, thresholdBps)
+
+  if (detection.kind === 'insufficient-history') {
+    return {
+      customer_slug: customer.customer_slug,
+      status: 'skipped:insufficient-history',
+      reason: detection.reason,
+    }
+  }
+  if (detection.kind === 'no-anomaly') {
+    return { customer_slug: customer.customer_slug, status: 'no-anomaly' }
+  }
+
+  const top = pickTopDriverByDelta(fetched.rows, dates)
+  const driver = top?.driver ?? AGGREGATE_DRIVER_SENTINEL
+  const dailyCents = top?.daily_cents ?? detection.daily_cents
+  const rollingAvgCents = top?.rolling_avg_cents ?? detection.rolling_avg_cents
+  const ratioBps =
+    rollingAvgCents > 0 ? Math.round((dailyCents * 10_000) / rollingAvgCents) : detection.ratio_bps
+
+  await upsertAlert(env.DB, {
+    entity_id: customer.entity_id,
+    customer_slug: customer.customer_slug,
+    alert_date: detection.date,
+    driver,
+    daily_cents: dailyCents,
+    rolling_avg_cents: rollingAvgCents,
+    ratio_bps: ratioBps,
+    threshold_bps: thresholdBps,
+  })
+
+  return {
+    customer_slug: customer.customer_slug,
+    status: 'anomaly',
+    alert: {
+      customer_slug: customer.customer_slug,
+      entity_name: null, // filled in by enrichment query if needed downstream
+      alert_date: detection.date,
+      driver,
+      daily_cents: dailyCents,
+      rolling_avg_cents: rollingAvgCents,
+      ratio_bps: ratioBps,
+    },
+  }
+}
+
+export async function run(env: Env, now: Date = new Date()): Promise<RunSummary> {
+  const window = computeWindow(now)
+  const thresholdBps = parseThreshold(env.ANOMALY_THRESHOLD_BPS)
+  const customers = await listCustomers(env.DB)
+  const costEnv: CostQueryEnv = {
+    CF_ACCOUNT_ID: env.CF_ACCOUNT_ID,
+    CF_D1_API_TOKEN: env.CF_D1_API_TOKEN,
+  }
+
+  const perCustomer: PerCustomerOutcome[] = []
+  for (const customer of customers) {
+    try {
+      const outcome = await processCustomer(env, costEnv, customer, window, thresholdBps)
+      perCustomer.push(outcome)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      console.error(`[cost-anomaly] ${customer.customer_slug}: ${msg}`)
+      perCustomer.push({
+        customer_slug: customer.customer_slug,
+        status: 'error',
+        reason: `unhandled: ${msg}`,
+      })
+    }
+  }
+
+  const newAlerts: AlertNotificationItem[] = perCustomer
+    .filter((o): o is PerCustomerOutcome & { alert: AlertNotificationItem } =>
+      Boolean(o.alert && o.status === 'anomaly')
+    )
+    .map((o) => o.alert)
+
+  let notification: RunSummary['notification']
+  if (newAlerts.length === 0) {
+    notification = { sent: false, reason: 'no new anomalies' }
+  } else if (!env.RESEND_API_KEY || !env.ALERT_TO_EMAIL || !env.ALERT_FROM_EMAIL) {
+    notification = {
+      sent: false,
+      reason: 'RESEND_API_KEY / ALERT_TO_EMAIL / ALERT_FROM_EMAIL not configured',
+    }
+    console.warn(`[cost-anomaly] notification skipped: ${notification.reason}`)
+  } else {
+    const dashboardUrl = `${env.ADMIN_BASE_URL ?? 'https://admin.smd.services'}/ai-employee/costs`
+    const result = await sendAnomalyDigest(
+      {
+        apiKey: env.RESEND_API_KEY,
+        fromEmail: env.ALERT_FROM_EMAIL,
+        toEmail: env.ALERT_TO_EMAIL,
+        dashboardUrl,
+      },
+      newAlerts,
+      window.candidateDay
+    )
+    notification = result.ok
+      ? { sent: true, resendId: result.resendId }
+      : { sent: false, reason: result.reason }
+    if (!result.ok) {
+      console.error(`[cost-anomaly] digest send failed: ${result.reason}`)
+    }
+  }
+
+  const summary: RunSummary = {
+    runDay: window.candidateDay,
+    windowStart: window.windowStart,
+    windowEnd: window.windowEnd,
+    thresholdBps,
+    customersTotal: customers.length,
+    perCustomer,
+    alertsCreated: newAlerts.length,
+    notification,
+  }
+
+  console.log(
+    `[cost-anomaly] day=${summary.runDay} customers=${summary.customersTotal} ` +
+      `alerts=${summary.alertsCreated} notified=${summary.notification.sent}`
+  )
+
+  return summary
+}
+
+export default {
+  async scheduled(
+    _controller: ScheduledController,
+    env: Env,
+    _ctx: ExecutionContext
+  ): Promise<void> {
+    await run(env)
+  },
+
+  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
+    if (env.COST_ANOMALY_BEARER) {
+      const auth = request.headers.get('Authorization')
+      if (auth !== `Bearer ${env.COST_ANOMALY_BEARER}`) {
+        return new Response('Unauthorized', { status: 401 })
+      }
+    }
+    const summary = await run(env)
+    return new Response(JSON.stringify(summary, null, 2), {
+      headers: { 'Content-Type': 'application/json' },
+    })
+  },
+} satisfies ExportedHandler<Env>
