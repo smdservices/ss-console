@@ -362,6 +362,9 @@
 .mt-stack {
   margin-top: 1.25rem;
 }
+.mb-stack {
+  margin-bottom: 1.25rem;
+}
 
 /* ---------- Intro card ---------- */
 .ss-intro {
