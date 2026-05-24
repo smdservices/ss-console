@@ -58,7 +58,24 @@ from .hermes_hook import (
     ToolCallResult,
     TrustCeilingEnforcer,
 )
+from .honcho_interceptor import (
+    HonchoEvidenceRequired,
+    HonchoInterceptor,
+    HonchoNativeWriteBlocked,
+    HonchoObservation,
+    HonchoObservationStateError,
+    ObservationType,
+    verify_honcho_intercepted,
+)
 from .trust_ceiling import ActionClass, Ceiling, enforce
+
+# Audit action_type classes emitted by the Honcho overlay (ADR 0016 §7).
+# Re-exported here so the overlay's dispatch path and operational tooling
+# have a single import surface; the values themselves are members of
+# `audit_log.ACCEPTED_ACTION_TYPES`.
+HONCHO_AUDIT_ACTION_OBSERVATION = "HONCHO_OBSERVATION"
+HONCHO_AUDIT_ACTION_PROMOTION = "HONCHO_PROMOTION"
+HONCHO_AUDIT_ACTION_DISMISSAL = "HONCHO_DISMISSAL"
 
 log = logging.getLogger("aie.adapter")
 
@@ -374,12 +391,22 @@ __all__ = [
     "Ceiling",
     "DEFAULT_PINNED_SLOT_KEYS",
     "DefaultTrustCeilingEnforcer",
+    "HONCHO_AUDIT_ACTION_DISMISSAL",
+    "HONCHO_AUDIT_ACTION_OBSERVATION",
+    "HONCHO_AUDIT_ACTION_PROMOTION",
+    "HonchoEvidenceRequired",
+    "HonchoInterceptor",
+    "HonchoNativeWriteBlocked",
+    "HonchoObservation",
+    "HonchoObservationStateError",
     "HookActionClass",
     "HookRegistry",
+    "ObservationType",
     "PinnedSlots",
     "ToolCallContext",
     "ToolCallResult",
     "TrustCeilingEnforcer",
     "enforce",
     "register",
+    "verify_honcho_intercepted",
 ]
