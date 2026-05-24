@@ -615,6 +615,12 @@ def _word_split(text: str) -> list[str]:
     return _WORD_RE.findall(text or "")
 
 
+# Public surface (`from adapter.voice.pipeline import *`) excludes the
+# raw `R2Client` Protocol as of issue #861's TOCTOU hardening: external
+# callers MUST go through `adapter.voice.build_namespaced_voice_runner(...)`,
+# which wraps a raw R2 client in the namespace-asserting bridge before
+# handing it to the runner. The Protocol remains importable by explicit
+# name for the bridge in `namespaced.py` and for tests.
 __all__ = [
     "CohortResolver",
     "CursorStore",
@@ -622,7 +628,6 @@ __all__ = [
     "IngestionMode",
     "IngestionResult",
     "NoEmailSource",
-    "R2Client",
     "SentMessage",
     "StaticCohortResolver",
     "StorageError",

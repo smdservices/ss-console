@@ -305,9 +305,25 @@ def test_r2_refuses_foreign_slug_under_slug_vault_prefix():
 def test_r2_refuses_key_that_matches_neither_convention():
     inner = _RecordingR2()
     wrapped = NamespacedR2Client(expected_slug="acme", inner=inner)
+    # First segment is neither `vaults` nor a valid slug shape — uppercase
+    # is disallowed by the slug regex, so the wrapper falls through to the
+    # "neither convention" refusal.
+    with pytest.raises(NamespaceAssertionError) as excinfo:
+        _run(wrapped.put_object("BAD/foo.json", b"x", content_type="application/json"))
+    assert "either prefix convention" in excinfo.value.detail
+
+
+def test_r2_refuses_misc_first_segment_as_foreign_slug():
+    # A first segment that is slug-shaped but not the expected slug is
+    # treated as a foreign-customer key — `misc` matches the slug regex,
+    # so it gets the foreign-slug refusal path (not the "neither
+    # convention" one).
+    inner = _RecordingR2()
+    wrapped = NamespacedR2Client(expected_slug="acme", inner=inner)
     with pytest.raises(NamespaceAssertionError) as excinfo:
         _run(wrapped.put_object("misc/foo.json", b"x", content_type="application/json"))
-    assert "either prefix convention" in excinfo.value.detail
+    assert excinfo.value.violation_kind == "r2_key"
+    assert "foreign customer slug" in excinfo.value.detail
 
 
 def test_r2_refuses_empty_key():

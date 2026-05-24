@@ -377,13 +377,22 @@ class _R2KeyDecision:
 def _classify_r2_key(key: str, expected_slug: str) -> _R2KeyDecision:
     """Decide whether an R2 key belongs to `expected_slug`.
 
-    The decision is:
+    Accepted shapes (both conventions live in the codebase):
 
-    * empty / non-string keys → reject (no slug)
-    * traversal sequences (`..`) → reject (no slug)
-    * `vaults/{slug}/...` → ok iff slug matches
-    * `{slug}/vault/...` → ok iff slug matches
-    * anything else → reject (no slug)
+    * `vaults/{slug}/...` — used by the no_pm connector + the original
+      spec doc convention; slug is always the second segment.
+    * `{slug}/...` — used by the memory pipeline (`{slug}/vault/...`)
+      and the voice pipeline (`{slug}/voice/cohort/...`); slug is the
+      first segment and any second segment is allowed under it.
+
+    Refusals:
+
+    * empty / non-string keys
+    * traversal sequences (`..`)
+    * multiple leading slashes
+    * single-segment keys (no place for a slug)
+    * keys whose extracted slug does not match `expected_slug`
+    * keys whose first segment is neither `vaults` nor a valid slug
 
     Returns the matched slug when one is captured so the caller can
     record it on the refusal.
@@ -424,14 +433,12 @@ def _classify_r2_key(key: str, expected_slug: str) -> _R2KeyDecision:
             )
         return _R2KeyDecision(ok=True, found_slug=second, reason="ok")
 
-    # Convention 2: {slug}/vault/...
-    if second == "vault":
-        if not _SLUG_PATTERN.match(first):
-            return _R2KeyDecision(
-                ok=False,
-                found_slug=None,
-                reason=f"slug segment {first!r} does not match slug pattern",
-            )
+    # Convention 2: {slug}/<anything>/... — slug-first, any keyspace.
+    # Covers `{slug}/vault/...` (memory pipeline) and `{slug}/voice/...`
+    # (voice pipeline). The wrapper does not constrain the second
+    # segment because new per-customer keyspaces can land without a
+    # wrapper update.
+    if _SLUG_PATTERN.match(first):
         if first != expected_slug:
             return _R2KeyDecision(
                 ok=False,
@@ -445,7 +452,7 @@ def _classify_r2_key(key: str, expected_slug: str) -> _R2KeyDecision:
         found_slug=None,
         reason=(
             "key does not match either prefix convention "
-            "(vaults/{slug}/... or {slug}/vault/...)"
+            "(vaults/{slug}/... or {slug}/...)"
         ),
     )
 
