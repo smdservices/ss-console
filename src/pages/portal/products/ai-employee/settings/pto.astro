@@ -1,0 +1,333 @@
+---
+import '../../../../../styles/global.css'
+import { BRAND_NAME } from '../../../../../lib/config/brand'
+import { resolveAiEmployeeAccess } from '../../../../../lib/portal/ai-employee-access'
+import PortalHeader from '../../../../../components/portal/PortalHeader.astro'
+import PortalTabs from '../../../../../components/portal/PortalTabs.astro'
+import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
+import SkipToMain from '../../../../../components/SkipToMain.astro'
+import { SignOutButton } from '@clerk/astro/components'
+import { env } from 'cloudflare:workers'
+import { getActivePto, listActivePto } from '../../../../../lib/portal/ai-employee/pto'
+
+/**
+ * AI Employee — PTO / OOO self-service.
+ *
+ * URL: portal.smd.services/portal/products/ai-employee/settings/pto
+ *
+ * Per #882: a paralegal marks themselves "away" so the AI Employee
+ * re-routes their matters to a designated backup user.  Self-service
+ * is the canonical flow; principals see the firm-wide active-PTO
+ * roster below their own toggle so they can backfill another user's
+ * PTO without leaving the page.
+ *
+ * Access gate:
+ *   - Clerk session (middleware)
+ *   - Local entity bound to the active Clerk organization
+ *   - Active AI Employee subscription on this customer
+ *   - Caller holds principal OR operator OR compliance role
+ *
+ * Mutations are HTML-form POSTs to
+ * `/api/portal/products/ai-employee/pto`.  No JS / fetch logic on
+ * this page — the endpoint redirects back with a `?status=` query
+ * param that drives the banner.
+ *
+ * Why backup picks include any AI-Employee-role user (not just
+ * paralegals)?  Because firms vary: in some shops the principal
+ * covers vacationing paralegals directly; in others, a senior
+ * paralegal is the routing backup.  The dropdown surfaces every
+ * potential backup — the user picks who actually owns coverage.
+ */
+
+const PRODUCT_SLUG = 'ai-employee'
+
+const access = await resolveAiEmployeeAccess(env.DB, Astro.locals, {
+  allowedRoles: ['principal', 'operator', 'compliance'],
+})
+if (access.kind === 'redirect') {
+  return Astro.redirect(access.to)
+}
+const { client, user, roles } = access
+const isPrincipal = roles.includes('principal')
+
+const myPto = await getActivePto(env.DB, client.id, user.id)
+const firmWidePto = isPrincipal ? await listActivePto(env.DB, client.id) : []
+
+// Backup candidates: every user (other than self) who holds any
+// active AI Employee product role on this entity.  Used in the
+// "Mark myself away" form's backup dropdown.
+interface BackupCandidate {
+  id: string
+  name: string
+  email: string
+}
+const candidatesRaw = await env.DB.prepare(
+  `SELECT DISTINCT u.id    AS id,
+                   u.name  AS name,
+                   u.email AS email
+     FROM product_roles pr
+     JOIN users u ON u.id = pr.user_id
+    WHERE pr.entity_id = ?
+      AND pr.product_slug = ?
+      AND pr.revoked_at IS NULL
+      AND u.id != ?
+    ORDER BY u.name, u.email`
+)
+  .bind(client.id, PRODUCT_SLUG, user.id)
+  .all<BackupCandidate>()
+const backupCandidates = candidatesRaw.results ?? []
+
+function formatSetAt(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+const status = Astro.url.searchParams.get('status')
+type BannerStatus = { text: string; tone: 'success' | 'error' | 'info' }
+const STATUS_BANNERS: Record<string, BannerStatus> = {
+  pto_set: { text: 'Away state set. New matters route to your backup.', tone: 'success' },
+  pto_cleared: { text: 'Away state cleared.', tone: 'success' },
+  backup_updated: { text: 'Backup updated.', tone: 'success' },
+  no_change: { text: 'No change applied.', tone: 'info' },
+  already_away: { text: 'You are already marked away. Update your backup below.', tone: 'info' },
+  not_away: { text: 'No active PTO row to update.', tone: 'error' },
+  backup_no_role: {
+    text: "That backup doesn't have an AI Employee role on your firm.",
+    tone: 'error',
+  },
+  backup_self: { text: 'You cannot pick yourself as the backup.', tone: 'error' },
+  backup_unknown: { text: 'That backup user was not found.', tone: 'error' },
+  user_not_found: { text: 'That user is not on your firm.', tone: 'error' },
+  not_self_or_principal: {
+    text: 'You can only set your own PTO unless you are a principal.',
+    tone: 'error',
+  },
+  invalid_action: { text: 'Invalid action.', tone: 'error' },
+}
+const banner = status ? (STATUS_BANNERS[status] ?? null) : null
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+      rel="stylesheet"
+    />
+    <title>AI Employee · PTO | {BRAND_NAME}</title>
+  </head>
+  <body class="min-h-screen bg-[color:var(--ss-color-background)]">
+    <SkipToMain />
+    <PortalHeader clientName={client.name}>
+      <SignOutButton asChild redirectUrl="/auth/portal-sign-in?status=signed_out">
+        <button
+          type="button"
+          class="inline-flex items-center min-h-11 px-2 -mx-2 text-sm text-[color:var(--ss-color-text-muted)] hover:text-[color:var(--ss-color-text-primary)] active:text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded transition-colors"
+        >
+          Sign out
+        </button>
+      </SignOutButton>
+    </PortalHeader>
+
+    <PortalTabs pathname={Astro.url.pathname} aiEmployeeActive={true} />
+
+    <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
+      <PortalPageHead
+        crumbHref="/portal/products/ai-employee"
+        crumbLabel="AI Employee"
+        tag="Settings"
+        h1="Time off"
+        meta={null}
+      />
+
+      {
+        banner && (
+          <div
+            role="status"
+            class:list={[
+              'mt-6 px-4 py-3 border-[3px] text-sm',
+              banner.tone === 'success'
+                ? 'border-[color:var(--ss-color-complete)] bg-[color:var(--ss-color-complete)]/10 text-[color:var(--ss-color-complete)]'
+                : banner.tone === 'error'
+                  ? 'border-[color:var(--ss-color-error)] bg-[color:var(--ss-color-error)]/10 text-[color:var(--ss-color-error)]'
+                  : 'border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-primary)]',
+            ]}
+          >
+            {banner.text}
+          </div>
+        )
+      }
+
+      <section class="mt-8">
+        <p
+          class="mb-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        >
+          Your status
+        </p>
+
+        {
+          myPto ? (
+            <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+              <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+                You are away
+              </p>
+              <p class="mt-3 text-sm text-[color:var(--ss-color-text-secondary)]">
+                Set on {formatSetAt(myPto.setAt)}.{' '}
+                {myPto.backupName || myPto.backupEmail
+                  ? `New matters route to ${myPto.backupName || myPto.backupEmail}.`
+                  : 'No backup set; new matters queue for principal handoff.'}
+              </p>
+
+              <div class="mt-6 flex flex-col sm:flex-row gap-3">
+                <form
+                  method="POST"
+                  action="/api/portal/products/ai-employee/pto"
+                  class="flex flex-col sm:flex-row gap-3 flex-1"
+                >
+                  <input type="hidden" name="action" value="update_backup" />
+                  <label class="sr-only" for="update-backup-select">
+                    Update backup
+                  </label>
+                  <select
+                    id="update-backup-select"
+                    name="backupUserId"
+                    class="flex-1 px-4 py-2 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+                  >
+                    <option value="">No backup (queue for principal)</option>
+                    {backupCandidates.map((c) => (
+                      <option value={c.id} selected={c.id === myPto.backupUserId}>
+                        {c.name || c.email}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="submit"
+                    class="inline-flex items-center justify-center px-5 py-2 font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold text-sm border-[3px] border-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+                  >
+                    Update backup
+                  </button>
+                </form>
+
+                <form method="POST" action="/api/portal/products/ai-employee/pto">
+                  <input type="hidden" name="action" value="clear" />
+                  <button
+                    type="submit"
+                    class="inline-flex items-center justify-center px-5 py-2 font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold text-sm border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-primary)] hover:border-[color:var(--ss-color-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+                  >
+                    I'm back
+                  </button>
+                </form>
+              </div>
+            </div>
+          ) : (
+            <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+              <p class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)]">
+                Available
+              </p>
+              <p class="mt-2 text-sm text-[color:var(--ss-color-text-secondary)]">
+                When you're away, mark yourself out and pick a backup. New matters route to your
+                backup until you return.
+              </p>
+
+              <form
+                method="POST"
+                action="/api/portal/products/ai-employee/pto"
+                class="mt-6 flex flex-col sm:flex-row gap-3"
+              >
+                <input type="hidden" name="action" value="set" />
+                <label class="sr-only" for="set-backup-select">
+                  Backup user
+                </label>
+                <select
+                  id="set-backup-select"
+                  name="backupUserId"
+                  class="flex-1 px-4 py-2 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+                >
+                  <option value="">No backup (queue for principal)</option>
+                  {backupCandidates.map((c) => (
+                    <option value={c.id}>{c.name || c.email}</option>
+                  ))}
+                </select>
+                <button
+                  type="submit"
+                  class="inline-flex items-center justify-center px-5 py-2 font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold text-sm border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-primary)] hover:border-[color:var(--ss-color-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+                >
+                  Mark me away
+                </button>
+              </form>
+            </div>
+          )
+        }
+      </section>
+
+      {
+        isPrincipal && (
+          <section class="mt-12">
+            <p class="mb-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
+              Firm-wide away
+              {firmWidePto.length > 0 && (
+                <span class="ml-2 normal-case tracking-normal font-normal text-[color:var(--ss-color-text-muted)]">
+                  {firmWidePto.length}
+                </span>
+              )}
+            </p>
+
+            {firmWidePto.length === 0 ? (
+              <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+                <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                  No one on the firm is currently away.
+                </p>
+              </div>
+            ) : (
+              <div class="border-[3px] border-[color:var(--ss-color-text-primary)]">
+                {firmWidePto.map((row, idx) => (
+                  <div
+                    class:list={[
+                      'px-5 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3',
+                      idx > 0 ? 'border-t-[2px] border-[color:var(--ss-color-text-primary)]' : '',
+                    ]}
+                  >
+                    <div class="flex flex-col gap-0.5 min-w-0">
+                      <span class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)] truncate">
+                        {row.userName || row.userEmail}
+                      </span>
+                      <span class="text-sm text-[color:var(--ss-color-text-secondary)] truncate">
+                        Away since {formatSetAt(row.setAt)}
+                      </span>
+                      <span class="text-xs text-[color:var(--ss-color-text-muted)]">
+                        Backup:{' '}
+                        {row.backupName || row.backupEmail
+                          ? row.backupName || row.backupEmail
+                          : 'None (queue for principal)'}
+                      </span>
+                    </div>
+
+                    <form method="POST" action="/api/portal/products/ai-employee/pto">
+                      <input type="hidden" name="action" value="clear" />
+                      <input type="hidden" name="targetUserId" value={row.userId} />
+                      <button
+                        type="submit"
+                        class="inline-flex items-center px-3 py-1.5 text-xs font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold border-[2px] border-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+                      >
+                        Clear
+                      </button>
+                    </form>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )
+      }
+    </main>
+  </body>
+</html>
