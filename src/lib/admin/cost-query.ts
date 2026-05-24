@@ -1,0 +1,596 @@
+/**
+ * Captain cost dashboard — query layer for the per-customer cost_telemetry
+ * data populated by the `ss-cost-telemetry` worker (PR #1023).
+ *
+ * Two data surfaces are involved:
+ *
+ *   1. Central D1 (`env.DB`) — holds `customer_configs` (the customer
+ *      enumeration) and `subscriptions` (the recurring-revenue figure
+ *      used by the COGS/MRR ratio).
+ *
+ *   2. Per-customer D1 (one per customer, addressed via the Cloudflare
+ *      D1 HTTP API) — holds the `cost_telemetry` table per ADR 0009.
+ *      The per-customer database id is stored in
+ *      `customer_configs.connectors_json.per_customer_d1_database_id`.
+ *
+ * Reading the per-customer DB from this Worker means we go through the
+ * D1 HTTP API rather than a binding — same mechanism the telemetry
+ * worker uses. This is deliberate: declaring N per-customer D1 bindings
+ * in wrangler.toml at deploy time does not scale, and the dashboard is
+ * a Captain-only surface where the modest extra latency is acceptable.
+ *
+ * Fabrication discipline (CLAUDE.md Pattern A/B): the dashboard never
+ * fabricates per-skill or per-model breakdown that the underlying schema
+ * does not record. The cost_telemetry schema groups Anthropic usage into
+ * `claude_api_input_tokens` / `claude_api_output_tokens` and Composio
+ * into a single `composio_actions` driver. Per-model and per-toolkit
+ * decomposition is phase 2; this module surfaces only what is in the
+ * data.
+ */
+
+export interface CostQueryEnv {
+  CF_ACCOUNT_ID: string
+  CF_D1_API_TOKEN: string
+}
+
+export interface CustomerListRow {
+  customer_slug: string
+  entity_id: string | null
+  entity_name: string | null
+  per_customer_d1_database_id: string | null
+  composio_account_id: string | null
+  subscription_status: string | null
+  monthly_revenue_cents: number | null
+}
+
+interface CustomerConfigRow {
+  customer_slug: string
+  entity_id: string
+  connectors_json: string | null
+}
+
+interface SubscriptionRow {
+  entity_id: string
+  status: string
+  settings_json: string | null
+}
+
+interface EntityRow {
+  id: string
+  name: string
+}
+
+/**
+ * Enumerate every AI Employee customer with the data the dashboard
+ * needs: the per-customer D1 id (required to read cost_telemetry), the
+ * subscription status (for the COGS-vs-revenue indicator), and the
+ * entity name (display).
+ *
+ * The query joins customer_configs to subscriptions filtered to the
+ * `ai-employee` product slug — non-AI-Employee customers don't apply.
+ */
+export async function listCostCustomers(db: D1Database): Promise<CustomerListRow[]> {
+  const configsResult = await db
+    .prepare(
+      `SELECT customer_slug, entity_id, connectors_json
+         FROM customer_configs
+         ORDER BY customer_slug`
+    )
+    .all<CustomerConfigRow>()
+  const configs = configsResult.results ?? []
+  if (configs.length === 0) return []
+
+  const entityIds = configs.map((c) => c.entity_id)
+  const placeholders = entityIds.map(() => '?').join(',')
+
+  const subsResult = await db
+    .prepare(
+      `SELECT entity_id, status, settings_json
+         FROM subscriptions
+         WHERE product_slug = 'ai-employee'
+           AND entity_id IN (${placeholders})`
+    )
+    .bind(...entityIds)
+    .all<SubscriptionRow>()
+  const subsByEntity = new Map<string, SubscriptionRow>()
+  for (const row of subsResult.results ?? []) {
+    subsByEntity.set(row.entity_id, row)
+  }
+
+  const entitiesResult = await db
+    .prepare(`SELECT id, name FROM entities WHERE id IN (${placeholders})`)
+    .bind(...entityIds)
+    .all<EntityRow>()
+  const namesByEntity = new Map<string, string>()
+  for (const row of entitiesResult.results ?? []) {
+    namesByEntity.set(row.id, row.name)
+  }
+
+  return configs.map((c) => {
+    const { perCustomerDbId, composioAccountId } = parseConnectors(c.connectors_json)
+    const sub = subsByEntity.get(c.entity_id) ?? null
+    return {
+      customer_slug: c.customer_slug,
+      entity_id: c.entity_id,
+      entity_name: namesByEntity.get(c.entity_id) ?? null,
+      per_customer_d1_database_id: perCustomerDbId,
+      composio_account_id: composioAccountId,
+      subscription_status: sub?.status ?? null,
+      monthly_revenue_cents: parseMonthlyRevenueCents(sub?.settings_json ?? null),
+    }
+  })
+}
+
+function parseConnectors(connectorsJson: string | null): {
+  perCustomerDbId: string | null
+  composioAccountId: string | null
+} {
+  if (!connectorsJson) return { perCustomerDbId: null, composioAccountId: null }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(connectorsJson)
+  } catch {
+    return { perCustomerDbId: null, composioAccountId: null }
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    return { perCustomerDbId: null, composioAccountId: null }
+  }
+  const obj = parsed as Record<string, unknown>
+  const dbId = obj['per_customer_d1_database_id']
+  const composio = obj['composio_account_id']
+  return {
+    perCustomerDbId: typeof dbId === 'string' && dbId.length > 0 ? dbId : null,
+    composioAccountId: typeof composio === 'string' && composio.length > 0 ? composio : null,
+  }
+}
+
+/**
+ * Recurring revenue (MRR) for the customer in integer cents. Read from
+ * `subscriptions.settings_json.monthly_price_cents`, the documented
+ * per-product configuration field (cost-telemetry-events.md "COGS/MRR
+ * ratio computation" — "customer's flat-monthly SKU price in cents").
+ *
+ * Returns null when the field is absent or unparseable. The caller
+ * treats null as "unpriced" and renders the COGS/MRR indicator as
+ * "—" rather than fabricating a default.
+ */
+function parseMonthlyRevenueCents(settingsJson: string | null): number | null {
+  if (!settingsJson) return null
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(settingsJson)
+  } catch {
+    return null
+  }
+  if (!parsed || typeof parsed !== 'object') return null
+  const value = (parsed as Record<string, unknown>)['monthly_price_cents']
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return null
+  return Math.round(value)
+}
+
+// ---------------------------------------------------------------------------
+// Per-customer cost_telemetry reads (D1 HTTP API)
+// ---------------------------------------------------------------------------
+
+export interface CostTelemetryRow {
+  date: string
+  driver: string
+  amount_cents: number
+  units: number | null
+  unit_type: string | null
+}
+
+interface D1HttpResultRow {
+  date?: string
+  driver?: string
+  amount_cents?: number
+  units?: number | null
+  unit_type?: string | null
+}
+
+interface D1HttpResponse {
+  success?: boolean
+  errors?: unknown
+  result?: Array<{ results?: D1HttpResultRow[] }>
+}
+
+/**
+ * Read raw cost_telemetry rows for one customer over a date window
+ * (inclusive `startDate`, exclusive `endDate` — both 'YYYY-MM-DD').
+ *
+ * The half-open range matches the `(date, driver)` PK index in
+ * cost_rollup.py so D1 plans this as an index scan rather than a table
+ * walk. Rows come back ordered by `(date, driver)` for stable rendering.
+ *
+ * Returns `{ rows: [], error: <message> }` when the database is
+ * unreachable; the caller renders an explicit warning rather than
+ * an empty table that looks the same as "no usage yet". See
+ * docs/style/empty-state-pattern.md.
+ */
+export async function fetchCustomerCostRows(
+  env: CostQueryEnv,
+  databaseId: string,
+  startDate: string,
+  endDate: string
+): Promise<{ rows: CostTelemetryRow[]; error: string | null }> {
+  const fetched = await fetchD1Payload(env, databaseId, startDate, endDate)
+  if (fetched.error !== null) return { rows: [], error: fetched.error }
+  const resultRows = fetched.payload.result?.[0]?.results ?? []
+  return { rows: validateRows(resultRows), error: null }
+}
+
+async function fetchD1Payload(
+  env: CostQueryEnv,
+  databaseId: string,
+  startDate: string,
+  endDate: string
+): Promise<{ payload: D1HttpResponse; error: null } | { payload: null; error: string }> {
+  const sql =
+    'SELECT date, driver, amount_cents, units, unit_type ' +
+    'FROM cost_telemetry ' +
+    'WHERE date >= ? AND date < ? AND amount_cents >= 0 ' +
+    'ORDER BY date, driver'
+  const url =
+    `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}` +
+    `/d1/database/${databaseId}/query`
+  let response: Response
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.CF_D1_API_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ sql, params: [startDate, endDate] }),
+    })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return { payload: null, error: `D1 HTTP request failed: ${msg}` }
+  }
+  if (!response.ok) {
+    const text = await safeText(response)
+    return { payload: null, error: `D1 HTTP ${response.status}: ${text.slice(0, 200)}` }
+  }
+  let raw: unknown
+  try {
+    raw = await response.json()
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return { payload: null, error: `D1 response parse failed: ${msg}` }
+  }
+  const payload = raw as D1HttpResponse
+  if (!payload.success) {
+    return { payload: null, error: `D1 query failed: ${JSON.stringify(payload.errors ?? {})}` }
+  }
+  return { payload, error: null }
+}
+
+function validateRows(resultRows: D1HttpResultRow[]): CostTelemetryRow[] {
+  const rows: CostTelemetryRow[] = []
+  for (const r of resultRows) {
+    if (typeof r.date !== 'string' || typeof r.driver !== 'string') continue
+    if (typeof r.amount_cents !== 'number' || !Number.isFinite(r.amount_cents)) continue
+    rows.push({
+      date: r.date,
+      driver: r.driver,
+      amount_cents: Math.round(r.amount_cents),
+      units: typeof r.units === 'number' && Number.isFinite(r.units) ? r.units : null,
+      unit_type: typeof r.unit_type === 'string' ? r.unit_type : null,
+    })
+  }
+  return rows
+}
+
+async function safeText(response: Response): Promise<string> {
+  try {
+    return await response.text()
+  } catch {
+    return ''
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Aggregation
+// ---------------------------------------------------------------------------
+
+/**
+ * Driver categories that the dashboard groups raw drivers into. Mirrors
+ * the buckets in ai-employee/adapter/cost_rollup.py — keeping the two
+ * lists in sync is intentional. The Worker side uses Python; this side
+ * uses TypeScript; both read the same closed enum from
+ * cost-telemetry-events.md "Drivers + emission sources".
+ *
+ * Unknown drivers bucket into `other` so a new emitter doesn't silently
+ * disappear; the dashboard surfaces the raw driver name in the
+ * `byDriver` map for triage.
+ */
+export type DriverCategory =
+  | 'anthropic_llm'
+  | 'composio_action'
+  | 'fly_compute'
+  | 'cloudflare_d1'
+  | 'cloudflare_r2'
+  | 'cloudflare_vectorize'
+  | 'agentmail'
+  | 'captain_time'
+  | 'other'
+
+const DRIVER_TO_CATEGORY: Record<string, DriverCategory> = {
+  claude_api_input_tokens: 'anthropic_llm',
+  claude_api_output_tokens: 'anthropic_llm',
+  composio_actions: 'composio_action',
+  fly_machine_minutes: 'fly_compute',
+  d1_reads: 'cloudflare_d1',
+  d1_writes: 'cloudflare_d1',
+  r2_storage_gb_hours: 'cloudflare_r2',
+  r2_class_a_ops: 'cloudflare_r2',
+  r2_class_b_ops: 'cloudflare_r2',
+  vectorize_queries: 'cloudflare_vectorize',
+  vectorize_dimensions_stored: 'cloudflare_vectorize',
+  agentmail_messages: 'agentmail',
+  agentmail_mailbox_days: 'agentmail',
+  captain_time: 'captain_time',
+}
+
+export const DRIVER_CATEGORIES: DriverCategory[] = [
+  'anthropic_llm',
+  'composio_action',
+  'fly_compute',
+  'cloudflare_d1',
+  'cloudflare_r2',
+  'cloudflare_vectorize',
+  'agentmail',
+  'captain_time',
+  'other',
+]
+
+export const DRIVER_CATEGORY_LABELS: Record<DriverCategory, string> = {
+  anthropic_llm: 'Anthropic LLM',
+  composio_action: 'Composio actions',
+  fly_compute: 'Fly compute',
+  cloudflare_d1: 'Cloudflare D1',
+  cloudflare_r2: 'Cloudflare R2',
+  cloudflare_vectorize: 'Cloudflare Vectorize',
+  agentmail: 'AgentMail',
+  captain_time: 'Captain time',
+  other: 'Other',
+}
+
+export function categoryForDriver(driver: string): DriverCategory {
+  return DRIVER_TO_CATEGORY[driver] ?? 'other'
+}
+
+export interface DailyCost {
+  date: string
+  total_cents: number
+}
+
+export interface DriverBreakdown {
+  driver: string
+  category: DriverCategory
+  total_cents: number
+  units: number
+  unit_type: string | null
+}
+
+export interface CustomerCostSummary {
+  customer_slug: string
+  windowStart: string
+  windowEnd: string
+  totalCents: number
+  byCategory: Record<DriverCategory, number>
+  byDriver: DriverBreakdown[]
+  byDay: DailyCost[]
+  /**
+   * 7-day rolling average of `total_cents` per day. Only days that have
+   * at least 7 prior days inside the window get a rolling value — earlier
+   * days are null rather than computed against a short sample (an avg
+   * over 1-6 days would be misleading). The 30-day default window yields
+   * 24 rolling-avg points.
+   */
+  rolling7dCents: Array<{ date: string; avg_cents: number | null }>
+  rowCount: number
+}
+
+/**
+ * Compute the 30-day (or arbitrary-window) per-customer summary from
+ * raw cost_telemetry rows. Pure function — the caller fetches; this
+ * computes.
+ *
+ * `byDay` includes every date in the window even if no rows landed
+ * that day (zero-filled) so the rolling avg is computed against a
+ * dense series and the dashboard renders a stable timeline.
+ */
+export function summarizeCostRows(
+  customerSlug: string,
+  windowStart: string,
+  windowEnd: string,
+  rows: CostTelemetryRow[]
+): CustomerCostSummary {
+  const byCategory: Record<DriverCategory, number> = {
+    anthropic_llm: 0,
+    composio_action: 0,
+    fly_compute: 0,
+    cloudflare_d1: 0,
+    cloudflare_r2: 0,
+    cloudflare_vectorize: 0,
+    agentmail: 0,
+    captain_time: 0,
+    other: 0,
+  }
+  const driverAgg = new Map<string, DriverBreakdown>()
+  const dailyAgg = new Map<string, number>()
+  let total = 0
+
+  for (const row of rows) {
+    if (row.amount_cents < 0) continue
+    total += row.amount_cents
+    const cat = categoryForDriver(row.driver)
+    byCategory[cat] += row.amount_cents
+    dailyAgg.set(row.date, (dailyAgg.get(row.date) ?? 0) + row.amount_cents)
+
+    const existing = driverAgg.get(row.driver)
+    if (existing) {
+      existing.total_cents += row.amount_cents
+      existing.units += row.units ?? 0
+    } else {
+      driverAgg.set(row.driver, {
+        driver: row.driver,
+        category: cat,
+        total_cents: row.amount_cents,
+        units: row.units ?? 0,
+        unit_type: row.unit_type,
+      })
+    }
+  }
+
+  const byDay: DailyCost[] = []
+  for (const d of enumerateDates(windowStart, windowEnd)) {
+    byDay.push({ date: d, total_cents: dailyAgg.get(d) ?? 0 })
+  }
+
+  const rolling7dCents: Array<{ date: string; avg_cents: number | null }> = []
+  for (let i = 0; i < byDay.length; i++) {
+    if (i < 6) {
+      rolling7dCents.push({ date: byDay[i].date, avg_cents: null })
+      continue
+    }
+    let sum = 0
+    for (let j = i - 6; j <= i; j++) sum += byDay[j].total_cents
+    rolling7dCents.push({ date: byDay[i].date, avg_cents: Math.round(sum / 7) })
+  }
+
+  const byDriver = Array.from(driverAgg.values()).sort((a, b) => b.total_cents - a.total_cents)
+
+  return {
+    customer_slug: customerSlug,
+    windowStart,
+    windowEnd,
+    totalCents: total,
+    byCategory,
+    byDriver,
+    byDay,
+    rolling7dCents,
+    rowCount: rows.length,
+  }
+}
+
+/**
+ * Enumerate every date string 'YYYY-MM-DD' in the half-open window
+ * `[startDate, endDate)`. Uses UTC throughout — cost_telemetry.date is
+ * a calendar UTC date per cost-telemetry-events.md.
+ */
+export function enumerateDates(startDate: string, endDate: string): string[] {
+  const dates: string[] = []
+  let cur = parseUtcDate(startDate)
+  const end = parseUtcDate(endDate)
+  if (cur >= end) return dates
+  while (cur < end) {
+    dates.push(formatUtcDate(cur))
+    cur = new Date(cur.getTime() + 86_400_000)
+  }
+  return dates
+}
+
+function parseUtcDate(yyyymmdd: string): Date {
+  const [y, m, d] = yyyymmdd.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d))
+}
+
+function formatUtcDate(d: Date): string {
+  const yyyy = d.getUTCFullYear()
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(d.getUTCDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+/**
+ * Compute the 30-day window ending at `today` (exclusive) in UTC.
+ * Used by callers that don't override the window via query params.
+ */
+export function defaultWindow(today: Date = new Date()): { start: string; end: string } {
+  const end = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()))
+  const endMs = end.getTime() + 86_400_000 // exclusive end = tomorrow 00:00 UTC
+  const start = new Date(endMs - 30 * 86_400_000)
+  return {
+    start: formatUtcDate(start),
+    end: formatUtcDate(new Date(endMs)),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// COGS / MRR ratio
+// ---------------------------------------------------------------------------
+
+/**
+ * Convert 30-day COGS into an estimated month-equivalent figure. The
+ * underlying telemetry is per-day; the COGS/MRR ratio in
+ * cost-telemetry-events.md §"COGS/MRR ratio computation" is monthly.
+ * 30 days * (~30.44 average month length) is close enough — labelled
+ * "estimated" on the dashboard so the reader knows it is a normalization,
+ * not a billed-period total.
+ */
+export function thirtyDayCogsToMonthlyEstimateCents(cogsCents: number): number {
+  return Math.round((cogsCents * 30.4375) / 30)
+}
+
+export interface CogsRatio {
+  basis_points: number | null
+  status: 'unpriced' | 'healthy' | 'watch' | 'kill'
+}
+
+/**
+ * Compute the COGS/MRR ratio for one customer. Returns basis points
+ * (1/100 of a percent) so downstream comparisons are integer math.
+ *
+ * `kill` threshold mirrors platform-prd §17.1: ratio > 0.40 (4000 bps)
+ * is the documented kill criterion. `watch` is 0.30-0.40 (3000-4000 bps),
+ * a Captain heuristic surface for "this is on the way to the threshold."
+ * `healthy` is < 0.30. `unpriced` is "the customer has no MRR figure
+ * configured" — the ratio is undefined and the dashboard renders "—"
+ * rather than zero.
+ */
+export function cogsRatio(monthlyCogsCents: number, mrrCents: number | null): CogsRatio {
+  if (mrrCents === null || mrrCents <= 0) {
+    return { basis_points: null, status: 'unpriced' }
+  }
+  const bps = Math.round((monthlyCogsCents * 10_000) / mrrCents)
+  let status: CogsRatio['status']
+  if (bps >= 4000) status = 'kill'
+  else if (bps >= 3000) status = 'watch'
+  else status = 'healthy'
+  return { basis_points: bps, status }
+}
+
+// ---------------------------------------------------------------------------
+// CSV serialization
+// ---------------------------------------------------------------------------
+
+/**
+ * Render the raw cost_telemetry rows for one customer as CSV for the
+ * billing reconciliation export. Header columns mirror the table
+ * schema verbatim so the file diffs cleanly against an UPSERT log.
+ */
+export function rowsToCsv(customerSlug: string, rows: CostTelemetryRow[]): string {
+  const header = ['customer_slug', 'date', 'driver', 'amount_cents', 'units', 'unit_type'].join(',')
+  const lines = rows.map((r) =>
+    [
+      csvEscape(customerSlug),
+      csvEscape(r.date),
+      csvEscape(r.driver),
+      String(r.amount_cents),
+      r.units == null ? '' : String(r.units),
+      csvEscape(r.unit_type),
+    ].join(',')
+  )
+  return [header, ...lines].join('\n') + '\n'
+}
+
+function csvEscape(value: string | null | undefined): string {
+  if (value == null) return ''
+  const s = String(value)
+  if (/[",\n\r]/.test(s)) {
+    return `"${s.replace(/"/g, '""')}"`
+  }
+  return s
+}
