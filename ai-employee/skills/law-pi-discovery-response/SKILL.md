@@ -1,6 +1,6 @@
 ---
 name: law-pi-discovery-response
-description: "Discovery-response draft assembler for personal-injury law firms. Reads a single inbound discovery request (interrogatories, requests for production, or requests for admission) from opposing counsel, parses the request structure, and writes a factual draft response into the supervising partner's drafts folder via Email.create_draft. The skill produces three artifacts inside one draft: an objections list (categorical, citation-free, mapped to each numbered request), a responsive document list (sourced from DocumentStorage with specific document IDs), and a privilege log skeleton (per-document, with the privilege-claim type left as a TBD marker for the partner to author). The skill DOES NOT author the privilege-claim characterization, the substantive answer to any interrogatory or request for admission, or any case-strategy language; those sections render as TBD markers for the partner to author. Per ADR 0005 the partner is the sender; per platform PRD §7.5 invariant #8 every authored figure, document ID, and named person is sourced from the matter record or rendered as TBD, never inferred; per law-firm PRD §9 the citation-refusal substrate forbids any case-law, statute, or court-rule reference in any section the skill authors. STRICT VOICE RULE: no em dashes anywhere in output, including section headers and table delimiters. Commas, periods, short sentences. No corporate filler. The partner signs the response; the agent's persona is invisible to opposing counsel. CITATION POLICY: the skill must never produce, repeat, or reformulate legal citations (case-name-shaped strings with reporter cites, statute references, court rule references, treatise pinpoints). All citation work defers to human legal research. If the matter record or the incoming request contains citations supplied by opposing counsel or by the partner in narrative notes, the skill carries them through verbatim as quoted text only inside the incoming-request recital and inside partner-authored TBD sections; it does not validate, restate, or augment them."
+description: 'Drafts factual PI discovery-response objections for partner.'
 version: 0.1.0
 author: SMD Services
 license: MIT
@@ -8,52 +8,53 @@ platforms: [linux, macos]
 prerequisites:
   skills: []
   commands: []
-client_facing_fields:
-  - name: opposing_counsel_name
-    sourced_from: matter_attribute
-  - name: opposing_counsel_firm
-    sourced_from: matter_attribute
-  - name: opposing_counsel_email
-    sourced_from: matter_attribute
-  - name: client_name
-    sourced_from: matter_attribute
-  - name: claim_number
-    sourced_from: matter_attribute
-  - name: case_caption
-    sourced_from: matter_attribute
-  - name: case_number
-    sourced_from: matter_attribute
-  - name: discovery_request_kind
-    sourced_from: system_of_record
-  - name: discovery_request_number_list
-    sourced_from: system_of_record
-  - name: discovery_request_text_per_number
-    sourced_from: system_of_record
-  - name: response_due_date
-    sourced_from: system_of_record
-  - name: responsive_document_index_per_request
-    sourced_from: system_of_record
-  - name: privilege_log_document_index
-    sourced_from: system_of_record
-  - name: objection_category_per_request
-    sourced_from: memory_rule
-  - name: substantive_answer_per_request
-    sourced_from: none
-  - name: privilege_claim_characterization
-    sourced_from: none
-  - name: admission_or_denial_per_request
-    sourced_from: none
-  - name: case_strategy_language
-    sourced_from: none
-  - name: partner_signoff
-    sourced_from: memory_rule
 metadata:
   hermes:
     tags: [Law, PI, Discovery, Response, Draft]
+  smd:
     vertical: law-firm-pi
     trust_ceiling: draft_for_review
     trust_ceiling_locked: true
     capabilities: [PracticeManagement, DocumentStorage, Email]
+    client_facing_fields:
+      - name: opposing_counsel_name
+        sourced_from: matter_attribute
+      - name: opposing_counsel_firm
+        sourced_from: matter_attribute
+      - name: opposing_counsel_email
+        sourced_from: matter_attribute
+      - name: client_name
+        sourced_from: matter_attribute
+      - name: claim_number
+        sourced_from: matter_attribute
+      - name: case_caption
+        sourced_from: matter_attribute
+      - name: case_number
+        sourced_from: matter_attribute
+      - name: discovery_request_kind
+        sourced_from: system_of_record
+      - name: discovery_request_number_list
+        sourced_from: system_of_record
+      - name: discovery_request_text_per_number
+        sourced_from: system_of_record
+      - name: response_due_date
+        sourced_from: system_of_record
+      - name: responsive_document_index_per_request
+        sourced_from: system_of_record
+      - name: privilege_log_document_index
+        sourced_from: system_of_record
+      - name: objection_category_per_request
+        sourced_from: memory_rule
+      - name: substantive_answer_per_request
+        sourced_from: none
+      - name: privilege_claim_characterization
+        sourced_from: none
+      - name: admission_or_denial_per_request
+        sourced_from: none
+      - name: case_strategy_language
+        sourced_from: none
+      - name: partner_signoff
+        sourced_from: memory_rule
 ---
 
 # Law PI Discovery Response Draft (Factual Assembly)
@@ -62,21 +63,15 @@ Reads one inbound discovery request from opposing counsel on an active personal-
 
 The skill is configured per-customer through `~/.hermes/customers/{customer_slug}/customer.yaml`, which supplies the firm name, the supervising partner's first name and signature block, the partner's reviewer email account ID for `Email.create_draft`, the firm's voice samples for Layer 2 voice match, the firm's standard objection-category vocabulary as a memory rule, and the practice-area filter.
 
-## Scope alignment with law-firm-prd §6.2 and §5
+## When to Use
 
-The law-firm PRD §6.2 places discovery work in Pillar 5 (Discovery + investigation) and characterizes it as agent-suitable with medium third-rail risk. The PRD does not list a specific `pi-discovery-response` skill name; this skill operationalizes the discovery-response scenario from §11.2 ("an opposing counsel discovery request - needs triage and partner review") as a factually-narrow draft assembler.
+Use when opposing counsel has served interrogatories, requests for production, or requests for admission on an active PI matter and the supervising partner needs a factual response draft assembled. The skill produces three artifacts inside one draft: an objections list (categorical, citation-free), a responsive-document list (sourced from DocumentStorage), and a privilege log skeleton with TBD privilege-claim type. The partner authors the substantive answers.
 
-The factually-narrow scope:
+## Prerequisites
 
-- Parsing the incoming request into numbered items is authored by the skill.
-- Mapping each item to a categorical objection label from the firm's memory-rule objection vocabulary is authored by the skill.
-- Mapping each item to a responsive-document list (with specific `StoredDocument.id` per entry) is authored by the skill.
-- Building the privilege log skeleton (one row per withheld document, with filename, date, and author from DocumentStorage metadata) is authored by the skill.
-- Substantive answers to interrogatories, the legal characterization of each privilege claim, the admit or deny language for each request for admission, and any case-strategy framing are NOT authored by the skill. They render as TBD markers for the partner to author.
+PracticeManagement, DocumentStorage, and Email capability adapters; per-customer config at `~/.hermes/customers/{customer_slug}/customer.yaml` including Layer 2 voice samples and the firm's objection-category vocabulary memory rule. See frontmatter.
 
-The skill name `law-pi-discovery-response` is operational shorthand for this factually-narrow variant. If Captain decides this scope creeps too close to substantive-answer authoring, the fix is configuration: narrow the objection list to a pure category-label table (no draft objection sentence), narrow the responsive-document mapping to a flat index, or hold the skill for Phase 3.
-
-## How to invoke
+## How to Run
 
 Draft from a matter ID and an incoming discovery-request document already in the matter folder:
 
@@ -96,7 +91,7 @@ Dry-run (writes the draft to `~/.hermes/customer_notes/{customer_slug}/` and ret
 hermes run law-pi-discovery-response --matter-id <id> --request-document-id <doc_id> --dry-run
 ```
 
-## What the agent does, in order
+## Procedure
 
 1. **Load customer config.** Read `~/.hermes/customers/{customer_slug}/customer.yaml` for firm name, supervising partner's reviewer account ID, partner's signature block, voice samples (Layer 2), the firm's objection-category vocabulary memory rule, and the practice-area filter. If `practice_areas` does not include `personal-injury`, the skill refuses with `out_of_scope` and writes no draft.
 2. **Load the matter via PracticeManagement.** Call `practice_management.get_matter(matter_id)`. If the matter is null or its `matter_type` does not indicate PI, refuse with `matter_not_found` or `matter_wrong_type`. The skill never creates or modifies a matter.
@@ -120,7 +115,7 @@ hermes run law-pi-discovery-response --matter-id <id> --request-document-id <doc
 13. **Write the matter-internal sourcing note.** In parallel, write `~/.hermes/customer_notes/{customer_slug}/pi-discovery-response-YYYY-MM-DD-<matter-id>.md` containing the section-by-section sourcing index (which `StoredDocument.id` populated which row, which `custom_field` populated which named field, which memory rule populated which objection category, which fields rendered as TBD and why). This is the audit trail the dashboard's sourcing block reads from.
 14. **Emit telemetry.** A skill-invocation event records: matter id (hashed), request kind, numbered-request count, TBD-marker count by section, voice-gate score, privilege-log row count, draft size in bytes, adapter calls made. No matter content leaves the customer's machine boundary.
 
-## Trust ceiling
+### Trust Ceiling
 
 `draft_for_review`. The ceiling is **locked at v1 and cannot be promoted to `autonomous`** per PRD §11.2 ("anything touching trust accounting, court filing, settlement authority, judgment-bearing work: `draft_for_review` permanently"). A discovery response is a court filing once served, touches privilege claims by definition, and shapes the case's evidentiary record; promotion is architecturally blocked.
 
@@ -146,7 +141,7 @@ The agent MUST NOT, without explicit partner instruction in a different invocati
 
 If the skill cannot find a piece of source data the partner expects (e.g., the opposing-counsel email), the draft renders the corresponding section as a TBD marker and the matter-internal sourcing note lists the missing item. The partner sees the TBD on review and fills it in. The skill does not guess.
 
-## Voice rules (Layer 2 - partner corpus match)
+### Voice Rules (Layer 2 - partner corpus match)
 
 The factual prose sections (recitation lead-in, request-by-request table headers, responsive-document captions, privilege-log column captions) must read as if the supervising partner wrote them. Voice samples from `customer.yaml` Layer 2 provide the anchor corpus. The partner's prior discovery responses and prior opposing-counsel correspondence are the primary samples for this skill. See `references/voice.md` for the long form. Hard rules:
 
@@ -163,7 +158,7 @@ The factual prose sections (recitation lead-in, request-by-request table headers
 
 If the assembled prose cannot pass these rules (e.g., the category mapper produces awkward lead-ins for a hybrid interrogatories-plus-RFP filing), the skill omits the prose and emits only the structured tables, captions, and TBD markers. The partner prefers structured rows to expand than a flawed paragraph to dismantle.
 
-## Citation policy (law-firm vertical, invariant #6)
+### Citation Policy (law-firm vertical, invariant #6)
 
 The skill must never produce, repeat, or reformulate legal citations. Case-name-shaped strings with reporter cites (e.g., `Smith v. Jones, 123 F.3d 456 (3d Cir. 2010)`), statute references (e.g., `42 U.S.C. § 1983`), court rule references (e.g., `Fed. R. Civ. P. 26(b)(1)`, `Ariz. R. Civ. P. 33`), and treatise pinpoint cites are all in scope. The skill renders objection category labels only; the formal-response objection sentences that often cite a court rule are partner-authored TBD sections.
 
@@ -171,7 +166,7 @@ If the incoming request body contains citations supplied by opposing counsel (e.
 
 If the assembled draft would otherwise contain a citation-shaped string in skill-authored prose, the skill replaces the string with `[CITATION REMOVED - partner inserts after review]` and logs a citation-refusal event. Code-level enforcement lives in the citation-refusal substrate at `ai-employee/safety-substrate/citation_filter.py`; the skill's prompt-level discipline is defense in depth. See `references/citation-policy.md`.
 
-## Fabrication policy (platform invariant #8)
+### Fabrication Policy (platform invariant #8)
 
 Every client-facing field is declared in the skill's frontmatter `client_facing_fields` block with one of: `matter_attribute`, `system_of_record`, `memory_rule`, `none`. Fields tagged `none` MUST render as a TBD marker; rendering plausible content into a `none`-tagged field is a `block`-severity fabrication-filter violation per the spec at `docs/specs/ai-employee/fabrication-filter.md`. The four legal-judgment fields the partner authors (`substantive_answer_per_request`, `privilege_claim_characterization`, `admission_or_denial_per_request`, `case_strategy_language`) are all tagged `none` for exactly this reason: the skill cannot author them, the runtime filter enforces non-rendering, and the draft surfaces a TBD marker the partner fills in.
 
@@ -179,7 +174,7 @@ The `objection_category_per_request` field is tagged `memory_rule` rather than `
 
 See `references/fabrication-policy.md` for the per-section sourcing contract.
 
-## Refusal cases
+### Refusal Cases
 
 The skill emits a refusal (writes no draft, returns a structured error) under any of:
 
@@ -194,7 +189,11 @@ The skill emits a refusal (writes no draft, returns a structured error) under an
 
 When the skill can author a partial draft (some sections sourced, some TBD), it proceeds. When it cannot meet a refusal criterion, it writes no draft and logs the refusal.
 
-## What good looks like
+## Pitfalls
+
+See `### Refusal Cases` in Procedure. Common failure modes also include emitting a citation-shaped string in skill-authored prose, authoring objection prose rather than just category labels, and inventing responsive documents when none match.
+
+## Verification
 
 A successful run satisfies all of:
 
@@ -229,3 +228,17 @@ A successful run satisfies all of:
 - Law-firm PRD §5 - third-rail map (discovery + investigation is Pillar 5; medium third-rail risk; the load-bearing risks are privilege-waiver and sanctions exposure, both of which this skill avoids by leaving the substantive answer and privilege-claim characterization as TBD).
 - Law-firm PRD §6.2 - pillar map; this skill operationalizes the discovery-response scenario.
 - Law-firm PRD §11.2 - demo scenario list; "an opposing counsel discovery request - needs triage and partner review" is the scenario this skill addresses.
+
+## Scope alignment with law-firm-prd §6.2 and §5
+
+The law-firm PRD §6.2 places discovery work in Pillar 5 (Discovery + investigation) and characterizes it as agent-suitable with medium third-rail risk. The PRD does not list a specific `pi-discovery-response` skill name; this skill operationalizes the discovery-response scenario from §11.2 ("an opposing counsel discovery request - needs triage and partner review") as a factually-narrow draft assembler.
+
+The factually-narrow scope:
+
+- Parsing the incoming request into numbered items is authored by the skill.
+- Mapping each item to a categorical objection label from the firm's memory-rule objection vocabulary is authored by the skill.
+- Mapping each item to a responsive-document list (with specific `StoredDocument.id` per entry) is authored by the skill.
+- Building the privilege log skeleton (one row per withheld document, with filename, date, and author from DocumentStorage metadata) is authored by the skill.
+- Substantive answers to interrogatories, the legal characterization of each privilege claim, the admit or deny language for each request for admission, and any case-strategy framing are NOT authored by the skill. They render as TBD markers for the partner to author.
+
+The skill name `law-pi-discovery-response` is operational shorthand for this factually-narrow variant. If Captain decides this scope creeps too close to substantive-answer authoring, the fix is configuration: narrow the objection list to a pure category-label table (no draft objection sentence), narrow the responsive-document mapping to a flat index, or hold the skill for Phase 3.

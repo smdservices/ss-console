@@ -1,33 +1,40 @@
 ---
 name: paid-media-anomaly-watcher
-description: 'Daily scan of Meta / Google / LinkedIn Ads for CPL spikes, frequency saturation, ad disapprovals, budget pacing drift. Surfaces anomalies + drafts client-facing context if owner wants to alert.'
-version: pending
-vertical: marketing-agency
+description: Daily scan of paid-media accounts for anomalies + alerts.
+version: 0.1.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
 prerequisites:
-  connectors:
-    - meta_ads | google_ads | linkedin_ads # any subset
-    - slack # internal anomaly surfacing
+  skills: []
+  commands: []
 metadata:
   hermes:
     tags: [Marketing, Agency, PaidMedia, MonitoringSkill]
+  smd:
+    vertical: marketing-agency
+    trust_ceiling: autonomous
     action_class: read + internal_write
-trust_ceiling: autonomous # surfaces anomalies internally; never auto-pauses campaigns or alerts clients
+    connectors:
+      - meta_ads | google_ads | linkedin_ads
+      - slack
 ---
 
 # Paid Media Anomaly Watcher
 
 Once a day (early morning), reads each client's paid-media campaigns across Meta / Google / LinkedIn / wherever they run, checks for the anomaly patterns that an account manager should know about, posts a digest to Slack. The agent surfaces; the owner decides.
 
-## Why this exists
+## When to Use
 
 Paid platform anomalies cost agencies twice: (a) bad performance burns client trust if not caught + explained quickly, (b) ad disapprovals + policy strikes pause spend without anyone noticing until end of week. The traditional fix is a human checking dashboards every morning across 10-30 client accounts. Nobody actually does it; clients call when their campaign has been off for 4 days.
 
 The skill runs the morning check across every client every day. Surfaces only what's worth a human reading. Drafts client-facing language if owner asks for it, never sends.
 
-## How to invoke
+## Prerequisites
+
+Requires at least one paid-media connector (Meta Ads, Google Ads, or LinkedIn Ads) plus Slack for the internal digest. See frontmatter.
+
+## How to Run
 
 Daily cadence (0700 PT) via cron-skill:
 
@@ -41,7 +48,9 @@ Single-client deep dive:
 hermes run paid-media-anomaly-watcher --client "Acme Co" --window "last 7 days"
 ```
 
-## What the agent watches for
+## Procedure
+
+### What the agent watches for
 
 Per client, per active campaign, the rubric (see `references/categorization-rubric.md`) checks:
 
@@ -53,7 +62,7 @@ Per client, per active campaign, the rubric (see `references/categorization-rubr
 - **CTR collapse** — CTR dropping > 40% week-over-week on an evergreen ad set. Creative fatigue.
 - **Policy strikes** — any account-level strikes in the past 24h. Strike accumulation eventually disables the account.
 
-## What the agent does
+### What the agent does
 
 1. **Iterate active clients with paid-media connectors enabled.** Per `customer.yaml`.
 2. **Pull yesterday's data + rolling 7-day baselines** from each enabled platform. Aggregate by campaign.
@@ -62,7 +71,7 @@ Per client, per active campaign, the rubric (see `references/categorization-rubr
 5. **Generate Slack digest.** Format in `references/output-format.md`. Per-client, per-platform, per-campaign. CRITICAL findings get one-line suggested action.
 6. **Optionally draft client-facing context.** If the owner replies to the Slack thread with `@agent draft note Acme`, the agent drafts a short message the owner could send to the client explaining the anomaly + the plan. Owner reads, edits, ships.
 
-## Trust ceiling
+### Trust Ceiling
 
 **autonomous** for the read + Slack post. The agent reads platform data and posts the digest without owner approval. The volume of platforms × clients makes this safe by default — no external blast radius.
 
@@ -83,7 +92,11 @@ The agent MUST NOT:
 - Override the rubric thresholds based on a single client's preferences (rubric tweaks are owner work)
 - Post to channels other than `paid-media-ops` unless explicitly configured per-customer
 
-## What "good" looks like
+## Pitfalls
+
+Common failures: noisy false positives (tune rubric thresholds with owner), surfacing INFO-only days as digests (suppress), drafting client-facing notes without owner trigger.
+
+## Verification
 
 1. Every active client with paid spend gets a daily digest entry (even if "no anomalies").
 2. CRITICAL findings are unmissable — Slack alerts + summary surface above other content.

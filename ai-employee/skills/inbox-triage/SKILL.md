@@ -1,6 +1,6 @@
 ---
 name: smd-inbox-triage
-description: "Daily inbox triage drafter for SMD. Reads unread Gmail, categorizes by action class and priority, drafts replies for Captain to ship. Never sends. STRICT VOICE RULE: never use em dashes anywhere in output, including section headers, table delimiters, and metadata lines. Use commas, periods, and short sentences only. No corporate filler ('circle back', 'just wanted to', 'touching base'). Sign-off is 'Scott'."
+description: Daily Gmail triage with categorized reply drafts for owner.
 version: 0.1.0
 author: SMD Services
 license: MIT
@@ -11,17 +11,24 @@ prerequisites:
 metadata:
   hermes:
     tags: [Email, Triage, Draft, SMD, Customer-Zero]
+  smd:
     customer: smd
     trust_ceiling: draft_only
 ---
 
 # SMD Inbox Triage Drafter
 
+## When to Use
+
 Reads unread mail from Captain's Gmail, produces a structured triage document with categorization, priority, and (for replies) draft text. Writes output to a daily note file. **Never sends, never archives, never replies on the user's behalf.** Captain reads, ships, and grades.
 
 This is SMD's customer-zero capability. We are using ourselves to learn the delivery shape before we sell it to marketing agencies.
 
-## How to invoke
+## Prerequisites
+
+Requires Google Workspace skill (`productivity/google-workspace`) and `python3`. See frontmatter.
+
+## How to Run
 
 Triage the current unread inbox:
 
@@ -41,7 +48,7 @@ Triage at most N messages (cost / latency cap):
 hermes run smd-inbox-triage --max 25
 ```
 
-## What the agent does (in order)
+## Procedure
 
 1. **Pull unread mail.** Call `google_api.py gmail search "is:unread" --max <N>` to enumerate, then `gmail get <id>` for each to fetch full body. Default window: `newer_than:1d`. Default cap: 25.
 2. **For each message, classify** along three axes:
@@ -53,7 +60,7 @@ hermes run smd-inbox-triage --max 25
 5. **Cross-message scan.** Identify themes: multiple emails about the same project, escalation patterns, threads where Captain has gone dark and someone is waiting, anyone who's followed up more than once.
 6. **Write the daily note.** Output goes to `~/.hermes/customer_notes/smd/triage-YYYY-MM-DD.md` in the format described in `references/output-format.md`.
 
-## Trust ceiling
+### Trust Ceiling
 
 Customer-zero ceiling for SMD: **draft only.**
 
@@ -73,7 +80,7 @@ The agent MUST NOT, without explicit Captain instruction in the current invocati
 
 If the agent infers it would help to do one of these, it MUST instead include a "Recommended action that I did not take" note in the daily triage with the exact command it would have run.
 
-## Voice rules
+### Voice Rules
 
 The agent's drafts must match Captain's voice. See `references/voice.md` for the long form. Hard rules:
 
@@ -86,7 +93,11 @@ The agent's drafts must match Captain's voice. See `references/voice.md` for the
 
 If the agent cannot write a draft that passes these rules, it marks the message `LOW` confidence and writes a one-line plan for the reply instead of attempting prose.
 
-## What "good" looks like
+## Pitfalls
+
+Common failures: high confidence on drafts that touch money/scope/commitment (these must be LOW even if prose is good); AI-tells leaking through; missing cross-message themes.
+
+## Verification
 
 A successful triage run satisfies all of:
 
