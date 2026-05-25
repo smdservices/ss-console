@@ -228,5 +228,61 @@ class TestLoadFromDisk:
         assert path.parent == tmp_path
 
 
+SKILLS_ROOT = REPO_ROOT / "ai-employee" / "skills"
+
+
+class TestAllCommittedScenarios:
+    """Every scenario JSON in the live tree must parse cleanly.
+
+    This is the CI gate that prevents a malformed scenario JSON from
+    landing on main. New scenarios authored under task #53 (and any
+    subsequent skill onboarding) are automatically covered — the test
+    walks ``ai-employee/skills/*/fixtures/*.scenario.json`` and asserts
+    each loads via ``scenario_schema.load``.
+    """
+
+    def _committed_scenarios(self):
+        return sorted(SKILLS_ROOT.glob("*/fixtures/*.scenario.json"))
+
+    def test_at_least_the_11_pi_anchors_committed(self):
+        # Sanity check on the harness itself: the 11 PI fixtures shipped
+        # in this branch (4 skills × 3 fixtures + 1 skill × 2 fixtures =
+        # 11 total: demand-letter, discovery-response, opposing-counsel-
+        # response, settlement-prep). If this drops below 11, something
+        # has regressed.
+        scenarios = self._committed_scenarios()
+        assert len(scenarios) >= 11, (
+            f"expected at least 11 PI scenario JSONs; found {len(scenarios)}"
+        )
+
+    @pytest.mark.parametrize(
+        "scenario_path",
+        sorted(
+            (REPO_ROOT / "ai-employee" / "skills").glob("*/fixtures/*.scenario.json")
+        ),
+        ids=lambda p: str(p.relative_to(REPO_ROOT)),
+    )
+    def test_committed_scenario_parses(self, scenario_path):
+        """One test per committed scenario JSON. Pass = scenario_schema.load() returns."""
+        scenario = load(scenario_path)
+        # Sanity: the scenario's skill_slug must match the directory it lives in.
+        expected_skill_slug = scenario_path.parents[1].name
+        assert scenario.skill_slug == expected_skill_slug, (
+            f"scenario.skill_slug={scenario.skill_slug!r} does not match "
+            f"directory {expected_skill_slug!r} at {scenario_path}"
+        )
+        # Sanity: the fixture_name must match the file stem (minus .scenario).
+        expected_fixture_name = scenario_path.name.removesuffix(".scenario.json")
+        assert scenario.fixture_name == expected_fixture_name, (
+            f"scenario.fixture_name={scenario.fixture_name!r} does not match "
+            f"file stem {expected_fixture_name!r}"
+        )
+        # Sanity: refusal scenarios must declare their refusal code.
+        if scenario.expected_outcome == "refusal":
+            assert scenario.expected_refusal_code, (
+                f"refusal scenario at {scenario_path} missing expected_refusal_code"
+            )
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([str(_HERE), "-v"]))

@@ -1,0 +1,56 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-settlement-prep",
+  "fixture_name": "01-soft-tissue-clear-liability-matter",
+  "expected_skill": "law-pi-settlement-prep",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "date_of_incident",
+    "incident_location",
+    "client_role",
+    "opposing_party_name",
+    "opposing_counsel_name",
+    "opposing_counsel_firm",
+    "opposing_carrier_name",
+    "claim_number",
+    "case_caption",
+    "case_number",
+    "case_court",
+    "documents_folder_path",
+    "demand_served_date",
+    "settlement_conference_date",
+    "conference_location",
+    "mediator_name",
+    "attendees_recorded"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "PracticeManagement.read_matter",
+      "DocumentStorage.list_documents"
+    ],
+    "must_not_call": [
+      "Email.send",
+      "Email.create_draft",
+      "PracticeManagement.update_matter"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "DAMAGES_PACKET_BUILT",
+    "SETTLEMENT_HISTORY_ASSEMBLED",
+    "MEMO_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "Internal settlement-prep memo (NOT an outbound email). Skill assembles damages packet (specials sourced from billing documents; lost wages sourced from employment records; general damages range from customer-authored settlement-strategy memory rule). Settlement history from EmailThread. Negotiation posture is TBD — partner authors. Skill produces a matter-internal note, never a draft email. Email tools are forbidden."
+}

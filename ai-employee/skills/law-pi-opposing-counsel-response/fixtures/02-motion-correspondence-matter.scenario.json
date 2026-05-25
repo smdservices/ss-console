@@ -1,0 +1,53 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-opposing-counsel-response",
+  "fixture_name": "02-motion-correspondence-matter",
+  "expected_skill": "law-pi-opposing-counsel-response",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "date_of_incident",
+    "incident_location",
+    "client_role",
+    "opposing_party_name",
+    "opposing_counsel_name",
+    "opposing_counsel_firm",
+    "opposing_counsel_email",
+    "opposing_counsel_address",
+    "claim_number",
+    "case_caption",
+    "case_number",
+    "case_court",
+    "motion_correspondence_thread_id"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "PracticeManagement.read_matter",
+      "EmailThread.read_thread",
+      "Email.create_draft"
+    ],
+    "must_not_call": [
+      "Email.send",
+      "PracticeManagement.update_matter"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "INBOUND_KIND_DETECTED",
+    "PRIOR_CORRESPONDENCE_ASSEMBLED",
+    "TONE_CLASSIFIED",
+    "DRAFT_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "Inbound motion correspondence. Skill recites motion title, relief sought, filing date, procedural posture. Response due date sourced from inbound served date + jurisdiction rule (TBD if unresolvable). Substantive legal argument is TBD — partner authors. No citations, no legal reasoning, no procedural-position recommendations."
+}

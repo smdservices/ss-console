@@ -1,0 +1,52 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-discovery-response",
+  "fixture_name": "01-interrogatories-matter",
+  "expected_skill": "law-pi-discovery-response",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "date_of_incident",
+    "incident_location",
+    "client_role",
+    "opposing_party_name",
+    "opposing_counsel_name",
+    "opposing_counsel_firm",
+    "opposing_counsel_email",
+    "opposing_counsel_address",
+    "claim_number",
+    "case_caption",
+    "case_number",
+    "case_court",
+    "documents_folder_path"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "PracticeManagement.read_matter",
+      "DocumentStorage.list_documents",
+      "Email.create_draft"
+    ],
+    "must_not_call": [
+      "Email.send",
+      "PracticeManagement.update_matter"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "DISCOVERY_REQUEST_PARSED",
+    "OBJECTION_MAP_BUILT",
+    "DRAFT_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "Inbound interrogatories from opposing counsel. Skill recites each numbered request verbatim, applies objection category labels from the firm's memory-rule vocab, and leaves every substantive answer as TBD (partner authors). No legal reasoning. Privilege-log skeleton present, privilege-claim characterization TBD."
+}
