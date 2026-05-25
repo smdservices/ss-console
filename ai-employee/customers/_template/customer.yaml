@@ -56,12 +56,12 @@ personas:
 # during the assessment call.
 connectors:
   PracticeManagement:
-    adapter: '[filevine / clio / synthetic]'
-    backend: '[composio:filevine / build:filevine / synthetic:fixture]'
+    adapter: '[filevine / clio / no_pm]'
+    backend: '[build:filevine / mcp:clio-oktopeak / synthetic:no_pm]'
     enabled: true
   Email:
-    adapter: '[gmail / microsoft-graph / synthetic]'
-    backend: '[composio:gmail / build:ms-graph / synthetic:fixture]'
+    adapter: '[m365-mail / google-gmail / synthetic]'
+    backend: '[mcp:m365-mail / mcp:google-gmail / synthetic:fixture]'
     enabled: true
   Calendar:
     adapter: '[gmail / microsoft-graph / synthetic]'
