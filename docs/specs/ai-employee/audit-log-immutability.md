@@ -1,5 +1,15 @@
 # Audit log immutability
 
+> **Status — pending rehome (2026-05-25):** the original implementation
+> (`ai-employee/adapter/audit_log_immutability.py` + `audit_log_integrity.py`)
+> was retired when the in-tree Hermes adapter was removed per ADR 0015
+> rewrite. The immutability **requirement** stands; its new home is the
+> overlay's `hermes-smd-audit` plugin (write-side rejection of
+> UPDATE/DELETE) plus a control-plane Worker for the integrity check.
+> Code samples below reference paths that no longer exist; treat them as
+> design intent until the spec is rewritten against the new substrate.
+> Follow-on: refresh this spec against the post-2026-05-24 architecture.
+
 **Spec for issue #892.** Worker-layer enforcement that rejects UPDATE/DELETE
 against the per-customer `audit_log` table, plus an immutable Logpush
 mirror, a periodic integrity check, and the Captain-supervised

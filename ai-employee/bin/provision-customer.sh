@@ -240,15 +240,11 @@ else
 fi
 
 # ---------- Step 9: per-connector prod smoke tests ----------
-# For each enabled BUILD or COMPOSIO connector, run one read-only call
-# against the customer's tenant to surface auth / scope / shape issues
-# before any write capability is exercised.
-log "Running per-connector prod smoke tests..."
-uv run --quiet --with pyyaml python3 "${REPO_ROOT}/ai-employee/adapter/run_prod_smoke_test.py" \
-  --customer "${SLUG}" \
-  --app "${APP_NAME}" \
-  --customer-yaml "${CUSTOMER_YAML}" \
-  || log "WARN: one or more connector smoke tests failed — review output before enabling any write capability"
+# The legacy `run_prod_smoke_test.py` was retired with the in-tree adapter.
+# Per-connector probes now run inside the customer Machine via the overlay's
+# `hermes-smd-hook-probe` plugin at boot. The boot smoke test above confirms
+# the plugin loaded; connector-level reachability is logged by hook-probe to
+# the customer's audit log and surfaced in the admin portal.
 
 log "Provisioning complete for ${APP_NAME}"
 log "Next steps:"
