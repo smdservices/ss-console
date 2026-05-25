@@ -1,0 +1,84 @@
+# AI Employee fast tests (every PR + main push).
+#
+# Per test plan v2 §"CI integration (3 workflows)". This is the
+# every-PR fast-feedback workflow covering:
+#
+#   - Layer 1 contract & boot (the subset that fits in <6h GitHub
+#     Actions runner limit): schema conformance, selector simulator,
+#     MCP stub tests, cross-tenant isolation contracts, scenario
+#     schema validation against every committed scenario JSON
+#   - Deterministic fabrication checker (no LLM; safety-critical
+#     belt-and-suspenders before any LLM-judged regression runs)
+#   - Layer 3 chokepoint adversarial probes (cheap; no LLM)
+#   - Voice-gate scoring constants regression
+#
+# Excludes (lives elsewhere):
+#   - L2 behavioral regression with LLM-judge → ai-employee-behavioral.yml
+#   - L4 soak → ai-employee-soak.yml
+#   - Existing skill_regression.py golden-snapshot path → already gated
+#     by ai-employee-skill-regression.yml; not duplicated here.
+
+name: ai-employee-fast
+
+on:
+  pull_request:
+    paths:
+      - 'ai-employee/**'
+      - '.github/workflows/ai-employee-fast.yml'
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  fast:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '>=3.11'
+
+      - name: Install pytest
+        run: |
+          python3 -m pip install --quiet pytest
+
+      - name: L1 — scenario schema validation (every committed scenario JSON)
+        run: |
+          python3 -m pytest ai-employee/tests/test_scenario_schema.py -v
+
+      - name: L1 — selector simulator (5 PI skills + 15-skill global set)
+        run: |
+          python3 -m pytest ai-employee/tests/test_selector_simulator.py -v
+
+      - name: L1 — scenario runner contract (judge + fabrication-pre-judge integration)
+        run: |
+          python3 -m pytest ai-employee/tests/test_scenario_runner.py -v
+
+      - name: L1 — MCP stub harness (5 first-customer-bound stubs)
+        run: |
+          python3 -m pytest ai-employee/fixtures/mcp/tests/ -v
+
+      - name: L1 — cross-tenant isolation (six boundaries)
+        run: |
+          python3 -m pytest ai-employee/tests/test_tenant_isolation.py -v
+
+      - name: L2 — judge module + deterministic fabrication pre-judge
+        run: |
+          python3 -m pytest ai-employee/judging/tests/ -v
+
+      - name: Voice-sample CLI ingestion validation
+        run: |
+          python3 -m pytest ai-employee/voice-gate/bin/ingest_tests/ -v
+
+      - name: L4 — soak runner unit tests (LSQ math + gate logic; no infra)
+        run: |
+          python3 -m pytest ai-employee/tests/soak/tests/ -v
+
+      - name: Safety substrate boot-time invariants (1-7)
+        run: |
+          python3 -m pytest ai-employee/safety-substrate/tests/ -v

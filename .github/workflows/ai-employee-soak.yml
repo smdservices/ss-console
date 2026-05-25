@@ -1,0 +1,136 @@
+# AI Employee operational soak (nightly main + weekly pre-launch).
+#
+# Per test plan v2 §"Layer 4 — Launch Soak — Soak tiering". Three
+# execution modes:
+#
+#   - Nightly 6h soak on main: continuous-loop scenario regression
+#     against a fresh _template-derived Machine. Linear-regression on
+#     memory/disk slopes; gate on slope < threshold (DEFAULT_THRESHOLDS
+#     in ai-employee/tests/soak/run_soak.py).
+#   - Weekly 96h soak: 4-day pre-launch endurance run. Catches slow-
+#     growing failure modes 24h misses (per Devil's Advocate #4 from
+#     the plan critique). Failure injection mid-soak (kill Honcho /
+#     Postgres / Redis → verify graceful degradation + tini reaper
+#     recovery + audit emission).
+#   - On-demand per-customer launch: workflow_dispatch with the
+#     customer slug; runs launch-check.sh against that customer's
+#     Machine before final cutover signoff.
+#
+# Infrastructure: long soaks (6h, 96h) cannot run on GitHub Actions
+# runners directly (6h job limit). The workflow KICKS OFF a Fly Machine
+# (or future dedicated soak runner) and polls for the artifact. The
+# Python soak runner inside is the same in both cases; the difference
+# is where it executes.
+#
+# Production wiring deferred to first real soak run; v1 of this
+# workflow exercises the dry-run path so CI semantics + the artifact
+# upload pattern are proven before the first real soak fires.
+
+name: ai-employee-soak
+
+on:
+  schedule:
+    # Nightly 6h on main — fires at 02:13 UTC daily (off the round-hour spike)
+    - cron: '13 2 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Soak mode'
+        required: true
+        type: choice
+        options:
+          - nightly-6h
+          - weekly-96h
+          - launch-check
+        default: nightly-6h
+      customer_slug:
+        description: 'Customer slug (for launch-check mode)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  soak:
+    runs-on: ubuntu-latest
+    # GitHub Actions hard limit is 6h on hosted runners. For 6h-or-less
+    # soaks we run here; for 96h we kick off a Fly Machine (see
+    # launch-soak-fly job below).
+    timeout-minutes: 350
+    if: github.event_name == 'schedule' || github.event.inputs.mode == 'nightly-6h'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '>=3.11'
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --quiet pytest psutil
+      - name: Run nightly 6h soak
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_JUDGE }}
+          SOAK_MODE: nightly-6h
+        run: |
+          # Production wiring: real MetricSource (psutil + Fly metrics)
+          # + real ScenarioRunner against the PI scenario library. v1:
+          # runs the soak harness unit tests as a smoke check, which
+          # proves the LSQ gate logic without infrastructure.
+          python3 -m pytest ai-employee/tests/soak/tests/ -v
+      - name: Upload soak report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soak-report-nightly-${{ github.run_id }}
+          path: |
+            ai-employee/tests/soak/reports/*.md
+          if-no-files-found: ignore
+
+  launch-soak-fly:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.mode == 'weekly-96h'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Kick off Fly Machine for 96h soak
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          # Real wiring (deferred to first real 96h run):
+          # 1. Provision a Fly Machine from the soak template
+          # 2. fly ssh exec to start ai-employee/tests/soak/run_soak.py
+          #    with mode=weekly-pre-launch (96 loops)
+          # 3. Poll for the artifact + machine cleanup on completion
+          echo "96h Fly soak — placeholder until first weekly run lands"
+
+  launch-check:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.mode == 'launch-check'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '>=3.11'
+      - name: Validate customer-slug input
+        run: |
+          if [ -z "${{ github.event.inputs.customer_slug }}" ]; then
+            echo "error: launch-check requires customer_slug input" >&2
+            exit 1
+          fi
+      - name: Run launch-check.sh against the customer
+        env:
+          FLY_MACHINE_HOST: ${{ secrets.FLY_MACHINE_HOST }}
+        run: |
+          ai-employee/bin/launch-check.sh ${{ github.event.inputs.customer_slug }}
+      - name: Upload launch attestation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: launch-attestation-${{ github.event.inputs.customer_slug }}-${{ github.run_id }}
+          path: |
+            ai-employee/customers/${{ github.event.inputs.customer_slug }}/launch-attestation.md
+          if-no-files-found: warn
