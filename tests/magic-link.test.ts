@@ -165,7 +165,7 @@ describe('magic links', () => {
     } as unknown as Parameters<typeof POST>[0])
 
     expect(response.status).toBe(302)
-    expect(response.headers.get('Location')).toBe('/auth/portal-login?status=sent')
+    expect(response.headers.get('Location')).toBe('/auth/sign-in?status=sent')
 
     const rows = await db
       .prepare(`SELECT org_id, user_id FROM magic_links ORDER BY created_at ASC`)

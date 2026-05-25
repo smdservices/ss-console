@@ -27,10 +27,10 @@ import { env } from 'cloudflare:workers'
 
 const portalData = await getPortalClient(env.DB, Astro.locals)
 if (!portalData) {
-  return Astro.redirect('/auth/portal-sign-in')
+  return Astro.redirect('/auth/sign-in')
 }
 if (!portalData.client) {
-  return Astro.redirect('/auth/portal-sign-in?status=no_subscription')
+  return Astro.redirect('/auth/sign-in?status=no_subscription')
 }
 
 const aiEmployeeSubscription = await getProductSubscription(
@@ -95,7 +95,7 @@ const totalCents = invoices.reduce((sum, i) => sum + Math.round(i.amount * 100),
   <body class="min-h-screen bg-[color:var(--ss-color-background)]">
     <SkipToMain />
     <PortalHeader clientName={clientName}>
-      <SignOutButton asChild redirectUrl="/auth/portal-sign-in?status=signed_out">
+      <SignOutButton asChild redirectUrl="/auth/sign-in?status=signed_out">
         <button
           type="button"
           class="inline-flex items-center min-h-11 px-2 -mx-2 text-sm text-[color:var(--ss-color-text-muted)] hover:text-[color:var(--ss-color-text-primary)] active:text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded transition-colors"

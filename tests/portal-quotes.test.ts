@@ -429,9 +429,14 @@ describe('portal quotes: middleware handles /api/portal/* routes', () => {
     expect(code).toContain('isPortalApiRoute')
   })
 
-  it('portal API routes included in protected route check', () => {
+  it('portal API routes flow through portal auth enforcement', () => {
+    // Post Clerk-unified migration the gating moved from a single
+    // `isProtectedRoute` flag to per-surface enforcement functions
+    // (`enforceAdminAuth` / `enforcePortalAuth`). The portal-API
+    // detection still routes through `isPortalApiRoute` to choose
+    // 401-JSON vs 302-redirect.
     const code = source()
     expect(code).toContain('isPortalApiRoute')
-    expect(code).toContain('isProtectedRoute')
+    expect(code).toContain('enforcePortalAuth')
   })
 })
