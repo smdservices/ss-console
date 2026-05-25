@@ -18,7 +18,7 @@ The pre-meeting prep is eight sections, in order. Sections 1-4 are Captain-only;
 | 1       | Identify firm                  | Captain | None (relationship work)                                                  |
 | 2       | Compile dossier                | Captain | `customers/_template/dossier.md`                                          |
 | 3       | Scrape voice samples           | Captain | Manual + voice ingestion pipeline                                         |
-| 4       | Author customer.yaml           | Captain | `customers/_template/customer.yaml` + `adapter/validate_customer_yaml.py` |
+| 4       | Author customer.yaml           | Captain | `customers/_template/customer.yaml` + `scripts/validate-customer-yaml.ts` |
 | 5       | Provision Fly Machine          | Captain | `bin/provision-customer.sh`                                               |
 | 6       | Run readiness checks           | Captain | `bin/prepare-demo-firm.sh`                                                |
 | 7       | Pre-meeting walk-through       | Captain | Manual review                                                             |
@@ -102,15 +102,11 @@ Open `ai-employee/customers/{firm-slug}/customer.yaml` and replace every bracket
 7. `connectors` reflects the dossier section 6 hypothesis. Items with `confidence: low` should start as `adapter: synthetic` and switch to a real adapter only after the assessment call confirms the stack.
 8. `memory.d1_namespace`, `memory.r2_vault_path`, `memory.vectorize_index` must satisfy the isolation invariants (see `r2-vectorize-naming.md`). The values follow `{customer_id}` exactly.
 
-Validate before moving on:
+Validate before moving on (canonical TS validator per ADR 0019):
 
 ```bash
-uv run --quiet --with pyyaml python3 \
-  ai-employee/adapter/validate_customer_yaml.py \
-  ai-employee/customers/{firm-slug}/customer.yaml \
-  --skills-dir ai-employee/skills \
-  --connectors-dir ai-employee/connectors \
-  --fixtures-dir ai-employee/fixtures
+npx tsx scripts/validate-customer-yaml.ts \
+  ai-employee/customers/{firm-slug}/customer.yaml
 ```
 
 The validator must exit 0 before Section 5. A non-zero exit means the file is structurally wrong and would fail at provisioning time anyway; fix it now.

@@ -25,11 +25,10 @@ A blank marker means no operator is ready. While the marker is blank, Captain re
 **Procedure.**
 
 1. Confirm the customer.yaml exists at `ai-employee/customers/{slug}/customer.yaml`. If it does not, stop. Authoring the customer.yaml from scratch is Captain-only work; the backup operator does not synthesize customer config under time pressure.
-2. Validate the yaml:
+2. Validate the yaml (canonical TS validator per ADR 0019):
    ```bash
-   cd ai-employee && uv run --quiet --with pyyaml python3 \
-     adapter/validate_customer_yaml.py customers/{slug}/customer.yaml \
-     --skills-dir skills --connectors-dir connectors --fixtures-dir fixtures
+   npx tsx scripts/validate-customer-yaml.ts \
+     ai-employee/customers/{slug}/customer.yaml
    ```
    The validator must exit 0 before proceeding.
 3. Run the provisioner:

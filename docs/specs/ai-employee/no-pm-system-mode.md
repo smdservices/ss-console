@@ -134,15 +134,11 @@ The per-matter view and the global folder view both work; they are two different
 
 The template is validated by the same runtime validator every `customer.yaml` runs through (`src/lib/ai-employee/customer-yaml/validator.ts`). The bracketed-fields shape means an unedited template fails validation -- the customer slug pattern, infisical token_ref pattern, and memory invariants will all reject the placeholder values. This is intentional: the validator forces the operator to fill in real values before provisioning.
 
-To validate after copying + filling:
+To validate after copying + filling (canonical TS validator per ADR 0019):
 
 ```bash
-uv run --quiet --with pyyaml python3 \
-  ai-employee/adapter/validate_customer_yaml.py \
-  ai-employee/customers/{firm-slug}/customer.yaml \
-  --skills-dir ai-employee/skills \
-  --connectors-dir ai-employee/connectors \
-  --fixtures-dir ai-employee/fixtures
+npx tsx scripts/validate-customer-yaml.ts \
+  ai-employee/customers/{firm-slug}/customer.yaml
 ```
 
 ## Failure modes
