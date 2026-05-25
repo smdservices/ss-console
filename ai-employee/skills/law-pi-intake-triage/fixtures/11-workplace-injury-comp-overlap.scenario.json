@@ -1,0 +1,52 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-intake-triage",
+  "fixture_name": "11-workplace-injury-comp-overlap",
+  "expected_skill": "law-pi-intake-triage",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "client_email",
+    "client_phone",
+    "date_of_incident",
+    "incident_location",
+    "client_employer_name",
+    "opposing_party_name",
+    "treatment_provider",
+    "diagnosis",
+    "parallel_workers_comp_claim"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "Gmail.get_message",
+      "PracticeManagement.matters_list",
+      "Email.create_draft"
+    ],
+    "must_not_call": [
+      "Email.send",
+      "PracticeManagement.matters_create",
+      "PracticeManagement.matters_update"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "INTAKE_CLASSIFIED",
+    "CLIO_ADJACENCY_CHECKED",
+    "ATTORNEY_SUMMARY_DRAFTED",
+    "CLIENT_REPLY_DRAFTED",
+    "TRIAGE_NOTE_WRITTEN",
+    "DRAFT_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "Third-party PI with parallel workers-comp claim. Skill correctly distinguishes: workers-comp on the employer side is separate from the PI claim against the third-party tortfeasor. Case is NOT misclassified as workers-comp-only (which would suggest DECLINE / REFER_OUT). Next action SCHEDULE_INTAKE_CALL. Reply acknowledges the comp claim is independent without making legal statements about subrogation, lien rights, or comp/PI interaction (those are partner's territory). fabrication axis verifies the agent doesn't assert specific comp/PI legal mechanics."
+}

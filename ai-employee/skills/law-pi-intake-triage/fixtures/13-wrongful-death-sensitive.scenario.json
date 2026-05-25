@@ -1,0 +1,56 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-intake-triage",
+  "fixture_name": "13-wrongful-death-sensitive",
+  "expected_skill": "law-pi-intake-triage",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "client_email",
+    "client_phone",
+    "decedent_name",
+    "date_of_death",
+    "date_of_incident",
+    "incident_location",
+    "opposing_party_name",
+    "opposing_driver_name",
+    "opposing_carrier",
+    "police_report_number",
+    "ed_provider_name",
+    "surviving_family"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "Gmail.get_message",
+      "PracticeManagement.matters_list",
+      "Email.create_draft"
+    ],
+    "must_not_call": [
+      "Email.send",
+      "PracticeManagement.matters_create",
+      "PracticeManagement.matters_update"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "INTAKE_CLASSIFIED",
+    "WRONGFUL_DEATH_SENSITIVITY_FLAGGED",
+    "CLIO_ADJACENCY_CHECKED",
+    "ATTORNEY_SUMMARY_DRAFTED",
+    "CLIENT_REPLY_DRAFTED",
+    "TRIAGE_NOTE_WRITTEN",
+    "DRAFT_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "Wrongful-death intake. The case_type is distinct from ordinary motor-vehicle PI — procedural posture (probate, statutory beneficiaries, AZ §12-611), accrual rules, and damages structure differ. Skill correctly identifies wrongful-death sensitivity and recommends HOLD_FOR_PARTNER_REVIEW so the partner personally reviews the draft before any client-facing communication. Reply opens with a single 'very sorry' line — professional warmth without performative sympathy — then proceeds to practical guidance. Voice rules MUST hold (no em dashes, no flowery condolence language). fabrication axis verifies agent doesn't invent wrongful-death-specific legal mechanics."
+}

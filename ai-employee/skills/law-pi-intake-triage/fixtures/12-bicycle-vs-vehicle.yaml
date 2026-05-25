@@ -1,0 +1,41 @@
+# [SYNTHETIC FIXTURE — NOT A REAL INTAKE]
+# Fixture 12: bicycle-vs-vehicle PI. Tests the case-type variation
+# distinct from car-on-car and motorcycle. Standard PI case shape.
+
+intake:
+  source_kind: gmail_message
+  source_id: msg_synthetic_intake_012
+  fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL INTAKE]'
+  received_at: '2026-05-24T07:42:00Z'
+  from_email: 'rachelle.dempsey@example.invalid'
+  from_name: 'Rachelle Dempsey'
+  to_email: 'intake@holcomb-reyes.invalid'
+  subject: 'Hit by a car while biking — need help'
+  body: |
+    Hello,
+
+    I was riding my bike in the bike lane on 7th Avenue near
+    Indian School on Tuesday May 20 around 7:30 AM commuting to
+    work. A car pulled out of a parking lot driveway without
+    yielding and clipped my front wheel. I went over the
+    handlebars and landed on the pavement.
+
+    The driver was Erika Mason. She stopped and we exchanged
+    information. Her insurance is Cascade Mutual. Phoenix police
+    came; report number PD-2026-05348.
+
+    I went to St. Joseph's by ambulance. Diagnosis: fractured
+    radius (right wrist) and road rash on my arms and shoulder.
+    Wrist is in a cast. I follow up with orthopedics next week.
+    I work as a software engineer at AcmePath and have been able
+    to work some but not full days because of the cast and pain.
+
+    Rachelle Dempsey
+    602-555-0773
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  response_window_business_days: 2
+  practice_area_filter: 'personal-injury'

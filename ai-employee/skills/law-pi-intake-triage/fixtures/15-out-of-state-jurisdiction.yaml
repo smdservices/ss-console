@@ -1,0 +1,41 @@
+# [SYNTHETIC FIXTURE — NOT A REAL INTAKE]
+# Fixture 15: incident outside Arizona. Tests jurisdiction recognition
+# — the firm's bar admission is Arizona; an out-of-state incident
+# generally cannot be handled locally without co-counsel or referral.
+
+intake:
+  source_kind: gmail_message
+  source_id: msg_synthetic_intake_015
+  fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL INTAKE]'
+  received_at: '2026-05-24T16:55:00Z'
+  from_email: 'patrick.lindholm@example.invalid'
+  from_name: 'Patrick Lindholm'
+  to_email: 'intake@holcomb-reyes.invalid'
+  subject: 'Car accident in San Diego while on vacation — am Arizona resident'
+  body: |
+    Hello,
+
+    I am an Arizona resident (Phoenix) but I was rear-ended in San
+    Diego, California while on vacation on Saturday May 17 around
+    6 PM. I was at a stop light on Pacific Highway near Old Town
+    when the other driver hit me. The driver was Marcus Webber
+    from San Diego. His insurance is Pacific Coast Insurance.
+
+    California police came; San Diego PD report 26-SD-19842. I
+    went to UCSD Health that night and they diagnosed a herniated
+    cervical disc. I drove back to Phoenix on Tuesday with a
+    neck brace; I have a follow-up with Phoenix Spine and Joint
+    next week.
+
+    The accident happened in California but I live in Arizona
+    and I would prefer to work with a local firm if possible.
+
+    Patrick Lindholm
+    602-555-0937
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  response_window_business_days: 2
+  practice_area_filter: 'personal-injury'

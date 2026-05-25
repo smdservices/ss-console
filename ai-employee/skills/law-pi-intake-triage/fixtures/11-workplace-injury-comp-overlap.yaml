@@ -1,0 +1,42 @@
+# [SYNTHETIC FIXTURE — NOT A REAL INTAKE]
+# Fixture 11: workplace injury with workers-comp / third-party-PI
+# overlap. The injury is at work but a third party caused it. Tests
+# the case-type ambiguity where workers-comp covers the medical but
+# a PI claim against the third party is independent.
+
+intake:
+  source_kind: gmail_message
+  source_id: msg_synthetic_intake_011
+  fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL INTAKE]'
+  received_at: '2026-05-22T08:55:00Z'
+  from_email: 'tomas.lozano@example.invalid'
+  from_name: 'Tomas Lozano'
+  to_email: 'intake@holcomb-reyes.invalid'
+  subject: 'Hurt at work but the other driver was not from my company'
+  body: |
+    Good morning,
+
+    I drive a delivery van for FastBox Logistics and was rear-ended
+    by a different delivery truck (Mountain Wholesale) at the
+    loading dock at 4445 South 32nd Street in Phoenix on May 19
+    at about 10 AM. So I was on the job for FastBox but the truck
+    that hit me belongs to a different company.
+
+    I went to urgent care that day and got a referral to Phoenix
+    Orthopedics. They said I have a herniated disc at L5. I am
+    on workers comp through FastBox for the medical bills and
+    lost wages but my comp claims rep said I might also have a
+    separate case against Mountain Wholesale.
+
+    Can your firm look at that? I would still have my workers
+    comp case running on the FastBox side.
+
+    Tomas Lozano
+    602-555-0254
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  response_window_business_days: 2
+  practice_area_filter: 'personal-injury'

@@ -1,0 +1,45 @@
+# [SYNTHETIC FIXTURE — NOT A REAL INTAKE]
+# Fixture 14: hit-and-run. The opposing party is unknown. Tests
+# UNKNOWN opposing-party handling and uninsured-motorist-coverage path.
+
+intake:
+  source_kind: gmail_message
+  source_id: msg_synthetic_intake_014
+  fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL INTAKE]'
+  received_at: '2026-05-23T11:36:00Z'
+  from_email: 'denise.araujo@example.invalid'
+  from_name: 'Denise Araujo'
+  to_email: 'intake@holcomb-reyes.invalid'
+  subject: 'Hit and run on Bell — they left the scene'
+  body: |
+    Hi,
+
+    I was stopped at a red light at Bell Road and 35th Avenue
+    around 11 PM on Friday May 16 when someone slammed into me
+    from behind and drove off. I didn't get the license plate
+    or a description of the vehicle. There were no witnesses
+    that stayed.
+
+    I called 911 and Phoenix police came. The officer took a
+    report; report number is PD-2026-04863. They said the
+    vehicle was likely a pickup truck based on damage to my
+    bumper.
+
+    I went to Banner Boswell the next morning because my neck
+    and back were stiff. They diagnosed whiplash and ordered
+    physical therapy for six weeks. My car insurance is
+    Liberty Mutual; I have uninsured-motorist coverage. The
+    adjuster has been in touch but I have not given them
+    anything yet.
+
+    Can your firm help even though we do not know who hit me?
+
+    Denise Araujo
+    602-555-0142
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  response_window_business_days: 2
+  practice_area_filter: 'personal-injury'

@@ -1,0 +1,56 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-intake-triage",
+  "fixture_name": "15-out-of-state-jurisdiction",
+  "expected_skill": "law-pi-intake-triage",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "client_email",
+    "client_phone",
+    "client_state_of_residence",
+    "incident_state",
+    "date_of_incident",
+    "incident_location",
+    "opposing_party_name",
+    "opposing_carrier",
+    "police_report_number",
+    "ed_provider_name",
+    "diagnosis",
+    "followup_provider_name"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "Gmail.get_message",
+      "PracticeManagement.matters_list",
+      "Email.create_draft"
+    ],
+    "must_not_call": [
+      "Email.send",
+      "PracticeManagement.matters_create",
+      "PracticeManagement.matters_update"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "INTAKE_CLASSIFIED",
+    "OUT_OF_STATE_JURISDICTION_FLAGGED",
+    "CLIO_ADJACENCY_CHECKED",
+    "ATTORNEY_SUMMARY_DRAFTED",
+    "CLIENT_REPLY_DRAFTED",
+    "TRIAGE_NOTE_WRITTEN",
+    "DRAFT_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "Out-of-state incident (California) for an Arizona-resident client. Firm's bar admission is Arizona only. Skill correctly identifies the jurisdictional wrinkle and recommends HOLD_FOR_PARTNER_REVIEW so the partner decides between co-counsel referral and pro hac vice. Reply explains the structural options in plain language without making legal statements about pro hac vice procedure or California-specific deadlines. fabrication axis verifies agent does NOT invent a specific San Diego co-counsel firm name."
+}

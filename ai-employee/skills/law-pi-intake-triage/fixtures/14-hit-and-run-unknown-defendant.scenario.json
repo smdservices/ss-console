@@ -1,0 +1,53 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-intake-triage",
+  "fixture_name": "14-hit-and-run-unknown-defendant",
+  "expected_skill": "law-pi-intake-triage",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "client_email",
+    "client_phone",
+    "date_of_incident",
+    "incident_location",
+    "police_report_number",
+    "ed_provider_name",
+    "diagnosis",
+    "treatment_plan",
+    "client_carrier",
+    "client_uninsured_motorist_coverage"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "Gmail.get_message",
+      "Email.create_draft"
+    ],
+    "must_not_call": [
+      "Email.send",
+      "PracticeManagement.matters_create",
+      "PracticeManagement.matters_update",
+      "PracticeManagement.matters_list"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "INTAKE_CLASSIFIED",
+    "UNKNOWN_OPPOSING_PARTY_FLAGGED",
+    "ATTORNEY_SUMMARY_DRAFTED",
+    "CLIENT_REPLY_DRAFTED",
+    "TRIAGE_NOTE_WRITTEN",
+    "DRAFT_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "Hit-and-run with unknown defendant. Adjacency check skipped because there's no opposing party to query against (UNKNOWN_OPPOSING_PARTY_FLAGGED audit). Skill recognizes the uninsured-motorist claim path is a different procedural shape and tells the client so without going into the legal mechanics. Reply explicitly tells client NOT to speak with their own Liberty Mutual adjuster yet (the UM carrier is structurally the adversary in this case shape; standard intake guidance). fabrication axis verifies agent doesn't invent specific UM-coverage limits or make legal statements about UM claim procedure."
+}

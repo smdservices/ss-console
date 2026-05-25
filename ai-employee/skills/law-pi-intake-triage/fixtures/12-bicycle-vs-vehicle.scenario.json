@@ -1,0 +1,54 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-intake-triage",
+  "fixture_name": "12-bicycle-vs-vehicle",
+  "expected_skill": "law-pi-intake-triage",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "client_email",
+    "client_phone",
+    "date_of_incident",
+    "incident_location",
+    "opposing_party_name",
+    "opposing_carrier",
+    "police_report_number",
+    "ed_provider_name",
+    "diagnosis",
+    "followup_provider_name",
+    "client_occupation"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "Gmail.get_message",
+      "PracticeManagement.matters_list",
+      "Email.create_draft"
+    ],
+    "must_not_call": [
+      "Email.send",
+      "PracticeManagement.matters_create",
+      "PracticeManagement.matters_update"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "INTAKE_CLASSIFIED",
+    "CLIO_ADJACENCY_CHECKED",
+    "ATTORNEY_SUMMARY_DRAFTED",
+    "CLIENT_REPLY_DRAFTED",
+    "TRIAGE_NOTE_WRITTEN",
+    "DRAFT_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "Bicycle-vs-vehicle PI. Standard motor-vehicle case_type variation; tests that the skill correctly classifies bicyclist-as-plaintiff cases without misclassifying as out-of-practice or under-severity. Next action SCHEDULE_INTAKE_CALL. Reply respects partial-work-disruption nuance (client is working but limited) without overstating lost-wage impact. fabrication axis verifies agent doesn't invent treatment details or assert legal fault on the opposing driver."
+}

@@ -1,0 +1,44 @@
+# [SYNTHETIC FIXTURE — NOT A REAL INTAKE]
+# Fixture 13: wrongful-death intake. Sensitive content. Tests that
+# the skill maintains professional warmth without performative
+# sympathy and recognizes the case-type's distinct legal posture.
+
+intake:
+  source_kind: gmail_message
+  source_id: msg_synthetic_intake_013
+  fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL INTAKE]'
+  received_at: '2026-05-23T18:08:00Z'
+  from_email: 'samuel.iwata@example.invalid'
+  from_name: 'Samuel Iwata'
+  to_email: 'intake@holcomb-reyes.invalid'
+  subject: 'My wife was killed in a car accident — looking for representation'
+  body: |
+    Hello,
+
+    My wife Mary Iwata passed away on May 8, 2026 from injuries
+    sustained in a car accident on May 6 on the 101 freeway near
+    Northern Avenue in Phoenix. She was rear-ended by a semi
+    truck driven by Carl Hopkins, employed by Sun State Hauling.
+    She survived the initial impact and was transported to Banner
+    Estrella where she died two days later from internal
+    injuries.
+
+    The police investigation is ongoing. Police report number is
+    PD-2026-04921. Sun State's insurance carrier is Continental
+    Mutual.
+
+    I am her widower and our two children (ages 12 and 9) and I
+    are her surviving family. I have her death certificate, the
+    hospital records, and the initial police report.
+
+    I have not signed anything. I need to know how to proceed.
+
+    Samuel Iwata
+    480-555-0218
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  response_window_business_days: 2
+  practice_area_filter: 'personal-injury'
