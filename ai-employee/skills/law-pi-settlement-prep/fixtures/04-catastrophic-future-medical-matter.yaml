@@ -1,0 +1,104 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 04: catastrophic-injury case with substantial future medical
+# exposure. Tests settlement-prep skill on a case where future-medical
+# value drives settlement posture.
+
+matter:
+  id: 'matter_synthetic_sp_04'
+  client_name: 'Emelio Pizarro'
+  matter_type: 'PI-catastrophic'
+  status: 'open'
+  opened_at: '2025-05-12T10:00:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2025-04-28'
+    incident_location: 'Loop 101 westbound at MP 35, Glendale AZ'
+    client_role: 'operator of 2022 Honda Pilot rear-ended by commercial vehicle'
+    opposing_party_name: 'Westvale Distribution Co'
+    opposing_counsel_name: 'Beatrix Halloran'
+    opposing_counsel_firm: 'Halloran Fitchburg'
+    opposing_carrier_name: 'National Commercial Auto Risk'
+    claim_number: 'NCAR-2025-038214'
+    case_caption: 'Pizarro v. Westvale Distribution Co'
+    case_number: 'CV2025-009512'
+    case_court: 'Maricopa County Superior Court'
+    documents_folder_path: '/matters/matter_synthetic_sp_04'
+    demand_served_date: '2026-04-10'
+    settlement_conference_date: '2026-07-22'
+    conference_location: 'AAA Arbitration & Mediation Center, Phoenix AZ'
+    mediator_name: 'Hon. (Ret.) Sandra Wexler'
+
+documents:
+  - id: 'doc_sp4_01'
+    filename: 'medical_chronology.pdf'
+    classification: 'medical_chronology'
+    synthetic_body: |
+      Emelio Pizarro medical chronology summary.
+      2025-04-28: Banner Estrella ED — comminuted L1-L2 burst fracture
+        diagnosed; immediate transfer to Barrow Neurological.
+      2025-04-29: Barrow Neurological — emergent thoracolumbar fusion
+        (L1-L3) by Dr. Olufemi Adesanya. Hardware placed.
+      2025-05-05 through 2025-08-15: Banner Inpatient Rehab — 14 weeks
+        intensive PT and OT.
+      2025-09-01 through ongoing: Phoenix Pain Management — chronic
+        pain management; intrathecal pump implantation scheduled for
+        2026-07-30.
+      2025-09-01 through ongoing: Outpatient PT/OT — 3x weekly.
+
+  - id: 'doc_sp4_02'
+    filename: 'life_care_plan_summary.pdf'
+    classification: 'expert_report'
+    synthetic_body: |
+      Life-Care Plan Summary prepared by Dr. Marisol Espinosa, CRC,
+      CLCP. Estimates future medical/care expenses for Mr. Pizarro's
+      remaining life expectancy. Plan covers: ongoing pain management,
+      future intrathecal pump replacements (every 7-9 years), home
+      modifications, durable medical equipment, attendant care for
+      ADLs as needed. Total estimated future medical: TBD (defendant
+      contests methodology; partner reviews report scope before
+      this memo ships).
+
+  - id: 'doc_sp4_03'
+    filename: 'billing_summary.pdf'
+    classification: 'billing'
+    synthetic_body: |
+      Medical specials summary as of 2026-05-15.
+      Banner Estrella ED + transfer: $32,400.00.
+      Barrow Neurological (admission + surgery): $284,600.00.
+      Banner Inpatient Rehab (14 weeks): $186,400.00.
+      Phoenix Pain Management (8 months): $42,800.00.
+      Outpatient PT/OT (8 months): $28,600.00.
+      Imaging and miscellaneous: $14,200.00.
+      Total to date: $589,000.00.
+
+  - id: 'doc_sp4_04'
+    filename: 'employer_wage_letter.pdf'
+    classification: 'employment_verification'
+    synthetic_body: |
+      Maricopa Construction Group.
+      Emelio Pizarro is employed as a Senior Project Manager.
+      Following the 2025-04-28 collision, Mr. Pizarro has not
+      returned to work in any capacity. Annual salary: $112,000.
+      Lost wages 2025-04-28 through 2026-05-15: $115,500.00 (12.5
+      months pro-rated). Vocational rehabilitation evaluation
+      indicates return-to-work, if achievable, would be at
+      substantially reduced earning capacity.
+
+  - id: 'doc_sp4_05'
+    filename: 'settlement_history.pdf'
+    classification: 'correspondence_summary'
+    synthetic_body: |
+      Settlement correspondence chronology.
+      2026-04-10: Demand served (Holcomb & Reyes to NCAR / Halloran
+        Fitchburg). Amount: TBD (partner reviews before this memo).
+      2026-04-30: Defendant response — request for additional life-
+        care-plan documentation. Records provided 2026-05-10.
+      2026-05-20: Defendant opening offer received. Amount and terms
+        TBD (partner reviews offer document).
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'

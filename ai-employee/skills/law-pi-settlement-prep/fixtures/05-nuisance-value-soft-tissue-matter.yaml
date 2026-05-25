@@ -1,0 +1,58 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 05: low-damages soft-tissue case. Tests settlement-prep
+# skill on opposite end of the severity spectrum from fixture 04.
+
+matter:
+  id: 'matter_synthetic_sp_05'
+  client_name: 'Reggie Kostas'
+  matter_type: 'PI-soft-tissue'
+  status: 'open'
+  opened_at: '2026-02-18T14:00:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2026-02-04'
+    incident_location: 'Bell Road and 7th Street, Phoenix AZ'
+    client_role: 'operator of stopped 2017 Toyota Corolla'
+    opposing_party_name: 'Geraldine Brisbane'
+    opposing_counsel_name: 'Aldrich Cardenas'
+    opposing_counsel_firm: 'Cardenas Whitlow'
+    opposing_carrier_name: 'Roadway Auto Mutual'
+    claim_number: 'RAM-2026-010832'
+    case_caption: 'Kostas v. Brisbane'
+    case_number: 'CV2026-001847'
+    case_court: 'Maricopa County Justice Court'
+    documents_folder_path: '/matters/matter_synthetic_sp_05'
+    demand_served_date: '2026-04-22'
+    settlement_conference_date: '2026-06-30'
+    conference_location: 'Roadway Auto Mutual Phoenix office (informal settlement conference)'
+    mediator_name: 'N/A — informal conference, no neutral'
+
+documents:
+  - id: 'doc_sp5_01'
+    filename: 'medical_chronology.pdf'
+    classification: 'medical_chronology'
+    synthetic_body: |
+      Reggie Kostas medical chronology summary.
+      2026-02-04: NextCare Urgent Care — neck and upper-back strain
+        diagnosed; conservative management.
+      2026-02-12: Phoenix Family Medicine — PCP follow-up. PT
+        prescribed.
+      2026-02-19 through 2026-04-09: Sonoran Sports PT — 6 sessions.
+        Discharged with subjective improvement.
+
+  - id: 'doc_sp5_02'
+    filename: 'billing_summary.pdf'
+    classification: 'billing'
+    synthetic_body: |
+      Medical specials summary.
+      NextCare Urgent Care: $640.00.
+      Phoenix Family Medicine: $320.00.
+      Sonoran Sports PT (6 sessions): $1,080.00.
+      Total: $2,040.00. Treatment concluded 2026-04-09.
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'

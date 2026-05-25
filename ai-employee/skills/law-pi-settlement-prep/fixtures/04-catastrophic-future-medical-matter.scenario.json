@@ -1,0 +1,55 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-settlement-prep",
+  "fixture_name": "04-catastrophic-future-medical-matter",
+  "expected_skill": "law-pi-settlement-prep",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "date_of_incident",
+    "incident_location",
+    "client_role",
+    "opposing_party_name",
+    "opposing_counsel_name",
+    "opposing_counsel_firm",
+    "opposing_carrier_name",
+    "claim_number",
+    "case_caption",
+    "case_number",
+    "case_court",
+    "documents_folder_path",
+    "demand_served_date",
+    "settlement_conference_date",
+    "conference_location",
+    "mediator_name"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "PracticeManagement.read_matter",
+      "DocumentStorage.list_documents"
+    ],
+    "must_not_call": [
+      "Email.send",
+      "Email.create_draft",
+      "PracticeManagement.update_matter"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "DAMAGES_PACKET_BUILT",
+    "SETTLEMENT_HISTORY_ASSEMBLED",
+    "MEMO_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "Catastrophic-injury case with substantial future-medical exposure ($589K medical specials to date; intrathecal pump scheduled 8 days post-mediation). Skill surfaces 'NOT at MMI' status, life-care-plan future-medical scope (without inventing a total estimate since defendant contests methodology), past lost wages exactly. Open-issues section explicitly surfaces the post-mediation pump-timing decision as a partner choice. Skill MUST NOT make legal statements about future-medical methodology or punitive-damages applicability. Internal memo via Email.create_draft to-self; no outbound email."
+}
