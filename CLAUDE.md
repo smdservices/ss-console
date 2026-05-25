@@ -379,12 +379,12 @@ Load these ADRs before any AI Employee architectural work:
 - **ADR 0015** — Hermes fork posture (pin-only fork, plugin-only overlay)
 - **ADR 0016** — Honcho disposition (mirror, don't gate; tuned config; TTL archival)
 - **ADR 0017** — Skill Curator disposition (trust Hermes-native; mirror to D1 inventory)
-- **ADR 0019** _(forthcoming)_ — customer.yaml → per-profile config translation
-- **ADR 0020** _(forthcoming)_ — Connector strategy (MCP-first; BUILD only where no acceptable MCP)
+- **ADR 0019** — customer.yaml → per-profile config translation
+- **ADR 0020** — Connector strategy (MCP-first; BUILD only where no acceptable MCP)
 
 Connectors are wired by `customer.yaml.connectors{}` backend prefix: `mcp:` (vendor or vetted-community MCP server), `build:` (Python adapter we maintain), `composio:` (long-tail via Composio with per-connection isolation guard), `synthetic:` (no_pm substrate).
 
-Recent merges that this architectural realignment supersedes (these will be removed or refactored as the overlay plugin repo ships): the `smd.hooks.*` dual-surface scaffolding in `ai-employee/adapter/aie_adapter.py`, the Honcho interceptor (`honcho_interceptor.py`), the Curator interceptor (`curator_interceptor.py`), the GEPA boot-check (`boot_checks.py` — verifies a Hermes subsystem that does not exist; ADR 0018 superseded).
+The 2026-05-24 realignment burial is complete. Removed: `smd.hooks.*` dual-surface scaffolding, Honcho interceptor, Curator interceptor, GEPA boot-check (ADR 0018 superseded), in-tree YAML validator, the pre-realignment MS Graph adapter, and the `clio/` / `dotloop/` / `shipstation/` connector dirs whose MCP-first decisions superseded them. New BUILD adapters land in `venturecrane/hermes-smd-overlay`, not this tree.
 
 ## Key Reference
 
