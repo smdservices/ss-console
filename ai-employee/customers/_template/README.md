@@ -20,15 +20,11 @@ This directory is the canonical starting point for a new customer's per-firm con
    ```
 
 4. Replace every bracketed field in `dossier.md` per the runbook sections.
-5. Replace every bracketed field in `customer.yaml`. Validate:
+5. Replace every bracketed field in `customer.yaml`. Validate (canonical TS validator per ADR 0019):
 
    ```bash
-   uv run --quiet --with pyyaml python3 \
-     ai-employee/adapter/validate_customer_yaml.py \
-     ai-employee/customers/{firm-slug}/customer.yaml \
-     --skills-dir ai-employee/skills \
-     --connectors-dir ai-employee/connectors \
-     --fixtures-dir ai-employee/fixtures
+   npx tsx scripts/validate-customer-yaml.ts \
+     ai-employee/customers/{firm-slug}/customer.yaml
    ```
 
 6. Provision the Machine with `ai-employee/bin/provision-customer.sh {firm-slug}`.

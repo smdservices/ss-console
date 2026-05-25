@@ -22,14 +22,11 @@ schema_version: 1
 # skill rewrite (per ADR 0006 capability-adapter pattern).
 #
 # Copy this file to ai-employee/customers/{firm-slug}/customer.yaml, then
-# replace every bracketed value. Validate with:
+# replace every bracketed value. Validate with the canonical TS validator
+# (per ADR 0019):
 #
-#   uv run --quiet --with pyyaml python3 \
-#     ai-employee/adapter/validate_customer_yaml.py \
-#     ai-employee/customers/{firm-slug}/customer.yaml \
-#     --skills-dir ai-employee/skills \
-#     --connectors-dir ai-employee/connectors \
-#     --fixtures-dir ai-employee/fixtures
+#   npx tsx scripts/validate-customer-yaml.ts \
+#     ai-employee/customers/{firm-slug}/customer.yaml
 #
 # The reserved `_template` directory is never a real customer slug.
 # customer_id must equal the directory name and match ^[a-z0-9][a-z0-9-]{0,31}$.
