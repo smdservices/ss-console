@@ -1,6 +1,6 @@
 ---
 name: law-pi-demand-letter-draft
-description: "Demand-letter draft assembler for personal-injury law firms. Reads a single active PI matter through the PracticeManagement capability and the matter's medical and economic records through DocumentStorage, then writes a draft into the supervising partner's drafts folder via Email.create_draft. The draft is FACTUAL ONLY. The skill writes the chronology, billing tabulation, lost-wages tabulation, exhibit list, and factual case-history prose, all sourced from the matter record. The skill DOES NOT author the demand amount, the settlement bracket prose, the liability characterization, or any case-strategy language; those sections render as TBD markers for the partner to author. Per ADR 0005 the partner is the sender; per PRD §7.5 invariant #8 every authored figure and named person is sourced from the matter record or rendered as TBD, never inferred; per law-firm PRD §9 the citation-refusal substrate forbids any case-law, statute, or court-rule reference in any section. STRICT VOICE RULE: no em dashes anywhere in output, including section headers and table delimiters. Commas, periods, short sentences. No corporate filler. The partner signs the letter; the agent's persona is invisible to the recipient. CITATION POLICY: the skill must never produce, repeat, or reformulate legal citations (case-name-shaped strings with reporter cites, statute references, court rule references, treatise pinpoints). All citation work defers to human legal research. If the matter record contains citations supplied by the partner in narrative notes, the skill carries them through verbatim as quoted text only; it does not validate, restate, or augment them."
+description: 'Drafts factual PI demand-letter chronology for partner.'
 version: 0.1.0
 author: SMD Services
 license: MIT
@@ -8,50 +8,51 @@ platforms: [linux, macos]
 prerequisites:
   skills: []
   commands: []
-client_facing_fields:
-  - name: recipient_name
-    sourced_from: matter_attribute
-  - name: recipient_carrier
-    sourced_from: matter_attribute
-  - name: claim_number
-    sourced_from: matter_attribute
-  - name: client_name
-    sourced_from: matter_attribute
-  - name: date_of_incident
-    sourced_from: matter_attribute
-  - name: incident_location
-    sourced_from: matter_attribute
-  - name: medical_provider_list
-    sourced_from: system_of_record
-  - name: medical_specials_total
-    sourced_from: system_of_record
-  - name: per_provider_billing
-    sourced_from: system_of_record
-  - name: lost_wages_total
-    sourced_from: system_of_record
-  - name: employer_name
-    sourced_from: matter_attribute
-  - name: treatment_chronology
-    sourced_from: system_of_record
-  - name: exhibit_index
-    sourced_from: system_of_record
-  - name: liability_characterization
-    sourced_from: none
-  - name: settlement_bracket_prose
-    sourced_from: none
-  - name: demand_amount
-    sourced_from: none
-  - name: case_strategy_language
-    sourced_from: none
-  - name: partner_signoff
-    sourced_from: memory_rule
 metadata:
   hermes:
     tags: [Law, PI, Demand, Draft]
+  smd:
     vertical: law-firm-pi
     trust_ceiling: draft_for_review
     trust_ceiling_locked: true
     capabilities: [PracticeManagement, DocumentStorage, Email]
+    client_facing_fields:
+      - name: recipient_name
+        sourced_from: matter_attribute
+      - name: recipient_carrier
+        sourced_from: matter_attribute
+      - name: claim_number
+        sourced_from: matter_attribute
+      - name: client_name
+        sourced_from: matter_attribute
+      - name: date_of_incident
+        sourced_from: matter_attribute
+      - name: incident_location
+        sourced_from: matter_attribute
+      - name: medical_provider_list
+        sourced_from: system_of_record
+      - name: medical_specials_total
+        sourced_from: system_of_record
+      - name: per_provider_billing
+        sourced_from: system_of_record
+      - name: lost_wages_total
+        sourced_from: system_of_record
+      - name: employer_name
+        sourced_from: matter_attribute
+      - name: treatment_chronology
+        sourced_from: system_of_record
+      - name: exhibit_index
+        sourced_from: system_of_record
+      - name: liability_characterization
+        sourced_from: none
+      - name: settlement_bracket_prose
+        sourced_from: none
+      - name: demand_amount
+        sourced_from: none
+      - name: case_strategy_language
+        sourced_from: none
+      - name: partner_signoff
+        sourced_from: memory_rule
 ---
 
 # Law PI Demand-Letter Draft (Factual Assembly)
@@ -60,18 +61,15 @@ Reads one active personal-injury matter and writes a factual demand-letter draft
 
 The skill is configured per-customer through `~/.hermes/customers/{customer_slug}/customer.yaml`, which supplies the firm name, the partner's first name and signature block, the partner's reviewer email account ID for `Email.create_draft`, the firm's voice samples for Layer 2 voice match, and the practice-area filter.
 
-## Scope alignment with law-firm-prd §6.2
+## When to Use
 
-The law-firm PRD §6.2 defers a generic "demand letter text" skill (`pi-demand-letter-text-only`) to Phase 3+ on the grounds that factual demand-letter prose still carries implicit legal-judgment characterization (impact framing, liability framing, settlement-value framing). This skill implements the **factually-narrow** subset that is safe in v1:
+Use when a supervising partner needs a factual demand-letter draft assembled from one active PI matter's medical, billing, and employment records. The skill writes the chronology, billing tabulation, lost-wages tabulation, exhibit list, and factual case-history prose; the partner authors the demand amount, settlement bracket, liability characterization, and case-strategy language as TBD sections.
 
-- Chronology, tabulation, exhibit assembly, and factual case-history prose are authored by the skill.
-- Demand amount, settlement bracket, liability characterization, and case-strategy language are NOT authored by the skill. They render as TBD markers for the partner to fill in.
+## Prerequisites
 
-The skill name `law-pi-demand-letter-draft` is operational shorthand for this factually-narrow variant. It is functionally adjacent to the `pi-demand-letter-evidence-packet` capability described in law-firm-prd §6.2 and §12.1, with one addition: the factual sections are assembled as prose in the partner's voice envelope rather than as standalone spreadsheets, so the partner edits a draft letter rather than re-typing from a packet.
+PracticeManagement, DocumentStorage, and Email capability adapters; per-customer config at `~/.hermes/customers/{customer_slug}/customer.yaml` including Layer 2 voice samples meeting Gate 1 minimum. See frontmatter.
 
-If Captain decides this scope creeps too close to the deferred `pi-demand-letter-text-only` skill, the fix is one of: (1) narrow the factual prose to bulleted assembly only and remove the "case history" paragraph, or (2) hold the skill for Phase 3 per the PRD's stated deferral. Both fixes are configuration, not architecture.
-
-## How to invoke
+## How to Run
 
 Draft from a matter ID:
 
@@ -91,7 +89,7 @@ Dry-run (writes the draft to `~/.hermes/customer_notes/{customer_slug}/` and ret
 hermes run law-pi-demand-letter-draft --matter-id <id> --dry-run
 ```
 
-## What the agent does, in order
+## Procedure
 
 1. **Load customer config.** Read `~/.hermes/customers/{customer_slug}/customer.yaml` for firm name, supervising partner's reviewer account ID, partner's signature block, voice samples (Layer 2), and practice-area filter. If `practice_areas` does not include `personal-injury`, the skill refuses with `out_of_scope` and writes no draft.
 2. **Load the matter via PracticeManagement.** Call `practice_management.get_matter(matter_id)`. If the matter is null or its `matter_type` does not indicate PI, refuse with `matter_not_found` or `matter_wrong_type`. The skill never creates or modifies a matter.
@@ -115,7 +113,7 @@ hermes run law-pi-demand-letter-draft --matter-id <id> --dry-run
 13. **Write the matter-internal sourcing note.** In parallel, write `~/.hermes/customer_notes/{customer_slug}/pi-demand-draft-YYYY-MM-DD-<matter-id>.md` containing the section-by-section sourcing index (which `StoredDocument.id` populated which row, which `custom_field` populated which named field, which fields rendered as TBD and why). This is the audit trail the dashboard's sourcing block reads from.
 14. **Emit telemetry.** A skill-invocation event records: matter id (hashed), TBD-marker count by section, voice-gate score, draft size in bytes, adapter calls made. No matter content leaves the customer's machine boundary.
 
-## Trust ceiling
+### Trust Ceiling
 
 `draft_for_review`. The ceiling is **locked at v1 and cannot be promoted to `autonomous`** per PRD §11.2 ("anything touching trust accounting, court filing, settlement authority, judgment-bearing work: `draft_for_review` permanently"). A demand letter touches settlement authority by definition; promotion is architecturally blocked.
 
@@ -137,7 +135,7 @@ The agent MUST NOT, without explicit partner instruction in a different invocati
 
 If the skill cannot find a piece of source data the partner expects (e.g., the opposing-adjuster email), the draft renders the corresponding section as a TBD marker and the matter-internal sourcing note lists the missing item. The partner sees the TBD on review and fills it in. The skill does not guess.
 
-## Voice rules (Layer 2 — partner corpus match)
+### Voice Rules (Layer 2 — partner corpus match)
 
 The factual prose sections (case-history paragraph, exhibit captions, chronology lead-in) must read as if the supervising partner wrote them. Voice samples from `customer.yaml` Layer 2 provide the anchor corpus. See `references/voice.md` for the long form. Hard rules:
 
@@ -154,15 +152,15 @@ The factual prose sections (case-history paragraph, exhibit captions, chronology
 
 If the assembled prose cannot pass these rules (e.g., the chronology only supports a vague paragraph), the skill omits the prose and writes only the structured chronology, tabulations, and exhibit list. The partner prefers structured rows to expand than a flawed paragraph to dismantle.
 
-## Citation policy (law-firm vertical, invariant #6)
+### Citation Policy (law-firm vertical, invariant #6)
 
 The skill must never produce, repeat, or reformulate legal citations. Case-name-shaped strings with reporter cites (e.g., `Smith v. Jones, 123 F.3d 456 (3d Cir. 2010)`), statute references (e.g., `42 U.S.C. § 1983`), court rule references (e.g., `Fed. R. Civ. P. 26(b)(1)`), and treatise pinpoint cites are all in scope. If the matter record contains citations in partner-authored narrative notes, the skill carries them through verbatim as quoted text inside the partner-authored TBD section markers only; it does not validate, restate, or augment them. If the assembled draft would otherwise contain a citation-shaped string, the skill replaces the string with `[CITATION REMOVED — partner inserts after review]` and logs a citation-refusal event. Code-level enforcement lives in the citation-refusal substrate at `ai-employee/safety-substrate/citation_filter.py`; the skill's prompt-level discipline is defense in depth. See `references/citation-policy.md`.
 
-## Fabrication policy (platform invariant #8)
+### Fabrication Policy (platform invariant #8)
 
 Every client-facing field is declared in the skill's frontmatter `client_facing_fields` block with one of: `matter_attribute`, `system_of_record`, `memory_rule`, `none`. Fields tagged `none` MUST render as a TBD marker; rendering plausible content into a `none`-tagged field is a `block`-severity fabrication-filter violation per the spec at `docs/specs/ai-employee/fabrication-filter.md`. The four legal-judgment fields the partner authors (`liability_characterization`, `settlement_bracket_prose`, `demand_amount`, `case_strategy_language`) are all tagged `none` for exactly this reason: the skill cannot author them, the runtime filter enforces non-rendering, and the draft surfaces a TBD marker the partner fills in. See `references/fabrication-policy.md` for the per-section sourcing contract.
 
-## Refusal cases
+### Refusal Cases
 
 The skill emits a refusal (writes no draft, returns a structured error) under any of:
 
@@ -176,7 +174,11 @@ The skill emits a refusal (writes no draft, returns a structured error) under an
 
 When the skill can author a partial draft (some sections sourced, some TBD), it proceeds. When it cannot meet a refusal criterion, it writes no draft and logs the refusal.
 
-## What good looks like
+## Pitfalls
+
+See `### Refusal Cases` in Procedure. Common failure modes also include emitting a citation-shaped string in skill-authored prose, rendering plausible content into a `none`-tagged field, or proceeding without Layer 2 voice samples at Gate 1 minimum.
+
+## Verification
 
 A successful run satisfies all of:
 
@@ -206,4 +208,15 @@ A successful run satisfies all of:
 - Platform PRD §8.4 — skill anatomy. Voice rules front-loaded in description per Phase A.6.
 - Platform PRD §9 — persona and voice model; Layer 2 anchor corpus minimum.
 - Platform PRD §11.2 — default trust ceiling `draft_for_review`, locked for judgment-bearing work.
-- Law-firm PRD §6.2 / §12.1 — scope-alignment note above explains the relationship between this skill and the deferred `pi-demand-letter-text-only` skill.
+- Law-firm PRD §6.2 / §12.1 — scope-alignment note explains the relationship between this skill and the deferred `pi-demand-letter-text-only` skill.
+
+## Scope alignment with law-firm-prd §6.2
+
+The law-firm PRD §6.2 defers a generic "demand letter text" skill (`pi-demand-letter-text-only`) to Phase 3+ on the grounds that factual demand-letter prose still carries implicit legal-judgment characterization (impact framing, liability framing, settlement-value framing). This skill implements the **factually-narrow** subset that is safe in v1:
+
+- Chronology, tabulation, exhibit assembly, and factual case-history prose are authored by the skill.
+- Demand amount, settlement bracket, liability characterization, and case-strategy language are NOT authored by the skill. They render as TBD markers for the partner to fill in.
+
+The skill name `law-pi-demand-letter-draft` is operational shorthand for this factually-narrow variant. It is functionally adjacent to the `pi-demand-letter-evidence-packet` capability described in law-firm-prd §6.2 and §12.1, with one addition: the factual sections are assembled as prose in the partner's voice envelope rather than as standalone spreadsheets, so the partner edits a draft letter rather than re-typing from a packet.
+
+If Captain decides this scope creeps too close to the deferred `pi-demand-letter-text-only` skill, the fix is one of: (1) narrow the factual prose to bulleted assembly only and remove the "case history" paragraph, or (2) hold the skill for Phase 3 per the PRD's stated deferral. Both fixes are configuration, not architecture.

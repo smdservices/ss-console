@@ -1,28 +1,31 @@
 ---
 name: scope-creep-flagger
-description: 'Watches client Slack channels (and email threads) for requests that exceed the SOW. Surfaces to the owner with proposed disposition: in-scope clarification / extra-cost mention / decline.'
-version: pending
-vertical: marketing-agency
+description: Flags out-of-SOW requests in Slack/email for owner reply.
+version: 0.1.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
 prerequisites:
-  connectors:
-    - slack # client channels (read)
-    - gmail # external send threads (read)
-    - google_drive # SOW documents
+  skills: []
+  commands: []
 metadata:
   hermes:
     tags: [Marketing, Agency, ScopeOps, DraftForReview]
+  smd:
+    vertical: marketing-agency
+    trust_ceiling: draft_for_review
     action_class: read + internal_write
-trust_ceiling: draft_for_review # never responds to clients autonomously; always owner-decided
+    connectors:
+      - slack
+      - gmail
+      - google_drive
 ---
 
 # Scope-Creep Flagger
 
 Continuously watches the channels where clients make work requests (per-client Slack channels, the agency's shared email inboxes), compares incoming asks to the client's signed SOW, and surfaces requests that fall outside scope to the agency owner with a one-paragraph proposed disposition. The owner decides whether to absorb, clarify scope, or quote additional work.
 
-## Why this exists
+## When to Use
 
 Scope creep is the canonical agency-retainer profit killer. Three patterns:
 
@@ -32,7 +35,11 @@ Scope creep is the canonical agency-retainer profit killer. Three patterns:
 
 The owner can't read every channel every day; the AM can't always tell what's in-scope without re-reading the SOW. This skill catches it in near real-time and gives the owner the moment to decide before the AM has already said yes.
 
-## How to invoke
+## Prerequisites
+
+See frontmatter.
+
+## How to Run
 
 Continuous watcher (subscribed to Slack channel events + Gmail inbox-watch). When a new message arrives in a client channel or thread:
 
@@ -47,7 +54,7 @@ Manual look-back (e.g., catch up after a weekend):
 hermes run scope-creep-flagger --since "yesterday"
 ```
 
-## What the agent does
+## Procedure
 
 1. **Read the incoming message.** Get the full message + thread context. Note: this includes ALL messages in the channel, not just from the client — client + agency-team are in the same channel.
 2. **Identify if it's a request.** Per `references/categorization-rubric.md`, classify the message:
@@ -66,7 +73,7 @@ hermes run scope-creep-flagger --since "yesterday"
 6. **Surface in Slack.** Internal channel `scope-flags`: client name + permalink to the source message + flag category + proposed disposition. Tag `@<owner>` on OUT_OF_SCOPE_MATERIAL.
 7. **Internal logging.** Append to per-client scope-history note for trend analysis (3+ flags in a week from the same client is a relationship-health signal).
 
-## Trust ceiling
+### Trust Ceiling
 
 **draft_for_review** for everything. The agent never responds to the client. The AM and owner handle the actual conversation. The agent's job is to make sure the owner SEES the request before the AM commits.
 
@@ -85,7 +92,7 @@ The agent MUST NOT:
 - Send the proposed disposition to the AM (the surface is the Slack channel; AM reads if assigned to the client)
 - Categorize as IN_SCOPE silently for a client whose history shows pattern of scope creep — if the relationship is degrading, every flag matters
 
-## Voice rules specific to scope flags
+### Voice Rules
 
 The flag itself is internal-only (no client-facing text). Voice rules:
 
@@ -94,7 +101,11 @@ The flag itself is internal-only (no client-facing text). Voice rules:
 - Suggested AM response: in the client's voice (formal/casual matching the channel's existing tone). Plainspoken. Don't write a defensive paragraph.
 - For AMBIGUOUS: name the choice. "Could argue this is within deliverable D2 (paid social setup) OR is a new ask for ad creative refresh. AM should ask the owner before responding."
 
-## What "good" looks like
+## Pitfalls
+
+Common failure modes: replying to a client directly (forbidden), missing OUT_OF_SCOPE_MATERIAL (>5% false-negative is unacceptable), noisy IN_SCOPE-as-OUT flags that train the owner to ignore the channel, and failing to escalate cumulative flags-per-week for a single relationship.
+
+## Verification
 
 1. Every REQUEST in a watched channel gets a verdict within ~2 minutes of arrival.
 2. False-positive rate (flagging an IN_SCOPE as OUT) < 5%. Owners ignore noisy systems; calibration matters.

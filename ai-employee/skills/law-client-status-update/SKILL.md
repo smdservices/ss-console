@@ -1,6 +1,6 @@
 ---
 name: law-client-status-update
-description: "Client status update drafter for personal-injury law firms. Reads a single open matter and the last N days of activity from Clio (matter notes, billing entries, calendar events) and from Gmail (threads tagged to the matter), categorizes the activity along progress, holding, client-action-needed, and upcoming-deadlines axes, and drafts a client-facing email update for attorney review. Never sends mail, never modifies any Clio record, never creates a calendar event, never commits the firm to future work. STRICT VOICE RULE: never use em dashes anywhere in output, including section headers, table delimiters, and metadata lines. Use commas, periods, and short sentences only. No corporate filler ('touching base', 'circle back', 'reach out', 'just wanted to'). The attorney signs the email, not the agent. CITATION POLICY: this skill must never produce, repeat, or reformulate legal citations (case-name-shaped strings with reporter cites, statute references, court rule references). All citation work defers to human legal research. If matter notes contain a citation an attorney logged for internal reference, the skill records that a citation was present but does not repeat it in any client-facing or partner-facing summary."
+description: 'Drafts client status update from Clio + Gmail for attorney.'
 version: 0.1.0
 author: SMD Services
 license: MIT
@@ -11,6 +11,7 @@ prerequisites:
 metadata:
   hermes:
     tags: [Status, Update, Client, Communication, Law, PI, Draft]
+  smd:
     vertical: law-firm-pi
     trust_ceiling: draft_for_review
     connectors: [clio, gmail]
@@ -22,7 +23,15 @@ Reads one open personal-injury matter, digests activity from the last N days, pr
 
 The skill is configured per-customer through `~/.hermes/customers/{customer_slug}/customer.yaml`, which supplies the firm name, the attorney's first name for sign-off (per responsible attorney), whether billing detail is client-visible, the firm's stated client response window in business days, and the practice-area filter.
 
-## How to invoke
+## When to Use
+
+Use when an attorney needs a drafted client status update for one open PI matter, summarizing the last N days of Clio activity and Gmail threads, categorized along progress / holding / client-action-needed / upcoming-deadlines axes, ready for attorney review before sending.
+
+## Prerequisites
+
+Clio and Gmail connectors with read-only scopes; per-customer config at `~/.hermes/customers/{customer_slug}/customer.yaml`. See frontmatter.
+
+## How to Run
 
 Run a status update for a matter using the default 14-day window:
 
@@ -42,7 +51,7 @@ Run a dry pull of activity without producing a draft (useful for debugging which
 hermes run law-client-status-update --matter-id <clio-matter-id> --dry-run
 ```
 
-## What the agent does, in order
+## Procedure
 
 1. **Load customer config.** Read `~/.hermes/customers/{customer_slug}/customer.yaml` for firm name, attorney sign-off names per responsible attorney, `client_billing_visible` flag, response-window days, and practice-area filter.
 2. **Pull matter activity within the window.** Through the Clio connector, read matter notes, billing entries, and calendar events tagged to the matter for the configured window. Through the Gmail connector, read threads tagged to the matter for the same window. All reads are read-only.
@@ -54,7 +63,7 @@ hermes run law-client-status-update --matter-id <clio-matter-id> --dry-run
 8. **Build the client-action items list.** Machine-readable list of items the firm needs from the client, formatted for the firm's CRM to pick up if integrated. Empty list when there are no items.
 9. **Write the status note.** Output to `~/.hermes/customer_notes/{customer_slug}/client-status-YYYY-MM-DD-<matter-id>.md` in the exact format described in `references/output-format.md`. The trust ceiling enforces that this file is the only artifact written. No email is sent. No Clio record is touched.
 
-## Trust ceiling
+### Trust Ceiling
 
 `draft_for_review`. The agent MAY:
 
@@ -75,7 +84,7 @@ The agent MUST NOT, without explicit attorney instruction in a different invocat
 
 If the agent infers a higher-trust action would help, it includes a "Recommended action I did not take" line in the status note with the exact api call or command it would have run. The attorney decides whether to raise the ceiling for a follow-up invocation.
 
-## Voice rules
+### Voice Rules
 
 The draft client-facing update and the draft partner-visibility note must read as if an experienced legal-team coordinator at the firm wrote them. The attorney signs the email. The agent is invisible to the client. See `references/voice.md` for the long form. Hard rules:
 
@@ -91,7 +100,7 @@ The draft client-facing update and the draft partner-visibility note must read a
 
 If the agent cannot write a draft that passes these rules, it omits the draft and writes a one-line plan instead. The attorney prefers a one-line plan to expand than a flawed draft to dismantle.
 
-## Citation policy
+### Citation Policy
 
 The skill must never produce, repeat, or reformulate legal citations. This includes case-name-shaped strings with reporter cites, statute references, court rule references, treatise pinpoint cites, and restatement references. The risk is especially acute in this skill because matter notes are written by attorneys and routinely contain citations logged for internal reference, and because clients sometimes ask follow-up questions in recent threads that would tempt the skill to cite.
 
@@ -101,7 +110,11 @@ If a client question in a recent Gmail thread asks the skill to confirm a statut
 
 Code-level enforcement lives in the citation-refusal substrate at `ai-employee/safety-substrate/citation_filter.py`; the skill's own prompt-level discipline is defense in depth.
 
-## What good looks like
+## Pitfalls
+
+Common failure modes: misclassifying HOLDING activity as PROGRESS, repeating citation strings from attorney notes, drafting commitment language for future work not yet scheduled, and emitting drafts at MEDIUM confidence (only HIGH and LOW are valid; LOW routes to the partner queue).
+
+## Verification
 
 A successful status-update run satisfies all of:
 

@@ -1,34 +1,41 @@
 ---
 name: ar-chaser
-description: 'Watches AR aging from QuickBooks Online; drafts 7/14/30-day follow-up messages to clients with unpaid invoices; escalates at 45 days. Drafts only — owner ships.'
-version: pending
-vertical: marketing-agency
+description: Drafts AR-aging follow-ups from QuickBooks for owner review.
+version: 0.1.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
 prerequisites:
-  connectors:
-    - quickbooks # invoice + payment data
-    - gmail # drafts go here (never sent autonomously)
-    - slack # internal escalation alerts
+  skills: []
+  commands: []
 metadata:
   hermes:
     tags: [Marketing, Agency, AR, Money, DraftForReview]
+  smd:
+    vertical: marketing-agency
+    trust_ceiling: draft_for_review
     action_class: read + internal_write
-trust_ceiling: draft_for_review # touches money; categorically never autonomous
+    connectors:
+      - quickbooks
+      - gmail
+      - slack
 ---
 
 # AR Chaser
 
 Reads aging-receivables data from QuickBooks Online, identifies invoices past 7 / 14 / 30 days, drafts polite follow-up messages, escalates to the owner at 45 days. The agent's drafts are sourced from the AR row — recipient, amount, invoice number, due date, days overdue. Every draft requires owner review before sending.
 
-## Why this exists
+## When to Use
 
 AR follow-up is the single highest-leverage agency task that owners chronically skip. Every $5K-$15K invoice that lingers past 60 days is a real risk of write-off; clients who pay late once will pay later the next time unless gently corrected. Owners hate doing it because the messages feel pushy and templated; doing them well is judgment work.
 
 This skill reduces it to: every morning, owner reviews 3-8 drafts pre-tuned to the relationship history. Edits 30 seconds each, ships from their inbox. Aging stays under control without the emotional tax.
 
-## How to invoke
+## Prerequisites
+
+Requires QuickBooks Online (AR data), Gmail (drafts), and Slack (escalations) connectors. See frontmatter.
+
+## How to Run
 
 Daily cadence (8am PT) via cron-skill:
 
@@ -42,7 +49,7 @@ On-demand for a specific client:
 hermes run ar-chaser --client "Acme Co"
 ```
 
-## What the agent does
+## Procedure
 
 1. **Pull AR aging.** QBO Aging Detail report for the agency. Filter invoices past 7+ days.
 2. **For each overdue invoice, decide the cadence step.**
@@ -55,7 +62,7 @@ hermes run ar-chaser --client "Acme Co"
 5. **Surface unusual patterns.** If a normally-prompt client is suddenly 30 days late, flag it as a relationship-health signal in the Slack thread. If multiple clients of the same vendor stack are late, that's a market signal to surface.
 6. **Write to drafts.** `customer_notes/drafts/ar/{client}-{invoice-id}-{stage}.md`. Slack post in `ar-drafts` channel summarizing the day's drafts + escalations.
 
-## Trust ceiling
+### Trust Ceiling
 
 **draft_for_review** is non-negotiable. AR touches money + client relationships. Even if a customer says "you can send these for me," the SOW does not authorize it and the substrate enforces draft-only on `gmail.send` for this skill.
 
@@ -74,7 +81,7 @@ The agent MUST NOT:
 - Pause services to a client autonomously (owner-only decision)
 - Forecast that "the client will pay tomorrow" — only state what's verifiable
 
-## Voice rules specific to AR
+### Voice Rules
 
 - Never adversarial. Even at 45+ days, the draft assumes good faith.
 - Never reference legal action, late fees, or "collections" without explicit owner instruction.
@@ -82,7 +89,11 @@ The agent MUST NOT:
 - Reference the specific invoice (number + date) so the client doesn't have to dig.
 - Offer a path: "Let me know if you need a fresh copy / different format / a call."
 
-## What "good" looks like
+## Pitfalls
+
+Common failures: drafting on an already-paid invoice (always cross-check QBO payment status), voice mismatch with prior threads, escalating before day 45.
+
+## Verification
 
 1. Every overdue invoice has a draft at the right cadence stage within 30 min of run start.
 2. Voice matches the client's prior thread — if past threads were formal, the AR draft is formal; if casual, casual.

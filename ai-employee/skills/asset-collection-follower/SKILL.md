@@ -1,35 +1,42 @@
 ---
 name: asset-collection-follower
-description: 'On new-client signed SOW, sends a brand-asset / access checklist to the client; chases at 48h / 96h / 7d cadence. Autonomous on internal logging, draft-for-review on each send.'
-version: pending
-vertical: marketing-agency
+description: Drafts new-client onboarding asset checklist + chase emails.
+version: 0.1.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
 prerequisites:
-  connectors:
-    - gmail # external send (draft)
-    - google_drive # asset checklist template
-    - slack # internal logging
-    - quickbooks # invoice creation triggers signed-SOW signal
+  skills: []
+  commands: []
 metadata:
   hermes:
     tags: [Marketing, Agency, Onboarding, ClientHandoff]
+  smd:
+    vertical: marketing-agency
+    trust_ceiling: draft_for_review
     action_class: read + internal_write + external_send (gated)
-trust_ceiling: draft_for_review # external emails are owner-reviewed; tracking is autonomous
+    connectors:
+      - gmail
+      - google_drive
+      - slack
+      - quickbooks
 ---
 
 # Asset Collection Follower
 
 When a new client signs the SOW (signal: first invoice issued in QBO + tagged "new-engagement"), drafts the brand-asset and platform-access checklist email. Tracks responses; drafts follow-ups at 48h, 96h, and 7d cadence. Logs progress to a per-client tracking note. Autonomous on read + log + cadence calculation; draft-for-review on every outbound message.
 
-## Why this exists
+## When to Use
 
 Brand-asset handoffs are the canonical agency-onboarding delay: clients are excited at signing, then disappear for 1-3 weeks while the agency waits for logos, brand guides, Google Ads MCC access, Meta Business access, brand fonts, CMS credentials. The agency cannot start the work it's already billing for. Weeks 1-2 of an engagement get burned on email pinging.
 
 A consistent follow-up cadence (48h gentle ping → 96h second ping → 7d final + escalation) recovers most of those weeks. The owner just doesn't have the cycles to run the cadence manually across all new clients. This skill runs it.
 
-## How to invoke
+## Prerequisites
+
+Requires QuickBooks (signed-SOW signal), Gmail (drafts), Google Drive (checklist template), and Slack (escalations) connectors. See frontmatter.
+
+## How to Run
 
 Triggered by a QBO webhook on new-client invoice creation (specifically: invoice tagged with the agency's "new-engagement" custom field). Manual invocation for a specific client:
 
@@ -40,7 +47,7 @@ hermes run asset-collection-follower --client "Acme Co" --stage 96h
 hermes run asset-collection-follower --client "Acme Co" --stage 7d
 ```
 
-## What the agent does
+## Procedure
 
 1. **Initial checklist (T+0).** On signal of signed SOW, draft the asset-collection email per the agency's checklist template (Drive path in `customer.yaml`). The email itself is per-engagement-type (brand-only, paid-only, full-service) — agent picks the right template based on the engagement description in the QBO invoice/PM tool. Draft to owner.
 2. **48h follow-up.** If checklist items not yet received (signal: items not present in agency's per-client asset folder OR client hasn't replied), draft a gentle reminder. Reference the specific items still missing. Draft to owner.
@@ -49,7 +56,7 @@ hermes run asset-collection-follower --client "Acme Co" --stage 7d
 5. **Internal logging.** Per-client tracking note at `customer_notes/onboarding/{client}.md` with the cadence so far + what items remain + any client responses. Autonomous.
 6. **Stop trigger.** When all checklist items are received (signaled by agent or owner marking the per-client tracking note complete), the cadence stops.
 
-## Trust ceiling
+### Trust Ceiling
 
 **draft_for_review** for every external email. The agent never sends to a new client without owner review — the relationship is fragile in the first 7 days, and the cadence's tonal calibration is judgment work.
 
@@ -72,7 +79,7 @@ The agent MUST NOT:
 - Escalate before day 7 unless the client explicitly says "delay" or "concerns"
 - Continue cadence after items received
 
-## Voice rules specific to onboarding
+### Voice Rules
 
 - Warm but not gushy. The relationship is new; don't over-engineer enthusiasm.
 - Itemized lists, not paragraphs. Clients scanning on phones need to see specifically what's needed.
@@ -80,7 +87,11 @@ The agent MUST NOT:
 - Never reference timeline ("starting Monday") without owner confirmation. The engagement clock is the owner's call.
 - At 96h+: offer a short call. Some clients aren't email-shaped.
 
-## What "good" looks like
+## Pitfalls
+
+Common failures: pinging on items the client already sent (verify asset folder first), over-enthusiastic voice on the initial draft, continuing cadence after items received.
+
+## Verification
 
 1. Every new-client signal produces an initial-checklist draft within 1 hour.
 2. Follow-up drafts surface exactly the missing items, not a generic ping.
