@@ -1,9 +1,10 @@
 ---
 /**
- * Minimal portal top band. Per .design/NAVIGATION.md §C.1:
+ * Portal top band. Per .design/NAVIGATION.md §C.1 (revised 2026-05-25):
  *
  * - sticky top-0, h-14 md:h-16 on <header> (not the inner div)
- * - Client name on the left, stands alone (no logo, no decoration)
+ * - Shared SmdLogo on the left (brand consistency across marketing / admin /
+ *   portal); client name as a smaller secondary label after the logo.
  * - Three-icon contact control on the right: email / SMS / phone. Each
  *   channel only renders when we have data for it. Clients pick the channel
  *   that works for them — spec decision: "clients know what they want."
@@ -12,6 +13,8 @@
  * The full team member block (avatar + role + next-touchpoint) lives in
  * ConsultantBlock.astro.
  */
+
+import SmdLogo from '../SmdLogo.astro'
 
 interface Props {
   clientName: string
@@ -45,11 +48,14 @@ const iconClasses =
   class="sticky top-0 z-50 h-14 md:h-16 w-full bg-[color:var(--ss-color-background)] border-b-[3px] border-[color:var(--ss-color-text-primary)]"
 >
   <div class="max-w-5xl mx-auto h-full px-4 md:px-6 flex items-center justify-between gap-stack">
-    <p
-      class="font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-primary)] truncate"
-    >
-      {clientName}
-    </p>
+    <div class="flex items-baseline gap-3 md:gap-4 min-w-0">
+      <SmdLogo href="/portal" />
+      <p
+        class="hidden sm:block font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] truncate"
+      >
+        {clientName}
+      </p>
+    </div>
     <div class="flex items-center gap-1">
       {
         mailtoHref && (
