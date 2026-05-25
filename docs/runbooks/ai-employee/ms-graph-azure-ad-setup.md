@@ -1,5 +1,7 @@
 # Microsoft Graph Azure AD app registration
 
+> **Status note (2026-05-25):** The in-tree Python adapter (`ai-employee/connectors/ms_graph/`) was removed per the 2026-05-24 Hermes alignment. Mail and Calendar capabilities now bind to the hosted Microsoft 365 MCPs (`mcp:m365-mail`, `mcp:m365-calendar`) per ADR 0020 and need no in-house adapter. DocumentStorage (OneDrive/SharePoint) ships as a sub-plugin in `venturecrane/hermes-smd-overlay` (issue #1055). The Azure AD app registration described below is still required; the smoke-test invocation later in this runbook will be replaced when the overlay sub-plugin ships.
+
 How to register the SMD Services AI Employee app in Microsoft Entra ID (Azure AD), obtain the client credentials used by the OAuth callback, and grant the Phase-1 scopes that the MS Graph adapter requires.
 
 This runbook is performed **once** by Captain. The resulting `client_id` and `client_secret` are stored in Infisical at `/ai-employee/shared/microsoft-graph/` and pushed to the ss-web Worker as `MICROSOFT_GRAPH_CLIENT_ID` / `MICROSOFT_GRAPH_CLIENT_SECRET`. Per-customer consent (and the resulting per-tenant tokens) is collected separately during customer provisioning — see "Customer onboarding" below.
@@ -82,14 +84,9 @@ ls -la /opt/data/oauth/
 # Expect: microsoft.json, mode 0600, owned by uid 10000 (hermes)
 ```
 
-Run the smoke test:
+Smoke-test invocation is pending — the in-tree `ai_employee_ms_graph.smoke` module was removed in the 2026-05-24 burial. The overlay sub-plugin tracked in #1055 will ship its own smoke entrypoint; update this runbook with the new command when that lands.
 
-```bash
-fly ssh console -a hermes-<customer-slug> -C \
-  '/opt/hermes/.venv/bin/python -m ai_employee_ms_graph.smoke'
-```
-
-The smoke test calls `GET /me` against Microsoft Graph and prints the principal's `displayName` + `mail` (no token material). A 401 indicates the token is missing or expired; a 403 indicates the customer tenant did not grant a required scope.
+Manual verification in the meantime: from the per-customer Machine, exchange a refresh token and call `GET https://graph.microsoft.com/v1.0/me` directly. A 401 indicates the token is missing or expired; a 403 indicates the customer tenant did not grant a required scope.
 
 ## Related references
 
