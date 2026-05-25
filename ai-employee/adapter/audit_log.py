@@ -153,6 +153,22 @@ ACCEPTED_ACTION_TYPES = frozenset(
         # changes log _DEFERRED for Captain re-provision.
         "CUSTOMER_YAML_SYNCED",
         "CUSTOMER_YAML_STRUCTURAL_CHANGE_DEFERRED",
+        # Delegated subagent observability (ADR 0021 Stream C). Skills that
+        # delegate parallel research (law-pi-demand-letter-draft and the rest
+        # of the C.x set) emit:
+        #   SUBAGENT_STOPPED      — one row per child subagent completion,
+        #     emitted by the overlay's hermes-smd-audit plugin on the
+        #     `subagent_stop` hook. Carries child_role, child_status,
+        #     duration_ms in metadata.
+        #   SUBAGENT_INCOMPLETE   — emitted by the PARENT skill before
+        #     refusing to assemble the final draft, when any subagent's
+        #     return fails the assembly-time schema contract (missing or
+        #     empty required keys). The Devil's Advocate critique safety
+        #     constraint: a reviewer-as-sender never sees a quietly
+        #     incomplete draft. Carries subagent_role, missing_key,
+        #     matter_ref in metadata.
+        "SUBAGENT_STOPPED",
+        "SUBAGENT_INCOMPLETE",
     }
 )
 

@@ -91,27 +91,40 @@ hermes run law-pi-demand-letter-draft --matter-id <id> --dry-run
 
 ## Procedure
 
-1. **Load customer config.** Read `~/.hermes/customers/{customer_slug}/customer.yaml` for firm name, supervising partner's reviewer account ID, partner's signature block, voice samples (Layer 2), and practice-area filter. If `practice_areas` does not include `personal-injury`, the skill refuses with `out_of_scope` and writes no draft.
-2. **Load the matter via PracticeManagement.** Call `practice_management.get_matter(matter_id)`. If the matter is null or its `matter_type` does not indicate PI, refuse with `matter_not_found` or `matter_wrong_type`. The skill never creates or modifies a matter.
-3. **Read the matter's custom_fields.** PI-adapter populated fields the skill expects: `client_name`, `date_of_incident`, `incident_location`, `claim_number`, `opposing_carrier`, `opposing_adjuster_name`, `opposing_adjuster_email`, `employer_name`. Each field that is missing from `custom_fields` is recorded as a TBD source; the corresponding draft section renders the TBD marker rather than inferring a plausible value.
-4. **Read matter documents via DocumentStorage.** Call `document_storage.list_folder({folder_path: matter.documents_folder_path})` recursively. Filter for medical records, billing statements, employment verification, and photographs. Build the document index from `StoredDocument.filename`, `mime_type`, `current_version`, `modified_at`. The skill never modifies a document; it reads metadata and (where the adapter supports it) reads PDF/text bodies to extract structured facts.
-5. **Build the medical chronology.** From medical-record filenames and adapter-extracted bodies, build a per-provider, per-date chronology of treatment. Every row is sourced from a specific `StoredDocument.id`. Rows without a sourced date or provider are dropped from the chronology and added to a "could not source" list at the bottom of the matter-internal triage note. The chronology never invents a date or a provider.
-6. **Build the billing tabulation.** Sum billed charges per provider from billing-statement documents. The total medical specials line in the draft is the sum of sourced provider lines. Where a billing statement is missing or its total cannot be extracted, the per-provider line renders as `[TBD: source billing statement at <document path>]` and is excluded from the specials total; the specials total then renders as `[TBD: medical specials total — partner verifies after sourcing missing billing statements]`. The skill never estimates.
-7. **Build the lost-wages tabulation.** Sum lost wages from employment-verification documents (W-2, pay stubs, employer letter). Where employer-verification is absent, render `[TBD: lost wages — partner supplies after employer verification received]`. The skill never imputes wages from the client's stated occupation.
-8. **Build the exhibit list.** Enumerate every sourced document as an exhibit, numbered. Photo exhibits are listed with filename and modified date; medical exhibits with provider and date range; billing exhibits with provider; employment exhibits with employer.
-9. **Author the factual case-history paragraph.** Three to five sentences. Sourced from `date_of_incident`, `incident_location`, the client's documented role in the incident (driver / passenger / pedestrian, as recorded in matter custom_fields), and the documented sequence of medical treatment. No characterization of fault. No characterization of severity beyond what the medical record states. No quoted client testimony unless it appears verbatim in a matter note authored by the partner.
-10. **Insert TBD markers for partner-authored sections.** Demand-amount line: `[TBD: demand amount — partner authors]`. Settlement-bracket prose: `[TBD: settlement bracket and supporting framing — partner authors]`. Liability characterization paragraph: `[TBD: liability characterization — partner authors. The factual chronology above is provided as input.]`. Closing case-strategy language: `[TBD: closing paragraph — partner authors per firm template]`.
-11. **Voice match against Layer 2 partner samples.** Run the assembled factual prose through the voice-gate harness (`ai-employee/voice-gate/` — gated through #855 and not runtime-active at this skill version; the harness contract is honored at fixture-test time). Voice gate scores tone register, sentence length, banned-pattern hits, and Layer 2 anchor similarity. A failing voice score causes the skill to emit a shorter, more conservative variant; if the conservative variant also fails, the skill writes only the chronology and tabulations and omits the factual case-history paragraph (the partner authors it instead).
-12. **Call `Email.create_draft` per ADR 0005.** Construct `DraftInput`:
-    - `reviewer_account_id`: the supervising partner's account ID from `customer.yaml`. Adapter routing per ADR 0005 — must resolve to the partner's mailbox, not the agent's AgentMail identity. Adapter throws `validation_failed` if it cannot enforce.
-    - `to`: the opposing carrier adjuster's email from `matter.custom_fields.opposing_adjuster_email`. If absent, the draft renders as a new-thread draft with `to: []` and the partner fills in the recipient.
-    - `subject`: `Demand for <client name>, claim <claim number>, date of loss <date>` — every field sourced from matter attributes; absences render as TBD.
-    - `thread_id`: null (demand letters open a new correspondence thread).
-    - `body_text` and `body_html`: the assembled draft (see `references/output-format.md` for the exact section order).
-    - `matter_ref`: the matter ID, for the dashboard's "what Marcus used to write this" sourcing block.
-    - `drafted_by_skill`: `law-pi-demand-letter-draft`.
-13. **Write the matter-internal sourcing note.** In parallel, write `~/.hermes/customer_notes/{customer_slug}/pi-demand-draft-YYYY-MM-DD-<matter-id>.md` containing the section-by-section sourcing index (which `StoredDocument.id` populated which row, which `custom_field` populated which named field, which fields rendered as TBD and why). This is the audit trail the dashboard's sourcing block reads from.
-14. **Emit telemetry.** A skill-invocation event records: matter id (hashed), TBD-marker count by section, voice-gate score, draft size in bytes, adapter calls made. No matter content leaves the customer's machine boundary.
+The skill runs in three phases. Customer-config gating runs in the parent. Three parallel subagents do the research. The parent validates an assembly-time schema contract before assembling the draft (ADR 0021 Stream C); on any incomplete return, the parent emits `SUBAGENT_INCOMPLETE` and refuses — a reviewer-as-sender never sees a quietly incomplete draft.
+
+The detailed per-step rules, per-subagent required-key lists, and parent assembly logic live in `references/algorithm.md`. This section is the dispatch shape; that is the depth.
+
+### Phase 1 — Parent preflight
+
+1. **Load customer config** from `~/.hermes/customers/{customer_slug}/customer.yaml`. Refuse with `out_of_scope` if `practice_areas` does not include `personal-injury`.
+2. **Load the matter** via `practice_management.get_matter(matter_id)`. Refuse with `matter_not_found` or `matter_wrong_type` per the refusal cases below.
+3. **Refusal preflight.** Check `voice_samples_missing`, `insufficient_source_data` (quick document-store count), `out_of_scope`, `matter_closed` — short-circuit before any delegation.
+
+### Phase 2 — Delegate three subagents in parallel
+
+Use Hermes' `delegate_task` to spawn three isolated subagents concurrently. Each gets a restricted toolset (default Hermes delegation policy blocks `delegation`, `memory`, `code_execution`, `send_message`, and write capabilities for leaf subagents).
+
+| Sub-role | Goal | Required return keys |
+|---|---|---|
+| `medicals_summary` | Assemble medical chronology + per-provider billing from medical/billing documents | `medical_chronology` (≥1 sourced row), `per_provider_billing` (≥1 row), `medical_specials_total` (numeric or explicit-TBD) |
+| `damages_summary` | Assemble lost-wages tabulation from employment-verification documents | `lost_wages_total` (numeric or explicit-TBD), `employer_documentation` (list, may be empty) |
+| `liability_summary` | Assemble factual case-history paragraph from custom_fields + incident docs | `date_of_incident`, `incident_location`, `client_role`, `factual_chronology` (≥3 sentences) |
+
+The Hermes runtime emits one `SUBAGENT_STOPPED` audit row per child via the overlay's `hermes-smd-audit` plugin (`subagent_stop` hook). The parent waits for all three to return before proceeding.
+
+### Phase 3 — Parent assembly with schema contract
+
+1. **Validate each subagent's return against its required-keys list.** Strict: missing key OR empty required value triggers refusal.
+2. **On any contract failure:** emit one `audit_action="SUBAGENT_INCOMPLETE"` row with metadata (`subagent_role`, `missing_key`, `matter_ref` hashed, `expected_min`). Write a refusal note to `~/.hermes/customer_notes/{customer_slug}/pi-demand-incomplete-YYYY-MM-DD-<matter-id>.md`. **Do NOT call `Email.create_draft`.** Surface the failure via the same escalation channel as `insufficient_source_data`.
+3. **On contract pass:**
+   - Insert TBD markers for the four partner-authored sections (`demand_amount`, `settlement_bracket_prose`, `liability_characterization`, `case_strategy_language`) per the `client_facing_fields` frontmatter.
+   - Voice-gate check against the Layer 2 partner corpus.
+   - Call `Email.create_draft` per ADR 0005 (`reviewer_account_id` = supervising partner; `to` = opposing adjuster's email or empty; `subject` from matter attributes; `body_text` + `body_html` from `references/output-format.md`).
+   - Write the matter-internal sourcing note enumerating which `StoredDocument.id` populated each row and which custom_field populated each named field.
+   - Emit telemetry (matter id hashed, TBD-marker count, voice-gate score, draft size, adapter calls, per-subagent `duration_ms`).
+
+The full per-subagent contract, per-row source policy, and assembly-rule detail (including why three subagents and not the original 14 sequential steps) live in `references/algorithm.md`.
 
 ### Trust Ceiling
 
@@ -192,6 +205,7 @@ A successful run satisfies all of:
 
 ## References
 
+- `references/algorithm.md` — detailed parent preflight rules, per-subagent contracts (required return keys + per-row source policy), and parent assembly logic. The source of truth for what "good demand-letter assembly" looks like (ADR 0021 Stream C — extracted from the prior 14-step `## Procedure` after the `delegate_task` migration).
 - `references/voice.md` — partner-corpus voice rules with positive and negative examples specific to PI demand letters; banned patterns; sentence-length envelope; Layer 2 match criterion.
 - `references/output-format.md` — exact section order and section templates for the draft, with one fully-sourced example and one heavily-TBD example.
 - `references/categorization-rubric.md` — rules for classifying a matter as ready / not-ready for demand letter draft; severity gates; missing-data thresholds.

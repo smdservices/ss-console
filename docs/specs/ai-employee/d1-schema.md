@@ -43,7 +43,15 @@ CREATE INDEX idx_audit_actor ON audit_log(actor, ts);
 -- VOICE_GATE_PASSED, VOICE_GATE_NEAR_PASS, VOICE_GATE_FAILED,
 -- FABRICATION_FILTER_TRIGGERED, ESCALATION_FIRED, ESCALATION_ACKNOWLEDGED,
 -- DECOMMISSION_INITIATED, DECOMMISSION_DRAIN_COMPLETE, DECOMMISSION_FINAL,
--- CAPTAIN_TIME_LOGGED
+-- CAPTAIN_TIME_LOGGED,
+-- SUBAGENT_STOPPED, SUBAGENT_INCOMPLETE (ADR 0021 Stream C —
+--   delegated subagent observability. SUBAGENT_STOPPED is emitted by
+--   the overlay's hermes-smd-audit plugin on `subagent_stop` (one row
+--   per child). SUBAGENT_INCOMPLETE is emitted by the PARENT skill
+--   before refusing to assemble, when any subagent return fails the
+--   assembly-time schema contract — the Devil's Advocate critique
+--   safety constraint that a reviewer-as-sender never sees a quietly
+--   incomplete draft).
 
 -- 2. Memory rules (hard rules; customer-defined)
 CREATE TABLE memory_rules (
