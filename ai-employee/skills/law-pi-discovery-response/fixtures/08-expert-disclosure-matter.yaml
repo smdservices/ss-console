@@ -1,0 +1,57 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 08: expert disclosure interrogatories (Rule 26).
+
+matter:
+  id: 'matter_synthetic_disc_08'
+  client_name: 'Annette Verhoeven'
+  matter_type: 'PI'
+  status: 'open'
+  opened_at: '2025-07-14T10:00:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2025-06-28'
+    incident_location: 'Scottsdale Road and Indian School Road, Scottsdale AZ'
+    client_role: 'operator of stopped 2021 Mercedes GLC'
+    opposing_party_name: 'Reginald Cassidy'
+    opposing_counsel_name: 'Vincent Patel'
+    opposing_counsel_firm: 'Patel Brundage'
+    opposing_counsel_email: 'vpatel@patelbrundage.invalid'
+    opposing_counsel_address: '7600 E Doubletree Ranch Rd, Scottsdale AZ 85258'
+    claim_number: 'AMI-2025-058220'
+    case_caption: 'Verhoeven v. Cassidy'
+    case_number: 'CV2025-011732'
+    case_court: 'Maricopa County Superior Court'
+    documents_folder_path: '/matters/matter_synthetic_disc_08'
+
+inbound_discovery:
+  document_id: 'doc_expert_2026_05_15'
+  filename: '2026-05-15_expert_disclosure_interrogatories.pdf'
+  served_date: '2026-05-15'
+  served_method: 'email_to_counsel'
+  request_kind: 'expert_disclosure_interrogatories'
+  body_excerpt: |
+    DEFENDANT'S EXPERT DISCLOSURE INTERROGATORIES TO PLAINTIFF.
+
+    INTERROGATORY NO. 1: Identify each expert witness whom
+    Plaintiff intends to call at trial, including the expert's
+    full name, business address, professional qualifications, and
+    a summary of the opinions to which the expert is expected to
+    testify.
+
+    INTERROGATORY NO. 2: For each expert identified in response
+    to Interrogatory No. 1, state the basis of each opinion,
+    including all facts, data, documents, exhibits, and prior
+    testimony or publications the expert considered in forming
+    the opinion.
+
+    INTERROGATORY NO. 3: For each expert identified, produce all
+    written reports prepared by the expert in connection with
+    this litigation, all communications between the expert and
+    Plaintiff's counsel, and the expert's CV and fee schedule.
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'

@@ -1,0 +1,20 @@
+{
+  "body_byte_count": 1944,
+  "body_sha256": "4ed525ce100dc0338b0305b0b3cb3589e7e888f3e5a5c12d21cb28a0894d8ad3",
+  "envelope": {
+    "bcc": [],
+    "cc": [],
+    "drafted_by_skill": "law-pi-discovery-response",
+    "matter_ref": "matter_synthetic_disc_10",
+    "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
+    "subject": "Whitmer v. Sanderlin \u2014 CV2025-020041 \u2014 Response to Defendant's Request for Medical Records Authorizations",
+    "thread_id": null,
+    "to": [
+      "tmosley@mosleywestcott.invalid"
+    ]
+  },
+  "fixture_name": "10-records-authorization-matter",
+  "kind": "draft",
+  "skill_slug": "law-pi-discovery-response",
+  "skill_version": "0.1.0"
+}

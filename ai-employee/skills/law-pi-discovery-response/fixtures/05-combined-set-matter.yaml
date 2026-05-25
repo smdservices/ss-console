@@ -1,0 +1,67 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 05: combined discovery (interrogatories + RFP in single
+# served set). Tests skill on mixed request-kind handling.
+
+matter:
+  id: 'matter_synthetic_disc_05'
+  client_name: 'Elena Tomescu'
+  matter_type: 'PI'
+  status: 'open'
+  opened_at: '2025-08-14T09:00:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2025-07-22'
+    incident_location: 'Bell Road and 7th Street, Phoenix, Arizona'
+    client_role: 'operator of stopped 2019 Mazda CX-5'
+    opposing_party_name: 'Augustus Brevard'
+    opposing_counsel_name: 'Helena Vogt'
+    opposing_counsel_firm: 'Vogt Mendez & Cline'
+    opposing_counsel_email: 'hvogt@vogtmendez.invalid'
+    opposing_counsel_address: '2929 N Central Ave, Suite 1700, Phoenix AZ 85012'
+    claim_number: 'STC-2025-066821'
+    case_caption: 'Tomescu v. Brevard'
+    case_number: 'CV2025-014920'
+    case_court: 'Maricopa County Superior Court'
+    documents_folder_path: '/matters/matter_synthetic_disc_05'
+
+inbound_discovery:
+  document_id: 'doc_combined_2026_05_14'
+  filename: '2026-05-14_combined_discovery.pdf'
+  served_date: '2026-05-14'
+  served_method: 'email_to_counsel'
+  request_kind: 'combined_interrogatories_and_rfp'
+  body_excerpt: |
+    DEFENDANT'S FIRST SET OF INTERROGATORIES AND REQUESTS FOR
+    PRODUCTION OF DOCUMENTS PROPOUNDED TO PLAINTIFF.
+
+    INTERROGATORY NO. 1: State each and every job, occupation, or
+    business venture in which Plaintiff has engaged in the five
+    (5) years prior to the date of the incident.
+
+    INTERROGATORY NO. 2: Describe in detail every prior injury,
+    accident, or medical condition involving Plaintiff's neck,
+    back, or any other body part claimed to have been injured in
+    this incident.
+
+    INTERROGATORY NO. 3: Identify every health care provider whom
+    Plaintiff has consulted in the ten (10) years preceding the
+    incident.
+
+    REQUEST FOR PRODUCTION NO. 1: All medical records relating to
+    treatment received by Plaintiff in the ten (10) years
+    preceding the incident.
+
+    REQUEST FOR PRODUCTION NO. 2: All federal and state tax
+    returns filed by Plaintiff for the five (5) years preceding
+    the incident through the present.
+
+    REQUEST FOR PRODUCTION NO. 3: All photographs taken by or on
+    behalf of Plaintiff depicting the scene of the incident, the
+    vehicles involved, or any injury sustained.
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'

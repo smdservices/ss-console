@@ -1,0 +1,20 @@
+{
+  "body_byte_count": 2468,
+  "body_sha256": "76d3a129a4a80de121cad2f5a6e47cfd57fe488dbf6d1276afafc414421c47c4",
+  "envelope": {
+    "bcc": [],
+    "cc": [],
+    "drafted_by_skill": "law-pi-discovery-response",
+    "matter_ref": "matter_synthetic_disc_07",
+    "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
+    "subject": "Marchetti v. Mahurin \u2014 CV2025-008410 \u2014 Objections to Subpoena Duces Tecum Served on TechHorizon Solutions",
+    "thread_id": null,
+    "to": [
+      "dyarrow@yarrowlaw.invalid"
+    ]
+  },
+  "fixture_name": "07-third-party-records-subpoena-matter",
+  "kind": "draft",
+  "skill_slug": "law-pi-discovery-response",
+  "skill_version": "0.1.0"
+}

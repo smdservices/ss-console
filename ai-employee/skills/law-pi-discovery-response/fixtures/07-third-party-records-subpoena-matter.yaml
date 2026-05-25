@@ -1,0 +1,65 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 07: subpoena duces tecum to plaintiff's employer (third
+# party). Plaintiff receives notice and may object. Tests skill on a
+# subpoena-shape rather than direct discovery request.
+
+matter:
+  id: 'matter_synthetic_disc_07'
+  client_name: 'Sergio Marchetti'
+  matter_type: 'PI'
+  status: 'open'
+  opened_at: '2025-06-19T10:00:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2025-05-22'
+    incident_location: 'Camelback Road and 16th Street, Phoenix AZ'
+    client_role: 'operator of stopped 2018 Ford Escape'
+    opposing_party_name: 'Constance Mahurin'
+    opposing_counsel_name: 'Donald Yarrow'
+    opposing_counsel_firm: 'Yarrow Halsted Riley'
+    opposing_counsel_email: 'dyarrow@yarrowlaw.invalid'
+    opposing_counsel_address: '700 W Camelback Rd, Phoenix AZ 85013'
+    claim_number: 'TF-2025-051193'
+    case_caption: 'Marchetti v. Mahurin'
+    case_number: 'CV2025-008410'
+    case_court: 'Maricopa County Superior Court'
+    documents_folder_path: '/matters/matter_synthetic_disc_07'
+    plaintiff_employer: 'TechHorizon Solutions'
+
+inbound_discovery:
+  document_id: 'doc_subpoena_2026_05_18'
+  filename: '2026-05-18_subpoena_duces_tecum_to_employer.pdf'
+  served_date: '2026-05-18'
+  served_method: 'notice_to_plaintiff_counsel_with_subpoena_to_employer'
+  request_kind: 'subpoena_duces_tecum_third_party'
+  third_party_recipient: 'TechHorizon Solutions, attn: Custodian of Records'
+  compliance_deadline: '2026-06-15'
+  body_excerpt: |
+    SUBPOENA DUCES TECUM TO TECHHORIZON SOLUTIONS.
+
+    YOU ARE COMMANDED to produce the following documents at the
+    offices of Yarrow Halsted Riley, 700 W Camelback Rd, Phoenix
+    AZ 85013, on or before June 15, 2026:
+
+    1. All employment records relating to Sergio Marchetti, an
+       employee of TechHorizon Solutions, including but not
+       limited to: employment application, personnel file,
+       performance reviews, disciplinary records, attendance and
+       leave records, salary and compensation records, and any
+       records of accommodation requests or workers' compensation
+       claims.
+
+    2. All medical records, benefits enrollment forms, and short-
+       term or long-term disability records relating to Sergio
+       Marchetti.
+
+    3. All electronic communications between Sergio Marchetti and
+       any other TechHorizon Solutions employee or contractor from
+       May 1, 2025 through the date of compliance.
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'

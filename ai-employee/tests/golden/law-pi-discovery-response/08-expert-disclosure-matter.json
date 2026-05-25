@@ -1,0 +1,20 @@
+{
+  "body_byte_count": 2380,
+  "body_sha256": "4dd6890463a35f96e942be7dd69a66565f52b10078644976a58e6baa3e40ee04",
+  "envelope": {
+    "bcc": [],
+    "cc": [],
+    "drafted_by_skill": "law-pi-discovery-response",
+    "matter_ref": "matter_synthetic_disc_08",
+    "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
+    "subject": "Verhoeven v. Cassidy \u2014 CV2025-011732 \u2014 Response to Defendant's Expert Disclosure Interrogatories",
+    "thread_id": null,
+    "to": [
+      "vpatel@patelbrundage.invalid"
+    ]
+  },
+  "fixture_name": "08-expert-disclosure-matter",
+  "kind": "draft",
+  "skill_slug": "law-pi-discovery-response",
+  "skill_version": "0.1.0"
+}

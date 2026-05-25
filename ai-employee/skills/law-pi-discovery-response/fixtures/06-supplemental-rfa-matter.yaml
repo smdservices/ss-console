@@ -1,0 +1,64 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 06: supplemental requests for admission (second round).
+
+matter:
+  id: 'matter_synthetic_disc_06'
+  client_name: 'Wesley Carrington'
+  matter_type: 'PI'
+  status: 'open'
+  opened_at: '2025-10-08T10:00:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2025-09-22'
+    incident_location: 'Loop 202 eastbound near Priest Drive, Tempe AZ'
+    client_role: 'operator of stopped 2022 Subaru Forester'
+    opposing_party_name: 'Talia Rosenberg'
+    opposing_counsel_name: 'Beatrice Chen'
+    opposing_counsel_firm: 'Chen & Associates'
+    opposing_counsel_email: 'bchen@chenassoc.invalid'
+    opposing_counsel_address: '4242 E Camelback Rd, Phoenix AZ 85018'
+    claim_number: 'NS-2025-082110'
+    case_caption: 'Carrington v. Rosenberg'
+    case_number: 'CV2025-019104'
+    case_court: 'Maricopa County Superior Court'
+    documents_folder_path: '/matters/matter_synthetic_disc_06'
+    prior_discovery_round_id: 'discovery_round_001'
+
+inbound_discovery:
+  document_id: 'doc_supp_rfa_2026_05_22'
+  filename: '2026-05-22_supplemental_rfa.pdf'
+  served_date: '2026-05-22'
+  served_method: 'email_to_counsel'
+  request_kind: 'supplemental_requests_for_admission'
+  request_number_range: '11-18'
+  body_excerpt: |
+    DEFENDANT'S SUPPLEMENTAL REQUESTS FOR ADMISSION PROPOUNDED TO
+    PLAINTIFF.
+
+    REQUEST FOR ADMISSION NO. 11: Admit that Plaintiff was using a
+    mobile telephone in the 30 seconds immediately preceding the
+    incident.
+
+    REQUEST FOR ADMISSION NO. 12: Admit that Plaintiff did not
+    have her seatbelt fastened at the time of the incident.
+
+    REQUEST FOR ADMISSION NO. 13: Admit that Plaintiff was the
+    proximate cause of the incident.
+
+    REQUEST FOR ADMISSION NO. 14: Admit that Plaintiff has been
+    convicted of at least one moving violation in the five (5)
+    years preceding the incident.
+
+    REQUEST FOR ADMISSION NO. 15: Admit that Plaintiff's medical
+    treatment for cervical complaints prior to the incident was
+    causally related to a degenerative condition unrelated to the
+    incident.
+
+    [continues through REQUEST FOR ADMISSION NO. 18]
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'

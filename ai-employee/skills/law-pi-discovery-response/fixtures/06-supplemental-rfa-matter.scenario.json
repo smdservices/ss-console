@@ -1,0 +1,57 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-discovery-response",
+  "fixture_name": "06-supplemental-rfa-matter",
+  "expected_skill": "law-pi-discovery-response",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "date_of_incident",
+    "incident_location",
+    "client_role",
+    "opposing_party_name",
+    "opposing_counsel_name",
+    "opposing_counsel_firm",
+    "opposing_counsel_email",
+    "opposing_counsel_address",
+    "claim_number",
+    "case_caption",
+    "case_number",
+    "case_court",
+    "documents_folder_path",
+    "prior_discovery_round_id",
+    "inbound_request_kind",
+    "inbound_served_date",
+    "inbound_request_number_range",
+    "inbound_body_excerpt"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "PracticeManagement.read_matter",
+      "DocumentStorage.list_documents",
+      "Email.create_draft"
+    ],
+    "must_not_call": [
+      "Email.send",
+      "PracticeManagement.update_matter"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "DISCOVERY_REQUEST_PARSED",
+    "OBJECTION_MAP_BUILT",
+    "DRAFT_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "Supplemental RFA (second round, requests 11-18). Skill applies AZ Rule 36(a)(3) 40-day rule for response timing. Notable: RFA No. 13 ('Admit that Plaintiff was the proximate cause...') correctly tagged with 'calls-for-legal-conclusion' objection — skill identifies the question-shape pattern, NOT a legal conclusion of its own. Partial inbound body (excerpted through No. 15) → TBD (partner to recite) for 16-18. Privilege log section explicitly notes RFAs don't implicate document production."
+}

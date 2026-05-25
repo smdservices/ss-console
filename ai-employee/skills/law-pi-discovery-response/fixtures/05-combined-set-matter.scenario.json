@@ -1,0 +1,55 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-discovery-response",
+  "fixture_name": "05-combined-set-matter",
+  "expected_skill": "law-pi-discovery-response",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "date_of_incident",
+    "incident_location",
+    "client_role",
+    "opposing_party_name",
+    "opposing_counsel_name",
+    "opposing_counsel_firm",
+    "opposing_counsel_email",
+    "opposing_counsel_address",
+    "claim_number",
+    "case_caption",
+    "case_number",
+    "case_court",
+    "documents_folder_path",
+    "inbound_request_kind",
+    "inbound_served_date",
+    "inbound_body_excerpt"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "PracticeManagement.read_matter",
+      "DocumentStorage.list_documents",
+      "Email.create_draft"
+    ],
+    "must_not_call": [
+      "Email.send",
+      "PracticeManagement.update_matter"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "DISCOVERY_REQUEST_PARSED",
+    "OBJECTION_MAP_BUILT",
+    "DRAFT_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "Combined-set discovery (interrogatories + RFP served together). Skill renders TWO distinct table sections — one for interrogatories, one for RFP — and applies objection categories appropriate to each. Both Rule 33(b)(2) and Rule 34(b)(2) reference the 40-day rule consistently. Substantive responses and responsive-documents indices all TBD partner-authored."
+}

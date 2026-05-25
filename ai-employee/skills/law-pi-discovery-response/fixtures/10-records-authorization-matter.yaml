@@ -1,0 +1,58 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 10: defendant requests medical-records authorization
+# directly. Tests skill on a HIPAA-form-shaped request.
+
+matter:
+  id: 'matter_synthetic_disc_10'
+  client_name: 'Lin Whitmer'
+  matter_type: 'PI'
+  status: 'open'
+  opened_at: '2025-12-04T09:00:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2025-11-18'
+    incident_location: 'Dunlap Avenue and 19th Avenue, Phoenix AZ'
+    client_role: 'operator of stopped 2017 Nissan Altima'
+    opposing_party_name: 'Pearce Sanderlin'
+    opposing_counsel_name: 'Tyree Mosley'
+    opposing_counsel_firm: 'Mosley Westcott'
+    opposing_counsel_email: 'tmosley@mosleywestcott.invalid'
+    opposing_counsel_address: '3300 N Central Ave, Phoenix AZ 85012'
+    claim_number: 'SP-2025-093011'
+    case_caption: 'Whitmer v. Sanderlin'
+    case_number: 'CV2025-020041'
+    case_court: 'Maricopa County Superior Court'
+    documents_folder_path: '/matters/matter_synthetic_disc_10'
+
+inbound_discovery:
+  document_id: 'doc_records_auth_2026_05_19'
+  filename: '2026-05-19_medical_records_authorization_request.pdf'
+  served_date: '2026-05-19'
+  served_method: 'email_to_counsel'
+  request_kind: 'medical_records_authorization_request'
+  body_excerpt: |
+    DEFENDANT'S REQUEST FOR EXECUTED MEDICAL RECORDS AUTHORIZATIONS.
+
+    Defendant requests that Plaintiff execute the attached
+    Authorization for Use and Disclosure of Protected Health
+    Information (HIPAA-compliant) covering the following
+    providers identified in Plaintiff's discovery responses:
+
+    1. Banner University Medical Center (treatment for the
+       2025-11-18 incident).
+    2. Phoenix Neurology Group (post-concussive treatment).
+    3. Arizona Orthopedic Specialists (cervical and lumbar
+       treatment).
+    4. Arizona Family Medicine (Plaintiff's primary care provider
+       for the ten (10) years preceding the incident).
+
+    Authorization includes records, films, billing, and
+    communications. Authorization is valid for one year from
+    date of execution.
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'

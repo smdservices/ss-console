@@ -1,0 +1,59 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 09: second-round RFP after deposition. Targeted at specific
+# items deposition testimony surfaced.
+
+matter:
+  id: 'matter_synthetic_disc_09'
+  client_name: 'Boris Andriescu'
+  matter_type: 'PI'
+  status: 'open'
+  opened_at: '2025-08-30T11:00:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2025-08-12'
+    incident_location: 'Loop 101 northbound near Cactus Road, Phoenix AZ'
+    client_role: 'operator of 2023 Subaru Outback'
+    opposing_party_name: 'Wendell Trahan'
+    opposing_counsel_name: 'Susanna Ferrer'
+    opposing_counsel_firm: 'Ferrer Holstein'
+    opposing_counsel_email: 'sferrer@ferrerholstein.invalid'
+    opposing_counsel_address: '2800 N Central Ave, Phoenix AZ 85004'
+    claim_number: 'NW-2025-073910'
+    case_caption: 'Andriescu v. Trahan'
+    case_number: 'CV2025-015214'
+    case_court: 'Maricopa County Superior Court'
+    documents_folder_path: '/matters/matter_synthetic_disc_09'
+    prior_discovery_round_id: 'discovery_round_001'
+
+inbound_discovery:
+  document_id: 'doc_2nd_rfp_2026_05_20'
+  filename: '2026-05-20_second_rfp.pdf'
+  served_date: '2026-05-20'
+  served_method: 'email_to_counsel'
+  request_kind: 'second_round_requests_for_production'
+  body_excerpt: |
+    DEFENDANT'S SECOND REQUESTS FOR PRODUCTION OF DOCUMENTS TO
+    PLAINTIFF.
+
+    REQUEST NO. 8: All gym membership records, including
+    attendance logs and trainer notes, for the period beginning
+    one (1) year before the incident through the present, as
+    referenced by Plaintiff at his deposition on April 22, 2026
+    at pages 87-89.
+
+    REQUEST NO. 9: All cycling-event registration records,
+    finishing times, and Strava or similar app data for the
+    period beginning one (1) year before the incident through
+    the present.
+
+    REQUEST NO. 10: All correspondence between Plaintiff and any
+    treating chiropractor, physical therapist, or massage
+    therapist whom Plaintiff did not previously identify in
+    response to Interrogatory No. 7.
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'
