@@ -23,7 +23,7 @@ personas:
     skills:
       - name: 'inbox-triage'
         version: '0.1.0'
-        trust_ceiling: maybe   # INVALID — must be autonomous|draft_for_review|refused
+        trust_ceiling: maybe # INVALID — must be autonomous|draft_for_review|refused
         enabled: true
 connectors: {}
 memory:
