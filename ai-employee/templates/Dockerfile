@@ -45,10 +45,10 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 ARG HONCHO_PIP_SPEC="honcho-ai==1.0.0"
 
 # hermes-smd overlay (venturecrane/hermes-smd-overlay): plugin pack + CLI
-# (`hermes-smd bootstrap`, `hermes-smd customer-sync`). TODO(pin): replace
-# the branch ref with a tagged release once §7 lands.
+# (`hermes-smd bootstrap`, `hermes-smd customer-sync`). Pinned to a tagged
+# release; bump in lockstep with overlay-side feature work.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="feat/section-7-adapter-port"
+ARG OVERLAY_REF="v0.1.0"
 
 ARG CUSTOMER_SLUG=customer-zero
 
