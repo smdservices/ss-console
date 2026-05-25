@@ -48,7 +48,7 @@ Tools required on the operator machine: `fly`, `aws` (any version with S3-compat
 
 `provision-customer.sh` executes the following sequence. Every step is idempotent — re-running the script after a partial failure picks up where it left off.
 
-1. **Validate `customer.yaml`** via `ai-employee/adapter/validate_customer_yaml.py` against the skill catalog, connector adapters, and fixtures. Fail-fast on schema or reference errors.
+1. **Validate `customer.yaml`** via `npx tsx scripts/validate-customer-yaml.ts` (the canonical TS validator at `src/lib/ai-employee/customer-yaml/` per ADR 0019). Fail-fast on schema errors.
 2. **Upload `customer.yaml` to R2** at `s3://${R2_BUCKET_CONFIG}/vaults/<slug>/customer.yaml`. This happens BEFORE the Fly deploy so the first Machine boot can fetch it. The customer-sync sidecar polls this same key for non-structural updates.
 3. **Render `fly.toml`** from `fly.toml.template` to `ai-employee/.rendered/<slug>/fly.toml` (gitignored).
 4. **Create the Fly app** `hermes-<slug>` (skipped if it exists).

@@ -63,12 +63,18 @@ command -v openssl >/dev/null 2>&1 || die "openssl not found (required for HONCH
 command -v pbpaste >/dev/null 2>&1 || die "pbpaste not found (macOS-only; required for secret entry flow)"
 
 # ---------- Step 1: validate customer.yaml ----------
+# The canonical pre-merge gate is the TS validator in
+# src/lib/ai-employee/customer-yaml/ (per ADR 0019). The retired in-tree
+# Python validator (ai-employee/adapter/validate_customer_yaml.py) was on a
+# stale schema (looked for top-level skills[] instead of personas[].skills[])
+# and missed real shape violations. The TS validator catches both nesting
+# and enum violations — see ai-employee/fixtures/validator-regression/ for
+# the guardrail fixtures.
+#
+# The overlay's bootstrap/validate.py (venturecrane/hermes-smd-overlay) is
+# the runtime re-check that fires inside the customer Machine at boot.
 log "Validating customer.yaml..."
-uv run --quiet --with pyyaml python3 "${REPO_ROOT}/ai-employee/adapter/validate_customer_yaml.py" \
-  "${CUSTOMER_YAML}" \
-  --skills-dir "${REPO_ROOT}/ai-employee/skills" \
-  --connectors-dir "${REPO_ROOT}/ai-employee/connectors" \
-  --fixtures-dir "${REPO_ROOT}/ai-employee/fixtures" \
+( cd "${REPO_ROOT}" && npx --quiet tsx scripts/validate-customer-yaml.ts "${CUSTOMER_YAML}" ) \
   || die "customer.yaml validation failed; see errors above"
 log "customer.yaml OK"
 

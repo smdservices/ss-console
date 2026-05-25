@@ -207,7 +207,7 @@ Three distinct failure-mode reasons surface in `BindingMismatch.reason`:
 3. **Empty / unbound** - binding name is the empty string. Reason text contains `"unbound"`.
 4. **Malformed slug** - `customer_slug` itself is invalid (uppercase, leading/trailing hyphen, too short/long, contains characters outside `[a-z0-9-]`). Every binding is flagged because the expected-name derivation is meaningless. Reason text contains `"is not a valid slug"`.
 
-The slug rule (lowercase letters, digits, hyphens; 2-32 chars; no leading or trailing hyphen) mirrors the `customer.yaml` validator in `adapter/validate_customer_yaml.py`.
+The slug rule (lowercase letters, digits, hyphens; 2-32 chars; no leading or trailing hyphen) mirrors the canonical `customer.yaml` validator at `src/lib/ai-employee/customer-yaml/` (per ADR 0019).
 
 ### Audit emission
 

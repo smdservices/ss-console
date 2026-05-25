@@ -11,9 +11,9 @@ Design notes
 
 * **No autonomous network calls.** Every check runs locally against the
   on-disk customer directory or shells out to existing tooling
-  (``validate_customer_yaml.py``, the per-connector smoke test) which
-  has its own gating. There is no implicit call to the live Fly Machine
-  or to PACER or to the firm's website.
+  (``scripts/validate-customer-yaml.ts``, the in-Machine probe plugin)
+  which has its own gating. There is no implicit call to the live Fly
+  Machine or to PACER or to the firm's website.
 
 * **Per-step pass/fail/skip.** Each check returns a :class:`CheckResult`
   with a status enum + detail dict. The CLI surfaces these as one line
@@ -448,8 +448,10 @@ class DemoPrepRunner:
     def _check_customer_yaml(self, path: Path, parsed: dict) -> CheckResult:
         # Shape sanity: schema_version present, customer_id matches slug,
         # vertical=law-firm, at least one persona. Heavier schema
-        # validation lives in adapter/validate_customer_yaml.py; this
-        # check confirms the file is structurally usable for the demo.
+        # validation lives in src/lib/ai-employee/customer-yaml/ (the
+        # canonical TS validator per ADR 0019), invoked from
+        # provision-customer.sh via scripts/validate-customer-yaml.ts.
+        # This check confirms the file is structurally usable for the demo.
         problems: list[str] = []
 
         schema_version = parsed.get("schema_version")
