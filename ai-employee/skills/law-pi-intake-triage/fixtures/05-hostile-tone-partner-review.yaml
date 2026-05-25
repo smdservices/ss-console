@@ -1,0 +1,39 @@
+# [SYNTHETIC FIXTURE — NOT A REAL INTAKE]
+# Fixture 05: PI intake with hostile tone toward the firm. Inbound asks
+# for representation but communicates with aggression and a sense of
+# entitlement. Expected outcome: HOLD_FOR_PARTNER_REVIEW. The skill
+# does NOT classify the tone in prose; it sets the memory-rule label.
+
+intake:
+  source_kind: gmail_message
+  source_id: msg_synthetic_intake_005
+  fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL INTAKE]'
+  received_at: '2026-05-24T17:48:00Z'
+  from_email: 'maxine.becker@example.invalid'
+  from_name: 'Maxine Becker'
+  to_email: 'intake@holcomb-reyes.invalid'
+  subject: 'You people need to call me back about my accident — TODAY'
+  body: |
+    I have been waiting for two hours for someone to call me back
+    about my motorcycle accident last Friday and frankly this is
+    unacceptable. I was hit by a delivery truck on Bell Road and
+    20th Avenue around 11 AM on May 17th. The truck was from
+    Saguaro Delivery Co. I went to the ER at HonorHealth and they
+    said I have a fractured wrist.
+
+    I have been told by friends that your firm is the best in town
+    and I want you to take my case but I expect immediate
+    responsiveness or I will go elsewhere. If I do not hear from
+    a real lawyer by end of day I am calling another firm. Make
+    sure whoever reads this understands I am not going to be
+    treated like just another file.
+
+    Maxine Becker
+    602-555-0633
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  response_window_business_days: 2
+  practice_area_filter: 'personal-injury'

@@ -1,0 +1,34 @@
+# [SYNTHETIC FIXTURE — NOT A REAL INTAKE]
+# Fixture 04: intake that is clearly outside the firm's practice area
+# (a divorce-and-custody matter at a PI-only firm).
+# Expected outcome: DECLINE_OUTSIDE_PRACTICE. Polite refer-out reply
+# drafted; no Clio matter created; no commitment language.
+
+intake:
+  source_kind: gmail_message
+  source_id: msg_synthetic_intake_004
+  fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL INTAKE]'
+  received_at: '2026-05-24T11:03:00Z'
+  from_email: 'derek.aldridge@example.invalid'
+  from_name: 'Derek Aldridge'
+  to_email: 'intake@holcomb-reyes.invalid'
+  subject: 'Divorce and custody — looking for help'
+  body: |
+    Hello,
+
+    I am in the middle of a contested divorce and my wife is trying
+    to limit my time with our two children. I need someone who can
+    handle both the divorce filing and the custody arrangement. The
+    hearing is in three weeks. Can your firm represent me?
+
+    My email is below. My phone is 602-555-0218.
+
+    Thanks,
+    Derek Aldridge
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  response_window_business_days: 2
+  practice_area_filter: 'personal-injury'

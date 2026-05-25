@@ -1,0 +1,45 @@
+# [SYNTHETIC FIXTURE — NOT A REAL INTAKE]
+# Fixture 01: clean PI car-accident intake email. Full information.
+# Expected outcome: SCHEDULE_INTAKE_CALL recommendation, no edge cases.
+
+intake:
+  source_kind: gmail_message
+  source_id: msg_synthetic_intake_001
+  fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL INTAKE]'
+  received_at: '2026-05-23T14:18:00Z'
+  from_email: 'martin.reyes@example.invalid'
+  from_name: 'Martin Reyes'
+  to_email: 'intake@holcomb-reyes.invalid'
+  subject: 'Car accident on Camelback last Friday — need to discuss'
+  body: |
+    Hello,
+
+    I was rear-ended at the intersection of Camelback Road and 24th
+    Street in Phoenix on Friday, May 16th around 5:30 PM. The other
+    driver hit me at what felt like full speed. I had my seatbelt on
+    and my airbags went off.
+
+    I was taken by ambulance to Mercy General and treated in the ED
+    for neck and lower back pain. I followed up with Phoenix
+    Orthopedics on Monday and have a referral for an MRI next week.
+    I have not been able to work since the accident; I work as a
+    welder at ABC Manufacturing.
+
+    The other driver's insurance is Saguaro Mutual. I have a police
+    report number: PD-2026-04982. The other driver is listed as
+    David Kerr.
+
+    I have not signed anything yet and I have not talked to the
+    other driver's insurance company. Can someone from your firm
+    call me to discuss next steps?
+
+    Best,
+    Martin Reyes
+    602-555-0142
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  response_window_business_days: 2
+  practice_area_filter: 'personal-injury'

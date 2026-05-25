@@ -1,0 +1,30 @@
+# [SYNTHETIC FIXTURE — NOT A REAL INTAKE]
+# Fixture 02: slip-and-fall intake email with missing critical fields.
+# Expected outcome: REQUEST_MISSING_INFO. Date of incident, location,
+# and treatment details all absent. Cannot triage without these.
+
+intake:
+  source_kind: gmail_message
+  source_id: msg_synthetic_intake_002
+  fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL INTAKE]'
+  received_at: '2026-05-24T09:42:00Z'
+  from_email: 'janet.tomlinson@example.invalid'
+  from_name: 'Janet Tomlinson'
+  to_email: 'intake@holcomb-reyes.invalid'
+  subject: 'Need help with a fall'
+  body: |
+    Hi,
+
+    I fell pretty badly at a store. My hip hurts and I think I need
+    to see a doctor about it. Can you take my case? My friend said
+    you handle this kind of thing.
+
+    Thanks,
+    Janet
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  response_window_business_days: 2
+  practice_area_filter: 'personal-injury'

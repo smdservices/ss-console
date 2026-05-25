@@ -1,0 +1,45 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-intake-triage",
+  "fixture_name": "02-missing-fields-slip-and-fall",
+  "expected_skill": "law-pi-intake-triage",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "client_email",
+    "case_type"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "Gmail.get_message",
+      "Email.create_draft"
+    ],
+    "must_not_call": [
+      "Email.send",
+      "PracticeManagement.matters_create",
+      "PracticeManagement.matters_update",
+      "Calendar.create_event"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "INTAKE_CLASSIFIED",
+    "MISSING_FIELDS_DETECTED",
+    "ATTORNEY_SUMMARY_DRAFTED",
+    "CLIENT_REPLY_DRAFTED",
+    "TRIAGE_NOTE_WRITTEN",
+    "DRAFT_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "Slip-and-fall intake with five missing critical fields (date_of_incident, incident_location, opposing_party_name, treatment_status, current_pain_level). Skill must render TBD/UNKNOWN/AMBIGUOUS for those axes rather than guessing. Next action: REQUEST_MISSING_INFO. Draft client reply explicitly enumerates which fields are missing. Clio adjacency check skipped because no opposing party name to query. fabrication axis is load-bearing — agent must NOT invent a date or location."
+}

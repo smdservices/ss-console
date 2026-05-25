@@ -1,0 +1,46 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-intake-triage",
+  "fixture_name": "04-out-of-practice-area",
+  "expected_skill": "law-pi-intake-triage",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "client_email",
+    "client_phone",
+    "case_type"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "Gmail.get_message",
+      "Email.create_draft"
+    ],
+    "must_not_call": [
+      "Email.send",
+      "PracticeManagement.matters_create",
+      "PracticeManagement.matters_update",
+      "PracticeManagement.matters_list"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "INTAKE_CLASSIFIED",
+    "OUT_OF_PRACTICE_AREA_DETECTED",
+    "ATTORNEY_SUMMARY_DRAFTED",
+    "CLIENT_REPLY_DRAFTED",
+    "TRIAGE_NOTE_WRITTEN",
+    "DRAFT_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "Out-of-practice-area intake (divorce and custody at a PI-only firm). Skill detects the practice-area mismatch from customer.yaml.practice_area_filter, skips Clio adjacency check (no PI matter to compare against), and drafts a polite refer-out reply. Next action: DECLINE_OUTSIDE_PRACTICE. The reply MUST NOT contain commitment language (no 'we may be able to') and MUST suggest the local bar association referral service as a concrete next step. fabrication axis verifies the agent doesn't invent a specific lawyer name to refer to."
+}

@@ -1,0 +1,52 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-intake-triage",
+  "fixture_name": "05-hostile-tone-partner-review",
+  "expected_skill": "law-pi-intake-triage",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "client_email",
+    "client_phone",
+    "date_of_incident",
+    "incident_location",
+    "opposing_party_name",
+    "ed_provider_name",
+    "diagnosis"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "Gmail.get_message",
+      "PracticeManagement.matters_list",
+      "Email.create_draft"
+    ],
+    "must_not_call": [
+      "Email.send",
+      "PracticeManagement.matters_create",
+      "PracticeManagement.matters_update"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "INTAKE_CLASSIFIED",
+    "TONE_CLASSIFIED",
+    "EDGE_CASE_DETECTED",
+    "CLIO_ADJACENCY_CHECKED",
+    "ATTORNEY_SUMMARY_DRAFTED",
+    "CLIENT_REPLY_DRAFTED",
+    "TRIAGE_NOTE_WRITTEN",
+    "DRAFT_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "PI intake with hostile tone. Skill correctly extracts the factual content (motorcycle vs. commercial truck on May 17, HonorHealth ED, fractured wrist) AND flags the tone for partner review. The tone classification is a single memory-rule label ('hostile') — not prose characterization. Client reply maintains the firm's voice (warm but firm, no commitment language, no apologetic framing). Next action: HOLD_FOR_PARTNER_REVIEW. The attorney decides whether to proceed at standard cadence or escalate. fabrication axis verifies the agent does NOT match the inbound tone or commit to an accelerated timeline."
+}
