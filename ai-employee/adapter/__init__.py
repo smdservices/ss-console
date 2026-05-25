@@ -1,27 +1,40 @@
-"""SMD AI Employee — pluggable adapter for Hermes.
+"""SMD AI Employee — control-plane Python helpers.
 
-Wraps Hermes' tool dispatch with the trust-ceiling enforcement layer
-required by ADR 0004 and the safety substrate (Phase A.5). The adapter
-loads a customer's `customer.yaml`, resolves skill version pins, and
-enforces per-skill autonomous / draft_for_review / refused ceilings
-against every tool call regardless of what the model prompt says.
+Per the 2026-05-24 architectural realignment (ADRs 0015, 0016, 0017
+rewrites), the runtime Hermes integration moved to the separate plugin
+overlay at `venturecrane/hermes-smd-overlay`. The plugins there
+(`hermes-smd-audit`, `hermes-smd-trust`, `hermes-smd-voice`,
+`hermes-smd-memory-mirror`, `hermes-smd-hook-probe`) own everything
+that runs inside the customer Machine: trust-ceiling enforcement,
+audit emission, voice transformation, memory mirroring, and hook
+probing.
 
-The adapter is loaded by `bootstrap.sh` when the customer's container
-starts. The trust-ceiling enforcement code lives in `trust_ceiling.py`;
-the customer-config loader in `connector_loader.py`; the runtime hook
-that registers with Hermes in `aie_adapter.py`.
+What survives in this package is the control-plane substrate —
+modules used by operator-side tools (`bin/lib/decommission.py`,
+`bin/lib/evidence.py`, `bin/lib/export.py`, `bin/cron-retention.py`)
+and by the safety-substrate invariant tests. Specifically:
 
-Per-customer namespace isolation enforcement (issue #861, ADR 0009)
-lives in `namespace_assertion.py`. The factory helpers
-(`namespaced_executor_from_env` in `d1_env.py`,
-`memory.build_namespaced_memory_runner`, and
-`voice.build_namespaced_voice_runner`) are the ONLY supported
-construction path for per-customer D1 / R2 / Vectorize access — see
-issue [#1009](https://github.com/venturecrane/ss-console/issues/1009)
-for the fork-side adoption track.
+* Per-customer namespace isolation primitives (`namespace_assertion.py`,
+  `d1_env.py`) — used by control-plane D1 access and the `invariant_7`
+  substrate fixture. The overlay's `hermes-smd-trust` plugin has its
+  own runtime copy.
+* The audit-log D1 client (`audit_log.py`) — read/write surface used by
+  decommission and evidence-packet generation, both of which run
+  outside the customer Machine after pause.
+* Per-customer evidence / memory / voice export modules
+  (`evidence/`, `memory/`, `voice/`) — feed the decommission and
+  data-export flows.
+* Cost telemetry (`cost_ingest.py`, `cost_rollup.py`,
+  `cost_telemetry/`) — billing rollup against per-customer Machines.
+* Trust-ceiling enforcement primitive (`trust_ceiling.py`) — pure-data
+  module imported by the safety-substrate invariant #5 test fixture;
+  the runtime path lives in `hermes-smd-trust`.
+* Customer.yaml schema validator (`validate_customer_yaml.py`) — see
+  the in-flight follow-up that replaces this with the overlay's
+  `bootstrap/validate.py` per ADR 0019.
 
-Public adapter surface (TOCTOU hardening, #861 follow-on)
----------------------------------------------------------
+Public surface (TOCTOU hardening, #861 follow-on)
+-------------------------------------------------
 
 `from ai_employee.adapter import *` produces exactly the names below:
 
@@ -30,16 +43,6 @@ Public adapter surface (TOCTOU hardening, #861 follow-on)
 * `NamespacedD1Executor`, `NamespacedR2Client`,
   `NamespacedVectorizeClient` — the three slug-bound wrappers.
 * `namespaced_executor_from_env` — the env-bound D1 entry point.
-
-The raw underlying constructors (`HttpD1Executor`, `SqliteExecutor` in
-`audit_log.py`; the `StorageClient` Protocol in `memory.pipeline`; the
-`R2Client` Protocol in `voice.pipeline`) are still importable by
-explicit name for the writer path (per the audit-log immutability
-invariant), the namespace-bridge adapters, and tests — but they are NOT
-in any `__all__` and `from ... import *` will not surface them. New
-consumers must construct per-customer storage through the factories
-above; the fork overlay built against this surface will therefore use
-namespaced wrappers from day one.
 """
 
 from .d1_env import namespaced_executor_from_env
