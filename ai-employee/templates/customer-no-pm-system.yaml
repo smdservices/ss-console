@@ -6,20 +6,20 @@ schema_version: 1
 # Filevine / Clio, but most prospects we meet have no working PM system
 # at all.
 #
-# Default capability bindings (the stack assumption for this template):
+# Default capability bindings (vendor-direct-MCP-first per ADR 0020):
 #
-#   PracticeManagement -> no_pm  (synthetic matter tracker; per-customer
-#                                 D1 + R2 substrate from PR #944)
-#   Email              -> microsoft_graph        (Outlook)
-#   Calendar           -> microsoft_graph        (Outlook calendar)
-#   DocumentStorage    -> onedrive               (Microsoft Graph drive API)
-#   ESign              -> docusign
-#   Accounting         -> quickbooks             (QuickBooks Online)
+#   PracticeManagement -> synthetic:no_pm        (per-customer D1+R2 substrate)
+#   Email              -> mcp:m365-mail          (first-party MS hosted MCP)
+#   Calendar           -> mcp:m365-calendar      (first-party MS hosted MCP)
+#   DocumentStorage    -> build:microsoft_graph  (OneDrive — no MS MCP yet)
+#   ESign              -> build:docusign         (MCP is Beta — pilot in parallel)
+#   Accounting         -> mcp:quickbooks-intuit  (first-party Intuit MCP, gold standard)
 #
-# Adapter implementations referenced above either ship (no_pm) or are
-# tracked under named adapter-build issues. The bindings are wire
-# contracts; flipping any binding to a real vendor later is a
-# customer.yaml edit, not a skill rewrite (per ADR 0006).
+# Adapter implementations referenced above either ship (no_pm), use a
+# vendor-maintained MCP server (no SMD code), or are tracked under named
+# build-adapter issues. The bindings are wire contracts; flipping any
+# binding to a different vendor later is a customer.yaml edit, not a
+# skill rewrite (per ADR 0006 capability-adapter pattern).
 #
 # Copy this file to ai-employee/customers/{firm-slug}/customer.yaml, then
 # replace every bracketed value. Validate with:
@@ -73,50 +73,75 @@ personas:
         enabled: true
 
 # ---- CONNECTORS ----
-# No-PM-system stack. Replace any binding with a real vendor adapter
-# during the assessment call if the firm uses one (e.g. swap
-# accounting.adapter to xero if the firm is on Xero, not QuickBooks).
+# No-PM-system stack. Bindings follow the vendor-direct-MCP-first matrix
+# locked in ADR 0020 (Connector Strategy, 2026-05-24). Replace any binding
+# with a real vendor adapter during the assessment call if the firm uses
+# one (e.g. swap accounting.adapter to xero if the firm is on Xero, not
+# QuickBooks — `mcp:xero-official` is the right backend for that case per
+# ADR 0020).
+#
+# Backend-prefix decision order per ADR 0020:
+#   1. mcp:<server>       — vendor-direct MCP first (default when available)
+#   2. mcp:<community>    — vetted community MCP (light review per ADR 0020)
+#   3. build:<vendor>     — Python adapter we maintain (no acceptable MCP, or
+#                            trust-ceiling enforcement we own end-to-end)
+#   4. composio:<connector>  — long-tail fallback; no current bindings use it
+#   5. synthetic:<name>   — in-process substrate (no_pm for this template)
 connectors:
   PracticeManagement:
     adapter: no_pm
-    backend: build:no_pm
+    backend: synthetic:no_pm
     enabled: true
     # No token_ref -- the synthetic store has no external OAuth surface.
     # Per-customer D1 + R2 wiring is applied at provision time.
 
   Email:
-    adapter: microsoft_graph
-    backend: build:microsoft_graph
+    # ADR 0020: first-party Microsoft hosted MCP, per-tenant URL
+    # /agents/tenants/{tenant_id}/servers/mcp_MailTools at
+    # agent365.svc.cloud.microsoft. Auth via Microsoft Entra tenant ID.
+    adapter: m365-mail
+    backend: mcp:m365-mail
     enabled: true
     scopes:
       - 'Mail.Read'
       - 'Mail.ReadWrite'
-    token_ref: 'infisical:/ai-employee/[FIRM-SLUG]/email/microsoft-graph-oauth-refresh'
+    # Per-tenant Entra auth — the token_ref points at the customer's tenant
+    # ID, not a refresh token. The hosted MCP brokers the OAuth flow.
+    token_ref: 'infisical:/ai-employee/[FIRM-SLUG]/email/microsoft-entra-tenant-id'
 
   Calendar:
-    adapter: microsoft_graph
-    backend: build:microsoft_graph
+    # ADR 0020: first-party Microsoft hosted MCP,
+    # /servers/mcp_CalendarTools. Same per-tenant Entra auth as Email.
+    adapter: m365-calendar
+    backend: mcp:m365-calendar
     enabled: true
     scopes:
       - 'Calendars.Read'
       - 'Calendars.ReadWrite'
-    # Calendar reuses the Email OAuth token; provision-customer.sh wires
-    # both bindings to the same auth provider when the adapter slug matches.
-    token_ref: 'infisical:/ai-employee/[FIRM-SLUG]/email/microsoft-graph-oauth-refresh'
+    # Same tenant ID as Email — the customer's M365 tenant.
+    token_ref: 'infisical:/ai-employee/[FIRM-SLUG]/email/microsoft-entra-tenant-id'
 
   DocumentStorage:
-    adapter: onedrive
-    backend: build:onedrive
+    # ADR 0020: Microsoft has NOT shipped an M365 MCP for OneDrive/SharePoint
+    # yet (Mail/Calendar/Teams/User/Copilot Chat only as of the rewrite).
+    # Keep build:microsoft_graph for OneDrive; revisit when MS ships one.
+    adapter: microsoft_graph
+    backend: build:microsoft_graph
     enabled: true
     scopes:
       - 'Files.Read'
       - 'Files.ReadWrite'
-    # OneDrive is a Microsoft Graph surface too; same token refresh path
-    # the Email + Calendar bindings use. Provisioning wires the shared
-    # auth provider.
-    token_ref: 'infisical:/ai-employee/[FIRM-SLUG]/email/microsoft-graph-oauth-refresh'
+    # OneDrive uses the standard Microsoft Graph OAuth refresh-token path.
+    token_ref: 'infisical:/ai-employee/[FIRM-SLUG]/document-storage/microsoft-graph-oauth-refresh'
 
   ESign:
+    # ADR 0020: DocuSign shipped an MCP server in Beta on 2026-04-28.
+    # Per ADR 0020 §"ESign": "Hold build adapter as prod path; pilot the
+    # MCP; cut over at GA." When the DocuSign MCP graduates to GA and we
+    # have a customer to pilot against, the binding becomes
+    # `backend: mcp:docusign-official` (read
+    # https://developers.docusign.com/platform/mcp-server/ before binding
+    # to verify the endpoint and auth model).
     adapter: docusign
     backend: build:docusign
     enabled: true
@@ -126,8 +151,11 @@ connectors:
     token_ref: 'infisical:/ai-employee/[FIRM-SLUG]/e-sign/docusign-oauth-refresh'
 
   Accounting:
-    adapter: quickbooks
-    backend: build:quickbooks
+    # ADR 0020: first-party Intuit MCP (Apache-2.0, 144 tools, 29 entities).
+    # The gold-standard MCP profile in the matrix; default for any
+    # QuickBooks Online customer. Per-customer OAuth managed by Intuit.
+    adapter: quickbooks-intuit
+    backend: mcp:quickbooks-intuit
     enabled: true
     scopes:
       - 'com.intuit.quickbooks.accounting'
