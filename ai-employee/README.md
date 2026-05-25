@@ -7,11 +7,19 @@ The v1 AI Employee SKU — a single product configured per customer for any vert
 One product, many configurations. Vertical-specific content lives only in:
 
 - `skills/` — recipes the agent runs (some are vertical-tagged, e.g. `law-pi-intake-triage`; others horizontal, e.g. `inbox-triage`)
-- `connectors/` — BUILD wrappers for vendor APIs without Composio or MCP coverage (some vertical-specific, e.g. `lawpay/`)
+- `connectors/` — BUILD wrappers per the ADR 0020 decision table only (see "Where connector code lives" below)
 - `fixtures/` — synthetic data per vertical, structured `fixtures/<vertical>/<sub-vertical>/<type>/`
 - `customers/<slug>/customer.yaml` — per-customer configuration
 
 Substrate components — agent runtime, voice layer, memory system, trust ceiling, dashboard, identity & access, operations, audit & compliance — are vertical-agnostic.
+
+## Where connector code lives
+
+ADR 0020 (Connector Strategy, locked 2026-05-24) governs this. Three rules:
+
+1. **`mcp:<server>` bindings have no in-tree code.** The MCP server boots as a child process of Hermes from `mcp_servers.*` config in the per-profile `config.yaml`. M365 Mail/Calendar/Teams, QuickBooks, Xero, Stripe, HubSpot, Salesforce, Slack, ShipStation, CourtListener, Clio (`oktopeak/clio-mcp`), Twilio — all hosted or local MCPs, zero adapter code in this tree.
+2. **`build:<vendor>` BUILD adapters that existed before 2026-05-24 stay in `ai-employee/connectors/<vendor>/`** per ADR 0020's "no pre-scheduled migration" rule. Currently: `filevine/`, `lawpay/`, `no_pm/`.
+3. **New BUILD adapters land in `venturecrane/hermes-smd-overlay`** as a sub-plugin (e.g., `hermes-smd-microsoft-graph` per #1055 for OneDrive/SharePoint), not in this tree. Per ADR 0015, the Hermes fork itself carries no SMD code; all SMD plugin code lives in the overlay.
 
 ## 10 product components
 
@@ -36,7 +44,7 @@ ai-employee/
 ├── adapter/                        # Hermes hook surface — AIEmployee.register()
 ├── safety-substrate/               # citation refusal, fabrication filter, adversarial tests
 ├── skills/                         # canonical SKILL.md library
-├── connectors/                     # BUILD wrappers (Tier-1 vendor integrations)
+├── connectors/                     # BUILD wrappers — only filevine/, lawpay/, no_pm/ per ADR 0020
 ├── templates/                      # Dockerfile, fly.toml.template, bootstrap.sh
 ├── bin/                            # provision-customer.sh, pause-customer.sh, rollback-skill.sh
 ├── fixtures/                       # synthetic data per vertical

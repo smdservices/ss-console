@@ -138,8 +138,9 @@ URL="$(
     const state = `${payloadB64}.${sigB64}`;
 
     // Phase-1 scopes — must match
-    // ai-employee/connectors/ms_graph/oauth.py PHASE_1_SCOPES and
-    // src/lib/oauth/providers/ms-graph.ts MS_GRAPH_PHASE_1_SCOPES.
+    // src/lib/oauth/providers/ms-graph.ts MS_GRAPH_PHASE_1_SCOPES (canonical).
+    // The Python adapter that previously mirrored these has been removed; the
+    // overlay sub-plugin tracked in #1055 will read scopes from a shared source.
     const scopes = [
       "offline_access",
       "User.Read",
