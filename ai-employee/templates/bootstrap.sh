@@ -337,10 +337,12 @@ log "customer-sync sidecar pid=${SIDECAR_PID}"
 # the §7 validator) becomes the active session. `exec` so Hermes inherits
 # PID-1-ish ownership under tini cleanly — tini still reaps the foundational
 # children (Postgres, Redis, Honcho, sidecar) launched above.
+#
+# The legacy `PYTHONPATH=/app/adapter:...` export and AIE_* env vars were
+# removed when the in-tree adapter retired. The overlay plugin surface
+# (audit / trust / voice / memory-mirror / hook-probe) is the runtime path;
+# customer.yaml + skills + connector wiring all resolve through the
+# overlay's bootstrap CLI invoked above.
 log "Launching Hermes (overlay plugins enabled)..."
-export PYTHONPATH="/app/adapter:/app:${PYTHONPATH:-}"
-export AIE_CUSTOMER_YAML="${CUSTOMER_YAML}"
-export AIE_SKILLS_DIR="/app/skills"
-export AIE_CONNECTORS_DIR="/app/connectors"
 
 exec /opt/hermes/.venv/bin/hermes chat
