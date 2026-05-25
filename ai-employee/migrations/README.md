@@ -17,6 +17,12 @@ Forward-only. There is no rollback path because audit-log immutability would be 
 
 - `0001_per_customer_schema.sql` — initial schema (11 tables per `docs/specs/ai-employee/d1-schema.md`): audit log, memory rules, person mappings, skill state, draft queue, cost telemetry, invariant boot checks, voice samples, recipient cohorts, sent-folder state, escalation events.
 - `0002_audit_log_indexes.sql` — additional indexes for the audit_log writer (issue #891): timestamp DESC, skill_name + ts DESC, action_type + ts DESC. Documents the Logpush backup configuration plan that lives on the per-customer Hermes Worker deployment side.
+- `0003_memory_ingestion.sql` — per-customer memory pipeline state.
+- `0004_sticky_stop_state.sql` — sticky-stop state machine table (substrate invariant #4).
+- `0005_voice_ingestion.sql` — voice-sample ingestion state.
+- `0006_cost_attribution_rollup.sql` — per-customer cost rollup.
+- `0007_persona_observations.sql` — **rewritten 2026-05-25** per ADR 0016 rewrite (2026-05-24): mirror-don't-gate posture. Table holds Honcho conclusions mirrored by `hermes-smd-memory-mirror` plugin with `evidence_status` classification (defends against Honcho bug #626); `persona_observations_archive` for TTL'd rows.
+- `0008_agent_skills_inventory.sql` — **rewritten + renamed from `0008_skill_drafts.sql` 2026-05-25** per ADR 0017 rewrite (2026-05-24): trust-native posture. Table mirrors agent-authored skills the `skill_manage` tool creates; Captain reviews and physically removes in the admin portal.
 
 ## Schema reference
 
