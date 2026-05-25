@@ -1,76 +1,117 @@
 ---
-title: Capability-Adapter Pattern — Skills Call Capability Interfaces, Vendor Adapters Implement Them, customer.yaml Binds the Wiring
-date: 2026-05-20
+title: Capability-Adapter Pattern — TypeScript-Side Developer Ergonomic, Runtime via Hermes Tool Registry + MCP
+date: 2026-05-24
 status: accepted
 captain: Scott Durgan
-supersedes: none
+supersedes: 0006-capability-adapter-pattern.md (prior version of this file; see `git log docs/adr/0006-capability-adapter-pattern.md`)
 related-prd: docs/pm/ai-employee/platform-prd.md §7.2, §7.3, §4 (P4)
 related-issue: https://github.com/venturecrane/ss-console/issues/828
 ---
 
 # ADR 0006 — Capability-Adapter Pattern
 
-**Status:** Accepted (Captain decision; embedded in the AI Employee PRDs since first draft; recorded here as a standalone ADR per [#828](https://github.com/venturecrane/ss-console/issues/828)).
+**Status:** Accepted (Captain decision, 2026-05-24).
 
-**Source:** Platform PRD principle P4 ("Connectors are pluggable; skills are connector-agnostic") and Architecture §7.2 (capability-interface + adapter pattern). Reinforced by `synthesis-round-1.md` Theme 4 — the platform cannot ship without the capability interfaces being formally defined as contracts.
-
----
+**Source:** The locked Hermes-alignment build plan dated 2026-05-24. This rewrite preserves the underlying pattern (skills bind to abstract capability interfaces; adapters implement them; `customer.yaml` wires them) but corrects the **runtime mechanism** from the prior version's "Hermes overlay registration via `aie_adapter.register()`" to **the documented Hermes plugin + MCP surface**.
 
 ## Context
 
-The AI Employee runs a fixed set of skills (six universal primitives, nine cross-cutting universal skills, six specialized dedicated skills, and practice-area overlays — full catalog in Platform PRD §8). Each skill needs to read and write against the customer's actual systems: practice-management software, email, calendar, document storage, e-sign, court access, payments, accounting, intake CRM, call tracking, internal comms.
+The architectural goal is unchanged from the prior ADR: avoid the M×N skill × vendor explosion (`inbox-triage-microsoft-graph` × `inbox-triage-google-workspace` × ...). Skills should reference an abstract capability (`Email.create_draft`) and the system should bind the concrete adapter (Microsoft Graph or Google Workspace) per customer.
 
-The customer base will not converge on a single tool stack. PI firms vary across Filevine, SmartAdvocate, Clio, CASEpeer, Neos, and MyCase for practice management alone; some are on Microsoft Graph for email, some on Google Workspace; some on DocuSign, some on PandaDoc. The same is true for every other capability.
+What changes in this rewrite is **where the capability layer lives in code** and **how it's enforced at runtime**:
 
-Two patterns were available:
+- The prior ADR placed capability interfaces at `ai-employee/capabilities/{name}.ts` and described adapters that implement them; it implied the runtime would enforce the interface boundary via the SMD overlay's `aie_adapter.register()` against a Hermes overlay surface (`smd.hooks.capability_adapter`).
+- First-source verification confirms Hermes has **no typed capability-interface system at runtime**. Its tool registry is a flat map of (name, JSON schema, handler). The closest typed contracts upstream are per-domain ABCs for specific subsystem types (`MemoryProvider`, `ProviderProfile`, context engines, image-gen providers) — none are for general capabilities.
+- The Hermes plugin policy (Teknium, May 2026; enforced via PR #5295) requires extensions to use the documented plugin surface, not custom registration points. The prior ADR's `register_smd_adapter(registry, customer_id=...)` against `smd.hooks.capability_adapter` is exactly the kind of plugin-specific registration core Teknium has ruled out.
+- The MCP ecosystem matured significantly in v0.14.0 — official vendor MCP servers exist for Microsoft Graph (mail/calendar/onedrive), QuickBooks (Intuit), Twilio Labs, ShipStation, CourtListener. Hermes consumes them through `mcp_servers:` config and exposes their tools through the same flat registry.
 
-1. **Per-vendor skills.** Every skill is rewritten per vendor combination. The `inbox-triage-and-draft` skill exists as `inbox-triage-and-draft-microsoft-graph` and `inbox-triage-and-draft-google-workspace` and so on. New vendor combinations require new skill builds. Skill maintenance scales with `vendors × skills`.
-2. **Capability-adapter.** Skills bind to abstract capability interfaces (`Email.create_draft(thread, body)`, not `MicrosoftGraph.draft(...)`). Vendor-specific adapters implement the interfaces. Adding a new vendor means writing one adapter; the skill catalog is untouched. Skill maintenance scales with `skills + vendors`, not the product.
-
-Pattern 1 is the path of least immediate friction but is the textbook M×N coupling problem; at four skills × three PM vendors it is manageable, at fourteen skills × six PM vendors it is unmaintainable, at the platform's twenty-plus skills × Tier-0/Tier-1/Tier-2 connector ladder it is an architecture that cannot ship.
-
-Pattern 2 requires upfront discipline (defining the capability interfaces precisely, per `synthesis-round-1.md` Theme 4) but localizes vendor knowledge to a single layer.
+The capability-adapter pattern survives, but it lives in a different place in the stack than the prior version implied.
 
 ## Decision
 
-**Skills bind to abstract capability interfaces. Concrete vendor adapters implement the interfaces. `customer.yaml` declares which adapter implements which capability for each customer. This three-layer separation — capability interface, adapter, wiring — is architectural.**
+**Capability interfaces are a TypeScript-side developer ergonomic for skill authors and the `customer.yaml` validator. The runtime mechanism is Hermes' native tool registry plus MCP. The `hermes-smd-overlay` plugin reads `customer.yaml.connectors{}` at startup and selectively registers tools per the declared backend.**
 
-The eleven capability interfaces (PRD §7.2): `PracticeManagement`, `Email`, `Calendar`, `DocumentStorage`, `ESign`, `CourtAccess`, `Payments`, `Accounting`, `IntakeCRM`, `CallTracking`, `InternalComms`.
+The three layers (interface, adapter, wiring) all survive. Their homes change:
 
-The structure:
+### Capability interfaces — TypeScript types at `src/lib/ai-employee/capabilities/`
 
-- **Capability interfaces** live at `ai-employee/capabilities/{name}.ts`. Each is a TypeScript interface with full method signatures, input/output shapes, error contracts, and capability-disclosure metadata (what fields the adapter can populate, for the §12 dashboard's "What Marcus used to write this" sourcing block).
-- **Vendor adapters** live at `ai-employee/connectors/{capability}/{vendor}/`. Each adapter implements the interface for one vendor. Adapters do not call other adapters.
-- **`customer.yaml`** declares the binding per capability for each customer (see PRD §7.3). The provisioning script reads `customer.yaml`, resolves bindings, and registers the chosen adapter for each capability at Machine boot.
-- **Skill code** imports the capability interface, not the adapter. A skill written against `Email.create_draft(...)` works identically whether the customer is on Microsoft Graph or Google Workspace.
+The eleven capability interfaces (`PracticeManagement`, `Email`, `Calendar`, `DocumentStorage`, `ESign`, `CourtAccess`, `Payments`, `Accounting`, `IntakeCRM`, `CallTracking`, `InternalComms`) stay defined as TypeScript types in `ss-console`. Their purpose is now narrower:
+
+1. **Schema documentation for skill authors.** When a skill says "calls `Email.create_draft`," the TS interface documents the expected shape (inputs, outputs, error contracts, capability-disclosure metadata).
+2. **`customer.yaml` validator surface.** The TS validator (`src/lib/ai-employee/customer-yaml/sections-connectors.ts`) checks that the declared `connectors{}` provides a valid backend (`mcp:` / `build:` / `composio:` / `synthetic:`) for each required capability and that the backend's tool surface covers the methods the customer's skills actually call.
+3. **Capability-disclosure for the "what Marcus used to write this" sourcing block.** Adapters declare which fields they can populate via the capability metadata; the admin/customer portal renders the sourcing block from this metadata at draft time.
+
+The TS interfaces do **not** run at agent runtime. They are not enforced by the Python agent loop.
+
+### Adapter implementations — three concrete shapes
+
+Concrete adapters live in one of four places, selected by `customer.yaml.connectors{}.backend:` prefix:
+
+1. **`mcp:<server-name>` — MCP server (official vendor or vetted community).** Adapter selection is `mcp_servers:` config in the per-profile `config.yaml` generated by the bootstrap CLI. The MCP server provides the tools; Hermes' native MCP integration surfaces them in the tool registry. This is the recommended default for capabilities with acceptable MCP servers (Microsoft 365 surfaces, QuickBooks, Twilio, ShipStation, CourtListener, Clio via `oktopeak/clio-mcp`).
+2. **`build:<vendor>` — Python adapter we maintain.** Lives in `ai-employee/connectors/<vendor>/` in `ss-console`. The `hermes-smd-overlay` plugin (specifically `hermes-smd-trust` or a per-vendor sub-plugin) reads `customer.yaml`, instantiates the adapter, and registers its tools via `ctx.register_tool()` at plugin init. Used for vendors with no acceptable MCP (Filevine, LawPay, Dotloop, DocuSign, CallRail).
+3. **`composio:<connector>` — Composio-brokered tool.** Hermes' Composio integration provides the tools; the `hermes-smd-trust` plugin's `composio_guard` runtime check (via `transform_tool_result` hook) asserts the right per-customer connection ID is used on every Composio tool call.
+4. **`synthetic:<name>` — In-process substrate.** For capabilities the customer doesn't have a real vendor for (e.g., `no_pm` synthetic matter tracker for firms with no PM system). Implemented as Hermes-registered tools that read/write per-customer D1 + R2.
+
+### The wiring — `customer.yaml.connectors{}`
+
+Unchanged in shape from the prior ADR. The schema documents one entry per capability, with `adapter:` (vendor name), `backend:` (prefix + name), `scopes:` (OAuth or API permissions), `token_ref:` (where the credential is stored). The TS validator enforces that:
+
+- Every required capability for the customer's declared skill set has a backend.
+- The backend prefix is in `{mcp, build, composio, synthetic}`.
+- The chosen backend exposes the methods the customer's skills call (capability-method coverage check).
+
+### What this ADR explicitly does NOT do
+
+- **No runtime typed-interface enforcement in Python.** The capability interfaces are TS types only.
+- **No `aie_adapter.register()` against `smd.hooks.capability_adapter`.** The prior ADR's overlay-surface registration is deleted.
+- **No SMD-specific extension to Hermes' tool registry.** We use the documented `ctx.register_tool()` API as plugins.
+
+## Alternatives Considered
+
+### Pattern 1: Per-vendor skills (M×N coupling)
+
+Rejected for the same reason as the prior ADR. Doesn't scale; doesn't ship.
+
+### Pattern 2: Capability layer in Python at agent runtime (prior ADR's implicit model)
+
+Build a typed abstract base class layer in Python that adapters implement; the agent calls the ABC, the dispatcher routes to the concrete adapter.
+
+**Rejected.** Hermes' tool registry doesn't work this way. Forcing this pattern requires either a custom runtime layer (which violates Teknium's plugin policy and creates fork-maintenance debt) or wrapping every tool call in a generic dispatcher (which makes our tools opaque to Hermes' native machinery — guardrails, observability, hub publishing — none of which understand wrapped tools).
+
+### Pattern 3: TS-side ergonomic + native Hermes runtime (this decision)
+
+Selected. We get the documentation and validator benefits of typed capabilities without fighting Hermes' tool model.
 
 ## Consequences
 
 **Positive.**
 
-- Skill catalog is connector-agnostic by construction. Adding the seventh PM adapter is one adapter, not seven new skill variants.
-- Per-customer adapter swap is configuration, not code. A customer migrating from CASEpeer to Filevine flips the binding in `customer.yaml` and redeploys; the skill catalog is unchanged.
-- The capability interface is the unit of vendor-research and vendor-due-diligence. Tier-0 (universal, every demo), Tier-1 (per-firm common), Tier-2 (per-firm adjacent) connector tiers per Law-firm PRD §7 are layered along the same axis.
-- Per `synthesis-round-1.md` Theme 4, the capability interfaces must be formally typed before Phase 1 build begins. This is non-negotiable. PRD §7.2.1 (added per synthesis Theme 4) is the contract layer.
-- The adapter-disclosure metadata feeds the §12 dashboard's "What Marcus used to write this" sourcing block: per draft, the dashboard shows which adapter served which field. This is a trust-building surface that is impossible without the capability layer.
+- The skill catalog stays connector-agnostic by construction; skills reference capability methods, the runtime resolves to the per-customer backend.
+- MCP-first connector strategy (ADR 0020 forthcoming) is structurally aligned with this pattern. Adding a new vendor with an MCP server costs zero adapter code — wire `backend: mcp:<server>` in `customer.yaml`.
+- Hermes' native machinery (guardrails, observability, hub) sees our tools as normal Hermes tools. No special-case handling required.
+- The TS validator catches most wiring errors before a customer Machine boots, not at first tool call.
 
 **Negative / accepted.**
 
-- Upfront discipline cost is real. Defining `PracticeManagement.create_matter(client, type, attrs)` requires deciding what `attrs` actually contains across the vendor set. The least-common-denominator trap (only expose fields every vendor supports) yields a thin product; the maximalist trap (expose every field any vendor supports) yields adapters that throw on every call. Per PRD §7.2.1, the capability interfaces declare both a core set (every adapter implements) and an optional set (adapters declare which they implement; skills check capability at draft time).
-- Adapter maintenance is centralized but never zero. Vendor API breaking changes hit the adapter; the platform absorbs the cost. We accept this as the cost of vendor-pluggability.
-- Some skill behavior cannot be captured at the capability layer (e.g., Filevine-specific reporting that has no equivalent in CASEpeer). For these, the skill catalog has explicit vendor-conditional branches, but the branches are at the skill layer, not the capability layer. We accept a small number of explicit vendor branches in skill code in exchange for keeping the capability layer clean.
+- The capability interfaces are not runtime-enforced in Python. A skill author calling a method the chosen backend doesn't expose surfaces only at agent runtime (with a missing-tool error or a tool-execution failure). The TS validator catches the common case; the runtime catches the edge case via the existing tool-not-found error path.
+- Capability-disclosure metadata for the "what Marcus used to write this" sourcing block requires per-backend conformance — MCP server tools, BUILD adapters, and synthetic substrates each declare their capability coverage to a shared schema. Out of scope for this ADR; documented in the connector-strategy ADR.
+- BUILD adapter authors must hand-write tool schemas that conform to the capability interface's expected shape. Drift between TS interface and BUILD adapter schema is a real risk; the conformance harness in `src/lib/ai-employee/capabilities/conformance.ts` is the mitigation.
 
-**Out of scope.**
+## Verification
 
-- Cross-adapter orchestration (e.g., an "email a document from PracticeManagement via Email" workflow) is a skill responsibility, not a capability responsibility. The capability interfaces stay vertical; cross-capability composition happens in skills.
-- Vendor billing and OAuth lifecycle are separate concerns (PRD §7.9 covers OAuth token lifecycle per `synthesis-round-1.md` Theme 2). The capability-adapter pattern does not specify how adapters authenticate.
+1. **Capability interfaces compile in TS.** `npm run typecheck` against `src/lib/ai-employee/capabilities/` passes.
+2. **The `customer.yaml` validator accepts the four backend prefixes** (`mcp:`, `build:`, `composio:`, `synthetic:`) and rejects others.
+3. **A customer.yaml binding to `mcp:quickbooks-intuit`** resolves at boot to a valid `mcp_servers:` entry in the per-profile config; the bootstrap translator's output passes Hermes' config schema.
+4. **A customer.yaml binding to `build:filevine`** resolves to the existing Python adapter being instantiated and its tools registered via `ctx.register_tool()` in the relevant overlay plugin.
+5. **Composio per-connection guard fires on every Composio tool call.** The `transform_tool_result` hook check confirms the tool result was produced by the right per-customer connection ID; mismatch raises before the result reaches the model.
 
 ## References
 
 - Platform PRD principle P4 (`docs/pm/ai-employee/platform-prd.md` §3)
-- Platform PRD §7.2 The capability-interface + adapter pattern
-- Platform PRD §7.2.1 Capability interface specifications (added per synthesis Theme 4)
-- Platform PRD §7.3 `customer.yaml` as the wiring layer
-- Law-firm PRD §7 Connector Strategy (Tier-0 / Tier-1 / Tier-2 ladder)
-- `docs/pm/ai-employee/prd-contributions/synthesis-round-1.md` Theme 4 (capability interface contracts must be defined before Phase 1 build)
+- Platform PRD §7.2, §7.2.1, §7.3
+- Law-firm PRD §7 Connector Strategy
+- [ADR 0015 (rewrite)](./0015-hermes-fork-vs-upstream.md) — plugin-only overlay; capability adapters register via `ctx.register_tool()`
+- [ADR 0020 (forthcoming)](./0020-connector-strategy.md) — MCP-first connector strategy per vendor
+- `eggyrooch-blip/hermes-multitenancy` — precedent for plugin-based per-customer tool registration
 - [Issue #828](https://github.com/venturecrane/ss-console/issues/828)
+- Locked Hermes-alignment build plan dated 2026-05-24

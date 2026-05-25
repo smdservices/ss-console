@@ -1,256 +1,166 @@
 ---
-title: Honcho Disposition — Proposer-Only, Never Authoritative, Never Disabled
-date: 2026-05-23
+title: Honcho Disposition — Mirror, Don't Gate; Tuned Native Configuration; TTL Archival with Captain Reversibility
+date: 2026-05-24
 status: accepted
 captain: Scott Durgan
-supersedes: none
+supersedes: 0016-honcho-disposition.md (prior version of this file; see `git log docs/adr/0016-honcho-disposition.md`)
 related-prd: docs/pm/ai-employee/platform-prd.md §7.5, §9, §17.4
-related-spec: docs/specs/ai-employee/customer-yaml-schema.md, docs/specs/ai-employee/calibration-session.md, docs/specs/ai-employee/audit-log-immutability.md
-related-issue: TBD (filed as follow-on to this ADR)
+related-spec: docs/specs/ai-employee/customer-yaml-schema.md
+related-issue: TBD (filed as follow-on to the locked Hermes-alignment plan dated 2026-05-24)
 ---
 
 # ADR 0016 — Honcho Disposition
 
-**Status:** Accepted (Captain decision, 2026-05-23).
+**Status:** Accepted (Captain decision, 2026-05-24).
 
-**Source:** Captain prompt 2026-05-23 — _"draft the Honcho disposition ADR"_ — in response to the [Hermes Agent technical overview](https://datasciencedojo.com/blog/hermes-agent-how-it-works-tutorial/) (Data Science Dojo, Feb 2026) surfacing Honcho as an upstream subsystem we had not yet decided how to handle. The overview describes Honcho as a "dialectic system [that] builds persistent cross-session user representation" tracking "communication preferences, project relationships, prior decisions, and topical relevance," which "continuously updates and shapes both reactive responses and proactive task detection."
-
-This ADR pins our overlay's posture toward Honcho before the first customer Machine ships. It pairs with [ADR 0015](./0015-hermes-fork-vs-upstream.md) (Hermes fork strategy), [ADR 0012](./0012-customer-yaml-storage.md) (customer.yaml as the authoritative configuration source), and [ADR 0008](./0008-customer-owned-memory-artifact.md) (customer-owned memory artifact).
-
----
+**Source:** The locked Hermes-alignment build plan dated 2026-05-24, following a focused Honcho deep-dive (architecture, configurable behaviors, native deferred/proposer capabilities, real-world failure modes) and Captain's directional reframe of the gating question. This rewrite replaces the prior version which proposed a "proposer-only" interception of Honcho writes — that posture had no native surface to land on, addressed a real concern (voice drift, hallucinated facts) with the wrong mechanism, and was framed against the wrong risk (lawyer malpractice).
 
 ## Context
 
-Hermes upstream ships Honcho enabled by default. As a learning subsystem, it observes session interactions and silently evolves a per-user model that influences both response shaping and proactive behavior. For the upstream single-user local-deployment use case, this is a feature. For SMD's per-customer AI Employee — where the customer is a law firm, the operator is a partner, and every output is potentially work-product under a partner's signature — Honcho's default mode is incompatible with three commitments already locked:
+Honcho ([plastic-labs/honcho](https://github.com/plastic-labs/honcho), AGPL-3.0) is the memory provider plugin Hermes ships first-class. It runs as a self-contained service (FastAPI + Postgres + Redis + a deriver worker process consuming a Redis queue). It builds a per-peer psychological model from session messages via two LLM-driven loops: a per-batch **deriver** (explicit + deductive conclusions) and a periodic **Dreamer** (inductive generalization via DeductionSpecialist + InductionSpecialist agents). Its read surface is a **Dialectic** tool layer the agent queries for natural-language answers about the peer.
 
-1. **[ADR 0012](./0012-customer-yaml-storage.md) — customer.yaml as authoritative configuration.** The file is git-resident, PR-reviewed, and the only source of truth for personas, voice references, escalation rules, channel bindings, and scope envelope. A subsystem that silently mutates persona-influencing state outside `customer.yaml` is a second authority — the failure mode ADR 0012 was written to prevent.
-2. **[ADR 0011](./0011-multi-persona-per-customer.md) — multi-persona discipline.** Personas are explicit, named, PR-reviewed artifacts. A Honcho-shaped "evolved user model" that drifts persona behavior without an authoring step erodes the persona contract that ADR 0011 locks.
-3. **PRD §7.5 invariant #8 — fabrication discipline; [calibration session spec](../specs/ai-employee/calibration-session.md) (#867).** Voice and preference evolution is supposed to happen in the four 90-minute Captain-supervised calibration sessions, with every change rooted in a reviewed transcript span or a named partner directive. A subsystem that infers preferences from execution traces and applies them without review is fabrication discipline turned inside out: it is the system inferring what the partner means, rather than the system being told what the partner means.
+Three first-source findings that changed the disposition calculus:
 
-The architectural question this ADR resolves is: **what does our overlay do with Honcho — keep it as upstream ships it, strip it, or constrain it?**
+1. **No native interception surface.** Honcho's documented webhook events are `queue.empty` and `test.event` only ([src/webhooks/events.py](https://github.com/plastic-labs/honcho/blob/main/src/webhooks/events.py)). There is no `conclusion.created` event, no `pending` status flag on conclusions, no native "propose for review, await approval, then apply" path. Once the deriver finishes, conclusions are live. The prior ADR's "intercept Honcho writes" posture had no surface to attach to.
 
-A note on naming. [ADR 0011](./0011-multi-persona-per-customer.md) §5 mentions "Honcho" once, as one of four candidates for the **skill-memory provider** (the scoped key-value store that skills read from and write to). That decision is still deferred to a Phase 2 spike. This ADR is about a different concern: Hermes upstream's **user-modeling subsystem named Honcho**, which is enabled by default and runs whether or not we select it as the skill-memory provider. If the Phase 2 spike later selects Honcho as the skill-memory provider too, the constraints in this ADR apply to that role as well.
+2. **Documented hallucination failure mode.** [Honcho issue #626](https://github.com/plastic-labs/honcho/issues/626) — the shipped extraction prompt's few-shot examples teach the model to over-attribute (one mention of a dog produces "the user has a dog"). [Honcho issue #658](https://github.com/plastic-labs/honcho/issues/658) — explicit user corrections do not propagate; obsolete facts persist as current-tense state. Both are open at time of writing. These are the real risks the disposition must address.
 
-Four patterns were available.
+3. **The malpractice framing was overstated.** The prior ADR cast Honcho-driven persona evolution as a malpractice exposure for professional-services customers. First-principles: reviewer-as-sender (ADR 0005) closes the one-shot harm path. The very next outbound draft after a bad Honcho learning is human-reviewed. The malpractice path requires _systematic drift across many drafts each of which looks fine individually_ — a different, narrower, slower risk.
 
-### Pattern A: Keep Honcho upstream as-is
-
-Enable Honcho with default behavior. Trust the upstream design. Let the per-customer user model evolve silently and feed back into response shaping and proactive behavior.
-
-Cost: every ADR-0012, ADR-0011, and PRD §7.5 violation enumerated above. No audit trail of what the model learned or when. No way to surface model state to the partner for review. No way to roll back a bad inference. Calibration session (#867) becomes a charade — partner reviews voice samples while a separate subsystem silently re-shapes voice behavior between sessions.
-
-Strategic risk: catastrophic. The first time a partner notices the AI "talking differently" without anyone having changed anything, the product loses trust irrecoverably. PI firms are sensitive to this in a way single-developer-local-deployment users are not.
-
-### Pattern B: Strip Honcho entirely
-
-Disable Honcho in the overlay. `customer.yaml` is the only persona-influencing state. Calibration session (#867) is the only path for voice/preference evolution.
-
-Cost: forfeit the adaptation value Honcho's design captures. Every customer's persona stays exactly what the calibration session pinned, with no detection of voice drift, recurring partner corrections, or implicit pattern signals that ought to inform the next calibration session.
-
-Strategic risk: bounded. We ship a more rigid product than upstream, in exchange for a defensible compliance posture. The lost capability is a real lost capability, but it's one we can rebuild ourselves later if it proves valuable.
-
-This is the safe option. It is not the right option.
-
-### Pattern C: Honcho as proposer, never as authority
-
-Keep Honcho's observation engine enabled, but neuter its write paths. Honcho writes to a dedicated per-customer D1 table (`persona_observations`) — never to `customer.yaml`, never to runtime persona state, never to any signal a skill reads at dispatch time. The calibration session surfaces accumulated observations as proposals for partner-and-Captain review. Promotion of an observation creates a PR against `customer-configs/<slug>.yaml` per ADR 0012.
-
-Cost: overlay work. We have to intercept Honcho's write paths, redirect them to `persona_observations`, surface the observations in the calibration UI, and build the promotion flow.
-
-Strategic posture: the right shape. We get the value of Honcho's adaptation engine (detection of drift, recurring corrections, voice signals) while preserving every commitment locked in ADR 0011, ADR 0012, and PRD §7.5. The system learns; the customer stays in control; every change is audit-trail-grade.
-
-### Pattern D: Replace Honcho with a custom observation pipeline
-
-Strip Honcho. Build our own voice-drift detector and preference-inference layer that emits structured observations into the calibration flow.
-
-Cost: more engineering for the same outcome as Pattern C. We lose the upstream rebase inheritance ([ADR 0015](./0015-hermes-fork-vs-upstream.md) §_Consequences_) on the entire observation engine.
-
-Strategic posture: same as C in terms of safety, weaker in terms of upstream inheritance. Reconsider only if Pattern C proves infeasible — i.e., if Honcho's internals are too tangled with the dispatch loop to cleanly intercept.
-
----
+The Captain has directed (2026-05-24) the architectural inversion: **trust Hermes' learning loop natively; add visibility and reversibility; do not gate.** This applies symmetrically to Honcho (this ADR) and the Curator/`skill_manage` (ADR 0017).
 
 ## Decision
 
-**Honcho stays enabled in the SMD overlay, but runs in proposer-only mode. Observations land in a dedicated per-customer D1 table; nothing Honcho infers reaches runtime persona state or `customer.yaml` without an explicit, audit-trailed promotion through the calibration session.**
+**Honcho runs unmodified per customer Machine, tuned aggressively but not gated. The `hermes-smd-memory-mirror` plugin mirrors Honcho conclusions to per-customer D1 `persona_observations` with provenance. Captain dismissal in the admin portal physically deletes the conclusion from Honcho. TTL archival prevents unbounded growth.**
 
 Concretely:
 
-### 1. Honcho writes only to `persona_observations`
+### Honcho native configuration (in per-profile `config.yaml`)
 
-A new per-customer D1 table on each customer's Hermes Machine:
-
-```sql
-CREATE TABLE persona_observations (
-  observation_id        TEXT PRIMARY KEY,
-  persona_slug          TEXT,                  -- nullable: customer-scope observations possible
-  observation_type      TEXT NOT NULL,         -- enum: voice_drift, recurring_correction, preference_signal, etc.
-  observation_body      TEXT NOT NULL,         -- Honcho's inference, structured JSON
-  source_evidence_json  TEXT NOT NULL,         -- transcript span IDs, message IDs, or audit_log row IDs
-  confidence            REAL,                  -- Honcho's own confidence value, surfaced for review
-  created_at            TEXT NOT NULL DEFAULT (datetime('now')),
-  promoted_at           TEXT,                  -- timestamp of calibration-session promotion, null if pending
-  promoted_by           TEXT,                  -- principal user ID who promoted, null if pending
-  promoted_pr_url       TEXT,                  -- URL of the customer.yaml PR the promotion generated
-  dismissed_at          TEXT,                  -- timestamp of dismissal (also a recorded action)
-  dismissed_by          TEXT,
-  dismissed_reason      TEXT
-);
-CREATE INDEX persona_observations_pending ON persona_observations (created_at) WHERE promoted_at IS NULL AND dismissed_at IS NULL;
-CREATE INDEX persona_observations_by_persona ON persona_observations (persona_slug, created_at);
+```yaml
+honcho:
+  enabled: true
+  recallMode: hybrid # auto-context injection + tools
+  dialecticCadence: 3-5 # refresh every 3-5 turns, not every turn
+  dialecticDepth: 1 # minimal reasoning tier for speed
+  injectionFrequency: every-turn # but only refresh-on-cadence above
+  writeFrequency: session # batch flush at session boundary
+  contextCadence: 5 # base-context refresh every 5 turns
+  observation_gates:
+    user_observe_me: true # build model of the customer's contacts/peers
+    user_observe_others: false # do not cross-observe
+    ai_observe_me: false # do not model the AI Employee itself
+    ai_observe_others: false
 ```
 
-The overlay implements an interceptor over Honcho's write path that redirects every would-be persona-state mutation into a row in this table. The interceptor is mandatory; Honcho's native write paths are blocked at overlay boot.
+### `hermes-smd-memory-mirror` plugin behavior
 
-### 2. Skills never read from `persona_observations`
+The plugin (one of the four in `venturecrane/hermes-smd-overlay` per ADR 0015 rewrite) registers against Hermes' `on_session_end` hook plus a periodic backup poller for sessions that end abnormally (process crash, timeout, restart). On each fire:
 
-Persona-influencing reads at dispatch time go to the materialized projection of `customer.yaml` (per [ADR 0012](./0012-customer-yaml-storage.md)), exactly as they would if Honcho did not exist. `persona_observations` is read **only** by the calibration-session surface and by the decommission export. No skill, no capability adapter, no signature renderer, no voice gate reads from this table.
+1. Query Honcho's conclusions API for new conclusions since the last mirror checkpoint.
+2. For each new conclusion, compute `evidence_status` from Honcho's source-message list:
+   - `evidenced` — the conclusion has one or more source-message IDs that resolve to actual messages in the session log.
+   - `unevidenced` — the source-message list is empty or the IDs do not resolve. **This catches Honcho bug #626 hallucinations** — fabricated facts won't have valid source-message provenance.
+   - `insufficient` — source-message list exists but contains fewer than the configured minimum (default 1).
+3. Write a row to per-customer D1 `persona_observations` with full provenance:
 
-This is the architectural commitment that makes "proposer-only" real: even if a buggy Honcho writes a wildly wrong observation, no customer-bound output changes until a human promotes it.
+   ```
+   conclusion_id, customer_slug, persona_slug, peer_id,
+   conclusion_text, conclusion_type,        -- 'explicit' | 'deductive' | 'inductive'
+   source_message_ids JSON,                  -- from Honcho's reasoning tree
+   confidence REAL,                          -- from Honcho if provided
+   evidence_status TEXT,                     -- 'evidenced' | 'unevidenced' | 'insufficient'
+   mirrored_at TIMESTAMP,
+   honcho_created_at TIMESTAMP,
+   archived_at TIMESTAMP NULL,
+   archived_reason TEXT NULL,
+   dismissed_at TIMESTAMP NULL,
+   dismissed_by TEXT NULL,
+   dismissed_honcho_delete_at TIMESTAMP NULL,
+   active BOOLEAN GENERATED ALWAYS AS (archived_at IS NULL AND dismissed_at IS NULL)
+   ```
 
-### 3. Promotion is a PR, not a database mutation
+### Admin portal surfaces
 
-When a partner or Captain promotes an observation in the calibration session UI, the system:
+- **Two distinct review queues.** Evidenced conclusions surface in a default-collapsed list; unevidenced and insufficient conclusions surface in a separate prominent queue. The bug #626 defense lands at the review surface — unevidenced conclusions are flagged for Captain attention before they shape future drafts, not after.
+- **Captain dismissal action.** Triggers (a) update of the D1 row's `dismissed_at` / `dismissed_by`, (b) HTTP `DELETE /conclusions/{conclusion_id}` against the local Honcho. The Honcho delete works around bug #658 (temporal-awareness) by physical removal rather than appending a contradiction. Audit row emits `HONCHO_CONCLUSION_DISMISSED`.
 
-1. Generates a diff against `customer-configs/<customer-slug>.yaml` that expresses the observation as a config change.
-2. Opens a PR against the `customer-configs` source-of-truth repository ([ADR 0012](./0012-customer-yaml-storage.md) §1) with the observation ID, source-evidence pointers, and the promoting user in the PR body.
-3. The PR is reviewed and merged per the normal `customer.yaml` review cadence ([ADR 0012](./0012-customer-yaml-storage.md) §2).
-4. On merge, the CI projection pipeline rewrites portal D1 and per-customer R2 ([ADR 0012](./0012-customer-yaml-storage.md) §2 steps 4–5), at which point runtime behavior shifts.
-5. The `persona_observations` row gets its `promoted_at`, `promoted_by`, and `promoted_pr_url` stamped.
+### TTL archival
 
-No surface in the system mutates `customer.yaml` from a Honcho observation without this PR step. The PR-and-merge requirement is the audit trail; it is also the gate that prevents Honcho from amplifying its own errors over time.
+A daily job (run by the `hermes-smd-memory-mirror` plugin's `archive.py`) sweeps conclusions where `mirrored_at < now() - archive_after_days` (default 180, configurable in `customer.yaml`). For each match:
 
-### 4. Dismissal is also recorded
+1. Insert into `persona_observations_archive` (same schema, separate table, append-only).
+2. Update `persona_observations` row with `archived_at` and `archived_reason: 'ttl'`.
+3. Delete the underlying Honcho conclusion via the API.
 
-When a partner or Captain dismisses an observation as wrong, irrelevant, or noisy, the dismissal is stamped on the row (`dismissed_at`, `dismissed_by`, `dismissed_reason`). Dismissed observations remain in the table. We need the dismissal corpus to tune Honcho's signal extraction over time — silent deletion would hide systematic over-firing.
+Captain can restore an archived conclusion from D1 if needed (the inverse of dismissal). Restore re-inserts the conclusion in Honcho via the API and resets `archived_at` to NULL.
 
-### 5. Observation generation is gated by fabrication discipline
+### What this ADR explicitly does NOT do
 
-PRD §7.5 invariant #8 (fabrication discipline) applies to Honcho observations exactly as it applies to client-facing fact-bearing fields. Every observation written to `persona_observations` must include source-evidence pointers (`source_evidence_json` — transcript span IDs, message IDs, audit-log row IDs). The overlay rejects any Honcho write that lacks evidence pointers. "Honcho thinks the partner prefers shorter intro paragraphs" without "here are the three messages where that pattern shows up" is not a valid observation.
-
-Invariant #6 (citation enforcement on fact-bearing client-facing fields) does **not** apply directly — observations are internal proposals, not client output. But the spirit of #6 — "every claim has a source" — is enforced through the evidence-pointer requirement here.
-
-### 6. Observation volume is bounded by sticky-stop
-
-The sticky-stop circuit breaker ([#843](https://github.com/venturecrane/ss-console/issues/843)) gains a new threshold: if Honcho writes more than `N` observations per `T` window for a single customer (default: 50 observations / 24h, tunable in `customer.yaml`), sticky-stop fires in WARN mode. Sustained over-firing escalates to SOFT (halt new observations until Captain review). A misconfigured Honcho extraction signal that floods the table is a misconfiguration we want to detect within hours, not weeks.
-
-### 7. Audit-log emission per observation
-
-Every write to `persona_observations` emits a row to the per-customer audit log ([audit-log-immutability spec](../specs/ai-employee/audit-log-immutability.md), [#892](https://github.com/venturecrane/ss-console/issues/892)) with `action_class = honcho_observation`, the observation ID, observation type, and confidence value. Same for promotion (`action_class = honcho_promotion`) and dismissal (`action_class = honcho_dismissal`). The audit-log immutability discipline (Worker-layer enforcement, Logpush mirror, integrity check) applies.
-
-### 8. Decommission export includes `persona_observations`
-
-The per-customer decommission pipeline ([#820](https://github.com/venturecrane/ss-console/issues/820)) exports `persona_observations` alongside skill memory, audit log, and the canonical `customer.yaml`, per [ADR 0008](./0008-customer-owned-memory-artifact.md). The customer leaves with the full observation corpus their AI Employee accumulated, in the same portable format as the rest of memory.
-
-### 9. Trust-ceiling does not gate observation writes
-
-The trust-ceiling discipline (`trust_ceiling.enforce()`, [refusal-handling spec](../specs/ai-employee/refusal-handling.md) [#866](https://github.com/venturecrane/ss-console/issues/866)) gates customer-bound output and skill dispatch. Honcho observations are internal proposals downstream of skill execution, not customer-bound output. Trust-ceiling does not run on observation writes; the fabrication-evidence requirement (§5 above) and the sticky-stop volume cap (§6 above) are the two guards that apply.
-
-This is explicit so the trust-ceiling implementation does not accumulate scope it does not need: it is not Honcho's gate.
-
-### 10. The IDE ACP server (port 8642) stays disabled
-
-Tangentially related: the article notes Hermes upstream exposes a local LLM endpoint on port 8642 for IDE integration (VS Code, Zed, JetBrains). Customer Fly Machines have no IDE workload and no legitimate reason to expose this surface. The overlay confirms it is disabled at Machine boot. Mentioned here because it surfaced in the same article and the same evaluation pass; tracked as a one-line follow-on issue, not a separate ADR.
-
----
+- **No write-path interception.** No `HonchoInterceptor`, no `verify_honcho_intercepted` boot check, no `proposer_only` blocking. The prior version of this ADR specified those. They are deleted as part of the locked alignment plan.
+- **No malpractice framing.** The job of this ADR is voice-integrity and observability for an opaque learning system, not a malpractice gate. Reviewer-as-sender holds that job at the per-draft layer.
+- **No Honcho code modification.** Honcho runs from a pinned upstream image, byte-for-byte unmodified. CI on the Machine image build asserts the Honcho layer hash matches upstream. This preserves the AGPL § 13 unmodified-deployment safe harbor (see locked plan §5 fork posture).
+- **No Plastic Labs commercial relationship as a precondition.** Self-host Shape 1 per the AGPL analysis. We may engage Plastic Labs commercially if a real reason surfaces; we do not do so as a goodwill gesture.
 
 ## Alternatives Considered
 
-### Pattern A (keep Honcho as upstream ships it): ruled out
+### Pattern 1: Disable Honcho entirely
 
-Reason for rejection: violates ADR 0012, ADR 0011, and PRD §7.5 invariant #8 simultaneously. The first partner who notices unannounced voice drift in their AI Employee is a churn event; the second is a referenceable PI-firm story we cannot recover from. The compliance posture of the productized SKU ([ADR 0004](./0004-productized-ai-employee-offering.md)) does not survive this option.
+Use Hermes' built-in `MEMORY.md`/`USER.md` flat-file memory only.
 
-### Pattern B (strip Honcho entirely): ruled out
+**Rejected.** Hermes' built-in memory is two flat text files totaling ~3.5KB. No structure, no provenance, no cross-session reasoning loop. Honcho is the substrate Hermes ships as the memory backbone (the upstream README highlights it). Disabling it forfeits the differentiating learning capacity that makes the agent improve with use.
 
-Reason for rejection: forfeits real adaptation value for a defensible-but-rigid product. Calibration sessions become poorer because they have no observation feed to ground partner discussions. We rebuild what Honcho already does, badly, over time — or we ship a less responsive product than upstream Hermes does. Pattern C captures the safety properties of B without the capability loss.
+### Pattern 2: Intercept Honcho writes (prior ADR version)
 
-Reconsider only if Pattern C's interceptor implementation proves too fragile to maintain — i.e., if every upstream rebase breaks the interception surface and we end up effectively maintaining a hard fork of Honcho. The quarterly rebase cadence in ADR 0015 §_Decision_ is the early warning signal.
+The prior ADR specified an interceptor that catches deriver writes and routes them to a review queue before they affect persona state.
 
-### Pattern D (replace Honcho with custom observation pipeline): deferred, not rejected
+**Rejected.** No native interception surface exists. Building one requires either forking Honcho (AGPL implications, maintenance burden) or proxying Honcho's API (latency, brittleness, doesn't catch Dreamer-loop writes). The cost is high; the benefit is one-shot-harm prevention that reviewer-as-sender already provides.
 
-Reason for deferral: same safety properties as Pattern C, weaker upstream inheritance. The right shape if Pattern C proves infeasible, but more engineering than we should pay until we know we need to.
+### Pattern 3: Use Plastic Labs hosted Honcho
 
-Promoted to a future ADR if: (a) Pattern C interceptor breakage exceeds the quarterly-rebase cost budget, or (b) Honcho's upstream direction shifts incompatibly (e.g., write paths become deeply entangled with dispatch in a way that cannot be cleanly intercepted).
+Customers' Hermes points at `api.honcho.dev`; Plastic Labs hosts the service.
 
-### Phase 2 question: self-promotion of low-risk observations
+**Rejected.** Breaks the "memory lives in the customer's Machine" product story. Exposes us to Plastic Labs' per-token pricing. Adds a single-vendor dependency on a pre-seed company. AGPL is no longer our problem on this path, but the architectural and commercial tradeoffs are worse.
 
-Out of scope for this ADR. After a sufficient calibration history exists for a customer (proposed gate: ≥4 completed calibration sessions, ≥30 promoted observations, dismissal rate <20%), it may be reasonable to let Honcho auto-promote a narrow class of low-risk observations (e.g., signature-block formatting preferences, time-of-day routing) without partner review.
+### Pattern 4: Self-host unmodified + mirror to D1 + Captain dismissal (this decision)
 
-Not now. Phase 1 commits to human-in-the-loop promotion for every observation, with no exceptions. Phase 2 may relax this; this ADR does not foreclose that, but it does not authorize it either.
-
----
+Selected. Self-host preserves the product story and the AGPL safe harbor; the mirror provides observability; physical-delete dismissal provides reversibility that works around Honcho's temporal-awareness bug.
 
 ## Consequences
 
 **Positive.**
 
-- Honcho's adaptation engine contributes to product quality without violating ADR 0011, ADR 0012, or PRD §7.5. Drift detection, recurring-correction signals, and voice-pattern observations flow into calibration sessions where they belong.
-- Every persona-influencing change has a PR trail. The "the AI started talking differently and nobody changed anything" failure mode is structurally impossible.
-- The decommission export ([ADR 0008](./0008-customer-owned-memory-artifact.md)) becomes richer — the customer leaves with their observation corpus, not just their skill memory.
-- The calibration session ([#867](https://github.com/venturecrane/ss-console/issues/867)) becomes a more effective surface because it has structured observations to ground discussion in, rather than only Captain-prompted reflection.
-- Upstream Hermes rebase ([ADR 0015](./0015-hermes-fork-vs-upstream.md)) inherits Honcho improvements (extraction quality, signal types) without inheriting Honcho's authority. Best of both directions.
+- The substrate is durable. Honcho rebases against upstream without conflict because we do not patch. The plugin runs against a stable HTTP API.
+- Voice integrity is achievable through inspection-and-reversal, not through gating that would degrade the learning loop's ergonomics.
+- The bug #626 (hallucination) and #658 (temporal awareness) failure modes are addressed concretely — evidence_status flagging at mirror time, physical deletion on dismissal.
+- AGPL exposure is bounded by the no-patches discipline. CI asserts the Honcho layer hash; any divergence fails the build.
 
 **Negative / accepted.**
 
-- The interceptor over Honcho's write paths is a real overlay-maintenance commitment. Every upstream rebase has to confirm the interception surface is still intact and still complete. The CI smoke test must include "no observation reaches anywhere except `persona_observations`" as a hard assertion.
-- The calibration-session UI takes on a new responsibility (observation review and promotion) that adds surface area. The day-1 onboarding spec ([#803](https://github.com/venturecrane/ss-console/issues/803)) and the calibration spec ([#867](https://github.com/venturecrane/ss-console/issues/867)) both need updating; both are tracked as follow-ons.
-- The observation queue can stall. If a customer goes weeks without a calibration session, `persona_observations` grows and no observations get promoted. The product runs unaffected (skills still read `customer.yaml`), but the value of Honcho's adaptation engine accrues silently. Mitigated by a calibration-session reminder when pending-observation count exceeds a threshold; not a hard failure mode.
-- We pay engineering cost for an option upstream does not need. Pattern C's interceptor is purely an SMD safety-substrate concern; it is unlikely to be upstreamable (per [ADR 0015](./0015-hermes-fork-vs-upstream.md) §_Decision_, this is the kind of SMD-specific overlay code that stays in the overlay).
-
-**Out of scope.**
-
-- Specific UI design for the calibration-session observation-review surface. Tracked as a follow-on; the ADR locks the data model and the promotion flow, not the visual design.
-- Honcho's specific signal extractors (which transcript patterns become which observation types). Upstream concern; the overlay does not constrain extraction beyond the source-evidence requirement in §5.
-- The Phase 2 skill-memory-provider selection that [ADR 0011](./0011-multi-persona-per-customer.md) §5 deferred. Independent decision; if it later selects Honcho, the constraints in this ADR apply to that role as well.
-- Self-promotion of low-risk observations after sufficient calibration history. Phase 2 question, noted in _Alternatives Considered_ above.
-
----
+- Honcho can still learn something wrong between session-end mirrors. The first draft after a bad learning may reflect it. Reviewer-as-sender catches the draft. We accept this cost.
+- Captain inspection of unevidenced conclusions is operational work. We accept this; it is the active mitigation for bug #626.
+- D1 `persona_observations` grows with usage. TTL archival caps unbounded growth. The archive table accumulates as well but is materially smaller per-row and cheaper to query.
+- If Plastic Labs relicenses Honcho (e.g., SSPL), we pin to the last AGPL version and decide migration vs. fork. The risk is forward-looking, not present.
 
 ## Verification
 
-How we know we are following this decision:
-
-1. **`persona_observations` table exists on every per-customer Hermes Machine.** Migration applied; schema matches §1 above; CI assertion in the per-customer migration suite.
-2. **The overlay's Honcho interceptor is active at Machine boot.** Boot-time check confirms native Honcho write paths are blocked and the interceptor is the only write surface. Failure of this check halts Machine boot.
-3. **No skill, capability adapter, or signature renderer references `persona_observations` in a read path.** Grep-level CI assertion: `persona_observations` appears only in the calibration-session module, the decommission-export module, and the overlay's interceptor itself.
-4. **Every observation row carries source-evidence pointers.** Database-level CHECK constraint plus runtime assertion in the interceptor. Observations with empty or null `source_evidence_json` fail the write.
-5. **Every observation, promotion, and dismissal emits an audit-log row.** Audit-log integrity check ([#892](https://github.com/venturecrane/ss-console/issues/892)) verifies the three `action_class` values appear in the audit corpus at expected rates.
-6. **Promotions create real PRs against `customer-configs/`.** The calibration-session promotion handler is the only code path that mutates a customer's configuration via Honcho input, and it does so via PR — not by direct D1 write to the projection table.
-7. **Sticky-stop fires on observation flooding.** Synthetic test: 60 observations in 1 hour for a test customer triggers WARN; 200 in 1 hour triggers SOFT.
-8. **Decommission export contains the observation corpus.** End-to-end test on a test customer: decommission produces an archive that includes `persona_observations` in the documented format ([ADR 0008](./0008-customer-owned-memory-artifact.md)).
-
-Guards against drift:
-
-- The interceptor's completeness is a quarterly-rebase agenda item. Every Hermes upstream rebase explicitly re-verifies the interception surface; new Honcho write paths surfaced by the rebase are intercepted before the rebase merges.
-- The `persona_observations`-read-restriction CI assertion is wired into the merge gate. A PR that introduces a read of `persona_observations` from a forbidden module fails CI; bypassing the restriction requires an explicit ADR amendment.
-- The sticky-stop volume threshold defaults are reviewed annually against real customer data. If real promotion rates suggest the threshold is too low (legitimate observations getting throttled) or too high (misconfigurations going undetected), the default moves.
-- If at any future calibration the dismissal rate of Honcho observations exceeds 50% across a representative cohort, Honcho's extraction signal is misfiring at scale — escalate to a Pattern B (strip) or Pattern D (replace) re-evaluation.
-
----
+1. **`recallMode: hybrid` and tuned cadences** are present in every per-profile `config.yaml` generated by the bootstrap CLI (forthcoming ADR 0019). A schema check in the bootstrap translator enforces the tuned values.
+2. **`hermes-smd-memory-mirror` plugin loads and registers `on_session_end` hook.** `hermes plugins list` shows it; the hook-surface probe (§0 of locked plan) confirms `on_session_end` fires.
+3. **D1 `persona_observations` accumulates evidenced + unevidenced rows.** A first-session smoke test against `_template` customer produces measurable rows with correct `evidence_status` classification.
+4. **Captain dismissal physically deletes from Honcho.** Smoke test: insert a synthetic conclusion via Honcho API, mirror to D1, dismiss in the admin portal, verify Honcho's `GET /conclusions/{id}` returns 404.
+5. **TTL archival sweeps run daily.** The plugin's daily job logs the sweep and writes archive rows. A back-dated synthetic conclusion (`mirrored_at` set 200 days ago) gets archived on the next sweep.
+6. **No patches to Honcho.** CI on Machine image build runs `docker image inspect plasticlabs/honcho:<pinned-tag>` and compares the layer hash to the recorded upstream hash. Mismatch fails the build.
+7. **No interceptor code.** `rg -i "HonchoInterceptor|honcho_interceptor|verify_honcho_intercepted|proposer_only" ai-employee/ src/ venturecrane/` returns zero matches.
 
 ## References
 
-- [Hermes Agent technical overview](https://datasciencedojo.com/blog/hermes-agent-how-it-works-tutorial/) (Data Science Dojo, Feb 2026) — the article that surfaced this question
-- Platform PRD §7.5 (eight safety invariants, especially #8 fabrication discipline), §9 (calibration cadence), §17.4 (audit and compliance targets)
-- [ADR 0008 Customer-owned memory artifact](./0008-customer-owned-memory-artifact.md) (decommission export includes `persona_observations`)
-- [ADR 0011 Multi-persona per customer](./0011-multi-persona-per-customer.md) (persona discipline; §5 deferred skill-memory-provider note re: name disambiguation)
-- [ADR 0012 customer.yaml storage](./0012-customer-yaml-storage.md) (customer.yaml as the only authoritative configuration source; PR-and-merge as the audit trail)
-- [ADR 0015 Hermes fork vs upstream-PR](./0015-hermes-fork-vs-upstream.md) (the overlay this ADR's interceptor lives in)
-- [Calibration session spec](../specs/ai-employee/calibration-session.md) ([#867](https://github.com/venturecrane/ss-console/issues/867)) — the surface that consumes `persona_observations`
-- [Audit-log immutability spec](../specs/ai-employee/audit-log-immutability.md) ([#892](https://github.com/venturecrane/ss-console/issues/892)) — applies to Honcho action-class rows
-- [Sticky-stop spec](../specs/ai-employee/sticky-stop.md) ([#843](https://github.com/venturecrane/ss-console/issues/843)) — gains the observation-flood threshold
-- [Decommission-customer spec](../specs/ai-employee/decommission-customer.md) ([#820](https://github.com/venturecrane/ss-console/issues/820)) — exports the observation corpus
-
----
-
-## Immediate follow-on issues
-
-Named here so the decision lands with executable next steps. Each is a separate GitHub issue, not implemented in this ADR's PR.
-
-1. **Implement Honcho write-path interceptor in the SMD overlay** ([ADR 0015](./0015-hermes-fork-vs-upstream.md) overlay layer). Blocks native Honcho write paths at Machine boot; redirects all observation writes to `persona_observations`. Includes boot-time completeness check.
-2. **Add `persona_observations` table to the per-customer D1 migration suite.** Schema per §1 above; indexes; CHECK constraint enforcing non-null `source_evidence_json`.
-3. **Extend calibration-session UI ([#867](https://github.com/venturecrane/ss-console/issues/867)) with observation review.** Pending observations surface; promote / dismiss actions; promotion generates `customer.yaml` PR.
-4. **Extend sticky-stop ([#843](https://github.com/venturecrane/ss-console/issues/843)) with observation-flood threshold.** Configurable in `customer.yaml`; default 50/24h WARN, 200/24h SOFT.
-5. **Extend decommission pipeline ([#820](https://github.com/venturecrane/ss-console/issues/820)) to export `persona_observations`** in the documented portable format.
-6. **Update calibration-session spec, day-1 onboarding spec, and audit-log immutability spec** to reference Honcho action classes and the observation-review surface.
-7. **Disable IDE ACP server (port 8642) at Machine boot** with a one-line boot assertion (related-but-distinct cleanup surfaced in the same evaluation pass).
-8. **Quarterly Hermes-rebase agenda item:** re-verify Honcho interceptor surface completeness before merging upstream changes.
+- [Honcho repo](https://github.com/plastic-labs/honcho), AGPL-3.0
+- [Honcho issue #626](https://github.com/plastic-labs/honcho/issues/626) — extraction prompt teaches hallucination
+- [Honcho issue #658](https://github.com/plastic-labs/honcho/issues/658) — temporal-awareness bug; obsolete facts persist
+- [Honcho issue #716](https://github.com/plastic-labs/honcho/issues/716) — deriver silently produces zero observations on some providers
+- [Hermes Honcho plugin README](https://github.com/NousResearch/hermes-agent/blob/main/plugins/memory/honcho/README.md)
+- [ADR 0005](./0005-reviewer-as-sender.md) — closes the one-shot harm path at the per-draft layer
+- [ADR 0015 (rewrite)](./0015-hermes-fork-vs-upstream.md) — plugin-only overlay; this disposition is implemented by `hermes-smd-memory-mirror`
+- [ADR 0017 (rewrite)](./0017-skill-curator-disposition.md) — symmetric "mirror, don't gate" posture for the skill-creation loop
+- AGPL § 13 analysis (locked Hermes-alignment plan, §5)
+- Locked Hermes-alignment build plan dated 2026-05-24

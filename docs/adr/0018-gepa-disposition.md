@@ -1,19 +1,60 @@
 ---
-title: GEPA Self-Evolution Disposition — Disabled in Customer Machines, Platform-Level Trace Analysis Deferred
+title: GEPA Self-Evolution Disposition — SUPERSEDED, GEPA Not Present in Hermes Upstream
 date: 2026-05-23
-status: accepted
+status: superseded
+superseded-date: 2026-05-24
 captain: Scott Durgan
 supersedes: none
+superseded-by: none
 related-prd: docs/pm/ai-employee/platform-prd.md §7.4, §7.5, §17.4
 related-spec: docs/specs/ai-employee/audit-log-immutability.md
 related-issue: TBD (filed as follow-on to this ADR)
 ---
 
-# ADR 0018 — GEPA Self-Evolution Disposition
+# ADR 0018 — GEPA Self-Evolution Disposition (SUPERSEDED)
 
-**Status:** Accepted (Captain decision, 2026-05-23).
+**Status:** **Superseded 2026-05-24.** No replacement ADR; the subsystem this ADR proposed to disable does not exist in the Hermes upstream.
 
-**Source:** Captain prompt 2026-05-23 — third installment in the Hermes-Agent-overview evaluation pass that produced [ADR 0016](./0016-honcho-disposition.md) (Honcho disposition) and [ADR 0017](./0017-skill-curator-disposition.md) (Skill Curator disposition). The [Data Science Dojo overview](https://datasciencedojo.com/blog/hermes-agent-how-it-works-tutorial/) describes GEPA (Genetic Evolution of Prompt Architectures) as a Hermes subsystem that "applies constraint gates: tests, size limits, benchmark thresholds [to] prevent autonomous PR generation from degrading performance" and that "reads execution traces for root-cause analysis rather than blind optimization."
+## Supersession note (2026-05-24)
+
+This ADR was authored from a third-party blog summary ([Data Science Dojo overview](https://datasciencedojo.com/blog/hermes-agent-how-it-works-tutorial/)) that described "GEPA (Genetic Evolution of Prompt Architectures)" as a Hermes subsystem. Subsequent first-source verification against `NousResearch/hermes-agent@v2026.5.16` returned **zero matches** for any `gepa_*` module, class, function, or audit constant. The boot-time disable check the ADR specified (`verify_gepa_disabled` in `ai-employee/adapter/boot_checks.py`) was structurally vacuous — it passed trivially because the modules it scanned for were never present in the codebase it scanned.
+
+Verification commands run 2026-05-24:
+
+```
+gh api repos/NousResearch/hermes-agent/git/trees/main --jq '.tree[] | select(.path | test("gepa"; "i")) | .path'
+# → no output
+
+gh search code "gepa" --repo NousResearch/hermes-agent --limit 10
+# → no matches in actual Hermes source; only false positives in unrelated identifiers
+#   (CreateSandboxFromImageParams, messagePayload, etc.)
+```
+
+Whether GEPA represents a Nous Research research direction, a planned feature, or a misattribution in the blog post is undetermined and immaterial to our architecture: we do not need a defense against a subsystem that is not present.
+
+## Disposition
+
+The following artifacts are removed as part of the Hermes-alignment work (see locked build plan dated 2026-05-24):
+
+- `ai-employee/adapter/boot_checks.py` — entire module (GEPA was its only inhabitant per the module's own docstring)
+- `ai-employee/adapter/tests/test_boot_checks.py` — entire module
+- `GEPA_AUDIT_ACTION_DISABLED_VERIFIED` constant in `ai-employee/adapter/aie_adapter.py` and its `__all__` entry
+- `GEPA_DISABLED_VERIFIED` value in `ai-employee/adapter/audit_log.py`'s `ACCEPTED_ACTION_TYPES` set
+- `GepaEnabledError`, `verify_gepa_disabled` imports/exports in `aie_adapter.py`
+
+If, in the future, Nous Research ships an autonomous self-evolution subsystem under any name, the appropriate response is a fresh ADR grounded in first-source verification of the actual subsystem's hooks, behaviors, and write paths — not a revival of this one.
+
+---
+
+## Historical content (preserved for provenance)
+
+The remainder of this file is the original ADR text as authored 2026-05-23. It is preserved unchanged so future readers can see what was decided, on what evidence, and why it no longer holds. **Do not act on the original text below.**
+
+---
+
+**Original status:** Accepted (Captain decision, 2026-05-23).
+
+**Original source:** Captain prompt 2026-05-23 — third installment in the Hermes-Agent-overview evaluation pass that produced [ADR 0016](./0016-honcho-disposition.md) (Honcho disposition) and [ADR 0017](./0017-skill-curator-disposition.md) (Skill Curator disposition). The [Data Science Dojo overview](https://datasciencedojo.com/blog/hermes-agent-how-it-works-tutorial/) describes GEPA (Genetic Evolution of Prompt Architectures) as a Hermes subsystem that "applies constraint gates: tests, size limits, benchmark thresholds [to] prevent autonomous PR generation from degrading performance" and that "reads execution traces for root-cause analysis rather than blind optimization."
 
 This ADR pins our overlay's posture toward GEPA before the first customer Machine ships. Pairs with [ADR 0015](./0015-hermes-fork-vs-upstream.md), [ADR 0016](./0016-honcho-disposition.md), [ADR 0017](./0017-skill-curator-disposition.md), and [ADR 0009](./0009-cross-machine-query-prohibition.md).
 
