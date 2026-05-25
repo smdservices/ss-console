@@ -31,18 +31,21 @@ export function checkRequiredString(
   }
 }
 
-// Fork-tag pattern per ADR 0015 (docs/adr/0015-hermes-fork-vs-upstream.md).
-// hermes_ref MUST pin a fork tag of the form v{semver}-smd.{n}:
-//   - {semver} is a SemVer-2.0 core version (X.Y.Z, with optional pre-release
-//     and build metadata). The fork's tag scheme uses date-based upstream
-//     references (e.g. v2026.5.7); SemVer accommodates that since each
-//     dot-separated identifier is numeric.
+// Fork-tag pattern per ADR 0015 (docs/adr/0015-hermes-fork-vs-upstream.md, rewritten).
+// hermes_ref MUST pin a fork tag of the form v{YYYY}.{M}.{D}-smd.{n} or
+// v{YYYY}.{M}.{D}-smd.security.{n}:
+//   - {YYYY}.{M}.{D} is Hermes' date-based upstream version (e.g. v2026.5.16).
+//     Legacy SemVer upstream tags (v0.14.0) are no longer accepted; Hermes
+//     switched to date-based tagging in 2026.
 //   - {n} is a non-negative integer SMD revision counter (0 for "fork exists,
-//     no SMD code yet"; increments per SMD-side change).
+//     zero patches"; increments per SMD-side change).
+//   - The optional `security.` segment marks an emergency CVE patch (see
+//     venturecrane/hermes-agent SMD_FORK_POLICY.md "Security-patch escape
+//     valve"). Emergency patches must be upstream-merged or retired within
+//     30 days per the policy.
 // Bare upstream tags (no -smd.N suffix) are rejected: per ADR 0015 §Decision,
 // customer.yaml pins the fork ref, not the upstream ref.
-const FORK_TAG_PATTERN =
-  /^v(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*))+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?-smd\.(?:0|[1-9]\d*)$/
+const FORK_TAG_PATTERN = /^v\d{4}\.\d{1,2}\.\d{1,2}-smd\.(security\.)?\d+$/
 
 export function checkHermesRef(root: Record<string, unknown>, errors: ValidationError[]): void {
   const v = root['hermes_ref']
@@ -54,9 +57,10 @@ export function checkHermesRef(root: Record<string, unknown>, errors: Validation
       code: 'InvalidFormat',
       path: 'hermes_ref',
       message:
-        'hermes_ref must pin a fork tag of the form v{upstream}-smd.{n} ' +
-        '(e.g. v2026.5.7-smd.0); bare upstream tags are not accepted. ' +
-        'See ADR 0015 and venturecrane/hermes-agent releases.',
+        'hermes_ref must pin a fork tag of the form v{YYYY}.{M}.{D}-smd.{n} ' +
+        'or v{YYYY}.{M}.{D}-smd.security.{n} (e.g. v2026.5.16-smd.0); ' +
+        'bare upstream tags and legacy SemVer-style tags are not accepted. ' +
+        'See ADR 0015 and venturecrane/hermes-agent SMD_FORK_POLICY.md.',
     })
   }
 }

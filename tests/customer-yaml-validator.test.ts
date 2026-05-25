@@ -790,16 +790,34 @@ describe('validate — hermes_ref fork-tag enforcement (ADR 0015)', () => {
     expect(validate(f).ok).toBe(true)
   })
 
-  it('accepts a fork tag built on a SemVer upstream', () => {
+  it('accepts a security-patch fork tag (escape-valve shape)', () => {
     const f = validFixture()
-    f['hermes_ref'] = 'v0.14.0-smd.0'
+    f['hermes_ref'] = 'v2026.5.16-smd.security.0'
     expect(validate(f).ok).toBe(true)
   })
 
-  it('accepts a fork tag with SemVer pre-release identifiers', () => {
+  it('accepts a security-patch tag at higher iteration', () => {
+    const f = validFixture()
+    f['hermes_ref'] = 'v2026.5.16-smd.security.7'
+    expect(validate(f).ok).toBe(true)
+  })
+
+  it('rejects legacy SemVer-style upstream tags (Hermes moved to date-based tags in 2026)', () => {
+    const f = validFixture()
+    f['hermes_ref'] = 'v0.14.0-smd.0'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidFormat')
+  })
+
+  it('rejects SemVer pre-release identifiers', () => {
     const f = validFixture()
     f['hermes_ref'] = 'v0.14.0-rc.1-smd.0'
-    expect(validate(f).ok).toBe(true)
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidFormat')
   })
 
   it('rejects a bare upstream tag (no -smd.N suffix)', () => {
@@ -838,13 +856,16 @@ describe('validate — hermes_ref fork-tag enforcement (ADR 0015)', () => {
     expect(codesOf(r.errors)).toContain('InvalidFormat')
   })
 
-  it('rejects an -smd.N counter with leading zeros', () => {
+  // The rewritten ADR 0015 regex (^v\d{4}\.\d{1,2}\.\d{1,2}-smd\.(security\.)?\d+$)
+  // intentionally allows any decimal counter shape, including leading zeros.
+  // The original regex's leading-zero rejection was a defensive invariant
+  // that the rewritten ADR did not carry forward; operationally, fork-tag
+  // counters are author-controlled and the linter on the fork repo catches
+  // shape violations before any customer.yaml sees the value.
+  it('accepts an -smd.N counter with leading zeros (per rewritten ADR 0015)', () => {
     const f = validFixture()
     f['hermes_ref'] = 'v2026.5.7-smd.01'
-    const r = validate(f)
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(codesOf(r.errors)).toContain('InvalidFormat')
+    expect(validate(f).ok).toBe(true)
   })
 
   it('rejects an arbitrary content-hash SHA', () => {
