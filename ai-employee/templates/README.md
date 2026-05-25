@@ -35,11 +35,11 @@ The flow runs as `ai-employee/bin/provision-customer.sh <slug>` from the repo ro
 
 Set these in your local shell (e.g., via `.envrc` + `direnv`) before running provisioning. The R2 credentials below are used by `aws s3 cp` for the customer.yaml upload step; the Machine gets its own R2 credentials staged via the `pbpaste` flow.
 
-| Env var                | Purpose                                                                                      |
-| ---------------------- | -------------------------------------------------------------------------------------------- |
-| `R2_ENDPOINT_URL`      | Cloudflare R2 endpoint (e.g., `https://<account-id>.r2.cloudflarestorage.com`)               |
-| `R2_ACCESS_KEY_ID`     | R2 access key with R/W on the config bucket                                                  |
-| `R2_SECRET_ACCESS_KEY` | R2 secret paired with the access key                                                         |
+| Env var                | Purpose                                                                                       |
+| ---------------------- | --------------------------------------------------------------------------------------------- |
+| `R2_ENDPOINT_URL`      | Cloudflare R2 endpoint (e.g., `https://<account-id>.r2.cloudflarestorage.com`)                |
+| `R2_ACCESS_KEY_ID`     | R2 access key with R/W on the config bucket                                                   |
+| `R2_SECRET_ACCESS_KEY` | R2 secret paired with the access key                                                          |
 | `R2_BUCKET_CONFIG`     | R2 bucket holding `customer.yaml` + voice vaults (defaults to `smd-customer-config` if unset) |
 
 Tools required on the operator machine: `fly`, `aws` (any version with S3-compatible `--endpoint-url`), `openssl`, `pbpaste` (macOS), `python3`, `uv`.
@@ -79,16 +79,16 @@ These are set as `[env]` entries in `fly.toml.template` (rendered per-customer):
 
 The 10GB Fly volume mounts at `/opt/data` and hosts everything stateful. `customer.yaml` is volume-write at provisioning and R2-mirrored for non-structural updates (ADR 0019).
 
-| Path                         | Contents                                                                         |
-| ---------------------------- | -------------------------------------------------------------------------------- |
+| Path                         | Contents                                                                          |
+| ---------------------------- | --------------------------------------------------------------------------------- |
 | `/opt/data/customer.yaml`    | Live customer config. Fetched from R2 at first boot; refreshed by sidecar.        |
 | `/opt/data/honcho/pg/`       | Postgres data dir (Honcho's primary store).                                       |
 | `/opt/data/honcho/redis/`    | Redis AOF (Honcho's cache).                                                       |
 | `/opt/data/audit.db`         | Per-customer audit log SQLite (`hermes-smd-audit` writes).                        |
 | `/opt/data/observations.db`  | Honcho-mirror SQLite (`hermes-smd-memory-mirror` writes). ADR 0016.               |
 | `/opt/data/profiles/<slug>/` | Hermes per-persona profiles (one per `customer.yaml.personas[]`). ADR 0011, 0019. |
-| `/opt/data/oauth/`           | Per-provider OAuth token files. ADR 0010.                                          |
-| `/opt/data/voice/`           | Voice samples warm cache (R2-backed).                                              |
+| `/opt/data/oauth/`           | Per-provider OAuth token files. ADR 0010.                                         |
+| `/opt/data/voice/`           | Voice samples warm cache (R2-backed).                                             |
 
 ## Boot sequence (summary)
 
@@ -130,10 +130,10 @@ We do not fail-closed because a memory-system bug should not brick the customer'
 
 The change rule (ADR 0019):
 
-| Change kind        | Examples                                                       | What happens                                                                                                                                |
-| ------------------ | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Non-structural** | Escalation contacts, voice samples, rule edits, scope tweaks   | Sidecar diffs R2, rewrites the volume copy, signals each profile to reload its config. No Machine restart.                                  |
-| **Structural**    | Persona add/remove, adapter swap, new connector binding         | Sidecar logs a warning, posts to the admin portal that a Captain re-provision is required. No automatic restart (preserves OAuth tokens). |
+| Change kind        | Examples                                                     | What happens                                                                                                                              |
+| ------------------ | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Non-structural** | Escalation contacts, voice samples, rule edits, scope tweaks | Sidecar diffs R2, rewrites the volume copy, signals each profile to reload its config. No Machine restart.                                |
+| **Structural**     | Persona add/remove, adapter swap, new connector binding      | Sidecar logs a warning, posts to the admin portal that a Captain re-provision is required. No automatic restart (preserves OAuth tokens). |
 
 Captain-initiated re-provision is the only path for structural changes; the OAuth tokens on the volume are deliberately scoped to the Machine lifetime per ADR 0010.
 
@@ -152,16 +152,16 @@ The most common state at the target-buyer profile is no working PM system at all
 
 ## Operating runbook
 
-| Task                            | Command                                                                                          |
-| ------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Pause a Machine                 | `fly machine stop -a hermes-<slug> <machine-id>`                                                 |
-| Decommission a customer         | `fly apps destroy hermes-<slug>` (irreversible; volume contents are lost)                        |
-| Run the boot smoke test         | `ai-employee/bin/boot-smoke-test.sh <slug>` (Postgres → Redis → Honcho → customer.yaml → profiles → plugins) |
-| Run connector prod smoke tests  | `uv run python3 ai-employee/adapter/run_prod_smoke_test.py --customer <slug> --app hermes-<slug> --customer-yaml ai-employee/customers/<slug>/customer.yaml` |
-| Inspect logs                    | `fly logs -a hermes-<slug>`                                                                      |
-| Interactive shell               | `fly ssh console -a hermes-<slug>`                                                               |
-| Generate evidence packet        | `fly ssh console -a hermes-<slug> --command "tar czf - /opt/data/audit.db /opt/data/observations.db" > evidence-<slug>-$(date +%Y%m%d).tar.gz` |
-| Force customer.yaml resync      | `fly ssh console -a hermes-<slug> --command "kill -HUP \$(pgrep -f customer-sync)"`              |
+| Task                           | Command                                                                                                                                                      |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Pause a Machine                | `fly machine stop -a hermes-<slug> <machine-id>`                                                                                                             |
+| Decommission a customer        | `fly apps destroy hermes-<slug>` (irreversible; volume contents are lost)                                                                                    |
+| Run the boot smoke test        | `ai-employee/bin/boot-smoke-test.sh <slug>` (Postgres → Redis → Honcho → customer.yaml → profiles → plugins)                                                 |
+| Run connector prod smoke tests | `uv run python3 ai-employee/adapter/run_prod_smoke_test.py --customer <slug> --app hermes-<slug> --customer-yaml ai-employee/customers/<slug>/customer.yaml` |
+| Inspect logs                   | `fly logs -a hermes-<slug>`                                                                                                                                  |
+| Interactive shell              | `fly ssh console -a hermes-<slug>`                                                                                                                           |
+| Generate evidence packet       | `fly ssh console -a hermes-<slug> --command "tar czf - /opt/data/audit.db /opt/data/observations.db" > evidence-<slug>-$(date +%Y%m%d).tar.gz`               |
+| Force customer.yaml resync     | `fly ssh console -a hermes-<slug> --command "kill -HUP \$(pgrep -f customer-sync)"`                                                                          |
 
 ### Boot smoke test scope
 
@@ -169,10 +169,10 @@ The most common state at the target-buyer profile is no working PM system at all
 
 ## ADR references
 
-| ADR                                                                          | Topic                                                                                                |
-| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| [0007](../../docs/adr/0007-per-customer-machine-isolation.md)                | Per-customer Machine isolation (one Fly app, one Machine, per customer).                              |
-| [0010](../../docs/adr/0010-oauth-token-storage.md)                           | Per-customer OAuth token storage on the Fly volume.                                                   |
-| [0016](../../docs/adr/0016-honcho-disposition.md)                            | Honcho disposition — mirror, don't gate; tuned config; TTL archival.                                  |
-| 0019                                                                         | `customer.yaml` → per-profile config translation. Structural vs. non-structural change rule.          |
-| 0020                                                                         | Connector strategy — `mcp:` / `build:` / `composio:` / `synthetic:` backend prefixes.                 |
+| ADR                                                           | Topic                                                                                        |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| [0007](../../docs/adr/0007-per-customer-machine-isolation.md) | Per-customer Machine isolation (one Fly app, one Machine, per customer).                     |
+| [0010](../../docs/adr/0010-oauth-token-storage.md)            | Per-customer OAuth token storage on the Fly volume.                                          |
+| [0016](../../docs/adr/0016-honcho-disposition.md)             | Honcho disposition — mirror, don't gate; tuned config; TTL archival.                         |
+| 0019                                                          | `customer.yaml` → per-profile config translation. Structural vs. non-structural change rule. |
+| 0020                                                          | Connector strategy — `mcp:` / `build:` / `composio:` / `synthetic:` backend prefixes.        |
