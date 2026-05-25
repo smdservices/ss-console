@@ -133,18 +133,26 @@ ACCEPTED_ACTION_TYPES = frozenset(
         "DECOMMISSION_INITIATED",
         "DECOMMISSION_DRAIN_COMPLETE",
         "DECOMMISSION_FINAL",
-        # Honcho overlay (ADR 0016) — proposer-only persona observations.
-        # Emitted by the HonchoInterceptor on every observation write,
-        # promotion (calibration-session approval), and dismissal.
-        "HONCHO_OBSERVATION",
-        "HONCHO_PROMOTION",
-        "HONCHO_DISMISSAL",
-        # Skill Curator overlay (ADR 0017) — observer-only skill drafts.
-        # Emitted by the CuratorInterceptor on every draft write,
-        # Captain promotion (crane-console PR), and dismissal.
-        "CURATOR_DRAFT",
-        "CURATOR_PROMOTION",
-        "CURATOR_DISMISSAL",
+        # Honcho overlay (ADR 0016 rewrite, 2026-05-24) — mirror, don't gate.
+        # The hermes-smd-memory-mirror plugin emits this on Captain dismissal
+        # in the admin portal; the paired physical DELETE against Honcho's
+        # API is what works around bug #658 (temporal awareness). There is
+        # no observation or promotion event — Honcho's writes are unmodified.
+        "HONCHO_CONCLUSION_DISMISSED",
+        # Skill Curator overlay (ADR 0017 rewrite, 2026-05-24) — trust native.
+        # The hermes-smd-audit plugin emits AGENT_SKILL_CREATED on
+        # post_tool_call for `skill_manage` create/write_file; AGENT_SKILL_REMOVED
+        # on Captain remove-action in the admin portal. There is no promotion
+        # event — `skill_manage` writes land directly in the customer's
+        # per-profile skill catalog (Hermes-native).
+        "AGENT_SKILL_CREATED",
+        "AGENT_SKILL_REMOVED",
+        # customer.yaml sync (ADR 0019) — emitted by the customer-sync
+        # sidecar when the per-customer Machine's R2-source customer.yaml
+        # changes. Non-structural changes apply with SIGHUP; structural
+        # changes log _DEFERRED for Captain re-provision.
+        "CUSTOMER_YAML_SYNCED",
+        "CUSTOMER_YAML_STRUCTURAL_CHANGE_DEFERRED",
     }
 )
 
