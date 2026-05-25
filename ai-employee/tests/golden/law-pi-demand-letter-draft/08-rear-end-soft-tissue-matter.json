@@ -1,0 +1,20 @@
+{
+  "body_byte_count": 2114,
+  "body_sha256": "9b6fd39c05645684e226f4191751bf7edd6f55c8d81d959522723c6589747877",
+  "envelope": {
+    "bcc": [],
+    "cc": [],
+    "drafted_by_skill": "law-pi-demand-letter-draft",
+    "matter_ref": "matter_synthetic_08",
+    "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
+    "subject": "Demand for Owen Pereira, claim PMA-2026-053921, date of loss April 19, 2026",
+    "thread_id": null,
+    "to": [
+      "aboyle@pioneermutual.invalid"
+    ]
+  },
+  "fixture_name": "08-rear-end-soft-tissue-matter",
+  "kind": "draft",
+  "skill_slug": "law-pi-demand-letter-draft",
+  "skill_version": "0.1.0"
+}

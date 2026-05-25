@@ -1,0 +1,101 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 09: multi-vehicle chain collision. Multiple potential
+# defendants; police report identifies the initiating driver but
+# liability allocation is open. Tests the skill on a case where
+# multiple opposing parties exist.
+
+matter:
+  id: 'matter_synthetic_09'
+  client_name: 'Cecilia Underwood'
+  matter_type: 'auto-multi-vehicle'
+  status: 'open'
+  opened_at: '2026-03-30T13:00:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2026-03-27'
+    incident_location: 'I-17 northbound, MP 198 (north of Carefree Highway), Phoenix AZ'
+    client_role: 'operator of stopped 2021 Volkswagen Tiguan; rear-most vehicle in chain'
+    opposing_insured_name: 'Hayes Crain (initiating driver) and three additional vehicles'
+    opposing_carrier: 'Multiple carriers — primary against Hayes Crain'
+    opposing_adjuster_name: 'TBD (partner to confirm primary adjuster)'
+    opposing_adjuster_email: null
+    opposing_adjuster_address: null
+    claim_number: 'TBD'
+    employer_name: 'Phoenix Children\'s Hospital'
+    documents_folder_path: '/matters/matter_synthetic_09'
+
+documents:
+  - id: 'doc_mv01'
+    filename: '2026-03-27_pd_report.pdf'
+    classification: 'police_report'
+    synthetic_body: |
+      Phoenix Police Department incident report PD-2026-03821.
+      Date/time: 2026-03-27 07:42.
+      Location: I-17 northbound, MP 198, near Carefree Highway.
+      Description: Four-vehicle chain collision. Per witness statements
+        and physical evidence, Operator 1 Hayes Crain failed to brake
+        for slowed traffic and struck Operator 2's vehicle, propelling
+        it forward into Operators 3 and 4. Operator 4 (Cecilia
+        Underwood) was the rear-most vehicle in the chain prior to the
+        collision; her vehicle was pushed forward into a guardrail
+        after being struck.
+      Citations: Operator 1 (Hayes Crain) cited under ARS §28-695
+        (following too closely).
+
+  - id: 'doc_mv02'
+    filename: '2026-03-27_phoenix_baptist_ed.pdf'
+    classification: 'medical_record'
+    synthetic_body: |
+      Phoenix Baptist Hospital, Emergency Department.
+      Date: 2026-03-27. Patient: Underwood, Cecilia.
+      Provider: Dr. Maria Castro, MD.
+      Diagnosis: cervical strain; closed left wrist fracture; chest
+        contusion from seatbelt restraint.
+      Disposition: discharged home with sling for left wrist and
+        referrals to ortho and pulmonology (rule out rib involvement).
+
+  - id: 'doc_mv03'
+    filename: '2026-04-10_ortho_initial.pdf'
+    classification: 'medical_record'
+    synthetic_body: |
+      Phoenix Bone and Joint.
+      Date: 2026-04-10. Patient: Underwood, Cecilia.
+      Provider: Dr. Anand Rao, MD.
+      Plan: conservative casting of left wrist for 6 weeks; recheck.
+
+  - id: 'doc_mv04'
+    filename: '2026-05-22_followup.pdf'
+    classification: 'medical_record'
+    synthetic_body: |
+      Phoenix Bone and Joint.
+      Date: 2026-05-22. Patient: Underwood, Cecilia.
+      Provider: Dr. Anand Rao, MD.
+      Subjective: cast removed; range of motion limited; PT recommended.
+      Plan: PT 2x weekly for 6 weeks; recheck.
+
+  - id: 'doc_mv05'
+    filename: '2026-05-22_billing_summary.pdf'
+    classification: 'billing'
+    synthetic_body: |
+      Medical billing summary as of 2026-05-22.
+      Phoenix Baptist ED: $7,820.00.
+      Phoenix Bone and Joint (initial + casting + follow-up): $2,640.00.
+      Total to date: $10,460.00.
+
+  - id: 'doc_mv06'
+    filename: '2026-04-15_employer_wage_letter.pdf'
+    classification: 'employment_verification'
+    synthetic_body: |
+      Phoenix Children's Hospital.
+      Cecilia Underwood is employed as a Senior Pediatric Nurse. As
+      a result of the 2026-03-27 collision, Ms. Underwood was unable
+      to work for 22 business days between 2026-03-28 and 2026-04-30.
+      Daily rate: $384.00. Lost wages to date: $8,448.00. Signed:
+      HR Director Patricia Holland.
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'

@@ -1,0 +1,49 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-demand-letter-draft",
+  "fixture_name": "07-pedestrian-matter",
+  "expected_skill": "law-pi-demand-letter-draft",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "date_of_incident",
+    "incident_location",
+    "client_role",
+    "opposing_insured_name",
+    "opposing_carrier",
+    "opposing_adjuster_name",
+    "opposing_adjuster_email",
+    "opposing_adjuster_address",
+    "claim_number",
+    "employer_name",
+    "documents_folder_path"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "PracticeManagement.read_matter",
+      "DocumentStorage.list_documents",
+      "Email.create_draft"
+    ],
+    "must_not_call": [
+      "Email.send",
+      "PracticeManagement.update_matter"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "DOCUMENT_CHRONOLOGY_BUILT",
+    "DRAFT_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "Pedestrian-struck-in-marked-crosswalk. High-severity damages ($144,220 medical specials + $19,840 lost wages over 64 business days). ARS §28-792 citation against the driver referenced as a SOURCED FACT from the police report — NOT as a legal conclusion. Multi-provider chronology (ED admission → ORIF surgery → 8-week rehab). Skill MUST NOT make a legal conclusion about liability from the fact that the client was in the crosswalk with the walk signal — that's a sourced fact about position, the legal conclusion is partner's territory."
+}

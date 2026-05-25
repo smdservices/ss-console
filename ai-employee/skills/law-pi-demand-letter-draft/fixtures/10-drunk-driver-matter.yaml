@@ -1,0 +1,104 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 10: defendant was intoxicated at the time of the collision.
+# DUI charge against opposing driver is a factual record from PD
+# report. The skill should NOT make legal statements about punitive
+# damages — that's partner's territory.
+
+matter:
+  id: 'matter_synthetic_10'
+  client_name: 'Brenda Saxon'
+  matter_type: 'auto-dui-defendant'
+  status: 'open'
+  opened_at: '2026-04-29T15:00:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2026-04-26'
+    incident_location: 'Loop 101 westbound near 35th Avenue, Glendale AZ'
+    client_role: 'operator of 2020 Honda Pilot in proper lane'
+    opposing_insured_name: 'Garth Holloway'
+    opposing_carrier: 'Pacific Coast Insurance'
+    opposing_adjuster_name: 'Sienna Bracewell'
+    opposing_adjuster_email: 'sbracewell@pacificcoastins.invalid'
+    opposing_adjuster_address: '15920 N Greenway Hayden Loop, Scottsdale AZ 85260'
+    claim_number: 'PCI-2026-079302'
+    employer_name: 'Glendale Community College'
+    documents_folder_path: '/matters/matter_synthetic_10'
+
+documents:
+  - id: 'doc_dui01'
+    filename: '2026-04-26_pd_report.pdf'
+    classification: 'police_report'
+    synthetic_body: |
+      Glendale Police Department incident report GPD-2026-09821.
+      Date/time: 2026-04-26 23:17.
+      Location: Loop 101 westbound, MP 142.4, near 35th Avenue exit.
+      Description: Operator Garth Holloway, traveling at unsafe speed,
+        crossed center line and struck driver-side of vehicle operated
+        by Brenda Saxon.
+      Operator Holloway field sobriety: failed. Breathalyzer: 0.18
+        (more than twice the AZ legal limit of 0.08). Blood draw
+        performed at scene by EMS.
+      Citations: Operator Holloway arrested at scene under ARS §28-1381
+        (DUI). DUI charge pending.
+
+  - id: 'doc_dui02'
+    filename: '2026-04-27_banner_thunderbird_ed.pdf'
+    classification: 'medical_record'
+    synthetic_body: |
+      Banner Thunderbird Medical Center, Emergency Department.
+      Date: 2026-04-27. Patient: Saxon, Brenda.
+      Provider: Dr. Reginald Akinyemi, MD.
+      Diagnosis: closed left humerus fracture; multiple rib fractures
+        (ribs 3-5 left side); pneumothorax (small, managed
+        conservatively); facial laceration with sutures.
+      Disposition: admitted for observation overnight; ortho consult
+        for ORIF.
+
+  - id: 'doc_dui03'
+    filename: '2026-04-28_humerus_orif.pdf'
+    classification: 'medical_record'
+    synthetic_body: |
+      Banner Thunderbird Orthopedic Surgery.
+      Date: 2026-04-28. Patient: Saxon, Brenda.
+      Provider: Dr. Pradeep Khanna, MD.
+      Procedure: open reduction internal fixation of left humerus.
+      Hardware placed; uncomplicated postoperative course.
+
+  - id: 'doc_dui04'
+    filename: '2026-05-20_followup.pdf'
+    classification: 'medical_record'
+    synthetic_body: |
+      Banner Thunderbird Orthopedic.
+      Date: 2026-05-20. Patient: Saxon, Brenda.
+      Provider: Dr. Pradeep Khanna, MD.
+      Subjective: significant pain; range of motion severely limited;
+        rib pain persists with deep breathing.
+      Plan: continue sling; PT to begin in 4 weeks; recheck.
+
+  - id: 'doc_dui05'
+    filename: '2026-05-22_billing_summary.pdf'
+    classification: 'billing'
+    synthetic_body: |
+      Medical billing summary as of 2026-05-22.
+      Banner Thunderbird ED + admission: $42,800.00.
+      ORIF humerus surgery: $48,400.00.
+      Orthopedic follow-up: $620.00.
+      Total to date: $91,820.00.
+
+  - id: 'doc_dui06'
+    filename: '2026-05-10_employer_wage_letter.pdf'
+    classification: 'employment_verification'
+    synthetic_body: |
+      Glendale Community College.
+      Brenda Saxon is employed as an Adjunct Faculty member teaching
+      Mathematics. As a result of the 2026-04-26 collision, Ms. Saxon
+      was unable to teach for 4 weeks during the spring semester.
+      Lost compensation: $4,200.00. Signed: HR Director Daniel
+      Brennan.
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'

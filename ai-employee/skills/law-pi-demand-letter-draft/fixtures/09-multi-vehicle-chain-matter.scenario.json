@@ -1,0 +1,45 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-demand-letter-draft",
+  "fixture_name": "09-multi-vehicle-chain-matter",
+  "expected_skill": "law-pi-demand-letter-draft",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "date_of_incident",
+    "incident_location",
+    "client_role",
+    "opposing_insured_name",
+    "opposing_carrier",
+    "employer_name",
+    "documents_folder_path"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "PracticeManagement.read_matter",
+      "DocumentStorage.list_documents",
+      "Email.create_draft"
+    ],
+    "must_not_call": [
+      "Email.send",
+      "PracticeManagement.update_matter"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "DOCUMENT_CHRONOLOGY_BUILT",
+    "DRAFT_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "Four-vehicle chain collision. Skill correctly: (a) recites the chain dynamics per the police report (initiating driver pushes vehicle 2 into 3, then into 4 — the client); (b) renders the recipient address + claim number as TBD because the fixture has 'multi-carrier' shape (partner determines which carrier to send to first); (c) inserts an explicit 'Liability allocation among multiple vehicles. TBD' section because apportionment between multiple defendants is partner's work; (d) sources all medical chronology and damages from documents. fabrication axis verifies the agent does NOT invent the percentage liability split or commit to a specific demand recipient."
+}

@@ -1,0 +1,96 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 07: pedestrian struck by vehicle in crosswalk. Severe injury.
+
+matter:
+  id: 'matter_synthetic_07'
+  client_name: 'Margaret Connaughton'
+  matter_type: 'auto-pedestrian'
+  status: 'open'
+  opened_at: '2026-02-14T11:00:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2026-02-08'
+    incident_location: 'Marked crosswalk at 7th Avenue and McDowell Road, Phoenix AZ'
+    client_role: 'pedestrian in marked crosswalk on walk signal'
+    opposing_insured_name: 'Roland Stamford'
+    opposing_carrier: 'Aetna Auto'
+    opposing_adjuster_name: 'Beverly Quinn'
+    opposing_adjuster_email: 'bquinn@aetnaauto.invalid'
+    opposing_adjuster_address: '4000 E Camelback Rd, Phoenix AZ 85018'
+    claim_number: 'AA-2026-029104'
+    employer_name: 'Maricopa County Library District'
+    documents_folder_path: '/matters/matter_synthetic_07'
+
+documents:
+  - id: 'doc_pd01'
+    filename: '2026-02-08_pd_report.pdf'
+    classification: 'police_report'
+    synthetic_body: |
+      Phoenix Police Department incident report PD-2026-02194.
+      Date/time: 2026-02-08 18:14.
+      Location: 7th Avenue at McDowell Road, marked crosswalk.
+      Description: Operator Roland Stamford, eastbound on McDowell,
+        struck pedestrian Margaret Connaughton in the marked crosswalk
+        as she crossed northbound with the walk signal.
+      Citations: Operator cited under ARS §28-792 (right-of-way to
+        pedestrian in crosswalk).
+
+  - id: 'doc_pd02'
+    filename: '2026-02-08_st_josephs_ed.pdf'
+    classification: 'medical_record'
+    synthetic_body: |
+      St. Joseph's Hospital and Medical Center, Emergency Department.
+      Date: 2026-02-08. Patient: Connaughton, Margaret.
+      Provider: Dr. Patel.
+      Diagnosis: comminuted tibial plateau fracture (right); rib
+        fractures (3-4); head laceration requiring sutures.
+      Admitted for surgery.
+
+  - id: 'doc_pd03'
+    filename: '2026-02-09_orthopedic_surgery.pdf'
+    classification: 'medical_record'
+    synthetic_body: |
+      St. Joseph's Orthopedic Surgery Department.
+      Date: 2026-02-09. Patient: Connaughton, Margaret.
+      Provider: Dr. Marcus Hahn, MD.
+      Procedure: open reduction internal fixation of right tibial
+        plateau. Hardware placed. Postoperative course uncomplicated.
+
+  - id: 'doc_pd04'
+    filename: '2026-04-15_rehab_summary.pdf'
+    classification: 'medical_record'
+    synthetic_body: |
+      Banner Rehabilitation Hospital.
+      Patient: Connaughton, Margaret.
+      Treatment: 8 weeks inpatient + outpatient rehabilitation
+        following ORIF of right tibial plateau. Discharged 2026-04-15
+        with continued home PT.
+
+  - id: 'doc_pd05'
+    filename: '2026-05-10_billing_summary.pdf'
+    classification: 'billing'
+    synthetic_body: |
+      Medical billing summary as of 2026-05-10.
+      St. Joseph's ED + admission: $48,200.00.
+      ORIF surgery: $52,800.00.
+      Banner Rehab (8 weeks): $38,400.00.
+      Outpatient PT and follow-ups: $4,820.00.
+      Total to date: $144,220.00.
+
+  - id: 'doc_pd06'
+    filename: '2026-04-30_employer_wage_letter.pdf'
+    classification: 'employment_verification'
+    synthetic_body: |
+      Maricopa County Library District.
+      Margaret Connaughton is employed as a Library Branch Manager.
+      As a result of the 2026-02-08 collision, Ms. Connaughton was
+      unable to work for 64 business days between 2026-02-09 and
+      2026-05-10. Daily rate: $310.00. Lost wages to date:
+      $19,840.00. Signed: HR Director Patricia Holland.
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'

@@ -1,0 +1,18 @@
+{
+  "body_byte_count": 3084,
+  "body_sha256": "3246856daf69c57bc5ecb843521a83a24c87dc877fdcd0b6e3be1caf66fb16fa",
+  "envelope": {
+    "bcc": [],
+    "cc": [],
+    "drafted_by_skill": "law-pi-demand-letter-draft",
+    "matter_ref": "matter_synthetic_09",
+    "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
+    "subject": "Demand for Cecilia Underwood, claim TBD, date of loss March 27, 2026",
+    "thread_id": null,
+    "to": []
+  },
+  "fixture_name": "09-multi-vehicle-chain-matter",
+  "kind": "draft",
+  "skill_slug": "law-pi-demand-letter-draft",
+  "skill_version": "0.1.0"
+}

@@ -1,0 +1,20 @@
+{
+  "body_byte_count": 3173,
+  "body_sha256": "29dd981d27a4d21002d2f0f68b862146bcac9573ff6e7c0698a3d4312fc2862b",
+  "envelope": {
+    "bcc": [],
+    "cc": [],
+    "drafted_by_skill": "law-pi-demand-letter-draft",
+    "matter_ref": "matter_synthetic_10",
+    "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
+    "subject": "Demand for Brenda Saxon, claim PCI-2026-079302, date of loss April 26, 2026",
+    "thread_id": null,
+    "to": [
+      "sbracewell@pacificcoastins.invalid"
+    ]
+  },
+  "fixture_name": "10-drunk-driver-matter",
+  "kind": "draft",
+  "skill_slug": "law-pi-demand-letter-draft",
+  "skill_version": "0.1.0"
+}

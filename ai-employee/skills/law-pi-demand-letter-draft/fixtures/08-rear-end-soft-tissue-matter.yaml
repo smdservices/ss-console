@@ -1,0 +1,71 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 08: rear-end collision with soft-tissue injury only. Tighter
+# damages profile; tests the skill on a moderate-severity case.
+
+matter:
+  id: 'matter_synthetic_08'
+  client_name: 'Owen Pereira'
+  matter_type: 'auto-rear-end'
+  status: 'open'
+  opened_at: '2026-04-22T08:30:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2026-04-19'
+    incident_location: '32nd Street and Greenway Road, Phoenix AZ'
+    client_role: 'operator of stopped 2018 Toyota Camry'
+    opposing_insured_name: 'Joaquin Velasquez'
+    opposing_carrier: 'Pioneer Mutual Auto'
+    opposing_adjuster_name: 'Adrian Boyle'
+    opposing_adjuster_email: 'aboyle@pioneermutual.invalid'
+    opposing_adjuster_address: '15800 N Greenway Hayden Loop, Scottsdale AZ 85260'
+    claim_number: 'PMA-2026-053921'
+    employer_name: 'Desert Sky Marketing'
+    documents_folder_path: '/matters/matter_synthetic_08'
+
+documents:
+  - id: 'doc_re01'
+    filename: '2026-04-19_urgent_care.pdf'
+    classification: 'medical_record'
+    synthetic_body: |
+      NextCare Urgent Care.
+      Date: 2026-04-19. Patient: Pereira, Owen.
+      Provider: PA Mariana Bell.
+      Chief complaint: neck and upper-back pain after rear-end MVC.
+      Diagnosis: cervical and thoracic strain. No fracture on X-ray.
+      Plan: NSAIDs, heat, follow up with PCP if not improved in 1 week.
+
+  - id: 'doc_re02'
+    filename: '2026-04-27_pcp_followup.pdf'
+    classification: 'medical_record'
+    synthetic_body: |
+      Phoenix Family Medicine.
+      Date: 2026-04-27. Patient: Pereira, Owen.
+      Provider: Dr. Helen Reyes, MD.
+      Subjective: persistent neck stiffness; mild headache pattern.
+      Plan: physical therapy 2x weekly for 4 weeks; recheck.
+
+  - id: 'doc_re03'
+    filename: '2026-05-20_pt_summary.pdf'
+    classification: 'medical_record'
+    synthetic_body: |
+      Sonoran Sports Physical Therapy.
+      Patient: Pereira, Owen.
+      Six PT sessions completed 2026-04-29 through 2026-05-20.
+      Subjective improvement; range of motion approaching baseline.
+
+  - id: 'doc_re04'
+    filename: '2026-05-22_billing_summary.pdf'
+    classification: 'billing'
+    synthetic_body: |
+      Medical billing summary as of 2026-05-22.
+      NextCare Urgent Care: $640.00.
+      Phoenix Family Medicine: $320.00.
+      Sonoran Sports Physical Therapy (6 sessions): $1,080.00.
+      Total to date: $2,040.00.
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'

@@ -1,0 +1,20 @@
+{
+  "body_byte_count": 2782,
+  "body_sha256": "525b307dba3b78b0d704aa6f828b4c24fbeb7d6b1caa07c744cb5aa216c2f520",
+  "envelope": {
+    "bcc": [],
+    "cc": [],
+    "drafted_by_skill": "law-pi-demand-letter-draft",
+    "matter_ref": "matter_synthetic_07",
+    "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
+    "subject": "Demand for Margaret Connaughton, claim AA-2026-029104, date of loss February 8, 2026",
+    "thread_id": null,
+    "to": [
+      "bquinn@aetnaauto.invalid"
+    ]
+  },
+  "fixture_name": "07-pedestrian-matter",
+  "kind": "draft",
+  "skill_slug": "law-pi-demand-letter-draft",
+  "skill_version": "0.1.0"
+}
