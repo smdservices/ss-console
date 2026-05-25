@@ -22,12 +22,8 @@ import {
 import { resolve } from 'path'
 import type { D1Database } from '@cloudflare/workers-types'
 
-import {
-  createEntity,
-  transitionStage,
-  getLatestLostReasonsByEntity,
-  type EntityStage,
-} from '../src/lib/db/entities'
+import { createEntity, transitionStage, type EntityStage } from '../src/lib/db/entities'
+import { getLatestLostReasonsByEntity } from '../src/lib/db/entities-extra'
 import { LOST_REASONS, isLostReasonCode } from '../src/lib/db/lost-reasons'
 
 const migrationsDir = resolve(process.cwd(), 'migrations')

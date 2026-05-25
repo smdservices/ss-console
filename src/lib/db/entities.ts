@@ -656,5 +656,7 @@ export async function transitionStage(
  */
 // Re-export slug utility for convenience
 export { computeSlug } from '../entities/slug.js'
-// Re-export extended entity queries (extracted to stay within file-line ceiling)
-export { getLatestLostReasonsByEntity, mergeEntities } from './entities-extra.js'
+// Extended entity queries live in entities-extra.ts (extracted to stay within
+// file-line ceiling). Import them directly from there — re-exporting through
+// this module creates an entities ↔ entities-extra cycle that Vite warns
+// about during chunked production builds (see PR #1039).

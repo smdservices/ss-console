@@ -7,11 +7,11 @@ import { buildEntityRowView } from '../../../lib/admin/entity-row-view'
 import {
   listEntities,
   countEntitiesPerStage,
-  getLatestLostReasonsByEntity,
   getSignalMetadataForEntities,
   ENTITY_STAGES,
 } from '../../../lib/db/entities'
 import type { Entity, EntityStage, EntitySignalMetadata } from '../../../lib/db/entities'
+import { getLatestLostReasonsByEntity } from '../../../lib/db/entities-extra'
 import { getActiveQuotesForEntities, getQuotesForEntities } from '../../../lib/db/quotes'
 import type { Quote } from '../../../lib/db/quotes'
 import { getMeetingsForEntities } from '../../../lib/db/meetings'
