@@ -1,0 +1,83 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 05: bicycle-vs-car PI demand. Tighter case shape (single
+# provider chain). Exercises bicyclist-as-plaintiff case_type.
+
+matter:
+  id: 'matter_synthetic_05'
+  client_name: 'Theodore Kapadia'
+  matter_type: 'auto-bicycle'
+  status: 'open'
+  opened_at: '2026-03-22T09:00:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2026-03-18'
+    incident_location: '16th Street and Glendale Avenue, Phoenix Arizona'
+    client_role: 'bicyclist in marked bike lane'
+    opposing_insured_name: 'Beatrice Yoon'
+    opposing_carrier: 'Westgate Mutual Insurance'
+    opposing_adjuster_name: 'Carlton Reed'
+    opposing_adjuster_email: 'creed@westgatemutual.invalid'
+    opposing_adjuster_address: '2500 N Central Ave, Phoenix AZ 85004'
+    claim_number: 'WM-2026-061847'
+    employer_name: 'Sonoran Software Co'
+    documents_folder_path: '/matters/matter_synthetic_05'
+
+documents:
+  - id: 'doc_b01'
+    filename: '2026-03-18_st_lukes_ed.pdf'
+    classification: 'medical_record'
+    synthetic_body: |
+      St. Luke's Medical Center, Emergency Department.
+      Date: 2026-03-18. Patient: Kapadia, Theodore.
+      Provider: Dr. Aldo Maestre, MD.
+      Chief complaint: bicyclist struck by car; left collarbone deformity,
+        head pain, abrasions.
+      Diagnosis: closed fracture left clavicle; mild concussion.
+      Disposition: sling, prescription, ortho referral.
+
+  - id: 'doc_b02'
+    filename: '2026-03-25_arizona_ortho.pdf'
+    classification: 'medical_record'
+    synthetic_body: |
+      Arizona Orthopedic Specialists.
+      Date: 2026-03-25. Patient: Kapadia, Theodore.
+      Provider: Dr. Sun-Mi Hong, MD.
+      Plan: conservative management of left clavicle fracture; 6-week
+        immobilization; weekly check-ins.
+
+  - id: 'doc_b03'
+    filename: '2026-04-15_followup.pdf'
+    classification: 'medical_record'
+    synthetic_body: |
+      Arizona Orthopedic Specialists.
+      Date: 2026-04-15. Patient: Kapadia, Theodore.
+      Provider: Dr. Sun-Mi Hong, MD.
+      Subjective: pain reduced; able to perform light activity.
+      Plan: continue conservative care; recheck in 3 weeks.
+
+  - id: 'doc_b04'
+    filename: '2026-05-10_billing_summary.pdf'
+    classification: 'billing'
+    synthetic_body: |
+      Medical billing summary as of 2026-05-10.
+      St. Luke's ED: $5,840.00.
+      Arizona Orthopedic Specialists (initial + 2 follow-ups): $1,420.00.
+      Total to date: $7,260.00.
+
+  - id: 'doc_b05'
+    filename: '2026-04-20_employer_wage_letter.pdf'
+    classification: 'employment_verification'
+    synthetic_body: |
+      Sonoran Software Co.
+      This letter confirms Theodore Kapadia is employed as a Senior
+      Engineer. As a result of the 2026-03-18 collision, Mr. Kapadia
+      worked at reduced capacity for 12 business days. Estimated
+      lost productivity / wages: $3,840.00. Signed: HR Director
+      Patricia Holland.
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'

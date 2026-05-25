@@ -1,0 +1,84 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 06: premises-liability demand. Commercial defendant; ER
+# visit + PT chain; incident report referenced.
+
+matter:
+  id: 'matter_synthetic_06'
+  client_name: 'Hollis Ferreira'
+  matter_type: 'premises-liability'
+  status: 'open'
+  opened_at: '2026-04-05T10:00:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2026-04-02'
+    incident_location: 'Sunshine Market, 7900 N 7th Street, Phoenix AZ'
+    client_role: 'customer slipping on wet floor'
+    opposing_insured_name: 'Sunshine Market Holdings, LLC'
+    opposing_carrier: 'Liberty Insurance Group'
+    opposing_adjuster_name: 'Devon Whitlock'
+    opposing_adjuster_email: 'dwhitlock@libertyig.invalid'
+    opposing_adjuster_address: 'PO Box 8842, Phoenix AZ 85067'
+    claim_number: 'LIG-2026-104733'
+    employer_name: 'Atelier Phoenix Salon'
+    documents_folder_path: '/matters/matter_synthetic_06'
+
+documents:
+  - id: 'doc_p01'
+    filename: '2026-04-02_incident_report.pdf'
+    classification: 'incident_report'
+    synthetic_body: |
+      Sunshine Market Incident Report.
+      Date: 2026-04-02. Location: produce aisle.
+      Reported by: assistant manager Tony Reeve.
+      Description: customer Hollis Ferreira slipped on a wet floor and
+        fell on her back. Wet from recent mopping. No wet-floor sign in
+        place at time of incident.
+      Action: customer declined ambulance at scene; later transported
+        privately to ED.
+
+  - id: 'doc_p02'
+    filename: '2026-04-02_banner_uphx_ed.pdf'
+    classification: 'medical_record'
+    synthetic_body: |
+      Banner University Medical Center, Phoenix, Emergency Department.
+      Date: 2026-04-02. Patient: Ferreira, Hollis.
+      Provider: Dr. Wei Su, MD.
+      Chief complaint: lumbar pain after slip-and-fall on retail premises.
+      Diagnosis: acute lumbar strain; rule out disc involvement (MRI
+        ordered).
+
+  - id: 'doc_p03'
+    filename: '2026-04-12_mri.pdf'
+    classification: 'medical_record'
+    synthetic_body: |
+      Banner Imaging.
+      Date: 2026-04-12. Patient: Ferreira, Hollis.
+      Provider: Dr. Imani Okonkwo (radiologist).
+      Study: MRI lumbar without contrast.
+      Impression: L4-L5 disc bulge with mild neural foraminal narrowing.
+
+  - id: 'doc_p04'
+    filename: '2026-05-15_pt_summary.pdf'
+    classification: 'medical_record'
+    synthetic_body: |
+      Phoenix Physical Therapy.
+      Patient: Ferreira, Hollis.
+      Six sessions completed 2026-04-19 through 2026-05-15.
+      Plan: continue weekly for 4 more sessions.
+
+  - id: 'doc_p05'
+    filename: '2026-05-15_billing_summary.pdf'
+    classification: 'billing'
+    synthetic_body: |
+      Medical billing summary as of 2026-05-15.
+      Banner UPHX ED: $6,420.00.
+      Banner Imaging (lumbar MRI): $2,180.00.
+      Phoenix Physical Therapy (6 sessions): $1,440.00.
+      Total to date: $10,040.00.
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'

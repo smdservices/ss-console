@@ -1,0 +1,20 @@
+{
+  "body_byte_count": 2345,
+  "body_sha256": "8c3179b8cea690f77a534a6aa1754f2d4f735b165f5ac1daf61ebe0c640fae81",
+  "envelope": {
+    "bcc": [],
+    "cc": [],
+    "drafted_by_skill": "law-pi-demand-letter-draft",
+    "matter_ref": "matter_synthetic_05",
+    "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
+    "subject": "Demand for Theodore Kapadia, claim WM-2026-061847, date of loss March 18, 2026",
+    "thread_id": null,
+    "to": [
+      "creed@westgatemutual.invalid"
+    ]
+  },
+  "fixture_name": "05-bicycle-matter",
+  "kind": "draft",
+  "skill_slug": "law-pi-demand-letter-draft",
+  "skill_version": "0.1.0"
+}
