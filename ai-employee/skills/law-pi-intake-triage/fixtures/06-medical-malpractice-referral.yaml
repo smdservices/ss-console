@@ -1,0 +1,36 @@
+# [SYNTHETIC FIXTURE — NOT A REAL INTAKE]
+# Fixture 06: medical-malpractice intake. Firm handles general PI; med
+# mal is a sub-specialty most PI firms refer out unless they have a
+# dedicated team. Expected outcome: REFER_OUT.
+
+intake:
+  source_kind: gmail_message
+  source_id: msg_synthetic_intake_006
+  fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL INTAKE]'
+  received_at: '2026-05-22T10:14:00Z'
+  from_email: 'priya.balasubramanian@example.invalid'
+  from_name: 'Priya Balasubramanian'
+  to_email: 'intake@holcomb-reyes.invalid'
+  subject: 'Surgical error claim'
+  body: |
+    Hello,
+
+    I had gallbladder surgery on March 4, 2026 at Banner Desert
+    Medical Center. The surgeon was Dr. Andrew Chen. During the
+    procedure he nicked my bile duct and did not repair it
+    correctly. I have been in and out of the ER since with
+    sepsis-related complications. A second surgeon at Mayo, Dr.
+    Helen Mahara, confirmed the original surgery was the cause.
+
+    I want to pursue a malpractice claim. Can your firm represent
+    me?
+
+    Priya Balasubramanian
+    480-555-0331
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  response_window_business_days: 2
+  practice_area_filter: 'personal-injury'

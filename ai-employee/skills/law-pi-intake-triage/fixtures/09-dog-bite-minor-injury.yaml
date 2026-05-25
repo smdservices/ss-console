@@ -1,0 +1,42 @@
+# [SYNTHETIC FIXTURE — NOT A REAL INTAKE]
+# Fixture 09: minor dog-bite injury. Low-severity case; no treatment
+# required beyond first aid. Tests the lower-severity-tier path where
+# the firm might still want to engage but the recommendation is to
+# schedule a brief intake call without overinvesting.
+
+intake:
+  source_kind: gmail_message
+  source_id: msg_synthetic_intake_009
+  fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL INTAKE]'
+  received_at: '2026-05-24T14:50:00Z'
+  from_email: 'nora.aldred@example.invalid'
+  from_name: 'Nora Aldred'
+  to_email: 'intake@holcomb-reyes.invalid'
+  subject: 'Dog bite on a walk — is this a case?'
+  body: |
+    Hi,
+
+    On Wednesday May 21 around 6 PM I was walking on my street in
+    central Phoenix when a neighbor's dog ran out of an open gate
+    and bit my left hand. The dog's owner is Frank Whitt at 1521
+    East Vermont Avenue. I cleaned the wound at home with soap
+    and water and put on a bandage. The bite broke skin but did
+    not need stitches.
+
+    I called my doctor's office and they said since the dog is up
+    to date on vaccinations and I'm up to date on tetanus I don't
+    need to come in unless the wound gets infected. It hasn't.
+
+    Is this even worth pursuing as a case? The owner has been
+    avoiding me when I see him.
+
+    Thanks,
+    Nora Aldred
+    602-555-0865
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  response_window_business_days: 2
+  practice_area_filter: 'personal-injury'

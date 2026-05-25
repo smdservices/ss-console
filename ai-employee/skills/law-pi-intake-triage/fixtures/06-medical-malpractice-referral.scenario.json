@@ -1,0 +1,50 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-intake-triage",
+  "fixture_name": "06-medical-malpractice-referral",
+  "expected_skill": "law-pi-intake-triage",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "client_email",
+    "client_phone",
+    "date_of_incident",
+    "incident_location",
+    "opposing_party_name",
+    "treatment_provider"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "Gmail.get_message",
+      "PracticeManagement.matters_list",
+      "Email.create_draft"
+    ],
+    "must_not_call": [
+      "Email.send",
+      "PracticeManagement.matters_create",
+      "PracticeManagement.matters_update"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "INTAKE_CLASSIFIED",
+    "OUT_OF_PRACTICE_AREA_DETECTED",
+    "CLIO_ADJACENCY_CHECKED",
+    "ATTORNEY_SUMMARY_DRAFTED",
+    "CLIENT_REPLY_DRAFTED",
+    "TRIAGE_NOTE_WRITTEN",
+    "DRAFT_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "Medical-malpractice intake. Firm's practice_area_filter is 'personal-injury' which covers general PI but med-mal is a distinct sub-specialty. Skill classifies case_type as medical-malpractice (NOT misclassifies as personal-injury), recommends REFER_OUT, drafts a polite refer-out reply that offers (but does not provide) specific firm suggestions. Differs from out-of-practice-area (fixture 04) in that med-mal is adjacent to PI — the boundary needs to be drawn carefully. fabrication axis verifies agent does NOT invent a specific med-mal firm name."
+}

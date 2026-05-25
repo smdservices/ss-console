@@ -1,0 +1,54 @@
+# [SYNTHETIC FIXTURE — NOT A REAL INTAKE]
+# Fixture 07: commercial-trucking PI intake where the opposing party
+# (delivery company) is already in the firm's Clio matters as the
+# adversary on a different case. Expected outcome:
+# RUN_CONFLICT_CHECK before any further action.
+
+intake:
+  source_kind: gmail_message
+  source_id: msg_synthetic_intake_007
+  fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL INTAKE]'
+  received_at: '2026-05-23T08:36:00Z'
+  from_email: 'jorge.salazar@example.invalid'
+  from_name: 'Jorge Salazar'
+  to_email: 'intake@holcomb-reyes.invalid'
+  subject: 'Truck accident on I-10 on Monday'
+  body: |
+    Good morning,
+
+    I was hit by a Phoenix Logistics delivery truck on I-10
+    westbound near the 51st Avenue exit on Monday May 18 around
+    8:15 AM. The truck merged into my lane without looking. I am
+    in the trades and was on my way to a job site in Goodyear.
+
+    I went to St. Joseph's the same day and they diagnosed a
+    concussion and a sprained shoulder. I have a follow-up with
+    neurology tomorrow. I have not been able to work since the
+    accident.
+
+    The truck driver was John Whitfield and the police report
+    number is PD-2026-05213. Phoenix Logistics's insurance carrier
+    is Mountain West Mutual.
+
+    Can you help?
+
+    Jorge Salazar
+    602-555-0418
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  response_window_business_days: 2
+  practice_area_filter: 'personal-injury'
+
+# Clio synthetic state for this fixture: Phoenix Logistics is the
+# opposing party on an existing open matter at this firm. Conflict
+# check must flag this before any further intake action.
+clio_synthetic_state:
+  existing_matters_against_phoenix_logistics:
+    - matter_id: 'matter_existing_001'
+      display_number: '2025-PI-0312'
+      description: 'Estate of Helena Frazier v. Phoenix Logistics — wrongful death'
+      status: 'open'
+      opened_at: '2025-08-15'

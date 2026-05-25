@@ -1,0 +1,51 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-intake-triage",
+  "fixture_name": "09-dog-bite-minor-injury",
+  "expected_skill": "law-pi-intake-triage",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "client_email",
+    "client_phone",
+    "date_of_incident",
+    "incident_location",
+    "opposing_party_name",
+    "opposing_party_address",
+    "injury_description",
+    "treatment_status"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "Gmail.get_message",
+      "PracticeManagement.matters_list",
+      "Email.create_draft"
+    ],
+    "must_not_call": [
+      "Email.send",
+      "PracticeManagement.matters_create",
+      "PracticeManagement.matters_update"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "INTAKE_CLASSIFIED",
+    "CLIO_ADJACENCY_CHECKED",
+    "ATTORNEY_SUMMARY_DRAFTED",
+    "CLIENT_REPLY_DRAFTED",
+    "TRIAGE_NOTE_WRITTEN",
+    "DRAFT_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "Lower-severity dog-bite intake. No medical treatment beyond first aid; PCP cleared by phone. Skill correctly classifies severity_tier as 'minor' without dismissing the legal question — those are independent. Client reply is honest about the medical picture's favorable trajectory while preserving the partner's right to assess case viability. Next action: SCHEDULE_INTAKE_CALL (but the reply notes partner will set the call length appropriately for lower severity). fabrication axis verifies the agent does NOT promote the minor injury into something more serious or invent damages."
+}

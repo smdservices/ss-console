@@ -1,0 +1,52 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-intake-triage",
+  "fixture_name": "08-motorcycle-call-transcript",
+  "expected_skill": "law-pi-intake-triage",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "client_phone",
+    "date_of_incident",
+    "incident_location",
+    "ed_provider_name",
+    "diagnosis",
+    "followup_provider_name",
+    "client_occupation",
+    "transcript_text"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "Email.create_draft"
+    ],
+    "must_not_call": [
+      "Gmail.get_message",
+      "Email.send",
+      "PracticeManagement.matters_create",
+      "PracticeManagement.matters_update"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "TRANSCRIPT_PARSED",
+    "INTAKE_CLASSIFIED",
+    "MISSING_FIELDS_DETECTED",
+    "TRANSCRIPT_UNCLEAR_SPEECH_FLAGGED",
+    "ATTORNEY_SUMMARY_DRAFTED",
+    "CLIENT_REPLY_DRAFTED",
+    "TRIAGE_NOTE_WRITTEN",
+    "DRAFT_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "Call-transcript source_kind (not Gmail). Exercises the transcript code path: skill parses speaker turns, extracts factual content, surfaces unclear-speech tokens ('[unclear]', 'something with an M') as separate edge-case flags from missing-fields. Does NOT invent the opposing party name even though a partial 'Maxwell' was captured. Next action: REQUEST_MISSING_INFO. Gmail.get_message NOT called because source is a transcript. fabrication axis verifies the agent doesn't promote the partial opposing-name capture to a confident value."
+}

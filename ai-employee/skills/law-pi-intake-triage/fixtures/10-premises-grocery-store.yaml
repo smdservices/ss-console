@@ -1,0 +1,46 @@
+# [SYNTHETIC FIXTURE — NOT A REAL INTAKE]
+# Fixture 10: premises-liability slip on a wet floor at a grocery
+# store. Tests premises case_type + commercial-defendant adjacency
+# check + photograph evidence as a sourced field.
+
+intake:
+  source_kind: gmail_message
+  source_id: msg_synthetic_intake_010
+  fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL INTAKE]'
+  received_at: '2026-05-23T19:24:00Z'
+  from_email: 'wei.zhang@example.invalid'
+  from_name: 'Wei Zhang'
+  to_email: 'intake@holcomb-reyes.invalid'
+  subject: 'Slip and fall at a Sunshine Market — back injury'
+  body: |
+    Hello,
+
+    I slipped on a wet floor at the Sunshine Market on Bell Road
+    and 7th Street in Phoenix on Monday May 19 at about 7 PM. The
+    floor was wet from a recent mopping but there was no wet-floor
+    sign or cone anywhere I could see. I fell hard on my back.
+
+    A store employee helped me up. I asked for the manager and
+    spoke with assistant manager Tony Reeve. He filled out an
+    incident report. I asked for a copy; he said the store would
+    send one but I have not received it.
+
+    I went to the ER at Banner University Phoenix that night.
+    They said I have lumbar strain and possible disc involvement;
+    I have an MRI scheduled this Friday. I have not been able to
+    work since the accident. I'm a hairdresser at Atelier Phoenix.
+
+    I took photos at the scene of the wet floor and the absence
+    of warning signage; they show timestamps. I also have the
+    receipt from my purchase that morning that shows I was on the
+    premises.
+
+    Wei Zhang
+    602-555-0494
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  response_window_business_days: 2
+  practice_area_filter: 'personal-injury'

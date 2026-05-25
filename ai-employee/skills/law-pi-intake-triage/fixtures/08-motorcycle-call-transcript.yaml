@@ -1,0 +1,58 @@
+# [SYNTHETIC FIXTURE — NOT A REAL INTAKE]
+# Fixture 08: phone-call intake transcript (not email). Motorcycle PI.
+# Tests the transcript-source-kind code path. Caller-given details
+# need transcription cleanup; missing fields surfaced separately from
+# unclear-speech tokens.
+
+intake:
+  source_kind: call_transcript
+  source_id: call_synthetic_intake_008
+  fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL INTAKE]'
+  received_at: '2026-05-23T13:25:00Z'
+  caller_name: 'Eddie Watanabe'
+  caller_phone: '602-555-0712'
+  duration_seconds: 184
+  transcript: |
+    [00:00] Intake: Holcomb and Reyes intake line, this is the
+    intake assistant. How can I help.
+    [00:04] Caller: Yeah hi, my name is Eddie Watanabe, I was in an
+    accident on my motorcycle.
+    [00:10] Intake: I am sorry to hear that. Can you tell me when
+    and where it happened.
+    [00:14] Caller: Uh yesterday, no, day before yesterday, May 21,
+    around four PM. I was on Tatum north of Cactus and a car turned
+    left in front of me. I went over the handlebars.
+    [00:30] Intake: Are you okay. Are you receiving medical
+    treatment.
+    [00:33] Caller: I went to Banner Thunderbird in the ambulance.
+    They said I have a broken collarbone and a concussion. I'm
+    home now.
+    [00:45] Intake: Do you know the name of the other driver or
+    their insurance.
+    [00:50] Caller: I have it written down somewhere. The other
+    driver was uh, [unclear], something with an M, Maxwell maybe.
+    I don't have the insurance yet, the police have the report
+    and they said it'll be ready in a few days.
+    [01:15] Intake: Got it. We will need that name and the police
+    report number when you have them. Do you have any other
+    injuries or symptoms.
+    [01:22] Caller: My head still hurts and I have not slept much.
+    They told me to follow up with neurology this week.
+    [01:35] Intake: Are you working right now.
+    [01:38] Caller: I'm a graphic designer, I work from home, but
+    I have not been able to focus on screens since the accident.
+    My boss knows.
+    [01:52] Intake: Thank you for the details. Someone from the
+    firm will be in touch within two business days. In the
+    meantime please rest, follow your providers' instructions,
+    and forward us the police report when you have it.
+    [02:08] Caller: Okay, thank you.
+    [02:10] Intake: You're welcome. Take care.
+    [end]
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  response_window_business_days: 2
+  practice_area_filter: 'personal-injury'
