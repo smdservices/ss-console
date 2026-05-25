@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro'
-import { mergeEntities } from '../../../../../lib/db/entities'
+import { mergeEntities } from '../../../../../lib/db/entities-extra'
 import { env } from 'cloudflare:workers'
 
 /**
