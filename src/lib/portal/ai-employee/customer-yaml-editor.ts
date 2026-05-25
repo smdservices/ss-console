@@ -419,6 +419,10 @@ export function applyEditableChanges(
         }
       : null,
     pause: changes.pause ? { active: changes.pause.active, reason: changes.pause.reason } : null,
+    // webhook_triggers is not user-editable in the portal yet (ADR 0021
+    // Stream E lands the field; in-product editor is a follow-on).
+    // Preserve the current value verbatim.
+    webhook_triggers: current.webhook_triggers,
   }
 }
 
@@ -478,6 +482,10 @@ function mergeConnectors(
       // composio_connection_id locked — issue #850, isolation enforcement
       // requires this stay bound to the customer slug at provisioning.
       composio_connection_id: existing.composio_connection_id,
+      // webhook_url locked — ADR 0021 Stream E, embeds customer_id so
+      // changing it via the editor would risk cross-customer routing.
+      // Configured at provisioning time, never via portal.
+      webhook_url: existing.webhook_url,
     }
   }
   return merged
@@ -506,6 +514,11 @@ function mergePersona(current: Persona, update: EditablePersona): Persona {
     avatar_url: current.avatar_url,
     voice_overrides: current.voice_overrides,
     escalation_overrides: current.escalation_overrides,
+    // bundles + cron are not user-editable in the portal yet (ADR 0021
+    // Streams D + B land the schema; in-product editor is a follow-on).
+    // Preserve the current values verbatim.
+    bundles: current.bundles,
+    cron: current.cron,
   }
 }
 

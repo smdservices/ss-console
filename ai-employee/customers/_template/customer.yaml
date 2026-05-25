@@ -49,11 +49,35 @@ personas:
         version: pending
         trust_ceiling: draft_for_review
         enabled: true
+    # ---- OPTIONAL: skill bundles (ADR 0021 Stream D) ----
+    # bundles:
+    #   - slug: pi-intake
+    #     description: 'Intake triage + conflict screen for a new prospect'
+    #     skills:
+    #       - law-pi-intake-triage
+    #       - law-conflict-check
+    #     instruction: 'Optional shared context prepended to every bundled skill'
+    #
+    # ---- OPTIONAL: per-skill cron schedules (ADR 0021 Stream B) ----
+    # cron:
+    #   - skill: paid-media-anomaly-watcher
+    #     schedule: '0 7 * * *'        # daily 0700 PT
+    #     pre_run: pre_run.py          # required when wake_policy is pre_run_decides
+    #     wake_policy: pre_run_decides # pre_run.py decides wakeAgent; MUST emit
+    #                                  # audit_action='suppressed_wake' on silent path
+    #   - skill: status-report-assembler
+    #     schedule: 'every 1d'
+    #     wake_policy: always          # no pre_run; agent wakes every tick
 
 # ---- CONNECTORS ----
 # Hypothesized stack from the dossier. Confidence-low items should start
 # as synthetic and switch to a real adapter only after Captain confirms
 # during the assessment call.
+#
+# OPTIONAL `webhook_url` (ADR 0021 Stream E): if the vendor pushes events,
+# point them at the customer's own Fly Machine. Pattern enforces that the
+# embedded slug matches customer_id (cross-customer leakage vector if not).
+#   webhook_url: 'https://hermes-[FIRM-SLUG].fly.dev/webhooks/practice_management'
 connectors:
   PracticeManagement:
     adapter: '[filevine / clio / synthetic]'
@@ -67,6 +91,19 @@ connectors:
     adapter: '[gmail / microsoft-graph / synthetic]'
     backend: '[composio:gmail / build:ms-graph / synthetic:fixture]'
     enabled: true
+
+# ---- OPTIONAL: webhook triggers (ADR 0021 Stream E) ----
+# Map inbound vendor webhook payloads to skill invocations on a persona.
+# Each `source` MUST be a connector adapter with `webhook_url` configured.
+# webhook_triggers:
+#   - source: filevine
+#     event_type: matter.created
+#     skill: law-pi-intake-triage
+#     persona: '[PERSONA SLUG]'
+#   - source: filevine
+#     event_type: document.added
+#     skill: law-pi-discovery-response
+#     persona: '[PERSONA SLUG]'
 
 # ---- SCOPE ----
 scope:
