@@ -1,0 +1,20 @@
+{
+  "body_byte_count": 1804,
+  "body_sha256": "2f34442d5cf9e60959da027f8b2cd7d24eec8c8839908da18cbf9b939bf7899f",
+  "envelope": {
+    "bcc": [],
+    "cc": [],
+    "drafted_by_skill": "law-pi-opposing-counsel-response",
+    "matter_ref": "matter_synthetic_oc_08",
+    "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
+    "subject": "Re: Donlevy v. Burroughs \u2014 meet and confer re: outstanding discovery",
+    "thread_id": "thread_mac_oc_08_2026_05",
+    "to": [
+      "mpenrose@penroselaw.invalid"
+    ]
+  },
+  "fixture_name": "08-meet-and-confer-matter",
+  "kind": "draft",
+  "skill_slug": "law-pi-opposing-counsel-response",
+  "skill_version": "0.1.0"
+}

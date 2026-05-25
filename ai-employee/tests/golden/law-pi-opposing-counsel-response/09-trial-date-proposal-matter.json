@@ -1,0 +1,20 @@
+{
+  "body_byte_count": 1399,
+  "body_sha256": "ae9940535c76edecd2ae2ddea2d3dc68bf57e02ae07977f2ef84a7b60a453de3",
+  "envelope": {
+    "bcc": [],
+    "cc": [],
+    "drafted_by_skill": "law-pi-opposing-counsel-response",
+    "matter_ref": "matter_synthetic_oc_09",
+    "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
+    "subject": "Re: Acuna v. Holloway \u2014 trial date proposal for joint pretrial conference filing",
+    "thread_id": "thread_trial_oc_09_2026_05",
+    "to": [
+      "cashby@ashbyvaughn.invalid"
+    ]
+  },
+  "fixture_name": "09-trial-date-proposal-matter",
+  "kind": "draft",
+  "skill_slug": "law-pi-opposing-counsel-response",
+  "skill_version": "0.1.0"
+}

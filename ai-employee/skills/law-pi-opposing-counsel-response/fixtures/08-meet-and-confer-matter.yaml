@@ -1,0 +1,66 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 08: defendant requests meet-and-confer pre-motion to compel.
+
+matter:
+  id: 'matter_synthetic_oc_08'
+  client_name: 'Patrick Donlevy'
+  matter_type: 'PI'
+  status: 'open'
+  opened_at: '2025-09-08T14:00:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2025-08-25'
+    incident_location: 'McDowell Road and 24th Street, Phoenix AZ'
+    client_role: 'operator of stopped 2020 GMC Acadia'
+    opposing_party_name: 'Felicity Burroughs'
+    opposing_counsel_name: 'Marcus Penrose'
+    opposing_counsel_firm: 'Penrose Hatcher Lyon'
+    opposing_counsel_email: 'mpenrose@penroselaw.invalid'
+    opposing_counsel_address: '6730 N 24th St, Phoenix AZ 85016'
+    claim_number: 'CB-2025-074219'
+    case_caption: 'Donlevy v. Burroughs'
+    case_number: 'CV2025-016301'
+    case_court: 'Maricopa County Superior Court'
+    meet_and_confer_thread_id: 'thread_mac_oc_08_2026_05'
+
+inbound_correspondence:
+  message_id: 'msg_oc_08_2026_05_19'
+  thread_id: 'thread_mac_oc_08_2026_05'
+  received_at: '2026-05-19T14:38:00Z'
+  from_email: 'mpenrose@penroselaw.invalid'
+  from_name: 'Marcus Penrose'
+  to_email: 'sarah.holcomb@holcomb-reyes.invalid'
+  subject: 'Donlevy v. Burroughs — meet and confer re: outstanding discovery'
+  body: |
+    Sarah,
+
+    Pursuant to AZ Rule 26(g), I am requesting a meet-and-confer
+    regarding the following deficient discovery responses:
+
+    1. Interrogatory Nos. 4, 7, and 11 — incomplete responses
+       lacking detail required by the request and case law.
+
+    2. Request for Production Nos. 3, 5, and 8 — produced
+       documents lack medical records from Phoenix Family
+       Medicine and Banner Behavioral Health, both identified by
+       Plaintiff in Interrogatory No. 1.
+
+    3. Privilege log — produced privilege log lacks subject-
+       matter description sufficient to evaluate the claimed
+       privilege; specifically as to entries 14-22.
+
+    Please advise three dates in the next two weeks for a meet-
+    and-confer call. If we are unable to resolve these issues, we
+    will move to compel under AZ Rule 37.
+
+    Best,
+    Marcus Penrose
+
+prior_correspondence_records: []
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'

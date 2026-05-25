@@ -1,0 +1,66 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 05: opposing counsel sends a status-request inquiry asking
+# about plaintiff's treatment progress. Tests skill on a low-stakes
+# administrative correspondence.
+
+matter:
+  id: 'matter_synthetic_oc_05'
+  client_name: 'Roselyn Acevedo'
+  matter_type: 'PI'
+  status: 'open'
+  opened_at: '2026-01-09T14:00:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2025-12-22'
+    incident_location: 'Tatum Boulevard and Bell Road, Phoenix AZ'
+    client_role: 'pedestrian struck in parking lot'
+    opposing_party_name: 'Hamilton Drake'
+    opposing_counsel_name: 'Priscilla Aaron'
+    opposing_counsel_firm: 'Aaron Whitfield'
+    opposing_counsel_email: 'paaron@aaronlaw.invalid'
+    opposing_counsel_address: '5050 N 7th St, Phoenix AZ 85014'
+    claim_number: 'AT-2026-001432'
+    case_caption: 'Acevedo v. Drake'
+    case_number: 'CV2026-000829'
+    case_court: 'Maricopa County Superior Court'
+    status_thread_id: 'thread_status_oc_05_2026_05'
+
+inbound_correspondence:
+  message_id: 'msg_oc_05_2026_05_19'
+  thread_id: 'thread_status_oc_05_2026_05'
+  received_at: '2026-05-19T11:24:00Z'
+  from_email: 'paaron@aaronlaw.invalid'
+  from_name: 'Priscilla Aaron'
+  to_email: 'sarah.holcomb@holcomb-reyes.invalid'
+  subject: 'Acevedo v. Drake — treatment status inquiry'
+  body: |
+    Dear Sarah,
+
+    We last received an update on Ms. Acevedo's medical treatment
+    in early March 2026 with the production of records through
+    February 28. Can you provide a current status on her
+    treatment, specifically whether she has reached maximum
+    medical improvement and whether further procedures are
+    contemplated?
+
+    We are evaluating our reserves and would appreciate the
+    update by June 5, 2026.
+
+    Best regards,
+    Priscilla Aaron
+    Aaron Whitfield
+
+prior_correspondence_records:
+  - record_id: 'thread_status_oc_05_msg_001'
+    date: '2026-03-04'
+    direction: 'sent'
+    sender: 'Sarah Holcomb'
+    subject: 'Acevedo v. Drake — medical records production through 2026-02-28'
+    synopsis: 'Records production cover letter'
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'

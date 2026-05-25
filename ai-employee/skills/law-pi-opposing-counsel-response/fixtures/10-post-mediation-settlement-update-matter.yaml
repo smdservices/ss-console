@@ -1,0 +1,76 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 10: post-mediation correspondence reporting outcome and
+# follow-on negotiations.
+
+matter:
+  id: 'matter_synthetic_oc_10'
+  client_name: 'Bernard Wexler'
+  matter_type: 'PI'
+  status: 'open'
+  opened_at: '2025-04-09T10:00:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2025-03-22'
+    incident_location: 'Interstate 17 northbound at MP 218, Black Canyon City AZ'
+    client_role: 'operator of 2021 Toyota RAV4 struck by guardrail debris'
+    opposing_party_name: 'Saguaro Highway Maintenance Co.'
+    opposing_counsel_name: 'Tobias Drennen'
+    opposing_counsel_firm: 'Drennen & Mayfield'
+    opposing_counsel_email: 'tdrennen@drennenmayfield.invalid'
+    opposing_counsel_address: '1850 N Central Ave, Phoenix AZ 85004'
+    claim_number: 'SHM-2025-031822'
+    case_caption: 'Wexler v. Saguaro Highway Maintenance'
+    case_number: 'CV2025-008210'
+    case_court: 'Maricopa County Superior Court'
+    settlement_thread_id: 'thread_settle_oc_10_2026_05'
+
+inbound_correspondence:
+  message_id: 'msg_oc_10_2026_05_23'
+  thread_id: 'thread_settle_oc_10_2026_05'
+  received_at: '2026-05-23T10:15:00Z'
+  from_email: 'tdrennen@drennenmayfield.invalid'
+  from_name: 'Tobias Drennen'
+  to_email: 'sarah.holcomb@holcomb-reyes.invalid'
+  subject: 'Wexler v. Saguaro Highway — post-mediation follow-up'
+  body: |
+    Dear Sarah,
+
+    Following yesterday's mediation session with Hon. (Ret.)
+    Maria Castellanos, I am writing to confirm and follow up.
+
+    At conclusion of mediation we had reached an impasse with
+    the following last offers on the table.
+
+    Plaintiff's last demand: $625,000 (per your May 22 statement).
+
+    Defendant's last offer: $385,000 (per our May 22 statement).
+
+    My client has authorized me to revisit the offer in the next
+    14 days if plaintiff is willing to consider movement. Please
+    advise by June 6, 2026 whether plaintiff is willing to
+    continue negotiating directly in writing, or whether you
+    prefer to schedule a second mediation session.
+
+    Best regards,
+    Tobias Drennen
+
+prior_correspondence_records:
+  - record_id: 'thread_settle_oc_10_msg_001'
+    date: '2026-05-15'
+    direction: 'received'
+    sender: 'Tobias Drennen'
+    subject: 'Wexler v. Saguaro Highway — mediation prep'
+    synopsis: 'Mediation logistics; brief exchange of position summaries'
+  - record_id: 'thread_settle_oc_10_msg_002'
+    date: '2026-05-22'
+    direction: 'sent'
+    sender: 'Sarah Holcomb'
+    subject: 'Wexler v. Saguaro Highway — plaintiff demand letter'
+    synopsis: '$625,000 demand'
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'

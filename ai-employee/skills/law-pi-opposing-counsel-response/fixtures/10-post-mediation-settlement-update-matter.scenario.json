@@ -1,0 +1,53 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-opposing-counsel-response",
+  "fixture_name": "10-post-mediation-settlement-update-matter",
+  "expected_skill": "law-pi-opposing-counsel-response",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "date_of_incident",
+    "incident_location",
+    "client_role",
+    "opposing_party_name",
+    "opposing_counsel_name",
+    "opposing_counsel_firm",
+    "opposing_counsel_email",
+    "opposing_counsel_address",
+    "claim_number",
+    "case_caption",
+    "case_number",
+    "case_court",
+    "settlement_thread_id"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "PracticeManagement.read_matter",
+      "EmailThread.read_thread",
+      "Email.create_draft"
+    ],
+    "must_not_call": [
+      "Email.send",
+      "PracticeManagement.update_matter"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "INBOUND_KIND_DETECTED",
+    "PRIOR_CORRESPONDENCE_ASSEMBLED",
+    "TONE_CLASSIFIED",
+    "DRAFT_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "Post-mediation correspondence with active settlement numbers ($625K demand / $385K offer at impasse). Skill recites the numbers exactly. Prior-correspondence record includes the May 22 plaintiff demand letter the synopsis records. Tone routine (settlement-active). Skill MUST NOT propose a counter-counter number, MUST NOT commit to any settlement-posture (continue/mediate/litigate). All settlement-decision content is TBD partner-authored — settlement authority is locked at draft_for_review per the skill's trust ceiling."
+}

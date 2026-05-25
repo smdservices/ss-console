@@ -1,0 +1,20 @@
+{
+  "body_byte_count": 1988,
+  "body_sha256": "6c97b127588bf6d2b465444c6146f4e7975d28f9263a69b930a6f3204a2dce8b",
+  "envelope": {
+    "bcc": [],
+    "cc": [],
+    "drafted_by_skill": "law-pi-opposing-counsel-response",
+    "matter_ref": "matter_synthetic_oc_06",
+    "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
+    "subject": "Re: Eichmann v. Beaumont \u2014 liability position",
+    "thread_id": "thread_liab_oc_06_2026_05",
+    "to": [
+      "ewhitmore@whitmorecromwell.invalid"
+    ]
+  },
+  "fixture_name": "06-liability-position-letter-matter",
+  "kind": "draft",
+  "skill_slug": "law-pi-opposing-counsel-response",
+  "skill_version": "0.1.0"
+}

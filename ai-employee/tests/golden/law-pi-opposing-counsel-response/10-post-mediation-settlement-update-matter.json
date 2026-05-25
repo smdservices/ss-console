@@ -1,0 +1,20 @@
+{
+  "body_byte_count": 1586,
+  "body_sha256": "a1621c750746763db9bd4d36fcfea601d50b4becaf343b6e2a0cac4774391d0f",
+  "envelope": {
+    "bcc": [],
+    "cc": [],
+    "drafted_by_skill": "law-pi-opposing-counsel-response",
+    "matter_ref": "matter_synthetic_oc_10",
+    "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
+    "subject": "Re: Wexler v. Saguaro Highway \u2014 post-mediation follow-up",
+    "thread_id": "thread_settle_oc_10_2026_05",
+    "to": [
+      "tdrennen@drennenmayfield.invalid"
+    ]
+  },
+  "fixture_name": "10-post-mediation-settlement-update-matter",
+  "kind": "draft",
+  "skill_slug": "law-pi-opposing-counsel-response",
+  "skill_version": "0.1.0"
+}

@@ -1,0 +1,53 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-opposing-counsel-response",
+  "fixture_name": "07-stipulation-request-matter",
+  "expected_skill": "law-pi-opposing-counsel-response",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "date_of_incident",
+    "incident_location",
+    "client_role",
+    "opposing_party_name",
+    "opposing_counsel_name",
+    "opposing_counsel_firm",
+    "opposing_counsel_email",
+    "opposing_counsel_address",
+    "claim_number",
+    "case_caption",
+    "case_number",
+    "case_court",
+    "stipulation_thread_id"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "PracticeManagement.read_matter",
+      "EmailThread.read_thread",
+      "Email.create_draft"
+    ],
+    "must_not_call": [
+      "Email.send",
+      "PracticeManagement.update_matter"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "INBOUND_KIND_DETECTED",
+    "PRIOR_CORRESPONDENCE_ASSEMBLED",
+    "TONE_CLASSIFIED",
+    "DRAFT_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "Procedural stipulation request. Skill recites exact proposed dates (June 30 → Aug 15 discovery cutoff; Aug 30 dispositive motion unchanged; Sep 18 trial-setting unchanged). Empty prior-correspondence record correctly renders as '(no prior correspondence in this thread)'. Tone procedural. ALL agreement/counter decisions TBD partner-authored — agent does NOT commit to a stipulation."
+}

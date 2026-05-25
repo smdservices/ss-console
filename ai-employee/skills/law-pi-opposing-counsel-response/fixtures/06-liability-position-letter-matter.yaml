@@ -1,0 +1,79 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 06: defendant's counsel lays out their liability position
+# in a formal letter (often pre-motion). Tests skill on substantive
+# legal-position correspondence.
+
+matter:
+  id: 'matter_synthetic_oc_06'
+  client_name: 'Vance Eichmann'
+  matter_type: 'PI'
+  status: 'open'
+  opened_at: '2025-10-22T09:00:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2025-10-04'
+    incident_location: 'Indian School Road and 32nd Street, Phoenix AZ'
+    client_role: 'operator of stopped 2020 Honda Accord'
+    opposing_party_name: 'Marshall Beaumont'
+    opposing_counsel_name: 'Eleanor Whitmore'
+    opposing_counsel_firm: 'Whitmore Cromwell Reed'
+    opposing_counsel_email: 'ewhitmore@whitmorecromwell.invalid'
+    opposing_counsel_address: '2800 N Central Ave, Phoenix AZ 85004'
+    claim_number: 'PCM-2025-091820'
+    case_caption: 'Eichmann v. Beaumont'
+    case_number: 'CV2025-018830'
+    case_court: 'Maricopa County Superior Court'
+    liability_position_thread_id: 'thread_liab_oc_06_2026_05'
+
+inbound_correspondence:
+  message_id: 'msg_oc_06_2026_05_21'
+  thread_id: 'thread_liab_oc_06_2026_05'
+  received_at: '2026-05-21T13:10:00Z'
+  from_email: 'ewhitmore@whitmorecromwell.invalid'
+  from_name: 'Eleanor Whitmore'
+  to_email: 'sarah.holcomb@holcomb-reyes.invalid'
+  subject: 'Eichmann v. Beaumont — liability position'
+  body: |
+    Dear Sarah,
+
+    Following review of the discovery record to date, including
+    Plaintiff's deposition testimony of April 28, 2026 and the
+    investigation report from our retained expert Dr. Reginald
+    Vance, P.E. (accident reconstruction), our position on
+    liability is as follows.
+
+    1. The vehicle dynamics at the moment of impact establish
+       that Plaintiff was not, as he testified, fully stopped
+       prior to the collision. Skid mark evidence is consistent
+       with deceleration ongoing at impact.
+
+    2. The traffic signal sequence at the intersection of Indian
+       School and 32nd Street, as established by the City of
+       Phoenix signal-timing records produced June 1, 2026, is
+       inconsistent with Plaintiff's claim that he had a green
+       light.
+
+    3. We will be moving for partial summary judgment on the
+       issue of comparative fault not later than June 30, 2026.
+
+    Please advise whether Plaintiff is willing to discuss
+    settlement in advance of motion practice, or whether we
+    should proceed with our filing.
+
+    Best regards,
+    Eleanor Whitmore
+
+prior_correspondence_records:
+  - record_id: 'thread_liab_oc_06_msg_001'
+    date: '2026-05-08'
+    direction: 'received'
+    sender: 'Eleanor Whitmore'
+    subject: 'Eichmann v. Beaumont — discovery responses received'
+    synopsis: 'Acknowledgment of plaintiff discovery production'
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'

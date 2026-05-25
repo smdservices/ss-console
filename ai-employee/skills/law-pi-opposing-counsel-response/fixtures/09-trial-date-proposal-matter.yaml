@@ -1,0 +1,69 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 09: defendant proposes trial-date language for joint
+# pretrial filing. Tests skill on trial-readiness correspondence.
+
+matter:
+  id: 'matter_synthetic_oc_09'
+  client_name: 'Lourdes Acuna'
+  matter_type: 'PI'
+  status: 'open'
+  opened_at: '2025-07-22T11:00:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2025-07-08'
+    incident_location: 'Northern Avenue and 19th Avenue, Phoenix AZ'
+    client_role: 'operator of stopped 2018 Mazda CX-5'
+    opposing_party_name: 'Reginald Holloway'
+    opposing_counsel_name: 'Cordelia Ashby'
+    opposing_counsel_firm: 'Ashby Vaughn Goss'
+    opposing_counsel_email: 'cashby@ashbyvaughn.invalid'
+    opposing_counsel_address: '11811 N Tatum Blvd, Phoenix AZ 85028'
+    claim_number: 'CC-2025-062714'
+    case_caption: 'Acuna v. Holloway'
+    case_number: 'CV2025-013621'
+    case_court: 'Maricopa County Superior Court'
+    trial_date_thread_id: 'thread_trial_oc_09_2026_05'
+
+inbound_correspondence:
+  message_id: 'msg_oc_09_2026_05_23'
+  thread_id: 'thread_trial_oc_09_2026_05'
+  received_at: '2026-05-23T16:02:00Z'
+  from_email: 'cashby@ashbyvaughn.invalid'
+  from_name: 'Cordelia Ashby'
+  to_email: 'sarah.holcomb@holcomb-reyes.invalid'
+  subject: 'Acuna v. Holloway — trial date proposal for joint pretrial conference filing'
+  body: |
+    Dear Sarah,
+
+    The court has set a trial-setting conference for October 14,
+    2026 at 9:00 AM. We propose that the joint pretrial
+    conference filing reflect the following.
+
+    Trial readiness. Defendant will be ready for trial within 30
+    days of the trial-setting conference.
+
+    Estimated trial length. Defendant estimates 8 court days
+    inclusive of voir dire.
+
+    Trial type. Jury trial.
+
+    Anticipated witnesses (defendant). 12 witnesses including 2
+    expert witnesses (accident reconstruction; medical causation).
+
+    Anticipated exhibits (defendant). Approximately 250 exhibits.
+
+    Please confirm whether plaintiff agrees with the above
+    representations by June 6, 2026 so we can prepare a joint
+    filing rather than competing filings.
+
+    Best,
+    Cordelia Ashby
+
+prior_correspondence_records: []
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'

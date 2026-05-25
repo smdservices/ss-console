@@ -1,0 +1,64 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 07: defendant proposes a procedural stipulation. Tests
+# skill on stipulation-shaped correspondence.
+
+matter:
+  id: 'matter_synthetic_oc_07'
+  client_name: 'Edda Lindgren'
+  matter_type: 'PI'
+  status: 'open'
+  opened_at: '2025-11-30T10:00:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2025-11-12'
+    incident_location: 'Greenway Road and 7th Street, Phoenix AZ'
+    client_role: 'operator of 2019 Hyundai Tucson'
+    opposing_party_name: 'Cornelius Hardacre'
+    opposing_counsel_name: 'Nathan Yelle'
+    opposing_counsel_firm: 'Yelle & Borchers'
+    opposing_counsel_email: 'nyelle@yelleborchers.invalid'
+    opposing_counsel_address: '4747 N 7th St, Phoenix AZ 85014'
+    claim_number: 'HG-2025-101011'
+    case_caption: 'Lindgren v. Hardacre'
+    case_number: 'CV2025-020417'
+    case_court: 'Maricopa County Superior Court'
+    stipulation_thread_id: 'thread_stip_oc_07_2026_05'
+
+inbound_correspondence:
+  message_id: 'msg_oc_07_2026_05_22'
+  thread_id: 'thread_stip_oc_07_2026_05'
+  received_at: '2026-05-22T09:48:00Z'
+  from_email: 'nyelle@yelleborchers.invalid'
+  from_name: 'Nathan Yelle'
+  to_email: 'sarah.holcomb@holcomb-reyes.invalid'
+  subject: 'Lindgren v. Hardacre — proposed stipulation re: discovery deadline extension'
+  body: |
+    Dear Sarah,
+
+    I propose the following stipulation for filing with the
+    court.
+
+    The parties stipulate to an extension of the discovery
+    cutoff from June 30, 2026 to August 15, 2026. The extension
+    is intended to permit completion of expert depositions and
+    the corresponding expert reports.
+
+    The dispositive motion deadline of August 30, 2026 remains
+    unchanged. The trial-setting conference scheduled for
+    September 18, 2026 also remains unchanged.
+
+    Please advise by May 30, 2026 whether plaintiff agrees so we
+    may file a joint stipulation. If plaintiff does not agree, I
+    will file a unilateral motion under AZ Rule 16.
+
+    Best regards,
+    Nathan Yelle
+
+prior_correspondence_records: []
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'

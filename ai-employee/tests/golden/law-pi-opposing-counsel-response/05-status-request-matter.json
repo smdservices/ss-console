@@ -1,0 +1,20 @@
+{
+  "body_byte_count": 1211,
+  "body_sha256": "166128e682b51816f0032e768502fa415d65ac05be5545f7d87f7317fcfb77e7",
+  "envelope": {
+    "bcc": [],
+    "cc": [],
+    "drafted_by_skill": "law-pi-opposing-counsel-response",
+    "matter_ref": "matter_synthetic_oc_05",
+    "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
+    "subject": "Re: Acevedo v. Drake \u2014 treatment status inquiry",
+    "thread_id": "thread_status_oc_05_2026_05",
+    "to": [
+      "paaron@aaronlaw.invalid"
+    ]
+  },
+  "fixture_name": "05-status-request-matter",
+  "kind": "draft",
+  "skill_slug": "law-pi-opposing-counsel-response",
+  "skill_version": "0.1.0"
+}

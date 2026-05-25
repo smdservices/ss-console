@@ -1,0 +1,20 @@
+{
+  "body_byte_count": 1219,
+  "body_sha256": "4e8d000de8f426c9c93bf28156ad3f8873da769276e1a7105159306a6e681ba6",
+  "envelope": {
+    "bcc": [],
+    "cc": [],
+    "drafted_by_skill": "law-pi-opposing-counsel-response",
+    "matter_ref": "matter_synthetic_oc_07",
+    "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
+    "subject": "Re: Lindgren v. Hardacre \u2014 proposed stipulation re: discovery deadline extension",
+    "thread_id": "thread_stip_oc_07_2026_05",
+    "to": [
+      "nyelle@yelleborchers.invalid"
+    ]
+  },
+  "fixture_name": "07-stipulation-request-matter",
+  "kind": "draft",
+  "skill_slug": "law-pi-opposing-counsel-response",
+  "skill_version": "0.1.0"
+}
