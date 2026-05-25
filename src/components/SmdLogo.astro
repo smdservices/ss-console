@@ -1,0 +1,65 @@
+---
+/**
+ * Shared SMD brand lockup: orange "SMD" block + "Services" wordmark.
+ *
+ * Single source of truth for the SMD identity across marketing, admin,
+ * and portal surfaces. The marketing site (Nav.astro) is the canonical
+ * model — admin and portal align to it.
+ *
+ * Variants:
+ *   - <SmdLogo />                       canonical (sticky header, auth chrome)
+ *   - <SmdLogo inverse />               white wordmark for ink overlays (mobile dialog)
+ *   - <SmdLogo badge="Admin" href="/admin" />  admin top bar
+ *   - <SmdLogo href="/portal" />        portal chrome
+ */
+
+interface Props {
+  href?: string
+  inverse?: boolean
+  badge?: string
+  [key: `data-${string}`]: string | boolean | undefined
+}
+
+const { href = '/', inverse = false, badge, ...rest } = Astro.props
+
+const wordmarkColor = inverse ? 'text-white' : 'text-[color:var(--ss-color-text-primary)]'
+const badgeColor = inverse ? 'text-white' : 'text-[color:var(--ss-color-text-primary)]'
+const badgeBorder = inverse ? 'border-white' : 'border-[color:var(--ss-color-text-primary)]'
+const focusRingOffset = inverse
+  ? 'focus-visible:ring-offset-[color:var(--ss-color-surface-inverse)]'
+  : ''
+---
+
+<a
+  href={href}
+  aria-label={badge ? `SMD Services ${badge}` : 'SMD Services'}
+  class:list={[
+    'inline-flex items-baseline gap-2 text-base md:text-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2',
+    focusRingOffset,
+  ]}
+  {...rest}
+>
+  <span
+    class="inline-block bg-[color:var(--ss-color-primary)] px-1.5 py-0.5 font-['Archivo'] font-black uppercase leading-none tracking-tight text-white"
+    >SMD</span
+  >
+  <span
+    class:list={[
+      "font-['Archivo_Narrow'] font-semibold uppercase tracking-[0.08em] leading-none",
+      wordmarkColor,
+    ]}>Services</span
+  >
+  {
+    badge && (
+      <span
+        class:list={[
+          "font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] border px-2 py-0.5 leading-none",
+          badgeColor,
+          badgeBorder,
+        ]}
+      >
+        {badge}
+      </span>
+    )
+  }
+</a>

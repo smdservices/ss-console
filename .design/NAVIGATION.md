@@ -1010,29 +1010,28 @@ Base URL: `portal.smd.services`. Authenticated client.
 
 ## C.1 Chrome allowed
 
-### Header (three-icon contact control)
+### Header (SmdLogo + client name + three-icon contact control)
+
+**Revised 2026-05-25 (Captain decision):** Single SMD lockup across all surfaces beats client-first signaling for brand consistency. Marketing, admin, and portal now share `src/components/SmdLogo.astro`; the portal post-auth header carries the lockup on the left and demotes the client name to a smaller secondary label.
 
 ```html
-<header role="banner" class="sticky top-0 z-50 bg-white border-b border-[#e2e8f0] h-14 md:h-16">
-  <div class="max-w-5xl mx-auto h-full flex items-center justify-between gap-4 px-4 md:px-6">
-    <p class="text-[13px] leading-[18px] font-medium tracking-[0.01em] text-[#475569] truncate"><client name></p>
+<header role="banner" class="sticky top-0 z-50 h-14 md:h-16 w-full bg-[color:var(--ss-color-background)] border-b-[3px] border-[color:var(--ss-color-text-primary)]">
+  <div class="max-w-5xl mx-auto h-full px-4 md:px-6 flex items-center justify-between gap-stack">
+    <div class="flex items-baseline gap-3 md:gap-4 min-w-0">
+      <SmdLogo href="/portal" />
+      <p class="hidden sm:block font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] truncate">
+        <client name>
+      </p>
+    </div>
     <div class="flex items-center gap-1">
-      <a href="mailto:<email>" aria-label="Email Scott" class="inline-flex items-center justify-center w-11 h-11 rounded-lg text-[#475569] hover:text-[#1e40af] active:text-[#1e40af] focus-visible:ring-2 focus-visible:ring-[#3b82f6] focus-visible:ring-offset-2">
-        <span class="material-symbols-outlined" aria-hidden="true">mail</span>
-      </a>
-      <a href="sms:<phone>" aria-label="Text Scott" class="inline-flex items-center justify-center w-11 h-11 rounded-lg text-[#475569] hover:text-[#1e40af] active:text-[#1e40af] focus-visible:ring-2 focus-visible:ring-[#3b82f6] focus-visible:ring-offset-2">
-        <span class="material-symbols-outlined" aria-hidden="true">sms</span>
-      </a>
-      <a href="tel:<phone>" aria-label="Call Scott" class="inline-flex items-center justify-center w-11 h-11 rounded-lg text-[#475569] hover:text-[#1e40af] active:text-[#1e40af] focus-visible:ring-2 focus-visible:ring-[#3b82f6] focus-visible:ring-offset-2">
-        <span class="material-symbols-outlined" aria-hidden="true">call</span>
-      </a>
+      <!-- email / sms / tel icons unchanged -->
       <slot /> <!-- host page may pass Sign out form -->
     </div>
   </div>
 </header>
 ```
 
-Shipped component: `src/components/portal/PortalHeader.astro`.
+Shipped component: `src/components/portal/PortalHeader.astro`. Logo primitive: `src/components/SmdLogo.astro`.
 
 ### Back affordance (detail archetypes)
 
@@ -1068,9 +1067,8 @@ Universal anti-patterns. Additionally:
 
 - Breadcrumbs — never
 - Sticky-bottom action bar — primary action in ActionCard above the fold
-- Logo in header — client name identifies context
 
-(Note: v2 forbade "Global nav tabs" on portal. v3 rescinds this: persistent tabs are the pattern on portal per §4.4. Nav tabs remain forbidden on `token-auth` and `public` surfaces.)
+(Note: v2 forbade "Global nav tabs" on portal. v3 rescinds this: persistent tabs are the pattern on portal per §4.4. Nav tabs remain forbidden on `token-auth` and `public` surfaces. The v2 "Logo in header — never" rule was reversed 2026-05-25 per §C.1.)
 
 ## C.3 Archetype-specific notes
 
