@@ -1,0 +1,20 @@
+{
+  "body_byte_count": 3484,
+  "body_sha256": "9f977f0b42f7d88b6cc768324642ac5cb45d9f9a7a9298ed358b645a4c895bec",
+  "envelope": {
+    "bcc": [],
+    "cc": [],
+    "drafted_by_skill": "law-pi-demand-letter-draft",
+    "matter_ref": "matter_synthetic_04",
+    "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
+    "subject": "Demand for Andre Pickard, claim STC-2026-014821, date of loss April 8, 2026",
+    "thread_id": null,
+    "to": [
+      "brenda.calloway@sentineltc.invalid"
+    ]
+  },
+  "fixture_name": "04-trucking-matter",
+  "kind": "draft",
+  "skill_slug": "law-pi-demand-letter-draft",
+  "skill_version": "0.1.0"
+}

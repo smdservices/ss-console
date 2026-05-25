@@ -9,7 +9,9 @@
     "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
     "subject": "Settlement Conference Prep: Chen v. Acosta, CV2026-004128, August 19, 2026",
     "thread_id": null,
-    "to": ["sarah.holcomb@holcomb-reyes.invalid"]
+    "to": [
+      "sarah.holcomb@holcomb-reyes.invalid"
+    ]
   },
   "fixture_name": "02-disc-herniation-contested-liability-matter",
   "kind": "draft",

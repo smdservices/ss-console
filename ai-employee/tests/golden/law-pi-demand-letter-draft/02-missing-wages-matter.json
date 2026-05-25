@@ -9,7 +9,9 @@
     "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
     "subject": "Demand for Marcus Whitfield, claim DSC-26-7711-A, date of loss April 30, 2026",
     "thread_id": null,
-    "to": ["b.okolo@desertsky-casualty.invalid"]
+    "to": [
+      "b.okolo@desertsky-casualty.invalid"
+    ]
   },
   "fixture_name": "02-missing-wages-matter",
   "kind": "draft",

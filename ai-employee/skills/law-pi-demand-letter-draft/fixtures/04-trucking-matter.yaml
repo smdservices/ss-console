@@ -1,0 +1,166 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 04: commercial-trucking PI demand. Full information, mid-sized
+# damages, multiple medical providers. Tests the demand-letter skill on
+# a trucking case shape (commercial defendant + carrier + insured driver
+# distinct from defendant).
+
+matter:
+  id: 'matter_synthetic_04'
+  client_name: 'Andre Pickard'
+  matter_type: 'auto-accident-commercial'
+  status: 'open'
+  opened_at: '2026-04-12T10:00:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2026-04-08'
+    incident_location: 'I-10 westbound near the 51st Avenue exit, Phoenix, Arizona'
+    client_role: 'operator of stopped 2019 Honda CR-V'
+    opposing_driver_name: 'Vincent Buchanan'
+    opposing_insured_name: 'Mountain West Logistics, LLC'
+    opposing_carrier: 'Sentinel Transport Casualty'
+    opposing_adjuster_name: 'Brenda Calloway'
+    opposing_adjuster_email: 'brenda.calloway@sentineltc.invalid'
+    opposing_adjuster_address: '1340 W Washington St, Phoenix AZ 85007'
+    claim_number: 'STC-2026-014821'
+    employer_name: 'Phoenix Public Library System'
+    documents_folder_path: '/matters/matter_synthetic_04'
+
+documents:
+  - id: 'doc_t01'
+    path: '/matters/matter_synthetic_04/incident/2026-04-08_pd_report.pdf'
+    filename: '2026-04-08_pd_report.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 96512
+    created_at: '2026-04-15T14:00:00Z'
+    modified_at: '2026-04-15T14:00:00Z'
+    current_version: 'v1'
+    classification: 'police_report'
+    synthetic_body: |
+      Phoenix Police Department incident report.
+      Report number: PD-2026-04197.
+      Date/time of incident: 2026-04-08, 16:42.
+      Location: I-10 westbound, MP 137.6, near the 51st Avenue exit.
+      Operator 1: Andre Pickard, Phoenix AZ. Vehicle: 2019 Honda CR-V.
+      Operator 2: Vincent Buchanan, employed by Mountain West Logistics, LLC.
+        Vehicle: 2024 Freightliner Cascadia tractor with 53-ft trailer.
+      Description: Operator 1 was stopped in left-most lane due to slowed
+        traffic. Operator 2 failed to brake in time and struck operator 1
+        from behind.
+      Citations issued: Operator 2, ARS §28-695 (Following too closely).
+
+  - id: 'doc_t02'
+    path: '/matters/matter_synthetic_04/medical/2026-04-08_st_josephs_ed.pdf'
+    filename: '2026-04-08_st_josephs_ed.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 142336
+    created_at: '2026-04-12T09:30:00Z'
+    modified_at: '2026-04-12T09:30:00Z'
+    current_version: 'v1'
+    classification: 'medical_record'
+    synthetic_body: |
+      St. Joseph's Hospital and Medical Center, Emergency Department.
+      Date of service: 2026-04-08. Time: 17:38.
+      Patient: Pickard, Andre (DOB 1986-07-12).
+      Chief complaint: motor vehicle collision, neck, lower back, and head pain.
+      Provider: Dr. Kelly Strauss, MD.
+      Disposition: discharged home with discharge instructions; referral to
+        orthopedics and neurology.
+
+  - id: 'doc_t03'
+    path: '/matters/matter_synthetic_04/medical/2026-04-15_arizona_ortho.pdf'
+    filename: '2026-04-15_arizona_ortho.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 132064
+    created_at: '2026-04-18T11:00:00Z'
+    modified_at: '2026-04-18T11:00:00Z'
+    current_version: 'v1'
+    classification: 'medical_record'
+    synthetic_body: |
+      Arizona Orthopedic Specialists.
+      Date of service: 2026-04-15.
+      Patient: Pickard, Andre.
+      Provider: Dr. Sun-Mi Hong, MD.
+      Subjective: persistent cervical pain radiating to right shoulder; lumbar
+        pain with intermittent paresthesia in right lower extremity.
+      Plan: cervical MRI ordered; physical therapy 3x weekly for 6 weeks.
+
+  - id: 'doc_t04'
+    path: '/matters/matter_synthetic_04/medical/2026-04-22_arizona_imaging_mri.pdf'
+    filename: '2026-04-22_arizona_imaging_mri.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 287104
+    created_at: '2026-04-25T16:00:00Z'
+    modified_at: '2026-04-25T16:00:00Z'
+    current_version: 'v1'
+    classification: 'medical_record'
+    synthetic_body: |
+      Arizona Imaging Network.
+      Date of service: 2026-04-22.
+      Patient: Pickard, Andre.
+      Study: MRI cervical spine without contrast.
+      Provider: Dr. Wesley Tan, MD (radiologist).
+      Impression: C5-C6 disc protrusion with mild cord impingement; C6-C7
+        disc bulge without neural compromise.
+      Referring provider: Dr. Sun-Mi Hong, Arizona Orthopedic Specialists.
+
+  - id: 'doc_t05'
+    path: '/matters/matter_synthetic_04/medical/2026-05-12_neurology_consult.pdf'
+    filename: '2026-05-12_neurology_consult.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 118720
+    created_at: '2026-05-15T13:00:00Z'
+    modified_at: '2026-05-15T13:00:00Z'
+    current_version: 'v1'
+    classification: 'medical_record'
+    synthetic_body: |
+      Phoenix Neurology Group.
+      Date of service: 2026-05-12.
+      Patient: Pickard, Andre.
+      Provider: Dr. Imani Okonkwo, MD.
+      Subjective: post-concussive symptoms (headache, brief memory lapses,
+        light sensitivity) following the 2026-04-08 MVC.
+      Plan: vestibular therapy referral; follow-up in 6 weeks.
+
+  - id: 'doc_t06'
+    path: '/matters/matter_synthetic_04/billing/2026-05-15_medical_summary.pdf'
+    filename: '2026-05-15_medical_summary.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 76800
+    created_at: '2026-05-15T17:00:00Z'
+    modified_at: '2026-05-15T17:00:00Z'
+    current_version: 'v1'
+    classification: 'billing'
+    synthetic_body: |
+      Medical billing summary as of 2026-05-15.
+      Patient: Pickard, Andre.
+      St. Joseph's ED (2026-04-08): $4,820.00.
+      Arizona Orthopedic Specialists initial + 4 PT sessions: $2,860.00.
+      Arizona Imaging Network MRI cervical: $1,950.00.
+      Phoenix Neurology Group consult: $620.00.
+      Total to date: $10,250.00.
+
+  - id: 'doc_t07'
+    path: '/matters/matter_synthetic_04/employment/2026-05-01_employer_wage_letter.pdf'
+    filename: '2026-05-01_employer_wage_letter.pdf'
+    mime_type: 'application/pdf'
+    size_bytes: 54272
+    created_at: '2026-05-01T15:00:00Z'
+    modified_at: '2026-05-01T15:00:00Z'
+    current_version: 'v1'
+    classification: 'employment_verification'
+    synthetic_body: |
+      Phoenix Public Library System.
+      To whom it may concern.
+      This letter confirms that Andre Pickard is employed as a Senior
+      Reference Librarian. As a result of the 2026-04-08 motor vehicle
+      collision, Mr. Pickard was unable to work for 16 business days
+      between 2026-04-09 and 2026-04-30. His daily wage rate is
+      $258.00. Lost wages to date: $4,128.00.
+      Signed: Patricia Holland, HR Director.
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'

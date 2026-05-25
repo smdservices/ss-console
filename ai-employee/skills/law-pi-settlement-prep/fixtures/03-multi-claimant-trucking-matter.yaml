@@ -1,0 +1,111 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 03: settlement prep on a multi-claimant matter. Tests
+# skill handling when one incident produces multiple plaintiffs the
+# firm represents (here, a married couple) and the settlement
+# allocation between claimants becomes part of the memo.
+
+matter:
+  id: 'matter_synthetic_sp_03'
+  client_name: 'James and Linda Otieno'
+  matter_type: 'PI-multi-claimant'
+  status: 'open'
+  opened_at: '2025-12-09T14:00:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2025-12-02'
+    incident_location: 'I-17 northbound at MP 222, Black Canyon City AZ'
+    client_role: 'James Otieno operator and Linda Otieno passenger in 2023 Toyota Highlander'
+    opposing_party_name: 'Continental Heavy Haul, Inc.'
+    opposing_counsel_name: 'Margaret Yoo'
+    opposing_counsel_firm: 'Yoo Bradshaw & Mendez'
+    opposing_carrier_name: 'Allied Casualty National'
+    claim_number: 'ACN-2025-203411'
+    case_caption: 'Otieno et al. v. Continental Heavy Haul, Inc.'
+    case_number: 'CV2026-002714'
+    case_court: 'Maricopa County Superior Court'
+    documents_folder_path: '/matters/matter_synthetic_sp_03'
+    demand_served_date: '2026-03-15'
+    settlement_conference_date: '2026-06-24'
+    conference_location: 'Maricopa County Superior Court Mediation Center'
+    mediator_name: 'Hon. (Ret.) Eduardo Bermudez'
+    claimants:
+      - name: 'James Otieno'
+        role: 'driver'
+        injuries: 'fractured sternum, concussion, persistent post-concussive symptoms'
+      - name: 'Linda Otieno'
+        role: 'front-seat passenger'
+        injuries: 'cervical strain, fractured wrist, surgical repair'
+
+documents:
+  - id: 'doc_sp3_01'
+    path: '/matters/matter_synthetic_sp_03/medical/james_chronology.pdf'
+    filename: 'james_chronology.pdf'
+    classification: 'medical_chronology'
+    synthetic_body: |
+      James Otieno medical chronology summary.
+      2025-12-02 (incident): Banner Estrella ED — fractured sternum,
+        concussion diagnosed.
+      2025-12-09: Phoenix Neurology — post-concussive consult.
+      2026-01-15: Banner Concussion Clinic — graded exertion protocol.
+      2026-03-04: Banner Concussion Clinic — persistent symptoms.
+      2026-05-01: Phoenix Neurology — current symptoms persist; further
+        evaluation recommended.
+
+  - id: 'doc_sp3_02'
+    path: '/matters/matter_synthetic_sp_03/medical/linda_chronology.pdf'
+    filename: 'linda_chronology.pdf'
+    classification: 'medical_chronology'
+    synthetic_body: |
+      Linda Otieno medical chronology summary.
+      2025-12-02 (incident): Banner Estrella ED — cervical strain,
+        fractured wrist diagnosed.
+      2025-12-12: Arizona Hand Surgeons — surgical repair of fractured
+        wrist (Dr. Renata Vargas).
+      2025-12-26: Arizona Hand Surgeons — post-surgical follow-up.
+      2026-02-04: Arizona Hand Surgeons — discharged from active
+        treatment; some residual stiffness.
+
+  - id: 'doc_sp3_03'
+    path: '/matters/matter_synthetic_sp_03/billing/medical_billing_summary.pdf'
+    filename: 'medical_billing_summary.pdf'
+    classification: 'billing'
+    synthetic_body: |
+      Medical specials summary as of 2026-05-15.
+      James Otieno: $34,820.00 (ED, neurology, concussion clinic).
+      Linda Otieno: $52,640.00 (ED, hand surgery, surgical follow-up).
+      Combined total: $87,460.00.
+
+  - id: 'doc_sp3_04'
+    path: '/matters/matter_synthetic_sp_03/employment/james_wage_letter.pdf'
+    filename: 'james_wage_letter.pdf'
+    classification: 'employment_verification'
+    synthetic_body: |
+      Otieno Consulting Group.
+      James Otieno is the principal consultant. As a result of the
+      2025-12-02 collision and ongoing post-concussive symptoms, Mr.
+      Otieno has reduced his client engagement load by approximately
+      45 percent. Estimated lost earnings 2025-12-02 to 2026-05-15:
+      $58,200.00 (computed from 2024 baseline minus 2026 partial-year
+      actuals annualized). Verification by accountant Nora Westley,
+      Westley CPA.
+
+  - id: 'doc_sp3_05'
+    path: '/matters/matter_synthetic_sp_03/correspondence/settlement_history.pdf'
+    filename: 'settlement_history.pdf'
+    classification: 'correspondence_summary'
+    synthetic_body: |
+      Settlement correspondence chronology.
+      2026-03-15: Demand served (Holcomb & Reyes to Allied Casualty National).
+      2026-04-10: Initial response from Margaret Yoo — request for
+        additional James post-concussive records and Linda surgical
+        operative notes. Records provided 2026-04-18.
+      2026-05-08: Allied opening offer received. Amount and terms TBD
+        (partner to review the actual offer document before this memo
+        ships).
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'

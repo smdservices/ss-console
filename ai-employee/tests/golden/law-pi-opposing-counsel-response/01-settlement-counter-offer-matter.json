@@ -9,7 +9,9 @@
     "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
     "subject": "Re: Settlement counter-offer, Holloway v. Kerr",
     "thread_id": "thread_settlement_42",
-    "to": ["twhitfield@whitfield-reardon.invalid"]
+    "to": [
+      "twhitfield@whitfield-reardon.invalid"
+    ]
   },
   "fixture_name": "01-settlement-counter-offer-matter",
   "kind": "draft",

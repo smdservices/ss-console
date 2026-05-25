@@ -1,0 +1,76 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 04: supplemental interrogatories (a second round following
+# deposition). Tests the discovery skill on a follow-on round where
+# the prior responses are part of the matter record.
+
+matter:
+  id: 'matter_synthetic_disc_04'
+  client_name: 'Maya Castaneda'
+  matter_type: 'PI'
+  status: 'open'
+  opened_at: '2025-11-03T09:00:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2025-10-17'
+    incident_location: 'Pinnacle Peak Road and Tatum Boulevard, Phoenix, Arizona'
+    client_role: 'operator of stopped 2020 Subaru Outback'
+    opposing_party_name: 'Tobias Vandermeer'
+    opposing_counsel_name: 'Russell Bayliss'
+    opposing_counsel_firm: 'Bayliss & Holt'
+    opposing_counsel_email: 'rbayliss@baylissholt.invalid'
+    opposing_counsel_address: '7440 N Oracle Rd, Suite 300, Tucson AZ 85704'
+    claim_number: 'GA-2025-088310'
+    case_caption: 'Castaneda v. Vandermeer'
+    case_number: 'CV2025-018442'
+    case_court: 'Maricopa County Superior Court'
+    documents_folder_path: '/matters/matter_synthetic_disc_04'
+    prior_discovery_round_id: 'discovery_round_001'
+
+inbound_discovery:
+  document_id: 'doc_supp_interr_2026_05_18'
+  filename: '2026-05-18_supplemental_interrogatories.pdf'
+  served_date: '2026-05-18'
+  served_method: 'email_to_counsel'
+  request_kind: 'supplemental_interrogatories'
+  request_number_range: '21-35'
+  body_excerpt: |
+    SUPPLEMENTAL INTERROGATORIES PROPOUNDED BY DEFENDANT TOBIAS
+    VANDERMEER TO PLAINTIFF MAYA CASTANEDA.
+
+    Pursuant to Arizona Rules of Civil Procedure Rule 33,
+    Defendant propounds the following supplemental interrogatories,
+    each of which is to be answered separately, fully, and under
+    oath within forty (40) days of service.
+
+    INTERROGATORY NO. 21: Identify each and every social media
+    account maintained by Plaintiff at any time from January 1,
+    2025 to the present, including the platform, the username or
+    handle, and the date the account was opened.
+
+    INTERROGATORY NO. 22: For each social media account
+    identified in response to Interrogatory No. 21, state whether
+    any post, comment, photograph, or video has been deleted
+    since the date of the incident. If so, identify the deleted
+    item and the approximate date of deletion.
+
+    INTERROGATORY NO. 23: Identify each medical provider whom
+    Plaintiff has consulted or with whom Plaintiff has had any
+    appointment between Plaintiff's deposition on March 12, 2026
+    and the present, regardless of whether the visit was related
+    to the injuries claimed in this litigation.
+
+    INTERROGATORY NO. 24: State whether Plaintiff has engaged in
+    any physical activity (including but not limited to athletic
+    activity, hiking, manual labor, household chores, or
+    childcare) since the date of the incident that Plaintiff
+    contends she could perform without limitation prior to the
+    incident.
+
+    [continues through INTERROGATORY NO. 35]
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'

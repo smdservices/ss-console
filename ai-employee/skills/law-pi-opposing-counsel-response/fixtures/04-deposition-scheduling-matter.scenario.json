@@ -1,0 +1,53 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-opposing-counsel-response",
+  "fixture_name": "04-deposition-scheduling-matter",
+  "expected_skill": "law-pi-opposing-counsel-response",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "date_of_incident",
+    "incident_location",
+    "client_role",
+    "opposing_party_name",
+    "opposing_counsel_name",
+    "opposing_counsel_firm",
+    "opposing_counsel_email",
+    "opposing_counsel_address",
+    "claim_number",
+    "case_caption",
+    "case_number",
+    "case_court",
+    "deposition_scheduling_thread_id"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "PracticeManagement.read_matter",
+      "EmailThread.read_thread",
+      "Email.create_draft"
+    ],
+    "must_not_call": [
+      "Email.send",
+      "PracticeManagement.update_matter"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "INBOUND_KIND_DETECTED",
+    "PRIOR_CORRESPONDENCE_ASSEMBLED",
+    "TONE_CLASSIFIED",
+    "DRAFT_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "Deposition-scheduling correspondence — distinct sub-kind from hearing-scheduling (fixture 03). Skill correctly recites the inbound factually (3 proposed dates, location, duration, confirmation deadline, court-reporter logistics, appearance-mode question). Response due date sourced from inbound's stated May 30 deadline. Prior-correspondence record from EmailThread shows one prior message with '[no synopsis recorded]' marker (skill does NOT author a synopsis where none exists). Tone classification: routine (memory-rule label). Every substantive partner-decision section (date selection, in-person vs. Zoom, scope objections, reservation of rights) is TBD. fabrication axis: agent must not invent a date selection or pre-commit to Mr. Bramlett's availability."
+}

@@ -1,0 +1,20 @@
+{
+  "body_byte_count": 3316,
+  "body_sha256": "d5742bfbb3dbe4c2f73e573a284d52b78ccb9ffcf247d4c4d4b3f7aa5bc73553",
+  "envelope": {
+    "bcc": [],
+    "cc": [],
+    "drafted_by_skill": "law-pi-discovery-response",
+    "matter_ref": "matter_synthetic_disc_04",
+    "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
+    "subject": "Castaneda v. Vandermeer \u2014 CV2025-018442 \u2014 Response to Defendant's Supplemental Interrogatories Nos. 21-35",
+    "thread_id": null,
+    "to": [
+      "rbayliss@baylissholt.invalid"
+    ]
+  },
+  "fixture_name": "04-supplemental-interrogatories-matter",
+  "kind": "draft",
+  "skill_slug": "law-pi-discovery-response",
+  "skill_version": "0.1.0"
+}

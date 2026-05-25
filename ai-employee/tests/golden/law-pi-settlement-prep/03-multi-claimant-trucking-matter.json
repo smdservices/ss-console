@@ -1,19 +1,19 @@
 {
-  "body_byte_count": 9885,
-  "body_sha256": "390f17b0ee2f67ba2f49423f14ce3f38ad69a94bd0623ee72e3643716c6463d6",
+  "body_byte_count": 3268,
+  "body_sha256": "ef7d70da816eaf0f59920eaacd95a9752ebf126d71018d694e72735c80b83ae1",
   "envelope": {
     "bcc": [],
     "cc": [],
     "drafted_by_skill": "law-pi-settlement-prep",
-    "matter_ref": "matter_synthetic_prep_01",
+    "matter_ref": "matter_synthetic_sp_03",
     "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
-    "subject": "Settlement Conference Prep: Holloway v. Kerr, CV2026-006491, August 1, 2026",
+    "subject": "Settlement Conference Prep: Otieno et al. v. Continental Heavy Haul, CV2026-002714, June 24, 2026",
     "thread_id": null,
     "to": [
       "sarah.holcomb@holcomb-reyes.invalid"
     ]
   },
-  "fixture_name": "01-soft-tissue-clear-liability-matter",
+  "fixture_name": "03-multi-claimant-trucking-matter",
   "kind": "draft",
   "skill_slug": "law-pi-settlement-prep",
   "skill_version": "0.1.0"

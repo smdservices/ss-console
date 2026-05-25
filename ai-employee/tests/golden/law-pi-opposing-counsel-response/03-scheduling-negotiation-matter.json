@@ -9,7 +9,9 @@
     "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
     "subject": "Re: Proposed stipulation re deposition and discovery extension, Holloway v. Kerr",
     "thread_id": "thread_scheduling_07",
-    "to": ["twhitfield@whitfield-reardon.invalid"]
+    "to": [
+      "twhitfield@whitfield-reardon.invalid"
+    ]
   },
   "fixture_name": "03-scheduling-negotiation-matter",
   "kind": "draft",

@@ -1,0 +1,56 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-settlement-prep",
+  "fixture_name": "03-multi-claimant-trucking-matter",
+  "expected_skill": "law-pi-settlement-prep",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "date_of_incident",
+    "incident_location",
+    "client_role",
+    "opposing_party_name",
+    "opposing_counsel_name",
+    "opposing_counsel_firm",
+    "opposing_carrier_name",
+    "claim_number",
+    "case_caption",
+    "case_number",
+    "case_court",
+    "documents_folder_path",
+    "demand_served_date",
+    "settlement_conference_date",
+    "conference_location",
+    "mediator_name",
+    "claimants"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "PracticeManagement.read_matter",
+      "DocumentStorage.list_documents"
+    ],
+    "must_not_call": [
+      "Email.send",
+      "Email.create_draft",
+      "PracticeManagement.update_matter"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "DAMAGES_PACKET_BUILT",
+    "SETTLEMENT_HISTORY_ASSEMBLED",
+    "MEMO_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "Multi-claimant trucking case (married couple as co-plaintiffs). Skill correctly: (a) builds per-claimant damages packets separately ($34,820 James + $52,640 Linda) AND a combined total ($87,460); (b) tracks per-claimant treatment status independently (James not at MMI vs. Linda at MMI with residual stiffness); (c) lost wages only for James (Linda none documented); (d) surfaces per-claimant allocation as an explicit open issue for partner authorship; (e) settlement history table includes the May 8 opening-offer event without inventing the offer amount (which was TBD in fixture data). Memo is internal — NO Email tools called. Liability factual record marked TBD because fixture documents folder did not include police report (skill does NOT invent liability content). Negotiation posture is partner-authored TBD."
+}

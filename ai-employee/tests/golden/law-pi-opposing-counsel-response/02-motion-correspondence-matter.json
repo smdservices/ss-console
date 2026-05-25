@@ -9,7 +9,9 @@
     "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
     "subject": "Re: Meet and confer regarding motion for summary judgment, Holloway v. Kerr",
     "thread_id": "thread_motion_18",
-    "to": ["twhitfield@whitfield-reardon.invalid"]
+    "to": [
+      "twhitfield@whitfield-reardon.invalid"
+    ]
   },
   "fixture_name": "02-motion-correspondence-matter",
   "kind": "draft",

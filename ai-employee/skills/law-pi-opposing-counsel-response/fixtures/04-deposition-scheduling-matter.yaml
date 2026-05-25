@@ -1,0 +1,78 @@
+# [SYNTHETIC FIXTURE — NOT A REAL MATTER]
+# Fixture 04: deposition-scheduling correspondence from opposing
+# counsel. Distinct from the 03-scheduling-negotiation-matter (which
+# was about hearings); this one is specifically about deposition
+# notice and date proposal.
+
+matter:
+  id: 'matter_synthetic_oc_04'
+  client_name: 'Dustin Bramlett'
+  matter_type: 'PI'
+  status: 'open'
+  opened_at: '2025-09-22T11:00:00Z'
+  closed_at: null
+  custom_fields:
+    fixture_watermark: '[SYNTHETIC FIXTURE — NOT A REAL MATTER]'
+    date_of_incident: '2025-09-08'
+    incident_location: 'Loop 202 eastbound near Priest Drive, Tempe AZ'
+    client_role: 'operator of stopped 2022 Ford F-150'
+    opposing_party_name: 'Garrison Vault'
+    opposing_counsel_name: 'Lucille Trent'
+    opposing_counsel_firm: 'Trent & Eichelberger LLP'
+    opposing_counsel_email: 'ltrent@trentlaw.invalid'
+    opposing_counsel_address: '230 N Central Ave, Suite 1200, Phoenix AZ 85004'
+    claim_number: 'PT-2025-091210'
+    case_caption: 'Bramlett v. Vault'
+    case_number: 'CV2025-019881'
+    case_court: 'Maricopa County Superior Court'
+    deposition_scheduling_thread_id: 'thread_dep_oc_04_2026_05'
+
+inbound_correspondence:
+  message_id: 'msg_oc_04_2026_05_20'
+  thread_id: 'thread_dep_oc_04_2026_05'
+  received_at: '2026-05-20T15:14:00Z'
+  from_email: 'ltrent@trentlaw.invalid'
+  from_name: 'Lucille Trent'
+  to_email: 'sarah.holcomb@holcomb-reyes.invalid'
+  subject: 'Bramlett v. Vault — Deposition of Plaintiff Dustin Bramlett'
+  body: |
+    Dear Sarah,
+
+    Pursuant to Arizona Rules of Civil Procedure Rule 30, we
+    intend to take the deposition of your client, Plaintiff
+    Dustin Bramlett, at our offices at 230 N Central Avenue,
+    Suite 1200, Phoenix AZ 85004. We propose three dates for
+    your consideration: June 18, 2026 starting at 10:00 AM;
+    June 24, 2026 starting at 9:30 AM; or July 9, 2026 starting
+    at 1:00 PM. The deposition is estimated to require
+    approximately six hours including breaks.
+
+    Please confirm one of the proposed dates by reply email no
+    later than May 30, 2026. If none of the proposed dates work
+    for Mr. Bramlett, please reply with two alternative dates
+    within the next 45 days that work for both Mr. Bramlett and
+    your office. Per local custom we will arrange the court
+    reporter and the conference room; we ask that you confirm
+    whether Mr. Bramlett will appear in person or whether you
+    request remote attendance via Zoom.
+
+    A formal Notice of Deposition will follow once the date is
+    set.
+
+    Sincerely,
+    Lucille Trent
+    Trent & Eichelberger LLP
+
+prior_correspondence_records:
+  - record_id: 'thread_dep_oc_04_2026_05_msg_001'
+    date: '2026-05-12'
+    direction: 'sent'
+    sender: 'Sarah Holcomb'
+    subject: 'Bramlett v. Vault — discovery responses served'
+    synopsis: '[no synopsis recorded — partner to summarize]'
+
+customer:
+  customer_slug: 'holcomb-reyes-pi-firm'
+  firm_name: 'Holcomb & Reyes, PLLC'
+  attorney_first_name: 'Sarah'
+  reviewer_account_id: 'sarah.holcomb@holcomb-reyes.invalid'

@@ -9,7 +9,9 @@
     "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
     "subject": "Demand for Janet Holloway, claim SM-2026-049182, date of loss April 28, 2026",
     "thread_id": null,
-    "to": ["lori.mendez@saguaro-mutual.invalid"]
+    "to": [
+      "lori.mendez@saguaro-mutual.invalid"
+    ]
   },
   "fixture_name": "01-clean-matter",
   "kind": "draft",

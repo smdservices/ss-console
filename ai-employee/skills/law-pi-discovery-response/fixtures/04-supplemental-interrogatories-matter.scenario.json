@@ -1,0 +1,57 @@
+{
+  "scenario_version": 1,
+  "skill_slug": "law-pi-discovery-response",
+  "fixture_name": "04-supplemental-interrogatories-matter",
+  "expected_skill": "law-pi-discovery-response",
+  "expected_outcome": "draft",
+  "input_available_fields": [
+    "client_name",
+    "reviewer_account_id",
+    "date_of_incident",
+    "incident_location",
+    "client_role",
+    "opposing_party_name",
+    "opposing_counsel_name",
+    "opposing_counsel_firm",
+    "opposing_counsel_email",
+    "opposing_counsel_address",
+    "claim_number",
+    "case_caption",
+    "case_number",
+    "case_court",
+    "documents_folder_path",
+    "prior_discovery_round_id",
+    "inbound_request_kind",
+    "inbound_served_date",
+    "inbound_request_number_range",
+    "inbound_body_excerpt"
+  ],
+  "expected_tool_calls": {
+    "must_call": [
+      "PracticeManagement.read_matter",
+      "DocumentStorage.list_documents",
+      "Email.create_draft"
+    ],
+    "must_not_call": [
+      "Email.send",
+      "PracticeManagement.update_matter"
+    ]
+  },
+  "expected_audit_actions": [
+    "SKILL_EXECUTION_STARTED",
+    "DISCOVERY_REQUEST_PARSED",
+    "OBJECTION_MAP_BUILT",
+    "DRAFT_CREATED",
+    "SKILL_EXECUTION_COMPLETED"
+  ],
+  "expected_memory_writes": [],
+  "allowed_refusal_triggers": [],
+  "judge_axes": [
+    "voice_fidelity",
+    "factual_accuracy",
+    "structural_correctness",
+    "fabrication",
+    "trust_ceiling"
+  ],
+  "notes": "Supplemental discovery round (interrogatories 21-35, second round after deposition on March 12, 2026). The inbound document body was excerpted to the skill through Interrogatory No. 24 only; the skill correctly handles partial-body-supply by reciting + tagging the 4 supplied requests AND inserting TBD (partner to recite) rows for the remaining 11 (Interrogatories 25-35). This is a structural correctness test — the skill must NOT invent the missing request text or hallucinate objection categories for unseen requests. Response due date computed from served date + AZ Rule 33(b)(2) forty-day rule (June 27, 2026 from May 18 service). All substantive answers TBD (partner authors). fabrication axis load-bearing."
+}
