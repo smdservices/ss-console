@@ -99,6 +99,14 @@ if (clientId) {
   }
 }
 
+// Consultant identity feeds the PortalHeader's persistent contact control.
+// Survives the absence of an engagement (returns null) and renders nothing
+// rather than fabricating an identity per CLAUDE.md no-fabricated-content.
+const consultantPhone = engagement?.consultant_phone ?? null
+const consultantFirstName: string | null = engagement?.consultant_name
+  ? engagement.consultant_name.trim().split(/\s+/)[0] || engagement.consultant_name
+  : null
+
 /**
  * File-type icon mapping. Purely visual affordance derived from the
  * filename extension — not client-facing authored content.
@@ -159,7 +167,11 @@ function kindFor(doc: DocumentEntry): string {
   </head>
   <body class="min-h-screen bg-[color:var(--ss-color-background)]">
     <SkipToMain />
-    <PortalHeader clientName={clientName}>
+    <PortalHeader
+      clientName={clientName}
+      consultantPhone={consultantPhone}
+      consultantFirstName={consultantFirstName}
+    >
       <SignOutButton asChild redirectUrl="/auth/sign-in?status=signed_out">
         <button
           type="button"
