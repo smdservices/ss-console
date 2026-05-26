@@ -1,6 +1,5 @@
 ---
 import '../../../styles/global.css'
-import { SignOutButton } from '@clerk/astro/components'
 import { BRAND_NAME } from '../../../lib/config/brand'
 import {
   resolveEngagementLabel,
@@ -109,18 +108,7 @@ const currentMilestoneLabel = engagement ? resolveEngagementLabel(engagement.sta
       clientName={clientName}
       consultantPhone={engagement?.consultant_phone ?? null}
       consultantFirstName={consultantFirstName}
-    >
-      <SignOutButton asChild redirectUrl="/auth/sign-in?status=signed_out">
-        <button
-          type="button"
-          aria-label="Sign out"
-          title="Sign out"
-          class="inline-flex items-center justify-center w-9 h-9 text-[color:var(--ss-color-text-muted)] hover:text-[color:var(--ss-color-text-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-colors"
-        >
-          <span class="material-symbols-outlined text-[20px]">logout</span>
-        </button>
-      </SignOutButton>
-    </PortalHeader>
+    />
 
     <PortalTabs pathname={Astro.url.pathname} aiEmployeeActive={aiEmployeeActive} />
 

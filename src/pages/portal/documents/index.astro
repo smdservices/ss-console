@@ -1,6 +1,5 @@
 ---
 import '../../../styles/global.css'
-import { SignOutButton } from '@clerk/astro/components'
 import { BRAND_NAME } from '../../../lib/config/brand'
 import { listEngagements } from '../../../lib/db/engagements'
 import { listDocuments } from '../../../lib/storage/r2'
@@ -171,16 +170,7 @@ function kindFor(doc: DocumentEntry): string {
       clientName={clientName}
       consultantPhone={consultantPhone}
       consultantFirstName={consultantFirstName}
-    >
-      <SignOutButton asChild redirectUrl="/auth/sign-in?status=signed_out">
-        <button
-          type="button"
-          class="inline-flex items-center min-h-11 px-2 -mx-2 text-sm text-[color:var(--ss-color-text-muted)] hover:text-[color:var(--ss-color-text-primary)] active:text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded transition-colors"
-        >
-          Sign out
-        </button>
-      </SignOutButton>
-    </PortalHeader>
+    />
 
     <PortalTabs pathname={Astro.url.pathname} aiEmployeeActive={aiEmployeeActive} />
 

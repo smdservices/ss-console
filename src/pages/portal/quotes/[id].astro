@@ -1,6 +1,5 @@
 ---
 import '../../../styles/global.css'
-import { SignOutButton } from '@clerk/astro/components'
 import PortalHeader from '../../../components/portal/PortalHeader.astro'
 import PortalTabs from '../../../components/portal/PortalTabs.astro'
 import PortalPageHead from '../../../components/portal/PortalPageHead.astro'
@@ -176,16 +175,7 @@ const consultantPhone = engagement?.consultant_phone ?? null
       clientName={client.name}
       consultantPhone={consultantPhone}
       consultantFirstName={consultantFirst}
-    >
-      <SignOutButton asChild redirectUrl="/auth/sign-in?status=signed_out">
-        <button
-          type="button"
-          class="text-sm text-[color:var(--ss-color-text-muted)] hover:text-[color:var(--ss-color-text-primary)] transition-colors"
-        >
-          Sign out
-        </button>
-      </SignOutButton>
-    </PortalHeader>
+    />
 
     <PortalTabs pathname={Astro.url.pathname} aiEmployeeActive={aiEmployeeActive} />
 
