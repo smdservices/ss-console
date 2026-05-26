@@ -313,6 +313,95 @@ When `voice_cohorts:` is omitted, the customer accepts `BASE_VOICE_COHORTS` (the
 
 **Sample tagging.** Voice samples are already written to R2 at `{customer-slug}/voice/cohort/{cohort-id}/{ulid}.json` (see [`adapter/voice/pipeline.py`](../../../ai-employee/adapter/voice/pipeline.py) :: `_ingest_one`). The cohort vocabulary declared here is what `CohortResolver` is allowed to assign; cohorts not in the customer's declared list are coerced to the `unassigned` sentinel by the resolver.
 
+## Skill bundles (ADR 0021 Stream D)
+
+**Added by [ADR 0021](../../adr/0021-leverage-hermes-native-primitives.md).** Hermes ships skill bundles natively — `~/.hermes/skill-bundles/<slug>.yaml` files that load multiple skills under a single slash command. The customer.yaml `personas[].bundles[]` block declares the bundles this persona ships with; `hermes-smd bootstrap` translates each entry into the per-profile bundle YAML at Machine startup.
+
+```yaml
+personas:
+  - slug: marcus
+    # ... other persona fields ...
+    bundles:
+      - slug: pi-intake
+        description: 'Intake triage + conflict screen for a new prospect'
+        skills:
+          - law-pi-intake-triage
+          - law-conflict-check
+        instruction: 'Optional shared context prepended to every bundled skill invocation'
+```
+
+Validation rules:
+
+- `bundles` is OPTIONAL; default is `[]`.
+- `slug` matches `SLUG_PATTERN` (`^[a-z0-9][a-z0-9-]{0,31}$`) and is unique within this persona's `bundles[]`.
+- `description` REQUIRED, max 200 chars.
+- `skills` REQUIRED, non-empty list of strings. Each entry MUST reference an enabled skill on the same persona — bundles cannot reference skills the persona doesn't ship with.
+- `instruction` OPTIONAL — shared context prepended to every bundled skill invocation (Hermes' bundle `instruction:` field).
+
+## Per-skill cron schedules with no-agent pre-run (ADR 0021 Stream B)
+
+**Added by [ADR 0021](../../adr/0021-leverage-hermes-native-primitives.md).** Hermes' cron-skill attachment supports a pre-run script that emits `{"wakeAgent": false}` to skip LLM inference when nothing changed. The customer.yaml `personas[].cron[]` block declares the schedule for each cron-attached skill plus whether a pre-run script gates wake-up.
+
+```yaml
+personas:
+  - slug: marcus
+    cron:
+      - skill: paid-media-anomaly-watcher
+        schedule: '0 7 * * *' # daily 0700 in Hermes' configured timezone
+        pre_run: pre_run.py # path relative to the skill directory
+        wake_policy: pre_run_decides
+      - skill: status-report-assembler
+        schedule: 'every 1d'
+        wake_policy: always
+```
+
+Validation rules:
+
+- `cron` is OPTIONAL; default is `[]`.
+- `skill` REQUIRED; MUST reference an enabled skill on this persona.
+- `schedule` REQUIRED; one of:
+  - cron expression (5 space-separated fields, e.g. `0 9 * * *`)
+  - interval (`every 30m`, `every 2h`, `every 1d`)
+  - relative delay (`30m`, `2h`, `1d`)
+  - ISO 8601 timestamp (`2026-03-15T09:00:00`)
+- `wake_policy` REQUIRED; one of `always` or `pre_run_decides`.
+- `pre_run` REQUIRED iff `wake_policy: pre_run_decides`; MUST be absent or null iff `wake_policy: always`.
+
+**Audit-trail requirement (ADR 0021 §"Two safety constraints").** `pre_run.py` MUST emit an `audit_action="suppressed_wake"` row before printing `{"wakeAgent": false}` to stdout. The row captures `skill_name`, `pre_run_inputs_digest`, `decision_basis`, and `next_scheduled_at`. Audit-write failure forces the script to fall back to `{"wakeAgent": true}` so the agent wakes and the failure becomes visible. The mirror-don't-gate principle (ADR 0016) applies here: a silent suppression is structurally indistinguishable from a silently-broken pre_run.py, and the dashboard's watcher-health view alarms on a scheduled tick with no audit row.
+
+## Webhook gateway (ADR 0021 Stream E)
+
+**Added by [ADR 0021](../../adr/0021-leverage-hermes-native-primitives.md).** Inbound vendor webhook events (Filevine matter-created, Clio activity-logged, etc.) route to skill invocations via the overlay's `hermes-smd-webhook-router` plugin (`pre_gateway_dispatch` hook). Two schema additions wire this up:
+
+1. **`connectors[].webhook_url`** — the URL the vendor pushes events to. Pattern is `https://hermes-{customer_id}.fly.dev/webhooks/{capability_slug}`; the validator enforces that `{customer_id}` matches the document's `customer_id` (cross-customer leakage vector if it ever doesn't, ADR 0009).
+
+2. **`webhook_triggers[]`** — top-level array mapping inbound payloads to (persona, skill). Each entry: `{ source, event_type, skill, persona }`. `source` MUST match an adapter on a connector with `webhook_url` configured; `persona`/`skill` MUST reference real declarations.
+
+```yaml
+connectors:
+  PracticeManagement:
+    adapter: filevine
+    backend: build:filevine
+    webhook_url: 'https://hermes-smith-pi-firm.fly.dev/webhooks/practice_management'
+
+webhook_triggers:
+  - source: filevine
+    event_type: matter.created
+    skill: law-pi-intake-triage
+    persona: marcus
+  - source: filevine
+    event_type: document.added
+    skill: law-pi-discovery-response
+    persona: marcus
+```
+
+Validation rules:
+
+- `connectors[].webhook_url` is OPTIONAL; default is null (pull-only connector).
+- `webhook_triggers` is OPTIONAL; default is `[]`.
+- A trigger whose `source` has no connector with `webhook_url` configured is rejected (`UnknownWebhookSource`) — either add the URL or drop the trigger.
+- `event_type` is opaque to the validator; the source vendor defines the value (e.g. `matter.created`, `document.added`, `payment.received`). Must be a non-empty string.
+
 **Selection rule (Layer 2 fallback ladder).** Given a draft, a reviewer, and a recipient cohort, the transform picks profiles in this priority order:
 
 1. **Per-(user, cohort)** — `users[i].voice_profile_id` × cohort id. Picked when samples ≥ `min_samples_per_cohort` (default `MIN_PROFILE_SAMPLE_COUNT`).
@@ -325,34 +414,45 @@ The fallback is enforced in `VoiceProfileBundle.select(reviewer_user_id, recipie
 
 ## Failure modes
 
-| Condition                                                  | Validator behavior                                                                                                                                                                                 |
-| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Missing required field                                     | Reject with `MissingField` error naming the JSONPath                                                                                                                                               |
-| Required string is empty                                   | Reject with `EmptyField` error                                                                                                                                                                     |
-| Enum field value not in accepted set                       | Reject with `EnumViolation` error listing accepted values                                                                                                                                          |
-| `customer_id` does not match `^[a-z0-9][a-z0-9-]{0,31}$`   | Reject with `InvalidSlug` error                                                                                                                                                                    |
-| `personas` array is empty OR has no `status: active` entry | Reject with `MissingActivePersona` error                                                                                                                                                           |
-| Persona slug duplicated within `personas[]`                | Reject with `DuplicatePersonaSlug` error                                                                                                                                                           |
-| `connectors` key not in `CapabilityName` union             | Reject with `UnknownCapability` error                                                                                                                                                              |
-| `trust_ceiling` raises above SKILL.md authored ceiling     | Reject with `TrustCeilingExceeded` error (validator surfaces both values; ceiling-floor lookup happens at provision time, not in this validator at v1)                                             |
-| Secret pattern matched in any value                        | Reject with `SecretDetected` error naming the JSONPath + pattern category; the matched **substring is NOT echoed** in the error (avoid log/transcript leak)                                        |
-| Banned field name encountered                              | Reject with `BannedFieldName` error naming the JSONPath                                                                                                                                            |
-| `token_ref` does not begin with `infisical:`               | Reject with `InvalidTokenRef` error                                                                                                                                                                |
-| `backend: composio:*` without `composio_connection_id`     | Reject with `MissingField` error (per-connection isolation cannot be enforced without it; see [composio_assertion.py](../../../ai-employee/adapter/connectors/composio_assertion.py) + issue #850) |
-| `composio_connection_id` malformed                         | Reject with `InvalidFormat` error (shape: `conn_{customer_id}_{suffix}`, suffix is 4-80 chars of `[A-Za-z0-9_-]`)                                                                                  |
-| `composio_connection_id` slug ≠ `customer_id`              | Reject with `IsolationViolation` error (cross-customer leakage vector — see [ADR 0009](../../adr/0009-cross-machine-query-prohibition.md) + issue #850)                                            |
-| `composio_connection_id` set on non-composio backend       | Reject with `IsolationViolation` error (the field is meaningful only when Composio mediates OAuth)                                                                                                 |
-| `memory.d1_namespace` ≠ `customer_id`                      | Reject with `IsolationViolation` error (cross-Machine query prevention; see [r2-vectorize-naming.md](./r2-vectorize-naming.md) + [ADR 0009](../../adr/0009-cross-machine-query-prohibition.md))    |
-| `memory.r2_vault_path` ≠ `vaults/{customer_id}/`           | Reject with `IsolationViolation` error                                                                                                                                                             |
-| `memory.vectorize_index` ≠ `hermes-{customer_id}-vault`    | Reject with `IsolationViolation` error                                                                                                                                                             |
-| `vertical: law-firm` without `practice_areas`              | Reject with `MissingField` error citing `practice_areas`                                                                                                                                           |
-| `pause.active: true` without `pause.reason`                | Reject with `MissingField` error citing `pause.reason`                                                                                                                                             |
-| `users[].voice_profile_id` malformed slug                  | Reject with `InvalidSlug` error                                                                                                                                                                    |
-| Duplicate `users[].voice_profile_id` across users          | Reject with `DuplicateVoiceProfileId` error (per-user attribution model — two users cannot share a profile)                                                                                        |
-| `voice_cohorts:` present but `voice_cohorts.cohorts` empty | Reject with `EmptyList` error (the field's purpose is to declare cohorts; an empty list is an authoring mistake)                                                                                   |
-| `voice_cohorts.cohorts[]` entry malformed slug             | Reject with `InvalidSlug` error                                                                                                                                                                    |
-| Duplicate `voice_cohorts.cohorts[]` entry                  | Reject with `DuplicateVoiceCohort` error                                                                                                                                                           |
-| `voice_cohorts.min_samples_per_cohort` ≤ 0 or non-integer  | Reject with `TypeMismatch` error                                                                                                                                                                   |
+| Condition                                                             | Validator behavior                                                                                                                                                                                 |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Missing required field                                                | Reject with `MissingField` error naming the JSONPath                                                                                                                                               |
+| Required string is empty                                              | Reject with `EmptyField` error                                                                                                                                                                     |
+| Enum field value not in accepted set                                  | Reject with `EnumViolation` error listing accepted values                                                                                                                                          |
+| `customer_id` does not match `^[a-z0-9][a-z0-9-]{0,31}$`              | Reject with `InvalidSlug` error                                                                                                                                                                    |
+| `personas` array is empty OR has no `status: active` entry            | Reject with `MissingActivePersona` error                                                                                                                                                           |
+| Persona slug duplicated within `personas[]`                           | Reject with `DuplicatePersonaSlug` error                                                                                                                                                           |
+| `connectors` key not in `CapabilityName` union                        | Reject with `UnknownCapability` error                                                                                                                                                              |
+| `trust_ceiling` raises above SKILL.md authored ceiling                | Reject with `TrustCeilingExceeded` error (validator surfaces both values; ceiling-floor lookup happens at provision time, not in this validator at v1)                                             |
+| Secret pattern matched in any value                                   | Reject with `SecretDetected` error naming the JSONPath + pattern category; the matched **substring is NOT echoed** in the error (avoid log/transcript leak)                                        |
+| Banned field name encountered                                         | Reject with `BannedFieldName` error naming the JSONPath                                                                                                                                            |
+| `token_ref` does not begin with `infisical:`                          | Reject with `InvalidTokenRef` error                                                                                                                                                                |
+| `backend: composio:*` without `composio_connection_id`                | Reject with `MissingField` error (per-connection isolation cannot be enforced without it; see [composio_assertion.py](../../../ai-employee/adapter/connectors/composio_assertion.py) + issue #850) |
+| `composio_connection_id` malformed                                    | Reject with `InvalidFormat` error (shape: `conn_{customer_id}_{suffix}`, suffix is 4-80 chars of `[A-Za-z0-9_-]`)                                                                                  |
+| `composio_connection_id` slug ≠ `customer_id`                         | Reject with `IsolationViolation` error (cross-customer leakage vector — see [ADR 0009](../../adr/0009-cross-machine-query-prohibition.md) + issue #850)                                            |
+| `composio_connection_id` set on non-composio backend                  | Reject with `IsolationViolation` error (the field is meaningful only when Composio mediates OAuth)                                                                                                 |
+| `memory.d1_namespace` ≠ `customer_id`                                 | Reject with `IsolationViolation` error (cross-Machine query prevention; see [r2-vectorize-naming.md](./r2-vectorize-naming.md) + [ADR 0009](../../adr/0009-cross-machine-query-prohibition.md))    |
+| `memory.r2_vault_path` ≠ `vaults/{customer_id}/`                      | Reject with `IsolationViolation` error                                                                                                                                                             |
+| `memory.vectorize_index` ≠ `hermes-{customer_id}-vault`               | Reject with `IsolationViolation` error                                                                                                                                                             |
+| `vertical: law-firm` without `practice_areas`                         | Reject with `MissingField` error citing `practice_areas`                                                                                                                                           |
+| `pause.active: true` without `pause.reason`                           | Reject with `MissingField` error citing `pause.reason`                                                                                                                                             |
+| `users[].voice_profile_id` malformed slug                             | Reject with `InvalidSlug` error                                                                                                                                                                    |
+| Duplicate `users[].voice_profile_id` across users                     | Reject with `DuplicateVoiceProfileId` error (per-user attribution model — two users cannot share a profile)                                                                                        |
+| `voice_cohorts:` present but `voice_cohorts.cohorts` empty            | Reject with `EmptyList` error (the field's purpose is to declare cohorts; an empty list is an authoring mistake)                                                                                   |
+| `voice_cohorts.cohorts[]` entry malformed slug                        | Reject with `InvalidSlug` error                                                                                                                                                                    |
+| Duplicate `voice_cohorts.cohorts[]` entry                             | Reject with `DuplicateVoiceCohort` error                                                                                                                                                           |
+| `voice_cohorts.min_samples_per_cohort` ≤ 0 or non-integer             | Reject with `TypeMismatch` error                                                                                                                                                                   |
+| Duplicate `bundles[].slug` within a persona                           | Reject with `DuplicateBundleSlug` error (ADR 0021 Stream D)                                                                                                                                        |
+| `bundles[].skills[]` references skill not on the persona              | Reject with `UnknownBundleSkill` error (ADR 0021 Stream D)                                                                                                                                         |
+| `cron[].schedule` not parseable (cron expr/interval/delay/ISO)        | Reject with `InvalidCronSchedule` error (ADR 0021 Stream B)                                                                                                                                        |
+| `cron[].skill` references skill not on the persona                    | Reject with `UnknownCronSkill` error (ADR 0021 Stream B)                                                                                                                                           |
+| `cron[].wake_policy` not in {`always`, `pre_run_decides`}             | Reject with `InvalidCronWakePolicy` error (ADR 0021 Stream B)                                                                                                                                      |
+| `cron[].pre_run` set with `wake_policy: always` (or vice versa)       | Reject with `InvalidCronWakePolicy` error (ADR 0021 Stream B)                                                                                                                                      |
+| `connectors[].webhook_url` not matching customer-bound pattern        | Reject with `InvalidWebhookUrl` error (ADR 0021 Stream E)                                                                                                                                          |
+| `connectors[].webhook_url` embeds slug ≠ `customer_id`                | Reject with `IsolationViolation` error (ADR 0021 Stream E + ADR 0009)                                                                                                                              |
+| `webhook_triggers[].source` has no connector with `webhook_url`       | Reject with `UnknownWebhookSource` error (ADR 0021 Stream E)                                                                                                                                       |
+| `webhook_triggers[].persona` does not match any declared persona      | Reject with `UnknownWebhookPersona` error (ADR 0021 Stream E)                                                                                                                                      |
+| `webhook_triggers[].skill` not an enabled skill on the target persona | Reject with `UnknownWebhookSkill` error (ADR 0021 Stream E)                                                                                                                                        |
 
 All errors are returned as a list; the validator does not short-circuit on the first error. Authors get the full picture in one round-trip.
 
