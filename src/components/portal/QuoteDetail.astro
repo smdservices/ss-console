@@ -17,7 +17,6 @@
  */
 
 import SkipToMain from '../SkipToMain.astro'
-import { SignOutButton } from '@clerk/astro/components'
 import PortalHeader from './PortalHeader.astro'
 import PortalTabs from './PortalTabs.astro'
 import MoneyDisplay from './MoneyDisplay.astro'
@@ -79,18 +78,9 @@ const showSignButton = isSent
 <SkipToMain />
 <PortalHeader
   clientName={client.name}
-  consultantPhone={isSigned ? null : consultantPhone}
+  consultantPhone={consultantPhone}
   consultantFirstName={consultantFirstName}
->
-  <SignOutButton asChild redirectUrl="/auth/sign-in?status=signed_out">
-    <button
-      type="button"
-      class="text-sm text-[color:var(--ss-color-text-muted)] hover:text-[color:var(--ss-color-text-primary)] transition-colors"
-    >
-      Sign out
-    </button>
-  </SignOutButton>
-</PortalHeader>
+/>
 
 <PortalTabs pathname={`/portal/quotes/${quote.id}`} />
 

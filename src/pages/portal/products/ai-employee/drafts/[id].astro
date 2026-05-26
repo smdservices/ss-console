@@ -12,7 +12,6 @@ import SkipToMain from '../../../../../components/SkipToMain.astro'
 import DraftDetail from '../../../../../components/portal/ai-employee/DraftDetail.astro'
 import DraftSourcingBlock from '../../../../../components/portal/ai-employee/DraftSourcingBlock.astro'
 import TeachMarcusButton from '../../../../../components/portal/ai-employee/TeachMarcusButton.astro'
-import { SignOutButton } from '@clerk/astro/components'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -114,16 +113,7 @@ const personaDisplayName = activePersona ? activePersona.name : null
   </head>
   <body class="min-h-screen bg-[color:var(--ss-color-background)]">
     <SkipToMain />
-    <PortalHeader clientName={client.name}>
-      <SignOutButton asChild redirectUrl="/auth/sign-in?status=signed_out">
-        <button
-          type="button"
-          class="inline-flex items-center min-h-11 px-2 -mx-2 text-sm text-[color:var(--ss-color-text-muted)] hover:text-[color:var(--ss-color-text-primary)] active:text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded transition-colors"
-        >
-          Sign out
-        </button>
-      </SignOutButton>
-    </PortalHeader>
+    <PortalHeader clientName={client.name} />
 
     <PortalTabs pathname={Astro.url.pathname} aiEmployeeActive={true} />
 
