@@ -59,13 +59,100 @@ hermes run status-report-assembler --window "last 14 days"
 
 ## Procedure
 
-1. **Pull PM activity.** From the client's PM tool (per `customer.yaml` connector binding for that client's workspace), fetch completed tasks + tickets in the window. Group by epic/category. Note any blockers logged.
-2. **Pull analytics.** GA4 (or alternative) for the client's site: sessions, conversions, top pages, week-over-week deltas. Use `references/output-format.md` for which metrics are standard vs optional.
-3. **Pull paid-media metrics.** If the client runs paid (Meta/Google/LinkedIn), grab spend, CPM/CPC/CPL, conversion volume, top + worst ads of the week. If no paid activity, skip the section.
-4. **Pull pipeline / leads.** If the client has CRM access (HubSpot etc.), grab new leads + pipeline-stage movements in the window.
-5. **Assemble the draft.** Use the client's preferred report template (in their workspace at `clients/{name}/status-template.md` or a default). Structure: this-week-shipped + this-week-results + this-week-blockers + next-week-priorities + asks.
-6. **Voice-match.** Read prior shipped reports from the client (stored in drafts folder + their inbox). Match voice — formality level, paragraph density, technical depth.
-7. **Write to drafts folder.** `customer_notes/drafts/{client}/status-YYYY-MM-DD.md`. Add a Slack thread message in the agency's `client-status-drafts` channel: client name + draft length + any flagged anomalies + draft permalink.
+The skill runs in two phases. The mechanical per-client × per-connector fetch loop runs inside a single `execute_code` block — intermediate per-client / per-tool results never enter the conversation context (ADR 0021 Stream A). Per-client voice matching, anomaly surfacing, and draft assembly stay in the agent's reasoning loop where they belong.
+
+### Phase 1 — Fetch (single `execute_code` block)
+
+Invoke `execute_code` with a Python script that iterates the agency's active retainer roster and pulls every per-client metric stream into one structured payload. The script reads connector bindings from `customer.yaml` (PM tool, analytics, paid-media, CRM, Slack, Gmail) and uses the Hermes-exposed `terminal` to call each connector's CLI:
+
+```python
+import json
+import shlex
+
+WINDOW_DAYS = 7  # override per `--window` arg
+
+def run(cmd: str) -> str:
+    """Call into the Hermes-exposed terminal tool. Strips trailing whitespace."""
+    return terminal(cmd).strip()
+
+def safe_json(raw: str, fallback_id: str) -> dict:
+    """Parse a connector response; on failure, record + continue rather than abort."""
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return {"error": "parse_failed", "fallback_id": fallback_id, "raw_excerpt": raw[:200]}
+
+# 1. Enumerate active retainer clients from customer.yaml.
+roster_raw = run('customer_yaml.py clients list --status active --has-retainer')
+clients = [line.strip() for line in roster_raw.splitlines() if line.strip()]
+
+# 2. For each client, pull every connector relevant to that client's SOW.
+client_payloads = []
+for slug in clients:
+    cfg_raw = run(f'customer_yaml.py clients get {shlex.quote(slug)} --format json')
+    cfg = safe_json(cfg_raw, fallback_id=slug)
+    connectors = cfg.get("connectors", {}) if isinstance(cfg, dict) else {}
+
+    pm = safe_json(
+        run(f'pm_connector.py activity --client {shlex.quote(slug)} --window {WINDOW_DAYS}d'),
+        fallback_id=f"{slug}.pm",
+    ) if connectors.get("pm") else None
+
+    ga = safe_json(
+        run(f'ga4_connector.py report --client {shlex.quote(slug)} --window {WINDOW_DAYS}d'),
+        fallback_id=f"{slug}.ga",
+    ) if connectors.get("analytics") else None
+
+    paid = safe_json(
+        run(f'paid_media.py report --client {shlex.quote(slug)} --window {WINDOW_DAYS}d'),
+        fallback_id=f"{slug}.paid",
+    ) if connectors.get("paid_media") else None
+
+    crm = safe_json(
+        run(f'crm_connector.py pipeline --client {shlex.quote(slug)} --window {WINDOW_DAYS}d'),
+        fallback_id=f"{slug}.crm",
+    ) if connectors.get("crm") else None
+
+    prior_reports = safe_json(
+        run(f'drafts_store.py prior --client {shlex.quote(slug)} --limit 5'),
+        fallback_id=f"{slug}.prior",
+    )
+
+    client_payloads.append({
+        "client_slug": slug,
+        "config": cfg,
+        "pm": pm,
+        "analytics": ga,
+        "paid_media": paid,
+        "crm": crm,
+        "prior_reports": prior_reports,
+    })
+
+# 3. Emit ONE JSON document. This is the only thing that enters context.
+print(json.dumps({
+    "window_days": WINDOW_DAYS,
+    "client_count": len(client_payloads),
+    "clients": client_payloads,
+}, ensure_ascii=False))
+```
+
+Only the final `print()` output enters the conversation context — typically ~15-25k tokens per client for ~20 clients, instead of ~120 separate tool-call result blocks. Per-client connector parses and prior-report reads happen in the child process and stay there. A single client's connector failure is recorded as a `parse_failed` row inside the payload — the batch does not abort.
+
+### Phase 2 — Reason (agent, in-context)
+
+The agent reads the JSON returned by `execute_code` and, per the rules in `references/algorithm.md`, processes each client in turn:
+
+1. **Categorize PM activity** into "What shipped" per the inclusion rule (PM status transitioned to a done state inside the window AND client-visible AND not internal-only). Group by epic/category. See `references/categorization-rubric.md`.
+2. **Format metrics** for the "Results" section. Only SOW-tracked metrics with healthy data and a comparable prior window. WoW deltas where reasonable; degraded data flagged inline.
+3. **Surface blockers** matching the rubric (waiting-on-client state with a specific next-step ask, open > 2 business days). Internal blockers do NOT enter the client-facing draft.
+4. **Compile next-week priorities** from the agency's plan. Items get one of three provenance markers: confirmed, contingent-on-named-dependency, or `[TBD]`. Never invented.
+5. **Pick the "one thing" ask** by source priority (pending decision > info request > relationship maintenance).
+6. **Voice-match** against the client's prior shipped reports in the payload. ≥ 3 prior reports → match formality / paragraph density / salutation. 1-2 priors → match but flag in Slack alert. 0 priors → use agency default voice + flag for calibration.
+7. **Detect anomalies** per the rubric (result drop ≥ 25% WoW, blocker ≥ 7 business days, shipped count 0, next-week count 0). Anomalies become `> NOTE:` lines above the affected section AND surface in the Slack alert.
+8. **Write the per-client draft** to `customer_notes/drafts/{client_slug}/status-YYYY-MM-DD.md` using the client's preferred template if present, otherwise the default in `references/output-format.md`.
+9. **Post one summary Slack thread** to the agency's `client-status-drafts` channel listing all drafts written and all flagged-for-review entries, per `references/output-format.md`.
+
+Detailed per-section inclusion rules, anomaly thresholds, and voice-calibration logic live in `references/algorithm.md`. The reference is the source of truth for what "good status assembly" looks like; this procedure is the dispatch shape.
 
 ### Trust Ceiling
 
@@ -101,6 +188,7 @@ A successful weekly run satisfies:
 
 ## References
 
+- `references/algorithm.md` — detailed per-client / per-section reasoning rules preserved for graders (post-`execute_code` rewrite)
 - `references/voice.md` — agency-to-client voice + client-specific tonal matching
 - `references/output-format.md` — exact draft structure + metric inclusion rules
 - `references/categorization-rubric.md` — what counts as a "blocker" vs "noise"; anomaly thresholds
@@ -108,9 +196,17 @@ A successful weekly run satisfies:
 
 ## Cost estimate (filled by grading)
 
-- Typical tokens-in per client: ~15K (PM data + analytics + paid + prior reports)
-- Typical tokens-out per client: ~3K (the draft)
-- Tool calls per client: ~12 (PM, GA4, Meta, Google, LinkedIn, CRM, drafts read)
-- Typical cadence: weekly × N clients
+Post-`execute_code` rewrite (ADR 0021 Stream A). Per-connector intermediate
+results no longer enter the conversation context; only the single Phase-1
+JSON payload does.
 
-For a 20-client agency: ~$8-12/month in tokens, ~$2/month in tool calls.
+- Typical tokens-in per run (20 clients): ~300K — one JSON document covering all clients' PM activity, GA4, paid-media, CRM, and prior reports.
+- Typical tokens-out per run: ~60K (one ~3K draft × 20 clients + one summary Slack post).
+- Hermes tool calls per run: 2 (one `execute_code` + one `Email.create_draft`-equivalent batch / file-write batch). The per-connector calls happen inside `execute_code` and don't count toward conversation context.
+- Typical cadence: weekly × N clients.
+
+Pre-rewrite the parent agent saw ~120 separate tool-call result blocks per
+run (one `execute_code` block replaces those). Token reduction expected
+≥ 50% vs. baseline; grading harness confirms.
+
+For a 20-client agency: ~$5-8/month in tokens, ~$1/month in tool calls.
