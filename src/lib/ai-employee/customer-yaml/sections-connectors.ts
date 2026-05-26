@@ -13,12 +13,12 @@
  * `ai-employee/adapter/connectors/composio_assertion.py`.
  */
 
-import type { CapabilityName } from '../capabilities/types'
 import {
   ACCEPTED_BACKEND_PREFIXES,
   ACCEPTED_CAPABILITY_NAMES,
   SLUG_PATTERN,
   WEBHOOK_URL_PATTERN,
+  type CapabilityName,
   type Connector,
   type ValidationError,
 } from './types'

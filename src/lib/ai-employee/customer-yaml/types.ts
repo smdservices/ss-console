@@ -6,7 +6,24 @@
  * the types without pulling the validation logic.
  */
 
-import type { CapabilityName } from '../capabilities/types'
+/**
+ * Closed set of capability names — the keys of the customer.yaml
+ * `connectors:` map. Each name binds to one adapter slug + backend
+ * prefix at provisioning time. Add a new name here when a new vertical
+ * needs a capability the agent doesn't already abstract.
+ */
+export type CapabilityName =
+  | 'PracticeManagement'
+  | 'Email'
+  | 'Calendar'
+  | 'DocumentStorage'
+  | 'ESign'
+  | 'CourtAccess'
+  | 'Payments'
+  | 'Accounting'
+  | 'IntakeCRM'
+  | 'CallTracking'
+  | 'InternalComms'
 
 export const ACCEPTED_CAPABILITY_NAMES: ReadonlySet<CapabilityName> = new Set<CapabilityName>([
   'PracticeManagement',

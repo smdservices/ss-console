@@ -19,8 +19,13 @@
  * almost always a typo.
  */
 
-import type { CapabilityName } from '../capabilities/types'
-import type { Connector, Persona, ValidationError, WebhookTrigger } from './types'
+import type {
+  CapabilityName,
+  Connector,
+  Persona,
+  ValidationError,
+  WebhookTrigger,
+} from './types'
 import { isPlainObject } from './helpers'
 
 export function checkWebhookTriggers(

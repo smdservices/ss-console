@@ -376,18 +376,6 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // <option>s, not list rows. The agenda itself is rendered through
   // <CalendarAgenda>, which iterates via <CalendarItemRow>.
   resolve('src/pages/portal/products/ai-employee/calendar/index.astro'),
-  // `products/ai-employee/settings/advanced/index.astro` is the
-  // customer.yaml editor (#877): a structured FORM, not a list
-  // surface. The only `.map(` on the page is the frontmatter
-  // `resolved.errors.map((e) => e.path)` call that joins validation-
-  // error paths into a status banner. Form sections (PersonaFields,
-  // EscalationFields, BusinessHoursFields, ConnectorsFields,
-  // ScopeFields) live under
-  // `src/components/portal/ai-employee/customer-yaml-editor/` and
-  // render typed inputs per field group, not list-row cards. The
-  // PortalListItem primitive is the wrong shape here. There is no
-  // status/document repeating-card vocabulary to enforce.
-  resolve('src/pages/portal/products/ai-employee/settings/advanced/index.astro'),
   // `products/ai-employee/notifications/index.astro` (#876) iterates
   // notifications through the dedicated <NotificationRow> primitive,
   // not PortalListItem. A notification row's vocabulary (type chip +
