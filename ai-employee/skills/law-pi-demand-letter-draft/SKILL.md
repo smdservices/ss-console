@@ -105,11 +105,11 @@ The detailed per-step rules, per-subagent required-key lists, and parent assembl
 
 Use Hermes' `delegate_task` to spawn three isolated subagents concurrently. Each gets a restricted toolset (default Hermes delegation policy blocks `delegation`, `memory`, `code_execution`, `send_message`, and write capabilities for leaf subagents).
 
-| Sub-role | Goal | Required return keys |
-|---|---|---|
-| `medicals_summary` | Assemble medical chronology + per-provider billing from medical/billing documents | `medical_chronology` (≥1 sourced row), `per_provider_billing` (≥1 row), `medical_specials_total` (numeric or explicit-TBD) |
-| `damages_summary` | Assemble lost-wages tabulation from employment-verification documents | `lost_wages_total` (numeric or explicit-TBD), `employer_documentation` (list, may be empty) |
-| `liability_summary` | Assemble factual case-history paragraph from custom_fields + incident docs | `date_of_incident`, `incident_location`, `client_role`, `factual_chronology` (≥3 sentences) |
+| Sub-role            | Goal                                                                              | Required return keys                                                                                                       |
+| ------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `medicals_summary`  | Assemble medical chronology + per-provider billing from medical/billing documents | `medical_chronology` (≥1 sourced row), `per_provider_billing` (≥1 row), `medical_specials_total` (numeric or explicit-TBD) |
+| `damages_summary`   | Assemble lost-wages tabulation from employment-verification documents             | `lost_wages_total` (numeric or explicit-TBD), `employer_documentation` (list, may be empty)                                |
+| `liability_summary` | Assemble factual case-history paragraph from custom_fields + incident docs        | `date_of_incident`, `incident_location`, `client_role`, `factual_chronology` (≥3 sentences)                                |
 
 The Hermes runtime emits one `SUBAGENT_STOPPED` audit row per child via the overlay's `hermes-smd-audit` plugin (`subagent_stop` hook). The parent waits for all three to return before proceeding.
 

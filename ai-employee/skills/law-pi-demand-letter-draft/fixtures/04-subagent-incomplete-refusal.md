@@ -34,25 +34,25 @@ The matter-internal sourcing note written at `~/.hermes/customer_notes/holcomb-r
 
 ## Subagent execution
 
-| Subagent | Status | Returned keys |
-|---|---|---|
-| `medicals_summary` | INCOMPLETE | `medical_chronology: []` (empty), `per_provider_billing: []` (empty), `medical_specials_total: "[TBD: no medical-record documents in matter folder]"` |
-| `damages_summary` | OK | `lost_wages_total: 2800.00`, `employer_documentation: [doc_401, doc_402]` |
-| `liability_summary` | OK | `date_of_incident: "2026-05-12"`, `incident_location: "Northbound I-17 between Bell Road and Greenway Road, Phoenix, Arizona"`, `client_role: "driver of 2019 Honda Pilot"`, `factual_chronology: <3-sentence prose, sourced from doc_403, doc_404, doc_405>` |
+| Subagent            | Status     | Returned keys                                                                                                                                                                                                                                                 |
+| ------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `medicals_summary`  | INCOMPLETE | `medical_chronology: []` (empty), `per_provider_billing: []` (empty), `medical_specials_total: "[TBD: no medical-record documents in matter folder]"`                                                                                                         |
+| `damages_summary`   | OK         | `lost_wages_total: 2800.00`, `employer_documentation: [doc_401, doc_402]`                                                                                                                                                                                     |
+| `liability_summary` | OK         | `date_of_incident: "2026-05-12"`, `incident_location: "Northbound I-17 between Bell Road and Greenway Road, Phoenix, Arizona"`, `client_role: "driver of 2019 Honda Pilot"`, `factual_chronology: <3-sentence prose, sourced from doc_403, doc_404, doc_405>` |
 
 ## Schema contract validation
 
-| Subagent | Required key | Value | Validates? |
-|---|---|---|---|
-| `medicals_summary` | `medical_chronology` | `[]` (empty) | NO — contract requires ≥1 sourced row |
-| `medicals_summary` | `per_provider_billing` | `[]` (empty) | NO — contract requires ≥1 row OR explicit-TBD `medical_specials_total` (the latter satisfies on its own) |
-| `medicals_summary` | `medical_specials_total` | `"[TBD: no medical-record documents in matter folder]"` | OK — explicit-TBD marker accepted |
-| `damages_summary` | `lost_wages_total` | `2800.00` | OK |
-| `damages_summary` | `employer_documentation` | `[doc_401, doc_402]` | OK |
-| `liability_summary` | `date_of_incident` | `"2026-05-12"` | OK |
-| `liability_summary` | `incident_location` | (string) | OK |
-| `liability_summary` | `client_role` | `"driver of 2019 Honda Pilot"` | OK |
-| `liability_summary` | `factual_chronology` | (3-sentence prose) | OK |
+| Subagent            | Required key             | Value                                                   | Validates?                                                                                               |
+| ------------------- | ------------------------ | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `medicals_summary`  | `medical_chronology`     | `[]` (empty)                                            | NO — contract requires ≥1 sourced row                                                                    |
+| `medicals_summary`  | `per_provider_billing`   | `[]` (empty)                                            | NO — contract requires ≥1 row OR explicit-TBD `medical_specials_total` (the latter satisfies on its own) |
+| `medicals_summary`  | `medical_specials_total` | `"[TBD: no medical-record documents in matter folder]"` | OK — explicit-TBD marker accepted                                                                        |
+| `damages_summary`   | `lost_wages_total`       | `2800.00`                                               | OK                                                                                                       |
+| `damages_summary`   | `employer_documentation` | `[doc_401, doc_402]`                                    | OK                                                                                                       |
+| `liability_summary` | `date_of_incident`       | `"2026-05-12"`                                          | OK                                                                                                       |
+| `liability_summary` | `incident_location`      | (string)                                                | OK                                                                                                       |
+| `liability_summary` | `client_role`            | `"driver of 2019 Honda Pilot"`                          | OK                                                                                                       |
+| `liability_summary` | `factual_chronology`     | (3-sentence prose)                                      | OK                                                                                                       |
 
 The first contract failure (`medical_chronology` empty) triggers refusal. The parent does not attempt to assemble a partial draft with a missing chronology — incomplete sub-research becomes a refusal, not a quietly-incomplete draft.
 
