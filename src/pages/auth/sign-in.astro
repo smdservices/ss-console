@@ -6,17 +6,16 @@ import { SignIn } from '@clerk/astro/components'
 import { clerkAppearance } from '../../lib/auth/clerk-appearance'
 
 /**
- * Client portal sign-in. Renders Clerk's SignIn component, which handles
- * email + password (primary), email verification code (passwordless
- * fallback), and Organization-invitation acceptance natively.
+ * Unified sign-in. Single entry point for both admins and clients.
  *
- * Wrapped in the standard marketing/site chrome (Base layout +
- * AuthHeader + Footer) so the auth surface feels like part of the same
- * SMD Services site as the marketing pages, the admin console, and
- * the authenticated portal.
+ * Clerk's SignIn component handles email + password, email verification
+ * code (passwordless fallback), and Organization-invitation acceptance
+ * natively. After authentication Clerk redirects to /auth/after-sign-in,
+ * which inspects the user's role in the local users table and routes
+ * to admin.smd.services or portal.smd.services accordingly.
  *
- * Replaces the legacy magic-link entry at /auth/portal-login (now a
- * 301 redirect to this route).
+ * Wrapped in the standard site chrome (Base layout + AuthHeader + Footer)
+ * so the auth surface matches marketing and admin.
  */
 
 const status = Astro.url.searchParams.get('status')
@@ -37,9 +36,9 @@ const statusMessages: Record<string, { text: string; type: 'success' | 'error' }
 const message = status ? statusMessages[status] : null
 ---
 
-<Base title="Sign In | SMD Services Portal" disableAnalytics={true}>
+<Base title="Sign In | SMD Services" disableAnalytics={true}>
   <div class="flex min-h-screen flex-col bg-[color:var(--ss-color-background)]">
-    <AuthHeader crossLinkHref="/auth/portal-sign-up" crossLinkLabel="Create account" />
+    <AuthHeader crossLinkHref="/auth/sign-up" crossLinkLabel="Create account" />
 
     <main
       id="main"
@@ -50,7 +49,7 @@ const message = status ? statusMessages[status] : null
         <p
           class="mb-6 text-center font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]"
         >
-          Client portal sign-in
+          Sign in
         </p>
 
         {
@@ -69,9 +68,9 @@ const message = status ? statusMessages[status] : null
         }
 
         <SignIn
-          signUpUrl="/auth/portal-sign-up"
-          fallbackRedirectUrl="/portal"
-          forceRedirectUrl="/portal"
+          signUpUrl="/auth/sign-up"
+          fallbackRedirectUrl="/auth/after-sign-in"
+          forceRedirectUrl="/auth/after-sign-in"
           appearance={clerkAppearance}
         />
       </div>

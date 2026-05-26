@@ -144,7 +144,7 @@ describe('resolveAiEmployeeAccess', () => {
 
     expect(result.kind).toBe('redirect')
     if (result.kind === 'redirect') {
-      expect(result.to).toBe('/auth/portal-sign-in')
+      expect(result.to).toBe('/auth/sign-in')
     }
   })
 
@@ -160,7 +160,7 @@ describe('resolveAiEmployeeAccess', () => {
 
     expect(result.kind).toBe('redirect')
     if (result.kind === 'redirect') {
-      expect(result.to).toBe('/auth/portal-sign-in?status=no_subscription')
+      expect(result.to).toBe('/auth/sign-in?status=no_subscription')
     }
   })
 

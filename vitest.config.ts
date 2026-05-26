@@ -1,8 +1,30 @@
 import { getViteConfig } from 'astro/config'
 import { resolve } from 'node:path'
 
+// Stub for Clerk Astro's virtual config module. Clerk generates this
+// virtual module during the Astro build to expose runtime config to its
+// components. AstroContainer-based tests run outside the build pipeline
+// and can't resolve it, so SSR tests for any layout importing Clerk
+// components (e.g., AdminLayout's <SignOutButton />) fail to load
+// without this shim. The stub returns the SSR posture the SS app uses
+// in production.
+const clerkAstroConfigVirtualPlugin = {
+  name: 'stub-virtual-clerk-astro-config',
+  resolveId(id: string) {
+    if (id === 'virtual:@clerk/astro/config') return '\0virtual:@clerk/astro/config'
+    return null
+  },
+  load(id: string) {
+    if (id === '\0virtual:@clerk/astro/config') {
+      return 'export const isStaticOutput = false;'
+    }
+    return null
+  },
+}
+
 export default getViteConfig(
   {
+    plugins: [clerkAstroConfigVirtualPlugin],
     resolve: {
       alias: {
         // `cloudflare:workers` is a runtime-only module; Node can't resolve it.

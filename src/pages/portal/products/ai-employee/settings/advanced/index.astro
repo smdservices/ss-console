@@ -65,10 +65,10 @@ const SETTINGS_LANDING_URL = '/portal/products/ai-employee/settings'
 
 const portalData = await getPortalClient(env.DB, Astro.locals)
 if (!portalData) {
-  return Astro.redirect('/auth/portal-sign-in')
+  return Astro.redirect('/auth/sign-in')
 }
 if (!portalData.client) {
-  return Astro.redirect('/auth/portal-sign-in?status=no_subscription')
+  return Astro.redirect('/auth/sign-in?status=no_subscription')
 }
 
 const { user, client } = portalData
@@ -138,7 +138,7 @@ const locked = resolved && !('error' in resolved) ? resolved.locked : null
   <body class="min-h-screen bg-[color:var(--ss-color-background)]">
     <SkipToMain />
     <PortalHeader clientName={client.name}>
-      <SignOutButton asChild redirectUrl="/auth/portal-sign-in?status=signed_out">
+      <SignOutButton asChild redirectUrl="/auth/sign-in?status=signed_out">
         <button
           type="button"
           class="inline-flex items-center min-h-11 px-2 -mx-2 text-sm text-[color:var(--ss-color-text-muted)] hover:text-[color:var(--ss-color-text-primary)] active:text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded transition-colors"

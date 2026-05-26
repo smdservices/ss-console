@@ -1,7 +1,7 @@
 ---
 /**
  * Legacy magic-link entry point for portal sign-in. Portal auth has moved
- * to Clerk; this route 301-redirects to /auth/portal-sign-in so existing
+ * to Clerk; this route 301-redirects to /auth/sign-in so existing
  * bookmarks, emails, and prior outbound links continue to work.
  *
  * Preserve any `status=` query param so the new sign-in page can surface
@@ -9,8 +9,6 @@
  */
 
 const status = Astro.url.searchParams.get('status')
-const target = status
-  ? `/auth/portal-sign-in?status=${encodeURIComponent(status)}`
-  : '/auth/portal-sign-in'
+const target = status ? `/auth/sign-in?status=${encodeURIComponent(status)}` : '/auth/sign-in'
 return Astro.redirect(target, 301)
 ---
