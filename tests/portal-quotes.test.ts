@@ -56,14 +56,20 @@ describe('portal quotes: session helper', () => {
   })
 
   it('resolves portal user via the Clerk identity bridge', () => {
-    // Portal auth migrated to Clerk (PR #906). getPortalClient now reads
-    // Astro.locals.auth() / locals.currentUser() and bridges to local
-    // rows via ensureLocalUser / resolveClerkEntity in clerk-bridge.ts.
+    // Portal auth migrated to Clerk (PR #906). getPortalClient reads
+    // Astro.locals.auth() / locals.currentUser() and delegates the
+    // entity-resolution chain to resolveClerkPortalContext in
+    // clerk-bridge.ts. That function (not getPortalClient inline)
+    // owns the resolution order:
+    //   1. users.entity_id  (direct binding)
+    //   2. entities.clerk_org_id via active Clerk org
+    // The post-2026-05-26 regression: getPortalClient used to skip
+    // step 1, returning client:null for any user without an active
+    // Clerk org even when their users.entity_id was set.
     const code = readFileSync(resolve('src/lib/portal/session.ts'), 'utf-8')
     expect(code).toContain('locals.auth()')
     expect(code).toContain('locals.currentUser()')
-    expect(code).toContain('ensureLocalUser')
-    expect(code).toContain('resolveClerkEntity')
+    expect(code).toContain('resolveClerkPortalContext')
   })
 
   it('scopes the entity lookup by org_id for defense-in-depth (#399)', () => {
