@@ -5,14 +5,23 @@
  * `src/pages/api/oauth/callback.ts` and the customer-facing portal
  * callback at `src/pages/portal/products/ai-employee/oauth/[connector]/callback.astro`.
  *
- * Scope discipline mirrors `ai-employee/connectors/ms_graph/oauth.py`
- * `PHASE_1_SCOPES`: read + draft only. `Mail.Send` is explicitly absent
- * — programmatic send is wave-2 stream (issue #881) under a separate
+ * Scope discipline: read + draft only. `Mail.Send` is explicitly absent
+ * — programmatic send is the wave-2 stream (issue #881) under a separate
  * adapter method and a distinct delegated scope.
+ *
+ * This OAuth provider is the canonical source for the Microsoft Graph
+ * delegated-scope contract. Per ADR 0021 Stream F (PR #1081 + #1065),
+ * the Mail/Calendar/DocumentStorage capabilities are now bound to MCP
+ * servers (`mcp:m365-mail`, `mcp:m365-calendar`,
+ * `mcp:softeria/ms-365-mcp-server`); the prior Python BUILD adapter at
+ * `ai-employee/connectors/ms_graph/` was deleted in the 2026-05-24
+ * realignment. The MCP servers consume the OAuth refresh token this
+ * provider mints — token storage and refresh remain owned here.
  *
  * Reference docs:
  *   - `docs/specs/ai-employee/oauth-lifecycle.md` § "Per-connector OAuth scope inventory"
  *   - `docs/runbooks/ai-employee/ms-graph-azure-ad-setup.md`
+ *   - `docs/strategy/mcp-vs-build-ms-graph-2026-05-25.md` (F decision packet)
  */
 
 import { env } from 'cloudflare:workers'
