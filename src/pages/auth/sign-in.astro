@@ -70,7 +70,7 @@ const message = status ? statusMessages[status] : null
         {
           status === 'no_subscription' && (
             <div class="mb-6 text-center">
-              <SignOutButton redirectUrl="/auth/sign-in">
+              <SignOutButton asChild redirectUrl="/auth/sign-in">
                 <button
                   type="button"
                   class="inline-flex items-center min-h-11 px-3 font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)] active:text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 underline underline-offset-4"
