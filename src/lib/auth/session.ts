@@ -1,16 +1,24 @@
 /**
- * Session management for admin authentication.
+ * Session management for the legacy magic-link client portal path.
+ *
+ * As of the 2026-05-25 Clerk-unified auth migration, Clerk owns both
+ * admin and primary portal sessions. This module is retained ONLY for
+ * the magic-link client invitation flow: /auth/verify consumes a
+ * magic-link token, calls createSession() to mint a session_token
+ * cookie, and the middleware's portal-session fallback accepts that
+ * cookie until it expires. New client onboarding will migrate to
+ * Clerk invitations in a follow-up.
  *
  * Sessions are stored in D1 (source of truth) with Workers KV as a fast
- * lookup cache. The session token is a cryptographically random UUID stored
- * in an HttpOnly cookie.
+ * lookup cache. The session token is a cryptographically random UUID
+ * stored in an HttpOnly cookie.
  *
  * Session lifecycle:
- *   1. createSession() — writes to D1 + KV, returns token
+ *   1. createSession()  — writes to D1 + KV, returns token
  *   2. validateSession() — reads from KV (fast path) or D1 (fallback)
- *   3. destroySession() — deletes from D1 + KV
+ *   3. renewSession()   — sliding-window refresh on each authenticated request
  *
- * Session expiration: 7 days of inactivity (sliding window).
+ * Session expiration: 7 days admin (unused after migration), 30 days client.
  */
 
 export const SESSION_COOKIE_NAME = 'session_token'
@@ -198,38 +206,15 @@ export async function renewSession(
 }
 
 /**
- * Destroy a session (logout).
- * Removes from both D1 and KV.
- */
-export async function destroySession(
-  db: D1Database,
-  kv: KVNamespace,
-  token: string
-): Promise<void> {
-  await Promise.all([
-    db.prepare(`DELETE FROM sessions WHERE token = ?`).bind(token).run(),
-    kv.delete(`session:${token}`),
-  ])
-}
-
-/**
- * Build a Set-Cookie header for the session token.
+ * Build a Set-Cookie header for the session token. Used by the magic-link
+ * client onboarding path (/auth/verify) to mint the session cookie.
  *
- * No Domain= attribute is set intentionally: admin cookies are scoped to
- * admin.smd.services and portal cookies to portal.smd.services. This
- * isolation prevents cross-domain cookie leakage between admin and client
- * sessions.
+ * No Domain= attribute is set intentionally: client cookies are scoped to
+ * portal.smd.services.
  */
 export function buildSessionCookie(token: string, role?: string): string {
   const maxAge = Math.floor(getSessionDurationMs(role) / 1000)
   return `${SESSION_COOKIE_NAME}=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAge}`
-}
-
-/**
- * Build a Set-Cookie header that clears the session cookie.
- */
-export function buildClearSessionCookie(): string {
-  return `${SESSION_COOKIE_NAME}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`
 }
 
 /**

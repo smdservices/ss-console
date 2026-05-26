@@ -182,26 +182,10 @@ describe('middleware: session resolution gating', () => {
   })
 })
 
-describe('middleware: admin login host guard', () => {
-  const source = () => readFileSync(resolve('src/pages/api/auth/login.ts'), 'utf-8')
-
-  it('rejects admin login POST when host is not admin.*', () => {
-    const code = source()
-    expect(code).toContain("requestHost.startsWith('admin.')")
-    expect(code).toContain('wrong_host')
-  })
-
-  it('allows local dev hostnames (localhost, 127.0.0.1)', () => {
-    const code = source()
-    expect(code).toContain('localhost')
-    expect(code).toContain('127.0.0.1')
-  })
-})
-
-describe('middleware: login page shows wrong_host error', () => {
-  it('login page maps wrong_host error to a user-visible message', () => {
-    const code = readFileSync(resolve('src/pages/auth/login.astro'), 'utf-8')
-    expect(code).toContain('wrong_host')
-    expect(code).toContain('admin.smd.services')
-  })
-})
+// Legacy `admin login host guard` and `login page shows wrong_host error`
+// suites were removed in PR #1059 (Clerk-unified auth decommission). The
+// guarded files — src/pages/api/auth/login.ts and src/pages/auth/login.astro
+// — no longer exist. The functional protection they enforced (admins must
+// authenticate on the admin subdomain) is now provided by Clerk's session
+// being scoped to *.smd.services + enforceAdminAuth requiring role='admin'
+// from the local users row.

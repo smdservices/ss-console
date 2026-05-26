@@ -2,48 +2,34 @@ import { describe, it, expect } from 'vitest'
 import { existsSync, readFileSync } from 'fs'
 import { resolve } from 'path'
 
-describe('auth: password module', () => {
-  it('password.ts exports hashPassword and verifyPassword', () => {
-    const source = readFileSync(resolve('src/lib/auth/password.ts'), 'utf-8')
-    expect(source).toContain('export async function hashPassword')
-    expect(source).toContain('export async function verifyPassword')
-  })
-
-  it('uses PBKDF2 with Web Crypto API (Workers-compatible)', () => {
-    const source = readFileSync(resolve('src/lib/auth/password.ts'), 'utf-8')
-    expect(source).toContain('PBKDF2')
-    expect(source).toContain('crypto.subtle')
-    // Must NOT import bcrypt or argon2 as dependencies
-    expect(source).not.toMatch(/import.*bcrypt/)
-    expect(source).not.toMatch(/import.*argon2/)
-    expect(source).not.toMatch(/require.*bcrypt/)
-    expect(source).not.toMatch(/require.*argon2/)
-  })
-
-  it('uses constant-time comparison for hash verification', () => {
-    const source = readFileSync(resolve('src/lib/auth/password.ts'), 'utf-8')
-    // XOR-based constant-time compare pattern
-    expect(source).toContain('diff |=')
-  })
-
-  it('uses sufficient iterations (>= 100000)', () => {
-    const source = readFileSync(resolve('src/lib/auth/password.ts'), 'utf-8')
-    expect(source).toContain('100_000')
-  })
-})
+/**
+ * Source-level guards for the auth subsystem.
+ *
+ * Post 2026-05-25 Clerk-unified migration, this file covers:
+ *   - session.ts (the magic-link path that survived for client invites)
+ *   - middleware.ts (admin shim + portal Clerk + legacy fallback)
+ *   - AdminLayout.astro (Clerk SignOutButton chrome)
+ *   - admin-session-shim.ts (Clerk userId → SessionData adapter)
+ *
+ * Removed legacy suites (covered the PBKDF2 admin path that PR 3 deleted):
+ *   - auth: password module
+ *   - auth: login page
+ *   - auth: API endpoints (logout/login)
+ *   - auth: login endpoint rate limiting
+ */
 
 describe('auth: session module', () => {
-  it('session.ts exports core session functions', () => {
+  it('session.ts exports the core helpers still used by /auth/verify', () => {
     const source = readFileSync(resolve('src/lib/auth/session.ts'), 'utf-8')
     expect(source).toContain('export async function createSession')
     expect(source).toContain('export async function validateSession')
-    expect(source).toContain('export async function destroySession')
     expect(source).toContain('export async function renewSession')
+    expect(source).toContain('export function buildSessionCookie')
+    expect(source).toContain('export function parseSessionToken')
   })
 
-  it('session duration is 7 days', () => {
+  it('admin session duration is 7 days', () => {
     const source = readFileSync(resolve('src/lib/auth/session.ts'), 'utf-8')
-    // 7 * 24 * 60 * 60 * 1000
     expect(source).toContain('7 * 24 * 60 * 60 * 1000')
   })
 
@@ -61,9 +47,7 @@ describe('auth: session module', () => {
 
   it('validates via KV first then falls back to D1', () => {
     const source = readFileSync(resolve('src/lib/auth/session.ts'), 'utf-8')
-    // KV fast path mentioned in validateSession
     expect(source).toContain('kv.get')
-    // D1 fallback
     expect(source).toContain('SELECT * FROM sessions WHERE token')
   })
 
@@ -98,6 +82,36 @@ describe('auth: buildSessionCookie behavior', () => {
   })
 })
 
+describe('auth: admin session shim', () => {
+  it('shim file exists', () => {
+    expect(existsSync(resolve('src/lib/auth/admin-session-shim.ts'))).toBe(true)
+  })
+
+  it('exports resolveAdminSessionFromClerk', () => {
+    const source = readFileSync(resolve('src/lib/auth/admin-session-shim.ts'), 'utf-8')
+    expect(source).toContain('export async function resolveAdminSessionFromClerk')
+  })
+
+  it('gates resolution to role=admin in the SQL', () => {
+    const source = readFileSync(resolve('src/lib/auth/admin-session-shim.ts'), 'utf-8')
+    expect(source).toContain("WHERE clerk_user_id = ? AND role = 'admin'")
+  })
+
+  it('returns SessionData shape matching legacy locals.session', () => {
+    const source = readFileSync(resolve('src/lib/auth/admin-session-shim.ts'), 'utf-8')
+    expect(source).toContain('userId:')
+    expect(source).toContain('orgId:')
+    expect(source).toContain('email:')
+    expect(source).toContain("role: 'admin'")
+  })
+
+  it('caches resolved sessions in KV with a bounded TTL', () => {
+    const source = readFileSync(resolve('src/lib/auth/admin-session-shim.ts'), 'utf-8')
+    expect(source).toContain('admin-session:')
+    expect(source).toContain('expirationTtl')
+  })
+})
+
 describe('auth: middleware', () => {
   it('middleware.ts exists', () => {
     expect(existsSync(resolve('src/middleware.ts'))).toBe(true)
@@ -109,11 +123,9 @@ describe('auth: middleware', () => {
     expect(source).toContain("pathname.startsWith('/admin')")
   })
 
-  it('redirects unauthenticated requests to login', () => {
+  it('redirects unauthenticated requests to the unified sign-in', () => {
     const source = readFileSync(resolve('src/middleware.ts'), 'utf-8')
-    // Portal routes redirect to /auth/portal-login; admin routes to /auth/login.
-    // Both paths are covered by the ternary form.
-    expect(source).toContain("'/auth/login'")
+    expect(source).toContain("'/auth/sign-in'")
   })
 
   it('attaches session to locals', () => {
@@ -127,71 +139,33 @@ describe('auth: middleware', () => {
   })
 
   it('populates locals.session for admin paths via the Clerk shim', () => {
-    // After the 2026-05-25 Clerk-unified migration, admin sessions are
-    // synthesized from the Clerk identity by resolveAdminSessionFromClerk.
-    // The middleware no longer sets/refreshes an SS-side session cookie —
-    // Clerk owns admin cookies just like it owns portal cookies.
     const source = readFileSync(resolve('src/middleware.ts'), 'utf-8')
     expect(source).toContain('resolveAdminSessionFromClerk')
   })
 })
 
-describe('auth: login page', () => {
-  it('login page exists', () => {
-    expect(existsSync(resolve('src/pages/auth/login.astro'))).toBe(true)
+describe('auth: unified sign-in pages', () => {
+  it('sign-in page exists', () => {
+    expect(existsSync(resolve('src/pages/auth/sign-in.astro'))).toBe(true)
   })
 
-  it('login form posts to /api/auth/login', () => {
-    const source = readFileSync(resolve('src/pages/auth/login.astro'), 'utf-8')
-    expect(source).toContain('method="POST"')
-    expect(source).toContain('action="/api/auth/login"')
+  it('sign-up page exists', () => {
+    expect(existsSync(resolve('src/pages/auth/sign-up.astro'))).toBe(true)
   })
 
-  it('includes email and password fields', () => {
-    const source = readFileSync(resolve('src/pages/auth/login.astro'), 'utf-8')
-    expect(source).toContain('name="email"')
-    expect(source).toContain('name="password"')
-    expect(source).toContain('type="email"')
-    expect(source).toContain('type="password"')
+  it('after-sign-in dispatcher exists', () => {
+    expect(existsSync(resolve('src/pages/auth/after-sign-in.ts'))).toBe(true)
   })
 
-  it('displays error messages from query params', () => {
-    const source = readFileSync(resolve('src/pages/auth/login.astro'), 'utf-8')
-    expect(source).toContain('error')
-    expect(source).toContain('Invalid email or password')
+  it('sign-in page forces redirect through /auth/after-sign-in', () => {
+    const source = readFileSync(resolve('src/pages/auth/sign-in.astro'), 'utf-8')
+    expect(source).toContain('forceRedirectUrl="/auth/after-sign-in"')
   })
 
-  it('is branded with SMD Services', () => {
-    const source = readFileSync(resolve('src/pages/auth/login.astro'), 'utf-8')
-    expect(source).toContain('SMD Services')
-  })
-
-  it('is not indexed by search engines', () => {
-    const source = readFileSync(resolve('src/pages/auth/login.astro'), 'utf-8')
-    expect(source).toContain('noindex')
-  })
-})
-
-describe('auth: API endpoints', () => {
-  it('login endpoint exists', () => {
-    expect(existsSync(resolve('src/pages/api/auth/login.ts'))).toBe(true)
-  })
-
-  it('logout endpoint exists', () => {
-    expect(existsSync(resolve('src/pages/api/auth/logout.ts'))).toBe(true)
-  })
-
-  it('login endpoint validates credentials and creates session', () => {
-    const source = readFileSync(resolve('src/pages/api/auth/login.ts'), 'utf-8')
-    expect(source).toContain('verifyPassword')
-    expect(source).toContain('createSession')
-    expect(source).toContain('buildSessionCookie')
-  })
-
-  it('logout endpoint destroys session and clears cookie', () => {
-    const source = readFileSync(resolve('src/pages/api/auth/logout.ts'), 'utf-8')
-    expect(source).toContain('destroySession')
-    expect(source).toContain('buildClearSessionCookie')
+  it('after-sign-in dispatcher routes by users.role', () => {
+    const source = readFileSync(resolve('src/pages/auth/after-sign-in.ts'), 'utf-8')
+    expect(source).toContain('resolveAdminSessionFromClerk')
+    expect(source).toContain('SELECT role, entity_id FROM users WHERE clerk_user_id = ?')
   })
 })
 
@@ -206,8 +180,6 @@ describe('auth: admin dashboard', () => {
   })
 
   it('admin layout includes Clerk sign-out button', () => {
-    // 2026-05-25 unified auth: admin sign-out is driven by Clerk's
-    // <SignOutButton /> redirecting to /auth/sign-in?status=signed_out.
     const source = readFileSync(resolve('src/layouts/AdminLayout.astro'), 'utf-8')
     expect(source).toContain('SignOutButton')
     expect(source).toContain('/auth/sign-in?status=signed_out')
@@ -219,38 +191,21 @@ describe('auth: admin dashboard', () => {
   })
 })
 
-describe('auth: migrations', () => {
-  it('password_hash migration exists', () => {
+describe('auth: migrations (historical)', () => {
+  it('password_hash migration still exists in history', () => {
+    // We don't drop the migration even though the column is no longer
+    // written to; D1 migrations are append-only and the schema column
+    // still exists in the users table (NULL for the post-cutover admin
+    // row). Removing the migration would diverge prod from local.
     expect(existsSync(resolve('migrations/0004_add_password_hash.sql'))).toBe(true)
   })
 
-  it('password_hash migration adds column to users table', () => {
-    const sql = readFileSync(resolve('migrations/0004_add_password_hash.sql'), 'utf-8')
-    expect(sql).toContain('ALTER TABLE users')
-    expect(sql).toContain('password_hash')
-  })
-
-  it('admin seed migration exists', () => {
+  it('admin seed migration still exists in history', () => {
     expect(existsSync(resolve('migrations/0005_seed_admin_user.sql'))).toBe(true)
   })
 
-  it('admin seed creates an admin role user', () => {
-    const sql = readFileSync(resolve('migrations/0005_seed_admin_user.sql'), 'utf-8')
-    expect(sql).toContain("'admin'")
-    expect(sql).toContain('INSERT INTO users')
-  })
-
-  it('sessions table migration exists', () => {
+  it('sessions table migration still exists', () => {
     expect(existsSync(resolve('migrations/0006_create_sessions_table.sql'))).toBe(true)
-  })
-
-  it('sessions table has required columns', () => {
-    const sql = readFileSync(resolve('migrations/0006_create_sessions_table.sql'), 'utf-8')
-    expect(sql).toContain('CREATE TABLE sessions')
-    expect(sql).toContain('token')
-    expect(sql).toContain('user_id')
-    expect(sql).toContain('org_id')
-    expect(sql).toContain('expires_at')
   })
 })
 
@@ -263,38 +218,5 @@ describe('auth: env.d.ts types', () => {
   it('adds session to App.Locals', () => {
     const source = readFileSync(resolve('src/env.d.ts'), 'utf-8')
     expect(source).toContain('session: AuthSession | null')
-  })
-})
-
-describe('auth: login endpoint rate limiting', () => {
-  it('login endpoint imports rateLimitByIp', () => {
-    const source = readFileSync(resolve('src/pages/api/auth/login.ts'), 'utf-8')
-    expect(source).toContain('rateLimitByIp')
-    expect(source).toContain('rate-limit')
-  })
-
-  it('login endpoint rate limit uses auth-login bucket', () => {
-    const source = readFileSync(resolve('src/pages/api/auth/login.ts'), 'utf-8')
-    expect(source).toContain('auth-login')
-  })
-
-  it('login endpoint redirects to rate_limited error on block', () => {
-    const source = readFileSync(resolve('src/pages/api/auth/login.ts'), 'utf-8')
-    expect(source).toContain('rate_limited')
-  })
-
-  it('login page has rate_limited error message', () => {
-    const source = readFileSync(resolve('src/pages/auth/login.astro'), 'utf-8')
-    expect(source).toContain('rate_limited')
-    expect(source).toContain('Too many sign-in attempts')
-  })
-
-  it('rate limit check occurs before DB lookup', () => {
-    const source = readFileSync(resolve('src/pages/api/auth/login.ts'), 'utf-8')
-    const rateLimitIdx = source.indexOf('rateLimitByIp')
-    const dbLookupIdx = source.indexOf('SELECT * FROM users')
-    expect(rateLimitIdx).toBeGreaterThan(-1)
-    expect(dbLookupIdx).toBeGreaterThan(-1)
-    expect(rateLimitIdx).toBeLessThan(dbLookupIdx)
   })
 })
