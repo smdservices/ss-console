@@ -211,7 +211,7 @@ const consultantFirstName: string | null = consultantName
     <SkipToMain />
     <PortalHeader
       clientName={client.name}
-      consultantPhone={isPaid ? null : consultantPhone}
+      consultantPhone={consultantPhone}
       consultantFirstName={consultantFirstName}
     >
       <SignOutButton asChild redirectUrl="/auth/sign-in?status=signed_out">
