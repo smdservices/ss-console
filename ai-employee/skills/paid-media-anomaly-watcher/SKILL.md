@@ -48,6 +48,28 @@ Single-client deep dive:
 hermes run paid-media-anomaly-watcher --client "Acme Co" --window "last 7 days"
 ```
 
+## When the agent wakes
+
+ADR 0021 Stream B: the cron daemon invokes `pre_run.py` BEFORE the agent. The script polls each enabled paid-media platform, computes Δ vs. the 7-day baseline per the rubric in `references/categorization-rubric.md`, and decides:
+
+- **Any anomaly above threshold** (CPL spike, frequency saturation, CTR collapse, conversion drop) → emit `{"wakeAgent": true}`. The agent wakes with the full procedure: read platforms, run the rubric, post the Slack digest, optionally draft client-facing context.
+- **All metrics within baseline** → write a `SUPPRESSED_WAKE` audit row, then emit `{"wakeAgent": false}`. No LLM inference cost on the quiet path.
+- **Audit write fails** → fall back to `{"wakeAgent": true}` so the failure becomes visible. A silent suppress without an audit trail is structurally indistinguishable from a silently-broken `pre_run.py` (mirror-don't-gate per ADR 0016, extended to the cron-skip path by ADR 0021 §"Two safety constraints").
+
+The dashboard's watcher-health view greps `audit_log` for `SUPPRESSED_WAKE` rows in the last 24h — a missing row on a scheduled tick is the alarm signal, not silence.
+
+`customer.yaml.personas[].cron[]` (added by ADR 0021 Stream D schema PR) declares the per-customer schedule and points `pre_run` at `pre_run.py`:
+
+```yaml
+personas:
+  - slug: '<persona>'
+    cron:
+      - skill: paid-media-anomaly-watcher
+        schedule: '0 7 * * *'
+        pre_run: pre_run.py
+        wake_policy: pre_run_decides
+```
+
 ## Procedure
 
 ### What the agent watches for

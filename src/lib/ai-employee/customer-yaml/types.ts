@@ -81,6 +81,53 @@ export type SchemaVersion = (typeof ACCEPTED_SCHEMA_VERSIONS)[number]
 export const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,31}$/
 
 /**
+ * Wake-policy values for per-skill cron schedules. Hermes cron supports a
+ * pre-run script that emits `{"wakeAgent": false}` to skip LLM inference
+ * when nothing changed. ADR 0021 Stream B leverages this for watcher skills.
+ *
+ * - `always` — Hermes invokes the agent on every scheduled tick. No pre-run
+ *   script is invoked. Equivalent to omitting `pre_run` entirely.
+ * - `pre_run_decides` — the pre-run script's stdout JSON drives the
+ *   wakeAgent decision. ADR 0021 Stream B requires the pre-run script also
+ *   emit an `audit_action="suppressed_wake"` row when it returns wakeAgent
+ *   false; audit-write failure forces fallback to wake.
+ */
+export const ACCEPTED_WAKE_POLICIES = ['always', 'pre_run_decides'] as const
+export type WakePolicy = (typeof ACCEPTED_WAKE_POLICIES)[number]
+
+/**
+ * Cron schedule expression families accepted in `personas[].cron[].schedule`.
+ * Mirrors the Hermes cron-skill schedule grammar documented at
+ * https://hermes-agent.nousresearch.com/docs/user-guide/features/cron:
+ *   - cron expression (5 fields, e.g. "0 9 * * *")
+ *   - interval (e.g. "every 30m", "every 2h")
+ *   - relative delay (e.g. "30m", "2h", "1d")
+ *   - ISO timestamp (e.g. "2026-03-15T09:00:00")
+ *
+ * The validator accepts any of these shapes via a permissive structural
+ * check; the runtime cron daemon performs the authoritative parse.
+ */
+const CRON_EXPR_RE = /^(\S+\s+){4}\S+$/
+const CRON_INTERVAL_RE = /^every\s+\d+\s*[smhdw]$/i
+const CRON_DELAY_RE = /^\d+\s*[smhdw]$/i
+const CRON_ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/
+
+export function isAcceptedCronSchedule(s: string): boolean {
+  return (
+    CRON_EXPR_RE.test(s) || CRON_INTERVAL_RE.test(s) || CRON_DELAY_RE.test(s) || CRON_ISO_RE.test(s)
+  )
+}
+
+/**
+ * Webhook URL pattern enforced on `connectors[].webhook_url`. The URL must
+ * point to the customer's own Fly Machine — cross-customer leakage vector
+ * if it ever points elsewhere (see ADR 0009). Capability slug is
+ * lower-snake (e.g. "practice_management", "email").
+ */
+export const WEBHOOK_URL_PATTERN =
+  /^https:\/\/hermes-([a-z0-9][a-z0-9-]{0,31})\.fly\.dev\/webhooks\/[a-z_]+$/
+
+/**
  * Base recipient-cohort taxonomy used by Layer 2 voice transform and
  * the blind-test gate (PRD §9.3 Layer 3 + §9.6 Gate 3). Customers may
  * extend this set via `voice_cohorts:` on customer.yaml; the base set
@@ -122,6 +169,51 @@ export interface PersonaChannelBinding {
   channels: string[]
 }
 
+/**
+ * Skill bundle declaration. Hermes ships skill bundles natively
+ * (`~/.hermes/skill-bundles/<slug>.yaml`) — multiple skills load under one
+ * slash command. ADR 0021 Stream D wires three bundles per persona:
+ * `/pi-intake`, `/pi-matter-prep`, `/weekly-client-pulse`.
+ *
+ * The `hermes-smd bootstrap` CLI (overlay) translates this entry into the
+ * per-profile `~/.hermes/skill-bundles/<slug>.yaml` file at Machine boot.
+ *
+ * Validation rules:
+ *   - `slug` matches SLUG_PATTERN; unique within the persona's bundles[]
+ *   - `skills[]` non-empty; each entry must reference an enabled skill
+ *     declared on the same persona
+ *   - `description` required, max 200 chars
+ *   - `instruction` optional shared context prepended to all bundled skill
+ *     invocations (the Hermes bundle `instruction:` field)
+ */
+export interface PersonaBundle {
+  slug: string
+  description: string
+  skills: string[]
+  instruction: string | null
+}
+
+/**
+ * Per-skill cron schedule for a persona. ADR 0021 Stream B leverages
+ * Hermes' built-in cron-skill attachment with a pre-run script that can
+ * emit `{"wakeAgent": false}` to skip LLM inference when nothing changed.
+ *
+ * Validation rules:
+ *   - `skill` must reference a skill declared on the same persona
+ *   - `schedule` parseable per `isAcceptedCronSchedule` (cron expr,
+ *     interval, delay, or ISO timestamp)
+ *   - `pre_run` is an OPTIONAL path (relative to the skill directory) to
+ *     the pre-run script. When set, `wake_policy` MUST be
+ *     `pre_run_decides`; when null, `wake_policy` MUST be `always`.
+ *   - `wake_policy` one of WakePolicy
+ */
+export interface PersonaCron {
+  skill: string
+  schedule: string
+  pre_run: string | null
+  wake_policy: WakePolicy
+}
+
 export interface Persona {
   slug: string
   status: PersonaStatus
@@ -136,6 +228,10 @@ export interface Persona {
   voice_overrides: unknown
   escalation_overrides: unknown
   channel_bindings: PersonaChannelBinding[]
+  /** Skill bundles declared by this persona — ADR 0021 Stream D. */
+  bundles: PersonaBundle[]
+  /** Per-skill cron schedules with optional no-agent pre-run — ADR 0021 Stream B. */
+  cron: PersonaCron[]
 }
 
 export interface User {
@@ -172,6 +268,43 @@ export interface Connector {
    * — see ai-employee/adapter/connectors/composio_assertion.py for the
    * runtime backstop (issue #850). */
   composio_connection_id: string | null
+  /**
+   * Outbound webhook URL the connector's vendor pushes events to. ADR 0021
+   * Stream E wires Filevine/Clio matter-created and document-added webhooks
+   * through Hermes' `pre_gateway_dispatch` hook (handled by the overlay's
+   * `hermes-smd-webhook-router` plugin).
+   *
+   * URL pattern: `https://hermes-{customer_id}.fly.dev/webhooks/{capability_slug}`.
+   * The validator enforces that the `{customer_id}` embedded in the URL
+   * matches the document's `customer_id` — cross-customer leakage vector
+   * if it ever doesn't (ADR 0009).
+   *
+   * Null when the connector is pull-only (no vendor push events configured).
+   */
+  webhook_url: string | null
+}
+
+/**
+ * Top-level webhook trigger mapping. ADR 0021 Stream E uses this to route
+ * inbound webhook payloads (from `connectors[].webhook_url`) to a specific
+ * skill invocation on a specific persona via the overlay's
+ * `hermes-smd-webhook-router` plugin.
+ *
+ * Validation rules:
+ *   - `source` must match one of the customer's connector adapters
+ *     (so e.g. `source: "filevine"` only validates when a connector with
+ *     `adapter: "filevine"` exists)
+ *   - `event_type` is opaque to the validator — the source vendor defines
+ *     it (e.g. `matter.created`, `document.added`). Must be a non-empty
+ *     string.
+ *   - `skill` must reference a skill declared on the target persona
+ *   - `persona` must reference a persona declared on the customer
+ */
+export interface WebhookTrigger {
+  source: string
+  event_type: string
+  skill: string
+  persona: string
 }
 
 export interface Scope {
@@ -287,6 +420,11 @@ export interface CustomerYaml {
   logging: Logging | null
   pause: Pause | null
   /**
+   * Inbound webhook → skill trigger map — ADR 0021 Stream E. Empty array
+   * when no connector exposes a webhook_url.
+   */
+  webhook_triggers: WebhookTrigger[]
+  /**
    * Whether the Compliance dashboard view is enabled for this firm.
    *
    * Defaults to `false` when the field is omitted. Sub-50-attorney PI
@@ -332,6 +470,15 @@ export type ValidationErrorCode =
   | 'RetentionOverrideUnreasonable'
   | 'DuplicateVoiceProfileId'
   | 'DuplicateVoiceCohort'
+  | 'DuplicateBundleSlug'
+  | 'UnknownBundleSkill'
+  | 'InvalidCronSchedule'
+  | 'UnknownCronSkill'
+  | 'InvalidCronWakePolicy'
+  | 'UnknownWebhookSource'
+  | 'UnknownWebhookPersona'
+  | 'UnknownWebhookSkill'
+  | 'InvalidWebhookUrl'
 
 export interface ValidationError {
   code: ValidationErrorCode

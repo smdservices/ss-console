@@ -44,6 +44,12 @@ CREATE INDEX idx_audit_actor ON audit_log(actor, ts);
 -- FABRICATION_FILTER_TRIGGERED, ESCALATION_FIRED, ESCALATION_ACKNOWLEDGED,
 -- DECOMMISSION_INITIATED, DECOMMISSION_DRAIN_COMPLETE, DECOMMISSION_FINAL,
 -- CAPTAIN_TIME_LOGGED,
+-- HONCHO_CONCLUSION_DISMISSED (ADR 0016 rewrite — Captain dismissal in
+--   admin portal, paired with physical DELETE against Honcho),
+-- AGENT_SKILL_CREATED, AGENT_SKILL_REMOVED (ADR 0017 rewrite —
+--   skill_manage create/write_file + Captain remove-action),
+-- CUSTOMER_YAML_SYNCED, CUSTOMER_YAML_STRUCTURAL_CHANGE_DEFERRED
+--   (ADR 0019 — customer-sync sidecar),
 -- SUBAGENT_STOPPED, SUBAGENT_INCOMPLETE (ADR 0021 Stream C —
 --   delegated subagent observability. SUBAGENT_STOPPED is emitted by
 --   the overlay's hermes-smd-audit plugin on `subagent_stop` (one row
@@ -52,6 +58,9 @@ CREATE INDEX idx_audit_actor ON audit_log(actor, ts);
 --   assembly-time schema contract — the Devil's Advocate critique
 --   safety constraint that a reviewer-as-sender never sees a quietly
 --   incomplete draft).
+-- SUPPRESSED_WAKE (ADR 0021 Stream B — `pre_run.py` decides not to wake
+--   the agent; emit BEFORE printing `wakeAgent: false`; audit-write
+--   failure forces fallback to wake — see SuppressedWakeWriter).
 
 -- 2. Memory rules (hard rules; customer-defined)
 CREATE TABLE memory_rules (

@@ -50,15 +50,61 @@ hermes run smd-inbox-triage --max 25
 
 ## Procedure
 
-1. **Pull unread mail.** Call `google_api.py gmail search "is:unread" --max <N>` to enumerate, then `gmail get <id>` for each to fetch full body. Default window: `newer_than:1d`. Default cap: 25.
-2. **For each message, classify** along three axes:
-   - **Action class** — one of: `REPLY`, `ACT`, `WAIT`, `FYI`, `JUNK`.
-   - **Priority** — one of: `P0` (today), `P1` (this week), `P2` (later), `ARCHIVE`.
-   - **Confidence** — one of: `HIGH`, `MED`, `LOW`. LOW means the agent's categorization needs human judgment to validate.
-3. **For `REPLY` messages,** draft a reply. Match Captain's voice (see references/voice.md). Keep drafts short, plainspoken, no AI-tells. Mark drafts that touch contracts, pricing, scope, or commitments as `LOW` confidence regardless of how well the agent thinks it can write them — those are decisions, not text.
-4. **For `ACT` messages,** name the specific next action and where it would happen (e.g., "Add to Linear as P1 issue under SMD/marketing", "Schedule 30 min on calendar for Tuesday morning").
-5. **Cross-message scan.** Identify themes: multiple emails about the same project, escalation patterns, threads where Captain has gone dark and someone is waiting, anyone who's followed up more than once.
-6. **Write the daily note.** Output goes to `~/.hermes/customer_notes/smd/triage-YYYY-MM-DD.md` in the format described in `references/output-format.md`.
+The skill runs in two phases. The mechanical fetch loop runs inside a single `execute_code` block — intermediate per-message tool results never enter the conversation context (ADR 0021 Stream A). Classification, drafting, and the cross-message theme scan stay in the agent's reasoning loop where they belong.
+
+### Phase 1 — Fetch (single `execute_code` block)
+
+Invoke `execute_code` with a Python script that does the mechanical work. `google_api.py` is on PATH via the `productivity/google-workspace` prerequisite skill (frontmatter); `terminal` is exposed by `execute_code` (foreground mode only — see Hermes' code-execution docs):
+
+```python
+import json
+import shlex
+
+WINDOW = "newer_than:1d"   # override per `--window` arg
+MAX_MESSAGES = 25          # override per `--max` arg
+
+def run(cmd: str) -> str:
+    """Call into the Hermes-exposed terminal tool. Strips trailing whitespace."""
+    return terminal(cmd).strip()
+
+# 1. Enumerate unread messages in the window.
+search_query = f'is:unread {WINDOW}'
+ids_raw = run(
+    f'google_api.py gmail search {shlex.quote(search_query)} --max {MAX_MESSAGES}'
+)
+message_ids = [line.strip() for line in ids_raw.splitlines() if line.strip()]
+
+# 2. Fetch full body for each. Accumulate; do NOT print per-message.
+messages = []
+for mid in message_ids:
+    raw = run(f'google_api.py gmail get {shlex.quote(mid)} --format json')
+    try:
+        messages.append(json.loads(raw))
+    except json.JSONDecodeError:
+        # A single bad message must not abort the batch — record + continue.
+        messages.append({"id": mid, "error": "parse_failed", "raw_excerpt": raw[:200]})
+
+# 3. Emit ONE JSON document. This is the only thing that enters context.
+print(json.dumps({
+    "window": WINDOW,
+    "fetched": len(messages),
+    "messages": messages,
+}, ensure_ascii=False))
+```
+
+Only the final `print()` output enters the conversation context — typically ~15-25k tokens for 25 messages instead of ~100 separate tool-call result blocks. The per-message body parsing and accumulation happens in the child process and stays there.
+
+### Phase 2 — Reason (agent, in-context)
+
+The agent reads the JSON returned by `execute_code` and, per the rules in `references/algorithm.md`:
+
+1. **Classify each message** along three axes — `action_class`, `priority`, `confidence`. See `references/categorization-rubric.md`.
+2. **Draft replies** for `REPLY`-classified messages, matching Captain's voice per `references/voice.md`. Drafts touching money / scope / commitment are forced `LOW` confidence regardless of prose quality.
+3. **Name the next action** for `ACT`-classified messages — the specific tool/surface and the concrete step.
+4. **Cross-message theme scan** — escalation patterns, gone-dark threads, repeated follow-ups, vendor/contract milestones.
+5. **Write the daily note** to `~/.hermes/customer_notes/smd/triage-YYYY-MM-DD.md` per `references/output-format.md`.
+
+Detailed per-axis rules and cross-message scan heuristics live in `references/algorithm.md`. The reference is the source of truth for what "good triage" looks like; this procedure is the dispatch shape.
 
 ### Trust Ceiling
 
@@ -109,6 +155,7 @@ A successful triage run satisfies all of:
 
 ## References
 
+- `references/algorithm.md` — detailed per-message classification, draft, and cross-message theme rules (ADR 0021 Stream A — extracted from the prior `## Procedure` section so the prose stays available for graders after the `execute_code` migration)
 - `references/voice.md` — Captain's voice rules, with positive and negative examples
 - `references/output-format.md` — exact structure of the daily triage note
 - `references/categorization-rubric.md` — how the agent decides between action classes

@@ -169,6 +169,21 @@ ACCEPTED_ACTION_TYPES = frozenset(
         #     matter_ref in metadata.
         "SUBAGENT_STOPPED",
         "SUBAGENT_INCOMPLETE",
+        # No-agent cron suppression (ADR 0021 Stream B) — emitted by
+        # `pre_run.py` BEFORE printing `{"wakeAgent": false}` to the gateway
+        # scheduler. The mirror-don't-gate principle (ADR 0016) extended to
+        # the cron-skip path: the decision-not-to-wake MUST be visible.
+        # Audit-write failure forces the script to fall back to
+        # `{"wakeAgent": true}` so the silent path is never structurally
+        # indistinguishable from a silently-broken pre_run.py.
+        #
+        # Standard payload (via metadata):
+        #   - pre_run_inputs_digest: sha-256 of the polling inputs that fed
+        #     the decision (so an unexpected suppress can be traced)
+        #   - decision_basis: short string code, e.g.
+        #     "delta_under_threshold", "no_period_boundary", "config_missing"
+        #   - next_scheduled_at: ISO 8601 UTC of the next tick
+        "SUPPRESSED_WAKE",
     }
 )
 
@@ -466,6 +481,109 @@ class SqliteExecutor:
 
 
 # ---------------------------------------------------------------------------
+# SuppressedWakeWriter (ADR 0021 Stream B)
+#
+# Thin wrapper around AuditLogWriter for cron `pre_run.py` scripts that
+# decide not to wake the agent. The contract:
+#
+#   1. The pre_run script MUST call `write_suppressed_wake(...)` BEFORE
+#      printing `{"wakeAgent": false}` to stdout.
+#   2. If the audit write succeeds, the script prints `wakeAgent: false`.
+#   3. If the audit write raises `AuditWriteError`, the script falls back
+#      to `{"wakeAgent": true}` and lets the agent wake — that path is
+#      observable (full agent run + audit trail) and the failure becomes
+#      visible.
+#
+# The wrapper centralizes the payload shape so every pre_run.py emits the
+# same metadata fields, and centralizes the always-raise-on-failure
+# contract so the caller cannot accidentally swallow an audit-write error.
+# ---------------------------------------------------------------------------
+
+
+class SuppressedWakeWriter:
+    """Helper for ADR 0021 Stream B `pre_run.py` scripts.
+
+    Use:
+
+        async def main() -> int:
+            executor = namespaced_executor_from_env(...)
+            writer = AuditLogWriter(executor)
+            sww = SuppressedWakeWriter(writer)
+            anomalies = compute_anomalies(...)
+            if anomalies:
+                print(json.dumps({"wakeAgent": True}))
+                return 0
+            try:
+                await sww.write_suppressed_wake(
+                    skill_name="paid-media-anomaly-watcher",
+                    pre_run_inputs=raw_pull_bytes,
+                    decision_basis="delta_under_threshold",
+                    next_scheduled_at=next_tick_iso,
+                )
+            except AuditWriteError:
+                # Mirror-don't-gate: a silent suppress without an audit
+                # trail is indistinguishable from a broken pre_run.py.
+                print(json.dumps({"wakeAgent": True}))
+                return 0
+            print(json.dumps({"wakeAgent": False}))
+            return 0
+
+    `write_suppressed_wake` never swallows executor errors. Callers MUST
+    treat any raised exception as the cue to fall back to wake.
+    """
+
+    def __init__(self, writer: AuditLogWriter) -> None:
+        self._writer = writer
+
+    async def write_suppressed_wake(
+        self,
+        *,
+        skill_name: str,
+        pre_run_inputs: bytes,
+        decision_basis: str,
+        next_scheduled_at: str,
+        actor: str = "agent",
+        extra_metadata: Optional[dict] = None,
+    ) -> str:
+        """Emit one SUPPRESSED_WAKE row. Returns the inserted ULID.
+
+        - `skill_name` is the SKILL.md name (matches audit_log.skill_name column).
+        - `pre_run_inputs` is the raw polling-input bytes the decision was based on;
+          the writer SHA-256s it and stores the digest only (per ADR 0008 — content
+          off D1, hash on D1).
+        - `decision_basis` is a short string code identifying which rule fired.
+        - `next_scheduled_at` is the ISO 8601 UTC timestamp of the next cron tick.
+        - `actor` defaults to "agent" (the pre_run script runs in the agent's
+          context). Override only for testing.
+        - `extra_metadata` merges additional keys (e.g. per-platform deltas) into
+          the audit row's metadata payload.
+
+        Raises `AuditWriteError` on executor failure. Callers MUST fall back
+        to wake on failure.
+        """
+        meta: dict = {
+            "decision_basis": decision_basis,
+            "next_scheduled_at": next_scheduled_at,
+        }
+        if extra_metadata is not None:
+            for key, value in extra_metadata.items():
+                if key in meta:
+                    raise ValueError(
+                        f"extra_metadata key {key!r} reserved by SuppressedWakeWriter"
+                    )
+                meta[key] = value
+        event = AuditEvent(
+            action_type="SUPPRESSED_WAKE",
+            actor=actor,
+            actor_role=ActorRole.AGENT,
+            skill_name=skill_name,
+            input_payload=pre_run_inputs,
+            metadata=meta,
+        )
+        return await self._writer.write(event)
+
+
+# ---------------------------------------------------------------------------
 # Convenience: read the env-bound HTTP executor used by bootstrap.sh
 # ---------------------------------------------------------------------------
 
@@ -511,5 +629,6 @@ __all__ = [
     "AuditLogWriter",
     "AuditWriteError",
     "Executor",
+    "SuppressedWakeWriter",
     "writer_from_env",
 ]

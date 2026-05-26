@@ -110,11 +110,37 @@ export async function resolveClerkEntity(
 }
 
 /**
+ * Resolve a local entity from a users.entity_id reference. Used when the
+ * client is bound to an entity directly (without an intermediating Clerk
+ * Organization). The AI Employee product flows still rely on Clerk Orgs
+ * for invitation + member management, so resolveClerkEntity(orgId) stays
+ * the fallback when entity_id is null.
+ */
+export async function resolveEntityByUserBinding(
+  db: D1Database,
+  entityId: string
+): Promise<Entity | null> {
+  return await db
+    .prepare(`SELECT * FROM entities WHERE id = ? AND org_id = ?`)
+    .bind(entityId, ORG_ID)
+    .first<Entity>()
+}
+
+/**
  * Resolve the full portal context for an authenticated Clerk session.
  * Returns `null` when there is no Clerk session (caller should redirect
  * to sign-in). Returns `{ user, client: null }` when the user is
- * authenticated but their active Clerk Organization is not yet
- * provisioned in SS (caller should render the "no access" state).
+ * authenticated but isn't yet bound to a customer (no users.entity_id,
+ * and no matching Clerk Organization → entities.clerk_org_id either).
+ *
+ * Resolution order:
+ *   1. users.entity_id (explicit binding, set by admin tools)
+ *   2. entities.clerk_org_id (Clerk Organization binding, used by
+ *      AI Employee invitation flows)
+ *
+ * The two paths coexist because AI Employee features still need Clerk
+ * Organizations for multi-user matter access; direct binding via
+ * entity_id is the simpler path for single-user portal access.
  */
 export async function resolveClerkPortalContext(
   db: D1Database,
@@ -124,6 +150,11 @@ export async function resolveClerkPortalContext(
   if (!auth.userId) return null
 
   const user = await ensureLocalUser(db, auth.userId, profile)
+
+  if (user.entity_id) {
+    const client = await resolveEntityByUserBinding(db, user.entity_id)
+    if (client) return { user, client }
+  }
 
   if (!auth.orgId) return { user, client: null }
 

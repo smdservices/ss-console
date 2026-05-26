@@ -23,7 +23,7 @@ import { env } from 'cloudflare:workers'
 const token = Astro.url.searchParams.get('token')
 
 if (!token) {
-  return Astro.redirect('/auth/portal-login?error=invalid')
+  return Astro.redirect('/auth/sign-in?error=invalid')
 }
 
 // Verify and atomically consume the magic link token
@@ -31,7 +31,7 @@ const verified = await verifyMagicLink(env.DB, token)
 
 if (!verified) {
   // Token is invalid, expired, or already used
-  return Astro.redirect('/auth/portal-login?error=invalid')
+  return Astro.redirect('/auth/sign-in?error=invalid')
 }
 
 // Look up the bound portal user by id + org. Email alone is not globally
@@ -52,7 +52,7 @@ const user = await env.DB.prepare(
   .first<UserRow>()
 
 if (!user) {
-  return Astro.redirect('/auth/portal-login?error=no_account')
+  return Astro.redirect('/auth/sign-in?error=no_account')
 }
 
 // Update last_login_at
