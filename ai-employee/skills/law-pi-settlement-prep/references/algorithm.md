@@ -59,11 +59,11 @@ carrier names against firm memory-rule patterns.
 **Required return keys (assembly-time schema contract):**
 
 - `thread_summary`: list of `{thread_id, subject, last_message_date,
-  message_count, source_thread_ref}` entries summarizing prior
+message_count, source_thread_ref}` entries summarizing prior
   correspondence. **MUST have ≥1 sourced thread row** OR the explicit
   marker `"[TBD: no prior correspondence threads with opposing
-  counsel; partner verifies matter has reached the correspondence
-  phase before settlement prep]"`. If the matter genuinely has no
+counsel; partner verifies matter has reached the correspondence
+phase before settlement prep]"`. If the matter genuinely has no
   prior opposing-counsel correspondence, the upstream
   `insufficient_source_data` refusal already triggers — settlement
   prep without any prior contact is premature.
@@ -97,17 +97,17 @@ wages (per-pay-period) from documents in the matter folder.
 - `medical_specials_total`: numeric USD value summed from
   `per_provider_billing[].billed_amount_usd` OR the explicit-TBD
   marker `"[TBD: medical specials total - partner verifies after
-  sourcing missing billing statements]"` when any per-provider line
+sourcing missing billing statements]"` when any per-provider line
   is itself TBD.
 - `per_provider_billing`: list of rows. Each row carries
   `{provider, date, billed_amount_usd, adjusted_amount_usd,
-  source_document_id}`. **MUST have ≥1 row** (or the wrapper-level
+source_document_id}`. **MUST have ≥1 row** (or the wrapper-level
   `medical_specials_total` TBD marker). Where billed and adjusted
   amounts differ on the source billing statement, both render; the
   total uses billed_amount_usd. The subagent NEVER estimates.
 - `lost_wages_total`: numeric USD value summed from employment-
   verification documents OR the explicit-TBD marker `"[TBD: lost
-  wages - partner supplies after employer verification received]"`
+wages - partner supplies after employer verification received]"`
   when employer-verification is absent. The subagent never imputes
   wages from the client's stated occupation or generalizes from
   industry averages.
@@ -139,7 +139,7 @@ documents.
 - `incident_location`: string OR the TBD marker. Sourced from
   `matter.custom_fields.incident_location`.
 - `client_role`: one of `driver | passenger | pedestrian | cyclist |
-  occupant | other` OR the TBD marker. Sourced from
+occupant | other` OR the TBD marker. Sourced from
   `matter.custom_fields.client_role`.
 - `factual_chronology`: 3-5 sentences of factual case-history prose
   identifying the client, the incident date and location, the
@@ -149,7 +149,7 @@ documents.
   what the medical record states. No quoted client testimony unless it
   appears verbatim in a partner-authored matter note.
 - `chronology_events`: list of `{event_kind, event_date,
-  source_document_id, one_line_description}` rows. Event kinds the
+source_document_id, one_line_description}` rows. Event kinds the
   subagent surfaces: `incident_date`, `first_medical_contact`,
   `subsequent_medical_visit`, `employment_verification_filed`,
   `billing_statement_filed`, `demand_letter_served`,
@@ -165,19 +165,19 @@ documents.
   incident, clean prior medical history in the relevant body region,
   unambiguous incident report attributing fault. **MUST have ≥1
   sourced row** OR the explicit marker `"[no clear sourced strengths
-  identified in this matter; partner may identify strengths from
-  external context]"`. The subagent NEVER characterizes a fact's
+identified in this matter; partner may identify strengths from
+external context]"`. The subagent NEVER characterizes a fact's
   legal weight ("strong causation case") — that's the partner-
   authored TBD argument-framing section.
 - `weaknesses_facts`: list of `{fact_one_liner, source_id,
-  source_kind}` rows. Examples of weaknesses the subagent surfaces
+source_kind}` rows. Examples of weaknesses the subagent surfaces
   when the matter file supports them: recorded prior injury or prior
   claim in the relevant body region, treatment gap between incident
   and first medical contact, treatment-compliance issue documented in
   a medical record, recorded inconsistency between client's incident
   description and the police report, documented employment gap, etc.
   **MUST have ≥1 sourced row** OR the explicit marker `"[no clear
-  sourced weaknesses identified in this matter]"`. The subagent
+sourced weaknesses identified in this matter]"`. The subagent
   NEVER characterizes legal exposure ("comparative negligence
   defense") — that's the partner-authored TBD argument-framing
   section.
@@ -228,9 +228,9 @@ or empty required value triggers refusal.
    each row surface verbatim. Stale or withdrawn rows do not surface.
    Each surfaced row renders with the columns the memory rule defines.
    If no rows match, the table renders as `"[TBD: no comparable
-   verdicts in the firm's memory rule match this matter's profile.
-   The partner authors the bracket recommendation from external
-   research, or the firm extends the corpus before the conference.]"`.
+verdicts in the firm's memory rule match this matter's profile.
+The partner authors the bracket recommendation from external
+research, or the firm extends the corpus before the conference.]"`.
    The parent NEVER invents verdicts, NEVER extrapolates from rows
    that partially match, NEVER generalizes from one row to a range,
    NEVER averages verdict amounts to produce a derived figure. This
@@ -241,23 +241,23 @@ or empty required value triggers refusal.
 2. **Insert TBD markers for the five partner-authored sections** per
    the `client_facing_fields` frontmatter:
    - `settlement_bracket_recommendation`: `[TBD: settlement bracket
-     recommendation - partner authors. The comparable-verdict table
-     above and the damages tabulation are provided as input. The
-     skill produces no bracket because settlement-value analysis is
-     third-rail per law-firm PRD §5.]`
+recommendation - partner authors. The comparable-verdict table
+above and the damages tabulation are provided as input. The
+skill produces no bracket because settlement-value analysis is
+third-rail per law-firm PRD §5.]`
    - `recommended_posture`: `[TBD: recommended posture (open low /
-     open high / anchor / walk-away) - partner authors. The
-     opposing-counsel and carrier prior-pattern tables are provided
-     as input.]`
+open high / anchor / walk-away) - partner authors. The
+opposing-counsel and carrier prior-pattern tables are provided
+as input.]`
    - `strengths_legal_argument_prose`: `[TBD: legal-argument framing
-     of strengths - partner authors. The strengths fact list above is
-     provided as input.]`
+of strengths - partner authors. The strengths fact list above is
+provided as input.]`
    - `weaknesses_legal_argument_prose`: `[TBD: legal-argument framing
-     of weaknesses - partner authors.]`
+of weaknesses - partner authors.]`
    - `case_strategy_language`: `[TBD: closing recommendation - partner
-     authors. The skill emits no language about negotiation posture,
-     settlement authority, walk-away triggers, or any forward-looking
-     case-strategy framing.]`
+authors. The skill emits no language about negotiation posture,
+settlement authority, walk-away triggers, or any forward-looking
+case-strategy framing.]`
 
 3. **Voice-gate check** against the Layer 2 partner internal-memo
    corpus (per `voice-gate-fallback.md`). The internal-memo envelope
