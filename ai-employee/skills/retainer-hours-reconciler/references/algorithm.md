@@ -92,13 +92,13 @@ NOT invent utilization figures.
 Projected end-of-month utilization, linear extrapolation from current
 month-to-date pace, drives bucket assignment:
 
-| Bucket | Projected EOM | Meaning |
-|---|---|---|
-| `OVER_CRITICAL` | ≥ 110% | agency will eat hours unless action taken |
-| `OVER_WARNING` | 95-110% | tight; need awareness; no auto-action |
-| `BALANCED` | 65-95% | tracking right; report ships but quiet |
-| `UNDER_WARNING` | 40-65% | underdelivered; client value at risk |
-| `UNDER_CRITICAL` | < 40% | significant underdelivery; churn risk at renewal |
+| Bucket           | Projected EOM | Meaning                                          |
+| ---------------- | ------------- | ------------------------------------------------ |
+| `OVER_CRITICAL`  | ≥ 110%        | agency will eat hours unless action taken        |
+| `OVER_WARNING`   | 95-110%       | tight; need awareness; no auto-action            |
+| `BALANCED`       | 65-95%        | tracking right; report ships but quiet           |
+| `UNDER_WARNING`  | 40-65%        | underdelivered; client value at risk             |
+| `UNDER_CRITICAL` | < 40%         | significant underdelivery; churn risk at renewal |
 
 The 65-95% `BALANCED` band is intentionally wide. Agency retainers have
 natural week-to-week variance; flagging at 100% misses real `OVER`
