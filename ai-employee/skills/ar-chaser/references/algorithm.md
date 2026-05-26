@@ -48,7 +48,7 @@ to check QBO manually."
 Before scoring cadence, the agent applies two filters:
 
 1. **Paid-since-snapshot skip.** Any payload entry with `skipped_reason:
-   paid_since_snapshot` is omitted from the day's drafts. These appear in
+paid_since_snapshot` is omitted from the day's drafts. These appear in
    the Slack summary as `"{client} — INV-{id}: skipped (paid since snapshot)"`
    so the owner can see the cross-check fired and saved them from sending
    a chase on a paid invoice.
@@ -110,7 +110,7 @@ calibrates:
 2. **Formality level.** Mirror sentence length and word choice from the
    most recent shipped agency message to this client.
 3. **Sign-off.** Use the agency's standard AR sign-off unless `customer.yaml:
-   clients.{slug}.report_voice.signoff` overrides.
+clients.{slug}.report_voice.signoff` overrides.
 4. **Reference framing.** If prior threads use ticket / project / matter
    numbers, the draft references them. If prior threads use service names
    ("the Q3 campaign"), use those.
@@ -138,7 +138,7 @@ relationship deterioration without having to ask:
 - **Disputed amount.** If `prior_threads` contains language disputing the
   invoice amount or scope ("we never agreed to this charge", "this isn't
   what we discussed"), flag as `relationship-health: disputed; owner
-  must intervene before next draft`.
+must intervene before next draft`.
 
 Flagged signals appear in the Slack summary but do NOT block draft
 writing — the owner reads the flag, then decides whether to send the
