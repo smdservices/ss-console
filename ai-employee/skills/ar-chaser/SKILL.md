@@ -51,16 +51,97 @@ hermes run ar-chaser --client "Acme Co"
 
 ## Procedure
 
-1. **Pull AR aging.** QBO Aging Detail report for the agency. Filter invoices past 7+ days.
-2. **For each overdue invoice, decide the cadence step.**
-   - 7-13 days overdue: gentle reminder, blame-the-postal-system tone
-   - 14-29 days: firmer; ask if they need anything to process
-   - 30-44 days: direct; reference payment terms; offer to call
-   - 45+ days: ESCALATE to owner in Slack; do not draft another email (owner needs to call or pause services)
-3. **Draft per the cadence.** Pull the client's prior threads from Gmail to match voice and reference any prior conversation. Use templates in `references/output-format.md` as starting structure, but voice-match per-client.
-4. **Check for context.** If the client recently sent any email mentioning payment ("payment is in process," "we'll get to it next week"), the agent's draft acknowledges that and offers to follow up at the date they named — does not just repeat the same dunning sequence.
-5. **Surface unusual patterns.** If a normally-prompt client is suddenly 30 days late, flag it as a relationship-health signal in the Slack thread. If multiple clients of the same vendor stack are late, that's a market signal to surface.
-6. **Write to drafts.** `customer_notes/drafts/ar/{client}-{invoice-id}-{stage}.md`. Slack post in `ar-drafts` channel summarizing the day's drafts + escalations.
+The skill runs in two phases. The mechanical per-invoice fetch loop runs inside a single `execute_code` block — intermediate per-invoice QBO + Gmail tool results never enter the conversation context (ADR 0021 Stream A). Cadence decisions, voice matching, draft prose, and relationship-health surfacing stay in the agent's reasoning loop where they belong.
+
+### Phase 1 — Fetch (single `execute_code` block)
+
+Invoke `execute_code` with a Python script that does the mechanical work. The script reads the QBO Aging Detail, then for each overdue invoice cross-checks payment status (defending against drafting a chase on an already-paid invoice — the #1 pitfall in `## Pitfalls` below) and pulls prior Gmail thread context for voice matching:
+
+```python
+import json
+import shlex
+
+DAYS_OVERDUE_FLOOR = 7   # ignore anything under floor
+DAYS_OVERDUE_CEILING = 90  # nothing useful past 90; flag separately
+
+def run(cmd: str) -> str:
+    """Call into the Hermes-exposed terminal tool. Strips trailing whitespace."""
+    return terminal(cmd).strip()
+
+def safe_json(raw: str, fallback_id: str) -> dict:
+    """Parse a connector response; on failure, record + continue rather than abort."""
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return {"error": "parse_failed", "fallback_id": fallback_id, "raw_excerpt": raw[:200]}
+
+# 1. Pull QBO Aging Detail, filter by overdue range.
+aging_raw = run(
+    f'qbo_connector.py aging --min-days {DAYS_OVERDUE_FLOOR} --max-days {DAYS_OVERDUE_CEILING} --format json'
+)
+aging = safe_json(aging_raw, fallback_id="aging")
+invoices = aging.get("invoices", []) if isinstance(aging, dict) else []
+
+# 2. For each overdue invoice, cross-check payment status + pull prior thread context.
+invoice_payloads = []
+for inv in invoices:
+    invoice_id = inv.get("invoice_id")
+    client_slug = inv.get("client_slug")
+
+    # Payment status cross-check — defend against chasing an already-paid invoice.
+    payment_raw = run(
+        f'qbo_connector.py invoice payment-status {shlex.quote(str(invoice_id))} --format json'
+    )
+    payment = safe_json(payment_raw, fallback_id=f"payment.{invoice_id}")
+
+    # Skip if QBO confirms paid since the aging snapshot.
+    if isinstance(payment, dict) and payment.get("status") == "paid":
+        invoice_payloads.append({
+            "invoice_id": invoice_id,
+            "client_slug": client_slug,
+            "skipped_reason": "paid_since_snapshot",
+            "payment_status": payment,
+        })
+        continue
+
+    # Prior Gmail thread context — for voice match + payment-promise detection.
+    thread_raw = run(
+        f'gmail_connector.py threads --client {shlex.quote(str(client_slug))} --limit 5 --format json'
+    )
+    prior_threads = safe_json(thread_raw, fallback_id=f"thread.{client_slug}")
+
+    invoice_payloads.append({
+        "invoice_id": invoice_id,
+        "client_slug": client_slug,
+        "invoice": inv,
+        "payment_status": payment,
+        "prior_threads": prior_threads,
+    })
+
+# 3. Emit ONE JSON document. This is the only thing that enters context.
+print(json.dumps({
+    "as_of": aging.get("as_of") if isinstance(aging, dict) else None,
+    "overdue_count": len(invoice_payloads),
+    "invoices": invoice_payloads,
+}, ensure_ascii=False))
+```
+
+Only the final `print()` output enters the conversation context — typically ~30-50k tokens for ~5-15 overdue invoices, instead of one tool-call result block per QBO and Gmail call. The per-invoice payment cross-check happens in the child process; invoices that came back paid since the aging snapshot are marked `skipped_reason: paid_since_snapshot` and the agent does NOT draft for them. A single connector failure becomes a `parse_failed` row inside the payload — the batch does not abort.
+
+### Phase 2 — Reason (agent, in-context)
+
+The agent reads the JSON returned by `execute_code` and, per the rules in `references/algorithm.md`, processes each overdue invoice:
+
+1. **Skip paid-since-snapshot invoices.** Any payload entry with `skipped_reason: paid_since_snapshot` is omitted from the day's drafts. These appear in the Slack summary as "skipped (paid since snapshot)" so the owner can see the cross-check fired.
+2. **Pick the cadence stage** by days-overdue: 7-13 (gentle reminder), 14-29 (firmer; ask if they need anything), 30-44 (direct; reference payment terms; offer call), 45+ (ESCALATE — no email; Slack-only).
+3. **Detect payment-promise context** in `prior_threads`. If the client recently said "payment is in process" or "we'll get to it next week," the draft acknowledges that and offers to follow up at the date they named — it does NOT repeat the dunning sequence.
+4. **Voice-match** against the client's prior thread tone (formality, paragraph density, salutation). The AR draft matches the relationship's existing tonality.
+5. **Draft per cadence** for invoices in the 7-44 day band. Templates per stage live in `references/output-format.md`; the agent fills them with invoice number, amount, due date, days overdue, and prior-thread acknowledgments where present.
+6. **Escalate at 45+ days** via Slack `@<owner>` mention in `ar-drafts`. No email draft is written for 45+ — the owner needs to call or pause services, not send another templated nudge.
+7. **Surface relationship-health signals.** A normally-prompt client suddenly 30 days late is flagged in the Slack summary; multiple clients of the same vendor stack going late at once is a market-signal flag. These are anomaly notes, not blockers to drafting.
+8. **Write per-invoice drafts** to `customer_notes/drafts/ar/{client_slug}-{invoice_id}-{stage}.md`. Post ONE summary thread to `ar-drafts` listing all drafts written, all escalations, and all anomaly flags.
+
+Detailed cadence-stage thresholds, payment-promise detection rules, voice-matching logic, and anomaly heuristics live in `references/algorithm.md`. The reference is the source of truth for what "good AR chasing" looks like; this procedure is the dispatch shape.
 
 ### Trust Ceiling
 
@@ -103,6 +184,7 @@ Common failures: drafting on an already-paid invoice (always cross-check QBO pay
 
 ## References
 
+- `references/algorithm.md` — detailed cadence-stage rules, payment-promise detection, voice-matching, paid-invoice cross-check, anomaly heuristics (preserved for graders post-`execute_code` rewrite)
 - `references/voice.md` — AR voice (firm + warm; no apology, no threat)
 - `references/output-format.md` — template per cadence stage; Slack-post structure
 - `references/categorization-rubric.md` — cadence stage thresholds; relationship-health signals
@@ -110,9 +192,18 @@ Common failures: drafting on an already-paid invoice (always cross-check QBO pay
 
 ## Cost estimate (filled by grading)
 
-- Typical tokens-in per overdue invoice: ~6K (invoice details + prior thread context)
-- Typical tokens-out per draft: ~500
-- Tool calls per run: ~10 (QBO aging + per-invoice + Gmail thread reads + Slack post)
-- Typical cadence: daily; ~5 drafts/day at a 20-client agency
+Post-`execute_code` rewrite (ADR 0021 Stream A). Per-invoice QBO and Gmail
+intermediate results no longer enter the conversation context; only the
+single Phase-1 JSON payload does.
 
-Monthly per customer at typical volume: <$3 in tokens, <$1 in tool calls.
+- Typical tokens-in per run (5-15 overdue invoices): ~30-50K — one JSON document covering every overdue invoice with its payment-status cross-check and prior-thread context.
+- Typical tokens-out per draft: ~500 (one per 7-44-day invoice; 45+ get a Slack escalation instead of an email draft).
+- Hermes tool calls per run: 2 (one `execute_code` + one file-write / Slack-post batch). The per-invoice QBO and Gmail calls happen inside `execute_code` and don't count toward conversation context.
+- Typical cadence: daily; ~5 drafts/day at a 20-client agency.
+
+Pre-rewrite the parent agent saw ~10-25 separate tool-call result blocks per
+run (one `execute_code` block replaces those, and adds the per-invoice
+payment-status cross-check at zero conversation-context cost). Token
+reduction expected ≥ 50% vs. baseline; grading harness confirms.
+
+Monthly per customer at typical volume: <$2 in tokens, <$0.50 in tool calls.
