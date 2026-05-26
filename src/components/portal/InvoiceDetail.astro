@@ -24,7 +24,6 @@ import SkipToMain from '../SkipToMain.astro'
 import PortalHeader from './PortalHeader.astro'
 import PortalTabs from './PortalTabs.astro'
 import MoneyDisplay from './MoneyDisplay.astro'
-import ConsultantBlock from './ConsultantBlock.astro'
 import StatusPill from './StatusPill.astro'
 import { resolveInvoiceTone } from '../../lib/portal/status'
 import type { Tone } from '../../lib/portal/status'
@@ -54,13 +53,8 @@ export interface Props {
     amountCents: number
   }>
   consultant: {
-    name: string
     firstName: string
-    photoUrl: string | null
-    role: string | null
     phone: string | null
-    nextTouchpointAt: string | null
-    nextTouchpointLabel: string | null
   } | null
   state: {
     isPaid: boolean
@@ -392,22 +386,6 @@ const pathname = `/portal/invoices/${invoice.id}`
           </li>
         </ul>
       </div>
-
-      <!-- ── Mobile-only consultant block ── -->
-      {
-        consultant && (
-          <div class="md:hidden">
-            <ConsultantBlock
-              name={consultant.name}
-              photoUrl={consultant.photoUrl}
-              role={consultant.role}
-              nextTouchpointAt={consultant.nextTouchpointAt}
-              nextTouchpointLabel={consultant.nextTouchpointLabel}
-              phone={consultant.phone}
-            />
-          </div>
-        )
-      }
     </section>
 
     <!-- ── Desktop right rail (sticky) ── -->
@@ -527,20 +505,6 @@ const pathname = `/portal/invoices/${invoice.id}`
               Payment link pending. We will send it shortly.
             </p>
           </section>
-        )
-      }
-
-      <!-- Desktop consultant block -->
-      {
-        consultant && (
-          <ConsultantBlock
-            name={consultant.name}
-            photoUrl={consultant.photoUrl}
-            role={consultant.role}
-            nextTouchpointAt={consultant.nextTouchpointAt}
-            nextTouchpointLabel={consultant.nextTouchpointLabel}
-            phone={consultant.phone}
-          />
         )
       }
     </aside>

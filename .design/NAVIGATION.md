@@ -171,7 +171,7 @@ Entry exclusively via email deep-link. No prior session assumed.
 | See what's happening  | `/portal`               | home                                              | Login, bookmark                |
 | Find document         | `/portal/documents`     | home → tab → list → document                      | Documents tab (persistent nav) |
 | Check progress        | `/portal/engagement`    | home → tab → engagement                           | Progress tab (persistent nav)  |
-| Contact consultant    | any                     | three-icon contact control in header + right rail | Header icons                   |
+| Contact consultant    | any                     | three-icon contact control in header              | Header icons                   |
 | Review past proposals | `/portal/quotes`        | home → tab → list                                 | Proposals tab (persistent nav) |
 | Review past invoices  | `/portal/invoices`      | home → tab → list                                 | Invoices tab (persistent nav)  |
 
@@ -424,7 +424,7 @@ Persistent-tabs (Material Design 3 §2.2 bottom navigation / §2.5 tabs) satisfi
 | Archetype                                                                     | Pattern                                                               | Rationale                                                                                  |
 | ----------------------------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | list (`/portal/quotes`, `/portal/invoices`, `/portal/documents`)              | Master-detail                                                         | Back to parent (hub or tab); row click to detail. Unchanged from v2.                       |
-| detail (`/portal/quotes/[id]`, `/portal/invoices/[id]`, `/portal/engagement`) | Master-detail with right-rail ActionCard / ConsultantBlock on desktop | Primary action (Sign / Pay) prominent; consultant and status alongside. Unchanged from v2. |
+| detail (`/portal/quotes/[id]`, `/portal/invoices/[id]`, `/portal/engagement`) | Master-detail with right-rail ActionCard on desktop                   | Primary action (Sign / Pay) prominent; contact is the persistent three-icon control in the sticky header, not a per-surface card. (ConsultantBlock removed 2026-05-25.) |
 
 **Required elements for persistent-tabs (from pattern-catalog.md §2 + pattern-disqualifiers.md):**
 
@@ -762,9 +762,9 @@ For long forms where the primary CTA would fall below 390×844 fold:
 3. **Duplicate CTA top and bottom** (both in document flow). Acceptable for public forms.
 4. **`sticky bottom-0` scoped to scrollable container inside `<main>`** — permitted only in `modal` and `drawer`.
 
-### 10.4 Consultant block photo placeholder
+### 10.4 No per-surface consultant card on portal
 
-Defers to `.design/portal-ux-brief.md § Photo placeholder rule`. Current rule: **neutral SVG silhouette**; never initials, never real photos.
+The portal renders no standalone consultant block, photo card, or "Your team" card on any surface. Contact is the persistent three-icon control (email / SMS / phone) in the sticky header. Captain decision 2026-05-25; superseded the prior Modern-Institutional rule that required a real photo + next-touchpoint on every surface. See `.design/portal-ux-brief.md § Design principles`.
 
 ---
 

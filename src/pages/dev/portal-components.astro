@@ -1,7 +1,6 @@
 ---
 import '../../styles/global.css'
 import PortalHeader from '../../components/portal/PortalHeader.astro'
-import ConsultantBlock from '../../components/portal/ConsultantBlock.astro'
 import TimelineEntry from '../../components/portal/TimelineEntry.astro'
 import ArtifactChip from '../../components/portal/ArtifactChip.astro'
 import MoneyDisplay from '../../components/portal/MoneyDisplay.astro'
@@ -59,19 +58,6 @@ if (import.meta.env.PROD) {
           ctaLabel="Pay invoice"
           ctaHref="#"
           ctaSubtext="Secure payment via Stripe."
-        />
-      </section>
-
-      <section>
-        <h2 class="text-lg font-bold text-[color:var(--ss-color-text-primary)] mb-4">
-          ConsultantBlock
-        </h2>
-        <ConsultantBlock
-          name="Scott Durgan"
-          photoUrl={null}
-          role="Your consultant"
-          nextTouchpointAt="2026-04-15T10:00:00-07:00"
-          phone="+14805550100"
         />
       </section>
 
@@ -455,76 +441,6 @@ if (import.meta.env.PROD) {
             toneLabel="IN PROG"
             trailingIcon="open_in_new"
           />
-        </div>
-      </section>
-
-      <section>
-        <h2 class="text-lg font-bold text-[color:var(--ss-color-text-primary)] mb-4">
-          ConsultantBlock — trade-card variant · data-state matrix
-        </h2>
-        <div class="grid gap-6 md:grid-cols-2">
-          <div>
-            <p
-              class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] mb-2"
-            >
-              A. phone + photo
-            </p>
-            <ConsultantBlock
-              variant="trade-card"
-              name="Scott Durgan"
-              photoUrl="/design-preview/modern-institutional/scott-durgan.jpg"
-              role="Your team lead"
-              nextTouchpointAt="2026-04-24T16:00:00-07:00"
-              phone="+14805550100"
-            />
-          </div>
-          <div>
-            <p
-              class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] mb-2"
-            >
-              B. phone + no photo
-            </p>
-            <ConsultantBlock
-              variant="trade-card"
-              name="Scott Durgan"
-              photoUrl={null}
-              role="Your team lead"
-              nextTouchpointAt={null}
-              phone="+14805550100"
-            />
-          </div>
-          <div>
-            <p
-              class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] mb-2"
-            >
-              C. no phone + email
-            </p>
-            <ConsultantBlock
-              variant="trade-card"
-              name="Scott Durgan"
-              photoUrl={null}
-              role="Your team lead"
-              nextTouchpointAt={null}
-              phone={null}
-              email="team@smd.services"
-            />
-          </div>
-          <div>
-            <p
-              class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)] mb-2"
-            >
-              D. neither — contact row hidden
-            </p>
-            <ConsultantBlock
-              variant="trade-card"
-              name="Scott Durgan"
-              photoUrl={null}
-              role="Your team lead"
-              nextTouchpointAt={null}
-              phone={null}
-              email={null}
-            />
-          </div>
         </div>
       </section>
     </main>

@@ -10,7 +10,6 @@ import PortalTabs from '../../../components/portal/PortalTabs.astro'
 import PortalPageHead from '../../../components/portal/PortalPageHead.astro'
 import SkipToMain from '../../../components/SkipToMain.astro'
 import MoneyDisplay from '../../../components/portal/MoneyDisplay.astro'
-import ConsultantBlock from '../../../components/portal/ConsultantBlock.astro'
 import InvoicePaymentDetails from '../../../components/portal/InvoicePaymentDetails.astro'
 import { resolveInvoiceState } from '../../../lib/portal/states'
 import { formatShortDate } from '../../../lib/portal/formatters'
@@ -73,17 +72,12 @@ interface EngagementRow {
   id: string
   scope_summary: string | null
   consultant_name: string | null
-  consultant_photo_url: string | null
-  consultant_role: string | null
   consultant_phone: string | null
-  next_touchpoint_at: string | null
-  next_touchpoint_label: string | null
 }
 
 const engagement = invoice.engagement_id
   ? await env.DB.prepare(
-      `SELECT id, scope_summary, consultant_name, consultant_photo_url, consultant_role,
-              consultant_phone, next_touchpoint_at, next_touchpoint_label
+      `SELECT id, scope_summary, consultant_name, consultant_phone
        FROM engagements WHERE id = ? AND org_id = ?`
     )
       .bind(invoice.engagement_id, portalData.user.org_id)
@@ -185,15 +179,11 @@ const depositNote =
       })} already received.`
     : null
 
-// Consultant block props. When the engagement has no consultant_name, the
-// block is hidden entirely (empty-state pattern) rather than rendering a
-// hardcoded fallback identity.
+// Consultant identity feeds the PortalHeader's contact-control aria-labels.
+// The full named-human card was removed 2026-05-25 — the persistent header
+// icons are the single contact affordance now. See .design/portal-ux-brief.md.
 const consultantName = engagement?.consultant_name ?? null
-const consultantRole = engagement?.consultant_role ?? null
-const consultantPhotoUrl = engagement?.consultant_photo_url ?? null
 const consultantPhone = engagement?.consultant_phone ?? null
-const nextTouchpointAt = engagement?.next_touchpoint_at ?? null
-const nextTouchpointLabel = engagement?.next_touchpoint_label ?? null
 
 const consultantFirstName: string | null = consultantName
   ? consultantName.trim().split(/\s+/)[0] || consultantName
@@ -395,32 +385,6 @@ const consultantFirstName: string | null = consultantName
             paidShortDate={paidShortDate}
             depositNote={depositNote}
           />
-
-          <!-- Mobile-only consultant block (desktop renders it in the rail) -->
-          {
-            consultantName && (
-              <div class="md:hidden">
-                <ConsultantBlock
-                  variant="trade-card"
-                  name={consultantName}
-                  photoUrl={consultantPhotoUrl}
-                  role={consultantRole}
-                  nextTouchpointAt={nextTouchpointAt}
-                  nextTouchpointLabel={nextTouchpointLabel}
-                  phone={consultantPhone}
-                />
-              </div>
-            )
-          }
-
-          <!-- Mobile-only back link -->
-          <a
-            href="/portal"
-            class="md:hidden inline-flex items-center gap-2 text-label uppercase font-semibold text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)]"
-          >
-            <span class="material-symbols-outlined text-[18px]">arrow_back</span>
-            Engagement dashboard
-          </a>
         </section>
 
         <!-- Desktop right rail (sticky) -->
@@ -524,28 +488,6 @@ const consultantFirstName: string | null = consultantName
               </>
             )
           }
-
-          {
-            consultantName && (
-              <ConsultantBlock
-                variant="trade-card"
-                name={consultantName}
-                photoUrl={consultantPhotoUrl}
-                role={consultantRole}
-                nextTouchpointAt={nextTouchpointAt}
-                nextTouchpointLabel={nextTouchpointLabel}
-                phone={consultantPhone}
-              />
-            )
-          }
-
-          <a
-            href="/portal"
-            class="inline-flex items-center gap-2 text-label uppercase font-semibold text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)] px-2"
-          >
-            <span class="material-symbols-outlined text-[18px]">arrow_back</span>
-            Engagement dashboard
-          </a>
         </aside>
       </div>
     </main>

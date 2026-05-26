@@ -158,8 +158,9 @@ const FORBIDDEN_PATTERNS: Array<{ label: string; pattern: RegExp | string }> = [
   //     Added 2026-04-23 alongside the Plainspoken PR B voice fixes. ---
   {
     // "Text {consultantFirst} with questions." routes the client at a
-    // specific person. Prefer "Questions? Reach us using the contacts
-    // in the header." or similar team-voice phrasing.
+    // specific person. The portal's persistent header three-icon control
+    // (email / SMS / phone) is the canonical contact affordance; do not
+    // re-route to a named consultant in body copy.
     label: 'Decision Stack #20: personalized "Text {firstName} with questions" CTA',
     pattern: /Text \{?\w+\}? with questions/i,
   },

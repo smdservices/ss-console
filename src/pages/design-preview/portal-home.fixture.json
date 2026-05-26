@@ -3,13 +3,8 @@
     "name": "Acme Manufacturing"
   },
   "consultant": {
-    "name": "Jamie Chen",
     "firstName": "Jamie",
-    "photoUrl": null,
-    "role": "Principal consultant",
-    "phone": "+16025551234",
-    "nextTouchpointAt": "2026-04-24T17:00:00Z",
-    "nextTouchpointLabel": "Thursday, April 24 at 10:00 AM"
+    "phone": "+16025551234"
   },
   "pendingInvoice": {
     "id": "inv_abc123",
