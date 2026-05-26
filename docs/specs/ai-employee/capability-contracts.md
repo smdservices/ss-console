@@ -48,6 +48,21 @@ type DateRange = { start: string; end: string } // ISO 8601
 type DraftRef = { id: string; storage_uri: string; created_at: string }
 
 // ---------- 1. PracticeManagement ----------
+type MatterEvent =
+  | 'matter.created'
+  | 'matter.updated'
+  | 'matter.closed'
+  | 'document.added'
+  | 'note.added'
+
+interface SubscriptionRef {
+  id: string // adapter-prefixed: `<adapter-slug>:<vendor_id>`
+  events: ReadonlyArray<MatterEvent>
+  webhook_url: string
+  registered_at: string
+  vendor_subscription_id: string
+}
+
 interface PracticeManagement {
   search_matters(query: MatterQuery): Promise<Matter[]>
   get_matter(id: string): Promise<Matter | null>
@@ -60,6 +75,10 @@ interface PracticeManagement {
   create_time_entry_draft(input: TimeEntryInput): Promise<TimeEntry>
   list_matter_documents(matter_id: string): Promise<DocumentRef[]>
   upload_matter_document(matter_id: string, doc: DocumentUpload): Promise<DocumentRef>
+  // Subscription (ADR 0021 Stream E). Adapters without vendor-side
+  // webhook support declare these in CapabilitySet.unsupported_methods.
+  subscribe(events: ReadonlyArray<MatterEvent>, webhook_url: string): Promise<SubscriptionRef>
+  unsubscribe(subscription_id: string): Promise<void>
   describe_capabilities(): CapabilitySet
   health_check(): Promise<HealthStatus>
 }
