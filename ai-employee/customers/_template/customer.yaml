@@ -88,8 +88,19 @@ connectors:
     backend: '[mcp:m365-mail / mcp:google-gmail / synthetic:fixture]'
     enabled: true
   Calendar:
-    adapter: '[gmail / microsoft-graph / synthetic]'
-    backend: '[composio:gmail / build:ms-graph / synthetic:fixture]'
+    # ADR 0021 Stream F migration (PR #1080): M365 calendar shipped as
+    # first-party MCP. Per ADR 0020 the MCP-first ordering applies.
+    adapter: '[m365-calendar / google-calendar / synthetic]'
+    backend: '[mcp:m365-calendar / mcp:google-calendar / synthetic:fixture]'
+    enabled: true
+  DocumentStorage:
+    # ADR 0021 Stream F migration (PR #1080): Microsoft has not shipped a
+    # first-party OneDrive/SharePoint MCP. The community MIT
+    # `mcp:softeria/ms-365-mcp-server` covers the Files surface; the
+    # retired BUILD adapter at `ai-employee/connectors/ms_graph/` is
+    # removed in the Wave-4 removal PR.
+    adapter: '[ms-365 / google-drive / synthetic]'
+    backend: '[mcp:softeria/ms-365-mcp-server / mcp:google-drive / synthetic:fixture]'
     enabled: true
 
 # ---- OPTIONAL: webhook triggers (ADR 0021 Stream E) ----
