@@ -1,0 +1,49 @@
+# PI Matter Prep — bundle catalog entry
+#
+# Combines demand-letter assembly + settlement-prep memo so a matter
+# heading into settlement-conference work can pull both the demand-letter
+# draft and the prep memo under one `/pi-matter-prep` invocation while
+# sharing matter-loaded context (matter facts, custom_fields, document
+# folder) across both skills.
+#
+# This file is a reference shape. To activate this bundle for a customer,
+# copy the block below into `customer.yaml.personas[<n>].bundles[]` and
+# ensure both referenced skills are enabled on the same persona's
+# `skills[]` list.
+#
+# At Machine boot, `hermes-smd bootstrap` (overlay-repo) reads the
+# customer.yaml block and writes the bundle YAML into the per-profile
+# `~/.hermes/skill-bundles/pi-matter-prep.yaml` per ADR 0021 Stream D.
+
+slug: pi-matter-prep
+description: 'Demand-letter draft + settlement-prep memo for one PI matter'
+skills:
+  - law-pi-demand-letter-draft
+  - law-pi-settlement-prep
+instruction: |
+  Treat both skills as one /pi-matter-prep invocation against the same
+  matter. Each skill writes its own draft per ADR 0005 (reviewer-as-
+  sender): the demand letter lands in the partner's outbound drafts
+  folder; the prep memo lands as an internal-recipient draft in the
+  partner's own inbox. Both remain `draft_for_review (locked)` — the
+  partner reviews, fills the TBD sections, and ships from their own
+  client.
+
+  Shared context to carry across both skill invocations:
+  - The matter id (--matter-id flag) and the matter's `custom_fields`
+    block from PracticeManagement.
+  - The matter's documents folder (DocumentStorage).
+  - The supervising partner's voice samples (Layer 2) — both skills
+    voice-match against the same partner corpus.
+
+  Both skills use `delegate_task` to spawn three parallel subagents per
+  ADR 0021 Stream C. Bundle invocation does NOT change the subagent
+  topology — each skill's subagent set runs in its own isolated context
+  per Hermes' delegation contract. Audit emissions
+  (SUBAGENT_STOPPED × 3 per skill = 6 total per bundle run) land
+  separately per skill.
+
+  Order of skill execution is intentionally unspecified. Demand-letter
+  assembly typically completes first because the prep memo's
+  comparable-verdict lookup uses the demand's damages summary as an
+  input signal; Hermes' bundle scheduler may parallelize.
