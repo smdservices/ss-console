@@ -19,6 +19,7 @@ import {
   type ValidationError,
 } from './types'
 import { isPlainObject, optionalEnum, optionalString, optionalStringList } from './helpers'
+import { checkBundles, checkCron } from './sections-bundles-cron'
 
 export function checkPersonas(root: Record<string, unknown>, errors: ValidationError[]): Persona[] {
   const raw = root['personas']
@@ -90,6 +91,8 @@ function checkOnePersona(
     `personas[${i}].channel_bindings`,
     errors
   )
+  const bundles = checkBundles(p['bundles'], `personas[${i}].bundles`, skills, errors)
+  const cron = checkCron(p['cron'], `personas[${i}].cron`, skills, errors)
   const title = optionalString(p, 'title', `personas[${i}].title`, errors)
   const signature = optionalString(p, 'signature_html', `personas[${i}].signature_html`, errors)
   const avatar = optionalString(p, 'avatar_url', `personas[${i}].avatar_url`, errors)
@@ -109,6 +112,8 @@ function checkOnePersona(
     voice_overrides: p['voice_overrides'] ?? null,
     escalation_overrides: p['escalation_overrides'] ?? null,
     channel_bindings: channelBindings,
+    bundles,
+    cron,
   }
 }
 

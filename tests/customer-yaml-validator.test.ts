@@ -1377,3 +1377,280 @@ describe('validate — compliance_enabled (#895)', () => {
     expect(r.value.compliance_enabled).toBe(false)
   })
 })
+
+// -----------------------------------------------------------------------------
+// ADR 0021 — Stream D bundles + Stream B cron (per-persona)
+// -----------------------------------------------------------------------------
+
+/**
+ * Helper: take the base persona and graft a bundles[] / cron[] block onto it.
+ * Returns the modified fixture; tests mutate further as needed.
+ */
+function withBundlesAndCron(): Record<string, unknown> {
+  const f = validFixture()
+  const persona = (f['personas'] as unknown[])[0] as Record<string, unknown>
+  persona['bundles'] = [
+    {
+      slug: 'pi-intake',
+      description: 'Intake triage + conflict screen',
+      skills: ['inbox-triage-and-draft', 'conflict-check'],
+    },
+  ]
+  persona['cron'] = [
+    {
+      skill: 'inbox-triage-and-draft',
+      schedule: '0 9 * * *',
+      wake_policy: 'always',
+    },
+  ]
+  return f
+}
+
+describe('validate — ADR 0021 bundles', () => {
+  it('accepts a valid bundles[] block', () => {
+    const r = validate(withBundlesAndCron())
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    }
+    expect(r.value.personas[0].bundles).toHaveLength(1)
+    expect(r.value.personas[0].bundles[0].slug).toBe('pi-intake')
+    expect(r.value.personas[0].bundles[0].skills).toEqual([
+      'inbox-triage-and-draft',
+      'conflict-check',
+    ])
+    expect(r.value.personas[0].bundles[0].instruction).toBeNull()
+  })
+
+  it('rejects duplicate bundle slug within a persona', () => {
+    const f = withBundlesAndCron()
+    const persona = (f['personas'] as unknown[])[0] as Record<string, unknown>
+    ;(persona['bundles'] as unknown[]).push({
+      slug: 'pi-intake', // duplicate
+      description: 'duplicate',
+      skills: ['conflict-check'],
+    })
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('DuplicateBundleSlug')
+  })
+
+  it('rejects bundle that references unknown skill', () => {
+    const f = withBundlesAndCron()
+    const persona = (f['personas'] as unknown[])[0] as Record<string, unknown>
+    ;(persona['bundles'] as Record<string, unknown>[])[0]['skills'] = [
+      'inbox-triage-and-draft',
+      'does-not-exist',
+    ]
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('UnknownBundleSkill')
+  })
+
+  it('rejects bundle referencing a disabled skill', () => {
+    const f = withBundlesAndCron()
+    const persona = (f['personas'] as unknown[])[0] as Record<string, unknown>
+    // Disable conflict-check
+    const skills = persona['skills'] as Record<string, unknown>[]
+    skills[1] = { ...skills[1], enabled: false }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('UnknownBundleSkill')
+  })
+
+  it('rejects bundle missing required description', () => {
+    const f = withBundlesAndCron()
+    const persona = (f['personas'] as unknown[])[0] as Record<string, unknown>
+    delete (persona['bundles'] as Record<string, unknown>[])[0]['description']
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.code === 'MissingField' && e.path.endsWith('.description'))).toBe(
+      true
+    )
+  })
+})
+
+describe('validate — ADR 0021 cron', () => {
+  it('accepts a valid cron[] block with wake_policy=always', () => {
+    const r = validate(withBundlesAndCron())
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    }
+    expect(r.value.personas[0].cron).toHaveLength(1)
+    expect(r.value.personas[0].cron[0].wake_policy).toBe('always')
+    expect(r.value.personas[0].cron[0].pre_run).toBeNull()
+  })
+
+  it('accepts wake_policy=pre_run_decides with a pre_run path', () => {
+    const f = withBundlesAndCron()
+    const persona = (f['personas'] as unknown[])[0] as Record<string, unknown>
+    ;(persona['cron'] as Record<string, unknown>[])[0] = {
+      skill: 'inbox-triage-and-draft',
+      schedule: 'every 5m',
+      pre_run: 'pre_run.py',
+      wake_policy: 'pre_run_decides',
+    }
+    const r = validate(f)
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    }
+    expect(r.value.personas[0].cron[0].pre_run).toBe('pre_run.py')
+  })
+
+  it('rejects unknown cron schedule grammar', () => {
+    const f = withBundlesAndCron()
+    const persona = (f['personas'] as unknown[])[0] as Record<string, unknown>
+    ;(persona['cron'] as Record<string, unknown>[])[0]['schedule'] = 'not a schedule'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidCronSchedule')
+  })
+
+  it('rejects cron referencing an unknown skill', () => {
+    const f = withBundlesAndCron()
+    const persona = (f['personas'] as unknown[])[0] as Record<string, unknown>
+    ;(persona['cron'] as Record<string, unknown>[])[0]['skill'] = 'does-not-exist'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('UnknownCronSkill')
+  })
+
+  it('rejects pre_run set alongside wake_policy=always', () => {
+    const f = withBundlesAndCron()
+    const persona = (f['personas'] as unknown[])[0] as Record<string, unknown>
+    ;(persona['cron'] as Record<string, unknown>[])[0]['pre_run'] = 'pre_run.py'
+    // wake_policy stays 'always' from withBundlesAndCron base
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidCronWakePolicy')
+  })
+
+  it('rejects wake_policy=pre_run_decides without pre_run', () => {
+    const f = withBundlesAndCron()
+    const persona = (f['personas'] as unknown[])[0] as Record<string, unknown>
+    ;(persona['cron'] as Record<string, unknown>[])[0]['wake_policy'] = 'pre_run_decides'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.code === 'MissingField' && e.path.endsWith('.pre_run'))).toBe(
+      true
+    )
+  })
+
+  it('rejects invalid wake_policy enum', () => {
+    const f = withBundlesAndCron()
+    const persona = (f['personas'] as unknown[])[0] as Record<string, unknown>
+    ;(persona['cron'] as Record<string, unknown>[])[0]['wake_policy'] = 'maybe'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidCronWakePolicy')
+  })
+})
+
+// -----------------------------------------------------------------------------
+// ADR 0021 — Stream E webhook_url + webhook_triggers
+// -----------------------------------------------------------------------------
+
+function withWebhooks(): Record<string, unknown> {
+  const f = withBundlesAndCron()
+  const connectors = f['connectors'] as Record<string, Record<string, unknown>>
+  connectors['PracticeManagement']['webhook_url'] =
+    'https://hermes-smith-pi-firm.fly.dev/webhooks/practice_management'
+  f['webhook_triggers'] = [
+    {
+      source: 'filevine',
+      event_type: 'matter.created',
+      skill: 'inbox-triage-and-draft',
+      persona: 'marcus',
+    },
+  ]
+  return f
+}
+
+describe('validate — ADR 0021 webhook_url', () => {
+  it('accepts a valid connector webhook_url', () => {
+    const r = validate(withWebhooks())
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    }
+    expect(r.value.connectors.PracticeManagement?.webhook_url).toBe(
+      'https://hermes-smith-pi-firm.fly.dev/webhooks/practice_management'
+    )
+  })
+
+  it('rejects webhook_url that does not match the customer-bound pattern', () => {
+    const f = withWebhooks()
+    const connectors = f['connectors'] as Record<string, Record<string, unknown>>
+    connectors['PracticeManagement']['webhook_url'] = 'https://example.com/webhook'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidWebhookUrl')
+  })
+
+  it('rejects webhook_url pointing at a different customer slug (isolation)', () => {
+    const f = withWebhooks()
+    const connectors = f['connectors'] as Record<string, Record<string, unknown>>
+    connectors['PracticeManagement']['webhook_url'] =
+      'https://hermes-other-firm.fly.dev/webhooks/practice_management'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('IsolationViolation')
+  })
+})
+
+describe('validate — ADR 0021 webhook_triggers', () => {
+  it('accepts a valid webhook_triggers list', () => {
+    const r = validate(withWebhooks())
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    }
+    expect(r.value.webhook_triggers).toHaveLength(1)
+    expect(r.value.webhook_triggers[0].source).toBe('filevine')
+    expect(r.value.webhook_triggers[0].event_type).toBe('matter.created')
+  })
+
+  it('rejects trigger whose source has no connector with webhook_url', () => {
+    const f = withWebhooks()
+    ;(f['webhook_triggers'] as Record<string, unknown>[])[0]['source'] = 'microsoft-graph'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('UnknownWebhookSource')
+  })
+
+  it('rejects trigger whose persona does not exist', () => {
+    const f = withWebhooks()
+    ;(f['webhook_triggers'] as Record<string, unknown>[])[0]['persona'] = 'ghost-persona'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('UnknownWebhookPersona')
+  })
+
+  it('rejects trigger whose skill is not on the target persona', () => {
+    const f = withWebhooks()
+    ;(f['webhook_triggers'] as Record<string, unknown>[])[0]['skill'] = 'not-a-skill'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('UnknownWebhookSkill')
+  })
+
+  it('treats missing webhook_triggers as empty list', () => {
+    const f = validFixture()
+    const r = validate(f)
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    }
+    expect(r.value.webhook_triggers).toEqual([])
+  })
+})
