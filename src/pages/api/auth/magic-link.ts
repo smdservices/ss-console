@@ -34,14 +34,14 @@ export const POST: APIRoute = async ({ request, redirect }) => {
     const clientIp = request.headers.get('cf-connecting-ip') ?? undefined
     const rateLimitResult = await rateLimitByIp(env.BOOKING_CACHE, 'auth-magic', clientIp, 5)
     if (!rateLimitResult.allowed) {
-      return redirect('/auth/portal-login?error=rate_limited', 302)
+      return redirect('/auth/sign-in?error=rate_limited', 302)
     }
 
     const formData = await request.formData()
     const email = formData.get('email')
 
     if (!email || typeof email !== 'string') {
-      return redirect('/auth/portal-login?error=server', 302)
+      return redirect('/auth/sign-in?error=server', 302)
     }
 
     const normalizedEmail = email.toLowerCase().trim()
@@ -56,7 +56,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
     if (!user) {
       // Don't reveal whether the email exists — show same success message
       // This prevents email enumeration attacks
-      return redirect('/auth/portal-login?status=sent', 302)
+      return redirect('/auth/sign-in?status=sent', 302)
     }
 
     // Create magic link token (15-minute TTL for client login resend).
@@ -91,9 +91,9 @@ export const POST: APIRoute = async ({ request, redirect }) => {
       // Still show success to prevent enumeration
     }
 
-    return redirect('/auth/portal-login?status=sent', 302)
+    return redirect('/auth/sign-in?status=sent', 302)
   } catch (err) {
     console.error('[magic-link] Error:', err)
-    return redirect('/auth/portal-login?error=server', 302)
+    return redirect('/auth/sign-in?error=server', 302)
   }
 }

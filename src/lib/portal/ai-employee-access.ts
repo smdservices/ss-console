@@ -28,7 +28,7 @@ import { getProductSubscription, listProductRoles, type SubscriptionRow } from '
 export const AI_EMPLOYEE_PRODUCT_SLUG = 'ai-employee'
 
 export const AI_EMPLOYEE_LANDING_PATH = '/portal/products/ai-employee'
-export const PORTAL_SIGN_IN_PATH = '/auth/portal-sign-in'
+export const PORTAL_SIGN_IN_PATH = '/auth/sign-in'
 export const PORTAL_SIGN_IN_NO_SUBSCRIPTION_PATH = `${PORTAL_SIGN_IN_PATH}?status=no_subscription`
 
 export type AiEmployeeAccess =

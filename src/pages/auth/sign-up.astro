@@ -1,0 +1,48 @@
+---
+import Base from '../../layouts/Base.astro'
+import AuthHeader from '../../components/AuthHeader.astro'
+import Footer from '../../components/Footer.astro'
+import { SignUp } from '@clerk/astro/components'
+import { clerkAppearance } from '../../lib/auth/clerk-appearance'
+
+/**
+ * Unified account creation. Same Clerk-backed identity used by both
+ * admins and clients; role is determined by the local users.role column
+ * (default 'client' for JIT-created rows; admins are provisioned by
+ * Captain via a one-time SQL update that sets clerk_user_id on the
+ * existing admin row).
+ *
+ * Most portal users arrive here from an Organization-invitation email
+ * (Clerk's invite flow pre-populates the email field). Direct discovery
+ * of this URL is rare but supported.
+ */
+---
+
+<Base title="Create Account | SMD Services" disableAnalytics={true}>
+  <div class="flex min-h-screen flex-col bg-[color:var(--ss-color-background)]">
+    <AuthHeader crossLinkHref="/auth/sign-in" crossLinkLabel="Sign in" />
+
+    <main
+      id="main"
+      role="main"
+      class="flex-1 flex items-start md:items-center justify-center px-4 py-10 md:py-16"
+    >
+      <div class="w-full max-w-sm">
+        <p
+          class="mb-6 text-center font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        >
+          Create your account
+        </p>
+
+        <SignUp
+          signInUrl="/auth/sign-in"
+          fallbackRedirectUrl="/auth/after-sign-in"
+          forceRedirectUrl="/auth/after-sign-in"
+          appearance={clerkAppearance}
+        />
+      </div>
+    </main>
+
+    <Footer />
+  </div>
+</Base>

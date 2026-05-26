@@ -126,9 +126,13 @@ describe('auth: middleware', () => {
     expect(source).toContain('renewSession')
   })
 
-  it('refreshes session cookie on authenticated response', () => {
+  it('populates locals.session for admin paths via the Clerk shim', () => {
+    // After the 2026-05-25 Clerk-unified migration, admin sessions are
+    // synthesized from the Clerk identity by resolveAdminSessionFromClerk.
+    // The middleware no longer sets/refreshes an SS-side session cookie —
+    // Clerk owns admin cookies just like it owns portal cookies.
     const source = readFileSync(resolve('src/middleware.ts'), 'utf-8')
-    expect(source).toContain('buildSessionCookie')
+    expect(source).toContain('resolveAdminSessionFromClerk')
   })
 })
 
@@ -201,9 +205,12 @@ describe('auth: admin dashboard', () => {
     expect(source).toContain('Astro.locals.session')
   })
 
-  it('admin layout includes logout form', () => {
+  it('admin layout includes Clerk sign-out button', () => {
+    // 2026-05-25 unified auth: admin sign-out is driven by Clerk's
+    // <SignOutButton /> redirecting to /auth/sign-in?status=signed_out.
     const source = readFileSync(resolve('src/layouts/AdminLayout.astro'), 'utf-8')
-    expect(source).toContain('/api/auth/logout')
+    expect(source).toContain('SignOutButton')
+    expect(source).toContain('/auth/sign-in?status=signed_out')
   })
 
   it('admin layout is not indexed by search engines', () => {
