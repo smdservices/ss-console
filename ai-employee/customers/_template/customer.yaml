@@ -87,12 +87,18 @@ connectors:
     adapter: '[m365-mail / google-gmail / synthetic]'
     backend: '[mcp:m365-mail / mcp:google-gmail / synthetic:fixture]'
     enabled: true
+    # tenant_id REQUIRED for backend: mcp:m365-mail. Microsoft Entra tenant
+    # UUID — bootstrap CLI resolves the per-tenant hosted MCP URL from it
+    # (ADR 0019 / #1056). Captain captures during onboarding.
+    # tenant_id: '00000000-0000-0000-0000-000000000000'
   Calendar:
     # ADR 0021 Stream F migration (PR #1080): M365 calendar shipped as
     # first-party MCP. Per ADR 0020 the MCP-first ordering applies.
     adapter: '[m365-calendar / google-calendar / synthetic]'
     backend: '[mcp:m365-calendar / mcp:google-calendar / synthetic:fixture]'
     enabled: true
+    # tenant_id REQUIRED for backend: mcp:m365-calendar (same as Email).
+    # tenant_id: '00000000-0000-0000-0000-000000000000'
   DocumentStorage:
     # ADR 0021 Stream F migration (PR #1080): Microsoft has not shipped a
     # first-party OneDrive/SharePoint MCP. The community MIT
@@ -102,6 +108,15 @@ connectors:
     adapter: '[ms-365 / google-drive / synthetic]'
     backend: '[mcp:softeria/ms-365-mcp-server / mcp:google-drive / synthetic:fixture]'
     enabled: true
+  InternalComms:
+    # ADR 0020 / #1056: Microsoft Teams ships as a first-party hosted MCP
+    # at agent365.svc.cloud.microsoft. Per-tenant Entra ID auth, same
+    # tenant_id resolution model as Email/Calendar.
+    adapter: '[m365-teams / slack / synthetic]'
+    backend: '[mcp:m365-teams / mcp:slack / synthetic:fixture]'
+    enabled: true
+    # tenant_id REQUIRED for backend: mcp:m365-teams.
+    # tenant_id: '00000000-0000-0000-0000-000000000000'
 
 # ---- OPTIONAL: webhook triggers (ADR 0021 Stream E) ----
 # Map inbound vendor webhook payloads to skill invocations on a persona.

@@ -29,10 +29,11 @@ import ConnectorRow from './ConnectorRow.astro'
 interface Props {
   connectors: Record<string, EditableConnector>
   tokenRefs: LockedFieldsView['connector_token_refs']
+  tenantIds: LockedFieldsView['connector_tenant_ids']
   errors: ValidationError[]
 }
 
-const { connectors, tokenRefs, errors } = Astro.props
+const { connectors, tokenRefs, tenantIds, errors } = Astro.props
 const entries = Object.entries(connectors)
 ---
 
@@ -49,8 +50,8 @@ const entries = Object.entries(connectors)
       Connectors
     </h2>
     <p class="mt-2 text-sm text-[color:var(--ss-color-text-secondary)]">
-      Capability-to-adapter bindings. OAuth references are Captain-managed and shown for visibility
-      only.
+      Capability-to-adapter bindings. OAuth references and Microsoft 365 tenant IDs are
+      Captain-managed and shown for visibility only.
     </p>
   </header>
 
@@ -66,6 +67,7 @@ const entries = Object.entries(connectors)
             capability={capability}
             connector={connector}
             tokenRef={tokenRefs[capability] ?? null}
+            tenantId={tenantIds[capability] ?? null}
             errors={errors}
           />
         ))}

@@ -263,6 +263,7 @@ const locked = resolved && !('error' in resolved) ? resolved.locked : null
             <ConnectorsFields
               connectors={editable.connectors}
               tokenRefs={locked.connector_token_refs}
+              tenantIds={locked.connector_tenant_ids}
               errors={[]}
             />
             <ScopeFields scope={editable.scope} errors={[]} />

@@ -272,6 +272,10 @@ By Day-45, the following must exist for customer `{slug}`:
 - [ ] DocuSign envelope archived (service contract, DPA, BAA-equivalent when applicable)
 - [ ] PagerDuty service entry firing test alerts successfully
 
+**Microsoft 365 customers (when any `mcp:m365-*` connector is bound):**
+
+- [ ] Customer's Microsoft Entra tenant ID captured during the Captain setup session and written to `connectors.{Email,Calendar,InternalComms}.tenant_id` in `customer.yaml`. The bootstrap CLI resolves the per-tenant hosted MCP URL (`agent365.svc.cloud.microsoft/agents/tenants/{tenant_id}/servers/<server>`) from this field; the hosted MCP brokers the Entra app consent flow, so there is no separate refresh token to store. The validator rejects missing or malformed tenant IDs at provisioning time (issue [#1056](https://github.com/venturecrane/ss-console/issues/1056)).
+
 **In Captain's tooling:**
 
 - [ ] Captain CLI logging `captain_time` per customer per PRD §15.2

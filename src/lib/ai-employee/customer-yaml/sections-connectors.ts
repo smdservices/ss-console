@@ -17,6 +17,8 @@ import type { CapabilityName } from '../capabilities/types'
 import {
   ACCEPTED_BACKEND_PREFIXES,
   ACCEPTED_CAPABILITY_NAMES,
+  ENTRA_TENANT_ID_PATTERN,
+  M365_HOSTED_MCP_PREFIX,
   SLUG_PATTERN,
   WEBHOOK_URL_PATTERN,
   type Connector,
@@ -95,6 +97,8 @@ function checkOneConnector(
   if (connectionId === undefined) return null
   const webhookUrl = checkWebhookUrl(key, value['webhook_url'], customerId, errors)
   if (webhookUrl === undefined) return null
+  const tenantId = checkTenantId(key, value['tenant_id'], backend, errors)
+  if (tenantId === undefined) return null
   const enabled = typeof value['enabled'] === 'boolean' ? value['enabled'] : true
   const tokenRef = typeof value['token_ref'] === 'string' ? value['token_ref'] : null
   return {
@@ -105,6 +109,7 @@ function checkOneConnector(
     token_ref: tokenRef,
     composio_connection_id: connectionId,
     webhook_url: webhookUrl,
+    tenant_id: tenantId,
   }
 }
 
@@ -156,6 +161,78 @@ function checkWebhookUrl(
     })
     return undefined
   }
+  return raw
+}
+
+/**
+ * Validate optional `tenant_id` for Microsoft-hosted MCP connectors. Returns
+ * the tenant string when valid, null when correctly absent, or undefined to
+ * signal a hard failure that drops the whole connector.
+ *
+ * Rules:
+ *   - Required when backend starts with `mcp:m365-` (mail/calendar/teams);
+ *     the bootstrap CLI cannot resolve the per-tenant hosted URL without it.
+ *   - Forbidden on every other backend — a tenant ID on a Composio/build
+ *     connector is a misconfiguration that should surface, not silently
+ *     ignore.
+ *   - Format: lowercase canonical UUID per `ENTRA_TENANT_ID_PATTERN`. The
+ *     Microsoft Entra tenant identifier is a UUID; mixed-case input is
+ *     rejected to keep downstream string-compare paths stable.
+ */
+function checkTenantId(
+  key: string,
+  raw: unknown,
+  backend: string,
+  errors: ValidationError[]
+): string | null | undefined {
+  const isM365 = backend.startsWith(M365_HOSTED_MCP_PREFIX)
+  const path = `connectors.${key}.tenant_id`
+
+  if (raw === undefined || raw === null) {
+    if (isM365) {
+      errors.push({
+        code: 'MissingField',
+        path,
+        message:
+          `tenant_id is required for backend "${M365_HOSTED_MCP_PREFIX}*" — ` +
+          'the bootstrap CLI resolves the per-tenant hosted MCP URL from it (ADR 0019 / #1056)',
+      })
+      return undefined
+    }
+    return null
+  }
+
+  if (typeof raw !== 'string') {
+    errors.push({
+      code: 'TypeMismatch',
+      path,
+      message: 'tenant_id must be a string when present',
+    })
+    return undefined
+  }
+
+  if (!isM365) {
+    errors.push({
+      code: 'UnexpectedField',
+      path,
+      message:
+        `tenant_id is only valid for backend "${M365_HOSTED_MCP_PREFIX}*"; ` +
+        `connector backend is "${backend}". Remove the tenant_id field or correct the backend.`,
+    })
+    return undefined
+  }
+
+  if (!ENTRA_TENANT_ID_PATTERN.test(raw)) {
+    errors.push({
+      code: 'InvalidTenantId',
+      path,
+      message:
+        'tenant_id must be a lowercase canonical UUID matching the Microsoft Entra ' +
+        'tenant ID format (e.g. "00000000-0000-0000-0000-000000000000")',
+    })
+    return undefined
+  }
+
   return raw
 }
 

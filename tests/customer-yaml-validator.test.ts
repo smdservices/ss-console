@@ -584,6 +584,169 @@ describe('validate — composio per-connection isolation', () => {
 })
 
 // -----------------------------------------------------------------------------
+// M365 hosted-MCP tenant_id (issue #1056)
+//
+// `tenant_id` is required when backend starts with `mcp:m365-` (mail,
+// calendar, teams) so the `hermes-smd bootstrap` CLI can resolve the
+// per-tenant hosted MCP URL at boot (ADR 0019 / ADR 0020).
+//
+// `tenant_id` MUST be a lowercase canonical Microsoft Entra UUID; it MUST
+// be absent on every other backend (a stray tenant ID on a non-M365
+// connector is a misconfiguration to surface, not silently ignore).
+// -----------------------------------------------------------------------------
+
+describe('validate — M365 hosted MCP tenant_id', () => {
+  const VALID_TENANT_ID = '11111111-2222-3333-4444-555555555555'
+
+  function fixtureWithM365Email(tenantId: string | null | undefined): Record<string, unknown> {
+    const f = validFixture()
+    const entry: Record<string, unknown> = {
+      adapter: 'm365-mail',
+      backend: 'mcp:m365-mail',
+      enabled: true,
+      scopes: ['Mail.Read', 'Mail.ReadWrite'],
+    }
+    if (tenantId !== undefined) entry['tenant_id'] = tenantId
+    ;(f['connectors'] as Record<string, unknown>)['Email'] = entry
+    return f
+  }
+
+  it('accepts a well-formed tenant_id on mcp:m365-mail', () => {
+    const r = validate(fixtureWithM365Email(VALID_TENANT_ID))
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors, null, 2)}`)
+    }
+    expect(r.value.connectors.Email?.tenant_id).toBe(VALID_TENANT_ID)
+  })
+
+  it('requires tenant_id when backend is mcp:m365-mail', () => {
+    const r = validate(fixtureWithM365Email(undefined))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.code === 'MissingField' && e.path === 'connectors.Email.tenant_id')
+    ).toBe(true)
+  })
+
+  it('requires tenant_id when backend is mcp:m365-mail and field is null', () => {
+    const r = validate(fixtureWithM365Email(null))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.code === 'MissingField' && e.path === 'connectors.Email.tenant_id')
+    ).toBe(true)
+  })
+
+  it('requires tenant_id on mcp:m365-calendar', () => {
+    const f = validFixture()
+    ;(f['connectors'] as Record<string, unknown>)['Calendar'] = {
+      adapter: 'm365-calendar',
+      backend: 'mcp:m365-calendar',
+      enabled: true,
+      scopes: ['Calendars.Read'],
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.code === 'MissingField' && e.path === 'connectors.Calendar.tenant_id')
+    ).toBe(true)
+  })
+
+  it('requires tenant_id on mcp:m365-teams', () => {
+    const f = validFixture()
+    ;(f['connectors'] as Record<string, unknown>)['InternalComms'] = {
+      adapter: 'm365-teams',
+      backend: 'mcp:m365-teams',
+      enabled: true,
+      scopes: ['ChannelMessage.Send'],
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) => e.code === 'MissingField' && e.path === 'connectors.InternalComms.tenant_id'
+      )
+    ).toBe(true)
+  })
+
+  it('rejects tenant_id that is not a UUID', () => {
+    const r = validate(fixtureWithM365Email('not-a-uuid'))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.code === 'InvalidTenantId' && e.path === 'connectors.Email.tenant_id')
+    ).toBe(true)
+  })
+
+  it('rejects uppercase tenant_id (must be lowercase canonical)', () => {
+    const mixedCase = 'abcdef12-3456-7890-ABCD-EF0123456789'
+    const r = validate(fixtureWithM365Email(mixedCase))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidTenantId')
+  })
+
+  it('rejects non-string tenant_id', () => {
+    const f = fixtureWithM365Email(undefined)
+    ;(f['connectors'] as Record<string, Record<string, unknown>>)['Email']['tenant_id'] = 12345
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('TypeMismatch')
+  })
+
+  it('rejects tenant_id on a non-M365 backend (composio:gmail)', () => {
+    const f = validFixture()
+    ;(f['connectors'] as Record<string, unknown>)['Email'] = {
+      adapter: 'gmail',
+      backend: 'composio:gmail',
+      enabled: true,
+      scopes: [],
+      composio_connection_id: 'conn_smith-pi-firm_xyz-1234',
+      tenant_id: VALID_TENANT_ID,
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.code === 'UnexpectedField' && e.path === 'connectors.Email.tenant_id')
+    ).toBe(true)
+  })
+
+  it('rejects tenant_id on the softeria community MCP DocumentStorage backend', () => {
+    const f = validFixture()
+    ;(f['connectors'] as Record<string, unknown>)['DocumentStorage'] = {
+      adapter: 'ms-365',
+      backend: 'mcp:softeria/ms-365-mcp-server',
+      enabled: true,
+      scopes: ['Files.Read'],
+      tenant_id: VALID_TENANT_ID,
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('UnexpectedField')
+  })
+
+  it('accepts absent tenant_id on non-M365 backends', () => {
+    const f = validFixture()
+    ;(f['connectors'] as Record<string, unknown>)['DocumentStorage'] = {
+      adapter: 'ms-365',
+      backend: 'mcp:softeria/ms-365-mcp-server',
+      enabled: true,
+      scopes: ['Files.Read'],
+    }
+    const r = validate(f)
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors, null, 2)}`)
+    }
+    expect(r.value.connectors.DocumentStorage?.tenant_id).toBeNull()
+  })
+})
+
+// -----------------------------------------------------------------------------
 // Memory: isolation invariants
 // -----------------------------------------------------------------------------
 

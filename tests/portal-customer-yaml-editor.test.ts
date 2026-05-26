@@ -152,6 +152,7 @@ describe('isLockedFieldPath', () => {
       'memory.vectorize_index',
       'machine.size',
       'connectors.*.token_ref',
+      'connectors.*.tenant_id',
       'safety.sticky_stop.*',
     ]
     for (const p of required) {
@@ -171,6 +172,15 @@ describe('projectEditableConfig', () => {
     expect(resolved.locked.connector_token_refs.Email).toBe(
       'infisical:/ai-employee/smith-pi-firm/email/refresh'
     )
+  })
+
+  it('moves connector tenant_id values to the locked surface (#1056)', () => {
+    const resolved = projectEditableConfig(validYaml())
+    expect(resolved.editable.connectors.Email).not.toHaveProperty('tenant_id')
+    // validYaml's Email connector binds to mcp:softeria/... (non-M365),
+    // so tenant_id is null. The projection still surfaces the field on
+    // the locked map — UI uses presence-of-null to skip the chip.
+    expect(resolved.locked.connector_tenant_ids.Email).toBeNull()
   })
 
   it('preserves persona editable fields', () => {

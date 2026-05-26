@@ -79,6 +79,7 @@ export const LOCKED_FIELD_PATHS: readonly string[] = [
   'memory.r2_vault_path',
   'memory.vectorize_index',
   'connectors.*.token_ref',
+  'connectors.*.tenant_id',
   'safety.sticky_stop.*',
 ] as const
 
@@ -130,6 +131,7 @@ export interface EditableConnector {
   enabled: boolean
   scopes: string[]
   // token_ref intentionally omitted — locked Captain-only field.
+  // tenant_id intentionally omitted — locked Captain-only field (M365 hosted MCPs, #1056).
 }
 
 export interface EditableEscalation {
@@ -176,6 +178,7 @@ export interface LockedFieldsView {
   machine: { size: string; memory_mb: number }
   memory: { d1_namespace: string; r2_vault_path: string; vectorize_index: string }
   connector_token_refs: Record<string, string | null>
+  connector_tenant_ids: Record<string, string | null>
 }
 
 export interface ResolvedEditableConfig {
@@ -189,10 +192,12 @@ export interface ResolvedEditableConfig {
 
 export function projectEditableConfig(yaml: CustomerYaml): ResolvedEditableConfig {
   const connectorTokenRefs: Record<string, string | null> = {}
+  const connectorTenantIds: Record<string, string | null> = {}
   const editableConnectors: Record<string, EditableConnector> = {}
   for (const [capability, connector] of Object.entries(yaml.connectors)) {
     if (!connector) continue
     connectorTokenRefs[capability] = connector.token_ref
+    connectorTenantIds[capability] = connector.tenant_id
     editableConnectors[capability] = {
       adapter: connector.adapter,
       backend: connector.backend,
@@ -202,7 +207,7 @@ export function projectEditableConfig(yaml: CustomerYaml): ResolvedEditableConfi
   }
   return {
     editable: projectEditable(yaml, editableConnectors),
-    locked: projectLocked(yaml, connectorTokenRefs),
+    locked: projectLocked(yaml, connectorTokenRefs, connectorTenantIds),
   }
 }
 
@@ -224,7 +229,8 @@ function projectEditable(
 
 function projectLocked(
   yaml: CustomerYaml,
-  connectorTokenRefs: Record<string, string | null>
+  connectorTokenRefs: Record<string, string | null>,
+  connectorTenantIds: Record<string, string | null>
 ): LockedFieldsView {
   return {
     schema_version: yaml.schema_version,
@@ -238,6 +244,7 @@ function projectLocked(
     machine: yaml.machine,
     memory: yaml.memory,
     connector_token_refs: connectorTokenRefs,
+    connector_tenant_ids: connectorTenantIds,
   }
 }
 
@@ -486,6 +493,10 @@ function mergeConnectors(
       // changing it via the editor would risk cross-customer routing.
       // Configured at provisioning time, never via portal.
       webhook_url: existing.webhook_url,
+      // tenant_id locked — Captain-managed at provisioning (#1056). A
+      // customer-side tenant swap would silently re-point an M365 MCP
+      // connector at a different tenant's hosted server.
+      tenant_id: existing.tenant_id,
     }
   }
   return merged
@@ -553,6 +564,13 @@ export function validateEditableChanges(
         code: 'BannedFieldName',
         path: `connectors.${capability}.token_ref`,
         message: 'token_ref is a Captain-managed field; the customer-side editor cannot change it.',
+      })
+    }
+    if (Object.prototype.hasOwnProperty.call(c, 'tenant_id')) {
+      errors.push({
+        code: 'BannedFieldName',
+        path: `connectors.${capability}.tenant_id`,
+        message: 'tenant_id is a Captain-managed field; the customer-side editor cannot change it.',
       })
     }
   }

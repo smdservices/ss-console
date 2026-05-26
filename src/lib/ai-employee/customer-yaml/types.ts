@@ -128,6 +128,28 @@ export const WEBHOOK_URL_PATTERN =
   /^https:\/\/hermes-([a-z0-9][a-z0-9-]{0,31})\.fly\.dev\/webhooks\/[a-z_]+$/
 
 /**
+ * Microsoft Entra tenant ID is a UUID identifying the customer's Microsoft 365
+ * tenant. Required on Microsoft-hosted MCP connectors (`mcp:m365-mail`,
+ * `mcp:m365-calendar`, `mcp:m365-teams`) so the bootstrap CLI can resolve the
+ * per-tenant hosted URL at
+ * `agent365.svc.cloud.microsoft/agents/tenants/{tenant_id}/servers/<server>`.
+ *
+ * Per ADR 0019, the resolution itself lives in the `hermes-smd bootstrap` CLI
+ * shipped from `venturecrane/hermes-smd-overlay`; this validator only ensures
+ * the field is present and well-formed before bootstrap consumes it. Lowercase
+ * canonical UUID form to keep downstream string-compare paths stable.
+ */
+export const ENTRA_TENANT_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+
+/**
+ * Backend prefix that triggers `tenant_id` as a required field. Matches
+ * `mcp:m365-mail`, `mcp:m365-calendar`, `mcp:m365-teams` (and any future
+ * Microsoft-hosted MCP that follows the same per-tenant URL pattern).
+ */
+export const M365_HOSTED_MCP_PREFIX = 'mcp:m365-'
+
+/**
  * Base recipient-cohort taxonomy used by Layer 2 voice transform and
  * the blind-test gate (PRD §9.3 Layer 3 + §9.6 Gate 3). Customers may
  * extend this set via `voice_cohorts:` on customer.yaml; the base set
@@ -282,6 +304,22 @@ export interface Connector {
    * Null when the connector is pull-only (no vendor push events configured).
    */
   webhook_url: string | null
+  /**
+   * Microsoft Entra tenant ID (UUID) for Microsoft-hosted MCP backends
+   * (`mcp:m365-mail`, `mcp:m365-calendar`, `mcp:m365-teams`). The
+   * `hermes-smd bootstrap` CLI resolves the per-tenant hosted MCP URL at
+   * `agent365.svc.cloud.microsoft/agents/tenants/{tenant_id}/servers/<server>`
+   * using this value (ADR 0019 / ADR 0020 / #1056).
+   *
+   * Required when backend starts with `mcp:m365-`. MUST be null for any
+   * other backend — a stray tenant ID on a non-M365 connector is a
+   * misconfiguration signal, not silently-ignored data.
+   *
+   * Captain-managed at v1: the customer-side editor displays this as a
+   * read-only chip alongside `token_ref`. Onboarding captures it during the
+   * customer setup session.
+   */
+  tenant_id: string | null
 }
 
 /**
@@ -479,6 +517,8 @@ export type ValidationErrorCode =
   | 'UnknownWebhookPersona'
   | 'UnknownWebhookSkill'
   | 'InvalidWebhookUrl'
+  | 'InvalidTenantId'
+  | 'UnexpectedField'
 
 export interface ValidationError {
   code: ValidationErrorCode

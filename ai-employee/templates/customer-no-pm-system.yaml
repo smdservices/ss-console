@@ -93,21 +93,22 @@ connectors:
     # Per-customer D1 + R2 wiring is applied at provision time.
 
   Email:
-    # ADR 0020: first-party Microsoft hosted MCP, per-tenant URL
+    # ADR 0020 / #1056: first-party Microsoft hosted MCP, per-tenant URL
     # /agents/tenants/{tenant_id}/servers/mcp_MailTools at
-    # agent365.svc.cloud.microsoft. Auth via Microsoft Entra tenant ID.
+    # agent365.svc.cloud.microsoft. Auth via per-tenant Microsoft Entra app
+    # consent — the hosted MCP brokers the OAuth flow, so there is no
+    # token_ref for the agent to hold. The bootstrap CLI uses tenant_id to
+    # resolve the per-tenant hosted MCP URL at boot (ADR 0019).
     adapter: m365-mail
     backend: mcp:m365-mail
     enabled: true
     scopes:
       - 'Mail.Read'
       - 'Mail.ReadWrite'
-    # Per-tenant Entra auth — the token_ref points at the customer's tenant
-    # ID, not a refresh token. The hosted MCP brokers the OAuth flow.
-    token_ref: 'infisical:/ai-employee/[FIRM-SLUG]/email/microsoft-entra-tenant-id'
+    tenant_id: '[FIRM-ENTRA-TENANT-ID]'
 
   Calendar:
-    # ADR 0020: first-party Microsoft hosted MCP,
+    # ADR 0020 / #1056: first-party Microsoft hosted MCP,
     # /servers/mcp_CalendarTools. Same per-tenant Entra auth as Email.
     adapter: m365-calendar
     backend: mcp:m365-calendar
@@ -116,7 +117,7 @@ connectors:
       - 'Calendars.Read'
       - 'Calendars.ReadWrite'
     # Same tenant ID as Email — the customer's M365 tenant.
-    token_ref: 'infisical:/ai-employee/[FIRM-SLUG]/email/microsoft-entra-tenant-id'
+    tenant_id: '[FIRM-ENTRA-TENANT-ID]'
 
   DocumentStorage:
     # ADR 0020 / ADR 0021 Stream F (decision packet at
@@ -144,6 +145,23 @@ connectors:
     # The community MCP server reads from the same token surface as the
     # retired BUILD adapter; the token_ref name stays for continuity.
     token_ref: 'infisical:/ai-employee/[FIRM-SLUG]/document-storage/microsoft-graph-oauth-refresh'
+
+  InternalComms:
+    # ADR 0020 / #1056: Microsoft Teams ships as a first-party hosted MCP
+    # at agent365.svc.cloud.microsoft, /servers/mcp_TeamsTools. Same
+    # per-tenant Entra auth as Email/Calendar. Per ADR 0005, internal-comms
+    # adapters MUST refuse to post to any channel that has external members
+    # or guests — the hosted MCP exposes the channel-membership data; the
+    # overlay enforces the refusal in `pre_tool_invoke`.
+    adapter: m365-teams
+    backend: mcp:m365-teams
+    enabled: true
+    scopes:
+      - 'Channel.ReadBasic.All'
+      - 'ChannelMessage.Read.All'
+      - 'ChannelMessage.Send'
+      - 'Chat.ReadWrite'
+    tenant_id: '[FIRM-ENTRA-TENANT-ID]'
 
   ESign:
     # ADR 0020: DocuSign shipped an MCP server in Beta on 2026-04-28.
