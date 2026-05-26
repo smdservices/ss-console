@@ -11,7 +11,6 @@ import TrustCeilingSection from '../../../../../components/portal/ai-employee/Tr
 import VoiceSamplesSection from '../../../../../components/portal/ai-employee/VoiceSamplesSection.astro'
 import SkillTogglesSection from '../../../../../components/portal/ai-employee/SkillTogglesSection.astro'
 import ConnectorStatusSection from '../../../../../components/portal/ai-employee/ConnectorStatusSection.astro'
-import { SignOutButton } from '@clerk/astro/components'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -113,16 +112,7 @@ const banner: { kind: 'ok' | 'error'; text: string } | null = (() => {
   </head>
   <body class="min-h-screen bg-[color:var(--ss-color-background)]">
     <SkipToMain />
-    <PortalHeader clientName={client.name}>
-      <SignOutButton asChild redirectUrl="/auth/sign-in?status=signed_out">
-        <button
-          type="button"
-          class="inline-flex items-center min-h-11 px-2 -mx-2 text-sm text-[color:var(--ss-color-text-muted)] hover:text-[color:var(--ss-color-text-primary)] active:text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded transition-colors"
-        >
-          Sign out
-        </button>
-      </SignOutButton>
-    </PortalHeader>
+    <PortalHeader clientName={client.name} />
 
     <PortalTabs pathname={Astro.url.pathname} aiEmployeeActive={true} />
 

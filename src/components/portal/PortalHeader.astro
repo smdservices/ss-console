@@ -8,14 +8,18 @@
  * - Three-icon contact control on the right: email / SMS / phone. Each
  *   channel only renders when we have data for it. Clients pick the channel
  *   that works for them — spec decision: "clients know what they want."
- * - Default <slot /> for the Sign-out affordance (host page owns it)
+ * - Built-in Sign-out icon button on the far right. Sign-out chrome lives
+ *   here (NOT in a per-page slot) so every portal surface gets identical
+ *   header chrome. Captain decision 2026-05-26 — the prior <slot /> let
+ *   every caller diverge.
  *
- * The header's three-icon control is the SINGLE contact affordance across
- * the portal. The named-human card (formerly ConsultantBlock.astro) was
- * removed 2026-05-25 — Captain decision per .design/portal-ux-brief.md.
+ * The header's icon row is the SINGLE contact affordance across the portal.
+ * The named-human card (formerly ConsultantBlock.astro) was removed
+ * 2026-05-25 — Captain decision per .design/portal-ux-brief.md.
  */
 
 import SmdLogo from '../SmdLogo.astro'
+import { SignOutButton } from '@clerk/astro/components'
 
 interface Props {
   clientName: string
@@ -85,7 +89,11 @@ const iconClasses =
           </a>
         )
       }
-      <slot />
+      <SignOutButton asChild redirectUrl="/auth/sign-in?status=signed_out">
+        <button type="button" aria-label="Sign out" title="Sign out" class={iconClasses}>
+          <span class="material-symbols-outlined" aria-hidden="true">logout</span>
+        </button>
+      </SignOutButton>
     </div>
   </div>
 </header>
