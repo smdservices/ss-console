@@ -68,6 +68,30 @@ export async function ensureLocalUser(
 
   if (existing) return existing
 
+  // Auto-link path: a users row may already exist for this email from
+  // before the Clerk migration (or from an admin-created client invite
+  // that hasn't been redeemed via Clerk yet). UNIQUE(org_id, email) means
+  // we cannot INSERT a duplicate row; we must bind the existing row to
+  // this Clerk identity instead. Only links when clerk_user_id IS NULL
+  // so we never overwrite an existing binding. Email comes from Clerk's
+  // verified primary email, which is the trust anchor.
+  const emailMatch = await db
+    .prepare(
+      `SELECT * FROM users
+       WHERE org_id = ? AND email = ? AND clerk_user_id IS NULL
+       LIMIT 1`
+    )
+    .bind(ORG_ID, profile.email)
+    .first<PortalUserRow>()
+
+  if (emailMatch) {
+    await db
+      .prepare('UPDATE users SET clerk_user_id = ? WHERE id = ?')
+      .bind(clerkUserId, emailMatch.id)
+      .run()
+    return { ...emailMatch, clerk_user_id: clerkUserId }
+  }
+
   const id = crypto.randomUUID()
   await db
     .prepare(
