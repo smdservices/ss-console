@@ -162,10 +162,21 @@ describe('auth: unified sign-in pages', () => {
     expect(source).toContain('forceRedirectUrl="/auth/after-sign-in"')
   })
 
-  it('after-sign-in dispatcher routes by users.role', () => {
+  it('after-sign-in dispatcher routes by users.role via ensureLocalUser (so pre-Clerk rows auto-link by email)', () => {
     const source = readFileSync(resolve('src/pages/auth/after-sign-in.ts'), 'utf-8')
     expect(source).toContain('resolveAdminSessionFromClerk')
-    expect(source).toContain('SELECT role, entity_id FROM users WHERE clerk_user_id = ?')
+    expect(source).toContain('ensureLocalUser')
+    expect(source).toContain('locals.currentUser()')
+    // The raw clerk_user_id-only SELECT was the bug: pre-Clerk users
+    // rows with NULL clerk_user_id never matched. Guard against the
+    // regression by asserting that direct lookup is gone.
+    expect(source).not.toContain('SELECT role, entity_id FROM users WHERE clerk_user_id = ?')
+  })
+
+  it('sign-in page renders a sign-out recovery option when status=no_subscription', () => {
+    const source = readFileSync(resolve('src/pages/auth/sign-in.astro'), 'utf-8')
+    expect(source).toContain('SignOutButton')
+    expect(source).toContain("status === 'no_subscription'")
   })
 })
 

@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 import { resolveAdminSessionFromClerk } from '../../lib/auth/admin-session-shim'
+import { ensureLocalUser } from '../../lib/auth/clerk-bridge'
 import {
   buildAdminUrl,
   buildPortalUrl,
@@ -19,16 +20,16 @@ import {
  *   - role=client with an entity binding → https://portal.smd.services/
  *   - role=client without a binding → /auth/sign-in?status=no_subscription
  *
+ * We route through ensureLocalUser so a pre-Clerk users row (created by
+ * an admin invite or via legacy magic-link auth) gets auto-bound to the
+ * Clerk identity on its first sign-in. A lookup-by-clerk_user_id-only
+ * path would miss those rows and falsely surface no_subscription.
+ *
  * When the host base URLs are not configured (e.g., local dev without
  * ADMIN_BASE_URL/PORTAL_BASE_URL set), fall back to relative paths so the
  * subdomain rewrite in src/middleware.ts handles routing on a single
  * host.
  */
-
-interface UserBindingRow {
-  role: string
-  entity_id: string | null
-}
 
 export const GET: APIRoute = async ({ locals, redirect }) => {
   const auth = locals.auth()
@@ -43,21 +44,22 @@ export const GET: APIRoute = async ({ locals, redirect }) => {
     return redirect(target, 302)
   }
 
-  // Client path — check if the local users row exists and is bound to
-  // an entity. The Clerk bridge ensures a users row exists by the time
-  // a Clerk session lands here (JIT-created with role='client'); we
-  // re-read here to inspect entity_id.
-  const userRow = await env.DB.prepare(
-    `SELECT role, entity_id FROM users WHERE clerk_user_id = ? LIMIT 1`
-  )
-    .bind(auth.userId)
-    .first<UserBindingRow>()
-
-  if (!userRow) {
-    // Clerk session exists but no local users row yet — surface as
-    // unbound until the next portal page load runs ensureLocalUser().
-    return redirect('/auth/sign-in?status=no_subscription', 302)
+  // Client path. Fetch Clerk profile so ensureLocalUser can auto-link
+  // an existing users row by email (UNIQUE(org_id, email) blocks insert
+  // of a duplicate) or JIT-create a new row.
+  const clerkUser = await locals.currentUser()
+  if (!clerkUser) {
+    return redirect('/auth/sign-in', 302)
   }
+
+  const email =
+    clerkUser.primaryEmailAddress?.emailAddress ?? clerkUser.emailAddresses[0]?.emailAddress ?? ''
+  const name =
+    [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ').trim() ||
+    clerkUser.username ||
+    email
+
+  const userRow = await ensureLocalUser(env.DB, auth.userId, { email, name })
 
   if (userRow.role !== 'client') {
     // Defense in depth: any unexpected role lands at sign-in. The admin
