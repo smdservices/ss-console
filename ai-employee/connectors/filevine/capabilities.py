@@ -273,6 +273,11 @@ _PM_SUPPORTED = (
     "get_matter",
     "list_matter_documents",
     "create_note",
+    # ADR 0021 Stream E — matter-event webhook subscription. The HTTP
+    # path against Filevine's v2 `/core/webhooks` API is wired in this
+    # PR; live sandbox verification deferred to a Wave-4 hardening PR.
+    "subscribe",
+    "unsubscribe",
 )
 
 
@@ -292,6 +297,54 @@ _PM_UNSUPPORTED = (
     "create_time_entry_draft",
     "upload_matter_document",
 )
+
+
+# ---------------------------------------------------------------------------
+# Subscription capability shapes (ADR 0021 Stream E)
+# ---------------------------------------------------------------------------
+
+
+# Canonical event-type taxonomy. Mirrors `MatterEvent` from
+# src/lib/ai-employee/capabilities/practice-management.ts.
+SUPPORTED_MATTER_EVENTS = frozenset(
+    {
+        "matter.created",
+        "matter.updated",
+        "matter.closed",
+        "document.added",
+        "note.added",
+    }
+)
+
+
+# Filevine's v2 `/core/webhooks` API uses its own event-type strings.
+# The translation below maps canonical -> Filevine. Unknown canonical
+# events raise capability_not_supported before any HTTP call.
+_FILEVINE_EVENT_MAP: dict[str, str] = {
+    "matter.created": "Project.Created",
+    "matter.updated": "Project.Updated",
+    "matter.closed": "Project.Closed",
+    "document.added": "Document.Added",
+    "note.added": "Note.Created",
+}
+
+
+@dataclass(frozen=True)
+class SubscriptionRef:
+    """Python mirror of `SubscriptionRef` from `practice-management.ts`.
+
+    Returned by `subscribe()`; passed to `unsubscribe(id=...)`. The
+    `id` field is the adapter-side stable handle (typically the
+    vendor's id formatted with the adapter slug as prefix); the
+    `vendor_subscription_id` is the unwrapped vendor id for the same
+    record.
+    """
+
+    id: str
+    events: tuple[str, ...]
+    webhook_url: str
+    registered_at: str
+    vendor_subscription_id: str
 
 
 class FilevinePracticeManagement:
@@ -534,6 +587,109 @@ class FilevinePracticeManagement:
             capability=self.capability,
             adapter=self.adapter,
             message="upload_matter_document is not supported in Filevine v1 adapter",
+        )
+
+    # ----- Subscription (ADR 0021 Stream E) -----
+
+    async def subscribe(
+        self,
+        events: tuple[str, ...] | list[str],
+        webhook_url: str,
+    ) -> SubscriptionRef:
+        """Register a Filevine webhook subscription for the given events.
+
+        `events` is a canonical event list (see SUPPORTED_MATTER_EVENTS).
+        Unknown canonical events raise capability_not_supported. The
+        canonical strings are translated to Filevine's `Project.*` /
+        `Document.*` / `Note.*` taxonomy on the wire.
+
+        Per ADR 0021 Stream E, the subscription endpoint is the
+        customer's own Fly Machine — `customer.yaml.connectors[].webhook_url`.
+        Caller supplies the resolved URL; this adapter does NOT read
+        customer.yaml directly.
+
+        Returns a SubscriptionRef with the vendor's webhook id, the
+        canonical event list, the configured URL, and the registration
+        timestamp. The caller (typically the bootstrap routine that
+        provisions a customer Machine) records the ref in per-customer
+        state so unsubscribe() can be called at decommission time.
+        """
+        events_tuple = tuple(events)
+        unknown = [e for e in events_tuple if e not in SUPPORTED_MATTER_EVENTS]
+        if unknown:
+            raise AdapterError(
+                code="capability_not_supported",
+                capability=self.capability,
+                adapter=self.adapter,
+                message=(
+                    f"unsupported MatterEvent values: {unknown!r}; "
+                    f"supported: {sorted(SUPPORTED_MATTER_EVENTS)!r}"
+                ),
+            )
+        if not webhook_url:
+            raise AdapterError(
+                code="validation_failed",
+                capability=self.capability,
+                adapter=self.adapter,
+                message="webhook_url is required and must be non-empty",
+            )
+
+        # Translate canonical -> Filevine wire events.
+        wire_events = tuple(_FILEVINE_EVENT_MAP[e] for e in events_tuple)
+
+        result = await self._client.create_webhook_subscription(
+            capability=self.capability,
+            webhook_url=webhook_url,
+            wire_events=wire_events,
+        )
+        vendor_id = _opt_str(result.get("webhookId")) or _opt_str(result.get("id"))
+        if vendor_id is None:
+            raise AdapterError(
+                code="unknown",
+                capability=self.capability,
+                adapter=self.adapter,
+                message="Filevine webhook POST returned no id",
+            )
+        registered_at = (
+            _opt_str(result.get("createdAt")) or _opt_str(result.get("created_at")) or ""
+        )
+
+        return SubscriptionRef(
+            id=f"{ADAPTER_SLUG}:{vendor_id}",
+            events=events_tuple,
+            webhook_url=webhook_url,
+            registered_at=registered_at,
+            vendor_subscription_id=vendor_id,
+        )
+
+    async def unsubscribe(self, subscription_id: str) -> None:
+        """Delete a Filevine webhook subscription previously registered
+        via `subscribe()`.
+
+        `subscription_id` is the SubscriptionRef.id (prefixed with the
+        adapter slug). The adapter strips the prefix before issuing the
+        DELETE against Filevine's v2 webhooks API.
+
+        Idempotent: a 404 on the vendor side is silently OK (the
+        subscription is already gone). Other 4xx/5xx propagate as
+        AdapterError.
+        """
+        if not subscription_id:
+            raise AdapterError(
+                code="validation_failed",
+                capability=self.capability,
+                adapter=self.adapter,
+                message="subscription_id is required",
+            )
+        prefix = f"{ADAPTER_SLUG}:"
+        vendor_id = (
+            subscription_id[len(prefix) :]
+            if subscription_id.startswith(prefix)
+            else subscription_id
+        )
+        await self._client.delete_webhook_subscription(
+            capability=self.capability,
+            vendor_subscription_id=vendor_id,
         )
 
 

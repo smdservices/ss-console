@@ -145,6 +145,40 @@ export interface DocumentUpload {
 // Interface
 // ---------------------------------------------------------------------------
 
+/**
+ * Webhook event types the PracticeManagement adapter can subscribe to.
+ *
+ * Added by ADR 0021 Stream E. Initial set covers matter lifecycle plus
+ * document/note attach events — the vendor-direct events that trigger
+ * intake-triage and discovery-response skills. Vendor-specific events
+ * outside this set carry a `vendor_event_type` field in metadata.
+ */
+export type MatterEvent =
+  | 'matter.created'
+  | 'matter.updated'
+  | 'matter.closed'
+  | 'document.added'
+  | 'note.added'
+
+/**
+ * Returned by `subscribe()` — the per-customer record of a webhook
+ * subscription registered with the underlying PM system. The id is the
+ * adapter-side handle (used to unsubscribe); the `vendor_subscription_id`
+ * is the vendor's own id for the same record.
+ *
+ * Per ADR 0021 Stream E. The overlay's `hermes-smd-webhook-router`
+ * plugin reads inbound webhook payloads, matches them against
+ * `customer.yaml.webhook_triggers` (schema in #1052), and dispatches
+ * the configured skill.
+ */
+export interface SubscriptionRef {
+  id: string
+  events: ReadonlyArray<MatterEvent>
+  webhook_url: string
+  registered_at: string
+  vendor_subscription_id: string
+}
+
 export interface PracticeManagement extends AdapterBase {
   // Matter operations
   search_matters(query: MatterQuery): Promise<Matter[]>
@@ -165,4 +199,11 @@ export interface PracticeManagement extends AdapterBase {
   // Document operations within the PM system
   list_matter_documents(matter_id: string): Promise<DocumentRef[]>
   upload_matter_document(matter_id: string, doc: DocumentUpload): Promise<DocumentRef>
+
+  // Subscription operations (ADR 0021 Stream E). Adapters that do not
+  // support vendor-side webhooks declare `subscribe` / `unsubscribe`
+  // in `CapabilitySet.unsupported_methods` and raise
+  // `capability_not_supported` at call time.
+  subscribe(events: ReadonlyArray<MatterEvent>, webhook_url: string): Promise<SubscriptionRef>
+  unsubscribe(subscription_id: string): Promise<void>
 }

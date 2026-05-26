@@ -298,6 +298,130 @@ def test_pm_unsupported_methods_raise_capability_not_supported():
 
 
 # ---------------------------------------------------------------------------
+# Subscription (ADR 0021 Stream E)
+# ---------------------------------------------------------------------------
+
+
+def test_pm_describe_capabilities_includes_subscribe_unsubscribe():
+    """subscribe/unsubscribe must appear in supported_methods for the
+    overlay-side webhook router to gate its registration step on."""
+    client, _, _ = make_client()
+    pm = FilevinePracticeManagement(client)
+
+    cs = pm.describe_capabilities()
+    assert "subscribe" in cs.supported_methods
+    assert "unsubscribe" in cs.supported_methods
+    # Must not also appear as unsupported.
+    assert "subscribe" not in cs.unsupported_methods
+    assert "unsupported" not in cs.unsupported_methods
+
+
+def test_pm_subscribe_posts_one_webhook_per_event_and_returns_ref():
+    """`subscribe(events, url)` POSTs one record per event to
+    Filevine's `/core/webhooks` API; SubscriptionRef carries the
+    canonical event list and the vendor id."""
+    responses = {
+        ("POST", "/core/webhooks"): FakeResponse(
+            status_code=200,
+            json_body={"webhookId": "wh-100", "createdAt": "2026-05-26T03:00:00Z"},
+        ),
+    }
+    client, fake_http, _ = make_client(responses=responses)
+    pm = FilevinePracticeManagement(client)
+
+    ref = asyncio.run(
+        pm.subscribe(
+            events=("matter.created", "document.added"),
+            webhook_url="https://hermes-acme.fly.dev/webhooks/practice_management",
+        )
+    )
+
+    # Two events => two POSTs.
+    posts = [c for c in fake_http.calls if c.method == "POST"]
+    assert len(posts) == 2
+    # Each POST carries one wire-event mapped from the canonical name.
+    wire_events_posted = {p.json["eventType"] for p in posts}
+    assert wire_events_posted == {"Project.Created", "Document.Added"}
+    # orgUid is included on every POST.
+    for p in posts:
+        assert p.json["orgUid"] == "example-firm"
+        assert p.json["url"] == "https://hermes-acme.fly.dev/webhooks/practice_management"
+
+    # Returned ref carries the canonical event list, not the wire vocabulary.
+    assert ref.events == ("matter.created", "document.added")
+    assert ref.webhook_url == "https://hermes-acme.fly.dev/webhooks/practice_management"
+    assert ref.vendor_subscription_id == "wh-100"
+    # Adapter-prefixed id for cross-adapter uniqueness.
+    assert ref.id == "filevine:wh-100"
+    assert ref.registered_at == "2026-05-26T03:00:00Z"
+
+
+def test_pm_subscribe_rejects_unknown_events_with_capability_not_supported():
+    client, _, _ = make_client()
+    pm = FilevinePracticeManagement(client)
+
+    with pytest.raises(AdapterError) as exc:
+        asyncio.run(
+            pm.subscribe(
+                events=("matter.created", "matter.archived"),  # unknown
+                webhook_url="https://x.invalid/webhook",
+            )
+        )
+    assert exc.value.code == "capability_not_supported"
+    assert "matter.archived" in str(exc.value.args[0])
+
+
+def test_pm_subscribe_rejects_empty_webhook_url():
+    client, _, _ = make_client()
+    pm = FilevinePracticeManagement(client)
+
+    with pytest.raises(AdapterError) as exc:
+        asyncio.run(pm.subscribe(events=("matter.created",), webhook_url=""))
+    assert exc.value.code == "validation_failed"
+
+
+def test_pm_unsubscribe_strips_adapter_prefix_and_deletes():
+    responses = {
+        ("DELETE", "/core/webhooks/wh-100"): FakeResponse(
+            status_code=204,
+            json_body=None,
+        ),
+    }
+    client, fake_http, _ = make_client(responses=responses)
+    pm = FilevinePracticeManagement(client)
+
+    asyncio.run(pm.unsubscribe(subscription_id="filevine:wh-100"))
+
+    deletes = [c for c in fake_http.calls if c.method == "DELETE"]
+    assert len(deletes) == 1
+    assert deletes[0].path == "/core/webhooks/wh-100"
+
+
+def test_pm_unsubscribe_is_idempotent_on_404():
+    """A 404 means the subscription is already gone — success."""
+    responses = {
+        ("DELETE", "/core/webhooks/wh-missing"): FakeResponse(
+            status_code=404,
+            json_body=None,
+        ),
+    }
+    client, _, _ = make_client(responses=responses)
+    pm = FilevinePracticeManagement(client)
+
+    # Must NOT raise.
+    asyncio.run(pm.unsubscribe(subscription_id="filevine:wh-missing"))
+
+
+def test_pm_unsubscribe_rejects_empty_id():
+    client, _, _ = make_client()
+    pm = FilevinePracticeManagement(client)
+
+    with pytest.raises(AdapterError) as exc:
+        asyncio.run(pm.unsubscribe(subscription_id=""))
+    assert exc.value.code == "validation_failed"
+
+
+# ---------------------------------------------------------------------------
 # DocumentStorage
 # ---------------------------------------------------------------------------
 
