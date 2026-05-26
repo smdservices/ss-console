@@ -198,9 +198,13 @@ prompt_and_set() {
   log "Staged ${secret_name}"
 }
 
-# Required secrets per bootstrap.sh
+# Required secrets per bootstrap.sh.
+# COMPOSIO_API_KEY removed 2026-05-26: Composio is doctrine-dropped per the
+# ADR 0020 revision dated 2026-05-24 ("As of this revision, no currently
+# planned binding uses composio"). The schema validator and runtime guard
+# still accept `composio:` backend prefixes for future long-tail vendors;
+# this prompt was dead provisioning ceremony.
 prompt_and_set ANTHROPIC_API_KEY  "Anthropic API key for hermes-${SLUG}"
-prompt_and_set COMPOSIO_API_KEY   "Composio API key (Standard tier)"
 prompt_and_set AGENTMAIL_API_KEY  "AgentMail API key (Builder tier)"
 
 # R2 access for bootstrap.sh's customer.yaml fetch + customer-sync sidecar's
