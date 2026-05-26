@@ -42,11 +42,9 @@ if (import.meta.env.PROD) {
       consultantEmail="team@smd.services"
       consultantFirstName="Scott"
     >
-      <form method="POST" action="/api/auth/logout">
-        <button type="submit" class="text-sm text-[color:var(--ss-color-text-muted)]"
-          >Sign out</button
-        >
-      </form>
+      <button type="button" class="text-sm text-[color:var(--ss-color-text-muted)]">
+        Sign out
+      </button>
     </PortalHeader>
 
     <main class="max-w-3xl mx-auto px-4 sm:px-6 py-10 space-y-10">
