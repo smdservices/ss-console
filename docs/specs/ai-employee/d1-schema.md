@@ -50,6 +50,14 @@ CREATE INDEX idx_audit_actor ON audit_log(actor, ts);
 --   skill_manage create/write_file + Captain remove-action),
 -- CUSTOMER_YAML_SYNCED, CUSTOMER_YAML_STRUCTURAL_CHANGE_DEFERRED
 --   (ADR 0019 — customer-sync sidecar),
+-- SUBAGENT_STOPPED, SUBAGENT_INCOMPLETE (ADR 0021 Stream C —
+--   delegated subagent observability. SUBAGENT_STOPPED is emitted by
+--   the overlay's hermes-smd-audit plugin on `subagent_stop` (one row
+--   per child). SUBAGENT_INCOMPLETE is emitted by the PARENT skill
+--   before refusing to assemble, when any subagent return fails the
+--   assembly-time schema contract — the Devil's Advocate critique
+--   safety constraint that a reviewer-as-sender never sees a quietly
+--   incomplete draft).
 -- SUPPRESSED_WAKE (ADR 0021 Stream B — `pre_run.py` decides not to wake
 --   the agent; emit BEFORE printing `wakeAgent: false`; audit-write
 --   failure forces fallback to wake — see SuppressedWakeWriter).

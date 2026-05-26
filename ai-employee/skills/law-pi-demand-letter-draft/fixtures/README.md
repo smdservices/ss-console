@@ -1,10 +1,11 @@
 # Fixtures — law-pi-demand-letter-draft
 
-Three synthetic personal-injury matter inputs and three reference output drafts. The fixtures exercise the skill's three behavior classes:
+Four synthetic personal-injury matter inputs and four reference outputs. The fixtures exercise the skill's four behavior classes:
 
 1. **`01-clean-matter.yaml` + `01-clean-matter-draft.md`** — full-information matter; the skill produces a complete draft with all factual sections populated and the four legal-judgment sections as TBD markers.
 2. **`02-missing-wages-matter.yaml` + `02-missing-wages-matter-draft.md`** — matter with no employment-verification documents; the skill produces a draft with the lost-wages section as a TBD marker. The shape demonstrates the fabrication-discipline contract: a missing source produces TBD, never inferred content.
 3. **`03-citation-in-source-matter.yaml` + `03-citation-in-source-refusal.md`** — matter with a legal citation in a partner-authored narrative field that the skill would otherwise read into its factual prose. The readiness rubric refuses; the output is the matter-internal sourcing note recording the refusal, not a draft letter.
+4. **`04-subagent-incomplete-matter.yaml` + `04-subagent-incomplete-refusal.md`** — matter with employment + photo + correspondence documents (passing the upstream `insufficient_source_data` threshold of ≥3 sourced rows) but ZERO medical-record-classified documents. The `medicals_summary` subagent returns empty `medical_chronology`; the parent's assembly-time schema contract (ADR 0021 Stream C) refuses with `subagent_incomplete`. Exercises the Devil's Advocate critique safety constraint: a reviewer-as-sender never sees a quietly incomplete draft.
 
 Every fixture is watermarked `[SYNTHETIC FIXTURE — NOT A REAL MATTER]`. Every name is fictional. Every email address uses the `.invalid` TLD. Every document path, claim number, and dollar amount is synthetic. The fixtures are not derived from any real client matter and do not reflect any guidance about valuation, settlement, or strategy.
 
