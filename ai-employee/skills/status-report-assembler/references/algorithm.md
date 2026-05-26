@@ -159,7 +159,7 @@ owner skims the draft.
 - **Missing prior-week comparison.** If WoW data isn't available (e.g.,
   the agency just started tracking 4 days ago), use MoM or last-30-days
   as the comparable. Format clearly: `"Sessions: 12,400 (last 30 days —
-  no WoW comparison yet)"`.
+no WoW comparison yet)"`.
 - **Client has multiple stakeholders.** The draft is addressed to the
   primary contact per `config.primary_contact`. CC list (if configured)
   surfaces in the Slack alert; the owner adds CCs when sending.
