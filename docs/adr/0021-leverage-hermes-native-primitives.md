@@ -78,14 +78,14 @@ against the upstream source.
 
 ### Six work streams
 
-| Stream | Capability | Change |
-|---|---|---|
-| A | `execute_code` | Rewrite four batch-loop skills to use a single Python `execute_code` block |
-| B | No-agent cron (`{"wakeAgent": false}`) | Two watcher skills get pre-run scripts with arithmetic-only polling |
-| C | `delegate_task` | Three compound-research PI skills parallelize sub-tasks into 3 named subagents |
-| D | Skill bundles + `customer.yaml.personas[].bundles[]` | Three workflow bundles authored; schema extended |
-| E | `pre_gateway_dispatch` + `customer.yaml.webhook_triggers[]` | Filevine + Clio subscribe(); overlay routes events to skills |
-| F | MCP-first | Retire `ai-employee/connectors/ms_graph/` to `mcp:microsoft-graph` |
+| Stream | Capability                                                  | Change                                                                         |
+| ------ | ----------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| A      | `execute_code`                                              | Rewrite four batch-loop skills to use a single Python `execute_code` block     |
+| B      | No-agent cron (`{"wakeAgent": false}`)                      | Two watcher skills get pre-run scripts with arithmetic-only polling            |
+| C      | `delegate_task`                                             | Three compound-research PI skills parallelize sub-tasks into 3 named subagents |
+| D      | Skill bundles + `customer.yaml.personas[].bundles[]`        | Three workflow bundles authored; schema extended                               |
+| E      | `pre_gateway_dispatch` + `customer.yaml.webhook_triggers[]` | Filevine + Clio subscribe(); overlay routes events to skills                   |
+| F      | MCP-first                                                   | Retire `ai-employee/connectors/ms_graph/` to `mcp:microsoft-graph`             |
 
 The exhaustive scope, file paths, dispatch waves, and verification criteria
 live in the plan document at `~/.claude/plans/vectorized-prancing-dove.md`
