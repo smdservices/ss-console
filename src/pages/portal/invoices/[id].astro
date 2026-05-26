@@ -177,16 +177,6 @@ const depositNote =
         maximumFractionDigits: 0,
       })} already received.`
     : null
-
-// Consultant identity feeds the PortalHeader's contact-control aria-labels.
-// The full named-human card was removed 2026-05-25 — the persistent header
-// icons are the single contact affordance now. See .design/portal-ux-brief.md.
-const consultantName = engagement?.consultant_name ?? null
-const consultantPhone = engagement?.consultant_phone ?? null
-
-const consultantFirstName: string | null = consultantName
-  ? consultantName.trim().split(/\s+/)[0] || consultantName
-  : null
 ---
 
 <!doctype html>
@@ -208,11 +198,7 @@ const consultantFirstName: string | null = consultantName
   </head>
   <body class="min-h-screen bg-[color:var(--ss-color-background)]">
     <SkipToMain />
-    <PortalHeader
-      clientName={client.name}
-      consultantPhone={consultantPhone}
-      consultantFirstName={consultantFirstName}
-    />
+    <PortalHeader clientName={client.name} />
 
     <PortalTabs pathname={Astro.url.pathname} aiEmployeeActive={aiEmployeeActive} />
 

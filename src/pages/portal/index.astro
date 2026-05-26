@@ -301,11 +301,7 @@ const touchpointText: string | null = (() => {
   </head>
   <body class="min-h-screen bg-[color:var(--ss-color-background)]">
     <SkipToMain />
-    <PortalHeader
-      clientName={client.name}
-      consultantPhone={consultant?.phone ?? null}
-      consultantFirstName={consultantFirst}
-    />
+    <PortalHeader clientName={client.name} />
 
     <PortalTabs pathname={Astro.url.pathname} aiEmployeeActive={aiEmployeeActive} />
 

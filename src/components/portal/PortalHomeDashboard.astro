@@ -52,11 +52,7 @@ const contextHeadline = consultant ? 'Engagement in flight.' : 'Welcome.'
 ---
 
 <SkipToMain />
-<PortalHeader
-  clientName={client.name}
-  consultantPhone={consultant?.phone ?? null}
-  consultantFirstName={consultantFirst}
-/>
+<PortalHeader clientName={client.name} />
 <PortalTabs pathname="/portal/" />
 
 <main id="main" role="main" class="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10 pb-24 md:pb-10">
