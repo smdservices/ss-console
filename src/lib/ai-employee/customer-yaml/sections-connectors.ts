@@ -18,6 +18,7 @@ import {
   ACCEPTED_BACKEND_PREFIXES,
   ACCEPTED_CAPABILITY_NAMES,
   SLUG_PATTERN,
+  WEBHOOK_URL_PATTERN,
   type Connector,
   type ValidationError,
 } from './types'
@@ -92,6 +93,8 @@ function checkOneConnector(
     errors
   )
   if (connectionId === undefined) return null
+  const webhookUrl = checkWebhookUrl(key, value['webhook_url'], customerId, errors)
+  if (webhookUrl === undefined) return null
   const enabled = typeof value['enabled'] === 'boolean' ? value['enabled'] : true
   const tokenRef = typeof value['token_ref'] === 'string' ? value['token_ref'] : null
   return {
@@ -101,7 +104,59 @@ function checkOneConnector(
     scopes,
     token_ref: tokenRef,
     composio_connection_id: connectionId,
+    webhook_url: webhookUrl,
   }
+}
+
+/**
+ * Validate optional connector webhook_url. Returns the URL string when
+ * valid, null when absent, or undefined to signal a hard failure that
+ * drops the whole connector.
+ *
+ * ADR 0021 Stream E: the URL is where the connector's vendor pushes
+ * events; the overlay's hermes-smd-webhook-router plugin routes the
+ * inbound payload to a skill via the top-level webhook_triggers map.
+ * The customer_id embedded in the URL MUST match the document's
+ * customer_id (cross-customer leakage vector if it ever doesn't).
+ */
+function checkWebhookUrl(
+  key: string,
+  raw: unknown,
+  customerId: string | null,
+  errors: ValidationError[]
+): string | null | undefined {
+  if (raw === undefined || raw === null) return null
+  const path = `connectors.${key}.webhook_url`
+  if (typeof raw !== 'string' || raw.length === 0) {
+    errors.push({
+      code: 'TypeMismatch',
+      path,
+      message: 'webhook_url must be a non-empty string when present',
+    })
+    return undefined
+  }
+  const match = WEBHOOK_URL_PATTERN.exec(raw)
+  if (match === null) {
+    errors.push({
+      code: 'InvalidWebhookUrl',
+      path,
+      message:
+        'webhook_url must match "https://hermes-{customer_id}.fly.dev/webhooks/{capability_slug}" — ' +
+        "the URL must point at the customer's own Fly Machine (ADR 0009)",
+    })
+    return undefined
+  }
+  if (customerId !== null && match[1] !== customerId) {
+    errors.push({
+      code: 'IsolationViolation',
+      path,
+      message:
+        `webhook_url embeds slug "${match[1]}" but customer_id is "${customerId}" — ` +
+        "cross-customer routing vector; the URL must point at THIS customer's Machine",
+    })
+    return undefined
+  }
+  return raw
 }
 
 function checkAdapter(key: string, adapter: unknown, errors: ValidationError[]): string | null {
