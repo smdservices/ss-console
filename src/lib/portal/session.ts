@@ -3,23 +3,23 @@
  *
  * Resolves the local user + entity for an authenticated portal request.
  * Identity is owned by Clerk (see src/lib/auth/clerk-bridge.ts); SS
- * stores shadow rows keyed by clerk_user_id / clerk_org_id and JIT-
- * creates the local users row on first login. The local entity is NOT
- * JIT-created — a Clerk Organization without a matching
- * `entities.clerk_org_id` returns `client: null`, and the caller renders
+ * stores shadow rows keyed by clerk_user_id / clerk_org_id. The bridge
+ * JIT-creates the local users row (or auto-links a pre-Clerk row by
+ * email) on first login. The local entity is NOT JIT-created — a Clerk
+ * user with no binding returns `client: null`, and the caller renders
  * the "no portal access yet" state.
  *
- * Magic-link auth on src/lib/auth/session.ts is retained for the admin
- * console only. Portal auth runs through Clerk.
+ * Entity resolution order (handled in resolveClerkPortalContext):
+ *   1. users.entity_id  — direct binding (admin-provisioned single-user)
+ *   2. entities.clerk_org_id — via active Clerk Organization (AI Employee)
+ *
+ * Magic-link auth on src/lib/auth/session.ts is retained for client
+ * invitation acceptance only.
  */
 
-import type { Entity } from '../db/entities'
-import { ensureLocalUser, resolveClerkEntity, type PortalUserRow } from '../auth/clerk-bridge'
+import { resolveClerkPortalContext, type PortalContext } from '../auth/clerk-bridge'
 
-export interface PortalContext {
-  user: PortalUserRow
-  client: Entity | null
-}
+export type { PortalContext } from '../auth/clerk-bridge'
 
 /**
  * Resolve the portal context for the current Astro request.
@@ -47,10 +47,5 @@ export async function getPortalClient(
     clerkUser.username ||
     email
 
-  const user = await ensureLocalUser(db, auth.userId, { email, name })
-
-  if (!auth.orgId) return { user, client: null }
-
-  const client = await resolveClerkEntity(db, auth.orgId)
-  return { user, client }
+  return resolveClerkPortalContext(db, { userId: auth.userId, orgId: auth.orgId }, { email, name })
 }
