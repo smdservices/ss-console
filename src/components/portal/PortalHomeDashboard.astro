@@ -17,19 +17,13 @@ import SkipToMain from '../SkipToMain.astro'
 import PortalHeader from './PortalHeader.astro'
 import PortalTabs from './PortalTabs.astro'
 import ActionCard from './ActionCard.astro'
-import ConsultantBlock from './ConsultantBlock.astro'
 import TimelineEntry from './TimelineEntry.astro'
 
 export interface Props {
   client: { name: string }
   consultant: {
-    name: string
     firstName: string
-    photoUrl: string | null
-    role: string | null
     phone: string | null
-    nextTouchpointAt: string | null
-    nextTouchpointLabel: string | null
   } | null
   pendingInvoice: {
     id: string
@@ -69,51 +63,38 @@ const contextHeadline = consultant ? 'Engagement in flight.' : 'Welcome.'
   {
     dashboardError ? (
       /* ------------------------------------------------------------------ */
-      /* Error state: single error card + consultant block (if available).   */
+      /* Error state: single error card. Contact lives in the sticky header.  */
       /* ------------------------------------------------------------------ */
-      <div class="flex flex-col gap-card">
-        <section
-          class="bg-[color:var(--ss-color-surface)] rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-attention)]/30 p-card sm:p-section"
-          aria-live="polite"
-        >
-          <div class="flex items-start gap-row">
-            <span
-              class="material-symbols-outlined text-[24px] text-[color:var(--ss-color-attention)] mt-0.5"
-              aria-hidden="true"
-            >
-              error
-            </span>
-            <div class="min-w-0">
-              <h1 class="text-title text-[color:var(--ss-color-text-primary)]">
-                Something went wrong loading your portal.
-              </h1>
-              <p class="mt-2 text-body text-[color:var(--ss-color-text-secondary)]">
-                {consultantFirst
-                  ? `Give it a moment and try again. If it keeps happening, ${consultantFirst} can help.`
-                  : 'Give it a moment and try again.'}
-              </p>
-              <div class="mt-5 flex flex-wrap gap-row">
-                <a
-                  href="/portal"
-                  class="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded-[var(--ss-radius-button)] bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] text-white text-body font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
-                >
-                  Retry
-                </a>
-              </div>
+      <section
+        class="bg-[color:var(--ss-color-surface)] rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-attention)]/30 p-card sm:p-section"
+        aria-live="polite"
+      >
+        <div class="flex items-start gap-row">
+          <span
+            class="material-symbols-outlined text-[24px] text-[color:var(--ss-color-attention)] mt-0.5"
+            aria-hidden="true"
+          >
+            error
+          </span>
+          <div class="min-w-0">
+            <h1 class="text-title text-[color:var(--ss-color-text-primary)]">
+              Something went wrong loading your portal.
+            </h1>
+            <p class="mt-2 text-body text-[color:var(--ss-color-text-secondary)]">
+              Give it a moment and try again. If it keeps happening, reach us using the contacts in
+              the header.
+            </p>
+            <div class="mt-5 flex flex-wrap gap-row">
+              <a
+                href="/portal"
+                class="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded-[var(--ss-radius-button)] bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] text-white text-body font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+              >
+                Retry
+              </a>
             </div>
           </div>
-        </section>
-        {consultant && (
-          <ConsultantBlock
-            name={consultant.name}
-            photoUrl={consultant.photoUrl}
-            role={consultant.role}
-            nextTouchpointAt={consultant.nextTouchpointAt}
-            nextTouchpointLabel={consultant.nextTouchpointLabel}
-            phone={consultant.phone}
-          />
-        )}
-      </div>
+        </div>
+      </section>
     ) : (
       /* ------------------------------------------------------------------ */
       /* Happy path                                                           */
@@ -171,17 +152,6 @@ const contextHeadline = consultant ? 'Engagement in flight.' : 'Welcome.'
                   Nothing needs your attention right now.
                 </p>
               </section>
-            )}
-
-            {consultant && (
-              <ConsultantBlock
-                name={consultant.name}
-                photoUrl={consultant.photoUrl}
-                role={consultant.role}
-                nextTouchpointAt={consultant.nextTouchpointAt}
-                nextTouchpointLabel={consultant.nextTouchpointLabel}
-                phone={consultant.phone}
-              />
             )}
           </aside>
 

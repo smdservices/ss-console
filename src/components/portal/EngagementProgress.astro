@@ -14,7 +14,9 @@
  *   2. Engagement summary panel — reference line + scope + opened / due
  *      dates + status tag
  *   3. Activity log section — timeline entries (past tense, concrete)
- *   4. Consultant block with next-touchpoint
+ *
+ * Contact lives in the sticky header (three-icon control), not in a
+ * per-surface card.
  *
  * No data fetching. All values via props.
  */
@@ -22,7 +24,6 @@
 import SkipToMain from '../SkipToMain.astro'
 import PortalHeader from './PortalHeader.astro'
 import PortalTabs from './PortalTabs.astro'
-import ConsultantBlock from './ConsultantBlock.astro'
 import StatusPill from './StatusPill.astro'
 import TimelineEntry from './TimelineEntry.astro'
 import type { Tone } from '../../lib/portal/status'
@@ -64,14 +65,9 @@ export interface Props {
     artifactIcon?: string
   }>
   consultant: {
-    name: string
     firstName: string
-    photoUrl: string | null
-    role: string | null
     phone: string | null
     email?: string | null
-    nextTouchpointAt: string | null
-    nextTouchpointLabel: string | null
   }
 }
 
@@ -169,15 +165,4 @@ const { client, engagement, timeline, consultant } = Astro.props
       )
     }
   </section>
-
-  <!-- Consultant block -->
-  <ConsultantBlock
-    name={consultant.name}
-    photoUrl={consultant.photoUrl}
-    role={consultant.role}
-    nextTouchpointAt={consultant.nextTouchpointAt}
-    nextTouchpointLabel={consultant.nextTouchpointLabel}
-    phone={consultant.phone}
-    email={consultant.email ?? null}
-  />
 </main>

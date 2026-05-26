@@ -21,7 +21,6 @@ import { SignOutButton } from '@clerk/astro/components'
 import PortalHeader from './PortalHeader.astro'
 import PortalTabs from './PortalTabs.astro'
 import MoneyDisplay from './MoneyDisplay.astro'
-import ConsultantBlock from './ConsultantBlock.astro'
 import StatusPill from './StatusPill.astro'
 import { resolveQuoteTone, resolveQuoteLabel } from '../../lib/portal/status'
 
@@ -41,10 +40,7 @@ export interface Props {
   }
   client: { name: string }
   consultant: {
-    name: string
     firstName: string
-    photoUrl: string | null
-    role: string | null
     phone: string | null
   }
   state: {
@@ -66,7 +62,9 @@ const { isSigned, isDeclined, isExpired, isSuperseded, isSent } = state
 const statusTone = resolveQuoteTone(quote.status)
 const statusLabel = resolveQuoteLabel(quote.status)
 
-// Consultant contact data forwarded to PortalHeader and ConsultantBlock
+// Consultant contact data forwarded to PortalHeader's three-icon control.
+// The standalone named-human card was removed 2026-05-25; the header is the
+// single contact affordance now (see .design/portal-ux-brief.md).
 const consultantPhone = consultant.phone ?? null
 const consultantFirstName = consultant.firstName ?? null
 
@@ -300,23 +298,6 @@ const showSignButton = isSent
           )
         }
 
-        <!-- Consultant block (mobile — desktop handled in right rail) -->
-        <section class="lg:hidden border-t border-[color:var(--ss-color-border)] pt-section">
-          <ConsultantBlock
-            name={consultant.name}
-            photoUrl={consultant.photoUrl}
-            role={consultant.role}
-            phone={consultant.phone}
-          />
-          {
-            consultantFirstName && (
-              <p class="mt-stack text-caption text-[color:var(--ss-color-text-muted)]">
-                Questions? Reach us using the contacts in the header.
-              </p>
-            )
-          }
-        </section>
-
         <!-- Contact link for terminal states (declined / expired) — mobile -->
         {
           (isDeclined || isExpired) && consultantPhone && (
@@ -448,21 +429,6 @@ const showSignButton = isSent
             )
           }
         </div>
-
-        <!-- Consultant card -->
-        <ConsultantBlock
-          name={consultant.name}
-          photoUrl={consultant.photoUrl}
-          role={consultant.role}
-          phone={consultant.phone}
-        />
-        {
-          consultantFirstName && (
-            <p class="text-caption text-[color:var(--ss-color-text-muted)] px-1">
-              Questions? Reach us using the contacts in the header.
-            </p>
-          )
-        }
       </div>
     </aside>
   </div>

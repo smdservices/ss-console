@@ -70,7 +70,7 @@ Deep links land on the thing, not on a dashboard that contains the thing.
 ## Design principles
 
 - **Evidence over reassurance.** "Scott met with your dispatcher Tuesday; two issues surfaced" beats "Things are going well."
-- **A named human, visible.** Real photo + next scheduled touchpoint on every surface. Nothing else substitutes.
+- **A real human, reachable.** The sticky header carries a persistent three-icon contact control (email / SMS / phone) on every portal surface. That is the contact affordance. We do not repaint the same identity on each detail page; the engagement is a relationship the client already has, not a thing the portal needs to assert. (Captain decision 2026-05-25 — the original "real photo + next touchpoint on every surface" rule was Modern-Institutional-era and was retired with the ConsultantBlock removal. Photo and next-touchpoint live where temporal context matters — currently nowhere as visual chrome; touchpoint is rendered as a single ruled section on the home and engagement surfaces when authored.)
 - **Evidence, not theater.** No badges, testimonials, marketing chrome.
 - **Printed dossier, not SaaS app.** Sharp corners, hairline structure, mono-anchored data. The page is the project file, not a product surface.
 - **Precision over decoration.** Every reference number, every date, every dollar figure is typeset deliberately. Nothing is decorative.
