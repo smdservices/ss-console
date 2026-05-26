@@ -337,6 +337,85 @@ class FilevineClient:
             )
         return bytes(result)
 
+    # ---------- Webhooks (ADR 0021 Stream E) ----------
+
+    async def create_webhook_subscription(
+        self,
+        *,
+        capability: str,
+        webhook_url: str,
+        wire_events: tuple[str, ...],
+    ) -> dict[str, Any]:
+        """POST a webhook subscription against Filevine's `/core/webhooks`.
+
+        Filevine's v2 webhook API accepts `{url, eventType, orgUid}`
+        per the developer.filevine.com reference. One subscription
+        covers one event type, so this method POSTs once per event in
+        `wire_events` and returns the FIRST result (the caller maps the
+        adapter-side `SubscriptionRef.id` to that record).
+
+        Empirically the Filevine API also supports an `eventTypes` list
+        on a single subscription; the per-event POST loop here is the
+        conservative reading of the documented contract. Live sandbox
+        verification deferred to a Wave-4 hardening PR.
+        """
+        if not wire_events:
+            raise AdapterError(
+                code="validation_failed",
+                capability=capability,
+                adapter=ADAPTER_SLUG,
+                message="wire_events must not be empty",
+            )
+        result: Optional[dict[str, Any]] = None
+        for event in wire_events:
+            payload = {
+                "url": webhook_url,
+                "eventType": event,
+                "orgUid": self.org_slug,
+            }
+            posted = await self._request(
+                "POST",
+                "/core/webhooks",
+                capability=capability,
+                json_body=payload,
+            )
+            if posted is None:
+                raise AdapterError(
+                    code="unknown",
+                    capability=capability,
+                    adapter=ADAPTER_SLUG,
+                    message=(
+                        f"Filevine returned empty body for webhook POST "
+                        f"on event {event!r}"
+                    ),
+                )
+            if result is None:
+                result = posted
+        assert result is not None  # loop body ran at least once
+        return result
+
+    async def delete_webhook_subscription(
+        self,
+        *,
+        capability: str,
+        vendor_subscription_id: str,
+    ) -> None:
+        """DELETE a webhook subscription against Filevine's `/core/webhooks`.
+
+        A 404 on the vendor side is silently OK — the subscription is
+        already gone. The base request layer returns None on 404 (it
+        does not raise), so a None return value is the success path
+        for "already gone." Other 4xx/5xx propagate as AdapterError
+        via the request layer.
+        """
+        # The 404 case is silently OK — _request returns None for 404
+        # per the conformance contract; we discard the return value.
+        await self._request(
+            "DELETE",
+            f"/core/webhooks/{vendor_subscription_id}",
+            capability=capability,
+        )
+
     # ---------- Health check ----------
 
     async def ping(self, *, capability: str) -> bool:
