@@ -1,17 +1,15 @@
 ---
 /**
- * Portal top band. Per .design/NAVIGATION.md §C.1 (revised 2026-05-25):
+ * Portal top band. Per .design/NAVIGATION.md §C.1 (revised 2026-05-26):
  *
  * - sticky top-0, h-14 md:h-16 on <header> (not the inner div)
  * - Shared SmdLogo on the left (brand consistency across marketing / admin /
  *   portal); client name as a smaller secondary label after the logo.
- * - Three-icon contact control on the right: email / SMS / phone. Each
- *   channel only renders when we have data for it. Clients pick the channel
- *   that works for them — spec decision: "clients know what they want."
- * - Built-in Sign-out icon button on the far right. Sign-out chrome lives
- *   here (NOT in a per-page slot) so every portal surface gets identical
- *   header chrome. Captain decision 2026-05-26 — the prior <slot /> let
- *   every caller diverge.
+ * - Three-icon contact control on the right: email / SMS / call. These ALWAYS
+ *   render, on every surface, in every state. Captain decision 2026-05-26 —
+ *   "contact icons will appear in the header in all circumstances with no
+ *   exceptions." Values come from FIRM_CONTACT, not from per-page props.
+ * - Built-in Sign-out icon button on the far right.
  *
  * The header's icon row is the SINGLE contact affordance across the portal.
  * The named-human card (formerly ConsultantBlock.astro) was removed
@@ -20,29 +18,18 @@
 
 import SmdLogo from '../SmdLogo.astro'
 import { SignOutButton } from '@clerk/astro/components'
+import { FIRM_CONTACT } from '../../lib/config/firm-contact'
 
 interface Props {
   clientName: string
-  consultantPhone?: string | null
-  consultantEmail?: string | null
-  /** First name of the assigned team member. When null/undefined, contact icon aria-labels
-   *  omit the name (e.g. "Text team" instead of "Text Scott"). */
-  consultantFirstName?: string | null
 }
 
-const {
-  clientName,
-  consultantPhone = null,
-  consultantEmail = null,
-  consultantFirstName = null,
-} = Astro.props
+const { clientName } = Astro.props
 
-const contactLabel = consultantFirstName ?? 'consultant'
-
-const phoneDigits = consultantPhone ? consultantPhone.replace(/[^+\d]/g, '') : null
-const smsHref = phoneDigits ? `sms:${phoneDigits}` : null
-const telHref = phoneDigits ? `tel:${phoneDigits}` : null
-const mailtoHref = consultantEmail ? `mailto:${consultantEmail}` : null
+const phoneDigits = FIRM_CONTACT.phone.replace(/[^+\d]/g, '')
+const smsHref = `sms:${phoneDigits}`
+const telHref = `tel:${phoneDigits}`
+const mailtoHref = `mailto:${FIRM_CONTACT.email}`
 
 const iconClasses =
   'inline-flex items-center justify-center w-11 h-11 rounded-[var(--ss-radius-button)] text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-primary)] active:text-[color:var(--ss-color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2'
@@ -62,33 +49,15 @@ const iconClasses =
       </p>
     </div>
     <div class="flex items-center gap-1">
-      {
-        mailtoHref && (
-          <a href={mailtoHref} aria-label={`Email ${contactLabel}`} class={iconClasses}>
-            <span class="material-symbols-outlined" aria-hidden="true">
-              mail
-            </span>
-          </a>
-        )
-      }
-      {
-        smsHref && (
-          <a href={smsHref} aria-label={`Text ${contactLabel}`} class={iconClasses}>
-            <span class="material-symbols-outlined" aria-hidden="true">
-              sms
-            </span>
-          </a>
-        )
-      }
-      {
-        telHref && (
-          <a href={telHref} aria-label={`Call ${contactLabel}`} class={iconClasses}>
-            <span class="material-symbols-outlined" aria-hidden="true">
-              call
-            </span>
-          </a>
-        )
-      }
+      <a href={mailtoHref} aria-label="Email us" class={iconClasses}>
+        <span class="material-symbols-outlined" aria-hidden="true">mail</span>
+      </a>
+      <a href={smsHref} aria-label="Text us" class={iconClasses}>
+        <span class="material-symbols-outlined" aria-hidden="true">sms</span>
+      </a>
+      <a href={telHref} aria-label="Call us" class={iconClasses}>
+        <span class="material-symbols-outlined" aria-hidden="true">call</span>
+      </a>
       <SignOutButton asChild redirectUrl="/auth/sign-in?status=signed_out">
         <button type="button" aria-label="Sign out" title="Sign out" class={iconClasses}>
           <span class="material-symbols-outlined" aria-hidden="true">logout</span>

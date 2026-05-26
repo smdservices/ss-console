@@ -78,10 +78,6 @@ function milestoneTone(status: string): Tone {
   return 'outline'
 }
 
-const consultantFirstName = engagement?.consultant_name
-  ? engagement.consultant_name.trim().split(/\s+/)[0] || engagement.consultant_name
-  : undefined
-
 const currentMilestoneLabel = engagement ? resolveEngagementLabel(engagement.status) : null
 ---
 
@@ -104,11 +100,7 @@ const currentMilestoneLabel = engagement ? resolveEngagementLabel(engagement.sta
   </head>
   <body class="min-h-screen bg-[color:var(--ss-color-background)]">
     <SkipToMain />
-    <PortalHeader
-      clientName={clientName}
-      consultantPhone={engagement?.consultant_phone ?? null}
-      consultantFirstName={consultantFirstName}
-    />
+    <PortalHeader clientName={clientName} />
 
     <PortalTabs pathname={Astro.url.pathname} aiEmployeeActive={aiEmployeeActive} />
 
