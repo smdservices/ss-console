@@ -47,16 +47,16 @@ The per-customer observability stack is composed from existing specs (cited, not
 
 ### Composed from existing specs
 
-| Layer | Owner | Status |
-|---|---|---|
-| Audit truth substrate | `audit-log-immutability.md` (post-rehome to `hermes-smd-audit`) | spec done; implementation pending #892 + ADR 0015 rehome |
-| Audit retention policy | `audit-retention.md` | spec done |
-| Cost telemetry emission | `cost-telemetry-events.md` | spec done; instrumentation tagged Phase 2 |
-| Cost rollup + COGS/MRR computation | `cost-attribution-rollup.md` | spec done; v1 on-demand reader |
-| Customer-facing dashboard surfaces (Today / Queue / Memory / Audit / Persona / Skills / Voice tabs) | `dashboard-roles.md` | spec done; multi-role v1 ships beta-1 |
-| Per-customer cost drill-down at `/admin/ai-employee/costs/{customer_slug}` | `cost-telemetry-events.md` §Per-customer rollup view | implemented |
-| Customer-list / COGS overview at `/admin/ai-employee/costs/` | issue #885 | implemented |
-| Cost-anomaly alert detection (`src/lib/admin/cost-anomaly.ts`, `listOpenAlerts`) | (predates this ADR) | implemented |
+| Layer                                                                                               | Owner                                                           | Status                                                   |
+| --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------- |
+| Audit truth substrate                                                                               | `audit-log-immutability.md` (post-rehome to `hermes-smd-audit`) | spec done; implementation pending #892 + ADR 0015 rehome |
+| Audit retention policy                                                                              | `audit-retention.md`                                            | spec done                                                |
+| Cost telemetry emission                                                                             | `cost-telemetry-events.md`                                      | spec done; instrumentation tagged Phase 2                |
+| Cost rollup + COGS/MRR computation                                                                  | `cost-attribution-rollup.md`                                    | spec done; v1 on-demand reader                           |
+| Customer-facing dashboard surfaces (Today / Queue / Memory / Audit / Persona / Skills / Voice tabs) | `dashboard-roles.md`                                            | spec done; multi-role v1 ships beta-1                    |
+| Per-customer cost drill-down at `/admin/ai-employee/costs/{customer_slug}`                          | `cost-telemetry-events.md` §Per-customer rollup view            | implemented                                              |
+| Customer-list / COGS overview at `/admin/ai-employee/costs/`                                        | issue #885                                                      | implemented                                              |
+| Cost-anomaly alert detection (`src/lib/admin/cost-anomaly.ts`, `listOpenAlerts`)                    | (predates this ADR)                                             | implemented                                              |
 
 ### Introduced by this ADR
 
@@ -119,7 +119,6 @@ Both surfaces route outbound to the same `alert_webhook` destination via the sam
 5. **Retention defaults inherited from `audit-retention.md`** §"Per-vertical defaults" — `law-firm`, `real-estate`, `manufacturing`, `insurance`, and `mixed` default to 2555 days (7 years); `marketing-agency` defaults to 1095 days (3 years). Override-up-only enforcement is already specified. This ADR does not introduce new retention defaults.
 
 6. **Audit-log substrate rehome is a prerequisite for the audit layer only**, not for the whole ADR. The `audit-log-immutability.md` rehome to `hermes-smd-audit` per [ADR 0015](./0015-hermes-fork-vs-upstream.md) gates the audit-immutability + Logpush-mirror pieces. Sentry, `/health`, healthchecks.io, fleet view, and alert routing are independent — they can ship before the rehome lands. This ADR's implementation proceeds in two waves:
-
    - **Wave 1 (pre-rehome).** Sentry on Machines, `/health` + heartbeat, fleet view extension, alert routing (with audit-integrity ingestion stubbed).
    - **Wave 2 (post-rehome).** Audit-log Logpush wiring per #892, against the rewritten spec; alert routing wires the audit-integrity report consumer.
 
@@ -134,11 +133,11 @@ The existing `logging:` block (`level`, `ship_to`) handles application stdout/st
 ```yaml
 observability:
   sentry:
-    enabled: true                 # default; shared SMD project, tenant-tagged at SDK init
+    enabled: true # default; shared SMD project, tenant-tagged at SDK init
   health:
-    period_seconds: 60            # push cadence to healthchecks.io
-    grace_minutes: 5              # late before alert fires
-  alert_webhook: <url>            # optional; SMD-default Telegram bot channel if absent
+    period_seconds: 60 # push cadence to healthchecks.io
+    grace_minutes: 5 # late before alert fires
+  alert_webhook: <url> # optional; SMD-default Telegram bot channel if absent
 ```
 
 Sentry error-spike thresholds are NOT in `customer.yaml` — they are owned by Sentry's native alert rules, configured per-customer in Sentry UI by SMD ops. Auto-provisioning from `customer.yaml` is a follow-on triggered by customer-count scale.
