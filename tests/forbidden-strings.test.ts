@@ -196,6 +196,15 @@ const FORBIDDEN_PATTERNS: Array<{ label: string; pattern: RegExp | string }> = [
     label: 'Pattern A: fabricated "Partner reclaimed N+ hours" result',
     pattern: /Partner reclaimed \d+\+? hours/,
   },
+  // --- AI-opener voice violations — see issue #815 ---
+  // "Thanks for sharing" is a banned AI opener that performs gratitude
+  // without conveying information. First flagged on the /get-started post-
+  // booking success page; Captain decision 2026-05-26 to kill outright
+  // rather than carve out a confirmed-prospect exception.
+  {
+    label: 'AI-opener: banned "Thanks for sharing" acknowledgment',
+    pattern: /Thanks for sharing/i,
+  },
   // --- Structural pattern: quantified time-savings results at large ---
   // Catches "12 hours/week freed", "15 hrs per month saved",
   // "10+ hours/day reclaimed", etc. Drift resistance to the pattern-class,
