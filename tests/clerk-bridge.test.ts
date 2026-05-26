@@ -7,7 +7,7 @@ import {
 import { resolve } from 'path'
 import type { D1Database } from '@cloudflare/workers-types'
 
-import { ensureLocalUser } from '../src/lib/auth/clerk-bridge'
+import { ensureLocalUser, resolveClerkPortalContext } from '../src/lib/auth/clerk-bridge'
 import { ORG_ID } from '../src/lib/constants'
 
 const migrationsDir = resolve(process.cwd(), 'migrations')
@@ -144,5 +144,82 @@ describe('ensureLocalUser', () => {
     expect(result.role).toBe('client')
     expect(result.entity_id).toBeNull()
     expect(result.id).not.toBe(PRE_CLERK_USER_ID)
+  })
+})
+
+describe('resolveClerkPortalContext', () => {
+  let db: D1Database
+  const BOUND_CLERK_ID = 'user_bound_clerk'
+
+  beforeEach(async () => {
+    db = createTestD1()
+    await runMigrations(db, { files: discoverNumericMigrations(migrationsDir) })
+
+    await db
+      .prepare('INSERT OR IGNORE INTO organizations (id, name, slug) VALUES (?, ?, ?)')
+      .bind(ORG_ID, 'SMD Services', 'smd-services')
+      .run()
+    await db
+      .prepare(
+        `INSERT INTO entities (id, org_id, name, slug)
+         VALUES (?, ?, ?, ?)`
+      )
+      .bind(PRE_CLERK_ENTITY_ID, ORG_ID, 'Pre-Clerk Entity', 'pre-clerk-entity')
+      .run()
+    // Bind a users row directly to an entity (no Clerk Organization
+    // involved). This is the common single-user-portal case.
+    await db
+      .prepare(
+        `INSERT INTO users (id, org_id, email, name, role, entity_id, clerk_user_id)
+         VALUES (?, ?, ?, ?, 'client', ?, ?)`
+      )
+      .bind(
+        PRE_CLERK_USER_ID,
+        ORG_ID,
+        PRE_CLERK_EMAIL,
+        'Pre Clerk Client',
+        PRE_CLERK_ENTITY_ID,
+        BOUND_CLERK_ID
+      )
+      .run()
+  })
+
+  it('resolves the entity via users.entity_id when no Clerk org is active', async () => {
+    // The regression this guards: getPortalClient used to skip the
+    // entity_id path and only try auth.orgId. A user with no active
+    // Clerk org but a direct entity binding would land at no_subscription.
+    const ctx = await resolveClerkPortalContext(
+      db,
+      { userId: BOUND_CLERK_ID, orgId: null },
+      { email: PRE_CLERK_EMAIL, name: 'Pre Clerk Client' }
+    )
+
+    expect(ctx).not.toBeNull()
+    expect(ctx!.user.id).toBe(PRE_CLERK_USER_ID)
+    expect(ctx!.client).not.toBeNull()
+    expect(ctx!.client!.id).toBe(PRE_CLERK_ENTITY_ID)
+  })
+
+  it('returns client:null when neither entity_id nor a matching clerk_org_id exists', async () => {
+    // A JIT-created user with no binding lands here. Caller renders
+    // the "no portal access yet" state.
+    const ctx = await resolveClerkPortalContext(
+      db,
+      { userId: 'user_unbound', orgId: null },
+      { email: 'unbound@example.com', name: 'Unbound' }
+    )
+
+    expect(ctx).not.toBeNull()
+    expect(ctx!.user.entity_id).toBeNull()
+    expect(ctx!.client).toBeNull()
+  })
+
+  it('returns null when no Clerk session is present', async () => {
+    const ctx = await resolveClerkPortalContext(
+      db,
+      { userId: null, orgId: null },
+      { email: '', name: '' }
+    )
+    expect(ctx).toBeNull()
   })
 })
