@@ -40,13 +40,8 @@
     }
   ],
   "consultant": {
-    "name": "Scott Durgan",
     "firstName": "Scott",
-    "photoUrl": null,
-    "role": "Consultant",
     "phone": "+16025550100",
-    "email": "scott@smd.services",
-    "nextTouchpointAt": "2026-04-22T17:00:00.000Z",
-    "nextTouchpointLabel": "Wed, Apr 22 at 10:00 AM"
+    "email": "scott@smd.services"
   }
 }

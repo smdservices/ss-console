@@ -7,7 +7,6 @@ import { getProductSubscription } from '../../lib/portal/product-access'
 import PortalHeader from '../../components/portal/PortalHeader.astro'
 import PortalTabs from '../../components/portal/PortalTabs.astro'
 import SkipToMain from '../../components/SkipToMain.astro'
-import ConsultantBlock from '../../components/portal/ConsultantBlock.astro'
 import TimelineEntry from '../../components/portal/TimelineEntry.astro'
 import PortalPageHead from '../../components/portal/PortalPageHead.astro'
 import MoneyDisplay from '../../components/portal/MoneyDisplay.astro'
@@ -18,9 +17,10 @@ import { env } from 'cloudflare:workers'
  * timeline below. See .design/portal-ux-brief.md and .design/designs/portal-v1.
  *
  * - Mobile: invoice ActionCard (or next-touchpoint dominant block) pins above
- *   the fold, consultant block below, recent activity timeline after a divider.
+ *   the fold, recent activity timeline after a divider. Contact lives in the
+ *   sticky header (three-icon control), not in a per-surface card.
  * - Desktop (>=md): two-column split — main column holds eyebrow + client
- *   context + timeline; sticky right rail holds ActionCard + ConsultantBlock.
+ *   context + timeline; sticky right rail holds the ActionCard.
  */
 
 const portalData = await getPortalClient(env.DB, Astro.locals)
@@ -47,8 +47,6 @@ interface EngagementRow {
   start_date: string | null
   estimated_end: string | null
   consultant_name: string | null
-  consultant_photo_url: string | null
-  consultant_role: string | null
   consultant_phone: string | null
   next_touchpoint_at: string | null
   next_touchpoint_label: string | null
@@ -82,14 +80,13 @@ let invoices: InvoiceRow[] = []
 let quotes: QuoteRow[] = []
 let completedMilestones: MilestoneRow[] = []
 // When a DB read fails we render a single error state rather than a partial
-// dashboard. ConsultantBlock still renders so the client has a concrete
-// next step (contact the team).
+// dashboard. The header's contact icons are the persistent contact affordance.
 let dashboardError = false
 
 try {
   activeEngagement = await env.DB.prepare(
     `SELECT id, status, scope_summary, start_date, estimated_end,
-            consultant_name, consultant_photo_url, consultant_role, consultant_phone,
+            consultant_name, consultant_phone,
             next_touchpoint_at, next_touchpoint_label
        FROM engagements
       WHERE entity_id = ? AND org_id = ? AND status IN ('scheduled', 'active', 'handoff', 'safety_net')
@@ -242,8 +239,6 @@ const timelineEntries = timeline.slice(0, 5)
 const consultant = activeEngagement?.consultant_name
   ? {
       name: activeEngagement.consultant_name,
-      photoUrl: activeEngagement.consultant_photo_url ?? null,
-      role: activeEngagement.consultant_role ?? null,
       phone: activeEngagement.consultant_phone ?? null,
       nextTouchpointAt: activeEngagement.next_touchpoint_at ?? null,
       nextTouchpointLabel: activeEngagement.next_touchpoint_label ?? null,
@@ -363,8 +358,8 @@ const touchpointText: string | null = (() => {
 
       <!--
         Desktop: two-column split (main timeline + sticky 340px right rail).
-        Mobile: single column, action-first above the fold, timeline after,
-        consultant block last. Plainspoken trade-card + MoneyDisplay hero.
+        Mobile: single column, action-first above the fold, timeline after.
+        Contact is the persistent header three-icon control, not a card.
       -->
       <div
         class:list={[
@@ -432,20 +427,6 @@ const touchpointText: string | null = (() => {
                   Nothing needs your attention right now.
                 </p>
               </section>
-            )
-          }
-
-          {
-            consultant && (
-              <ConsultantBlock
-                variant="trade-card"
-                name={consultant.name}
-                photoUrl={consultant.photoUrl}
-                role={consultant.role}
-                nextTouchpointAt={consultant.nextTouchpointAt}
-                nextTouchpointLabel={consultant.nextTouchpointLabel}
-                phone={consultant.phone}
-              />
             )
           }
         </aside>

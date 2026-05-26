@@ -6,7 +6,6 @@ import PortalTabs from '../../../components/portal/PortalTabs.astro'
 import PortalPageHead from '../../../components/portal/PortalPageHead.astro'
 import SkipToMain from '../../../components/SkipToMain.astro'
 import MoneyDisplay from '../../../components/portal/MoneyDisplay.astro'
-import ConsultantBlock from '../../../components/portal/ConsultantBlock.astro'
 import QuoteProposalSections from '../../../components/portal/QuoteProposalSections.astro'
 import { BRAND_NAME } from '../../../lib/config/brand'
 import { getPortalClient } from '../../../lib/portal/session'
@@ -97,16 +96,12 @@ interface EngagementLookupRow {
   id: string
   scope_summary: string | null
   consultant_name: string | null
-  consultant_photo_url: string | null
-  consultant_role: string | null
   consultant_phone: string | null
-  next_touchpoint_at: string | null
   next_touchpoint_label: string | null
 }
 
 const engagement = await env.DB.prepare(
-  `SELECT id, scope_summary, consultant_name, consultant_photo_url, consultant_role,
-          consultant_phone, next_touchpoint_at, next_touchpoint_label
+  `SELECT id, scope_summary, consultant_name, consultant_phone, next_touchpoint_label
      FROM engagements
     WHERE quote_id = ? AND org_id = ?
     ORDER BY created_at DESC
@@ -385,26 +380,6 @@ const consultantPhone = engagement?.consultant_phone ?? null
                 </section>
               )
             }
-
-            <!-- Consultant block (mobile — above footer; desktop hides here, shown in rail) -->
-            {
-              consultantName && (
-                <section class="lg:hidden mt-10 pt-10 border-t-[3px] border-[color:var(--ss-color-text-primary)]">
-                  <ConsultantBlock
-                    variant="trade-card"
-                    name={consultantName}
-                    photoUrl={engagement?.consultant_photo_url ?? null}
-                    role={engagement?.consultant_role ?? null}
-                    nextTouchpointAt={engagement?.next_touchpoint_at ?? null}
-                    nextTouchpointLabel={engagement?.next_touchpoint_label ?? null}
-                    phone={engagement?.consultant_phone ?? null}
-                  />
-                  <p class="mt-stack text-caption text-[color:var(--ss-color-text-muted)]">
-                    Questions? Reach us using the contacts in the header.
-                  </p>
-                </section>
-              )
-            }
           </div>
         </section>
 
@@ -508,26 +483,6 @@ const consultantPhone = engagement?.consultant_phone ?? null
                     ↓
                   </span>
                 </a>
-              )
-            }
-
-            <!-- Consultant card -->
-            {
-              consultantName && (
-                <>
-                  <ConsultantBlock
-                    variant="trade-card"
-                    name={consultantName}
-                    photoUrl={engagement?.consultant_photo_url ?? null}
-                    role={engagement?.consultant_role ?? null}
-                    nextTouchpointAt={engagement?.next_touchpoint_at ?? null}
-                    nextTouchpointLabel={engagement?.next_touchpoint_label ?? null}
-                    phone={engagement?.consultant_phone ?? null}
-                  />
-                  <p class="text-caption text-[color:var(--ss-color-text-muted)] px-1">
-                    Questions? Reach us using the contacts in the header.
-                  </p>
-                </>
               )
             }
           </div>

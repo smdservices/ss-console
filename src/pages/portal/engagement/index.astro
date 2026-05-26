@@ -15,7 +15,6 @@ import type { Milestone } from '../../../lib/db/milestones'
 import PortalHeader from '../../../components/portal/PortalHeader.astro'
 import PortalTabs from '../../../components/portal/PortalTabs.astro'
 import PortalPageHead from '../../../components/portal/PortalPageHead.astro'
-import ConsultantBlock from '../../../components/portal/ConsultantBlock.astro'
 import StatusPill from '../../../components/portal/StatusPill.astro'
 import SkipToMain from '../../../components/SkipToMain.astro'
 import { env } from 'cloudflare:workers'
@@ -154,7 +153,7 @@ const currentMilestoneLabel = engagement ? resolveEngagementLabel(engagement.sta
             </p>
           </div>
         ) : (
-          <div class="mt-10 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-10 lg:gap-12 lg:items-start">
+          <div class="mt-10">
             <div class="flex flex-col gap-8 min-w-0">
               {/* § 01 Overview */}
               <section class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
@@ -268,37 +267,6 @@ const currentMilestoneLabel = engagement ? resolveEngagementLabel(engagement.sta
                 )}
               </section>
             </div>
-
-            {/* Right rail — consultant only. No fabricated progress stats or
-                uncontracted outreach CTAs. */}
-            {engagement.consultant_name && (
-              <aside class="hidden lg:block lg:sticky lg:top-40 space-y-6">
-                <ConsultantBlock
-                  variant="trade-card"
-                  name={engagement.consultant_name}
-                  photoUrl={engagement.consultant_photo_url ?? null}
-                  role={engagement.consultant_role ?? null}
-                  nextTouchpointAt={engagement.next_touchpoint_at ?? null}
-                  nextTouchpointLabel={engagement.next_touchpoint_label ?? null}
-                  phone={engagement.consultant_phone ?? null}
-                />
-              </aside>
-            )}
-
-            {/* Mobile consultant block — appears below milestones */}
-            {engagement.consultant_name && (
-              <div class="lg:hidden">
-                <ConsultantBlock
-                  variant="trade-card"
-                  name={engagement.consultant_name}
-                  photoUrl={engagement.consultant_photo_url ?? null}
-                  role={engagement.consultant_role ?? null}
-                  nextTouchpointAt={engagement.next_touchpoint_at ?? null}
-                  nextTouchpointLabel={engagement.next_touchpoint_label ?? null}
-                  phone={engagement.consultant_phone ?? null}
-                />
-              </div>
-            )}
           </div>
         )
       }
