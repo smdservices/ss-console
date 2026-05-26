@@ -114,10 +114,7 @@ const CRON_ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/
 
 export function isAcceptedCronSchedule(s: string): boolean {
   return (
-    CRON_EXPR_RE.test(s) ||
-    CRON_INTERVAL_RE.test(s) ||
-    CRON_DELAY_RE.test(s) ||
-    CRON_ISO_RE.test(s)
+    CRON_EXPR_RE.test(s) || CRON_INTERVAL_RE.test(s) || CRON_DELAY_RE.test(s) || CRON_ISO_RE.test(s)
   )
 }
 

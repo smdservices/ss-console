@@ -55,9 +55,7 @@ export function checkWebhookTriggers(
   return out
 }
 
-function collectAdapterSlugs(
-  connectors: Partial<Record<CapabilityName, Connector>>
-): Set<string> {
+function collectAdapterSlugs(connectors: Partial<Record<CapabilityName, Connector>>): Set<string> {
   const out = new Set<string>()
   for (const c of Object.values(connectors)) {
     if (c && c.webhook_url !== null) {
@@ -126,11 +124,7 @@ function checkOneTrigger(
   return { source, event_type: eventType, skill, persona }
 }
 
-function checkTriggerString(
-  raw: unknown,
-  path: string,
-  errors: ValidationError[]
-): string | null {
+function checkTriggerString(raw: unknown, path: string, errors: ValidationError[]): string | null {
   if (typeof raw !== 'string' || raw.length === 0) {
     errors.push({ code: 'MissingField', path, message: `${path} is required` })
     return null

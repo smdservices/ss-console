@@ -250,11 +250,7 @@ function checkCronSkill(
   return raw
 }
 
-function checkCronSchedule(
-  raw: unknown,
-  path: string,
-  errors: ValidationError[]
-): string | null {
+function checkCronSchedule(raw: unknown, path: string, errors: ValidationError[]): string | null {
   if (typeof raw !== 'string' || raw.length === 0) {
     errors.push({
       code: 'MissingField',
@@ -276,11 +272,7 @@ function checkCronSchedule(
   return raw
 }
 
-function checkWakePolicy(
-  raw: unknown,
-  path: string,
-  errors: ValidationError[]
-): WakePolicy | null {
+function checkWakePolicy(raw: unknown, path: string, errors: ValidationError[]): WakePolicy | null {
   if (raw === undefined || raw === null) {
     errors.push({
       code: 'MissingField',
@@ -289,10 +281,7 @@ function checkWakePolicy(
     })
     return null
   }
-  if (
-    typeof raw !== 'string' ||
-    !(ACCEPTED_WAKE_POLICIES as readonly string[]).includes(raw)
-  ) {
+  if (typeof raw !== 'string' || !(ACCEPTED_WAKE_POLICIES as readonly string[]).includes(raw)) {
     errors.push({
       code: 'InvalidCronWakePolicy',
       path: `${path}.wake_policy`,

@@ -142,7 +142,7 @@ function checkWebhookUrl(
       path,
       message:
         'webhook_url must match "https://hermes-{customer_id}.fly.dev/webhooks/{capability_slug}" — ' +
-        'the URL must point at the customer\'s own Fly Machine (ADR 0009)',
+        "the URL must point at the customer's own Fly Machine (ADR 0009)",
     })
     return undefined
   }
@@ -152,7 +152,7 @@ function checkWebhookUrl(
       path,
       message:
         `webhook_url embeds slug "${match[1]}" but customer_id is "${customerId}" — ` +
-        'cross-customer routing vector; the URL must point at THIS customer\'s Machine',
+        "cross-customer routing vector; the URL must point at THIS customer's Machine",
     })
     return undefined
   }
