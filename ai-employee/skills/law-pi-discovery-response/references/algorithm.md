@@ -61,7 +61,7 @@ restrictions.
 **Required return keys (assembly-time schema contract):**
 
 - `numbered_requests`: list of rows. Each row carries `{request_number,
-  verbatim_text, sub_parts}`. The `verbatim_text` is the request text
+verbatim_text, sub_parts}`. The `verbatim_text` is the request text
   carried through unchanged — no rewording, no paraphrasing. **MUST have
   ≥1 row.** A request body with zero parseable numbered items is the
   upstream `request_unparseable` refusal, not a contract failure here.
@@ -101,14 +101,14 @@ withheld under privilege, and build the privilege-log skeleton.
 **Required return keys (assembly-time schema contract):**
 
 - `privilege_candidates`: list of `{document_id, classification,
-  reason_for_flag}` entries. **MAY be empty** — some matters have no
+reason_for_flag}` entries. **MAY be empty** — some matters have no
   responsive documents requiring privilege review. The subagent flags
   documents whose `StoredDocument.classification` is one of
   `attorney_work_product`, `client_communication`,
   `expert_communication`, or `internal_memo`. Other classifications are
   not flagged.
 - `privilege_log_rows`: list of `{document_id, filename, date, author,
-  recipient}` entries. Length MUST equal `privilege_candidates` length.
+recipient}` entries. Length MUST equal `privilege_candidates` length.
   Each row records the metadata the partner needs to author the
   privilege-claim characterization. **`privilege_claim_type` is NOT
   returned by this subagent** — that field is a partner-authored TBD
@@ -132,7 +132,7 @@ the matter folder.
 
 - `per_request_responsive_docs`: list of one entry per numbered request.
   Each entry is `{request_number, responsive_docs: [{document_id,
-  filename, date, classification, one_line_description}]}` where
+filename, date, classification, one_line_description}]}` where
   `responsive_docs` MAY be empty per-request (some requests have no
   responsive material in the matter folder). The wrapper MUST contain
   one entry per numbered request — count mismatch with
@@ -207,10 +207,10 @@ than no draft.
    - `admission_or_denial_per_request` — one TBD per numbered request for
      admission
    - `case_strategy_language` — one TBD at the end of the response
-   These are NEVER returned by any subagent because they are tagged
-   `none` in the frontmatter `client_facing_fields` block. Rendering
-   plausible content into a `none`-tagged field is a `block`-severity
-   fabrication-filter violation.
+     These are NEVER returned by any subagent because they are tagged
+     `none` in the frontmatter `client_facing_fields` block. Rendering
+     plausible content into a `none`-tagged field is a `block`-severity
+     fabrication-filter violation.
 2. Voice-gate check against the Layer 2 partner corpus (per
    `references/voice.md` and `voice-gate-fallback.md`). A failing voice
    score causes the skill to emit a structured-table-only variant with
