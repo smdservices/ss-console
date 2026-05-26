@@ -28,7 +28,7 @@ const SCOPES = [
 export const GET: APIRoute = async ({ locals, redirect }) => {
   const session = locals.session
   if (!session) {
-    return redirect('/auth/login?error=unauthorized', 302)
+    return redirect('/auth/sign-in?error=unauthorized', 302)
   }
 
   const clientId = env.GOOGLE_CLIENT_ID

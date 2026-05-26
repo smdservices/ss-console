@@ -43,7 +43,16 @@ CREATE INDEX idx_audit_actor ON audit_log(actor, ts);
 -- VOICE_GATE_PASSED, VOICE_GATE_NEAR_PASS, VOICE_GATE_FAILED,
 -- FABRICATION_FILTER_TRIGGERED, ESCALATION_FIRED, ESCALATION_ACKNOWLEDGED,
 -- DECOMMISSION_INITIATED, DECOMMISSION_DRAIN_COMPLETE, DECOMMISSION_FINAL,
--- CAPTAIN_TIME_LOGGED
+-- CAPTAIN_TIME_LOGGED,
+-- HONCHO_CONCLUSION_DISMISSED (ADR 0016 rewrite — Captain dismissal in
+--   admin portal, paired with physical DELETE against Honcho),
+-- AGENT_SKILL_CREATED, AGENT_SKILL_REMOVED (ADR 0017 rewrite —
+--   skill_manage create/write_file + Captain remove-action),
+-- CUSTOMER_YAML_SYNCED, CUSTOMER_YAML_STRUCTURAL_CHANGE_DEFERRED
+--   (ADR 0019 — customer-sync sidecar),
+-- SUPPRESSED_WAKE (ADR 0021 Stream B — `pre_run.py` decides not to wake
+--   the agent; emit BEFORE printing `wakeAgent: false`; audit-write
+--   failure forces fallback to wake — see SuppressedWakeWriter).
 
 -- 2. Memory rules (hard rules; customer-defined)
 CREATE TABLE memory_rules (

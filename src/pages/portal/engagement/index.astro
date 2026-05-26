@@ -31,10 +31,10 @@ import { env } from 'cloudflare:workers'
 
 const portalData = await getPortalClient(env.DB, Astro.locals)
 if (!portalData) {
-  return Astro.redirect('/auth/portal-sign-in')
+  return Astro.redirect('/auth/sign-in')
 }
 if (!portalData.client) {
-  return Astro.redirect('/auth/portal-sign-in?status=no_subscription')
+  return Astro.redirect('/auth/sign-in?status=no_subscription')
 }
 
 const aiEmployeeSubscription = await getProductSubscription(
@@ -111,7 +111,7 @@ const currentMilestoneLabel = engagement ? resolveEngagementLabel(engagement.sta
       consultantPhone={engagement?.consultant_phone ?? null}
       consultantFirstName={consultantFirstName}
     >
-      <SignOutButton asChild redirectUrl="/auth/portal-sign-in?status=signed_out">
+      <SignOutButton asChild redirectUrl="/auth/sign-in?status=signed_out">
         <button
           type="button"
           aria-label="Sign out"

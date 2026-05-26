@@ -31,7 +31,7 @@ import { env } from 'cloudflare:workers'
 
 const session = Astro.locals.session!
 if (session.role !== 'admin') {
-  return Astro.redirect('/auth/login')
+  return Astro.redirect('/auth/sign-in')
 }
 
 const { customer_slug } = Astro.params

@@ -52,69 +52,81 @@ describe('middleware: admin subdomain rewrite', () => {
 describe('middleware: legacy apex redirects', () => {
   const source = () => readFileSync(resolve('src/middleware.ts'), 'utf-8')
 
-  it('uses strict hostname equality for the apex admin redirect', () => {
+  it('uses strict hostname inequality guard for the apex admin redirect', () => {
     // CRITICAL: startsWith/endsWith would also match admin.smd.services and loop.
+    // The guard uses `if (hostname !== 'smd.services') return null` form.
     const code = source()
-    expect(code).toContain("hostname === 'smd.services'")
+    expect(code).toContain("hostname !== 'smd.services'")
   })
 
   it('redirects apex /admin/* to admin subdomain', () => {
     const code = source()
-    // Guard uses early-return form (hostname !== 'smd.services') then handles /admin/* paths.
     expect(code).toMatch(
       /hostname\s*!==\s*'smd\.services'[\s\S]*?pathname\.startsWith\('\/admin\/'\)/
     )
     expect(code).toContain("newUrl.hostname = 'admin.smd.services'")
   })
 
-  it('redirects apex /auth/login to admin subdomain', () => {
+  it('301s legacy auth paths to unified /auth/sign-in', () => {
     const code = source()
-    // Guard uses early-return form (hostname !== 'smd.services') then handles /auth/login.
+    // The unified-auth migration replaced the old /auth/login admin host
+    // redirect with same-host 301s that funnel all legacy auth URLs to
+    // the new /auth/sign-in entry point.
+    expect(code).toMatch(/pathname\s*===\s*'\/auth\/login'\s*\)\s*return\s*'\/auth\/sign-in'/)
     expect(code).toMatch(
-      /hostname\s*!==\s*'smd\.services'[\s\S]*?pathname\.startsWith\('\/auth\/login'\)/
+      /pathname\s*===\s*'\/auth\/portal-sign-in'\s*\)\s*return\s*'\/auth\/sign-in'/
+    )
+    expect(code).toMatch(
+      /pathname\s*===\s*'\/auth\/portal-sign-up'\s*\)\s*return\s*'\/auth\/sign-up'/
+    )
+    expect(code).toMatch(
+      /pathname\s*===\s*'\/auth\/portal-login'\s*\)\s*return\s*'\/auth\/sign-in'/
     )
   })
 
   it('uses 301 for backwards-compat redirects', () => {
     const code = source()
-    // Both legacy redirects should be 301 permanent
     expect(code).toMatch(/context\.redirect\(newUrl\.toString\(\),\s*301\)/)
   })
 
   it('does NOT redirect admin.smd.services to itself (no loop)', () => {
-    // The guard hostname === 'smd.services' is strict equality, not endsWith.
-    // admin.smd.services.endsWith('smd.services') is true, which would loop.
+    // The guard hostname !== 'smd.services' is strict inequality, not endsWith.
     const code = source()
     expect(code).not.toContain("hostname.endsWith('smd.services')")
   })
 })
 
-describe('middleware: cookie refresh guard', () => {
+describe('middleware: unified Clerk auth invariants', () => {
   const source = () => readFileSync(resolve('src/middleware.ts'), 'utf-8')
 
-  it('checks both admin and portal host patterns', () => {
+  it('admin session resolution is admin-paths-only', () => {
+    // The shim must not fire on portal/marketing paths — admin role lookups
+    // on a portal-only request would be wasted DB work and leak admin
+    // session data into wrong contexts.
     const code = source()
-    expect(code).toContain("hostname.startsWith('portal.')")
-    expect(code).toContain("hostname.startsWith('admin.')")
+    expect(code).toMatch(/resolveAdminSession[\s\S]*?startsWith\('\/admin'\)/)
   })
 
-  it('refreshes SS-side cookie only for admin sessions', () => {
-    // Portal sessions are owned by Clerk after PR #906; only admin
-    // sessions still use the SS-side magic-link cookie.
+  it('admin auth enforcement requires Clerk userId + admin role', () => {
+    // Two-stage check: must be Clerk-authenticated AND have role='admin'
+    // in the local users row resolved via the shim.
     const code = source()
+    expect(code).toContain('locals.auth()')
     expect(code).toMatch(/session\.role\s*!==\s*'admin'/)
-    expect(code).toContain('isAdminHost')
   })
 
-  it('clears stale admin cookie on apex', () => {
-    // Pre-migration admin cookies on smd.services should be proactively cleared.
+  it('portal accepts legacy magic-link sessions as a Clerk fallback', () => {
+    // In-flight invitation emails still produce session_token cookies via
+    // /auth/verify. The portal must keep accepting those until they expire.
     const code = source()
-    expect(code).toContain('buildClearSessionCookie')
-    expect(code).toMatch(/hostname\s*===\s*'smd\.services'/)
+    expect(code).toContain('resolveLegacyPortalSession')
+    expect(code).toMatch(/session\?\.role\s*===\s*'client'/)
   })
 
-  it('imports buildClearSessionCookie', () => {
-    expect(source()).toContain('buildClearSessionCookie')
+  it('Clerk middleware is composed before SS middleware', () => {
+    // Clerk must populate locals.auth() before SS middleware reads it.
+    const code = source()
+    expect(code).toMatch(/sequence\(\s*clerkMiddleware\(\),\s*ssMiddleware\s*\)/)
   })
 })
 
@@ -149,52 +161,31 @@ describe('middleware: 404 route must be SSR (regression lock-in)', () => {
   })
 })
 
-describe('middleware: session resolution gating (#20)', () => {
+describe('middleware: session resolution gating', () => {
   const source = () => readFileSync(resolve('src/middleware.ts'), 'utf-8')
 
-  it('only reads the cookie header on routes that can use a session', () => {
+  it('admin session shim runs only on admin paths', () => {
+    // Marketing pages are prerendered; the admin shim must not fire on
+    // them (no DB hit for non-admin routes; no leakage of admin context).
     const code = source()
-    // Marketing pages are prerendered; reading request headers during
-    // prerender triggers a build warning. The cookie read must be gated
-    // behind a `needsSession` check so static pages stay clean.
-    // Uses early-return form: `if (!needsSession) return null`.
-    expect(code).toContain('const needsSession =')
-    expect(code).toMatch(/if\s*\(\s*!needsSession\s*\)/)
+    expect(code).toMatch(
+      /resolveAdminSession[\s\S]*?startsWith\('\/admin'\)[\s\S]*?startsWith\('\/api\/admin'\)/
+    )
   })
 
-  it('needsSession includes protected, auth, and API routes', () => {
+  it('legacy portal session resolution runs only on portal paths', () => {
+    // The magic-link fallback must not fire on admin or marketing paths.
     const code = source()
-    // All three classes can legitimately consume locals.session:
-    // - protected (admin/portal) require it
-    // - auth routes read it (e.g. renewal flows)
-    // - API routes include /api/auth/google/connect etc.
-    // Inline form: isProtectedRoute || pathname.startsWith('/auth') || pathname.startsWith('/api/')
-    expect(code).toContain('isProtectedRoute ||')
-    expect(code).toMatch(/isProtectedRoute\s*\|\|[\s\S]*?pathname\.startsWith\('\/auth'\)/)
-    expect(code).toMatch(/isProtectedRoute\s*\|\|[\s\S]*?pathname\.startsWith\('\/api\/'?\)/)
+    expect(code).toMatch(
+      /resolveLegacyPortalSession[\s\S]*?startsWith\('\/portal'\)[\s\S]*?startsWith\('\/api\/portal'\)/
+    )
   })
 })
 
-describe('middleware: admin login host guard', () => {
-  const source = () => readFileSync(resolve('src/pages/api/auth/login.ts'), 'utf-8')
-
-  it('rejects admin login POST when host is not admin.*', () => {
-    const code = source()
-    expect(code).toContain("requestHost.startsWith('admin.')")
-    expect(code).toContain('wrong_host')
-  })
-
-  it('allows local dev hostnames (localhost, 127.0.0.1)', () => {
-    const code = source()
-    expect(code).toContain('localhost')
-    expect(code).toContain('127.0.0.1')
-  })
-})
-
-describe('middleware: login page shows wrong_host error', () => {
-  it('login page maps wrong_host error to a user-visible message', () => {
-    const code = readFileSync(resolve('src/pages/auth/login.astro'), 'utf-8')
-    expect(code).toContain('wrong_host')
-    expect(code).toContain('admin.smd.services')
-  })
-})
+// Legacy `admin login host guard` and `login page shows wrong_host error`
+// suites were removed in PR #1059 (Clerk-unified auth decommission). The
+// guarded files — src/pages/api/auth/login.ts and src/pages/auth/login.astro
+// — no longer exist. The functional protection they enforced (admins must
+// authenticate on the admin subdomain) is now provided by Clerk's session
+// being scoped to *.smd.services + enforceAdminAuth requiring role='admin'
+// from the local users row.

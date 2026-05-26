@@ -2,6 +2,7 @@
 import '../styles/global.css'
 import SkipToMain from '../components/SkipToMain.astro'
 import SmdLogo from '../components/SmdLogo.astro'
+import { SignOutButton } from '@clerk/astro/components'
 
 interface BreadcrumbItem {
   label: string
@@ -97,14 +98,14 @@ const navItems = [
           </nav>
           <span class="text-sm text-[color:var(--ss-color-text-muted)]" aria-hidden="true">|</span>
           <span class="text-sm text-[color:var(--ss-color-text-secondary)]">{session.email}</span>
-          <form method="POST" action="/api/auth/logout">
+          <SignOutButton asChild redirectUrl="/auth/sign-in?status=signed_out">
             <button
-              type="submit"
+              type="button"
               class="inline-flex items-center min-h-11 px-2 -mx-2 text-sm text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)] active:text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded transition-colors"
             >
               Sign out
             </button>
-          </form>
+          </SignOutButton>
         </div>
 
         <!-- Mobile: <details> menu trigger -->
@@ -143,14 +144,14 @@ const navItems = [
             <p class="px-3 py-1.5 text-xs text-[color:var(--ss-color-text-secondary)] break-all">
               {session.email}
             </p>
-            <form method="POST" action="/api/auth/logout">
+            <SignOutButton asChild redirectUrl="/auth/sign-in?status=signed_out">
               <button
-                type="submit"
+                type="button"
                 class="w-full text-left px-3 py-2.5 text-sm text-[color:var(--ss-color-text-primary)] rounded hover:bg-[color:var(--ss-color-border-subtle)] active:bg-[color:var(--ss-color-border-subtle)]"
               >
                 Sign out
               </button>
-            </form>
+            </SignOutButton>
           </div>
         </details>
       </div>

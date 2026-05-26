@@ -37,7 +37,7 @@ const window = defaultWindow()
 // /admin/*), but we re-check here so a misconfigured route doesn't silently
 // fall through to admin-equals-Captain assumption breaking later.
 if (session.role !== 'admin') {
-  return Astro.redirect('/auth/login')
+  return Astro.redirect('/auth/sign-in')
 }
 
 const cfConfigMissing = !env.CF_ACCOUNT_ID || !env.CF_D1_API_TOKEN
