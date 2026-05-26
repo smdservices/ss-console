@@ -148,8 +148,6 @@ const hasActiveSignature = isSent && !!activeSignatureRequest
 const pdfHref = hasSow ? `/api/portal/quotes/${quote.id}/sow` : null
 
 const supersedingQuoteId = isSuperseded ? (superseding?.id ?? null) : null
-
-const consultantPhone = engagement?.consultant_phone ?? null
 ---
 
 <!doctype html>
@@ -171,11 +169,7 @@ const consultantPhone = engagement?.consultant_phone ?? null
   </head>
   <body class="min-h-screen bg-[color:var(--ss-color-background)]">
     <SkipToMain />
-    <PortalHeader
-      clientName={client.name}
-      consultantPhone={consultantPhone}
-      consultantFirstName={consultantFirst}
-    />
+    <PortalHeader clientName={client.name} />
 
     <PortalTabs pathname={Astro.url.pathname} aiEmployeeActive={aiEmployeeActive} />
 
