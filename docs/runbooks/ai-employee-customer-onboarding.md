@@ -268,9 +268,12 @@ By Day-45, the following must exist for customer `{slug}`:
 
 - [ ] Fly app `hermes-{slug}` running, Machine ID recorded
 - [ ] AgentMail inbox live with webhook receiving
-- [ ] Composio project authenticated for all customer connectors
 - [ ] DocuSign envelope archived (service contract, DPA, BAA-equivalent when applicable)
 - [ ] PagerDuty service entry firing test alerts successfully
+
+**Microsoft 365 customers (when any `mcp:m365-*` connector is bound):**
+
+- [ ] Customer's Microsoft Entra tenant ID captured during setup and written to `connectors.{Email,Calendar,InternalComms}.tenant_id` in `customer.yaml`. The bootstrap CLI resolves the per-tenant hosted MCP URL from this field; the hosted MCP brokers Entra app consent, so no separate refresh token is stored.
 
 **In Captain's tooling:**
 

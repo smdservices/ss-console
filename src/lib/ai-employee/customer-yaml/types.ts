@@ -90,7 +90,7 @@ export type LogLevel = (typeof ACCEPTED_LOG_LEVELS)[number]
 export const ACCEPTED_LOG_SHIPS = ['cloudflare-d1', 'fly-logs'] as const
 export type LogShip = (typeof ACCEPTED_LOG_SHIPS)[number]
 
-export const ACCEPTED_BACKEND_PREFIXES = ['composio:', 'mcp:', 'build:', 'synthetic:'] as const
+export const ACCEPTED_BACKEND_PREFIXES = ['mcp:', 'build:', 'synthetic:'] as const
 
 export const ACCEPTED_SCHEMA_VERSIONS = [1] as const
 export type SchemaVersion = (typeof ACCEPTED_SCHEMA_VERSIONS)[number]
@@ -136,13 +136,19 @@ export function isAcceptedCronSchedule(s: string): boolean {
 }
 
 /**
- * Webhook URL pattern enforced on `connectors[].webhook_url`. The URL must
- * point to the customer's own Fly Machine — cross-customer leakage vector
- * if it ever points elsewhere (see ADR 0009). Capability slug is
- * lower-snake (e.g. "practice_management", "email").
+ * Microsoft Entra tenant UUID. Required on Microsoft-hosted MCP backends
+ * (`mcp:m365-mail`, `mcp:m365-calendar`, `mcp:m365-teams`) so the
+ * bootstrap CLI can resolve the per-tenant URL at
+ * `agent365.svc.cloud.microsoft/agents/tenants/{tenant_id}/servers/<server>`.
+ * Lowercase canonical form to keep downstream string compares stable.
  */
-export const WEBHOOK_URL_PATTERN =
-  /^https:\/\/hermes-([a-z0-9][a-z0-9-]{0,31})\.fly\.dev\/webhooks\/[a-z_]+$/
+export const ENTRA_TENANT_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+
+/**
+ * Backend prefix that triggers `tenant_id` as a required field.
+ */
+export const M365_HOSTED_MCP_PREFIX = 'mcp:m365-'
 
 /**
  * Base recipient-cohort taxonomy used by Layer 2 voice transform and
@@ -279,49 +285,13 @@ export interface Connector {
   enabled: boolean
   scopes: string[]
   token_ref: string | null
-  /** Composio connection ID for Composio-managed connectors
-   * (`backend: composio:*`). Required when backend is composio:, must be
-   * absent for other backends. Shape is enforced as `conn_{customer_id}_{suffix}`
-   * — see ai-employee/adapter/connectors/composio_assertion.py for the
-   * runtime backstop (issue #850). */
-  composio_connection_id: string | null
   /**
-   * Outbound webhook URL the connector's vendor pushes events to. ADR 0021
-   * Stream E wires Filevine/Clio matter-created and document-added webhooks
-   * through Hermes' `pre_gateway_dispatch` hook (handled by the overlay's
-   * `hermes-smd-webhook-router` plugin).
-   *
-   * URL pattern: `https://hermes-{customer_id}.fly.dev/webhooks/{capability_slug}`.
-   * The validator enforces that the `{customer_id}` embedded in the URL
-   * matches the document's `customer_id` — cross-customer leakage vector
-   * if it ever doesn't (ADR 0009).
-   *
-   * Null when the connector is pull-only (no vendor push events configured).
+   * Microsoft Entra tenant UUID for Microsoft-hosted MCP backends
+   * (`mcp:m365-mail`, `mcp:m365-calendar`, `mcp:m365-teams`). The
+   * bootstrap CLI resolves the per-tenant hosted URL from this. Required
+   * when backend starts with `mcp:m365-`; null otherwise.
    */
-  webhook_url: string | null
-}
-
-/**
- * Top-level webhook trigger mapping. ADR 0021 Stream E uses this to route
- * inbound webhook payloads (from `connectors[].webhook_url`) to a specific
- * skill invocation on a specific persona via the overlay's
- * `hermes-smd-webhook-router` plugin.
- *
- * Validation rules:
- *   - `source` must match one of the customer's connector adapters
- *     (so e.g. `source: "filevine"` only validates when a connector with
- *     `adapter: "filevine"` exists)
- *   - `event_type` is opaque to the validator — the source vendor defines
- *     it (e.g. `matter.created`, `document.added`). Must be a non-empty
- *     string.
- *   - `skill` must reference a skill declared on the target persona
- *   - `persona` must reference a persona declared on the customer
- */
-export interface WebhookTrigger {
-  source: string
-  event_type: string
-  skill: string
-  persona: string
+  tenant_id: string | null
 }
 
 export interface Scope {
@@ -437,11 +407,6 @@ export interface CustomerYaml {
   logging: Logging | null
   pause: Pause | null
   /**
-   * Inbound webhook → skill trigger map — ADR 0021 Stream E. Empty array
-   * when no connector exposes a webhook_url.
-   */
-  webhook_triggers: WebhookTrigger[]
-  /**
    * Whether the Compliance dashboard view is enabled for this firm.
    *
    * Defaults to `false` when the field is omitted. Sub-50-attorney PI
@@ -478,6 +443,7 @@ export type ValidationErrorCode =
   | 'SecretDetected'
   | 'BannedFieldName'
   | 'InvalidTokenRef'
+  | 'InvalidTenantId'
   | 'IsolationViolation'
   | 'InvalidBackend'
   | 'EmptyList'
@@ -492,10 +458,6 @@ export type ValidationErrorCode =
   | 'InvalidCronSchedule'
   | 'UnknownCronSkill'
   | 'InvalidCronWakePolicy'
-  | 'UnknownWebhookSource'
-  | 'UnknownWebhookPersona'
-  | 'UnknownWebhookSkill'
-  | 'InvalidWebhookUrl'
 
 export interface ValidationError {
   code: ValidationErrorCode

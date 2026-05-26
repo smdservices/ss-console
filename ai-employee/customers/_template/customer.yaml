@@ -73,48 +73,36 @@ personas:
 # Hypothesized stack from the dossier. Confidence-low items should start
 # as synthetic and switch to a real adapter only after Captain confirms
 # during the assessment call.
-#
-# OPTIONAL `webhook_url` (ADR 0021 Stream E): if the vendor pushes events,
-# point them at the customer's own Fly Machine. Pattern enforces that the
-# embedded slug matches customer_id (cross-customer leakage vector if not).
-#   webhook_url: 'https://hermes-[FIRM-SLUG].fly.dev/webhooks/practice_management'
 connectors:
   PracticeManagement:
-    adapter: '[filevine / clio / no_pm]'
-    backend: '[build:filevine / mcp:clio-oktopeak / synthetic:no_pm]'
+    # Whatever PM system the firm uses, or synthetic:fixture if none.
+    adapter: '[clio / synthetic]'
+    backend: '[mcp:clio-oktopeak / synthetic:fixture]'
     enabled: true
   Email:
     adapter: '[m365-mail / google-gmail / synthetic]'
     backend: '[mcp:m365-mail / mcp:google-gmail / synthetic:fixture]'
     enabled: true
+    # tenant_id REQUIRED when backend is mcp:m365-mail. Microsoft Entra
+    # tenant UUID; captured by Captain during onboarding. The bootstrap
+    # CLI resolves the per-tenant hosted MCP URL from it.
+    # tenant_id: '00000000-0000-0000-0000-000000000000'
   Calendar:
-    # ADR 0021 Stream F migration (PR #1080): M365 calendar shipped as
-    # first-party MCP. Per ADR 0020 the MCP-first ordering applies.
     adapter: '[m365-calendar / google-calendar / synthetic]'
     backend: '[mcp:m365-calendar / mcp:google-calendar / synthetic:fixture]'
     enabled: true
+    # tenant_id REQUIRED when backend is mcp:m365-calendar (same as Email).
+    # tenant_id: '00000000-0000-0000-0000-000000000000'
+  InternalComms:
+    adapter: '[m365-teams / slack / synthetic]'
+    backend: '[mcp:m365-teams / mcp:slack / synthetic:fixture]'
+    enabled: true
+    # tenant_id REQUIRED when backend is mcp:m365-teams.
+    # tenant_id: '00000000-0000-0000-0000-000000000000'
   DocumentStorage:
-    # ADR 0021 Stream F migration (PR #1080): Microsoft has not shipped a
-    # first-party OneDrive/SharePoint MCP. The community MIT
-    # `mcp:softeria/ms-365-mcp-server` covers the Files surface; the
-    # retired BUILD adapter at `ai-employee/connectors/ms_graph/` is
-    # removed in the Wave-4 removal PR.
     adapter: '[ms-365 / google-drive / synthetic]'
     backend: '[mcp:softeria/ms-365-mcp-server / mcp:google-drive / synthetic:fixture]'
     enabled: true
-
-# ---- OPTIONAL: webhook triggers (ADR 0021 Stream E) ----
-# Map inbound vendor webhook payloads to skill invocations on a persona.
-# Each `source` MUST be a connector adapter with `webhook_url` configured.
-# webhook_triggers:
-#   - source: filevine
-#     event_type: matter.created
-#     skill: law-pi-intake-triage
-#     persona: '[PERSONA SLUG]'
-#   - source: filevine
-#     event_type: document.added
-#     skill: law-pi-discovery-response
-#     persona: '[PERSONA SLUG]'
 
 # ---- SCOPE ----
 scope:

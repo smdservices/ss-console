@@ -420,8 +420,8 @@ describe('validate — connectors', () => {
     expect(codesOf(r.errors)).toContain('InvalidBackend')
   })
 
-  it('accepts all four documented backend prefixes', () => {
-    const prefixes = ['composio:gmail', 'mcp:foo/bar', 'build:wrapper', 'synthetic:fixture']
+  it('accepts the three documented backend prefixes', () => {
+    const prefixes = ['mcp:foo/bar', 'build:wrapper', 'synthetic:fixture']
     for (const backend of prefixes) {
       const f = validFixture()
       ;(f['connectors'] as Record<string, Record<string, unknown>>)['Email'] = {
@@ -459,129 +459,6 @@ describe('validate — connectors', () => {
   })
 })
 
-// -----------------------------------------------------------------------------
-// Composio per-connection isolation (issue #850)
-//
-// The validator must require a composio_connection_id whenever backend
-// starts with "composio:", and that ID must embed the customer_id slug.
-// The runtime backstop lives at
-// ai-employee/adapter/connectors/composio_assertion.py.
-// -----------------------------------------------------------------------------
-
-describe('validate — composio per-connection isolation', () => {
-  function fixtureWithComposioEmail(connectionId: string | null): Record<string, unknown> {
-    const f = validFixture()
-    const entry: Record<string, unknown> = {
-      adapter: 'gmail',
-      backend: 'composio:gmail',
-      token_ref: 'infisical:/ai-employee/smith-pi-firm/email/refresh',
-    }
-    if (connectionId !== null) entry['composio_connection_id'] = connectionId
-    ;(f['connectors'] as Record<string, unknown>)['Email'] = entry
-    return f
-  }
-
-  it('accepts a well-formed composio connection ID bound to customer_id', () => {
-    const r = validate(fixtureWithComposioEmail('conn_smith-pi-firm_xyz-1234'))
-    if (!r.ok) {
-      throw new Error(`expected ok; got: ${JSON.stringify(r.errors, null, 2)}`)
-    }
-    expect(r.value.connectors.Email?.composio_connection_id).toBe('conn_smith-pi-firm_xyz-1234')
-  })
-
-  it('requires composio_connection_id when backend is composio:*', () => {
-    const r = validate(fixtureWithComposioEmail(null))
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(
-      r.errors.some(
-        (e) => e.code === 'MissingField' && e.path === 'connectors.Email.composio_connection_id'
-      )
-    ).toBe(true)
-  })
-
-  it('rejects composio_connection_id that does not match conn_{slug}_{suffix}', () => {
-    const r = validate(fixtureWithComposioEmail('not-a-conn-id'))
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(
-      r.errors.some(
-        (e) => e.code === 'InvalidFormat' && e.path === 'connectors.Email.composio_connection_id'
-      )
-    ).toBe(true)
-  })
-
-  it('rejects composio_connection_id whose slug differs from customer_id (cross-customer leak)', () => {
-    const r = validate(fixtureWithComposioEmail('conn_other-customer_xyz-1234'))
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(
-      r.errors.some(
-        (e) =>
-          e.code === 'IsolationViolation' && e.path === 'connectors.Email.composio_connection_id'
-      )
-    ).toBe(true)
-  })
-
-  it('rejects composio_connection_id with too-short suffix', () => {
-    const r = validate(fixtureWithComposioEmail('conn_smith-pi-firm_abc'))
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(codesOf(r.errors)).toContain('InvalidFormat')
-  })
-
-  it('rejects composio_connection_id when present on a non-composio backend', () => {
-    const f = validFixture()
-    ;(f['connectors'] as Record<string, Record<string, unknown>>)['Email'][
-      'composio_connection_id'
-    ] = 'conn_smith-pi-firm_xyz-1234'
-    const r = validate(f)
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(
-      r.errors.some(
-        (e) =>
-          e.code === 'IsolationViolation' && e.path === 'connectors.Email.composio_connection_id'
-      )
-    ).toBe(true)
-  })
-
-  it('rejects non-string composio_connection_id', () => {
-    const f = fixtureWithComposioEmail(null)
-    ;(f['connectors'] as Record<string, Record<string, unknown>>)['Email'][
-      'composio_connection_id'
-    ] = 12345
-    const r = validate(f)
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(codesOf(r.errors)).toContain('TypeMismatch')
-  })
-
-  it('accepts a composio_connection_id with the maximum suffix length', () => {
-    const longSuffix = 'a'.repeat(80)
-    const r = validate(fixtureWithComposioEmail(`conn_smith-pi-firm_${longSuffix}`))
-    if (!r.ok) {
-      throw new Error(`expected ok; got: ${JSON.stringify(r.errors, null, 2)}`)
-    }
-  })
-
-  it('rejects a composio_connection_id with a suffix longer than 80 chars', () => {
-    const tooLong = 'a'.repeat(81)
-    const r = validate(fixtureWithComposioEmail(`conn_smith-pi-firm_${tooLong}`))
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(codesOf(r.errors)).toContain('InvalidFormat')
-  })
-
-  it('handles multi-dash customer slugs in the connection ID', () => {
-    const f = fixtureWithComposioEmail('conn_smith-pi-firm_a-b-c-d')
-    const r = validate(f)
-    if (!r.ok) {
-      throw new Error(`expected ok; got: ${JSON.stringify(r.errors, null, 2)}`)
-    }
-    expect(r.value.connectors.Email?.composio_connection_id).toBe('conn_smith-pi-firm_a-b-c-d')
-  })
-})
 
 // -----------------------------------------------------------------------------
 // Memory: isolation invariants
@@ -1555,102 +1432,72 @@ describe('validate — ADR 0021 cron', () => {
 })
 
 // -----------------------------------------------------------------------------
-// ADR 0021 — Stream E webhook_url + webhook_triggers
+// M365 hosted-MCP tenant_id (#1056)
+//
+// `tenant_id` is required when backend starts with `mcp:m365-`. Format is
+// a lowercase canonical Entra UUID. Validator drops the connector on
+// missing/malformed input; otherwise it leaves the field through to the
+// parsed CustomerYaml.
 // -----------------------------------------------------------------------------
 
-function withWebhooks(): Record<string, unknown> {
-  const f = withBundlesAndCron()
-  const connectors = f['connectors'] as Record<string, Record<string, unknown>>
-  connectors['PracticeManagement']['webhook_url'] =
-    'https://hermes-smith-pi-firm.fly.dev/webhooks/practice_management'
-  f['webhook_triggers'] = [
-    {
-      source: 'filevine',
-      event_type: 'matter.created',
-      skill: 'inbox-triage-and-draft',
-      persona: 'marcus',
-    },
-  ]
-  return f
-}
+describe('validate — M365 hosted MCP tenant_id', () => {
+  const VALID_TENANT_ID = '11111111-2222-3333-4444-555555555555'
 
-describe('validate — ADR 0021 webhook_url', () => {
-  it('accepts a valid connector webhook_url', () => {
-    const r = validate(withWebhooks())
-    if (!r.ok) {
-      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
-    }
-    expect(r.value.connectors.PracticeManagement?.webhook_url).toBe(
-      'https://hermes-smith-pi-firm.fly.dev/webhooks/practice_management'
-    )
-  })
-
-  it('rejects webhook_url that does not match the customer-bound pattern', () => {
-    const f = withWebhooks()
-    const connectors = f['connectors'] as Record<string, Record<string, unknown>>
-    connectors['PracticeManagement']['webhook_url'] = 'https://example.com/webhook'
-    const r = validate(f)
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(codesOf(r.errors)).toContain('InvalidWebhookUrl')
-  })
-
-  it('rejects webhook_url pointing at a different customer slug (isolation)', () => {
-    const f = withWebhooks()
-    const connectors = f['connectors'] as Record<string, Record<string, unknown>>
-    connectors['PracticeManagement']['webhook_url'] =
-      'https://hermes-other-firm.fly.dev/webhooks/practice_management'
-    const r = validate(f)
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(codesOf(r.errors)).toContain('IsolationViolation')
-  })
-})
-
-describe('validate — ADR 0021 webhook_triggers', () => {
-  it('accepts a valid webhook_triggers list', () => {
-    const r = validate(withWebhooks())
-    if (!r.ok) {
-      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
-    }
-    expect(r.value.webhook_triggers).toHaveLength(1)
-    expect(r.value.webhook_triggers[0].source).toBe('filevine')
-    expect(r.value.webhook_triggers[0].event_type).toBe('matter.created')
-  })
-
-  it('rejects trigger whose source has no connector with webhook_url', () => {
-    const f = withWebhooks()
-    ;(f['webhook_triggers'] as Record<string, unknown>[])[0]['source'] = 'microsoft-graph'
-    const r = validate(f)
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(codesOf(r.errors)).toContain('UnknownWebhookSource')
-  })
-
-  it('rejects trigger whose persona does not exist', () => {
-    const f = withWebhooks()
-    ;(f['webhook_triggers'] as Record<string, unknown>[])[0]['persona'] = 'ghost-persona'
-    const r = validate(f)
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(codesOf(r.errors)).toContain('UnknownWebhookPersona')
-  })
-
-  it('rejects trigger whose skill is not on the target persona', () => {
-    const f = withWebhooks()
-    ;(f['webhook_triggers'] as Record<string, unknown>[])[0]['skill'] = 'not-a-skill'
-    const r = validate(f)
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(codesOf(r.errors)).toContain('UnknownWebhookSkill')
-  })
-
-  it('treats missing webhook_triggers as empty list', () => {
+  function fixtureWithM365Email(tenantId: string | null | undefined): Record<string, unknown> {
     const f = validFixture()
+    const entry: Record<string, unknown> = {
+      adapter: 'm365-mail',
+      backend: 'mcp:m365-mail',
+      enabled: true,
+      scopes: ['Mail.Read'],
+    }
+    if (tenantId !== undefined) entry['tenant_id'] = tenantId
+    ;(f['connectors'] as Record<string, unknown>)['Email'] = entry
+    return f
+  }
+
+  it('accepts a well-formed tenant_id on mcp:m365-mail', () => {
+    const r = validate(fixtureWithM365Email(VALID_TENANT_ID))
+    if (!r.ok) {
+      throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    }
+    expect(r.value.connectors.Email?.tenant_id).toBe(VALID_TENANT_ID)
+  })
+
+  it('requires tenant_id when backend is mcp:m365-mail', () => {
+    const r = validate(fixtureWithM365Email(undefined))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.code === 'MissingField' && e.path === 'connectors.Email.tenant_id')
+    ).toBe(true)
+  })
+
+  it('rejects tenant_id that is not a UUID', () => {
+    const r = validate(fixtureWithM365Email('not-a-uuid'))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidTenantId')
+  })
+
+  it('rejects uppercase tenant_id', () => {
+    const r = validate(fixtureWithM365Email('ABCDEF12-3456-7890-ABCD-EF0123456789'))
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidTenantId')
+  })
+
+  it('accepts absent tenant_id on non-M365 backends', () => {
+    const f = validFixture()
+    ;(f['connectors'] as Record<string, unknown>)['DocumentStorage'] = {
+      adapter: 'ms-365',
+      backend: 'mcp:softeria/ms-365-mcp-server',
+      enabled: true,
+    }
     const r = validate(f)
     if (!r.ok) {
       throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
     }
-    expect(r.value.webhook_triggers).toEqual([])
+    expect(r.value.connectors.DocumentStorage?.tenant_id).toBeNull()
   })
 })

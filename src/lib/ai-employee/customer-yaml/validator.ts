@@ -57,7 +57,6 @@ import {
   checkVoiceLibrary,
 } from './sections-other'
 import { checkVoiceCohorts } from './sections-voice'
-import { checkWebhookTriggers } from './sections-webhook-triggers'
 
 export type {
   CustomerYaml,
@@ -71,7 +70,6 @@ export type {
   PersonaChannelBinding,
   PersonaBundle,
   PersonaCron,
-  WebhookTrigger,
   WakePolicy,
   User,
   UserRole,
@@ -108,8 +106,9 @@ export {
   ACCEPTED_WAKE_POLICIES,
   AUDIT_LOG_DAYS_MAX,
   BASE_VOICE_COHORTS,
+  ENTRA_TENANT_ID_PATTERN,
+  M365_HOSTED_MCP_PREFIX,
   VERTICAL_AUDIT_LOG_DAYS_DEFAULTS,
-  WEBHOOK_URL_PATTERN,
   isAcceptedCronSchedule,
 } from './types'
 export { resolveCohortVocabulary } from './sections-voice'
@@ -175,7 +174,6 @@ interface ParsedSections {
   businessHours: ReturnType<typeof checkBusinessHours>
   logging: ReturnType<typeof checkLogging>
   pause: ReturnType<typeof checkPause>
-  webhookTriggers: ReturnType<typeof checkWebhookTriggers>
   complianceEnabled: boolean
 }
 
@@ -199,7 +197,6 @@ function validateSections(
   const scope = checkScope(root, errors)
   const escalation = checkEscalation(root, errors)
   const memory = checkMemory(root, customerId, vertical, errors)
-  const webhookTriggers = checkWebhookTriggers(root, personas, connectors, errors)
   return {
     schemaVersion,
     customerId,
@@ -217,7 +214,6 @@ function validateSections(
     businessHours: checkBusinessHours(root, errors),
     logging: checkLogging(root, errors),
     pause: checkPause(root, errors),
-    webhookTriggers,
     complianceEnabled: checkComplianceEnabled(root, errors),
   }
 }
@@ -246,7 +242,6 @@ function assembleCustomerYaml(root: Record<string, unknown>, p: ParsedSections):
     memory: p.memory as Memory,
     logging: p.logging,
     pause: p.pause,
-    webhook_triggers: p.webhookTriggers,
     compliance_enabled: p.complianceEnabled,
   }
 }
