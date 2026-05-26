@@ -381,6 +381,7 @@ Load these ADRs before any AI Employee architectural work:
 - **ADR 0017** — Skill Curator disposition (trust Hermes-native; mirror to D1 inventory)
 - **ADR 0019** — customer.yaml → per-profile config translation
 - **ADR 0020** — Connector strategy (MCP-first; BUILD only where no acceptable MCP)
+- **ADR 0021** — Leverage Hermes native primitives (`execute_code`, `delegate_task`, no-agent cron, skill bundles, webhook gateway via `pre_gateway_dispatch`, MCP-first connector retirement)
 
 Connectors are wired by `customer.yaml.connectors{}` backend prefix: `mcp:` (vendor or vetted-community MCP server), `build:` (Python adapter we maintain), `composio:` (long-tail via Composio with per-connection isolation guard), `synthetic:` (no_pm substrate).
 
@@ -389,7 +390,7 @@ The 2026-05-24 realignment burial is complete. Removed: `smd.hooks.*` dual-surfa
 ## Key Reference
 
 - **Decision Stack:** `docs/adr/decision-stack.md` (29 locked decisions across 6 layers — buy box, scope, pricing, assessment, distribution, delivery. Source of truth for all collateral and processes.)
-- **AI Employee ADRs:** `docs/adr/0004-*.md` through `docs/adr/0018-*.md` (and forthcoming 0019, 0020). Always cite the ADR number when referencing an architectural decision.
+- **AI Employee ADRs:** `docs/adr/0004-*.md` through `docs/adr/0021-*.md`. Always cite the ADR number when referencing an architectural decision.
 - **Package 2 Deep Dive:** `~/Desktop/services-package-2-deep-dive.md` (full problem analysis, delivery model, positioning)
 - `docs/` — Venture documentation as it develops
 
