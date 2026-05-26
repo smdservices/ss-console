@@ -34,17 +34,17 @@ The connector at `ai-employee/connectors/ms_graph/` is 2,456 lines of
 Python across 8 files implementing three capability interfaces from
 `docs/specs/ai-employee/capability-contracts.md`:
 
-| File | LoC | Owns |
-|---|---|---|
-| `mailbox.py` | 526 | `MSGraphMailbox` — `Email` capability: read messages, list mail folders, create drafts |
-| `calendar_adapter.py` | 572 | `MSGraphCalendar` — `Calendar` capability: read events via `/me/calendarView`, manipulate events via `/me/events`, scheduling availability via `/me/calendar/getSchedule` |
-| `drive.py` | 273 | `MSGraphDrive` — `DocumentStorage` capability: read from `/me/drive`, write confined to `/me/drive/special/approot` (the agent's AppFolder) |
-| `send.py` | 245 | `MSGraphMailSend` — Mail.Send adapter. **Currently NOT wired** per Phase 1 scope rules (issue #881 wave-2 follow-on). The `MSGraphOAuth` constructor refuses to ship if `Mail.Send` appears in the requested scope list — defense-in-depth against accidental drift. |
-| `oauth.py` | 426 | OAuth token lifecycle. 10-minute refresh safety margin. `invalid_grant` → `AdapterError(code="auth_expired")`. Token storage per ADR 0010: `/opt/data/oauth/microsoft.json`, `0600` mode, owned by uid 10000. |
-| `_client.py` | 143 | Base Graph REST client (HTTP, retries, error mapping) |
-| `_types.py` | 227 | Domain models |
-| `__init__.py` | 44 | Module exports |
-| `tests/` | (varies) | Lifecycle: storage round-trip, refresh on expiry, `invalid_grant` mapping, 0600 mode, scope-set integrity, no `Mail.Send` leakage |
+| File                  | LoC      | Owns                                                                                                                                                                                                                                                                 |
+| --------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mailbox.py`          | 526      | `MSGraphMailbox` — `Email` capability: read messages, list mail folders, create drafts                                                                                                                                                                               |
+| `calendar_adapter.py` | 572      | `MSGraphCalendar` — `Calendar` capability: read events via `/me/calendarView`, manipulate events via `/me/events`, scheduling availability via `/me/calendar/getSchedule`                                                                                            |
+| `drive.py`            | 273      | `MSGraphDrive` — `DocumentStorage` capability: read from `/me/drive`, write confined to `/me/drive/special/approot` (the agent's AppFolder)                                                                                                                          |
+| `send.py`             | 245      | `MSGraphMailSend` — Mail.Send adapter. **Currently NOT wired** per Phase 1 scope rules (issue #881 wave-2 follow-on). The `MSGraphOAuth` constructor refuses to ship if `Mail.Send` appears in the requested scope list — defense-in-depth against accidental drift. |
+| `oauth.py`            | 426      | OAuth token lifecycle. 10-minute refresh safety margin. `invalid_grant` → `AdapterError(code="auth_expired")`. Token storage per ADR 0010: `/opt/data/oauth/microsoft.json`, `0600` mode, owned by uid 10000.                                                        |
+| `_client.py`          | 143      | Base Graph REST client (HTTP, retries, error mapping)                                                                                                                                                                                                                |
+| `_types.py`           | 227      | Domain models                                                                                                                                                                                                                                                        |
+| `__init__.py`         | 44       | Module exports                                                                                                                                                                                                                                                       |
+| `tests/`              | (varies) | Lifecycle: storage round-trip, refresh on expiry, `invalid_grant` mapping, 0600 mode, scope-set integrity, no `Mail.Send` leakage                                                                                                                                    |
 
 Phase 1 delegated scopes (`oauth.PHASE_1_SCOPES`):
 
@@ -88,12 +88,12 @@ verification pass against `github.com/microsoft/mcp`:
 
 ### First-party (Microsoft-maintained)
 
-| Server | Capability | Host | Auth | Maturity |
-|---|---|---|---|---|
-| `mcp:m365-mail` | Email (Outlook) | `agent365.svc.cloud.microsoft/agents/tenants/{tenant_id}/servers/mcp_MailTools` | Per-tenant Microsoft Entra | Production (per ADR 0020 §"Microsoft 365 first-party MCP servers"); covers Mail.Read, Mail.ReadWrite |
-| `mcp:m365-calendar` | Calendar | Same host pattern, `/servers/mcp_CalendarTools` | Per-tenant Entra | Production |
-| `mcp:m365-teams` | InternalComms (Teams) | Same host pattern, `/servers/mcp_TeamsServer` | Per-tenant Entra | Production (not relevant to this retirement; SMD doesn't currently use Teams) |
-| (none) | DocumentStorage (OneDrive/SharePoint) | — | — | **NOT YET SHIPPED.** Microsoft has not released a first-party OneDrive or SharePoint MCP as of 2026-05-25. |
+| Server              | Capability                            | Host                                                                            | Auth                       | Maturity                                                                                                   |
+| ------------------- | ------------------------------------- | ------------------------------------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `mcp:m365-mail`     | Email (Outlook)                       | `agent365.svc.cloud.microsoft/agents/tenants/{tenant_id}/servers/mcp_MailTools` | Per-tenant Microsoft Entra | Production (per ADR 0020 §"Microsoft 365 first-party MCP servers"); covers Mail.Read, Mail.ReadWrite       |
+| `mcp:m365-calendar` | Calendar                              | Same host pattern, `/servers/mcp_CalendarTools`                                 | Per-tenant Entra           | Production                                                                                                 |
+| `mcp:m365-teams`    | InternalComms (Teams)                 | Same host pattern, `/servers/mcp_TeamsServer`                                   | Per-tenant Entra           | Production (not relevant to this retirement; SMD doesn't currently use Teams)                              |
+| (none)              | DocumentStorage (OneDrive/SharePoint) | —                                                                               | —                          | **NOT YET SHIPPED.** Microsoft has not released a first-party OneDrive or SharePoint MCP as of 2026-05-25. |
 
 Microsoft's auth model differs from our current per-customer delegated
 OAuth: each customer is a Microsoft 365 tenant, the MCP server URL is
@@ -103,11 +103,11 @@ in `customer.yaml.connectors[].backend`.
 
 ### Community (third-party-maintained)
 
-| Server | Capability | License | Auth | Maturity |
-|---|---|---|---|---|
-| `softeria/ms-365-mcp-server` | Mail + Calendar + OneDrive/SharePoint + Excel | MIT | Delegated OAuth (matches our current pattern) | Actively maintained per `github.com/softeria/ms-365-mcp-server`. Already referenced in `tests/customer-yaml-validator.test.ts` fixture as `mcp:softeria/ms-365-mcp-server`. |
-| `MartinM85/mcp-server-graph-api` | Broad Graph API | (verify license before adoption) | Varies | C# implementation. Lower priority — softeria covers what we need. |
-| `merill/lokka` | Broad Graph API | (verify license before adoption) | Varies | General Graph API exposure. Lower priority. |
+| Server                           | Capability                                    | License                          | Auth                                          | Maturity                                                                                                                                                                    |
+| -------------------------------- | --------------------------------------------- | -------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `softeria/ms-365-mcp-server`     | Mail + Calendar + OneDrive/SharePoint + Excel | MIT                              | Delegated OAuth (matches our current pattern) | Actively maintained per `github.com/softeria/ms-365-mcp-server`. Already referenced in `tests/customer-yaml-validator.test.ts` fixture as `mcp:softeria/ms-365-mcp-server`. |
+| `MartinM85/mcp-server-graph-api` | Broad Graph API                               | (verify license before adoption) | Varies                                        | C# implementation. Lower priority — softeria covers what we need.                                                                                                           |
+| `merill/lokka`                   | Broad Graph API                               | (verify license before adoption) | Varies                                        | General Graph API exposure. Lower priority.                                                                                                                                 |
 
 `softeria/ms-365-mcp-server` is the obvious community choice: MIT,
 already in our config namespace, covers the three capabilities we wire,
@@ -120,15 +120,15 @@ target backends. ✓ = covered; ✗ = gap.
 
 ### Email (currently `MSGraphMailbox`)
 
-| Method | BUILD `mailbox.py` | `mcp:m365-mail` | `mcp:softeria` |
-|---|---|---|---|
-| `list_messages(folder, since, page_size)` | ✓ | ✓ | ✓ |
-| `get_message(message_id)` | ✓ | ✓ | ✓ |
-| `list_mail_folders()` | ✓ | ✓ | ✓ |
-| `create_draft(to, cc, subject, body, …)` | ✓ | ✓ | ✓ |
-| `update_draft(draft_id, …)` | ✓ | ✓ | ✓ |
-| `delete_draft(draft_id)` | ✓ | ✓ | ✓ |
-| `send_message(...)` | **deliberately absent** (#881 follow-on) | available but not exposed via our scope grant | available but not exposed via our scope grant |
+| Method                                    | BUILD `mailbox.py`                       | `mcp:m365-mail`                               | `mcp:softeria`                                |
+| ----------------------------------------- | ---------------------------------------- | --------------------------------------------- | --------------------------------------------- |
+| `list_messages(folder, since, page_size)` | ✓                                        | ✓                                             | ✓                                             |
+| `get_message(message_id)`                 | ✓                                        | ✓                                             | ✓                                             |
+| `list_mail_folders()`                     | ✓                                        | ✓                                             | ✓                                             |
+| `create_draft(to, cc, subject, body, …)`  | ✓                                        | ✓                                             | ✓                                             |
+| `update_draft(draft_id, …)`               | ✓                                        | ✓                                             | ✓                                             |
+| `delete_draft(draft_id)`                  | ✓                                        | ✓                                             | ✓                                             |
+| `send_message(...)`                       | **deliberately absent** (#881 follow-on) | available but not exposed via our scope grant | available but not exposed via our scope grant |
 
 **Verdict: full coverage.** The send-blocking safety property is
 preserved by the OAuth scope grant (`Mail.Send` not requested) regardless
@@ -136,26 +136,26 @@ of whether the BUILD adapter or the MCP server invokes the API.
 
 ### Calendar (currently `MSGraphCalendar`)
 
-| Method | BUILD `calendar_adapter.py` | `mcp:m365-calendar` | `mcp:softeria` |
-|---|---|---|---|
-| `list_events(window_start, window_end, …)` | ✓ | ✓ | ✓ |
-| `get_event(event_id)` | ✓ | ✓ | ✓ |
-| `create_event(...)` | ✓ | ✓ | ✓ |
-| `update_event(...)` | ✓ | ✓ | ✓ |
-| `delete_event(event_id)` | ✓ | ✓ | ✓ |
-| `get_schedule(emails, window)` (free/busy) | ✓ | ✓ | ✓ |
+| Method                                     | BUILD `calendar_adapter.py` | `mcp:m365-calendar` | `mcp:softeria` |
+| ------------------------------------------ | --------------------------- | ------------------- | -------------- |
+| `list_events(window_start, window_end, …)` | ✓                           | ✓                   | ✓              |
+| `get_event(event_id)`                      | ✓                           | ✓                   | ✓              |
+| `create_event(...)`                        | ✓                           | ✓                   | ✓              |
+| `update_event(...)`                        | ✓                           | ✓                   | ✓              |
+| `delete_event(event_id)`                   | ✓                           | ✓                   | ✓              |
+| `get_schedule(emails, window)` (free/busy) | ✓                           | ✓                   | ✓              |
 
 **Verdict: full coverage.**
 
 ### DocumentStorage (currently `MSGraphDrive`)
 
-| Method | BUILD `drive.py` | First-party | `mcp:softeria` |
-|---|---|---|---|
-| `list_children(path)` | ✓ | **NOT AVAILABLE** | ✓ |
-| `read_file(path)` | ✓ | **NOT AVAILABLE** | ✓ |
-| `write_file(path, content)` — confined to `/me/drive/special/approot` | ✓ | **NOT AVAILABLE** | ✓ — confinement enforced by OAuth scope, not endpoint choice |
-| `create_folder(path)` | ✓ | **NOT AVAILABLE** | ✓ |
-| `share_link(path, scope)` | ✓ | **NOT AVAILABLE** | ✓ |
+| Method                                                                | BUILD `drive.py` | First-party       | `mcp:softeria`                                               |
+| --------------------------------------------------------------------- | ---------------- | ----------------- | ------------------------------------------------------------ |
+| `list_children(path)`                                                 | ✓                | **NOT AVAILABLE** | ✓                                                            |
+| `read_file(path)`                                                     | ✓                | **NOT AVAILABLE** | ✓                                                            |
+| `write_file(path, content)` — confined to `/me/drive/special/approot` | ✓                | **NOT AVAILABLE** | ✓ — confinement enforced by OAuth scope, not endpoint choice |
+| `create_folder(path)`                                                 | ✓                | **NOT AVAILABLE** | ✓                                                            |
+| `share_link(path, scope)`                                             | ✓                | **NOT AVAILABLE** | ✓                                                            |
 
 **Verdict: full coverage via softeria; no first-party option.** The
 AppFolder-confinement safety property is preserved via OAuth scope
