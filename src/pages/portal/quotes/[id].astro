@@ -174,7 +174,7 @@ const consultantPhone = engagement?.consultant_phone ?? null
     <SkipToMain />
     <PortalHeader
       clientName={client.name}
-      consultantPhone={isSigned ? null : consultantPhone}
+      consultantPhone={consultantPhone}
       consultantFirstName={consultantFirst}
     >
       <SignOutButton asChild redirectUrl="/auth/sign-in?status=signed_out">
