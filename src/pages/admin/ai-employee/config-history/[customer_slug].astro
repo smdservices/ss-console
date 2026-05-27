@@ -1,0 +1,153 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro'
+import { listCustomerConfigHistory } from '../../../../lib/portal/customer-config'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Captain customer.yaml materialization-history view — per-customer drill-down.
+ *
+ * ADR 0022 Stream 3 (substrate gap B). Shows the most recent 20 sync events
+ * for one customer's customer.yaml projection. Each row is a pointer into
+ * git: `git_sha` reconstructs the customer.yaml bytes that were live at the
+ * time of the sync via `git show <sha>:<path>` or via the R2 shadow when it
+ * exists.
+ *
+ * The page is intentionally narrow in v1:
+ *   - No filtering (default order: most recent first).
+ *   - No diff view between adjacent rows (deferred per the plan §"Time-machine UX").
+ *   - No surgical revert handler (also deferred).
+ * The substrate is the value; the UX is additive.
+ */
+
+const session = Astro.locals.session!
+if (session.role !== 'admin') {
+  return Astro.redirect('/auth/sign-in')
+}
+
+const { customer_slug } = Astro.params
+if (!customer_slug) {
+  return new Response('Customer slug required', { status: 400 })
+}
+
+const rows = await listCustomerConfigHistory(env.DB, customer_slug, 20)
+
+function formatSyncedAt(iso: string): string {
+  // Stable, locale-agnostic rendering — Captain reads logs in UTC.
+  return iso
+    .replace('T', ' ')
+    .replace(/\.\d+Z?$/, '')
+    .replace(/Z$/, ' UTC')
+}
+
+function shortSha(sha: string): string {
+  return sha.slice(0, 12)
+}
+---
+
+<AdminLayout
+  title={`Config history — ${customer_slug}`}
+  breadcrumbs={[
+    { label: 'Dashboard', href: '/admin' },
+    { label: 'AI Employee' },
+    { label: 'Config history' },
+    { label: customer_slug },
+  ]}
+>
+  <div class="space-y-card">
+    <header class="flex items-end justify-between gap-4">
+      <div>
+        <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+          customer.yaml sync history
+        </h2>
+        <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+          <code>{customer_slug}</code> · most recent {rows.length} event(s)
+        </p>
+      </div>
+    </header>
+
+    {
+      rows.length === 0 ? (
+        <div class="rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white p-card">
+          <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+            No sync events recorded for this customer yet. The first sync event lands when the CI
+            sync code path, the bootstrap script, or a manual portal action calls{' '}
+            <code>recordCustomerConfigSync</code> from{' '}
+            <code>src/lib/portal/customer-config.ts</code>. The substrate is in place (migration
+            0045); waiting on the sync code path itself.
+          </p>
+        </div>
+      ) : (
+        <div class="rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-[color:var(--ss-color-border-subtle)]">
+              <tr>
+                <th class="text-left px-card py-2 font-medium text-[color:var(--ss-color-text-primary)]">
+                  Synced at
+                </th>
+                <th class="text-left px-card py-2 font-medium text-[color:var(--ss-color-text-primary)]">
+                  Source
+                </th>
+                <th class="text-left px-card py-2 font-medium text-[color:var(--ss-color-text-primary)]">
+                  Actor
+                </th>
+                <th class="text-left px-card py-2 font-medium text-[color:var(--ss-color-text-primary)]">
+                  git_sha
+                </th>
+                <th class="text-left px-card py-2 font-medium text-[color:var(--ss-color-text-primary)]">
+                  prev
+                </th>
+                <th class="text-left px-card py-2 font-medium text-[color:var(--ss-color-text-primary)]">
+                  R2 shadow
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr class="border-t border-[color:var(--ss-color-border)]">
+                  <td class="px-card py-2 text-[color:var(--ss-color-text-primary)] font-mono">
+                    {formatSyncedAt(row.synced_at)}
+                  </td>
+                  <td class="px-card py-2 text-[color:var(--ss-color-text-secondary)]">
+                    {row.synced_by}
+                  </td>
+                  <td class="px-card py-2 text-[color:var(--ss-color-text-secondary)]">
+                    {row.actor ?? <span class="opacity-60">—</span>}
+                  </td>
+                  <td class="px-card py-2 text-[color:var(--ss-color-text-primary)] font-mono">
+                    <code title={row.git_sha}>{shortSha(row.git_sha)}</code>
+                  </td>
+                  <td class="px-card py-2 text-[color:var(--ss-color-text-secondary)] font-mono">
+                    {row.prev_git_sha ? (
+                      <code title={row.prev_git_sha}>{shortSha(row.prev_git_sha)}</code>
+                    ) : (
+                      <span class="opacity-60">first sync</span>
+                    )}
+                  </td>
+                  <td class="px-card py-2 text-[color:var(--ss-color-text-secondary)]">
+                    {row.r2_shadow_key ? (
+                      <code class="text-xs">{row.r2_shadow_key}</code>
+                    ) : (
+                      <span class="opacity-60">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+    }
+
+    <p class="text-xs text-[color:var(--ss-color-text-secondary)]">
+      Snapshot bytes are not stored in the history table itself — each row points into git via <code
+        >git_sha</code
+      >. The R2 shadow column, when populated, contains a backup of the post-transformation bytes at{
+        ' '
+      }
+      <code>customers/&lt;slug&gt;/history/&lt;git_sha&gt;.yaml</code>. See{' '}
+      <code>docs/adr/0022-vertical-pack-architecture.md</code> §"Time-machine substrate commitment" for
+      the substrate model and{' '}
+      <code>src/lib/portal/customer-config.ts</code> for the read helper.
+    </p>
+  </div>
+</AdminLayout>
