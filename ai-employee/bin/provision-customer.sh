@@ -20,6 +20,15 @@
 #   R2_SECRET_ACCESS_KEY   — R2 secret (operator-local)
 #   R2_BUCKET_CONFIG       — R2 bucket holding customer.yaml + voice vaults
 #                            (defaults to "smd-customer-config" if unset)
+#   CF_API_TOKEN           — Cloudflare API token with "Workers R2 Storage: Edit"
+#                            scope at the account level. Used by ADR 0022 Stream 2
+#                            to create the per-customer skill-bodies R2 bucket
+#                            (ss-ai-employee-<slug>-skills). Optional in dev —
+#                            when unset, the script logs a warning and skips the
+#                            bucket-create step (the operator can create it via
+#                            the CF dashboard before re-running).
+#   CF_ACCOUNT_ID          — Cloudflare account ID (32-char hex). Required when
+#                            CF_API_TOKEN is set; ignored otherwise.
 #
 # Observability (ADR 0023 Wave 1) prerequisites:
 #   SENTRY_DSN                  — staged to Fly as a secret so the Machine's
@@ -156,6 +165,11 @@ log "R2 upload OK"
 # ---------- Step 3: render fly.toml ----------
 log "Rendering fly.toml..."
 mkdir -p "${RENDERED_DIR}"
+# Per-customer skill bodies bucket name (ADR 0022 Stream 2). One bucket per
+# customer; the bucket itself is the trust boundary. Bucket-scoped access
+# keys are entered via the secret-paste flow below; the bucket name is
+# rendered into fly.toml [env] (not a credential, just a string).
+R2_SKILL_BODIES_BUCKET="ss-ai-employee-${SLUG}-skills"
 sed -e "s/{{CUSTOMER_SLUG}}/${SLUG}/g" \
     -e "s/{{FLY_REGION}}/${FLY_REGION}/g" \
     -e "s/{{MACHINE_SIZE}}/${MACHINE_SIZE}/g" \
@@ -163,6 +177,7 @@ sed -e "s/{{CUSTOMER_SLUG}}/${SLUG}/g" \
     -e "s/{{HERMES_REF}}/${HERMES_REF}/g" \
     -e "s/{{HERMES_UPSTREAM_SHA}}/${HERMES_UPSTREAM_SHA}/g" \
     -e "s|{{R2_BUCKET_CONFIG}}|${R2_BUCKET_CONFIG}|g" \
+    -e "s|{{R2_SKILL_BODIES_BUCKET}}|${R2_SKILL_BODIES_BUCKET}|g" \
     "${TEMPLATE_DIR}/fly.toml.template" > "${RENDERED_DIR}/fly.toml"
 log "Rendered to ${RENDERED_DIR}/fly.toml"
 
@@ -189,6 +204,40 @@ if fly volumes list -a "${APP_NAME}" --json 2>/dev/null | python3 -c "import sys
   fi
 else
   fly volumes create hermes_state --size 10 --region "${FLY_REGION}" -a "${APP_NAME}" --yes || true
+fi
+
+# ---------- Step 5b: create per-customer skill-bodies R2 bucket (ADR 0022 Stream 2) ----------
+# Per Captain decision (2026-05-27): one R2 bucket per customer for agent-
+# authored skill body persistence. The bucket name is deterministic
+# (ss-ai-employee-<slug>-skills); creation is idempotent via CF API.
+#
+# If CF_API_TOKEN / CF_ACCOUNT_ID are unset, the script logs a warning and
+# skips the create step — the operator must create the bucket manually via
+# the CF dashboard before the Machine boots. Future agent-authored skills
+# would otherwise fail the write-ahead R2 PUT and surface as r2_status='failed'
+# in the per-customer agent_skills_inventory.
+if [ -n "${CF_API_TOKEN:-}" ] && [ -n "${CF_ACCOUNT_ID:-}" ]; then
+  log "Creating per-customer R2 bucket: ${R2_SKILL_BODIES_BUCKET}"
+  CF_BUCKET_RESPONSE=$(curl -sS -X POST \
+    "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/r2/buckets" \
+    -H "Authorization: Bearer ${CF_API_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d "{\"name\":\"${R2_SKILL_BODIES_BUCKET}\"}" 2>&1 || true)
+  if echo "${CF_BUCKET_RESPONSE}" | grep -q '"success":true'; then
+    log "R2 bucket created: ${R2_SKILL_BODIES_BUCKET}"
+  elif echo "${CF_BUCKET_RESPONSE}" | grep -q '"code":10004'; then
+    # Cloudflare error 10004 = bucket already exists. Idempotent re-run is fine.
+    log "R2 bucket ${R2_SKILL_BODIES_BUCKET} already exists; skipping create"
+  else
+    # Any other error — log but don't die. The operator can create manually
+    # and re-run; the secret-paste prompts below will still capture the
+    # bucket-scoped credentials.
+    log "WARN: R2 bucket create did not succeed. Response: ${CF_BUCKET_RESPONSE}"
+    log "WARN: Create the bucket manually via the CF dashboard before the Machine boots."
+  fi
+else
+  log "WARN: CF_API_TOKEN or CF_ACCOUNT_ID not set; skipping R2 bucket auto-create."
+  log "WARN: Create '${R2_SKILL_BODIES_BUCKET}' via the CF dashboard before the Machine boots."
 fi
 
 # ---------- Step 6: set secrets (paste flow; never echo values) ----------
@@ -229,6 +278,15 @@ prompt_and_set AGENTMAIL_API_KEY  "AgentMail API key (Builder tier)"
 prompt_and_set R2_ACCESS_KEY_ID     "R2 access key ID (Machine-scoped, R/W on s3://${R2_BUCKET_CONFIG}/vaults/${SLUG}/)"
 prompt_and_set R2_SECRET_ACCESS_KEY "R2 secret access key (paired with R2_ACCESS_KEY_ID above)"
 prompt_and_set R2_ENDPOINT_URL      "R2 endpoint URL (Cloudflare account R2 endpoint)"
+
+# ADR 0022 Stream 2 — bucket-scoped R2 credentials for the per-customer
+# skill bodies bucket. Issue these via the CF dashboard with a policy
+# scoped to ${R2_SKILL_BODIES_BUCKET} only (Object Read + Write). The
+# bucket itself is the trust boundary per ADR 0007; a misconfigured token
+# scope would be the only path to cross-tenant leakage, so the operator
+# verifies the scope before pasting.
+prompt_and_set R2_SKILL_BODIES_ACCESS_KEY_ID "R2 access key ID scoped to bucket ${R2_SKILL_BODIES_BUCKET}"
+prompt_and_set R2_SKILL_BODIES_SECRET_ACCESS_KEY "R2 secret access key paired with R2_SKILL_BODIES_ACCESS_KEY_ID above"
 
 # HONCHO_API_KEY — generated locally, sent to Fly via stdin, never stored
 # anywhere else. Honcho is self-hosted in this Machine; this is the shared
