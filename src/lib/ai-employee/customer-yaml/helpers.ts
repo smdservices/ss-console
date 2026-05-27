@@ -102,6 +102,32 @@ export function optionalString(
   return v
 }
 
+/**
+ * Like {@link optionalString} but rejects empty strings. Use for fields that
+ * are optional in the schema but where empty string is always an authoring
+ * typo — e.g. bootstrap-populated paths where blank means "the bootstrap
+ * script failed half-way." Added by ADR 0022 Stream 1 for the
+ * `memory.r2_skill_bodies_*` keys; reusable elsewhere.
+ */
+export function optionalNonEmptyString(
+  rec: Record<string, unknown>,
+  key: string,
+  path: string,
+  errors: ValidationError[]
+): string | null {
+  const v = rec[key]
+  if (v === undefined || v === null) return null
+  if (typeof v !== 'string') {
+    errors.push({ code: 'TypeMismatch', path, message: `${path} must be a string when present` })
+    return null
+  }
+  if (v.length === 0) {
+    errors.push({ code: 'EmptyField', path, message: `${path} must not be empty when present` })
+    return null
+  }
+  return v
+}
+
 export function optionalEnum<T extends string>(
   rec: Record<string, unknown>,
   key: string,

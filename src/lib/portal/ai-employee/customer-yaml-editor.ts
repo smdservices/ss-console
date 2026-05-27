@@ -439,6 +439,8 @@ function lockedFromCurrent(
   | 'customer_id'
   | 'customer_name'
   | 'vertical'
+  | 'vertical_version'
+  | 'addons'
   | 'practice_areas'
   | 'fly_region'
   | 'model'
@@ -453,6 +455,11 @@ function lockedFromCurrent(
     customer_id: current.customer_id,
     customer_name: current.customer_name,
     vertical: current.vertical,
+    // ADR 0022 Stream 1: vertical pinning and add-ons are locked fields —
+    // the portal editor never mutates them. They live in customer.yaml's
+    // identity block alongside `vertical:` itself.
+    vertical_version: current.vertical_version,
+    addons: current.addons,
     practice_areas: current.practice_areas,
     fly_region: current.fly_region,
     model: current.model,

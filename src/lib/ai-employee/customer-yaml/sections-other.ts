@@ -22,7 +22,12 @@ import {
   type Vertical,
   type VoiceLibrary,
 } from './types'
-import { isPlainObject, optionalStringList, requireStringList } from './helpers'
+import {
+  isPlainObject,
+  optionalNonEmptyString,
+  optionalStringList,
+  requireStringList,
+} from './helpers'
 
 export function checkScope(root: Record<string, unknown>, errors: ValidationError[]): Scope {
   const raw = root['scope']
@@ -160,8 +165,20 @@ export function checkMemory(
   const r2 = checkMemoryR2(raw['r2_vault_path'], customerId, errors)
   const vec = checkMemoryVectorize(raw['vectorize_index'], customerId, errors)
   const retention = checkMemoryRetention(raw['retention'], vertical, errors)
+  // ADR 0022 Stream 1: known-optional R2 skill-body keys, populated at bootstrap (PR 2).
+  const optSkillBody = (k: 'bucket' | 'prefix'): string | null =>
+    optionalNonEmptyString(raw, `r2_skill_bodies_${k}`, `memory.r2_skill_bodies_${k}`, errors)
+  const skillBodiesBucket = optSkillBody('bucket')
+  const skillBodiesPrefix = optSkillBody('prefix')
   if (d1 === null || r2 === null || vec === null) return null
-  return { d1_namespace: d1, r2_vault_path: r2, vectorize_index: vec, retention }
+  return {
+    d1_namespace: d1,
+    r2_vault_path: r2,
+    vectorize_index: vec,
+    retention,
+    r2_skill_bodies_bucket: skillBodiesBucket,
+    r2_skill_bodies_prefix: skillBodiesPrefix,
+  }
 }
 
 function checkMemoryField(
