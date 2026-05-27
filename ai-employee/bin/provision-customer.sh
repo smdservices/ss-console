@@ -21,6 +21,22 @@
 #   R2_BUCKET_CONFIG       — R2 bucket holding customer.yaml + voice vaults
 #                            (defaults to "smd-customer-config" if unset)
 #
+# Observability (ADR 0023 Wave 1) prerequisites:
+#   SENTRY_DSN                  — staged to Fly as a secret so the Machine's
+#                                 Python sentry-sdk init can pick it up
+#                                 (overlay PR O1). Pulled from operator env.
+#   MACHINE_HEARTBEAT_KEY       — shared bearer for POST /api/internal/heartbeat
+#                                 (Wave 1 single-key model per ADR 0023 §10).
+#                                 SAME value as the Cloudflare Worker secret on
+#                                 ss-web; staged to every Machine.
+#   HEALTHCHECKS_API_KEY        — healthchecks.io project API key. Used to
+#                                 create the per-customer check during
+#                                 provisioning, and to cancel it during
+#                                 decommission. Optional in dev — when unset,
+#                                 the script logs a warning and skips the
+#                                 healthchecks.io step (allows local dry runs
+#                                 without a live account).
+#
 # The same R2_* values get pushed into the Machine as Fly secrets so bootstrap.sh
 # can pull customer.yaml back out. The operator's local R2 creds and the
 # Machine's R2 creds may be the same credential or different ones — they live
@@ -225,6 +241,108 @@ openssl rand -hex 32 \
   | fly secrets import --stage -a "${APP_NAME}" >/dev/null
 log "Staged HONCHO_API_KEY (value never logged)"
 unset _val 2>/dev/null || true
+
+# ---------- Step 6b: observability secrets (ADR 0023 Wave 1) ----------
+# These come from operator env (Infisical-staged in Captain's shell), not
+# pbpaste — there's nothing user-specific about them and they should not
+# require manual paste per customer.
+#
+#   SENTRY_DSN              — single value shared across all Machines (one
+#                             SMD-owned Sentry project; tenant tag scopes
+#                             events per customer at SDK init).
+#   MACHINE_HEARTBEAT_KEY   — single value shared across the fleet for
+#                             Wave 1. SAME key the Cloudflare Worker
+#                             receives; Wave 1's auth is "you know the
+#                             key + you carry an X-Tenant-Slug header."
+#                             Per-tenant upgrade path documented in
+#                             ADR 0023 §"Cross-cutting calls" #10.
+#
+# Missing either is non-fatal in dev (warn + skip); in prod the Machine's
+# Sentry init silently no-ops and heartbeat POSTs will 401 — both visible
+# as "no signal yet" on the admin dashboard, which is the empty-state we
+# want anyway.
+stage_secret_from_env() {
+  local secret_name="$1"
+  local env_value="$2"
+  local description="$3"
+  if [ -z "${env_value:-}" ]; then
+    log "WARN: ${secret_name} not set in operator env (${description}) — skipping stage"
+    return 0
+  fi
+  printf '%s=%s\n' "${secret_name}" "${env_value}" \
+    | fly secrets import --stage -a "${APP_NAME}" >/dev/null
+  log "Staged ${secret_name} (value never logged)"
+}
+stage_secret_from_env SENTRY_DSN            "${SENTRY_DSN:-}"            "Sentry DSN for the shared smd-ai-employee project"
+stage_secret_from_env MACHINE_HEARTBEAT_KEY "${MACHINE_HEARTBEAT_KEY:-}" "shared bearer for POST /api/internal/heartbeat"
+
+# ---------- Step 6c: healthchecks.io check (ADR 0023 Wave 1) ----------
+# Idempotent create-or-find. Healthchecks.io's POST /api/v3/checks/ creates
+# a new check; if a check with the same `unique` keys (tags+name) already
+# exists, the API returns it. The ping URL is stable across re-runs.
+#
+# The check is configured to POST to ss-web's /api/webhooks/healthchecks
+# on failure (grace expiration) with an Authorization: Bearer header
+# carrying HEALTHCHECKS_WEBHOOK_SECRET (different from the API key — the
+# inbound receiver verifies this) and a JSON body the receiver expects.
+HC_CHECK_NAME="hermes-${SLUG}"
+HC_PING_URL=""
+if [ -n "${HEALTHCHECKS_API_KEY:-}" ]; then
+  log "Creating/finding healthchecks.io check '${HC_CHECK_NAME}'..."
+  HC_PAYLOAD=$(python3 -c "
+import json, os
+slug = os.environ['SLUG']
+admin = os.environ.get('ADMIN_BASE_URL', 'https://admin.smd.services')
+webhook_secret = os.environ.get('HEALTHCHECKS_WEBHOOK_SECRET', '')
+print(json.dumps({
+    'name': f'hermes-{slug}',
+    'tags': f'ai-employee {slug}',
+    'timeout': int(os.environ.get('HEALTHCHECKS_PERIOD_SECONDS', '60')),
+    'grace': int(os.environ.get('HEALTHCHECKS_GRACE_MINUTES', '5')) * 60,
+    'unique': ['name', 'tags'],
+    'channels': '',  # outbound managed via Integrations in UI per Wave 1 setup
+}))
+")
+  HC_RESPONSE=$(curl -sS -X POST 'https://healthchecks.io/api/v3/checks/' \
+    -H "X-Api-Key: ${HEALTHCHECKS_API_KEY}" \
+    -H 'Content-Type: application/json' \
+    -d "${HC_PAYLOAD}") \
+    || die "healthchecks.io API call failed (check HEALTHCHECKS_API_KEY)"
+  HC_PING_URL=$(echo "${HC_RESPONSE}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('ping_url',''))")
+  if [ -z "${HC_PING_URL}" ]; then
+    log "WARN: healthchecks.io returned no ping_url; response=${HC_RESPONSE}"
+  else
+    log "healthchecks.io ping URL: ${HC_PING_URL}"
+    printf '%s=%s\n' "HEALTHCHECKS_PING_URL" "${HC_PING_URL}" \
+      | fly secrets import --stage -a "${APP_NAME}" >/dev/null
+    log "Staged HEALTHCHECKS_PING_URL"
+  fi
+else
+  log "WARN: HEALTHCHECKS_API_KEY not set — skipping healthchecks.io check creation"
+  log "      (Machine's heartbeat ticker will still write to control-plane; the"
+  log "       grace-expiration alert path is just inactive until configured)"
+fi
+
+# ---------- Step 6d: seed fleet_status row in central D1 (ADR 0023 Wave 1) ----------
+# Bootstrap an empty row so the admin dashboard's fleet view renders a
+# "no signal yet" entry instead of being silent before the first heartbeat
+# lands. The heartbeat endpoint's ON CONFLICT upsert handles subsequent
+# writes idempotently — this seed has no semantic impact beyond UI presence.
+#
+# Uses wrangler from the operator's working tree (assumes the same wrangler
+# version used for migrations). entity_id resolved via customer_configs.
+log "Seeding fleet_status row for ${SLUG}..."
+SEED_SQL=$(cat <<EOF
+INSERT INTO fleet_status (entity_id, customer_slug, heartbeat_status, updated_at)
+SELECT entity_id, customer_slug, 'unknown', datetime('now')
+  FROM customer_configs
+ WHERE customer_slug = '${SLUG}'
+    ON CONFLICT(entity_id) DO NOTHING;
+EOF
+)
+( cd "${REPO_ROOT}" && npx --quiet wrangler d1 execute ss-console-db --remote --command "${SEED_SQL}" >/dev/null 2>&1 ) \
+  && log "Seeded fleet_status (no-op if row already exists or customer_configs is missing)" \
+  || log "WARN: fleet_status seed failed — Wave-1 first-heartbeat will create the row on its own"
 
 # Commit staged secrets
 log "Committing staged secrets..."
