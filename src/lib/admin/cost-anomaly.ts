@@ -223,7 +223,57 @@ export function pickTopDriverByDelta(
 // Alert storage (central D1)
 // ---------------------------------------------------------------------------
 
+/**
+ * Source of an alert row in `cost_anomaly_alerts`. The table is shared
+ * across observability sources per ADR 0023 §"Cross-cutting calls" #9 —
+ * the admin dashboard banner renders rows from every source with the
+ * existing snooze/acknowledge UI for free.
+ *
+ * - `cost` rows are written by the cost-anomaly Worker; they populate
+ *   `daily_cents`, `rolling_avg_cents`, `ratio_bps`, `threshold_bps` and
+ *   leave `summary` / `details_json` null.
+ * - `sentry`, `healthchecks`, `audit_integrity` rows are written by the
+ *   matching webhook receivers; they populate `summary` (and
+ *   `details_json` for drill-down) and carry 0 sentinels for the
+ *   cost-specific columns. The dashboard reader switches on `source`.
+ */
+export type AlertSource = 'cost' | 'sentry' | 'healthchecks' | 'audit_integrity'
+
 export interface CostAnomalyAlertRow {
+  entity_id: string
+  customer_slug: string
+  alert_date: string
+  driver: string
+  source: AlertSource
+  daily_cents: number
+  rolling_avg_cents: number
+  ratio_bps: number
+  threshold_bps: number
+  summary: string | null
+  details_json: string | null
+  detected_at: string
+  snoozed_until: string | null
+  acknowledged_at: string | null
+  acknowledged_by: string | null
+}
+
+/**
+ * Insert or refresh a cost-anomaly alert row. The PK is
+ * (entity_id, alert_date, driver) so a re-run for the same day collapses
+ * to one row. Existing snooze / acknowledged columns are preserved on
+ * conflict — the worker never undoes Captain's action.
+ *
+ * This writer is COST-SPECIFIC. Non-cost sources (sentry, healthchecks,
+ * audit_integrity) write their rows directly from their webhook
+ * handlers with `source` set explicitly; they use the same `cost_anomaly_alerts`
+ * table per ADR 0023 §"Cross-cutting calls" #9 but a different write
+ * path because the column shape they care about (summary, details_json)
+ * is different from cost's (daily_cents, rolling_avg_cents, ratio_bps).
+ *
+ * For cost rows the table's `source` column defaults to 'cost' (per
+ * migration 0044), so this writer does not need to specify it.
+ */
+export interface CostAlertInput {
   entity_id: string
   customer_slug: string
   alert_date: string
@@ -232,25 +282,9 @@ export interface CostAnomalyAlertRow {
   rolling_avg_cents: number
   ratio_bps: number
   threshold_bps: number
-  detected_at: string
-  snoozed_until: string | null
-  acknowledged_at: string | null
-  acknowledged_by: string | null
 }
 
-/**
- * Insert or refresh an alert row. The PK is (entity_id, alert_date, driver)
- * so a re-run for the same day collapses to one row. Existing snooze /
- * acknowledged columns are preserved on conflict — the worker never undoes
- * Captain's action.
- */
-export async function upsertAlert(
-  db: D1Database,
-  alert: Omit<
-    CostAnomalyAlertRow,
-    'detected_at' | 'snoozed_until' | 'acknowledged_at' | 'acknowledged_by'
-  >
-): Promise<void> {
+export async function upsertAlert(db: D1Database, alert: CostAlertInput): Promise<void> {
   await db
     .prepare(
       `INSERT INTO cost_anomaly_alerts
@@ -289,8 +323,9 @@ export async function listOpenAlerts(
   const nowIso = now.toISOString()
   const result = await db
     .prepare(
-      `SELECT entity_id, customer_slug, alert_date, driver,
+      `SELECT entity_id, customer_slug, alert_date, driver, source,
               daily_cents, rolling_avg_cents, ratio_bps, threshold_bps,
+              summary, details_json,
               detected_at, snoozed_until, acknowledged_at, acknowledged_by
          FROM cost_anomaly_alerts
         WHERE acknowledged_at IS NULL
