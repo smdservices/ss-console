@@ -113,6 +113,14 @@ REQUIRED_ENV=(
   SMD_D1_OBSERVATIONS_BINDING
   # Honcho FastAPI access token, generated per-Machine at provisioning.
   HONCHO_API_KEY
+  # ADR 0022 Stream 2 — per-customer skill bodies bucket. Bucket name
+  # comes from fly.toml [env] (R2_SKILL_BODIES_BUCKET); the bucket-scoped
+  # access key + secret are Fly secrets set by provision-customer.sh. The
+  # hermes-smd-audit plugin writes SKILL.md bodies here on skill_manage
+  # events (write-ahead pattern; see docs/specs/ai-employee/skill-body-persistence.md).
+  R2_SKILL_BODIES_BUCKET
+  R2_SKILL_BODIES_ACCESS_KEY_ID
+  R2_SKILL_BODIES_SECRET_ACCESS_KEY
 )
 
 for var in "${REQUIRED_ENV[@]}"; do
