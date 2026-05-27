@@ -200,6 +200,7 @@ def test_dry_run_returns_planned_steps_and_does_nothing(tmp_path):
         "01_drain", "02_d1_memory_voice", "03_r2_namespace",
         "04_vectorize_indexes", "05_composio", "06_agentmail",
         "07_fly_machine", "08_compliance_archive", "09_tombstone",
+        "10_observability_cleanup",
     ]
     for r in plan:
         assert r.status == StepStatus.PLANNED
@@ -235,7 +236,7 @@ def test_live_runs_full_sequence_and_writes_audit_trail(tmp_path):
 
     results = _run(pipeline.run())
 
-    assert len(results) == 9
+    assert len(results) == 10
     assert mem.calls, "memory runner should have been called for each configured source"
     assert voi.calls
     assert r2.calls == ["smd"]
@@ -298,7 +299,7 @@ def test_idempotent_repeated_runs(tmp_path):
 
     # Live x2 — fully decommissioned customer, every step idempotent.
     second = _run(pipeline.run())
-    assert len(second) == 9
+    assert len(second) == 10
     # Tombstone step returns skipped on the second run (already tombstoned).
     tomb_step = next(r for r in second if r.name == "09_tombstone")
     assert tomb_step.status == StepStatus.SKIPPED
@@ -309,6 +310,86 @@ def test_idempotent_repeated_runs(tmp_path):
     # Vectorize same shape.
     vec_step = next(r for r in second if r.name == "04_vectorize_indexes")
     assert vec_step.status == StepStatus.SKIPPED
+
+
+# ---------------------------------------------------------------------------
+# Tests: observability cleanup step (ADR 0023 Wave 1)
+# ---------------------------------------------------------------------------
+
+
+class _RecordingObservabilityCleanup:
+    """Test fake that records cleanup calls and returns a real-looking manifest."""
+
+    def __init__(self):
+        self.calls: list[str] = []
+
+    async def cleanup(self, customer_slug: str) -> dict:
+        self.calls.append(customer_slug)
+        return {
+            "healthchecks_check_cancelled": True,
+            "fleet_status_row_deleted": True,
+            "customer_slug": customer_slug,
+        }
+
+
+def test_plan_includes_observability_cleanup_with_client_wired_flag(tmp_path):
+    customers_root = _copy_fixture(tmp_path)
+    writer, _conn = _make_audit(tmp_path)
+    # NoOp stub — plan should report client_wired=False so the dry-run is
+    # honest about what would actually happen.
+    pipeline_noop = DecommissionPipeline(
+        customer_slug="smd",
+        customers_root=customers_root,
+        archive_root=tmp_path / "archive",
+        audit_writer=writer,
+        memory_runner=_RecordingMemoryRunner(),
+        voice_runner=_RecordingVoiceRunner(),
+        r2_deleter=_RecordingR2Deleter(),
+        vectorize_deleter=_RecordingVectorizeDeleter(),
+    )
+    plan = _run(pipeline_noop.plan())
+    obs = next(r for r in plan if r.name == "10_observability_cleanup")
+    assert obs.status == StepStatus.PLANNED
+    assert obs.detail["client_wired"] is False
+
+    # Real client injected → client_wired=True.
+    pipeline_wired = DecommissionPipeline(
+        customer_slug="smd",
+        customers_root=customers_root,
+        archive_root=tmp_path / "archive",
+        audit_writer=writer,
+        memory_runner=_RecordingMemoryRunner(),
+        voice_runner=_RecordingVoiceRunner(),
+        r2_deleter=_RecordingR2Deleter(),
+        vectorize_deleter=_RecordingVectorizeDeleter(),
+        observability=_RecordingObservabilityCleanup(),
+    )
+    plan = _run(pipeline_wired.plan())
+    obs = next(r for r in plan if r.name == "10_observability_cleanup")
+    assert obs.detail["client_wired"] is True
+
+
+def test_run_invokes_observability_cleanup_with_customer_slug(tmp_path):
+    customers_root = _copy_fixture(tmp_path)
+    writer, _conn = _make_audit(tmp_path)
+    obs = _RecordingObservabilityCleanup()
+    pipeline = DecommissionPipeline(
+        customer_slug="smd",
+        customers_root=customers_root,
+        archive_root=tmp_path / "archive",
+        audit_writer=writer,
+        memory_runner=_RecordingMemoryRunner(),
+        voice_runner=_RecordingVoiceRunner(),
+        r2_deleter=_RecordingR2Deleter(),
+        vectorize_deleter=_RecordingVectorizeDeleter(),
+        observability=obs,
+    )
+    results = _run(pipeline.run())
+    assert obs.calls == ["smd"]
+    obs_step = next(r for r in results if r.name == "10_observability_cleanup")
+    assert obs_step.status == StepStatus.EXECUTED
+    assert obs_step.detail["healthchecks_check_cancelled"] is True
+    assert obs_step.detail["fleet_status_row_deleted"] is True
 
 
 # ---------------------------------------------------------------------------

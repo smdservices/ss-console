@@ -169,6 +169,18 @@ class FlyMachineManager(Protocol):
     async def destroy_machine(self, customer_slug: str) -> dict: ...
 
 
+class ObservabilityCleanup(Protocol):
+    """Tears down the per-customer observability surface (ADR 0023 Wave 1).
+
+    Cancels the customer's healthchecks.io check (so grace expiration
+    stops firing alerts post-decommission) and deletes the central-D1
+    ``fleet_status`` row. Both operations are idempotent so re-running
+    the pipeline on a partially-decommissioned customer is safe.
+    """
+
+    async def cleanup(self, customer_slug: str) -> dict: ...
+
+
 class NoOpComposioStub:
     """No-op Composio manager — logs and returns ``skipped`` manifest.
 
@@ -199,6 +211,30 @@ class NoOpFlyStub:
     async def destroy_machine(self, customer_slug: str) -> dict:
         log.info("fly.destroy_machine skipped (no client wired) customer=%s", customer_slug)
         return {"skipped": True, "reason": self._SKIPPED_REASON, "app_destroyed": False}
+
+
+class NoOpObservabilityCleanupStub:
+    """No-op observability cleanup — returns ``skipped`` manifest.
+
+    Used until the operator wires real healthchecks.io API + D1 HTTP API
+    clients into the CLI (planned alongside customer #2 onboarding so
+    Captain can validate the full lifecycle on a real second tenant
+    before committing). The stub keeps the pipeline runnable end-to-end
+    against the ``smd`` customer-zero fixture today.
+    """
+
+    _SKIPPED_REASON = "external_client_not_wired"
+
+    async def cleanup(self, customer_slug: str) -> dict:
+        log.info(
+            "observability.cleanup skipped (no client wired) customer=%s", customer_slug
+        )
+        return {
+            "skipped": True,
+            "reason": self._SKIPPED_REASON,
+            "healthchecks_check_cancelled": False,
+            "fleet_status_row_deleted": False,
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -657,6 +693,7 @@ class DecommissionPipeline:
     composio: ComposioConnectionManager = field(default_factory=NoOpComposioStub)
     agentmail: AgentMailProvisioner = field(default_factory=NoOpAgentMailStub)
     fly: FlyMachineManager = field(default_factory=NoOpFlyStub)
+    observability: ObservabilityCleanup = field(default_factory=NoOpObservabilityCleanupStub)
     archiver: ComplianceArchiver = field(default_factory=InMemoryComplianceArchiver)
     audit_log_preserver: AuditLogPreserver = field(
         default_factory=InMemoryAuditLogPreserver
@@ -758,6 +795,14 @@ class DecommissionPipeline:
                 status=StepStatus.PLANNED,
                 detail=self.tombstoner.plan(self.customer_slug),
             ),
+            StepResult(
+                name="10_observability_cleanup",
+                status=StepStatus.PLANNED,
+                detail={
+                    "action": "cancel healthchecks.io check + delete fleet_status row",
+                    "client_wired": not isinstance(self.observability, NoOpObservabilityCleanupStub),
+                },
+            ),
         ]
 
     async def run(self) -> list[StepResult]:
@@ -826,6 +871,19 @@ class DecommissionPipeline:
         results.append(await self._run_step(
             "09_tombstone",
             self._step_tombstone,
+        ))
+
+        # Step 10 — Observability cleanup (ADR 0023 Wave 1)
+        # Runs at the tail of the pipeline because the work is
+        # idempotent control-plane housekeeping, not part of the
+        # Machine teardown proper. Healthchecks.io has a small window
+        # between Machine destroy (step 7) and this step where a grace-
+        # expiration alert could fire; the windowed noise is acceptable
+        # vs. the structural cost of weaving observability into the
+        # core teardown sequence.
+        results.append(await self._run_step(
+            "10_observability_cleanup",
+            self._step_observability_cleanup,
         ))
 
         # Final marker: DECOMMISSION_FINAL records the end of the pipeline.
@@ -986,6 +1044,15 @@ class DecommissionPipeline:
             self.customer_slug, audit_log_preserve_until=preserve_until
         )
 
+    async def _step_observability_cleanup(self) -> dict:
+        # ADR 0023 Wave 1: cancel the healthchecks.io check and delete
+        # the central-D1 fleet_status row. Delegated to the
+        # ObservabilityCleanup protocol so tests inject a fake and the
+        # CLI wires a real client in when the operator stages
+        # HEALTHCHECKS_API_KEY + CF_D1_API_TOKEN. The NoOp stub keeps
+        # smd-customer-zero dry runs end-to-end green.
+        return await self.observability.cleanup(self.customer_slug)
+
     # --- audit-row helpers --------------------------------------------------
 
     async def _write_audit_row(self, *, action_type: str, metadata: dict) -> None:
@@ -1034,6 +1101,8 @@ __all__ = [
     "NoOpAgentMailStub",
     "NoOpComposioStub",
     "NoOpFlyStub",
+    "NoOpObservabilityCleanupStub",
+    "ObservabilityCleanup",
     "R2NamespaceDeleter",
     "StepResult",
     "StepStatus",
