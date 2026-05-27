@@ -419,6 +419,11 @@ export function applyEditableChanges(
         }
       : null,
     pause: changes.pause ? { active: changes.pause.active, reason: changes.pause.reason } : null,
+    // observability is not user-editable in the portal yet (ADR 0023 Wave 1
+    // lands the schema field; in-product editor is a follow-on if customer
+    // demand surfaces). Preserve the current value verbatim — the validator
+    // default-fills on read so `current.observability` is always non-null.
+    observability: current.observability,
     // webhook_triggers is not user-editable in the portal yet (ADR 0021
     // Stream E lands the field; in-product editor is a follow-on).
     // Preserve the current value verbatim.
