@@ -393,6 +393,23 @@ export interface Pause {
   reason: string | null
 }
 
+/**
+ * Observability block — added by ADR 0023 Wave 1.
+ *
+ * All fields are optional with documented defaults. Defaults are filled in
+ * by `checkObservability` on read so consumers can always assume the full
+ * shape is present.
+ */
+export interface Observability {
+  sentry: { enabled: boolean }
+  health: { period_seconds: number; grace_minutes: number }
+}
+
+export const OBSERVABILITY_DEFAULTS: Observability = {
+  sentry: { enabled: true },
+  health: { period_seconds: 60, grace_minutes: 5 },
+}
+
 export interface MachineSpec {
   size: string
   memory_mb: number
@@ -419,6 +436,12 @@ export interface CustomerYaml {
   memory: Memory
   logging: Logging | null
   pause: Pause | null
+  /**
+   * Observability block — added by ADR 0023 Wave 1. Always non-null on a
+   * validated CustomerYaml; defaults are filled in by `checkObservability`
+   * when the block is absent or partially populated.
+   */
+  observability: Observability
   /**
    * Inbound webhook → skill trigger map — ADR 0021 Stream E. Empty array
    * when no connector exposes a webhook_url.
