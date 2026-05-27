@@ -32,6 +32,7 @@ import {
   type CustomerYaml,
   type MachineSpec,
   type Memory,
+  type Observability,
   type SchemaVersion,
   type ValidationError,
   type ValidationResult,
@@ -56,6 +57,7 @@ import {
   checkScope,
   checkVoiceLibrary,
 } from './sections-other'
+import { checkObservability } from './sections-observability'
 import { checkVoiceCohorts } from './sections-voice'
 import { checkWebhookTriggers } from './sections-webhook-triggers'
 
@@ -88,6 +90,7 @@ export type {
   Pause,
   MachineSpec,
   CostEstimate,
+  Observability,
   Vertical,
   TrustCeiling,
   Pronouns,
@@ -108,6 +111,7 @@ export {
   ACCEPTED_WAKE_POLICIES,
   AUDIT_LOG_DAYS_MAX,
   BASE_VOICE_COHORTS,
+  OBSERVABILITY_DEFAULTS,
   VERTICAL_AUDIT_LOG_DAYS_DEFAULTS,
   WEBHOOK_URL_PATTERN,
   isAcceptedCronSchedule,
@@ -175,6 +179,7 @@ interface ParsedSections {
   businessHours: ReturnType<typeof checkBusinessHours>
   logging: ReturnType<typeof checkLogging>
   pause: ReturnType<typeof checkPause>
+  observability: Observability
   webhookTriggers: ReturnType<typeof checkWebhookTriggers>
   complianceEnabled: boolean
 }
@@ -217,6 +222,7 @@ function validateSections(
     businessHours: checkBusinessHours(root, errors),
     logging: checkLogging(root, errors),
     pause: checkPause(root, errors),
+    observability: checkObservability(root, errors),
     webhookTriggers,
     complianceEnabled: checkComplianceEnabled(root, errors),
   }
@@ -246,6 +252,7 @@ function assembleCustomerYaml(root: Record<string, unknown>, p: ParsedSections):
     memory: p.memory as Memory,
     logging: p.logging,
     pause: p.pause,
+    observability: p.observability,
     webhook_triggers: p.webhookTriggers,
     compliance_enabled: p.complianceEnabled,
   }
