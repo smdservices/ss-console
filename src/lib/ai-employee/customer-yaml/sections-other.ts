@@ -1,6 +1,7 @@
 /**
  * Remaining section validators: scope, escalation, memory, and the
- * optional voice_library / business_hours / logging / pause blocks.
+ * optional voice_library / business_hours / logging / pause / observability
+ * blocks.
  */
 
 import {
