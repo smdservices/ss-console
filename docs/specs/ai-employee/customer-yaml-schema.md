@@ -137,6 +137,13 @@ pause: # OPTIONAL
   active: <boolean> # default false
   reason: <string> # required if active=true
 
+observability: # OPTIONAL — added by ADR 0023 Wave 1
+  sentry: # OPTIONAL
+    enabled: <boolean> # default true; shared SMD project, tenant-tagged at SDK init
+  health: # OPTIONAL
+    period_seconds: <int> # default 60; heartbeat push cadence to healthchecks.io
+    grace_minutes: <int> # default 5; late before healthchecks.io fires a webhook
+
 # ---- COMPLIANCE DASHBOARD VIEW (OPTIONAL; added by #895) ----
 # See dashboard-roles.md §"Dedicated Compliance dashboard view (#895)".
 # Defaults to false when omitted. RBAC on the existing audit surface is
@@ -411,6 +418,31 @@ Validation rules:
 The fallback is enforced in `VoiceProfileBundle.select(reviewer_user_id, recipient_cohort)`. Each step's outcome is recorded in `TransformResult.selected_voice_user_id` and `TransformResult.selected_voice_cohort` so the audit row and dashboard surface know which profile actually shaped the draft.
 
 **Blind-test gate scoping.** The voice-gate harness (`runVoiceGate({ ..., cohort })`) already scopes per cohort; the blind-test gate (#823) is exercised per cohort separately. The schema additions in this PR feed the harness's cohort vocabulary; the harness's three-state contract (pass / near-pass / fail) is unchanged.
+
+## Observability (ADR 0023)
+
+**Added by [ADR 0023](../../adr/0023-ai-employee-per-customer-observability.md) Wave 1.** Optional block parallel to `logging:` and `pause:`. Covers vendor wiring for the per-customer observability stack (Sentry on Machine, healthchecks.io push heartbeat).
+
+```yaml
+observability: # OPTIONAL
+  sentry: # OPTIONAL
+    enabled: <boolean> # default true
+  health: # OPTIONAL
+    period_seconds: <int> # default 60
+    grace_minutes: <int> # default 5
+```
+
+Field rules:
+
+- The entire `observability:` block is optional. Missing fields fall back to documented defaults. Setting `observability:` to an empty object is equivalent to omitting it.
+- `sentry.enabled` defaults to `true`. The Machine initializes the Sentry SDK with a `tenant=<customer_id>` scope tag at boot (Python `sentry-sdk` package in the overlay). Setting to `false` disables Sentry init at boot — used for synthetic-customer fixtures and CI smoke runs that should not emit to the shared `smd-ai-employee` project.
+- `sentry.send_default_pii` and `sentry.before_send` scrub list are NOT in `customer.yaml` — they are locked in the overlay's Sentry init module per ADR 0023 §"Cross-cutting calls" #11 and gated by a pytest regression suite. Per-customer scrub overrides are a deliberate follow-on; no compliance posture allows weakening the default scrub.
+- `health.period_seconds` is the cadence of the Machine's outbound POST to its assigned healthchecks.io URL. Defaults to 60.
+- `health.grace_minutes` is the late-window before healthchecks.io fires its grace-expired webhook. Defaults to 5.
+
+**Sentry error-spike thresholds are NOT in `customer.yaml`.** They are owned by Sentry's native alert rules, configured per-customer in Sentry UI by SMD ops. Auto-provisioning from `customer.yaml` is a follow-on triggered by customer-count scale (~20+ customers).
+
+**No `alert_webhook` field in Wave 1.** Customer-configurable external destinations are deferred per ADR 0023 §"Cross-cutting calls" #9. The admin dashboard at `/admin/ai-employee/costs/` is the always-on monitoring surface across all customers; Captain ops escalation uses the existing Resend path on `workers/cost-anomaly`. Reintroduction is a follow-on driven by real customer demand with per-destination adapters, not a single shape that doesn't fit any real webhook target.
 
 ## Failure modes
 

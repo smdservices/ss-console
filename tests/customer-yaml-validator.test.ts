@@ -232,6 +232,113 @@ describe('validate — MissingField', () => {
 })
 
 // -----------------------------------------------------------------------------
+// Observability (ADR 0023 Wave 1)
+// -----------------------------------------------------------------------------
+
+describe('validate — observability block (ADR 0023)', () => {
+  it('fills defaults when block is absent', () => {
+    const r = validate(validFixture())
+    if (!r.ok) throw new Error('expected ok')
+    expect(r.value.observability.sentry.enabled).toBe(true)
+    expect(r.value.observability.health.period_seconds).toBe(60)
+    expect(r.value.observability.health.grace_minutes).toBe(5)
+  })
+
+  it('fills defaults when block is an empty object', () => {
+    const f = validFixture()
+    f['observability'] = {}
+    const r = validate(f)
+    if (!r.ok) throw new Error('expected ok')
+    expect(r.value.observability).toEqual({
+      sentry: { enabled: true },
+      health: { period_seconds: 60, grace_minutes: 5 },
+    })
+  })
+
+  it('accepts a fully populated observability block', () => {
+    const f = validFixture()
+    f['observability'] = {
+      sentry: { enabled: false },
+      health: { period_seconds: 30, grace_minutes: 10 },
+    }
+    const r = validate(f)
+    if (!r.ok) throw new Error('expected ok')
+    expect(r.value.observability.sentry.enabled).toBe(false)
+    expect(r.value.observability.health.period_seconds).toBe(30)
+    expect(r.value.observability.health.grace_minutes).toBe(10)
+  })
+
+  it('partial population fills only missing fields', () => {
+    const f = validFixture()
+    f['observability'] = { health: { period_seconds: 120 } }
+    const r = validate(f)
+    if (!r.ok) throw new Error('expected ok')
+    expect(r.value.observability.sentry.enabled).toBe(true) // default
+    expect(r.value.observability.health.period_seconds).toBe(120) // overridden
+    expect(r.value.observability.health.grace_minutes).toBe(5) // default
+  })
+
+  it('rejects non-boolean sentry.enabled', () => {
+    const f = validFixture()
+    f['observability'] = { sentry: { enabled: 'yes' } }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'observability.sentry.enabled' && e.code === 'TypeMismatch')
+    ).toBe(true)
+  })
+
+  it('rejects non-positive-integer health.period_seconds', () => {
+    const f = validFixture()
+    f['observability'] = { health: { period_seconds: 0 } }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) => e.path === 'observability.health.period_seconds' && e.code === 'TypeMismatch'
+      )
+    ).toBe(true)
+  })
+
+  it('rejects non-positive-integer health.grace_minutes', () => {
+    const f = validFixture()
+    f['observability'] = { health: { grace_minutes: -1 } }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) => e.path === 'observability.health.grace_minutes' && e.code === 'TypeMismatch'
+      )
+    ).toBe(true)
+  })
+
+  it('rejects non-object observability', () => {
+    const f = validFixture()
+    f['observability'] = 'invalid'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'observability' && e.code === 'TypeMismatch')).toBe(true)
+  })
+
+  it('does not accept an alert_webhook field (deferred per ADR 0023 §9)', () => {
+    const f = validFixture()
+    // Including alert_webhook is silently ignored — validator doesn't gate on
+    // unknown keys, but the field doesn't appear in the typed output.
+    f['observability'] = { alert_webhook: 'https://example.com/webhook' }
+    const r = validate(f)
+    if (!r.ok) throw new Error('expected ok (unknown keys ignored)')
+    // The typed shape has no alert_webhook field.
+    expect('alert_webhook' in (r.value.observability as unknown as Record<string, unknown>)).toBe(
+      false
+    )
+  })
+})
+
+// -----------------------------------------------------------------------------
 // Enum violations
 // -----------------------------------------------------------------------------
 
