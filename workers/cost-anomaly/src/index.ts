@@ -40,6 +40,7 @@ import {
 } from '../../../src/lib/admin/cost-query'
 import { listCustomers, type CustomerRow } from './customers'
 import { sendAnomalyDigest, type AlertNotificationItem } from './notify'
+import { fetchTenantErrorsLast24h, writeSentrySync, type SentrySyncResult } from './sentry-sync'
 
 export interface Env {
   DB: D1Database
@@ -51,6 +52,16 @@ export interface Env {
   RESEND_API_KEY?: string
   COST_ANOMALY_BEARER?: string
   ADMIN_BASE_URL?: string
+  /**
+   * Sentry observability env (ADR 0023 Wave 1). All three must be set
+   * for the daily 24h-errors sync to run; missing any one skips the
+   * sync entirely (logged at INFO). Configured in the SMD-owned
+   * `smd-ai-employee` Sentry project; staged on this Worker via
+   * `wrangler secret put` after PR 5 lands.
+   */
+  SENTRY_API_TOKEN?: string
+  SENTRY_ORG_SLUG?: string
+  SENTRY_PROJECT_ID?: string
 }
 
 interface PerCustomerOutcome {
@@ -69,6 +80,7 @@ export interface RunSummary {
   perCustomer: PerCustomerOutcome[]
   alertsCreated: number
   notification: { sent: boolean; reason?: string; resendId?: string }
+  sentrySync: { ran: boolean; reason?: string; results: SentrySyncResult[] }
 }
 
 const WINDOW_DAYS = 8
@@ -247,6 +259,8 @@ export async function run(env: Env, now: Date = new Date()): Promise<RunSummary>
     }
   }
 
+  const sentrySync = await runSentrySync(env, customers)
+
   const summary: RunSummary = {
     runDay: window.candidateDay,
     windowStart: window.windowStart,
@@ -256,14 +270,43 @@ export async function run(env: Env, now: Date = new Date()): Promise<RunSummary>
     perCustomer,
     alertsCreated: newAlerts.length,
     notification,
+    sentrySync,
   }
 
   console.log(
     `[cost-anomaly] day=${summary.runDay} customers=${summary.customersTotal} ` +
-      `alerts=${summary.alertsCreated} notified=${summary.notification.sent}`
+      `alerts=${summary.alertsCreated} notified=${summary.notification.sent} ` +
+      `sentry=${sentrySync.ran ? sentrySync.results.length : 'skipped'}`
   )
 
   return summary
+}
+
+async function runSentrySync(
+  env: Env,
+  customers: CustomerRow[]
+): Promise<RunSummary['sentrySync']> {
+  if (!env.SENTRY_API_TOKEN || !env.SENTRY_ORG_SLUG || !env.SENTRY_PROJECT_ID) {
+    return {
+      ran: false,
+      reason: 'SENTRY_API_TOKEN / SENTRY_ORG_SLUG / SENTRY_PROJECT_ID not configured',
+      results: [],
+    }
+  }
+  const nowIso = new Date().toISOString()
+  const results: SentrySyncResult[] = []
+  for (const c of customers) {
+    const r = await fetchTenantErrorsLast24h(env, c.customer_slug)
+    results.push(r)
+    if (r.status === 'unavailable') continue
+    try {
+      await writeSentrySync(env.DB, c.entity_id, c.customer_slug, r, nowIso)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      console.error(`[cost-anomaly] sentry-sync write failed for ${c.customer_slug}: ${msg}`)
+    }
+  }
+  return { ran: true, results }
 }
 
 export default {
