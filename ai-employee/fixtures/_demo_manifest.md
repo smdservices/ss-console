@@ -17,7 +17,7 @@ itself lives in `ai-employee/bin/`.
 
 ### `pi` — personal injury (v1)
 
-**Corpus root:** `ai-employee/fixtures/law-firm/pi/`
+**Corpus root:** `ai-employee/verticals/law-firm/addons/pi/fixtures/`
 
 | Subdirectory            | File count | Row type loaded                                   | Notes                                               |
 | ----------------------- | ---------- | ------------------------------------------------- | --------------------------------------------------- |

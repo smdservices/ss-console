@@ -332,7 +332,7 @@ personas:
       - slug: pi-intake
         description: 'Intake triage + conflict screen for a new prospect'
         skills:
-          - law-pi-intake-triage
+          - intake-triage
           - law-conflict-check
         instruction: 'Optional shared context prepended to every bundled skill invocation'
 ```
@@ -394,11 +394,11 @@ connectors:
 webhook_triggers:
   - source: filevine
     event_type: matter.created
-    skill: law-pi-intake-triage
+    skill: intake-triage
     persona: marcus
   - source: filevine
     event_type: document.added
-    skill: law-pi-discovery-response
+    skill: discovery-response
     persona: marcus
 ```
 

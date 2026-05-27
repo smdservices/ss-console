@@ -1,0 +1,12 @@
+{
+  "fixture_name": "03-citation-in-source-matter",
+  "kind": "refusal",
+  "refusal": {
+    "code": "citation_in_source",
+    "matter_ref": "matter_synthetic_03",
+    "skill": "demand-letter-draft",
+    "user_facing_message_sha256": "a8bb6cb33137fa8748658b4ffd8faa1808158c068d750f7e48e3d580eb69a20b"
+  },
+  "skill_slug": "demand-letter-draft",
+  "skill_version": "0.1.0"
+}

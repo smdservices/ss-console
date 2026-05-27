@@ -1,0 +1,38 @@
+# PI Intake — bundle catalog entry
+#
+# Combines intake triage + conflict screen so the assessment call from a
+# new prospect produces both an intake triage doc AND the conflict-of-
+# interest screen in one `/pi-intake` invocation.
+#
+# This file is a reference shape. To activate this bundle for a customer,
+# copy the block below into `customer.yaml.personas[<n>].bundles[]` and
+# ensure both referenced skills are enabled on the same persona's
+# `skills[]` list (the validator enforces this at customer.yaml load time).
+#
+# At Machine boot, `hermes-smd bootstrap` (overlay-repo) reads the
+# customer.yaml block and writes the bundle YAML into the per-profile
+# `~/.hermes/skill-bundles/pi-intake.yaml` per ADR 0021 Stream D.
+
+slug: pi-intake
+description: 'Intake triage + conflict screen for a new PI prospect'
+skills:
+  - intake-triage
+  - law-conflict-check
+instruction: |
+  Treat both skills as one /pi-intake invocation against the same prospect.
+  Each skill writes its own draft into the supervising partner's drafts
+  folder per ADR 0005 (reviewer-as-sender); the partner reviews both
+  drafts before any external action. Neither skill sends mail.
+
+  Shared context to carry across both skill invocations:
+  - The prospect's matter-creation request (intake form, voicemail
+    transcript, email body — whichever surfaced the lead).
+  - The firm's conflict-check memory rule corpus
+    (`customer.yaml.memory_rules.conflict_check`) — read by
+    law-conflict-check but referenced in the triage doc for partner
+    visibility.
+
+  Order of skill execution is intentionally unspecified — Hermes' bundle
+  runtime determines ordering. The intake triage doc may flag fields the
+  conflict check then catches, or vice versa; the partner reviews both
+  drafts together and acts on the combined picture.

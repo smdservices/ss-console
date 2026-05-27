@@ -109,8 +109,8 @@ Capture per-skill approve / edit / refuse decisions, feeding memory rules.
 - List every skill with a non-`refused` trust ceiling from
   `customer.yaml.personas[0].skills`.
 - For each skill, stage one realistic scenario. PI law-firm starts with
-  `law-pi-intake-triage`, `law-pi-discovery-response`,
-  `law-pi-demand-letter-evidence-packet`, etc.
+  `intake-triage`, `discovery-response`,
+  `demand-letter-evidence-packet`, etc.
 - Open the memory tab so the partner can see the rule writer landing.
 
 **Walkthrough (with the partner, 90 minutes).**

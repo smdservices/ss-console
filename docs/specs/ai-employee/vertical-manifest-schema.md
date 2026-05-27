@@ -47,7 +47,7 @@ ai-employee/
         bookkeeping/                 # composable across verticals
 ```
 
-The PI migration PR (ADR 0022 Stream 4) moves existing `law-pi-*` skills, `fixtures/law-firm/pi/`, and the PI bundles into `verticals/law-firm/addons/pi/` per this layout. Until that lands, the existing flat layout continues to work — PR 1 ships the schema only.
+PR 4 (ADR 0022 Stream 4) ships the PI migration: the previously top-level PI skills, fixtures, and bundles now live under `verticals/law-firm/addons/pi/` per the layout above. Shared law skills (`law-conflict-check`, `law-client-status-update`) remain at `ai-employee/skills/` until a second law addon exists.
 
 ## `vertical.yaml` manifest fields
 

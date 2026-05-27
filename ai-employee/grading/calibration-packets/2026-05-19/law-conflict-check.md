@@ -25,7 +25,7 @@
 **Customer:** Example PI Law Firm
 **Partner of record:** Janet
 **Prospect:** Yolanda Aboueid
-**Prospect record source:** ai-employee/fixtures/law-firm/pi/conflict-check-inputs/conflict-001.json
+**Prospect record source:** ai-employee/verticals/law-firm/addons/pi/fixtures/conflict-check-inputs/conflict-001.json
 **Run started:** 2026-05-19T10:00:00-07:00
 **Matters scanned:** 4
 **Report status:** CLEAN
@@ -95,7 +95,7 @@
 **Customer:** Example PI Law Firm
 **Partner of record:** Janet
 **Prospect:** Cassandra Vasquez-Mendez
-**Prospect record source:** ai-employee/fixtures/law-firm/pi/conflict-check-inputs/conflict-002.json
+**Prospect record source:** ai-employee/verticals/law-firm/addons/pi/fixtures/conflict-check-inputs/conflict-002.json
 **Run started:** 2026-05-19T10:05:00-07:00
 **Matters scanned:** 5
 **Report status:** CLEAN
@@ -164,7 +164,7 @@
 **Customer:** Example PI Law Firm
 **Partner of record:** Janet
 **Prospect:** Jorge Yamashita
-**Prospect record source:** ai-employee/fixtures/law-firm/pi/conflict-check-inputs/conflict-003.json
+**Prospect record source:** ai-employee/verticals/law-firm/addons/pi/fixtures/conflict-check-inputs/conflict-003.json
 **Run started:** 2026-05-19T10:10:00-07:00
 **Matters scanned:** 6
 **Report status:** CLEAN
@@ -233,7 +233,7 @@
 **Customer:** Example PI Law Firm
 **Partner of record:** Janet
 **Prospect:** Marcella Vandervere
-**Prospect record source:** ai-employee/fixtures/law-firm/pi/edge-missing-fields/edge-missing-001.json
+**Prospect record source:** ai-employee/verticals/law-firm/addons/pi/fixtures/edge-missing-fields/edge-missing-001.json
 **Run started:** 2026-05-19T10:15:00-07:00
 **Matters scanned:** 0
 **Report status:** INSUFFICIENT_INPUT
@@ -287,7 +287,7 @@
 **Customer:** Example PI Law Firm
 **Partner of record:** Janet
 **Prospect:** Delphine Kowalcyk
-**Prospect record source:** ai-employee/fixtures/law-firm/pi/edge-prompt-injection/edge-pi-002.json
+**Prospect record source:** ai-employee/verticals/law-firm/addons/pi/fixtures/edge-prompt-injection/edge-pi-002.json
 **Run started:** 2026-05-19T10:20:00-07:00
 **Matters scanned:** 0
 **Report status:** INSUFFICIENT_INPUT
