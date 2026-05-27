@@ -1761,3 +1761,227 @@ describe('validate — ADR 0021 webhook_triggers', () => {
     expect(r.value.webhook_triggers).toEqual([])
   })
 })
+
+// -----------------------------------------------------------------------------
+// Vertical pinned form + addons + extends (ADR 0022 Stream 1)
+// -----------------------------------------------------------------------------
+
+describe('validate — vertical pinned form (ADR 0022)', () => {
+  it('accepts bare vertical (back-compat path)', () => {
+    const r = validate(validFixture())
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.vertical).toBe('law-firm')
+    expect(r.value.vertical_version).toBeNull()
+  })
+
+  it('accepts pinned vertical (law-firm@1.4.0)', () => {
+    const f = validFixture()
+    f['vertical'] = 'law-firm@1.4.0'
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.vertical).toBe('law-firm')
+    expect(r.value.vertical_version).toBe('1.4.0')
+  })
+
+  it('rejects malformed semver (missing patch)', () => {
+    const f = validFixture()
+    f['vertical'] = 'law-firm@1.4'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidVerticalSpec')
+  })
+
+  it('rejects pre-release suffix (1.4.0-rc1)', () => {
+    const f = validFixture()
+    f['vertical'] = 'law-firm@1.4.0-rc1'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidVerticalSpec')
+  })
+
+  it('rejects empty version (law-firm@)', () => {
+    const f = validFixture()
+    f['vertical'] = 'law-firm@'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidVerticalSpec')
+  })
+
+  it('rejects empty vertical (@1.4.0)', () => {
+    const f = validFixture()
+    f['vertical'] = '@1.4.0'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidVerticalSpec')
+  })
+
+  it('rejects unknown vertical in pinned form', () => {
+    const f = validFixture()
+    f['vertical'] = 'petshop@1.0.0'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('EnumViolation')
+  })
+
+  it('rejects non-string vertical', () => {
+    const f = validFixture()
+    f['vertical'] = 42
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('TypeMismatch')
+  })
+})
+
+describe('validate — addons array (ADR 0022)', () => {
+  it('accepts omitted addons (defaults to empty list)', () => {
+    const r = validate(validFixture())
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.addons).toEqual([])
+  })
+
+  it('accepts empty addons array', () => {
+    const f = validFixture()
+    f['addons'] = []
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.addons).toEqual([])
+  })
+
+  it('accepts single registered addon (law-firm/pi@2.1.0)', () => {
+    const f = validFixture()
+    f['addons'] = ['law-firm/pi@2.1.0']
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.addons).toEqual([{ vertical: 'law-firm', addon: 'pi', version: '2.1.0' }])
+  })
+
+  it('rejects addons as non-array', () => {
+    const f = validFixture()
+    f['addons'] = 'law-firm/pi@2.1.0'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('TypeMismatch')
+  })
+
+  it('rejects addon entry missing slash', () => {
+    const f = validFixture()
+    f['addons'] = ['law-firm-pi@2.1.0']
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidAddonSpec')
+  })
+
+  it('rejects addon entry missing version', () => {
+    const f = validFixture()
+    f['addons'] = ['law-firm/pi']
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidAddonSpec')
+  })
+
+  it('rejects addon entry with malformed semver', () => {
+    const f = validFixture()
+    f['addons'] = ['law-firm/pi@2.1']
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidAddonSpec')
+  })
+
+  it('rejects addon referencing unknown vertical', () => {
+    const f = validFixture()
+    f['addons'] = ['petshop/pi@1.0.0']
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('EnumViolation')
+  })
+
+  it('rejects addon slug not registered under the parent vertical', () => {
+    const f = validFixture()
+    f['addons'] = ['law-firm/notreal@1.0.0']
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('UnknownAddon')
+  })
+
+  it('rejects duplicate addon entries', () => {
+    const f = validFixture()
+    f['addons'] = ['law-firm/pi@2.1.0', 'law-firm/pi@2.1.1']
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidAddonSpec')
+  })
+})
+
+describe('validate — extends reserved (ADR 0022)', () => {
+  it('rejects top-level extends with explicit error', () => {
+    const f = validFixture()
+    f['extends'] = 'law-firm@1.0.0'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('ExtendsReserved')
+    expect(r.errors.find((e) => e.code === 'ExtendsReserved')?.message).toMatch(/reserved/i)
+  })
+
+  it('does not flag extends when absent', () => {
+    const r = validate(validFixture())
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    // No ExtendsReserved error in the success path.
+    expect(r.ok).toBe(true)
+  })
+})
+
+describe('validate — memory.r2_skill_bodies_* known-optional (ADR 0022)', () => {
+  it('accepts memory block without skill_bodies fields', () => {
+    const r = validate(validFixture())
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.memory.r2_skill_bodies_bucket).toBeNull()
+    expect(r.value.memory.r2_skill_bodies_prefix).toBeNull()
+  })
+
+  it('accepts memory block with skill_bodies fields populated', () => {
+    const f = validFixture()
+    ;(f['memory'] as Record<string, unknown>)['r2_skill_bodies_bucket'] =
+      'smd-ai-employee-skill-bodies'
+    ;(f['memory'] as Record<string, unknown>)['r2_skill_bodies_prefix'] = 'smith-pi-firm/'
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.memory.r2_skill_bodies_bucket).toBe('smd-ai-employee-skill-bodies')
+    expect(r.value.memory.r2_skill_bodies_prefix).toBe('smith-pi-firm/')
+  })
+
+  it('rejects skill_bodies_bucket as non-string', () => {
+    const f = validFixture()
+    ;(f['memory'] as Record<string, unknown>)['r2_skill_bodies_bucket'] = 123
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'memory.r2_skill_bodies_bucket' && e.code === 'TypeMismatch')
+    ).toBe(true)
+  })
+
+  it('rejects skill_bodies_prefix as empty string', () => {
+    const f = validFixture()
+    ;(f['memory'] as Record<string, unknown>)['r2_skill_bodies_prefix'] = ''
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'memory.r2_skill_bodies_prefix' && e.code === 'EmptyField')
+    ).toBe(true)
+  })
+})

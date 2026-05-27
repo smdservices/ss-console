@@ -20,15 +20,9 @@
  */
 
 import { scanParsedValue, scanRawYaml, type ScanOptions } from './secret-detector'
+import { checkHermesRef, checkRequiredString, isPlainObject, secretFindingToError } from './helpers'
 import {
-  checkEnum,
-  checkHermesRef,
-  checkRequiredString,
-  isPlainObject,
-  secretFindingToError,
-} from './helpers'
-import {
-  ACCEPTED_VERTICALS,
+  type AddonSpec,
   type CustomerYaml,
   type MachineSpec,
   type Memory,
@@ -60,6 +54,8 @@ import {
 import { checkObservability } from './sections-observability'
 import { checkVoiceCohorts } from './sections-voice'
 import { checkWebhookTriggers } from './sections-webhook-triggers'
+import { checkExtendsReserved, checkVerticalPinned } from './sections-vertical'
+import { checkAddons } from './sections-addons'
 
 export type {
   CustomerYaml,
@@ -100,6 +96,7 @@ export type {
 } from './types'
 export {
   ACCEPTED_VERTICALS,
+  ACCEPTED_ADDONS,
   ACCEPTED_TRUST_CEILINGS,
   ACCEPTED_USER_ROLES,
   ACCEPTED_PERSONA_STATUSES,
@@ -112,9 +109,13 @@ export {
   AUDIT_LOG_DAYS_MAX,
   BASE_VOICE_COHORTS,
   OBSERVABILITY_DEFAULTS,
+  SEMVER_PATTERN,
+  SYNC_SOURCES,
   VERTICAL_AUDIT_LOG_DAYS_DEFAULTS,
   WEBHOOK_URL_PATTERN,
   isAcceptedCronSchedule,
+  type AddonSpec,
+  type SyncSource,
 } from './types'
 export { resolveCohortVocabulary } from './sections-voice'
 
@@ -166,6 +167,8 @@ interface ParsedSections {
   schemaVersion: number
   customerId: string | null
   vertical: Vertical | null
+  verticalVersion: string | null
+  addons: AddonSpec[]
   practiceAreas: string[]
   machine: MachineSpec | null
   users: ReturnType<typeof checkUsers>
@@ -191,8 +194,10 @@ function validateSections(
   const schemaVersion = checkSchemaVersion(root, errors)
   const customerId = checkCustomerId(root, errors)
   checkRequiredString(root, 'customer_name', errors)
-  const vertical = checkEnum(root, 'vertical', ACCEPTED_VERTICALS, errors)
-  const practiceAreas = checkPracticeAreas(root, vertical, errors)
+  const verticalResult = checkVerticalPinned(root, errors)
+  const addons = checkAddons(root, errors)
+  checkExtendsReserved(root, errors)
+  const practiceAreas = checkPracticeAreas(root, verticalResult.vertical, errors)
   checkRequiredString(root, 'fly_region', errors)
   checkRequiredString(root, 'model', errors)
   checkRequiredString(root, 'hermes_ref', errors)
@@ -203,12 +208,14 @@ function validateSections(
   const connectors = checkConnectors(root, customerId, errors)
   const scope = checkScope(root, errors)
   const escalation = checkEscalation(root, errors)
-  const memory = checkMemory(root, customerId, vertical, errors)
+  const memory = checkMemory(root, customerId, verticalResult.vertical, errors)
   const webhookTriggers = checkWebhookTriggers(root, personas, connectors, errors)
   return {
     schemaVersion,
     customerId,
-    vertical,
+    vertical: verticalResult.vertical,
+    verticalVersion: verticalResult.version,
+    addons,
     practiceAreas,
     machine,
     users,
@@ -236,6 +243,8 @@ function assembleCustomerYaml(root: Record<string, unknown>, p: ParsedSections):
     customer_id: p.customerId as string,
     customer_name: root['customer_name'] as string,
     vertical: p.vertical as Vertical,
+    vertical_version: p.verticalVersion,
+    addons: p.addons,
     practice_areas: p.practiceAreas,
     fly_region: root['fly_region'] as string,
     model: root['model'] as string,
