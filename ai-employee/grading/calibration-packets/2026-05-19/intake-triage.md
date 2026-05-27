@@ -1,4 +1,4 @@
-# law-pi-intake-triage calibration sample (2026-05-19)
+# intake-triage calibration sample (2026-05-19)
 
 **Skill version:** SKILL.md content-hash `c73e374a9621d5a9533f9674d5e2a0d90145140f8cd6fce1af28b7060cb15050` (v0.1.0)
 **Purpose:** evidence base for Captain's review of where the draft-vs-fails rubric boundary should sit for this skill.
@@ -28,7 +28,7 @@ Customer.yaml assumed for all simulations: firm name "Example PI Law Firm", atto
 
 **Customer:** Example PI Law Firm
 **Source:** transcript
-**Source reference:** ai-employee/fixtures/law-firm/pi/intake-transcripts/intake-001.json
+**Source reference:** ai-employee/verticals/law-firm/addons/pi/fixtures/intake-transcripts/intake-001.json
 **Received:** 2026-05-19T10:42:00-07:00
 **Triage run started:** 2026-05-19T10:43:11-07:00
 

@@ -4,7 +4,7 @@
   "envelope": {
     "bcc": [],
     "cc": [],
-    "drafted_by_skill": "law-pi-opposing-counsel-response",
+    "drafted_by_skill": "opposing-counsel-response",
     "matter_ref": "matter_synthetic_opp_01",
     "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
     "subject": "Re: Settlement counter-offer, Holloway v. Kerr",
@@ -13,6 +13,6 @@
   },
   "fixture_name": "01-settlement-counter-offer-matter",
   "kind": "draft",
-  "skill_slug": "law-pi-opposing-counsel-response",
+  "skill_slug": "opposing-counsel-response",
   "skill_version": "0.1.0"
 }

@@ -15,7 +15,7 @@ The `Email.create_draft` envelope:
 - `subject`: `Responses to Interrogatories for Holloway v. Kerr, CV2026-006491`
 - `thread_id`: `null`
 - `matter_ref`: `matter_synthetic_disc_01`
-- `drafted_by_skill`: `law-pi-discovery-response`
+- `drafted_by_skill`: `discovery-response`
 
 The draft body (everything below the next horizontal rule):
 

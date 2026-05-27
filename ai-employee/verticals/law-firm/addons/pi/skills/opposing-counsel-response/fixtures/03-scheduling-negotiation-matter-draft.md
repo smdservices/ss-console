@@ -15,7 +15,7 @@ The `Email.create_draft` envelope:
 - `subject`: `Re: Proposed stipulation re deposition and discovery extension, Holloway v. Kerr`
 - `thread_id`: `thread_scheduling_07`
 - `matter_ref`: `matter_synthetic_opp_03`
-- `drafted_by_skill`: `law-pi-opposing-counsel-response`
+- `drafted_by_skill`: `opposing-counsel-response`
 
 The draft body (everything below the next horizontal rule):
 

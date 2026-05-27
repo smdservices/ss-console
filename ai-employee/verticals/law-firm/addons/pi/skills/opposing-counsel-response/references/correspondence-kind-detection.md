@@ -10,7 +10,7 @@ The skill supports exactly three kinds:
 2. `motion_correspondence` an inbound message related to a motion: a meet-and-confer letter regarding a motion, a proposed order, a notice of motion, a brief in support, or a letter regarding the matter's procedural posture.
 3. `scheduling_correspondence` an inbound message proposing dates: a deposition notice, a proposed stipulation regarding deadlines, a request for a continuance, a court-conference scheduling letter, or a letter regarding hearing availability.
 
-Inbound messages outside these three kinds are out of scope. Examples of out-of-scope inbound: discovery requests (handled by `law-pi-discovery-response`), demand letters from the firm to opposing counsel (outbound, not inbound), client communications, court orders served by the court (not opposing counsel).
+Inbound messages outside these three kinds are out of scope. Examples of out-of-scope inbound: discovery requests (handled by `discovery-response`), demand letters from the firm to opposing counsel (outbound, not inbound), client communications, court orders served by the court (not opposing counsel).
 
 ## Detection signals
 

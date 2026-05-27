@@ -15,7 +15,7 @@ The `Email.create_draft` envelope:
 - `subject`: `Demand for Janet Holloway, claim SM-2026-049182, date of loss April 28, 2026`
 - `thread_id`: `null`
 - `matter_ref`: `matter_synthetic_01`
-- `drafted_by_skill`: `law-pi-demand-letter-draft`
+- `drafted_by_skill`: `demand-letter-draft`
 
 The draft body (everything below the next horizontal rule):
 

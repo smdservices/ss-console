@@ -73,4 +73,4 @@ The fixtures are inputs to three downstream test suites (not implemented by this
 2. **Adapter conformance suite** (`src/lib/ai-employee/capabilities/conformance.ts`). Replays the skill against each fixture using mock adapters. Asserts: Email.create_draft called once per fixture; DraftRef.folder is the partner's drafts folder; recipient is the partner's own direct_email; PracticeManagement.get_matter is called read-only; DocumentStorage.list_folder and download_document are called read-only.
 3. **Fabrication-filter regression corpus** (`ai-employee/fixtures/fabrication/`, per `docs/specs/ai-employee/fabrication-filter.md`). The expected outputs from these fixtures are added to the regression corpus; a future PR that introduces a `settlement_bracket_recommendation` rendered with non-empty content must `block` against fixture 01's reference output.
 
-The fixtures live at `ai-employee/skills/law-pi-settlement-prep/fixtures/`; the downstream test suites import them.
+The fixtures live at `ai-employee/verticals/law-firm/addons/pi/skills/settlement-prep/fixtures/`; the downstream test suites import them.

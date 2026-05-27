@@ -1,4 +1,4 @@
-# law-pi-settlement-prep
+# settlement-prep
 
 Settlement-conference partner-prep memo assembler for personal-injury law firms. Reads an active PI matter at the pre-settlement-conference stage and writes a factual internal prep memo into the supervising partner's drafts folder.
 
@@ -34,4 +34,4 @@ See `SKILL.md` § "Scope alignment with law-firm-prd §5 and §6.2" for the full
 
 ## Voice envelope
 
-The internal-memo voice envelope differs from the external-correspondence envelope used by sibling skills (`law-pi-demand-letter-draft`, `law-pi-discovery-response`). Internal memos are dense, plain, partner-to-self prose. The Layer 2 anchor corpus for this skill should include the partner's prior internal prep memos and case-strategy memoranda; external-correspondence samples are weaker anchors for this register. The skill emits a warning rather than refusing when fewer than five Layer 2 samples are tagged `internal_prep_memo` or `case_strategy_memo`, because the internal-memo register is lower-risk than external correspondence (the audience is the partner).
+The internal-memo voice envelope differs from the external-correspondence envelope used by sibling skills (`demand-letter-draft`, `discovery-response`). Internal memos are dense, plain, partner-to-self prose. The Layer 2 anchor corpus for this skill should include the partner's prior internal prep memos and case-strategy memoranda; external-correspondence samples are weaker anchors for this register. The skill emits a warning rather than refusing when fewer than five Layer 2 samples are tagged `internal_prep_memo` or `case_strategy_memo`, because the internal-memo register is lower-risk than external correspondence (the audience is the partner).

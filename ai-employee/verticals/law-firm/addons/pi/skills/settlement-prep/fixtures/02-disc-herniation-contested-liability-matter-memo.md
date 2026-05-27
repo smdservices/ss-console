@@ -15,7 +15,7 @@ The `Email.create_draft` envelope:
 - `subject`: `Settlement Conference Prep: Chen v. Acosta, CV2026-004128, August 19, 2026`
 - `thread_id`: `null`
 - `matter_ref`: `matter_synthetic_prep_02`
-- `drafted_by_skill`: `law-pi-settlement-prep`
+- `drafted_by_skill`: `settlement-prep`
 
 The memo body (everything below the next horizontal rule):
 

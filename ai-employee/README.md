@@ -6,7 +6,7 @@ The v1 AI Employee SKU — a single product configured per customer for any vert
 
 One product, many configurations. Vertical-specific content lives only in:
 
-- `skills/` — recipes the agent runs (some are vertical-tagged, e.g. `law-pi-intake-triage`; others horizontal, e.g. `inbox-triage`)
+- `skills/` — recipes the agent runs (some are vertical-tagged, e.g. `intake-triage`; others horizontal, e.g. `inbox-triage`)
 - `connectors/` — BUILD wrappers per the ADR 0020 decision table only (see "Where connector code lives" below)
 - `fixtures/` — synthetic data per vertical, structured `fixtures/<vertical>/<sub-vertical>/<type>/`
 - `customers/<slug>/customer.yaml` — per-customer configuration

@@ -1,5 +1,5 @@
 ---
-name: law-pi-settlement-prep
+name: settlement-prep
 description: 'Drafts internal PI settlement-prep memo for partner.'
 version: 0.1.0
 author: SMD Services
@@ -94,19 +94,19 @@ PracticeManagement, DocumentStorage, and Email capability adapters; per-customer
 Generate a prep memo from a matter ID and a settlement-conference date already in `matter.custom_fields`:
 
 ```
-hermes run law-pi-settlement-prep --matter-id <id>
+hermes run settlement-prep --matter-id <id>
 ```
 
 Generate from a matter ID with an explicit conference date the partner supplies at invocation (overrides the matter custom_field):
 
 ```
-hermes run law-pi-settlement-prep --matter-id <id> --conference-date <YYYY-MM-DD>
+hermes run settlement-prep --matter-id <id> --conference-date <YYYY-MM-DD>
 ```
 
 Dry-run (writes the memo to `~/.hermes/customer_notes/{customer_slug}/` and returns the path; does not call `Email.create_draft`):
 
 ```
-hermes run law-pi-settlement-prep --matter-id <id> --dry-run
+hermes run settlement-prep --matter-id <id> --dry-run
 ```
 
 ## Procedure
@@ -299,4 +299,4 @@ The comparable-verdict table is the architecturally interesting middle case. The
 
 The opposing-counsel and carrier prior-pattern tables are also memory-rule sourced. The firm authors a pattern corpus per opposing counsel and per carrier: prior settlement timing, prior offer patterns (first-offer ratio to demand, days from demand to first offer, days to settle), prior conference behavior (early settlement at mediation vs. trial-eve settlements), and any partner-authored note about that opposing counsel's posture. If the corpus is missing for the named opposing counsel or the named carrier, the pattern table renders the corpus-absent prose ("no prior-pattern data on this opposing counsel in firm memory") rather than inventing observations.
 
-The skill name `law-pi-settlement-prep` is operational shorthand for this internal-memo variant. If Captain decides the bracket-recommendation TBD section creates room for the skill to drift into valuation authoring, the fix is configuration: rename the TBD marker to omit the word "bracket" entirely, or strip the section from the template so the partner authors that thinking in a separate document. The current spec includes the section as a TBD marker because the partner needs the placeholder during the scan; the architectural enforcement is that the section is `none`-tagged and the fabrication filter blocks any non-empty render.
+The skill name `settlement-prep` is operational shorthand for this internal-memo variant. If Captain decides the bracket-recommendation TBD section creates room for the skill to drift into valuation authoring, the fix is configuration: rename the TBD marker to omit the word "bracket" entirely, or strip the section from the template so the partner authors that thinking in a separate document. The current spec includes the section as a TBD marker because the partner needs the placeholder during the scan; the architectural enforcement is that the section is `none`-tagged and the fabrication filter blocks any non-empty render.

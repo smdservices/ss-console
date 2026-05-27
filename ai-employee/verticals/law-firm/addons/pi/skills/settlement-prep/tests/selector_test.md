@@ -1,6 +1,6 @@
-# Selector test — law-pi-settlement-prep
+# Selector test — settlement-prep
 
-This test asserts that Hermes' skill selector picks `law-pi-settlement-prep` for the
+This test asserts that Hermes' skill selector picks `settlement-prep` for the
 synthetic query below, given the compressed `description` field across the
 15 SKILL.md files in `ai-employee/skills/`.
 
@@ -10,7 +10,7 @@ synthetic query below, given the compressed `description` field across the
 
 ## Expected selection
 
-`law-pi-settlement-prep`
+`settlement-prep`
 
 ## Result
 

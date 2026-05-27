@@ -1,4 +1,4 @@
-# law-pi-demand-letter-draft
+# demand-letter-draft
 
 Demand-letter draft assembler for personal-injury law firms. Reads an active PI matter and writes a factual draft into the supervising partner's drafts folder.
 
@@ -19,7 +19,7 @@ The skill writes only what the matter record and document store contain. The fou
 
 ## Scope alignment
 
-The skill name `law-pi-demand-letter-draft` is shorthand for a factually-narrow demand-letter assembler. The law-firm PRD §6.2 defers the more general `pi-demand-letter-text-only` skill to Phase 3+ on legal-judgment-fingerprint grounds. This skill implements the safe subset: factual chronology, tabulation, exhibit assembly, and a sourced case-history paragraph. The legal-judgment sections are TBD by architecture.
+The skill name `demand-letter-draft` is shorthand for a factually-narrow demand-letter assembler. The law-firm PRD §6.2 defers the more general `pi-demand-letter-text-only` skill to Phase 3+ on legal-judgment-fingerprint grounds. This skill implements the safe subset: factual chronology, tabulation, exhibit assembly, and a sourced case-history paragraph. The legal-judgment sections are TBD by architecture.
 
 See `SKILL.md` § "Scope alignment with law-firm-prd §6.2" for the full reconciliation. If Captain decides this scope creeps too close to the deferred skill, the fix is configuration: narrow the factual prose to bulleted assembly only, OR hold the skill for Phase 3.
 

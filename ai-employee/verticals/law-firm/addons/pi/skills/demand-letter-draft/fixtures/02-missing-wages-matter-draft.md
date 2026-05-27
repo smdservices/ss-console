@@ -15,7 +15,7 @@ The `Email.create_draft` envelope:
 - `subject`: `Demand for Marcus Whitfield, claim DSC-26-7711-A, date of loss April 30, 2026`
 - `thread_id`: `null`
 - `matter_ref`: `matter_synthetic_02`
-- `drafted_by_skill`: `law-pi-demand-letter-draft`
+- `drafted_by_skill`: `demand-letter-draft`
 
 The draft body (everything below the next horizontal rule):
 

@@ -1,4 +1,4 @@
-# Fixtures — law-pi-demand-letter-draft
+# Fixtures — demand-letter-draft
 
 Four synthetic personal-injury matter inputs and four reference outputs. The fixtures exercise the skill's four behavior classes:
 

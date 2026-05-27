@@ -1,5 +1,5 @@
 ---
-name: law-pi-intake-triage
+name: intake-triage
 description: Triages PI intake; drafts attorney summary + client reply.
 version: 0.1.0
 author: SMD Services
@@ -36,19 +36,19 @@ See frontmatter.
 Triage a Gmail message at the firm's intake address:
 
 ```
-hermes run law-pi-intake-triage --gmail-message-id <id>
+hermes run intake-triage --gmail-message-id <id>
 ```
 
 Triage a call transcript file:
 
 ```
-hermes run law-pi-intake-triage --transcript-file <path>
+hermes run intake-triage --transcript-file <path>
 ```
 
 Triage from stdin (raw intake text):
 
 ```
-cat intake.txt | hermes run law-pi-intake-triage --stdin
+cat intake.txt | hermes run intake-triage --stdin
 ```
 
 ## Procedure

@@ -23,7 +23,7 @@ Per `melodic-orbiting-barto.md` Phase D: "These 50 [hand-authored fixtures] are 
 ## Regenerate generated fixtures
 
 ```bash
-uv run --quiet --python 3.13 python3 ai-employee/fixtures/law-firm/pi/generator.py
+uv run --quiet --python 3.13 python3 ai-employee/verticals/law-firm/addons/pi/fixtures/generator.py
 ```
 
 Deterministic with seed (default 1729). Output goes to the five generated subdirs. Existing files are overwritten; hand-authored subdirs are untouched.

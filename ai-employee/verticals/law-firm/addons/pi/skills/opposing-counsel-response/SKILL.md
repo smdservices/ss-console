@@ -1,5 +1,5 @@
 ---
-name: law-pi-opposing-counsel-response
+name: opposing-counsel-response
 description: 'Drafts factual PI opposing-counsel reply for partner.'
 version: 0.1.0
 author: SMD Services
@@ -80,19 +80,19 @@ PracticeManagement, EmailThread, and Email capability adapters; per-customer con
 Draft from a matter ID and an inbound opposing-counsel message already in the matter's correspondence thread:
 
 ```
-hermes run law-pi-opposing-counsel-response --matter-id <id> --inbound-message-id <message_id>
+hermes run opposing-counsel-response --matter-id <id> --inbound-message-id <message_id>
 ```
 
 Draft from a matter ID and a raw inbound message file (text, PDF, or .eml) the partner saves to the matter folder mid-invocation:
 
 ```
-hermes run law-pi-opposing-counsel-response --matter-id <id> --inbound-message-file <path>
+hermes run opposing-counsel-response --matter-id <id> --inbound-message-file <path>
 ```
 
 Dry-run (writes the draft to `~/.hermes/customer_notes/{customer_slug}/` and returns the path; does not call `Email.create_draft`):
 
 ```
-hermes run law-pi-opposing-counsel-response --matter-id <id> --inbound-message-id <message_id> --dry-run
+hermes run opposing-counsel-response --matter-id <id> --inbound-message-id <message_id> --dry-run
 ```
 
 ## Procedure
@@ -114,7 +114,7 @@ hermes run law-pi-opposing-counsel-response --matter-id <id> --inbound-message-i
     - `thread_id`: the inbound's `thread_id` if the matter recorded the thread, so the response threads natively in the partner's mail client.
     - `body_text` and `body_html`: the assembled draft (see `references/output-format.md` for the exact section order).
     - `matter_ref`: the matter ID, for the dashboard's "what Marcus used to write this" sourcing block.
-    - `drafted_by_skill`: `law-pi-opposing-counsel-response`.
+    - `drafted_by_skill`: `opposing-counsel-response`.
 12. **Write the matter-internal sourcing note.** In parallel, write `~/.hermes/customer_notes/{customer_slug}/pi-opposing-counsel-response-YYYY-MM-DD-<matter-id>.md` containing the section-by-section sourcing index (which EmailThread message ID populated which row, which custom_field populated which named field, which memory rule populated the tone classification, which fields rendered as TBD and why). This is the audit trail the dashboard's sourcing block reads from.
 13. **Emit telemetry.** A skill-invocation event records: matter id (hashed), correspondence kind, inbound-claim count, prior-correspondence row count, TBD-marker count by section, voice-gate score, draft size in bytes, adapter calls made. No matter content leaves the customer's machine boundary.
 
@@ -256,4 +256,4 @@ The factually-narrow scope:
 - Tagging the inbound's correspondence-tone classification from the firm's memory-rule vocabulary (routine, contested, hostile) is authored by the skill.
 - The substantive response to a settlement counter-offer (any number, any acceptance, any rejection, any counter-counter), the legal-argument response to any motion, the substantive response to any scheduling proposal, and any case-strategy framing are NOT authored by the skill. They render as TBD markers for the partner to author.
 
-The skill name `law-pi-opposing-counsel-response` is operational shorthand for this factually-narrow variant. If Captain decides this scope creeps too close to settlement-authority authoring, motion-argument authoring, or scheduling-commitment authoring, the fix is configuration: narrow the inbound-claim recital to a flat-quote block (no skill-authored framing prose), narrow the prior-correspondence record to a chronological index with no captioning, or hold the skill for Phase 3. Per the §5 third-rail map, settlement authority sits on the third rail; this skill's structural commitment to leave every settlement-substantive cell as TBD is what allows it to ship at all.
+The skill name `opposing-counsel-response` is operational shorthand for this factually-narrow variant. If Captain decides this scope creeps too close to settlement-authority authoring, motion-argument authoring, or scheduling-commitment authoring, the fix is configuration: narrow the inbound-claim recital to a flat-quote block (no skill-authored framing prose), narrow the prior-correspondence record to a chronological index with no captioning, or hold the skill for Phase 3. Per the §5 third-rail map, settlement authority sits on the third rail; this skill's structural commitment to leave every settlement-substantive cell as TBD is what allows it to ship at all.

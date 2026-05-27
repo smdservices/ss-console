@@ -15,7 +15,7 @@ The `Email.create_draft` envelope:
 - `subject`: `Settlement Conference Prep: Holloway v. Kerr, CV2026-006491, August 1, 2026`
 - `thread_id`: `null`
 - `matter_ref`: `matter_synthetic_prep_01`
-- `drafted_by_skill`: `law-pi-settlement-prep`
+- `drafted_by_skill`: `settlement-prep`
 
 The memo body (everything below the next horizontal rule):
 

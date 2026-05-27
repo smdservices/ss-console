@@ -57,10 +57,10 @@ GOLDEN_ROOT = Path(__file__).resolve().parent / "golden"
 
 # Four PI skills currently in scope per issue #825.
 DEFAULT_SKILL_SLUGS: tuple[str, ...] = (
-    "law-pi-demand-letter-draft",
-    "law-pi-discovery-response",
-    "law-pi-opposing-counsel-response",
-    "law-pi-settlement-prep",
+    "demand-letter-draft",
+    "discovery-response",
+    "opposing-counsel-response",
+    "settlement-prep",
 )
 
 # Today-date placeholder appears in every reference body as

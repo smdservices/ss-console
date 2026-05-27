@@ -1,5 +1,5 @@
 ---
-name: law-pi-demand-letter-draft
+name: demand-letter-draft
 description: 'Drafts factual PI demand-letter chronology for partner.'
 version: 0.1.0
 author: SMD Services
@@ -74,19 +74,19 @@ PracticeManagement, DocumentStorage, and Email capability adapters; per-customer
 Draft from a matter ID:
 
 ```
-hermes run law-pi-demand-letter-draft --matter-id <id>
+hermes run demand-letter-draft --matter-id <id>
 ```
 
 Draft from a Hermes-side matter slug (when the matter is known by its internal slug rather than the PM-system ID):
 
 ```
-hermes run law-pi-demand-letter-draft --matter-slug <slug>
+hermes run demand-letter-draft --matter-slug <slug>
 ```
 
 Dry-run (writes the draft to `~/.hermes/customer_notes/{customer_slug}/` and returns the path; does not call `Email.create_draft`):
 
 ```
-hermes run law-pi-demand-letter-draft --matter-id <id> --dry-run
+hermes run demand-letter-draft --matter-id <id> --dry-run
 ```
 
 ## Procedure
@@ -231,6 +231,6 @@ The law-firm PRD §6.2 defers a generic "demand letter text" skill (`pi-demand-l
 - Chronology, tabulation, exhibit assembly, and factual case-history prose are authored by the skill.
 - Demand amount, settlement bracket, liability characterization, and case-strategy language are NOT authored by the skill. They render as TBD markers for the partner to fill in.
 
-The skill name `law-pi-demand-letter-draft` is operational shorthand for this factually-narrow variant. It is functionally adjacent to the `pi-demand-letter-evidence-packet` capability described in law-firm-prd §6.2 and §12.1, with one addition: the factual sections are assembled as prose in the partner's voice envelope rather than as standalone spreadsheets, so the partner edits a draft letter rather than re-typing from a packet.
+The skill name `demand-letter-draft` is operational shorthand for this factually-narrow variant. It is functionally adjacent to the `pi-demand-letter-evidence-packet` capability described in law-firm-prd §6.2 and §12.1, with one addition: the factual sections are assembled as prose in the partner's voice envelope rather than as standalone spreadsheets, so the partner edits a draft letter rather than re-typing from a packet.
 
 If Captain decides this scope creeps too close to the deferred `pi-demand-letter-text-only` skill, the fix is one of: (1) narrow the factual prose to bulleted assembly only and remove the "case history" paragraph, or (2) hold the skill for Phase 3 per the PRD's stated deferral. Both fixes are configuration, not architecture.

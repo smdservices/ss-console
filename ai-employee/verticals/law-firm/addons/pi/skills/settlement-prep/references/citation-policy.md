@@ -30,7 +30,7 @@ The skill's behavior on such rows:
 
 1. **The verbatim row carries through unchanged.** The skill does not rewrite, paraphrase, or summarize the row. The source column contains exactly what the partner authored in the memory rule.
 2. **The citation in the row is not the skill's authoring.** It is the partner's authoring in the memory-rule corpus. The skill's reproduction is a quote, not a citation produced by the skill.
-3. **The substrate's filter respects the carve-out.** The filter's `verbatim_quote_exempt` configuration flag (set at skill load time per `customer.yaml.skill_config.law-pi-settlement-prep.verbatim_quote_exempt_sections: [comparable_verdicts]`) instructs the filter to ignore citation-shaped strings inside the comparable-verdict table region. The carve-out is narrow: only the comparable-verdict table's source column and the case-name column. Every other section is fully subject to the prohibition.
+3. **The substrate's filter respects the carve-out.** The filter's `verbatim_quote_exempt` configuration flag (set at skill load time per `customer.yaml.skill_config.settlement-prep.verbatim_quote_exempt_sections: [comparable_verdicts]`) instructs the filter to ignore citation-shaped strings inside the comparable-verdict table region. The carve-out is narrow: only the comparable-verdict table's source column and the case-name column. Every other section is fully subject to the prohibition.
 4. **The skill's own prose around the table is fully subject to the prohibition.** The table caption, the matched-criteria description, and any lead-in or follow-on prose must contain no citation-shaped strings.
 
 ## What the skill does on detection in its own authoring

@@ -15,7 +15,7 @@ The `Email.create_draft` envelope:
 - `subject`: `Re: Settlement counter-offer, Holloway v. Kerr`
 - `thread_id`: `thread_settlement_42`
 - `matter_ref`: `matter_synthetic_opp_01`
-- `drafted_by_skill`: `law-pi-opposing-counsel-response`
+- `drafted_by_skill`: `opposing-counsel-response`
 
 The draft body (everything below the next horizontal rule):
 

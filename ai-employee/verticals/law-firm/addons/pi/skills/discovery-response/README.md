@@ -1,4 +1,4 @@
-# law-pi-discovery-response
+# discovery-response
 
 Discovery-response draft assembler for personal-injury law firms. Reads an inbound discovery request from opposing counsel (interrogatories, requests for production, or requests for admission) and writes a factual response draft into the supervising partner's drafts folder.
 

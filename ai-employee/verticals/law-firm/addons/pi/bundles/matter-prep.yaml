@@ -18,8 +18,8 @@
 slug: pi-matter-prep
 description: 'Demand-letter draft + settlement-prep memo for one PI matter'
 skills:
-  - law-pi-demand-letter-draft
-  - law-pi-settlement-prep
+  - demand-letter-draft
+  - settlement-prep
 instruction: |
   Treat both skills as one /pi-matter-prep invocation against the same
   matter. Each skill writes its own draft per ADR 0005 (reviewer-as-

@@ -4,7 +4,7 @@
 
 Eight synthetic personal-injury matters spanning pre-suit, active discovery, and pre-trial phases. Purpose: pre-seed a demo Hermes Machine for the customer meeting so the partner sees believable case data during catalog drilldown (Platform PRD §16, Law-firm PRD §11, §12.5).
 
-These are distinct from the JSON grading fixtures at `ai-employee/fixtures/law-firm/pi/` (PR #812). Those serve the grading harness. These serve the demo flow as readable markdown that mirrors what a partner would see inside the dashboard's Matters tab.
+These are distinct from the JSON grading fixtures at `ai-employee/verticals/law-firm/addons/pi/fixtures/` (PR #812). Those serve the grading harness. These serve the demo flow as readable markdown that mirrors what a partner would see inside the dashboard's Matters tab.
 
 ## Coverage
 

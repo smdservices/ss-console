@@ -1,4 +1,4 @@
-# law-pi-opposing-counsel-response
+# opposing-counsel-response
 
 Opposing-counsel-correspondence response-draft assembler for personal-injury law firms. Reads one inbound piece of opposing-counsel correspondence (a settlement counter-offer, a motion-related letter or proposed order, or a scheduling-related letter or proposed stipulation) and writes a factual response draft into the supervising partner's drafts folder.
 

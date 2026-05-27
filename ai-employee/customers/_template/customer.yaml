@@ -45,7 +45,7 @@ personas:
       - warm-but-professional
       - concise
     skills:
-      - name: '[LEAD PI SKILL, e.g., law-pi-demand-letter-draft]'
+      - name: '[LEAD PI SKILL, e.g., demand-letter-draft]'
         version: pending
         trust_ceiling: draft_for_review
         enabled: true
@@ -54,7 +54,7 @@ personas:
     #   - slug: pi-intake
     #     description: 'Intake triage + conflict screen for a new prospect'
     #     skills:
-    #       - law-pi-intake-triage
+    #       - intake-triage
     #       - law-conflict-check
     #     instruction: 'Optional shared context prepended to every bundled skill'
     #
@@ -109,11 +109,11 @@ connectors:
 # webhook_triggers:
 #   - source: filevine
 #     event_type: matter.created
-#     skill: law-pi-intake-triage
+#     skill: intake-triage
 #     persona: '[PERSONA SLUG]'
 #   - source: filevine
 #     event_type: document.added
-#     skill: law-pi-discovery-response
+#     skill: discovery-response
 #     persona: '[PERSONA SLUG]'
 
 # ---- SCOPE ----

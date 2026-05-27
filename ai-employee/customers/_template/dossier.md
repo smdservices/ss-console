@@ -86,7 +86,7 @@
 
 > One skill, one fixture, one walk-through. The fixture seeds a synthetic-but-believable PI matter the firm will recognize as their own shape. The skill matches their highest-frequency operational pain. Both must be reviewed by Captain before the meeting.
 
-- **PI skill to lead with:** [law-pi-demand-letter-draft / law-pi-discovery-response / law-pi-settlement-prep / law-pi-opposing-counsel-response]
+- **PI skill to lead with:** [demand-letter-draft / discovery-response / settlement-prep / opposing-counsel-response]
   - Rationale: [WHY THIS SKILL FOR THIS FIRM]
 - **Fixture to use:** [path under `ai-employee/skills/{skill}/fixtures/` or `ai-employee/fixtures/law-firm/`]
   - Synthetic matter shape: [PRACTICE AREA, INJURY TYPE, DEFENDANT TYPE]

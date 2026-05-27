@@ -1,4 +1,4 @@
-# Fixtures: law-pi-opposing-counsel-response
+# Fixtures: opposing-counsel-response
 
 Three synthetic personal-injury matter inputs and three reference output drafts. The fixtures exercise the skill's three correspondence-kind behavior classes:
 

@@ -4,7 +4,7 @@
   "envelope": {
     "bcc": [],
     "cc": [],
-    "drafted_by_skill": "law-pi-settlement-prep",
+    "drafted_by_skill": "settlement-prep",
     "matter_ref": "matter_synthetic_prep_01",
     "reviewer_account_id": "sarah.holcomb@holcomb-reyes.invalid",
     "subject": "Settlement Conference Prep: Holloway v. Kerr, CV2026-006491, August 1, 2026",
@@ -13,6 +13,6 @@
   },
   "fixture_name": "01-soft-tissue-clear-liability-matter",
   "kind": "draft",
-  "skill_slug": "law-pi-settlement-prep",
+  "skill_slug": "settlement-prep",
   "skill_version": "0.1.0"
 }

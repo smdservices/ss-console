@@ -10,7 +10,7 @@ The runtime's error returned to the caller:
 
 ```
 SkillRefusalError {
-  skill: "law-pi-demand-letter-draft",
+  skill: "demand-letter-draft",
   code: "subagent_incomplete",
   matter_ref: "matter_synthetic_04",
   subagent_role: "medicals_summary",
@@ -82,7 +82,7 @@ The matter folder has no medical-record documents. To proceed with a demand-lett
 ## Audit events emitted
 
 - `SUBAGENT_STOPPED` × 3 — one per subagent (medicals, damages, liability), with `child_role`, `child_status`, `duration_ms` in metadata. Emitted by the overlay's `hermes-smd-audit` plugin on the `subagent_stop` hook.
-- `SUBAGENT_INCOMPLETE` — skill=law-pi-demand-letter-draft, subagent_role=medicals_summary, missing_key=medical_chronology, matter_ref=matter_synthetic_04 (hashed), expected_min=">= 1 sourced row". Emitted by the parent skill BEFORE refusing to assemble.
+- `SUBAGENT_INCOMPLETE` — skill=demand-letter-draft, subagent_role=medicals_summary, missing_key=medical_chronology, matter_ref=matter_synthetic_04 (hashed), expected_min=">= 1 sourced row". Emitted by the parent skill BEFORE refusing to assemble.
 
 ---
 

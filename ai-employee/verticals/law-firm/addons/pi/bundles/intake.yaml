@@ -16,7 +16,7 @@
 slug: pi-intake
 description: 'Intake triage + conflict screen for a new PI prospect'
 skills:
-  - law-pi-intake-triage
+  - intake-triage
   - law-conflict-check
 instruction: |
   Treat both skills as one /pi-intake invocation against the same prospect.

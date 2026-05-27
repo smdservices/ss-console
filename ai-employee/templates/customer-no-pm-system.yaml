@@ -64,7 +64,7 @@ personas:
       - warm-but-professional
       - concise
     skills:
-      - name: '[LEAD PI SKILL, e.g., law-pi-demand-letter-draft]'
+      - name: '[LEAD PI SKILL, e.g., demand-letter-draft]'
         version: pending
         trust_ceiling: draft_for_review
         enabled: true

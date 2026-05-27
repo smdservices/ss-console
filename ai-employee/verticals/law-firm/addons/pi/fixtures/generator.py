@@ -18,7 +18,7 @@ Categories produced (30 each):
   - client-communication/  client-NNN.json
 
 Run:
-  uv run --quiet --python 3.13 python3 ai-employee/fixtures/law-firm/pi/generator.py
+  uv run --quiet --python 3.13 python3 ai-employee/verticals/law-firm/addons/pi/fixtures/generator.py
 """
 
 from __future__ import annotations

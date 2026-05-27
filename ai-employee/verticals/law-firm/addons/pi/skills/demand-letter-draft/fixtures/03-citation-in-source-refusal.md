@@ -10,7 +10,7 @@ The runtime's error returned to the caller:
 
 ```
 SkillRefusalError {
-  skill: "law-pi-demand-letter-draft",
+  skill: "demand-letter-draft",
   code: "citation_in_source",
   matter_ref: "matter_synthetic_03",
   user_facing_message: "The skill cannot draft this demand because the matter record contains a legal citation in a field the skill reads as factual source data. Citation authoring and validation is human legal-research work the skill does not perform. To proceed: edit the matter's narrative fields to remove or quote-isolate the citation, then re-invoke. If you want the citation referenced in the draft's liability-characterization section, author that section yourself after the draft lands; the skill leaves that section as a TBD marker for exactly this reason.",
@@ -63,7 +63,7 @@ The matter's `case_summary` custom_field contains a legal citation the skill can
 
 ## Audit events emitted
 
-- `SKILL_REFUSED` — skill=law-pi-demand-letter-draft, code=citation_in_source, matter_ref=matter_synthetic_03
+- `SKILL_REFUSED` — skill=demand-letter-draft, code=citation_in_source, matter_ref=matter_synthetic_03
 - `CITATION_REFUSAL_TRIGGERED` — substrate=skill-level (readiness-rubric axis 5)
 
 ---

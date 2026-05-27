@@ -279,7 +279,7 @@ Section-by-section sourcing index. Written to `~/.hermes/customer_notes/{custome
 Matter: <matter-id>
 Conference date: <date>
 Generated: <timestamp>
-Skill: law-pi-settlement-prep@<version>
+Skill: settlement-prep@<version>
 
 ## Matter-facts summary
 

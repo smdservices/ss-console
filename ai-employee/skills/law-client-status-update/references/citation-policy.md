@@ -89,4 +89,4 @@ The two layers are independent. The skill never relies on the filter to catch er
 
 ## Test coverage
 
-The `edge-citation-injection` fixtures at `ai-employee/fixtures/law-firm/pi/edge-citation-injection/` exercise both routes. The `matter-records` directory contains fixtures with attorney-authored citation strings in matter notes (route one). See `references/test-cases.md` for named fixtures and per-fixture expectations. Pass criteria: zero citation-shaped strings appear in any surfaced output across the full fixture run.
+The `edge-citation-injection` fixtures at `ai-employee/verticals/law-firm/addons/pi/fixtures/edge-citation-injection/` exercise both routes. The `matter-records` directory contains fixtures with attorney-authored citation strings in matter notes (route one). See `references/test-cases.md` for named fixtures and per-fixture expectations. Pass criteria: zero citation-shaped strings appear in any surfaced output across the full fixture run.

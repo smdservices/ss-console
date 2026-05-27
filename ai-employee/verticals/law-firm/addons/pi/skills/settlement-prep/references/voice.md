@@ -2,7 +2,7 @@
 
 The memo's factual sections (matter-facts summary, chronology lead-in, damages-table captions, strengths and weaknesses list lead-ins, comparable-verdict table caption, prior-pattern table captions) must read as if the supervising partner wrote them to themselves. The memo is internal and the recipient is the partner; the audience is one person who wrote half the corpus that sourced the memo.
 
-The internal-memo voice envelope differs from the external-correspondence envelope used by `law-pi-demand-letter-draft` and `law-pi-discovery-response`. Internal memos are dense, plain, partner-to-self prose. They strip ceremony. They name people by last name on first reference and first name thereafter when the partner's prior memos do so. They omit polite framing. They are written to be scanned in fifteen minutes, not read in twenty-five.
+The internal-memo voice envelope differs from the external-correspondence envelope used by `demand-letter-draft` and `discovery-response`. Internal memos are dense, plain, partner-to-self prose. They strip ceremony. They name people by last name on first reference and first name thereafter when the partner's prior memos do so. They omit polite framing. They are written to be scanned in fifteen minutes, not read in twenty-five.
 
 Voice samples (Layer 2 anchor corpus) live in `customer.yaml` and must total at least thirty samples for the customer overall. For this skill specifically, at least five samples should be tagged `internal_prep_memo` or `case_strategy_memo` to anchor the internal-memo register; if fewer than five are tagged, the skill emits a "voice envelope thin" warning in the sourcing note but proceeds, because the internal-memo audience (the partner themselves) is lower-risk than an external recipient.
 

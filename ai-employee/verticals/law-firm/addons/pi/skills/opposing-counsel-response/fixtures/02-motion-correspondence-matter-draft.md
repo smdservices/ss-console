@@ -15,7 +15,7 @@ The `Email.create_draft` envelope:
 - `subject`: `Re: Meet and confer regarding motion for summary judgment, Holloway v. Kerr`
 - `thread_id`: `thread_motion_18`
 - `matter_ref`: `matter_synthetic_opp_02`
-- `drafted_by_skill`: `law-pi-opposing-counsel-response`
+- `drafted_by_skill`: `opposing-counsel-response`
 
 Note: the inbound recital includes verbatim court-rule citations (Ariz. R. Civ. P. 16 and Ariz. R. Civ. P. 56) that appear inside the verbatim-quote envelope. The citation-refusal substrate's `verbatim_quote_exempt` flag respects the carve-out per `references/citation-policy.md`; the substrate does not block on these strings. The skill-authored prose around the recital is fully citation-free.
 

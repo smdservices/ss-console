@@ -1,6 +1,6 @@
-# Selector test — law-pi-intake-triage
+# Selector test — intake-triage
 
-This test asserts that Hermes' skill selector picks `law-pi-intake-triage` for the
+This test asserts that Hermes' skill selector picks `intake-triage` for the
 synthetic query below, given the compressed `description` field across the
 15 SKILL.md files in `ai-employee/skills/`.
 
@@ -10,7 +10,7 @@ synthetic query below, given the compressed `description` field across the
 
 ## Expected selection
 
-`law-pi-intake-triage`
+`intake-triage`
 
 ## Result
 

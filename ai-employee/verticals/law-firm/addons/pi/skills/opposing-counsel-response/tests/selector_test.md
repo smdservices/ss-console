@@ -1,6 +1,6 @@
-# Selector test — law-pi-opposing-counsel-response
+# Selector test — opposing-counsel-response
 
-This test asserts that Hermes' skill selector picks `law-pi-opposing-counsel-response` for the
+This test asserts that Hermes' skill selector picks `opposing-counsel-response` for the
 synthetic query below, given the compressed `description` field across the
 15 SKILL.md files in `ai-employee/skills/`.
 
@@ -10,7 +10,7 @@ synthetic query below, given the compressed `description` field across the
 
 ## Expected selection
 
-`law-pi-opposing-counsel-response`
+`opposing-counsel-response`
 
 ## Result
 

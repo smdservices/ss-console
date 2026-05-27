@@ -1,5 +1,5 @@
 ---
-name: law-pi-discovery-response
+name: discovery-response
 description: 'Drafts factual PI discovery-response objections for partner.'
 version: 0.1.0
 author: SMD Services
@@ -76,19 +76,19 @@ PracticeManagement, DocumentStorage, and Email capability adapters; per-customer
 Draft from a matter ID and an incoming discovery-request document already in the matter folder:
 
 ```
-hermes run law-pi-discovery-response --matter-id <id> --request-document-id <doc_id>
+hermes run discovery-response --matter-id <id> --request-document-id <doc_id>
 ```
 
 Draft from a matter ID and a raw request file (PDF or text) the partner saves to the matter folder mid-invocation:
 
 ```
-hermes run law-pi-discovery-response --matter-id <id> --request-file <path>
+hermes run discovery-response --matter-id <id> --request-file <path>
 ```
 
 Dry-run (writes the draft to `~/.hermes/customer_notes/{customer_slug}/` and returns the path; does not call `Email.create_draft`):
 
 ```
-hermes run law-pi-discovery-response --matter-id <id> --request-document-id <doc_id> --dry-run
+hermes run discovery-response --matter-id <id> --request-document-id <doc_id> --dry-run
 ```
 
 ## Procedure
@@ -257,4 +257,4 @@ The factually-narrow scope:
 - Building the privilege log skeleton (one row per withheld document, with filename, date, and author from DocumentStorage metadata) is authored by the skill.
 - Substantive answers to interrogatories, the legal characterization of each privilege claim, the admit or deny language for each request for admission, and any case-strategy framing are NOT authored by the skill. They render as TBD markers for the partner to author.
 
-The skill name `law-pi-discovery-response` is operational shorthand for this factually-narrow variant. If Captain decides this scope creeps too close to substantive-answer authoring, the fix is configuration: narrow the objection list to a pure category-label table (no draft objection sentence), narrow the responsive-document mapping to a flat index, or hold the skill for Phase 3.
+The skill name `discovery-response` is operational shorthand for this factually-narrow variant. If Captain decides this scope creeps too close to substantive-answer authoring, the fix is configuration: narrow the objection list to a pure category-label table (no draft objection sentence), narrow the responsive-document mapping to a flat index, or hold the skill for Phase 3.

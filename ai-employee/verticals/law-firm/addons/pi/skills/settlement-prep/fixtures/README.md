@@ -1,4 +1,4 @@
-# Fixtures - law-pi-settlement-prep
+# Fixtures - settlement-prep
 
 Two synthetic personal-injury matter inputs and two reference output memos. The fixtures exercise two profiles that anchor the skill's behavior across different injury severity and liability profiles:
 

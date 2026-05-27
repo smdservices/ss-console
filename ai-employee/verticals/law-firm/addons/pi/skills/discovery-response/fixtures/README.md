@@ -1,4 +1,4 @@
-# Fixtures - law-pi-discovery-response
+# Fixtures - discovery-response
 
 Three synthetic personal-injury matter inputs and three reference output drafts. The fixtures exercise the skill's three request-kind behavior classes:
 
