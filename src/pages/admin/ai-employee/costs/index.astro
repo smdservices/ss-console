@@ -1,5 +1,6 @@
 ---
 import AdminLayout from '../../../../layouts/AdminLayout.astro'
+import CostsTableRow from '../../../../components/admin/CostsTableRow.astro'
 import {
   cogsRatio,
   defaultWindow,
@@ -10,6 +11,12 @@ import {
   type CustomerCostSummary,
 } from '../../../../lib/admin/cost-query'
 import { listOpenAlerts } from '../../../../lib/admin/cost-anomaly'
+import {
+  costAnomalyDetail,
+  listFleetStatus,
+  sourcePill,
+  type FleetStatusRow,
+} from '../../../../lib/admin/fleet-status'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -44,9 +51,17 @@ const cfConfigMissing = !env.CF_ACCOUNT_ID || !env.CF_D1_API_TOKEN
 
 const customers = await listCostCustomers(env.DB)
 const openAlerts = await listOpenAlerts(env.DB)
+const fleetStatusRows = await listFleetStatus(env.DB)
+const fleetByEntityId: Map<string, FleetStatusRow> = new Map(
+  fleetStatusRows.map((r) => [r.entity_id, r])
+)
+const fleetBySlug: Map<string, FleetStatusRow> = new Map(
+  fleetStatusRows.map((r) => [r.customer_slug, r])
+)
 
 interface CustomerCard {
   customer_slug: string
+  entity_id: string | null
   entity_name: string | null
   subscription_status: string | null
   monthly_revenue_cents: number | null
@@ -61,6 +76,7 @@ const cards: CustomerCard[] = await Promise.all(
     if (!c.per_customer_d1_database_id) {
       return {
         customer_slug: c.customer_slug,
+        entity_id: c.entity_id,
         entity_name: c.entity_name,
         subscription_status: c.subscription_status,
         monthly_revenue_cents: c.monthly_revenue_cents,
@@ -74,6 +90,7 @@ const cards: CustomerCard[] = await Promise.all(
     if (cfConfigMissing) {
       return {
         customer_slug: c.customer_slug,
+        entity_id: c.entity_id,
         entity_name: c.entity_name,
         subscription_status: c.subscription_status,
         monthly_revenue_cents: c.monthly_revenue_cents,
@@ -92,6 +109,7 @@ const cards: CustomerCard[] = await Promise.all(
     if (result.error) {
       return {
         customer_slug: c.customer_slug,
+        entity_id: c.entity_id,
         entity_name: c.entity_name,
         subscription_status: c.subscription_status,
         monthly_revenue_cents: c.monthly_revenue_cents,
@@ -104,6 +122,7 @@ const cards: CustomerCard[] = await Promise.all(
     const summary = summarizeCostRows(c.customer_slug, window.start, window.end, result.rows)
     return {
       customer_slug: c.customer_slug,
+      entity_id: c.entity_id,
       entity_name: c.entity_name,
       subscription_status: c.subscription_status,
       monthly_revenue_cents: c.monthly_revenue_cents,
@@ -114,6 +133,13 @@ const cards: CustomerCard[] = await Promise.all(
     }
   })
 )
+
+function fleetForCard(card: CustomerCard): FleetStatusRow | undefined {
+  if (card.entity_id && fleetByEntityId.has(card.entity_id)) {
+    return fleetByEntityId.get(card.entity_id)
+  }
+  return fleetBySlug.get(card.customer_slug)
+}
 
 function formatCurrency(cents: number): string {
   const dollars = cents / 100
@@ -237,40 +263,46 @@ const totalCogs30dCents = rows.reduce((sum, r) => sum + r.cogs30dCents, 0)
         >
           <div class="flex items-center justify-between mb-3">
             <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)]">
-              {openAlerts.length} open cost anomal{openAlerts.length === 1 ? 'y' : 'ies'}
+              {openAlerts.length} open alert{openAlerts.length === 1 ? '' : 's'}
             </h3>
             <span class="text-xs text-[color:var(--ss-color-text-muted)]">
-              Daily cost ≥ threshold of 7-day rolling average. Detected by{' '}
-              <code>ss-cost-anomaly</code> at 03:00 UTC.
+              Cost anomaly · Sentry spike · Heartbeat grace · Audit integrity. Sources tagged below.
             </span>
           </div>
           <ul class="space-y-2 text-sm">
             {openAlerts.map((alert) => {
-              const ratio = (alert.ratio_bps / 100).toFixed(0)
-              const daily = formatCurrency(alert.daily_cents)
-              const avg = formatCurrency(alert.rolling_avg_cents)
-              const driverLabel = alert.driver === '' ? 'all drivers (aggregate)' : alert.driver
+              const pill = sourcePill(alert.source)
+              const detail =
+                alert.source === 'cost'
+                  ? costAnomalyDetail({ ...alert, formatCurrency })
+                  : (alert.summary ?? '(no summary)')
               return (
                 <li
                   class="flex items-start justify-between gap-4 border-b border-[color:var(--ss-color-border-subtle)] pb-2 last:border-0 last:pb-0"
                   data-alert-entity={alert.entity_id}
                   data-alert-date={alert.alert_date}
                   data-alert-driver={alert.driver}
+                  data-alert-source={alert.source}
                 >
                   <div class="flex-1 min-w-0">
-                    <a
-                      href={`/admin/ai-employee/costs/${encodeURIComponent(alert.customer_slug)}`}
-                      class="font-medium text-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-primary)]"
-                    >
-                      {alert.customer_slug}
-                    </a>
-                    <span class="text-[color:var(--ss-color-text-secondary)]">
-                      {' '}
-                      · {alert.alert_date}
-                    </span>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span
+                        class={`text-[10px] px-1.5 py-0.5 rounded font-medium uppercase tracking-wide ${pill.classes}`}
+                      >
+                        {pill.label}
+                      </span>
+                      <a
+                        href={`/admin/ai-employee/costs/${encodeURIComponent(alert.customer_slug)}`}
+                        class="font-medium text-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-primary)]"
+                      >
+                        {alert.customer_slug}
+                      </a>
+                      <span class="text-[color:var(--ss-color-text-secondary)]">
+                        · {alert.alert_date}
+                      </span>
+                    </div>
                     <p class="text-xs text-[color:var(--ss-color-text-secondary)] mt-0.5">
-                      Top driver: {driverLabel} · {daily} vs {avg} 7-day avg ·{' '}
-                      <span class="font-semibold">{ratio}%</span>
+                      {detail}
                     </p>
                     {alert.snoozed_until && (
                       <p class="text-xs text-[color:var(--ss-color-text-muted)] mt-0.5">
@@ -332,75 +364,44 @@ const totalCogs30dCents = rows.reduce((sum, r) => sum + r.cogs30dCents, 0)
                   <th class="pb-2 font-medium text-right">Monthly estimate</th>
                   <th class="pb-2 font-medium text-right">Recurring rev</th>
                   <th class="pb-2 font-medium text-right">COGS / MRR</th>
+                  <th
+                    class="pb-2 font-medium text-right"
+                    title="Heartbeat freshness derived from fleet_status.last_heartbeat_ts + customer.yaml.observability.health"
+                  >
+                    Heartbeat
+                  </th>
+                  <th
+                    class="pb-2 font-medium text-right"
+                    title="Sentry errors in the last 24h (tenant-tagged). Synced once per day by workers/cost-anomaly."
+                  >
+                    Sentry 24h
+                  </th>
+                  <th
+                    class="pb-2 font-medium text-right"
+                    title="Uptime since the Machine's last restart"
+                  >
+                    Uptime
+                  </th>
                   <th class="pb-2 font-medium text-right">Actions</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-[color:var(--ss-color-border-subtle)]">
                 {rows.map(
                   ({ card, cogs30dCents, monthlyEstimateCents, rollingAvgDailyCents, ratio }) => (
-                    <tr>
-                      <td class="py-3">
-                        <a
-                          href={`/admin/ai-employee/costs/${card.customer_slug}`}
-                          class="font-medium text-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-primary)]"
-                        >
-                          {card.entity_name ?? card.customer_slug}
-                        </a>
-                        {card.entity_name && (
-                          <p class="text-xs text-[color:var(--ss-color-text-muted)] mt-0.5">
-                            {card.customer_slug}
-                          </p>
-                        )}
-                      </td>
-                      <td class="py-3 text-[color:var(--ss-color-text-secondary)]">
-                        {card.subscription_status ?? (
-                          <span class="text-[color:var(--ss-color-text-muted)]">none</span>
-                        )}
-                      </td>
-                      <td class="py-3 text-right text-[color:var(--ss-color-text-primary)]">
-                        {card.error || card.skippedReason ? (
-                          <span class="text-[color:var(--ss-color-text-muted)]">—</span>
-                        ) : (
-                          formatCurrency(cogs30dCents)
-                        )}
-                      </td>
-                      <td class="py-3 text-right text-[color:var(--ss-color-text-secondary)]">
-                        {rollingAvgDailyCents === null ? (
-                          <span class="text-[color:var(--ss-color-text-muted)]">—</span>
-                        ) : (
-                          formatCurrency(rollingAvgDailyCents)
-                        )}
-                      </td>
-                      <td class="py-3 text-right text-[color:var(--ss-color-text-secondary)]">
-                        {card.error || card.skippedReason ? (
-                          <span class="text-[color:var(--ss-color-text-muted)]">—</span>
-                        ) : (
-                          <span title="30-day COGS scaled to a 30.4375-day month">
-                            {formatCurrency(monthlyEstimateCents)} <span class="text-xs">est</span>
-                          </span>
-                        )}
-                      </td>
-                      <td class="py-3 text-right text-[color:var(--ss-color-text-secondary)]">
-                        {card.monthly_revenue_cents === null ? (
-                          <span class="text-[color:var(--ss-color-text-muted)]">—</span>
-                        ) : (
-                          formatCurrency(card.monthly_revenue_cents)
-                        )}
-                      </td>
-                      <td class={`py-3 text-right font-medium ${statusColor(ratio.status)}`}>
-                        {formatBps(ratio.basis_points)}
-                      </td>
-                      <td class="py-3 text-right text-xs">
-                        {card.per_customer_d1_database_id && !cfConfigMissing && (
-                          <a
-                            href={`/api/admin/ai-employee/costs/export?customer_slug=${encodeURIComponent(card.customer_slug)}&start=${window.start}&end=${window.end}`}
-                            class="text-[color:var(--ss-color-action)] hover:underline"
-                          >
-                            Export CSV
-                          </a>
-                        )}
-                      </td>
-                    </tr>
+                    <CostsTableRow
+                      card={card}
+                      fleet={fleetForCard(card)}
+                      cogs30dCents={cogs30dCents}
+                      rollingAvgDailyCents={rollingAvgDailyCents}
+                      monthlyEstimateCents={monthlyEstimateCents}
+                      ratio={ratio}
+                      cfConfigMissing={cfConfigMissing}
+                      windowStart={window.start}
+                      windowEnd={window.end}
+                      formatCurrency={formatCurrency}
+                      formatBps={formatBps}
+                      statusColor={statusColor}
+                    />
                   )
                 )}
               </tbody>

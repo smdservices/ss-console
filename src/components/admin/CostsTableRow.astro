@@ -1,0 +1,163 @@
+---
+/**
+ * One row of the AI Employee costs/fleet admin table.
+ *
+ * Extracted from src/pages/admin/ai-employee/costs/index.astro to keep
+ * that page under the 500-line / complexity-15 ceilings. The page is
+ * the orchestrator (loads data, computes derived view models); this
+ * component renders one row from the prepared inputs.
+ *
+ * ADR 0023 Wave 1: this is also where the new heartbeat / Sentry-24h /
+ * uptime columns get their `<td>` cells. Display helpers live in
+ * `src/lib/admin/fleet-status.ts` so the markup stays declarative.
+ */
+
+import type { CogsRatio } from '../../lib/admin/cost-query'
+import {
+  formatUptime,
+  heartbeatColorClass,
+  heartbeatDisplay,
+  relativeTimestamp,
+  type FleetStatusRow,
+} from '../../lib/admin/fleet-status'
+
+export interface CostsRowCard {
+  customer_slug: string
+  entity_id: string | null
+  entity_name: string | null
+  subscription_status: string | null
+  monthly_revenue_cents: number | null
+  per_customer_d1_database_id: string | null
+  error: string | null
+  skippedReason: string | null
+}
+
+interface Props {
+  card: CostsRowCard
+  fleet: FleetStatusRow | undefined
+  cogs30dCents: number
+  rollingAvgDailyCents: number | null
+  monthlyEstimateCents: number
+  ratio: CogsRatio
+  cfConfigMissing: boolean
+  windowStart: string
+  windowEnd: string
+  formatCurrency: (cents: number) => string
+  formatBps: (bps: number | null) => string
+  statusColor: (status: CogsRatio['status']) => string
+}
+
+const {
+  card,
+  fleet,
+  cogs30dCents,
+  rollingAvgDailyCents,
+  monthlyEstimateCents,
+  ratio,
+  cfConfigMissing,
+  windowStart,
+  windowEnd,
+  formatCurrency,
+  formatBps,
+  statusColor,
+} = Astro.props
+
+const hb = heartbeatDisplay(fleet?.last_heartbeat_ts ?? null)
+const exportable = card.per_customer_d1_database_id && !cfConfigMissing
+const showSentry24h =
+  fleet?.sentry_errors_last_24h !== null && fleet?.sentry_errors_last_24h !== undefined
+const sentryTitle = fleet ? `Synced ${relativeTimestamp(fleet.sentry_errors_synced_at)}` : ''
+---
+
+<tr>
+  <td class="py-3">
+    <a
+      href={`/admin/ai-employee/costs/${card.customer_slug}`}
+      class="font-medium text-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-primary)]"
+    >
+      {card.entity_name ?? card.customer_slug}
+    </a>
+    {
+      card.entity_name && (
+        <p class="text-xs text-[color:var(--ss-color-text-muted)] mt-0.5">{card.customer_slug}</p>
+      )
+    }
+  </td>
+  <td class="py-3 text-[color:var(--ss-color-text-secondary)]">
+    {card.subscription_status ?? <span class="text-[color:var(--ss-color-text-muted)]">none</span>}
+  </td>
+  <td class="py-3 text-right text-[color:var(--ss-color-text-primary)]">
+    {
+      card.error || card.skippedReason ? (
+        <span class="text-[color:var(--ss-color-text-muted)]">—</span>
+      ) : (
+        formatCurrency(cogs30dCents)
+      )
+    }
+  </td>
+  <td class="py-3 text-right text-[color:var(--ss-color-text-secondary)]">
+    {
+      rollingAvgDailyCents === null ? (
+        <span class="text-[color:var(--ss-color-text-muted)]">—</span>
+      ) : (
+        formatCurrency(rollingAvgDailyCents)
+      )
+    }
+  </td>
+  <td class="py-3 text-right text-[color:var(--ss-color-text-secondary)]">
+    {
+      card.error || card.skippedReason ? (
+        <span class="text-[color:var(--ss-color-text-muted)]">—</span>
+      ) : (
+        <span title="30-day COGS scaled to a 30.4375-day month">
+          {formatCurrency(monthlyEstimateCents)} <span class="text-xs">est</span>
+        </span>
+      )
+    }
+  </td>
+  <td class="py-3 text-right text-[color:var(--ss-color-text-secondary)]">
+    {
+      card.monthly_revenue_cents === null ? (
+        <span class="text-[color:var(--ss-color-text-muted)]">—</span>
+      ) : (
+        formatCurrency(card.monthly_revenue_cents)
+      )
+    }
+  </td>
+  <td class={`py-3 text-right font-medium ${statusColor(ratio.status)}`}>
+    {formatBps(ratio.basis_points)}
+  </td>
+  <td class={`py-3 text-right font-medium ${heartbeatColorClass(hb.color)}`}>
+    {hb.label}
+  </td>
+  <td class="py-3 text-right text-[color:var(--ss-color-text-secondary)]">
+    {
+      showSentry24h ? (
+        <span title={sentryTitle}>{fleet!.sentry_errors_last_24h}</span>
+      ) : (
+        <span class="text-[color:var(--ss-color-text-muted)]">—</span>
+      )
+    }
+  </td>
+  <td class="py-3 text-right text-[color:var(--ss-color-text-secondary)]">
+    {
+      fleet ? (
+        formatUptime(fleet.process_uptime_seconds)
+      ) : (
+        <span class="text-[color:var(--ss-color-text-muted)]">—</span>
+      )
+    }
+  </td>
+  <td class="py-3 text-right text-xs">
+    {
+      exportable && (
+        <a
+          href={`/api/admin/ai-employee/costs/export?customer_slug=${encodeURIComponent(card.customer_slug)}&start=${windowStart}&end=${windowEnd}`}
+          class="text-[color:var(--ss-color-action)] hover:underline"
+        >
+          Export CSV
+        </a>
+      )
+    }
+  </td>
+</tr>

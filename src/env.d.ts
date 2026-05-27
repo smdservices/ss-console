@@ -181,6 +181,32 @@ declare namespace Cloudflare {
      */
     CF_ACCOUNT_ID?: string
     CF_D1_API_TOKEN?: string
+    /**
+     * Shared bearer secret for the per-customer AI Employee Machine
+     * heartbeat path (`POST /api/internal/heartbeat`). Wave 1 uses a
+     * single shared key authenticating ANY Machine; the X-Tenant-Slug
+     * header identifies the tenant. Single-secret shape is right-sized
+     * for fleet-of-one (SMD customer-zero); per-tenant upgrade path is
+     * documented in ADR 0023 §"Cross-cutting calls" #10 (gated on
+     * customer #2 onboarding). Generated with `openssl rand -hex 32`.
+     */
+    MACHINE_HEARTBEAT_KEY?: string
+    /**
+     * Sentry Internal Integration Client Secret used to verify
+     * `Sentry-Hook-Signature` headers on inbound alert-rule webhook
+     * deliveries to `/api/webhooks/sentry`. Pulled from the SMD-owned
+     * `smd-ai-employee` Sentry project's Internal Integration settings
+     * (ADR 0023 Wave 1).
+     */
+    SENTRY_WEBHOOK_SECRET?: string
+    /**
+     * Shared bearer token for inbound healthchecks.io webhook deliveries
+     * to `/api/webhooks/healthchecks`. Healthchecks.io does NOT sign
+     * webhooks, so the integration is configured with an
+     * `Authorization: Bearer <secret>` header set in the healthchecks.io
+     * UI (ADR 0023 Wave 1).
+     */
+    HEALTHCHECKS_WEBHOOK_SECRET?: string
   }
 }
 
