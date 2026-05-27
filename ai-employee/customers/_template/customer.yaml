@@ -15,7 +15,15 @@ schema_version: 1
 # ---- IDENTITY ----
 customer_id: '[FIRM-SLUG]'
 customer_name: '[LEGAL NAME]'
+# ADR 0022 Stream 1: vertical accepts either bare (legacy back-compat) or
+# pinned form (<vertical>@<semver>). Pin once the vertical pack ships at a
+# stable version. Bare form is fine for pre-launch customer-zero.
 vertical: law-firm
+# Optional add-on packs the customer subscribes to. Each entry is
+# <vertical>/<addon>@<semver> (cross-vertical composition allowed —
+# ADR 0022 §"Properties of the vertical model" bullet 3). v1 ships with
+# law-firm/pi only. Empty array means "vertical defaults only."
+addons: []
 practice_areas:
   - '[PRIMARY PRACTICE AREA, e.g., personal-injury-plaintiff]'
 fly_region: '[FLY REGION SLUG, e.g., iad / lax / ord]'
@@ -141,3 +149,9 @@ memory:
   d1_namespace: '[FIRM-SLUG]'
   r2_vault_path: 'vaults/[FIRM-SLUG]/'
   vectorize_index: 'hermes-[FIRM-SLUG]-vault'
+  # ADR 0022 Stream 2 (skill body persistence) populates these at bootstrap.
+  # Never hand-author them. Schema declared in PR 1 as known-optional so
+  # Stream 2 can consume them without amending the validator. See
+  # docs/specs/ai-employee/vertical-manifest-schema.md §"Skill body R2 keys".
+  # r2_skill_bodies_bucket: 'smd-ai-employee-skill-bodies'   # shared-bucket default
+  # r2_skill_bodies_prefix: '[FIRM-SLUG]/'                   # shared-bucket prefix

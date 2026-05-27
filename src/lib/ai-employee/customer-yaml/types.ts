@@ -33,6 +33,66 @@ export const ACCEPTED_VERTICALS = [
 export type Vertical = (typeof ACCEPTED_VERTICALS)[number]
 
 /**
+ * Vertical-pack add-on registry — per ADR 0022 §"Properties of the vertical
+ * model" bullet 3 (cross-vertical add-on composition is supported).
+ *
+ * Each entry maps a vertical to the add-on slugs that may legally appear in
+ * `customer.yaml.addons[]` under `<vertical>/<addon>@<semver>`. Customers
+ * subscribe to one vertical plus zero or more add-ons; add-ons are namespaced
+ * by their origin vertical for provenance.
+ *
+ * v1 ships with `law-firm/pi` only — the existing law-PI assets that the PI
+ * migration PR (ADR 0022 Stream 4) relocates into
+ * `ai-employee/verticals/law/addons/pi/`. Future add-ons append to this map
+ * as their packs land; no inheritance machinery in v1 (ADR 0022 §"Flat
+ * manifest in v1").
+ */
+export const ACCEPTED_ADDONS: Readonly<Record<Vertical, readonly string[]>> = {
+  'law-firm': ['pi'],
+  'marketing-agency': [],
+  'real-estate': [],
+  manufacturing: [],
+  insurance: [],
+  mixed: [],
+} as const
+
+/**
+ * Semver pattern accepted in `vertical:` (pinned form) and `addons[]` entries.
+ * Restricted to MAJOR.MINOR.PATCH — no pre-release or build-metadata suffixes
+ * in v1 to keep the substrate's parsing surface small.
+ *
+ * The version pin is opt-in: bare `vertical: law-firm` continues to work for
+ * back-compat. Pinned form `vertical: law-firm@1.4.0` is required once a
+ * customer is bound to a specific vertical-pack release (see ADR 0022
+ * §"Properties of the vertical model" bullet 5).
+ */
+export const SEMVER_PATTERN = /^\d+\.\d+\.\d+$/
+
+/**
+ * Parsed addon-spec produced by `checkAddons`. The pinned-vertical equivalent
+ * lives on `CustomerYaml.vertical_version`.
+ */
+export interface AddonSpec {
+  vertical: Vertical
+  addon: string
+  version: string
+}
+
+/**
+ * Materialization-event source for `customer_config_history` rows
+ * (per ADR 0022 Stream 3). Lives in shared types so PR 3 can wire the enum
+ * into `src/lib/portal/customer-config.ts` without circular imports.
+ *
+ * - `manual` — Captain-initiated sync from the admin portal.
+ * - `ci` — automatic sync from the canonical configs repo's CI job.
+ * - `drift-repair` — drift-cron re-sync; exempt from the no-op check so the
+ *   audit trail of repair runs is always recorded even on identical SHA.
+ * - `bootstrap` — initial sync at Machine provisioning time.
+ */
+export const SYNC_SOURCES = ['manual', 'ci', 'drift-repair', 'bootstrap'] as const
+export type SyncSource = (typeof SYNC_SOURCES)[number]
+
+/**
  * Per-vertical audit-log retention defaults (days). See
  * docs/specs/ai-employee/audit-retention.md §"Per-vertical defaults" for the
  * rationale per vertical. The customer.yaml override (`memory.retention.audit_log_days`)
@@ -351,6 +411,25 @@ export interface Memory {
   r2_vault_path: string
   vectorize_index: string
   retention: MemoryRetention | null
+  /**
+   * R2 bucket and key prefix where the audit plugin persists agent-authored
+   * skill bodies (ADR 0022 Stream 2). Both are OPTIONAL in the schema —
+   * populated at customer bootstrap time, never authored by hand. PR 1
+   * declares them as known-optional so PR 2 can consume them without
+   * amending the validator.
+   *
+   * - `r2_skill_bodies_bucket` — the bucket name. Shared-bucket model uses
+   *   `smd-ai-employee-skill-bodies` (Captain default); per-customer model
+   *   uses `ss-ai-employee-<customer_id>-skills`.
+   * - `r2_skill_bodies_prefix` — the customer's key prefix within the
+   *   bucket. Shared-bucket model uses `<customer_id>/`; per-customer
+   *   bucket uses empty string.
+   *
+   * See ADR 0022 §"Captain decision to reconfirm before PR 2 opens" and
+   * the approved plan §"R2 bucket model."
+   */
+  r2_skill_bodies_bucket: string | null
+  r2_skill_bodies_prefix: string | null
 }
 
 export interface VoiceLibrary {
@@ -420,6 +499,22 @@ export interface CustomerYaml {
   customer_id: string
   customer_name: string
   vertical: Vertical
+  /**
+   * Pinned vertical-pack version when `vertical:` is authored in pinned form
+   * (`law-firm@1.4.0`). `null` when authored in bare form (`law-firm`) —
+   * back-compat for customers not yet bound to a specific pack release.
+   * Per ADR 0022 §"Properties of the vertical model" bullet 5.
+   */
+  vertical_version: string | null
+  /**
+   * Add-on packs the customer subscribes to. Empty array when the customer
+   * uses only the vertical defaults. Each entry parsed from
+   * `<vertical>/<addon>@<semver>`; cross-vertical composition allowed
+   * (e.g. a `law-firm` customer can subscribe to `accounting/bookkeeping`
+   * once that pack ships). Per ADR 0022 §"Properties of the vertical model"
+   * bullet 3.
+   */
+  addons: AddonSpec[]
   practice_areas: string[]
   fly_region: string
   model: string
@@ -502,6 +597,10 @@ export type ValidationErrorCode =
   | 'UnknownWebhookPersona'
   | 'UnknownWebhookSkill'
   | 'InvalidWebhookUrl'
+  | 'ExtendsReserved'
+  | 'InvalidVerticalSpec'
+  | 'InvalidAddonSpec'
+  | 'UnknownAddon'
 
 export interface ValidationError {
   code: ValidationErrorCode
