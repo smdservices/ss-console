@@ -52,6 +52,14 @@ primary_region = "{{FLY_REGION}}"
   # on first boot and the customer-sync sidecar polls the same key.
   R2_BUCKET_CONFIG = "{{R2_BUCKET_CONFIG}}"
 
+  # ADR 0022 Stream 2 — per-customer skill bodies bucket. One R2 bucket per
+  # customer; the bucket itself is the trust boundary (per ADR 0007). The
+  # overlay's hermes-smd-audit plugin writes SKILL.md bodies here when the
+  # skill_manage tool creates an agent-authored skill. Keys: skills/<persona>/<skill>/<hash>.md.
+  # Bucket name is not a credential; the bucket-scoped R2 access key + secret
+  # are in fly secrets (R2_SKILL_BODIES_ACCESS_KEY_ID, R2_SKILL_BODIES_SECRET_ACCESS_KEY).
+  R2_SKILL_BODIES_BUCKET = "{{R2_SKILL_BODIES_BUCKET}}"
+
   # Per-customer SQLite paths. The hermes-smd-audit and hermes-smd-memory-mirror
   # plugins resolve these to absolute file paths under the mounted volume.
   SMD_D1_AUDIT_BINDING = "/opt/data/audit.db"
