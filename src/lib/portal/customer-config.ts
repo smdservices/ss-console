@@ -179,3 +179,195 @@ export async function getActivePersona(
   const active = config.personas.find((p) => p.status === 'active')
   return active ?? null
 }
+
+// ===========================================================================
+// customer_config_history — ADR 0022 Stream 3 (substrate gap B)
+// ===========================================================================
+//
+// The history table records materialization events independently of git.
+// Wherever the actual sync code path lives (CI workflow, drift-repair cron,
+// manual portal action, bootstrap script), it should call
+// `recordCustomerConfigSync` after writing customer_configs so the audit
+// trail accumulates from day one.
+//
+// PR 3 ships the substrate (table + helpers + admin page). The sync code
+// path itself lives where it already lives — this module does not own it.
+
+/**
+ * Source of a customer_config_history event. Mirrors the SyncSource enum
+ * exported from src/lib/ai-employee/customer-yaml (added in PR 1). Kept as
+ * a literal-union here so the portal-side modules don't need to pull in
+ * the validator just for the enum.
+ */
+export type SyncSource = 'manual' | 'ci' | 'drift-repair' | 'bootstrap'
+
+export interface CustomerConfigHistoryRow {
+  id: number
+  customer_slug: string
+  git_sha: string
+  synced_at: string
+  synced_by: SyncSource
+  actor: string | null
+  prev_git_sha: string | null
+  r2_shadow_key: string | null
+  created_at: string
+}
+
+interface PreviousSyncMeta {
+  git_sha: string
+  synced_by: SyncSource
+}
+
+/**
+ * Decide whether a new sync event should record a history row.
+ *
+ * Rule (per ADR 0022 Stream 3 plan §"shouldRecordSync"):
+ *   - First sync for the slug: always record.
+ *   - SHA differs from previous: always record (the customer.yaml content changed).
+ *   - SHA is identical AND source === 'drift-repair': record. The drift-cron
+ *     is allowed to recover from out-of-band edits, and we want the audit
+ *     trail of that recovery.
+ *   - SHA is identical AND source !== 'drift-repair': no-op. Re-running CI
+ *     against an already-synced commit shouldn't pollute the audit trail.
+ *
+ * Pure function — own unit test. The caller passes the previous row's
+ * pointer fields; this module never touches D1 for the decision.
+ */
+export function shouldRecordSync(
+  prev: PreviousSyncMeta | null,
+  currentSha: string,
+  source: SyncSource
+): boolean {
+  if (prev === null) return true
+  if (prev.git_sha !== currentSha) return true
+  return source === 'drift-repair'
+}
+
+interface PreviousSyncDbRow {
+  git_sha: string
+  synced_by: string
+}
+
+/**
+ * Load the most-recent prior sync's pointer fields for the slug. Used by
+ * recordCustomerConfigSync to feed shouldRecordSync.
+ */
+export async function getLatestSyncMeta(
+  db: D1Database,
+  customerSlug: string
+): Promise<PreviousSyncMeta | null> {
+  const row = await db
+    .prepare(
+      'SELECT git_sha, synced_by FROM customer_config_history ' +
+        'WHERE customer_slug = ? ORDER BY synced_at DESC LIMIT 1'
+    )
+    .bind(customerSlug)
+    .first<PreviousSyncDbRow>()
+  if (!row) return null
+  return { git_sha: row.git_sha, synced_by: row.synced_by as SyncSource }
+}
+
+export interface RecordSyncOptions {
+  customer_slug: string
+  git_sha: string
+  /**
+   * ISO-8601 timestamp the sync code was executed. Distinct from
+   * created_at (which is set by the DB on INSERT) and from the git commit
+   * timestamp (which is opaque to D1).
+   */
+  synced_at: string
+  synced_by: SyncSource
+  /**
+   * Actor handle: email for `manual`, `'system:<job>'` for `drift-repair`,
+   * `null` for fully-automated sources (`ci`, `bootstrap`).
+   */
+  actor: string | null
+  /**
+   * Optional R2 shadow key produced by the sync code path. The substrate
+   * accepts but does not produce — the actual shadow write lives in the
+   * sync code path, which can pass the key it produced or pass `null`
+   * when no shadow was written.
+   */
+  r2_shadow_key: string | null
+}
+
+export interface RecordSyncResult {
+  recorded: boolean
+  /**
+   * Reason the helper no-op'd. `null` when recorded === true. Useful for
+   * the caller's logs without re-deriving the policy.
+   */
+  skipped_reason: string | null
+}
+
+/**
+ * Record a sync event. No-ops cleanly when the policy says skip
+ * (shouldRecordSync returned false). The helper does NOT UPSERT
+ * customer_configs — that's the caller's responsibility, and it must
+ * happen AFTER this helper so a corrupted live row always has a clean
+ * predecessor history row at the prior git_sha.
+ *
+ * Caller flow:
+ *   ```ts
+ *   const prev = await getLatestSyncMeta(db, slug)
+ *   const result = await recordCustomerConfigSync(db, {
+ *     customer_slug: slug, git_sha: newSha, synced_at: now,
+ *     synced_by: 'ci', actor: null, r2_shadow_key: shadowKey,
+ *   })
+ *   if (result.recorded) {
+ *     // UPSERT customer_configs here
+ *   }
+ *   ```
+ */
+export async function recordCustomerConfigSync(
+  db: D1Database,
+  opts: RecordSyncOptions
+): Promise<RecordSyncResult> {
+  const prev = await getLatestSyncMeta(db, opts.customer_slug)
+  if (!shouldRecordSync(prev, opts.git_sha, opts.synced_by)) {
+    return {
+      recorded: false,
+      skipped_reason:
+        `identical git_sha=${opts.git_sha} as previous sync ` +
+        `(synced_by=${prev?.synced_by ?? 'unknown'}); only drift-repair re-records on identical SHA`,
+    }
+  }
+  await db
+    .prepare(
+      'INSERT INTO customer_config_history ' +
+        '(customer_slug, git_sha, synced_at, synced_by, actor, prev_git_sha, r2_shadow_key) ' +
+        'VALUES (?, ?, ?, ?, ?, ?, ?)'
+    )
+    .bind(
+      opts.customer_slug,
+      opts.git_sha,
+      opts.synced_at,
+      opts.synced_by,
+      opts.actor,
+      prev?.git_sha ?? null,
+      opts.r2_shadow_key
+    )
+    .run()
+  return { recorded: true, skipped_reason: null }
+}
+
+/**
+ * List the most-recent N history rows for a customer slug. Powers the
+ * admin /admin/ai-employee/config-history/<slug>.astro page.
+ */
+export async function listCustomerConfigHistory(
+  db: D1Database,
+  customerSlug: string,
+  limit = 20
+): Promise<CustomerConfigHistoryRow[]> {
+  const { results } = await db
+    .prepare(
+      'SELECT id, customer_slug, git_sha, synced_at, synced_by, actor, ' +
+        'prev_git_sha, r2_shadow_key, created_at ' +
+        'FROM customer_config_history ' +
+        'WHERE customer_slug = ? ORDER BY synced_at DESC LIMIT ?'
+    )
+    .bind(customerSlug, limit)
+    .all<CustomerConfigHistoryRow>()
+  return results ?? []
+}
