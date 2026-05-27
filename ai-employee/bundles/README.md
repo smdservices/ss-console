@@ -6,8 +6,8 @@ common multi-step workflow becomes one user-facing invocation.
 
 | Bundle                     | Slash command          | Skills                                                  | Vertical         |
 | -------------------------- | ---------------------- | ------------------------------------------------------- | ---------------- |
-| `pi-intake.yaml`           | `/pi-intake`           | `law-pi-intake-triage` + `law-conflict-check`           | law-firm-pi      |
-| `pi-matter-prep.yaml`      | `/pi-matter-prep`      | `law-pi-demand-letter-draft` + `law-pi-settlement-prep` | law-firm-pi      |
+| `pi-intake.yaml`           | `/pi-intake`           | `intake-triage` + `law-conflict-check`                  | law-firm-pi      |
+| `pi-matter-prep.yaml`      | `/pi-matter-prep`      | `demand-letter-draft` + `settlement-prep`               | law-firm-pi      |
 | `weekly-client-pulse.yaml` | `/weekly-client-pulse` | `status-report-assembler` + `retainer-hours-reconciler` | marketing-agency |
 
 ## How bundles flow from catalog to runtime

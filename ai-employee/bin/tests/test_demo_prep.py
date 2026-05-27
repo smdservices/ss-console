@@ -92,7 +92,7 @@ def _base_customer_yaml(slug: str) -> dict:
                 "tone": ["plainspoken", "warm-but-professional", "concise"],
                 "skills": [
                     {
-                        "name": "law-pi-demand-letter-draft",
+                        "name": "demand-letter-draft",
                         "version": "pending",
                         "trust_ceiling": "draft_for_review",
                         "enabled": True,

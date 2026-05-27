@@ -37,7 +37,7 @@ The recipes the agent runs. The customer-value layer.
 
 - 11 skills in PR #812:
   - `inbox-triage` (full SKILL.md, complete)
-  - `law-pi-intake-triage`, `law-conflict-check`, `law-client-status-update` (PI-vertical scaffolds)
+  - `intake-triage`, `law-conflict-check`, `law-client-status-update` (PI-vertical scaffolds)
   - `proposal-drafter`, `ar-chaser`, `scope-creep-flagger`, `asset-collection-follower`, `retainer-hours-reconciler`, `paid-media-anomaly-watcher`, `status-report-assembler` (marketing-agency scaffolds)
 - Skill versioning + content-hash pinning (`adapter/resolve_skill_pins.py`)
 - Skill validation in `customer.yaml` validator

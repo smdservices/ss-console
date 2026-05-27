@@ -154,7 +154,7 @@ ACCEPTED_ACTION_TYPES = frozenset(
         "CUSTOMER_YAML_SYNCED",
         "CUSTOMER_YAML_STRUCTURAL_CHANGE_DEFERRED",
         # Delegated subagent observability (ADR 0021 Stream C). Skills that
-        # delegate parallel research (law-pi-demand-letter-draft and the rest
+        # delegate parallel research (demand-letter-draft and the rest
         # of the C.x set) emit:
         #   SUBAGENT_STOPPED      — one row per child subagent completion,
         #     emitted by the overlay's hermes-smd-audit plugin on the

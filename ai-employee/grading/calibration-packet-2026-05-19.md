@@ -2,7 +2,7 @@
 
 **Plan ref:** `~/.claude/plans/melodic-orbiting-barto.md` Phase C, Session 1 Step 7.
 **Purpose:** evidence base for Captain's async rubric-boundary review before Session 2.
-**Skills covered:** law-pi-intake-triage, law-conflict-check, law-client-status-update.
+**Skills covered:** intake-triage, law-conflict-check, law-client-status-update.
 **Not yet covered:** law-attorney-inbox-triage, law-signing-page-chase, law-time-entry-reconciliation, law-client-document-collection, law-red-flag-watching (Session 2 authoring; will produce calibration packet 2 after that authoring).
 
 ## How to read this packet
@@ -32,7 +32,7 @@ Three things:
 
 ## Sections
 
-- [law-pi-intake-triage](calibration-packets/2026-05-19/law-pi-intake-triage.md), 425 lines
+- [intake-triage](calibration-packets/2026-05-19/intake-triage.md), 425 lines
 - [law-conflict-check](calibration-packets/2026-05-19/law-conflict-check.md), 356 lines
 - [law-client-status-update](calibration-packets/2026-05-19/law-client-status-update.md), 425 lines
 
@@ -44,7 +44,7 @@ Five remaining law-vertical skills will be authored in Session 2 and a second ca
 
 ## Methodology notes
 
-- The simulations honor each skill's authored trust ceiling. `law-pi-intake-triage` and `law-client-status-update` are `draft_for_review`; `law-conflict-check` is `autonomous` (read-only). Proposed grades reflect those ceilings.
+- The simulations honor each skill's authored trust ceiling. `intake-triage` and `law-client-status-update` are `draft_for_review`; `law-conflict-check` is `autonomous` (read-only). Proposed grades reflect those ceilings.
 - The simulations honor the citation-refusal substrate (invariant #6) by NOT including any case names, statute references, or court rule references in any sample output. Where a fixture asks for citations, the simulated output shows the standard refusal language.
 - Adversarial fixture content (injection payloads, hostile language verbatim) is referenced by fixture ID only, never quoted into this packet. The simulated outputs DEMONSTRATE the correct refusal/flagging behavior; the adversarial payloads themselves stay in the fixture files.
 - The `[SYNTHETIC FIXTURE - NOT A REAL MATTER]` watermark appears on every simulated output that references fixture content, matching the fixtures' own watermarking pattern.

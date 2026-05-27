@@ -104,7 +104,7 @@ def _write_customer_yaml(customer_dir: Path, slug: str) -> Path:
                 "tone": ["plainspoken", "warm-but-professional", "concise"],
                 "skills": [
                     {
-                        "name": "law-pi-demand-letter-draft",
+                        "name": "demand-letter-draft",
                         "version": "pending",
                         "trust_ceiling": "draft_for_review",
                         "enabled": True,

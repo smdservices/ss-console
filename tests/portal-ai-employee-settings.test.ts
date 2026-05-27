@@ -78,14 +78,14 @@ describe('trustCeilingRowsFromPersona', () => {
 
   it('projects each skill into a row, preserving order', () => {
     const persona = makePersona([
-      { name: 'law-pi-intake-triage', trust_ceiling: 'draft_for_review' },
-      { name: 'law-pi-demand-letter-draft', trust_ceiling: 'autonomous' },
-      { name: 'law-pi-discovery-response', trust_ceiling: 'refused' },
+      { name: 'intake-triage', trust_ceiling: 'draft_for_review' },
+      { name: 'demand-letter-draft', trust_ceiling: 'autonomous' },
+      { name: 'discovery-response', trust_ceiling: 'refused' },
     ])
     const rows = trustCeilingRowsFromPersona(persona)
     expect(rows).toHaveLength(3)
     expect(rows[0]).toEqual({
-      skillName: 'law-pi-intake-triage',
+      skillName: 'intake-triage',
       currentLevel: 'draft_for_review',
       rawLevel: 'draft_for_review',
     })

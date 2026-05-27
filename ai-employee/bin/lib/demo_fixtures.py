@@ -2,7 +2,7 @@
 
 Loads the 8 synthetic PI matters from PR #832 (plus the generated
 communications, calendar items, and synthetic voice samples drawn from
-``ai-employee/fixtures/law-firm/pi/``) into a customer's Hermes Machine
+``ai-employee/verticals/law-firm/addons/pi/fixtures/``) into a customer's Hermes Machine
 substrate **as if** the rows were live operations. Tagged for clean
 removal post-meeting.
 
@@ -13,7 +13,7 @@ Design rules
   <vertical>`` (``pi`` for v1). The structure is extensible: future
   verticals declare their own loader strategy by registering a vertical
   config in :data:`VERTICAL_REGISTRY`. The v1 ``pi`` strategy reads
-  fixtures from ``ai-employee/fixtures/law-firm/pi/``.
+  fixtures from ``ai-employee/verticals/law-firm/addons/pi/fixtures/``.
 
 * **Tagged for removal.** Every row written through this loader carries
   ``is_demo_fixture: true`` in its metadata payload (memory store +

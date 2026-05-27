@@ -23,10 +23,10 @@ The harness uses Python stdlib only. No external LLM, no network calls. The refe
 
 Four skills currently bootstrapped:
 
-- `law-pi-demand-letter-draft` (3 fixtures)
-- `law-pi-discovery-response` (3 fixtures)
-- `law-pi-opposing-counsel-response` (3 fixtures)
-- `law-pi-settlement-prep` (2 fixtures)
+- `demand-letter-draft` (3 fixtures)
+- `discovery-response` (3 fixtures)
+- `opposing-counsel-response` (3 fixtures)
+- `settlement-prep` (2 fixtures)
 
 The default set lives in `DEFAULT_SKILL_SLUGS` in the harness. Pass `--skill <slug>` to narrow.
 
@@ -48,7 +48,7 @@ python3 -m tests.skill_regression
 For a single skill:
 
 ```bash
-python3 ai-employee/tests/skill_regression.py --skill law-pi-demand-letter-draft
+python3 ai-employee/tests/skill_regression.py --skill demand-letter-draft
 ```
 
 For a PR-comment-shaped markdown report:
@@ -62,7 +62,7 @@ python3 ai-employee/tests/skill_regression.py --markdown-out /tmp/report.md
 When a fixture's reference `.md` legitimately changes (a partner reviewed the new shape and signed off), regenerate the goldens for that skill:
 
 ```bash
-python3 ai-employee/tests/skill_regression.py --regenerate law-pi-demand-letter-draft
+python3 ai-employee/tests/skill_regression.py --regenerate demand-letter-draft
 npx prettier --write ai-employee/tests/golden/
 ```
 
@@ -70,8 +70,8 @@ Multiple skills:
 
 ```bash
 python3 ai-employee/tests/skill_regression.py \
-  --regenerate law-pi-demand-letter-draft \
-  --regenerate law-pi-discovery-response
+  --regenerate demand-letter-draft \
+  --regenerate discovery-response
 npx prettier --write ai-employee/tests/golden/
 ```
 

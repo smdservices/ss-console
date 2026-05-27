@@ -132,10 +132,10 @@ The v2 followup is filed as a separate issue when the first live customer's pin 
 
 Four skills, all `vertical: law-firm-pi`, all `trust_ceiling: draft_for_review`:
 
-- `law-pi-demand-letter-draft` (3 fixtures: 01 clean, 02 missing wages, 03 citation refusal)
-- `law-pi-discovery-response` (3 fixtures: 01 interrogatories, 02 requests for production, 03 requests for admission)
-- `law-pi-opposing-counsel-response` (3 fixtures: 01 settlement counter-offer, 02 motion correspondence, 03 scheduling negotiation)
-- `law-pi-settlement-prep` (2 fixtures: 01 soft tissue clear liability, 02 disc herniation contested liability)
+- `demand-letter-draft` (3 fixtures: 01 clean, 02 missing wages, 03 citation refusal)
+- `discovery-response` (3 fixtures: 01 interrogatories, 02 requests for production, 03 requests for admission)
+- `opposing-counsel-response` (3 fixtures: 01 settlement counter-offer, 02 motion correspondence, 03 scheduling negotiation)
+- `settlement-prep` (2 fixtures: 01 soft tissue clear liability, 02 disc herniation contested liability)
 
 The default list lives in `DEFAULT_SKILL_SLUGS` in the harness. New skills join the suite by updating that constant and running `--regenerate <slug>` once to bootstrap the goldens.
 

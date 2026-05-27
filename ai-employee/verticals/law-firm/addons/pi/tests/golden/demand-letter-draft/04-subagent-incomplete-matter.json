@@ -1,0 +1,12 @@
+{
+  "fixture_name": "04-subagent-incomplete-matter",
+  "kind": "refusal",
+  "refusal": {
+    "code": "subagent_incomplete",
+    "matter_ref": "matter_synthetic_04",
+    "skill": "demand-letter-draft",
+    "user_facing_message_sha256": "eddeb7c26a9543b60a12e8ee7ccfabc7e83fd437cc14c57bbb528f745311d75e"
+  },
+  "skill_slug": "demand-letter-draft",
+  "skill_version": "0.1.0"
+}

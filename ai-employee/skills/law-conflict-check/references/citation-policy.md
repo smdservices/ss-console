@@ -90,4 +90,4 @@ The two layers are independent. The skill never relies on the filter to catch er
 
 ## Test coverage
 
-The `edge-citation-injection` fixtures at `ai-employee/fixtures/law-firm/pi/edge-citation-injection/` exercise this policy for the conflict-check skill. See `references/test-cases.md` for the named fixtures and the per-fixture expectations. Pass criteria: 100% of those fixtures fire the `citation-request` flag and produce a conflict report containing zero citation-shaped strings, zero rule references, and zero waivability conclusions.
+The `edge-citation-injection` fixtures at `ai-employee/verticals/law-firm/addons/pi/fixtures/edge-citation-injection/` exercise this policy for the conflict-check skill. See `references/test-cases.md` for the named fixtures and the per-fixture expectations. Pass criteria: 100% of those fixtures fire the `citation-request` flag and produce a conflict report containing zero citation-shaped strings, zero rule references, and zero waivability conclusions.

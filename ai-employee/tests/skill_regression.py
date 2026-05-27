@@ -52,15 +52,52 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 AI_EMPLOYEE_ROOT = REPO_ROOT / "ai-employee"
-SKILLS_ROOT = AI_EMPLOYEE_ROOT / "skills"
-GOLDEN_ROOT = Path(__file__).resolve().parent / "golden"
+
+# ADR 0022 Stream 4 vertical-pack migration: skills now live in two roots —
+# the legacy ai-employee/skills/ (shared skills) and the new vertical-pack
+# location at ai-employee/verticals/<vertical>/addons/<addon>/skills/. The
+# resolver tries each candidate root in priority order; the new location
+# wins when a slug exists in both (the move ships the new copy first).
+SKILL_ROOT_CANDIDATES: tuple[Path, ...] = (
+    AI_EMPLOYEE_ROOT / "verticals" / "law-firm" / "addons" / "pi" / "skills",
+    AI_EMPLOYEE_ROOT / "skills",
+)
+GOLDEN_ROOT_CANDIDATES: tuple[Path, ...] = (
+    AI_EMPLOYEE_ROOT / "verticals" / "law-firm" / "addons" / "pi" / "tests" / "golden",
+    Path(__file__).resolve().parent / "golden",
+)
+
+
+def resolve_skill_dir(skill_slug: str) -> Path:
+    """Return the first existing skill directory across the candidate roots.
+
+    Raises RegressionError when no candidate root contains the slug.
+    """
+    for root in SKILL_ROOT_CANDIDATES:
+        candidate = root / skill_slug / "SKILL.md"
+        if candidate.exists():
+            return root / skill_slug
+    searched = ", ".join(str(r / skill_slug) for r in SKILL_ROOT_CANDIDATES)
+    raise RegressionError(f"skill not loadable: SKILL.md not found in any of: {searched}")
+
+
+def resolve_golden_dir(skill_slug: str) -> Path:
+    """Return the first golden directory that contains <slug>/ across roots."""
+    for root in GOLDEN_ROOT_CANDIDATES:
+        candidate = root / skill_slug
+        if candidate.is_dir():
+            return candidate
+    # Fall back to the new vertical-pack root for "where to write" semantics
+    # (callers compute golden paths via FixturePair.golden_path; nonexistent
+    # is fine for newly-introduced skills before any goldens exist).
+    return GOLDEN_ROOT_CANDIDATES[0] / skill_slug
 
 # Four PI skills currently in scope per issue #825.
 DEFAULT_SKILL_SLUGS: tuple[str, ...] = (
-    "law-pi-demand-letter-draft",
-    "law-pi-discovery-response",
-    "law-pi-opposing-counsel-response",
-    "law-pi-settlement-prep",
+    "demand-letter-draft",
+    "discovery-response",
+    "opposing-counsel-response",
+    "settlement-prep",
 )
 
 # Today-date placeholder appears in every reference body as
@@ -111,7 +148,7 @@ class FixturePair:
 
     @property
     def golden_path(self) -> Path:
-        return GOLDEN_ROOT / self.skill_slug / f"{self.fixture_name}.json"
+        return resolve_golden_dir(self.skill_slug) / f"{self.fixture_name}.json"
 
 
 @dataclass
@@ -193,9 +230,8 @@ def parse_frontmatter(skill_md_text: str) -> dict[str, object]:
 
 
 def load_skill_metadata(skill_slug: str) -> dict[str, object]:
-    skill_md = SKILLS_ROOT / skill_slug / "SKILL.md"
-    if not skill_md.exists():
-        raise RegressionError(f"skill not loadable: {skill_md} does not exist")
+    skill_dir = resolve_skill_dir(skill_slug)
+    skill_md = skill_dir / "SKILL.md"
     text = skill_md.read_text(encoding="utf-8")
     return parse_frontmatter(text)
 
@@ -211,7 +247,7 @@ def discover_fixtures(skill_slug: str) -> list[FixturePair]:
         is paired with `03-citation-in-source-refusal.md`. We match by the
         leading two-digit fixture index.)
     """
-    fixtures_dir = SKILLS_ROOT / skill_slug / "fixtures"
+    fixtures_dir = resolve_skill_dir(skill_slug) / "fixtures"
     if not fixtures_dir.exists():
         raise RegressionError(
             f"skill fixtures directory missing: {fixtures_dir}"

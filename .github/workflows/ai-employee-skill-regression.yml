@@ -23,6 +23,9 @@ on:
       - 'ai-employee/fixtures/**'
       - 'ai-employee/tests/skill_regression.py'
       - 'ai-employee/tests/golden/**'
+      # ADR 0022 Stream 4: PI skills + fixtures + golden tests live under
+      # the vertical pack now.
+      - 'ai-employee/verticals/**'
       - '.github/workflows/ai-employee-skill-regression.yml'
   push:
     branches: [main]
