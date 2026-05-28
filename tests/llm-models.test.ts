@@ -18,7 +18,7 @@ describe('llm/models: central model selection', () => {
   it('defines the current tier defaults', () => {
     // This is the ONE place model IDs live. Bumping a tier (e.g. the Opus 4.8-era
     // refresh) is a one-line change here plus this assertion.
-    expect(QUALITY_MODEL).toBe('claude-sonnet-4-20250514')
+    expect(QUALITY_MODEL).toBe('claude-sonnet-4-6')
     expect(FAST_MODEL).toBe('claude-haiku-4-5-20251001')
   })
 

@@ -37,7 +37,7 @@ export type ModelTier = 'QUALITY' | 'FAST'
  * Default model ID per tier. This is the one place a model version lives.
  */
 const TIER_DEFAULTS: Record<ModelTier, string> = {
-  QUALITY: 'claude-sonnet-4-20250514',
+  QUALITY: 'claude-sonnet-4-6',
   FAST: 'claude-haiku-4-5-20251001',
 }
 
