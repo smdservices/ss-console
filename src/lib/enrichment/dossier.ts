@@ -6,10 +6,9 @@
  */
 
 import { ModuleError } from './instrument'
+import { ANTHROPIC_API_URL, ANTHROPIC_VERSION, QUALITY_MODEL } from '../llm/models'
 
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
-const ANTHROPIC_VERSION = '2023-06-01'
-const MODEL = 'claude-sonnet-4-20250514'
+const MODEL = QUALITY_MODEL
 const MAX_TOKENS = 4096
 
 const DOSSIER_PROMPT = `You are generating an evidence-bound intelligence brief for a consulting team (SMD Services) that sells operations cleanup engagements to Phoenix-area small businesses. Use "we" voice.

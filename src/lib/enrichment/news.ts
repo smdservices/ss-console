@@ -2,9 +2,9 @@
  * News/press search via SerpAPI Google Search + Claude Haiku extraction.
  */
 
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
-const ANTHROPIC_VERSION = '2023-06-01'
-const HAIKU_MODEL = 'claude-haiku-4-5-20251001'
+import { ANTHROPIC_API_URL, ANTHROPIC_VERSION, FAST_MODEL } from '../llm/models'
+
+const HAIKU_MODEL = FAST_MODEL
 
 export interface NewsEnrichment {
   mentions: Array<{

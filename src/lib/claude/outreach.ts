@@ -31,9 +31,9 @@
  * @see CLAUDE.md — "Pain Clusters by Vertical", "No fabricated client-facing content"
  */
 
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
-const ANTHROPIC_VERSION = '2023-06-01'
-const MODEL = 'claude-sonnet-4-20250514'
+import { ANTHROPIC_API_URL, ANTHROPIC_VERSION, QUALITY_MODEL, FAST_MODEL } from '../llm/models'
+
+const MODEL = QUALITY_MODEL
 const MAX_TOKENS = 1024
 
 const OUTREACH_SYSTEM_PROMPT = `You are writing a cold outreach email for SMD Services. We help Arizona-based operating businesses improve how the work actually runs. We work alongside owners, not above them.
@@ -274,7 +274,7 @@ ${draft}`
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5',
+      model: FAST_MODEL,
       max_tokens: 200,
       temperature: 0,
       system,
