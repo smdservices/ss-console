@@ -56,7 +56,7 @@ describe('claude extraction: client module', () => {
     expect(code).toContain('const MODEL = QUALITY_MODEL')
     expect(code).toContain('model: MODEL')
     // The literal model ID must live only in llm/models.ts, not at the call site.
-    expect(code).not.toContain('claude-sonnet-4-20250514')
+    expect(code).not.toContain('claude-sonnet-4-6')
   })
 
   it('sets max_tokens to 4096', () => {
