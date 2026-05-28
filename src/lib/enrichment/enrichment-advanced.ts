@@ -10,6 +10,7 @@ import { generateOutreachDraft } from '../claude/outreach'
 import { lookupLinkedIn } from './linkedin'
 import { generateDossier } from './dossier'
 import { instrumentModule, fingerprint, type ModuleOutcome } from './instrument'
+import { QUALITY_MODEL } from '../llm/models'
 import {
   type EnrichEnv,
   type EnrichResult,
@@ -85,7 +86,7 @@ export async function tryIntelligenceBrief(
         content: brief,
         source: 'intelligence_brief',
         metadata: {
-          model: 'claude-sonnet-4-20250514',
+          model: QUALITY_MODEL,
           trigger: 'at_ingest',
           ...NON_AUTHORITATIVE_CONTEXT_META,
         },
@@ -132,7 +133,7 @@ export async function tryOutreach(
         content: draft,
         source: 'claude',
         metadata: {
-          model: 'claude-sonnet-4-20250514',
+          model: QUALITY_MODEL,
           trigger: result.mode === 'full' ? 'at_ingest' : 're_enrich',
           vertical: entity.vertical ?? null,
         },
