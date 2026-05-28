@@ -4,10 +4,9 @@
 
 import { detectTechStack, type TechStackResult } from './tech-stack.js'
 import { ModuleError } from './instrument'
+import { ANTHROPIC_API_URL, ANTHROPIC_VERSION, FAST_MODEL } from '../llm/models'
 
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
-const ANTHROPIC_VERSION = '2023-06-01'
-const MODEL = 'claude-haiku-4-5-20251001'
+const MODEL = FAST_MODEL
 const MAX_TOKENS = 1024
 
 const EXTRACTION_PROMPT = `You are analyzing a small business website. Extract the following information from the HTML content. Return ONLY valid JSON, no commentary.
