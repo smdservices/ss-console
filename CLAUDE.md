@@ -378,7 +378,7 @@ Load these ADRs before any AI Employee architectural work:
 - **ADR 0012** — customer.yaml storage (Git source of truth → D1+R2 materialized)
 - **ADR 0015** — Hermes fork posture (pin-only fork, plugin-only overlay)
 - **ADR 0016** — Honcho disposition (mirror, don't gate; tuned config; TTL archival)
-- **ADR 0017** — Skill Curator disposition (trust Hermes-native; mirror to D1 inventory)
+- **ADR 0017** — Skill Curator disposition (disable autonomous curator per-customer; keep in-conversation `skill_manage`; mirror to D1 inventory; supervised `--dry-run` consolidation only)
 - **ADR 0019** — customer.yaml → per-profile config translation
 - **ADR 0020** — Connector strategy (MCP-first; BUILD only where no acceptable MCP)
 - **ADR 0021** — Leverage Hermes native primitives (`execute_code`, `delegate_task`, no-agent cron, skill bundles, webhook gateway via `pre_gateway_dispatch`, MCP-first connector retirement)
