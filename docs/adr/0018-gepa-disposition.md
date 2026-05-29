@@ -128,9 +128,9 @@ The prompt architecture is loaded from the content-hash-pinned Hermes deploy ([A
 
 Prompt-architecture changes happen exclusively through:
 
-- Captain-managed edits to the `venturecrane/hermes-agent` fork.
-- The quarterly upstream Hermes rebase cadence per [ADR 0015](./0015-hermes-fork-vs-upstream.md) §_Decision_.
-- Customer Machine re-pinning, which is a Captain-controlled re-deploy per [ADR 0015](./0015-hermes-fork-vs-upstream.md) §_Consequences_.
+- Captain-managed selection of the pinned upstream Hermes release (`hermes_ref`) per [ADR 0024](./0024-hermes-consumption-and-update-cadence.md).
+- The Hermes blessed-version promotion cadence per [ADR 0024](./0024-hermes-consumption-and-update-cadence.md) (continuous tracking, deliberate promotion — not the retired quarterly-rebase model).
+- Customer Machine re-pinning, which is a Captain-controlled re-deploy per [ADR 0007](./0007-per-customer-machine-isolation.md) and [ADR 0024](./0024-hermes-consumption-and-update-cadence.md).
 
 There is no autonomous path between trace observation and prompt-architecture change. The link is deliberately broken.
 
@@ -201,7 +201,7 @@ Reason for rejection: a default-on subsystem that mutates prompt architecture is
 
 - We forfeit GEPA's trace-analysis primitive entirely in the Phase 1 product. If future work confirms that systematic prompt-arch analysis is high-leverage, we will build it from scratch (or adopt GEPA-as-a-library) in a platform-level tool. The forfeit is real but recoverable.
 - One more interceptor-equivalent (the boot-time disable check) to maintain across upstream rebases. Smaller surface than the Honcho or Curator interceptors because there is no observation-redirection path — just a verification that subsystems are not active. Bounded.
-- If upstream restructures GEPA significantly between rebases (e.g., merges it deeper into the agent loop, or re-exposes it through a new entrypoint), the disable-verification check may need updating. This is the same maintenance shape as the Honcho and Curator interceptors and is handled by the same quarterly-rebase agenda item.
+- If upstream restructures GEPA significantly between releases (e.g., merges it deeper into the agent loop, or re-exposes it through a new entrypoint), the disable-verification check may need updating. This is the same maintenance shape as the Honcho and Curator interceptors and is handled by the same Hermes version-promotion agenda item ([ADR 0024](./0024-hermes-consumption-and-update-cadence.md)).
 
 **Out of scope.**
 
@@ -220,11 +220,11 @@ How we know we are following this decision:
 2. **No `prompt_arch_observations` or `prompt_arch_drafts` table exists in the per-customer D1 migration suite.** Grep-level CI assertion: no migration creates such a table; no code path references one.
 3. **The audit log contains `gepa_disabled_verified` rows for every Machine boot.** Audit-log integrity check ([#892](https://github.com/venturecrane/ss-console/issues/892)) verifies the action class appears at expected rates (one per boot, per Machine).
 4. **No code path in a customer Machine mutates the loaded prompt architecture after boot.** Grep-level CI assertion across the per-customer Machine runtime: prompt-arch mutation operations are blocked outside the (intercepted-and-no-op) GEPA path.
-5. **No `venturecrane/hermes-agent` PR has been authored by an automated process running inside a customer Machine.** Spot-check during quarterly rebase review: PR authors on the fork are exclusively human (Captain or platform-team identities), never customer-Machine service accounts.
+5. **No PR against the Hermes overlay or upstream has been authored by an automated process running inside a customer Machine.** Spot-check during Hermes version-promotion review ([ADR 0024](./0024-hermes-consumption-and-update-cadence.md)): PR authors on `venturecrane/hermes-smd-overlay` (and any upstream contribution) are exclusively human — Captain or platform-team identities — never customer-Machine service accounts.
 
 Guards against drift:
 
-- The disable-verification check completeness is a quarterly-rebase agenda item alongside the Honcho and Curator interceptors ([ADR 0016](./0016-honcho-disposition.md) §_Verification_, [ADR 0017](./0017-skill-curator-disposition.md) §_Verification_). Every Hermes upstream rebase explicitly re-verifies that GEPA is disabled in the post-rebase fork.
+- The disable-verification check completeness is a Hermes version-promotion agenda item ([ADR 0024](./0024-hermes-consumption-and-update-cadence.md)) alongside the Honcho and Curator interceptors ([ADR 0016](./0016-honcho-disposition.md) §_Verification_, [ADR 0017](./0017-skill-curator-disposition.md) §_Verification_). Every promotion of a new pinned Hermes release explicitly re-verifies that GEPA is disabled in the candidate base image.
 - The "no `prompt_arch_observations` table" CI assertion is wired into the merge gate. A PR that introduces a prompt-arch-observation D1 table without a superseding ADR fails CI.
 - The audit-log `gepa_disabled_verified` action class is monitored. A sustained absence of these rows across active customer Machines is a signal that boot-time verification has been disabled or skipped; triggers Captain review.
 - If a future Captain decision authorizes a platform-level trace-analysis tool, this ADR is not amended — that tool is governed by its own ADR, scoped outside customer Machines per §5.

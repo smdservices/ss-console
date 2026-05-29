@@ -615,12 +615,13 @@ function reconstructFromProjection(row: CustomerConfigRow): unknown {
     vertical: 'mixed',
     fly_region: 'iad',
     model: 'unknown',
-    // 'unknown' was the pre-ADR-0015 sentinel; the validator now enforces
-    // the fork-tag pattern, so the placeholder needs to satisfy it. The
-    // reconstructed projection has no real ref to point at (the DB row
-    // doesn't carry hermes_ref yet); v0.0.0-smd.0 is the unambiguous
-    // "no fork ref yet" sentinel within the fork-tag scheme.
-    hermes_ref: 'v0.0.0-smd.0',
+    // The reconstructed projection has no real ref to point at (the DB row
+    // doesn't carry hermes_ref yet). v0.0.0@<40 zeros> is the unambiguous
+    // "no upstream pin yet" sentinel: it parses as a string but deliberately
+    // fails checkHermesRef (year is not 4 digits), so it surfaces as a
+    // validation error prompting the operator to set a real pin rather than
+    // silently shipping a fabricated version. Format per ADR 0024.
+    hermes_ref: 'v0.0.0@0000000000000000000000000000000000000000',
     machine: { size: 'unknown', memory_mb: 256 },
     users: [],
     personas: row.personas,
