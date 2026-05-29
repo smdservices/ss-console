@@ -34,8 +34,14 @@ export interface RunVoiceGateInput extends CreatePanelSessionInput {
   identifications: JudgeIdentification[]
   /**
    * Production mode enforces ≥10 drafts per authorship and ≥3 judges
-   * per voice-gate-fallback.md §Contract. Default false to support
-   * synthetic-fixture testing; CLI sets true for real customer runs.
+   * per voice-gate-fallback.md §Contract.
+   *
+   * Defaults to TRUE — fail safe. The voice gate decides whether the
+   * agent may send under a firm's name; a caller that forgets this flag
+   * must get enforcement, not a free pass (issue #1124). Synthetic /
+   * fixture callers that deliberately use small sample sets MUST opt out
+   * explicitly by passing `false` (the CLI exposes this as
+   * `--allow-undersized`, honored for synthetic mode only).
    */
   enforceProductionMinimums?: boolean
 }
@@ -50,7 +56,7 @@ export function runVoiceGate(input: RunVoiceGateInput): {
   result: GateResult
 } {
   const problems = validatePanelInput(input, {
-    enforceProductionMinimums: input.enforceProductionMinimums ?? false,
+    enforceProductionMinimums: input.enforceProductionMinimums ?? true,
   })
   if (problems.length > 0) {
     throw new Error(`voice-gate validation failed: ${problems.join('; ')}`)

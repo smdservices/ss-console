@@ -17,6 +17,11 @@ Exit codes
   from the last completed step (every step is idempotent).
 * ``4`` — unexpected non-step exception (audit writer init failure,
   config-parse failure, etc.).
+* ``5`` — refused: a ``--live`` run was requested but one or more
+  destructive backends are unwired stubs, so the run would report a
+  clean decommission while customer data remains (issue #1123). Wire the
+  real backends, or pass ``--allow-unwired`` for a dev/fixture run that
+  explicitly tolerates skipped deletions.
 """
 
 from __future__ import annotations
@@ -138,6 +143,15 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         help="Execute the deletion sequence. Halts on any failure.",
     )
     p.add_argument(
+        "--allow-unwired",
+        action="store_true",
+        help=(
+            "Permit a --live run even when destructive backends are unwired "
+            "stubs. DEV/FIXTURE ONLY: the run will NOT actually delete those "
+            "substrates and does not fully decommission a real customer."
+        ),
+    )
+    p.add_argument(
         "--customers-root",
         type=Path,
         default=None,
@@ -224,6 +238,36 @@ async def _run(args: argparse.Namespace) -> int:
         actor=args.actor,
         customer_yaml=customer_yaml,
     )
+
+    # Fail closed (#1123): a --live run that cannot actually delete must
+    # not report success. Refuse BEFORE writing any audit row or
+    # tombstoning the customer directory.
+    if args.live:
+        unwired = pipeline.unwired_destructive_backends()
+        if unwired and not args.allow_unwired:
+            print(
+                "[live] REFUSING: destructive backend(s) not wired — "
+                f"{', '.join(unwired)}. A --live run would report a clean "
+                "decommission while that customer data, the Fly Machine, and "
+                "its secrets remain. Wire the real implementations, or pass "
+                "--allow-unwired for a dev/fixture run that explicitly "
+                "tolerates skipped deletions.",
+                file=sys.stderr,
+            )
+            try:
+                audit_conn.close()
+            except Exception:  # noqa: BLE001
+                pass
+            _print_footer(args.slug, mode=mode, ok=False)
+            return 5
+        if unwired and args.allow_unwired:
+            print(
+                "[live] WARNING: --allow-unwired set; the following "
+                "destructive backend(s) will be SKIPPED, not deleted: "
+                f"{', '.join(unwired)}. This run does NOT fully decommission "
+                "the customer.",
+                file=sys.stderr,
+            )
 
     try:
         if args.live:

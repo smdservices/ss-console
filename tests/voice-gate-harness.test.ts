@@ -42,10 +42,34 @@ describe('runVoiceGate', () => {
       panel: ['j1'],
       cycle_count: 0,
       identifications,
+      // Deliberately-small fixture run: opt out of production minimums.
+      enforceProductionMinimums: false,
     })
     expect(run.scored_at).not.toBeNull()
     expect(result.state).toBe('pass')
     expect(result.score_pct).toBe(100)
+  })
+
+  it('enforces production minimums by DEFAULT when the flag is omitted', () => {
+    // Issue #1124: a caller that forgets the flag must get enforcement,
+    // not a free pass. A 1-judge / 2-draft run must now throw.
+    expect(() =>
+      runVoiceGate({
+        customer_slug: 'test-firm',
+        cohort: 'client',
+        run_id: 'run-1',
+        drafts: [
+          { id: 'd-c-1', cohort: 'client', authorship: 'customer', body: 'b' },
+          { id: 'd-a-1', cohort: 'client', authorship: 'agent', body: 'b' },
+        ],
+        panel: ['j1'],
+        cycle_count: 0,
+        identifications: [
+          { draft_id: 'd-c-1', judge_id: 'j1', choice: 'customer' },
+          { draft_id: 'd-a-1', judge_id: 'j1', choice: 'customer' },
+        ],
+      })
+    ).toThrow(/need 10|need 3/)
   })
 
   it('rejects malformed input with all errors surfaced', () => {
@@ -103,6 +127,7 @@ describe('buildAuditRow', () => {
         { draft_id: 'd-c-1', judge_id: 'j1', choice: 'customer' },
         { draft_id: 'd-a-1', judge_id: 'j1', choice: 'customer' },
       ],
+      enforceProductionMinimums: false,
     })
     const row = buildAuditRow('01J-row-id', run, result, '2026-05-21T12:00:00Z')
     expect(row.id).toBe('01J-row-id')
@@ -140,6 +165,7 @@ describe('buildAuditRow', () => {
         { draft_id: 'd-c-1', judge_id: 'j1', choice: 'customer' },
         { draft_id: 'd-a-1', judge_id: 'j1', choice: 'customer' },
       ],
+      enforceProductionMinimums: false,
     })
     const before = Date.now()
     const row = buildAuditRow('id', run, result)
@@ -215,6 +241,9 @@ describe('end-to-end synthetic run', () => {
       panel: judges,
       cycle_count: 0,
       identifications,
+      // Bundled fixture is 3 drafts/cohort — under the production minimum
+      // by design (verifies scaffolding, not calibration).
+      enforceProductionMinimums: false,
     })
     // 18 agent judgments, all "customer" → 100% indistinguishable
     expect(result.score_pct).toBe(100)
@@ -257,6 +286,7 @@ describe('end-to-end synthetic run', () => {
       panel: judges,
       cycle_count: 1,
       identifications,
+      enforceProductionMinimums: false,
     })
     expect(result.state).toBe('near-pass')
     expect(result.near_pass_record).toBeDefined()
