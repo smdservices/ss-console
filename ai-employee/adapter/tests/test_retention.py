@@ -96,7 +96,7 @@ def _insert_draft(
 ) -> None:
     conn.execute(
         "INSERT INTO draft_queue (id, skill_name, created_at, r2_draft_key, r2_sent_key) "
-        "VALUES (?, 'law-pi-demand-letter', ?, ?, ?)",
+        "VALUES (?, 'demand-letter', ?, ?, ?)",
         [draft_id, created_at, r2_draft_key, r2_sent_key],
     )
     conn.commit()
