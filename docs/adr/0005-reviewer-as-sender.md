@@ -4,13 +4,16 @@ date: 2026-05-20
 status: accepted
 captain: Scott Durgan
 supersedes: none
+amended-by: 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md
 related-prd: docs/pm/ai-employee/platform-prd.md §3, §9.2, §13.2, §16
 related-issue: https://github.com/venturecrane/ss-console/issues/828
 ---
 
 # ADR 0005 — Reviewer-as-Sender
 
-**Status:** Accepted (Captain decision; embedded in the AI Employee PRDs since first draft; recorded here as a standalone ADR per [#828](https://github.com/venturecrane/ss-console/issues/828)).
+**Status:** Accepted, **amended 2026-05-29 by [ADR 0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md).** ADR 0025 overturns this ADR's central modality — the holding that reviewer-as-sender is "architectural, not configurable" (§Decision below). Under ADR 0025, reviewer-as-sender is retained as **(a) the default exposure configuration** and **(b) a vertical-pack-lockable floor** (the law pack pins it non-raisable), but it is no longer a global absolute: customers may configure autonomous external send on the exposure axis where no vertical floor forbids it. Everything else in this ADR — the internal/external persona split, the disclosure/liability reasoning (which becomes _why_ the default and the regulated-vertical floor exist), and the drafts mechanism — stands unchanged. Read this ADR with that amendment in mind.
+
+**Status (original):** Accepted (Captain decision; embedded in the AI Employee PRDs since first draft; recorded here as a standalone ADR per [#828](https://github.com/venturecrane/ss-console/issues/828)).
 
 **Source:** Platform PRD principle P2 ("Reviewer is always the sender") and Persona model §9.2 (internal vs external persona split). Reinforced by `synthesis-round-1.md` Theme 6/8 — the platform's defensible competitive position depends on this pattern remaining architectural rather than configurable.
 
