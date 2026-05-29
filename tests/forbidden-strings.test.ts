@@ -499,3 +499,60 @@ describe('portal list-row registry: UI-PATTERNS R7 enforcement', () => {
     }
   }
 })
+
+/**
+ * AI-Employee customer.yaml invariants.
+ *
+ * Guards the exact regression #776 shipped: a customer config with an invalid
+ * `hermes_ref` fork tag (`v2026.5.16-smd.0`). Also bans `composio:` backends
+ * (doctrine-dropped, ADR 0020). Narrow on purpose — this guards two invariants,
+ * not the full config content (the config is data, not code).
+ *
+ * @see docs/adr/0020-connector-strategy.md (composio dropped)
+ * @see docs/adr/0024-hermes-consumption-and-update-cadence.md (hermes_ref pin format)
+ */
+describe('ai-employee customer.yaml invariants', () => {
+  const customersRoot = resolve('ai-employee/customers')
+  // v{YYYY}.{M}.{D}@{40-hex-sha} — fork tags like -smd.N do not match.
+  const HERMES_REF_RE = /^v\d{4}\.\d{1,2}\.\d{1,2}@[0-9a-f]{40}$/
+
+  function customerYamls(): string[] {
+    const out: string[] = []
+    let entries: string[]
+    try {
+      entries = readdirSync(customersRoot)
+    } catch {
+      return out // no customers dir yet
+    }
+    for (const entry of entries) {
+      if (entry.startsWith('_')) continue // _template scaffold, not a real customer
+      const file = join(customersRoot, entry, 'customer.yaml')
+      try {
+        if (statSync(file).isFile()) out.push(file)
+      } catch {
+        // no customer.yaml in this dir
+      }
+    }
+    return out
+  }
+
+  it('no committed customer.yaml uses a composio: backend or a hermes_ref fork tag', () => {
+    for (const file of customerYamls()) {
+      const rel = file.replace(resolve('.') + '/', '')
+      const content = readFileSync(file, 'utf-8')
+      expect(
+        content.includes('composio:'),
+        `${rel} uses a composio: backend — doctrine-dropped per ADR 0020.`
+      ).toBe(false)
+      const match = content.match(/^\s*hermes_ref:\s*['"]?([^'"\n]+?)['"]?\s*$/m)
+      if (match) {
+        const ref = match[1].trim()
+        expect(
+          HERMES_REF_RE.test(ref),
+          `${rel} hermes_ref "${ref}" is not v{YYYY}.{M}.{D}@{40-hex-sha} ` +
+            `(fork tags like -smd.N are rejected per ADR 0024).`
+        ).toBe(true)
+      }
+    }
+  })
+})
