@@ -243,7 +243,6 @@ export function scoreRun(run: BlindTestRun): GateResult {
     overall.score_pct < VOICE_GATE_PASS_THRESHOLD_PCT
 
   const naturalState = stateForScore(overall.score_pct)
-  const state: GateState = cycleCountForcesfail ? 'fail' : naturalState
 
   const per_cohort = perCohortBreakdown(run)
   // Skip cohorts that had no agent-drafted judgments in the run — they
@@ -258,6 +257,21 @@ export function scoreRun(run: BlindTestRun): GateResult {
           per_cohort[c].score_pct < VOICE_GATE_PASS_THRESHOLD_PCT
       )
     : []
+
+  // Per-cohort gating (issue #1124). For an 'all' run, the pooled overall
+  // score can let a strong cohort (e.g. `client`) mask a failing one
+  // (e.g. `opposing-counsel`), which would unlock sends to the very
+  // cohort the firm is most exposed on. So an 'all' run passes ONLY if
+  // every COVERED cohort independently clears the threshold; otherwise
+  // the run is downgraded to the weakest covered cohort's state.
+  let state: GateState = cycleCountForcesfail ? 'fail' : naturalState
+  if (run.cohort === 'all' && state === 'pass' && per_cohort) {
+    const coveredStates = RECIPIENT_COHORTS.filter(
+      (c) => per_cohort[c].total_agent_judgments > 0
+    ).map((c) => stateForScore(per_cohort[c].score_pct))
+    if (coveredStates.includes('fail')) state = 'fail'
+    else if (coveredStates.includes('near-pass')) state = 'near-pass'
+  }
 
   let failure_record: FailureRecord | undefined
   let near_pass_record: NearPassRecord | undefined
@@ -281,7 +295,7 @@ export function scoreRun(run: BlindTestRun): GateResult {
     }
   }
 
-  const summary = formatSummary(state, overall.score_pct, run)
+  const summary = formatSummary(state, overall.score_pct, run, below_threshold_cohorts)
 
   return {
     state,
@@ -301,16 +315,30 @@ export function scoreRun(run: BlindTestRun): GateResult {
  * the audit log; the CLI prints this verbatim and the disclosure template
  * splices it in.
  */
-function formatSummary(state: GateState, score_pct: number, run: BlindTestRun): string {
+function formatSummary(
+  state: GateState,
+  score_pct: number,
+  run: BlindTestRun,
+  below_threshold_cohorts: RecipientCohort[] = []
+): string {
   const cohortLabel = run.cohort === 'all' ? 'all cohorts' : `cohort ${run.cohort}`
   const cycleLabel = run.cycle_count > 0 ? ` (cycle ${run.cycle_count + 1})` : ''
+  // When an 'all' run is held back by a specific cohort despite a passing
+  // pooled score, name the culprit cohort(s) so the reason is legible.
+  const cohortNote =
+    state !== 'pass' &&
+    run.cohort === 'all' &&
+    below_threshold_cohorts.length > 0 &&
+    score_pct >= VOICE_GATE_PASS_THRESHOLD_PCT
+      ? ` [held back by cohort(s) below threshold: ${below_threshold_cohorts.join(', ')}]`
+      : ''
   switch (state) {
     case 'pass':
       return `PASS at ${score_pct}% across ${cohortLabel}${cycleLabel} — external drafts unlocked.`
     case 'near-pass':
-      return `NEAR-PASS at ${score_pct}% across ${cohortLabel}${cycleLabel} — calibration cycle required.`
+      return `NEAR-PASS at ${score_pct}% across ${cohortLabel}${cycleLabel}${cohortNote} — calibration cycle required.`
     case 'fail':
-      return `FAIL at ${score_pct}% across ${cohortLabel}${cycleLabel} — external drafts blocked; Captain disclosure protocol triggered.`
+      return `FAIL at ${score_pct}% across ${cohortLabel}${cycleLabel}${cohortNote} — external drafts blocked; Captain disclosure protocol triggered.`
   }
 }
 
