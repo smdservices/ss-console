@@ -23,8 +23,8 @@ describe('claude extraction: client module', () => {
 
   it('uses raw fetch to Anthropic API (no SDK)', () => {
     const code = source()
-    expect(code).toContain('https://api.anthropic.com/v1/messages')
-    expect(code).toContain('fetch(')
+    // The URL literal now lives in llm/models.ts; the call site fetches the import.
+    expect(code).toContain('fetch(ANTHROPIC_API_URL')
     // Should not import the Anthropic SDK
     expect(code).not.toContain('@anthropic-ai/sdk')
     expect(code).not.toContain("from 'anthropic'")
@@ -37,15 +37,26 @@ describe('claude extraction: client module', () => {
   it('includes anthropic-version header', () => {
     const code = source()
     expect(code).toContain("'anthropic-version': ANTHROPIC_VERSION")
-    expect(code).toContain("ANTHROPIC_VERSION = '2023-06-01'")
+  })
+
+  it('sources shared Anthropic constants from central llm/models module', () => {
+    const code = source()
+    expect(code).toContain("from '../llm/models'")
+    expect(code).toContain('ANTHROPIC_API_URL')
+    expect(code).toContain('ANTHROPIC_VERSION')
   })
 
   it('includes content-type header', () => {
     expect(source()).toContain("'content-type': 'application/json'")
   })
 
-  it('uses the correct model', () => {
-    expect(source()).toContain('claude-sonnet-4-20250514')
+  it('uses the QUALITY model tier from central config (no hardcoded ID)', () => {
+    const code = source()
+    expect(code).toContain('QUALITY_MODEL')
+    expect(code).toContain('const MODEL = QUALITY_MODEL')
+    expect(code).toContain('model: MODEL')
+    // The literal model ID must live only in llm/models.ts, not at the call site.
+    expect(code).not.toContain('claude-sonnet-4-6')
   })
 
   it('sets max_tokens to 4096', () => {

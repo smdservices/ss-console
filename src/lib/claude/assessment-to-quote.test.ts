@@ -150,7 +150,7 @@ describe('generateQuoteLineItems', () => {
     expect(headers['anthropic-version']).toBe('2023-06-01')
 
     const body = JSON.parse((opts as RequestInit).body as string)
-    expect(body.model).toBe('claude-sonnet-4-20250514')
+    expect(body.model).toBe('claude-sonnet-4-6')
     expect(body.messages[0].content).toContain('process_design')
     expect(body.messages[0].content).toContain('entity context here')
   })
