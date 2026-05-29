@@ -161,6 +161,11 @@ COPY ai-employee/safety-substrate/ /app/safety-substrate/
 COPY ai-employee/templates/bootstrap.sh /app/bootstrap.sh
 RUN chmod +x /app/bootstrap.sh
 
+# Curator disable guard (ADR 0017). bootstrap.sh step 7b runs this after the
+# overlay materializes profile configs, ensuring the autonomous curator is off
+# before Hermes starts; the boot smoke test re-runs it with --check.
+COPY ai-employee/templates/ensure-curator-disabled.py /app/ensure-curator-disabled.py
+
 # NOTE: customer.yaml is NOT copied into the image. It lives on the Fly
 # volume at /opt/data/customer.yaml; bootstrap.sh fetches it from R2 on
 # first boot if the volume copy is absent. See §6 of the build plan and
