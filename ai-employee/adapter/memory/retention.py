@@ -25,11 +25,13 @@ Design rules (issue #863):
   knob on :class:`MemoryRetentionPolicy`; missing keys fall back to the
   documented defaults in the customer-yaml-schema spec.
 
-* **Per-matter access controls are respected** — retention deletes only
-  rows whose ``access_scope`` matches the requested ``deleting_scope``.
-  A ``firm_wide`` sweep (the default cron scope) never touches a
-  ``partner_only`` matter. Captain runs a separate sweep with the
-  narrower scope when needed.
+* **Access scope is a read ACL, not a deletion exemption (issue #1126)** —
+  ``deleting_scope`` lets a sweep be *narrowed* to a single access bucket
+  for targeted redaction / partner off-boarding, but the SCHEDULED cron
+  defaults to ``all`` so aged ``partner_only`` / ``attorney_list`` data is
+  not retained forever. ``run_memory_retention`` still honors an explicit
+  ``deleting_scope`` (a ``firm_wide`` call touches only ``firm-wide``
+  rows) for those targeted Captain-run passes.
 
 * **Idempotent** — selecting rows by ``deleted_at IS NULL`` and
   ``ingested_at < cutoff`` means a second run with no new expired rows
@@ -263,8 +265,27 @@ class MemoryRetentionResult:
 
 
 @dataclass(frozen=True)
+class DraftRetentionResult:
+    """Outcome of one ``draft_queue`` age sweep (issue #1126)."""
+
+    window_days: int
+    considered: int
+    deleted: int
+    errors: int
+
+    def to_metadata(self) -> dict:
+        return {
+            "step": "retention/drafts",
+            "window_days": self.window_days,
+            "considered": self.considered,
+            "deleted": self.deleted,
+            "errors": self.errors,
+        }
+
+
+@dataclass(frozen=True)
 class RetentionRunResult:
-    """Combined memory + voice retention outcome.
+    """Combined memory + voice + drafts retention outcome.
 
     Returned by :func:`run_full_retention` so the cron entrypoint can
     log a single summary line and surface counts to the dashboard.
@@ -274,16 +295,25 @@ class RetentionRunResult:
     policy: MemoryRetentionPolicy
     memory: MemoryRetentionResult
     voice: dict   # passthrough of voice pipeline's enforce_retention return shape
+    drafts: DraftRetentionResult
     started_at: str
     finished_at: str
 
     @property
     def total_deleted(self) -> int:
-        return self.memory.total_deleted + int(self.voice.get("deleted", 0) or 0)
+        return (
+            self.memory.total_deleted
+            + int(self.voice.get("deleted", 0) or 0)
+            + self.drafts.deleted
+        )
 
     @property
     def total_errors(self) -> int:
-        return self.memory.total_errors + int(self.voice.get("errors", 0) or 0)
+        return (
+            self.memory.total_errors
+            + int(self.voice.get("errors", 0) or 0)
+            + self.drafts.errors
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -340,6 +370,17 @@ def _select_items_sql(scopes: tuple[str, ...]) -> str:
 _MARK_ITEM_DELETED_SQL = (
     "UPDATE memory_ingested_items SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL"
 )
+
+
+# Drafts live in their own ``draft_queue`` table (body in R2 via
+# ``r2_draft_key`` / ``r2_sent_key``), NOT in ``memory_ingested_items`` —
+# so they are swept by :func:`run_draft_retention`, not via
+# ``_TYPE_WINDOW_MAP`` above. draft_queue carries no ``access_scope``
+# (it is review-queue working state), so the sweep is purely age-based.
+_SELECT_EXPIRED_DRAFTS_SQL = (
+    "SELECT id, r2_draft_key, r2_sent_key FROM draft_queue WHERE created_at < ?"
+)
+_DELETE_DRAFT_SQL = "DELETE FROM draft_queue WHERE id = ?"
 
 
 # ---------------------------------------------------------------------------
@@ -455,6 +496,61 @@ async def run_memory_retention(
 
 
 # ---------------------------------------------------------------------------
+# Draft-queue retention runner
+# ---------------------------------------------------------------------------
+
+
+async def run_draft_retention(
+    *,
+    executor: WriteAndQueryExecutor,
+    storage: StorageRemovalClient,
+    drafts_days: int,
+    now: Optional[datetime] = None,
+) -> DraftRetentionResult:
+    """Delete ``draft_queue`` rows older than the drafts retention window.
+
+    Drafts of legal correspondence live in the per-customer ``draft_queue``
+    table (body in R2 via ``r2_draft_key`` / ``r2_sent_key``), NOT in
+    ``memory_ingested_items``. Before this sweep, ``drafts_days`` was
+    defined, validated, read from customer.yaml, and printed in dry-run
+    output — but enforced by no deletion path, so drafts were retained
+    forever (issue #1126), breaking the ADR-0008 deletion promise.
+
+    Drafts carry no ``access_scope`` (review-queue working state), so the
+    sweep is purely age-based and scope-independent. Each expired row's R2
+    body (draft + any sent copy) is removed, then the D1 row is hard-deleted
+    (draft_queue has no soft-delete column). One bad row never aborts the
+    sweep.
+    """
+    started = now or datetime.now(timezone.utc)
+    cutoff_iso = _iso_utc(started - timedelta(days=drafts_days))
+    rows = await executor.query(_SELECT_EXPIRED_DRAFTS_SQL, [cutoff_iso])
+    considered = len(rows)
+    deleted = 0
+    errors = 0
+    for row in rows:
+        row_id = row.get("id")
+        if not row_id:
+            errors += 1
+            continue
+        try:
+            for key in (row.get("r2_draft_key"), row.get("r2_sent_key")):
+                if key:
+                    await storage.delete_r2_object(key)
+            await executor.execute(_DELETE_DRAFT_SQL, [row_id])
+            deleted += 1
+        except Exception as exc:  # noqa: BLE001 — per-row resilience
+            errors += 1
+            log.error("draft retention failed for row id=%s: %s", row_id, exc)
+    return DraftRetentionResult(
+        window_days=drafts_days,
+        considered=considered,
+        deleted=deleted,
+        errors=errors,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Cross-pipeline runner
 # ---------------------------------------------------------------------------
 
@@ -513,6 +609,14 @@ async def run_full_retention(
         voice_retention_days=policy.voice_samples_days,
         now=started,
     )
+    # Drafts live in draft_queue in the same per-customer D1 / R2, so the
+    # memory executor + storage clients cover them (issue #1126).
+    draft_result = await run_draft_retention(
+        executor=memory_executor,
+        storage=memory_storage,
+        drafts_days=policy.drafts_days,
+        now=started,
+    )
 
     finished_iso = _iso_utc(now=None)
 
@@ -522,6 +626,7 @@ async def run_full_retention(
             customer_slug=customer_slug,
             memory_result=memory_result,
             voice_result=voice_result,
+            draft_result=draft_result,
             policy=policy,
             started_iso=started_iso,
             finished_iso=finished_iso,
@@ -532,6 +637,7 @@ async def run_full_retention(
         policy=policy,
         memory=memory_result,
         voice=voice_result,
+        drafts=draft_result,
         started_at=started_iso,
         finished_at=finished_iso,
     )
@@ -556,6 +662,7 @@ async def _emit_retention_audit(
     customer_slug: str,
     memory_result: MemoryRetentionResult,
     voice_result: dict,
+    draft_result: DraftRetentionResult,
     policy: MemoryRetentionPolicy,
     started_iso: str,
     finished_iso: str,
@@ -598,7 +705,14 @@ async def _emit_retention_audit(
         "errors": int(voice_result.get("errors", 0) or 0),
     }
 
-    for metadata in (memory_meta, voice_meta):
+    draft_meta = {
+        "customer_slug": customer_slug,
+        "started_at": started_iso,
+        "finished_at": finished_iso,
+        **draft_result.to_metadata(),
+    }
+
+    for metadata in (memory_meta, voice_meta, draft_meta):
         event = AuditEvent(
             action_type=_RETENTION_ACTION_TYPE,
             actor="agent",
@@ -623,6 +737,7 @@ __all__ = [
     "DEFAULT_RECIPIENTS_DAYS",
     "DEFAULT_VOICE_SAMPLES_DAYS",
     "DeletingScope",
+    "DraftRetentionResult",
     "MemoryRetentionPolicy",
     "MemoryRetentionResult",
     "MemoryRetentionTypeResult",
@@ -630,6 +745,7 @@ __all__ = [
     "StorageRemovalClient",
     "VoiceRetentionCallable",
     "WriteAndQueryExecutor",
+    "run_draft_retention",
     "run_full_retention",
     "run_memory_retention",
 ]
