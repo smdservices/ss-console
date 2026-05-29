@@ -86,4 +86,10 @@ ssh_exec "hermes-profiles-dir" "test -d /opt/data/profiles && [ -n \"\$(ls -A /o
 # installed at image-build time via `hermes plugins install venturecrane/hermes-smd-overlay`.
 ssh_exec "hermes-plugins-installed" "hermes plugins list | grep -q hermes-smd-"
 
+# ---------- Step 8: Hermes curator disabled (ADR 0017) ----------
+# The autonomous curator is turned off per-customer (it rewrites agent-authored
+# skills out of band — see docs/adr/0017). bootstrap.sh step 7b enforces
+# curator.enabled:false in every profile config; --check re-verifies it held.
+ssh_exec "curator-disabled" "/opt/hermes/.venv/bin/python3 /app/ensure-curator-disabled.py --check /opt/data"
+
 log "All boot smoke checks passed for ${APP_NAME}"

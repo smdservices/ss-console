@@ -11,6 +11,7 @@
 #   5.  Run Honcho schema migrations (idempotent).
 #   6.  Start Honcho FastAPI server as a supervised child.
 #   7.  Run `hermes-smd bootstrap` (customer.yaml -> per-profile config + SOUL.md).
+#   7b. Disable the Hermes curator in each profile config (ADR 0017).
 #   8.  Run the safety-substrate invariant checks (Phase A.5 gate).
 #   9.  Pause guard.
 #   10. Start `hermes-smd customer-sync` sidecar (R2 poller).
@@ -287,6 +288,29 @@ hermes-smd bootstrap \
   --honcho-api-key "${HONCHO_API_KEY}" \
   || die "hermes-smd bootstrap failed; check customer.yaml structure"
 log "Profile config(s) generated under ${HERMES_HOME}/profiles/"
+
+# ============================================================================
+# Step 7b: disable the Hermes curator (ADR 0017 / ss-console#1135)
+# ============================================================================
+# Hermes' curator runs an autonomous LLM consolidation pass over agent-authored
+# skills on a 7-day cron (agent/curator.py:_run_llm_review()), rewriting and
+# consolidating skill CONTENT via skill_manage. That out-of-band rewrite
+# corrupts our audit provenance and produces unsupervised structural skill
+# drift, so ADR 0017 disables it per-customer. We enforce it here — after the
+# profile configs exist (step 7) and BEFORE Hermes (and its gateway cron
+# ticker) starts in step 11 — which also closes the fresh-install ticker
+# footgun (NousResearch/hermes-agent#18373). In-conversation skill
+# auto-creation (skill_manage) stays enabled; only the background curator is
+# off. Consolidation is run on demand under Captain supervision via
+# `hermes curator run --dry-run` (see docs/runbooks/ai-employee/curator-supervised-consolidation.md).
+#
+# The declarative home for this flag is the overlay's customer.yaml -> config
+# translation; this entrypoint guard is the belt that holds even if the overlay
+# has not yet shipped the same flag. Idempotent.
+log "Disabling Hermes curator in profile configs (ADR 0017)..."
+/opt/hermes/.venv/bin/python3 /app/ensure-curator-disabled.py "${HERMES_HOME}" \
+  || die "Failed to disable curator in profile configs (ADR 0017)"
+log "Curator disabled in profile config(s)"
 
 # ============================================================================
 # Step 8: safety substrate invariant checks (Phase A.5 gate)
