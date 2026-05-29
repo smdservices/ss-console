@@ -60,6 +60,17 @@ set -euo pipefail
 SLUG="${1:-}"
 [ -n "${SLUG}" ] || { echo "Usage: $0 <customer-slug>" >&2; exit 1; }
 
+# Validate the slug charset as the FIRST action (issue #1127). The slug flows
+# into filesystem paths, central-D1 SQL, a sed RHS, a python -c program, and
+# R2 keys below — all before the customer_id==SLUG equality check. Constraining
+# it to a DNS-style label (no quotes, slashes, ampersands, or shell
+# metacharacters) closes the SQL-injection / sed-corruption / RCE vectors at
+# the source. Mirrors decommission_cli.py's guard.
+if [[ ! "${SLUG}" =~ ^[a-z0-9][a-z0-9-]{0,31}$ ]]; then
+  echo "invalid slug '${SLUG}' (must match ^[a-z0-9][a-z0-9-]{0,31}$)" >&2
+  exit 2
+fi
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CUSTOMER_DIR="${REPO_ROOT}/ai-employee/customers/${SLUG}"
 CUSTOMER_YAML="${CUSTOMER_DIR}/customer.yaml"

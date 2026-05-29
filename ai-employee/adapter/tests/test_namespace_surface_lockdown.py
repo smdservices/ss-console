@@ -10,7 +10,7 @@ Raw classes remain importable by *explicit* name — that is needed by:
 
 * the writer path itself (`audit_log.writer_from_env` constructs an
   `HttpD1Executor` directly, per the audit-log immutability invariant
-  documented in `audit_log_immutability.py`),
+  documented in `hermes-smd-overlay/plugins/hermes-smd-audit/immutability.py`),
 * the namespace-bridge adapters (`memory/namespaced.py` and
   `voice/namespaced.py` import the raw R2/Vectorize Protocols),
 * and tests that build sqlite-backed harnesses.

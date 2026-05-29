@@ -872,7 +872,16 @@ def _apply_greeting_swap(draft: str, profile: VoiceProfile) -> tuple:
         new_line = template.format(honorific=honorific, name=name)
     elif "{name}" in template:
         name = captured.get("name")
-        if not name:
+        # A first-name target cannot be synthesized from a formal / semi-formal
+        # greeting: the token captured there is the SURNAME ("Smith" from
+        # "Dear Mr. Smith,"), so "Hi {name}," would render "Hi Smith," —
+        # addressing the recipient by surname as if it were a first name in
+        # client-facing legal mail (issue #1129). The first name simply isn't
+        # present in the source. Decline rather than fabricate one, mirroring
+        # the honorific-required decline above. (A first-name source with a
+        # first-name target is already handled by the current==target early
+        # return, so reaching here means the source had no first name.)
+        if not name or current_style != GreetingStyle.FIRST_NAME.value:
             return draft, None
         new_line = template.format(name=name)
     else:
