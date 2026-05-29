@@ -51,7 +51,7 @@ ARG HONCHO_PIP_SPEC="honcho-ai==1.0.0"
 # (`hermes-smd bootstrap`, `hermes-smd customer-sync`). Pinned to a tagged
 # release; bump in lockstep with overlay-side feature work.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="v0.1.0"
+ARG OVERLAY_REF="v0.1.1"
 
 ARG CUSTOMER_SLUG=customer-zero
 
