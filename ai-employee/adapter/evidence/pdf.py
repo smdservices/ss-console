@@ -315,9 +315,11 @@ def render_summary_pdf(
                 "agent learned is enumerated in the memory snapshot.",
                 "- The safety substrate's eight architectural invariants ran "
                 "on every boot; failures appear in the boot-check log.",
-                "- The packet's manifest is sha256-hashed and Captain-signed "
-                "(stub signature in this release; real RSA detached signature "
-                "lands in a follow-on per the spec's implementation notes).",
+                "- The packet's manifest is sha256-hashed. It is NOT yet "
+                "cryptographically signed (the signature is a stub; a real RSA "
+                "detached signature lands in a follow-on per the spec). Verify "
+                "integrity against the out-of-band manifest hash, not the copy "
+                "inside this packet (see Verification).",
             ],
         )
     )
@@ -372,13 +374,20 @@ def render_summary_pdf(
         (
             "Verification",
             [
-                f"Captain signature: {captain_id}",
+                f"Captain signature: {captain_id} (UNSIGNED stub -- not "
+                "cryptographically verifiable in this release).",
                 f"Manifest SHA-256: {manifest_sha256}",
                 "",
-                "To verify a specific file, hash it with sha256 and compare to "
-                "manifest.json -> file_hashes -> <filename>. To verify the "
-                "manifest itself, hash manifest.json and compare to the value "
-                "above.",
+                "This packet is UNSIGNED. The manifest SHA-256 quoted here and "
+                "in the README lives inside the same archive it describes, so "
+                "on its own it proves only internal self-consistency, not "
+                "authenticity. To check integrity, compare the manifest "
+                "SHA-256 against the value recorded out of band when the "
+                "packet was generated: the COMPLIANCE_PACKET_EXPORTED "
+                "audit-log row's manifest_sha256, obtained from the firm or "
+                "SMD rather than from this archive. Once that matches, hash a "
+                "specific file with sha256 and compare to manifest.json -> "
+                "file_hashes -> <filename>.",
             ],
         )
     )

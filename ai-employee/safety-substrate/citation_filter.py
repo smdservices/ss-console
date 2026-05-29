@@ -32,8 +32,13 @@ from typing import Iterable
 # "Smith v. Jones", "Smith v Jones" (no period), "Smith vs. Jones", "In re Smith",
 # "United States v. Smith". Tolerates middle initials and "Inc."/"LLC" suffixes.
 _PARTY = r"[A-Z][A-Za-z'.\-]{1,40}(?:\s+[A-Z][A-Za-z'.\-]{1,40}){0,4}"
+# IGNORECASE so all-caps ("SMITH V. JONES") and lowercase ("smith v jones")
+# party names are caught — fabricated cites without a reporter cite otherwise
+# slipped through the case-name gap (issue #1128). False positives are
+# acceptable here; a false negative is the venture-killer.
 CASE_NAME_RE = re.compile(
-    rf"\b(?:In re\s+{_PARTY}|{_PARTY}\s+v(?:s)?\.?\s+{_PARTY})\b"
+    rf"\b(?:In re\s+{_PARTY}|{_PARTY}\s+v(?:s)?\.?\s+{_PARTY})\b",
+    re.IGNORECASE,
 )
 
 # ---------- Reporter cite patterns (volume + reporter + page) ----------
@@ -71,8 +76,11 @@ REPORTER_CITE_RE = re.compile(
 
 # ---------- Statute reference patterns ----------
 # 42 U.S.C. § 1983, 18 U.S.C. §§ 1961-1968, A.R.S. § 12-501, Cal. Civ. Code § 1638, etc.
+# § is optional (§{0,2}) so "42 U.S.C. 1983" — common in casual model output
+# with no section symbol — is still caught, matching STATE_STATUTE_RE's
+# already-optional handling (issue #1128).
 STATUTE_RE = re.compile(
-    r"\b\d{1,3}\s+(?:U\.\s?S\.\s?C\.|C\.\s?F\.\s?R\.)\s?§{1,2}\s?\d+",
+    r"\b\d{1,3}\s+(?:U\.\s?S\.\s?C\.|C\.\s?F\.\s?R\.)\s?§{0,2}\s?\d+",
     re.IGNORECASE,
 )
 STATE_STATUTE_RE = re.compile(
@@ -113,9 +121,6 @@ PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("local-rule", LOCAL_RULE_RE),
     ("bluebook-signal", BLUEBOOK_SIGNALS_RE),
 ]
-
-
-_ENCODING_BYPASS_RE = re.compile(r"\s+(?=[.,])|(?<=[A-Za-z])\s+(?=[A-Za-z])(?![a-z]{3,})")
 
 
 def _normalize_encoding_bypass(text: str) -> str:

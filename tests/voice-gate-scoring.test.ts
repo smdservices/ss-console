@@ -320,7 +320,7 @@ describe('scoreRun — per-cohort breakdown', () => {
     expect(result.per_cohort).toBeUndefined()
   })
 
-  it("identifies below-threshold cohorts in failure record for 'all' runs", () => {
+  it("a failing cohort blocks an 'all' run even when the pooled score passes (issue #1124)", () => {
     const drafts: BlindTestDraft[] = []
     const ids: JudgeIdentification[] = []
     // client → 100% pass, opposing-counsel → 50% fail, internal-team → 90% pass
@@ -333,9 +333,42 @@ describe('scoreRun — per-cohort breakdown', () => {
       ids.push(ident(`it-${i}`, 'j1', i < 9 ? 'customer' : 'agent'))
     }
     const result = scoreRun(makeRun({ drafts, identifications: ids }))
-    // Overall: 24/30 = 80% → pass; but opposing-counsel cohort is 50%
-    expect(result.state).toBe('pass') // overall threshold met
+    // Pooled overall is 24/30 = 80% (would pass on its own), but the
+    // opposing-counsel cohort is 50% → the run must NOT pass. A strong
+    // cohort can no longer mask a failing one.
+    expect(result.score_pct).toBe(80)
+    expect(result.state).toBe('fail')
     expect(result.per_cohort?.['opposing-counsel'].score_pct).toBe(50)
+    expect(result.failure_record?.below_threshold_cohorts).toContain('opposing-counsel')
+  })
+
+  it("a near-pass cohort downgrades an otherwise-passing 'all' run to near-pass", () => {
+    const drafts: BlindTestDraft[] = []
+    const ids: JudgeIdentification[] = []
+    // client → 100%, opposing-counsel → 70% (near-pass band), so the run
+    // is held at near-pass even though pooled overall is 85%.
+    for (let i = 0; i < 10; i++) {
+      drafts.push(draft(`c-${i}`, 'client', 'agent'))
+      ids.push(ident(`c-${i}`, 'j1', 'customer'))
+      drafts.push(draft(`oc-${i}`, 'opposing-counsel', 'agent'))
+      ids.push(ident(`oc-${i}`, 'j1', i < 7 ? 'customer' : 'agent'))
+    }
+    const result = scoreRun(makeRun({ drafts, identifications: ids }))
+    expect(result.score_pct).toBe(85)
+    expect(result.state).toBe('near-pass')
+  })
+
+  it("an 'all' run passes only when every covered cohort clears threshold", () => {
+    const drafts: BlindTestDraft[] = []
+    const ids: JudgeIdentification[] = []
+    for (let i = 0; i < 10; i++) {
+      drafts.push(draft(`c-${i}`, 'client', 'agent'))
+      ids.push(ident(`c-${i}`, 'j1', i < 9 ? 'customer' : 'agent')) // 90%
+      drafts.push(draft(`oc-${i}`, 'opposing-counsel', 'agent'))
+      ids.push(ident(`oc-${i}`, 'j1', i < 8 ? 'customer' : 'agent')) // 80%
+    }
+    const result = scoreRun(makeRun({ drafts, identifications: ids }))
+    expect(result.state).toBe('pass')
   })
 })
 
