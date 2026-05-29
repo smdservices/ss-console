@@ -79,7 +79,7 @@ def _base_customer_yaml(slug: str) -> dict:
         "practice_areas": ["personal-injury-plaintiff"],
         "fly_region": "iad",
         "model": "claude-opus-4-7",
-        "hermes_ref": "v2026.5.7",
+        "hermes_ref": "v2026.5.7@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0",
         "machine": {"size": "shared-cpu-1x", "memory_mb": 1024},
         "users": [
             {"email": "principal@example.test", "role": "principal", "full_name": "Jane Principal"}
