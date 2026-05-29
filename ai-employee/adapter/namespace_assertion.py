@@ -18,8 +18,9 @@ binding was *intended* to serve. The wrapper rejects any call whose
 target keyspace does not match that slug, regardless of how the call
 came to be constructed.
 
-Three pieces, mirroring the `D1Executor` pattern at
-`ai-employee/adapter/audit_log_immutability.py:279`:
+Three pieces, mirroring the `D1Executor` pattern documented in the audit
+immutability module (ported to
+`hermes-smd-overlay/plugins/hermes-smd-audit/immutability.py`; #1130):
 
 1. `NamespacedD1Executor` — wraps an existing `Executor` (the protocol
    declared in `audit_log.py`). The D1 binding is already per-customer,

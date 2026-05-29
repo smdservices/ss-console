@@ -141,6 +141,13 @@ def _print_summary(result: RetentionRunResult, *, dry_run: bool) -> None:
         f"deleted={int(voice.get('deleted', 0) or 0)} "
         f"errors={int(voice.get('errors', 0) or 0)}"
     )
+    drafts = result.drafts
+    print(
+        f"[{mode}] retention/drafts customer={result.customer_slug} "
+        f"considered={drafts.considered} "
+        f"deleted={drafts.deleted} "
+        f"errors={drafts.errors}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -165,10 +172,12 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--scope",
         choices=[scope.value for scope in DeletingScope],
-        default=DeletingScope.FIRM_WIDE.value,
+        default=DeletingScope.ALL.value,
         help=(
-            "Access-scope sweep. Default firm_wide; use partner_only or "
-            "attorney_list for narrower passes, all for full clean-out."
+            "Access-scope sweep. Default 'all' so aged partner_only / "
+            "attorney_list data is not retained forever (issue #1126; access "
+            "scope is a read ACL, not a deletion exemption). Pass firm_wide / "
+            "partner_only / attorney_list to NARROW a targeted redaction pass."
         ),
     )
     parser.add_argument(

@@ -2,7 +2,9 @@
 
 `audit_log.writer_from_env()` returns the raw audit-log writer — that
 path is the *one* sanctioned INSERT into `audit_log` and stays
-unwrapped by design (see `audit_log_immutability.py` for the rationale).
+unwrapped by design (see the immutability rationale in
+`hermes-smd-overlay/plugins/hermes-smd-audit/immutability.py`, where the
+enforcement was ported; #1130).
 Every OTHER caller that wants per-customer D1 access at the Machine
 boot level should call `namespaced_executor_from_env(customer_slug)`
 below; it returns a `NamespacedD1Executor` bound to the slug, with the

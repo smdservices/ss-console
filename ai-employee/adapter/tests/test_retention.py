@@ -42,6 +42,7 @@ from adapter.memory.retention import (  # noqa: E402
     DEFAULT_VOICE_SAMPLES_DAYS,
     DeletingScope,
     MemoryRetentionPolicy,
+    run_draft_retention,
     run_full_retention,
     run_memory_retention,
 )
@@ -68,7 +69,37 @@ CREATE TABLE memory_ingested_items (
   metadata             TEXT,
   deleted_at           TEXT
 );
+CREATE TABLE draft_queue (
+  id            TEXT PRIMARY KEY,
+  skill_name    TEXT NOT NULL,
+  matter_ref    TEXT,
+  created_at    TEXT NOT NULL,
+  expires_at    TEXT,
+  status        TEXT NOT NULL DEFAULT 'pending',
+  reviewed_at   TEXT,
+  reviewed_by   TEXT,
+  r2_draft_key  TEXT NOT NULL,
+  r2_sent_key   TEXT,
+  priority      INTEGER NOT NULL DEFAULT 5,
+  recipient_cohort_id TEXT
+);
 """
+
+
+def _insert_draft(
+    conn: sqlite3.Connection,
+    *,
+    draft_id: str,
+    created_at: str,
+    r2_draft_key: str,
+    r2_sent_key: str | None = None,
+) -> None:
+    conn.execute(
+        "INSERT INTO draft_queue (id, skill_name, created_at, r2_draft_key, r2_sent_key) "
+        "VALUES (?, 'law-pi-demand-letter', ?, ?, ?)",
+        [draft_id, created_at, r2_draft_key, r2_sent_key],
+    )
+    conn.commit()
 
 
 # ---------------------------------------------------------------------------
@@ -498,14 +529,117 @@ def test_run_full_retention_invokes_memory_and_voice_and_emits_audit_rows():
 
     assert result.memory.total_deleted == 1
     assert result.voice["deleted"] == 4
+    assert result.drafts.deleted == 0  # no draft rows inserted in this fixture
     assert result.total_deleted == 5
     assert result.total_errors == 1
     assert voice_calls == [{"voice_retention_days": 180}]
 
-    # One audit row per pipeline.
-    assert len(audit.events) == 2
+    # One audit row per pipeline (memory + voice + drafts).
+    assert len(audit.events) == 3
     steps = {event.metadata["step"] for event in audit.events}
-    assert steps == {"retention/memory", "retention/voice"}
+    assert steps == {"retention/memory", "retention/voice", "retention/drafts"}
     for event in audit.events:
         assert event.action_type == "DECOMMISSION_DRAIN_COMPLETE"
         assert event.metadata["customer_slug"] == "demo-firm"
+
+
+# ---------------------------------------------------------------------------
+# Draft-queue retention (issue #1126)
+# ---------------------------------------------------------------------------
+
+
+def test_draft_retention_deletes_only_aged_drafts_and_their_r2_bodies():
+    conn = sqlite3.connect(":memory:")
+    conn.executescript(_SCHEMA_SQL)
+    now = _now()
+    _insert_draft(
+        conn,
+        draft_id="draft-fresh",
+        created_at=_iso(now - timedelta(days=10)),
+        r2_draft_key="demo/drafts/draft-fresh.md",
+    )
+    _insert_draft(
+        conn,
+        draft_id="draft-expired",
+        created_at=_iso(now - timedelta(days=120)),
+        r2_draft_key="demo/drafts/draft-expired.md",
+        r2_sent_key="demo/sent/draft-expired.md",
+    )
+    executor = _DualExecutor(conn)
+    storage = _FakeStorage()
+
+    result = _run(
+        run_draft_retention(executor=executor, storage=storage, drafts_days=90, now=now)
+    )
+
+    assert result.considered == 1
+    assert result.deleted == 1
+    assert result.errors == 0
+    # Both the draft body and the sent copy are removed from R2.
+    assert "demo/drafts/draft-expired.md" in storage.r2_deletes
+    assert "demo/sent/draft-expired.md" in storage.r2_deletes
+    assert "demo/drafts/draft-fresh.md" not in storage.r2_deletes
+    # The expired row is hard-deleted; the fresh one remains.
+    remaining = {row[0] for row in conn.execute("SELECT id FROM draft_queue").fetchall()}
+    assert remaining == {"draft-fresh"}
+
+
+def test_draft_retention_is_idempotent_when_nothing_aged():
+    conn = sqlite3.connect(":memory:")
+    conn.executescript(_SCHEMA_SQL)
+    now = _now()
+    _insert_draft(
+        conn,
+        draft_id="draft-recent",
+        created_at=_iso(now - timedelta(days=1)),
+        r2_draft_key="demo/drafts/draft-recent.md",
+    )
+    executor = _DualExecutor(conn)
+    storage = _FakeStorage()
+    first = _run(
+        run_draft_retention(executor=executor, storage=storage, drafts_days=90, now=now)
+    )
+    second = _run(
+        run_draft_retention(executor=executor, storage=storage, drafts_days=90, now=now)
+    )
+    assert first.deleted == 0
+    assert second.deleted == 0
+    assert storage.r2_deletes == []
+
+
+def test_all_scope_sweeps_partner_only_and_attorney_list():
+    """The scheduled cron defaults to ALL so the most sensitive scopes are
+    not retained forever (issue #1126)."""
+    conn = sqlite3.connect(":memory:")
+    conn.executescript(_SCHEMA_SQL)
+    now = _now()
+    for scope in ("firm-wide", "partner-only", "attorney-list"):
+        _insert_item(
+            conn,
+            item_id=f"matter-{scope}",
+            item_type="matter",
+            ingested_at=_iso(now - timedelta(days=10_000)),
+            access_scope=scope,
+            r2_key=f"demo/vault/narrative/matter-{scope}.json",
+        )
+    executor = _DualExecutor(conn)
+    storage = _FakeStorage()
+
+    result = _run(
+        run_memory_retention(
+            executor=executor,
+            storage=storage,
+            policy=MemoryRetentionPolicy(),
+            deleting_scope=DeletingScope.ALL,
+            now=now,
+        )
+    )
+    per_type = {t.item_type: t for t in result.per_type}
+    assert per_type["matter"].deleted == 3
+    active = {
+        row[0]
+        for row in conn.execute(
+            "SELECT id FROM memory_ingested_items WHERE deleted_at IS NULL"
+        ).fetchall()
+    }
+    assert active == set()

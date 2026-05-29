@@ -192,13 +192,17 @@ def test_matching_draft_returns_no_change_needed():
 # ---------------------------------------------------------------------------
 
 
-def test_greeting_swap_formal_to_first_name():
+def test_greeting_swap_formal_to_first_name_declines():
+    # A formal-named greeting carries only the surname, so a first-name
+    # target would render "Hi Smith," — addressing the recipient by surname
+    # as if it were a first name in client-facing legal mail. The swap must
+    # decline rather than fabricate a first name (issue #1129).
     draft = "Dear Mr. Smith,\n\nFollowing up on the matter.\n\nThanks,\nMarcus"
     profile = _profile(greeting=GreetingStyle.FIRST_NAME, signoff=SignoffStyle.THANKS)
     result = transform_draft(draft=draft, profile=profile)
-    assert result.status == TransformStatus.TRANSFORMED
-    assert "greeting_swap" in result.changes_applied
-    assert result.transformed_draft.startswith("Hi Smith,")
+    assert "greeting_swap" not in result.changes_applied
+    assert "Hi Smith," not in result.transformed_draft
+    assert result.transformed_draft.startswith("Dear Mr. Smith,")
 
 
 def test_greeting_swap_first_name_to_formal():
@@ -521,7 +525,10 @@ def test_round_trip_with_real_extracted_diffs():
     draft = "Dear Mr. Smith,\n\nFollowing up on the matter.\n\nSincerely,\nMarcus"
     result = transform_draft(draft=draft, profile=profile)
     assert result.status == TransformStatus.TRANSFORMED
-    assert "Hi Smith," in result.transformed_draft
+    # Greeting declines (a formal source has no first name to recover —
+    # issue #1129); the signoff still swaps Sincerely -> Thanks.
+    assert "Hi Smith," not in result.transformed_draft
+    assert result.transformed_draft.startswith("Dear Mr. Smith,")
     assert "Thanks," in result.transformed_draft
     assert "Marcus" in result.transformed_draft
 
@@ -578,9 +585,12 @@ def test_bundle_with_no_reviewer_id_falls_back_to_general():
     draft = "Dear Mr. Smith,\n\nFollowing up.\n\nSincerely,\nMarcus"
     result = transform_draft(draft=draft, profile=bundle)
     assert result.selected_voice_user_id == GENERAL_VOICE_USER_ID
-    # General profile is first_name/thanks — the formal draft should swap.
+    # General profile is first_name/thanks. The greeting declines (a formal
+    # source has no first name to recover — issue #1129); the signoff swaps
+    # Sincerely -> Thanks, so the result is still TRANSFORMED.
     assert result.status == TransformStatus.TRANSFORMED
-    assert result.transformed_draft.startswith("Hi Smith,")
+    assert "Hi Smith," not in result.transformed_draft
+    assert result.transformed_draft.startswith("Dear Mr. Smith,")
 
 
 def test_bundle_per_user_profile_selected_when_reviewer_id_matches():
@@ -874,8 +884,10 @@ def test_transform_draft_threads_cohort_through_to_result():
     assert result.selected_voice_user_id == "partner-sarah"
     assert result.selected_voice_cohort == "client"
     assert result.status == TransformStatus.TRANSFORMED
-    # Per-(user, cohort) is first_name/thanks → swap from formal
-    assert result.transformed_draft.startswith("Hi Smith,")
+    # Per-(user, cohort) is first_name/thanks. Greeting declines (no first
+    # name in a formal source — issue #1129); the signoff still swaps.
+    assert "Hi Smith," not in result.transformed_draft
+    assert result.transformed_draft.startswith("Dear Mr. Smith,")
 
 
 def test_transform_draft_records_general_cohort_on_legacy_path():
