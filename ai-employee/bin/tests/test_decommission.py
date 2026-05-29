@@ -434,6 +434,114 @@ def test_failure_halts_with_step_failed(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Tests: --live fail-closed when destructive backends are unwired (#1123)
+# ---------------------------------------------------------------------------
+
+
+class _FakeComposio:
+    async def revoke_connections(self, customer_slug: str) -> dict:
+        return {"skipped": False, "connections_revoked": 1}
+
+
+class _FakeAgentMail:
+    async def deprovision(self, customer_slug: str) -> dict:
+        return {"skipped": False, "identities_removed": 1}
+
+
+class _FakeFly:
+    async def destroy_machine(self, customer_slug: str) -> dict:
+        return {"skipped": False, "app_destroyed": True}
+
+
+def test_unwired_backends_lists_all_stubs_by_default(tmp_path):
+    customers_root = _copy_fixture(tmp_path)
+    writer, _conn = _make_audit(tmp_path)
+    # Construct exactly as the CLI does today: no runners injected, all
+    # external services defaulting to NoOp stubs.
+    pipeline = DecommissionPipeline(
+        customer_slug="smd",
+        customers_root=customers_root,
+        archive_root=tmp_path / "archive",
+        audit_writer=writer,
+    )
+    assert pipeline.unwired_destructive_backends() == [
+        "memory_runner",
+        "voice_runner",
+        "r2_deleter",
+        "vectorize_deleter",
+        "composio",
+        "agentmail",
+        "fly",
+        "observability",
+    ]
+
+
+def test_unwired_backends_empty_when_all_wired(tmp_path):
+    customers_root = _copy_fixture(tmp_path)
+    writer, _conn = _make_audit(tmp_path)
+    pipeline = DecommissionPipeline(
+        customer_slug="smd",
+        customers_root=customers_root,
+        archive_root=tmp_path / "archive",
+        audit_writer=writer,
+        memory_runner=_RecordingMemoryRunner(),
+        voice_runner=_RecordingVoiceRunner(),
+        r2_deleter=_RecordingR2Deleter(),
+        vectorize_deleter=_RecordingVectorizeDeleter(),
+        composio=_FakeComposio(),
+        agentmail=_FakeAgentMail(),
+        fly=_FakeFly(),
+        observability=_RecordingObservabilityCleanup(),
+    )
+    assert pipeline.unwired_destructive_backends() == []
+
+
+def test_cli_live_refuses_when_backends_unwired(tmp_path):
+    from bin.lib.decommission_cli import main
+
+    customers_root = _copy_fixture(tmp_path)
+    rc = main(
+        [
+            "smd",
+            "--live",
+            "--customers-root",
+            str(customers_root),
+            "--archive-root",
+            str(tmp_path / "archive"),
+            "--audit-db",
+            str(tmp_path / "audit.sqlite"),
+        ]
+    )
+    assert rc == 5
+    # Customer dir must be untouched — no tombstone, no false success.
+    assert (customers_root / "smd" / "customer.yaml").exists()
+    assert not list(customers_root.glob("smd.decommissioned.*"))
+
+
+def test_cli_live_allow_unwired_runs_and_tombstones(tmp_path):
+    from bin.lib.decommission_cli import main
+
+    customers_root = _copy_fixture(tmp_path)
+    rc = main(
+        [
+            "smd",
+            "--live",
+            "--allow-unwired",
+            "--customers-root",
+            str(customers_root),
+            "--archive-root",
+            str(tmp_path / "archive"),
+            "--audit-db",
+            str(tmp_path / "audit.sqlite"),
+        ]
+    )
+    assert rc == 0
+    # With the explicit override the flow proceeds and tombstones.
+    assert not (customers_root / "smd").exists()
+    assert len(list(customers_root.glob("smd.decommissioned.*"))) == 1
+
+
+# ---------------------------------------------------------------------------
 # Tests: tombstone with no live customer dir is a clean skip
 # ---------------------------------------------------------------------------
 
