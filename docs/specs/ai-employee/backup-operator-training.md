@@ -26,7 +26,7 @@ The backup operator must read and be able to summarize the four isolation ADRs a
 - [ ] Read [ADR 0007 (Per-customer Machine isolation)](../../adr/0007-per-customer-machine-isolation.md). Can explain why one customer's Machine never talks to another customer's storage.
 - [ ] Read [ADR 0008 (Customer-owned memory artifact)](../../adr/0008-customer-owned-memory-artifact.md). Can explain that the customer's memory artifact is theirs by contract, what gets exported on offboarding, and what stays platform property (persona email address, dashboard avatar).
 - [ ] Read [ADR 0009 (Cross-Machine query prohibition)](../../adr/0009-cross-machine-query-prohibition.md). Can name the runtime, deployment, and CI layers that enforce the boundary.
-- [ ] Read [ADR 0015 (Hermes fork vs upstream)](../../adr/0015-hermes-fork-vs-upstream.md). Can explain why SMD maintains a thin vendored fork at `venturecrane/hermes-agent` rather than tracking upstream directly or hard-forking.
+- [ ] Read [ADR 0024 (Hermes consumption and update cadence)](../../adr/0024-hermes-consumption-and-update-cadence.md). Can explain why SMD pins upstream Hermes by `v{date}@{sha}` and clones `NousResearch/hermes-agent` directly, why the `venturecrane/hermes-agent` fork was retired, and the track-vs-deploy cadence (continuous tracking, deliberate blessed-version promotion).
 
 ### Gate 2: Runbook familiarity
 
@@ -56,7 +56,7 @@ The backup operator must hold the credentials and roles required to execute Gate
 - [ ] **Fly.io.** Member of the SMD organization with a personal access token scoped to the customer Machines. Verifies by running `fly apps list` and seeing the `hermes-*` apps.
 - [ ] **Cloudflare.** Member of the SMD account with read-write on D1, R2, Vectorize, and Workers. Verifies by listing D1 databases and reading the per-customer schema.
 - [ ] **AWS.** If and when the platform takes a hard AWS dependency, an IAM role scoped to the backup operator's required actions. Until that dependency exists, this line stays unchecked and the operator does not need an AWS account.
-- [ ] **GitHub.** Push and review permission on `venturecrane/ss-console` and read access to `venturecrane/hermes-agent`. Verifies by opening a draft PR against a throwaway branch.
+- [ ] **GitHub.** Push and review permission on `venturecrane/ss-console`. Verifies by opening a draft PR against a throwaway branch. (Hermes is consumed from upstream `NousResearch/hermes-agent`, which is public; no special access is required since ADR 0024 retired the `venturecrane/hermes-agent` fork.)
 - [ ] **Bitwarden.** Membership in the `smd-services` organization scoped to the customer-credentials collection. Verifies by reading one non-sensitive credential record metadata (never the value).
 - [ ] **Infisical.** Workspace member with read on `/ss/customers/*` and `/ss` shared secrets. Verifies by listing secret names with `infisical secrets list` (names only, never with `--plain`).
 - [ ] **PagerDuty (or Better Stack).** Listed on the "AI Employee production" service rotation, even if at a lower-tier escalation. Verifies by triggering a synthetic incident that pages the operator and acknowledging it.

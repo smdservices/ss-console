@@ -113,7 +113,7 @@ print(c['customer_id'])
 print(c['fly_region'])
 print(m.get('size', 'shared-cpu-2x'))
 print(m.get('memory_mb', 2048))
-print(c.get('hermes_ref', 'v2026.5.16-smd.0'))
+print(c.get('hermes_ref', 'v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0'))
 "
 # Portable line-array read (macOS bash 3.2 doesn't have mapfile)
 FIELDS=()
@@ -131,20 +131,20 @@ APP_NAME="hermes-${SLUG}"
 
 log "App: ${APP_NAME} · region: ${FLY_REGION} · machine: ${MACHINE_SIZE}/${MEMORY_MB}MB · hermes: ${HERMES_REF}"
 
-# ---------- Step 1b: resolve Hermes upstream SHA for no-patches assertion ----------
-# Strip the -smd.N (or -smd.security.N) suffix from the fork tag to get the
-# equivalent upstream tag. Look up its SHA via git ls-remote against
-# NousResearch/hermes-agent. The Dockerfile asserts the fork tag's HEAD
-# matches this SHA; any divergence fails the build (ADR 0015 no-patches
-# discipline, load-bearing for AGPL §13 unmodified-deployment safe harbor).
-UPSTREAM_REF="${HERMES_REF%-smd.*}"
-[ "${UPSTREAM_REF}" != "${HERMES_REF}" ] || die "hermes_ref ${HERMES_REF} does not match the vYYYY.M.D-smd.N fork-tag pattern (PR #1037 validator)"
-
-log "Resolving upstream SHA for ${UPSTREAM_REF} (stripped from ${HERMES_REF})..."
-HERMES_UPSTREAM_SHA=$(git ls-remote --tags https://github.com/NousResearch/hermes-agent.git "refs/tags/${UPSTREAM_REF}" | awk '{print $1}' | head -1)
-[ -n "${HERMES_UPSTREAM_SHA}" ] || die "Could not resolve upstream SHA for ${UPSTREAM_REF}; check the tag exists at NousResearch/hermes-agent"
-[ "${#HERMES_UPSTREAM_SHA}" -eq 40 ] || die "Resolved upstream SHA has unexpected length (got ${#HERMES_UPSTREAM_SHA}, expected 40): ${HERMES_UPSTREAM_SHA}"
-log "Upstream SHA: ${HERMES_UPSTREAM_SHA}"
+# ---------- Step 1b: split the upstream pin into tag + SHA (ADR 0024) ----------
+# hermes_ref pins upstream Hermes as v{YYYY}.{M}.{D}@{40-hex-sha}. The tag
+# before '@' is the clone target; the SHA after '@' is the immutable pin the
+# Dockerfile asserts the cloned HEAD against. Because the SHA travels in the
+# ref itself, we do NOT resolve it from a live upstream lookup here (this is
+# the availability fix in ADR 0024 — provisioning no longer phones a second
+# repo). The venturecrane/hermes-agent fork was retired by ADR 0024; the
+# Dockerfile clones NousResearch/hermes-agent directly.
+HERMES_UPSTREAM_TAG="${HERMES_REF%@*}"
+HERMES_UPSTREAM_SHA="${HERMES_REF#*@}"
+[ "${HERMES_UPSTREAM_TAG}" != "${HERMES_REF}" ] || die "hermes_ref ${HERMES_REF} is missing the @<sha> pin; expected v{YYYY}.{M}.{D}@{40-hex-sha} per ADR 0024"
+[ "${#HERMES_UPSTREAM_SHA}" -eq 40 ] || die "hermes_ref SHA has unexpected length (got ${#HERMES_UPSTREAM_SHA}, expected 40): ${HERMES_UPSTREAM_SHA}"
+case "${HERMES_UPSTREAM_SHA}" in *[!0-9a-f]*) die "hermes_ref SHA must be lowercase hex: ${HERMES_UPSTREAM_SHA}" ;; esac
+log "Hermes upstream pin: ${HERMES_UPSTREAM_TAG} @ ${HERMES_UPSTREAM_SHA}"
 
 # ---------- Step 2: upload customer.yaml to R2 ----------
 # bootstrap.sh fetches this from R2 on first boot and writes it to
@@ -175,6 +175,7 @@ sed -e "s/{{CUSTOMER_SLUG}}/${SLUG}/g" \
     -e "s/{{MACHINE_SIZE}}/${MACHINE_SIZE}/g" \
     -e "s/{{MEMORY_MB}}/${MEMORY_MB}/g" \
     -e "s/{{HERMES_REF}}/${HERMES_REF}/g" \
+    -e "s/{{HERMES_UPSTREAM_TAG}}/${HERMES_UPSTREAM_TAG}/g" \
     -e "s/{{HERMES_UPSTREAM_SHA}}/${HERMES_UPSTREAM_SHA}/g" \
     -e "s|{{R2_BUCKET_CONFIG}}|${R2_BUCKET_CONFIG}|g" \
     -e "s|{{R2_SKILL_BODIES_BUCKET}}|${R2_SKILL_BODIES_BUCKET}|g" \
@@ -410,6 +411,7 @@ fly secrets deploy -a "${APP_NAME}" 2>/dev/null || true
 log "Deploying ${APP_NAME}..."
 (cd "${REPO_ROOT}" && fly deploy --config "${RENDERED_DIR}/fly.toml" \
   --build-arg HERMES_REF="${HERMES_REF}" \
+  --build-arg HERMES_UPSTREAM_TAG="${HERMES_UPSTREAM_TAG}" \
   --build-arg HERMES_UPSTREAM_SHA="${HERMES_UPSTREAM_SHA}" \
   --build-arg CUSTOMER_SLUG="${SLUG}")
 
