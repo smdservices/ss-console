@@ -21,21 +21,24 @@
 #   - ai-employee/templates/bootstrap.sh
 
 # ---------- Build args ----------
-# customer.yaml.hermes_ref pins a fork tag of the form vYYYY.M.D-smd.N per
-# ADR 0015 (rewritten) and SMD_FORK_POLICY.md on venturecrane/hermes-agent.
-# The customer.yaml validator (src/lib/ai-employee/customer-yaml/helpers.ts,
-# PR #1037) enforces that shape. We clone from the venturecrane fork because
-# only the fork carries those tags; for the no-patches discipline, the
-# post-clone assertion below verifies the tag points at the matching upstream
-# commit SHA — any divergence fails the build (load-bearing for AGPL §13
-# unmodified-deployment safe harbor).
-ARG HERMES_REF=v2026.5.16-smd.0
+# customer.yaml.hermes_ref pins an upstream Hermes release as
+# v{YYYY}.{M}.{D}@{40-hex-sha} per ADR 0024
+# (docs/adr/0024-hermes-consumption-and-update-cadence.md). The customer.yaml
+# validator (src/lib/ai-employee/customer-yaml/helpers.ts) enforces that shape.
+# provision-customer.sh splits the pin into the upstream tag (clone target) and
+# the SHA (assertion) and passes both here. We clone NousResearch/hermes-agent
+# directly; the venturecrane/hermes-agent fork was retired by ADR 0024.
+#
+# HERMES_REF is the full pin string, retained for provenance and logging.
+ARG HERMES_REF=v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 
-# Upstream commit SHA at the equivalent NousResearch/hermes-agent tag. The
-# build orchestrator pins this alongside HERMES_REF. If the fork tag points
-# anywhere else, the fork is carrying patches and the build fails. The default
-# below is the SHA for upstream tag v2026.5.16, documented in
-# SMD_FORK_POLICY.md (venturecrane/hermes-agent) and SMD_CHANGELOG.md.
+# Upstream date-tag to clone (the part before '@').
+ARG HERMES_UPSTREAM_TAG=v2026.5.16
+
+# Upstream commit SHA (the part after '@'). The post-clone assertion verifies
+# the cloned HEAD matches this exactly; any divergence (upstream re-tag, stale
+# pin) fails the build. This is the integrity check proving we ship unmodified
+# upstream Hermes.
 ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 
 # Honcho upstream is plastic-labs/honcho (AGPL-3.0). Pinned via the pip
@@ -52,20 +55,20 @@ ARG OVERLAY_REF="v0.1.0"
 
 ARG CUSTOMER_SLUG=customer-zero
 
-# ---------- Stage 1: clone Hermes at pinned ref ----------
+# ---------- Stage 1: clone Hermes upstream at the pinned tag, assert SHA ----------
 FROM alpine/git:2.45.2 AS hermes_source
-ARG HERMES_REF
+ARG HERMES_UPSTREAM_TAG
 ARG HERMES_UPSTREAM_SHA
 WORKDIR /src
-RUN git clone --depth 1 --branch ${HERMES_REF} \
-    https://github.com/venturecrane/hermes-agent.git . \
+RUN git clone --depth 1 --branch ${HERMES_UPSTREAM_TAG} \
+    https://github.com/NousResearch/hermes-agent.git . \
  && git rev-parse HEAD > /src/HERMES_SHA \
  && INSTALLED_SHA="$(cat /src/HERMES_SHA)" \
  && if [ "${INSTALLED_SHA}" != "${HERMES_UPSTREAM_SHA}" ]; then \
-      echo "FATAL: Hermes fork tag ${HERMES_REF} points at ${INSTALLED_SHA}" >&2 ; \
-      echo "       Expected upstream SHA ${HERMES_UPSTREAM_SHA}." >&2 ; \
-      echo "       The fork carries patches; AGPL §13 safe-harbor invalid." >&2 ; \
-      echo "       See ADR 0015 and SMD_FORK_POLICY.md on venturecrane/hermes-agent." >&2 ; \
+      echo "FATAL: upstream tag ${HERMES_UPSTREAM_TAG} points at ${INSTALLED_SHA}" >&2 ; \
+      echo "       Expected pinned SHA ${HERMES_UPSTREAM_SHA} (from customer.yaml hermes_ref)." >&2 ; \
+      echo "       Upstream re-tagged, or the pin is stale; refusing to build." >&2 ; \
+      echo "       See ADR 0024." >&2 ; \
       exit 1 ; \
     fi
 

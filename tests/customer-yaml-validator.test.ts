@@ -47,7 +47,7 @@ function validFixture(): Record<string, unknown> {
     practice_areas: ['personal-injury', 'workers-comp'],
     fly_region: 'lax',
     model: 'claude-opus-4-7',
-    hermes_ref: 'v2026.5.7-smd.0',
+    hermes_ref: 'v2026.5.7@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0',
     machine: {
       size: 'performance-1x',
       memory_mb: 1024,
@@ -877,105 +877,117 @@ describe('validate — aggregate error behavior', () => {
 })
 
 // -----------------------------------------------------------------------------
-// hermes_ref fork-tag enforcement (ADR 0015)
+// hermes_ref upstream-pin enforcement (ADR 0024)
 // -----------------------------------------------------------------------------
 
-describe('validate — hermes_ref fork-tag enforcement (ADR 0015)', () => {
-  it('accepts a fork tag at the initial -smd.0 revision', () => {
+describe('validate — hermes_ref upstream-pin enforcement (ADR 0024)', () => {
+  it('accepts a valid upstream pin (v{date}@{40-hex-sha})', () => {
     const f = validFixture()
-    f['hermes_ref'] = 'v2026.5.7-smd.0'
+    f['hermes_ref'] = 'v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0'
     const r = validate(f)
     if (!r.ok) {
       throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
     }
-    expect(r.value.hermes_ref).toBe('v2026.5.7-smd.0')
+    expect(r.value.hermes_ref).toBe('v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0')
   })
 
-  it('accepts a fork tag at a higher SMD revision', () => {
+  it('accepts another valid upstream pin at a different release', () => {
     const f = validFixture()
-    f['hermes_ref'] = 'v2026.5.7-smd.12'
+    f['hermes_ref'] = 'v2026.5.28@0123456789abcdef0123456789abcdef01234567'
     expect(validate(f).ok).toBe(true)
   })
 
-  it('accepts a security-patch fork tag (escape-valve shape)', () => {
+  it('rejects a retired -smd.N fork tag', () => {
+    const f = validFixture()
+    f['hermes_ref'] = 'v2026.5.16-smd.0'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidFormat')
+  })
+
+  it('rejects a retired -smd.security.N fork tag', () => {
     const f = validFixture()
     f['hermes_ref'] = 'v2026.5.16-smd.security.0'
-    expect(validate(f).ok).toBe(true)
-  })
-
-  it('accepts a security-patch tag at higher iteration', () => {
-    const f = validFixture()
-    f['hermes_ref'] = 'v2026.5.16-smd.security.7'
-    expect(validate(f).ok).toBe(true)
-  })
-
-  it('rejects legacy SemVer-style upstream tags (Hermes moved to date-based tags in 2026)', () => {
-    const f = validFixture()
-    f['hermes_ref'] = 'v0.14.0-smd.0'
     const r = validate(f)
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(codesOf(r.errors)).toContain('InvalidFormat')
   })
 
-  it('rejects SemVer pre-release identifiers', () => {
+  it('rejects a bare date-tag (no @sha)', () => {
     const f = validFixture()
-    f['hermes_ref'] = 'v0.14.0-rc.1-smd.0'
-    const r = validate(f)
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(codesOf(r.errors)).toContain('InvalidFormat')
-  })
-
-  it('rejects a bare upstream tag (no -smd.N suffix)', () => {
-    const f = validFixture()
-    f['hermes_ref'] = 'v2026.5.7'
+    f['hermes_ref'] = 'v2026.5.16'
     const r = validate(f)
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(r.errors.some((e) => e.path === 'hermes_ref' && e.code === 'InvalidFormat')).toBe(true)
   })
 
+  it('rejects legacy SemVer-style tags (year is not 4 digits)', () => {
+    const f = validFixture()
+    f['hermes_ref'] = 'v0.14.0@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidFormat')
+  })
+
   it('rejects a missing v-prefix', () => {
     const f = validFixture()
-    f['hermes_ref'] = '2026.5.7-smd.0'
+    f['hermes_ref'] = '2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0'
     const r = validate(f)
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(codesOf(r.errors)).toContain('InvalidFormat')
   })
 
-  it('rejects an -smd.N suffix with a non-integer counter', () => {
+  it('rejects a short SHA (fewer than 40 hex chars)', () => {
     const f = validFixture()
-    f['hermes_ref'] = 'v2026.5.7-smd.beta'
+    f['hermes_ref'] = 'v2026.5.16@a91a57fa'
     const r = validate(f)
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(codesOf(r.errors)).toContain('InvalidFormat')
   })
 
-  it('rejects an -smd suffix without a counter', () => {
+  it('rejects a long SHA (more than 40 hex chars)', () => {
     const f = validFixture()
-    f['hermes_ref'] = 'v2026.5.7-smd'
+    f['hermes_ref'] = 'v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0ff'
     const r = validate(f)
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(codesOf(r.errors)).toContain('InvalidFormat')
   })
 
-  // The rewritten ADR 0015 regex (^v\d{4}\.\d{1,2}\.\d{1,2}-smd\.(security\.)?\d+$)
-  // intentionally allows any decimal counter shape, including leading zeros.
-  // The original regex's leading-zero rejection was a defensive invariant
-  // that the rewritten ADR did not carry forward; operationally, fork-tag
-  // counters are author-controlled and the linter on the fork repo catches
-  // shape violations before any customer.yaml sees the value.
-  it('accepts an -smd.N counter with leading zeros (per rewritten ADR 0015)', () => {
+  it('rejects a non-hex SHA', () => {
     const f = validFixture()
-    f['hermes_ref'] = 'v2026.5.7-smd.01'
-    expect(validate(f).ok).toBe(true)
+    f['hermes_ref'] = 'v2026.5.16@zz1a57fa5a13d516c38b07a141a9ce8a3daabeb0'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidFormat')
   })
 
-  it('rejects an arbitrary content-hash SHA', () => {
+  it('rejects an uppercase SHA (must be lowercase hex)', () => {
+    const f = validFixture()
+    f['hermes_ref'] = 'v2026.5.16@A91A57FA5A13D516C38B07A141A9CE8A3DAABEB0'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidFormat')
+  })
+
+  it('rejects a date-tag with an empty @sha', () => {
+    const f = validFixture()
+    f['hermes_ref'] = 'v2026.5.16@'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidFormat')
+  })
+
+  it('rejects a bare content-hash SHA (no v{date}@ prefix)', () => {
     const f = validFixture()
     f['hermes_ref'] = '7ce6b504a269ac3f9aed5b406b7a18c432e2fdb5'
     const r = validate(f)

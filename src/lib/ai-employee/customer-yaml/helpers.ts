@@ -31,36 +31,39 @@ export function checkRequiredString(
   }
 }
 
-// Fork-tag pattern per ADR 0015 (docs/adr/0015-hermes-fork-vs-upstream.md, rewritten).
-// hermes_ref MUST pin a fork tag of the form v{YYYY}.{M}.{D}-smd.{n} or
-// v{YYYY}.{M}.{D}-smd.security.{n}:
-//   - {YYYY}.{M}.{D} is Hermes' date-based upstream version (e.g. v2026.5.16).
-//     Legacy SemVer upstream tags (v0.14.0) are no longer accepted; Hermes
+// Upstream-pin pattern per ADR 0024 (docs/adr/0024-hermes-consumption-and-update-cadence.md).
+// hermes_ref pins an UPSTREAM Hermes release by date-tag AND commit SHA:
+//   v{YYYY}.{M}.{D}@{40-hex-sha}
+//   (e.g. v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0)
+//   - {YYYY}.{M}.{D} is Hermes' date-based upstream version, present for human
+//     readability. Legacy SemVer tags (v0.14.0) are not accepted; Hermes
 //     switched to date-based tagging in 2026.
-//   - {n} is a non-negative integer SMD revision counter (0 for "fork exists,
-//     zero patches"; increments per SMD-side change).
-//   - The optional `security.` segment marks an emergency CVE patch (see
-//     venturecrane/hermes-agent SMD_FORK_POLICY.md "Security-patch escape
-//     valve"). Emergency patches must be upstream-merged or retired within
-//     30 days per the policy.
-// Bare upstream tags (no -smd.N suffix) are rejected: per ADR 0015 §Decision,
-// customer.yaml pins the fork ref, not the upstream ref.
-const FORK_TAG_PATTERN = /^v\d{4}\.\d{1,2}\.\d{1,2}-smd\.(security\.)?\d+$/
+//   - The @{sha} is the immutable pin. A commit SHA is content-addressed, so
+//     upstream cannot mutate what it points at — this is the immutability the
+//     retired fork only claimed to provide. Carrying the SHA in the ref also
+//     means provisioning never resolves it from a live upstream lookup
+//     (closes the availability defect documented in ADR 0024).
+// ADR 0024 retired the venturecrane/hermes-agent fork and its v...-smd.N tag
+// scheme. Bare date-tags (no @sha), bare SHAs (no v-tag), -smd.N fork tags,
+// and legacy SemVer tags are all rejected. Security patches are applied in the
+// base-image build and tracked by image digest, not by a ref suffix.
+const UPSTREAM_PIN_PATTERN = /^v\d{4}\.\d{1,2}\.\d{1,2}@[0-9a-f]{40}$/
 
 export function checkHermesRef(root: Record<string, unknown>, errors: ValidationError[]): void {
   const v = root['hermes_ref']
   // Required-string check already runs upstream of this; no-op cleanly when
   // the field is absent or wrong-typed so we don't duplicate that error.
   if (typeof v !== 'string' || v.length === 0) return
-  if (!FORK_TAG_PATTERN.test(v)) {
+  if (!UPSTREAM_PIN_PATTERN.test(v)) {
     errors.push({
       code: 'InvalidFormat',
       path: 'hermes_ref',
       message:
-        'hermes_ref must pin a fork tag of the form v{YYYY}.{M}.{D}-smd.{n} ' +
-        'or v{YYYY}.{M}.{D}-smd.security.{n} (e.g. v2026.5.16-smd.0); ' +
-        'bare upstream tags and legacy SemVer-style tags are not accepted. ' +
-        'See ADR 0015 and venturecrane/hermes-agent SMD_FORK_POLICY.md.',
+        'hermes_ref must pin an upstream Hermes release of the form ' +
+        'v{YYYY}.{M}.{D}@{40-hex-sha} ' +
+        '(e.g. v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0). ' +
+        'Bare tags, bare SHAs, -smd.N fork tags, and legacy SemVer tags are ' +
+        'not accepted. See ADR 0024.',
     })
   }
 }
