@@ -724,6 +724,42 @@ class DecommissionPipeline:
         if self.tombstoner is None:
             self.tombstoner = FilesystemTombstoner(self.customers_root)
 
+    # --- live-readiness inspection -----------------------------------------
+
+    def unwired_destructive_backends(self) -> list[str]:
+        """Names of destructive backends that are NOT wired to a real
+        implementation.
+
+        An empty list means every destructive step will actually execute.
+        A non-empty list means a ``--live`` run would *report* deletions
+        it cannot perform — for a law-firm product that is a silent breach
+        of the offboarding / data-deletion promise (issue #1123).
+
+        The CLI calls this to fail closed before a ``--live`` run: better
+        to refuse than to tombstone the customer dir and exit ``OK`` while
+        D1 rows, R2 objects, Vectorize indexes, the Fly Machine, its
+        secrets, and the inbox all remain. Pure inspection — no I/O, no
+        side effects.
+        """
+        unwired: list[str] = []
+        if self.memory_runner is None:
+            unwired.append("memory_runner")
+        if self.voice_runner is None:
+            unwired.append("voice_runner")
+        if self.r2_deleter is None:
+            unwired.append("r2_deleter")
+        if self.vectorize_deleter is None:
+            unwired.append("vectorize_deleter")
+        if isinstance(self.composio, NoOpComposioStub):
+            unwired.append("composio")
+        if isinstance(self.agentmail, NoOpAgentMailStub):
+            unwired.append("agentmail")
+        if isinstance(self.fly, NoOpFlyStub):
+            unwired.append("fly")
+        if isinstance(self.observability, NoOpObservabilityCleanupStub):
+            unwired.append("observability")
+        return unwired
+
     # --- public entrypoints -------------------------------------------------
 
     async def plan(self) -> list[StepResult]:

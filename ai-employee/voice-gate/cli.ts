@@ -24,7 +24,11 @@
  *     [--cycle-count 0] \
  *     [--mode synthetic | live] \
  *     [--identifications path/to/ids.json] \
- *     [--enforce-production-minimums]
+ *     [--allow-undersized]
+ *
+ * Production minimums (≥10 drafts/authorship, ≥3 judges) are enforced by
+ * DEFAULT (issue #1124). Pass --allow-undersized to bypass them — only
+ * honored in synthetic mode for fixture/harness runs.
  */
 
 import { readFile } from 'node:fs/promises'
@@ -46,7 +50,7 @@ interface ParsedArgs {
   cycle_count: number
   mode: 'synthetic' | 'live'
   identifications_path: string | null
-  enforce_production_minimums: boolean
+  allow_undersized: boolean
 }
 
 function parseFlags(argv: string[]): Map<string, string> {
@@ -111,14 +115,14 @@ function parseArgs(argv: string[]): ParsedArgs {
     cycle_count: parseCycleCount(flags.get('cycle-count') ?? '0'),
     mode: parseMode(flags.get('mode') ?? 'synthetic'),
     identifications_path: flags.get('identifications') ?? null,
-    enforce_production_minimums: flags.get('enforce-production-minimums') === 'true',
+    allow_undersized: flags.get('allow-undersized') === 'true',
   }
 }
 
 function usageAndExit(reason: string): never {
   console.error(`error: ${reason}`)
   console.error(
-    'Usage: npx tsx ai-employee/voice-gate/cli.ts --customer-slug <slug> [--cohort <cohort>] --panel-id <id> [--cycle-count N] [--mode synthetic|live] [--identifications path] [--enforce-production-minimums]'
+    'Usage: npx tsx ai-employee/voice-gate/cli.ts --customer-slug <slug> [--cohort <cohort>] --panel-id <id> [--cycle-count N] [--mode synthetic|live] [--identifications path] [--allow-undersized]'
   )
   process.exit(2)
 }
@@ -155,6 +159,16 @@ async function loadIdentifications(path: string): Promise<JudgeIdentification[]>
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2))
+
+  if (args.mode === 'live' && args.allow_undersized) {
+    console.error(
+      'error: --allow-undersized is only honored in synthetic mode. A live ' +
+        'run against a real customer must meet the production minimums ' +
+        '(≥10 drafts per authorship, ≥3 judges) per voice-gate-fallback.md ' +
+        '§Contract (issue #1124).'
+    )
+    process.exit(2)
+  }
 
   if (args.mode === 'live') {
     console.error(
@@ -198,7 +212,8 @@ async function main(): Promise<void> {
     panel,
     cycle_count: args.cycle_count,
     identifications,
-    enforceProductionMinimums: args.enforce_production_minimums,
+    // Enforce by default; --allow-undersized (synthetic only) opts out.
+    enforceProductionMinimums: !args.allow_undersized,
   }
 
   const { run, result } = runVoiceGate(input)

@@ -193,7 +193,12 @@ export interface FailureRecord {
   cycle_count: number
   /** Whether this is an auto-transition from the third near-pass. */
   auto_transitioned_from_near_pass: boolean
-  /** Cohorts that scored below threshold (informational, not gating). */
+  /**
+   * Cohorts that scored below threshold. For an `'all'` run these are
+   * GATING (issue #1124): any covered cohort below threshold blocks the
+   * pass even when the pooled overall score clears it, so a strong cohort
+   * cannot mask a failing one. For a single-cohort run this is empty.
+   */
   below_threshold_cohorts: RecipientCohort[]
   /**
    * Judge IDs whose misidentifications drove the failure — used by

@@ -186,7 +186,14 @@ def build_server(client: LawPayClient) -> Server:
                     "type": "object",
                     "properties": {
                         "invoice_id": {"type": "string"},
-                        "amount": {"type": "number"},
+                        "amount": {
+                            "type": ["number", "string"],
+                            "description": (
+                                "Payment amount with at most 2 decimal places. "
+                                "Pass a string (e.g. \"1500.00\") for exact "
+                                "decimal handling on trust accounts."
+                            ),
+                        },
                         "method": {"type": "string", "enum": ["check", "wire", "ach", "cash", "other"]},
                         "received_date": {"type": "string", "format": "date"},
                         "memo": {"type": "string"},
