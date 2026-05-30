@@ -252,14 +252,51 @@ else
   log "WARN: Create '${R2_SKILL_BODIES_BUCKET}' via the CF dashboard before the Machine boots."
 fi
 
-# ---------- Step 6: set secrets (paste flow; never echo values) ----------
-log "Setting secrets via pbpaste flow..."
-log "For each prompt: copy the secret to your clipboard, then press Enter."
-log "Values flow directly into 'fly secrets import' — never appear in this terminal or any chat transcript."
+# ---------- Step 6: set secrets (never echo values) ----------
+# Two sourcing modes for the same staging mechanism (fly secrets import --stage,
+# value via stdin only so KEY=VALUE never hits the command line / ps / proc —
+# see feedback_never_expose_secrets_in_tool_output.md):
+#
+#   - Interactive (default): a human operator pastes each secret via pbpaste.
+#   - Non-interactive (PROVISION_NONINTERACTIVE=1): each secret is read from an
+#     environment variable of the SAME NAME as the fly secret. This is the
+#     agent-runnable path — an automated caller exports the values into the
+#     process env (never to disk), then runs this script in the same shell.
+#     Fail-closed: a required secret with no env value aborts provisioning
+#     rather than staging an empty secret that would crashloop the Machine.
+#
+# A secret is OPTIONAL only if passed as the 3rd arg "optional"; missing
+# optional secrets are skipped in both modes.
+PROVISION_NONINTERACTIVE="${PROVISION_NONINTERACTIVE:-0}"
+if [ "${PROVISION_NONINTERACTIVE}" = "1" ]; then
+  log "Setting secrets in non-interactive mode (values sourced from env, never logged)..."
+else
+  log "Setting secrets via pbpaste flow..."
+  log "For each prompt: copy the secret to your clipboard, then press Enter."
+  log "Values flow directly into 'fly secrets import' — never appear in this terminal or any chat transcript."
+fi
 
 prompt_and_set() {
   local secret_name="$1"
   local description="$2"
+  local optional="${3:-}"
+
+  if [ "${PROVISION_NONINTERACTIVE}" = "1" ]; then
+    # Source from the env var of the same name (indirect expansion).
+    local value="${!secret_name:-}"
+    if [ -z "${value}" ]; then
+      if [ "${optional}" = "optional" ]; then
+        log "Skipping ${secret_name} (optional; not set in env)"
+        return 0
+      fi
+      die "${secret_name} required in non-interactive mode but unset in env (${description})"
+    fi
+    printf '%s=%s\n' "${secret_name}" "${value}" \
+      | fly secrets import --stage -a "${APP_NAME}" >/dev/null
+    log "Staged ${secret_name} (from env; value never logged)"
+    return 0
+  fi
+
   echo ""
   echo "  >> Copy ${description} to clipboard, then press Enter to stage ${secret_name} (or 's' to skip)"
   read -r response
