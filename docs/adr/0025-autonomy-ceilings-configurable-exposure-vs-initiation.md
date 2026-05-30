@@ -96,6 +96,15 @@ The hardcoded refusal at `trust_ceiling.py:117-127` is removed. `enforce()` cons
 
 ADR 0005's internal/external persona split (the persona is fully visible internally; external presence is the reviewer) stands as the **default**. A customer who configures autonomous external send may also configure an agent-as-sender identity for that channel; doing so is the same kind of privileged, audited config act as raising the exposure ceiling, and is subject to any vertical floor. ADR 0005's drafts mechanism, audit-trail preamble, and internal-persona rules are otherwise preserved.
 
+### 7. Two enforcement layers — this ADR governs the gate, not the adapter surface
+
+There are **two** code layers that today encode "no autonomous external send," and this ADR addresses only the first:
+
+1. **The trust-ceiling gate** (`adapter/trust_ceiling.py::enforce()`, run live by the overlay `hermes-smd-trust` `pre_tool_call` hook). This is the configurable authority layer — the subject of this ADR. After implementation, the gate consults the configured per-action ceiling and permits a send tool to fire when `external_send` is raised to `autonomous` (floored by the vertical).
+2. **The capability-adapter surface ban** (`src/lib/ai-employee/capabilities/conformance.ts` `NO_AUTONOMOUS_EXTERNAL_SEND` + `BANNED_METHOD_NAMES`). Our own `build:` capability adapters are _structurally_ forbidden from exposing a send method at all — the `Email` adapter has no `send`, only draft. This is the deeper, structural form of reviewer-as-sender (ADR 0005 / ADR 0006).
+
+The consequence: raising the ceiling makes autonomous send real on the **MCP-connector path** (ADR 0020's primary path — an MCP server exposes a `send` tool the gate governs). It does **not** make our `build:` adapters send, because those have no send method to call regardless of ceiling. That is the intended conservative posture: build adapters stay structurally draft-only; autonomous send is reached through a ceiling-gated MCP tool, never by an adapter that smuggles in a `send`. Whether to ever lift the `build:`-adapter ban is a separate, genuinely ADR-0005-architectural decision, deliberately **not** decided here.
+
 ---
 
 ## Alternatives Considered
