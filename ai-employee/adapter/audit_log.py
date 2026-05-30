@@ -118,6 +118,10 @@ ACCEPTED_ACTION_TYPES = frozenset(
         # Safety substrate
         "INVARIANT_VIOLATION",
         "INVARIANT_BOOT_CHECK_FAILED",
+        # Inbound trust boundary (ADR 0027) — one row per untrusted inbound
+        # item received, carrying the provenance envelope (source, trust_class,
+        # verification, content_digest) in metadata; never the content bytes.
+        "INBOUND_RECEIVED",
         # RBAC and compliance
         "RBAC_EVENT",
         "COMPLIANCE_PACKET_EXPORTED",

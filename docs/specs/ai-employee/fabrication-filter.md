@@ -134,10 +134,25 @@ Severity mapping:
 
 ## Implementation notes
 
-- New module: `ai-employee/adapter/fabrication_filter.py` (Python) and TS twin if/when adapters port.
-- Filter runs at the `Hermes` runtime's `before_emit_draft` hook. The substrate in PR #812 (`aie_adapter.py`) needs a new `BeforeEmitDraftHook` interface and the filter registered as the first hook.
-- Skills' `client_facing_fields` parsed at skill-load time, cached in `skill_state.config`.
-- Marker patterns live in `ai-employee/adapter/fabrication_markers.py` as a single registry; updates require PR + Captain sign-off.
+> **Mechanism reconciled 2026-05-29 (ADR 0028).** The original `before_emit_draft`
+> / `aie_adapter.py` `BeforeEmitDraftHook` mechanism below is **dead** — it
+> predates the 2026-05-24 plugin-only realignment and references a hook that is
+> not in Hermes' real `VALID_HOOKS`. The filter now runs at the overlay
+> `hermes-smd-trust` plugin's **`pre_tool_call`** hook (the only return-value-
+> blocking hook), as a second evaluation after the ceiling check, on
+> draft-creating tools — inspecting the draft body in the tool `args` before the
+> tool runs. Send tools are permanently banned, so "before emit" reduces to
+> "before the draft-creating tool executes." Provenance is two-tier: Tier-1
+> universal markers (`fabrication_markers.json`, every vertical) + Tier-2
+> citation filter (law-vertical only). See `docs/adr/0028-outbound-integrity-gates-provenance-and-voice.md`.
+
+- The marker registry is `ai-employee/safety-substrate/fabrication_markers.json`
+  (the single source of truth); the overlay vendors a copy with a CI hash-check.
+  Updates require PR + Captain sign-off.
+- Filter implementation (overlay): `shared/outbound_gate.py` + `shared/fabrication_markers.py`.
+- Skills' `client_facing_fields` per-field source-tag model (parsed at skill-load
+  time) is the eventual Tier-1; ADR 0028 ships the pattern-marker subset first and
+  defers the source-tag model.
 - Empty-state pattern reference: `docs/style/empty-state-pattern.md` (existing).
 - Citation-refusal substrate (§9.3 of law-firm PRD, invariant #6) lives at `ai-employee/adapter/citation_refusal.py`; fabrication filter runs first, citation refusal second. Both are pre-emit hooks.
 
