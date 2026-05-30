@@ -19,6 +19,22 @@ compliance:
   - privilege
   - upl-boundary
 
+# Non-raisable per-action-class trust floors (ADR 0025 / ADR 0022 compliance
+# constraints). Customer configuration and skill promotion can never raise an
+# action class above its floor here. The overlay's `hermes-smd-trust` plugin
+# loads these into `vertical_floors` and passes them to
+# `adapter/trust_ceiling.py::enforce()`, which takes the most restrictive of
+# {floor, customer override, safe default}.
+#
+# For a law firm, every outbound communication ships under the reviewer's
+# identity per ABA Formal Opinion 512 / state AI-disclosure rules — so
+# external_send is pinned at draft_for_review and cannot be promoted to
+# autonomous, preserving reviewer-as-sender as a hard floor for this vertical
+# (the moat ADR 0005 protects, expressed as a floor rather than a global
+# absolute per ADR 0025).
+trust_floors:
+  external_send: draft_for_review
+
 # Reference persona archetypes. Empty in v1 — customer-zero is the first
 # concrete persona shape and lives in customer.yaml directly. Promote
 # reusable archetypes here as multi-customer patterns emerge.

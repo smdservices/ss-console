@@ -423,7 +423,7 @@ Skills live in `ai-employee/skills/{skill-name}/SKILL.md` plus a `references/` f
 Eight base invariants gate every Hermes container boot:
 
 1. No destructive operations without approval
-2. No external send without approval (architectural — the reviewer-as-sender pattern)
+2. External send obeys the **configured** per-action ceiling, floored by the vertical pack; the agent can never raise its own ceiling (**[ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md)**). `external_send` defaults to `draft_for_review` (reviewer-as-sender) and is promotable to `autonomous` only where no vertical floor forbids it. Reviewer-as-sender remains the default and the structural form for our `build:` capability adapters (the `Email` interface still has no `send` method — §3 / [ADR 0005](../../adr/0005-reviewer-as-sender.md)); autonomous send is reached via a ceiling-gated send tool (e.g. an MCP connector), never by an adapter that smuggles in a `send`.
 3. No commitment execution (no autonomous contract signing, no autonomous payments)
 4. Sticky stop instructions (an "agent off" command persists across context compaction)
 5. Code-enforced trust ceilings (skill-declared trust levels override prompt-injection attempts)
@@ -717,13 +717,13 @@ The product's safety architecture and the principal's confidence dial.
 | **draft_for_review** | Agent drafts; named human reviewer must approve before any external action. | All external communications, all transactions, all matter writes, all signing requests                                  |
 | **disabled**         | Agent does not run this skill at all.                                       | Customer-disabled or trust-revoked skills                                                                               |
 
-### 11.2 The default ceiling per skill
+### 11.2 The default ceiling per action class
 
-Every skill ships with a default trust ceiling. The defaults are conservative:
+Per **[ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md)**, the trust ceiling is resolved **per action class** (`read` / `internal_write` / `external_send` / `commitment` / `destructive`), not as one scalar applied to the whole skill. The defaults are conservative, and the exposure axis (`external_send`) is the one a customer can deliberately raise:
 
-- **Read-only / monitoring / internal**: `autonomous` allowed by default
-- **External communication, drafts, transactions, writes to matters**: `draft_for_review` mandatory
-- **Anything touching trust accounting, court filing, settlement authority, judgment-bearing work**: `draft_for_review` permanently; cannot be promoted to autonomous
+- **Read-only / monitoring / internal_write**: `autonomous` allowed by default
+- **External communication (`external_send`)**: `draft_for_review` **by default** (reviewer-as-sender). This is the secure default, not a permanent lock — it is promotable to `autonomous` per §11.3 where no vertical floor forbids it. Raising it is what authorizes the agent to send without per-message review.
+- **Trust accounting, court filing, settlement authority, judgment-bearing work**: a **non-raisable vertical-pack floor** ([ADR 0022](../../adr/0022-vertical-pack-architecture.md) compliance constraints). Customer configuration and promotion can never raise above the floor; the law pack pins these permanently at `draft_for_review`. `commitment` and `destructive` retain their current-turn-approval floors regardless of configuration (safety invariants 1 & 3).
 
 ### 11.3 Promotion mechanics
 

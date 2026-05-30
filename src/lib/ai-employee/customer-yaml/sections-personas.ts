@@ -5,10 +5,12 @@
  */
 
 import {
+  ACCEPTED_ACTION_CLASSES,
   ACCEPTED_PERSONA_STATUSES,
   ACCEPTED_PRONOUNS,
   ACCEPTED_TRUST_CEILINGS,
   SLUG_PATTERN,
+  type ActionClass,
   type CostEstimate,
   type Persona,
   type PersonaChannelBinding,
@@ -221,6 +223,7 @@ function checkOneSkill(raw: unknown, path: string, errors: ValidationError[]): P
   }
   checkSkillName(raw['name'], path, errors)
   checkSkillCeiling(raw['trust_ceiling'], path, errors)
+  checkSkillActionCeilings(raw['action_ceilings'], path, errors)
   checkSkillVersion(raw['version'], path, errors)
   checkSkillEnabled(raw['enabled'], path, errors)
   const cost = checkCostEstimate(raw['cost_estimate'], `${path}.cost_estimate`, errors)
@@ -248,6 +251,47 @@ function checkSkillCeiling(ceiling: unknown, path: string, errors: ValidationErr
       path: `${path}.trust_ceiling`,
       message: `trust_ceiling must be one of: ${ACCEPTED_TRUST_CEILINGS.join(', ')}`,
     })
+  }
+}
+
+/**
+ * Validate the optional per-action-class ceiling override map (ADR 0025).
+ * Absent/null is valid (skill uses safe class defaults). When present it must
+ * be an object whose keys are known ActionClasses and whose values are
+ * accepted TrustCeilings. The floor check (cannot raise above a vertical
+ * floor) is a runtime/enforcement concern, not a static-shape concern, so it
+ * is not done here.
+ */
+function checkSkillActionCeilings(raw: unknown, path: string, errors: ValidationError[]): void {
+  if (raw === undefined || raw === null) return
+  const fieldPath = `${path}.action_ceilings`
+  if (!isPlainObject(raw)) {
+    errors.push({
+      code: 'TypeMismatch',
+      path: fieldPath,
+      message: `${fieldPath} must be an object`,
+    })
+    return
+  }
+  for (const [key, value] of Object.entries(raw)) {
+    if (!(ACCEPTED_ACTION_CLASSES as readonly string[]).includes(key)) {
+      errors.push({
+        code: 'InvalidActionClass',
+        path: `${fieldPath}.${key}`,
+        message: `action_ceilings key must be one of: ${ACCEPTED_ACTION_CLASSES.join(', ')}`,
+      })
+      continue
+    }
+    if (
+      typeof value !== 'string' ||
+      !(ACCEPTED_TRUST_CEILINGS as readonly string[]).includes(value)
+    ) {
+      errors.push({
+        code: 'InvalidActionCeiling',
+        path: `${fieldPath}.${key}`,
+        message: `action_ceilings.${key} must be one of: ${ACCEPTED_TRUST_CEILINGS.join(', ')}`,
+      })
+    }
   }
 }
 
@@ -288,10 +332,31 @@ function assembleSkill(
       (ACCEPTED_TRUST_CEILINGS as readonly string[]).includes(ceiling)
         ? (ceiling as TrustCeiling)
         : 'refused',
+    action_ceilings: extractActionCeilings(raw['action_ceilings']),
     enabled: typeof enabled === 'boolean' ? enabled : true,
     cost_estimate: cost,
     scope,
   }
+}
+
+/**
+ * Build the validated per-action-class ceiling map, keeping only well-formed
+ * entries. Returns null when no overrides are authored (the common case),
+ * so consumers can treat null as "use safe class defaults."
+ */
+function extractActionCeilings(raw: unknown): Partial<Record<ActionClass, TrustCeiling>> | null {
+  if (!isPlainObject(raw)) return null
+  const out: Partial<Record<ActionClass, TrustCeiling>> = {}
+  for (const [key, value] of Object.entries(raw)) {
+    if (
+      (ACCEPTED_ACTION_CLASSES as readonly string[]).includes(key) &&
+      typeof value === 'string' &&
+      (ACCEPTED_TRUST_CEILINGS as readonly string[]).includes(value)
+    ) {
+      out[key as ActionClass] = value as TrustCeiling
+    }
+  }
+  return Object.keys(out).length > 0 ? out : null
 }
 
 function checkCostEstimate(
