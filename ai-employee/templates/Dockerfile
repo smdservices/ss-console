@@ -48,10 +48,17 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 ARG HONCHO_PIP_SPEC="honcho-ai==1.0.0"
 
 # hermes-smd overlay (venturecrane/hermes-smd-overlay): plugin pack + CLI
-# (`hermes-smd bootstrap`, `hermes-smd customer-sync`). Pinned to a tagged
+# (`hermes-smd bootstrap`, `hermes-smd customer-sync`) + the importable
+# `shared` policy core the runtime plugins depend on. Pinned to a tagged
 # release; bump in lockstep with overlay-side feature work.
+#
+# v0.2.0 is the FLOOR for a harness-complete Machine: the trust plugin does
+# `from shared.outbound_gate import evaluate`, and that module first shipped
+# after v0.1.1 (overlay #15). Pinning at v0.1.1 builds a Machine whose trust
+# plugin cannot import its own policy core. See ADR 0028 + the import assert
+# below.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="v0.1.1"
+ARG OVERLAY_REF="v0.2.0"
 
 ARG CUSTOMER_SLUG=customer-zero
 
@@ -136,11 +143,33 @@ RUN /opt/hermes/.venv/bin/pip install --no-cache-dir "${HONCHO_PIP_SPEC}"
 RUN /opt/hermes/.venv/bin/pip install --no-cache-dir \
       "git+${OVERLAY_REPO}@${OVERLAY_REF}"
 
-# Plugin install runs as root against /opt/data (the hermes home dir);
-# we chown below so the hermes user owns the result.
+# Register the plugin pack with Hermes' loader. `hermes plugins install` clones
+# the overlay repo's DEFAULT BRANCH HEAD into ~/.hermes/plugins/ — upstream
+# hermes_cli/plugins_cmd.py `_install_plugin_core` does `git clone --depth 1`
+# with no ref argument, so the plugin surface cannot be pinned through this
+# command (tracked follow-up; for a tagged-release build, default branch == the
+# tag). The pip install above IS pinned and provides the importable `shared`
+# policy core, which is what the runtime plugins actually `import`.
+#
+# FAIL-CLOSED: the prior `|| echo "WARN ...; continuing"` swallowed an install
+# failure and booted a silently harness-less Machine — the exact fail-open
+# defect the venture forbids. Both the install and the policy-core import below
+# are now hard build gates: a Machine whose trust/inbound plugins cannot load
+# their own policy core MUST NOT build green.
 RUN /opt/hermes/.venv/bin/hermes plugins install \
-      venturecrane/hermes-smd-overlay --enable \
- || echo "WARN: hermes plugins install failed; continuing (TODO: harden once overlay registry exists)"
+      venturecrane/hermes-smd-overlay --enable
+
+# Deterministic build-time assertion that the pinned `shared` policy core is
+# importable in the venv. This catches a stale/mis-pinned OVERLAY_REF (the exact
+# v0.1.1 `ModuleNotFoundError: shared.outbound_gate`) at BUILD time rather than
+# as a runtime plugin-load failure. Runtime plugin REGISTRATION (Hermes actually
+# loaded the pack) is verified live by boot-smoke-test.sh step 7, which runs
+# `hermes plugins list | grep hermes-smd-` inside the booted Machine where a
+# profile exists.
+RUN /opt/hermes/.venv/bin/python3 -c \
+      "import shared.outbound_gate, shared.inbound, shared.action_classes; \
+from shared.outbound_gate import evaluate; \
+print('overlay policy core import OK (outbound_gate.evaluate resolved)')"
 
 # ---------- Layer in SMD's AI Employee bits ----------
 WORKDIR /app
