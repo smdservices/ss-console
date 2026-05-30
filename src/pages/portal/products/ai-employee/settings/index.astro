@@ -44,10 +44,13 @@ import { env } from 'cloudflare:workers'
  *     docs/style/empty-state-pattern.md.
  *
  * Mutations are HTML-form POSTs to the per-section endpoints
- * under /api/portal/ai-employee/settings/*. Each endpoint logs
- * intent today; real propagation to customer.yaml lands once
- * the configs-repo write path ships. The page surfaces a
- * confirmation banner on `?status=ack` per UI-PATTERNS R1.
+ * under /api/portal/ai-employee/settings/*. The trust-ceiling and
+ * skill-toggle endpoints persist the governance action + its floor
+ * decision to the immutable `config_change_audit` ledger and
+ * floor-check raises (ADR 0026 / ADR 0030). The value reaches the
+ * runtime via the deferred git write-back path (ADR 0025 step 7);
+ * the page surfaces a confirmation banner on `?status=saved` (or
+ * `?status=floor_blocked` for a rejected raise) per UI-PATTERNS R1.
  */
 
 const access = await resolveAiEmployeeAccess(env.DB, Astro.locals, {
@@ -69,6 +72,18 @@ const banner: { kind: 'ok' | 'error'; text: string } | null = (() => {
   switch (statusParam) {
     case 'ack':
       return { kind: 'ok', text: 'Saved.' }
+    case 'saved':
+      return {
+        kind: 'ok',
+        text: 'Saved. Your change is recorded and takes effect on the next sync.',
+      }
+    case 'floor_blocked':
+      return {
+        kind: 'error',
+        text: 'Your vertical requires this kind of message to be reviewed before sending, so this setting cannot be raised.',
+      }
+    case 'invalid_action_class':
+      return { kind: 'error', text: 'That action class is not valid.' }
     case 'voice_added':
       return { kind: 'ok', text: 'Voice sample queued.' }
     case 'voice_removed':
