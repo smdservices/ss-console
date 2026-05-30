@@ -1,39 +1,37 @@
 import type { APIRoute } from 'astro'
 import { resolveAiEmployeeAccess } from '../../../../../lib/portal/ai-employee-access'
+import { getCustomerConfig, getActivePersona } from '../../../../../lib/portal/customer-config'
+import {
+  applySkillToggle,
+  isCeiling,
+  type Ceiling,
+} from '../../../../../lib/portal/ai-employee/config-governance'
 import { env } from 'cloudflare:workers'
 
 /**
  * POST /api/portal/ai-employee/settings/skill-toggle
  *
- * Enables or disables a single skill on the active persona.
+ * Enables or disables a single skill on the active persona (ADR 0026 / 0030 §4).
  *
  * Form fields:
  *   skillName     — slug of the skill being toggled
  *   personaSlug   — slug of the persona owning the skill (optional)
- *   nextEnabled   — 'true' or 'false' (the target state). Sent by
- *                   the form, not derived server-side, so a slow
- *                   reviewer cannot double-click and flip past
- *                   their intent.
+ *   nextEnabled   — 'true' or 'false' (the target state)
  *
- * Auth: principal on the active AI Employee subscription.
- *
- * Today this endpoint logs intent. The write back to
- * customer.yaml's `personas[].skills[].trust_ceiling` (where
- * disabling maps to `refused` and enabling maps back to
- * `draft_for_review`) lands once the configs-repo write path
- * ships. The page renders an info banner via the `?status=ack`
- * query param so a principal does not assume their click has
- * propagated.
+ * Auth: principal only. Disabling maps to `refused` (a lower / more
+ * restrictive change, always allowed); enabling maps to `draft_for_review`
+ * (the safe default). Records the governance action to the immutable
+ * `config_change_audit` ledger; does not mutate the live config replica
+ * (ADR 0012 §2 — value applies on the next git sync). Status banner:
+ *   ?status=saved      — recorded
+ *   ?status=invalid_*  — malformed request
  */
 
 const SETTINGS_PAGE_URL = '/portal/products/ai-employee/settings'
 
 function redirectWithStatus(status: string): Response {
   const target = `${SETTINGS_PAGE_URL}?status=${encodeURIComponent(status)}`
-  return new Response(null, {
-    status: 303,
-    headers: { Location: target },
-  })
+  return new Response(null, { status: 303, headers: { Location: target } })
 }
 
 function jsonError(status: number, message: string): Response {
@@ -43,10 +41,16 @@ function jsonError(status: number, message: string): Response {
   })
 }
 
+function currentSkillCeiling(
+  persona: { skills: { name: string; trust_ceiling: string }[] } | null,
+  skillName: string
+): Ceiling {
+  const skill = persona?.skills.find((s) => s.name === skillName)
+  return skill && isCeiling(skill.trust_ceiling) ? skill.trust_ceiling : 'draft_for_review'
+}
+
 export const POST: APIRoute = async ({ locals, request }) => {
-  const access = await resolveAiEmployeeAccess(env.DB, locals, {
-    allowedRoles: ['principal'],
-  })
+  const access = await resolveAiEmployeeAccess(env.DB, locals, { allowedRoles: ['principal'] })
   if (access.kind === 'redirect') {
     return jsonError(403, 'Forbidden')
   }
@@ -54,6 +58,8 @@ export const POST: APIRoute = async ({ locals, request }) => {
   const formData = await request.formData()
   const skillName = formData.get('skillName')
   const nextEnabled = formData.get('nextEnabled')
+  const personaSlug = formData.get('personaSlug')
+
   if (typeof skillName !== 'string' || skillName === '') {
     return redirectWithStatus('invalid_skill')
   }
@@ -61,12 +67,19 @@ export const POST: APIRoute = async ({ locals, request }) => {
     return redirectWithStatus('invalid_state')
   }
 
-  console.info('settings.skill_toggle.intent', {
+  const config = await getCustomerConfig(env.DB, access.client.id)
+  const persona = await getActivePersona(env.DB, access.client.id)
+  const oldValue = currentSkillCeiling(persona, skillName)
+
+  await applySkillToggle(env.DB, {
+    customer_slug: config?.customer_slug ?? access.client.id,
     entity_id: access.client.id,
-    user_id: access.user.id,
-    skill: skillName,
+    actor: { user_id: access.user.id, email: access.user.email, role: 'principal' },
+    persona_slug: typeof personaSlug === 'string' && personaSlug !== '' ? personaSlug : null,
+    skill_name: skillName,
     next_enabled: nextEnabled === 'true',
+    old_value: oldValue,
   })
 
-  return redirectWithStatus('ack')
+  return redirectWithStatus('saved')
 }
