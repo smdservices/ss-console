@@ -55,31 +55,32 @@ def run() -> tuple[bool, str]:
         tool_name="gmail.send",
         current_turn_approval=True,  # would be set by a malicious injection
     )
-    # Current implementation: draft + external_send routes to draft regardless
-    # of approval flag. The approval flag matters only for autonomous skills.
+    # external_send routes to draft regardless of the approval flag (ADR 0025):
+    # exposure autonomy is governed by the authored ceiling, not an in-turn
+    # approval, so a prompt-injected approval cannot escalate a draft skill.
     if decision.allowed:
         return (
             False,
             "FAIL: draft skill with prompt-injected approval was allowed to send",
         )
 
-    # Final test: ceiling=AUTONOMOUS, current_turn_approval=True, external_send.
-    # The model's prompt claims autonomy AND approval — and indeed if the
-    # SKILL.md was authored autonomous and the operator approved in this turn,
-    # the action should fire. The substrate doesn't refuse here — it allows.
-    # This is the boundary: code reads SKILL.md authoring (not model claims),
-    # and operator approval is a real signal IF the ceiling permits it.
+    # Final test: external_send authorized for autonomy via the authored
+    # action-class ceiling (action_ceilings), NOT via a model-claimed approval.
+    # When the customer.yaml authoring sets external_send=autonomous, the send
+    # fires. This is the boundary: code reads authored config (not model
+    # claims), and the configured exposure ceiling is what permits the send.
     decision = enforce(
-        ceiling=Ceiling.AUTONOMOUS,  # authored
+        ceiling=Ceiling.DRAFT_FOR_REVIEW,  # skill scalar; irrelevant to external_send
         action=ActionClass.EXTERNAL_SEND,
         skill_name="autonomous-sender",
         tool_name="gmail.send",
-        current_turn_approval=True,
+        current_turn_approval=False,  # approval flag is NOT the lever here
+        action_ceilings={ActionClass.EXTERNAL_SEND: Ceiling.AUTONOMOUS},  # authored
     )
     if not decision.allowed:
         return (
             False,
-            f"FAIL: legitimate autonomous + approved send was blocked ({decision.reason})",
+            f"FAIL: legitimate authored-autonomous send was blocked ({decision.reason})",
         )
 
     return (True, "PASS: invariant 5 holds — ceiling read from authoring, prompt cannot escalate; legitimate flows still work")

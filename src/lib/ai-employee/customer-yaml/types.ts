@@ -118,6 +118,26 @@ export const AUDIT_LOG_DAYS_MAX = 36500
 export const ACCEPTED_TRUST_CEILINGS = ['autonomous', 'draft_for_review', 'refused'] as const
 export type TrustCeiling = (typeof ACCEPTED_TRUST_CEILINGS)[number]
 
+/**
+ * Action classes a tool call is categorized into, mirroring the Python
+ * `ActionClass` enum in `ai-employee/adapter/trust_ceiling.py`. Per ADR 0025,
+ * autonomy is enforced as a configurable ceiling **per action class** rather
+ * than one scalar applied to the whole skill — splitting the exposure axis
+ * (external_send) from the initiation and internal axes.
+ *
+ * The values must stay byte-identical to the Python enum's `.value` strings;
+ * the overlay materializer (`hermes-smd bootstrap`) carries this map across
+ * the seam to the runtime `enforce()` call.
+ */
+export const ACCEPTED_ACTION_CLASSES = [
+  'read',
+  'internal_write',
+  'external_send',
+  'commitment',
+  'destructive',
+] as const
+export type ActionClass = (typeof ACCEPTED_ACTION_CLASSES)[number]
+
 export const ACCEPTED_USER_ROLES = ['principal', 'operator', 'compliance'] as const
 export type UserRole = (typeof ACCEPTED_USER_ROLES)[number]
 
@@ -214,7 +234,25 @@ export interface CostEstimate {
 export interface PersonaSkill {
   name: string
   version: string
+  /**
+   * Skill-level scalar ceiling. Governs `internal_write` and acts as the
+   * cap the per-action overrides resolve under. Retained from the
+   * pre-ADR-0025 schema for back-compat: a skill with only `trust_ceiling`
+   * set keeps its previous meaning, and `external_send` stays at the safe
+   * `draft_for_review` default (reviewer-as-sender) unless explicitly raised
+   * in `action_ceilings`.
+   */
   trust_ceiling: TrustCeiling
+  /**
+   * Per-action-class ceiling overrides (ADR 0025). Optional and sparse —
+   * only the classes a customer wants to set explicitly appear. The runtime
+   * `enforce()` resolves the effective ceiling for an action as the most
+   * restrictive of {vertical floor, this override if present, the safe
+   * class default}. Setting `external_send: autonomous` here is what grants
+   * autonomous external send; it can never raise above a vertical-pack floor.
+   * `null`/absent means "no overrides — use safe class defaults."
+   */
+  action_ceilings: Partial<Record<ActionClass, TrustCeiling>> | null
   enabled: boolean
   cost_estimate: CostEstimate | null
   scope: string[]
@@ -601,6 +639,8 @@ export type ValidationErrorCode =
   | 'InvalidVerticalSpec'
   | 'InvalidAddonSpec'
   | 'UnknownAddon'
+  | 'InvalidActionClass'
+  | 'InvalidActionCeiling'
 
 export interface ValidationError {
   code: ValidationErrorCode

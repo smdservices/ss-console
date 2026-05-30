@@ -14,12 +14,20 @@ the customer's audit log and surfaced in the per-fixture grading trail.
 The enforcement runs in code, not in prompt. Prompt drift cannot escalate
 a skill — the model can ask all it wants; the adapter says no.
 
-For Phase A this module is a stub; Phase A.5 fills in real enforcement.
+Per ADR 0025, autonomy is enforced as a configurable ceiling **per action
+class**, not one scalar applied to the whole skill. `enforce()` resolves the
+effective ceiling for an action as the most restrictive of {vertical floor,
+the customer's explicit per-action override, the safe class default}. The
+`external_send` class defaults to `draft_for_review` (reviewer-as-sender) and
+must be *explicitly* raised to `autonomous` in `action_ceilings` to permit an
+autonomous send — and can never be raised above a vertical-pack floor. The
+agent can never raise its own ceiling (that is a control-plane act, ADR 0026).
 """
 
 from __future__ import annotations
 
 import enum
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 
@@ -46,6 +54,58 @@ class EnforcementDecision:
     audit_action: str  # "allow" | "draft" | "refuse"
 
 
+# Restrictiveness ordering: higher number == more restrictive. Used to pick
+# the most-restrictive ceiling when combining a configured value with a
+# vertical-pack floor (a floor can only narrow, never widen — ADR 0025).
+_RESTRICTIVENESS: dict[Ceiling, int] = {
+    Ceiling.AUTONOMOUS: 0,
+    Ceiling.DRAFT_FOR_REVIEW: 1,
+    Ceiling.REFUSED: 2,
+}
+
+
+def _most_restrictive(a: Ceiling, b: Ceiling) -> Ceiling:
+    return a if _RESTRICTIVENESS[a] >= _RESTRICTIVENESS[b] else b
+
+
+def _class_default(action: ActionClass, skill_ceiling: Ceiling) -> Ceiling:
+    """The safe default ceiling for an action class when no explicit override
+    is authored. `external_send` defaults to draft_for_review regardless of
+    the skill's scalar, so an autonomous skill does not silently gain the
+    ability to send externally — it must be granted explicitly (ADR 0025)."""
+    if action == ActionClass.READ:
+        return Ceiling.AUTONOMOUS
+    if action == ActionClass.INTERNAL_WRITE:
+        return skill_ceiling
+    if action == ActionClass.EXTERNAL_SEND:
+        return Ceiling.DRAFT_FOR_REVIEW
+    # COMMITMENT / DESTRUCTIVE keep their own reversibility floors in enforce();
+    # this default only matters if those branches ever consult it.
+    return Ceiling.DRAFT_FOR_REVIEW
+
+
+def resolve_ceiling(
+    action: ActionClass,
+    skill_ceiling: Ceiling,
+    action_ceilings: Mapping[ActionClass, Ceiling] | None = None,
+    vertical_floors: Mapping[ActionClass, Ceiling] | None = None,
+) -> Ceiling:
+    """Resolve the effective ceiling for one action class.
+
+    Effective = most restrictive of:
+      - the customer's explicit per-action override (if present), else the
+        safe class default; and
+      - the vertical-pack floor for that class (if present).
+
+    A vertical floor can only make the result *more* restrictive — customer
+    config can never raise above it (ADR 0025 / ADR 0022 compliance floors).
+    """
+    explicit = action_ceilings.get(action) if action_ceilings else None
+    base = explicit if explicit is not None else _class_default(action, skill_ceiling)
+    floor = vertical_floors.get(action) if vertical_floors else None
+    return _most_restrictive(base, floor) if floor is not None else base
+
+
 def enforce(
     *,
     ceiling: Ceiling,
@@ -53,17 +113,23 @@ def enforce(
     skill_name: str,
     tool_name: str,
     current_turn_approval: bool = False,
+    action_ceilings: Mapping[ActionClass, Ceiling] | None = None,
+    vertical_floors: Mapping[ActionClass, Ceiling] | None = None,
 ) -> EnforcementDecision:
-    """Return whether this tool call is allowed under the current trust ceiling.
+    """Return whether this tool call is allowed under the configured ceilings.
 
-    `current_turn_approval` is True iff the operator explicitly approved
-    this specific action in the current invocation. Approvals from prior
-    turns or prior sessions are NOT valid (per safety invariant #1).
+    `ceiling` is the skill-level scalar (governs `internal_write` and acts as
+    the cap). `action_ceilings` are the customer's explicit per-action-class
+    overrides; `vertical_floors` are non-raisable per-class floors from the
+    vertical pack. Both optional — when omitted, the safe class defaults apply
+    (notably `external_send` → draft_for_review), preserving reviewer-as-sender
+    as the default until a customer explicitly raises the exposure ceiling.
 
-    Phase A: this is a stub — returns allow for READ + INTERNAL_WRITE, draft
-    for EXTERNAL_SEND, refuse for COMMITMENT + DESTRUCTIVE. Phase A.5 wires
-    this into Hermes' tool dispatch and runs it against five invariant
-    fixtures.
+    `current_turn_approval` is True iff the operator explicitly approved this
+    specific action in the current invocation. Approvals from prior turns or
+    prior sessions are NOT valid (safety invariant #1). It gates the
+    reversibility classes (COMMITMENT, DESTRUCTIVE); `external_send` autonomy is
+    governed by the configured ceiling, not by an in-turn approval (ADR 0025).
     """
     # REFUSED ceiling: nothing executes
     if ceiling == Ceiling.REFUSED:
@@ -114,28 +180,44 @@ def enforce(
             )
         return EnforcementDecision(allowed=True, reason="destructive with current-turn approval", audit_action="allow")
 
-    # EXTERNAL_SEND requires current-turn approval unless skill is autonomous (invariant #2)
+    # EXTERNAL_SEND: governed by the resolved per-action ceiling (ADR 0025).
+    # autonomous → send; draft_for_review (the default) → draft; refused → block.
+    # No in-turn-approval escape: exposure autonomy is configured, not approved
+    # per message. The hardcoded "always require approval" refusal is gone.
     if action == ActionClass.EXTERNAL_SEND:
-        if ceiling == Ceiling.AUTONOMOUS and current_turn_approval:
-            return EnforcementDecision(allowed=True, reason="autonomous send with approval", audit_action="allow")
-        if ceiling == Ceiling.AUTONOMOUS:
-            # Even autonomous skills don't send to external parties without explicit approval
+        eff = resolve_ceiling(action, ceiling, action_ceilings, vertical_floors)
+        if eff == Ceiling.AUTONOMOUS:
+            return EnforcementDecision(
+                allowed=True,
+                reason="external_send permitted: configured ceiling is autonomous",
+                audit_action="allow",
+            )
+        if eff == Ceiling.REFUSED:
             return EnforcementDecision(
                 allowed=False,
-                reason="external_send requires explicit current-turn approval even for autonomous skills",
+                reason="external_send refused: configured ceiling (or vertical floor) is refused",
                 audit_action="refuse",
             )
-        # draft_for_review: produce the draft, don't send
+        # draft_for_review — the safe default and the reviewer-as-sender path
         return EnforcementDecision(
             allowed=False,
-            reason="skill is draft_for_review; produce draft to notes folder instead of sending",
+            reason="external_send below autonomous ceiling; routing to draft (reviewer-as-sender)",
             audit_action="draft",
         )
 
-    # INTERNAL_WRITE: autonomous OK, draft_for_review writes to notes folder
+    # INTERNAL_WRITE: governed by the resolved per-action ceiling (defaults to
+    # the skill scalar). autonomous → write; draft_for_review → route to draft;
+    # refused (only if explicitly set) → block.
     if action == ActionClass.INTERNAL_WRITE:
-        if ceiling == Ceiling.AUTONOMOUS:
+        eff = resolve_ceiling(action, ceiling, action_ceilings, vertical_floors)
+        if eff == Ceiling.AUTONOMOUS:
             return EnforcementDecision(allowed=True, reason="autonomous internal write", audit_action="allow")
+        if eff == Ceiling.REFUSED:
+            return EnforcementDecision(
+                allowed=False,
+                reason="internal_write refused by configured ceiling",
+                audit_action="refuse",
+            )
         # draft_for_review: allow write but route to notes folder
         return EnforcementDecision(allowed=True, reason="internal write routed to draft folder", audit_action="draft")
 
