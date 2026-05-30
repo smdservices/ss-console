@@ -281,8 +281,15 @@ prompt_and_set() {
 # planned binding uses composio"). The schema validator and runtime guard
 # still accept `composio:` backend prefixes for future long-tail vendors;
 # this prompt was dead provisioning ceremony.
+# AGENTMAIL_API_KEY removed 2026-05-29: the persona's own outbound mailbox
+# identity (ADR 0005 reviewer-as-sender / ADR 0008) is deferred to Phase 2
+# multi-persona (ADR 0011) and not yet implemented — no connector, OAuth flow,
+# plugin, or skill code reads it (cost_rollup.py only maps it as a future
+# cost-driver category). bootstrap.sh moved it to OPTIONAL_ENV in lockstep.
+# Like the Composio removal above, this prompt was dead provisioning ceremony;
+# customers act on real mailboxes via mcp:google-gmail / ms-graph, not an agent
+# mailbox. Re-add when a persona email identity is actually wired.
 prompt_and_set ANTHROPIC_API_KEY  "Anthropic API key for hermes-${SLUG}"
-prompt_and_set AGENTMAIL_API_KEY  "AgentMail API key (Builder tier)"
 
 # R2 access for bootstrap.sh's customer.yaml fetch + customer-sync sidecar's
 # polling for non-structural config changes. R2_BUCKET_CONFIG is in fly.toml
