@@ -90,6 +90,20 @@ scope:
   email_folders_blind: []
   email_keyword_blocks: []
   domain_blocks: []
+  # ---- TRUST CEILINGS (per-action, ADR 0025) ----
+  # Customer-zero interview (2026-05-31): "default send level is autonomous."
+  # Crane sends from its OWN AgentMail identity without per-message approval.
+  # The overlay trust layer reads scope.action_ceilings.external_send
+  # (hermes-smd-trust enforce.py, v0.4.0).
+  #
+  # Floors that still apply ON TOP of this (cannot be raised away here):
+  #   - Content-sensitivity floor (ADR 0031): money / contract / scope / legal
+  #     content drops to draft-for-review even under autonomous send.
+  #   - Principal-identity sends (email_send / email_reply on Scott's Gmail) are
+  #     hard-banned in code — Crane never sends "as Scott", only drafts there.
+  #   - commitment / destructive keep their current-turn-approval floors.
+  action_ceilings:
+    external_send: autonomous
 
 # ---- ESCALATION ----
 # "just flag it to me at the same address."
