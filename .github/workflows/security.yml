@@ -27,10 +27,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: 'npm'
@@ -50,7 +50,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -107,10 +107,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: 'npm'
@@ -134,7 +134,7 @@ jobs:
       # .github/workflows/dependabot-auto-merge.yml when safe).
       image: returntocorp/semgrep:1.157.0
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Run Semgrep
         # POSIX-compatible shell script — the returntocorp/semgrep container
         # uses Alpine ash, not bash, so ${PIPESTATUS[n]} is unavailable.
@@ -173,7 +173,7 @@ jobs:
     name: nosemgrep Justification Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Require substantive justification on every nosemgrep
         # Every `// nosemgrep` annotation must be followed by ` — ` or `: ` and
         # at least 20 characters of justification prose. Without this audit,
