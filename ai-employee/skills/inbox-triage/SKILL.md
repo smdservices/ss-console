@@ -6,7 +6,7 @@ author: SMD Services
 license: MIT
 platforms: [linux, macos]
 prerequisites:
-  skills: [productivity/google-workspace]
+  skills: []
   commands: [python3]
 metadata:
   hermes:
@@ -54,7 +54,7 @@ The skill runs in two phases. The mechanical fetch loop runs inside a single `ex
 
 ### Phase 1 — Fetch (single `execute_code` block)
 
-Invoke `execute_code` with a Python script that does the mechanical work. `google_api.py` is on PATH via the `productivity/google-workspace` prerequisite skill (frontmatter); `terminal` is exposed by `execute_code` (foreground mode only — see Hermes' code-execution docs):
+Invoke `execute_code` with a Python script that does the mechanical work. `crane_gmail.py` is the SMD-maintained Gmail reader (reads the principal's inbox via a user-OAuth token on the volume, ADR 0010; scope `gmail.modify` — read/archive/trash/draft, never send); `terminal` is exposed by `execute_code` (foreground mode only — see Hermes' code-execution docs):
 
 ```python
 import json
@@ -62,6 +62,7 @@ import shlex
 
 WINDOW = "newer_than:1d"   # override per `--window` arg
 MAX_MESSAGES = 25          # override per `--max` arg
+GMAIL = "/opt/hermes/.venv/bin/python3 /app/connectors/google/crane_gmail.py"
 
 def run(cmd: str) -> str:
     """Call into the Hermes-exposed terminal tool. Strips trailing whitespace."""
@@ -70,14 +71,14 @@ def run(cmd: str) -> str:
 # 1. Enumerate unread messages in the window.
 search_query = f'is:unread {WINDOW}'
 ids_raw = run(
-    f'google_api.py gmail search {shlex.quote(search_query)} --max {MAX_MESSAGES}'
+    f'{GMAIL} gmail search {shlex.quote(search_query)} --max {MAX_MESSAGES}'
 )
 message_ids = [line.strip() for line in ids_raw.splitlines() if line.strip()]
 
 # 2. Fetch full body for each. Accumulate; do NOT print per-message.
 messages = []
 for mid in message_ids:
-    raw = run(f'google_api.py gmail get {shlex.quote(mid)} --format json')
+    raw = run(f'{GMAIL} gmail get {shlex.quote(mid)} --format json')
     try:
         messages.append(json.loads(raw))
     except json.JSONDecodeError:
