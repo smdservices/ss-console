@@ -144,8 +144,8 @@ Every test run logs the following to `ai-employee/grading/runs/<skill>/<fixture-
   "tokens_in": 8243,
   "tokens_out": 1521,
   "tool_calls": [
-    { "tool": "composio:gmail.search", "duration_ms": 412 },
-    { "tool": "composio:gmail.get", "duration_ms": 287 }
+    { "tool": "mcp:google-gmail.search", "duration_ms": 412 },
+    { "tool": "mcp:google-gmail.get", "duration_ms": 287 }
   ],
   "verdict": "autonomous",
   "verdict_reasoning": "...",
@@ -166,6 +166,6 @@ This is the input to the $5K/mo SKU margin check: if a typical customer's projec
 
 - After Captain calibration produces > 20% disagreement on a clear pattern, the rubric needs tightening or loosening for that skill type.
 - After a real customer surfaces a failure mode no fixture covered, the fixtures get extended AND the rubric checks for that mode are added.
-- After Hermes / Composio behavior changes (model update, tool deprecation, etc.), re-baseline and re-grade.
+- After Hermes / MCP-server behavior changes (model update, tool deprecation, etc.), re-baseline and re-grade.
 
 The rubric is not frozen. It is the working contract.

@@ -203,10 +203,6 @@ def test_captain_time_maps_to_captain_time():
     assert category_for_driver("captain_time") == DriverCategory.CAPTAIN_TIME
 
 
-def test_composio_actions_maps_to_composio():
-    assert category_for_driver("composio_actions") == DriverCategory.COMPOSIO_ACTION
-
-
 def test_unknown_driver_maps_to_other():
     assert category_for_driver("third_party_api_lawpay") == DriverCategory.OTHER
     assert category_for_driver("totally-novel-driver") == DriverCategory.OTHER
@@ -301,10 +297,9 @@ def test_multi_driver_multi_day_aggregation():
     assert rollup.by_category_cents[DriverCategory.CAPTAIN_TIME] == 6000
     # AgentMail: 40 + 60 = 100
     assert rollup.by_category_cents[DriverCategory.AGENTMAIL] == 100
-    # No D1, Vectorize, Composio or OTHER
+    # No D1, Vectorize or OTHER
     assert rollup.by_category_cents[DriverCategory.CLOUDFLARE_D1] == 0
     assert rollup.by_category_cents[DriverCategory.CLOUDFLARE_VECTORIZE] == 0
-    assert rollup.by_category_cents[DriverCategory.COMPOSIO_ACTION] == 0
     assert rollup.by_category_cents[DriverCategory.OTHER] == 0
 
 
