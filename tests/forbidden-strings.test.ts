@@ -299,6 +299,55 @@ describe('IntakeClosed.astro fabrication guard (no follow-up promises)', () => {
   }
 })
 
+// ============================================================================
+// AI Employee marketing page — ADR 0013 fenced-term guard.
+//
+// ADR 0013 (AI Employee Positioning Doctrine) fences four terms from AI
+// marketing copy: "compliant" (no compliance claim without counsel review),
+// "AI Workforce" (trademark held by Eve), "AI Operating System" (held by Law
+// Practice AI), and "litigation insurance" (overclaim). The doctrine names
+// these as belonging in forbidden-strings; this guard wires them in for the
+// AI Employee SKU page specifically rather than across all of src/, where
+// "compliant" can legitimately appear (e.g. "WCAG-compliant" in a technical
+// context). Comments are stripped first, so an explanatory note that mentions
+// a fenced term does not trip the guard.
+//
+// @see docs/adr/0013-ai-employee-positioning-doctrine.md
+// ============================================================================
+
+const AI_EMPLOYEE_PAGE = resolve('src/pages/ai-employee.astro')
+const ADR_0013_FENCED_TERMS: Array<{ label: string; pattern: RegExp }> = [
+  {
+    label: '"compliant" (no compliance claim without counsel review, ADR 0013)',
+    pattern: /\bcompliant\b/i,
+  },
+  {
+    label: '"AI Workforce" (trademark held by Eve, ADR 0013)',
+    pattern: /\bAI Workforce\b/i,
+  },
+  {
+    label: '"AI Operating System" (held by Law Practice AI, ADR 0013)',
+    pattern: /\bAI Operating System\b/i,
+  },
+  {
+    label: '"litigation insurance" (overclaim, ADR 0013)',
+    pattern: /\blitigation insurance\b/i,
+  },
+]
+
+describe('ai-employee.astro ADR 0013 fenced-term guard', () => {
+  it('finds the AI Employee page source (sanity)', () => {
+    expect(() => readFileSync(AI_EMPLOYEE_PAGE, 'utf-8')).not.toThrow()
+  })
+
+  for (const { label, pattern } of ADR_0013_FENCED_TERMS) {
+    it(`ai-employee.astro must not contain fenced term: ${label}`, () => {
+      const content = stripComments(readFileSync(AI_EMPLOYEE_PAGE, 'utf-8'))
+      expect(pattern.test(content)).toBe(false)
+    })
+  }
+})
+
 describe('user-facing copy guardrails', () => {
   it('finds shipped user-facing Astro surfaces to check (sanity)', () => {
     expect(userFacingSurfaceFiles.length).toBeGreaterThan(0)
