@@ -2,12 +2,19 @@
 #
 # Builds Hermes from upstream at a pinned ref, installs the hermes-smd
 # overlay plugins + companion CLI, layers in our AIEmployee adapter / skill
-# library / connectors / safety-substrate tests, and bundles Postgres + Redis
-# + Honcho (Plastic Labs, AGPL-3.0) as in-container memory infrastructure.
+# library / connectors / safety-substrate tests.
+#
+# Memory (ADR 0016, revised 2026-05-30): Phase 1 runs on Hermes' always-on
+# flat-file core (MEMORY.md/USER.md). Honcho — the inferred-memory engine —
+# is deferred to Phase 2, when it is vendored as the real plastic-labs/honcho
+# v3.0.7 source (api + deriver, pgvector). The earlier in-container `honcho-ai`
+# server install was fictional (that package is the client SDK, not the server)
+# and is removed. Postgres + Redis remain installed below but are NOT started
+# at boot in Phase 1 — they exist only to serve Honcho and are reused in Phase 2.
 #
 # The container runs a multi-process startup under tini (PID 1, zombie
-# reaper). bootstrap.sh launches Postgres, Redis, Honcho, the customer-sync
-# sidecar, and finally execs Hermes. See bootstrap.sh for the full sequence.
+# reaper). bootstrap.sh fetches customer.yaml, materializes profiles, runs the
+# safety substrate, and execs the Hermes gateway. See bootstrap.sh.
 #
 # Per §6 of the locked build plan and ADR 0019: customer.yaml is NOT baked
 # into the image. Provisioning writes it to R2 at vaults/<slug>/customer.yaml;
@@ -41,24 +48,22 @@ ARG HERMES_UPSTREAM_TAG=v2026.5.16
 # upstream Hermes.
 ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 
-# Honcho upstream is plastic-labs/honcho (AGPL-3.0). Pinned via the pip
-# package version below. TODO(ci): add a CI assertion that the installed
-# Honcho commit hash matches upstream — mirroring the HERMES_SHA check
-# pattern so a transparent version drift is caught at build time.
-ARG HONCHO_PIP_SPEC="honcho-ai==1.0.0"
-
 # hermes-smd overlay (venturecrane/hermes-smd-overlay): plugin pack + CLI
 # (`hermes-smd bootstrap`, `hermes-smd customer-sync`) + the importable
 # `shared` policy core the runtime plugins depend on. Pinned to a tagged
 # release; bump in lockstep with overlay-side feature work.
 #
-# v0.2.0 is the FLOOR for a harness-complete Machine: the trust plugin does
+# v0.2.0 was the FLOOR for a harness-complete Machine: the trust plugin does
 # `from shared.outbound_gate import evaluate`, and that module first shipped
-# after v0.1.1 (overlay #15). Pinning at v0.1.1 builds a Machine whose trust
-# plugin cannot import its own policy core. See ADR 0028 + the import assert
-# below.
+# after v0.1.1 (overlay #15). The import assert below still guards it.
+#
+# v0.3.0 restores Hermes' flat-file memory core (stops the MEMORY.md/USER.md
+# tombstoning) and defers Honcho (ADR 0016 revised). Customer-zero booted end
+# to end on this overlay; the gateway ran with 8/8 safety invariants passing.
+# (The first-boot proof built from the pre-tag commit 0127331, which is
+# behaviorally identical to v0.3.0 — the only delta is the version string.)
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="v0.2.0"
+ARG OVERLAY_REF="v0.3.0"
 
 ARG CUSTOMER_SLUG=customer-zero
 
@@ -84,7 +89,6 @@ FROM ghcr.io/astral-sh/uv:0.11.6-python3.13-trixie AS uv_source
 FROM debian:13.4
 
 ARG CUSTOMER_SLUG
-ARG HONCHO_PIP_SPEC
 ARG OVERLAY_REPO
 ARG OVERLAY_REF
 
@@ -92,19 +96,21 @@ ENV CUSTOMER_SLUG=${CUSTOMER_SLUG}
 ENV PYTHONUNBUFFERED=1
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/hermes/.playwright
 ENV HERMES_HOME=/opt/data
-ENV PATH="/opt/data/.local/bin:/usr/lib/postgresql/16/bin:${PATH}"
+ENV PATH="/opt/data/.local/bin:/usr/lib/postgresql/17/bin:${PATH}"
 
 # ---------- System packages ----------
 # tini: PID 1 zombie reaper (signals + orphaned MCP stdio subprocesses).
-# postgresql-16 + redis: in-container Honcho data plane (Debian 13 defaults).
-# awscli: needed by bootstrap.sh to fetch customer.yaml from R2 (S3-compat).
-# curl + ca-certificates: health checks against the Honcho FastAPI server.
+# postgresql-17 + redis: installed for Phase 2 Honcho's data plane but NOT
+# started at boot in Phase 1 (Debian 13 trixie ships PostgreSQL 17 as default;
+# postgresql-16 is not in trixie's repos — keep 17 so the Phase-2 vendor lands
+# cleanly). awscli: bootstrap.sh fetches customer.yaml from R2 (S3-compat).
+# curl + ca-certificates: R2 fetch + general TLS.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       build-essential curl nodejs npm python3 python3-pip python3-venv \
       ripgrep ffmpeg gcc python3-dev libffi-dev procps git openssh-client \
       docker-cli tini ca-certificates \
-      postgresql-16 postgresql-client-16 redis-server awscli \
+      postgresql-17 postgresql-client-17 redis-server awscli \
  && rm -rf /var/lib/apt/lists/*
 
 # ---------- hermes user ----------
@@ -129,18 +135,20 @@ RUN uv sync --frozen --no-install-project --extra all
 RUN cd web && npm run build && cd ../ui-tui && npm run build
 RUN uv pip install --no-cache-dir --no-deps -e "."
 
-# ---------- Honcho (memory service) ----------
-# Installed into Hermes' venv so the migration runner + FastAPI server share
-# the same Python. Upstream: github.com/plastic-labs/honcho (AGPL-3.0).
-# Postgres + Redis are managed by bootstrap.sh; Honcho talks to 127.0.0.1.
-RUN /opt/hermes/.venv/bin/pip install --no-cache-dir "${HONCHO_PIP_SPEC}"
+# ---------- Honcho: deferred to Phase 2 (ADR 0016, revised 2026-05-30) ----------
+# No in-container Honcho server is installed. The prior `honcho-ai` pip install
+# was fictional — that package is the Honcho CLIENT SDK, not the server; the
+# real server is the plastic-labs/honcho v3.0.7 SOURCE repo (fastapi api +
+# `python -m src.deriver` worker, pgvector, mandatory LLM provider). Phase 2
+# vendors it the same way upstream Hermes is vendored above (clone at a pinned
+# tag, own venv). Phase 1 runs on Hermes' flat-file memory core.
 
 # ---------- hermes-smd overlay (plugins + CLI) ----------
 # Pip-install the overlay (provides `hermes-smd` console script for the
 # bootstrap translator and customer-sync sidecar) and then register the
 # plugin pack with Hermes. Plugins land under ~/.hermes/plugins/ where the
 # Hermes plugin loader discovers them at runtime.
-RUN /opt/hermes/.venv/bin/pip install --no-cache-dir \
+RUN uv pip install --no-cache-dir \
       "git+${OVERLAY_REPO}@${OVERLAY_REF}"
 
 # Register the plugin pack with Hermes' loader. `hermes plugins install` clones
@@ -225,13 +233,12 @@ ENV HERMES_WEB_DIST=/opt/hermes/hermes_cli/web_dist
 VOLUME [ "/opt/data" ]
 
 # Drop to non-root for runtime. bootstrap.sh does no root-requiring work:
-# env validation, R2 fetch, Postgres/Redis startup (data dirs pre-owned by
-# hermes), Honcho migrations + serve, safety-substrate python run, and
-# hermes-smd bootstrap all run as the hermes user.
+# env validation, R2 fetch, safety-substrate python run, hermes-smd bootstrap,
+# and the Hermes gateway all run as the hermes user.
 # Closes semgrep dockerfile.security.last-user-is-root.
 USER hermes
 
 # tini as PID 1: reaps zombies, forwards signals to the foreground child
-# (Hermes via `exec` in bootstrap.sh) and to the supervised background
-# children (Postgres, Redis, Honcho, customer-sync sidecar).
+# (the Hermes gateway via `exec` in bootstrap.sh) and to any supervised
+# background children (the customer-sync sidecar; Phase 2 adds Honcho).
 ENTRYPOINT [ "/usr/bin/tini", "-g", "--", "/app/bootstrap.sh" ]
