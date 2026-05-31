@@ -553,11 +553,14 @@ describe('portal list-row registry: UI-PATTERNS R7 enforcement', () => {
  * AI-Employee customer.yaml invariants.
  *
  * Guards the exact regression #776 shipped: a customer config with an invalid
- * `hermes_ref` fork tag (`v2026.5.16-smd.0`). Also bans `composio:` backends
- * (doctrine-dropped, ADR 0020). Narrow on purpose — this guards two invariants,
- * not the full config content (the config is data, not code).
+ * `hermes_ref` fork tag (`v2026.5.16-smd.0`). Also bans `composio:` backends:
+ * composio is retired (ADR 0020, 2026-05-30 revision) and the `composio:` prefix
+ * is no longer accepted by the customer.yaml validator — this is a defensive
+ * second layer so no committed config can reintroduce it. Narrow on purpose —
+ * this guards two invariants, not the full config content (the config is data,
+ * not code).
  *
- * @see docs/adr/0020-connector-strategy.md (composio dropped)
+ * @see docs/adr/0020-connector-strategy.md (composio retired)
  * @see docs/adr/0024-hermes-consumption-and-update-cadence.md (hermes_ref pin format)
  */
 describe('ai-employee customer.yaml invariants', () => {
@@ -591,7 +594,8 @@ describe('ai-employee customer.yaml invariants', () => {
       const content = readFileSync(file, 'utf-8')
       expect(
         content.includes('composio:'),
-        `${rel} uses a composio: backend — doctrine-dropped per ADR 0020.`
+        `${rel} uses a composio: backend — composio is retired and the prefix is ` +
+          `no longer accepted by the validator (ADR 0020).`
       ).toBe(false)
       const match = content.match(/^\s*hermes_ref:\s*['"]?([^'"\n]+?)['"]?\s*$/m)
       if (match) {

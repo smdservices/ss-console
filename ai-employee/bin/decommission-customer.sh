@@ -2,10 +2,9 @@
 # decommission-customer.sh: per-customer off-boarding (issue #820).
 #
 # Composes the existing memory + voice ``decommission_source`` hooks with
-# substrate-deletion steps (R2 namespace, Vectorize indexes, Composio,
-# AgentMail, Fly Machine), the compliance evidence packet archive, and
-# the customers/<slug>/ tombstone. Implements the 9 steps required by
-# the issue.
+# substrate-deletion steps (R2 namespace, Vectorize indexes, AgentMail,
+# Fly Machine), the compliance evidence packet archive, and the
+# customers/<slug>/ tombstone.
 #
 # Usage:
 #   ai-employee/bin/decommission-customer.sh <slug> [--dry-run]
@@ -20,7 +19,7 @@
 # delegates to this script with --live and --actor=$USER.
 #
 # Notes on stubs:
-#   Composio, AgentMail, and Fly Machine destruction are stubbed behind
+#   AgentMail and Fly Machine destruction are stubbed behind
 #   protocols today; the stubs log "skipped (no client wired)" and
 #   return a manifest the audit log records. Production wiring is a
 #   constructor swap in bin/lib/decommission.py: no script rewrite.

@@ -4,9 +4,9 @@ Coverage:
 
 * dry-run prints per-step plan, performs no destructive operations,
   writes no audit rows, exits 0;
-* live mode runs the 9-step sequence to completion against fake
+* live mode runs the full sequence to completion against fake
   external services (memory, voice, R2, Vectorize) + NoOpStubs
-  (Composio, AgentMail, Fly);
+  (AgentMail, Fly);
 * idempotency: dry-run x2 -> live -> live again all succeed cleanly
   (the second live run is a full no-op because every step is already
   done);
@@ -50,7 +50,6 @@ from bin.lib.decommission import (  # noqa: E402
     FilesystemTombstoner,
     InMemoryComplianceArchiver,
     NoOpAgentMailStub,
-    NoOpComposioStub,
     NoOpFlyStub,
     StepStatus,
 )
@@ -198,9 +197,9 @@ def test_dry_run_returns_planned_steps_and_does_nothing(tmp_path):
 
     assert [r.name for r in plan] == [
         "01_drain", "02_d1_memory_voice", "03_r2_namespace",
-        "04_vectorize_indexes", "05_composio", "06_agentmail",
-        "07_fly_machine", "08_compliance_archive", "09_tombstone",
-        "10_observability_cleanup",
+        "04_vectorize_indexes", "05_agentmail", "06_fly_machine",
+        "07_compliance_archive", "08_tombstone",
+        "09_observability_cleanup",
     ]
     for r in plan:
         assert r.status == StepStatus.PLANNED
@@ -236,7 +235,7 @@ def test_live_runs_full_sequence_and_writes_audit_trail(tmp_path):
 
     results = _run(pipeline.run())
 
-    assert len(results) == 10
+    assert len(results) == 9
     assert mem.calls, "memory runner should have been called for each configured source"
     assert voi.calls
     assert r2.calls == ["smd"]
@@ -299,9 +298,9 @@ def test_idempotent_repeated_runs(tmp_path):
 
     # Live x2 — fully decommissioned customer, every step idempotent.
     second = _run(pipeline.run())
-    assert len(second) == 10
+    assert len(second) == 9
     # Tombstone step returns skipped on the second run (already tombstoned).
-    tomb_step = next(r for r in second if r.name == "09_tombstone")
+    tomb_step = next(r for r in second if r.name == "08_tombstone")
     assert tomb_step.status == StepStatus.SKIPPED
     assert tomb_step.detail.get("reason") == "already_tombstoned"
     # R2 step second time reports namespace already empty.
@@ -348,7 +347,7 @@ def test_plan_includes_observability_cleanup_with_client_wired_flag(tmp_path):
         vectorize_deleter=_RecordingVectorizeDeleter(),
     )
     plan = _run(pipeline_noop.plan())
-    obs = next(r for r in plan if r.name == "10_observability_cleanup")
+    obs = next(r for r in plan if r.name == "09_observability_cleanup")
     assert obs.status == StepStatus.PLANNED
     assert obs.detail["client_wired"] is False
 
@@ -365,7 +364,7 @@ def test_plan_includes_observability_cleanup_with_client_wired_flag(tmp_path):
         observability=_RecordingObservabilityCleanup(),
     )
     plan = _run(pipeline_wired.plan())
-    obs = next(r for r in plan if r.name == "10_observability_cleanup")
+    obs = next(r for r in plan if r.name == "09_observability_cleanup")
     assert obs.detail["client_wired"] is True
 
 
@@ -386,7 +385,7 @@ def test_run_invokes_observability_cleanup_with_customer_slug(tmp_path):
     )
     results = _run(pipeline.run())
     assert obs.calls == ["smd"]
-    obs_step = next(r for r in results if r.name == "10_observability_cleanup")
+    obs_step = next(r for r in results if r.name == "09_observability_cleanup")
     assert obs_step.status == StepStatus.EXECUTED
     assert obs_step.detail["healthchecks_check_cancelled"] is True
     assert obs_step.detail["fleet_status_row_deleted"] is True
@@ -430,17 +429,12 @@ def test_failure_halts_with_step_failed(tmp_path):
     # Resume path: with the failure latched, second run completes (R2
     # raised only once); idempotency contract holds.
     results = _run(pipeline.run())
-    assert any(r.name == "09_tombstone" for r in results)
+    assert any(r.name == "08_tombstone" for r in results)
 
 
 # ---------------------------------------------------------------------------
 # Tests: --live fail-closed when destructive backends are unwired (#1123)
 # ---------------------------------------------------------------------------
-
-
-class _FakeComposio:
-    async def revoke_connections(self, customer_slug: str) -> dict:
-        return {"skipped": False, "connections_revoked": 1}
 
 
 class _FakeAgentMail:
@@ -469,7 +463,6 @@ def test_unwired_backends_lists_all_stubs_by_default(tmp_path):
         "voice_runner",
         "r2_deleter",
         "vectorize_deleter",
-        "composio",
         "agentmail",
         "fly",
         "observability",
@@ -488,7 +481,6 @@ def test_unwired_backends_empty_when_all_wired(tmp_path):
         voice_runner=_RecordingVoiceRunner(),
         r2_deleter=_RecordingR2Deleter(),
         vectorize_deleter=_RecordingVectorizeDeleter(),
-        composio=_FakeComposio(),
         agentmail=_FakeAgentMail(),
         fly=_FakeFly(),
         observability=_RecordingObservabilityCleanup(),
@@ -575,16 +567,13 @@ def test_tombstone_idempotent_when_already_tombstoned(tmp_path):
 
 
 def test_noop_stubs_return_skipped_manifests():
-    composio = NoOpComposioStub()
     agentmail = NoOpAgentMailStub()
     fly = NoOpFlyStub()
-    r1 = _run(composio.revoke_connections("smd"))
     r2 = _run(agentmail.deprovision("smd"))
     r3 = _run(fly.destroy_machine("smd"))
-    assert r1["skipped"] is True
     assert r2["skipped"] is True
     assert r3["skipped"] is True
-    for r in (r1, r2, r3):
+    for r in (r2, r3):
         assert r["reason"] == "external_client_not_wired"
 
 

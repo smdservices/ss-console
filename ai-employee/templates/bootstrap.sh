@@ -110,13 +110,6 @@ OPTIONAL_ENV=(
   HONCHO_API_KEY
   # R2 endpoint URL override (defaults to the Cloudflare R2 S3 endpoint).
   R2_ENDPOINT_URL
-  # COMPOSIO_API_KEY — doctrine-dropped per ADR 0020 (revision 2026-05-24: "no
-  # currently planned binding uses composio"). provision-customer.sh stopped
-  # staging it on 2026-05-26, so requiring it here was a guaranteed fail-closed
-  # boot crashloop. Kept as optional for forward-compat: a future customer.yaml
-  # with a composio: connector backend can stage it, and the runtime guard still
-  # accepts the prefix. No customer-zero code path consumes it.
-  COMPOSIO_API_KEY
   # AGENTMAIL_API_KEY — the persona's own outbound mailbox identity (ADR 0005
   # reviewer-as-sender; ADR 0008). Deferred to Phase 2 multi-persona (ADR 0011)
   # and not yet implemented: no connector, OAuth flow, plugin, or skill code

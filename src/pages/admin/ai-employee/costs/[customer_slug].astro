@@ -23,8 +23,7 @@ import { env } from 'cloudflare:workers'
  * Fabrication discipline (CLAUDE.md Pattern A/B): the page only displays
  * what cost_telemetry actually contains. The schema groups Anthropic
  * usage into `claude_api_input_tokens` / `claude_api_output_tokens`
- * across all models and Composio into a single `composio_actions`
- * driver. Per-model and per-toolkit decomposition is phase-2 work; the
+ * across all models. Per-model decomposition is phase-2 work; the
  * page surfaces what is recorded and explicitly says so rather than
  * fabricating attribution.
  */

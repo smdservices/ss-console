@@ -44,7 +44,7 @@ Build agents consuming these specs should treat the PRDs as **vision/doctrine** 
 
 These were flagged as `[AMBIGUITY: ...]` markers in the specs. Listed here for triage:
 
-1. ~~**OAuth token storage convergence**~~ — **Resolved 2026-05-23 ([ADR 0010](../adr/0010-per-customer-oauth-token-storage.md)):** Fly-volume only at `/opt/data/oauth/{connector}.json`, never Infisical. Spec [`oauth-lifecycle.md`](oauth-lifecycle.md) updated to match (consent state moved to `audit_log` table; Composio adapter-translation pattern for managed connectors).
+1. ~~**OAuth token storage convergence**~~ — **Resolved 2026-05-23 ([ADR 0010](../adr/0010-per-customer-oauth-token-storage.md)):** Fly-volume only at `/opt/data/oauth/{connector}.json`, never Infisical. Spec [`oauth-lifecycle.md`](oauth-lifecycle.md) updated to match (consent state moved to `audit_log` table).
 2. ~~**TypeScript vs Python adapter layer**~~ — **Resolved 2026-05-23:** TypeScript signatures at `ai-employee/capabilities/<name>.ts` remain the doctrinal contract; concrete adapters stay in Python and re-declare interfaces via `typing.Protocol`. No TS-adapter migration. See [`capability-contracts.md`](capability-contracts.md) §Resolved decisions.
 3. ~~**Calendar RSVP draft pattern**~~ — **Resolved 2026-05-23:** `DraftRef` shape is correct. Pattern A (reviewer-as-sender, ADR 0005) means the adapter returns a draft; the partner taps Accept/Decline in the dashboard; the dashboard fires the actual provider API call. Same pattern as Email. See [`capability-contracts.md`](capability-contracts.md) §Resolved decisions.
 4. ~~**Re-consent callback URL**~~ — **Resolved 2026-05-23:** Portal subdomain (`portal.smd.services/ai-employee/oauth/{connector}/callback`). Customer-facing flows belong on portal; admin stays role-gated. See [`oauth-lifecycle.md`](oauth-lifecycle.md) §Resolved decisions.
@@ -56,10 +56,9 @@ These were flagged as `[AMBIGUITY: ...]` markers in the specs. Listed here for t
 10. **Mobile dashboard reachability** (mobile-approval-flow.md) — MDM-restricted devices may block portal access; confirm during onboarding.
 11. **Compliance packet narrative review cadence** (compliance-evidence-packet.md) — Auto-generate with Captain review-and-amend, or fully manual? Decision: auto-render then Captain edits before delivery.
 12. **Onboarding walkthrough completion rate** (day-1-onboarding.md) — Partners often skip; Captain plans live-walk in demo close + follow-up email.
-13. ~~**Composio per-action pricing source**~~ — **Resolved 2026-05-23:** Hardcoded JSON at `ai-employee/adapter/cost_telemetry/composio_pricing.json`, manually updated when Composio changes prices; anomaly check flags >2× period-over-period deltas for Captain refresh. See [`cost-telemetry-events.md`](cost-telemetry-events.md) §Resolved decisions.
-14. ~~**D1 metering access pattern**~~ — **Resolved 2026-05-23:** Plan around Cloudflare GraphQL Analytics; validation spike is first step of #824 work. Fallback: defer D1 cost-driver instrumentation to phase 2 if validation fails (Anthropic API tokens dominate COGS; D1 not kill-criterion-driving in v1). See [`cost-telemetry-events.md`](cost-telemetry-events.md) §Resolved decisions.
-15. **Atomic-wipe decommissioning** (decommission-drain.md) — True atomicity impossible across independent APIs; spec settles for ordered-best-effort. Confirm satisfies §13.3.
-16. **Decommission-archive cleanup verification** (decommission-drain.md) — Captain-signed deletion proof at 30 days needed.
+13. ~~**D1 metering access pattern**~~ — **Resolved 2026-05-23:** Plan around Cloudflare GraphQL Analytics; validation spike is first step of #824 work. Fallback: defer D1 cost-driver instrumentation to phase 2 if validation fails (Anthropic API tokens dominate COGS; D1 not kill-criterion-driving in v1). See [`cost-telemetry-events.md`](cost-telemetry-events.md) §Resolved decisions.
+14. **Atomic-wipe decommissioning** (decommission-drain.md) — True atomicity impossible across independent APIs; spec settles for ordered-best-effort. Confirm satisfies §13.3.
+15. **Decommission-archive cleanup verification** (decommission-drain.md) — Captain-signed deletion proof at 30 days needed.
 
 ## Cross-spec references
 

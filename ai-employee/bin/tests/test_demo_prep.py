@@ -588,7 +588,7 @@ def test_connector_smoke_skips_for_other_pm_adapters(tmp_path):
     data = _base_customer_yaml("demo-firm")
     data["connectors"]["PracticeManagement"] = {
         "adapter": "clio",
-        "backend": "composio:clio",
+        "backend": "mcp:clio",
         "enabled": True,
     }
     _seed_customer(tmp_path, "demo-firm", yaml_override=data)
