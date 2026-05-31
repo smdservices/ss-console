@@ -61,9 +61,12 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # tombstoning) and deferred Honcho (ADR 0016 revised); customer-zero booted end
 # to end on it with 8/8 safety invariants passing. v0.3.1 retires the (dormant)
 # composio per-connection isolation guard — composio is dropped, we connect to
-# MCPs directly (ADR 0020 revised).
+# MCPs directly (ADR 0020 revised). v0.3.2 materializes customer.yaml `mcp:`
+# connectors into the profile's mcp_servers block (AgentMail is the first
+# vendor), bans the agentmail autonomous-send tools at the trust layer, and
+# makes the profile-config write atomic (recovers a root-owned config.yaml).
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="v0.3.1"
+ARG OVERLAY_REF="v0.3.2"
 
 ARG CUSTOMER_SLUG=customer-zero
 

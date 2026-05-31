@@ -142,10 +142,14 @@ describe('AI Employee Machine: Honcho deferred, flat-file core (ADR 0016 revised
     ).toBe(false)
   })
 
-  it('bootstrap.sh launches the gateway daemon, not the interactive chat REPL', () => {
+  it('bootstrap.sh launches the active-persona gateway daemon, not the default profile or the chat REPL', () => {
+    // Must run `hermes gateway run` (daemon) targeting a persona profile via
+    // `-p <slug>`. A bare `hermes gateway run` runs Hermes' built-in `default`
+    // profile — no model, SOUL.md, skills, or connector wiring — i.e. not the
+    // customer's agent. The `-p` flag is the regression guard for that bug.
     expect(
-      /exec\s+\S*hermes\s+gateway\s+run/.test(BOOTSTRAP_CODE),
-      'an unattended Machine must `exec hermes gateway run`'
+      /exec\s+\S*hermes\s+-p\s+\S+\s+gateway\s+run/.test(BOOTSTRAP_CODE),
+      'an unattended Machine must `exec hermes -p <profile> gateway run`'
     ).toBe(true)
     expect(
       /exec\s+\S*hermes\s+chat\b/.test(BOOTSTRAP_CODE),

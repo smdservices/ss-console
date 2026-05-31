@@ -15,7 +15,8 @@
 #   9.  Pause guard.
 #   10. customer-sync sidecar (R2 poller) — NOT launched in Phase 1 (the overlay
 #       reload path is unimplemented; see that step).
-#   11. exec the Hermes gateway (becomes the foreground child of tini).
+#   11. exec the Hermes gateway for the active persona profile (`-p <slug>`;
+#       becomes the foreground child of tini).
 #
 # Memory (ADR 0016, revised 2026-05-30): Phase 1 runs on Hermes' always-on
 # flat-file core (MEMORY.md/USER.md). Honcho (inferred memory) is a swappable
@@ -111,12 +112,13 @@ OPTIONAL_ENV=(
   # R2 endpoint URL override (defaults to the Cloudflare R2 S3 endpoint).
   R2_ENDPOINT_URL
   # AGENTMAIL_API_KEY — the persona's own outbound mailbox identity (ADR 0005
-  # reviewer-as-sender; ADR 0008). Deferred to Phase 2 multi-persona (ADR 0011)
-  # and not yet implemented: no connector, OAuth flow, plugin, or skill code
-  # reads it (cost_rollup.py only maps it as a future cost-driver category).
-  # SMD customer-zero acts on the principal's Gmail via mcp:google-gmail, not an
-  # agent mailbox, so requiring it blocked boot for no functional reason. Re-
-  # require when a persona email identity is actually wired.
+  # reviewer-as-sender). NOW CONSUMED: a customer.yaml `Email` connector with
+  # backend `mcp:agentmail` is materialized by the overlay translator
+  # (bootstrap.translate._materialize_mcp_servers) into the profile's
+  # `mcp_servers` block, injecting this key as the `x-api-key` header. Kept
+  # OPTIONAL on purpose — if it is unset the translator logs and skips the
+  # agentmail server (the Machine still boots; the Email connector is simply
+  # not wired) rather than crashlooping on a missing key.
   AGENTMAIL_API_KEY
 )
 
@@ -254,7 +256,7 @@ fi
 # re-provision. Re-enable here once the overlay ships the sidecar.
 
 # ============================================================================
-# Step 11: launch the Hermes gateway (foreground under tini)
+# Step 11: launch the Hermes gateway for the active persona (foreground/tini)
 # ============================================================================
 # The unattended runtime is `hermes gateway run`, NOT `hermes chat`. `chat` is
 # an interactive REPL — as PID-1's foreground child with no TTY it would hit
@@ -264,18 +266,45 @@ fi
 # (audit / trust / inbound / outbound / voice). `gateway run` is the upstream-
 # documented foreground mode for containers.
 #
+# The gateway MUST target the persona profile, not the bare default profile.
+# A plain `hermes gateway run` runs Hermes' built-in `default` profile, which
+# has no model, no SOUL.md, no skills, and no connector wiring — i.e. NOT the
+# customer's agent. Step 7 wrote the persona profiles under
+# $HERMES_HOME/profiles/<slug>/; we select the active one with `-p <slug>`
+# (a global flag that works in any position; the profile dir is sufficient,
+# no separate `hermes profile create` needed).
+#
+# Active persona = the first persona with `status: active` (else the first
+# persona). Phase 1 customers run a single active persona, so one gateway. The
+# multi-active-persona case (one gateway per persona) is an ADR 0011 Phase-2
+# concern; until then we launch the single active persona's gateway.
+ACTIVE_PROFILE="$(/opt/hermes/.venv/bin/python3 - "${CUSTOMER_YAML}" <<'PY'
+import sys
+import yaml
+
+data = yaml.safe_load(open(sys.argv[1])) or {}
+personas = data.get("personas") or []
+active = [p for p in personas if p.get("status") == "active" and p.get("slug")]
+fallback = [p for p in personas if p.get("slug")]
+chosen = (active or fallback or [None])[0]
+print(chosen["slug"] if chosen else "")
+PY
+)" || die "failed to read active persona from customer.yaml"
+[ -n "${ACTIVE_PROFILE}" ] || die "no active persona with a slug in customer.yaml"
+log "Active persona profile: ${ACTIVE_PROFILE}"
+
 # `exec` so the gateway inherits the foreground slot under tini cleanly.
 #
 # Overlay plugins were installed at image build time under ~/.hermes/plugins/.
 # customer.yaml + skills + connector wiring resolve through the overlay's
 # bootstrap CLI invoked in step 7.
 #
-# Ensure the gateway's log directory exists and is writable by the hermes user.
-# Hermes writes a rotating log to $HERMES_HOME/logs/agent.log and does NOT create
-# the parent dir itself — on a fresh volume the open() would fail. The volume
-# root is hermes-owned, so this mkdir creates a hermes-owned, writable dir.
-mkdir -p "${HERMES_HOME}/logs"
+# Ensure the gateway's log directories exist and are writable by the hermes
+# user. Hermes writes a rotating log and does NOT create the parent dir itself
+# — on a fresh volume the open() would fail. The volume root and the profile
+# dir are hermes-owned, so these mkdirs create hermes-owned, writable dirs.
+mkdir -p "${HERMES_HOME}/logs" "${HERMES_HOME}/profiles/${ACTIVE_PROFILE}/logs"
 
-log "Launching Hermes gateway (overlay plugins enabled)..."
+log "Launching Hermes gateway for profile '${ACTIVE_PROFILE}' (overlay plugins enabled)..."
 
-exec /opt/hermes/.venv/bin/hermes gateway run
+exec /opt/hermes/.venv/bin/hermes -p "${ACTIVE_PROFILE}" gateway run
