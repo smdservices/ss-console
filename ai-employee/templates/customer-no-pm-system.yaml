@@ -81,9 +81,10 @@ personas:
 #   1. mcp:<server>       — vendor-direct MCP first (default when available)
 #   2. mcp:<community>    — vetted community MCP (light review per ADR 0020)
 #   3. build:<vendor>     — Python adapter we maintain (no acceptable MCP, or
-#                            trust-ceiling enforcement we own end-to-end)
-#   4. composio:<connector>  — long-tail fallback; no current bindings use it
-#   5. synthetic:<name>   — in-process substrate (no_pm for this template)
+#                            trust-ceiling enforcement we own end-to-end; also
+#                            the fallback for long-tail vendors with no MCP)
+#   4. synthetic:<name>   — in-process substrate (no_pm for this template)
+# (Composio is dropped per the ADR 0020 2026-05-30 revision; no composio: backend.)
 connectors:
   PracticeManagement:
     adapter: no_pm

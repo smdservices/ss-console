@@ -53,12 +53,11 @@ class MonthlyRollup:
 
 ### Driver categories
 
-The nine categories match platform-prd §15.1 and the pricing model in docs/strategy/ai-employee-pricing-2026-05-13.md:
+The categories match platform-prd §15.1 and the pricing model in docs/strategy/ai-employee-pricing-2026-05-13.md:
 
 | `DriverCategory`       | Raw drivers (from cost-telemetry-events.md)               |
 | ---------------------- | --------------------------------------------------------- |
 | `ANTHROPIC_LLM`        | `claude_api_input_tokens`, `claude_api_output_tokens`     |
-| `COMPOSIO_ACTION`      | `composio_actions`                                        |
 | `FLY_COMPUTE`          | `fly_machine_minutes`                                     |
 | `CLOUDFLARE_D1`        | `d1_reads`, `d1_writes`                                   |
 | `CLOUDFLARE_R2`        | `r2_storage_gb_hours`, `r2_class_a_ops`, `r2_class_b_ops` |

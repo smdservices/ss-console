@@ -26,10 +26,6 @@ describe('categoryForDriver', () => {
     expect(categoryForDriver('claude_api_output_tokens')).toBe('anthropic_llm')
   })
 
-  it('maps composio_actions to composio_action', () => {
-    expect(categoryForDriver('composio_actions')).toBe('composio_action')
-  })
-
   it('maps unknown drivers to other (no silent drop)', () => {
     expect(categoryForDriver('mystery_driver')).toBe('other')
   })
@@ -102,16 +98,16 @@ describe('summarizeCostRows', () => {
       },
       {
         date: '2026-05-02',
-        driver: 'composio_actions',
+        driver: 'fly_machine_minutes',
         amount_cents: 30,
         units: 30,
-        unit_type: 'api_calls',
+        unit_type: 'minutes',
       },
     ]
     const s = summarizeCostRows('acme', window.start, window.end, rows)
     expect(s.totalCents).toBe(380)
     expect(s.byCategory.anthropic_llm).toBe(350)
-    expect(s.byCategory.composio_action).toBe(30)
+    expect(s.byCategory.fly_compute).toBe(30)
     expect(s.byDriver).toHaveLength(3)
     const inputDriver = s.byDriver.find((d) => d.driver === 'claude_api_input_tokens')
     expect(inputDriver?.units).toBe(1000)
@@ -139,10 +135,10 @@ describe('summarizeCostRows', () => {
     for (let i = 0; i < 7; i++) {
       rows.push({
         date: `2026-05-0${i + 1}`,
-        driver: 'composio_actions',
+        driver: 'fly_machine_minutes',
         amount_cents: 70,
         units: 70,
-        unit_type: 'api_calls',
+        unit_type: 'minutes',
       })
     }
     const s = summarizeCostRows('acme', window.start, window.end, rows)
@@ -160,18 +156,18 @@ describe('summarizeCostRows', () => {
     for (let i = 0; i < 7; i++) {
       rows.push({
         date: `2026-05-0${i + 1}`,
-        driver: 'composio_actions',
+        driver: 'fly_machine_minutes',
         amount_cents: 100,
         units: 100,
-        unit_type: 'api_calls',
+        unit_type: 'minutes',
       })
     }
     rows.push({
       date: '2026-05-08',
-      driver: 'composio_actions',
+      driver: 'fly_machine_minutes',
       amount_cents: 800,
       units: 800,
-      unit_type: 'api_calls',
+      unit_type: 'minutes',
     })
     const s = summarizeCostRows('acme', window8.start, window8.end, rows)
     // index 6 (day 7) = avg of days 1-7 = 100
@@ -250,17 +246,17 @@ describe('rowsToCsv', () => {
       },
       {
         date: '2026-05-02',
-        driver: 'composio_actions',
+        driver: 'fly_machine_minutes',
         amount_cents: 30,
         units: 30,
-        unit_type: 'api_calls',
+        unit_type: 'minutes',
       },
     ]
     const csv = rowsToCsv('acme', rows)
     const lines = csv.trim().split('\n')
     expect(lines[0]).toBe('customer_slug,date,driver,amount_cents,units,unit_type')
     expect(lines[1]).toBe('acme,2026-05-01,claude_api_input_tokens,100,1000,input_tokens')
-    expect(lines[2]).toBe('acme,2026-05-02,composio_actions,30,30,api_calls')
+    expect(lines[2]).toBe('acme,2026-05-02,fly_machine_minutes,30,30,minutes')
   })
 
   it('escapes values containing commas or quotes', () => {
@@ -318,10 +314,10 @@ describe('fetchCustomerCostRows (D1 HTTP API)', () => {
                 },
                 {
                   date: '2026-05-01',
-                  driver: 'composio_actions',
+                  driver: 'fly_machine_minutes',
                   amount_cents: 30,
                   units: 30,
-                  unit_type: 'api_calls',
+                  unit_type: 'minutes',
                 },
               ],
             },
@@ -378,10 +374,10 @@ describe('fetchCustomerCostRows (D1 HTTP API)', () => {
           result: [
             {
               results: [
-                { date: 'good', driver: 'composio_actions', amount_cents: 1 },
+                { date: 'good', driver: 'fly_machine_minutes', amount_cents: 1 },
                 { driver: 'missing_date', amount_cents: 1 },
                 { date: '2026-05-01', amount_cents: 1 },
-                { date: '2026-05-01', driver: 'composio_actions' },
+                { date: '2026-05-01', driver: 'fly_machine_minutes' },
               ],
             },
           ],
@@ -396,6 +392,6 @@ describe('fetchCustomerCostRows (D1 HTTP API)', () => {
     )
     expect(result.error).toBeNull()
     expect(result.rows).toHaveLength(1)
-    expect(result.rows[0].driver).toBe('composio_actions')
+    expect(result.rows[0].driver).toBe('fly_machine_minutes')
   })
 })

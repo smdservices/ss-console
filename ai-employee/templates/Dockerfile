@@ -57,13 +57,13 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # `from shared.outbound_gate import evaluate`, and that module first shipped
 # after v0.1.1 (overlay #15). The import assert below still guards it.
 #
-# v0.3.0 restores Hermes' flat-file memory core (stops the MEMORY.md/USER.md
-# tombstoning) and defers Honcho (ADR 0016 revised). Customer-zero booted end
-# to end on this overlay; the gateway ran with 8/8 safety invariants passing.
-# (The first-boot proof built from the pre-tag commit 0127331, which is
-# behaviorally identical to v0.3.0 — the only delta is the version string.)
+# v0.3.0 restored Hermes' flat-file memory core (stops the MEMORY.md/USER.md
+# tombstoning) and deferred Honcho (ADR 0016 revised); customer-zero booted end
+# to end on it with 8/8 safety invariants passing. v0.3.1 retires the (dormant)
+# composio per-connection isolation guard — composio is dropped, we connect to
+# MCPs directly (ADR 0020 revised).
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="v0.3.0"
+ARG OVERLAY_REF="v0.3.1"
 
 ARG CUSTOMER_SLUG=customer-zero
 

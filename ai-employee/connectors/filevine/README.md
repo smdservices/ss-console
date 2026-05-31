@@ -78,7 +78,7 @@ connectors:
 Notes on the binding shape:
 
 - `adapter: filevine` -- the SMD-internal slug. The validator (`src/lib/ai-employee/customer-yaml/validator.ts`) treats it as opaque; the boot-time conformance harness asserts the actual adapter class satisfies the interface.
-- `backend: build:filevine` -- `build:` prefix means SMD-owned wrapper (this connector). Filevine is not on Composio's roster, so there's no `composio:` alternative.
+- `backend: build:filevine` -- `build:` prefix means SMD-owned wrapper (this connector). Filevine has no acceptable first-party MCP, so a BUILD adapter is the binding.
 - `token_ref:` -- Infisical reference; resolved by `bin/provision-customer.sh` and injected into the Hermes Machine as a Fly secret. Never a literal token here per the schema's secret-exclusion rules.
 - `org_slug` is not in `customer.yaml` because the Identity & Access layer (#789/#822) owns customer-Filevine-tenant mapping. The provider's `org_slug()` returns the bound value at runtime.
 - The same `adapter: filevine` slug appears in both bindings because Filevine serves both capabilities. The provisioning script wires them to the same `FilevineClient` instance so they share the auth provider and connection pool.

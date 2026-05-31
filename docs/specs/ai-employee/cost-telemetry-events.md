@@ -42,7 +42,6 @@ Rollup is one row per `(date, driver)` per customer. Insertion is UPSERT — mul
 | `r2_class_b_ops`                | Same source (reads)                                                                         | Daily nightly                     | `api_calls`       |
 | `vectorize_queries`             | Cloudflare Vectorize metering API                                                           | Daily nightly                     | `api_calls`       |
 | `vectorize_dimensions_stored`   | Same source                                                                                 | Daily nightly                     | `dimensions`      |
-| `composio_actions`              | Composio usage API; pulled by nightly job                                                   | Daily nightly                     | `api_calls`       |
 | `agentmail_messages`            | AgentMail billing API                                                                       | Daily nightly                     | `messages`        |
 | `agentmail_mailbox_days`        | AgentMail subscription pull                                                                 | Daily nightly                     | `mailbox_days`    |
 | `third_party_api_lawpay`        | LawPay billing API (if cost model includes per-call fees)                                   | Daily nightly                     | `api_calls`       |
@@ -90,7 +89,6 @@ for customer in list_customers():
     d1_metrics  = cloudflare_api.d1_metrics(f"hermes-{customer}-d1", yesterday)
     r2_metrics  = cloudflare_api.r2_metrics(f"hermes-{customer}-r2", yesterday)
     vec_metrics = cloudflare_api.vectorize_metrics(f"hermes-{customer}-vault", yesterday)
-    composio    = composio_api.usage_for_account(customer_account_id, yesterday)
     agentmail   = agentmail_api.usage_for_mailbox(customer_mailbox_id, yesterday)
     upsert all into customer's cost_telemetry (date=yesterday)
 ```
@@ -177,7 +175,6 @@ Alert fires when `ratio > 0.40` for two consecutive months. Audit event `COGS_RA
 
 - **Anthropic API response missing usage headers**: log warning; record zero-token row with `units=null`; Captain alerted weekly on cumulative null rate.
 - **Fly/Cloudflare metering API rate-limited**: nightly job retries with exponential backoff (1m/5m/15m); skips after 3 fails; Captain alerted.
-- **Composio API down for >24h**: composio row stays zero for those days; data backfills when API recovers (composio returns historical usage in their API per their docs).
 - **Pricing changes mid-month**: cost_telemetry stores `amount_cents` computed at emission time using the pricing in effect then. No retroactive recomputation. Per PRD §15.1 the pricing-strategy doc explicitly covers month-of-change recomputation.
 - **Captain forgets to log time**: `captain_time_events` rows stay missing and the `cost_telemetry` rollup understates true COGS. Weekly automated reminder via Slack DM to Captain summarizing untagged Captain hours. The CLI accepts `--date` up to 7 days in the past so backfilling missed days is a single command per day.
 - **CLI rejects an invalid activity tag**: Captain has typed a freeform string that is not in the closed v1 taxonomy. Resolution: pick the nearest valid tag, or open a PR to platform-prd.md §15.2 extending the enum. The row is not written.
@@ -201,7 +198,5 @@ Alert fires when `ratio > 0.40` for two consecutive months. Audit event `COGS_RA
   - decommission-drain.md (final cost_telemetry export before D1 deletion)
 
 ## Resolved decisions
-
-**Composio per-action pricing.** Hardcode per-toolkit pricing in `ai-employee/adapter/cost_telemetry/composio_pricing.json`, updated manually when Composio changes prices. Composio does not publish per-action pricing via API as of 2026-05; manual maintenance is the only path. Anomaly check: if a billing-period rollup shows a Composio cost-driver delta >2× the prior period for any single toolkit, alert Captain to refresh `composio_pricing.json` against Composio's current published rates.
 
 **D1 metering access pattern.** Plan around Cloudflare GraphQL Analytics for the nightly D1 read/write pull. The #824 implementation work includes a validation spike against the live Cloudflare account as its first step. **Fallback:** if GraphQL Analytics access turns out to be unworkable for our auth model or rate limits, defer D1 cost-driver instrumentation to phase 2 — Anthropic API tokens dominate the COGS surface (per `docs/strategy/ai-employee-stack-evaluation-2026-05-13.md`); D1 will not be the kill-criterion driver in v1, so a temporary gap is acceptable.

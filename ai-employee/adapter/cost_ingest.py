@@ -21,11 +21,6 @@ Design notes
     1. Anthropic billing API — input_tokens and output_tokens, costed
        via `cost_telemetry/anthropic_pricing.json`. Daily aggregate
        per model.
-    2. Composio usage API — per-action counts costed via
-       `cost_telemetry/composio_pricing.json`. Per the resolved
-       decision in cost-telemetry-events.md "Resolved decisions",
-       Composio does not publish per-action prices via API so the
-       JSON is the manual maintenance surface.
 
   Cloudflare D1/R2/Vectorize and Fly compute remain in the spec but are
   deferred per the validation-spike result documented in this module's
@@ -75,9 +70,9 @@ the live-API check. Outcome of the v1 spike (2026-05-23):
     — Anthropic API tokens dominate the COGS surface"), the D1, R2,
     and Vectorize ingests are deferred to phase 2. The PR body
     documents this gap.
-  - Anthropic API tokens and Composio actions cover the dominant COGS
-    surface for v1, sufficient to compute the §17.1 COGS/MRR kill
-    criterion within the modeling margin already accepted in
+  - Anthropic API tokens cover the dominant COGS surface for v1,
+    sufficient to compute the §17.1 COGS/MRR kill criterion within
+    the modeling margin already accepted in
     `docs/strategy/ai-employee-pricing-2026-05-13.md`.
 
 When the gap is closed (phase 2), add an `ingest_cloudflare_metrics()`
@@ -95,9 +90,6 @@ Failure modes
   raw token count. The Captain dashboard surfaces unknown-model rows
   as triage candidates. This is preferable to silently dropping
   usage — a missing price is a pricing-file gap, not a usage gap.
-* Composio API down: source result `ok=False`. Per the spec, Composio
-  backfills historical usage when its API recovers, so a missing day
-  is recoverable on the next successful run.
 * D1 UPSERT fails: surfaces as the underlying executor exception. The
   module does not swallow database failures.
 """
@@ -109,7 +101,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Mapping, Optional, Protocol, Sequence
+from typing import Optional, Protocol, Sequence
 
 log = logging.getLogger("aie.cost_ingest")
 
@@ -134,11 +126,6 @@ def _load_pricing(filename: str) -> dict:
 
 def load_anthropic_pricing(filename: str = "anthropic_pricing.json") -> dict:
     """Load Anthropic per-model pricing. Returns the parsed JSON."""
-    return _load_pricing(filename)
-
-
-def load_composio_pricing(filename: str = "composio_pricing.json") -> dict:
-    """Load Composio per-toolkit pricing. Returns the parsed JSON."""
     return _load_pricing(filename)
 
 
@@ -167,21 +154,6 @@ class AnthropicBillingSource(Protocol):
         api_key: str,
         day: date,
     ) -> Sequence[tuple[str, int, int]]: ...
-
-
-class ComposioUsageSource(Protocol):
-    """Pull per-toolkit action counts for a single day.
-
-    Returns a sequence of (toolkit, action_count) tuples — one row per
-    toolkit the customer used that day.
-    """
-
-    async def fetch_daily_usage(
-        self,
-        api_key: str,
-        account_id: str,
-        day: date,
-    ) -> Sequence[tuple[str, int]]: ...
 
 
 # ---------------------------------------------------------------------------
@@ -362,88 +334,6 @@ async def ingest_anthropic_billing(
 
 
 # ---------------------------------------------------------------------------
-# Composio ingest
-# ---------------------------------------------------------------------------
-
-
-def _compute_composio_cents(
-    toolkit: str,
-    action_count: int,
-    pricing: dict,
-) -> int:
-    """Return cents for a toolkit's action count.
-
-    Per-toolkit override wins; otherwise default. Spec: composio_pricing.json
-    "Resolved decisions" — manual maintenance is the only path.
-    """
-    overrides: Mapping[str, Any] = pricing.get("toolkit_overrides", {}) or {}
-    default = int(pricing.get("default_per_action_cents", 0))
-    per_action = int(overrides.get(toolkit, default))
-    return action_count * per_action
-
-
-async def ingest_composio_usage(
-    executor: CostIngestExecutor,
-    source: ComposioUsageSource,
-    api_key: str,
-    composio_account_id: str,
-    day: date,
-    pricing: Optional[dict] = None,
-) -> SourceIngestResult:
-    """Pull yesterday's Composio action usage and UPSERT into cost_telemetry.
-
-    Emits one row:
-      driver=composio_actions, unit_type=api_calls
-
-    Per-toolkit counts are summed into one row (matches the cost_rollup
-    bucketing). Per-toolkit breakdown is left to a phase-2 enhancement
-    when Composio exposes structured per-toolkit pricing.
-    """
-    if pricing is None:
-        pricing = load_composio_pricing()
-    day_str = day.isoformat()
-
-    try:
-        rows = await source.fetch_daily_usage(api_key, composio_account_id, day)
-    except Exception as e:  # noqa: BLE001
-        log.warning(
-            "composio_usage fetch failed for %s: %s",
-            day_str,
-            e,
-        )
-        return SourceIngestResult(
-            source="composio_usage",
-            ok=False,
-            reason=f"fetch failed: {e}",
-        )
-
-    total_actions = 0
-    total_cents = 0
-    for toolkit, count in rows:
-        total_actions += int(count)
-        total_cents += _compute_composio_cents(toolkit, int(count), pricing)
-
-    rows_written = 0
-    if total_actions > 0:
-        await _upsert_row(
-            executor,
-            day_str,
-            "composio_actions",
-            total_cents,
-            float(total_actions),
-            "api_calls",
-        )
-        rows_written = 1
-
-    return SourceIngestResult(
-        source="composio_usage",
-        ok=True,
-        rows_written=rows_written,
-        cents_written=total_cents,
-    )
-
-
-# ---------------------------------------------------------------------------
 # Per-customer run entry point
 # ---------------------------------------------------------------------------
 
@@ -454,20 +344,17 @@ class CustomerIngestContext:
 
     The cron loop builds one of these per customer from the customer's
     Hermes Machine bindings (API keys are per-customer secrets) and the
-    central customer_configs row (slug + composio account id).
+    central customer_configs row (slug).
     """
 
     customer_slug: str
     anthropic_api_key: str
-    composio_api_key: Optional[str] = None
-    composio_account_id: Optional[str] = None
     executor: Optional[CostIngestExecutor] = field(default=None)
 
 
 async def run_ingest_for_customer(
     ctx: CustomerIngestContext,
     anthropic_source: AnthropicBillingSource,
-    composio_source: Optional[ComposioUsageSource],
     day: Optional[date] = None,
 ) -> IngestRunResult:
     """Run every enabled source for one customer for one day.
@@ -512,30 +399,6 @@ async def run_ingest_for_customer(
         )
     source_results.append(anthropic_result)
 
-    # Composio (only if configured)
-    if composio_source is not None and ctx.composio_api_key and ctx.composio_account_id:
-        try:
-            composio_result = await ingest_composio_usage(
-                ctx.executor,
-                composio_source,
-                ctx.composio_api_key,
-                ctx.composio_account_id,
-                day,
-            )
-        except Exception as e:  # noqa: BLE001
-            log.error(
-                "ingest_composio_usage raised for %s on %s: %s",
-                ctx.customer_slug,
-                day_str,
-                e,
-            )
-            composio_result = SourceIngestResult(
-                source="composio_usage",
-                ok=False,
-                reason=f"unhandled exception: {e}",
-            )
-        source_results.append(composio_result)
-
     return IngestRunResult(
         customer_slug=ctx.customer_slug,
         day=day_str,
@@ -545,14 +408,11 @@ async def run_ingest_for_customer(
 
 __all__ = [
     "AnthropicBillingSource",
-    "ComposioUsageSource",
     "CostIngestExecutor",
     "CustomerIngestContext",
     "IngestRunResult",
     "SourceIngestResult",
     "ingest_anthropic_billing",
-    "ingest_composio_usage",
     "load_anthropic_pricing",
-    "load_composio_pricing",
     "run_ingest_for_customer",
 ]

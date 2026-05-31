@@ -94,7 +94,7 @@ Scopes declared per adapter in `ai-employee/connectors/<capability>/<system>/oau
 1. **Unit tests** at `ai-employee/connectors/<system>/tests/test_oauth.py` cover: token storage round-trip, refresh-on-expiry, refresh-failure → degraded mode, re-consent URL generation.
 2. **Integration test:** `tests/ai-employee/oauth-degraded-mode.test.ts` provisions a fixture customer, force-expires a token, verifies the connector enters degraded mode within 30s and the audit-log event is written.
 3. **Daily probe** (Captain control plane): a scheduled Cloudflare Worker hits `health_check()` on every connector for every active customer; failures emit `CONNECTOR_HEALTH_PROBE_FAILED` audit events and a Captain alert.
-4. **Pre-deploy gate:** `provision-customer.sh` step 7 (Composio registration / native OAuth init) runs `health_check()` on every enabled connector. Any failure aborts provisioning.
+4. **Pre-deploy gate:** `provision-customer.sh` step 7 (native OAuth init) runs `health_check()` on every enabled connector. Any failure aborts provisioning.
 
 ## Implementation notes
 
@@ -107,8 +107,6 @@ Scopes declared per adapter in `ai-employee/connectors/<capability>/<system>/oau
 
 ## Resolved decisions
 
-**Composio-managed connectors (Gmail, Slack, GitHub).** Composio handles OAuth refresh inside its own infra; we do not store or refresh those tokens. Each Composio-managed connector adapter wraps Composio's error response and re-raises as `CapabilityError.auth_expired` per `capability-contracts.md`. The Fly-volume token-storage pattern (ADR 0010) applies only to `build:` adapters. Implementation: see `ai-employee/adapter/connectors/composio_*.py` adapter-translation pattern.
-
-**Per-connection isolation enforcement.** Composio's tenant model stages one `COMPOSIO_API_KEY` per fleet and scopes per-customer access by connection ID. A misrouted connection ID would let one Machine read another customer's mailbox through Composio. The runtime backstop is `ai-employee/adapter/connectors/composio_assertion.py::ComposioConnectionGuard` — every Composio API call site MUST wrap its connection ID in `guard.assert_belongs(connection_id)` before dispatching. The customer.yaml validator at `src/lib/ai-employee/customer-yaml/sections-connectors.ts` enforces the same `conn_{customer_id}_{suffix}` shape at authoring time. Both layers exist because the structural per-Machine isolation that ADR 0009 covers does not extend into Composio's managed infrastructure. See issue #850.
+**Composio dropped (ADR 0020, 2026-05-30 revision).** Earlier revisions of this spec routed Gmail, Slack, and similar connectors through Composio's managed OAuth infra and enforced per-connection isolation via a `composio_assertion.py` runtime guard. Composio is now fully retired: every connector is either a vendor-direct/vetted-community MCP (per-user or per-tenant OAuth managed at the MCP layer) or a `build:` adapter using the ADR 0010 Fly-volume token-storage pattern. There is no `composio:` backend, no shared `COMPOSIO_API_KEY`, and no per-connection isolation guard. The token-lifecycle machinery in this spec applies to `build:` adapters; `mcp:` connectors delegate OAuth to the MCP server.
 
 **Re-consent callback URL.** Callbacks land on the portal subdomain (`portal.smd.services/ai-employee/oauth/{connector}/callback`), not admin. Customer-facing OAuth flows belong on the portal where the authenticated customer is already operating; the admin subdomain stays role-gated for SMD operations only. The portal callback handler proxies the OAuth code to the per-customer Machine's `/opt/data/oauth/` write path via the Fly internal network. No new attack surface on admin.

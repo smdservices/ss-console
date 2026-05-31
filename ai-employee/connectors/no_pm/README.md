@@ -65,7 +65,7 @@ connectors:
 Notes on the binding shape:
 
 - `adapter: no_pm` -- the SMD-internal slug. The validator (`src/lib/ai-employee/customer-yaml/validator.ts`) treats it as opaque; the boot-time conformance harness asserts `NoPmPracticeManagement` satisfies the interface.
-- `backend: build:no_pm` -- `build:` prefix means SMD-owned implementation (this connector). There is no `composio:` alternative because there is no vendor.
+- `backend: build:no_pm` -- `build:` prefix means SMD-owned implementation (this connector). There is no external vendor; the substrate is in-process per-customer D1 + R2.
 - No `token_ref` -- the synthetic store does not authenticate against an external API. The per-customer D1 + R2 binding is wired at provision time (see `bin/provision-customer.sh`).
 - The companion `customer-no-pm-system.yaml` template at `ai-employee/templates/customer-no-pm-system.yaml` ships the full default binding set (MS Graph for email + calendar, DocuSign for signatures, OneDrive for documents, QuickBooks for accounting, no_pm for practice management).
 

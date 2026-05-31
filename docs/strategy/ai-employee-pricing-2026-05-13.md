@@ -118,27 +118,13 @@ Amortized at 10 customers on Developer tier: $2/customer/mo for all profiles. He
 | Medium  | **$2.00** |
 | Heavy   | **$5.00** |
 
-### 3.5 Composio (Composio billing)
+### 3.5 Composio — dropped
 
-**Source:** [Composio pricing page](https://composio.dev/pricing) (accessed 2026-05-21). Ridiculously Cheap tier $29/mo for 200K tool calls; Serious Business tier $229/mo for 2M tool calls; overage $0.299/1K calls on the lower tier, $0.249/1K on the upper. Per platform-prd §7.2, Composio is one source of connector adapters; native MCP and custom MCP wrappers also exist. Composio amortizes per-customer at $3/customer/mo (Ridiculously Cheap shared across 10 customers) at Phase 1 volume.
-
-**Tool-call estimate by profile** (one tool call per draft for inbox read + thread fetch + draft create + label apply ≈ 4 calls/draft, plus background reads):
-
-- Light: 87 drafts × 4 calls + ~500 background reads = ~850 calls/mo. Well inside shared-tier allowance.
-- Medium: 217 × 4 + ~1.5K background = ~2,400 calls/mo. Inside allowance.
-- Heavy: 650 × 4 + ~5K background = ~7,600 calls/mo. Inside allowance (Ridiculously Cheap shared = 20K/customer at 10-customer amortization).
-
-Heavy may require a per-customer Composio attribution bump if multiple PM adapters route through Composio rather than native MCP. Modeled at $5 for Heavy as headroom; $3 otherwise.
-
-| Profile | Composio  |
-| ------- | --------- |
-| Light   | **$3.00** |
-| Medium  | **$3.00** |
-| Heavy   | **$5.00** |
+Composio is retired (ADR 0020, 2026-05-30 revision); connectors are vendor-direct/vetted-community MCP or `build:` adapters, with no per-tool-call brokerage fee. The earlier per-customer Composio cost line ($3/mo Light & Medium, $5/mo Heavy) is removed from the COGS model. MCP-server compute runs inside the per-customer Fly Machine and is already captured in the Fly.io driver; `build:` adapters carry only the underlying vendor's API cost, captured in §3.6.
 
 ### 3.6 Connector-specific costs (third-party API costs)
 
-**Sources:** Per-vendor pricing as noted inline. Per platform-prd §15.1, this driver captures third-party API costs distinct from Composio's per-tool-call fee. For law-firm v1, the most relevant are:
+**Sources:** Per-vendor pricing as noted inline. Per platform-prd §15.1, this driver captures third-party API costs from the vendor's own API. For law-firm v1, the most relevant are:
 
 - **CourtListener API** ([courtlistener.com/help/api/rest/](https://www.courtlistener.com/help/api/rest/)): Free tier supports the read-only `CourtAccess` interface per platform-prd §7.2.1; no per-call cost.
 - **DocuSign / PandaDoc envelope APIs**: Read-only `ESign` interface per platform-prd §7.2.1 (no `send_envelope`, drafts only). Pass-through cost; customer pays directly for their own envelope volume.
@@ -195,7 +181,7 @@ These are Phase 1 figures. Customer 5+ should drop by ~30%; customer 15+ by ~60%
 
 ## 4. Total COGS by profile (Phase 1, customer 1)
 
-Summing the nine drivers (with onboarding amortized over 12 months):
+Summing the drivers (with onboarding amortized over 12 months):
 
 | Driver                             | Light       | Medium      | Heavy        |
 | ---------------------------------- | ----------- | ----------- | ------------ |
@@ -203,7 +189,6 @@ Summing the nine drivers (with onboarding amortized over 12 months):
 | Fly.io Machine compute             | $6.50       | $11.50      | $33.69       |
 | Cloudflare D1/R2/Vectorize/Workers | $1.20       | $1.80       | $3.50        |
 | AgentMail                          | $2.00       | $2.00       | $5.00        |
-| Composio                           | $3.00       | $3.00       | $5.00        |
 | Connector-specific (third party)   | $0.00       | $0.00       | $0.00        |
 | Captain operations time            | $3,464.00   | $5,196.00   | $8,660.00    |
 | Onboarding amortized (Y1)          | $1,000.00   | $1,333.00   | $2,000.00    |
@@ -331,7 +316,7 @@ The v1 pricing proposal is bound to the following data checkpoints. At each, Cap
 | **Customer 3 enters steady-state**         | Are we consistently at or under the assumed support cap? Is the per-customer cost dashboard validating the model? Renewal signals strong at the Day-30 mark?                                     | If hours sustained above cap, raise price (test $18K with customer 4) or tighten scope-cap. If renewal signals weak, escalate customer success before customer 4.                               |
 | **Customer 5 reaches Day 60**              | Is the Light/Medium/Heavy distribution unimodal (most customers Medium) or bimodal (Light + Heavy with few Medium)? Phase 1.5 transition readiness?                                              | If unimodal, lock $16K/mo single tier for customer 6+. If bimodal, switch to the §5.4 tiered structure. If each customer requires custom skills, the SKU model is broken; revisit per ADR 0004. |
 | **Customer 5 renewal decision**            | Among customers 1-3 who hit their renewal window, what's the renewal rate?                                                                                                                       | If <70% renew at 6-month mark, the price-value equation is wrong; adjust before scaling.                                                                                                        |
-| **Quarterly (every 90 days)**              | Vendor pricing shifts (Anthropic, Composio, Fly, Cloudflare, AgentMail); new tooling that changes the cost stack; new operator data on Captain-hour benchmarks.                                  | Update the doc with new evidence; revise v1 pricing for new customers if signal warrants.                                                                                                       |
+| **Quarterly (every 90 days)**              | Vendor pricing shifts (Anthropic, Fly, Cloudflare, AgentMail); new tooling that changes the cost stack; new operator data on Captain-hour benchmarks.                                            | Update the doc with new evidence; revise v1 pricing for new customers if signal warrants.                                                                                                       |
 
 These triggers are operational discipline, not contract clauses. Customers do not see them. They drive whether customer 4 ships with the same terms as customer 3, or different terms.
 
@@ -341,7 +326,7 @@ These triggers are operational discipline, not contract clauses. Customers do no
 
 - **Phase 1 Captain-hour drift.** If first-customer hours land at 1.5x to 2x the modeled assumption (i.e. Light at 6 hours/week, Medium at 9, Heavy at 15), the Medium-profile breakeven price moves to $24K/mo and the SKU becomes a hard sell against the headcount-substitution anchor. This is the dominant risk. Mitigation: scope-cap contractual guardrails per service-contract doc; weekly Captain-hour tracking from customer 1; Captain-veto rights on Day-30 renewal if hours overrun.
 - **Cache hit rate lower than 75%.** Drops Claude API spend efficiency; not a material margin risk at current per-draft costs (Heavy Claude API is $17/mo even if cache rate halves), but worth tracking.
-- **Vendor pricing shifts.** Anthropic's pricing for Sonnet/Opus has shifted twice in 12 months. Composio, Fly, and Cloudflare are more stable but not immune. Quarterly refresh trigger fires automatically.
+- **Vendor pricing shifts.** Anthropic's pricing for Sonnet/Opus has shifted twice in 12 months. Fly and Cloudflare are more stable but not immune. Quarterly refresh trigger fires automatically.
 - **The 40% margin floor is a benchmark, not a law.** Per platform-prd §17.1 the floor is a kill criterion; Captain may elect to operate above it for strategic reasons (e.g. anchor customer at a logo-significant firm). The model defends the floor; Captain decides whether to apply it.
 - **Multi-practice-area customers (PI + WC, PI + family, etc.) move toward Heavy faster than modeled.** The Heavy profile assumes 2 practice areas; a third drives token spend, Captain hours, and connector complexity up.
 
@@ -363,7 +348,6 @@ These four queue against [#794](https://github.com/venturecrane/ss-console/issue
 ## 9. Sources
 
 - [Anthropic API pricing page](https://platform.claude.com/docs/en/docs/about-claude/pricing) (accessed 2026-05-21)
-- [Composio pricing page](https://composio.dev/pricing) (accessed 2026-05-21)
 - [Fly.io pricing page](https://fly.io/docs/about/pricing/) (accessed 2026-05-21)
 - [Cloudflare D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/) (accessed 2026-05-21)
 - [Cloudflare R2 pricing](https://developers.cloudflare.com/r2/pricing/) (accessed 2026-05-21)

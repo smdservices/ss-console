@@ -84,7 +84,6 @@ class DriverCategory(str, enum.Enum):
     """
 
     ANTHROPIC_LLM = "anthropic_llm"
-    COMPOSIO_ACTION = "composio_action"
     FLY_COMPUTE = "fly_compute"
     CLOUDFLARE_D1 = "cloudflare_d1"
     CLOUDFLARE_R2 = "cloudflare_r2"
@@ -100,8 +99,6 @@ _DRIVER_TO_CATEGORY: Mapping[str, DriverCategory] = {
     # Anthropic LLM
     "claude_api_input_tokens": DriverCategory.ANTHROPIC_LLM,
     "claude_api_output_tokens": DriverCategory.ANTHROPIC_LLM,
-    # Composio
-    "composio_actions": DriverCategory.COMPOSIO_ACTION,
     # Fly
     "fly_machine_minutes": DriverCategory.FLY_COMPUTE,
     # Cloudflare D1
