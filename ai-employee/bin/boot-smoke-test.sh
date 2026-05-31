@@ -5,9 +5,11 @@
 #   ai-employee/bin/boot-smoke-test.sh <customer-slug>
 #
 # Scope: this is a SMOKE TEST, not an end-to-end test. It verifies that
-# bootstrap.sh's sequenced startup (Postgres → Redis → Honcho → customer.yaml
-# fetched from R2 → Hermes profiles materialized → overlay plugins installed)
-# came up cleanly. It does NOT exercise a real agent turn, a real LLM call,
+# bootstrap.sh's sequenced startup (customer.yaml fetched from R2 → Hermes
+# profiles materialized → overlay plugins installed → curator disabled) came
+# up cleanly. The Postgres/Redis/Honcho checks were removed when the Honcho
+# data plane was deferred to Phase 2 (ADR 0016 revised). It does NOT exercise
+# a real agent turn, a real LLM call,
 # or a real D1 write through a connector. Those require live external
 # credentials (MCP servers, Anthropic API, customer's OAuth tokens) and are
 # the job of the per-connector prod smoke test in run_prod_smoke_test.py and,
@@ -63,14 +65,10 @@ except Exception:
 done
 [ "${STATE}" = "started" ] || fail "machine-state-started — state=${STATE} after 60s"
 
-# ---------- Step 2: Postgres reachable ----------
-ssh_exec "postgres-ready" "pg_isready -h localhost -p 5432 -U honcho"
-
-# ---------- Step 3: Redis reachable ----------
-ssh_exec "redis-ping" "redis-cli ping | grep -q PONG"
-
-# ---------- Step 4: Honcho health endpoint ----------
-ssh_exec "honcho-health" "curl -fsS http://localhost:8000/health"
+# ---------- Steps 2-4: Postgres / Redis / Honcho — DEFERRED (Phase 2) ----------
+# The Honcho data plane is deferred to Phase 2 (ADR 0016 revised); Phase 1 boots
+# on Hermes' flat-file memory core, so there is no Postgres/Redis/Honcho to
+# probe here. These checks return when Phase 2 vendors the real Honcho source.
 
 # ---------- Step 5: customer.yaml present on volume ----------
 ssh_exec "customer-yaml-present" "test -s /opt/data/customer.yaml"
