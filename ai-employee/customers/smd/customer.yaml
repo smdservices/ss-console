@@ -100,6 +100,9 @@ voice_library:
   samples_path: 'r2://vaults/smd/voice/samples/'
 
 # ---- MEMORY (per-customer isolation invariants; must match customer_id) ----
+# Phase 1 runs on Hermes' flat-file memory core (MEMORY.md/USER.md). Inferred
+# memory (Honcho) is deferred to Phase 2 — see ADR 0016 (revised 2026-05-30).
+# The fields below are the customer-owned D1/R2 memory file's isolation anchors.
 memory:
   d1_namespace: smd
   r2_vault_path: 'vaults/smd/'
