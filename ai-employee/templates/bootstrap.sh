@@ -157,6 +157,27 @@ else
 fi
 
 # ============================================================================
+# Step 2b: materialize the Google OAuth token to the volume (if provided)
+# ============================================================================
+# crane_gmail.py (the inbox-triage fetch path) reads a Google authorized-user
+# token at /opt/data/oauth/google.json per ADR 0010. The token is delivered
+# BASE64-ENCODED as the GOOGLE_TOKEN_JSON Fly secret (base64 so the JSON's
+# quotes/braces survive dotenv secret storage intact). Scope is gmail.modify
+# (read + archive + trash + draft; the token CANNOT send, enforced at Google).
+# Write it 0600, hermes-owned. crane_gmail refreshes and rewrites this file in
+# place, so it must be writable by hermes. Skipped if unset — Gmail triage is
+# simply unavailable that boot, no crash.
+GOOGLE_TOKEN_FILE="/opt/data/oauth/google.json"
+if [ -n "${GOOGLE_TOKEN_JSON:-}" ]; then
+  mkdir -p /opt/data/oauth
+  ( umask 077; printf '%s' "${GOOGLE_TOKEN_JSON}" | base64 -d > "${GOOGLE_TOKEN_FILE}" ) \
+    || die "GOOGLE_TOKEN_JSON is not valid base64 (expected base64-encoded google.json)"
+  log "Google OAuth token materialized to ${GOOGLE_TOKEN_FILE} (0600)"
+else
+  log "GOOGLE_TOKEN_JSON not set; Gmail triage unavailable this boot"
+fi
+
+# ============================================================================
 # Steps 3-6: Honcho data plane — DEFERRED to Phase 2 (ADR 0016, revised)
 # ============================================================================
 # Previously: start Postgres, start Redis, run `python -m honcho.migrations`,
