@@ -11,7 +11,7 @@ const productSchema = {
   '@type': 'Product',
   name: 'AI Employee',
   description:
-    'A dedicated AI worker that joins your team, learns your operation, and takes on recurring work. Set up for your business, on isolated infrastructure, with the memory it builds belonging to you.',
+    'A dedicated AI worker, built for your business and given a real role. It takes on the recurring work, on its own isolated infrastructure, with the operating memory it builds belonging to you.',
   brand: { '@type': 'Brand', name: 'SMD Services' },
   offers: {
     '@type': 'Offer',
@@ -22,23 +22,23 @@ const productSchema = {
 
 const roleLenses = [
   {
-    title: 'Intake coordinator',
-    body: 'Reads new inquiries as they come in. Pulls the details from the message, checks them against your records, drafts a response, books the call, opens the file.',
+    title: 'Intake and first response',
+    body: 'New inquiries, wherever they land. A dispatcher capturing and routing leads for a home services shop, a new-client intake for a professional practice, a front desk taking reservations. It reads the request, pulls the details that matter, drafts the response in your voice, and books the next step.',
   },
   {
-    title: 'Ops coordinator',
-    body: 'Watches the work in flight. Spots the steps that did not happen, the follow-ups that are overdue, the handoffs that stalled. Nudges the right person or drafts the message.',
+    title: 'Keeping work moving',
+    body: 'The follow-ups that slip and the handoffs that stall. It watches the work in flight, spots what did not happen, and nudges the right person or drafts the message. Job scheduling for the trades, matter progress for a practice, shift and inventory coordination for a kitchen.',
   },
   {
-    title: 'Client services lead',
-    body: 'Handles recurring client communication. Status updates, scheduling, the questions you answer the same way every time. Drafts go to a reviewer until the agent owns them outright.',
+    title: 'Recurring client communication',
+    body: 'The questions you answer the same way every time. Status updates, scheduling, the routine back-and-forth. Drafts go to a reviewer on your team until you trust the worker to handle a kind of message on its own.',
   },
 ]
 ---
 
 <Base
   title="AI Employee | SMD Services"
-  description="A dedicated AI worker that joins your team, learns your operation, and takes on the recurring work. Flat monthly subscription. Set up for your business, on isolated infrastructure, with the memory it builds belonging to you."
+  description="A dedicated AI worker, built for your business and given a real role. It takes on the recurring work, on its own isolated infrastructure, with the operating memory it builds belonging to you. Flat monthly subscription."
 >
   <Nav />
   <main id="main" role="main">
@@ -56,22 +56,22 @@ const roleLenses = [
         <h1
           class="mb-8 font-['Archivo'] text-5xl md:text-7xl font-black uppercase leading-[1.05] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
         >
-          A Worker That Joins Your Team.
+          Hire Once.
         </h1>
         <p
           class="mx-auto mb-12 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
         >
-          A dedicated AI worker, set up for your business, sitting inside the tools you already use.
-          It learns your operation, handles the recurring work, and follows your lead on what to own
-          and what to hand back.
+          A dedicated AI worker, built for your business and given a real role. The technology
+          underneath keeps improving. The worker, and everything it learns about how you run, stays
+          yours.
         </p>
         <CtaButton href="/book?interest=ai-employee" data-ev="ai-employee-hero-cta"
-          >Get in touch</CtaButton
+          >Start the conversation</CtaButton
         >
       </div>
     </section>
 
-    <!-- § 02 What you get -->
+    <!-- § 02 The real comparison (the anchor) -->
     <section class="bg-white px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -81,25 +81,27 @@ const roleLenses = [
         <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          What You Actually Get.
+          The Real Comparison.
         </h2>
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
-            You get a worker, not a tool. We build one for your business and give it a role. Say you
-            need an intake coordinator. The agent reads incoming inquiries, pulls the details that
-            matter, drafts the first response in your voice, books the call, and updates your
-            records. The work moves the same way it always did. The person doing it changed.
+            Work like this usually gets solved by hiring someone to own it. A coordinator, a
+            dispatcher, an intake lead. The role you keep meaning to fill.
           </p>
           <p>
-            One dedicated worker, scoped to a role, on infrastructure set up for your business
-            alone. It picks up the recurring work that fills your team's day and gives them the room
-            to do the work only they can do.
+            That hire takes months to get up to speed. They learn your business by living inside it,
+            and the day they leave, everything they learned walks out with them.
+          </p>
+          <p>
+            An AI Employee fills that same role. It gets up to speed in a fraction of the time, it
+            does not quit, and the understanding it builds of how you run stays with the business,
+            not in any one person's head.
           </p>
         </div>
       </div>
     </section>
 
-    <!-- § 03 What it's worth -->
+    <!-- § 03 What you actually get -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -109,24 +111,27 @@ const roleLenses = [
         <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          What It's Worth.
+          What You Actually Get.
         </h2>
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
-            Add up the hours your team spends on the work that repeats. The inquiries answered the
-            same way, the follow-ups that slip, the status updates typed out one more time. That is
-            the work the agent takes on, and the time it gives back is the return.
+            You get a worker, not a tool. We build one for your business, give it a role, and set it
+            up in the tools your team already uses.
           </p>
           <p>
-            Pricing is a flat monthly subscription, scoped to the role we build together. We walk
-            through it in the first conversation, before any setup begins. No hourly billing, no
-            usage meter, no surprise line items.
+            Say you give it intake. It reads a new inquiry, pulls the details that matter, drafts
+            the first reply in your voice, books the call, and logs it where your team can see. The
+            work moves the way it always did. The person doing it changed.
+          </p>
+          <p>
+            One dedicated worker, scoped to a role, picking up the recurring work that fills your
+            team's day so they have the room to do the work only they can do.
           </p>
         </div>
       </div>
     </section>
 
-    <!-- § 04 How it learns -->
+    <!-- § 04 One worker, one memory, all yours -->
     <section class="bg-white px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -136,29 +141,38 @@ const roleLenses = [
         <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          How It Learns To Be Trusted.
+          One Worker, One Memory. All Yours.
         </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+        <div
+          class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)] mb-12"
+        >
           <p>
-            The agent does not start by acting. It starts by watching. We sit it next to the work,
-            let it observe how your team handles real situations, and check its judgment against
-            yours.
+            One worker for your whole team, not a separate assistant for each person. Everyone works
+            with the same employee, and it gets sharper from everyone's input.
           </p>
           <p>
-            When you trust it on a piece of work, it moves up. Drafts go to a reviewer on your team,
-            who sends them. As you sign off on specific work types, the agent takes those over
-            fully. Other work stays in draft. Anything outside what you have authorized gets
-            escalated to a person.
+            The understanding it builds, your voice, your work patterns, the situations it has
+            learned to handle, is a record you can read and correct. It belongs to the business, not
+            to any one person's account or laptop. When someone moves on, what the worker knows
+            about how you run does not go with them. It stays.
           </p>
           <p>
-            You decide what the agent owns and what it does not. That decision is in writing, it is
-            part of the service contract, and you can change it any time.
+            The technology underneath keeps improving, and your worker rides on top of it. You hired
+            the employee, not a version of a tool you have to keep replacing. The memory it builds
+            is yours to keep, and it is not locked inside our system.
           </p>
+        </div>
+        <div class="text-center">
+          <CtaButton
+            variant="secondary"
+            href="/book?interest=ai-employee"
+            data-ev="ai-employee-section-cta">Talk through the fit</CtaButton
+          >
         </div>
       </div>
     </section>
 
-    <!-- § 05 Different from the AI you've tried -->
+    <!-- § 05 You set the limits, we keep it running -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -168,64 +182,36 @@ const roleLenses = [
         <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          Different From The AI You Have Already Tried.
+          You Set The Limits. We Keep It Running.
         </h2>
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
-            You have probably opened a chatbot, typed a question, gotten a clean answer, and then
-            gone back to doing the work yourself. That is a tool. This is not that.
+            You decide what the worker can do on its own and what waits for a person to approve.
+            That decision is in writing, it is part of the service agreement, and you can change it
+            whenever you want.
           </p>
           <p>
-            The AI Employee owns recurring work end-to-end. It does not wait for someone to prompt
-            it. It picks up an inquiry, runs it through the steps your team would run, and either
-            completes the work or hands it to a reviewer with a draft.
+            It starts by watching. We sit it next to the work, let it learn how your team handles
+            real situations, and check its judgment against yours. When you sign off on a kind of
+            work, it takes that over. Until then, its drafts go to a reviewer on your team, who
+            sends them. The worker cannot give itself more authority. Only you can. Every action it
+            takes is recorded where you can see it: what it did, when, and why.
           </p>
           <p>
-            It lives inside your email, your calendar, your practice management software, your CRM,
-            whatever you already use. Your team does not learn a new app. They open the same inbox
-            they always opened and find the work further along than they left it.
+            And keeping it running is our job, not yours. We wire it into your tools, we watch that
+            it stays working, and we stay accountable for it. You are giving feedback to a worker,
+            not taking on a second job managing one.
           </p>
         </div>
       </div>
     </section>
 
-    <!-- § 06 Yours alone -->
+    <!-- § 06 Where it fits -->
     <section class="bg-white px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
           class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
           >§ 06</span
-        >
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          Yours Alone.
-        </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            Each customer's worker runs on its own isolated infrastructure. Your worker has its own
-            namespace, its own memory, its own access. Nothing is shared with anyone else's
-            operation.
-          </p>
-          <p>
-            The understanding the agent builds, your voice, your work patterns, the situations it
-            knows how to handle, belongs to you. If our relationship ever ends, that memory goes
-            with you.
-          </p>
-          <p>
-            Every action the agent takes is logged. What it did, when, and why. You can review any
-            decision at any time.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- § 07 Where it fits -->
-    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 07</span
         >
         <h2
           class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
@@ -235,8 +221,8 @@ const roleLenses = [
         <p
           class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
         >
-          A few shapes the role can take. The role is shaped to your operation. These are starting
-          points.
+          A few shapes the role can take. We build it around your operation, so these are starting
+          points, not a menu.
         </p>
 
         <div
@@ -263,57 +249,32 @@ const roleLenses = [
       </div>
     </section>
 
-    <!-- § 08 How we start -->
-    <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 08</span
-        >
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          How We Start.
-        </h2>
-        <div
-          class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)] mb-12"
-        >
-          <p>
-            A conversation first. We sit with you, learn how your operation actually runs, look at
-            the work that is eating your team's time, and figure out where a dedicated worker would
-            fit.
-          </p>
-          <p>
-            If the fit is not right, we tell you. If it is, we scope the role together, agree on the
-            trust matrix, and start setup. The worker comes online in observation mode. Trust
-            graduates from there.
-          </p>
-        </div>
-        <CtaButton href="/book?interest=ai-employee" data-ev="ai-employee-section-cta"
-          >Start the conversation</CtaButton
-        >
-      </div>
-    </section>
-
-    <!-- § 09 Final CTA -->
+    <!-- § 07 Start the conversation -->
     <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
       <div class="mx-auto max-w-5xl text-center">
         <span
           class="inline-block bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
-          >§ 09</span
+          >§ 07</span
         >
         <h2
           class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
         >
-          Ready When You Are.
+          Start The Conversation.
         </h2>
+        <p class="mx-auto mb-6 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
+          It starts with a conversation. We learn how your operation runs, find the work that is
+          eating your team's time, and figure out where a dedicated worker fits. If the fit is not
+          right, we say so.
+        </p>
         <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
-          Tell us what your team is spending their time on. We will figure out the rest together.
+          Pricing is a flat monthly subscription, scoped to the role we build together, and we walk
+          through it before any setup begins. No hourly billing, no usage meter, no surprise line
+          items.
         </p>
         <CtaButton
           variant="outline-white"
           href="/book?interest=ai-employee"
-          data-ev="ai-employee-final-cta">Get in touch</CtaButton
+          data-ev="ai-employee-final-cta">Start the conversation</CtaButton
         >
       </div>
     </section>
