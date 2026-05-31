@@ -6,7 +6,7 @@
  * Returns the raw `cost_telemetry` rows for one customer in the given
  * date window as a CSV download. Used for billing reconciliation —
  * Captain pulls the file into a spreadsheet to cross-check the ingest
- * against the Anthropic / Composio invoices.
+ * against the Anthropic invoice.
  *
  * Admin-only (enforced both by middleware on `/api/admin/*` and by an
  * explicit role check here for defense in depth).

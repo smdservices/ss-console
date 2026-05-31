@@ -3,20 +3,20 @@
 Full off-boarding pipeline for a single customer. Composes the existing
 ``decommission_source`` hooks in :mod:`adapter.memory.state` and
 :mod:`adapter.voice.pipeline` with the substrate-deletion steps owned by
-ops (R2 bucket, Vectorize indexes, Composio connections, AgentMail
-identity, Fly Machine), then archives the compliance packet and
-tombstones the customer config directory.
+ops (R2 bucket, Vectorize indexes, AgentMail identity, Fly Machine),
+then archives the compliance packet and tombstones the customer config
+directory.
 
 Design notes
 ------------
 
-* **Nine steps, one per AC bullet.** The :class:`DecommissionPipeline`
+* **One method per step.** The :class:`DecommissionPipeline`
   exposes one method per step plus :meth:`run` that orchestrates them in
   order. Each step writes an audit row before and after via
   :class:`adapter.audit_log.AuditLogWriter`; on failure it writes a third
   ``failed`` row before raising :class:`DecommissionStepFailed`.
 
-* **External services behind Protocols.** Composio, AgentMail, and Fly
+* **External services behind Protocols.** AgentMail and Fly
   Machine are not wired in this PR. Each is stubbed behind a
   ``Protocol`` plus a :class:`NoOpStub` implementation that logs
   "skipped (no client wired)" and returns a manifest with
@@ -55,12 +55,11 @@ Per the issue, the 9 steps are:
   3. R2: delete the customer's object namespace (everything under the
      ``{slug}/`` prefix EXCEPT the decommission-archive subtree).
   4. Vectorize: delete the per-customer vault + corrections indexes.
-  5. Composio: revoke OAuth tokens / remove connections (stubbed).
-  6. AgentMail: deprovision inbox / forwarding rules (stubbed).
-  7. Fly Machine: stop and destroy ``hermes-{slug}`` (stubbed).
-  8. Compliance evidence packet: generate the final packet and archive
+  5. AgentMail: deprovision inbox / forwarding rules (stubbed).
+  6. Fly Machine: stop and destroy ``hermes-{slug}`` (stubbed).
+  7. Compliance evidence packet: generate the final packet and archive
      it to per-customer cold storage.
-  9. ``ai-employee/customers/{slug}/`` tombstone: rename to
+  8. ``ai-employee/customers/{slug}/`` tombstone: rename to
      ``{slug}.decommissioned.{iso-date}`` and write a marker file.
 """
 
@@ -136,25 +135,13 @@ class StepResult:
 
 
 # ---------------------------------------------------------------------------
-# Stubbed external services (Composio, AgentMail, Fly)
+# Stubbed external services (AgentMail, Fly)
 #
 # Each Protocol has a NoOpStub that the CLI defaults to. Production
 # wiring is a constructor swap with a real client. The stubs return
 # manifests that look like real ones so the audit trail stays the same
 # shape across stub vs live transitions.
 # ---------------------------------------------------------------------------
-
-
-class ComposioConnectionManager(Protocol):
-    """Revokes OAuth tokens + removes connections for one customer.
-
-    Production wiring uses the Composio Standard tier admin API; the
-    customer's connection IDs come from per-skill connector bindings
-    written into D1 at provisioning time. Until the per-customer Composio
-    enrolment ships (tracked under #789), this is a no-op.
-    """
-
-    async def revoke_connections(self, customer_slug: str) -> dict: ...
 
 
 class AgentMailProvisioner(Protocol):
@@ -179,22 +166,6 @@ class ObservabilityCleanup(Protocol):
     """
 
     async def cleanup(self, customer_slug: str) -> dict: ...
-
-
-class NoOpComposioStub:
-    """No-op Composio manager — logs and returns ``skipped`` manifest.
-
-    Used until per-customer Composio enrolment lands (#789). The stub
-    keeps the script runnable end-to-end against the ``smd`` fixture
-    today so dry-run / live / idempotent re-run paths are testable
-    without external service clients.
-    """
-
-    _SKIPPED_REASON = "external_client_not_wired"
-
-    async def revoke_connections(self, customer_slug: str) -> dict:
-        log.info("composio.revoke skipped (no client wired) customer=%s", customer_slug)
-        return {"skipped": True, "reason": self._SKIPPED_REASON, "connections_revoked": 0}
 
 
 class NoOpAgentMailStub:
@@ -690,7 +661,6 @@ class DecommissionPipeline:
     voice_runner: Optional[VoiceDecommissionRunner] = None
     r2_deleter: Optional[R2NamespaceDeleter] = None
     vectorize_deleter: Optional[VectorizeIndexDeleter] = None
-    composio: ComposioConnectionManager = field(default_factory=NoOpComposioStub)
     agentmail: AgentMailProvisioner = field(default_factory=NoOpAgentMailStub)
     fly: FlyMachineManager = field(default_factory=NoOpFlyStub)
     observability: ObservabilityCleanup = field(default_factory=NoOpObservabilityCleanupStub)
@@ -750,8 +720,6 @@ class DecommissionPipeline:
             unwired.append("r2_deleter")
         if self.vectorize_deleter is None:
             unwired.append("vectorize_deleter")
-        if isinstance(self.composio, NoOpComposioStub):
-            unwired.append("composio")
         if isinstance(self.agentmail, NoOpAgentMailStub):
             unwired.append("agentmail")
         if isinstance(self.fly, NoOpFlyStub):
@@ -805,34 +773,29 @@ class DecommissionPipeline:
                 },
             ),
             StepResult(
-                name="05_composio",
-                status=StepStatus.PLANNED,
-                detail={"action": "revoke OAuth + remove connections"},
-            ),
-            StepResult(
-                name="06_agentmail",
+                name="05_agentmail",
                 status=StepStatus.PLANNED,
                 detail={"action": "deprovision inbox + forwarding rules"},
             ),
             StepResult(
-                name="07_fly_machine",
+                name="06_fly_machine",
                 status=StepStatus.PLANNED,
                 detail={"app": f"hermes-{self.customer_slug}"},
             ),
             StepResult(
-                name="08_compliance_archive",
+                name="07_compliance_archive",
                 status=StepStatus.PLANNED,
                 detail={
                     "archive_dir": str(self.archive_root / self.customer_slug),
                 },
             ),
             StepResult(
-                name="09_tombstone",
+                name="08_tombstone",
                 status=StepStatus.PLANNED,
                 detail=self.tombstoner.plan(self.customer_slug),
             ),
             StepResult(
-                name="10_observability_cleanup",
+                name="09_observability_cleanup",
                 status=StepStatus.PLANNED,
                 detail={
                     "action": "cancel healthchecks.io check + delete fleet_status row",
@@ -842,7 +805,7 @@ class DecommissionPipeline:
         ]
 
     async def run(self) -> list[StepResult]:
-        """Live mode: executes all 9 steps in order. Halts on first failure."""
+        """Live mode: executes all steps in order. Halts on first failure."""
         results: list[StepResult] = []
 
         # Step 1 — DECOMMISSION_INITIATED + drain
@@ -879,46 +842,40 @@ class DecommissionPipeline:
             self._step_vectorize_indexes,
         ))
 
-        # Step 5 — Composio
+        # Step 5 — AgentMail
         results.append(await self._run_step(
-            "05_composio",
-            self._step_composio,
-        ))
-
-        # Step 6 — AgentMail
-        results.append(await self._run_step(
-            "06_agentmail",
+            "05_agentmail",
             self._step_agentmail,
         ))
 
-        # Step 7 — Fly Machine
+        # Step 6 — Fly Machine
         results.append(await self._run_step(
-            "07_fly_machine",
+            "06_fly_machine",
             self._step_fly_machine,
         ))
 
-        # Step 8 — Compliance archive
+        # Step 7 — Compliance archive
         results.append(await self._run_step(
-            "08_compliance_archive",
+            "07_compliance_archive",
             self._step_compliance_archive,
         ))
 
-        # Step 9 — Tombstone
+        # Step 8 — Tombstone
         results.append(await self._run_step(
-            "09_tombstone",
+            "08_tombstone",
             self._step_tombstone,
         ))
 
-        # Step 10 — Observability cleanup (ADR 0023 Wave 1)
+        # Step 9 — Observability cleanup (ADR 0023 Wave 1)
         # Runs at the tail of the pipeline because the work is
         # idempotent control-plane housekeeping, not part of the
         # Machine teardown proper. Healthchecks.io has a small window
-        # between Machine destroy (step 7) and this step where a grace-
+        # between Machine destroy (step 6) and this step where a grace-
         # expiration alert could fire; the windowed noise is acceptable
         # vs. the structural cost of weaving observability into the
         # core teardown sequence.
         results.append(await self._run_step(
-            "10_observability_cleanup",
+            "09_observability_cleanup",
             self._step_observability_cleanup,
         ))
 
@@ -1054,9 +1011,6 @@ class DecommissionPipeline:
         manifest = await self.vectorize_deleter.delete_indexes(self.customer_slug)
         return manifest
 
-    async def _step_composio(self) -> dict:
-        return await self.composio.revoke_connections(self.customer_slug)
-
     async def _step_agentmail(self) -> dict:
         return await self.agentmail.deprovision(self.customer_slug)
 
@@ -1125,7 +1079,6 @@ __all__ = [
     "AgentMailProvisioner",
     "AuditLogPreserver",
     "ComplianceArchiver",
-    "ComposioConnectionManager",
     "DecommissionPipeline",
     "DecommissionStepFailed",
     "DefaultDrainCoordinator",
@@ -1135,7 +1088,6 @@ __all__ = [
     "InMemoryComplianceArchiver",
     "MemoryDecommissionRunner",
     "NoOpAgentMailStub",
-    "NoOpComposioStub",
     "NoOpFlyStub",
     "NoOpObservabilityCleanupStub",
     "ObservabilityCleanup",

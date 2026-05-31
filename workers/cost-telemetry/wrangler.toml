@@ -2,10 +2,10 @@
 # Per docs/specs/ai-employee/cost-telemetry-events.md "Nightly Captain job".
 #
 # The worker iterates every active AI Employee customer once per day at
-# 02:00 UTC. For each customer it pulls yesterday's Anthropic token usage
-# and Composio action usage, computes cents via the hardcoded pricing
-# JSON files at ai-employee/adapter/cost_telemetry/, and UPSERTs one or
-# more rows into the customer's per-customer cost_telemetry D1 table.
+# 02:00 UTC. For each customer it pulls yesterday's Anthropic token usage,
+# computes cents via the hardcoded pricing JSON files at
+# ai-employee/adapter/cost_telemetry/, and UPSERTs one or more rows into
+# the customer's per-customer cost_telemetry D1 table.
 #
 # The per-customer D1 database id is read from the central
 # customer_configs table (column lookup in src/index.ts). Per ADR 0009,
@@ -39,5 +39,4 @@ crons = ["0 2 * * *"]
 #   ANTHROPIC_API_KEY   — Org-level key (per-customer keys would shift to
 #                         a per-customer secret lookup; v1 uses the org key
 #                         since billing rolls up at the org level)
-#   COMPOSIO_API_KEY    — Org-level Composio key for the usage API
 #   COST_INGEST_BEARER  — Bearer token for manual /run invocations

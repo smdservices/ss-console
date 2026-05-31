@@ -221,10 +221,10 @@ describe('GET /api/admin/ai-employee/costs/export', () => {
               results: [
                 {
                   date: '2026-05-01',
-                  driver: 'composio_actions',
+                  driver: 'fly_machine_minutes',
                   amount_cents: 30,
                   units: 30,
-                  unit_type: 'api_calls',
+                  unit_type: 'minutes',
                 },
               ],
             },
@@ -245,7 +245,7 @@ describe('GET /api/admin/ai-employee/costs/export', () => {
       expect(res.headers.get('Content-Disposition')).toContain('acme')
       const text = await res.text()
       expect(text).toContain('customer_slug,date,driver,amount_cents,units,unit_type')
-      expect(text).toContain('acme,2026-05-01,composio_actions,30,30,api_calls')
+      expect(text).toContain('acme,2026-05-01,fly_machine_minutes,30,30,minutes')
     } finally {
       globalThis.fetch = originalFetch
     }

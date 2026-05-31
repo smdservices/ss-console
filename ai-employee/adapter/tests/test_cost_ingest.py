@@ -1,7 +1,7 @@
 """Tests for ai-employee/adapter/cost_ingest.py (issue #824).
 
-Exercises the Anthropic + Composio ingest paths against in-memory
-sqlite that mirrors the cost_telemetry schema from migration 0001.
+Exercises the Anthropic ingest path against in-memory sqlite that
+mirrors the cost_telemetry schema from migration 0001.
 
 Coverage:
   - Pricing JSON files load and have the expected shape
@@ -9,11 +9,8 @@ Coverage:
   - Anthropic ingest: unknown model -> rows written with cents=0 + warning
   - Anthropic ingest: zero-token result writes no rows
   - Anthropic ingest: source failure is captured in SourceIngestResult.ok=False
-  - Composio ingest: per-toolkit override wins over default
-  - Composio ingest: zero actions writes no rows
   - UPSERT accumulates on repeat: re-running same day adds to existing row
-  - run_ingest_for_customer: failure in one source does not block others
-  - run_ingest_for_customer: skips composio when not configured
+  - run_ingest_for_customer: aggregates the Anthropic source outcome
 
 Run from repo root:
 
@@ -39,11 +36,8 @@ from adapter.cost_ingest import (  # noqa: E402
     IngestRunResult,
     SourceIngestResult,
     _compute_anthropic_cents,
-    _compute_composio_cents,
     ingest_anthropic_billing,
-    ingest_composio_usage,
     load_anthropic_pricing,
-    load_composio_pricing,
     run_ingest_for_customer,
 )
 
@@ -92,19 +86,6 @@ class _FakeAnthropicSource:
         return self._rows
 
 
-class _FakeComposioSource:
-    def __init__(self, rows, raises: Exception | None = None) -> None:
-        self._rows = rows
-        self._raises = raises
-        self.calls: list[tuple] = []
-
-    async def fetch_daily_usage(self, api_key, account_id, day):
-        self.calls.append((api_key, account_id, day))
-        if self._raises:
-            raise self._raises
-        return self._rows
-
-
 def _read_rows(conn: sqlite3.Connection) -> list[tuple]:
     cur = conn.cursor()
     cur.execute(
@@ -126,13 +107,6 @@ def test_anthropic_pricing_loads():
     entry = pricing["models"]["claude-opus-4-7"]
     assert entry["input_per_million_cents"] == 1500
     assert entry["output_per_million_cents"] == 7500
-
-
-def test_composio_pricing_loads():
-    pricing = load_composio_pricing()
-    assert "default_per_action_cents" in pricing
-    assert "toolkit_overrides" in pricing
-    assert isinstance(pricing["toolkit_overrides"], dict)
 
 
 # ---------------------------------------------------------------------------
@@ -171,25 +145,6 @@ def test_compute_anthropic_cents_integer_floor():
     )
     assert in_cents == 0
     assert out_cents == 0
-
-
-# ---------------------------------------------------------------------------
-# Composio cents math
-# ---------------------------------------------------------------------------
-
-
-def test_compute_composio_cents_uses_override():
-    pricing = {
-        "default_per_action_cents": 5,
-        "toolkit_overrides": {"gmail": 2},
-    }
-    assert _compute_composio_cents("gmail", 10, pricing) == 20
-    assert _compute_composio_cents("unknown", 10, pricing) == 50
-
-
-def test_compute_composio_cents_default_when_no_overrides():
-    pricing = {"default_per_action_cents": 3}
-    assert _compute_composio_cents("anything", 100, pricing) == 300
 
 
 # ---------------------------------------------------------------------------
@@ -303,80 +258,6 @@ def test_ingest_anthropic_source_failure_returns_not_ok():
 
 
 # ---------------------------------------------------------------------------
-# Composio ingest
-# ---------------------------------------------------------------------------
-
-
-def test_ingest_composio_writes_single_row():
-    conn = _make_conn()
-    executor = _SqliteExecutor(conn)
-    source = _FakeComposioSource(
-        [
-            ("gmail", 100),
-            ("github", 50),
-            ("unknown_toolkit", 25),
-        ]
-    )
-
-    result = asyncio.run(
-        ingest_composio_usage(
-            executor,
-            source,
-            "fake-key",
-            "acct_123",
-            date(2026, 5, 22),
-        )
-    )
-
-    assert result.ok
-    assert result.rows_written == 1
-    rows = _read_rows(conn)
-    assert len(rows) == 1
-    assert rows[0][1] == "composio_actions"
-    assert rows[0][3] == 175.0  # total actions
-    assert rows[0][4] == "api_calls"
-
-
-def test_ingest_composio_zero_writes_no_rows():
-    conn = _make_conn()
-    executor = _SqliteExecutor(conn)
-    source = _FakeComposioSource([])
-
-    result = asyncio.run(
-        ingest_composio_usage(
-            executor,
-            source,
-            "fake-key",
-            "acct_123",
-            date(2026, 5, 22),
-        )
-    )
-
-    assert result.ok
-    assert result.rows_written == 0
-    assert _read_rows(conn) == []
-
-
-def test_ingest_composio_source_failure():
-    conn = _make_conn()
-    executor = _SqliteExecutor(conn)
-    source = _FakeComposioSource([], raises=RuntimeError("HTTP 500"))
-
-    result = asyncio.run(
-        ingest_composio_usage(
-            executor,
-            source,
-            "fake-key",
-            "acct_123",
-            date(2026, 5, 22),
-        )
-    )
-
-    assert not result.ok
-    assert _read_rows(conn) == []
-
-
-# ---------------------------------------------------------------------------
 # UPSERT accumulation
 # ---------------------------------------------------------------------------
 
@@ -412,55 +293,41 @@ def test_upsert_accumulates_on_repeat():
 # ---------------------------------------------------------------------------
 
 
-def test_run_ingest_skips_composio_when_not_configured():
+def test_run_ingest_aggregates_anthropic_source():
     conn = _make_conn()
     executor = _SqliteExecutor(conn)
     ctx = CustomerIngestContext(
         customer_slug="acme",
         anthropic_api_key="ak",
-        composio_api_key=None,
-        composio_account_id=None,
         executor=executor,
     )
     anthropic_src = _FakeAnthropicSource([("claude-opus-4-7", 100, 200)])
-    composio_src = _FakeComposioSource([("gmail", 10)])
 
     result = asyncio.run(
-        run_ingest_for_customer(
-            ctx, anthropic_src, composio_src, day=date(2026, 5, 22)
-        )
+        run_ingest_for_customer(ctx, anthropic_src, day=date(2026, 5, 22))
     )
 
     assert isinstance(result, IngestRunResult)
     sources = [s.source for s in result.sources]
     assert "anthropic_billing" in sources
-    assert "composio_usage" not in sources
-    assert composio_src.calls == []  # never invoked
 
 
-def test_run_ingest_anthropic_failure_does_not_block_composio():
+def test_run_ingest_anthropic_failure_is_captured():
     conn = _make_conn()
     executor = _SqliteExecutor(conn)
     ctx = CustomerIngestContext(
         customer_slug="acme",
         anthropic_api_key="ak",
-        composio_api_key="ck",
-        composio_account_id="acct_1",
         executor=executor,
     )
     anthropic_src = _FakeAnthropicSource([], raises=RuntimeError("HTTP 503"))
-    composio_src = _FakeComposioSource([("gmail", 100)])
 
     result = asyncio.run(
-        run_ingest_for_customer(
-            ctx, anthropic_src, composio_src, day=date(2026, 5, 22)
-        )
+        run_ingest_for_customer(ctx, anthropic_src, day=date(2026, 5, 22))
     )
 
     sources = {s.source: s for s in result.sources}
     assert not sources["anthropic_billing"].ok
-    assert sources["composio_usage"].ok
-    assert sources["composio_usage"].rows_written == 1
     assert result.any_failures is True
 
 
@@ -475,7 +342,6 @@ def test_run_ingest_requires_executor():
             run_ingest_for_customer(
                 ctx,
                 _FakeAnthropicSource([]),
-                None,
                 day=date(2026, 5, 22),
             )
         )

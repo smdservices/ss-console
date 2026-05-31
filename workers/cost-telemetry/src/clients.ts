@@ -1,7 +1,7 @@
 /**
  * Production HTTP clients for the cost telemetry worker.
  *
- * Three external surfaces:
+ * Two external surfaces:
  *
  *   1. Cloudflare D1 HTTP API — used to write per-customer cost_telemetry
  *      rows. Each customer has a distinct database id, so the client
@@ -13,24 +13,12 @@
  *      `AnthropicUsageRow[]`. If the upstream shape drifts, only this
  *      file needs to change.
  *
- *   3. Composio usage API — per-toolkit action counts. Same shape: the
- *      client normalizes to `ComposioUsageRow[]`. Per the resolved
- *      decision in cost-telemetry-events.md, cents are computed
- *      against the hardcoded `composio_pricing.json` rather than any
- *      per-action pricing from Composio (which they do not publish).
- *
- * All three clients are thin wrappers — no caching, no retry. The
- * cron run is the natural retry boundary (a missed day rolls forward
- * to the next night).
+ * Both clients are thin wrappers — no caching, no retry. The cron run
+ * is the natural retry boundary (a missed day rolls forward to the
+ * next night).
  */
 
-import type {
-  AnthropicSource,
-  AnthropicUsageRow,
-  ComposioSource,
-  ComposioUsageRow,
-  D1HttpClient,
-} from './ingest'
+import type { AnthropicSource, AnthropicUsageRow, D1HttpClient } from './ingest'
 
 // ---------------------------------------------------------------------------
 // Cloudflare D1 HTTP client
@@ -115,46 +103,6 @@ export class AnthropicHttpSource implements AnthropicSource {
         model: r.model,
         inputTokens: Number(r.input_tokens ?? 0),
         outputTokens: Number(r.output_tokens ?? 0),
-      })
-    }
-    return out
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Composio usage client
-// ---------------------------------------------------------------------------
-
-export class ComposioHttpSource implements ComposioSource {
-  async fetchDailyUsage(
-    apiKey: string,
-    accountId: string,
-    day: string
-  ): Promise<ComposioUsageRow[]> {
-    const url = new URL('https://backend.composio.dev/api/v1/usage/actions')
-    url.searchParams.set('account_id', accountId)
-    url.searchParams.set('date', day)
-
-    const res = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'x-api-key': apiKey,
-        'Content-Type': 'application/json',
-      },
-    })
-    if (!res.ok) {
-      const text = await res.text()
-      throw new Error(`Composio usage HTTP ${res.status}: ${text.slice(0, 200)}`)
-    }
-    const payload: { toolkits?: Array<{ toolkit?: string; action_count?: number }> } =
-      await res.json()
-    const rows = payload.toolkits ?? []
-    const out: ComposioUsageRow[] = []
-    for (const r of rows) {
-      if (!r.toolkit) continue
-      out.push({
-        toolkit: r.toolkit,
-        actionCount: Number(r.action_count ?? 0),
       })
     }
     return out

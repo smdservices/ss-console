@@ -22,8 +22,7 @@
  * Fabrication discipline (CLAUDE.md Pattern A/B): the dashboard never
  * fabricates per-skill or per-model breakdown that the underlying schema
  * does not record. The cost_telemetry schema groups Anthropic usage into
- * `claude_api_input_tokens` / `claude_api_output_tokens` and Composio
- * into a single `composio_actions` driver. Per-model and per-toolkit
+ * `claude_api_input_tokens` / `claude_api_output_tokens`. Per-model
  * decomposition is phase 2; this module surfaces only what is in the
  * data.
  */
@@ -38,7 +37,6 @@ export interface CustomerListRow {
   entity_id: string | null
   entity_name: string | null
   per_customer_d1_database_id: string | null
-  composio_account_id: string | null
   subscription_status: string | null
   monthly_revenue_cents: number | null
 }
@@ -107,14 +105,13 @@ export async function listCostCustomers(db: D1Database): Promise<CustomerListRow
   }
 
   return configs.map((c) => {
-    const { perCustomerDbId, composioAccountId } = parseConnectors(c.connectors_json)
+    const { perCustomerDbId } = parseConnectors(c.connectors_json)
     const sub = subsByEntity.get(c.entity_id) ?? null
     return {
       customer_slug: c.customer_slug,
       entity_id: c.entity_id,
       entity_name: namesByEntity.get(c.entity_id) ?? null,
       per_customer_d1_database_id: perCustomerDbId,
-      composio_account_id: composioAccountId,
       subscription_status: sub?.status ?? null,
       monthly_revenue_cents: parseMonthlyRevenueCents(sub?.settings_json ?? null),
     }
@@ -123,24 +120,21 @@ export async function listCostCustomers(db: D1Database): Promise<CustomerListRow
 
 function parseConnectors(connectorsJson: string | null): {
   perCustomerDbId: string | null
-  composioAccountId: string | null
 } {
-  if (!connectorsJson) return { perCustomerDbId: null, composioAccountId: null }
+  if (!connectorsJson) return { perCustomerDbId: null }
   let parsed: unknown
   try {
     parsed = JSON.parse(connectorsJson)
   } catch {
-    return { perCustomerDbId: null, composioAccountId: null }
+    return { perCustomerDbId: null }
   }
   if (!parsed || typeof parsed !== 'object') {
-    return { perCustomerDbId: null, composioAccountId: null }
+    return { perCustomerDbId: null }
   }
   const obj = parsed as Record<string, unknown>
   const dbId = obj['per_customer_d1_database_id']
-  const composio = obj['composio_account_id']
   return {
     perCustomerDbId: typeof dbId === 'string' && dbId.length > 0 ? dbId : null,
-    composioAccountId: typeof composio === 'string' && composio.length > 0 ? composio : null,
   }
 }
 
@@ -306,7 +300,6 @@ async function safeText(response: Response): Promise<string> {
  */
 export type DriverCategory =
   | 'anthropic_llm'
-  | 'composio_action'
   | 'fly_compute'
   | 'cloudflare_d1'
   | 'cloudflare_r2'
@@ -318,7 +311,6 @@ export type DriverCategory =
 const DRIVER_TO_CATEGORY: Record<string, DriverCategory> = {
   claude_api_input_tokens: 'anthropic_llm',
   claude_api_output_tokens: 'anthropic_llm',
-  composio_actions: 'composio_action',
   fly_machine_minutes: 'fly_compute',
   d1_reads: 'cloudflare_d1',
   d1_writes: 'cloudflare_d1',
@@ -334,7 +326,6 @@ const DRIVER_TO_CATEGORY: Record<string, DriverCategory> = {
 
 export const DRIVER_CATEGORIES: DriverCategory[] = [
   'anthropic_llm',
-  'composio_action',
   'fly_compute',
   'cloudflare_d1',
   'cloudflare_r2',
@@ -346,7 +337,6 @@ export const DRIVER_CATEGORIES: DriverCategory[] = [
 
 export const DRIVER_CATEGORY_LABELS: Record<DriverCategory, string> = {
   anthropic_llm: 'Anthropic LLM',
-  composio_action: 'Composio actions',
   fly_compute: 'Fly compute',
   cloudflare_d1: 'Cloudflare D1',
   cloudflare_r2: 'Cloudflare R2',
@@ -409,7 +399,6 @@ export function summarizeCostRows(
 ): CustomerCostSummary {
   const byCategory: Record<DriverCategory, number> = {
     anthropic_llm: 0,
-    composio_action: 0,
     fly_compute: 0,
     cloudflare_d1: 0,
     cloudflare_r2: 0,

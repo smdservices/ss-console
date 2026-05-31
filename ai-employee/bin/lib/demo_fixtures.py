@@ -34,7 +34,7 @@ Design rules
 * **No autonomous send paths.** Every "communication" loaded by this
   tool lands in the memory store as inert provenance. There is no
   outbound email path inside the loader. There is no SignWell call.
-  There is no Composio invocation. Nothing leaves the workstation.
+  There is no external connector invocation. Nothing leaves the workstation.
 
 * **No real-customer pollution at the file-system level either.** The
   loader writes only to the per-customer working-state file under

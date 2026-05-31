@@ -153,7 +153,7 @@ export type LogLevel = (typeof ACCEPTED_LOG_LEVELS)[number]
 export const ACCEPTED_LOG_SHIPS = ['cloudflare-d1', 'fly-logs'] as const
 export type LogShip = (typeof ACCEPTED_LOG_SHIPS)[number]
 
-export const ACCEPTED_BACKEND_PREFIXES = ['composio:', 'mcp:', 'build:', 'synthetic:'] as const
+export const ACCEPTED_BACKEND_PREFIXES = ['mcp:', 'build:', 'synthetic:'] as const
 
 export const ACCEPTED_SCHEMA_VERSIONS = [1] as const
 export type SchemaVersion = (typeof ACCEPTED_SCHEMA_VERSIONS)[number]
@@ -360,12 +360,6 @@ export interface Connector {
   enabled: boolean
   scopes: string[]
   token_ref: string | null
-  /** Composio connection ID for Composio-managed connectors
-   * (`backend: composio:*`). Required when backend is composio:, must be
-   * absent for other backends. Shape is enforced as `conn_{customer_id}_{suffix}`
-   * — see ai-employee/adapter/connectors/composio_assertion.py for the
-   * runtime backstop (issue #850). */
-  composio_connection_id: string | null
   /**
    * Outbound webhook URL the connector's vendor pushes events to. ADR 0021
    * Stream E wires Filevine/Clio matter-created and document-added webhooks
