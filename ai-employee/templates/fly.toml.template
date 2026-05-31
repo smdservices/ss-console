@@ -61,16 +61,15 @@ primary_region = "{{FLY_REGION}}"
   # are in fly secrets (R2_SKILL_BODIES_ACCESS_KEY_ID, R2_SKILL_BODIES_SECRET_ACCESS_KEY).
   R2_SKILL_BODIES_BUCKET = "{{R2_SKILL_BODIES_BUCKET}}"
 
-  # Per-customer SQLite paths. The hermes-smd-audit and hermes-smd-memory-mirror
-  # plugins resolve these to absolute file paths under the mounted volume.
+  # Per-customer SQLite paths. The hermes-smd-audit plugin resolves the audit
+  # binding to an absolute file path under the mounted volume. The observations
+  # binding (hermes-smd-memory-mirror) is set only when Honcho is wired in
+  # Phase 2 (ADR 0016 revised); Phase 1 boots without it.
   SMD_D1_AUDIT_BINDING = "/opt/data/audit.db"
-  SMD_D1_OBSERVATIONS_BINDING = "/opt/data/observations.db"
 
-  # Honcho is in-container. The plugin code reaches it on localhost; the
-  # Postgres database URL points at the in-container Postgres that bootstrap.sh
-  # starts before Honcho. Per ADR 0016, Honcho runs unmodified, stock binary.
-  HONCHO_BASE_URL = "http://localhost:8000"
-  HONCHO_DATABASE_URL = "postgresql://honcho@localhost:5432/honcho"
+  # Honcho (inferred memory) is deferred to Phase 2 (ADR 0016 revised). No
+  # HONCHO_BASE_URL / HONCHO_DATABASE_URL env in Phase 1 — there is no
+  # in-container Honcho server. Phase 2 adds them with the real source vendor.
 
 # Smallest sensible machine class. Postgres + Redis + Honcho + Hermes need
 # more memory than the pre-§6 1024MB single-process Hermes did. Per-customer

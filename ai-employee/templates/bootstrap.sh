@@ -2,20 +2,24 @@
 # bootstrap.sh — container entrypoint for the AI Employee customer Machine
 #
 # Per §6 of the locked build plan and ADRs 0007/0010/0016/0019, this script
-# runs an 11-step sequenced startup under tini (PID 1, zombie reaper):
+# runs a sequenced startup under tini (PID 1, zombie reaper). Steps 3-6 (the
+# Honcho data plane) are DEFERRED to Phase 2 per the revised ADR 0016 — see
+# that block below — so the Phase-1 sequence is:
 #
 #   1.  Validate required env vars.
 #   2.  Verify (or fetch from R2) /opt/data/customer.yaml.
-#   3.  Start Postgres (Honcho's data store) as a supervised child.
-#   4.  Start Redis (Honcho's queue/cache) as a supervised child.
-#   5.  Run Honcho schema migrations (idempotent).
-#   6.  Start Honcho FastAPI server as a supervised child.
+#   3-6. Honcho data plane — deferred to Phase 2 (no Postgres/Redis/Honcho).
 #   7.  Run `hermes-smd bootstrap` (customer.yaml -> per-profile config + SOUL.md).
 #   7b. Disable the Hermes curator in each profile config (ADR 0017).
 #   8.  Run the safety-substrate invariant checks (Phase A.5 gate).
 #   9.  Pause guard.
-#   10. Start `hermes-smd customer-sync` sidecar (R2 poller).
-#   11. exec Hermes (becomes the foreground child of tini).
+#   10. customer-sync sidecar (R2 poller) — NOT launched in Phase 1 (the overlay
+#       reload path is unimplemented; see that step).
+#   11. exec the Hermes gateway (becomes the foreground child of tini).
+#
+# Memory (ADR 0016, revised 2026-05-30): Phase 1 runs on Hermes' always-on
+# flat-file core (MEMORY.md/USER.md). Honcho (inferred memory) is a swappable
+# provider deferred to Phase 2; the customer-owned memory file lives in D1/R2.
 #
 # Storage model:
 #   - customer.yaml is volume-mounted, NOT baked into the image.
@@ -25,21 +29,22 @@
 #
 # Process supervision:
 #   - tini (PID 1) reaps zombies and forwards signals.
-#   - Postgres, Redis, Honcho, and the customer-sync sidecar are launched
-#     under restart wrappers so a crashed dependency self-heals.
-#   - The memory-mirror plugin handles graceful degradation when Honcho is
-#     unhealthy mid-session; this script does not health-monitor Honcho at
-#     runtime (only at startup).
+#   - The gateway runs as the foreground (exec) child.
 #
 # Fails fast on any of:
 #   - missing required env vars
 #   - customer.yaml missing AND not fetchable from R2
-#   - Postgres/Redis/Honcho not healthy within bounded retries
-#   - Honcho schema migration error
 #   - `hermes-smd bootstrap` error (bad customer.yaml structure)
 #   - safety-substrate invariant test failures
 
 set -euo pipefail
+
+# Activate the Hermes venv for the whole entrypoint. The overlay CLI
+# (hermes-smd) and the hermes gateway are installed ONLY in /opt/hermes/.venv;
+# bootstrap.sh invokes `hermes-smd` and `hermes` as bare commands. Without the
+# venv on PATH, a bare `hermes`/`hermes-smd` would not resolve and the Machine
+# would crash at step 7 / step 11.
+export PATH="/opt/hermes/.venv/bin:${PATH}"
 
 log() {
   echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [bootstrap] $*"
@@ -50,45 +55,10 @@ die() {
   exit 1
 }
 
-# Bounded retry helper: wait_for <description> <max_attempts> <sleep_seconds> <check_command...>
-wait_for() {
-  local desc="$1"
-  local max="$2"
-  local delay="$3"
-  shift 3
-  local attempt=1
-  while (( attempt <= max )); do
-    if "$@" >/dev/null 2>&1; then
-      log "${desc} ready (attempt ${attempt}/${max})"
-      return 0
-    fi
-    log "${desc} not ready, retry ${attempt}/${max} in ${delay}s..."
-    sleep "${delay}"
-    attempt=$(( attempt + 1 ))
-  done
-  return 1
-}
-
-# Restart-on-crash wrapper for foundational child processes. Logs a
-# fatal-style line on each crash so the audit plugin / operator sees the
-# transition; tini still reaps the dying child.
-supervise() {
-  local name="$1"
-  shift
-  (
-    while true; do
-      log "supervisor: starting ${name}"
-      if "$@"; then
-        log "supervisor: ${name} exited 0; restarting in 5s"
-      else
-        local rc=$?
-        log "supervisor: ${name} exited ${rc}; restarting in 5s"
-      fi
-      sleep 5
-    done
-  ) &
-  log "supervisor: ${name} pid=$!"
-}
+# NOTE: the wait_for() bounded-retry helper and supervise() restart wrapper
+# were removed with the Honcho data plane (steps 3-6); Postgres/Redis/Honcho
+# were their only callers. Phase 2 reintroduces supervision when it vendors the
+# real Honcho api + deriver processes.
 
 CUSTOMER_SLUG="${CUSTOMER_SLUG:-}"
 [ -n "${CUSTOMER_SLUG}" ] || die "CUSTOMER_SLUG env var is unset"
@@ -107,11 +77,10 @@ REQUIRED_ENV=(
   R2_BUCKET_CONFIG
   R2_ACCESS_KEY_ID
   R2_SECRET_ACCESS_KEY
-  # D1 bindings for the audit + observations mirror tables (ADR 0016/0017).
+  # D1 binding for the audit log (ADR 0017). The observations-mirror binding
+  # (SMD_D1_OBSERVATIONS_BINDING) and HONCHO_API_KEY are optional in Phase 1 —
+  # they only matter once Honcho is wired (Phase 2; ADR 0016 revised).
   SMD_D1_AUDIT_BINDING
-  SMD_D1_OBSERVATIONS_BINDING
-  # Honcho FastAPI access token, generated per-Machine at provisioning.
-  HONCHO_API_KEY
   # ADR 0022 Stream 2 — per-customer skill bodies bucket. Bucket name
   # comes from fly.toml [env] (R2_SKILL_BODIES_BUCKET); the bucket-scoped
   # access key + secret are Fly secrets set by provision-customer.sh. The
@@ -134,6 +103,11 @@ done
 OPTIONAL_ENV=(
   GOOGLE_TOKEN_JSON
   GOOGLE_CLIENT_SECRET_JSON
+  # Honcho (inferred memory) is deferred to Phase 2 (ADR 0016 revised). These
+  # are unused at boot in Phase 1; kept optional for forward-compat so the
+  # Phase-2 vendor can stage them without a bootstrap change.
+  SMD_D1_OBSERVATIONS_BINDING
+  HONCHO_API_KEY
   # R2 endpoint URL override (defaults to the Cloudflare R2 S3 endpoint).
   R2_ENDPOINT_URL
   # COMPOSIO_API_KEY — doctrine-dropped per ADR 0020 (revision 2026-05-24: "no
@@ -188,117 +162,34 @@ else
 fi
 
 # ============================================================================
-# Step 3: start Postgres (Honcho data store)
+# Steps 3-6: Honcho data plane — DEFERRED to Phase 2 (ADR 0016, revised)
 # ============================================================================
-# Honcho stores conclusions/observations in Postgres. Data dir lives on the
-# volume so it survives Machine restarts. Initialize on first boot; subsequent
-# boots reuse the cluster. Postgres runs as the hermes user (uid 10000) — the
-# image creates the data dir with hermes ownership.
-PGDATA="/opt/data/honcho/pg"
-PG_BIN="/usr/lib/postgresql/16/bin"
-export PGDATA
-
-if [ ! -s "${PGDATA}/PG_VERSION" ]; then
-  log "Postgres data dir empty; running initdb (first boot)"
-  mkdir -p "${PGDATA}"
-  "${PG_BIN}/initdb" \
-    --pgdata "${PGDATA}" \
-    --username "honcho" \
-    --auth-local "trust" \
-    --auth-host "trust" \
-    --encoding "UTF8" \
-    --locale "C" \
-    || die "Postgres initdb failed"
-  # Listen on localhost only; no external exposure.
-  cat >> "${PGDATA}/postgresql.conf" <<EOF
-listen_addresses = '127.0.0.1'
-port = 5432
-unix_socket_directories = '/tmp'
-EOF
-  log "Postgres cluster initialized"
-fi
-
-# Supervised start. pg_ctl backgrounds itself; we use postgres directly so
-# tini sees the process. The supervise() wrapper keeps it alive.
-supervise "postgres" "${PG_BIN}/postgres" -D "${PGDATA}"
-
-# Health-wait. 30 attempts × 1s = 30s ceiling.
-if ! wait_for "Postgres" 30 1 "${PG_BIN}/pg_isready" -h 127.0.0.1 -p 5432 -U honcho; then
-  die "Postgres did not become ready within 30s"
-fi
-
-# Ensure the honcho database exists (createdb is idempotent via DO block).
-"${PG_BIN}/psql" -h 127.0.0.1 -U honcho -d postgres -tAc \
-  "SELECT 1 FROM pg_database WHERE datname='honcho'" | grep -q 1 \
-  || "${PG_BIN}/createdb" -h 127.0.0.1 -U honcho honcho \
-  || die "Failed to create honcho database"
-log "Postgres ready (database=honcho)"
-
-# ============================================================================
-# Step 4: start Redis (Honcho cache/queue)
-# ============================================================================
-# AOF persistence keeps Honcho's queue durable across restarts. Data dir lives
-# on the volume.
-REDIS_DIR="/opt/data/honcho/redis"
-mkdir -p "${REDIS_DIR}"
-
-supervise "redis" redis-server \
-  --bind 127.0.0.1 \
-  --port 6379 \
-  --appendonly yes \
-  --dir "${REDIS_DIR}" \
-  --protected-mode no \
-  --save ""
-
-if ! wait_for "Redis" 30 1 redis-cli -h 127.0.0.1 -p 6379 ping; then
-  die "Redis did not become ready within 30s"
-fi
-log "Redis ready"
-
-# ============================================================================
-# Step 5: Honcho schema migrations
-# ============================================================================
-# Idempotent — Honcho's migration runner is safe to re-run on every boot.
-# Tuned config knobs from ADR 0016 are applied via env vars consumed by the
-# Honcho process itself (set in step 6) and via the hermes-smd bootstrap
-# translator in step 7 (writes them into each profile's memory-provider
-# config). We export DB/Redis URLs here so the migration runner can find them.
-export HONCHO_DB_URL="postgresql://honcho@127.0.0.1:5432/honcho"
-export HONCHO_REDIS_URL="redis://127.0.0.1:6379/0"
-
-log "Running Honcho schema migrations..."
-python3 -m honcho.migrations \
-  || die "Honcho schema migration failed"
-log "Honcho migrations applied"
-
-# ============================================================================
-# Step 6: start Honcho FastAPI server
-# ============================================================================
-# Local-only on port 8000; the memory-mirror plugin in Hermes talks to it via
-# 127.0.0.1.
-supervise "honcho" python3 -m honcho.server \
-  --host 127.0.0.1 \
-  --port 8000
-
-if ! wait_for "Honcho FastAPI" 60 1 curl -fsS http://127.0.0.1:8000/health; then
-  die "Honcho FastAPI did not become healthy within 60s"
-fi
-log "Honcho FastAPI ready"
+# Previously: start Postgres, start Redis, run `python -m honcho.migrations`,
+# start `python -m honcho.server`. That integration was fictional — `honcho-ai`
+# is the Honcho CLIENT SDK, not the server, so those module invocations never
+# existed and the Machine died here at every boot. Real Honcho v3.0.7 is the
+# plastic-labs/honcho SOURCE repo (fastapi api + `python -m src.deriver`,
+# pgvector, mandatory LLM provider).
+#
+# Per the revised ADR 0016 (Option 2): the customer-owned memory file lives in
+# our D1/R2; Honcho is a swappable INFERRED-memory provider that sits behind it
+# and is deferred to Phase 2. Phase 1 runs on Hermes' always-on flat-file core
+# (MEMORY.md/USER.md), which Hermes auto-creates at profile boot. Postgres +
+# Redis remain installed in the image (for Phase 2) but are not started here.
 
 # ============================================================================
 # Step 7: hermes-smd bootstrap (customer.yaml -> per-profile config)
 # ============================================================================
 # Installed at image build time via `pip install hermes-smd-overlay`. Reads
 # /opt/data/customer.yaml, writes N profile directories under
-# $HERMES_HOME/profiles/<slug>/ with config.yaml and SOUL.md. Each profile's
-# memory-provider block is configured to talk to the local Honcho FastAPI
-# with the ADR 0016 tuned knobs.
+# $HERMES_HOME/profiles/<slug>/ with config.yaml and SOUL.md. Phase 1 emits no
+# memory-provider block (flat-file core); the `hermes-smd bootstrap` CLI takes
+# no --honcho-* flags (those were never valid args — passing them aborted the
+# step). Honcho wiring returns in Phase 2 (ADR 0016 revised).
 log "Running hermes-smd bootstrap (customer.yaml -> profiles)..."
 hermes-smd bootstrap \
   --customer-yaml "${CUSTOMER_YAML}" \
   --hermes-home "${HERMES_HOME}" \
-  --honcho-url "http://127.0.0.1:8000" \
-  --honcho-api-key "${HONCHO_API_KEY}" \
   || die "hermes-smd bootstrap failed; check customer.yaml structure"
 log "Profile config(s) generated under ${HERMES_HOME}/profiles/"
 
@@ -356,38 +247,42 @@ if [ -f /opt/data/.paused ]; then
 fi
 
 # ============================================================================
-# Step 10: customer-sync sidecar (R2 poller)
+# Step 10: customer-sync sidecar (R2 poller) — NOT launched (unimplemented)
 # ============================================================================
-# Polls R2 at vaults/<slug>/customer.yaml every 5 minutes. On non-structural
-# change: rewrites /opt/data/customer.yaml and signals Hermes (SIGHUP) to
-# reload profile config. On structural change: logs warning + posts to admin
-# portal, but does NOT restart (preserves OAuth tokens per ADR 0010).
-log "Starting customer-sync sidecar (R2 polling every 300s)..."
-AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}" \
-AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}" \
-  hermes-smd customer-sync \
-    --customer-yaml "${CUSTOMER_YAML}" \
-    --r2-bucket "${R2_BUCKET_CONFIG}" \
-    --r2-endpoint "${R2_ENDPOINT_URL}" \
-    --interval 300 \
-    &
-SIDECAR_PID=$!
-log "customer-sync sidecar pid=${SIDECAR_PID}"
+# The sidecar's purpose is to poll R2 at vaults/<slug>/customer.yaml and apply
+# non-structural changes in place (SIGHUP reload). It is NOT launched in Phase 1
+# for two reasons: (1) the overlay's `start_customer_sync` raises
+# NotImplementedError (the reload path is a tracked follow-on), and (2) the
+# `hermes-smd customer-sync` CLI does not accept the `--r2-endpoint` flag this
+# script previously passed, so argparse aborted it immediately. Launching it
+# backgrounded only spammed a guaranteed crash into the logs on every boot.
+# Structural changes already require a Captain re-provision (ADR 0019); until
+# the reload path is implemented, non-structural edits also go through a
+# re-provision. Re-enable here once the overlay ships the sidecar.
 
 # ============================================================================
-# Step 11: launch Hermes (foreground under tini)
+# Step 11: launch the Hermes gateway (foreground under tini)
 # ============================================================================
-# Overlay plugins were installed at image build time and live under
-# ~/.hermes/plugins/. The first profile in personas[] (the only one in v1 per
-# the §7 validator) becomes the active session. `exec` so Hermes inherits
-# PID-1-ish ownership under tini cleanly — tini still reaps the foundational
-# children (Postgres, Redis, Honcho, sidecar) launched above.
+# The unattended runtime is `hermes gateway run`, NOT `hermes chat`. `chat` is
+# an interactive REPL — as PID-1's foreground child with no TTY it would hit
+# EOF on stdin and exit, never staying up. The gateway is the long-lived daemon
+# that listens for cron triggers (e.g. the daily inbox-triage run) and inbound
+# webhook events and drives them through the agent + overlay plugin surface
+# (audit / trust / inbound / outbound / voice). `gateway run` is the upstream-
+# documented foreground mode for containers.
 #
-# The legacy `PYTHONPATH=/app/adapter:...` export and AIE_* env vars were
-# removed when the in-tree adapter retired. The overlay plugin surface
-# (audit / trust / voice / memory-mirror / hook-probe) is the runtime path;
-# customer.yaml + skills + connector wiring all resolve through the
-# overlay's bootstrap CLI invoked above.
-log "Launching Hermes (overlay plugins enabled)..."
+# `exec` so the gateway inherits the foreground slot under tini cleanly.
+#
+# Overlay plugins were installed at image build time under ~/.hermes/plugins/.
+# customer.yaml + skills + connector wiring resolve through the overlay's
+# bootstrap CLI invoked in step 7.
+#
+# Ensure the gateway's log directory exists and is writable by the hermes user.
+# Hermes writes a rotating log to $HERMES_HOME/logs/agent.log and does NOT create
+# the parent dir itself — on a fresh volume the open() would fail. The volume
+# root is hermes-owned, so this mkdir creates a hermes-owned, writable dir.
+mkdir -p "${HERMES_HOME}/logs"
 
-exec /opt/hermes/.venv/bin/hermes chat
+log "Launching Hermes gateway (overlay plugins enabled)..."
+
+exec /opt/hermes/.venv/bin/hermes gateway run

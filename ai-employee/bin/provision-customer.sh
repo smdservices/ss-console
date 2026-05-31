@@ -8,11 +8,11 @@
 # customer.yaml to R2 (so bootstrap.sh can fetch it on first boot — no more
 # baking into the image per §6 of the build plan), renders
 # ai-employee/.rendered/<slug>/fly.toml (gitignored), creates the Fly app,
-# provisions the volume (10GB — hosts Postgres + Redis + customer.yaml +
-# SQLite + voice cache), prompts Captain for secrets (pasted via pbpaste —
-# values never appear in the chat transcript), deploys, then runs the boot
-# smoke test (boot-smoke-test.sh) to verify the Postgres/Redis/Honcho/Hermes
-# dependency chain came up cleanly.
+# provisions the volume (10GB — hosts customer.yaml + SQLite + voice cache;
+# Phase 2 adds Postgres + Redis for Honcho), prompts Captain for secrets
+# (pasted via pbpaste — values never appear in the chat transcript), deploys,
+# then runs the boot smoke test (boot-smoke-test.sh) to verify the Hermes
+# profile + plugin chain came up cleanly.
 #
 # Operator prerequisites (set in your shell / .envrc / direnv before running):
 #   R2_ENDPOINT_URL        — Cloudflare R2 endpoint (https://<account>.r2.cloudflarestorage.com)
@@ -95,7 +95,6 @@ R2_BUCKET_CONFIG="${R2_BUCKET_CONFIG:-smd-customer-config}"
 [ -n "${R2_ACCESS_KEY_ID:-}" ] || die "R2_ACCESS_KEY_ID not set in operator env"
 [ -n "${R2_SECRET_ACCESS_KEY:-}" ] || die "R2_SECRET_ACCESS_KEY not set in operator env"
 command -v aws >/dev/null 2>&1 || die "aws CLI not found (required for R2 customer.yaml upload)"
-command -v openssl >/dev/null 2>&1 || die "openssl not found (required for HONCHO_API_KEY generation)"
 command -v pbpaste >/dev/null 2>&1 || die "pbpaste not found (macOS-only; required for secret entry flow)"
 
 # ---------- Step 1: validate customer.yaml ----------
@@ -202,11 +201,11 @@ else
 fi
 
 # ---------- Step 5: create volume (idempotent, 10GB) ----------
-# Volume hosts: Postgres data (Honcho), Redis AOF (Honcho), customer.yaml
-# (R2-mirrored copy), audit.db + observations.db SQLite, Hermes profiles
-# under /opt/data/profiles/, voice samples cache, OAuth token files (ADR
-# 0010). 10GB is the new floor (was 1GB pre-§6); per-customer fixed disk
-# pressure should not be a thing we manage on a per-customer basis.
+# Volume hosts: customer.yaml (R2-mirrored copy), audit.db SQLite, Hermes
+# profiles + flat-file memory (MEMORY.md/USER.md) under /opt/data/profiles/,
+# voice samples cache, OAuth token files (ADR 0010). Phase 2 adds Postgres +
+# Redis (Honcho) + observations.db. 10GB is the floor (was 1GB pre-§6);
+# per-customer fixed disk pressure should not be a thing we manage per customer.
 log "Creating persistent volume (idempotent, 10GB)..."
 if fly volumes list -a "${APP_NAME}" --json 2>/dev/null | python3 -c "import sys, json; data = json.load(sys.stdin) if sys.stdin.read else []" 2>/dev/null; then
   if ! fly volumes list -a "${APP_NAME}" --json | grep -q '"name":"hermes_state"'; then
@@ -307,17 +306,9 @@ prompt_and_set R2_ENDPOINT_URL      "R2 endpoint URL (Cloudflare account R2 endp
 prompt_and_set R2_SKILL_BODIES_ACCESS_KEY_ID "R2 access key ID scoped to bucket ${R2_SKILL_BODIES_BUCKET}"
 prompt_and_set R2_SKILL_BODIES_SECRET_ACCESS_KEY "R2 secret access key paired with R2_SKILL_BODIES_ACCESS_KEY_ID above"
 
-# HONCHO_API_KEY — generated locally, sent to Fly via stdin, never stored
-# anywhere else. Honcho is self-hosted in this Machine; this is the shared
-# secret between the Hermes process and the in-Machine Honcho FastAPI server.
-# Rotating it means re-running provisioning (Captain-initiated restart per
-# ADR 0010 to preserve OAuth tokens on the volume).
-log "Generating HONCHO_API_KEY (openssl rand -hex 32) and staging directly to Fly..."
-openssl rand -hex 32 \
-  | { read -r _val; printf 'HONCHO_API_KEY=%s\n' "${_val}"; } \
-  | fly secrets import --stage -a "${APP_NAME}" >/dev/null
-log "Staged HONCHO_API_KEY (value never logged)"
-unset _val 2>/dev/null || true
+# HONCHO_API_KEY — DEFERRED to Phase 2 (ADR 0016 revised). No in-Machine Honcho
+# server is provisioned in Phase 1, so there is no shared secret to generate.
+# Phase 2 reintroduces this when it vendors the real plastic-labs/honcho source.
 
 # ---------- Step 6b: observability secrets (ADR 0023 Wave 1) ----------
 # These come from operator env (Infisical-staged in Captain's shell), not
@@ -434,9 +425,10 @@ log "Deploying ${APP_NAME}..."
   --build-arg CUSTOMER_SLUG="${SLUG}")
 
 # ---------- Step 8: boot smoke test ----------
-# The boot-smoke-test.sh script exercises the Postgres → Redis → Honcho →
-# customer.yaml → profiles → Hermes plugins dependency chain. It is the real
-# verification that bootstrap.sh's sequenced startup came up cleanly.
+# The boot-smoke-test.sh script exercises the customer.yaml → profiles → Hermes
+# plugins → curator-disabled dependency chain. It is the real verification that
+# bootstrap.sh's sequenced startup came up cleanly. (Postgres/Redis/Honcho
+# checks return in Phase 2 — ADR 0016 revised.)
 log "Running boot smoke test..."
 if [ -x "${BIN_DIR}/boot-smoke-test.sh" ]; then
   "${BIN_DIR}/boot-smoke-test.sh" "${SLUG}" \
