@@ -154,6 +154,12 @@ RUN uv pip install --no-cache-dir --no-deps -e "."
 RUN uv pip install --no-cache-dir \
       "git+${OVERLAY_REPO}@${OVERLAY_REF}"
 
+# ---------- Gmail reader deps (crane_gmail.py — inbox-triage fetch path) ----------
+# The inbox-triage skill shells to ai-employee/connectors/google/crane_gmail.py
+# to read the principal's Gmail via a user-OAuth token (ADR 0010). These two
+# libraries are all it needs (read/modify; no oauthlib — consent happens off-box).
+RUN uv pip install --no-cache-dir google-api-python-client google-auth
+
 # Register the plugin pack with Hermes' loader. `hermes plugins install` clones
 # the overlay repo's DEFAULT BRANCH HEAD into ~/.hermes/plugins/ — upstream
 # hermes_cli/plugins_cmd.py `_install_plugin_core` does `git clone --depth 1`
