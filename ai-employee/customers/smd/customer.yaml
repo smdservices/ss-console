@@ -59,12 +59,19 @@ personas:
         wake_policy: always
 
 # ---- CONNECTORS ----
-# "We run everything in Google — Gmail, Google Calendar, and Google Drive." All three
-# named explicitly → vendor-direct Google MCPs per ADR 0020. No composio.
+# Email is Crane's OWN AgentMail inbox, not the principal's Gmail (Captain
+# decision 2026-05-31): AgentMail is API-first email built for AI agents, and
+# its native create_draft / send separation maps onto reviewer-as-sender
+# (ADR 0005) exactly — the agent drafts from its own identity and a human
+# sends. Backend mcp:agentmail is materialized by the overlay translator into
+# the profile's mcp_servers block (key from the AGENTMAIL_API_KEY Fly secret).
+# The autonomous-send tools are blocked at the trust layer + excluded from the
+# toolset. Calendar + DocumentStorage remain the principal's Google services
+# ("We run everything in Google") via vendor-direct MCPs per ADR 0020.
 connectors:
   Email:
-    adapter: google-gmail
-    backend: mcp:google-gmail
+    adapter: agentmail
+    backend: mcp:agentmail
     enabled: true
   Calendar:
     adapter: google-calendar
