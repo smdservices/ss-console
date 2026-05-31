@@ -15,14 +15,6 @@ const productSchema = {
   brand: { '@type': 'Brand', name: 'SMD Services' },
   offers: {
     '@type': 'Offer',
-    priceCurrency: 'USD',
-    price: '5000.00',
-    priceSpecification: {
-      '@type': 'UnitPriceSpecification',
-      price: '5000.00',
-      priceCurrency: 'USD',
-      referenceQuantity: { '@type': 'QuantitativeValue', value: '1', unitCode: 'MON' },
-    },
     availability: 'https://schema.org/InStock',
     seller: { '@type': 'Organization', name: 'SMD Services' },
   },
@@ -107,7 +99,7 @@ const roleLenses = [
       </div>
     </section>
 
-    <!-- § 03 Pricing -->
+    <!-- § 03 What it's worth -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -117,23 +109,18 @@ const roleLenses = [
         <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          Pricing.
+          What It's Worth.
         </h2>
-        <div class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-white p-10 md:p-12">
-          <p
-            class="font-['JetBrains_Mono'] text-sm font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)] mb-4"
-          >
-            Monthly subscription
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            Add up the hours your team spends on the work that repeats. The inquiries answered the
+            same way, the follow-ups that slip, the status updates typed out one more time. That is
+            the work the agent takes on, and the time it gives back is the return.
           </p>
-          <p
-            class="font-['Archivo'] text-6xl md:text-7xl font-black tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
-          >
-            $5,000<span class="text-2xl md:text-3xl font-bold tracking-normal">&nbsp;/ month</span>
-          </p>
-          <p
-            class="mt-6 font-['Archivo'] text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
-          >
-            Flat. Setup and ongoing operation included. No additional fees.
+          <p>
+            Pricing is a flat monthly subscription, scoped to the role we build together. We walk
+            through it in the first conversation, before any setup begins. No hourly billing, no
+            usage meter, no surprise line items.
           </p>
         </div>
       </div>
