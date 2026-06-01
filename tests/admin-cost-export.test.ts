@@ -1,5 +1,5 @@
 /**
- * Tests for GET /api/admin/ai-employee/costs/export — auth and input
+ * Tests for GET /api/admin/operator/costs/export — auth and input
  * validation. The CSV serialization is covered by the cost-query unit
  * tests; this file focuses on the handler-level guarantees:
  *
@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { GET } from '../src/pages/api/admin/ai-employee/costs/export'
+import { GET } from '../src/pages/api/admin/operator/costs/export'
 import { env as testEnv } from 'cloudflare:workers'
 
 interface MinimalSession {
@@ -85,7 +85,7 @@ function makeMockDb(
   }
 }
 
-describe('GET /api/admin/ai-employee/costs/export', () => {
+describe('GET /api/admin/operator/costs/export', () => {
   beforeEach(() => {
     for (const k of Object.keys(testEnv)) delete (testEnv as unknown as Record<string, unknown>)[k]
     Object.assign(testEnv, {
@@ -102,7 +102,7 @@ describe('GET /api/admin/ai-employee/costs/export', () => {
   it('returns 401 when no session', async () => {
     const ctx = buildContext({
       session: null,
-      url: 'http://test.local/api/admin/ai-employee/costs/export?customer_slug=acme',
+      url: 'http://test.local/api/admin/operator/costs/export?customer_slug=acme',
     })
     const res = await GET(ctx)
     expect(res.status).toBe(401)
@@ -111,7 +111,7 @@ describe('GET /api/admin/ai-employee/costs/export', () => {
   it('returns 401 when session.role !== admin', async () => {
     const ctx = buildContext({
       session: { ...adminSession(), role: 'client' },
-      url: 'http://test.local/api/admin/ai-employee/costs/export?customer_slug=acme',
+      url: 'http://test.local/api/admin/operator/costs/export?customer_slug=acme',
     })
     const res = await GET(ctx)
     expect(res.status).toBe(401)
@@ -120,7 +120,7 @@ describe('GET /api/admin/ai-employee/costs/export', () => {
   it('returns 400 when customer_slug missing', async () => {
     const ctx = buildContext({
       session: adminSession(),
-      url: 'http://test.local/api/admin/ai-employee/costs/export',
+      url: 'http://test.local/api/admin/operator/costs/export',
     })
     const res = await GET(ctx)
     expect(res.status).toBe(400)
@@ -129,7 +129,7 @@ describe('GET /api/admin/ai-employee/costs/export', () => {
   it('returns 400 on bad date format', async () => {
     const ctx = buildContext({
       session: adminSession(),
-      url: 'http://test.local/api/admin/ai-employee/costs/export?customer_slug=acme&start=bad&end=2026-05-01',
+      url: 'http://test.local/api/admin/operator/costs/export?customer_slug=acme&start=bad&end=2026-05-01',
     })
     const res = await GET(ctx)
     expect(res.status).toBe(400)
@@ -138,7 +138,7 @@ describe('GET /api/admin/ai-employee/costs/export', () => {
   it('returns 400 when start >= end', async () => {
     const ctx = buildContext({
       session: adminSession(),
-      url: 'http://test.local/api/admin/ai-employee/costs/export?customer_slug=acme&start=2026-05-10&end=2026-05-01',
+      url: 'http://test.local/api/admin/operator/costs/export?customer_slug=acme&start=2026-05-10&end=2026-05-01',
     })
     const res = await GET(ctx)
     expect(res.status).toBe(400)
@@ -148,7 +148,7 @@ describe('GET /api/admin/ai-employee/costs/export', () => {
     Object.assign(testEnv, { DB: makeMockDb([]) })
     const ctx = buildContext({
       session: adminSession(),
-      url: 'http://test.local/api/admin/ai-employee/costs/export?customer_slug=acme',
+      url: 'http://test.local/api/admin/operator/costs/export?customer_slug=acme',
     })
     const res = await GET(ctx)
     expect(res.status).toBe(404)
@@ -164,7 +164,7 @@ describe('GET /api/admin/ai-employee/costs/export', () => {
     })
     const ctx = buildContext({
       session: adminSession(),
-      url: 'http://test.local/api/admin/ai-employee/costs/export?customer_slug=acme',
+      url: 'http://test.local/api/admin/operator/costs/export?customer_slug=acme',
     })
     const res = await GET(ctx)
     expect(res.status).toBe(409)
@@ -188,7 +188,7 @@ describe('GET /api/admin/ai-employee/costs/export', () => {
     delete (testEnv as unknown as Record<string, unknown>).CF_D1_API_TOKEN
     const ctx = buildContext({
       session: adminSession(),
-      url: 'http://test.local/api/admin/ai-employee/costs/export?customer_slug=acme',
+      url: 'http://test.local/api/admin/operator/costs/export?customer_slug=acme',
     })
     const res = await GET(ctx)
     expect(res.status).toBe(503)
@@ -236,7 +236,7 @@ describe('GET /api/admin/ai-employee/costs/export', () => {
     try {
       const ctx = buildContext({
         session: adminSession(),
-        url: 'http://test.local/api/admin/ai-employee/costs/export?customer_slug=acme&start=2026-05-01&end=2026-05-15',
+        url: 'http://test.local/api/admin/operator/costs/export?customer_slug=acme&start=2026-05-01&end=2026-05-15',
       })
       const res = await GET(ctx)
       expect(res.status).toBe(200)

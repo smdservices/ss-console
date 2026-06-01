@@ -4,13 +4,16 @@ date: 2026-05-21
 status: accepted
 captain: Scott Durgan
 supersedes: none
-related-prd: docs/pm/ai-employee/platform-prd.md §2, §3, §10, §13, §16; docs/pm/ai-employee/law-firm-prd.md §3, §8
+renamed-by: 0034-operator-product-naming.md
+related-prd: docs/pm/operator/platform-prd.md §2, §3, §10, §13, §16; docs/pm/operator/law-firm-prd.md §3, §8
 related-issue: https://github.com/venturecrane/ss-console/issues/828
 ---
 
 # ADR 0013 — AI Employee Positioning Doctrine
 
-**Status:** Accepted. Locks the marketing, sales, and demo positioning for the AI Employee product across the cross-vertical brand and the PI law-firm vertical specifically. Doctrine inputs synthesized from a three-round external competitive analysis engagement (May 2026) and Captain decisions on positioning, voice, and demo flow.
+**Status:** Accepted, **renamed 2026-06-01 by [ADR 0034](./0034-operator-product-naming.md).** The product's brand name is now **Operator**. The positioning doctrine in this ADR — portable persona, firm-owned editable memory as the headline pillar, reviewer-as-sender as ethics architecture, the Eve wedge, the legal-vertical opener — is name-independent and stands. Where this ADR says "AI Employee," read "Operator."
+
+**Status (original):** Accepted. Locks the marketing, sales, and demo positioning for the product across the cross-vertical brand and the PI law-firm vertical specifically. Doctrine inputs synthesized from a three-round external competitive analysis engagement (May 2026) and Captain decisions on positioning, voice, and demo flow.
 
 **Source:** Captain decisions across the round-1, round-2, and round-3 competitive analysis conversations with the external research team (deliverables filed at [`docs/pm/ai-employee/prd-contributions/round-2/`](../pm/ai-employee/prd-contributions/round-2/) and [`docs/pm/ai-employee/prd-contributions/round-3/`](../pm/ai-employee/prd-contributions/round-3/)). The architectural facts the doctrine rests on are already locked: reviewer-as-sender ([ADR 0005](./0005-reviewer-as-sender.md)), capability-adapter pattern ([ADR 0006](./0006-capability-adapter-pattern.md)), customer-owned memory artifact ([ADR 0008](./0008-customer-owned-memory-artifact.md)), per-customer OAuth token storage ([ADR 0010](./0010-per-customer-oauth-token-storage.md)), and multi-persona schema lock ([ADR 0011](./0011-multi-persona-per-customer.md)). This ADR records how those facts get spoken about.
 

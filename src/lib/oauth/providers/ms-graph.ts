@@ -3,7 +3,7 @@
  *
  * Provider-specific token-exchange details for the unified callback at
  * `src/pages/api/oauth/callback.ts` and the customer-facing portal
- * callback at `src/pages/portal/products/ai-employee/oauth/[connector]/callback.astro`.
+ * callback at `src/pages/portal/products/operator/oauth/[connector]/callback.astro`.
  *
  * Scope discipline: read + draft only. `Mail.Send` is explicitly absent
  * — programmatic send is the wave-2 stream (issue #881) under a separate
@@ -19,8 +19,8 @@
  * provider mints — token storage and refresh remain owned here.
  *
  * Reference docs:
- *   - `docs/specs/ai-employee/oauth-lifecycle.md` § "Per-connector OAuth scope inventory"
- *   - `docs/runbooks/ai-employee/ms-graph-azure-ad-setup.md`
+ *   - `docs/specs/operator/oauth-lifecycle.md` § "Per-connector OAuth scope inventory"
+ *   - `docs/runbooks/operator/ms-graph-azure-ad-setup.md`
  *   - `docs/strategy/mcp-vs-build-ms-graph-2026-05-25.md` (F decision packet)
  */
 

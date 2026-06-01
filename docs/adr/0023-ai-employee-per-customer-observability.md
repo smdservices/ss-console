@@ -4,13 +4,16 @@ date: 2026-05-26
 status: accepted
 captain: Scott Durgan
 supersedes: none
-related-prd: docs/pm/ai-employee/platform-prd.md §7.5, §10.1, §15.1, §17.1, §17.4
+renamed-by: 0034-operator-product-naming.md
+related-prd: docs/pm/operator/platform-prd.md §7.5, §10.1, §15.1, §17.1, §17.4
 related-issue: TBD
 ---
 
 # ADR 0023 — AI Employee Per-Customer Observability
 
-**Status:** Accepted (Captain decision 2026-05-26).
+**Status:** Accepted, **renamed 2026-06-01 by [ADR 0034](./0034-operator-product-naming.md)** (product now named **Operator**; observability decisions unchanged). Where this ADR says "AI Employee," read "Operator." The external Sentry project `smd-ai-employee` keeps its name (slug-independent infra resource, per ADR 0034 §4).
+
+**Status (original):** Accepted (Captain decision 2026-05-26).
 
 **Source:** Per-customer Fly Machine isolation (ADR 0007) is the runtime architecture, but no ADR ties together what observability looks like across an engagement. Several detailed specs in `docs/specs/ai-employee/` cover individual observability primitives — audit log, retention, cost telemetry, cost rollup, dashboard roles — but they were authored independently and there is no single document naming what composes the stack, what is genuinely new, and which cross-cutting calls are locked.
 

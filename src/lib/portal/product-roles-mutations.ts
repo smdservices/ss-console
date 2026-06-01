@@ -12,13 +12,11 @@
  * returns true.
  */
 
-const ALLOWED_AI_EMPLOYEE_ROLES = ['principal', 'operator', 'compliance'] as const
-export type AIEmployeeRole = (typeof ALLOWED_AI_EMPLOYEE_ROLES)[number]
+const ALLOWED_OPERATOR_ROLES = ['principal', 'operator', 'compliance'] as const
+export type AIEmployeeRole = (typeof ALLOWED_OPERATOR_ROLES)[number]
 
 export function isAIEmployeeRole(value: unknown): value is AIEmployeeRole {
-  return (
-    typeof value === 'string' && (ALLOWED_AI_EMPLOYEE_ROLES as readonly string[]).includes(value)
-  )
+  return typeof value === 'string' && (ALLOWED_OPERATOR_ROLES as readonly string[]).includes(value)
 }
 
 export interface GrantArgs {

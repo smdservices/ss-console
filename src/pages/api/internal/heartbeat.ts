@@ -1,7 +1,7 @@
 /**
  * POST /api/internal/heartbeat
  *
- * Per-customer AI Employee Machine → control-plane heartbeat ingestion
+ * Per-customer Operator Machine → control-plane heartbeat ingestion
  * (ADR 0023 Wave 1). The overlay-side ticker in the Machine POSTs every
  * ~60s; this handler upserts the row in `fleet_status` and replies with
  * 200 + the resolved heartbeat status so the Machine can log it.

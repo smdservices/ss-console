@@ -59,13 +59,13 @@ interface EntityRow {
 }
 
 /**
- * Enumerate every AI Employee customer with the data the dashboard
+ * Enumerate every Operator customer with the data the dashboard
  * needs: the per-customer D1 id (required to read cost_telemetry), the
  * subscription status (for the COGS-vs-revenue indicator), and the
  * entity name (display).
  *
  * The query joins customer_configs to subscriptions filtered to the
- * `ai-employee` product slug — non-AI-Employee customers don't apply.
+ * `operator` product slug — non-Operator customers don't apply.
  */
 export async function listCostCustomers(db: D1Database): Promise<CustomerListRow[]> {
   const configsResult = await db
@@ -85,7 +85,7 @@ export async function listCostCustomers(db: D1Database): Promise<CustomerListRow
     .prepare(
       `SELECT entity_id, status, settings_json
          FROM subscriptions
-         WHERE product_slug = 'ai-employee'
+         WHERE product_slug = 'operator'
            AND entity_id IN (${placeholders})`
     )
     .bind(...entityIds)

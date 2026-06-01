@@ -1,6 +1,6 @@
 /**
  * Tests for the customer.yaml editor resolver + validation library
- * (src/lib/portal/ai-employee/customer-yaml-editor.ts).
+ * (src/lib/portal/operator/customer-yaml-editor.ts).
  *
  * Coverage:
  *   - locked-field policy: exact paths, wildcard children, wildcard
@@ -31,8 +31,8 @@ import {
   projectEditableConfig,
   validateEditableChanges,
   type EditableCustomerConfig,
-} from '../src/lib/portal/ai-employee/customer-yaml-editor'
-import { validate, type CustomerYaml } from '../src/lib/ai-employee/customer-yaml'
+} from '../src/lib/portal/operator/customer-yaml-editor'
+import { validate, type CustomerYaml } from '../src/lib/operator/customer-yaml'
 
 // -----------------------------------------------------------------------------
 // Fixture builder — mirrors the validator test fixture

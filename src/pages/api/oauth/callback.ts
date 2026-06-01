@@ -9,8 +9,8 @@ import { env } from 'cloudflare:workers'
 /**
  * GET /api/oauth/callback
  *
- * Unified OAuth callback for AI Employee connector consent flows
- * (issue #879, spec docs/specs/ai-employee/oauth-lifecycle.md,
+ * Unified OAuth callback for Operator connector consent flows
+ * (issue #879, spec docs/specs/operator/oauth-lifecycle.md,
  * storage decision docs/adr/0010-per-customer-oauth-token-storage.md).
  *
  * Lives on the admin subdomain. Provider apps are registered with their

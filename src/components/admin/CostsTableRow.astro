@@ -1,8 +1,8 @@
 ---
 /**
- * One row of the AI Employee costs/fleet admin table.
+ * One row of the Operator costs/fleet admin table.
  *
- * Extracted from src/pages/admin/ai-employee/costs/index.astro to keep
+ * Extracted from src/pages/admin/operator/costs/index.astro to keep
  * that page under the 500-line / complexity-15 ceilings. The page is
  * the orchestrator (loads data, computes derived view models); this
  * component renders one row from the prepared inputs.
@@ -72,7 +72,7 @@ const sentryTitle = fleet ? `Synced ${relativeTimestamp(fleet.sentry_errors_sync
 <tr>
   <td class="py-3">
     <a
-      href={`/admin/ai-employee/costs/${card.customer_slug}`}
+      href={`/admin/operator/costs/${card.customer_slug}`}
       class="font-medium text-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-primary)]"
     >
       {card.entity_name ?? card.customer_slug}
@@ -152,7 +152,7 @@ const sentryTitle = fleet ? `Synced ${relativeTimestamp(fleet.sentry_errors_sync
     {
       exportable && (
         <a
-          href={`/api/admin/ai-employee/costs/export?customer_slug=${encodeURIComponent(card.customer_slug)}&start=${windowStart}&end=${windowEnd}`}
+          href={`/api/admin/operator/costs/export?customer_slug=${encodeURIComponent(card.customer_slug)}&start=${windowStart}&end=${windowEnd}`}
           class="text-[color:var(--ss-color-action)] hover:underline"
         >
           Export CSV

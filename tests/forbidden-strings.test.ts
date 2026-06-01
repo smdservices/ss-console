@@ -300,14 +300,14 @@ describe('IntakeClosed.astro fabrication guard (no follow-up promises)', () => {
 })
 
 // ============================================================================
-// AI Employee marketing page — ADR 0013 fenced-term guard.
+// Operator marketing page — ADR 0013 fenced-term guard.
 //
-// ADR 0013 (AI Employee Positioning Doctrine) fences four terms from AI
+// ADR 0013 (Operator Positioning Doctrine) fences four terms from AI
 // marketing copy: "compliant" (no compliance claim without counsel review),
 // "AI Workforce" (trademark held by Eve), "AI Operating System" (held by Law
 // Practice AI), and "litigation insurance" (overclaim). The doctrine names
 // these as belonging in forbidden-strings; this guard wires them in for the
-// AI Employee SKU page specifically rather than across all of src/, where
+// Operator SKU page specifically rather than across all of src/, where
 // "compliant" can legitimately appear (e.g. "WCAG-compliant" in a technical
 // context). Comments are stripped first, so an explanatory note that mentions
 // a fenced term does not trip the guard.
@@ -315,7 +315,7 @@ describe('IntakeClosed.astro fabrication guard (no follow-up promises)', () => {
 // @see docs/adr/0013-ai-employee-positioning-doctrine.md
 // ============================================================================
 
-const AI_EMPLOYEE_PAGE = resolve('src/pages/ai-employee.astro')
+const OPERATOR_PAGE = resolve('src/pages/operator.astro')
 const ADR_0013_FENCED_TERMS: Array<{ label: string; pattern: RegExp }> = [
   {
     label: '"compliant" (no compliance claim without counsel review, ADR 0013)',
@@ -335,14 +335,14 @@ const ADR_0013_FENCED_TERMS: Array<{ label: string; pattern: RegExp }> = [
   },
 ]
 
-describe('ai-employee.astro ADR 0013 fenced-term guard', () => {
-  it('finds the AI Employee page source (sanity)', () => {
-    expect(() => readFileSync(AI_EMPLOYEE_PAGE, 'utf-8')).not.toThrow()
+describe('operator.astro ADR 0013 fenced-term guard', () => {
+  it('finds the Operator page source (sanity)', () => {
+    expect(() => readFileSync(OPERATOR_PAGE, 'utf-8')).not.toThrow()
   })
 
   for (const { label, pattern } of ADR_0013_FENCED_TERMS) {
-    it(`ai-employee.astro must not contain fenced term: ${label}`, () => {
-      const content = stripComments(readFileSync(AI_EMPLOYEE_PAGE, 'utf-8'))
+    it(`operator.astro must not contain fenced term: ${label}`, () => {
+      const content = stripComments(readFileSync(OPERATOR_PAGE, 'utf-8'))
       expect(pattern.test(content)).toBe(false)
     })
   }
@@ -398,24 +398,24 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // a repeating card — a different primitive than `PortalListItem`. Track
   // as a follow-up if milestone rail drifts or gains a second use.
   resolve('src/pages/portal/engagement/index.astro'),
-  // `products/ai-employee/index.astro` is the AI Employee dashboard
+  // `products/operator/index.astro` is the Operator dashboard
   // landing (one customer per render), not a list of products. The
   // small `.map(roles, …)` inside the sidebar renders a bullet list of
   // granted role names (principal / operator / compliance) — text
   // items inside a chrome card, not a list-row card surface.
-  resolve('src/pages/portal/products/ai-employee/index.astro'),
-  // `products/ai-employee/matters/index.astro` (#871) iterates matters
+  resolve('src/pages/portal/products/operator/index.astro'),
+  // `products/operator/matters/index.astro` (#871) iterates matters
   // through the dedicated `<MattersListTable>` + `<MatterRow>`
   // primitives, not PortalListItem. Matters carry phase + last AI
   // action as their scan-time fields, not a money figure, and do not
   // fit either of PortalListItem's two variants (status / document)
   // without rendering a misleading "$0" cell. Per UI-PATTERNS R7's
   // "When to split" guidance, matters are the third variant; they live
-  // in their own component pair until a second AI Employee surface
+  // in their own component pair until a second Operator surface
   // (calendar, audit list view) shares the row shape, at which point
   // MatterRow is promoted into PortalListItem as a third variant.
-  resolve('src/pages/portal/products/ai-employee/matters/index.astro'),
-  // `products/ai-employee/calendar/index.astro` is the AI Employee
+  resolve('src/pages/portal/products/operator/matters/index.astro'),
+  // `products/operator/calendar/index.astro` is the Operator
   // calendar agenda (#872). It renders list rows through the
   // dedicated <CalendarItemRow> primitive (mirrors DraftRow's
   // justification — the six-cell calendar vocabulary, time-range /
@@ -424,20 +424,20 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // this page render the filter form's type checkboxes and sort
   // <option>s, not list rows. The agenda itself is rendered through
   // <CalendarAgenda>, which iterates via <CalendarItemRow>.
-  resolve('src/pages/portal/products/ai-employee/calendar/index.astro'),
-  // `products/ai-employee/settings/advanced/index.astro` is the
+  resolve('src/pages/portal/products/operator/calendar/index.astro'),
+  // `products/operator/settings/advanced/index.astro` is the
   // customer.yaml editor (#877): a structured FORM, not a list
   // surface. The only `.map(` on the page is the frontmatter
   // `resolved.errors.map((e) => e.path)` call that joins validation-
   // error paths into a status banner. Form sections (PersonaFields,
   // EscalationFields, BusinessHoursFields, ConnectorsFields,
   // ScopeFields) live under
-  // `src/components/portal/ai-employee/customer-yaml-editor/` and
+  // `src/components/portal/operator/customer-yaml-editor/` and
   // render typed inputs per field group, not list-row cards. The
   // PortalListItem primitive is the wrong shape here. There is no
   // status/document repeating-card vocabulary to enforce.
-  resolve('src/pages/portal/products/ai-employee/settings/advanced/index.astro'),
-  // `products/ai-employee/notifications/index.astro` (#876) iterates
+  resolve('src/pages/portal/products/operator/settings/advanced/index.astro'),
+  // `products/operator/notifications/index.astro` (#876) iterates
   // notifications through the dedicated <NotificationRow> primitive,
   // not PortalListItem. A notification row's vocabulary (type chip +
   // unread dot + summary + when + per-row mark-read action) does not
@@ -448,7 +448,7 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // include the filter form's type checkboxes and the sort <option>s
   // alongside the row iteration; row rendering itself goes through
   // <NotificationRow>.
-  resolve('src/pages/portal/products/ai-employee/notifications/index.astro'),
+  resolve('src/pages/portal/products/operator/notifications/index.astro'),
 ]
 
 /** Collect every `index.astro` under `src/pages/portal/` EXCEPT the home. */
@@ -550,7 +550,7 @@ describe('portal list-row registry: UI-PATTERNS R7 enforcement', () => {
 })
 
 /**
- * AI-Employee customer.yaml invariants.
+ * Operator customer.yaml invariants.
  *
  * Guards the exact regression #776 shipped: a customer config with an invalid
  * `hermes_ref` fork tag (`v2026.5.16-smd.0`). Also bans `composio:` backends:
@@ -563,7 +563,7 @@ describe('portal list-row registry: UI-PATTERNS R7 enforcement', () => {
  * @see docs/adr/0020-connector-strategy.md (composio retired)
  * @see docs/adr/0024-hermes-consumption-and-update-cadence.md (hermes_ref pin format)
  */
-describe('ai-employee customer.yaml invariants', () => {
+describe('operator customer.yaml invariants', () => {
   const customersRoot = resolve('ai-employee/customers')
   // v{YYYY}.{M}.{D}@{40-hex-sha} — fork tags like -smd.N do not match.
   const HERMES_REF_RE = /^v\d{4}\.\d{1,2}\.\d{1,2}@[0-9a-f]{40}$/

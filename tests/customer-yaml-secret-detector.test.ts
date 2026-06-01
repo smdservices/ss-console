@@ -1,6 +1,6 @@
 /**
  * Tests for the customer.yaml secret detector
- * (src/lib/ai-employee/customer-yaml/secret-detector.ts).
+ * (src/lib/operator/customer-yaml/secret-detector.ts).
  *
  * The detector exists because customer.yaml lives in git (ADR 0012). A
  * literal secret committed here is in git history permanently and, for a
@@ -20,7 +20,7 @@ import {
   scanRawYaml,
   SECRET_DETECTOR_INTERNALS,
   type SecretFinding,
-} from '../src/lib/ai-employee/customer-yaml'
+} from '../src/lib/operator/customer-yaml'
 
 // Synthetic secret-shaped strings used in tests. None of these are real
 // credentials. They follow the published shapes of each provider so the

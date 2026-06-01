@@ -1,5 +1,5 @@
 /**
- * Tests for POST /api/admin/ai-employee/costs/anomalies/{snooze,acknowledge}.
+ * Tests for POST /api/admin/operator/costs/anomalies/{snooze,acknowledge}.
  *
  * Auth and input validation in isolation. The DB write itself is exercised
  * by admin-cost-anomaly.test.ts against a real D1; here we focus on the
@@ -15,7 +15,7 @@ import {
   installWorkerdPolyfills,
 } from '@venturecrane/crane-test-harness'
 import path from 'node:path'
-import { POST } from '../src/pages/api/admin/ai-employee/costs/anomalies/[action]'
+import { POST } from '../src/pages/api/admin/operator/costs/anomalies/[action]'
 import { env as testEnv } from 'cloudflare:workers'
 import { listOpenAlerts, upsertAlert } from '../src/lib/admin/cost-anomaly'
 
@@ -47,7 +47,7 @@ function buildCtx(opts: {
   body: unknown
 }): Parameters<typeof POST>[0] {
   const request = new Request(
-    `http://test.local/api/admin/ai-employee/costs/anomalies/${opts.action}`,
+    `http://test.local/api/admin/operator/costs/anomalies/${opts.action}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -65,7 +65,7 @@ const ORG_ID = 'org-1'
 const ENTITY_ID = 'ent-anom'
 const USER_ID = 'usr-captain'
 
-describe('POST /api/admin/ai-employee/costs/anomalies/[action]', () => {
+describe('POST /api/admin/operator/costs/anomalies/[action]', () => {
   beforeAll(() => {
     const files = discoverNumericMigrations(migrationsDir)
     expect(files.length).toBeGreaterThan(0)
