@@ -13,7 +13,7 @@ related-issue: '#1166'
 
 ## Context
 
-The AI Employee needs to be reachable on the channels customers actually use. Email inbound was solved in [ADR 0032](0032-inbound-webhook-architecture.md) via a public webhook + front-door gate (AgentMail pushes). Telegram is the next channel and has a fundamentally simpler shape, verified against the pinned Hermes ref (`v2026.5.16@a91a57fa…`):
+The Operator needs to be reachable on the channels customers actually use. Email inbound was solved in [ADR 0032](0032-inbound-webhook-architecture.md) via a public webhook + front-door gate (AgentMail pushes). Telegram is the next channel and has a fundamentally simpler shape, verified against the pinned Hermes ref (`v2026.5.16@a91a57fa…`):
 
 - **Hermes ships a robust native Telegram adapter** (`gateway/platforms/telegram.py`) that uses **long-polling (`getUpdates`)** — the gateway makes outbound calls to Telegram. **No public URL, no webhook, no signature gate needed** (unlike email). The per-customer Machine already runs always-on, so it simply polls.
 - Setting **`TELEGRAM_BOT_TOKEN`** in the environment **auto-enables** the platform (`gateway/config.py:_apply_env_overrides`). `hermes … gateway run` launches it alongside the existing webhook platform — no bootstrap launch change.
@@ -26,7 +26,7 @@ The AI Employee needs to be reachable on the channels customers actually use. Em
 Wire Telegram as an **env-enabled native polling platform**, no new public surface:
 
 1. **Image:** add `--extra messaging` to the Dockerfile `uv sync` so `python-telegram-bot==22.6` (lock-governed) is present. Lean alternative (targeted single-package install) was considered; the lock-governed extra was chosen as it is also forward-aligned with the Slack/Discord channels the product will offer, and the build image already carries the toolchain (`build-essential`/`gcc`/`libffi-dev`) the extra's native deps need.
-2. **Credentials → Fly secrets:** `TELEGRAM_BOT_TOKEN` and `TELEGRAM_ALLOWED_USERS` are set as Fly secrets on the customer Machine (piped from Infisical `/ss/ai-employee/customer-zero/telegram/`, never displayed). The token auto-enables the platform; the allowlist (`7367659986`, Scott; DM-only) is **mandatory** to defeat the fail-open default.
+2. **Credentials → Fly secrets:** `TELEGRAM_BOT_TOKEN` and `TELEGRAM_ALLOWED_USERS` are set as Fly secrets on the customer Machine (piped from Infisical `/ss/operator/customer-zero/telegram/`, never displayed). The token auto-enables the platform; the allowlist (`7367659986`, Scott; DM-only) is **mandatory** to defeat the fail-open default.
 3. **No webhook, no gate, no overlay change** for Telegram. The overlay stays at its current ref; the channel is purely env + SDK.
 
 ## Consequences
@@ -47,4 +47,4 @@ The token+allowlist live as Fly secrets, which works but keeps the allowlist out
 
 ## Operational record (so the next session doesn't re-hunt)
 
-The Telegram credentials are in Infisical **prod** at **`/ss/ai-employee/customer-zero/telegram/`** (`TELEGRAM_BOT_TOKEN` + `TELEGRAM_ALLOWED_USERS`), captured by a VC-session agent on 2026-05-26 (handoff `[vc/venturecrane/crane-console] 2026-05-26T20:31Z`). Standing it up cost an hour of path-hunting because the handoff store was queried with a bare repo name (returns empty) instead of `venture` + full `owner/repo`, and the record was **cross-venture** (captured in VC, needed by SS). Lesson: at session start, read recent handoffs across both of a venture's repos before probing infrastructure.
+The Telegram credentials are in Infisical **prod** at **`/ss/operator/customer-zero/telegram/`** (`TELEGRAM_BOT_TOKEN` + `TELEGRAM_ALLOWED_USERS`), captured by a VC-session agent on 2026-05-26 (handoff `[vc/venturecrane/crane-console] 2026-05-26T20:31Z`). Standing it up cost an hour of path-hunting because the handoff store was queried with a bare repo name (returns empty) instead of `venture` + full `owner/repo`, and the record was **cross-venture** (captured in VC, needed by SS). Lesson: at session start, read recent handoffs across both of a venture's repos before probing infrastructure.

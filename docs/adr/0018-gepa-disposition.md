@@ -6,8 +6,7 @@ superseded-date: 2026-05-24
 captain: Scott Durgan
 supersedes: none
 superseded-by: none
-related-prd: docs/pm/ai-employee/platform-prd.md §7.4, §7.5, §17.4
-related-spec: docs/specs/ai-employee/audit-log-immutability.md
+related-spec: docs/specs/operator/audit-log-immutability.md
 related-issue: TBD (filed as follow-on to this ADR)
 ---
 
@@ -17,7 +16,7 @@ related-issue: TBD (filed as follow-on to this ADR)
 
 ## Supersession note (2026-05-24)
 
-This ADR was authored from a third-party blog summary ([Data Science Dojo overview](https://datasciencedojo.com/blog/hermes-agent-how-it-works-tutorial/)) that described "GEPA (Genetic Evolution of Prompt Architectures)" as a Hermes subsystem. Subsequent first-source verification against `NousResearch/hermes-agent@v2026.5.16` returned **zero matches** for any `gepa_*` module, class, function, or audit constant. The boot-time disable check the ADR specified (`verify_gepa_disabled` in `ai-employee/adapter/boot_checks.py`) was structurally vacuous — it passed trivially because the modules it scanned for were never present in the codebase it scanned.
+This ADR was authored from a third-party blog summary ([Data Science Dojo overview](https://datasciencedojo.com/blog/hermes-agent-how-it-works-tutorial/)) that described "GEPA (Genetic Evolution of Prompt Architectures)" as a Hermes subsystem. Subsequent first-source verification against `NousResearch/hermes-agent@v2026.5.16` returned **zero matches** for any `gepa_*` module, class, function, or audit constant. The boot-time disable check the ADR specified (`verify_gepa_disabled` in `operator/adapter/boot_checks.py`) was structurally vacuous — it passed trivially because the modules it scanned for were never present in the codebase it scanned.
 
 Verification commands run 2026-05-24:
 
@@ -36,10 +35,10 @@ Whether GEPA represents a Nous Research research direction, a planned feature, o
 
 The following artifacts are removed as part of the Hermes-alignment work (see locked build plan dated 2026-05-24):
 
-- `ai-employee/adapter/boot_checks.py` — entire module (GEPA was its only inhabitant per the module's own docstring)
-- `ai-employee/adapter/tests/test_boot_checks.py` — entire module
-- `GEPA_AUDIT_ACTION_DISABLED_VERIFIED` constant in `ai-employee/adapter/aie_adapter.py` and its `__all__` entry
-- `GEPA_DISABLED_VERIFIED` value in `ai-employee/adapter/audit_log.py`'s `ACCEPTED_ACTION_TYPES` set
+- `operator/adapter/boot_checks.py` — entire module (GEPA was its only inhabitant per the module's own docstring)
+- `operator/adapter/tests/test_boot_checks.py` — entire module
+- `GEPA_AUDIT_ACTION_DISABLED_VERIFIED` constant in `operator/adapter/aie_adapter.py` and its `__all__` entry
+- `GEPA_DISABLED_VERIFIED` value in `operator/adapter/audit_log.py`'s `ACCEPTED_ACTION_TYPES` set
 - `GepaEnabledError`, `verify_gepa_disabled` imports/exports in `aie_adapter.py`
 
 If, in the future, Nous Research ships an autonomous self-evolution subsystem under any name, the appropriate response is a fresh ADR grounded in first-source verification of the actual subsystem's hooks, behaviors, and write paths — not a revival of this one.
@@ -234,14 +233,13 @@ Guards against drift:
 ## References
 
 - [Hermes Agent technical overview](https://datasciencedojo.com/blog/hermes-agent-how-it-works-tutorial/) (Data Science Dojo, Feb 2026) — GEPA subsystem description (genetic prompt-architecture evolution, constraint gates, autonomous PR generation, trace-based root-cause analysis)
-- Platform PRD §7.4 (skill loading and pinning, content-hash SHA), §7.5 (safety substrate, eight base invariants), §17.4 (audit and compliance targets)
 - [ADR 0007 Per-customer Machine isolation](./0007-per-customer-machine-isolation.md) (content-hash pinning that makes prompt-arch immutable per Machine pin)
 - [ADR 0009 Cross-Machine query prohibition](./0009-cross-machine-query-prohibition.md) (the boundary that makes cross-customer trace analysis structurally illegal inside customer Machines)
 - [ADR 0015 Hermes fork vs upstream-PR](./0015-hermes-fork-vs-upstream.md) (the fork governance discipline this ADR preserves)
 - [ADR 0016 Honcho disposition](./0016-honcho-disposition.md) (sibling proposer-only pattern; structurally different because Honcho has a per-customer review surface and GEPA does not)
 - [ADR 0017 Skill Curator disposition](./0017-skill-curator-disposition.md) (sibling observer-only pattern; same structural-difference argument applies)
-- [Audit-log immutability spec](../specs/ai-employee/audit-log-immutability.md) ([#892](https://github.com/venturecrane/ss-console/issues/892)) — `gepa_disabled_verified` action class
-- [Sticky-stop spec](../specs/ai-employee/sticky-stop.md) ([#843](https://github.com/venturecrane/ss-console/issues/843)) — escalation path for disable-verification failure
+- [Audit-log immutability spec](../specs/operator/audit-log-immutability.md) ([#892](https://github.com/venturecrane/ss-console/issues/892)) — `gepa_disabled_verified` action class
+- [Sticky-stop spec](../specs/operator/sticky-stop.md) ([#843](https://github.com/venturecrane/ss-console/issues/843)) — escalation path for disable-verification failure
 
 ---
 

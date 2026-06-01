@@ -102,7 +102,7 @@ URL="$(
   CONNECTOR_SLUG="$CONNECTOR_SLUG" \
   REVIEWER_ID="$REAUTH_REVIEWER_ID" \
   CLIENT_ID="$MICROSOFT_GRAPH_CLIENT_ID" \
-  REDIRECT_URI="${PORTAL_BASE_URL%/}/portal/products/ai-employee/oauth/${CONNECTOR_SLUG}/callback" \
+  REDIRECT_URI="${PORTAL_BASE_URL%/}/portal/products/operator/oauth/${CONNECTOR_SLUG}/callback" \
   SIGNING_KEY="$OAUTH_STATE_SIGNING_KEY" \
   node --input-type=module -e '
     import { createHmac } from "node:crypto";
@@ -175,9 +175,9 @@ CUSTOMER_EMAIL="${REAUTH_CUSTOMER_EMAIL:-}"
 if [ -z "$CUSTOMER_EMAIL" ]; then
   # Look up principal user from the canonical customer.yaml. In
   # production this lives in the configs repo; for now we read from
-  # ai-employee/customers/<slug>/customer.yaml when present and fall
+  # operator/customers/<slug>/customer.yaml when present and fall
   # back to printing the URL only.
-  CUSTOMER_YAML="$REPO_ROOT/ai-employee/customers/$CUSTOMER_SLUG/customer.yaml"
+  CUSTOMER_YAML="$REPO_ROOT/operator/customers/$CUSTOMER_SLUG/customer.yaml"
   if [ -f "$CUSTOMER_YAML" ]; then
     CUSTOMER_EMAIL="$(
       awk '

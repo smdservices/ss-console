@@ -18,9 +18,9 @@ This spec describes the audit-row contract that fixes that gap.
   - §11.4: every action at every ceiling is logged
 - platform-prd.md §7.5: safety substrate invariants (invariant #5: ceiling
   enforced in code, not in prompt)
-- `ai-employee/adapter/trust_ceiling.py`: the `enforce()` decision tree
+- `operator/adapter/trust_ceiling.py`: the `enforce()` decision tree
   this module wraps
-- `ai-employee/adapter/audit_log.py` (PR #942): the writer + closed-set
+- `operator/adapter/audit_log.py` (PR #942): the writer + closed-set
   `ACCEPTED_ACTION_TYPES` vocabulary this module emits into
 - d1-schema.md §1: `audit_log` table the emission lands in
 - compliance-evidence-packet.md (#802): downstream consumer that
@@ -28,7 +28,7 @@ This spec describes the audit-row contract that fixes that gap.
 
 ## Module + integration point
 
-The emission module is `ai-employee/safety-substrate/trust_ceiling_log.py`.
+The emission module is `operator/safety-substrate/trust_ceiling_log.py`.
 The public surface is one function:
 
 ```python
@@ -54,7 +54,7 @@ the pending action, same invariant as the audit log writer itself.
 
 ### Where `log_decision()` plugs into the dispatch path
 
-`enforce()` in `ai-employee/adapter/trust_ceiling.py` returns an
+`enforce()` in `operator/adapter/trust_ceiling.py` returns an
 `EnforcementDecision(allowed, reason, audit_action)`. The dispatch path
 (Hermes side, separate PR) calls `enforce()` once per tool invocation and
 then calls `log_decision()` on the same code path with the result. The
@@ -299,7 +299,7 @@ the dispatch path; this module passes it through unchanged.
 
 ## Verification
 
-`ai-employee/safety-substrate/tests/test_trust_ceiling_log.py` exercises:
+`operator/safety-substrate/tests/test_trust_ceiling_log.py` exercises:
 
 - One happy-path row exercises every canonical metadata key
 - Each of three decisions maps to the correct action_type

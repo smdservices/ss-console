@@ -111,7 +111,7 @@ Rationale: Clean dependency surface. One unused runtime dep (`pdf-lib`). Audit f
 
 Findings:
 
-1. [MEDIUM] `docs/design/brief.md:514`, `docs/design/contributions/round-1/interaction-designer.md:18`, and the round-2 counterpart show `/scorecard` as "Exists" in route tables. The `/scorecard` route is retired (middleware 301 → `/`). The `POST /api/scorecard/submit` endpoint still works, but the public frontend page is gone. Recommendation: annotate route tables with "redirects to /" or add a one-line note at the top of the affected docs. These are archived design records, not operational references — light touch is fine.
+1. [MEDIUM] `docs/design/brief.md:514` shows `/scorecard` as "Exists" in route tables. The `/scorecard` route is retired (middleware 301 → `/`). The `POST /api/scorecard/submit` endpoint still works, but the public frontend page is gone. Recommendation: annotate route tables with "redirects to /" or add a one-line note at the top of the affected docs. These are archived design records, not operational references — light touch is fine.
 2. [LOW] `docs/adr/index.md` lists 2 ADRs but the substantive decision corpus lives in `docs/adr/decision-stack.md` (43+ numbered decisions). The index doesn't surface it. Recommendation: add a one-line pointer to `decision-stack.md` in `docs/adr/index.md`.
 3. [POSITIVE] `CLAUDE.md` is accurate and current. Outside View retirement is correctly documented (`~~**Outside View**~~` strikethrough with PR refs). ADR 0002 is correctly marked superseded.
 4. [POSITIVE] `README.md` is genuinely useful for a fresh clone — explains three-subdomain architecture, includes `/etc/hosts` setup for local subdomain testing, lists all build commands. (Closes #538.)

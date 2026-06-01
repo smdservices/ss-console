@@ -4,12 +4,9 @@
 
 ## Source
 
-- [Platform PRD](../../pm/operator/platform-prd.md) §7.3 (example), §19 (ADR list), §20 (Phase 1 schema lock)
-- [Law Firm PRD](../../pm/operator/law-firm-prd.md) §7 (cross-references this spec for connector wiring)
 - [ADR 0006](../../adr/0006-capability-adapter-pattern.md) — capability-interface + adapter pattern
 - [ADR 0011](../../adr/0011-multi-persona-per-customer.md) — `personas:` is an array (length ≥ 1 at v1)
 - [ADR 0012](../../adr/0012-customer-yaml-storage.md) — git source of truth, CI-validated on merge
-- [`docs/pm/operator/prd-contributions/round-1/technical-lead.md`](../../pm/operator/prd-contributions/round-1/technical-lead.md) Risk 2 — secret-exclusion vulnerability framing
 
 ## Schema version
 
@@ -188,7 +185,7 @@ The `adapter:` value is the SMD-internal adapter slug (e.g. `filevine`, `microso
 
 ## Secret-exclusion enforcement
 
-`customer.yaml` is git-committed. A secret committed here lands in git history permanently. For a law-firm tenant, that is a privilege-breach with bar-discipline consequences ([Technical Lead Risk 2](../../pm/operator/prd-contributions/round-1/technical-lead.md)).
+`customer.yaml` is git-committed. A secret committed here lands in git history permanently. For a law-firm tenant, that is a privilege-breach with bar-discipline consequences.
 
 The validator runs a secret-scan pass over the raw file text BEFORE structural parsing, so a malformed YAML containing a secret still fails closed.
 
@@ -219,7 +216,7 @@ connectors:
   PracticeManagement:
     adapter: filevine
     backend: build:filevine-mcp
-    token_ref: 'infisical:/ai-employee/{customer_id}/practice-management/oauth-refresh'
+    token_ref: 'infisical:/operator/{customer_id}/practice-management/oauth-refresh'
 ```
 
 `token_ref` strings:
@@ -248,11 +245,11 @@ The `users[].voice_profile_id` field is the seam:
 
 - When set, voice samples ingested while this user's identity was the sent-folder author are tagged with the user's profile slug. Layer 2 looks up the per-user profile and reshapes the draft to match.
 - When omitted, the user inherits the customer-level **general voice profile** — the aggregate across every sample regardless of authorship. This is the default and what every existing customer uses until per-user calibration runs.
-- When the per-user profile has fewer than `MIN_PROFILE_SAMPLE_COUNT` samples ([`adapter/voice/transform.py`](../../../ai-employee/adapter/voice/transform.py)), Layer 2 falls back to the general profile rather than reshape against a noisy target.
+- When the per-user profile has fewer than `MIN_PROFILE_SAMPLE_COUNT` samples ([`adapter/voice/transform.py`](../../../operator/adapter/voice/transform.py)), Layer 2 falls back to the general profile rather than reshape against a noisy target.
 
-**Distinct from multi-persona.** Per [ADR 0011](../../adr/0011-multi-persona-per-customer.md), a customer's deployment runs one or more **personas** — AI agent identities (Marcus the paralegal-substrate, Casey the intake-handler). v1 ships with one persona. Multi-user voice is orthogonal: a single persona may draft on behalf of several human reviewers, each with their own voice profile. The architecture is:
+**Distinct from multi-persona.** Per [ADR 0011](../../adr/0011-multi-persona-per-customer.md), a customer's deployment runs one or more **personas** — AI agent identities (the Operator the paralegal-substrate, Casey the intake-handler). v1 ships with one persona. Multi-user voice is orthogonal: a single persona may draft on behalf of several human reviewers, each with their own voice profile. The architecture is:
 
-- **Persona** (Marcus) — the AI agent's identity (signature, send-as inbox, skills, trust ceilings)
+- **Persona** (the Operator) — the AI agent's identity (signature, send-as inbox, skills, trust ceilings)
 - **User** (Partner Sarah) — the human who reviews and approves drafts; carries an optional `voice_profile_id`
 - **Voice profile** — the writing-style signature aggregated from samples tagged with one user's slug
 
@@ -269,7 +266,7 @@ One persona, one customer Machine, N users with distinct voice profiles. Multi-p
 - `court` — communications to courts, clerks, judges, administrative bodies
 - `internal` — communications among the firm's own staff
 
-Slug names align with the voice-gate harness ([`ai-employee/voice-gate/types.ts`](../../../ai-employee/voice-gate/types.ts) :: `RecipientCohort`). The harness historically shipped three cohorts (`client`, `opposing-counsel`, `internal-team`); this PR adds `court` and `internal` to the harness's `RECIPIENT_COHORTS` array so the schema's four-cohort base set is acceptable to the blind-test gate. The legacy `internal-team` slug is kept in the harness union so archived blind-test runs scored against it continue to render — customers who shipped on the old vocabulary do not have to re-migrate. Schema-side, `BASE_VOICE_COHORTS` uses `internal`; customers may opt into either slug via their own `voice_cohorts.cohorts[]` declaration.
+Slug names align with the voice-gate harness ([`operator/voice-gate/types.ts`](../../../operator/voice-gate/types.ts) :: `RecipientCohort`). The harness historically shipped three cohorts (`client`, `opposing-counsel`, `internal-team`); this PR adds `court` and `internal` to the harness's `RECIPIENT_COHORTS` array so the schema's four-cohort base set is acceptable to the blind-test gate. The legacy `internal-team` slug is kept in the harness union so archived blind-test runs scored against it continue to render — customers who shipped on the old vocabulary do not have to re-migrate. Schema-side, `BASE_VOICE_COHORTS` uses `internal`; customers may opt into either slug via their own `voice_cohorts.cohorts[]` declaration.
 
 **Customer extensions.** A customer's `voice_cohorts:` block names the cohort vocabulary that customer's voice samples are partitioned into. A transactional firm with no court practice may drop the `court` cohort:
 
@@ -296,7 +293,7 @@ voice_cohorts:
 
 When `voice_cohorts:` is omitted, the customer accepts `BASE_VOICE_COHORTS` (the four base names). The Layer 2 transform reads the resolved vocabulary via `resolveCohortVocabulary(customer.voice_cohorts)` so the absence-vs-present branch lives in one place.
 
-**Sample tagging.** Voice samples are already written to R2 at `{customer-slug}/voice/cohort/{cohort-id}/{ulid}.json` (see [`adapter/voice/pipeline.py`](../../../ai-employee/adapter/voice/pipeline.py) :: `_ingest_one`). The cohort vocabulary declared here is what `CohortResolver` is allowed to assign; cohorts not in the customer's declared list are coerced to the `unassigned` sentinel by the resolver.
+**Sample tagging.** Voice samples are already written to R2 at `{customer-slug}/voice/cohort/{cohort-id}/{ulid}.json` (see [`adapter/voice/pipeline.py`](../../../operator/adapter/voice/pipeline.py) :: `_ingest_one`). The cohort vocabulary declared here is what `CohortResolver` is allowed to assign; cohorts not in the customer's declared list are coerced to the `unassigned` sentinel by the resolver.
 
 ## Skill bundles (ADR 0021 Stream D)
 
@@ -307,11 +304,11 @@ personas:
   - slug: marcus
     # ... other persona fields ...
     bundles:
-      - slug: pi-intake
-        description: 'Intake triage + conflict screen for a new prospect'
+      - slug: inbox-sweep
+        description: 'Triage inbox + flag scope creep for a draft pass'
         skills:
-          - intake-triage
-          - law-conflict-check
+          - inbox-triage
+          - scope-creep-flagger
         instruction: 'Optional shared context prepended to every bundled skill invocation'
 ```
 
@@ -372,11 +369,11 @@ connectors:
 webhook_triggers:
   - source: filevine
     event_type: matter.created
-    skill: intake-triage
+    skill: inbox-triage
     persona: marcus
   - source: filevine
     event_type: document.added
-    skill: discovery-response
+    skill: scope-creep-flagger
     persona: marcus
 ```
 
@@ -399,7 +396,7 @@ The fallback is enforced in `VoiceProfileBundle.select(reviewer_user_id, recipie
 
 ## Observability (ADR 0023)
 
-**Added by [ADR 0023](../../adr/0023-ai-employee-per-customer-observability.md) Wave 1.** Optional block parallel to `logging:` and `pause:`. Covers vendor wiring for the per-customer observability stack (Sentry on Machine, healthchecks.io push heartbeat).
+**Added by [ADR 0023](../../adr/0023-operator-per-customer-observability.md) Wave 1.** Optional block parallel to `logging:` and `pause:`. Covers vendor wiring for the per-customer observability stack (Sentry on Machine, healthchecks.io push heartbeat).
 
 ```yaml
 observability: # OPTIONAL
@@ -413,7 +410,7 @@ observability: # OPTIONAL
 Field rules:
 
 - The entire `observability:` block is optional. Missing fields fall back to documented defaults. Setting `observability:` to an empty object is equivalent to omitting it.
-- `sentry.enabled` defaults to `true`. The Machine initializes the Sentry SDK with a `tenant=<customer_id>` scope tag at boot (Python `sentry-sdk` package in the overlay). Setting to `false` disables Sentry init at boot — used for synthetic-customer fixtures and CI smoke runs that should not emit to the shared `smd-ai-employee` project.
+- `sentry.enabled` defaults to `true`. The Machine initializes the Sentry SDK with a `tenant=<customer_id>` scope tag at boot (Python `sentry-sdk` package in the overlay). Setting to `false` disables Sentry init at boot — used for synthetic-customer fixtures and CI smoke runs that should not emit to the shared `smd-operator` project.
 - `sentry.send_default_pii` and `sentry.before_send` scrub list are NOT in `customer.yaml` — they are locked in the overlay's Sentry init module per ADR 0023 §"Cross-cutting calls" #11 and gated by a pytest regression suite. Per-customer scrub overrides are a deliberate follow-on; no compliance posture allows weakening the default scrub.
 - `health.period_seconds` is the cadence of the Machine's outbound POST to its assigned healthchecks.io URL. Defaults to 60.
 - `health.grace_minutes` is the late-window before healthchecks.io fires its grace-expired webhook. Defaults to 5.
@@ -489,8 +486,6 @@ Pre-commit hook + CI workflow live with the canonical configs repo per [ADR 0012
 
 ## Cross-references
 
-- [Platform PRD §7.3](../../pm/operator/platform-prd.md) — customer.yaml worked example
-- [Law Firm PRD §7](../../pm/operator/law-firm-prd.md) — connector strategy, cross-references this spec for wiring
 - [`d1-schema.md`](./d1-schema.md) — per-customer Hermes D1 contract (`persona_slug` nullable columns)
 - [`dashboard-roles.md`](./dashboard-roles.md) — `users[].role` vocabulary
 - [`r2-vectorize-naming.md`](./r2-vectorize-naming.md) — memory.\* isolation invariants

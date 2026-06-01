@@ -2,12 +2,6 @@
 
 **Spec for issue #805.** `bin/decommission-customer.sh` must allow in-flight LLM calls a 60-second grace period to write to D1 before substrate deletion begins. Without drain, atomicity (BR-013) is unachievable — D1 deletion races with in-flight Anthropic responses returning mid-flight. Compliance promise (§13.3 retention) requires complete decommissioning.
 
-## Source
-
-- platform-prd.md §20 Phase 1 (`bin/decommission-customer.sh` listed deliverable)
-- `docs/pm/operator/prd-contributions/round-1/technical-lead.md` Critical gap + Blocking Item #6
-- `docs/pm/operator/prd-contributions/round-1/business-analyst.md` BR-013, EC-008
-
 ## Contract
 
 ### Sequence
@@ -16,7 +10,7 @@
 bin/decommission-customer.sh <customer-slug> [--confirm] [--export-first]
 
 Step 0  (pre-flight)
-  - Verify customer.yaml exists at ai-employee/customers/{slug}/customer.yaml
+  - Verify customer.yaml exists at operator/customers/{slug}/customer.yaml
   - Verify {slug}.state.json exists (or refuse — partial state requires manual cleanup)
   - Refuse without --confirm flag (no default-destructive)
   - Captain authenticates (SSH key) — script reads operator identity from environment
@@ -62,12 +56,12 @@ Step 4  (substrate deletion — ordered)
   4h. Stop and destroy Fly Machine: fly machine destroy hermes-{slug} --force
 
 Step 5  (config cleanup)
-  - Archive customer.yaml to ai-employee/customers/archived/{slug}/{ts}/customer.yaml
-  - Delete ai-employee/customers/{slug}/state.json
+  - Archive customer.yaml to operator/customers/archived/{slug}/{ts}/customer.yaml
+  - Delete operator/customers/{slug}/state.json
   - Commit + push the archive move
 
 Step 6  (final confirmation artifact)
-  - Generate signed PDF: ai-employee/decommission-confirmations/{slug}-{ts}.pdf
+  - Generate signed PDF: operator/decommission-confirmations/{slug}-{ts}.pdf
   - Captain signs (detached RSA signature per compliance-evidence-packet.md)
   - Email to principal + escalation.failure_recipients
   - Write DECOMMISSION_FINAL event to platform audit log (cross-customer; see Implementation notes)
@@ -114,7 +108,7 @@ Default 60s per the spec. Per-customer override in `customer.yaml.decommission.d
 ## Implementation notes
 
 - Script: `bin/decommission-customer.sh` (bash, with embedded Python helpers via `python3 -c`).
-- Drain polling helper: `ai-employee/adapter/decommission_drain.py` (Python; queries D1 via Cloudflare HTTP API since the Machine may already be paused at this point).
+- Drain polling helper: `operator/adapter/decommission_drain.py` (Python; queries D1 via Cloudflare HTTP API since the Machine may already be paused at this point).
 - The "platform audit log" referenced in step 6: a Captain-only D1 database `smd-control-plane-d1` that persists cross-customer events (decommission start/complete, customer added, customer paused). Lives outside any per-customer Machine.
 - Confirmation PDF template: `templates/decommission-confirmation.md.tmpl`; rendered via Pandoc → wkhtmltopdf on the Captain's machine (not the customer's Fly Machine — the Machine is destroyed by step 4h).
 - `--resume` flag reads state.json's `last_completed_step` and skips earlier steps.

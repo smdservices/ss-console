@@ -1,10 +1,10 @@
 # Microsoft Graph Azure AD app registration
 
-> **Status note (2026-05-25):** The in-tree Python adapter (`ai-employee/connectors/ms_graph/`) was removed per the 2026-05-24 Hermes alignment. Mail and Calendar capabilities now bind to the hosted Microsoft 365 MCPs (`mcp:m365-mail`, `mcp:m365-calendar`) per ADR 0020 and need no in-house adapter. DocumentStorage (OneDrive/SharePoint) ships as a sub-plugin in `venturecrane/hermes-smd-overlay` (issue #1055). The Azure AD app registration described below is still required; the smoke-test invocation later in this runbook will be replaced when the overlay sub-plugin ships.
+> **Status note (2026-05-25):** The in-tree Python adapter (`operator/connectors/ms_graph/`) was removed per the 2026-05-24 Hermes alignment. Mail and Calendar capabilities now bind to the hosted Microsoft 365 MCPs (`mcp:m365-mail`, `mcp:m365-calendar`) per ADR 0020 and need no in-house adapter. DocumentStorage (OneDrive/SharePoint) ships as a sub-plugin in `venturecrane/hermes-smd-overlay` (issue #1055). The Azure AD app registration described below is still required; the smoke-test invocation later in this runbook will be replaced when the overlay sub-plugin ships.
 
 How to register the SMD Services Operator app in Microsoft Entra ID (Azure AD), obtain the client credentials used by the OAuth callback, and grant the Phase-1 scopes that the MS Graph adapter requires.
 
-This runbook is performed **once** by Captain. The resulting `client_id` and `client_secret` are stored in Infisical at `/ai-employee/shared/microsoft-graph/` and pushed to the ss-web Worker as `MICROSOFT_GRAPH_CLIENT_ID` / `MICROSOFT_GRAPH_CLIENT_SECRET`. Per-customer consent (and the resulting per-tenant tokens) is collected separately during customer provisioning — see "Customer onboarding" below.
+This runbook is performed **once** by Captain. The resulting `client_id` and `client_secret` are stored in Infisical at `/operator/shared/microsoft-graph/` and pushed to the ss-web Worker as `MICROSOFT_GRAPH_CLIENT_ID` / `MICROSOFT_GRAPH_CLIENT_SECRET`. Per-customer consent (and the resulting per-tenant tokens) is collected separately during customer provisioning — see "Customer onboarding" below.
 
 ## Prerequisites
 
@@ -50,12 +50,12 @@ Phase 1 ships read + draft only. `Mail.Send` is intentionally excluded — progr
 5. Store the secret in Infisical:
    ```bash
    # Run from a machine with Infisical CLI already authenticated
-   pbpaste | infisical secrets set MICROSOFT_GRAPH_CLIENT_SECRET --env=prod --path=/ai-employee/shared/microsoft-graph --plain
+   pbpaste | infisical secrets set MICROSOFT_GRAPH_CLIENT_SECRET --env=prod --path=/operator/shared/microsoft-graph --plain
    ```
 6. Add the client ID to Infisical the same way under `MICROSOFT_GRAPH_CLIENT_ID`.
 7. Push to Workers env:
    ```bash
-   infisical export --env=prod --path=/ai-employee/shared/microsoft-graph --format=dotenv \
+   infisical export --env=prod --path=/operator/shared/microsoft-graph --format=dotenv \
      | npx wrangler secret bulk
    ```
 
@@ -84,7 +84,7 @@ ls -la /opt/data/oauth/
 # Expect: microsoft.json, mode 0600, owned by uid 10000 (hermes)
 ```
 
-Smoke-test invocation is pending — the in-tree `ai_employee_ms_graph.smoke` module was removed in the 2026-05-24 burial. The overlay sub-plugin tracked in #1055 will ship its own smoke entrypoint; update this runbook with the new command when that lands.
+Smoke-test invocation is pending — the in-tree `operator_ms_graph.smoke` module was removed in the 2026-05-24 burial. The overlay sub-plugin tracked in #1055 will ship its own smoke entrypoint; update this runbook with the new command when that lands.
 
 Manual verification in the meantime: from the per-customer Machine, exchange a refresh token and call `GET https://graph.microsoft.com/v1.0/me` directly. A 401 indicates the token is missing or expired; a 403 indicates the customer tenant did not grant a required scope.
 

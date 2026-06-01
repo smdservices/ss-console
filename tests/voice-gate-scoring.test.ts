@@ -24,14 +24,14 @@ import {
   buildAuditMetadata,
   scoreRun,
   stateForScore,
-} from '../ai-employee/voice-gate/index.js'
+} from '../operator/voice-gate/index.js'
 import type {
   BlindTestDraft,
   BlindTestRun,
   JudgeChoice,
   JudgeIdentification,
   RecipientCohort,
-} from '../ai-employee/voice-gate/index.js'
+} from '../operator/voice-gate/index.js'
 
 function draft(
   id: string,

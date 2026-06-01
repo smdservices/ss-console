@@ -4,10 +4,7 @@
 
 ## Source
 
-- platform-prd.md §7 (no existing OAuth subsection; this becomes §7.9), §18 (Risks)
-- `docs/pm/operator/prd-contributions/round-1/technical-lead.md` Risk 1, Blocking Item #1
-- `docs/pm/operator/prd-contributions/round-1/business-analyst.md` EC-004/005/006
-- PR #812 `ai-employee/connectors/lawpay/src/ai_employee_lawpay/oauth.py` (file-based reference impl)
+- PR #812 `operator/connectors/lawpay/src/operator_lawpay/oauth.py` (file-based reference impl)
 
 ## Contract
 
@@ -58,7 +55,7 @@ Alert routing per `customer.yaml` `escalation.failure_recipients`. v1 channel: e
 
 ### Per-connector OAuth scope inventory
 
-Scopes declared per adapter in `ai-employee/connectors/<capability>/<system>/oauth_scopes.json` (machine-readable, validated at provision time against `customer.yaml.oauth_scopes`).
+Scopes declared per adapter in `operator/connectors/<capability>/<system>/oauth_scopes.json` (machine-readable, validated at provision time against `customer.yaml.oauth_scopes`).
 
 | Adapter                                                                         | Scopes (v1)                                                                             | Refresh TTL                       | Re-auth interval     |
 | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | --------------------------------- | -------------------- |
@@ -72,7 +69,7 @@ Scopes declared per adapter in `ai-employee/connectors/<capability>/<system>/oau
 | lawpay (Payments)                                                               | `invoices.read`, `payments.read`, `clients.read`, `aging.read`                          | 1 hr / indefinite                 | n/a                  |
 | quickbooks (Accounting)                                                         | `com.intuit.quickbooks.accounting`                                                      | 1 hr / 100 day refresh            | At 85 days idle      |
 | courtlistener (CourtAccess)                                                     | API key only (no OAuth)                                                                 | n/a                               | n/a                  |
-| filevine / clio / smartadvocate / casepeer / neos / mycase (PracticeManagement) | per-vendor; see `ai-employee/connectors/practice-mgmt/<system>/oauth_scopes.json`       | per-vendor                        | per-vendor           |
+| filevine / clio / smartadvocate / casepeer / neos / mycase (PracticeManagement) | per-vendor; see `operator/connectors/practice-mgmt/<system>/oauth_scopes.json`          | per-vendor                        | per-vendor           |
 | follow-up-boss / lead-docket (IntakeCRM)                                        | per-vendor read+write to leads                                                          | per-vendor                        | per-vendor           |
 | callrail (CallTracking)                                                         | API key only                                                                            | n/a                               | n/a                  |
 | slack / microsoft-teams (InternalComms)                                         | `chat:write` (bot scope) for agent persona only                                         | bot token; long-lived             | n/a                  |
@@ -91,15 +88,15 @@ Scopes declared per adapter in `ai-employee/connectors/<capability>/<system>/oau
 
 ## Verification
 
-1. **Unit tests** at `ai-employee/connectors/<system>/tests/test_oauth.py` cover: token storage round-trip, refresh-on-expiry, refresh-failure → degraded mode, re-consent URL generation.
+1. **Unit tests** at `operator/connectors/<system>/tests/test_oauth.py` cover: token storage round-trip, refresh-on-expiry, refresh-failure → degraded mode, re-consent URL generation.
 2. **Integration test:** `tests/operator/oauth-degraded-mode.test.ts` provisions a fixture customer, force-expires a token, verifies the connector enters degraded mode within 30s and the audit-log event is written.
 3. **Daily probe** (Captain control plane): a scheduled Cloudflare Worker hits `health_check()` on every connector for every active customer; failures emit `CONNECTOR_HEALTH_PROBE_FAILED` audit events and a Captain alert.
 4. **Pre-deploy gate:** `provision-customer.sh` step 7 (native OAuth init) runs `health_check()` on every enabled connector. Any failure aborts provisioning.
 
 ## Implementation notes
 
-- Reference Python impl at `ai-employee/connectors/lawpay/src/ai_employee_lawpay/oauth.py` already exists in PR #812 and follows the ADR 0010 Fly-volume pattern. No Infisical hook needed.
-- New module: `ai-employee/adapter/oauth_lifecycle.py` provides shared `TokenStore` (Fly-volume-backed), `RefreshScheduler`, `ReauthFlow` classes used by all connectors.
+- Reference Python impl at `operator/connectors/lawpay/src/operator_lawpay/oauth.py` already exists in PR #812 and follows the ADR 0010 Fly-volume pattern. No Infisical hook needed.
+- New module: `operator/adapter/oauth_lifecycle.py` provides shared `TokenStore` (Fly-volume-backed), `RefreshScheduler`, `ReauthFlow` classes used by all connectors.
 - New script: `bin/reauth-connector.sh` (Captain-invoked, generates URL, emails customer).
 - Astro route at `src/pages/portal/products/operator/oauth/[connector]/callback.astro` handles OAuth callbacks on the portal subdomain (customer-facing); proxies the code to the per-customer Machine via Fly internal network. Admin subdomain stays role-gated.
 - Daily probe Worker: `infra/workers/oauth-probe/worker.ts`; scheduled cron 0 5 \* \* \* (5am UTC, before morning digest at 8am).

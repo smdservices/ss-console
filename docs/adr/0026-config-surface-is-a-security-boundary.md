@@ -11,7 +11,7 @@ related-note: note_01KSS3TCTKWYVF6EZ04482X389, note_01KSTYSNC9CYPKYFJZ3TJ7F6RM
 
 **Status:** Accepted (Captain decision, 2026-05-29). Companion to ADR 0025; required by it.
 
-**Source:** Direct consequence of ADR 0025. Once autonomy ceilings are configurable, the act of _changing a ceiling_ is the act of changing what the agent may do without a human — which is a privileged operation. The 2026-05-29 build audit (`note_01KSTYSNC9CYPKYFJZ3TJ7F6RM`) found the one config-change surface that exists today, `src/pages/api/portal/ai-employee/settings/trust-ceiling.ts`, logs the intent and returns (`:68`) — no persistence, and no write to the immutable audit log. That is the gap this ADR closes as doctrine.
+**Source:** Direct consequence of ADR 0025. Once autonomy ceilings are configurable, the act of _changing a ceiling_ is the act of changing what the agent may do without a human — which is a privileged operation. The 2026-05-29 build audit (`note_01KSTYSNC9CYPKYFJZ3TJ7F6RM`) found the one config-change surface that exists today, `src/pages/api/portal/operator/settings/trust-ceiling.ts`, logs the intent and returns (`:68`) — no persistence, and no write to the immutable audit log. That is the gap this ADR closes as doctrine.
 
 ---
 
@@ -24,7 +24,7 @@ The thesis note states this precisely: _"once exposure is configurable, the conf
 Today's reality, verified in code:
 
 - The portal endpoint authenticates a **principal** and forbids operators/compliance (`trust-ceiling.ts:48-54`) — the access gate is correct.
-- But the handler **does not persist** the change and **does not audit** it: it emits `console.info('settings.trust_ceiling.intent', …)` (`:68`) and returns an `ack` banner. A `console.info` line in Worker logs is not the append-only customer audit ledger (`ai-employee/safety-substrate/` audit log, the one that is legal-hold-grade per the audit).
+- But the handler **does not persist** the change and **does not audit** it: it emits `console.info('settings.trust_ceiling.intent', …)` (`:68`) and returns an `ack` banner. A `console.info` line in Worker logs is not the append-only customer audit ledger (`operator/safety-substrate/` audit log, the one that is legal-hold-grade per the audit).
 
 So the surface that will, under ADR 0025, raise an agent's exposure ceiling currently has no durable record and no audit entry. A ceiling change is the highest-privilege configuration act in the product, and it is the least recorded.
 
@@ -94,6 +94,6 @@ Lowering a ceiling (toward more restrictive) takes effect immediately and is aud
 - [ADR 0011 — Multi-persona per customer](./0011-multi-persona-per-customer.md) (principal-only configuration surface)
 - [ADR 0012 — customer.yaml storage](./0012-customer-yaml-storage.md) (git source of truth → materialized replicas; where the change persists)
 - [ADR 0027 — Inbound trust boundary](./0027-inbound-trust-boundary.md) (injection vector that a self-raise path would expose)
-- `src/pages/api/portal/ai-employee/settings/trust-ceiling.ts` (the intent-log-only handler this ADR replaces)
+- `src/pages/api/portal/operator/settings/trust-ceiling.ts` (the intent-log-only handler this ADR replaces)
 - `src/lib/portal/customer-config.ts` (the pending write path)
 - Strategy notes: `note_01KSS3TCTKWYVF6EZ04482X389`, `note_01KSTYSNC9CYPKYFJZ3TJ7F6RM`

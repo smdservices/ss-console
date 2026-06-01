@@ -19,7 +19,7 @@ import {
   type BlindTestRun,
   type JudgeIdentification,
   type RecipientCohort,
-} from '../ai-employee/voice-gate/index.js'
+} from '../operator/voice-gate/index.js'
 
 function draft(
   id: string,

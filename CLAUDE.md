@@ -199,7 +199,7 @@ These suggest where to lead the conversation, not which problems to look for. Th
 - **Internal rate:** $175/hr at launch, then $200/hr after first case study, then $250/hr, then $300/hr with volume
 - **Engagement range:** scoped per engagement. Smallest engagements (targeted automation scripts, AI pilots) start around $2,500. Below that, assessment overhead exceeds delivery value. Largest engagements have no fixed ceiling. Nothing published externally.
 - **Paid Assessment:** $250, applied toward engagement if they proceed. First 3 assessments free.
-- **Recurring revenue product:** Productized Operator offering — flat-rate monthly retainer SKU, second front door alongside the scope-based consulting funnel. Specific monthly price deferred pending stack cost analysis. See [ADR 0004](docs/adr/0004-productized-ai-employee-offering.md) / Decision #44. The prior "$200-500/mo undefined post-delivery retainer" is superseded.
+- **Recurring revenue product:** Productized Operator offering — flat-rate monthly retainer SKU, second front door alongside the scope-based consulting funnel. Specific monthly price deferred pending stack cost analysis. See [ADR 0004](docs/adr/0004-productized-operator-offering.md) / Decision #44. The prior "$200-500/mo undefined post-delivery retainer" is superseded.
 - **Post-handoff support for scope-based engagements:** Two-week async stabilization included (Decision #27). Beyond that, customers are quoted a follow-on scope or converted to an Operator subscription if the fit is right.
 - **No dollar amounts published externally.** Client sees a project price, not hourly rate.
 
@@ -243,7 +243,7 @@ We are in the **pre-launch phase**. Nothing has been sold yet. The immediate pri
 
 - [x] Payment terms (50% deposit at signing, 50% at completion; 3-milestone for 40+ hr engagements)
 - [ ] Paid assessment entry point ($250 applied toward engagement, first 3 free)
-- [x] ~~Recurring retainer model~~ — superseded 2026-05-13 by [ADR 0004](docs/adr/0004-productized-ai-employee-offering.md) (productized Operator SKU). Stack evaluation, pricing analysis, service contract terms, and stack build filed as follow-ons against ADR 0004.
+- [x] ~~Recurring retainer model~~ — superseded 2026-05-13 by [ADR 0004](docs/adr/0004-productized-operator-offering.md) (productized Operator SKU). Stack evaluation, pricing analysis, service contract terms, and stack build filed as follow-ons against ADR 0004.
 - [ ] Client data management system (D1 or similar for assessments, quotes, engagements, invoicing)
 
 ## Domain Context

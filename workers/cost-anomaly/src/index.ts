@@ -56,7 +56,7 @@ export interface Env {
    * Sentry observability env (ADR 0023 Wave 1). All three must be set
    * for the daily 24h-errors sync to run; missing any one skips the
    * sync entirely (logged at INFO). Configured in the SMD-owned
-   * `smd-ai-employee` Sentry project; staged on this Worker via
+   * `smd-operator` Sentry project; staged on this Worker via
    * `wrangler secret put` after PR 5 lands.
    */
   SENTRY_API_TOKEN?: string
@@ -240,7 +240,7 @@ export async function run(env: Env, now: Date = new Date()): Promise<RunSummary>
     }
     console.warn(`[cost-anomaly] notification skipped: ${notification.reason}`)
   } else {
-    const dashboardUrl = `${env.ADMIN_BASE_URL ?? 'https://admin.smd.services'}/ai-employee/costs`
+    const dashboardUrl = `${env.ADMIN_BASE_URL ?? 'https://admin.smd.services'}/operator/costs`
     const result = await sendAnomalyDigest(
       {
         apiKey: env.RESEND_API_KEY,

@@ -5,7 +5,7 @@
  * takes (draft created, sent approved, trust ceiling promoted,
  * connector bound, invariant violation, etc.) writes an `audit_log` row
  * on the per-customer Hermes Machine D1. The audit_log writer landed
- * in PR #942 (`ai-employee/adapter/audit_log.py`); the row schema and
+ * in PR #942 (`operator/adapter/audit_log.py`); the row schema and
  * accepted action_type vocabulary are the source of truth there.
  *
  * This module owns the read side: typed `AuditEntry` shape, URL
@@ -46,7 +46,7 @@ import { type Page, paginate } from './pagination'
 
 /**
  * Accepted `action_type` values for audit rows, mirrored from
- * `ai-employee/adapter/audit_log.py::ACCEPTED_ACTION_TYPES`. The
+ * `operator/adapter/audit_log.py::ACCEPTED_ACTION_TYPES`. The
  * vocabulary is closed — additions require updating both this list and
  * the Python constant in lockstep (see writer-side doc reference for
  * the spec at docs/specs/operator/d1-schema.md §1).
@@ -132,7 +132,7 @@ export const AUDIT_DECISIONS: readonly AuditDecision[] = [
 
 /**
  * Closed vocabulary for the actor's role at the time of the audited
- * action. Mirrors `ai-employee/adapter/audit_log.py::ActorRole`. The
+ * action. Mirrors `operator/adapter/audit_log.py::ActorRole`. The
  * column itself is nullable in the writer; null surfaces as `null` here.
  */
 export type AuditActorRole = 'principal' | 'operator' | 'compliance' | 'agent' | 'captain'

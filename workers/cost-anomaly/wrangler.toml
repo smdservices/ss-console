@@ -12,7 +12,7 @@
 #   5. Sends a single Captain digest email via Resend listing the new
 #      alerts. No email = no breaches that night.
 #
-# The dashboard banner (src/pages/admin/ai-employee/costs/index.astro)
+# The dashboard banner (src/pages/admin/operator/costs/index.astro)
 # reads from cost_anomaly_alerts and lets Captain snooze/ack from the same
 # surface. The snooze/ack mutations live in ss-web's admin API; this
 # worker is detect-and-notify only.

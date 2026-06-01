@@ -1,8 +1,8 @@
 # Operator — Technical Specs
 
-Formal specs extending the platform PRD ([docs/pm/operator/platform-prd.md](../../pm/operator/platform-prd.md)) and law-firm vertical PRD ([docs/pm/operator/law-firm-prd.md](../../pm/operator/law-firm-prd.md)). Each spec is the implementation contract for one P0/P1 issue from the [PRD critique batch](https://github.com/venturecrane/ss-console/pull/813).
+Formal specs for the operator platform. Each spec is the implementation contract for one P0/P1 issue from the [PRD critique batch](https://github.com/venturecrane/ss-console/pull/813).
 
-Build agents consuming these specs should treat the PRDs as **vision/doctrine** and these specs as **implementation contracts**. Where a spec extends or refines PRD text, the spec is authoritative for that area.
+Build agents consuming these specs should treat each spec as the **implementation contract** for its area.
 
 ## P0 — Phase 1 blockers (build cannot start without these)
 
@@ -21,9 +21,7 @@ Build agents consuming these specs should treat the PRDs as **vision/doctrine** 
 | [r2-vectorize-naming.md](r2-vectorize-naming.md)               | [#801](https://github.com/venturecrane/ss-console/issues/801) | Per-customer R2 + Vectorize naming; invariant #7 boot-check                                                           |
 | [voice-gate-fallback.md](voice-gate-fallback.md)               | [#797](https://github.com/venturecrane/ss-console/issues/797) | Pass / Near-pass / Fail states; internal-drafts-only mode                                                             |
 | [fabrication-filter.md](fabrication-filter.md)                 | [#798](https://github.com/venturecrane/ss-console/issues/798) | Invariant #8 as runtime pre-output filter; `client_facing_fields` skill anatomy                                       |
-| [mobile-approval-flow.md](mobile-approval-flow.md)             | [#799](https://github.com/venturecrane/ss-console/issues/799) | V1 mobile screen sequence; 60-second partner loop                                                                     |
 | [compliance-evidence-packet.md](compliance-evidence-packet.md) | [#802](https://github.com/venturecrane/ss-console/issues/802) | Susan-readable compliance packet contents                                                                             |
-| [day-1-onboarding.md](day-1-onboarding.md)                     | [#803](https://github.com/venturecrane/ss-console/issues/803) | First-hour dashboard walkthrough screens                                                                              |
 | [cost-telemetry-events.md](cost-telemetry-events.md)           | [#804](https://github.com/venturecrane/ss-console/issues/804) | Per-customer cost emission for all 9+ drivers                                                                         |
 | [cost-attribution-rollup.md](cost-attribution-rollup.md)       | [#884](https://github.com/venturecrane/ss-console/issues/884) | Per-customer monthly rollup over cost_telemetry; nine category buckets; §17.1 COGS/MRR ratio computation              |
 | [decommission-drain.md](decommission-drain.md)                 | [#805](https://github.com/venturecrane/ss-console/issues/805) | 60s drain window before substrate deletion                                                                            |
@@ -36,7 +34,6 @@ Build agents consuming these specs should treat the PRDs as **vision/doctrine** 
 | [aie-adapter-register.md](aie-adapter-register.md)             | [#841](https://github.com/venturecrane/ss-console/issues/841) | Adapter-side hook surface for the SMD overlay on Hermes; pre/post/refusal/compaction hooks                            |
 | [audit-emit-points.md](audit-emit-points.md)                   | [#842](https://github.com/venturecrane/ss-console/issues/842) | Per-tool registry, BANNED set, latency timer, scope-aware metadata for the post-tool audit emission                   |
 | [no-pm-system-mode.md](no-pm-system-mode.md)                   | [#853](https://github.com/venturecrane/ss-console/issues/853) | Customer.yaml + capability bindings for customers without an external practice-management vendor                      |
-| [backup-operator-training.md](backup-operator-training.md)     | [#888](https://github.com/venturecrane/ss-console/issues/888) | Training gates a backup operator must satisfy before being trusted as primary; bus-factor minimum gate                |
 | [connector-smoke-tests.md](connector-smoke-tests.md)           | [#852](https://github.com/venturecrane/ss-console/issues/852) | Per-connector read-only smoke probes at provisioning + periodic; read-only allowlist; pass/partial/fail rollup        |
 | [audit-retention.md](audit-retention.md)                       | [#893](https://github.com/venturecrane/ss-console/issues/893) | Per-vertical audit-log retention defaults; customer.yaml override-up-only; decommission carve-out preserves audit log |
 
@@ -48,17 +45,15 @@ These were flagged as `[AMBIGUITY: ...]` markers in the specs. Listed here for t
 2. ~~**TypeScript vs Python adapter layer**~~ — **Resolved 2026-05-23:** TypeScript signatures at `operator/capabilities/<name>.ts` remain the doctrinal contract; concrete adapters stay in Python and re-declare interfaces via `typing.Protocol`. No TS-adapter migration. See [`capability-contracts.md`](capability-contracts.md) §Resolved decisions.
 3. ~~**Calendar RSVP draft pattern**~~ — **Resolved 2026-05-23:** `DraftRef` shape is correct. Pattern A (reviewer-as-sender, ADR 0005) means the adapter returns a draft; the partner taps Accept/Decline in the dashboard; the dashboard fires the actual provider API call. Same pattern as Email. See [`capability-contracts.md`](capability-contracts.md) §Resolved decisions.
 4. ~~**Re-consent callback URL**~~ — **Resolved 2026-05-23:** Portal subdomain (`portal.smd.services/operator/oauth/{connector}/callback`). Customer-facing flows belong on portal; admin stays role-gated. See [`oauth-lifecycle.md`](oauth-lifecycle.md) §Resolved decisions.
-5. **D1 audit-log immutability** (d1-schema.md) — Cloudflare D1 lacks per-role permissions; immutability enforced at Worker layer. **Resolved 2026-05-21 (#892):** Worker-layer enforcement (`D1Executor` wrapper in `ai-employee/adapter/audit_log_immutability.py`) + Logpush mirror protocol + periodic integrity check; Captain-supervised redaction is the only legitimate mutation path. See [audit-log-immutability.md](audit-log-immutability.md).
+5. **D1 audit-log immutability** (d1-schema.md) — Cloudflare D1 lacks per-role permissions; immutability enforced at Worker layer. **Resolved 2026-05-21 (#892):** Worker-layer enforcement (`D1Executor` wrapper in `operator/adapter/audit_log_immutability.py`) + Logpush mirror protocol + periodic integrity check; Captain-supervised redaction is the only legitimate mutation path. See [audit-log-immutability.md](audit-log-immutability.md).
 6. **Vectorize index quota** (r2-vectorize-naming.md) — Wrangler/CF bulk-delete throttling may stretch heavy-customer decommissioning past the 60s drain window. Validate with synthetic fixture before launch.
 7. ~~**Voice-gate judge pool size**~~ — **Resolved 2026-05-23:** Captain proxies for missing judges; audit log records `judge_panel: {N}_customer_chosen + {3-N}_captain_proxy`. Relaxed-threshold fallback only when Captain is unavailable. See [`voice-gate-fallback.md`](voice-gate-fallback.md) §Resolved decision.
 8. **Internal-drafts-only retainer math** (voice-gate-fallback.md) — Pricing strategy doc doesn't yet specify; spec assumes 50-60%. Resolve before customer #1 signs.
 9. **Fabrication filter block-rate ceiling** (fabrication-filter.md) — 5% heuristic; tune against real data.
-10. **Mobile dashboard reachability** (mobile-approval-flow.md) — MDM-restricted devices may block portal access; confirm during onboarding.
-11. **Compliance packet narrative review cadence** (compliance-evidence-packet.md) — Auto-generate with Captain review-and-amend, or fully manual? Decision: auto-render then Captain edits before delivery.
-12. **Onboarding walkthrough completion rate** (day-1-onboarding.md) — Partners often skip; Captain plans live-walk in demo close + follow-up email.
-13. ~~**D1 metering access pattern**~~ — **Resolved 2026-05-23:** Plan around Cloudflare GraphQL Analytics; validation spike is first step of #824 work. Fallback: defer D1 cost-driver instrumentation to phase 2 if validation fails (Anthropic API tokens dominate COGS; D1 not kill-criterion-driving in v1). See [`cost-telemetry-events.md`](cost-telemetry-events.md) §Resolved decisions.
-14. **Atomic-wipe decommissioning** (decommission-drain.md) — True atomicity impossible across independent APIs; spec settles for ordered-best-effort. Confirm satisfies §13.3.
-15. **Decommission-archive cleanup verification** (decommission-drain.md) — Captain-signed deletion proof at 30 days needed.
+10. **Compliance packet narrative review cadence** (compliance-evidence-packet.md) — Auto-generate with Captain review-and-amend, or fully manual? Decision: auto-render then Captain edits before delivery.
+11. ~~**D1 metering access pattern**~~ — **Resolved 2026-05-23:** Plan around Cloudflare GraphQL Analytics; validation spike is first step of #824 work. Fallback: defer D1 cost-driver instrumentation to phase 2 if validation fails (Anthropic API tokens dominate COGS; D1 not kill-criterion-driving in v1). See [`cost-telemetry-events.md`](cost-telemetry-events.md) §Resolved decisions.
+12. **Atomic-wipe decommissioning** (decommission-drain.md) — True atomicity impossible across independent APIs; spec settles for ordered-best-effort. Confirm satisfies §13.3.
+13. **Decommission-archive cleanup verification** (decommission-drain.md) — Captain-signed deletion proof at 30 days needed.
 
 ## Cross-spec references
 
@@ -76,13 +71,9 @@ d1-schema            ─► all telemetry/audit specs
 r2-vectorize-naming  ─► decommission-drain    (prefix enumeration)
 r2-vectorize-naming  ─► compliance-evidence-packet (audit-exports path)
 
-voice-gate-fallback  ─► mobile-approval-flow  (banner on gate not passed)
-voice-gate-fallback  ─► day-1-onboarding      (step 3 voice review)
 
 fabrication-filter   ─► compliance-evidence-packet (no PII in markers)
 
-mobile-approval-flow ─► dashboard-roles       (role-based tab visibility)
-mobile-approval-flow ─► fabrication-filter    (flag banner rendering)
 
 cost-telemetry       ─► d1-schema             (cost_telemetry table)
 cost-telemetry       ─► decommission-drain    (final rollup before D1 delete)

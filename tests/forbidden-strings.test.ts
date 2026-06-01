@@ -300,47 +300,43 @@ describe('IntakeClosed.astro fabrication guard (no follow-up promises)', () => {
 })
 
 // ============================================================================
-// Operator marketing page — ADR 0013 fenced-term guard.
+// Operator marketing page — fenced-term guard.
 //
-// ADR 0013 (Operator Positioning Doctrine) fences four terms from AI
-// marketing copy: "compliant" (no compliance claim without counsel review),
-// "AI Workforce" (trademark held by Eve), "AI Operating System" (held by Law
-// Practice AI), and "litigation insurance" (overclaim). The doctrine names
-// these as belonging in forbidden-strings; this guard wires them in for the
-// Operator SKU page specifically rather than across all of src/, where
-// "compliant" can legitimately appear (e.g. "WCAG-compliant" in a technical
-// context). Comments are stripped first, so an explanatory note that mentions
-// a fenced term does not trip the guard.
-//
-// @see docs/adr/0013-ai-employee-positioning-doctrine.md
+// Four terms are fenced from the Operator SKU marketing copy: "compliant" (no
+// compliance claim without counsel review), "AI Workforce" (a competitor
+// trademark), "AI Operating System" (a competitor trademark), and "litigation
+// insurance" (overclaim). This guard targets the Operator SKU page specifically
+// rather than all of src/, where "compliant" can legitimately appear (e.g.
+// "WCAG-compliant" in a technical context). Comments are stripped first, so an
+// explanatory note that mentions a fenced term does not trip the guard.
 // ============================================================================
 
 const OPERATOR_PAGE = resolve('src/pages/operator.astro')
-const ADR_0013_FENCED_TERMS: Array<{ label: string; pattern: RegExp }> = [
+const MARKETING_FENCED_TERMS: Array<{ label: string; pattern: RegExp }> = [
   {
-    label: '"compliant" (no compliance claim without counsel review, ADR 0013)',
+    label: '"compliant" (no compliance claim without counsel review)',
     pattern: /\bcompliant\b/i,
   },
   {
-    label: '"AI Workforce" (trademark held by Eve, ADR 0013)',
+    label: '"AI Workforce" (competitor trademark)',
     pattern: /\bAI Workforce\b/i,
   },
   {
-    label: '"AI Operating System" (held by Law Practice AI, ADR 0013)',
+    label: '"AI Operating System" (competitor trademark)',
     pattern: /\bAI Operating System\b/i,
   },
   {
-    label: '"litigation insurance" (overclaim, ADR 0013)',
+    label: '"litigation insurance" (overclaim)',
     pattern: /\blitigation insurance\b/i,
   },
 ]
 
-describe('operator.astro ADR 0013 fenced-term guard', () => {
+describe('operator.astro marketing fenced-term guard', () => {
   it('finds the Operator page source (sanity)', () => {
     expect(() => readFileSync(OPERATOR_PAGE, 'utf-8')).not.toThrow()
   })
 
-  for (const { label, pattern } of ADR_0013_FENCED_TERMS) {
+  for (const { label, pattern } of MARKETING_FENCED_TERMS) {
     it(`operator.astro must not contain fenced term: ${label}`, () => {
       const content = stripComments(readFileSync(OPERATOR_PAGE, 'utf-8'))
       expect(pattern.test(content)).toBe(false)
@@ -564,7 +560,7 @@ describe('portal list-row registry: UI-PATTERNS R7 enforcement', () => {
  * @see docs/adr/0024-hermes-consumption-and-update-cadence.md (hermes_ref pin format)
  */
 describe('operator customer.yaml invariants', () => {
-  const customersRoot = resolve('ai-employee/customers')
+  const customersRoot = resolve('operator/customers')
   // v{YYYY}.{M}.{D}@{40-hex-sha} — fork tags like -smd.N do not match.
   const HERMES_REF_RE = /^v\d{4}\.\d{1,2}\.\d{1,2}@[0-9a-f]{40}$/
 

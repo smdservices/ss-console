@@ -164,7 +164,7 @@ sticky-stop does not buy back budget).
 ## Audit emission
 
 Every state transition writes exactly one row to `audit_log` via the
-`AuditLogWriter` (`ai-employee/adapter/audit_log.py`, on main from PR
+`AuditLogWriter` (`operator/adapter/audit_log.py`, on main from PR
 #942). Action types reuse the existing closed-set vocabulary
 (`ACCEPTED_ACTION_TYPES`) so this module does not need to extend the
 audit-log contract:
@@ -234,7 +234,7 @@ Per ADR 0008 + 0009 the state lives in the per-customer D1 database
 (`hermes-{slug}-d1`). One row per `(customer, persona)` tuple. The
 composite primary key enforces uniqueness.
 
-Schema in `ai-employee/migrations/0004_sticky_stop_state.sql`. Columns:
+Schema in `operator/migrations/0004_sticky_stop_state.sql`. Columns:
 
 | Column                           | Type                       | Notes                                            |
 | -------------------------------- | -------------------------- | ------------------------------------------------ |
@@ -256,7 +256,7 @@ for the dashboard's "is anything stuck?" indicator.
 
 ## Verification
 
-`ai-employee/safety-substrate/tests/test_sticky_stop.py` exercises:
+`operator/safety-substrate/tests/test_sticky_stop.py` exercises:
 
 - Initial state is `OK` and read alone does not persist
 - Each of the four conditions drives the WARN -> SOFT_STOP -> HARD_STOP
@@ -312,9 +312,9 @@ cd operator && uv run --with pytest python -m pytest safety-substrate/tests/test
 
 ## Implementation notes
 
-- Module: `ai-employee/safety-substrate/sticky_stop.py`
-- Migration: `ai-employee/migrations/0004_sticky_stop_state.sql`
-- Tests: `ai-employee/safety-substrate/tests/test_sticky_stop.py`
+- Module: `operator/safety-substrate/sticky_stop.py`
+- Migration: `operator/migrations/0004_sticky_stop_state.sql`
+- Tests: `operator/safety-substrate/tests/test_sticky_stop.py`
 - The module follows the same pure-Python + injectable-store shape as
   `audit_log.py`. Production wiring uses a D1 HTTP executor (when the
   Hermes-side `HttpD1StickyStopStore` lands; not in this PR).

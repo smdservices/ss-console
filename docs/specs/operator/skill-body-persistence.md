@@ -14,7 +14,7 @@ Skipping this is unrecoverable: agent-evolution history is lost retroactively if
 
 ### Isolation model
 
-**One R2 bucket per customer.** Bucket name: `ss-ai-employee-<customer_slug>-skills`. Per-Machine R2 credentials are scoped to that bucket. The bucket is the trust boundary; a misconfigured token in one Machine cannot reach another customer's content.
+**One R2 bucket per customer.** Bucket name: `ss-operator-<customer_slug>-skills`. Per-Machine R2 credentials are scoped to that bucket. The bucket is the trust boundary; a misconfigured token in one Machine cannot reach another customer's content.
 
 This is Captain's reconfirmed decision (2026-05-27) after a critique surfaced Cloudflare account-level bucket cap (~1000 on Standard plan), Fly's S3-compatible-only access (no native R2 binding), and the provisioning ops cost. For the SS venture's realistic growth path (consulting firm, not SaaS), the isolation strength wins; the alternative (shared bucket + prefix isolation) stays available behind the same key shape if a future scaling event forces the swap.
 
@@ -97,7 +97,7 @@ The admin endpoint and the Worker-side R2 credential lookup ship in a follow-on 
 | **customer.yaml fields**     | ss-console                      | `memory.r2_skill_bodies_bucket` (declared optional in PR 1)                                                                                          |
 | **Bootstrap + provisioning** | ss-console                      | `provision-customer.sh` creates bucket + scoped creds; `bootstrap.sh` validates R2*SKILL_BODIES*\* env; `fly.toml.template` declares the bucket name |
 | **Audit plugin (writer)**    | venturecrane/hermes-smd-overlay | `hermes-smd-audit` post-tool-call hook on `skill_manage` events; boot-time reconciler                                                                |
-| **Contract**                 | both                            | `ai-employee/contracts/skill_capture_v1.json` mirrored in both repos for contract test                                                               |
+| **Contract**                 | both                            | `operator/contracts/skill_capture_v1.json` mirrored in both repos for contract test                                                                  |
 | **Admin endpoint**           | ss-console                      | `src/pages/api/admin/operator/[slug]/skills/[hash]/body.ts` (follow-on)                                                                              |
 
 The ss-console and overlay PRs file and merge in lockstep so the contract is exercised end-to-end before either lands.
@@ -126,4 +126,4 @@ The ss-console and overlay PRs file and merge in lockstep so the contract is exe
 - ADR 0016 — Honcho disposition (mirror-don't-gate principle)
 - ADR 0017 — Skill Curator disposition (the `agent_skills_inventory` table)
 - [Approved plan](../../../.claude/plans/write-a-plan-to-valiant-plum.md) §Stream 2
-- `ai-employee/contracts/skill_capture_v1.json` — JSON contract shared with overlay repo
+- `operator/contracts/skill_capture_v1.json` — JSON contract shared with overlay repo

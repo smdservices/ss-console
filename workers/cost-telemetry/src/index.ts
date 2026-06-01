@@ -2,14 +2,14 @@
  * Cost Telemetry Worker — daily cost-driver ingest.
  *
  * Runs at 02:00 UTC daily per `triggers.crons` in wrangler.toml. Per
- * docs/specs/ai-employee/cost-telemetry-events.md "Nightly Captain job",
+ * docs/specs/operator/cost-telemetry-events.md "Nightly Captain job",
  * the worker iterates every active Operator customer, pulls
  * yesterday's Anthropic usage, and UPSERTs into each customer's
  * per-customer `cost_telemetry` D1 table.
  *
  * Cloudflare D1/R2/Vectorize metering is deferred to phase 2 per the
  * validation-spike outcome documented in
- * ai-employee/adapter/cost_ingest.py. Token cost dominates the COGS
+ * operator/adapter/cost_ingest.py. Token cost dominates the COGS
  * surface for v1.
  *
  * Customer enumeration: the central D1 `customer_configs` table holds

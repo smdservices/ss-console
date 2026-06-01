@@ -453,7 +453,7 @@ export type DraftSendStatus = 'pending' | 'sending' | 'sent' | 'send_failed'
  * Closed vocabulary of source kinds the sourcing block surfaces (#807).
  * Derived from the skill output structure documented in the platform PRD
  * §12 and the per-skill citation policies under
- * `ai-employee/skills/<skill>/references/citation-policy.md`. Each kind
+ * `operator/skills/<skill>/references/citation-policy.md`. Each kind
  * has a distinct visual treatment and link affordance in the UI (see
  * `SourceItem.astro`):
  *

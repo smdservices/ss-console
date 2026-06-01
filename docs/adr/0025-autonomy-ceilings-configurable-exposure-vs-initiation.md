@@ -4,7 +4,6 @@ date: 2026-05-29
 status: accepted
 captain: Scott Durgan
 amends: 0005-reviewer-as-sender.md
-related-prd: docs/pm/ai-employee/platform-prd.md §11.2, §13.2
 related-issue: https://github.com/venturecrane/ss-console/issues/828
 related-note: note_01KSS3TCTKWYVF6EZ04482X389, note_01KSTYSNC9CYPKYFJZ3TJ7F6RM
 ---
@@ -13,7 +12,7 @@ related-note: note_01KSS3TCTKWYVF6EZ04482X389, note_01KSTYSNC9CYPKYFJZ3TJ7F6RM
 
 **Status:** Accepted (Captain decision, 2026-05-29). This ADR records the decision and mandates a product modification; the code change is sequenced in the migration plan below and tracked by a follow-on issue.
 
-**Source:** The 2026-05-28/29 working session that defined the AI Employee product as a **harness** — a set of functions and guarantees independent of the underlying engine (recorded in note `note_01KSS3TCTKWYVF6EZ04482X389`, "The Harness Is the Product"). A grounded code audit the next day (`note_01KSTYSNC9CYPKYFJZ3TJ7F6RM`) confirmed against live code that the autonomy posture is **hardcoded**, not configured: `ai-employee/adapter/trust_ceiling.py:117-127` refuses every autonomous external send regardless of how the customer's ceiling is set. The session named this the keystone correction. This ADR locks it.
+**Source:** The 2026-05-28/29 working session that defined the Operator product as a **harness** — a set of functions and guarantees independent of the underlying engine (recorded in note `note_01KSS3TCTKWYVF6EZ04482X389`, "The Harness Is the Product"). A grounded code audit the next day (`note_01KSTYSNC9CYPKYFJZ3TJ7F6RM`) confirmed against live code that the autonomy posture is **hardcoded**, not configured: `operator/adapter/trust_ceiling.py:117-127` refuses every autonomous external send regardless of how the customer's ceiling is set. The session named this the keystone correction. This ADR locks it.
 
 ---
 
@@ -30,7 +29,7 @@ These are orthogonal. A wanted configuration is "the agent may _initiate_ an AR-
 
 ### What the code actually does today
 
-`ActionClass` (`trust_ceiling.py:32-39`) is the right primitive: it classifies every tool call by blast radius — `READ`, `INTERNAL_WRITE`, `EXTERNAL_SEND`, `COMMITMENT`, `DESTRUCTIVE`. The ceiling vocabulary, however, is a **single per-skill enum** — `autonomous` / `draft_for_review` / `refused` (`src/lib/ai-employee/customer-yaml/types.ts:118`, validated per-skill at `src/lib/ai-employee/customer-yaml/sections-personas.ts:241`). And the `EXTERNAL_SEND` branch ignores that ceiling on the exposure axis:
+`ActionClass` (`trust_ceiling.py:32-39`) is the right primitive: it classifies every tool call by blast radius — `READ`, `INTERNAL_WRITE`, `EXTERNAL_SEND`, `COMMITMENT`, `DESTRUCTIVE`. The ceiling vocabulary, however, is a **single per-skill enum** — `autonomous` / `draft_for_review` / `refused` (`src/lib/operator/customer-yaml/types.ts:118`, validated per-skill at `src/lib/operator/customer-yaml/sections-personas.ts:241`). And the `EXTERNAL_SEND` branch ignores that ceiling on the exposure axis:
 
 ```python
 # trust_ceiling.py:117-127
@@ -101,7 +100,7 @@ ADR 0005's internal/external persona split (the persona is fully visible interna
 There are **two** code layers that today encode "no autonomous external send," and this ADR addresses only the first:
 
 1. **The trust-ceiling gate** (`adapter/trust_ceiling.py::enforce()`, run live by the overlay `hermes-smd-trust` `pre_tool_call` hook). This is the configurable authority layer — the subject of this ADR. After implementation, the gate consults the configured per-action ceiling and permits a send tool to fire when `external_send` is raised to `autonomous` (floored by the vertical).
-2. **The capability-adapter surface ban** (`src/lib/ai-employee/capabilities/conformance.ts` `NO_AUTONOMOUS_EXTERNAL_SEND` + `BANNED_METHOD_NAMES`). Our own `build:` capability adapters are _structurally_ forbidden from exposing a send method at all — the `Email` adapter has no `send`, only draft. This is the deeper, structural form of reviewer-as-sender (ADR 0005 / ADR 0006).
+2. **The capability-adapter surface ban** (`src/lib/operator/capabilities/conformance.ts` `NO_AUTONOMOUS_EXTERNAL_SEND` + `BANNED_METHOD_NAMES`). Our own `build:` capability adapters are _structurally_ forbidden from exposing a send method at all — the `Email` adapter has no `send`, only draft. This is the deeper, structural form of reviewer-as-sender (ADR 0005 / ADR 0006).
 
 The consequence: raising the ceiling makes autonomous send real on the **MCP-connector path** (ADR 0020's primary path — an MCP server exposes a `send` tool the gate governs). It does **not** make our `build:` adapters send, because those have no send method to call regardless of ceiling. That is the intended conservative posture: build adapters stay structurally draft-only; autonomous send is reached through a ceiling-gated MCP tool, never by an adapter that smuggles in a `send`. Whether to ever lift the `build:`-adapter ban is a separate, genuinely ADR-0005-architectural decision, deliberately **not** decided here.
 
@@ -134,11 +133,11 @@ The consequence: raising the ceiling makes autonomous send real on the **MCP-con
 - The product can finally express its own range: from draft-everything (the conservative default) to trusted-autonomous-send, per action class, per customer — the spread ADR 0004's SKU promises.
 - Initiation and exposure decouple cleanly, so "self-starting but always-drafting" and "human-triggered but autonomous-send" both become expressible.
 - Reviewer-as-sender survives as the default and the regulated-vertical floor, so the compliance posture and the law-vertical moat are preserved precisely where they matter, without imposing them on customers who don't need them.
-- The configuration surface is promoted to a security boundary, which forces the governance discipline (ADR 0026) that the audit found missing (the trust-ceiling change endpoint currently logs intent only, no persist, no audit — `src/pages/api/portal/ai-employee/settings/trust-ceiling.ts:68`).
+- The configuration surface is promoted to a security boundary, which forces the governance discipline (ADR 0026) that the audit found missing (the trust-ceiling change endpoint currently logs intent only, no persist, no audit — `src/pages/api/portal/operator/settings/trust-ceiling.ts:68`).
 
 **Negative / accepted.**
 
-- This overturns the "architectural, not configurable" framing that ADR 0005 leaned on as a competitive claim. The mitigation is the vertical floor + the accountability invariant: the defensible claim shifts from "we never let the AI send" to "trust is configurable, code-enforced, audited, and floored by your vertical's compliance constraints" — a stronger and more honest claim, but a different one. The PRD sections that state the old claim (§11.2 "external write skills locked at draft_for_review"; §13.2 disclosure posture) must be amended to the floor-and-default model, not deleted.
+- This overturns the "architectural, not configurable" framing that ADR 0005 leaned on as a competitive claim. The mitigation is the vertical floor + the accountability invariant: the defensible claim shifts from "we never let the AI send" to "trust is configurable, code-enforced, audited, and floored by your vertical's compliance constraints" — a stronger and more honest claim, but a different one.
 - Removing a hardcoded safety refusal raises the stakes on the config-governance work. Until ADR 0026 lands, the ceiling map must ship with the secure default and **no portal path to raise `EXTERNAL_SEND`** — i.e., the axis is configurable in `customer.yaml` (Captain-authored, git-reviewed) before it is configurable via any self-serve surface. Sequencing below enforces this.
 - The safety-substrate invariant set changes shape. Invariant 2 stops asserting "always refuse autonomous external send" and starts asserting "enforce the configured `EXTERNAL_SEND` ceiling, and never exceed the vertical floor." That is a more complex property and needs fixtures for each ceiling value plus a floor-violation case.
 
@@ -158,7 +157,7 @@ The product has never booted a paying customer, so the sequencing optimizes for 
 3. **De-hardcode `enforce()`.** Remove the `trust_ceiling.py:117-127` refusal; consult the configured `EXTERNAL_SEND` ceiling; apply the floor rule (`min(vertical_floor, authored)`). Mirror the change in the overlay `hermes-smd-trust` `pre_tool_call` hook so live enforcement matches.
 4. **Rewrite invariant 2 + add fixtures.** Replace `test_invariant_2`'s "always refuse" assertions with per-ceiling-value assertions and a floor-violation refusal case. Add a vertical-floor fixture (law pack pins `EXTERNAL_SEND`).
 5. **Vertical floor mechanism.** Wire the ADR 0022 vertical pack to declare non-raisable action-class floors; assert in code that authored/portal config cannot raise above them.
-6. **Amend the PRD.** Strike "external write skills locked at `draft_for_review`" (§11.2) and rewrite §13.2 to the default-plus-floor model. Amend ADR 0005's status to reference this ADR.
+6. **Amend ADR 0005's status to reference this ADR.**
 7. **(After 0026) Self-serve raise path.** Only once config-governance (persist + audit + principal-authentication on a ceiling change) is real does the portal expose a path to raise `EXTERNAL_SEND`. This is the last step deliberately.
 
 Steps 2–7 are a follow-on issue, not part of this ADR's PR; this PR lands the ADR and the 0005 cross-reference.
@@ -180,14 +179,13 @@ How we know we are following this decision:
 
 ## References
 
-- [ADR 0004 — Productized AI Employee offering](./0004-productized-ai-employee-offering.md) (the SKU whose range this unblocks)
+- [ADR 0004 — Productized Operator offering](./0004-productized-operator-offering.md) (the SKU whose range this unblocks)
 - [ADR 0005 — Reviewer-as-Sender](./0005-reviewer-as-sender.md) (amended: declassified from architectural-absolute to default + vertical-pack-lockable floor; identity/persona split, drafts mechanism, and compliance reasoning preserved)
 - [ADR 0011 — Multi-persona per customer](./0011-multi-persona-per-customer.md) (internal/external persona identity)
 - [ADR 0022 — Vertical pack architecture](./0022-vertical-pack-architecture.md) (the compliance-constraint / floor mechanism)
 - [ADR 0026 — Config surface is a security boundary](./0026-config-surface-is-a-security-boundary.md) (companion; governs how a ceiling raise is persisted and audited)
 - Strategy notes: `note_01KSS3TCTKWYVF6EZ04482X389` (harness thesis), `note_01KSTYSNC9CYPKYFJZ3TJ7F6RM` (build audit)
-- `ai-employee/adapter/trust_ceiling.py` (the `enforce()` logic and `ActionClass` enum)
-- `ai-employee/safety-substrate/tests/test_invariant_2_no_external_send_without_confirmation.py` (the invariant being reshaped)
-- `src/lib/ai-employee/customer-yaml/types.ts`, `sections-personas.ts` (the ceiling vocabulary and validator)
-- Platform PRD §11.2 (default trust ceilings — to be amended), §13.2 (disclosure posture — to be amended)
+- `operator/adapter/trust_ceiling.py` (the `enforce()` logic and `ActionClass` enum)
+- `operator/safety-substrate/tests/test_invariant_2_no_external_send_without_confirmation.py` (the invariant being reshaped)
+- `src/lib/operator/customer-yaml/types.ts`, `sections-personas.ts` (the ceiling vocabulary and validator)
 - [Issue #828](https://github.com/venturecrane/ss-console/issues/828) (reviewer-as-sender origin)

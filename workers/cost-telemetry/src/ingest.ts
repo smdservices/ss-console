@@ -1,6 +1,6 @@
 /**
  * Per-customer cost telemetry ingest — TS twin of
- * `ai-employee/adapter/cost_ingest.py`.
+ * `operator/adapter/cost_ingest.py`.
  *
  * Pulls yesterday's Anthropic usage and UPSERTs into the customer's
  * per-customer cost_telemetry D1 table via the Cloudflare D1 HTTP API.
@@ -13,8 +13,8 @@
  * source's outcome so the cron summary can surface partial-success days.
  *
  * Source-of-truth references:
- *   docs/specs/ai-employee/cost-telemetry-events.md
- *   ai-employee/adapter/cost_ingest.py
+ *   docs/specs/operator/cost-telemetry-events.md
+ *   operator/adapter/cost_ingest.py
  */
 
 import { computeAnthropicCents } from './pricing'

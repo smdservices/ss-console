@@ -12,7 +12,7 @@ name: ADR 0022 — block law-pi- regressions
 on:
   pull_request:
     paths:
-      - 'ai-employee/**'
+      - 'operator/**'
       - 'docs/**'
       - 'src/**'
       - 'tests/**'
@@ -39,37 +39,37 @@ jobs:
         run: |
           set -euo pipefail
           # ADR files are exempt — they describe the historical state.
-          # Active paths: src/, tests/, ai-employee/skills/, ai-employee/bundles/,
-          # ai-employee/fixtures/ (sans the moved law-firm/pi/ subtree which
+          # Active paths: src/, tests/, operator/skills/, operator/bundles/,
+          # operator/fixtures/ (sans the moved law-firm/pi/ subtree which
           # no longer exists), docs/specs/, docs/runbooks/, docs/pm/.
           if rg --quiet 'law-pi-' \
               src/ tests/ scripts/ \
-              ai-employee/skills/ \
-              ai-employee/bundles/ \
-              ai-employee/fixtures/ \
-              ai-employee/grading/ \
-              ai-employee/templates/ \
-              ai-employee/customers/ \
-              ai-employee/adapter/ \
-              ai-employee/bin/ \
-              ai-employee/tests/ \
-              ai-employee/verticals/ \
+              operator/skills/ \
+              operator/bundles/ \
+              operator/fixtures/ \
+              operator/grading/ \
+              operator/templates/ \
+              operator/customers/ \
+              operator/adapter/ \
+              operator/bin/ \
+              operator/tests/ \
+              operator/verticals/ \
               docs/specs/ docs/runbooks/ docs/pm/ \
               2>/dev/null; then
             echo "::error::law-pi- prefix found in active paths — ADR 0022 Stream 4 migration is locked."
             echo "Files containing the prefix:"
             rg -l 'law-pi-' \
               src/ tests/ scripts/ \
-              ai-employee/skills/ \
-              ai-employee/bundles/ \
-              ai-employee/fixtures/ \
-              ai-employee/grading/ \
-              ai-employee/templates/ \
-              ai-employee/customers/ \
-              ai-employee/adapter/ \
-              ai-employee/bin/ \
-              ai-employee/tests/ \
-              ai-employee/verticals/ \
+              operator/skills/ \
+              operator/bundles/ \
+              operator/fixtures/ \
+              operator/grading/ \
+              operator/templates/ \
+              operator/customers/ \
+              operator/adapter/ \
+              operator/bin/ \
+              operator/tests/ \
+              operator/verticals/ \
               docs/specs/ docs/runbooks/ docs/pm/ \
               || true
             echo ""

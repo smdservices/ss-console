@@ -2,12 +2,6 @@
 
 **Spec for issue #788.** Three-role permission model: Principal, Operator, Compliance. Beta-1 blocker per UX, BA, PM, Target Customer ("Maria in the room"). Without this, paralegals can't edit memory without partner approval; compliance counsel can't see audit log without draft-approval rights.
 
-## Source
-
-- platform-prd.md §11 (trust ceilings), §12 (dashboard IA), §19 (open decision)
-- `docs/pm/operator/prd-contributions/round-1/ux-lead.md` (full role personas)
-- `docs/pm/operator/prd-contributions/round-1/business-analyst.md` OQ-004
-
 ## Contract
 
 ### Roles
@@ -55,7 +49,7 @@ This addresses the BA OQ-004 question: a paralegal can run the agent's day-to-da
 
 ### "Maria in the room" scenario
 
-The 20-year partner brings their paralegal to the meeting. Day-1 onboarding (day-1-onboarding.md) creates both users:
+A principal and a day-to-day delegate are onboarded together. Onboarding creates both users:
 
 - Partner = principal
 - Paralegal = operator

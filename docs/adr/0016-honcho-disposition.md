@@ -4,8 +4,7 @@ date: 2026-05-24
 status: accepted
 captain: Scott Durgan
 supersedes: 0016-honcho-disposition.md (prior version of this file; see `git log docs/adr/0016-honcho-disposition.md`)
-related-prd: docs/pm/ai-employee/platform-prd.md §7.5, §9, §17.4
-related-spec: docs/specs/ai-employee/customer-yaml-schema.md
+related-spec: docs/specs/operator/customer-yaml-schema.md
 related-issue: TBD (filed as follow-on to the locked Hermes-alignment plan dated 2026-05-24)
 ---
 
@@ -21,7 +20,7 @@ Reviewing the Hermes docs + our harness intent (PRD §10) resolved the posture (
 
 - **Memory is two layers.** The customer-owned, editable, exportable memory file (rules, person-mappings, voice — PRD §10) lives in **our D1/R2**; that is the product and the trust mechanism. Honcho is the **inferred-memory engine** that sits **behind** that file and feeds it — a _swappable provider_, not the substrate. This is the "you own the memory; we can swap the tech underneath" promise, delivered by the architecture, not a config knob.
 - **Hermes agrees.** Honcho is 1 of 8 _optional_ memory providers that run **alongside** an always-on flat-file core (`MEMORY.md`/`USER.md`), never replacing it. Boot never depends on Honcho.
-- **Phase 1 (now):** boot on the flat-file core with Honcho **removed** from the boot path. The `hermes-smd-overlay` `translate.py` no longer tombstones `MEMORY.md`/`USER.md` or emits a Honcho config block; Postgres/Redis/Honcho are not started; the Honcho secrets are optional. This is implemented in ss-console (`ai-employee/templates/*`, `bin/*`) + overlay (`bootstrap/translate.py`).
+- **Phase 1 (now):** boot on the flat-file core with Honcho **removed** from the boot path. The `hermes-smd-overlay` `translate.py` no longer tombstones `MEMORY.md`/`USER.md` or emits a Honcho config block; Postgres/Redis/Honcho are not started; the Honcho secrets are optional. This is implemented in ss-console (`operator/templates/*`, `bin/*`) + overlay (`bootstrap/translate.py`).
 - **Phase 2 (deferred, demand-gated):** vendor the **real** `plastic-labs/honcho@v3.0.7` source (api + deriver, pgvector, localhost-bound, `AUTH_USE_AUTH=false`) the same way upstream Hermes is vendored; rewrite `memory-mirror/honcho_client.py` against the real API (its assumed `/conclusions` endpoints likely do not match v3.0.7); build the admin `persona_observations` viewer/dismiss UI; bump `machine.memory_mb` and price the deriver's continuous LLM spend (ADR 0004).
 
 **What the Decision below still means, and what changed.** The decision to _keep_ Honcho as the inferred-memory provider stands; the mirror/dismissal/evidence-status/TTL machinery is the right shape for Phase 2. What is **reversed** is the disposition that Honcho is the _sole_ memory provider with the flat-file core **tombstoned** — the flat-file core is always-on (Hermes' own model), and Honcho runs alongside and feeds the owned D1 file. The "in-container unmodified Honcho image" wiring (and Verification #6's `docker image inspect plasticlabs/honcho`) is replaced by **vendored source at a pinned tag** in Phase 2.
@@ -70,7 +69,7 @@ honcho:
   observation_gates:
     user_observe_me: true # build model of the customer's contacts/peers
     user_observe_others: false # do not cross-observe
-    ai_observe_me: false # do not model the AI Employee itself
+    ai_observe_me: false # do not model the Operator itself
     ai_observe_others: false
 ```
 
@@ -171,7 +170,7 @@ Selected. Self-host preserves the product story and the AGPL safe harbor; the mi
 4. **Captain dismissal physically deletes from Honcho.** Smoke test: insert a synthetic conclusion via Honcho API, mirror to D1, dismiss in the admin portal, verify Honcho's `GET /conclusions/{id}` returns 404.
 5. **TTL archival sweeps run daily.** The plugin's daily job logs the sweep and writes archive rows. A back-dated synthetic conclusion (`mirrored_at` set 200 days ago) gets archived on the next sweep.
 6. **No patches to Honcho.** _(Superseded by the 2026-05-30 Revision: Phase 2 vendors `plastic-labs/honcho@v3.0.7` **source** at a pinned tag — the same clone-and-assert-SHA discipline used for upstream Hermes — not a prebuilt `plasticlabs/honcho` image. The integrity check is the SHA assertion on the cloned tag, not a `docker image inspect` layer-hash compare.)_
-7. **No interceptor code.** `rg -i "HonchoInterceptor|honcho_interceptor|verify_honcho_intercepted|proposer_only" ai-employee/ src/ venturecrane/` returns zero matches.
+7. **No interceptor code.** `rg -i "HonchoInterceptor|honcho_interceptor|verify_honcho_intercepted|proposer_only" operator/ src/ venturecrane/` returns zero matches.
 
 ## References
 

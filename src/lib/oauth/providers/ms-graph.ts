@@ -14,14 +14,13 @@
  * the Mail/Calendar/DocumentStorage capabilities are now bound to MCP
  * servers (`mcp:m365-mail`, `mcp:m365-calendar`,
  * `mcp:softeria/ms-365-mcp-server`); the prior Python BUILD adapter at
- * `ai-employee/connectors/ms_graph/` was deleted in the 2026-05-24
+ * `operator/connectors/ms_graph/` was deleted in the 2026-05-24
  * realignment. The MCP servers consume the OAuth refresh token this
  * provider mints — token storage and refresh remain owned here.
  *
  * Reference docs:
  *   - `docs/specs/operator/oauth-lifecycle.md` § "Per-connector OAuth scope inventory"
  *   - `docs/runbooks/operator/ms-graph-azure-ad-setup.md`
- *   - `docs/strategy/mcp-vs-build-ms-graph-2026-05-25.md` (F decision packet)
  */
 
 import { env } from 'cloudflare:workers'
@@ -33,7 +32,7 @@ const MS_GRAPH_TOKEN_URL = 'https://login.microsoftonline.com/common/oauth2/v2.0
 
 /**
  * Phase 1 delegated scopes. Identical set as
- * `ai-employee/connectors/ms_graph/oauth.py` `PHASE_1_SCOPES`. Any
+ * `operator/connectors/ms_graph/oauth.py` `PHASE_1_SCOPES`. Any
  * change here must be paired with the Python adapter and the
  * lifecycle spec — they are the same contract.
  */

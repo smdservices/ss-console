@@ -1,0 +1,28 @@
+[project]
+name = "operator-lawpay"
+version = "0.1.0"
+description = "MCP wrapper for the LawPay (8am) API — Tier-1 connector for SMD's law-firm Operator vertical pack"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "SMD Services" }]
+license = { text = "MIT" }
+dependencies = [
+  "mcp==1.16.0",        # Anthropic's official MCP Python SDK
+  "httpx==0.28.1",      # async HTTP client; supports OAuth2 flows cleanly
+  "pydantic>=2.11.0",   # request/response schema validation (mcp 1.16.0 requires 2.11+)
+]
+
+[project.scripts]
+operator-lawpay = "operator_lawpay.server:main"
+operator-lawpay-setup = "operator_lawpay.setup:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
