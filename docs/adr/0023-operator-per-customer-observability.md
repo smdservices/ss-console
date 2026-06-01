@@ -5,7 +5,6 @@ status: accepted
 captain: Scott Durgan
 supersedes: none
 renamed-by: 0034-operator-product-naming.md
-related-prd: docs/pm/operator/platform-prd.md §7.5, §10.1, §15.1, §17.1, §17.4
 related-issue: TBD
 ---
 
@@ -21,7 +20,7 @@ related-issue: TBD
 
 ## Context
 
-The Operator runs as one Fly.io Machine per customer per [ADR 0007](./0007-per-customer-machine-isolation.md). Observability for that Machine is a product surface: SMD operates the fleet; customers see their own activity through the dashboard; compliance needs immutable audit; the COGS/MRR ratio is the kill-criterion gate per platform-prd.md §17.1. Without a coherent ADR, each new piece (Sentry, fleet view, alert routing) gets designed in a vacuum and risks contradicting or duplicating the existing spec corpus.
+The Operator runs as one Fly.io Machine per customer per [ADR 0007](./0007-per-customer-machine-isolation.md). Observability for that Machine is a product surface: SMD operates the fleet; customers see their own activity through the dashboard; compliance needs immutable audit; the COGS/MRR ratio is the kill-criterion gate. Without a coherent ADR, each new piece (Sentry, fleet view, alert routing) gets designed in a vacuum and risks contradicting or duplicating the existing spec corpus.
 
 The substrate has five existing specs:
 
@@ -256,4 +255,3 @@ No customer-owned vendor fields. Adding them is a follow-on ADR.
 - `docs/specs/operator/cost-attribution-rollup.md` — monthly rollup contract
 - `docs/specs/operator/dashboard-roles.md` — principal / operator / compliance role schema
 - `docs/specs/operator/customer-yaml-schema.md` — customer.yaml formal schema
-- Platform PRD §10.1, §15.1, §17.1, §17.4

@@ -241,12 +241,12 @@ def test_pm_create_note_attributes_to_reviewer_not_persona():
             "proj-123",
             content="Status update: deposition scheduled 2026-06-10.",
             reviewer_account_id="user-attorney-99",
-            drafted_by_skill="law-client-status-update",
+            drafted_by_skill="status-report-assembler",
         )
     )
     assert note.id == "note-7777"
     assert note.author_account_id == "user-attorney-99"
-    assert note.drafted_by_skill == "law-client-status-update"
+    assert note.drafted_by_skill == "status-report-assembler"
     assert note.body == "Status update: deposition scheduled 2026-06-10."
 
     # Vendor request reflects ADR 0005 attribution
@@ -257,7 +257,7 @@ def test_pm_create_note_attributes_to_reviewer_not_persona():
     assert "Operator" not in body_text
     assert "Marcus" not in body_text
     # drafted_by_skill rides in metadata for the audit trail
-    assert call.json["metadata"]["drafted_by_skill"] == "law-client-status-update"
+    assert call.json["metadata"]["drafted_by_skill"] == "status-report-assembler"
     assert call.json["metadata"]["draft"] is True
 
 

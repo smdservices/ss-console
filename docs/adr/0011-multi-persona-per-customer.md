@@ -4,7 +4,6 @@ date: 2026-05-24
 status: accepted
 captain: Scott Durgan
 supersedes: 0011-multi-persona-per-customer.md (prior version of this file; see `git log docs/adr/0011-multi-persona-per-customer.md`)
-related-prd: docs/pm/operator/platform-prd.md §2, §7.3, §9, §11, §12.1, §20
 related-spec: docs/specs/operator/customer-yaml-schema.md
 related-issue: https://github.com/venturecrane/ss-console/issues/790
 ---

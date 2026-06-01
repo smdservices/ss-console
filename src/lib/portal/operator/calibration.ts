@@ -2,11 +2,9 @@
  * Operator — calibration session workflow.
  *
  * Backs the portal surface at
- * `/portal/products/operator/calibration/*` and the runbook at
- * `docs/runbooks/operator-calibration.md`.
+ * `/portal/products/operator/calibration/*`.
  *
- * Source: platform PRD §9.6 (voice quality gates) + law-firm PRD §11.9
- * (calibration session split). The business-analyst critique
+ * The business-analyst critique
  * collapsed the 4-6 hour Captain-led session into four 90-minute
  * sessions spaced over two weeks because the 4-6 hour single block
  * fails at firms that actually sign — partner calendars do not
@@ -41,10 +39,8 @@ import type { PersonaConfig } from '../customer-config'
 
 /**
  * The four 90-minute sessions that make up one calibration cycle, in
- * scheduling order. The vocabulary is closed because adding or
- * renaming a session changes the runbook contract on
- * `docs/runbooks/operator-calibration.md`. New session kinds
- * require a runbook revision.
+ * scheduling order. The vocabulary is closed; adding or renaming a
+ * session is a contract change that requires a runbook revision.
  *
  *   voice_calibration       — session 1; surface the writing voice
  *                             across recipient cohorts. Partner edits

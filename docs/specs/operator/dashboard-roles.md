@@ -2,12 +2,6 @@
 
 **Spec for issue #788.** Three-role permission model: Principal, Operator, Compliance. Beta-1 blocker per UX, BA, PM, Target Customer ("Maria in the room"). Without this, paralegals can't edit memory without partner approval; compliance counsel can't see audit log without draft-approval rights.
 
-## Source
-
-- platform-prd.md §11 (trust ceilings), §12 (dashboard IA), §19 (open decision)
-- `docs/pm/operator/prd-contributions/round-1/ux-lead.md` (full role personas)
-- `docs/pm/operator/prd-contributions/round-1/business-analyst.md` OQ-004
-
 ## Contract
 
 ### Roles

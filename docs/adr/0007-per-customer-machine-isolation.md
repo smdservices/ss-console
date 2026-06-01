@@ -4,7 +4,6 @@ date: 2026-05-20
 status: accepted
 captain: Scott Durgan
 supersedes: none
-related-prd: docs/pm/operator/platform-prd.md §7.1, §7.5, §7.6, §17.4
 related-issue: https://github.com/venturecrane/ss-console/issues/828
 ---
 
@@ -12,7 +11,7 @@ related-issue: https://github.com/venturecrane/ss-console/issues/828
 
 **Status:** Accepted (Captain decision; embedded in the Operator PRDs since first draft; recorded here as a standalone ADR per [#828](https://github.com/venturecrane/ss-console/issues/828)).
 
-**Source:** Platform PRD §7.1 multi-tenant model and §7.5 safety substrate (invariant #7, cross-Machine query prohibition). Locked in `docs/strategy/operator-stack-evaluation-2026-05-13.md` and reinforced by `synthesis-round-1.md` Themes 11 and 17.
+**Source:** The platform multi-tenant model and the safety substrate (invariant #7, cross-Machine query prohibition).
 
 ---
 
@@ -62,7 +61,7 @@ Boot-time invariant: at Machine boot, the runtime verifies its storage bindings 
 
 - The cross-customer data leak failure mode is architecturally impossible, not merely audited against. "Did the tenant-scoping layer get bypassed?" has no failure case because there is no tenant-scoping layer.
 - Per-customer blast radius. A bug in one customer's adapter, a credential compromise on one Machine, an infinite loop in one Machine — none reach another customer.
-- Per-customer cost attribution. Compute, storage, and connector token usage are per-Machine. The COGS modeling per `synthesis-round-1.md` Theme 12 is line-itemable to a customer.
+- Per-customer cost attribution. Compute, storage, and connector token usage are per-Machine. COGS is line-itemable to a customer.
 - Per-customer skill pinning is mechanically clean. Updating one customer's pinned SHA does not require coordinating with other customers' runtimes.
 - Per-customer compliance posture. Customers with stricter data-residency requirements get a Machine in the right region; customers with HIPAA scope get a Machine with the right BAA. The compliance unit of work is the Machine.
 - The reviewer-as-sender architecture (ADR 0005) and the customer-owned memory artifact (ADR 0008) both reduce to per-customer Machine bindings. The decisions compose cleanly.
@@ -85,8 +84,6 @@ Boot-time invariant: at Machine boot, the runtime verifies its storage bindings 
 - Platform PRD §7.5 Safety substrate (invariant #7 cross-Machine query prohibition)
 - Platform PRD §7.6 Storage architecture (per customer)
 - Platform PRD §17.4 (0 cross-customer incidents target)
-- `docs/strategy/operator-stack-evaluation-2026-05-13.md`
-- `docs/pm/operator/prd-contributions/synthesis-round-1.md` Themes 11 (fabrication discipline runtime enforcement) and 17 (cross-customer prohibition CI gate)
 - [ADR 0005 Reviewer-as-sender](./0005-reviewer-as-sender.md)
 - [ADR 0008 Customer-owned memory artifact](./0008-customer-owned-memory-artifact.md)
 - [ADR 0009 Cross-Machine query prohibition](./0009-cross-machine-query-prohibition.md)

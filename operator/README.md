@@ -6,7 +6,7 @@ The v1 Operator SKU — a single product configured per customer for any vertica
 
 One product, many configurations. Vertical-specific content lives only in:
 
-- `skills/` — recipes the agent runs (some are vertical-tagged, e.g. `intake-triage`; others horizontal, e.g. `inbox-triage`)
+- `skills/` — recipes the agent runs (some are vertical-tagged, e.g. `paid-media-anomaly-watcher`; others horizontal, e.g. `inbox-triage`)
 - `connectors/` — BUILD wrappers per the ADR 0020 decision table only (see "Where connector code lives" below)
 - `fixtures/` — synthetic data per vertical, structured `fixtures/<vertical>/<sub-vertical>/<type>/`
 - `customers/<slug>/customer.yaml` — per-customer configuration
@@ -22,8 +22,6 @@ ADR 0020 (Connector Strategy, locked 2026-05-24) governs this. Three rules:
 3. **New BUILD adapters land in `venturecrane/hermes-smd-overlay`** as a sub-plugin (e.g., `hermes-smd-microsoft-graph` per #1055 for OneDrive/SharePoint), not in this tree. Per ADR 0015, the Hermes fork itself carries no SMD code; all SMD plugin code lives in the overlay.
 
 ## 10 product components
-
-See `docs/pm/operator/product-component-inventory.md` for the canonical breakdown:
 
 1. **Agent** — Hermes runtime per-customer Machine
 2. **Skills** — recipes the agent runs
@@ -48,9 +46,6 @@ operator/
 ├── templates/                      # Dockerfile, fly.toml.template, bootstrap.sh
 ├── bin/                            # provision-customer.sh, pause-customer.sh, rollback-skill.sh
 ├── fixtures/                       # synthetic data per vertical
-│   └── law-firm/
-│       └── pi/
-│           └── matters/
 ├── grading/                        # per-skill / per-customer test result tracking
 └── customers/<slug>/
     └── customer.yaml               # per-customer config (skills enabled, connectors, trust ceiling)
@@ -84,8 +79,5 @@ See `docs/specs/operator/dashboard-roles.md` for the role/ceiling matrix.
 
 ## Where to look next
 
-- PRDs: `docs/pm/operator/platform-prd.md`, `docs/pm/operator/law-firm-prd.md`
-- Component inventory: `docs/pm/operator/product-component-inventory.md`
 - Specs: `docs/specs/operator/` (capability contracts, schemas, OAuth, telemetry, decommission)
 - ADRs: `docs/adr/0004-productized-operator-offering.md` and follow-ons
-- Strategy: `docs/strategy/operator-stack-evaluation-2026-05-13.md`, `operator-pricing-2026-05-13.md`, `operator-service-contract-2026-05-13.md`

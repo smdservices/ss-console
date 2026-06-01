@@ -186,6 +186,5 @@ The template at [`operator/templates/customer-no-pm-system.yaml`](../../../opera
 - [ADR 0007](../../adr/0007-per-customer-machine-isolation.md) -- per-customer Machine isolation (the deployment boundary the synthetic store inherits)
 - [ADR 0008](../../adr/0008-customer-owned-memory-artifact.md) -- customer-owned memory artifact (decommission drains the synthetic store like any other per-customer artifact)
 - [ADR 0009](../../adr/0009-cross-machine-query-prohibition.md) -- cross-Machine query prohibition (the isolation invariant the synthetic store relies on)
-- [ADR 0014](../../adr/0014-pi-vertical-adapter-build-priority.md) -- PI-vertical adapter build priority (the Filevine / CASEpeer / SmartAdvocate ladder this template runs alongside)
 - [`operator/connectors/no_pm/README.md`](../../../operator/connectors/no_pm/README.md) -- adapter implementation notes
 - [`operator/connectors/filevine/README.md`](../../../operator/connectors/filevine/README.md) -- the real-PM-vendor analogue

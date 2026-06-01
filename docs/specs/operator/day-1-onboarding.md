@@ -2,14 +2,6 @@
 
 **Spec for issue #803.** First hour in the dashboard, after Captain-led setup session. Without screen-by-screen sequence, Captain cannot operate fluently in the meeting and onboarding feels improvised. UX Lead's contribution is the source.
 
-## Source
-
-- platform-prd.md §16 (Demo Framework)
-- platform-prd.md §16.2 (aircraft carrier moment: pre-provisioned + live-calibrated)
-- law-firm-prd.md §11.8 (Day-1 / Week-1 / Week-4 partner experience)
-- law-firm-prd.md §11.9 (Calibration session split: partner + paralegal)
-- `docs/pm/operator/prd-contributions/round-1/ux-lead.md` User Journey section
-
 ## Cross-spec dependencies
 
 The screens in this spec compose other specs. A reader implementing one screen reaches for these:
@@ -287,12 +279,12 @@ Onboarding does not "complete" while any required-screen is incomplete. Captain-
 
 ### Captain walk-through cadence (co-existing path)
 
-Per the synthesis-round-1 finding and the ambiguity already filed below: partners frequently skip self-service onboarding. The spec accommodates a Captain-led live walk-through during the signed-and-shipped demo close. This is not a fallback; it is a first-class second path that runs alongside the self-service walkthrough.
+Some customers skip self-service onboarding. The spec accommodates a Captain-led live walk-through at the signed-and-shipped handoff. This is not a fallback; it is a first-class second path that runs alongside the self-service walkthrough.
 
 **When Captain runs it:**
 
 - Inside the signed-and-shipped demo close, while the partner and (typically) the paralegal are still in the room or on the same video call. Captain shares screen and drives the dashboard.
-- Within 24 hours of beta-1 sign per law-firm-prd.md §11.8 (Day-1 schedule). The 60 minutes with the partner from §11.8 is the natural anchor for the principal's walk; the 4 hours with the paralegal from §11.9 is the natural anchor for the operator's walk.
+- Within 24 hours of beta-1 sign. The 60 minutes with the partner on the Day-1 schedule is the natural anchor for the principal's walk; the 4 hours with the paralegal is the natural anchor for the operator's walk.
 
 **What Captain runs:**
 
@@ -301,7 +293,7 @@ Per the synthesis-round-1 finding and the ambiguity already filed below: partner
 | Step 0 welcome email  | Captain sends after the meeting, not before. Email subject reads "Marcus is live at {firm-name}" instead of the self-service variant. |
 | Screen 1              | Captain narrates "Here is what we configured for you" while the partner watches. No "Start walkthrough" click; Captain advances.      |
 | Screen 2 persona      | Captain confirms the persona name aloud and captures any partner edits live.                                                          |
-| Screen 3 voice        | Captain runs one test draft against a synthetic scenario per platform-prd.md §16.2 so the partner sees calibrated voice on screen.    |
+| Screen 3 voice        | Captain runs one test draft against a synthetic scenario so the partner sees calibrated voice on screen.                              |
 | Screen 4 skills       | Captain reads the four default skills aloud, confirms each, opens any drawer the partner asks about.                                  |
 | Screen 5 trust        | Captain reads the three-level explainer; no quiz, no required acknowledgement.                                                        |
 | Screen 6 voice upload | Optional. Captain offers; partner usually defers to paralegal session.                                                                |

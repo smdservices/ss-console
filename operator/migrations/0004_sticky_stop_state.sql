@@ -9,8 +9,6 @@
 -- This migration adds the D1 row it persists to.
 --
 -- Source spec:    docs/specs/operator/sticky-stop.md
--- Source PRD:     docs/pm/operator/platform-prd.md §7.5 (invariant #4),
---                 §11.5 (Sticky stop)
 -- Applied by:     operator/adapter/run_migrations.py (invoked from
 --                 bin/provision-customer.sh during customer provisioning)
 -- Owns the row:   operator/safety-substrate/sticky_stop.py

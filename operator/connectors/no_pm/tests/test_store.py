@@ -135,7 +135,7 @@ def test_create_matter_note_requires_matter_to_exist():
         body="hi",
         created_at="2026-05-21T12:00:00.000Z",
         author_account_id="reviewer-1",
-        drafted_by_skill="law-client-status-update",
+        drafted_by_skill="status-report-assembler",
     )
     with pytest.raises(KeyError):
         asyncio.run(store.create_matter_note(note))

@@ -2,12 +2,6 @@
 
 **Spec for issue #805.** `bin/decommission-customer.sh` must allow in-flight LLM calls a 60-second grace period to write to D1 before substrate deletion begins. Without drain, atomicity (BR-013) is unachievable — D1 deletion races with in-flight Anthropic responses returning mid-flight. Compliance promise (§13.3 retention) requires complete decommissioning.
 
-## Source
-
-- platform-prd.md §20 Phase 1 (`bin/decommission-customer.sh` listed deliverable)
-- `docs/pm/operator/prd-contributions/round-1/technical-lead.md` Critical gap + Blocking Item #6
-- `docs/pm/operator/prd-contributions/round-1/business-analyst.md` BR-013, EC-008
-
 ## Contract
 
 ### Sequence

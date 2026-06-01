@@ -1,6 +1,6 @@
 # Filevine connector -- PI vertical practice-management adapter v1
 
-Status: v1 (issue [#851](https://github.com/venturecrane/ss-console/issues/851)). Filevine is the first PI-vertical PracticeManagement adapter per [ADR 0014](../../../docs/adr/0014-pi-vertical-adapter-build-priority.md). The capability-adapter pattern itself is locked in [ADR 0006](../../../docs/adr/0006-capability-adapter-pattern.md).
+Status: v1 (issue [#851](https://github.com/venturecrane/ss-console/issues/851)). Filevine is the first PI-vertical PracticeManagement adapter. The capability-adapter pattern itself is locked in [ADR 0006](../../../docs/adr/0006-capability-adapter-pattern.md).
 
 ## What this connector covers
 
@@ -168,6 +168,6 @@ Defaults to read-only. `--write` exercises the `create_note` mutating method; ga
 
 ## What ships next
 
-- [ADR 0014](../../../docs/adr/0014-pi-vertical-adapter-build-priority.md) sequences: **Filevine -> CASEpeer (v2) -> SmartAdvocate (v3)**. Both follow the same shape: one Python package per vendor, capability adapters per file, conformance tests next door.
+- Vendor sequence: **Filevine -> CASEpeer (v2) -> SmartAdvocate (v3)**. Both follow the same shape: one Python package per vendor, capability adapters per file, conformance tests next door.
 - Real Identity & Access wiring (#789 / #822) replaces `InMemoryFilevineAuth` in production. The connector itself is untouched.
 - Optional capability methods (`create_matter`, `upload_document`, `share_document_draft`, etc.) ship behind named follow-on issues when a skill actually needs them -- not speculatively.

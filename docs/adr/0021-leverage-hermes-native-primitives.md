@@ -4,7 +4,6 @@ date: 2026-05-25
 status: accepted
 captain: Scott Durgan
 supersedes: none
-related-prd: docs/pm/operator/platform-prd.md §7.5
 related-spec: docs/specs/operator/customer-yaml-schema.md
 related-issue: TBD (parent tracking issue filed alongside this ADR)
 ---

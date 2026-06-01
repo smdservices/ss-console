@@ -4,7 +4,7 @@ date: 2026-05-20
 status: accepted
 captain: Scott Durgan
 supersedes: none
-related-prd: docs/pm/operator/platform-prd.md §7.3, docs/specs/operator/oauth-lifecycle.md
+related-prd: docs/specs/operator/oauth-lifecycle.md
 related-issue: https://github.com/venturecrane/ss-console/issues/878
 ---
 

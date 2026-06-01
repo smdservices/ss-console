@@ -4,7 +4,6 @@ date: 2026-05-28
 status: accepted
 captain: Scott Durgan
 supersedes: 0017-skill-curator-disposition.md (2026-05-24 version of this file; see `git log docs/adr/0017-skill-curator-disposition.md`)
-related-prd: docs/pm/operator/platform-prd.md §7.4, §7.5
 related-issue: https://github.com/venturecrane/ss-console/issues/1135
 ---
 

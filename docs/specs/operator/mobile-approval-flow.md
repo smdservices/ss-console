@@ -2,12 +2,6 @@
 
 **Spec for issue #799.** Screen-by-screen specification for the 60-second partner loop: morning digest → phone → tap → review → approve. Target Customer named this as a sign-or-no-sign condition: _"I'd want to see the actual approval UX during the demo. Not described. Shown."_ If the demo can't drive this end-to-end on the partner's phone, the meeting fails.
 
-## Source
-
-- platform-prd.md §12 (dashboard IA)
-- `docs/pm/operator/prd-contributions/round-1/ux-lead.md` User Journey + Gap 6
-- `docs/pm/operator/prd-contributions/round-1/target-customer.md` sign-conditions
-
 ## Contract
 
 ### The 60-second loop (target wall-clock)
@@ -24,7 +18,7 @@
 50s  Next draft auto-loads
 ```
 
-p95 wall-clock budget per the platform-prd.md §16.2 performance commitments: draft load ≤8s, send confirmation ≤2s.
+p95 wall-clock budget per the platform performance commitments: draft load ≤8s, send confirmation ≤2s.
 
 ### Screen 1 — Morning digest email
 

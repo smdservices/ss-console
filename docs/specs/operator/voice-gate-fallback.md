@@ -1,12 +1,6 @@
 # Voice Quality Gate — Failure Fallback
 
-**Spec for issue #797.** Three-state fallback (Pass / Near-pass / Fail) extending platform-prd.md §9.6 blind-test gate. Target Customer named this existential: a single "did you write this?" disclosure incident kills the relationship. The fallback path is the operational doctrine for the most likely beta-1 awkward moment.
-
-## Source
-
-- platform-prd.md §9.6 (Voice quality gates)
-- `docs/pm/operator/prd-contributions/synthesis-round-1.md` Theme 10
-- `docs/pm/operator/prd-contributions/round-1/target-customer.md` (Make-or-Break list)
+**Spec for issue #797.** Three-state fallback (Pass / Near-pass / Fail) extending the §9.6 blind-test gate. Target Customer named this existential: a single "did you write this?" disclosure incident kills the relationship. The fallback path is the operational doctrine for the most likely beta-1 awkward moment.
 
 ## Contract
 
@@ -76,7 +70,6 @@ Captain runs the disclosure protocol:
 - New script: `bin/run-voice-gate.sh` orchestrates the blind-test. Judge inputs collected via dashboard form at `/portal/operator/voice-gate/{run-id}` (compliance role-restricted; only invited judges see it).
 - API gate: `src/pages/api/operator/drafts/[draft_id]/approve.ts` rejects with 403 when `external_send_blocked_by_voice_gate = 1` AND the draft's skill action class is `external_send`.
 - Dashboard banner: `src/components/operator/VoiceGateBanner.tsx` reads the latest `audit_log` `VOICE_GATE_*` event for this customer.
-- Cross-reference law-firm-prd.md §11.9 (Calibration session split) — the per-cohort calibration session feeds the sample set used in the gate.
 
 ## Resolved decision — judge pool for solo practitioners
 
@@ -86,4 +79,4 @@ For solo practitioners (no firm staff to recruit as judges), Captain serves as o
 
 Why this over a relaxed threshold: the blind-test gate exists to enforce independent verification. Relaxing the threshold for the solo cohort weakens the safety floor exactly where independent verification matters most (a solo practitioner has the least staff oversight to catch a voice mismatch in flight). Captain time is a real cost (~30-60 min per gate per customer); we accept that cost to preserve the floor.
 
-[AMBIGUITY: Pricing strategy doc (`docs/strategy/operator-pricing-2026-05-13.md`) does not yet specify internal-drafts-only retainer math. This spec assumes 50-60% but the actual number is gated on §15.1 cost modeling. Resolve before first customer signs.]
+[AMBIGUITY: The pricing strategy does not yet specify internal-drafts-only retainer math. This spec assumes 50-60% but the actual number is gated on §15.1 cost modeling. Resolve before first customer signs.]

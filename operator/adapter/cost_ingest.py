@@ -24,8 +24,7 @@ Design notes
 
   Cloudflare D1/R2/Vectorize and Fly compute remain in the spec but are
   deferred per the validation-spike result documented in this module's
-  `validation_spike` section. Token cost dominates the COGS surface
-  (`docs/strategy/operator-stack-evaluation-2026-05-13.md`); the
+  `validation_spike` section. Token cost dominates the COGS surface; the
   spec explicitly permits a phase-2 defer when the metering source is
   unworkable.
 
@@ -72,8 +71,7 @@ the live-API check. Outcome of the v1 spike (2026-05-23):
     documents this gap.
   - Anthropic API tokens cover the dominant COGS surface for v1,
     sufficient to compute the §17.1 COGS/MRR kill criterion within
-    the modeling margin already accepted in
-    `docs/strategy/operator-pricing-2026-05-13.md`.
+    the modeling margin already accepted.
 
 When the gap is closed (phase 2), add an `ingest_cloudflare_metrics()`
 function with the same shape as `ingest_anthropic_billing()` and wire

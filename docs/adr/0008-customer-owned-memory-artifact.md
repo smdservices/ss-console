@@ -5,7 +5,6 @@ status: superseded
 superseded-date: 2026-05-24
 captain: Scott Durgan
 supersedes: none
-related-prd: docs/pm/operator/platform-prd.md §10, §13.3, §3 (P3, P9)
 related-issue: https://github.com/venturecrane/ss-console/issues/828
 ---
 
@@ -129,7 +128,6 @@ The persona signature, the agent's email identity (AgentMail or equivalent), and
 
 ## References
 
-- Platform PRD principle P3 (`docs/pm/operator/platform-prd.md` §3)
 - Platform PRD principle P9 (Exit is easy by design)
 - Platform PRD §10 Memory Model & Learning Loop
 - Platform PRD §10.3 The Memory tab (the trust mechanism)

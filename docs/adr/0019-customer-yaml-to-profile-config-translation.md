@@ -4,7 +4,6 @@ date: 2026-05-24
 status: accepted
 captain: Scott Durgan
 supersedes: none
-related-prd: docs/pm/operator/platform-prd.md §7.3, §7.4
 related-spec: docs/specs/operator/customer-yaml-schema.md
 related-issue: TBD (filed as follow-on to the locked Hermes-alignment plan dated 2026-05-24)
 ---

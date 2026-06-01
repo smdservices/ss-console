@@ -4,7 +4,6 @@ date: 2026-05-29
 status: accepted
 captain: Scott Durgan
 amends: 0005-reviewer-as-sender.md
-related-prd: docs/pm/operator/platform-prd.md §11.2, §13.2
 related-issue: https://github.com/venturecrane/ss-console/issues/828
 related-note: note_01KSS3TCTKWYVF6EZ04482X389, note_01KSTYSNC9CYPKYFJZ3TJ7F6RM
 ---
@@ -138,7 +137,7 @@ The consequence: raising the ceiling makes autonomous send real on the **MCP-con
 
 **Negative / accepted.**
 
-- This overturns the "architectural, not configurable" framing that ADR 0005 leaned on as a competitive claim. The mitigation is the vertical floor + the accountability invariant: the defensible claim shifts from "we never let the AI send" to "trust is configurable, code-enforced, audited, and floored by your vertical's compliance constraints" — a stronger and more honest claim, but a different one. The PRD sections that state the old claim (§11.2 "external write skills locked at draft_for_review"; §13.2 disclosure posture) must be amended to the floor-and-default model, not deleted.
+- This overturns the "architectural, not configurable" framing that ADR 0005 leaned on as a competitive claim. The mitigation is the vertical floor + the accountability invariant: the defensible claim shifts from "we never let the AI send" to "trust is configurable, code-enforced, audited, and floored by your vertical's compliance constraints" — a stronger and more honest claim, but a different one.
 - Removing a hardcoded safety refusal raises the stakes on the config-governance work. Until ADR 0026 lands, the ceiling map must ship with the secure default and **no portal path to raise `EXTERNAL_SEND`** — i.e., the axis is configurable in `customer.yaml` (Captain-authored, git-reviewed) before it is configurable via any self-serve surface. Sequencing below enforces this.
 - The safety-substrate invariant set changes shape. Invariant 2 stops asserting "always refuse autonomous external send" and starts asserting "enforce the configured `EXTERNAL_SEND` ceiling, and never exceed the vertical floor." That is a more complex property and needs fixtures for each ceiling value plus a floor-violation case.
 
@@ -158,7 +157,7 @@ The product has never booted a paying customer, so the sequencing optimizes for 
 3. **De-hardcode `enforce()`.** Remove the `trust_ceiling.py:117-127` refusal; consult the configured `EXTERNAL_SEND` ceiling; apply the floor rule (`min(vertical_floor, authored)`). Mirror the change in the overlay `hermes-smd-trust` `pre_tool_call` hook so live enforcement matches.
 4. **Rewrite invariant 2 + add fixtures.** Replace `test_invariant_2`'s "always refuse" assertions with per-ceiling-value assertions and a floor-violation refusal case. Add a vertical-floor fixture (law pack pins `EXTERNAL_SEND`).
 5. **Vertical floor mechanism.** Wire the ADR 0022 vertical pack to declare non-raisable action-class floors; assert in code that authored/portal config cannot raise above them.
-6. **Amend the PRD.** Strike "external write skills locked at `draft_for_review`" (§11.2) and rewrite §13.2 to the default-plus-floor model. Amend ADR 0005's status to reference this ADR.
+6. **Amend ADR 0005's status to reference this ADR.**
 7. **(After 0026) Self-serve raise path.** Only once config-governance (persist + audit + principal-authentication on a ceiling change) is real does the portal expose a path to raise `EXTERNAL_SEND`. This is the last step deliberately.
 
 Steps 2–7 are a follow-on issue, not part of this ADR's PR; this PR lands the ADR and the 0005 cross-reference.
@@ -189,5 +188,4 @@ How we know we are following this decision:
 - `operator/adapter/trust_ceiling.py` (the `enforce()` logic and `ActionClass` enum)
 - `operator/safety-substrate/tests/test_invariant_2_no_external_send_without_confirmation.py` (the invariant being reshaped)
 - `src/lib/operator/customer-yaml/types.ts`, `sections-personas.ts` (the ceiling vocabulary and validator)
-- Platform PRD §11.2 (default trust ceilings — to be amended), §13.2 (disclosure posture — to be amended)
 - [Issue #828](https://github.com/venturecrane/ss-console/issues/828) (reviewer-as-sender origin)

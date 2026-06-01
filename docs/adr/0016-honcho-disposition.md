@@ -4,7 +4,6 @@ date: 2026-05-24
 status: accepted
 captain: Scott Durgan
 supersedes: 0016-honcho-disposition.md (prior version of this file; see `git log docs/adr/0016-honcho-disposition.md`)
-related-prd: docs/pm/operator/platform-prd.md §7.5, §9, §17.4
 related-spec: docs/specs/operator/customer-yaml-schema.md
 related-issue: TBD (filed as follow-on to the locked Hermes-alignment plan dated 2026-05-24)
 ---

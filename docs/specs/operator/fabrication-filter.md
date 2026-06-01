@@ -4,8 +4,6 @@
 
 ## Source
 
-- platform-prd.md §7.5 invariant #8, §8.4 skill anatomy
-- `docs/pm/operator/prd-contributions/round-1/technical-lead.md` Risk 5
 - CLAUDE.md "No fabricated client-facing content" rule (Pattern A + B)
 
 ## Contract
@@ -154,6 +152,6 @@ Severity mapping:
   time) is the eventual Tier-1; ADR 0028 ships the pattern-marker subset first and
   defers the source-tag model.
 - Empty-state pattern reference: `docs/style/empty-state-pattern.md` (existing).
-- Citation-refusal substrate (§9.3 of law-firm PRD, invariant #6) lives at `operator/adapter/citation_refusal.py`; fabrication filter runs first, citation refusal second. Both are pre-emit hooks.
+- Citation-refusal substrate (invariant #6) lives at `operator/adapter/citation_refusal.py`; fabrication filter runs first, citation refusal second. Both are pre-emit hooks.
 
 [AMBIGUITY: The 5% block-rate ceiling is a heuristic; tune against real data after week 4 of beta-1. May be too lax (block rate should be near 0 once skills are mature) or too strict (some skills are inherently low-source like brainstorming surfaces). Captain monitors and adjusts.]

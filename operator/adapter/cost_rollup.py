@@ -2,7 +2,7 @@
 
 Aggregates rows from the per-customer `cost_telemetry` D1 table into a
 monthly view broken down by cost driver. The §17.1 COGS/MRR margin gate
-in platform-prd.md reads from the totals computed here.
+reads from the totals computed here.
 
 Design notes
 ------------
@@ -14,11 +14,11 @@ Design notes
   column.
 
 * Drivers are grouped into nine `DriverCategory` buckets that match the
-  platform-prd §15.1 cost-driver enumeration. Several raw drivers
+  §15.1 cost-driver enumeration. Several raw drivers
   (`claude_api_input_tokens` + `claude_api_output_tokens`,
   `r2_storage_gb_hours` + `r2_class_a_ops` + `r2_class_b_ops`, etc.)
   roll up into a single category so the COGS line items match the
-  pricing model in docs/strategy/operator-pricing-2026-05-13.md.
+  pricing model.
 
 * Anything emitted under a driver name that is not in the closed
   category map lands in `DriverCategory.OTHER`. New drivers are added by
@@ -70,17 +70,17 @@ log = logging.getLogger("aie.cost_rollup")
 # ---------------------------------------------------------------------------
 # Driver categories
 #
-# Source of truth: docs/pm/operator/platform-prd.md §15.1 (nine cost
-# drivers) + docs/specs/operator/cost-telemetry-events.md (raw driver
-# enum that emitters write).
+# Source of truth: §15.1 (nine cost drivers) +
+# docs/specs/operator/cost-telemetry-events.md (raw driver enum that
+# emitters write).
 # ---------------------------------------------------------------------------
 
 
 class DriverCategory(str, enum.Enum):
     """High-level COGS categories that the pricing model groups by.
 
-    The pricing model in docs/strategy/operator-pricing-2026-05-13.md
-    has nine line items per profile per month; these are the same nine.
+    The pricing model has nine line items per profile per month; these
+    are the same nine.
     """
 
     ANTHROPIC_LLM = "anthropic_llm"
@@ -216,10 +216,9 @@ class MonthlyRollup:
         """Compute `total_cents / mrr_cents` as basis points.
 
         Returns None when `mrr_cents <= 0` (an unpriced customer; the
-        ratio is undefined). The §17.1 kill criterion in
-        platform-prd.md is `ratio > 0.40` for two consecutive months,
-        which is 4000 basis points; the dashboard reads this value and
-        applies the threshold.
+        ratio is undefined). The §17.1 kill criterion is
+        `ratio > 0.40` for two consecutive months, which is 4000 basis
+        points; the dashboard reads this value and applies the threshold.
         """
         if mrr_cents <= 0:
             return None

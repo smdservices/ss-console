@@ -38,7 +38,6 @@
 -- Source spec: docs/specs/operator/cost-attribution-rollup.md (issue #884)
 -- Refers to:   docs/specs/operator/cost-telemetry-events.md (issue #804)
 --              docs/specs/operator/d1-schema.md (issue #800)
---              docs/strategy/operator-pricing-2026-05-13.md (issue #794)
 -- ============================================================================
 
 -- ---------- 1. Captain time events (per-event audit) ----------

@@ -2,13 +2,6 @@
 
 **Spec for issue #802.** What's in the exportable compliance packet. Susan-readable: outside counsel who is not technical must be able to read this end-to-end and confirm the agent did what we claim. Design constraint per UX Lead: plain-language first-page summary, then the technical artifacts.
 
-## Source
-
-- platform-prd.md §13 (Compliance & Privacy Posture), §13.5 (paralegal frame)
-- law-firm-prd.md §11.6 (compliance moment script)
-- `docs/pm/operator/prd-contributions/round-1/ux-lead.md` Gap 4
-- `docs/pm/operator/prd-contributions/round-1/business-analyst.md` US-011
-
 ## Contract
 
 ### Packet structure

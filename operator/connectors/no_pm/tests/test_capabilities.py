@@ -329,12 +329,12 @@ def test_create_note_attributes_to_reviewer_not_persona():
             "mat-smith",
             content="Status update: deposition scheduled 2026-06-10.",
             reviewer_account_id="reviewer-attorney-99",
-            drafted_by_skill="law-client-status-update",
+            drafted_by_skill="status-report-assembler",
         )
     )
     assert note.matter_id == "mat-smith"
     assert note.author_account_id == "reviewer-attorney-99"
-    assert note.drafted_by_skill == "law-client-status-update"
+    assert note.drafted_by_skill == "status-report-assembler"
     # Body is the drafted content verbatim. The persona is NOT in the body.
     assert note.body == "Status update: deposition scheduled 2026-06-10."
     assert "Operator" not in note.body
@@ -470,7 +470,7 @@ def test_demo_flow_create_then_note_then_close():
             matter.id,
             content="Deposition scheduled 2026-06-10.",
             reviewer_account_id="reviewer-attorney-99",
-            drafted_by_skill="law-client-status-update",
+            drafted_by_skill="status-report-assembler",
         )
     )
     assert note.author_account_id == "reviewer-attorney-99"

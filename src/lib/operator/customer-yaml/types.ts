@@ -41,11 +41,10 @@ export type Vertical = (typeof ACCEPTED_VERTICALS)[number]
  * subscribe to one vertical plus zero or more add-ons; add-ons are namespaced
  * by their origin vertical for provenance.
  *
- * v1 ships with `law-firm/pi` only — the existing law-PI assets that the PI
- * migration PR (ADR 0022 Stream 4) relocates into
- * `operator/verticals/law/addons/pi/`. Future add-ons append to this map
- * as their packs land; no inheritance machinery in v1 (ADR 0022 §"Flat
- * manifest in v1").
+ * `law-firm` declares the `pi` add-on in its contract; the vertical pack that
+ * implements it is built separately (ADR 0022). Add-ons append to this map as
+ * their packs land; no inheritance machinery in v1 (ADR 0022 §"Flat manifest
+ * in v1").
  */
 export const ACCEPTED_ADDONS: Readonly<Record<Vertical, readonly string[]>> = {
   'law-firm': ['pi'],

@@ -5,7 +5,6 @@ status: accepted
 captain: Scott Durgan
 supersedes: 0015-hermes-fork-vs-upstream.md
 amends: 0007-per-customer-machine-isolation.md, 0018-gepa-disposition.md
-related-prd: docs/pm/operator/platform-prd.md §7.1, §7.4, §7.5
 related-issue: https://github.com/venturecrane/ss-console/issues/1133 (migration Steps 2–5)
 ---
 
@@ -43,14 +42,13 @@ Our documented posture is **quarterly / 90-day** everywhere:
 
 - ADR 0015: "Quarterly rebase becomes a tag-bump exercise."
 - ADR 0018: repeated "quarterly-rebase agenda item."
-- Stack-evaluation doc (2026-05-13): "90-day re-evaluation cadence," while simultaneously stating "the market is changing weekly."
 
 Upstream ships **weekly**: `v2026.5.28` (today), `v2026.5.16`, `v2026.5.7`, `v2026.4.30`, `v2026.4.23`… roughly 13 releases in 10 weeks. A quarterly rebase against a weekly release train leaves us structurally ~12 versions behind at all times, on a runtime whose new capabilities (ADR 0021's native primitives) land weekly. This is already visible: `docs/hook-surface.md` is pinned to `v2026.5.16` and went stale the day `v2026.5.28` shipped.
 
 Two distinct clocks are conflated under one number:
 
 - **"Are we current with Hermes releases?"** — operational; should be weekly/continuous.
-- **"Should we still be on Hermes at all?"** — strategic; quarterly is correct (this is the adapter-portability re-evaluation in the stack doc and ADR 0006).
+- **"Should we still be on Hermes at all?"** — strategic; quarterly is correct (this is the adapter-portability re-evaluation in ADR 0006).
 
 The rebase is also described as a **manual** exercise (hand-authored hook-surface citations, "re-verify at every rebase"). Manual cost is _why_ the cadence was set slow. The fix is to automate the cost down so the cadence can rise.
 
@@ -96,7 +94,7 @@ A CVE materially affecting customer Machines jumps the cadence queue. With no fo
 ### 9. Two clocks, named
 
 - **Operational currency with Hermes:** continuous tracking, deliberate weekly-to-monthly blessed-version promotion.
-- **Strategic substrate re-evaluation** (is Hermes still the right harness; adapter-portability per ADR 0006): quarterly, unchanged from the stack doc.
+- **Strategic substrate re-evaluation** (is Hermes still the right harness; adapter-portability per ADR 0006): quarterly.
 
 ---
 
@@ -153,7 +151,7 @@ The binding constraint today is that the product has never booted end-to-end. Th
 2. **First boot:** get one Machine up end-to-end on the SHA-pinned path and learn what actually breaks. Everything below is theory until this happens once.
 3. **Before first real customer:** stand up the CI → GHCR base-image pipeline (Decisions 2–3) and the tracking job (Decision 5). Switch `fly.toml` to `image =`.
 4. **At customer #1:** adopt the blessed-version + staged-rollout model (Decisions 6–7) in the onboarding runbook.
-5. **Doc cleanup:** retire the fork tombstone, strike "quarterly rebase" language from ADR 0018 and the stack doc, and replace it with the two-clocks model.
+5. **Doc cleanup:** retire the fork tombstone, strike "quarterly rebase" language from ADR 0018, and replace it with the two-clocks model.
 
 ---
 
@@ -177,7 +175,6 @@ How we know we are following this decision:
 - [ADR 0007 — Per-customer Machine isolation](./0007-per-customer-machine-isolation.md) (no-silent-propagation preserved; pin role clarified to rollback/canary)
 - [ADR 0018 — GEPA disposition](./0018-gepa-disposition.md) ("quarterly rebase" language to be amended to the two-clocks model)
 - [ADR 0021 — Leverage Hermes native primitives](./0021-leverage-hermes-native-primitives.md) (pull-based capability adoption)
-- [Stack evaluation 2026-05-13](../strategy/operator-stack-evaluation-2026-05-13.md) (adapter posture; 90-day strategic cadence)
 - Upstream plugin policy: `AGENTS.md` in [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent)
 - [NousResearch/hermes-agent tags](https://github.com/NousResearch/hermes-agent/tags) (weekly date-based release cadence)
 - `operator/templates/Dockerfile`, `operator/bin/provision-customer.sh`, `operator/templates/fly.toml.template` (current build wiring)

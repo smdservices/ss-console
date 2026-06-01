@@ -1,6 +1,6 @@
 # `_template/` -- customer config scaffold
 
-This directory is the canonical starting point for a new customer's per-firm config. It is never a real customer slug; the leading underscore reserves the name. Production tooling (`bin/provision-customer.sh`, `bin/prepare-demo-firm.sh`, `bin/decommission-customer.sh`) skips any directory whose name starts with `_`.
+This directory is the canonical starting point for a new customer's per-firm config. It is never a real customer slug; the leading underscore reserves the name. Production tooling (`bin/provision-customer.sh`, `bin/decommission-customer.sh`) skips any directory whose name starts with `_`.
 
 ## Files
 
@@ -11,7 +11,7 @@ This directory is the canonical starting point for a new customer's per-firm con
 
 ## Usage
 
-1. Identify the firm with Captain (see `docs/runbooks/pi-firm-demo-prep.md` §1).
+1. Identify the firm with Captain.
 2. Pick a slug matching `^[a-z0-9][a-z0-9-]{0,31}$`. Convention: `{first-name}-{last-name}-{firm-suffix}` for solo / small firms, `{firm-shortname}` for established brands.
 3. Copy the scaffold:
 
@@ -19,7 +19,7 @@ This directory is the canonical starting point for a new customer's per-firm con
    cp -r operator/customers/_template operator/customers/{firm-slug}
    ```
 
-4. Replace every bracketed field in `dossier.md` per the runbook sections.
+4. Replace every bracketed field in `dossier.md`.
 5. Replace every bracketed field in `customer.yaml`. Validate (canonical TS validator per ADR 0019):
 
    ```bash
@@ -28,7 +28,6 @@ This directory is the canonical starting point for a new customer's per-firm con
    ```
 
 6. Provision the Machine with `operator/bin/provision-customer.sh {firm-slug}`.
-7. Verify the demo prep with `operator/bin/prepare-demo-firm.sh --firm-slug {firm-slug}`.
 
 ## Voice samples
 
@@ -42,9 +41,6 @@ Voice samples live in R2 under `vaults/{firm-slug}/voice/samples/`, not in this 
 
 ## Reserved-slug guarantee
 
-Any directory whose name starts with `_` is treated as a template scaffold and ignored by all provisioning / decommissioning / preparation tooling. This is enforced in:
-
-- `operator/bin/lib/demo_prep.py::is_template_slug`
-- `operator/bin/prepare-demo-firm.sh` (refuses `--firm-slug _*`)
+Any directory whose name starts with `_` is treated as a template scaffold and ignored by all provisioning / decommissioning tooling.
 
 If a real firm slug ever needs to start with an underscore, change the prefix; do not weaken the reservation.

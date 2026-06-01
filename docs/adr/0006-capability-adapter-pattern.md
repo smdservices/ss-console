@@ -4,7 +4,6 @@ date: 2026-05-24
 status: accepted
 captain: Scott Durgan
 supersedes: 0006-capability-adapter-pattern.md (prior version of this file; see `git log docs/adr/0006-capability-adapter-pattern.md`)
-related-prd: docs/pm/operator/platform-prd.md §7.2, §7.3, §4 (P4)
 related-issue: https://github.com/venturecrane/ss-console/issues/828
 ---
 
@@ -107,7 +106,6 @@ Selected. We get the documentation and validator benefits of typed capabilities 
 
 ## References
 
-- Platform PRD principle P4 (`docs/pm/operator/platform-prd.md` §3)
 - Platform PRD §7.2, §7.2.1, §7.3
 - Law-firm PRD §7 Connector Strategy
 - [ADR 0015 (rewrite)](./0015-hermes-fork-vs-upstream.md) — plugin-only overlay; capability adapters register via `ctx.register_tool()`

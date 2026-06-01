@@ -1,18 +1,16 @@
 # Cost Attribution Rollup
 
-**Spec for issue [#884](https://github.com/venturecrane/ss-console/issues/884).** Per-customer monthly rollup over the `cost_telemetry` table that the [cost-telemetry-events.md](cost-telemetry-events.md) emitters write. The §17.1 COGS/MRR margin gate in `platform-prd.md` reads its totals from the function defined here.
+**Spec for issue [#884](https://github.com/venturecrane/ss-console/issues/884).** Per-customer monthly rollup over the `cost_telemetry` table that the [cost-telemetry-events.md](cost-telemetry-events.md) emitters write. The §17.1 COGS/MRR margin gate reads its totals from the function defined here.
 
 ## Source
 
-- [platform-prd.md](../../pm/operator/platform-prd.md) §15.1 (cost drivers), §17.1 (COGS/MRR kill criterion)
 - [cost-telemetry-events.md](cost-telemetry-events.md) — emitter spec; the row source this rollup reads
 - [d1-schema.md](d1-schema.md) §6 — `cost_telemetry` shape; §6 also defines `captain_time_events`
-- [docs/strategy/operator-pricing-2026-05-13.md](../../strategy/operator-pricing-2026-05-13.md) — per-driver COGS lines and the nine cost categories this rollup groups by
 - [ADR 0009](../../adr/0009-cross-machine-query-prohibition.md) — per-customer database binding
 
 ## Why this exists
 
-Emitters produce per-`(date, driver)` rows in `cost_telemetry`. The dashboard, the §17.1 COGS/MRR ratio computation, the decommission-final cost export, and the Captain control plane all need the same view: a single month, rolled up per customer, with totals grouped into the nine platform-prd §15.1 cost categories.
+Emitters produce per-`(date, driver)` rows in `cost_telemetry`. The dashboard, the §17.1 COGS/MRR ratio computation, the decommission-final cost export, and the Captain control plane all need the same view: a single month, rolled up per customer, with totals grouped into the nine §15.1 cost categories.
 
 Without a single rollup module, every consumer reimplements the GROUP BY and the driver-to-category mapping. That is how the driver enum drifts: two consumers map `r2_class_a_ops` differently and the COGS/MRR ratio gate stops being falsifiable.
 
@@ -53,7 +51,7 @@ class MonthlyRollup:
 
 ### Driver categories
 
-The categories match platform-prd §15.1 and the pricing model in docs/strategy/operator-pricing-2026-05-13.md:
+The categories match the §15.1 cost drivers:
 
 | `DriverCategory`       | Raw drivers (from cost-telemetry-events.md)               |
 | ---------------------- | --------------------------------------------------------- |

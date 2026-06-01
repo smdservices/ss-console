@@ -4,8 +4,6 @@
 
 ## Source
 
-- platform-prd.md §7.2 (11 capability names), §7.4 (skill pinning)
-- `docs/pm/operator/prd-contributions/round-1/technical-lead.md` API Surface section
 - Email Pattern decision: see Pattern A/B Resolution below
 
 ## Pattern A vs Pattern B resolution

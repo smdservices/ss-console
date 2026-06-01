@@ -18,7 +18,7 @@ customer_name: '[LEGAL NAME]'
 # ADR 0022 Stream 1: vertical accepts either bare (legacy back-compat) or
 # pinned form (<vertical>@<semver>). Pin once the vertical pack ships at a
 # stable version. Bare form is fine for pre-launch customer-zero.
-vertical: law-firm
+vertical: mixed
 # Optional add-on packs the customer subscribes to. Each entry is
 # <vertical>/<addon>@<semver> (cross-vertical composition allowed —
 # ADR 0022 §"Properties of the vertical model" bullet 3). v1 ships with
@@ -59,11 +59,11 @@ personas:
         enabled: true
     # ---- OPTIONAL: skill bundles (ADR 0021 Stream D) ----
     # bundles:
-    #   - slug: pi-intake
-    #     description: 'Intake triage + conflict screen for a new prospect'
+    #   - slug: example-bundle
+    #     description: 'Group related skills that share context'
     #     skills:
-    #       - intake-triage
-    #       - law-conflict-check
+    #       - inbox-triage
+    #       - status-report-assembler
     #     instruction: 'Optional shared context prepended to every bundled skill'
     #
     # ---- OPTIONAL: per-skill cron schedules (ADR 0021 Stream B) ----

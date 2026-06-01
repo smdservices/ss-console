@@ -2,11 +2,6 @@
 
 **Spec for issue #801.** Per-customer storage isolation enforced through naming convention. Decommissioning depends on enumerable prefixes. Cross-Machine query prohibition (invariant #7) depends on the runtime verifying its bindings match its slug.
 
-## Source
-
-- platform-prd.md §7.6 (storage architecture), §7.5 (invariant #7)
-- `docs/pm/operator/prd-contributions/round-1/technical-lead.md` R2 + Vectorize sections
-
 ## Contract
 
 ### R2 buckets

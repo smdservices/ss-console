@@ -4,12 +4,9 @@
 
 ## Source
 
-- [Platform PRD](../../pm/operator/platform-prd.md) §7.3 (example), §19 (ADR list), §20 (Phase 1 schema lock)
-- [Law Firm PRD](../../pm/operator/law-firm-prd.md) §7 (cross-references this spec for connector wiring)
 - [ADR 0006](../../adr/0006-capability-adapter-pattern.md) — capability-interface + adapter pattern
 - [ADR 0011](../../adr/0011-multi-persona-per-customer.md) — `personas:` is an array (length ≥ 1 at v1)
 - [ADR 0012](../../adr/0012-customer-yaml-storage.md) — git source of truth, CI-validated on merge
-- [`docs/pm/operator/prd-contributions/round-1/technical-lead.md`](../../pm/operator/prd-contributions/round-1/technical-lead.md) Risk 2 — secret-exclusion vulnerability framing
 
 ## Schema version
 
@@ -188,7 +185,7 @@ The `adapter:` value is the SMD-internal adapter slug (e.g. `filevine`, `microso
 
 ## Secret-exclusion enforcement
 
-`customer.yaml` is git-committed. A secret committed here lands in git history permanently. For a law-firm tenant, that is a privilege-breach with bar-discipline consequences ([Technical Lead Risk 2](../../pm/operator/prd-contributions/round-1/technical-lead.md)).
+`customer.yaml` is git-committed. A secret committed here lands in git history permanently. For a law-firm tenant, that is a privilege-breach with bar-discipline consequences.
 
 The validator runs a secret-scan pass over the raw file text BEFORE structural parsing, so a malformed YAML containing a secret still fails closed.
 
@@ -307,11 +304,11 @@ personas:
   - slug: marcus
     # ... other persona fields ...
     bundles:
-      - slug: pi-intake
-        description: 'Intake triage + conflict screen for a new prospect'
+      - slug: inbox-sweep
+        description: 'Triage inbox + flag scope creep for a draft pass'
         skills:
-          - intake-triage
-          - law-conflict-check
+          - inbox-triage
+          - scope-creep-flagger
         instruction: 'Optional shared context prepended to every bundled skill invocation'
 ```
 
@@ -372,11 +369,11 @@ connectors:
 webhook_triggers:
   - source: filevine
     event_type: matter.created
-    skill: intake-triage
+    skill: inbox-triage
     persona: marcus
   - source: filevine
     event_type: document.added
-    skill: discovery-response
+    skill: scope-creep-flagger
     persona: marcus
 ```
 
@@ -489,8 +486,6 @@ Pre-commit hook + CI workflow live with the canonical configs repo per [ADR 0012
 
 ## Cross-references
 
-- [Platform PRD §7.3](../../pm/operator/platform-prd.md) — customer.yaml worked example
-- [Law Firm PRD §7](../../pm/operator/law-firm-prd.md) — connector strategy, cross-references this spec for wiring
 - [`d1-schema.md`](./d1-schema.md) — per-customer Hermes D1 contract (`persona_slug` nullable columns)
 - [`dashboard-roles.md`](./dashboard-roles.md) — `users[].role` vocabulary
 - [`r2-vectorize-naming.md`](./r2-vectorize-naming.md) — memory.\* isolation invariants

@@ -4,9 +4,6 @@
 
 ## Source
 
-- platform-prd.md §7 (no existing OAuth subsection; this becomes §7.9), §18 (Risks)
-- `docs/pm/operator/prd-contributions/round-1/technical-lead.md` Risk 1, Blocking Item #1
-- `docs/pm/operator/prd-contributions/round-1/business-analyst.md` EC-004/005/006
 - PR #812 `operator/connectors/lawpay/src/operator_lawpay/oauth.py` (file-based reference impl)
 
 ## Contract

@@ -5,7 +5,6 @@ status: accepted
 captain: Scott Durgan
 supersedes: none
 amended-by: 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md
-related-prd: docs/pm/operator/platform-prd.md §3, §9.2, §13.2, §16
 related-issue: https://github.com/venturecrane/ss-console/issues/828
 ---
 
@@ -15,7 +14,7 @@ related-issue: https://github.com/venturecrane/ss-console/issues/828
 
 **Status (original):** Accepted (Captain decision; embedded in the Operator PRDs since first draft; recorded here as a standalone ADR per [#828](https://github.com/venturecrane/ss-console/issues/828)).
 
-**Source:** Platform PRD principle P2 ("Reviewer is always the sender") and Persona model §9.2 (internal vs external persona split). Reinforced by `synthesis-round-1.md` Theme 6/8 — the platform's defensible competitive position depends on this pattern remaining architectural rather than configurable.
+**Source:** The "reviewer is always the sender" principle and the internal-vs-external persona split. The platform's defensible competitive position depends on this pattern remaining architectural rather than configurable.
 
 ---
 
@@ -58,7 +57,7 @@ Specifically:
 - Liability attaches to the human reviewer, the customer's employee or principal, in the same way it would if the reviewer had drafted from scratch. The agent is a drafting tool, not a sending agent.
 - ABA Formal Opinion 512 and the various state-bar opinions on AI use in law practice all converge on a "supervising attorney" requirement; reviewer-as-sender is the cleanest implementation.
 - "How do we know the AI didn't go off the rails" has a structural answer: it cannot send without you. The audit log shows draft, review, edit-diff, send — four data points the customer's compliance counsel can review and the customer's bar association can subpoena.
-- The competitive moat narrows. Per `synthesis-round-1.md` Theme 8, the defensible competitive claim is the combination of editable customer-owned memory + reviewer-as-sender + flat-per-firm under one identity. The reviewer-as-sender pillar is the specific architectural commitment competitors with task-execution focus (Eve Legal, EvenUp PLAAS, Lawmatics) have not made.
+- The competitive moat narrows. The defensible competitive claim is the combination of editable customer-owned memory + reviewer-as-sender + flat-per-firm under one identity. The reviewer-as-sender pillar is the specific architectural commitment competitors with task-execution focus (Eve Legal, EvenUp PLAAS, Lawmatics) have not made.
 
 **Negative / accepted.**
 
@@ -73,11 +72,9 @@ Specifically:
 
 ## References
 
-- Platform PRD principle P2 (`docs/pm/operator/platform-prd.md` §3)
 - Platform PRD §9.2 Internal vs external persona
 - Platform PRD §11.2 Default trust ceilings (external write skills locked at `draft_for_review`)
 - Platform PRD §13.2 Disclosure posture
 - Platform PRD §16 Demo flow (reviewer-as-sender is the on-stage moment of the demo)
 - Law-firm PRD §8 Bar Ethics & Disclosure Posture
-- `docs/pm/operator/prd-contributions/synthesis-round-1.md` Themes 6 and 8 (defensible competitive position)
 - [Issue #828](https://github.com/venturecrane/ss-console/issues/828)

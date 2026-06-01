@@ -4,7 +4,6 @@ date: 2026-05-21
 status: accepted
 captain: Scott Durgan
 supersedes: none
-related-prd: docs/pm/operator/platform-prd.md §7.3, §9, §20
 related-spec: docs/specs/operator/customer-yaml-schema.md
 related-issue: https://github.com/venturecrane/ss-console/issues/790, https://github.com/venturecrane/ss-console/issues/924
 ---

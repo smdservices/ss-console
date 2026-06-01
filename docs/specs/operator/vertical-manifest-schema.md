@@ -47,8 +47,6 @@ operator/
         bookkeeping/                 # composable across verticals
 ```
 
-PR 4 (ADR 0022 Stream 4) ships the PI migration: the previously top-level PI skills, fixtures, and bundles now live under `verticals/law-firm/addons/pi/` per the layout above. Shared law skills (`law-conflict-check`, `law-client-status-update`) remain at `operator/skills/` until a second law addon exists.
-
 ## `vertical.yaml` manifest fields
 
 | Field        | Type     | Required | Notes                                                                            |

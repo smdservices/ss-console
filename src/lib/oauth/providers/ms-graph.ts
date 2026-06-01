@@ -21,7 +21,6 @@
  * Reference docs:
  *   - `docs/specs/operator/oauth-lifecycle.md` § "Per-connector OAuth scope inventory"
  *   - `docs/runbooks/operator/ms-graph-azure-ad-setup.md`
- *   - `docs/strategy/mcp-vs-build-ms-graph-2026-05-25.md` (F decision packet)
  */
 
 import { env } from 'cloudflare:workers'

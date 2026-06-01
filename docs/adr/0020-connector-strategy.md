@@ -4,7 +4,6 @@ date: 2026-05-24
 status: accepted
 captain: Scott Durgan
 supersedes: none
-related-prd: docs/pm/operator/platform-prd.md §7.2, §7.3
 related-spec: docs/specs/operator/customer-yaml-schema.md
 related-issue: TBD (filed as follow-on to the locked Hermes-alignment plan dated 2026-05-24)
 ---
@@ -151,6 +150,5 @@ An earlier revision reserved a `composio:` backend to broker vendor connections 
 - [`shipstation/mcp-shipstation-api`](https://github.com/shipstation/mcp-shipstation-api) — ShipStation MCP (license unconfirmed)
 - [CourtListener MCP](https://mcp.courtlistener.com)
 - [ADR 0006 (rewrite)](./0006-capability-adapter-pattern.md) — backend prefix model
-- [ADR 0014](./0014-pi-vertical-adapter-build-priority.md) — PI vertical adapter build priority
 - [ADR 0015 (rewrite)](./0015-hermes-fork-vs-upstream.md) — plugin-only overlay; the runtime registration happens in plugins
 - [ADR 0019](./0019-customer-yaml-to-profile-config-translation.md) — backend resolution at boot

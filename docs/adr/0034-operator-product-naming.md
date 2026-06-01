@@ -4,7 +4,6 @@ date: 2026-06-01
 status: accepted
 captain: Scott Durgan
 supersedes: 0004-productized-operator-offering.md §"Service name"
-amends: 0013-operator-positioning-doctrine.md
 related-adr: 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0031-content-sensitivity-send-floor.md
 ---
 
@@ -53,10 +52,9 @@ The word "operator" already describes **human roles** in this product, and that 
 
 A human who gets things done is an operator; so is the product. Context disambiguates (the product is referenced by its persona name — e.g. "Crane" — and as "the Operator"; a human's role is "operator" in the access model). **This dual usage is deliberate. Do not "fix" it by renaming the human role or the RBAC enum** — the `product_roles.role` value `operator` stays. This note exists so a future agent doesn't read the overlap as a collision and break the access model.
 
-### 3. What this ADR does to ADR 0004 and ADR 0013
+### 3. What this ADR does to ADR 0004
 
 - **Supersedes** the "Service name" item ADR 0004 left open. The customer-facing brand is **Operator**. Everything else in ADR 0004 (the flat-rate retainer SKU, second-front-door positioning, Hermes-leaning stack) stands unchanged.
-- **Amends** [ADR 0013](./0013-operator-positioning-doctrine.md): the brand **name** becomes Operator. The positioning **doctrine** — portable persona, firm-owned editable memory as the headline pillar, reviewer-as-sender as ethics architecture, the Eve wedge, the legal-vertical opener — is **name-independent and stands.** Where ADR 0013 says "Operator," read "Operator."
 
 ### 4. What does NOT change
 
@@ -89,7 +87,6 @@ Comprehensive in scope; sequenced so the live customer (Crane) cannot crashloop.
 ## References
 
 - [ADR 0004](./0004-productized-operator-offering.md) — productized SKU; its "Service name" deferral is resolved here.
-- [ADR 0013](./0013-operator-positioning-doctrine.md) — positioning doctrine; amended (name only; doctrine stands).
 - [ADR 0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) — configurable autonomy ceilings (the capability this name reflects).
 - [ADR 0031](./0031-content-sensitivity-send-floor.md) — content-sensitivity send floor.
 - `docs/adr/decision-stack.md` — Decision #44 (Productized offering) updated to name the product Operator.

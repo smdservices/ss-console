@@ -2,11 +2,6 @@
 
 **Spec for issue #800.** One D1 database per customer (`hermes-{slug}-d1`). All tables namespaced to that database — there is no cross-customer table. Per-customer isolation is enforced at the database-binding layer (one binding per Machine), not at the row level.
 
-## Source
-
-- platform-prd.md §10 (memory layers), §7.6 (storage architecture)
-- `docs/pm/operator/prd-contributions/round-1/technical-lead.md` Proposed Data Model
-
 ## Contract
 
 ```sql
@@ -136,14 +131,14 @@ CREATE TABLE cost_telemetry (
 
 -- 6a. Captain time events (event-sourced; rolls up into cost_telemetry per cost-telemetry-events.md)
 -- Captain operations time is the one cost driver that is not auto-instrumented from a vendor API.
--- It is logged via the `crane operator log-time` CLI (platform-prd.md §15.2). Multiple events
+-- It is logged via the `crane operator log-time` CLI. Multiple events
 -- per day per activity are expected (Captain may log two distinct calibration sessions in one
 -- day); the table is intentionally not UPSERT-keyed.
 CREATE TABLE captain_time_events (
   id            TEXT PRIMARY KEY,           -- ULID
   ts            TEXT NOT NULL,              -- ISO 8601 UTC of CLI invocation
   date          TEXT NOT NULL,              -- YYYY-MM-DD; --date flag, defaults to today UTC
-  activity      TEXT NOT NULL,              -- enum from platform-prd.md §15.2 activity-tag taxonomy
+  activity      TEXT NOT NULL,              -- enum from the activity-tag taxonomy
   minutes       INTEGER NOT NULL,           -- > 0 and ≤ 600
   amount_cents  INTEGER NOT NULL,           -- (minutes * 200 * 100) / 60 at $200/hr Captain rate
   note          TEXT                        -- optional free text, ≤ 280 chars

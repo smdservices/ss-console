@@ -6,7 +6,6 @@ superseded-date: 2026-05-24
 captain: Scott Durgan
 supersedes: none
 superseded-by: none
-related-prd: docs/pm/operator/platform-prd.md §7.4, §7.5, §17.4
 related-spec: docs/specs/operator/audit-log-immutability.md
 related-issue: TBD (filed as follow-on to this ADR)
 ---

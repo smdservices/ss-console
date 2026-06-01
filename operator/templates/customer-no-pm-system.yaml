@@ -2,9 +2,8 @@ schema_version: 1
 
 # TEMPLATE customer.yaml for a firm with NO external practice-management
 # system (paper + Outlook + OneDrive + QuickBooks for billing). This is
-# the most common state at the target-buyer profile -- the PI PRDs assume
-# Filevine / Clio, but most prospects we meet have no working PM system
-# at all.
+# the most common state at the target-buyer profile -- most prospects we
+# meet have no working PM system at all.
 #
 # Default capability bindings (vendor-direct-MCP-first per ADR 0020):
 #
@@ -64,7 +63,7 @@ personas:
       - warm-but-professional
       - concise
     skills:
-      - name: '[LEAD PI SKILL, e.g., demand-letter-draft]'
+      - name: '[LEAD SKILL NAME]'
         version: pending
         trust_ceiling: draft_for_review
         enabled: true
@@ -120,8 +119,7 @@ connectors:
     token_ref: 'infisical:/operator/[FIRM-SLUG]/email/microsoft-entra-tenant-id'
 
   DocumentStorage:
-    # ADR 0020 / ADR 0021 Stream F (decision packet at
-    # docs/strategy/mcp-vs-build-ms-graph-2026-05-25.md): Microsoft has
+    # ADR 0020 / ADR 0021 Stream F: Microsoft has
     # not shipped a first-party M365 MCP for OneDrive/SharePoint
     # (Mail/Calendar/Teams/User/Copilot Chat only). The community
     # mcp:softeria/ms-365-mcp-server (MIT) covers the OneDrive Files

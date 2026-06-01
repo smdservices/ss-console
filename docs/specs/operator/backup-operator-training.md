@@ -4,8 +4,6 @@
 
 ## Source
 
-- [Platform PRD §4 Persona 3 (Captain unavailability mitigation)](../../pm/operator/platform-prd.md). Names the bus-factor minimum and the hard gate at customer #5.
-- [Platform PRD §16](../../pm/operator/platform-prd.md). Demo framework the backup operator must be able to run.
 - [ADR 0007 (Per-customer Machine isolation)](../../adr/0007-per-customer-machine-isolation.md)
 - [ADR 0008 (Customer-owned memory artifact)](../../adr/0008-customer-owned-memory-artifact.md)
 - [ADR 0009 (Cross-Machine query prohibition)](../../adr/0009-cross-machine-query-prohibition.md)
@@ -17,7 +15,7 @@ This spec does not name the backup operator. It does not set their pay, their ho
 
 ## Readiness gates
 
-A candidate is "trained" only when every gate below is satisfied. Captain marks each gate complete by initialling the line in the operations runbook at `docs/runbooks/operator-backup-operator.md`. Self-attestation is not enough; the hands-on practice gates require Captain to observe the candidate complete the work end-to-end.
+A candidate is "trained" only when every gate below is satisfied. Captain marks each gate complete by initialling the line in the operations runbook. Self-attestation is not enough; the hands-on practice gates require Captain to observe the candidate complete the work end-to-end.
 
 ### Gate 1: Architectural literacy
 
@@ -32,19 +30,15 @@ The backup operator must read and be able to summarize the four isolation ADRs a
 
 The backup operator must have read access to every runbook and spec the platform is operated from, and must have read each one end-to-end. Read access is necessary but not sufficient; the candidate must be able to navigate the documents without Captain guidance.
 
-- [ ] Read [Customer onboarding runbook](../../runbooks/operator-customer-onboarding.md). Knows the 0-15-day arc, what the customer provides on Day 1, and where the per-customer YAML lives.
-- [ ] Read [PI firm demo prep runbook](../../runbooks/pi-firm-demo-prep.md). Knows the eight sections of demo prep and which sections are Captain-only relationship work.
-- [ ] Read [Calibration runbook](../../runbooks/operator-calibration.md). Knows the four 90-minute session structure and the substrate output of each session.
 - [ ] Read [Decommission customer spec](decommission-customer.md). Knows the nine idempotent steps, the dry-run-versus-live distinction, and the recovery path for a mid-sequence failure.
 - [ ] Read [Sticky-stop spec](sticky-stop.md). Knows the four states (OK, WARN, SOFT_STOP, HARD_STOP), the system-versus-operator distinction, and that `clear()` is Captain-only.
 - [ ] Read [Memory export pipeline spec](memory-export.md). Knows the export archive is the canonical backup per ADR 0008.
 
 ### Gate 3: Hands-on practice
 
-The backup operator must have completed the following exercises against a synthetic test customer, observed by Captain. Each exercise is run once before the operator is marked ready and again every quarter per the [quarterly drill runbook](../../runbooks/operator-quarterly-drill.md).
+The backup operator must have completed the following exercises against a synthetic test customer, observed by Captain. Each exercise is run once before the operator is marked ready and again every quarter.
 
 - [ ] **Provision a synthetic test customer end-to-end.** Run `operator/bin/provision-customer.sh {synthetic-slug}` against a non-production fixture. The exercise covers the validator, the Fly app creation, the secret-prompt flow (paste from the test Infisical scope, never echo), and the per-connector smoke test.
-- [ ] **Run a full demo dry-run.** Walk the eight sections of [`pi-firm-demo-prep.md`](../../runbooks/pi-firm-demo-prep.md) for the synthetic customer. End at `prepare-demo-firm.sh` exit 0 and the deliverable readiness checklist.
 - [ ] **Perform sticky-stop recovery.** Drive the synthetic customer's substrate into HARD_STOP (one of the four conditions documented in [`sticky-stop.md`](sticky-stop.md)). Investigate the cause through the audit-log entries. Issue `clear()` with a non-empty captain_id and reason. Verify the audit row recording the resume.
 - [ ] **Run a memory export and verify the archive.** Execute the export pipeline ([`memory-export.md`](memory-export.md)) against the synthetic customer. Open the tar.gz, confirm the manifest checksums, and confirm every domain (memory rules, voice diffs, audit log) is present.
 - [ ] **Decommission the synthetic test customer.** Run `operator/bin/decommission-customer.sh {synthetic-slug} --dry-run` followed by `--live`. Confirm the dated tombstone, the archived compliance packet, and a clean second run that reports `skipped` for every step.
@@ -69,13 +63,13 @@ The backup operator must have an unambiguous way for Captain to reach them and a
 - [ ] **Captain-to-operator channel.** A single named channel for reaching the operator: phone (preferred), SMS, or signal. Recorded in the operations runbook with the operator's response-time commitment.
 - [ ] **Tier-1 escalation path.** If the platform pages the operator and no acknowledgement lands inside the response-time commitment, the page routes to Captain. The PagerDuty (or equivalent) rotation encodes this.
 - [ ] **Tier-2 escalation path.** If both the operator and Captain are unreachable, the page routes to the documented Tier-2 contact. Tier-2 may be a second operator, a contractor on retainer, or (in the absence of either) an explicit silence with a customer-facing "service paused" template. The choice is Captain's; the documented value is mandatory.
-- [ ] **PTO communication template.** The operator has the PTO comms template from PRD §4 Persona 3, knows when to send it, and knows which customer roster receives it.
+- [ ] **PTO communication template.** The operator has the PTO comms template, knows when to send it, and knows which customer roster receives it.
 
 ## Gate sign-off
 
-Captain marks each gate complete in the [operations runbook](../../runbooks/operator-backup-operator.md) by adding the date and the operator's name. The runbook's frontmatter carries a `backup_operator_ready: <date>` marker; a candidate without that marker may not be assigned as primary on any customer.
+Captain marks each gate complete in the operations runbook by adding the date and the operator's name. The runbook's frontmatter carries a `backup_operator_ready: <date>` marker; a candidate without that marker may not be assigned as primary on any customer.
 
-The bus-factor minimum gate at customer #5 (per PRD §4 Persona 3) is satisfied when all five gates above are signed off for at least one operator. Re-training is required after any failed [quarterly drill](../../runbooks/operator-quarterly-drill.md).
+The bus-factor minimum gate at customer #5 is satisfied when all five gates above are signed off for at least one operator. Re-training is required after any failed quarterly drill.
 
 ## Out of scope (Captain-only decisions)
 
@@ -89,13 +83,7 @@ These items are deliberately not specified here. Captain decides them outside th
 
 ## Cross-references
 
-- [Operations runbook (backup operator)](../../runbooks/operator-backup-operator.md)
-- [Quarterly drill runbook](../../runbooks/operator-quarterly-drill.md)
-- [Customer onboarding runbook](../../runbooks/operator-customer-onboarding.md)
-- [PI firm demo prep runbook](../../runbooks/pi-firm-demo-prep.md)
-- [Calibration runbook](../../runbooks/operator-calibration.md)
 - [Decommission customer spec](decommission-customer.md)
 - [Sticky-stop spec](sticky-stop.md)
 - [Memory export pipeline spec](memory-export.md)
-- [Platform PRD §4 Persona 3](../../pm/operator/platform-prd.md)
 - [Issue #888](https://github.com/venturecrane/ss-console/issues/888)

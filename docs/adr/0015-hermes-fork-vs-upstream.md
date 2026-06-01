@@ -5,7 +5,6 @@ status: partially-superseded
 captain: Scott Durgan
 superseded-by: 0024-hermes-consumption-and-update-cadence.md (fork half only)
 supersedes: 0015-hermes-fork-vs-upstream.md (prior version of this file; see `git log docs/adr/0015-hermes-fork-vs-upstream.md`)
-related-prd: docs/pm/operator/platform-prd.md §7.1, §7.4, §7.5
 related-issue: https://github.com/venturecrane/ss-console/issues/844
 ---
 

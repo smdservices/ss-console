@@ -52,7 +52,7 @@ One `INBOUND_RECEIVED` row (`operator/adapter/audit_log.py` / `d1-schema.md`) pe
 
 ## CI corpus
 
-The boundary's CODE behavior is asserted deterministically (no live model) against the `edge-pi-*.json` injection fixtures (`operator/verticals/law-firm/addons/pi/fixtures/edge-prompt-injection/`), in `operator/adapter/tests/test_inbound_envelope.py`, run by `operator-substrate.yml`:
+The boundary's CODE behavior is asserted deterministically (no live model) against injection fixtures, in `operator/adapter/tests/test_inbound_envelope.py`, run by `operator-substrate.yml`:
 
 1. the whole untrusted body lands inside the nonce fence;
 2. each fixture's injection payload sits only inside the fence (no instruction-position leak);

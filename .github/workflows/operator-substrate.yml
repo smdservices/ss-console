@@ -21,7 +21,6 @@ on:
       - 'operator/adapter/**'
       - 'operator/bin/**'
       - 'operator/safety-substrate/**'
-      - 'operator/verticals/**'
       - '.github/workflows/operator-substrate.yml'
   push:
     branches: [main]

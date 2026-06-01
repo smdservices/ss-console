@@ -6,21 +6,14 @@ the portal surface that exposes it, and the integration seams that connect
 calibration findings back to voice ingestion, memory rules, and trust-ceiling
 logging.
 
-The platform PRD §9.6 names a 4-6 hour Captain-led calibration session as
-gate #2 before any external draft ships. The business-analyst critique (carried
-into law-firm PRD §11.9) flagged that the single 4-6 hour block collapses at
+Gate #2 before any external draft ships was originally a single 4-6 hour
+Captain-led calibration session. The single 4-6 hour block collapses at
 firms that actually sign — partner calendars do not support it. This spec
 adopts the four-session split as the canonical structure for every
-calibration cycle (PI law-firm and beyond).
+calibration cycle.
 
 ## Source
 
-- platform-prd.md §9.6 — voice quality gates (sample minimum, calibration
-  session, blind-test gate)
-- platform-prd.md §10 — memory model + learning loop (rule additions, voice
-  corrections, edit-then-send signal)
-- platform-prd.md §11 — trust ceiling model (approvals feed audit log)
-- law-firm-prd.md §11.9 — calibration session split (partner + paralegal)
 - `docs/specs/operator/voice-ingestion.md` — structural-diff storage
 - `docs/specs/operator/memory-ingestion.md` — memory rule writer
 - `docs/specs/operator/trust-ceiling-logging.md` — `log_decision()`
@@ -136,8 +129,7 @@ scenario and either approves the outcome, edits it, or marks it refused.
 "Edited" outcomes plus any newly stated rules ("we don't take medmal
 under $1M") feed the memory rules writer per
 `docs/specs/operator/memory-ingestion.md`. The rule writer enforces
-the closed memory categories (rule / voice / process / person) from
-platform-prd.md §10.
+the closed memory categories (rule / voice / process / person).
 
 ### Seam 3: approvals → trust-ceiling logging
 
@@ -190,12 +182,8 @@ the empty-state branch fires.
 
 ## Cross-references
 
-- `docs/runbooks/operator-calibration.md` — Captain-facing runbook
-  for conducting the four sessions
 - `docs/specs/operator/voice-ingestion.md` — seam 1 consumer
 - `docs/specs/operator/memory-ingestion.md` — seam 2 consumer
 - `docs/specs/operator/trust-ceiling-logging.md` — seam 3 consumer
-- platform-prd.md §9.6 — gate #2 contract
-- law-firm-prd.md §11.9 — session-split rationale
 - issue [#821](https://github.com/venturecrane/ss-console/issues/821) —
   Hermes runtime scoping that unblocks the D1 writer paths

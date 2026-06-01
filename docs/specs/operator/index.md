@@ -1,8 +1,8 @@
 # Operator — Technical Specs
 
-Formal specs extending the platform PRD ([docs/pm/operator/platform-prd.md](../../pm/operator/platform-prd.md)) and law-firm vertical PRD ([docs/pm/operator/law-firm-prd.md](../../pm/operator/law-firm-prd.md)). Each spec is the implementation contract for one P0/P1 issue from the [PRD critique batch](https://github.com/venturecrane/ss-console/pull/813).
+Formal specs for the operator platform. Each spec is the implementation contract for one P0/P1 issue from the [PRD critique batch](https://github.com/venturecrane/ss-console/pull/813).
 
-Build agents consuming these specs should treat the PRDs as **vision/doctrine** and these specs as **implementation contracts**. Where a spec extends or refines PRD text, the spec is authoritative for that area.
+Build agents consuming these specs should treat each spec as the **implementation contract** for its area.
 
 ## P0 — Phase 1 blockers (build cannot start without these)
 

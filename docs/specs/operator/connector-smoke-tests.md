@@ -4,10 +4,8 @@
 
 ## Source
 
-- [Platform PRD](../../pm/operator/platform-prd.md) §11 (Phase A.5 safety substrate), §17 (provisioning pipeline)
 - [ADR 0006](../../adr/0006-capability-adapter-pattern.md) — capability-interface + adapter pattern
 - [ADR 0012](../../adr/0012-customer-yaml-storage.md) — git source of truth for customer.yaml
-- [ADR 0014](../../adr/0014-pi-vertical-adapter-build-priority.md) — PI vertical adapter build priority
 - [`src/lib/operator/capabilities/conformance.ts`](../../../src/lib/operator/capabilities/conformance.ts) — TypeScript conformance harness whose invariants this Python framework mirrors
 - [`customer-yaml-schema.md`](customer-yaml-schema.md) §"Capability binding" — connectors block shape
 - PR #812 — Phase A stub
@@ -73,7 +71,7 @@ Each per-connector result is one of:
 - **`pass`** — `describe_capabilities()` is well-formed AND the probe method returned without raising within the wall-clock budget (`PROBE_TIMEOUT_SECONDS = 15`).
 - **`partial`** — the probe returned data, but `describe_capabilities()` produced one or more shape violations. The connector is reachable but does not honestly describe itself.
 - **`fail`** — the probe raised, the adapter does not expose the probe's method, the factory raised at construction time, the wall-clock budget was exceeded, OR the enabled connector has no registered probe at all.
-- **`skipped`** — the connector entry was present but `enabled: false`, or the backend prefix was `synthetic:` (synthetic fixtures run in skill-regression CI, not here).
+- **`skipped`** — the connector entry was present but `enabled: false`, or the backend prefix was `synthetic:`.
 
 The aggregated `SmokeReport.overall_status` rolls up:
 
