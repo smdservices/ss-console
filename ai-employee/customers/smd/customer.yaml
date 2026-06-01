@@ -74,9 +74,14 @@ personas:
 # read/label/archive/trash but CANNOT send — drafts only. Crane's own outbound
 # identity (AgentMail) is NOT wired and is an open onboarding item, not a connector here.
 connectors:
+  # Crane's OWN mailbox identity = AgentMail (smdcrane@agentmail.to), wired as an
+  # MCP server (overlay mcp_registry → mcp.agentmail.to, key AGENTMAIL_API_KEY).
+  # This is what makes Crane reachable + able to send/reply on its own identity.
+  # The intake Gmail (smdurgan@smdurgan.com) is triaged by the inbox-triage skill
+  # via crane_gmail.py directly (gmail.modify, never-send) — NOT this connector.
   Email:
-    adapter: google-gmail
-    backend: mcp:google-gmail
+    adapter: agentmail
+    backend: mcp:agentmail
     enabled: true
   Calendar:
     adapter: google-calendar
@@ -94,6 +99,14 @@ scope:
   email_folders_blind: []
   email_keyword_blocks: []
   domain_blocks: []
+  # ---- TRUST CEILINGS (per-action, ADR 0025) ----
+  # Crane sends from its OWN AgentMail identity (smdcrane@agentmail.to) without
+  # per-message approval ("default send level autonomous", interview). Floors that
+  # still apply ON TOP: content-sensitivity floor (ADR 0031) drops money/contract/
+  # scope/legal to draft-for-review; principal-identity (Gmail) sends stay hard-
+  # banned (draft only); commitment/destructive keep current-turn-approval floors.
+  action_ceilings:
+    external_send: autonomous
 
 # ---- ESCALATION ----
 # "just flag it to me" → red flags + run failures go to the boss/escalation address.
