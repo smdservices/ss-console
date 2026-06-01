@@ -147,6 +147,31 @@ def test_extract_user_messages_filters_noise(tmp_path):
     assert any("configurable" in m for m in msgs)
 
 
+def test_extract_user_messages_rejects_agent_prompts_and_markdown(tmp_path):
+    """Agent role-prompts and pasted skill/markdown docs are not the author's
+    voice — they read as instructions TO an agent and would teach the opposite
+    of the author's terse first-person register."""
+    transcript = tmp_path / "t.jsonl"
+    _write_transcript(
+        transcript,
+        [
+            # drop: second-person agent role prompts (skill-authored, pasted)
+            {"message": {"role": "user", "content": "You are Claude Code, an interactive agent that helps with software engineering tasks."}},
+            {"message": {"role": "user", "content": "Your task is to review the diff and report every correctness bug you can find."}},
+            {"message": {"role": "user", "content": "Output only the final answer as a single JSON object with no other commentary."}},
+            # drop: pasted markdown doc / skill definition header
+            {"message": {"role": "user", "content": "# /ship - Ship to Production\n\nCommit, push, PR, CI, merge, and confirm deployment all in one shot."}},
+            # keep: the author's own terse first-person prose
+            {"message": {"role": "user", "content": "Stop guessing. Verify the secret values, then ship it cleanly through a PR."}},
+        ],
+    )
+    msgs = list(extract_user_messages(transcript, min_words=5))
+    assert len(msgs) == 1
+    assert "Verify the secret values" in msgs[0]
+    # case-insensitive: lowercased agent opener must also be rejected
+    assert not any(m.lower().startswith(("you are", "your task", "output only")) for m in msgs)
+
+
 def test_extract_corpus_dedupes_and_limits(tmp_path):
     t1 = tmp_path / "a.jsonl"
     t2 = tmp_path / "b.jsonl"
