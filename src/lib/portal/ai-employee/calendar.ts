@@ -40,6 +40,7 @@
  */
 
 import type { SubscriptionRow } from '../product-access'
+import { type Page, paginate } from './pagination'
 
 /**
  * The two kinds of items that land in the calendar surface. The
@@ -251,42 +252,19 @@ export function applyCalendarSort(
   return sorted
 }
 
-/**
- * Pagination return value. Same shape as Drafts. `totalCount` is the
- * count after filtering but before pagination; `pageCount` is floored
- * at 1 even when there are zero rows so "Page 1 of 1" reads sensibly
- * in the empty state.
- */
-export interface CalendarListPage {
-  rows: CalendarItem[]
-  totalCount: number
-  page: number
-  pageSize: number
-  pageCount: number
-}
+/** Pagination return value. See {@link Page} (pagination.ts). */
+export type CalendarListPage = Page<CalendarItem>
 
 /**
- * Apply offset-based pagination to a sorted+filtered list. Page is
- * 1-indexed, clamped to [1, pageCount]. Out-of-range pages return the
- * last page rather than an empty result — keeps deep links from
- * rendering as "no events" when the list shifted underneath.
+ * Apply offset-based pagination to a sorted+filtered list. Thin wrapper over
+ * the shared {@link paginate}; kept named for call-site + test stability.
  */
 export function paginateCalendarItems(
   rows: readonly CalendarItem[],
   page: number,
   pageSize: number
 ): CalendarListPage {
-  const totalCount = rows.length
-  const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
-  const clampedPage = Math.min(Math.max(1, Math.floor(page)), pageCount)
-  const start = (clampedPage - 1) * pageSize
-  return {
-    rows: rows.slice(start, start + pageSize),
-    totalCount,
-    page: clampedPage,
-    pageSize,
-    pageCount,
-  }
+  return paginate(rows, page, pageSize)
 }
 
 /**

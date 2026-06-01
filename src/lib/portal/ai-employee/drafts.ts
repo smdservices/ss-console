@@ -25,6 +25,7 @@
  */
 
 import type { SubscriptionRow } from '../product-access'
+import { type Page, paginate } from './pagination'
 
 /**
  * Trust-ceiling decisions emitted by the AI Employee per ADR 0005. The
@@ -257,37 +258,19 @@ export function applyDraftSort(rows: readonly Draft[], sort: DraftSort): Draft[]
  * at 1 even when there are zero rows so "Page 1 of 1" reads sensibly
  * in the empty state.
  */
-export interface DraftListPage {
-  rows: Draft[]
-  totalCount: number
-  page: number
-  pageSize: number
-  pageCount: number
-}
+export type DraftListPage = Page<Draft>
 
 /**
- * Apply offset-based pagination to a sorted+filtered list. Page is
- * 1-indexed, clamped to [1, pageCount]. Out-of-range pages return the
- * last page rather than an empty result — keeps deep links to a
- * just-cleared page from rendering as "no drafts" when the reviewer
- * meant the new top of the list.
+ * Apply offset-based pagination to a sorted+filtered list. Thin wrapper over
+ * the shared {@link paginate} (see pagination.ts for the clamping contract);
+ * kept as a named export for call-site + test stability.
  */
 export function paginateDrafts(
   rows: readonly Draft[],
   page: number,
   pageSize: number
 ): DraftListPage {
-  const totalCount = rows.length
-  const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
-  const clampedPage = Math.min(Math.max(1, Math.floor(page)), pageCount)
-  const start = (clampedPage - 1) * pageSize
-  return {
-    rows: rows.slice(start, start + pageSize),
-    totalCount,
-    page: clampedPage,
-    pageSize,
-    pageCount,
-  }
+  return paginate(rows, page, pageSize)
 }
 
 /**
