@@ -1,5 +1,5 @@
 ---
-name: smd-inbox-triage
+name: inbox-triage
 description: Daily Gmail triage with categorized reply drafts for owner.
 version: 0.1.0
 author: SMD Services
@@ -13,7 +13,7 @@ metadata:
     tags: [Email, Triage, Draft, SMD, Customer-Zero]
   smd:
     customer: smd
-    trust_ceiling: draft_only
+    trust_ceiling: draft_for_review
 ---
 
 # SMD Inbox Triage Drafter
@@ -33,19 +33,19 @@ Requires Google Workspace skill (`productivity/google-workspace`) and `python3`.
 Triage the current unread inbox:
 
 ```
-hermes run smd-inbox-triage
+hermes run inbox-triage
 ```
 
 Triage a specific window:
 
 ```
-hermes run smd-inbox-triage --window "newer_than:2d"
+hermes run inbox-triage --window "newer_than:2d"
 ```
 
 Triage at most N messages (cost / latency cap):
 
 ```
-hermes run smd-inbox-triage --max 25
+hermes run inbox-triage --max 25
 ```
 
 ## Procedure
