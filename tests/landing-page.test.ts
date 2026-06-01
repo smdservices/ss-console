@@ -26,7 +26,7 @@ function readAllSrcFiles(): string[] {
 }
 
 // Marketing surfaces. The "no dollar amounts" check below applies to these
-// files. The AI Employee SKU page (src/pages/ai-employee.astro) is included:
+// files. The Operator SKU page (src/pages/operator.astro) is included:
 // as of 2026-05-30 we pulled the published $5,000/mo price and route pricing
 // to the first conversation, so no dollar amount may appear on that surface
 // either. New marketing sections SHOULD be added here so a future edit cannot
@@ -34,14 +34,14 @@ function readAllSrcFiles(): string[] {
 function readMarketingFiles(): string[] {
   return [
     resolve('src/pages/index.astro'),
-    resolve('src/pages/ai-employee.astro'),
+    resolve('src/pages/operator.astro'),
     join(componentsDir, 'Hero.astro'),
     join(componentsDir, 'ProblemCards.astro'),
     join(componentsDir, 'RoiMath.astro'),
     join(componentsDir, 'HowWeEngage.astro'),
     join(componentsDir, 'HowWePrice.astro'),
     join(componentsDir, 'WhatYouGet.astro'),
-    join(componentsDir, 'AiEmployeeIntro.astro'),
+    join(componentsDir, 'OperatorIntro.astro'),
     join(componentsDir, 'CaseStudies.astro'),
     join(componentsDir, 'About.astro'),
     join(componentsDir, 'FinalCta.astro'),

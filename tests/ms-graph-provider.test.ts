@@ -54,7 +54,7 @@ describe('buildMicrosoftGraphAuthorizeUrl', () => {
     const url = buildMicrosoftGraphAuthorizeUrl({
       client_id: 'app-123',
       redirect_uri:
-        'https://portal.smd.services/portal/products/ai-employee/oauth/microsoft-graph/callback',
+        'https://portal.smd.services/portal/products/operator/oauth/microsoft-graph/callback',
       state: 'signed-state-token',
     })
     expect(url.startsWith(MS_GRAPH_AUTHORIZE_URL)).toBe(true)
@@ -152,7 +152,7 @@ describe('microsoftGraphProvider entry', () => {
     const result = await microsoftGraphProvider.exchange_code({
       code: 'AUTH123',
       redirect_uri:
-        'https://portal.smd.services/portal/products/ai-employee/oauth/microsoft-graph/callback',
+        'https://portal.smd.services/portal/products/operator/oauth/microsoft-graph/callback',
     })
     expect(result.access_token).toBe('tok')
     expect(result.refresh_token).toBe('refresh')

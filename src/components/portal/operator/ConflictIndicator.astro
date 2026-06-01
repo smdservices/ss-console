@@ -1,0 +1,65 @@
+---
+/**
+ * Conflict indicator for the Operator calendar agenda.
+ *
+ * Renders a small inline marker on a row whose time range overlaps one
+ * or more other items in the same agenda. Computed by
+ * `detectConflicts(items)` in src/lib/portal/operator/calendar.ts;
+ * this component is the visual surface only.
+ *
+ * Two cases:
+ *   - `conflictCount === 0` → render nothing. The caller can pass the
+ *     value unconditionally without needing to gate at the call site.
+ *   - `conflictCount > 0` → render an inline marker with a count and an
+ *     accessible label. The marker is styled with the `danger` tone
+ *     vocabulary (red fill, white text) so it pulls scanner attention
+ *     immediately; conflicts are the highest-signal datum on the row.
+ *
+ * Why not StatusPill with tone='danger'? StatusPill is a status tag —
+ * the calendar row already carries one for type (scheduled / proposed).
+ * Stacking two same-shape tags creates visual confusion (UI-PATTERNS R2
+ * — one signal per fact). The conflict marker uses a tag + count
+ * affordance (badge-style, e.g., "Conflicts 2") so the scanner knows
+ * it's a different kind of signal at a glance.
+ *
+ * Accessibility: the inner text describes the conflict count in plain
+ * language. screen-reader users hear "2 time conflicts" rather than
+ * just the number. The host row carries `aria-describedby` so the
+ * marker is announced as part of the row context.
+ */
+
+interface Props {
+  /**
+   * Number of OTHER items that overlap with this one in time. Computed
+   * by detectConflicts and passed through by the row. Zero means
+   * "no conflicts" and the component returns null.
+   */
+  conflictCount: number
+  /**
+   * Stable id used to wire `aria-describedby` from the parent row, if
+   * the parent wants the screen-reader to read the conflict label as
+   * part of the row. Optional.
+   */
+  id?: string
+}
+
+const { conflictCount, id } = Astro.props
+const visible = conflictCount > 0
+const label = conflictCount === 1 ? '1 time conflict' : `${conflictCount} time conflicts`
+---
+
+{
+  visible && (
+    <span
+      id={id}
+      class="inline-flex items-center gap-1.5 px-2 py-1 bg-[color:var(--ss-color-error)] text-white font-mono uppercase tracking-[var(--ss-text-letter-spacing-label)] text-label font-semibold rounded-[var(--ss-radius-badge)] whitespace-nowrap"
+      role="status"
+      aria-label={label}
+    >
+      <span aria-hidden="true">⚠</span>
+      <span aria-hidden="true">
+        {conflictCount === 1 ? 'Conflict' : `Conflicts ${conflictCount}`}
+      </span>
+    </span>
+  )
+}

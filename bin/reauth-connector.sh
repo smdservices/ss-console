@@ -231,7 +231,7 @@ fi
 BODY_TEXT=$(cat <<MSG
 Hello,
 
-We need you to re-authorize the SMD Services AI Employee connection to
+We need you to re-authorize the SMD Services Operator connection to
 your Microsoft 365 account. Click the link below to sign in and grant
 access. The link expires in 10 minutes.
 
@@ -253,7 +253,7 @@ import json, os
 print(json.dumps({
     "from": os.environ["REAUTH_FROM_ADDRESS"],
     "to": [os.environ["CUSTOMER_EMAIL"]],
-    "subject": "Re-authorize Microsoft 365 access for the AI Employee",
+    "subject": "Re-authorize Microsoft 365 access for the Operator",
     "text": os.environ["BODY_TEXT"],
 }))
 PY

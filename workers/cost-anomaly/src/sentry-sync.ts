@@ -1,7 +1,7 @@
 /**
- * Sentry 24h error-count sync for the AI Employee fleet (ADR 0023 Wave 1).
+ * Sentry 24h error-count sync for the Operator fleet (ADR 0023 Wave 1).
  *
- * For each AI Employee customer, query Sentry's Discover Events endpoint
+ * For each Operator customer, query Sentry's Discover Events endpoint
  * for `count()` of events in the last 24h filtered by `tenant:<slug>`,
  * then UPSERT the value into `fleet_status.sentry_errors_last_24h` +
  * `sentry_errors_synced_at`.

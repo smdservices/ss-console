@@ -13,7 +13,7 @@
  *
  * Why not a D1 row keyed by an opaque state? D1 single-use states (the
  * existing `src/lib/db/oauth-states.ts` pattern) serialize on every flow
- * across all customers. For multi-tenant AI Employee provisioning we expect
+ * across all customers. For multi-tenant Operator provisioning we expect
  * to scale this beyond what a single shared table comfortably owns, and we
  * already need a server-side secret for downstream token handling. A signed
  * stateless token is the natural shape.

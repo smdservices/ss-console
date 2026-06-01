@@ -1,0 +1,33 @@
+-- ============================================================================
+-- Migration 0048: rename product slug 'ai-employee' -> 'operator'
+-- ============================================================================
+--
+-- The productized SKU formerly named "AI Employee" is renamed to "Operator"
+-- (ADR 0034 — capability realignment, the product acts/sends per ADR 0025/0031;
+-- "employee" no longer describes it). The portal subscription slug is the only
+-- live DB representation of the product name. This migration migrates it.
+--
+-- TABLES TOUCHED (both carry product_slug, introduced in migration 0038):
+--   subscriptions.product_slug   — one row per (entity, product) subscription
+--   product_roles.product_slug   — one row per (user, entity, product) grant
+--
+-- NOT TOUCHED:
+--   product_roles.role           — the value 'operator' here is the HUMAN role
+--                                  in the principal|operator|compliance triad,
+--                                  unrelated to the product name. It stays.
+--                                  (ADR 0034 §2: humans-as-operators retained.)
+--   customer_configs             — keys on customer_slug (e.g. 'smd'), not on
+--                                  product_slug; nothing to migrate here.
+--
+-- DEPLOY COORDINATION: ships in the same deploy as the PR 1 code, which now
+-- queries product_slug = 'operator'. Old code querying 'ai-employee' would
+-- return zero rows after this runs; new code querying 'operator' before this
+-- runs would return zero rows. They must land together.
+--
+-- ROLLBACK (manual, if PR 1 is reverted):
+--   UPDATE subscriptions SET product_slug = 'ai-employee' WHERE product_slug = 'operator';
+--   UPDATE product_roles SET product_slug = 'ai-employee' WHERE product_slug = 'operator';
+-- ============================================================================
+
+UPDATE subscriptions SET product_slug = 'operator' WHERE product_slug = 'ai-employee';
+UPDATE product_roles SET product_slug = 'operator' WHERE product_slug = 'ai-employee';

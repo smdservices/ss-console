@@ -1,7 +1,7 @@
-# Cost Telemetry Worker — nightly cost-driver ingest for AI Employee
+# Cost Telemetry Worker — nightly cost-driver ingest for Operator
 # Per docs/specs/ai-employee/cost-telemetry-events.md "Nightly Captain job".
 #
-# The worker iterates every active AI Employee customer once per day at
+# The worker iterates every active Operator customer once per day at
 # 02:00 UTC. For each customer it pulls yesterday's Anthropic token usage,
 # computes cents via the hardcoded pricing JSON files at
 # ai-employee/adapter/cost_telemetry/, and UPSERTs one or more rows into

@@ -1,5 +1,5 @@
 /**
- * OAuth provider registry for AI Employee connector consent flows.
+ * OAuth provider registry for Operator connector consent flows.
  *
  * Each provider entry knows how to exchange an authorization code for an
  * access + refresh token pair on its issuer. The callback at
@@ -7,7 +7,7 @@
  * signed state parameter.
  *
  * Provider slugs match the `connectors:` value shape in customer.yaml
- * (see docs/specs/ai-employee/customer-yaml-schema.md and the per-connector
+ * (see docs/specs/operator/customer-yaml-schema.md and the per-connector
  * oauth_scopes.json files in ai-employee/connectors/). v1 covers the
  * Phase 1 connectors that ship with first customer-zero: Microsoft Graph
  * and Google Workspace. Subsequent providers (Clio, LawPay, QuickBooks,

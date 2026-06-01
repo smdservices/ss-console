@@ -27,8 +27,8 @@ import {
   applySkillToggle,
   listConfigChangeAudit,
   isCeiling,
-} from '../src/lib/portal/ai-employee/config-governance'
-import { ACCEPTED_ACTION_CLASSES } from '../src/lib/ai-employee/customer-yaml/types'
+} from '../src/lib/portal/operator/config-governance'
+import { ACCEPTED_ACTION_CLASSES } from '../src/lib/operator/customer-yaml/types'
 
 const migrationsDir = resolve(process.cwd(), 'migrations')
 

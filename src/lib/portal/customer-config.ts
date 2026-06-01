@@ -195,7 +195,7 @@ export async function getActivePersona(
 
 /**
  * Source of a customer_config_history event. Mirrors the SyncSource enum
- * exported from src/lib/ai-employee/customer-yaml (added in PR 1). Kept as
+ * exported from src/lib/operator/customer-yaml (added in PR 1). Kept as
  * a literal-union here so the portal-side modules don't need to pull in
  * the validator just for the enum.
  */
@@ -353,7 +353,7 @@ export async function recordCustomerConfigSync(
 
 /**
  * List the most-recent N history rows for a customer slug. Powers the
- * admin /admin/ai-employee/config-history/<slug>.astro page.
+ * admin /admin/operator/config-history/<slug>.astro page.
  */
 export async function listCustomerConfigHistory(
   db: D1Database,

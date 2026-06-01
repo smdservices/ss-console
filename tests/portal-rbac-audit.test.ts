@@ -1,6 +1,6 @@
 /**
  * Tests for the RBAC audit emission helper
- * (src/lib/portal/ai-employee/rbac-audit.ts).
+ * (src/lib/portal/operator/rbac-audit.ts).
  *
  * Covers:
  *   - buildRoleAuditEvent shape (role_granted, role_revoked) — full
@@ -27,7 +27,7 @@ import {
   buildRoleAuditEvent,
   recordRbacAuditEvent,
   type InviteSentAuditEvent,
-} from '../src/lib/portal/ai-employee/rbac-audit'
+} from '../src/lib/portal/operator/rbac-audit'
 
 describe('RBAC_SUB_ACTIONS vocabulary', () => {
   it('contains the role + invite sub-actions', () => {
@@ -52,7 +52,7 @@ describe('RBAC_SUB_ACTIONS vocabulary', () => {
 describe('buildMatterAssignmentAuditEvent', () => {
   const baseInput = {
     customer_id: 'cust-smith-pi',
-    product_slug: 'ai-employee',
+    product_slug: 'operator',
     actorUserId: 'u-pat-001',
     actorClerkUserId: 'clerk_user_pat',
     actorEmail: 'pat.owner@smithlaw.com',
@@ -91,7 +91,7 @@ describe('buildPtoSetAuditEvent / buildPtoClearedAuditEvent', () => {
   it('builds pto_set with backup metadata', () => {
     const event = buildPtoSetAuditEvent({
       customer_id: 'cust-smith-pi',
-      product_slug: 'ai-employee',
+      product_slug: 'operator',
       actorUserId: 'u-alex-002',
       actorClerkUserId: 'clerk_alex',
       actorEmail: 'alex@smithlaw.com',
@@ -110,7 +110,7 @@ describe('buildPtoSetAuditEvent / buildPtoClearedAuditEvent', () => {
   it('builds pto_set with null backup', () => {
     const event = buildPtoSetAuditEvent({
       customer_id: 'cust-smith-pi',
-      product_slug: 'ai-employee',
+      product_slug: 'operator',
       actorUserId: 'u-alex-002',
       actorClerkUserId: null,
       actorEmail: 'alex@smithlaw.com',
@@ -127,7 +127,7 @@ describe('buildPtoSetAuditEvent / buildPtoClearedAuditEvent', () => {
   it('builds pto_cleared with the away user identity', () => {
     const event = buildPtoClearedAuditEvent({
       customer_id: 'cust-smith-pi',
-      product_slug: 'ai-employee',
+      product_slug: 'operator',
       actorUserId: 'u-alex-002',
       actorClerkUserId: 'clerk_alex',
       actorEmail: 'alex@smithlaw.com',
@@ -145,7 +145,7 @@ describe('buildNotificationPrefsAuditEvent', () => {
   it('builds an event whose prefsSnapshot is sorted (event_type, scope)', () => {
     const event = buildNotificationPrefsAuditEvent({
       customer_id: 'cust-smith-pi',
-      product_slug: 'ai-employee',
+      product_slug: 'operator',
       actorUserId: 'u-alex-002',
       actorClerkUserId: 'clerk_alex',
       actorEmail: 'alex@smithlaw.com',
@@ -169,7 +169,7 @@ describe('buildNotificationPrefsAuditEvent', () => {
   it('preserves the empty snapshot (opt-out of everything)', () => {
     const event = buildNotificationPrefsAuditEvent({
       customer_id: 'cust-smith-pi',
-      product_slug: 'ai-employee',
+      product_slug: 'operator',
       actorUserId: 'u-alex-002',
       actorClerkUserId: null,
       actorEmail: 'alex@smithlaw.com',
@@ -185,7 +185,7 @@ describe('buildNotificationPrefsAuditEvent', () => {
 describe('buildRoleAuditEvent', () => {
   const baseInput = {
     customer_id: 'cust-smith-pi',
-    product_slug: 'ai-employee',
+    product_slug: 'operator',
     actorUserId: 'u-pat-001',
     actorClerkUserId: 'clerk_user_pat',
     actorEmail: 'pat.owner@smithlaw.com',
@@ -201,7 +201,7 @@ describe('buildRoleAuditEvent', () => {
     expect(event.type).toBe('audit:rbac_event')
     expect(event.subAction).toBe('role_granted')
     expect(event.customer_id).toBe('cust-smith-pi')
-    expect(event.product_slug).toBe('ai-employee')
+    expect(event.product_slug).toBe('operator')
     expect(event.actorUserId).toBe('u-pat-001')
     expect(event.actorClerkUserId).toBe('clerk_user_pat')
     expect(event.actorEmail).toBe('pat.owner@smithlaw.com')
@@ -253,7 +253,7 @@ describe('buildInviteAuditEvent', () => {
   it('builds an invite_sent event with Clerk org + invitation IDs', () => {
     const event: InviteSentAuditEvent = buildInviteAuditEvent({
       customer_id: 'cust-smith-pi',
-      product_slug: 'ai-employee',
+      product_slug: 'operator',
       actorUserId: 'u-pat-001',
       actorClerkUserId: 'clerk_user_pat',
       actorEmail: 'pat.owner@smithlaw.com',
@@ -287,7 +287,7 @@ describe('recordRbacAuditEvent — emission contract', () => {
         buildRoleAuditEvent({
           subAction: 'role_granted',
           customer_id: 'cust-1',
-          product_slug: 'ai-employee',
+          product_slug: 'operator',
           actorUserId: 'u-pat',
           actorClerkUserId: 'clerk_pat',
           actorEmail: 'pat@x.com',
@@ -321,7 +321,7 @@ describe('recordRbacAuditEvent — emission contract', () => {
       await recordRbacAuditEvent(
         buildInviteAuditEvent({
           customer_id: 'cust-1',
-          product_slug: 'ai-employee',
+          product_slug: 'operator',
           actorUserId: 'u-pat',
           actorClerkUserId: null,
           actorEmail: 'pat@x.com',

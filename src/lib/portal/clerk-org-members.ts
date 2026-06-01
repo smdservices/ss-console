@@ -1,7 +1,7 @@
 /**
  * Clerk Organization member + pending-invitation reader.
  *
- * The Users page (`/portal/products/ai-employee/settings/users`)
+ * The Users page (`/portal/products/operator/settings/users`)
  * displays one row per local users record that has a granted role.
  * Without this helper, members who have been invited but not yet
  * signed in (and therefore haven't JIT-created their local users row

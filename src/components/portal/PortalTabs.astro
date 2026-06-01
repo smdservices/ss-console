@@ -28,16 +28,16 @@
 interface Props {
   pathname: string
   /**
-   * When true, render an additional "AI Employee" tab pointing at the
-   * product surface at /portal/products/ai-employee. Set by portal
+   * When true, render an additional "Operator" tab pointing at the
+   * product surface at /portal/products/operator. Set by portal
    * pages that detected an active (or provisioning/paused) subscription
    * via getProductSubscription. Defaults to false so existing pages
    * that don't yet pass the prop keep their current 4-tab layout.
    */
-  aiEmployeeActive?: boolean
+  operatorActive?: boolean
 }
 
-const { pathname, aiEmployeeActive = false } = Astro.props
+const { pathname, operatorActive = false } = Astro.props
 
 interface TabDef {
   href: string
@@ -73,14 +73,14 @@ const baseTabs: TabDef[] = [
   },
 ]
 
-const tabs: TabDef[] = aiEmployeeActive
+const tabs: TabDef[] = operatorActive
   ? [
       ...baseTabs,
       {
-        href: '/portal/products/ai-employee',
-        label: 'AI Employee',
+        href: '/portal/products/operator',
+        label: 'Operator',
         anchor: '05',
-        matchPrefix: '/portal/products/ai-employee',
+        matchPrefix: '/portal/products/operator',
       },
     ]
   : baseTabs

@@ -106,7 +106,7 @@ function renderDigestHtml(
   const safeUrl = escapeHtml(dashboardUrl)
   return `<!doctype html>
 <html><body style="font-family:-apple-system,system-ui,sans-serif;color:#111;max-width:720px;margin:0 auto;padding:24px;">
-  <h2 style="margin:0 0 8px;">AI Employee — cost anomaly digest</h2>
+  <h2 style="margin:0 0 8px;">Operator — cost anomaly digest</h2>
   <p style="margin:0 0 16px;color:#4b5563;">${alerts.length} alert${alerts.length === 1 ? '' : 's'} detected on ${escapeHtml(runDate)}. Each row shows the customer's daily cost against the 7-day rolling average and the driver that contributed the largest delta.</p>
   <table style="width:100%;border-collapse:collapse;font-size:14px;">
     <thead>

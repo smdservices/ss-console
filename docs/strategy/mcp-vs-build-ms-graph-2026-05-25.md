@@ -32,7 +32,7 @@ usage of `build:ms-graph` to coordinate around.
 
 The connector at `ai-employee/connectors/ms_graph/` is 2,456 lines of
 Python across 8 files implementing three capability interfaces from
-`docs/specs/ai-employee/capability-contracts.md`:
+`docs/specs/operator/capability-contracts.md`:
 
 | File                  | LoC      | Owns                                                                                                                                                                                                                                                                 |
 | --------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

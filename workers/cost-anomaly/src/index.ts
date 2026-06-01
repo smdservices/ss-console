@@ -6,7 +6,7 @@
  * so the trailing-day data is fresh when detection runs.
  *
  * Flow:
- *   1. Enumerate AI Employee customers from central customer_configs.
+ *   1. Enumerate Operator customers from central customer_configs.
  *   2. For each customer with a per-customer D1 id:
  *      a. Read trailing 8 days of cost_telemetry via the D1 HTTP API.
  *      b. Run detectAnomaly() on the aggregate daily series.

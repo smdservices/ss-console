@@ -1,0 +1,289 @@
+---
+/**
+ * "Teach [persona]" trigger button + inline rule-add dialog (#810).
+ *
+ * Composition wrapper around TeachMarcusForm. Renders the entry-point
+ * button and the native <dialog> that hosts the form. Drives the
+ * client-side submit pathway (intercepts the form, POSTs JSON, renders
+ * confirmation or inline error).
+ *
+ * Per UI-PATTERNS.md R3 (button hierarchy: one primary per view), this
+ * button is rendered as a SECONDARY action — the draft detail page's
+ * primary action remains Approve & Send. Visual weight: bordered
+ * surface, not solid fill.
+ *
+ * Persona name handling:
+ *   The trigger label uses the active persona name from
+ *   `getActivePersona()` (passed in via `personaName` prop). When the
+ *   page has no active persona, the label falls back to "Add rule" —
+ *   never a hardcoded fixture name (no "Marcus" in shipped user-facing
+ *   copy). The form component handles its own submit-button label the
+ *   same way.
+ *
+ * Role gate:
+ *   The page is responsible for the role gate (principal + operator
+ *   per the issue spec). Compliance never gets this button rendered.
+ *   This component does not re-check roles — it trusts the page
+ *   composition decision.
+ *
+ * No fabrication:
+ *   The confirmation surfaces the partner's actual submission outcome
+ *   from the POST response. No fake "rules learned" stats, no
+ *   placeholder confirmations.
+ */
+
+import TeachMarcusForm from './TeachMarcusForm.astro'
+
+interface Props {
+  draftId: string
+  /**
+   * Active persona display name from the page's getActivePersona()
+   * resolver. When null (no active persona configured), the trigger
+   * and the form's submit button both use the generic "Add rule"
+   * label. Never accept a hardcoded fixture string.
+   */
+  personaName: string | null
+}
+
+const { draftId, personaName } = Astro.props
+
+const triggerLabel =
+  personaName !== null && personaName.length > 0 ? `Teach ${personaName}` : 'Add rule'
+const dialogTitle =
+  personaName !== null && personaName.length > 0
+    ? `Teach ${personaName} a new rule`
+    : 'Add a memory rule'
+---
+
+<section
+  aria-label="Teach the Operator"
+  class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-surface)]"
+  data-teach-root
+>
+  <header
+    class="flex flex-wrap items-baseline justify-between gap-3 px-5 md:px-6 py-3 md:py-4 border-b-[2px] border-[color:var(--ss-color-text-primary)]"
+  >
+    <h2
+      class="font-['Archivo'] font-bold text-base md:text-lg uppercase tracking-[0.04em] m-0 text-[color:var(--ss-color-text-primary)]"
+    >
+      {dialogTitle}
+    </h2>
+  </header>
+
+  <div class="px-5 md:px-6 py-5 md:py-6 flex flex-col gap-stack">
+    <p class="font-['Archivo'] text-[color:var(--ss-color-text-primary)] m-0">
+      Saw something off in this draft? Add a rule. The Operator uses memory rules when it writes
+      future drafts on this customer.
+    </p>
+
+    <p
+      data-teach-confirmation
+      role="status"
+      hidden
+      class="font-['Archivo'] text-[color:var(--ss-color-complete)] m-0"
+    >
+      Added to memory.
+    </p>
+
+    <div>
+      <button
+        type="button"
+        data-teach-open
+        class="inline-flex items-center min-h-11 px-5 py-2 border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-surface)] font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+      >
+        {triggerLabel}
+      </button>
+    </div>
+  </div>
+
+  <dialog
+    data-teach-dialog
+    aria-label={dialogTitle}
+    class="m-auto p-0 max-w-xl w-[calc(100%-2rem)] border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-surface)] backdrop:bg-[color:var(--ss-color-text-primary)] backdrop:opacity-50"
+  >
+    <header
+      class="flex items-center justify-between gap-3 px-5 md:px-6 py-3 md:py-4 border-b-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-primary)]"
+    >
+      <span class="font-['Archivo'] font-bold text-base md:text-lg uppercase tracking-[0.04em]">
+        {dialogTitle}
+      </span>
+      <button
+        type="button"
+        data-teach-close
+        aria-label="Close"
+        class="inline-flex items-center justify-center min-h-11 min-w-11 font-['Archivo_Narrow'] text-sm font-bold uppercase tracking-[0.14em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+      >
+        Close
+      </button>
+    </header>
+
+    <div class="px-5 md:px-6 py-5 md:py-6">
+      <TeachMarcusForm draftId={draftId} personaName={personaName} />
+    </div>
+  </dialog>
+</section>
+
+<script>
+  type TeachFormResponseOk = { ok: true; auditTimestamp: string }
+  type TeachFormResponseErr = { ok: false; reason: string; field: 'kind' | 'text' | null }
+  type TeachFormResponse = TeachFormResponseOk | TeachFormResponseErr
+
+  function setHidden(element: HTMLElement, hidden: boolean): void {
+    if (hidden) {
+      element.setAttribute('hidden', '')
+    } else {
+      element.removeAttribute('hidden')
+    }
+  }
+
+  function isResponseOk(value: unknown): value is TeachFormResponseOk {
+    if (value === null || typeof value !== 'object') return false
+    const v = value as Record<string, unknown>
+    return v.ok === true && typeof v.auditTimestamp === 'string'
+  }
+
+  function isResponseErr(value: unknown): value is TeachFormResponseErr {
+    if (value === null || typeof value !== 'object') return false
+    const v = value as Record<string, unknown>
+    return v.ok === false && typeof v.reason === 'string'
+  }
+
+  function initTeachRoot(root: HTMLElement): void {
+    const openBtn = root.querySelector<HTMLElement>('[data-teach-open]')
+    const dialog = root.querySelector<HTMLElement>('[data-teach-dialog]')
+    const closeBtn = root.querySelector<HTMLElement>('[data-teach-close]')
+    const cancelBtn = root.querySelector<HTMLElement>('[data-teach-cancel]')
+    const form = root.querySelector<HTMLElement>('[data-teach-form]')
+    const kindSelect = root.querySelector<HTMLElement>('[data-teach-kind]')
+    const cohortRow = root.querySelector<HTMLElement>('[data-cohort-row]')
+    const errorBox = root.querySelector<HTMLElement>('[data-teach-error]')
+    const submitBtn = root.querySelector<HTMLElement>('[data-teach-submit]')
+    const confirmation = root.querySelector<HTMLElement>('[data-teach-confirmation]')
+
+    if (
+      !openBtn ||
+      !dialog ||
+      !closeBtn ||
+      !cancelBtn ||
+      !form ||
+      !kindSelect ||
+      !cohortRow ||
+      !errorBox ||
+      !submitBtn ||
+      !confirmation
+    ) {
+      return
+    }
+
+    const teachUrl = form.dataset.teachUrl ?? ''
+    if (teachUrl.length === 0) return
+
+    const dialogEl = dialog as HTMLElement & {
+      showModal?: () => void
+      close?: () => void
+    }
+    const formEl = form as HTMLElement & {
+      reset?: () => void
+    }
+    const selectEl = kindSelect as HTMLElement & { value: string }
+    const submitEl = submitBtn as HTMLElement & { disabled: boolean }
+
+    function openDialog(): void {
+      setHidden(errorBox!, true)
+      setHidden(confirmation!, true)
+      if (typeof dialogEl.showModal === 'function') {
+        dialogEl.showModal()
+      } else {
+        dialogEl.setAttribute('open', '')
+      }
+    }
+
+    function closeDialog(): void {
+      if (typeof dialogEl.close === 'function') {
+        dialogEl.close()
+      } else {
+        dialogEl.removeAttribute('open')
+      }
+    }
+
+    function syncCohortVisibility(): void {
+      const isCohort = selectEl.value === 'recipient_cohort'
+      setHidden(cohortRow!, !isCohort)
+    }
+
+    openBtn.addEventListener('click', () => {
+      openDialog()
+    })
+
+    closeBtn.addEventListener('click', () => {
+      closeDialog()
+    })
+
+    cancelBtn.addEventListener('click', () => {
+      closeDialog()
+    })
+
+    kindSelect.addEventListener('change', () => {
+      syncCohortVisibility()
+    })
+    syncCohortVisibility()
+
+    form.addEventListener('submit', (evt) => {
+      evt.preventDefault()
+      const formData = new FormData(form as unknown as HTMLFormElement)
+      const payload = {
+        kind: formData.get('kind'),
+        text: formData.get('text'),
+        recipientCohort: formData.get('recipientCohort'),
+      }
+      setHidden(errorBox, true)
+      submitEl.disabled = true
+
+      void fetch(teachUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+        .then(async (res) => {
+          const body: unknown = await res.json().catch(() => ({
+            ok: false,
+            reason: 'The server returned an unexpected response. Try again.',
+            field: null,
+          }))
+          if (res.ok && isResponseOk(body)) {
+            return body
+          }
+          if (isResponseErr(body)) {
+            return body
+          }
+          return {
+            ok: false as const,
+            reason: 'The server rejected the rule. Try again.',
+            field: null,
+          }
+        })
+        .then((result: TeachFormResponse) => {
+          if (result.ok) {
+            if (typeof formEl.reset === 'function') formEl.reset()
+            syncCohortVisibility()
+            closeDialog()
+            setHidden(confirmation, false)
+            return
+          }
+          errorBox.textContent = result.reason
+          setHidden(errorBox, false)
+        })
+        .catch(() => {
+          errorBox.textContent = 'The rule could not be saved. Check your connection and try again.'
+          setHidden(errorBox, false)
+        })
+        .finally(() => {
+          submitEl.disabled = false
+        })
+    })
+  }
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-teach-root]')) {
+    initTeachRoot(root)
+  }
+</script>

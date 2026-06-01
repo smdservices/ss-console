@@ -1,0 +1,174 @@
+---
+/**
+ * Draft queue filter / sort bar.
+ *
+ * Renders three controls — skill multi-select, recipient text search,
+ * age window — plus a sort dropdown. Submits as a plain GET form to
+ * the surrounding page so server-side params drive the list. No
+ * client-side JavaScript: the page re-renders with the new query
+ * string, and the data resolver re-runs against the new params.
+ *
+ * Plainspoken aesthetic (matching #913/#914/#915 portal PRs): 3px ink
+ * border, Archivo Narrow uppercase labels, no shadow-y form chrome.
+ * The form is intentionally chunky so reviewers can scan from the
+ * filter row down into the table without losing the visual anchor.
+ *
+ * Drift guard: skill / recipient / sort param names match
+ * `parseDraftListParams` in src/lib/portal/operator/drafts.ts. If
+ * you rename one here, rename both — the URL is the contract between
+ * the form and the resolver.
+ */
+
+import { DRAFT_SORTS, type DraftSort } from '../../../lib/portal/operator/drafts'
+
+interface Props {
+  /**
+   * The currently-applied filter / sort state. Comes from the page's
+   * parsed URLSearchParams so the form re-hydrates after a submit.
+   */
+  skills: readonly string[]
+  recipient: string | null
+  maxAgeHours: number | null
+  sort: DraftSort
+  /**
+   * The set of skills observed across the current customer's drafts.
+   * Drives the multi-select options. Empty array → the skill control
+   * is rendered disabled with a "No skills yet" hint so the bar
+   * structure stays visible in the empty state.
+   */
+  availableSkills: readonly string[]
+}
+
+const { skills, recipient, maxAgeHours, sort, availableSkills } = Astro.props
+
+const SORT_LABELS: Record<DraftSort, string> = {
+  age_desc: 'Newest first',
+  age_asc: 'Oldest first',
+  priority_desc: 'Priority',
+  skill: 'Skill (A to Z)',
+}
+
+const selectedSkills = new Set(skills)
+---
+
+<form
+  method="get"
+  class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] p-4 md:p-5 grid grid-cols-1 md:grid-cols-[1fr_1fr_auto_auto_auto] gap-3 md:gap-4 md:items-end"
+  aria-label="Filter and sort drafts"
+>
+  {/* Skill multi-select */}
+  <div class="flex flex-col gap-1.5 min-w-0">
+    <label
+      for="filter-skill"
+      class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+    >
+      Skill
+    </label>
+    <select
+      id="filter-skill"
+      name="skill"
+      multiple
+      size={Math.min(Math.max(availableSkills.length, 1), 4)}
+      disabled={availableSkills.length === 0}
+      class="border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-mono text-sm text-[color:var(--ss-color-text-primary)] disabled:bg-[color:var(--ss-color-border-subtle)] disabled:text-[color:var(--ss-color-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+      aria-describedby={availableSkills.length === 0 ? 'filter-skill-empty' : undefined}
+    >
+      {
+        availableSkills.length === 0 ? (
+          <option value="" disabled>
+            No skills yet
+          </option>
+        ) : (
+          availableSkills.map((skill) => (
+            <option value={skill} selected={selectedSkills.has(skill)}>
+              {skill}
+            </option>
+          ))
+        )
+      }
+    </select>
+    {
+      availableSkills.length === 0 && (
+        <span
+          id="filter-skill-empty"
+          class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-muted)]"
+        >
+          Skills appear as drafts arrive
+        </span>
+      )
+    }
+  </div>
+
+  {/* Recipient text search */}
+  <div class="flex flex-col gap-1.5 min-w-0">
+    <label
+      for="filter-recipient"
+      class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+    >
+      Recipient
+    </label>
+    <input
+      type="search"
+      id="filter-recipient"
+      name="recipient"
+      value={recipient ?? ''}
+      placeholder="name or address"
+      autocomplete="off"
+      class="border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-mono text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+    />
+  </div>
+
+  {/* Age range (max hours) */}
+  <div class="flex flex-col gap-1.5">
+    <label
+      for="filter-max-age"
+      class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+    >
+      Max age (hours)
+    </label>
+    <input
+      type="number"
+      id="filter-max-age"
+      name="maxAgeHours"
+      value={maxAgeHours ?? ''}
+      min="1"
+      step="1"
+      inputmode="numeric"
+      placeholder="any"
+      class="w-32 border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-mono text-sm text-[color:var(--ss-color-text-primary)] placeholder:text-[color:var(--ss-color-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+    />
+  </div>
+
+  {/* Sort */}
+  <div class="flex flex-col gap-1.5">
+    <label
+      for="filter-sort"
+      class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+    >
+      Sort
+    </label>
+    <select
+      id="filter-sort"
+      name="sort"
+      class="border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 font-mono text-sm text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+    >
+      {
+        DRAFT_SORTS.map((option) => (
+          <option value={option} selected={option === sort}>
+            {SORT_LABELS[option]}
+          </option>
+        ))
+      }
+    </select>
+  </div>
+
+  {/* Submit */}
+  <div class="flex flex-row gap-2 md:items-end">
+    <button
+      type="submit"
+      class="inline-flex items-center justify-center min-h-11 px-5 py-2 bg-[color:var(--ss-color-primary)] text-[color:var(--ss-color-background)] font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-opacity"
+    >
+      Apply
+    </button>
+  </div>
+</form>

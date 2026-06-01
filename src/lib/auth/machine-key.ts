@@ -1,5 +1,5 @@
 /**
- * Auth verifier for per-customer AI Employee Machine → control-plane writes
+ * Auth verifier for per-customer Operator Machine → control-plane writes
  * (the heartbeat endpoint at `POST /api/internal/heartbeat` in Wave 1).
  *
  * Wave 1 shape: SINGLE SHARED SECRET. One `MACHINE_HEARTBEAT_KEY` Worker
