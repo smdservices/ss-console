@@ -35,7 +35,34 @@ const migrationsDir = resolve(process.cwd(), 'migrations')
 async function freshDb(): Promise<D1Database> {
   const db = createTestD1()
   await runMigrations(db, { files: discoverNumericMigrations(migrationsDir) })
+  await seedParents(db)
   return db
+}
+
+/**
+ * Seed the FK parents config_change_audit now requires (migration 0047 added
+ * entity_id -> entities(id) and actor_user_id -> users(id); the test harness
+ * runs with PRAGMA foreign_keys=ON). The recordConfigChangeAudit calls below
+ * reference ACTOR.user_id and entity-1..4, so insert one org, the actor user,
+ * and those entities. Minimal valid rows — only the columns each table
+ * requires NOT NULL without a default.
+ */
+async function seedParents(db: D1Database): Promise<void> {
+  await db
+    .prepare("INSERT INTO organizations (id, name, slug) VALUES ('org-1', 'Test Org', 'test-org')")
+    .run()
+  await db
+    .prepare(
+      "INSERT INTO users (id, org_id, email, name, role) VALUES (?, 'org-1', ?, 'Owner', 'client')"
+    )
+    .bind(ACTOR.user_id, ACTOR.email)
+    .run()
+  for (const id of ['entity-1', 'entity-2', 'entity-3', 'entity-4']) {
+    await db
+      .prepare("INSERT INTO entities (id, org_id, name, slug) VALUES (?, 'org-1', ?, ?)")
+      .bind(id, `Entity ${id}`, id)
+      .run()
+  }
 }
 
 const ACTOR = { user_id: 'user-1', email: 'owner@firm.test', role: 'principal' }
