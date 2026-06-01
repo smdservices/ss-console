@@ -232,6 +232,18 @@ log "Disabling Hermes curator in profile configs (ADR 0017)..."
   || die "Failed to disable curator in profile configs (ADR 0017)"
 log "Curator disabled in profile config(s)"
 
+# Step 7c: fail closed if Telegram would run without an allowlist (ADR 0033).
+# TELEGRAM_BOT_TOKEN alone auto-enables Hermes' Telegram platform, and the pinned
+# ref fails OPEN on an empty allowlist (telegram.py: `if not allowed_csv: return
+# True`) — so a token without an allowlist = a bot anyone can talk to. This guard
+# refuses to launch unless an allowlist is resolvable from TELEGRAM_ALLOWED_USERS
+# or a profile config's telegram.allow_from (authored via customer.yaml). No-op
+# when TELEGRAM_BOT_TOKEN is unset.
+log "Verifying Telegram allowlist (fail-closed, ADR 0033)..."
+/opt/hermes/.venv/bin/python3 /app/ensure-telegram-allowlist.py "${HERMES_HOME}" \
+  || die "Telegram allowlist guard failed (ADR 0033): refusing to launch an unrestricted bot"
+log "Telegram allowlist guard passed"
+
 # ============================================================================
 # Step 8: safety substrate invariant checks (Phase A.5 gate)
 # ============================================================================

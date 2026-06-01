@@ -1904,3 +1904,59 @@ describe('validate — memory.r2_skill_bodies_* known-optional (ADR 0022)', () =
     ).toBe(true)
   })
 })
+
+// -----------------------------------------------------------------------------
+// Telegram block (ADR 0033) — optional; fail-closed allowlist
+// -----------------------------------------------------------------------------
+
+describe('validate — telegram block (ADR 0033)', () => {
+  it('accepts an enabled block with a non-empty numeric allow_from', () => {
+    const f = validFixture()
+    f['telegram'] = { enabled: true, allow_from: ['7367659986'], require_mention: false }
+    const r = validate(f)
+    expect(r.ok).toBe(true)
+  })
+
+  it('accepts absence of the block (optional)', () => {
+    const r = validate(validFixture())
+    expect(r.ok).toBe(true)
+  })
+
+  it('rejects enabled with an empty allow_from (fail-open trap)', () => {
+    const f = validFixture()
+    f['telegram'] = { enabled: true, allow_from: [] }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'telegram.allow_from' && e.code === 'MissingField')
+    ).toBe(true)
+  })
+
+  it('rejects enabled with allow_from omitted', () => {
+    const f = validFixture()
+    f['telegram'] = { enabled: true }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'telegram.allow_from')).toBe(true)
+  })
+
+  it('rejects a non-numeric allow_from entry', () => {
+    const f = validFixture()
+    f['telegram'] = { enabled: true, allow_from: ['@scott'] }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'telegram.allow_from[0]')).toBe(true)
+  })
+
+  it('rejects a non-boolean require_mention', () => {
+    const f = validFixture()
+    f['telegram'] = { enabled: true, allow_from: ['7367659986'], require_mention: 'no' }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'telegram.require_mention')).toBe(true)
+  })
+})

@@ -51,6 +51,7 @@ import {
   checkScope,
   checkVoiceLibrary,
 } from './sections-other'
+import { checkTelegram } from './sections-telegram'
 import { checkObservability } from './sections-observability'
 import { checkVoiceCohorts } from './sections-voice'
 import { checkWebhookTriggers } from './sections-webhook-triggers'
@@ -207,6 +208,7 @@ function validateSections(
   const personas = checkPersonas(root, errors)
   const connectors = checkConnectors(root, customerId, errors)
   const scope = checkScope(root, errors)
+  checkTelegram(root, errors) // optional telegram block; validate-only (ADR 0033)
   const escalation = checkEscalation(root, errors)
   const memory = checkMemory(root, customerId, verticalResult.vertical, errors)
   const webhookTriggers = checkWebhookTriggers(root, personas, connectors, errors)
