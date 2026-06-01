@@ -83,6 +83,11 @@ connectors:
     adapter: agentmail
     backend: mcp:agentmail
     enabled: true
+    # Inbound: AgentMail pushes `message.received` here. The route slug
+    # (last path segment, `agentmail`) is materialized by the overlay into a
+    # platforms.webhook route; the front-door gate (webhook_gate.py) verifies
+    # AgentMail's X-AgentMail-Signature before the native adapter routes it.
+    webhook_url: https://hermes-smd.fly.dev/webhooks/agentmail
   Calendar:
     adapter: google-calendar
     backend: mcp:google-calendar
@@ -92,6 +97,18 @@ connectors:
     backend: mcp:google-drive
     enabled: true
 
+# ---- WEBHOOK TRIGGERS (inbound, ADR 0021 Stream E) ----
+# AgentMail message.received → inbox-triage (inbound reply branch). The overlay
+# translate.py materializes this into platforms.webhook; the route HMAC secret is
+# the Fly secret WEBHOOK_SECRET_AGENTMAIL (fail-closed without it). The autonomous
+# reply is recipient-locked (reply_to_message, in-thread to the original sender)
+# and governed by the trust-gate + content floor (money/contract → draft).
+webhook_triggers:
+  - source: agentmail
+    event_type: message.received
+    skill: inbox-triage
+    persona: crane
+
 # ---- SCOPE ----
 scope:
   email_folders_visible:
@@ -99,6 +116,13 @@ scope:
   email_folders_blind: []
   email_keyword_blocks: []
   domain_blocks: []
+  # Inbound autonomous reply acts only on direction from trusted senders
+  # (interview: smdurgan.com / smd.services). Untrusted/spoofed sender → the
+  # inbound reply branch triages only, never sends. DMARC-in-code (AgentMail
+  # surfaces headers['Authentication-Results']) is the documented evolution upgrade.
+  trusted_sender_domains:
+    - smdurgan.com
+    - smd.services
   # ---- TRUST CEILINGS (per-action, ADR 0025) ----
   # Crane sends from its OWN AgentMail identity (smdcrane@agentmail.to) without
   # per-message approval ("default send level autonomous", interview). Floors that

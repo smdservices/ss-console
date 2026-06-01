@@ -326,6 +326,23 @@ log "Active persona profile: ${ACTIVE_PROFILE}"
 # dir are hermes-owned, so these mkdirs create hermes-owned, writable dirs.
 mkdir -p "${HERMES_HOME}/logs" "${HERMES_HOME}/profiles/${ACTIVE_PROFILE}/logs"
 
+# Inbound webhook front-door gate (overlay `hermes-smd-webhook-gate`). It binds
+# the public port (8643), verifies the vendor signature (AgentMail), and forwards
+# to the gateway's machine-local :8644 with the Generic header. FAIL-CLOSED: only
+# launched when a per-vendor webhook secret is present — no public webhook surface
+# without a verifying secret. Runs as a supervised background child under tini; a
+# restart loop keeps it up, while the gateway exec below stays PID-1's foreground.
+if [ -n "${WEBHOOK_SECRET_AGENTMAIL:-}" ]; then
+  ( while true; do
+      /opt/hermes/.venv/bin/hermes-smd-webhook-gate || true
+      echo "[bootstrap] webhook-gate exited non-zero; restarting in 2s" >&2
+      sleep 2
+    done ) &
+  log "Inbound webhook gate launched (public :8643 -> gateway :8644)"
+else
+  log "WEBHOOK_SECRET_AGENTMAIL unset; webhook gate NOT launched (no inbound webhook)"
+fi
+
 log "Launching Hermes gateway for profile '${ACTIVE_PROFILE}' (overlay plugins enabled)..."
 
 exec /opt/hermes/.venv/bin/hermes -p "${ACTIVE_PROFILE}" gateway run
