@@ -36,14 +36,14 @@
 --   5. UPSERT customer_configs (unchanged behavior).
 --
 -- Read contract:
---   /admin/ai-employee/config-history/<customer_slug>.astro reads the last
+--   /admin/operator/config-history/<customer_slug>.astro reads the last
 --   20 rows ORDER BY synced_at DESC. Snapshot bytes are resolved on demand
 --   via the GitHub API (`git show <sha>:<path>`) or, when the shadow
 --   exists, via the R2 shadow URL.
 --
 -- Forward-only, additive. No drops.
 --
--- Source spec: docs/specs/ai-employee/customer-config-history.md
+-- Source spec: docs/specs/operator/customer-config-history.md
 -- Refers to:   docs/adr/0022-vertical-pack-architecture.md §"Time-machine substrate commitment"
 --              docs/adr/0012-customer-yaml-storage.md (the customer.yaml storage model this layers on)
 --              docs/adr/0016-honcho-disposition.md (mirror-don't-gate posture)
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS customer_config_history (
 
   -- Which sync code path produced the row. Enforced as a CHECK so the
   -- substrate is structurally aligned with the SyncSource enum exported
-  -- from src/lib/ai-employee/customer-yaml (added in PR 1).
+  -- from src/lib/operator/customer-yaml (added in PR 1).
   synced_by            TEXT NOT NULL CHECK (synced_by IN (
     'manual', 'ci', 'drift-repair', 'bootstrap'
   )),

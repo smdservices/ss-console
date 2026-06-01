@@ -7,7 +7,7 @@
  * contract for the inline rule-add path that the draft detail page
  * surfaces.
  *
- * Data shape mirrors `ai-employee/adapter/memory/pipeline.py` —
+ * Data shape mirrors `operator/adapter/memory/pipeline.py` —
  * `MemoryRule { id, customer_id, kind, text, source_draft_id, created_by,
  * created_at }`. The `kind` vocabulary is closed; new values require an
  * ADR amendment and a matching update on the Hermes side (PR #944).
@@ -41,7 +41,7 @@
 
 /**
  * Closed vocabulary for memory rule kinds. Mirrors the Hermes-side
- * `MemoryRule.kind` enum (`ai-employee/adapter/memory/pipeline.py`).
+ * `MemoryRule.kind` enum (`operator/adapter/memory/pipeline.py`).
  * Vocabulary is closed; new values require an ADR amendment plus a
  * lockstep update on the Python side.
  *
@@ -256,7 +256,7 @@ export function buildMemoryRuleAddedAuditEvent(input: {
  * Record the `MEMORY_RULE_ADDED` audit event for a rule submission.
  *
  * The per-customer Hermes audit_log is the eventual destination
- * (`ai-employee/adapter/audit_log.py`). Today the portal cannot reach
+ * (`operator/adapter/audit_log.py`). Today the portal cannot reach
  * it directly. The event is emitted as a structured log line with the
  * stable `[audit:memory_rule_added]` prefix so the Hermes-side tail-
  * log drain can JSON.parse it without scraping arbitrary log text.

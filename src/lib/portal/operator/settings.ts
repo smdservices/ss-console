@@ -180,7 +180,7 @@ export function formatVoiceSampleStatus(status: VoiceSampleStatus): string {
  * lets the principal flip it back to `draft_for_review` without
  * editing customer.yaml directly.)
  *
- *   skillName       — slug from `ai-employee/skills/<name>/SKILL.md`
+ *   skillName       — slug from `operator/skills/<name>/SKILL.md`
  *   enabled         — true when the persona configures the skill
  *                     and its ceiling is not `refused`
  *   trustCeiling    — current ceiling (or null when the persona's

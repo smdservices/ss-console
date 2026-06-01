@@ -1,15 +1,15 @@
 -- Portal substrate for Clerk auth + product subscription model
 -- ============================================================================
 --
--- Adds the schema substrate the AI Employee dashboard (and future subscription
+-- Adds the schema substrate the Operator dashboard (and future subscription
 -- products) needs to live inside portal.smd.services as product modules.
 --
 -- Decisions encoded here:
 --   * Clerk is the identity layer. `users.clerk_user_id` and
 --     `entities.clerk_org_id` are the bridge to local business state.
---   * Subscriptions are product-agnostic. The same table tracks AI Employee
+--   * Subscriptions are product-agnostic. The same table tracks Operator
 --     and any future productized SKU.
---   * Per-product roles (principal | operator | compliance for AI Employee)
+--   * Per-product roles (principal | operator | compliance for Operator)
 --     live in a polymorphic table keyed by (user, entity, product_slug).
 --     Clerk's `admin | basic_member` Organization role sits at a separate axis
 --     and is resolved from Clerk, not from this table.
@@ -37,11 +37,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_entities_clerk_org
 -- ---------- subscriptions ----------
 -- Product-agnostic subscription ledger. One row per (entity, product) pair
 -- the customer has purchased. The `product_slug` is a stable identifier
--- ('ai-employee' for the v1 SKU); future products add new slugs without
+-- ('operator' for the v1 SKU); future products add new slugs without
 -- schema changes.
 --
 -- `settings_json` holds per-product configuration the portal needs to render
--- the product module (e.g., the AI Employee customer slug used to address
+-- the product module (e.g., the Operator customer slug used to address
 -- the per-customer Hermes Machine). Substantive product state lives in the
 -- customer's per-customer D1 per ADR 0008, not here.
 CREATE TABLE IF NOT EXISTS subscriptions (
@@ -68,7 +68,7 @@ CREATE INDEX IF NOT EXISTS idx_subscriptions_org_product
   ON subscriptions(org_id, product_slug);
 
 -- ---------- product_roles ----------
--- Per-user, per-entity, per-product role assignment. For AI Employee, the
+-- Per-user, per-entity, per-product role assignment. For Operator, the
 -- `role` vocabulary is 'principal' | 'operator' | 'compliance' (set by the
 -- product, not constrained at the schema layer — future products may use
 -- different vocabularies).

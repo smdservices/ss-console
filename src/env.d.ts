@@ -195,7 +195,7 @@ declare namespace Cloudflare {
      * Sentry Internal Integration Client Secret used to verify
      * `Sentry-Hook-Signature` headers on inbound alert-rule webhook
      * deliveries to `/api/webhooks/sentry`. Pulled from the SMD-owned
-     * `smd-ai-employee` Sentry project's Internal Integration settings
+     * `smd-operator` Sentry project's Internal Integration settings
      * (ADR 0023 Wave 1).
      */
     SENTRY_WEBHOOK_SECRET?: string

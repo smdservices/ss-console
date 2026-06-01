@@ -8,7 +8,7 @@
 -- 1. SOURCE-TAG `cost_anomaly_alerts`
 --    All four Wave 1 alert sources (cost, Sentry spike, healthchecks grace
 --    expiration, audit-integrity in Wave 2) share one alerts surface. The
---    Captain admin dashboard at /admin/ai-employee/costs/ is the always-on
+--    Captain admin dashboard at /admin/operator/costs/ is the always-on
 --    monitoring view across all customers per ADR 0023 §"Cross-cutting
 --    calls" #9. Routing each source into a separate table would force a
 --    union reader and double the migration surface; instead we tag rows by

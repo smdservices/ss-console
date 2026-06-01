@@ -1,6 +1,6 @@
 # No-PM-System Mode
 
-**Spec for issue [#853](https://github.com/venturecrane/ss-console/issues/853).** The "no practice-management system" capability binding set -- a `customer.yaml` template + capability-adapter configuration that runs the demo flow for customers without an external PM vendor (Filevine, Clio, CASEpeer, SmartAdvocate, etc.).
+**Spec for issue [#853](https://github.com/venturecrane/ss-console/issues/853).** The "no practice-management system" capability binding set -- a `customer.yaml` template + capability-adapter configuration that runs the onboarding flow for customers without an external PM vendor (Filevine, Clio, CASEpeer, SmartAdvocate, etc.).
 
 ## Source
 
@@ -12,7 +12,7 @@
 
 - The default capability-binding set for a no-PM-system customer.
 - The `no_pm` PracticeManagement adapter and its synthetic matter store.
-- The demo flow scene-by-scene: how each surface that the dry-run #889 expects works without an external PM vendor.
+- The flow scene-by-scene: how each surface that the dry-run #889 expects works without an external PM vendor.
 
 ## What this spec does not cover
 
@@ -37,7 +37,7 @@ If a specific firm uses Xero instead of QuickBooks, or Gmail instead of Outlook,
 
 ## The `no_pm` PracticeManagement adapter
 
-Implementation: [`ai-employee/connectors/no_pm/`](../../../ai-employee/connectors/no_pm/). Conforms to the `PracticeManagement` interface from [`src/lib/operator/capabilities/practice-management.ts`](../../../src/lib/operator/capabilities/practice-management.ts) via the same Python-mirrors-TypeScript shape Filevine uses.
+Implementation: [`operator/connectors/no_pm/`](../../../operator/connectors/no_pm/). Conforms to the `PracticeManagement` interface from [`src/lib/operator/capabilities/practice-management.ts`](../../../src/lib/operator/capabilities/practice-management.ts) via the same Python-mirrors-TypeScript shape Filevine uses.
 
 ### Supported methods
 
@@ -71,7 +71,7 @@ The adapter binds to a `MatterStore` Protocol that abstracts persistence:
 
 ## Demo flow
 
-How each demo scene from the dry-run [#889](https://github.com/venturecrane/ss-console/issues/889) plays through the no-PM-system stack. The scenes are pulled from the dashboard tab layout the Captain dashboard renders today.
+How each scene from the dry-run [#889](https://github.com/venturecrane/ss-console/issues/889) plays through the no-PM-system stack. The scenes are pulled from the dashboard tab layout the Captain dashboard renders today.
 
 ### Scene 1: Drafts list shows real drafts written from real Outlook emails
 
@@ -80,7 +80,7 @@ How each demo scene from the dry-run [#889](https://github.com/venturecrane/ss-c
 | Inbound        | `Email.list_threads()` -> Microsoft Graph -> Outlook Inbox. The agent reads incoming threads.                                                                                                           |
 | Reasoning      | Persona skill runs against the thread + relevant matter context (read from the synthetic store via `get_matter` if the thread is linked to a matter).                                                   |
 | Outbound       | `Email.create_draft()` -> Microsoft Graph -> reviewer's Outlook Drafts folder. Per [ADR 0005](../../adr/0005-reviewer-as-sender.md), the agent never sends; the reviewer opens Outlook and clicks Send. |
-| Sourcing block | Dashboard renders "what Marcus used to write this" by reading `field_coverage` from each adapter the skill touched, including the no_pm adapter when matter context was used.                           |
+| Sourcing block | Dashboard renders "what the Operator used to write this" by reading `field_coverage` from each adapter the skill touched, including the no_pm adapter when matter context was used.                     |
 
 No `no_pm` write happens in this scene -- the synthetic store is read-only for draft creation. The drafts list is the same surface a Filevine customer sees.
 
@@ -138,7 +138,7 @@ To validate after copying + filling (canonical TS validator per ADR 0019):
 
 ```bash
 npx tsx scripts/validate-customer-yaml.ts \
-  ai-employee/customers/{firm-slug}/customer.yaml
+  operator/customers/{firm-slug}/customer.yaml
 ```
 
 ## Failure modes
@@ -157,7 +157,7 @@ npx tsx scripts/validate-customer-yaml.ts \
 
 ### Adapter tests
 
-`ai-employee/connectors/no_pm/tests/` -- run via:
+`operator/connectors/no_pm/tests/` -- run via:
 
 ```bash
 cd operator && python -m pytest connectors/no_pm/tests/ -v
@@ -165,27 +165,25 @@ cd operator && python -m pytest connectors/no_pm/tests/ -v
 
 Coverage:
 
-| File                         | Asserts                                                                                                                                                                           |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tests/test_errors.py`       | AdapterError code + capability union pinned against the TypeScript contract                                                                                                       |
-| `tests/test_store.py`        | `InMemoryMatterStore` honors the `MatterStore` protocol (list / get / create / update / docs / notes); status enum enforced                                                       |
-| `tests/test_capabilities.py` | `NoPmPracticeManagement` happy paths; unsupported-method behavior; ADR 0005 attribution; no banned method names; end-to-end demo flow exercises the create -> note -> close cycle |
+| File                         | Asserts                                                                                                                                                                      |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tests/test_errors.py`       | AdapterError code + capability union pinned against the TypeScript contract                                                                                                  |
+| `tests/test_store.py`        | `InMemoryMatterStore` honors the `MatterStore` protocol (list / get / create / update / docs / notes); status enum enforced                                                  |
+| `tests/test_capabilities.py` | `NoPmPracticeManagement` happy paths; unsupported-method behavior; ADR 0005 attribution; no banned method names; end-to-end flow exercises the create -> note -> close cycle |
 
 ### Template
 
-The template at [`ai-employee/templates/customer-no-pm-system.yaml`](../../../ai-employee/templates/customer-no-pm-system.yaml) is the wire shape an operator copies into `ai-employee/customers/{firm-slug}/customer.yaml`. The bracketed fields force the operator to fill in real values before the validator passes; the connector bindings ship pre-wired so the operator never has to hand-author them.
+The template at [`operator/templates/customer-no-pm-system.yaml`](../../../operator/templates/customer-no-pm-system.yaml) is the wire shape an operator copies into `operator/customers/{firm-slug}/customer.yaml`. The bracketed fields force the operator to fill in real values before the validator passes; the connector bindings ship pre-wired so the operator never has to hand-author them.
 
 ## Cross-references
 
 - [`customer-yaml-schema.md`](customer-yaml-schema.md) -- the schema this template instantiates
 - [`r2-vectorize-naming.md`](r2-vectorize-naming.md) -- the per-customer R2 path convention the synthetic store reuses
 - [`memory-ingestion.md`](memory-ingestion.md) -- the memory pipeline whose substrate the no_pm store rides on
-- [`day-1-onboarding.md`](day-1-onboarding.md) -- the first-hour dashboard walkthrough each demo scene above renders into
 - [ADR 0005](../../adr/0005-reviewer-as-sender.md) -- reviewer-as-sender (the `create_note` attribution rule)
 - [ADR 0006](../../adr/0006-capability-adapter-pattern.md) -- capability-adapter pattern (why this adapter swap works without skill rewrites)
 - [ADR 0007](../../adr/0007-per-customer-machine-isolation.md) -- per-customer Machine isolation (the deployment boundary the synthetic store inherits)
 - [ADR 0008](../../adr/0008-customer-owned-memory-artifact.md) -- customer-owned memory artifact (decommission drains the synthetic store like any other per-customer artifact)
 - [ADR 0009](../../adr/0009-cross-machine-query-prohibition.md) -- cross-Machine query prohibition (the isolation invariant the synthetic store relies on)
-- [ADR 0014](../../adr/0014-pi-vertical-adapter-build-priority.md) -- PI-vertical adapter build priority (the Filevine / CASEpeer / SmartAdvocate ladder this template runs alongside)
-- [`ai-employee/connectors/no_pm/README.md`](../../../ai-employee/connectors/no_pm/README.md) -- adapter implementation notes
-- [`ai-employee/connectors/filevine/README.md`](../../../ai-employee/connectors/filevine/README.md) -- the real-PM-vendor analogue
+- [`operator/connectors/no_pm/README.md`](../../../operator/connectors/no_pm/README.md) -- adapter implementation notes
+- [`operator/connectors/filevine/README.md`](../../../operator/connectors/filevine/README.md) -- the real-PM-vendor analogue

@@ -8,7 +8,7 @@
  * tests pin the contract at three layers:
  *
  *   1. Vocabulary: MEMORY_RULE_KINDS is the closed four-kind set
- *      mirrored from `ai-employee/adapter/memory/pipeline.py`. The
+ *      mirrored from `operator/adapter/memory/pipeline.py`. The
  *      formatter is total over the vocabulary.
  *   2. Validation: `validateTeachMarcusInput` rejects empty text,
  *      oversize text, missing draft id, and unknown kinds with

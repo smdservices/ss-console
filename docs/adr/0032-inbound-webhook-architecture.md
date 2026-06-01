@@ -4,7 +4,7 @@ date: 2026-06-01
 status: accepted
 captain: Scott Durgan
 related-adr: 0005-reviewer-as-sender.md, 0021-leverage-hermes-native-primitives.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0027-inbound-convergence.md, 0031-content-sensitivity-send-floor.md
-related-interview: ai-employee/customers/smd/onboarding-interview-2026-05-31.md
+related-interview: operator/customers/smd/onboarding-interview-2026-05-31.md
 related-issue: '#1103, #1165, #1166'
 related-pr: 'hermes-smd-overlay#27, hermes-smd-overlay#29 (v0.4.3); ss-console#1178'
 ---
@@ -15,7 +15,7 @@ related-pr: 'hermes-smd-overlay#27, hermes-smd-overlay#29 (v0.4.3); ss-console#1
 
 ## Context
 
-The AI Employee must **receive** events and act on its own — inbound email today (Crane's AgentMail inbox), inbound vendor webhooks tomorrow (Filevine `matter.created`, Clio activity, e-sign, CRMs). This is a recurring, core product primitive; the `customer.yaml` schema already reserves `connectors[].webhook_url` + `webhook_triggers[]` for it (ADR 0021 Stream E). We chose the public-webhook transport over AgentMail's WebSocket option deliberately: most vendors push webhooks, so solving the secure public-inbound pattern now is reusable; AgentMail is just the first instance.
+The Operator must **receive** events and act on its own — inbound email today (Crane's AgentMail inbox), inbound vendor webhooks tomorrow (Filevine `matter.created`, Clio activity, e-sign, CRMs). This is a recurring, core product primitive; the `customer.yaml` schema already reserves `connectors[].webhook_url` + `webhook_triggers[]` for it (ADR 0021 Stream E). We chose the public-webhook transport over AgentMail's WebSocket option deliberately: most vendors push webhooks, so solving the secure public-inbound pattern now is reusable; AgentMail is just the first instance.
 
 Constraints discovered while building (verified live, not assumed):
 

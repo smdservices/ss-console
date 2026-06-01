@@ -17,9 +17,9 @@ related-note: note_01KSS3TCTKWYVF6EZ04482X389, note_01KSTYSNC9CYPKYFJZ3TJ7F6RM
 
 ## Context
 
-The AI Employee ingests external content through several surfaces that already exist or are decided:
+The Operator ingests external content through several surfaces that already exist or are decided:
 
-- The `inbox-triage` skill reads inbound email (`ai-employee/skills/inbox-triage/`).
+- The `inbox-triage` skill reads inbound email (`operator/skills/inbox-triage/`).
 - The webhook gateway dispatches inbound events into the agent via Hermes' `pre_gateway_dispatch` hook (ADR 0021).
 - Connectors return external data (case-management records, payment events, vendor docs) per ADR 0020.
 - Skills fetch and read external pages and documents.
@@ -100,5 +100,5 @@ Per ADR 0025's action-class ceilings, a customer/vertical may configure that act
 - [ADR 0020 — Connector strategy](./0020-connector-strategy.md) (connectors return external data — an inbound surface)
 - [ADR 0025 — Autonomy ceilings are configurable](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) (removes the incidental injection backstop; trust class feeds the ceiling)
 - [ADR 0026 — Config surface is a security boundary](./0026-config-surface-is-a-security-boundary.md) (inbound content can never be a path to a ceiling raise)
-- `ai-employee/skills/inbox-triage/` (inbound email surface)
+- `operator/skills/inbox-triage/` (inbound email surface)
 - Strategy notes: `note_01KSS3TCTKWYVF6EZ04482X389`, `note_01KSTYSNC9CYPKYFJZ3TJ7F6RM`

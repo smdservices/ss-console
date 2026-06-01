@@ -706,7 +706,7 @@ Same engine, same data model, same artifact shape. Fields fill progressively as 
 
 ## Decision #44 - Productized Operator Offering (cross-layer)
 
-**ADR:** [docs/adr/0004-productized-ai-employee-offering.md](./0004-productized-ai-employee-offering.md)
+**ADR:** [docs/adr/0004-productized-operator-offering.md](./0004-productized-operator-offering.md)
 
 **Supersedes:** Decision #12 (Retainer Model)
 

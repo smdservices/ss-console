@@ -1,8 +1,8 @@
 # Voice sample ingestion pipeline
 
 **Status:** Draft (issue #856). Sibling pipeline to memory ingestion (issue #860).
-**Code:** `ai-employee/adapter/voice/`
-**Migration:** `ai-employee/migrations/0005_voice_ingestion.sql`
+**Code:** `operator/adapter/voice/`
+**Migration:** `operator/migrations/0005_voice_ingestion.sql`
 
 ---
 

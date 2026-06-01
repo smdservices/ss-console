@@ -146,7 +146,7 @@ function legacyAuthRedirectTarget(pathname: string): string | null {
 }
 
 /**
- * Product renamed "AI Employee" → "Operator" (ADR 0034). Permanent (301)
+ * Product renamed "Operator" → "Operator" (ADR 0034). Permanent (301)
  * redirects from the pre-rename URLs so old bookmarks and indexed links keep
  * working. Runs before the subdomain rewrite, so it must handle both the
  * canonical paths and the subdomain-relative forms the rewrite would prepend.
@@ -156,23 +156,23 @@ function redirectLegacyOperatorPaths(
   hostname: string,
   pathname: string
 ): Response | null {
-  // Marketing product page: smd.services/ai-employee → /operator.
-  // Also covers admin.smd.services/ai-employee (rewrites to /admin/operator
+  // Marketing product page: smd.services/operator → /operator.
+  // Also covers admin.smd.services/operator (rewrites to /admin/operator
   // after the redirect lands on the operator path).
-  if (pathname === '/ai-employee' || pathname.startsWith('/ai-employee/'))
-    return context.redirect(pathname.replace('/ai-employee', '/operator'), 301)
+  if (pathname === '/operator' || pathname.startsWith('/operator/'))
+    return context.redirect(pathname.replace('/operator', '/operator'), 301)
 
-  // Portal product surface: canonical (/portal/products/ai-employee) and the
-  // portal-subdomain-relative form (/products/ai-employee).
-  for (const oldPath of ['/portal/products/ai-employee', '/products/ai-employee']) {
+  // Portal product surface: canonical (/portal/products/operator) and the
+  // portal-subdomain-relative form (/products/operator).
+  for (const oldPath of ['/portal/products/operator', '/products/operator']) {
     if (pathname === oldPath || pathname.startsWith(`${oldPath}/`))
-      return context.redirect(pathname.replace('/ai-employee', '/operator'), 301)
+      return context.redirect(pathname.replace('/operator', '/operator'), 301)
   }
 
-  // Admin surface: canonical /admin/ai-employee (the admin-subdomain-relative
-  // /ai-employee form is already handled by the marketing rule above).
-  if (pathname === '/admin/ai-employee' || pathname.startsWith('/admin/ai-employee/'))
-    return context.redirect(pathname.replace('/ai-employee', '/operator'), 301)
+  // Admin surface: canonical /admin/operator (the admin-subdomain-relative
+  // /operator form is already handled by the marketing rule above).
+  if (pathname === '/admin/operator' || pathname.startsWith('/admin/operator/'))
+    return context.redirect(pathname.replace('/operator', '/operator'), 301)
 
   return null
 }
@@ -259,7 +259,7 @@ async function handleRequest(context: APIContext, next: NextFn): Promise<Respons
   const { pathname } = context.url
   const hostname = context.url.hostname
 
-  // Product renamed "AI Employee" → "Operator" (ADR 0034). 301 old paths
+  // Product renamed "Operator" → "Operator" (ADR 0034). 301 old paths
   // before the subdomain rewrite, since the rewrite terminates the chain.
   const operatorRename = redirectLegacyOperatorPaths(context, hostname, pathname)
   if (operatorRename) return operatorRename

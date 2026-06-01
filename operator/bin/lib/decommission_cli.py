@@ -1,0 +1,315 @@
+"""CLI entrypoint for operator/bin/decommission-customer.sh (issue #820).
+
+Wraps :class:`bin.lib.decommission.DecommissionPipeline` with argument
+parsing, audit-writer construction, and the customer.yaml lookup. Called
+by the shell wrapper or directly via:
+
+    uv run --quiet --with pyyaml python3 \
+        -m bin.lib.decommission_cli <slug> [--dry-run] [--live]
+
+Exit codes
+----------
+
+* ``0`` — dry-run completed, or live decommission completed cleanly.
+* ``2`` — pre-flight failed (missing slug, no customer.yaml, etc.).
+* ``3`` — live decommission halted mid-sequence (a step raised
+  :class:`DecommissionStepFailed`). Re-run with the same slug to resume
+  from the last completed step (every step is idempotent).
+* ``4`` — unexpected non-step exception (audit writer init failure,
+  config-parse failure, etc.).
+* ``5`` — refused: a ``--live`` run was requested but one or more
+  destructive backends are unwired stubs, so the run would report a
+  clean decommission while customer data remains (issue #1123). Wire the
+  real backends, or pass ``--allow-unwired`` for a dev/fixture run that
+  explicitly tolerates skipped deletions.
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import logging
+import os
+import sqlite3
+import sys
+from pathlib import Path
+from typing import Optional
+
+_HERE = Path(__file__).resolve()
+# Make the operator package importable when this module is run as a
+# script from inside the repo. operator/ becomes the path root so
+# `from adapter.audit_log import ...` resolves.
+sys.path.insert(0, str(_HERE.parents[2]))
+
+# Imported after sys.path tweak.
+from bin.lib.decommission import (  # noqa: E402
+    DecommissionPipeline,
+    DecommissionStepFailed,
+    FilesystemTombstoner,
+    StepResult,
+    StepStatus,
+    _load_customer_yaml,
+)
+
+log = logging.getLogger("aie.bin.decommission_cli")
+
+
+# ---------------------------------------------------------------------------
+# Local-dev audit executor
+# ---------------------------------------------------------------------------
+
+
+_AUDIT_LOCAL_SCHEMA = """
+CREATE TABLE IF NOT EXISTS audit_log (
+  id            TEXT PRIMARY KEY,
+  ts            TEXT NOT NULL,
+  action_type   TEXT NOT NULL,
+  actor         TEXT NOT NULL,
+  actor_role    TEXT,
+  skill_name    TEXT,
+  matter_ref    TEXT,
+  input_digest  TEXT,
+  output_digest TEXT,
+  diff_digest   TEXT,
+  trust_ceiling TEXT,
+  metadata      TEXT
+);
+"""
+
+
+def _build_local_audit_writer(audit_db_path: Path):
+    """Construct an AuditLogWriter against a sqlite file on disk.
+
+    The decommission script runs from Captain's workstation and writes
+    its trail to a per-customer sqlite file under
+    ``operator/customers/{slug}/.decommission-audit.sqlite`` before
+    the customer directory is tombstoned. This is intentionally distinct
+    from the per-customer D1 (which is itself being deleted as part of
+    the sequence); we want the audit row of decommission to survive
+    after the customer's substrate is gone.
+    """
+    from adapter.audit_log import AuditLogWriter, SqliteExecutor
+
+    audit_db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(audit_db_path))
+    conn.executescript(_AUDIT_LOCAL_SCHEMA)
+    return AuditLogWriter(SqliteExecutor(conn)), conn
+
+
+# ---------------------------------------------------------------------------
+# Output formatting
+# ---------------------------------------------------------------------------
+
+
+def _print_step(result: StepResult, *, stream=sys.stdout) -> None:
+    """One step result, one line. Easy to diff between dry-run and live."""
+    detail_json = json.dumps(result.detail, sort_keys=True, separators=(",", ":"))
+    print(f"[{result.status.value:>8}] {result.name}: {detail_json}", file=stream)
+
+
+def _print_header(slug: str, *, mode: str, stream=sys.stdout) -> None:
+    print(f"# decommission-customer (issue 820) customer={slug} mode={mode}", file=stream)
+
+
+def _print_footer(slug: str, *, mode: str, ok: bool, stream=sys.stdout) -> None:
+    status = "OK" if ok else "FAILED"
+    print(f"# decommission-customer end customer={slug} mode={mode} status={status}", file=stream)
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+
+def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
+    p = argparse.ArgumentParser(
+        prog="decommission-customer",
+        description=(
+            "Decommission an Operator customer end-to-end (issue 820). "
+            "Default is dry-run; pass --live to execute deletions."
+        ),
+    )
+    p.add_argument("slug", help="Customer slug (matches operator/customers/<slug>/customer.yaml)")
+    mode = p.add_mutually_exclusive_group()
+    mode.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the per-step plan without executing anything (default).",
+    )
+    mode.add_argument(
+        "--live",
+        action="store_true",
+        help="Execute the deletion sequence. Halts on any failure.",
+    )
+    p.add_argument(
+        "--allow-unwired",
+        action="store_true",
+        help=(
+            "Permit a --live run even when destructive backends are unwired "
+            "stubs. DEV/FIXTURE ONLY: the run will NOT actually delete those "
+            "substrates and does not fully decommission a real customer."
+        ),
+    )
+    p.add_argument(
+        "--customers-root",
+        type=Path,
+        default=None,
+        help="Override the customers/ directory (used by tests).",
+    )
+    p.add_argument(
+        "--archive-root",
+        type=Path,
+        default=None,
+        help="Override the compliance-archive directory (used by tests).",
+    )
+    p.add_argument(
+        "--audit-db",
+        type=Path,
+        default=None,
+        help="Override the local audit-log sqlite path (used by tests).",
+    )
+    p.add_argument(
+        "--actor",
+        type=str,
+        default=os.environ.get("DECOMMISSION_ACTOR", "captain"),
+        help="Actor name written to audit rows (default: captain or $DECOMMISSION_ACTOR).",
+    )
+    return p.parse_args(argv)
+
+
+def _resolve_paths(args: argparse.Namespace) -> tuple[Path, Path, Path]:
+    """Resolve customers_root / archive_root / audit_db with sensible defaults."""
+    repo_root = Path(__file__).resolve().parents[3]
+    customers_root = args.customers_root or (repo_root / "operator" / "customers")
+    archive_root = args.archive_root or (
+        repo_root / "operator" / ".decommission-archive"
+    )
+    audit_db = args.audit_db or (
+        customers_root / args.slug / ".decommission-audit.sqlite"
+    )
+    return customers_root, archive_root, audit_db
+
+
+def _preflight(customers_root: Path, slug: str) -> tuple[bool, Optional[str]]:
+    """Returns (ok, reason). Idempotency-friendly: missing dir is OK
+    iff a tombstoned copy already exists (treat as completed)."""
+    if not slug or not slug.replace("-", "").isalnum():
+        return False, f"invalid slug {slug!r} (must match ^[a-z0-9-]+$)"
+    live = customers_root / slug
+    tomb_glob = list(customers_root.glob(f"{slug}.decommissioned.*"))
+    if not live.exists() and not tomb_glob:
+        return False, (
+            f"customer dir not found: {live} (and no tombstone present at "
+            f"{customers_root}/{slug}.decommissioned.*); nothing to decommission"
+        )
+    return True, None
+
+
+async def _run(args: argparse.Namespace) -> int:
+    customers_root, archive_root, audit_db = _resolve_paths(args)
+
+    ok, reason = _preflight(customers_root, args.slug)
+    if not ok:
+        print(f"[preflight] FAILED: {reason}", file=sys.stderr)
+        return 2
+
+    mode = "live" if args.live else "dry-run"
+    _print_header(args.slug, mode=mode)
+
+    try:
+        audit_writer, audit_conn = _build_local_audit_writer(audit_db)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[preflight] audit writer init failed: {exc}", file=sys.stderr)
+        return 4
+
+    # Load customer.yaml so the audit-log retention carve-out resolves the
+    # right per-vertical default + override (audit-retention.md #893). Missing
+    # YAML is tolerated: the pipeline falls back to the conservative 2555-day
+    # window. We do this before the pipeline is constructed so a YAML parse
+    # error surfaces here, not mid-step.
+    customer_yaml = _load_customer_yaml(customers_root, args.slug)
+
+    pipeline = DecommissionPipeline(
+        customer_slug=args.slug,
+        customers_root=customers_root,
+        archive_root=archive_root,
+        audit_writer=audit_writer,
+        actor=args.actor,
+        customer_yaml=customer_yaml,
+    )
+
+    # Fail closed (#1123): a --live run that cannot actually delete must
+    # not report success. Refuse BEFORE writing any audit row or
+    # tombstoning the customer directory.
+    if args.live:
+        unwired = pipeline.unwired_destructive_backends()
+        if unwired and not args.allow_unwired:
+            print(
+                "[live] REFUSING: destructive backend(s) not wired — "
+                f"{', '.join(unwired)}. A --live run would report a clean "
+                "decommission while that customer data, the Fly Machine, and "
+                "its secrets remain. Wire the real implementations, or pass "
+                "--allow-unwired for a dev/fixture run that explicitly "
+                "tolerates skipped deletions.",
+                file=sys.stderr,
+            )
+            try:
+                audit_conn.close()
+            except Exception:  # noqa: BLE001
+                pass
+            _print_footer(args.slug, mode=mode, ok=False)
+            return 5
+        if unwired and args.allow_unwired:
+            print(
+                "[live] WARNING: --allow-unwired set; the following "
+                "destructive backend(s) will be SKIPPED, not deleted: "
+                f"{', '.join(unwired)}. This run does NOT fully decommission "
+                "the customer.",
+                file=sys.stderr,
+            )
+
+    try:
+        if args.live:
+            results = await pipeline.run()
+        else:
+            results = await pipeline.plan()
+    except DecommissionStepFailed as exc:
+        print(
+            f"[live] HALTED at step {exc.step_name}: {exc.cause}",
+            file=sys.stderr,
+        )
+        _print_footer(args.slug, mode=mode, ok=False)
+        return 3
+    except Exception as exc:  # noqa: BLE001
+        print(f"[live] UNEXPECTED ERROR: {type(exc).__name__}: {exc}", file=sys.stderr)
+        _print_footer(args.slug, mode=mode, ok=False)
+        return 4
+    finally:
+        try:
+            audit_conn.close()
+        except Exception:  # noqa: BLE001
+            pass
+
+    for r in results:
+        _print_step(r)
+
+    _print_footer(args.slug, mode=mode, ok=True)
+    return 0
+
+
+def main(argv: Optional[list[str]] = None) -> int:
+    logging.basicConfig(
+        level=os.environ.get("AIE_LOG_LEVEL", "INFO"),
+        format="[%(asctime)s] [%(name)s] %(message)s",
+    )
+    args = parse_args(argv)
+    try:
+        return asyncio.new_event_loop().run_until_complete(_run(args))
+    except KeyboardInterrupt:
+        print("[decommission] interrupted by user", file=sys.stderr)
+        return 130
+
+
+if __name__ == "__main__":
+    sys.exit(main())

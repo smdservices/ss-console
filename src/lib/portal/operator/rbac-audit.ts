@@ -15,7 +15,7 @@
  * are stable; when the bridge lands, only the destination changes.
  *
  * RBAC action vocabulary mirrored from
- * `ai-employee/adapter/audit_log.py::ACCEPTED_ACTION_TYPES` (the
+ * `operator/adapter/audit_log.py::ACCEPTED_ACTION_TYPES` (the
  * `RBAC_EVENT` class). The viewer-side constant lives in
  * `src/lib/portal/operator/audit.ts`; both reference the same
  * writer-side spec.

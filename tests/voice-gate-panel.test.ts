@@ -17,12 +17,12 @@ import {
   PanelSession,
   presentDraft,
   validatePanelInput,
-} from '../ai-employee/voice-gate/index.js'
+} from '../operator/voice-gate/index.js'
 import type {
   BlindTestDraft,
   CreatePanelSessionInput,
   RecipientCohort,
-} from '../ai-employee/voice-gate/index.js'
+} from '../operator/voice-gate/index.js'
 
 function draft(
   id: string,

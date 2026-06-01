@@ -24,7 +24,7 @@ import type { D1Database } from '@cloudflare/workers-types'
 export type Ceiling = 'autonomous' | 'draft_for_review' | 'refused'
 
 /**
- * Restrictiveness ordering — mirrors `ai-employee/adapter/trust_ceiling.py`
+ * Restrictiveness ordering — mirrors `operator/adapter/trust_ceiling.py`
  * `_RESTRICTIVENESS`. Higher = more restrictive. Single source for the
  * raise/lower asymmetry and the floor comparison on the TS side.
  */
@@ -63,7 +63,7 @@ export function changeDirection(oldValue: Ceiling, newValue: Ceiling): ChangeDir
 /**
  * Non-raisable per-action-class vertical floors (ADR 0025 / ADR 0022
  * compliance constraints). Seeded constant — the source of truth is the
- * vertical pack manifest (`ai-employee/verticals/<v>/vertical.yaml`
+ * vertical pack manifest (`operator/verticals/<v>/vertical.yaml`
  * `trust_floors`); this mirror is kept tiny and the keys are asserted to be
  * real action classes (see config-governance.test.ts) so the portal and the
  * runtime can never drift on the identifier. CI projection of floors from the

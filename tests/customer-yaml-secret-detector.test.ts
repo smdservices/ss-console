@@ -140,7 +140,7 @@ describe('scanParsedValue — shape heuristics', () => {
       {
         connectors: {
           PracticeManagement: {
-            token_ref: 'infisical:/ai-employee/smith/practice-management/oauth-refresh',
+            token_ref: 'infisical:/operator/smith/practice-management/oauth-refresh',
           },
         },
       },
@@ -257,7 +257,7 @@ describe('scanRawYaml — line-level detection', () => {
   })
 
   it('exempts token_ref even when the value is long', () => {
-    const yaml = 'token_ref: "infisical:/ai-employee/smith/practice-management/oauth-refresh"\n'
+    const yaml = 'token_ref: "infisical:/operator/smith/practice-management/oauth-refresh"\n'
     const findings = scanRawYaml(yaml)
     expect(findings.length).toBe(0)
   })

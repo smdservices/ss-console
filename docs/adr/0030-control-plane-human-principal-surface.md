@@ -20,7 +20,7 @@ related-note: note_01KSS3TCTKWYVF6EZ04482X389, note_01KSTYSNC9CYPKYFJZ3TJ7F6RM
 
 Everything the human principal does to _steer_ the employee — as opposed to the employee doing its work — happens through the control plane. The audit found the pieces built and disconnected:
 
-- **Draft-for-review queue.** The `draft_queue` table exists (`ai-employee/migrations/0001_per_customer_schema.sql:94`) and the portal has send/teach endpoints (`src/pages/api/portal/ai-employee/drafts/[id]/send.ts`, `.../teach.ts`). The live bridge from the Hermes runtime that _populates_ the queue is pending on runtime scoping (#821). Graded PARTIAL.
+- **Draft-for-review queue.** The `draft_queue` table exists (`operator/migrations/0001_per_customer_schema.sql:94`) and the portal has send/teach endpoints (`src/pages/api/portal/operator/drafts/[id]/send.ts`, `.../teach.ts`). The live bridge from the Hermes runtime that _populates_ the queue is pending on runtime scoping (#821). Graded PARTIAL.
 - **Memory dismissal.** `persona_observations.dismissed_at` exists with an `active` generated column that physically excludes dismissed rows (`migrations/0007_persona_observations.sql:74,77`) — the schema embodiment of ADR 0016's "mirror, don't gate; dismissal triggers physical DELETE from Honcho." The dismissal UI and the Honcho-delete call are not wired. Graded PARTIAL.
 - **Config governance.** The trust-ceiling change surface logs intent only (ADR 0026). Graded STUB.
 - **Lifecycle / roster.** Provision / evolve / pause / decommission and (future) workforce roster (ADR 0029) are principal acts with no unified home.
@@ -98,7 +98,7 @@ Nothing the agent does can drive a control-plane act. Proposals from the agent (
 - [ADR 0011 — Multi-persona per customer](./0011-multi-persona-per-customer.md) (principal role; principal-only authority acts)
 - [ADR 0016 — Honcho disposition](./0016-honcho-disposition.md) (mirror, don't gate; dismissal = physical DELETE)
 - [ADR 0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) / [ADR 0026](./0026-config-surface-is-a-security-boundary.md) (the authority function operated here) / [ADR 0029](./0029-workforce-model-inter-employee-mediation.md) (roster surfaces here)
-- `ai-employee/migrations/0001_per_customer_schema.sql` (`draft_queue`), `ai-employee/migrations/0007_persona_observations.sql` (`dismissed_at`/`active`)
-- `src/pages/api/portal/ai-employee/drafts/[id]/send.ts`, `.../teach.ts` (review surface)
+- `operator/migrations/0001_per_customer_schema.sql` (`draft_queue`), `operator/migrations/0007_persona_observations.sql` (`dismissed_at`/`active`)
+- `src/pages/api/portal/operator/drafts/[id]/send.ts`, `.../teach.ts` (review surface)
 - [Issue #821](https://github.com/venturecrane/ss-console/issues/821) (Hermes runtime scoping → draft-queue populating bridge)
 - Strategy notes: `note_01KSS3TCTKWYVF6EZ04482X389`, `note_01KSTYSNC9CYPKYFJZ3TJ7F6RM`

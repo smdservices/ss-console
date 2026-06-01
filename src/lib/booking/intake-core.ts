@@ -217,8 +217,6 @@ async function resolveMeeting(
 
 const INTEREST_LABELS: Record<string, string> = {
   operator: 'Operator',
-  // Legacy alias: pre-rename /book?interest=ai-employee links still resolve.
-  'ai-employee': 'Operator',
 }
 
 function buildIntakeLines(input: IntakeInput): string[] {

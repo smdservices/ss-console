@@ -1,10 +1,10 @@
 # Cost Telemetry Worker — nightly cost-driver ingest for Operator
-# Per docs/specs/ai-employee/cost-telemetry-events.md "Nightly Captain job".
+# Per docs/specs/operator/cost-telemetry-events.md "Nightly Captain job".
 #
 # The worker iterates every active Operator customer once per day at
 # 02:00 UTC. For each customer it pulls yesterday's Anthropic token usage,
 # computes cents via the hardcoded pricing JSON files at
-# ai-employee/adapter/cost_telemetry/, and UPSERTs one or more rows into
+# operator/adapter/cost_telemetry/, and UPSERTs one or more rows into
 # the customer's per-customer cost_telemetry D1 table.
 #
 # The per-customer D1 database id is read from the central
@@ -13,7 +13,7 @@
 # cost_telemetry table.
 #
 # Cloudflare D1/R2/Vectorize metering is deferred to phase 2 per the
-# validation-spike result documented in ai-employee/adapter/cost_ingest.py.
+# validation-spike result documented in operator/adapter/cost_ingest.py.
 # Token cost dominates the COGS surface; the missing source does not
 # block the §17.1 COGS/MRR kill criterion in v1.
 

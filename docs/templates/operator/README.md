@@ -39,7 +39,7 @@ Each template also defines its own narrower fields (for example, the DPA defines
 
 The data-handling commitments in the DPA and the BAA-equivalent are not aspirational. They reflect the actual platform architecture as documented in the Operator PRDs and ADRs. Every commitment in these templates is sourced to one of:
 
-- [Platform PRD](../../pm/operator/platform-prd.md) §13 (Compliance & Privacy Posture)
+- Platform PRD §13 (Compliance & Privacy Posture)
 - [ADR 0005 Reviewer-as-sender](../../adr/0005-reviewer-as-sender.md)
 - [ADR 0007 Per-customer Machine isolation](../../adr/0007-per-customer-machine-isolation.md)
 - [ADR 0008 Customer-owned memory artifact](../../adr/0008-customer-owned-memory-artifact.md)
@@ -57,6 +57,6 @@ Each template ends with this footer, which must remain visible on every draft th
 
 ## Source of truth
 
-This directory is the canonical drafting source. The signed DocuSign envelopes are the legally operative documents; copies of countersigned envelopes are archived per the procedure in [`signing-flow.md`](./signing-flow.md) and surfaced in the customer's compliance evidence packet ([artifact 10-dpa.pdf and 11-baa.pdf per PRD §13.6](../../pm/operator/platform-prd.md#136-compliance-evidence-packet-structure)).
+This directory is the canonical drafting source. The signed DocuSign envelopes are the legally operative documents; copies of countersigned envelopes are archived per the procedure in [`signing-flow.md`](./signing-flow.md) and surfaced in the customer's compliance evidence packet (artifact 10-dpa.pdf and 11-baa.pdf per PRD §13.6).
 
 Issue tracking: this template set was authored against [#827](https://github.com/venturecrane/ss-console/issues/827).

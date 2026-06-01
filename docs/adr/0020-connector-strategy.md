@@ -4,8 +4,7 @@ date: 2026-05-24
 status: accepted
 captain: Scott Durgan
 supersedes: none
-related-prd: docs/pm/ai-employee/platform-prd.md §7.2, §7.3
-related-spec: docs/specs/ai-employee/customer-yaml-schema.md
+related-spec: docs/specs/operator/customer-yaml-schema.md
 related-issue: TBD (filed as follow-on to the locked Hermes-alignment plan dated 2026-05-24)
 ---
 
@@ -17,10 +16,10 @@ related-issue: TBD (filed as follow-on to the locked Hermes-alignment plan dated
 
 ## Context
 
-The AI Employee touches the customer's external systems through eleven capability interfaces (ADR 0006 rewrite). Each capability resolves at runtime through one of three backend patterns, distinguished by the `customer.yaml.connectors{}.backend:` prefix:
+The Operator touches the customer's external systems through eleven capability interfaces (ADR 0006 rewrite). Each capability resolves at runtime through one of three backend patterns, distinguished by the `customer.yaml.connectors{}.backend:` prefix:
 
 - `mcp:<server>` — Model Context Protocol server (vendor-official or vetted community)
-- `build:<vendor>` — Python adapter we maintain in `ai-employee/connectors/<vendor>/`
+- `build:<vendor>` — Python adapter we maintain in `operator/connectors/<vendor>/`
 - `synthetic:<name>` — In-process substrate using per-customer D1+R2 (e.g., `no_pm`)
 
 **Composio is dropped.** An earlier revision of this ADR reserved a fourth `composio:<connector>` backend as a long-tail fallback. As of the 2026-05-30 revision it is removed entirely: every vendor we plan to wire has a vendor-direct or vetted-community MCP, or a BUILD adapter, and we connect to MCPs directly. The `composio:` prefix is no longer an accepted backend and the per-connection runtime guard has been retired. New vendors with no first-party MCP are wired with a BUILD adapter.
@@ -35,7 +34,7 @@ The decision matrix exists because connector choice for each vendor has real tra
 
 1. **Vendor-direct MCP** — first-party, vendor-maintained, vendor-supported. Default choice when one exists.
 2. **Vetted community MCP** — small, focused, securely reviewable, actively maintained (acceptance criteria below).
-3. **BUILD adapter** in `ai-employee/connectors/<vendor>/` — when no acceptable MCP exists, or when trust-ceiling enforcement is safer to own end-to-end (e.g., trust-account writes against LawPay). This is also the fallback for any long-tail vendor that has not shipped a first-party MCP.
+3. **BUILD adapter** in `operator/connectors/<vendor>/` — when no acceptable MCP exists, or when trust-ceiling enforcement is safer to own end-to-end (e.g., trust-account writes against LawPay). This is also the fallback for any long-tail vendor that has not shipped a first-party MCP.
 
 ### Per-vendor decision table
 
@@ -118,7 +117,7 @@ An earlier revision reserved a `composio:` backend to broker vendor connections 
 - New customer onboarding is mostly a `customer.yaml` edit, not a code change. MCP-bound capabilities require no SMD code at all.
 - Maintenance burden is bounded: only BUILD adapters are ours to maintain end-to-end. MCP server maintenance is the vendor's (or upstream community's) problem.
 - Per-customer isolation is preserved across all backend patterns. MCP servers run as per-Machine subprocesses; BUILD adapters live in the per-Machine container; synthetic substrates use per-customer D1+R2.
-- Capability-disclosure metadata (the "what Marcus used to write this" sourcing block per ADR 0006 rewrite) works uniformly across backends because the capability-conformance metadata is per-tool, not per-backend.
+- Capability-disclosure metadata (the "what the Operator used to write this" sourcing block per ADR 0006 rewrite) works uniformly across backends because the capability-conformance metadata is per-tool, not per-backend.
 
 **Negative / accepted.**
 
@@ -151,6 +150,5 @@ An earlier revision reserved a `composio:` backend to broker vendor connections 
 - [`shipstation/mcp-shipstation-api`](https://github.com/shipstation/mcp-shipstation-api) — ShipStation MCP (license unconfirmed)
 - [CourtListener MCP](https://mcp.courtlistener.com)
 - [ADR 0006 (rewrite)](./0006-capability-adapter-pattern.md) — backend prefix model
-- [ADR 0014](./0014-pi-vertical-adapter-build-priority.md) — PI vertical adapter build priority
 - [ADR 0015 (rewrite)](./0015-hermes-fork-vs-upstream.md) — plugin-only overlay; the runtime registration happens in plugins
 - [ADR 0019](./0019-customer-yaml-to-profile-config-translation.md) — backend resolution at boot

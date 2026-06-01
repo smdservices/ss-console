@@ -2,11 +2,6 @@
 
 **Spec for issue #801.** Per-customer storage isolation enforced through naming convention. Decommissioning depends on enumerable prefixes. Cross-Machine query prohibition (invariant #7) depends on the runtime verifying its bindings match its slug.
 
-## Source
-
-- platform-prd.md §7.6 (storage architecture), §7.5 (invariant #7)
-- `docs/pm/operator/prd-contributions/round-1/technical-lead.md` R2 + Vectorize sections
-
 ## Contract
 
 ### R2 buckets
@@ -124,12 +119,12 @@ The decommission-archive at `{slug}/decommission-archive/final-{ts}.zip` is move
 
 1. **Boot-check test** (`tests/operator/invariant-7-boot.test.ts`): provision a fixture customer, then swap one binding to a different slug's name, restart the Machine, assert exit 3 with the documented stdout.
 2. **Decommission enumeration test**: seed an R2 bucket with 100 objects under `{slug}/`, plus 5 objects under `other-{slug}/` (simulating mistaken cross-namespace writes), run decommission; assert only `{slug}/`-prefixed objects deleted, the 5 stray objects flagged in stderr.
-3. **CI guardrail**: grep at `tests/operator/no-raw-r2-writes.test.ts` ensures only `ai-employee/adapter/r2_helper.py` (or its TS twin) imports the R2 SDK.
+3. **CI guardrail**: grep at `tests/operator/no-raw-r2-writes.test.ts` ensures only `operator/adapter/r2_helper.py` (or its TS twin) imports the R2 SDK.
 4. **Per-customer Vectorize index count probe** (Captain dashboard daily): emits `VECTORIZE_QUOTA_HIGH` alert at ≥80 indexes.
 
 ## Implementation notes
 
-- New module: `ai-employee/adapter/r2_helper.py` (Python) and `src/lib/operator/r2-helper.ts` (TS) — only files allowed to import the R2 SDK directly. Exports `r2_key(slug, segment, object_id)` + `r2_put`, `r2_get`, `r2_list_prefix`, `r2_delete_prefix`.
+- New module: `operator/adapter/r2_helper.py` (Python) and `src/lib/operator/r2-helper.ts` (TS) — only files allowed to import the R2 SDK directly. Exports `r2_key(slug, segment, object_id)` + `r2_put`, `r2_get`, `r2_list_prefix`, `r2_delete_prefix`.
 - `provision-customer.sh` step 4 creates the bucket and writes a `.healthcheck` object at `{slug}/.healthcheck` containing the provisioning timestamp; boot-check reads this to confirm the bucket binding is live.
 - Vectorize index naming aligned with binding name (1:1) to make the boot check trivial.
 - Retention bucket `smd-decommission-archive` provisioned at platform setup, not per-customer. Captain-only access via wrangler creds.

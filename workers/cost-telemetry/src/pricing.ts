@@ -2,13 +2,13 @@
  * Pricing JSON references for the cost telemetry worker.
  *
  * Source of truth is the JSON files at
- * `ai-employee/adapter/cost_telemetry/`. The Python ingest module
+ * `operator/adapter/cost_telemetry/`. The Python ingest module
  * loads them at runtime; the TS worker can't read files in a Worker
  * runtime, so the JSON shapes are imported here. Keep these in sync
  * with the JSON files — the unit tests assert structural parity.
  */
 
-import anthropicJson from '../../../ai-employee/adapter/cost_telemetry/anthropic_pricing.json'
+import anthropicJson from '../../../operator/adapter/cost_telemetry/anthropic_pricing.json'
 
 export interface AnthropicModelPricing {
   input_per_million_cents: number

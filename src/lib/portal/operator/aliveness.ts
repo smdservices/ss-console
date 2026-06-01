@@ -17,7 +17,7 @@
  *                 the reason text the substrate stored. Captain
  *                 escalation is required to clear (see ADR for
  *                 sticky-stop recovery contract in
- *                 `ai-employee/safety-substrate/sticky_stop.py`).
+ *                 `operator/safety-substrate/sticky_stop.py`).
  *   offline     — no audit_log activity within OFFLINE_THRESHOLD_MINUTES.
  *                 This is a derived posture: the audit writer is
  *                 synchronous on every action (issue #891), so absence
@@ -158,7 +158,7 @@ export interface AlivenessBridgeReading {
   /**
    * The forward-only sticky-stop level. 'OK' means not pinned;
    * anything else means the agent is constrained. The level vocabulary
-   * mirrors `ai-employee/safety-substrate/sticky_stop.py::StickyStopLevel`.
+   * mirrors `operator/safety-substrate/sticky_stop.py::StickyStopLevel`.
    * Unknown values surface as 'OK' rather than collapsing to
    * sticky_stop — under-reporting is preferable to false-positive
    * "agent is stopped" copy.

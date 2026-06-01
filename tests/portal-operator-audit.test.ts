@@ -73,7 +73,7 @@ describe('AUDIT_ACTION_TYPES vocabulary', () => {
   it('contains the writer-side core action classes', () => {
     // Sanity check against the audit_log.py constant. If new action
     // types ship on the writer side, this list must update in lockstep
-    // (see ACCEPTED_ACTION_TYPES in ai-employee/adapter/audit_log.py).
+    // (see ACCEPTED_ACTION_TYPES in operator/adapter/audit_log.py).
     expect(AUDIT_ACTION_TYPES).toContain('DRAFT_CREATED')
     expect(AUDIT_ACTION_TYPES).toContain('DRAFT_APPROVED')
     expect(AUDIT_ACTION_TYPES).toContain('TRUST_PROMOTED')
