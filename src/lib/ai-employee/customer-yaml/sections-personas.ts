@@ -111,12 +111,42 @@ function checkOnePersona(
     pronouns: pronouns,
     send_as: sendAs,
     skills,
-    voice_overrides: p['voice_overrides'] ?? null,
-    escalation_overrides: p['escalation_overrides'] ?? null,
+    voice_overrides: checkOverrideBlob(
+      p['voice_overrides'],
+      `personas[${i}].voice_overrides`,
+      errors
+    ),
+    escalation_overrides: checkOverrideBlob(
+      p['escalation_overrides'],
+      `personas[${i}].escalation_overrides`,
+      errors
+    ),
     channel_bindings: channelBindings,
     bundles,
     cron,
   }
+}
+
+/**
+ * Validate a free-form per-persona override blob. Absent → null. A plain
+ * object is carried verbatim (internal shape is intentionally open). Any other
+ * authored value (string, number, array) is a malformed override → push an
+ * error and coerce to null rather than silently passing a scalar through, which
+ * the prior `unknown` typing allowed.
+ */
+function checkOverrideBlob(
+  value: unknown,
+  path: string,
+  errors: ValidationError[]
+): Record<string, unknown> | null {
+  if (value === undefined || value === null) return null
+  if (isPlainObject(value)) return value
+  errors.push({
+    code: 'TypeMismatch',
+    path,
+    message: `${path} must be a mapping (object) or absent`,
+  })
+  return null
 }
 
 function checkPersonaSlug(
