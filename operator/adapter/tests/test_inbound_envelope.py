@@ -27,15 +27,9 @@ from adapter.inbound_envelope import (  # noqa: E402
 )
 from adapter.trust_ceiling import ActionClass, Ceiling, enforce  # noqa: E402
 
-_FIXTURE_DIR = (
-    Path(__file__).resolve().parents[2]
-    / "verticals"
-    / "law-firm"
-    / "addons"
-    / "pi"
-    / "fixtures"
-    / "edge-prompt-injection"
-)
+# Adversarial inbound prompt-injection corpus (ADR 0027 inbound trust boundary).
+# Platform-level safety QA — co-located with this test, vertical-neutral.
+_FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "inbound-injection"
 
 
 def _load_fixtures() -> list[dict]:
