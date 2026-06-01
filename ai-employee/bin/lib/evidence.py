@@ -122,8 +122,11 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         prog="generate-evidence-packet",
         description=(
             "Generate a compliance evidence packet for one customer + "
-            "period (issue 894). Output is a signed tar.gz containing a "
-            "PDF, JSON manifest, and per-spec evidence files."
+            "period (issue 894). Output is a digest-verified tar.gz "
+            "(per-artifact SHA-256; manifest hash recorded in the append-only "
+            "audit log) containing a PDF, JSON manifest, and per-spec evidence "
+            "files. The manifest is NOT yet cryptographically signed "
+            "(signature=unsigned-stub); detached signing is a tracked follow-on."
         ),
     )
     p.add_argument("--customer", required=True, help="Customer slug")

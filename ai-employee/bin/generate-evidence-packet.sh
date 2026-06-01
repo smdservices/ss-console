@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # generate-evidence-packet.sh: compose a compliance evidence packet
-# (issue #894) for one customer + period. Output is a signed tar.gz
-# containing a PDF, JSON manifest, and per-spec evidence files.
+# (issue #894) for one customer + period. Output is a digest-verified
+# tar.gz (per-artifact SHA-256 + a manifest SHA-256 recorded in the
+# append-only COMPLIANCE_PACKET_EXPORTED audit row) containing a PDF,
+# JSON manifest, and per-spec evidence files. The manifest is NOT yet
+# cryptographically signed -- it self-discloses signature="unsigned-stub";
+# detached Ed25519 signing is a tracked follow-on gated on /captain/signing-key.
 #
 # Usage:
 #   ai-employee/bin/generate-evidence-packet.sh \

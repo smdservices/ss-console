@@ -584,7 +584,12 @@ def _compute_counts(
 
 @dataclass
 class EvidencePacketBuilder:
-    """Compose a signed evidence packet for one customer + period.
+    """Compose a digest-verified evidence packet for one customer + period.
+
+    The manifest is NOT yet cryptographically signed -- it self-discloses
+    ``signature="unsigned-stub"``; integrity rests on per-artifact SHA-256
+    digests plus the manifest hash recorded in the append-only audit log.
+    Detached signing is a tracked follow-on.
 
     Construction wires the read executor + audit writer + (optional)
     yaml parser. ``yaml_loader`` defaults to a minimal JSON-ish parser
