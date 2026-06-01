@@ -65,4 +65,7 @@ jobs:
 
       - name: Run pytest suites (adapter + evidence + pytest-style invariants)
         working-directory: ai-employee
-        run: python3 -m pytest adapter/tests adapter/evidence/tests safety-substrate/tests -q
+        # bin/tests/test_voice_corpus.py is named explicitly: the rest of bin/tests
+        # needs substrate deps (pyyaml etc.) not installed in this bare-pytest env,
+        # but the voice-corpus tracer lib imports only adapter.voice + stdlib.
+        run: python3 -m pytest adapter/tests adapter/evidence/tests safety-substrate/tests bin/tests/test_voice_corpus.py -q
