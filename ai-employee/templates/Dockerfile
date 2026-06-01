@@ -66,7 +66,7 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # vendor), bans the agentmail autonomous-send tools at the trust layer, and
 # makes the profile-config write atomic (recovers a root-owned config.yaml).
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="v0.4.1"
+ARG OVERLAY_REF="v0.4.2"
 
 ARG CUSTOMER_SLUG=customer-zero
 
