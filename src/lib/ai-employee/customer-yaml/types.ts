@@ -323,8 +323,13 @@ export interface Persona {
   pronouns: Pronouns | null
   send_as: PersonaSendAs | null
   skills: PersonaSkill[]
-  voice_overrides: unknown
-  escalation_overrides: unknown
+  // Free-form per-persona override blobs (object or absent). Typed as an object
+  // map rather than `unknown` so the validator can gate them to plain-object /
+  // null — a malformed scalar is rejected, not silently carried. Their internal
+  // shape is deliberately open; no consumer destructures them today, so
+  // structuring is a future change for when one does.
+  voice_overrides: Record<string, unknown> | null
+  escalation_overrides: Record<string, unknown> | null
   channel_bindings: PersonaChannelBinding[]
   /** Skill bundles declared by this persona — ADR 0021 Stream D. */
   bundles: PersonaBundle[]
