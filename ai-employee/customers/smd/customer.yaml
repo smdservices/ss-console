@@ -111,17 +111,26 @@ webhook_triggers:
 
 # ---- TELEGRAM CHANNEL (ADR 0033) ----
 # Crane is reachable on Telegram via Hermes' native polling adapter (getUpdates) —
-# NO webhook/public surface (unlike AgentMail email above). It is enabled purely by
-# environment, NOT by this file: the Fly secrets TELEGRAM_BOT_TOKEN and
-# TELEGRAM_ALLOWED_USERS auto-enable the platform on boot. The image must be built
-# with the Dockerfile `--extra messaging` (python-telegram-bot); `--extra all` omits it.
-# Sourced from Infisical prod /ss/ai-employee/customer-zero/telegram/.
-# Allowlist = 7367659986 (Scott), DM-only — MANDATORY: the pinned ref fails OPEN on an
-# empty allowlist. Proven live 2026-06-01 (Scott DM'd, Crane replied autonomously).
-# NOT yet an authored config key here: a `telegram:` block + translate.py
-# _materialize_telegram_platform + a fail-closed launch guard are the documented
-# evolution (ADR 0033) to move the allowlist into reviewable config. Until then this
-# block is documentation only — the Fly secrets are the source of truth.
+# NO webhook/public surface (unlike AgentMail email above). The bot TOKEN is the Fly
+# secret TELEGRAM_BOT_TOKEN (credential, sourced from Infisical prod
+# /ss/ai-employee/customer-zero/telegram/), which auto-enables the polling platform.
+# The image must be built with the Dockerfile `--extra messaging` (python-telegram-bot);
+# `--extra all` omits it.
+#
+# The ALLOWLIST below is the AUTHORED SOURCE OF TRUTH (not a loose Fly secret): the
+# overlay translate.py _materialize_telegram_platform materializes it into the profile
+# config.yaml `telegram:` block, which Hermes maps to TELEGRAM_ALLOWED_USERS.
+# MANDATORY and fail-closed: the pinned Hermes ref allows ALL users when the allowlist
+# is empty (telegram.py: `if not allowed_csv: return True`); the materializer raises on
+# an empty allow_from, and the bootstrap guard (ensure-telegram-allowlist.py) refuses to
+# launch if the token is set without a resolvable allowlist. Proven live 2026-06-01.
+telegram:
+  enabled: true
+  # Permitted Telegram numeric user id(s). DM-only. 7367659986 = Scott Durgan.
+  allow_from:
+    - '7367659986'
+  # 1:1 DM assistant: reply to every DM from an allowed user (no @mention needed).
+  require_mention: false
 
 # ---- SCOPE ----
 scope:
