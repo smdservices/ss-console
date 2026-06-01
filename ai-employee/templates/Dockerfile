@@ -138,7 +138,13 @@ RUN npm install --prefer-offline --no-audit \
  && (cd ui-tui && npm install --prefer-offline --no-audit) \
  && npm cache clean --force
 
-RUN uv sync --frozen --no-install-project --extra all
+# `--extra all` deliberately EXCLUDES the `messaging` extra (python-telegram-bot,
+# discord.py, slack-bolt) — verified against the pinned ref's pyproject. Without
+# `--extra messaging` the native Telegram adapter imports fail and the platform is
+# inert (TELEGRAM_AVAILABLE=False), so a TELEGRAM_BOT_TOKEN env would silently do
+# nothing. We add it explicitly: lock-governed (frozen) and forward-aligned with the
+# Slack/Discord channels the productized AI Employee will offer. See ADR 0033.
+RUN uv sync --frozen --no-install-project --extra all --extra messaging
 RUN cd web && npm run build && cd ../ui-tui && npm run build
 RUN uv pip install --no-cache-dir --no-deps -e "."
 

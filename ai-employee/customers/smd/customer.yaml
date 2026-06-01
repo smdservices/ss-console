@@ -109,6 +109,20 @@ webhook_triggers:
     skill: inbox-triage
     persona: crane
 
+# ---- TELEGRAM CHANNEL (ADR 0033) ----
+# Crane is reachable on Telegram via Hermes' native polling adapter (getUpdates) —
+# NO webhook/public surface (unlike AgentMail email above). It is enabled purely by
+# environment, NOT by this file: the Fly secrets TELEGRAM_BOT_TOKEN and
+# TELEGRAM_ALLOWED_USERS auto-enable the platform on boot. The image must be built
+# with the Dockerfile `--extra messaging` (python-telegram-bot); `--extra all` omits it.
+# Sourced from Infisical prod /ss/ai-employee/customer-zero/telegram/.
+# Allowlist = 7367659986 (Scott), DM-only — MANDATORY: the pinned ref fails OPEN on an
+# empty allowlist. Proven live 2026-06-01 (Scott DM'd, Crane replied autonomously).
+# NOT yet an authored config key here: a `telegram:` block + translate.py
+# _materialize_telegram_platform + a fail-closed launch guard are the documented
+# evolution (ADR 0033) to move the allowlist into reviewable config. Until then this
+# block is documentation only — the Fly secrets are the source of truth.
+
 # ---- SCOPE ----
 scope:
   email_folders_visible:
