@@ -69,8 +69,11 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # the stored rhythm signal (sentence-length distribution + punctuation), so the
 # pre_llm_call voice block can actually shape a draft instead of injecting a thin
 # greeting/signoff label. Superset of v0.4.3 (carries all webhook-gate work too).
+# v0.4.5 adds _materialize_telegram_platform (#32, ADR 0033): authors the Telegram
+# allowlist from customer.yaml.telegram into the profile config.yaml (fail-closed on
+# empty allow_from). Superset of v0.4.4.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="v0.4.4"
+ARG OVERLAY_REF="v0.4.5"
 
 ARG CUSTOMER_SLUG=customer-zero
 
@@ -221,6 +224,7 @@ RUN chmod +x /app/bootstrap.sh
 # overlay materializes profile configs, ensuring the autonomous curator is off
 # before Hermes starts; the boot smoke test re-runs it with --check.
 COPY ai-employee/templates/ensure-curator-disabled.py /app/ensure-curator-disabled.py
+COPY ai-employee/templates/ensure-telegram-allowlist.py /app/ensure-telegram-allowlist.py
 
 # NOTE: customer.yaml is NOT copied into the image. It lives on the Fly
 # volume at /opt/data/customer.yaml; bootstrap.sh fetches it from R2 on
