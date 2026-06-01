@@ -19,6 +19,7 @@ on:
   pull_request:
     paths:
       - 'ai-employee/adapter/**'
+      - 'ai-employee/bin/**'
       - 'ai-employee/safety-substrate/**'
       - 'ai-employee/verticals/**'
       - '.github/workflows/ai-employee-substrate.yml'
@@ -62,6 +63,6 @@ jobs:
           done
           exit $fail
 
-      - name: Run pytest suites (adapter + pytest-style invariants)
+      - name: Run pytest suites (adapter + evidence + pytest-style invariants)
         working-directory: ai-employee
-        run: python3 -m pytest adapter/tests safety-substrate/tests -q
+        run: python3 -m pytest adapter/tests adapter/evidence/tests safety-substrate/tests -q
