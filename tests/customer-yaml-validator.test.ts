@@ -498,6 +498,37 @@ describe('validate — personas[]', () => {
     }
     expect(r.value.personas).toHaveLength(2)
   })
+
+  it('accepts a plain-object voice_overrides / escalation_overrides', () => {
+    const f = validFixture()
+    const persona = (f['personas'] as Array<Record<string, unknown>>)[0]
+    persona['voice_overrides'] = { greeting: 'Hi' }
+    persona['escalation_overrides'] = { after_hours: 'page' }
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.personas[0].voice_overrides).toEqual({ greeting: 'Hi' })
+    expect(r.value.personas[0].escalation_overrides).toEqual({ after_hours: 'page' })
+  })
+
+  it('absent overrides resolve to null (no error)', () => {
+    const f = validFixture()
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.personas[0].voice_overrides).toBeNull()
+    expect(r.value.personas[0].escalation_overrides).toBeNull()
+  })
+
+  it('rejects a non-object override (the gate the old `unknown` typing skipped)', () => {
+    const f = validFixture()
+    const persona = (f['personas'] as Array<Record<string, unknown>>)[0]
+    persona['voice_overrides'] = 'not-an-object'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'personas[0].voice_overrides' && e.code === 'TypeMismatch')
+    ).toBe(true)
+  })
 })
 
 // -----------------------------------------------------------------------------
