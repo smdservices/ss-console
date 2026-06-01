@@ -190,6 +190,25 @@ _NOISE_MARKERS = (
     "stdout>",
 )
 
+# Second-person role/instruction openers. These are agent PROMPTS (often
+# skill-authored, pasted as user turns), not the author's own voice — they
+# read as formal instructions TO an agent and would teach the exact opposite
+# of the author's terse first-person register. Matched case-insensitively
+# against the start of the message.
+_AGENT_PROMPT_OPENERS = (
+    "you are ",
+    "you're the ",
+    "you're a ",
+    "your task",
+    "your job",
+    "your role",
+    "act as ",
+    "you will be ",
+    "output only",
+    "return only",
+    "respond only",
+)
+
 
 def _is_prose(text: str, *, min_words: int) -> bool:
     """Heuristic: is this the author's own prose, not tooling/code/noise?"""
@@ -199,6 +218,10 @@ def _is_prose(text: str, *, min_words: int) -> bool:
     if "```" in t:  # pasted code/fenced block
         return False
     if t.startswith("<") or t.startswith("{") or t.startswith("["):
+        return False
+    if t.startswith("# ") or t.startswith("## "):  # pasted markdown doc / skill definition
+        return False
+    if t.lower().startswith(_AGENT_PROMPT_OPENERS):  # agent role prompt, not the author
         return False
     if len(t.split()) < min_words:
         return False
