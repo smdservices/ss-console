@@ -80,11 +80,30 @@ primary_region = "{{FLY_REGION}}"
   cpu_kind = "shared"
   cpus = 1
 
-# No public HTTP service — Hermes operates over MCP/gateway adapters, not as
-# a web server. Honcho's FastAPI server binds to localhost only. SSH-only
-# access via `fly ssh console`. No `[[services]]` block because we don't
-# expose ports; no `[processes]` block because the Dockerfile ENTRYPOINT
-# (tini -- bootstrap.sh) is the only process and tini supervises the rest.
+# Inbound webhooks — the ONLY public surface. Fly routes 443 → the front-door
+# gate (overlay `hermes-smd-webhook-gate`, internal_port 8643), which verifies
+# the vendor (AgentMail) signature and forwards to the Hermes gateway on the
+# machine-local :8644. The gateway's 8644 is in NO service block, so it stays
+# private. `auto_start_machines` wakes a stopped Machine on an inbound request;
+# `min_machines_running = 1` keeps customer-zero warm so the first inbound after
+# idle answers promptly instead of racing the (heavy) bootstrap. Cost-optimization
+# (scale-to-zero: min = 0 + auto_stop + rely on AgentMail webhook retry through
+# the gate's 503) is a documented evolution knob, not the customer-zero default.
+[http_service]
+  internal_port = 8643
+  force_https = true
+  auto_start_machines = true
+  min_machines_running = 1
+  [[http_service.checks]]
+    method = "get"
+    path = "/health"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"
+
+# Honcho's FastAPI server binds to localhost only. SSH access via
+# `fly ssh console`. The Dockerfile ENTRYPOINT (tini -- bootstrap.sh) is the
+# only top-level process; tini supervises the gateway + the webhook gate.
 
 # Restart policy: if any child process under tini dies, tini reaps it and
 # bootstrap.sh re-sequences. If the whole container exits non-zero, Fly
