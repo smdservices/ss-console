@@ -4,10 +4,10 @@
 
 ## Source
 
-- [platform-prd.md](../../pm/ai-employee/platform-prd.md) §15.1 (cost drivers), §17.1 (COGS/MRR kill criterion)
+- [platform-prd.md](../../pm/operator/platform-prd.md) §15.1 (cost drivers), §17.1 (COGS/MRR kill criterion)
 - [cost-telemetry-events.md](cost-telemetry-events.md) — emitter spec; the row source this rollup reads
 - [d1-schema.md](d1-schema.md) §6 — `cost_telemetry` shape; §6 also defines `captain_time_events`
-- [docs/strategy/ai-employee-pricing-2026-05-13.md](../../strategy/ai-employee-pricing-2026-05-13.md) — per-driver COGS lines and the nine cost categories this rollup groups by
+- [docs/strategy/operator-pricing-2026-05-13.md](../../strategy/operator-pricing-2026-05-13.md) — per-driver COGS lines and the nine cost categories this rollup groups by
 - [ADR 0009](../../adr/0009-cross-machine-query-prohibition.md) — per-customer database binding
 
 ## Why this exists
@@ -53,7 +53,7 @@ class MonthlyRollup:
 
 ### Driver categories
 
-The categories match platform-prd §15.1 and the pricing model in docs/strategy/ai-employee-pricing-2026-05-13.md:
+The categories match platform-prd §15.1 and the pricing model in docs/strategy/operator-pricing-2026-05-13.md:
 
 | `DriverCategory`       | Raw drivers (from cost-telemetry-events.md)               |
 | ---------------------- | --------------------------------------------------------- |

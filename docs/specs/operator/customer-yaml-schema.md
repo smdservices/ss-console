@@ -4,12 +4,12 @@
 
 ## Source
 
-- [Platform PRD](../../pm/ai-employee/platform-prd.md) §7.3 (example), §19 (ADR list), §20 (Phase 1 schema lock)
-- [Law Firm PRD](../../pm/ai-employee/law-firm-prd.md) §7 (cross-references this spec for connector wiring)
+- [Platform PRD](../../pm/operator/platform-prd.md) §7.3 (example), §19 (ADR list), §20 (Phase 1 schema lock)
+- [Law Firm PRD](../../pm/operator/law-firm-prd.md) §7 (cross-references this spec for connector wiring)
 - [ADR 0006](../../adr/0006-capability-adapter-pattern.md) — capability-interface + adapter pattern
 - [ADR 0011](../../adr/0011-multi-persona-per-customer.md) — `personas:` is an array (length ≥ 1 at v1)
 - [ADR 0012](../../adr/0012-customer-yaml-storage.md) — git source of truth, CI-validated on merge
-- [`docs/pm/ai-employee/prd-contributions/round-1/technical-lead.md`](../../pm/ai-employee/prd-contributions/round-1/technical-lead.md) Risk 2 — secret-exclusion vulnerability framing
+- [`docs/pm/operator/prd-contributions/round-1/technical-lead.md`](../../pm/operator/prd-contributions/round-1/technical-lead.md) Risk 2 — secret-exclusion vulnerability framing
 
 ## Schema version
 
@@ -85,7 +85,7 @@ personas:
 
 connectors:
   # Map of capability name → adapter binding. Capability names are the closed
-  # union from src/lib/ai-employee/capabilities/types.ts CapabilityName:
+  # union from src/lib/operator/capabilities/types.ts CapabilityName:
   # PracticeManagement | Email | Calendar | DocumentStorage | ESign |
   # CourtAccess | Payments | Accounting | IntakeCRM | CallTracking | InternalComms
   <CapabilityName>:
@@ -175,7 +175,7 @@ Field rules:
 
 ## Capability binding
 
-The `connectors:` map keys MUST be drawn from the canonical capability union published by [`src/lib/ai-employee/capabilities/types.ts`](../../../src/lib/ai-employee/capabilities/types.ts):
+The `connectors:` map keys MUST be drawn from the canonical capability union published by [`src/lib/operator/capabilities/types.ts`](../../../src/lib/operator/capabilities/types.ts):
 
 ```
 PracticeManagement | Email | Calendar | DocumentStorage | ESign |
@@ -184,11 +184,11 @@ CourtAccess | Payments | Accounting | IntakeCRM | CallTracking | InternalComms
 
 This union is the wire contract from [ADR 0006](../../adr/0006-capability-adapter-pattern.md). Adding a key outside this set is a validation error — new capabilities require an ADR that extends the type union, then a follow-on schema version bump per [ADR 0012](../../adr/0012-customer-yaml-storage.md) §8.
 
-The `adapter:` value is the SMD-internal adapter slug (e.g. `filevine`, `microsoft-graph`, `docusign`). It is treated as opaque by the schema; the per-adapter conformance harness at boot ([ADR 0006](../../adr/0006-capability-adapter-pattern.md), `src/lib/ai-employee/capabilities/conformance.ts`) verifies the adapter actually satisfies the interface's required-method set. The schema does NOT enumerate accepted slugs — that registry lives with the adapter implementations.
+The `adapter:` value is the SMD-internal adapter slug (e.g. `filevine`, `microsoft-graph`, `docusign`). It is treated as opaque by the schema; the per-adapter conformance harness at boot ([ADR 0006](../../adr/0006-capability-adapter-pattern.md), `src/lib/operator/capabilities/conformance.ts`) verifies the adapter actually satisfies the interface's required-method set. The schema does NOT enumerate accepted slugs — that registry lives with the adapter implementations.
 
 ## Secret-exclusion enforcement
 
-`customer.yaml` is git-committed. A secret committed here lands in git history permanently. For a law-firm tenant, that is a privilege-breach with bar-discipline consequences ([Technical Lead Risk 2](../../pm/ai-employee/prd-contributions/round-1/technical-lead.md)).
+`customer.yaml` is git-committed. A secret committed here lands in git history permanently. For a law-firm tenant, that is a privilege-breach with bar-discipline consequences ([Technical Lead Risk 2](../../pm/operator/prd-contributions/round-1/technical-lead.md)).
 
 The validator runs a secret-scan pass over the raw file text BEFORE structural parsing, so a malformed YAML containing a secret still fails closed.
 
@@ -420,7 +420,7 @@ Field rules:
 
 **Sentry error-spike thresholds are NOT in `customer.yaml`.** They are owned by Sentry's native alert rules, configured per-customer in Sentry UI by SMD ops. Auto-provisioning from `customer.yaml` is a follow-on triggered by customer-count scale (~20+ customers).
 
-**No `alert_webhook` field in Wave 1.** Customer-configurable external destinations are deferred per ADR 0023 §"Cross-cutting calls" #9. The admin dashboard at `/admin/ai-employee/costs/` is the always-on monitoring surface across all customers; Captain ops escalation uses the existing Resend path on `workers/cost-anomaly`. Reintroduction is a follow-on driven by real customer demand with per-destination adapters, not a single shape that doesn't fit any real webhook target.
+**No `alert_webhook` field in Wave 1.** Customer-configurable external destinations are deferred per ADR 0023 §"Cross-cutting calls" #9. The admin dashboard at `/admin/operator/costs/` is the always-on monitoring surface across all customers; Captain ops escalation uses the existing Resend path on `workers/cost-anomaly`. Reintroduction is a follow-on driven by real customer demand with per-destination adapters, not a single shape that doesn't fit any real webhook target.
 
 ## Failure modes
 
@@ -466,11 +466,11 @@ All errors are returned as a list; the validator does not short-circuit on the f
 
 ### Runtime validator
 
-[`src/lib/ai-employee/customer-yaml/validator.ts`](../../../src/lib/ai-employee/customer-yaml/validator.ts) — TypeScript validator. Consumes the parsed YAML as an `unknown` (the consumer chooses its YAML parser — portal uses one, Hermes uses another per [ADR 0012](../../adr/0012-customer-yaml-storage.md) §4) and returns a `ValidationResult` with a typed `CustomerYaml` on success or a list of `ValidationError` entries on failure. Hand-rolled (no schema-library dependency) — the contract is narrow enough that a 200-line validator with explicit checks reads better than a 50-line schema declaration whose rules you have to translate back to docs.
+[`src/lib/operator/customer-yaml/validator.ts`](../../../src/lib/operator/customer-yaml/validator.ts) — TypeScript validator. Consumes the parsed YAML as an `unknown` (the consumer chooses its YAML parser — portal uses one, Hermes uses another per [ADR 0012](../../adr/0012-customer-yaml-storage.md) §4) and returns a `ValidationResult` with a typed `CustomerYaml` on success or a list of `ValidationError` entries on failure. Hand-rolled (no schema-library dependency) — the contract is narrow enough that a 200-line validator with explicit checks reads better than a 50-line schema declaration whose rules you have to translate back to docs.
 
 ### Secret detector
 
-[`src/lib/ai-employee/customer-yaml/secret-detector.ts`](../../../src/lib/ai-employee/customer-yaml/secret-detector.ts) — accepts raw file text plus an `allowlist` of field paths and returns a list of `SecretFinding` entries. Pre-commit hooks and CI both call this directly; the validator also invokes it as the first pass on the structural parse. Error messages name the line and pattern category but **never echo the matched substring** — a precaution that keeps secret values out of CI logs, terminal history, transcripts, and the gitleaks-of-the-validator-output failure mode.
+[`src/lib/operator/customer-yaml/secret-detector.ts`](../../../src/lib/operator/customer-yaml/secret-detector.ts) — accepts raw file text plus an `allowlist` of field paths and returns a list of `SecretFinding` entries. Pre-commit hooks and CI both call this directly; the validator also invokes it as the first pass on the structural parse. Error messages name the line and pattern category but **never echo the matched substring** — a precaution that keeps secret values out of CI logs, terminal history, transcripts, and the gitleaks-of-the-validator-output failure mode.
 
 ### Test surfaces
 
@@ -479,7 +479,7 @@ All errors are returned as a list; the validator does not short-circuit on the f
 
 ### CI wiring (deferred to ADR 0012 follow-on PR)
 
-Pre-commit hook + CI workflow live with the canonical configs repo per [ADR 0012](../../adr/0012-customer-yaml-storage.md) §5. The validator + secret detector exported from `src/lib/ai-employee/customer-yaml/` are the modules that workflow imports. The repo + workflow themselves are out of scope for [#790](https://github.com/venturecrane/ss-console/issues/790) — they land in the follow-on PR specified by ADR 0012 _Implementation_ phase 4.
+Pre-commit hook + CI workflow live with the canonical configs repo per [ADR 0012](../../adr/0012-customer-yaml-storage.md) §5. The validator + secret detector exported from `src/lib/operator/customer-yaml/` are the modules that workflow imports. The repo + workflow themselves are out of scope for [#790](https://github.com/venturecrane/ss-console/issues/790) — they land in the follow-on PR specified by ADR 0012 _Implementation_ phase 4.
 
 ## Implementation notes
 
@@ -489,8 +489,8 @@ Pre-commit hook + CI workflow live with the canonical configs repo per [ADR 0012
 
 ## Cross-references
 
-- [Platform PRD §7.3](../../pm/ai-employee/platform-prd.md) — customer.yaml worked example
-- [Law Firm PRD §7](../../pm/ai-employee/law-firm-prd.md) — connector strategy, cross-references this spec for wiring
+- [Platform PRD §7.3](../../pm/operator/platform-prd.md) — customer.yaml worked example
+- [Law Firm PRD §7](../../pm/operator/law-firm-prd.md) — connector strategy, cross-references this spec for wiring
 - [`d1-schema.md`](./d1-schema.md) — per-customer Hermes D1 contract (`persona_slug` nullable columns)
 - [`dashboard-roles.md`](./dashboard-roles.md) — `users[].role` vocabulary
 - [`r2-vectorize-naming.md`](./r2-vectorize-naming.md) — memory.\* isolation invariants

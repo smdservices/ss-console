@@ -1,17 +1,17 @@
-# AI Employee Functional Shape — 2026-05-13
+# Operator Functional Shape — 2026-05-13
 
 **Issue:** [#778](https://github.com/venturecrane/ss-console/issues/778)
 **Authorizes:** Phase 1 vertical pack, positioning posture, trust-ceiling discipline, onboarding shape
-**Companion doc:** [Stack evaluation](./ai-employee-stack-evaluation-2026-05-13.md)
+**Companion doc:** [Stack evaluation](./operator-stack-evaluation-2026-05-13.md)
 **Captain decision required** — does not auto-execute.
 
 ---
 
 ## Executive summary
 
-Per Captain directive (2026-05-13, imperative), we cannot productize AI Employee on a single podcast's perspective. Three parallel research agents covered the market scan (demand and pricing), operational reality (trust ceiling, failure modes), and per-vertical task taxonomy. Findings triangulate strongly. Five top-level signals govern every downstream decision:
+Per Captain directive (2026-05-13, imperative), we cannot productize Operator on a single podcast's perspective. Three parallel research agents covered the market scan (demand and pricing), operational reality (trust ceiling, failure modes), and per-vertical task taxonomy. Findings triangulate strongly. Five top-level signals govern every downstream decision:
 
-**1. The $5K/mo consensus mid-market mark is real.** It shows up as 11x.ai's published floor, mid-market agency-retainer benchmarks, and the lower bound of fractional CTO. Productized AI Employee at $5K/mo lands exactly where mid-market buyers expect "ongoing AI service" to cost. Anything below $3K/mo collides with self-serve tools and reads as "another piece of software," not "a worker." Anything above $15K/mo competes with FDE / fractional CTO contracts.
+**1. The $5K/mo consensus mid-market mark is real.** It shows up as 11x.ai's published floor, mid-market agency-retainer benchmarks, and the lower bound of fractional CTO. Productized Operator at $5K/mo lands exactly where mid-market buyers expect "ongoing AI service" to cost. Anything below $3K/mo collides with self-serve tools and reads as "another piece of software," not "a worker." Anything above $15K/mo competes with FDE / fractional CTO contracts.
 
 **2. Name the role, not the technology.** Every operator winning at retainer pricing names a specific role: Alice the SDR, Jordan the phone agent, Pharmie the pharmacy tech, Eve the legal hire. Customers don't buy "AI agents" — they buy a named worker who does a named job. SMD's SKU should pick a role per engagement and brand against it.
 
@@ -19,7 +19,7 @@ Per Captain directive (2026-05-13, imperative), we cannot productize AI Employee
 
 **4. Productize the operating layer, not the build.** The recurring revenue lock is in monitoring, evals, prompt regression, model swaps, escalation triage — the "agent ops" retainer shape that mirrors DevOps. The one-time setup is the wedge; the retainer is the business. SMD's existing Assessment → Solution → Implementation → Handoff framing extends naturally with a 5th phase: _operate_.
 
-**5. Marketing agencies are the recommended _first_ vertical pack to ship.** Lowest catastrophic-failure exposure (no E&O, no bar referrals, no fair-housing liability), clear single gateway (Slack), Phoenix density of agency owners, buyer is also decision-maker. **AI Employee follows an expansive vertical strategy** (Captain directive, 2026-05-13): any vertical where we can realistically deliver $5K/mo of value to a $750K-$5M revenue business is in scope. Vertical packs sequenced by acquisition speed and build cost, not by SMD's primary consulting verticals. Marketing agencies is the recommended _starting point_ because the path to first paid customer is shortest there — not a vertical constraint.
+**5. Marketing agencies are the recommended _first_ vertical pack to ship.** Lowest catastrophic-failure exposure (no E&O, no bar referrals, no fair-housing liability), clear single gateway (Slack), Phoenix density of agency owners, buyer is also decision-maker. **Operator follows an expansive vertical strategy** (Captain directive, 2026-05-13): any vertical where we can realistically deliver $5K/mo of value to a $750K-$5M revenue business is in scope. Vertical packs sequenced by acquisition speed and build cost, not by SMD's primary consulting verticals. Marketing agencies is the recommended _starting point_ because the path to first paid customer is shortest there — not a vertical constraint.
 
 The rest of this doc is the evidence: market scan, operational reality, per-vertical task taxonomy, cross-vertical patterns, Phase 1 launch recommendation with reasoning, and implications for downstream decisions.
 
@@ -31,7 +31,7 @@ The rest of this doc is the evidence: market scan, operational reality, per-vert
 
 ### What operators sell
 
-In 2026, "AI agent service" / "AI Employee" has fractured into four operator archetypes:
+In 2026, "AI agent service" / "Operator" has fractured into four operator archetypes:
 
 1. **Vertical "AI worker" replacing a named role — enterprise SaaS dressed as a hire.** [11x.ai](https://www.11x.ai/) sells "Alice" (autonomous SDR) and "Jordan" (AI phone agent) as named digital workers, positioning as drop-in replacements for sales-team headcount. Pitch: "the world's best SDR at a fraction of the cost." Customers: Siemens, ZoomInfo, Airtable, Pleo, ElevenLabs. [Salient](https://www.trysalient.com/) sells AI voice agents specifically for auto-lender servicing, [working with more than five of the top ten US auto lenders](https://fortune.com/2025/12/18/salients-quiet-ai-boom-how-this-two-year-old-startup-is-building-a-company-to-survive-the-bubble-burst/). [Eve.legal](https://www.eve.legal/careers) sells "the first AI hire for legal firms."
 
@@ -50,7 +50,7 @@ Across all four operator archetypes, the value prop that closes is **outcome del
 - **At $5K+/mo (e.g., 11x):** customer is buying _headcount substitution_. Checkr (a public 11x customer) [reports 7x ROI on pipeline generated and 3.2x reply-rate lift](https://www.11x.ai/). The line crossed: "stop hiring SDRs." Annual commitments standard.
 - **At outcome pricing (Fin, Decagon, Sierra):** customer is buying _resolved tickets / closed deals_, period. Budget owner doesn't forecast usage — they pay only when the agent succeeds. Fin's [$1M performance guarantee for 250K+ monthly conversations](https://thegtmnewsletter.substack.com/p/gtm-178-intercom-ai-agent-outcome-based-pricing-archana-agrawal) is the procurement answer to "what if it doesn't work?"
 - **At agency-retainer pricing ($1K-$5K/mo):** customer is buying _operational continuity_. The retainer covers what's commonly framed as ["ModelOps" — eval runs, prompt regression, model swap-outs when prices change, escalation triage](https://www.indiehackers.com/post/services/maintaining-340k-yr-revenue-while-halving-agency-workload-and-headcount-SEDr4DTBIq7lv8s8Az2n). Same shape as a DevOps retainer.
-- **At the SMB AI Employee tier ($50-$500/mo, e.g., [Lindy](https://www.lindy.ai/pricing) at $49.99/mo entry):** customer is buying _task elimination_ — admin/email/scheduling hours back. Testimonials emphasize hours returned ("4 hours of email daily down to 8 minutes"), not strategic capability.
+- **At the SMB Operator tier ($50-$500/mo, e.g., [Lindy](https://www.lindy.ai/pricing) at $49.99/mo entry):** customer is buying _task elimination_ — admin/email/scheduling hours back. Testimonials emphasize hours returned ("4 hours of email daily down to 8 minutes"), not strategic capability.
 
 The common thread: customers pay for **the work done**, with pricing structure matching how the buyer mentally accounts for the cost being replaced. Outcome pricing wins where outcomes are countable. Flat retainer wins where the work is continuous and varies. Per-role wins where the customer is mentally subtracting headcount cost.
 
@@ -66,7 +66,7 @@ The common thread: customers pay for **the work done**, with pricing structure m
 | **Outcome-priced** | Per resolution / per closed deal / per resolved chat                       | [Fin $0.99/resolution](https://fin.ai/pricing), [Decagon ~$1.50/resolution](https://sacra.com/research/decagon-vs-sierra/), Sierra outcome-tied                                                                                                                             | Enterprise support orgs            |
 | **$5K-$40K POC**   | Managed deployment of self-hosted agent stack with compliance              | [Hermes managed deployment tiers](https://petronellatech.com/blog/hermes-agent-ai-guide/), [enterprise agentic platforms $100K-$300K/yr](https://www.acceldata.io/blog/enterprise-agentic-ai-implementation-price-cost-analysis)                                            | Regulated / SOC2 / HIPAA           |
 
-**The floor for "productized AI employee" pricing is ~$50/mo** (self-serve) **and the practical floor for a real services retainer is ~$300/mo** (voice agency single-client). Median productized SKU: $1K-$3K/mo. **$5K/mo is the named "mid-market mark"** for ongoing AI services — both the [agency-retainer benchmark](https://optimizewithsanwal.com/ai-automation-agency-pricing-2026-a-cfos-guide/) and 11x's published floor land there. **$15K/mo is the practical ceiling** before the deal converts to a fractional CTO contract or full enterprise platform license.
+**The floor for "productized operator" pricing is ~$50/mo** (self-serve) **and the practical floor for a real services retainer is ~$300/mo** (voice agency single-client). Median productized SKU: $1K-$3K/mo. **$5K/mo is the named "mid-market mark"** for ongoing AI services — both the [agency-retainer benchmark](https://optimizewithsanwal.com/ai-automation-agency-pricing-2026-a-cfos-guide/) and 11x's published floor land there. **$15K/mo is the practical ceiling** before the deal converts to a fractional CTO contract or full enterprise platform license.
 
 ### ARR signals
 
@@ -84,7 +84,7 @@ Real public revenue numbers in agent-services, late 2025 / early 2026:
 
 ### Service shape vs adjacent services
 
-| Adjacent service              | Typical price                                                                           | What client gets                                            | AI Employee wins                                      | AI Employee loses                                          |
+| Adjacent service              | Typical price                                                                           | What client gets                                            | Operator wins                                         | Operator loses                                             |
 | ----------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------- |
 | **Fractional CTO**            | [$5K-$15K/mo](https://uxcontinuum.com/fractional-cto-pricing)                           | Senior human strategic+technical leadership, 10-20 hrs/week | Continuous execution, 0-latency, throughput multiples | No judgment, no investor convos, hallucination on novel    |
 | **Virtual Assistant**         | [$600-$4K/mo](https://www.peopleblue.us/blogs/virtual-assistant-pricing)                | A person doing email/scheduling/admin, 20-40 hrs/week       | Always-on, scales without re-hire, no PTO             | Empathy, relationship handling, ambiguous judgment         |
@@ -249,7 +249,7 @@ What customers expect that doesn't reliably work yet:
 
 **Failure modes specific:** sending a client a report with hallucinated metrics (paid-platform attribution is fragile); brand-voice drift on auto-published content; scope-creep that the agent failed to flag (request came in casual Slack); failing to escalate a churn signal. **Agent must never auto-send to a client channel without owner approval in the first 60 days.**
 
-**Pricing tolerance:** ~$5,500-$7,000/mo (junior AM loaded cost). $5K AI Employee = easy yes if it does 60% of an AM's work. Marketing VAs anchor lower (~$3K/mo half-time) so the AI must clearly do more.
+**Pricing tolerance:** ~$5,500-$7,000/mo (junior AM loaded cost). $5K Operator = easy yes if it does 60% of an AM's work. Marketing VAs anchor lower (~$3K/mo half-time) so the AI must clearly do more.
 
 **Sources:** [SPP](https://spp.co/blog/customer-onboarding-automation/), [Scribbl](https://www.scribbl.co/post/how-to-automate-repetitive-tasks), [McKinsey](https://www.mckinsey.com/capabilities/growth-marketing-and-sales/our-insights/reinventing-marketing-workflows-with-agentic-ai), [Demand Gen Report](https://www.demandgenreport.com/industry-news/feature/ai-agents-revolutionize-b2b-marketing-in-2025-from-automation-to-strategy/51106/)
 
@@ -308,7 +308,7 @@ What customers expect that doesn't reliably work yet:
 
 **Common skills / vertical pack:** certificate generation with strict language guardrails, carrier submission packet assembly (per-line), AMS data hygiene (Applied/EZLynx/HawkSoft/AMS360), commission reconciliation, FNOL submission per carrier API/portal, renewal-window tracking, endorsement eligibility checking, regulatory filing watch per state DOI.
 
-**Value props that close:** "Cut renewal-window chaos." "Same-day certificate turnaround without burning a CSR." "Stop losing renewals because nobody followed up at day 30." Buyer is _retention + CSR capacity_. Line crossed: "Losing a CSR = $50k loaded + 3-6mo ramp. Outsourced CSR = $40-70/hr. AI Employee handling half of CSR work at $5K/mo = don't backfill or take on 30% more book."
+**Value props that close:** "Cut renewal-window chaos." "Same-day certificate turnaround without burning a CSR." "Stop losing renewals because nobody followed up at day 30." Buyer is _retention + CSR capacity_. Line crossed: "Losing a CSR = $50k loaded + 3-6mo ramp. Outsourced CSR = $40-70/hr. Operator handling half of CSR work at $5K/mo = don't backfill or take on 30% more book."
 
 **Failure modes specific:** **E&O exposure from hallucinated coverage language is catastrophic.** Carriers (AIG, W.R. Berkley) are filing to exclude AI-driven errors from standard E&O policies. Cyber insurers in 2026 require documented red-teaming as coverage prerequisite. ([Risk & Insurance](https://riskandinsurance.com/traditional-insurance-leaves-enterprises-exposed-as-ai-liability-claims-surge/), [Exdion](https://www.exdioninsurance.com/blog/why-zero-tolerance-for-ai-hallucination-is-the-only-safe-strategy-in-insurance/)) **The agent must never assert coverage.** Coverage language quotes the policy. Cert generated mechanically from policy data, not narratively.
 
@@ -389,7 +389,7 @@ What customers expect that doesn't reliably work yet:
 
 **Vertical-specific patterns become the "vertical pack" layer.** Law: citation refusal, conflict-check integration, statute-of-limitations as hard alert, demand-letter assembly. Insurance: certificate generation with policy-language guardrails, AMS integration, FNOL workflow. Manufacturing: ERP integration, CPQ, EDI awareness, customer-specific price books. Real estate: TCPA-compliant SMS, AI-disclosure compliance, MLS ingestion, TC checklist. Marketing: retainer-hour reconciliation, paid-platform anomaly detection, brand-voice consistency, scope-creep detection.
 
-**Gateway pattern splits by vertical maturity and team size.** Slack wins for marketing agencies. Email is universal external for law/insurance/manufacturing. SMS wins for real estate's external client/agent comms; brokerage CRM (Follow Up Boss/Lofty) as system of record. The AI Employee should be designed as a _multi-gateway agent that picks the right channel per recipient and message type_, not a single-channel chatbot.
+**Gateway pattern splits by vertical maturity and team size.** Slack wins for marketing agencies. Email is universal external for law/insurance/manufacturing. SMS wins for real estate's external client/agent comms; brokerage CRM (Follow Up Boss/Lofty) as system of record. The Operator should be designed as a _multi-gateway agent that picks the right channel per recipient and message type_, not a single-channel chatbot.
 
 ---
 
@@ -397,7 +397,7 @@ What customers expect that doesn't reliably work yet:
 
 ### Expansive — any vertical where we can deliver value
 
-Per Captain directive (2026-05-13): **AI Employee follows an expansive vertical strategy.** Any vertical where we can realistically deliver $5K/mo of value to a $750K-$5M revenue business is in scope. This is distinct from SMD's primary consulting funnel verticals ([Decision #3](../adr/decision-stack.md#decision-3---launch-verticals)) — the AI Employee SKU is a second front door per [ADR 0004](../adr/0004-productized-ai-employee-offering.md), not a vertical-constrained extension of the consulting funnel. SMD's primary consulting funnel continues unchanged. The two acquisition paths serve the same buyer band through different doors.
+Per Captain directive (2026-05-13): **Operator follows an expansive vertical strategy.** Any vertical where we can realistically deliver $5K/mo of value to a $750K-$5M revenue business is in scope. This is distinct from SMD's primary consulting funnel verticals ([Decision #3](../adr/decision-stack.md#decision-3---launch-verticals)) — the Operator SKU is a second front door per [ADR 0004](../adr/0004-productized-ai-employee-offering.md), not a vertical-constrained extension of the consulting funnel. SMD's primary consulting funnel continues unchanged. The two acquisition paths serve the same buyer band through different doors.
 
 The core platform — multi-gateway agent runtime, trust-ceiling discipline, memory layer, connector layer — is vertical-agnostic. Vertical packs are skill bundles layered on top. A new vertical pack ranges from a few hours of skill assembly (low-compliance verticals) to a few days of skill design (regulated verticals like insurance, law, real estate). The marginal cost of adding a vertical is low; the opportunity cost of pre-committing to one is high.
 
@@ -419,7 +419,7 @@ Build the v1 marketing agencies pack. Ship to first 1-5 Phoenix-area agencies. A
 - **Manufacturers / wholesalers** — ERP integration depth is the gate; payoff is high (response-speed → win-rate).
 - **Home services, contractor/trades, professional services beyond the above, or anything else** — build vertical packs as customers arrive. The core platform supports any vertical; only the skill bundle differs.
 
-The first customer in any vertical is in scope. If a home services owner or a contractor or a fractional bookkeeping firm comes to us wanting an AI Employee, we take them on — we assemble a thinner vertical pack for them than what marketing agencies will have, but the platform works.
+The first customer in any vertical is in scope. If a home services owner or a contractor or a fractional bookkeeping firm comes to us wanting an Operator, we take them on — we assemble a thinner vertical pack for them than what marketing agencies will have, but the platform works.
 
 ### Phase 1 vertical pack (marketing agencies)
 
@@ -444,7 +444,7 @@ The pack price-anchors against a junior AM hire (~$5,500-$7,000/mo loaded). Posi
 
 ### Stack evaluation Phase 2 re-evaluation
 
-The functional research adds two signals to the [Phase 2 re-evaluation criteria](./ai-employee-stack-evaluation-2026-05-13.md#phase-2-re-evaluation-criteria):
+The functional research adds two signals to the [Phase 2 re-evaluation criteria](./operator-stack-evaluation-2026-05-13.md#phase-2-re-evaluation-criteria):
 
 - **Hermes' OpenClaw-class context-compaction safety failure mode is real.** Meta's incident proves frameworks can lose safety constraints under load. Hermes' sticky-context-slot story needs verification before Phase 1 customer ships. If it can't be guaranteed, we engineer our own pinned-context layer above Hermes.
 - **Customer-side gateway needs match Hermes' multi-surface gateway capability.** Hermes ships Slack, Telegram, iMessage, email, WhatsApp, Signal, Discord, CLI. For marketing agencies (Path A), Slack is sufficient. For insurance (Path B), email is sufficient. For real estate, SMS is required and Hermes' SMS gateway needs verification.
@@ -470,7 +470,7 @@ The functional research locks several contract terms that earlier analysis left 
 
 The research locks several positioning constraints:
 
-- **Name the role per offering.** Not "AI Employee" generically; "Your Account Manager Assistant" or similar per vertical pack.
+- **Name the role per offering.** Not "Operator" generically; "Your Account Manager Assistant" or similar per vertical pack.
 - **Lead with "AI-assisted, human-accountable."** Position the human review layer as a feature, not a limitation. Operators winning are positioning hybrid as the product.
 - **Three concrete value props per vertical, anchored to the owner's worst recurring pain.** For marketing agencies: "Stop being the Friday-night bottleneck." For insurance: "Same-day certificates without burning your CSR." For law: "Never miss a court date." Concreteness closes; abstraction doesn't.
 - **No "unlimited everything" framing.** The research is clear that productized scope language is honest — what the customer gets, what they don't, what triggers a scope conversation. The episode's "unlimited" rhetorical framing produces churn at day 60-90 when expectations meet reality.
@@ -493,7 +493,7 @@ Trademark search and vertical-resonance check per vertical-specific name.
 
 Five decisions queued; Captain confirmed:
 
-1. **Expansive vertical strategy.** Drop the "diverges from primary verticals" framing entirely. Any vertical where we can realistically generate revenue is in scope. Marketing agencies is the recommended _first_ vertical pack to ship; the rest follow as customers arrive. SMD's primary consulting funnel continues unchanged; AI Employee is a separate acquisition path.
+1. **Expansive vertical strategy.** Drop the "diverges from primary verticals" framing entirely. Any vertical where we can realistically generate revenue is in scope. Marketing agencies is the recommended _first_ vertical pack to ship; the rest follow as customers arrive. SMD's primary consulting funnel continues unchanged; Operator is a separate acquisition path.
 2. **"AI-assisted, human-accountable" positioning frame.** Adopted. Shifts the SKU from "unlimited autonomous worker" framing to hybrid. Aligns with the firm-level solutions-consulting positioning and the practitioner-firm voice.
 3. **$5K/mo flat single tier launch pricing.** Adopted (per research recommendation). No tiering at launch. Feeds pricing analysis ([#772](https://github.com/venturecrane/ss-console/issues/772)) for final lock with margin analysis.
 4. **Onboarding as separate paid stage with shadow-mode period.** Adopted. Day 1-5 discovery + access + data audit. Day 6-14 narrow first agent in shadow mode (observes, drafts, doesn't send). Day 15+ graduated autonomy with explicit gates. Feeds service contract ([#773](https://github.com/venturecrane/ss-console/issues/773)).
@@ -505,7 +505,7 @@ These confirmations unblock the Wave 2 follow-on issues:
 - [#773 Service contract terms](https://github.com/venturecrane/ss-console/issues/773) — onboarding-as-paid-stage, shadow mode, trust ceiling per task, day-60-90 evaluation window
 - [#774 Service name](https://github.com/venturecrane/ss-console/issues/774) — per-vertical role naming pattern (e.g., "Mira the AM Assistant" for marketing agencies)
 - [#775 Copy / surfaces](https://github.com/venturecrane/ss-console/issues/775) — "AI-assisted, human-accountable" framing, vertical-pack landing pages, intake flow
-- [#776 Stack build](https://github.com/venturecrane/ss-console/issues/776) — first internal SMD AI Employee, then v1 marketing-agencies vertical pack
+- [#776 Stack build](https://github.com/venturecrane/ss-console/issues/776) — first internal SMD Operator, then v1 marketing-agencies vertical pack
 
 ---
 
@@ -524,7 +524,7 @@ These confirmations unblock the Wave 2 follow-on issues:
 
 Substantive sources cited inline above. Aggregator entries:
 
-- [Stack evaluation companion doc](./ai-employee-stack-evaluation-2026-05-13.md)
+- [Stack evaluation companion doc](./operator-stack-evaluation-2026-05-13.md)
 - [ADR 0004 — Productized AI Employee Offering](../adr/0004-productized-ai-employee-offering.md)
-- [SMD Decision Stack](../adr/decision-stack.md) — Decision #3 (verticals), Decision #16 (pricing model), Decision #20 (positioning standard), Decision #44 (productized AI Employee)
+- [SMD Decision Stack](../adr/decision-stack.md) — Decision #3 (verticals), Decision #16 (pricing model), Decision #20 (positioning standard), Decision #44 (productized Operator)
 - [Source episode — The $1M+ Solo AI Agent Business](https://www.youtube.com/watch?v=BI-MNjm1tTQ) (Greg Isenberg + Nick Vasilescu, 2026-05-12)

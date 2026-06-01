@@ -8,7 +8,7 @@
 - platform-prd.md §16.2 (aircraft carrier moment: pre-provisioned + live-calibrated)
 - law-firm-prd.md §11.8 (Day-1 / Week-1 / Week-4 partner experience)
 - law-firm-prd.md §11.9 (Calibration session split: partner + paralegal)
-- `docs/pm/ai-employee/prd-contributions/round-1/ux-lead.md` User Journey section
+- `docs/pm/operator/prd-contributions/round-1/ux-lead.md` User Journey section
 
 ## Cross-spec dependencies
 
@@ -38,7 +38,7 @@ Subject: `Welcome — Marcus is ready at {firm-name}`.
 
 Marcus is configured and ready. Your dashboard is at:
 
-  https://portal.smd.services/ai-employee
+  https://portal.smd.services/operator
 
 You'll see a Day-1 walkthrough the first time you log in (about 12 minutes).
 After that, Marcus will start watching your inbox and you'll get a daily
@@ -234,7 +234,7 @@ This is the first real audit-log event of the trust-building loop. `TRUST_PROMOT
 │  the first morning digest tomorrow at 8 AM.      │
 │                                                  │
 │  Bookmark this page:                              │
-│  https://portal.smd.services/ai-employee         │
+│  https://portal.smd.services/operator            │
 │                                                  │
 │  Questions: scott@smd.services / {Captain phone} │
 │                                                  │
@@ -362,15 +362,15 @@ If a compliance user is added, they get a one-screen orientation: "You have read
 
 ## Verification
 
-1. **End-to-end walkthrough test** at `tests/ai-employee/onboarding-walkthrough.test.ts` (Playwright): fresh fixture customer, click through every step on desktop and mobile, assert every audit event written, final Today tab loads.
+1. **End-to-end walkthrough test** at `tests/operator/onboarding-walkthrough.test.ts` (Playwright): fresh fixture customer, click through every step on desktop and mobile, assert every audit event written, final Today tab loads.
 2. **Resume test**: simulate abandon at step 4; reopen; assert the walkthrough resumes at step 5 (next after last completed).
 3. **Operator-vs-principal divergence test**: log in as both role types in the same fixture customer; assert the operator walkthrough skips trust promotion and shows the limited trust explainer.
 4. **Voice-upload mobile test**: iPhone SE viewport in Playwright; drive the file picker via stubbed input; assert R2 write per r2-vectorize-naming.md.
 
 ## Implementation notes
 
-- Onboarding state machine: `src/lib/ai-employee/onboarding-state.ts` — tracks current step, last completed step, total steps.
-- Step components: `src/components/ai-employee/onboarding/Step{1-9}.tsx`.
+- Onboarding state machine: `src/lib/operator/onboarding-state.ts` — tracks current step, last completed step, total steps.
+- Step components: `src/components/operator/onboarding/Step{1-9}.tsx`.
 - Resume mechanism reads `audit_log` for the latest `WALKTHROUGH_STEP_COMPLETED` event for the user.
 - Welcome email rendered server-side from `templates/onboarding-welcome.md`; delivered via Resend.
 - Mobile upload picker uses standard `<input type="file" accept=".eml,.msg,.txt,.docx,.pdf">`; service worker buffers if offline.

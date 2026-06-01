@@ -83,7 +83,7 @@ dispatch path".
    `metadata.notification_eligible = true`. The in-app notification
    surface (#876 / #964) polls for rows whose
    `metadata.notification_eligible == true` and renders them in the
-   "what your AI employee tried and could not do" feed.
+   "what your Operator tried and could not do" feed.
 3. **Captain alert (pattern-based, not always).** If the configured
    `RefusalCounter` reports a count >= `cascade_threshold` within the
    `cascade_window_seconds` for the (customer, skill) pair, writes one
@@ -108,15 +108,15 @@ on, without learning substrate-internal terms. This module maps each
 refuse-side `DecisionReason` to one of a small closed
 `CustomerMessage` enum:
 
-| `DecisionReason`             | `CustomerMessage`                      | Rendered text (verbatim)                                                                                                                          |
-| ---------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CEILING_DISABLED`           | `SKILL_DISABLED`                       | Your AI employee tried to use a skill that is currently off. Re-enable the skill in Settings if you want it to run.                               |
-| `EXTERNAL_SEND_NO_APPROVAL`  | `APPROVAL_REQUIRED_SEND`               | Your AI employee wanted to send a message but it needs your approval first. Open the draft to review and send.                                    |
-| `COMMITMENT_NO_APPROVAL`     | `APPROVAL_REQUIRED_COMMITMENT`         | Your AI employee paused before agreeing to something on your behalf. Open the request to review and approve.                                      |
-| `DESTRUCTIVE_NO_APPROVAL`    | `APPROVAL_REQUIRED_DESTRUCTIVE`        | Your AI employee paused before doing something it cannot undo. Open the request to review and approve.                                            |
-| `DESTRUCTIVE_DRAFT_CEILING`  | `DESTRUCTIVE_BLOCKED_AT_DRAFT_CEILING` | Your AI employee tried to delete or remove something, but its current ceiling does not allow that. Raise the ceiling or do it yourself if needed. |
-| `UNKNOWN_ACTION_CLASS`       | `UNKNOWN_ACTION`                       | Your AI employee tried something the substrate did not recognize. We have logged it for review.                                                   |
-| _any unmapped future reason_ | `GENERIC_REFUSED` (safe fallback)      | Your AI employee tried an action that was not allowed under your current settings. We have logged it for review.                                  |
+| `DecisionReason`             | `CustomerMessage`                      | Rendered text (verbatim)                                                                                                                       |
+| ---------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CEILING_DISABLED`           | `SKILL_DISABLED`                       | Your Operator tried to use a skill that is currently off. Re-enable the skill in Settings if you want it to run.                               |
+| `EXTERNAL_SEND_NO_APPROVAL`  | `APPROVAL_REQUIRED_SEND`               | Your Operator wanted to send a message but it needs your approval first. Open the draft to review and send.                                    |
+| `COMMITMENT_NO_APPROVAL`     | `APPROVAL_REQUIRED_COMMITMENT`         | Your Operator paused before agreeing to something on your behalf. Open the request to review and approve.                                      |
+| `DESTRUCTIVE_NO_APPROVAL`    | `APPROVAL_REQUIRED_DESTRUCTIVE`        | Your Operator paused before doing something it cannot undo. Open the request to review and approve.                                            |
+| `DESTRUCTIVE_DRAFT_CEILING`  | `DESTRUCTIVE_BLOCKED_AT_DRAFT_CEILING` | Your Operator tried to delete or remove something, but its current ceiling does not allow that. Raise the ceiling or do it yourself if needed. |
+| `UNKNOWN_ACTION_CLASS`       | `UNKNOWN_ACTION`                       | Your Operator tried something the substrate did not recognize. We have logged it for review.                                                   |
+| _any unmapped future reason_ | `GENERIC_REFUSED` (safe fallback)      | Your Operator tried an action that was not allowed under your current settings. We have logged it for review.                                  |
 
 A new refuse-side `DecisionReason` added to `trust_ceiling_log.py`
 must extend `_REASON_TO_MESSAGE` in the same PR. The fallback
@@ -160,7 +160,7 @@ Metadata:
   "action_class": "commitment",
   "ceiling_level": "autonomous",
   "reason": "commitment_no_approval",
-  "customer_message": "Your AI employee paused before agreeing to something on your behalf. Open the request to review and approve.",
+  "customer_message": "Your Operator paused before agreeing to something on your behalf. Open the request to review and approve.",
   "decision_audit_id": "01HXY...",
   "trace_id": "trace-01HXY...",
   "skill_version": "2.1.0"
@@ -318,7 +318,7 @@ notification feed is internal to the dashboard.
 Run locally:
 
 ```
-cd ai-employee && uv run --with pytest python -m pytest \
+cd operator && uv run --with pytest python -m pytest \
   safety-substrate/tests/test_refusal.py -v
 ```
 

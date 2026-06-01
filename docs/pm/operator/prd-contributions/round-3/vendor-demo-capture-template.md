@@ -34,7 +34,7 @@ Use this profile for all three priority vendors (Eve Legal, EvenUp PLAAS, Law Pr
 
 > **Firm profile:** 7-attorney plaintiff personal injury firm in the Phoenix metro. Roughly 65-120 active matters. Mix of pre-litigation and litigation work. Current operational pain: intake follow-up gaps, medical-record collection delays, inconsistent client status updates, demand package prep bottleneck, inbox triage overhead, lack of case-status visibility across the team. Evaluating AI vendors before committing to a 2026 operations upgrade. Current case-management system: disclose only if the vendor asks; if asked, say the firm is "evaluating Filevine, CASEpeer, and SmartAdvocate workflows" rather than committing to one.
 
-Do not lead with "AI employee" or any SMD-adjacent language. Let the vendor reveal their own packaging vocabulary. The objective is to capture what they sell, not to test their reaction to our positioning.
+Do not lead with "Operator" or any SMD-adjacent language. Let the vendor reveal their own packaging vocabulary. The objective is to capture what they sell, not to test their reaction to our positioning.
 
 ---
 
@@ -83,7 +83,7 @@ Ask each vendor the same 15 questions. Record answers in the quote-log template.
 14. Which integrations are native versus custom or professional services?
 15. What does the first 30 days look like?
 
-These questions are calibrated to surface evidence on the specific competitive dimensions AI Employee competes on (see [ADR 0013](../../../adr/0013-ai-employee-positioning-doctrine.md)). Questions 10, 11, and 12 are particularly important because they cover the moats (memory ownership, portability, multi-persona) that competitors are least likely to address publicly.
+These questions are calibrated to surface evidence on the specific competitive dimensions Operator competes on (see [ADR 0013](../../../adr/0013-ai-employee-positioning-doctrine.md)). Questions 10, 11, and 12 are particularly important because they cover the moats (memory ownership, portability, multi-persona) that competitors are least likely to address publicly.
 
 ---
 
@@ -198,12 +198,12 @@ The quote-log is a living artifact. Recommended cadence:
 - **Refresh cadence:** Every 90 days. Vendor pricing changes; new packaging launches; community discussions surface new data points.
 - **Owner:** SMD internally or a contracted BD/competitive-intelligence specialist. The external research team that produced rounds 1-3 is **not** scoped for human-source collection.
 
-The quote-log lives at `docs/pm/ai-employee/prd-contributions/competitive-intelligence/quote-log.md` once collection begins. Until then, the template above is the empty form.
+The quote-log lives at `docs/pm/operator/prd-contributions/competitive-intelligence/quote-log.md` once collection begins. Until then, the template above is the empty form.
 
 ---
 
 ## References
 
-- [ADR 0013](../../../adr/0013-ai-employee-positioning-doctrine.md) — AI Employee positioning doctrine (the dimensions the demo questions are calibrated against)
+- [ADR 0013](../../../adr/0013-ai-employee-positioning-doctrine.md) — Operator positioning doctrine (the dimensions the demo questions are calibrated against)
 - [Round-2 competitive analysis](../round-2/competitive-analysis.md) §5 (pricing posture context)
 - [Round-3 ethics architecture](./ethics-architecture.md) (the moats the demo questions probe)

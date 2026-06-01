@@ -2,7 +2,7 @@
  * Customer enumeration for the cost-anomaly worker.
  *
  * Reads the central `customer_configs` + `entities` tables and yields one
- * row per AI Employee customer with the per-customer D1 database id and
+ * row per Operator customer with the per-customer D1 database id and
  * entity_id needed for downstream alert writes. Mirrors the projection
  * the ss-cost-telemetry Worker does — kept separate so changes in one
  * worker do not couple to the other.

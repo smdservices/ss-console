@@ -4,11 +4,11 @@
 
 ## Source
 
-- [Platform PRD](../../pm/ai-employee/platform-prd.md) §11 (Phase A.5 safety substrate), §17 (provisioning pipeline)
+- [Platform PRD](../../pm/operator/platform-prd.md) §11 (Phase A.5 safety substrate), §17 (provisioning pipeline)
 - [ADR 0006](../../adr/0006-capability-adapter-pattern.md) — capability-interface + adapter pattern
 - [ADR 0012](../../adr/0012-customer-yaml-storage.md) — git source of truth for customer.yaml
 - [ADR 0014](../../adr/0014-pi-vertical-adapter-build-priority.md) — PI vertical adapter build priority
-- [`src/lib/ai-employee/capabilities/conformance.ts`](../../../src/lib/ai-employee/capabilities/conformance.ts) — TypeScript conformance harness whose invariants this Python framework mirrors
+- [`src/lib/operator/capabilities/conformance.ts`](../../../src/lib/operator/capabilities/conformance.ts) — TypeScript conformance harness whose invariants this Python framework mirrors
 - [`customer-yaml-schema.md`](customer-yaml-schema.md) §"Capability binding" — connectors block shape
 - PR #812 — Phase A stub
 - PR #949 — Filevine connector with capability conformance + smoke unit tests
@@ -53,7 +53,7 @@ Mutating prefixes — `create_*`, `send_*`, `upload_*`, `post_*`, `update_*`, `d
 
 ## Conformance shape check
 
-Mirrors `assertCapabilitySetWellFormed` from [`src/lib/ai-employee/capabilities/conformance.ts`](../../../src/lib/ai-employee/capabilities/conformance.ts):
+Mirrors `assertCapabilitySetWellFormed` from [`src/lib/operator/capabilities/conformance.ts`](../../../src/lib/operator/capabilities/conformance.ts):
 
 - Declared `capability` matches the probe's `capability`.
 - Declared `capability` is in the closed `CAPABILITY_NAMES` union.

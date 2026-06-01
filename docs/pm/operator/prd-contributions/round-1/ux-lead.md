@@ -9,7 +9,7 @@
 
 ## Overview
 
-This contribution covers the UX surface area across the AI Employee product family — platform and law-firm vertical — from the perspective of interaction design, information architecture, user journey, and accessibility. The PRDs are architecturally strong and well-structured. The UX gaps are concentrated in three areas: (1) what's actually on each screen, content-block level; (2) first-time and daily user flows, which are described abstractly but not translated into screen-by-screen sequences; (3) edge and error states, which appear in the risk matrix but have no corresponding interaction design.
+This contribution covers the UX surface area across the Operator product family — platform and law-firm vertical — from the perspective of interaction design, information architecture, user journey, and accessibility. The PRDs are architecturally strong and well-structured. The UX gaps are concentrated in three areas: (1) what's actually on each screen, content-block level; (2) first-time and daily user flows, which are described abstractly but not translated into screen-by-screen sequences; (3) edge and error states, which appear in the risk matrix but have no corresponding interaction design.
 
 MVP scope governs all recommendations below. Phase 4+ dashboard tabs are not designed here.
 
@@ -745,7 +745,7 @@ The morning digest is the primary email surface. Design constraints:
 
 - Plain text body preferred; minimal HTML if required. Many law firm email clients (Outlook on Windows) render HTML inconsistently.
 - No images in the digest. The avatar and branding live in the dashboard, not the email.
-- The "From" display name for the digest is "[Persona name] — AI Associate" (e.g., "Marcus — AI Associate"). Not "AI Employee" — the persona name is the brand the firm has adopted.
+- The "From" display name for the digest is "[Persona name] — AI Associate" (e.g., "Marcus — AI Associate"). Not "Operator" — the persona name is the brand the firm has adopted.
 - Digest links use the dashboard URL, not a separate link-tracking service. The platform PRD §14 no-lock-in architecture means no data flows to a link-tracking vendor.
 - The digest has no "unsubscribe" footer and no marketing language. It is an operational message. Marketing email rules (CAN-SPAM, etc.) do not apply to operational service communications; confirm with legal before adding any marketing-style footer.
 

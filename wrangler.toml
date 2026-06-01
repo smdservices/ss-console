@@ -116,7 +116,7 @@ id = "daf6a3220f8f42f28f3da7e82f663088"
 enabled = true
 
 # ---------- Audit-log Logpush mirror (per docs/specs/ai-employee/audit-log-immutability.md) ----------
-# Issue #892. The per-customer AI Employee audit_log table is mirrored to an
+# Issue #892. The per-customer Operator audit_log table is mirrored to an
 # immutable R2 archive bucket with bucket-level Object Lock. Even a compromised
 # Worker cannot delete a row from an Object-Lock bucket inside the retention
 # window. The mirror is the compliance-grade copy that the periodic integrity

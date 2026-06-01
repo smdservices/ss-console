@@ -68,7 +68,7 @@ Time budget: 2-3 hours of focused research for a firm Captain already has contex
 
 ## Section 3: Scrape voice samples
 
-Voice ingestion stores **structural-diffs only**, never raw text. See `docs/specs/ai-employee/voice-ingestion.md` for the storage contract. The minimum sample count before a demo is **10** per AC #3.
+Voice ingestion stores **structural-diffs only**, never raw text. See `docs/specs/operator/voice-ingestion.md` for the storage contract. The minimum sample count before a demo is **10** per AC #3.
 
 Sources, in preferred order:
 
@@ -91,7 +91,7 @@ What Captain does NOT do:
 
 ## Section 4: Author the customer.yaml
 
-Open `ai-employee/customers/{firm-slug}/customer.yaml` and replace every bracketed field. The schema is documented at `docs/specs/ai-employee/customer-yaml-schema.md`. Required edits, in order:
+Open `ai-employee/customers/{firm-slug}/customer.yaml` and replace every bracketed field. The schema is documented at `docs/specs/operator/customer-yaml-schema.md`. Required edits, in order:
 
 1. `customer_id` matches the directory slug.
 2. `customer_name` is the legal name from dossier section 1.
@@ -201,4 +201,4 @@ When every box is checked, the demo is ready.
 
 ## Decommissioning a demo firm that did not convert
 
-If the firm does not sign within the agreed-upon window after the demo, run `ai-employee/bin/decommission-customer.sh {firm-slug} --live` per the per-customer decommission spec (`docs/specs/ai-employee/decommission-customer.md`, shipped under issue [#820](https://github.com/venturecrane/ss-console/issues/820), wrapper added in PR [#956](https://github.com/venturecrane/ss-console/issues/956)). The decommission pipeline tombstones the customer directory, removes memory and voice substrate, and archives the compliance evidence packet. The dossier is preserved in the tombstone for future re-engagement.
+If the firm does not sign within the agreed-upon window after the demo, run `ai-employee/bin/decommission-customer.sh {firm-slug} --live` per the per-customer decommission spec (`docs/specs/operator/decommission-customer.md`, shipped under issue [#820](https://github.com/venturecrane/ss-console/issues/820), wrapper added in PR [#956](https://github.com/venturecrane/ss-console/issues/956)). The decommission pipeline tombstones the customer directory, removes memory and voice substrate, and archives the compliance evidence packet. The dossier is preserved in the tombstone for future re-engagement.

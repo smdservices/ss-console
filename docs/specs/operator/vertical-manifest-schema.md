@@ -23,7 +23,7 @@ Per ADR 0022 §"Decision":
 ## Filesystem layout
 
 ```
-ai-employee/
+operator/
   verticals/
     _template/                       # reference shape — never a real vertical
       vertical.yaml

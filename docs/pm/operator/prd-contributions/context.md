@@ -1,30 +1,30 @@
-# PRD Review Context — AI Employee
+# PRD Review Context — Operator
 
 ## Source Documents
 
 This review covers a two-PRD product-family structure. Both PRDs are source material:
 
-1. `/Users/scottdurgan/dev/ss-console/.claude/worktrees/synchronous-chasing-stallman/docs/pm/ai-employee/platform-prd.md` — The platform PRD (architecture, universal skill spine, persona/memory/trust/dashboard/compliance/demo framework that applies across verticals)
-2. `/Users/scottdurgan/dev/ss-console/.claude/worktrees/synchronous-chasing-stallman/docs/pm/ai-employee/law-firm-prd.md` — The law-firm vertical PRD (law-specific overlays, third-rail map, bar ethics, citation refusal, PI overlay, walk-in-cold demo)
+1. `/Users/scottdurgan/dev/ss-console/.claude/worktrees/synchronous-chasing-stallman/docs/pm/operator/platform-prd.md` — The platform PRD (architecture, universal skill spine, persona/memory/trust/dashboard/compliance/demo framework that applies across verticals)
+2. `/Users/scottdurgan/dev/ss-console/.claude/worktrees/synchronous-chasing-stallman/docs/pm/operator/law-firm-prd.md` — The law-firm vertical PRD (law-specific overlays, third-rail map, bar ethics, citation refusal, PI overlay, walk-in-cold demo)
 
 ## Project context
 
-- `/Users/scottdurgan/dev/ss-console/.claude/worktrees/synchronous-chasing-stallman/CLAUDE.md` — Venture-level project instructions for SMD Services. Important context for tone standards, the "no fabricated client-facing content" rule, the "Solution not Systems" positioning, the consulting-venture priorities, and the relationship between AI Employee and scope-based consulting.
+- `/Users/scottdurgan/dev/ss-console/.claude/worktrees/synchronous-chasing-stallman/CLAUDE.md` — Venture-level project instructions for SMD Services. Important context for tone standards, the "no fabricated client-facing content" rule, the "Solution not Systems" positioning, the consulting-venture priorities, and the relationship between Operator and scope-based consulting.
 
 ## Project structural note (read carefully)
 
 This is a **product family** under the SMD Services venture:
 
-- SMD Services is the venture (sells solutions consulting and the AI Employee SKU)
-- AI Employee is the product line
+- SMD Services is the venture (sells solutions consulting and the Operator SKU)
+- Operator is the product line
 - Law Firm is the first vertical pack; other verticals follow
-- Both PRDs together define the AI Employee product family
+- Both PRDs together define the Operator product family
 - They are NOT the venture's only product — SMD also sells scope-based consulting (the consulting venture, with its own existing client-portal PRD at `docs/pm/prd.md`)
 - This review must NOT touch the existing `docs/pm/prd.md` (different product, not in scope)
 
 ## Output destination
 
-Each role writes to `docs/pm/ai-employee/prd-contributions/round-1/{role-slug}.md`.
+Each role writes to `docs/pm/operator/prd-contributions/round-1/{role-slug}.md`.
 
 The synthesis step (after this round) will produce _change recommendations_ to apply to the existing platform-prd.md and law-firm-prd.md — it will NOT overwrite `docs/pm/prd.md` (which is a different product's PRD).
 

@@ -2,7 +2,7 @@
 
 > **Status note (2026-05-25):** The in-tree Python adapter (`ai-employee/connectors/ms_graph/`) was removed per the 2026-05-24 Hermes alignment. Mail and Calendar capabilities now bind to the hosted Microsoft 365 MCPs (`mcp:m365-mail`, `mcp:m365-calendar`) per ADR 0020 and need no in-house adapter. DocumentStorage (OneDrive/SharePoint) ships as a sub-plugin in `venturecrane/hermes-smd-overlay` (issue #1055). The Azure AD app registration described below is still required; the smoke-test invocation later in this runbook will be replaced when the overlay sub-plugin ships.
 
-How to register the SMD Services AI Employee app in Microsoft Entra ID (Azure AD), obtain the client credentials used by the OAuth callback, and grant the Phase-1 scopes that the MS Graph adapter requires.
+How to register the SMD Services Operator app in Microsoft Entra ID (Azure AD), obtain the client credentials used by the OAuth callback, and grant the Phase-1 scopes that the MS Graph adapter requires.
 
 This runbook is performed **once** by Captain. The resulting `client_id` and `client_secret` are stored in Infisical at `/ai-employee/shared/microsoft-graph/` and pushed to the ss-web Worker as `MICROSOFT_GRAPH_CLIENT_ID` / `MICROSOFT_GRAPH_CLIENT_SECRET`. Per-customer consent (and the resulting per-tenant tokens) is collected separately during customer provisioning — see "Customer onboarding" below.
 
@@ -17,11 +17,11 @@ This runbook is performed **once** by Captain. The resulting `client_id` and `cl
 1. Sign in to <https://entra.microsoft.com> as a global admin on the SMD Services tenant.
 2. Navigate to **Identity → Applications → App registrations** → **+ New registration**.
 3. Configure:
-   - **Name:** `SMD Services AI Employee`
+   - **Name:** `SMD Services Operator`
    - **Supported account types:** _Accounts in any organizational directory (Any Microsoft Entra ID tenant — multitenant)_.
      - Multi-tenant is required because each customer law-firm tenant will consent independently.
-   - **Redirect URI:** `Web` → `https://portal.smd.services/ai-employee/oauth/microsoft-graph/callback`
-     - This is the customer-facing portal subdomain per [oauth-lifecycle.md](../../specs/ai-employee/oauth-lifecycle.md) "Re-consent callback URL". The admin-subdomain endpoint at `https://admin.smd.services/api/oauth/callback` from PR #936 stays in place as the v1 backstop and may be added as a second registered URI during the transition window.
+   - **Redirect URI:** `Web` → `https://portal.smd.services/operator/oauth/microsoft-graph/callback`
+     - This is the customer-facing portal subdomain per [oauth-lifecycle.md](../../specs/operator/oauth-lifecycle.md) "Re-consent callback URL". The admin-subdomain endpoint at `https://admin.smd.services/api/oauth/callback` from PR #936 stays in place as the v1 backstop and may be added as a second registered URI during the transition window.
 4. Click **Register**. Record the **Application (client) ID** — this becomes `MICROSOFT_GRAPH_CLIENT_ID`.
 
 ## Configure API permissions (Phase 1)
@@ -69,9 +69,9 @@ When a new customer is provisioned, Captain runs `bin/reauth-connector.sh <custo
 2. Generates an authorize URL of the form `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?...&state=<signed>`.
 3. Emails the URL to the customer's principal user listed in `customer.yaml` under `users[].role: principal`.
 
-The customer signs in to their own Microsoft 365 tenant, reviews the requested scopes, and consents. Microsoft Entra redirects to the portal callback at `https://portal.smd.services/ai-employee/oauth/microsoft-graph/callback?code=...&state=...`. The portal handler verifies the state, exchanges the code for tokens via the registered token endpoint, and proxies the resulting `{ access_token, refresh_token, expires_at, scopes }` payload to the per-customer Hermes Machine for atomic write to `/opt/data/oauth/microsoft.json` per [ADR 0010](../../adr/0010-per-customer-oauth-token-storage.md).
+The customer signs in to their own Microsoft 365 tenant, reviews the requested scopes, and consents. Microsoft Entra redirects to the portal callback at `https://portal.smd.services/operator/oauth/microsoft-graph/callback?code=...&state=...`. The portal handler verifies the state, exchanges the code for tokens via the registered token endpoint, and proxies the resulting `{ access_token, refresh_token, expires_at, scopes }` payload to the per-customer Hermes Machine for atomic write to `/opt/data/oauth/microsoft.json` per [ADR 0010](../../adr/0010-per-customer-oauth-token-storage.md).
 
-If the customer tenant blocks third-party multi-tenant apps, the customer's Microsoft 365 admin must first add the SMD Services AI Employee app from the Entra **Enterprise applications** blade. The error returned in that case is `AADSTS650056` — the portal callback surfaces it back to the customer as a short failure reason.
+If the customer tenant blocks third-party multi-tenant apps, the customer's Microsoft 365 admin must first add the SMD Services Operator app from the Entra **Enterprise applications** blade. The error returned in that case is `AADSTS650056` — the portal callback surfaces it back to the customer as a short failure reason.
 
 ## Verification
 
@@ -90,7 +90,7 @@ Manual verification in the meantime: from the per-customer Machine, exchange a r
 
 ## Related references
 
-- [oauth-lifecycle.md](../../specs/ai-employee/oauth-lifecycle.md) — refresh policy, re-consent flow, failure modes
+- [oauth-lifecycle.md](../../specs/operator/oauth-lifecycle.md) — refresh policy, re-consent flow, failure modes
 - [ADR 0010](../../adr/0010-per-customer-oauth-token-storage.md) — token storage decision
-- [capability-contracts.md](../../specs/ai-employee/capability-contracts.md) — Email / Calendar / DocumentStorage interfaces
-- [customer-yaml-schema.md](../../specs/ai-employee/customer-yaml-schema.md) — `connectors.Email/Calendar/DocumentStorage` bindings to the `microsoft-graph` adapter
+- [capability-contracts.md](../../specs/operator/capability-contracts.md) — Email / Calendar / DocumentStorage interfaces
+- [customer-yaml-schema.md](../../specs/operator/customer-yaml-schema.md) — `connectors.Email/Calendar/DocumentStorage` bindings to the `microsoft-graph` adapter

@@ -1,6 +1,6 @@
 # Data Processing Addendum (Template)
 
-> Article-28-shaped Data Processing Addendum to the AI Employee Service Agreement. Internal drafting template; not a final form.
+> Article-28-shaped Data Processing Addendum to the Operator Service Agreement. Internal drafting template; not a final form.
 
 ---
 
@@ -26,7 +26,7 @@
 
 # Data Processing Addendum
 
-**This Data Processing Addendum (this "DPA") is entered into as of [EFFECTIVE DATE] (the "Effective Date") between SMDurgan, LLC (d/b/a SMD Services) ("SMD," "Processor") and [CUSTOMER LEGAL NAME] ("Customer," "Controller"). This DPA forms part of and is incorporated by reference into the AI Employee Service Agreement between the Parties dated [EFFECTIVE DATE] (the "Service Agreement"). Capitalized terms not defined in this DPA have the meanings given in the Service Agreement.**
+**This Data Processing Addendum (this "DPA") is entered into as of [EFFECTIVE DATE] (the "Effective Date") between SMDurgan, LLC (d/b/a SMD Services) ("SMD," "Processor") and [CUSTOMER LEGAL NAME] ("Customer," "Controller"). This DPA forms part of and is incorporated by reference into the Operator Service Agreement between the Parties dated [EFFECTIVE DATE] (the "Service Agreement"). Capitalized terms not defined in this DPA have the meanings given in the Service Agreement.**
 
 ## 1. Roles
 
@@ -38,11 +38,11 @@
 
 2.1 **Categories of Personal Data.** Personal Data processed under this DPA may include:
 
-(a) **Internal Customer team data**: names, business email addresses, business phone numbers, role designations, and authentication identifiers for Reviewers and other authorized users of the AI Employee.
+(a) **Internal Customer team data**: names, business email addresses, business phone numbers, role designations, and authentication identifiers for Reviewers and other authorized users of the Operator.
 
-(b) **Counterparty and third-party contact data**: names, email addresses, and other identifiers of clients, opposing counsel, court personnel, and other third parties with whom Customer's team communicates and whose data is therefore observed by the AI Employee in the course of drafting work product.
+(b) **Counterparty and third-party contact data**: names, email addresses, and other identifiers of clients, opposing counsel, court personnel, and other third parties with whom Customer's team communicates and whose data is therefore observed by the Operator in the course of drafting work product.
 
-(c) **Substantive communication content**: the bodies of email, chat, and document content read by the AI Employee at active draft time to produce a draft, including any Personal Data contained in such content.
+(c) **Substantive communication content**: the bodies of email, chat, and document content read by the Operator at active draft time to produce a draft, including any Personal Data contained in such content.
 
 (d) **Audit metadata**: timestamps, actor identifiers, action types, content digests (cryptographic hashes), and structured-diff summaries of draft activity.
 
@@ -50,13 +50,13 @@
 
 2.2 **Special categories.** Personal Data may include attorney work product, health information, financial account information, or other categories subject to specific legal protection, depending on Customer's vertical. The BAA-Equivalent Confidentiality Addendum (Exhibit C to the Service Agreement) applies where such categories are present.
 
-2.3 **Categories of Data Subjects.** Data Subjects include Customer's personnel, Customer's clients and counterparties, and any other natural person whose Personal Data is contained in Customer-connected systems the AI Employee is authorized to access.
+2.3 **Categories of Data Subjects.** Data Subjects include Customer's personnel, Customer's clients and counterparties, and any other natural person whose Personal Data is contained in Customer-connected systems the Operator is authorized to access.
 
 ## 3. Purposes of Processing
 
 SMD processes Personal Data solely for the following purposes:
 
-(a) operating the AI Employee Service per the Service Agreement;
+(a) operating the Operator Service per the Service Agreement;
 
 (b) producing drafts and surfacing them to Reviewers for review and sending;
 
@@ -88,9 +88,9 @@ This Section 4 documents the architectural commitments that distinguish SMD's pr
 
 Substantive communication content (matter records, client emails, documents) is not indexed.
 
-4.3 **Session-bounded substantive reads.** Substantive Customer content (matter records, client emails, documents) is read by the AI Employee at active draft time only. Substantive reads are not persisted into the Memory Artifact or any Sub-processor's storage; they exist only within the active draft session.
+4.3 **Session-bounded substantive reads.** Substantive Customer content (matter records, client emails, documents) is read by the Operator at active draft time only. Substantive reads are not persisted into the Memory Artifact or any Sub-processor's storage; they exist only within the active draft session.
 
-4.4 **Reviewer-as-sender.** No outbound customer-bound message is sent under the AI Employee's identity. Every outbound message is drafted into a Reviewer's drafts folder for the Reviewer to review, edit, and send under the Reviewer's own identity. This commitment is architectural and is documented in [ADR 0005](../../adr/0005-reviewer-as-sender.md).
+4.4 **Reviewer-as-sender.** No outbound customer-bound message is sent under the Operator's identity. Every outbound message is drafted into a Reviewer's drafts folder for the Reviewer to review, edit, and send under the Reviewer's own identity. This commitment is architectural and is documented in [ADR 0005](../../adr/0005-reviewer-as-sender.md).
 
 4.5 **Per-Customer Machine isolation.** Customer's runtime, storage namespaces, and credentials are exclusive to Customer's Machine. No cross-Machine query path exists. The boot-time invariant check refuses to start Customer's Machine if its storage bindings include namespaces outside Customer's slug. This is enforced architecturally per [ADR 0007](../../adr/0007-per-customer-machine-isolation.md) and [ADR 0009](../../adr/0009-cross-machine-query-prohibition.md), with the runtime check recorded as Safety Substrate invariant #7 per Platform PRD §7.5.
 
@@ -113,7 +113,7 @@ Substantive communication content (matter records, client emails, documents) is 
 
 5.4 **Sub-processor liability.** SMD remains liable to Customer for the acts and omissions of its Sub-processors with respect to Personal Data to the same extent SMD would be liable if performing the services directly.
 
-5.5 **Vendor-hostile-content rules.** Some third-party content vendors prohibit ingestion of their content into third-party AI. The platform enforces this at the connector layer per Platform PRD §13.4. Where Customer connects such a source, content from that source is read by Customer's human users only and is not ingested into the AI Employee's context, drafting, or Memory Artifact.
+5.5 **Vendor-hostile-content rules.** Some third-party content vendors prohibit ingestion of their content into third-party AI. The platform enforces this at the connector layer per Platform PRD §13.4. Where Customer connects such a source, content from that source is read by Customer's human users only and is not ingested into the Operator's context, drafting, or Memory Artifact.
 
 ## 6. Data Residency
 
@@ -189,7 +189,7 @@ Substantive communication content (matter records, client emails, documents) is 
 
 (b) Customer's namespaces are archived in an encrypted state for [RETENTION WINDOW DAYS] days, during which time the first [RESTORATION WINDOW DAYS] days permit Customer to request restoration to a live state for a Captain-quoted reactivation fee. The default windows are stated as bracketed values above; Customer may select shorter windows including immediate deletion at termination.
 
-(c) After [RETENTION WINDOW DAYS] days, SMD performs verifiable hard deletion of the archived namespaces per the procedure documented in the [decommission spec](../../specs/ai-employee/decommission-customer.md) and provides Customer with written confirmation.
+(c) After [RETENTION WINDOW DAYS] days, SMD performs verifiable hard deletion of the archived namespaces per the procedure documented in the [decommission spec](../../specs/operator/decommission-customer.md) and provides Customer with written confirmation.
 
 10.4 **Audit log retention exception.** SMD retains the audit log for the period Customer paid for, per Platform PRD §13.6. Customer-instructed deletions affecting Personal Data within the substantive content layer do not delete the audit log entries that record the existence of the affected action; the audit log retains the action metadata (timestamps, actor, action type, content digests) but the substantive content is removed.
 

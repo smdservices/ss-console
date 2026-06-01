@@ -21,9 +21,9 @@ calibration cycle (PI law-firm and beyond).
   corrections, edit-then-send signal)
 - platform-prd.md §11 — trust ceiling model (approvals feed audit log)
 - law-firm-prd.md §11.9 — calibration session split (partner + paralegal)
-- `docs/specs/ai-employee/voice-ingestion.md` — structural-diff storage
-- `docs/specs/ai-employee/memory-ingestion.md` — memory rule writer
-- `docs/specs/ai-employee/trust-ceiling-logging.md` — `log_decision()`
+- `docs/specs/operator/voice-ingestion.md` — structural-diff storage
+- `docs/specs/operator/memory-ingestion.md` — memory rule writer
+- `docs/specs/operator/trust-ceiling-logging.md` — `log_decision()`
   emission contract
 - `docs/style/empty-state-pattern.md` — no fabrication; render nothing or
   an explicit marker when authored data is missing
@@ -48,7 +48,7 @@ because the partner's schedule drives the spacing.
 
 ## Required framing
 
-Every surface that names the AI Employee inside the calibration workflow
+Every surface that names the Operator inside the calibration workflow
 must include the assistant framing:
 
 > `{persona name} assists the partner; {persona name} never replaces them.`
@@ -60,16 +60,16 @@ framing is suppressed and the empty-state branch fires per
 
 ## Portal surface
 
-URL: `portal.smd.services/portal/products/ai-employee/calibration`
+URL: `portal.smd.services/portal/products/operator/calibration`
 
 Access gate (principal-only via `resolveProductAccess()`):
 
 - Clerk session present (middleware)
 - Local entity bound to the active Clerk organization
-- Active AI Employee subscription on the entity
-- Caller holds the `principal` role on (user, entity, 'ai-employee')
+- Active Operator subscription on the entity
+- Caller holds the `principal` role on (user, entity, 'operator')
 
-Operators and compliance users redirect to the AI Employee landing page.
+Operators and compliance users redirect to the Operator landing page.
 The page does not render a half-locked view; the role gate is binary.
 
 ### States the page renders
@@ -87,7 +87,7 @@ The page renders exactly one of four states, per
 
 The "Start new calibration cycle" action is the explicit way to (re-)run
 calibration on demand. It posts to
-`/api/portal/ai-employee/calibration/start` (endpoint lands under #821 with
+`/api/portal/operator/calibration/start` (endpoint lands under #821 with
 the D1 writer; the form action is the contract today).
 
 ### Sections on the page
@@ -100,7 +100,7 @@ The page composes three sections, in order:
    order: position number, label, description, state badge.
 3. **Seams documentation.** A read-only block naming the three integration
    seams (voice, memory, trust ceiling) so the principal sees what each
-   session connects to downstream. Links to `docs/specs/ai-employee/`
+   session connects to downstream. Links to `docs/specs/operator/`
    sibling specs.
 
 The "Start new calibration cycle" action appears under the cycle header
@@ -118,7 +118,7 @@ resolved. Until then, the portal surface is read-only on every seam.
 
 During session 1, the partner edits 10-15 representative drafts. Each
 edit produces a `(draft, sent)` pair that the voice ingestion pipeline
-consumes — see `docs/specs/ai-employee/voice-ingestion.md`. The
+consumes — see `docs/specs/operator/voice-ingestion.md`. The
 structural-diff is stored under `{customer_slug}/voice/cohort/{cohort}/`
 per the existing ingestion contract; the calibration session does not
 introduce a new R2 prefix.
@@ -135,7 +135,7 @@ During session 2, the partner walks each enabled skill against a real
 scenario and either approves the outcome, edits it, or marks it refused.
 "Edited" outcomes plus any newly stated rules ("we don't take medmal
 under $1M") feed the memory rules writer per
-`docs/specs/ai-employee/memory-ingestion.md`. The rule writer enforces
+`docs/specs/operator/memory-ingestion.md`. The rule writer enforces
 the closed memory categories (rule / voice / process / person) from
 platform-prd.md §10.
 
@@ -144,7 +144,7 @@ platform-prd.md §10.
 During session 3, the principal sets the per-skill ceiling (autonomous,
 draft_for_review, refused). Each ceiling change writes one row to
 `audit_log` via the `log_decision()` emission contract in
-`docs/specs/ai-employee/trust-ceiling-logging.md`. The
+`docs/specs/operator/trust-ceiling-logging.md`. The
 `action_type` is `CEILING_PROMOTED` or `CEILING_DEMOTED` from the
 closed-set vocabulary (see `audit_log.py`); the `metadata` JSON includes
 `calibration_cycle_id` and `calibration_session_kind` so the compliance
@@ -179,22 +179,22 @@ the empty-state branch fires.
 
 ## Verification
 
-- `tests/portal-ai-employee-calibration.test.ts` exercises the closed
+- `tests/portal-operator-calibration.test.ts` exercises the closed
   vocabulary helpers (`isCalibrationSessionKind`,
   `isCalibrationSessionState`, formatters), the framing builder
   (`buildAssistantFraming`), and the cycle projection
   (`buildDefaultSessionRows`, `getActiveCalibrationCycle`).
 - The portal page is unit-tested through the lib helpers it consumes
-  (Astro page rendering is not in the test surface for portal AI
-  Employee surfaces, consistent with the existing settings test set).
+  (Astro page rendering is not in the test surface for portal
+  Operator surfaces, consistent with the existing settings test set).
 
 ## Cross-references
 
-- `docs/runbooks/ai-employee-calibration.md` — Captain-facing runbook
+- `docs/runbooks/operator-calibration.md` — Captain-facing runbook
   for conducting the four sessions
-- `docs/specs/ai-employee/voice-ingestion.md` — seam 1 consumer
-- `docs/specs/ai-employee/memory-ingestion.md` — seam 2 consumer
-- `docs/specs/ai-employee/trust-ceiling-logging.md` — seam 3 consumer
+- `docs/specs/operator/voice-ingestion.md` — seam 1 consumer
+- `docs/specs/operator/memory-ingestion.md` — seam 2 consumer
+- `docs/specs/operator/trust-ceiling-logging.md` — seam 3 consumer
 - platform-prd.md §9.6 — gate #2 contract
 - law-firm-prd.md §11.9 — session-split rationale
 - issue [#821](https://github.com/venturecrane/ss-console/issues/821) —

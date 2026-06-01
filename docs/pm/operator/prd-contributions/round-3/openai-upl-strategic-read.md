@@ -2,7 +2,7 @@
 
 **Author:** External competitive analysis team (engagement May 2026)
 **Date:** 2026-05-21
-**Scope:** Strategic implications of the Nippon Life Insurance v. OpenAI unauthorized-practice-of-law lawsuit for AI Employee's positioning and architecture
+**Scope:** Strategic implications of the Nippon Life Insurance v. OpenAI unauthorized-practice-of-law lawsuit for Operator's positioning and architecture
 **Audience:** Managing-partner-level understanding of strategic exposure; not a legal analysis
 
 ---
@@ -44,9 +44,9 @@ The greatest exposure is for vendors whose AI:
 
 This does not mean every AI drafting tool is doomed. It means the market will reward **clean boundaries**.
 
-The Nippon Life case is useful for positioning because it highlights exactly the ambiguity AI Employee's architecture avoids. ChatGPT allegedly helped a pro se user produce legal filings. AI Employee's legal-vertical model is not "AI gives legal output to end user." It is "AI drafts operational work for a law-firm reviewer, and the human remains the sender and actor of record."
+The Nippon Life case is useful for positioning because it highlights exactly the ambiguity Operator's architecture avoids. ChatGPT allegedly helped a pro se user produce legal filings. Operator's legal-vertical model is not "AI gives legal output to end user." It is "AI drafts operational work for a law-firm reviewer, and the human remains the sender and actor of record."
 
-The difference matters legally because the AI Employee architecture preserves a clear chain of responsibility: the AI prepares, the attorney decides, the attorney sends, the attorney is on the record. There is no ambiguity about who is practicing law.
+The difference matters legally because the Operator architecture preserves a clear chain of responsibility: the AI prepares, the attorney decides, the attorney sends, the attorney is on the record. There is no ambiguity about who is practicing law.
 
 ---
 
@@ -67,7 +67,7 @@ The architectural facts that support this positioning:
 3. The control plane has no path that sends a customer-bound message under the agent's identity.
 4. The audit log records draft, review, edit-diff, send — four data points that demonstrate human control.
 
-If a Nippon Life-style theory were tested against AI Employee, the architectural answer is that the AI did not externalize. A human attorney drafted (using AI assistance), reviewed, edited, and sent. The chain of responsibility is preserved.
+If a Nippon Life-style theory were tested against Operator, the architectural answer is that the AI did not externalize. A human attorney drafted (using AI assistance), reviewed, edited, and sent. The chain of responsibility is preserved.
 
 ---
 
@@ -77,7 +77,7 @@ If a Nippon Life-style theory were tested against AI Employee, the architectural
 
 The Nippon Life case is the most direct live signal that the legal AI market is moving toward governance-of-AI requirements. It is the kind of case that, regardless of outcome, makes prospects ask harder questions about what the AI is allowed to do without human review.
 
-AI Employee can answer those questions architecturally. Competitors who have not made the reviewer-as-sender commitment cannot.
+Operator can answer those questions architecturally. Competitors who have not made the reviewer-as-sender commitment cannot.
 
 ### Do not overclaim
 
@@ -116,14 +116,14 @@ This version is approved for delivery to managing partners. It avoids overclaim,
 ## What the case may change
 
 - **Bar guidance accelerates.** If Nippon Life survives dismissal or goes against OpenAI, state bars may move faster on AI guidance. Florida Opinion 24-1, ABA Formal Opinion 512, and California SB 574 are already in motion. The case could speed up similar guidance in other jurisdictions, particularly Arizona (relevant to beta-1).
-- **Competitor architecture pressure.** If the case shifts liability toward AI vendors, Eve, EvenUp, Law Practice AI, and others may need to retrofit human-review boundaries into their products. AI Employee has the architecture already. Time-to-retrofit becomes a competitive variable.
+- **Competitor architecture pressure.** If the case shifts liability toward AI vendors, Eve, EvenUp, Law Practice AI, and others may need to retrofit human-review boundaries into their products. Operator has the architecture already. Time-to-retrofit becomes a competitive variable.
 - **Buyer questions get sharper.** Sophisticated managing partners will start asking "what happens if the AI sends something wrong?" The architectural answer (it cannot send) becomes a sales asset.
 
 ---
 
 ## Recommended monitoring
 
-The case is worth tracking for AI Employee's strategic context, not just as a one-off signal:
+The case is worth tracking for Operator's strategic context, not just as a one-off signal:
 
 - **Dismissal ruling.** If OpenAI's motion to dismiss is denied, the case proceeds and the developer-liability theory gains weight. If granted, the theory is rejected (at least at this stage) and AI vendor liability remains user-centric.
 - **Bar guidance follow-on.** Watch for state bar opinions issued in 2026 H2 that cite the case or its theory. Arizona, California, New York, and Texas are the highest-priority jurisdictions for SMD's near-term pipeline.
@@ -138,6 +138,6 @@ Tracking the case does not require new infrastructure. A monthly check on Reuter
 - Reuters: OpenAI motion to dismiss Nippon Life Insurance v. OpenAI (cited in round-2 deliverable)
 - ABA Law Technology Today coverage: Nippon Life v. OpenAI complaint (March 4, 2026)
 - [ADR 0005](../../../adr/0005-reviewer-as-sender.md) — reviewer-as-sender architecture (the architectural answer to UPL exposure)
-- [ADR 0013](../../../adr/0013-ai-employee-positioning-doctrine.md) — AI Employee positioning doctrine §5 (reviewer-as-sender as regulatory foresight)
+- [ADR 0013](../../../adr/0013-ai-employee-positioning-doctrine.md) — Operator positioning doctrine §5 (reviewer-as-sender as regulatory foresight)
 - [Round-2 competitive analysis](../round-2/competitive-analysis.md) §3 (regulatory signal)
 - [Round-3 ethics architecture](./ethics-architecture.md) (the combined positioning frame)

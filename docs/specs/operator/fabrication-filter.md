@@ -5,7 +5,7 @@
 ## Source
 
 - platform-prd.md §7.5 invariant #8, §8.4 skill anatomy
-- `docs/pm/ai-employee/prd-contributions/round-1/technical-lead.md` Risk 5
+- `docs/pm/operator/prd-contributions/round-1/technical-lead.md` Risk 5
 - CLAUDE.md "No fabricated client-facing content" rule (Pattern A + B)
 
 ## Contract
@@ -120,15 +120,15 @@ Severity mapping:
 
 ## Failure modes
 
-- **Skill omits `client_facing_fields` frontmatter** → CI gate `tests/ai-employee/skill-frontmatter.test.ts` blocks PR. Provision-time check refuses skill activation if frontmatter missing on `enabled: true` skill.
+- **Skill omits `client_facing_fields` frontmatter** → CI gate `tests/operator/skill-frontmatter.test.ts` blocks PR. Provision-time check refuses skill activation if frontmatter missing on `enabled: true` skill.
 - **Filter throws an exception** → runtime treats as `block`; emits `FABRICATION_FILTER_TRIGGERED` (severity=error) and `INVARIANT_VIOLATION` audit events; Captain alerted. No draft proceeds while the filter is unavailable.
 - **False positives on legitimate dollar amounts/dates** (e.g., a `matter_attribute`-sourced settlement amount): the filter flags rather than blocks for sourced-tagged fields; the reviewer sees a yellow banner and confirms. Captain reviews flag rate weekly; persistent false positives feed back into marker tuning.
 - **Skill author tags field as `memory_rule` to bypass the marker scan**: covered by the source-existence check. If `memory_rules` doesn't contain a row matching the tagged ID, block. Source-IDs are not user-controllable from the skill — they're injected by the runtime when the skill calls `memory.get(rule_id)` or similar.
 
 ## Verification
 
-1. **Filter test suite** at `tests/ai-employee/fabrication-filter.test.ts` covers: every action class × every sourced_from × clean/flag/block decision. ≥40 cases.
-2. **Frontmatter CI gate** at `tests/ai-employee/skill-frontmatter.test.ts` walks every `ai-employee/skills/*/SKILL.md` and asserts `client_facing_fields` block is present and well-formed.
+1. **Filter test suite** at `tests/operator/fabrication-filter.test.ts` covers: every action class × every sourced_from × clean/flag/block decision. ≥40 cases.
+2. **Frontmatter CI gate** at `tests/operator/skill-frontmatter.test.ts` walks every `ai-employee/skills/*/SKILL.md` and asserts `client_facing_fields` block is present and well-formed.
 3. **Production audit-log assertion**: a weekly Captain query against `audit_log` reports flag/block rate per skill. If block rate > 5% on any skill, that skill is reviewed.
 4. **Regression fixture corpus**: `ai-employee/fixtures/fabrication/` contains 20+ historical Pattern A/B violations (e.g., the "We'll reach out to schedule kickoff" string from CLAUDE.md). Every fixture must produce a `block` outcome — this protects against regression to the SS-console Apr-15 audit failures.
 

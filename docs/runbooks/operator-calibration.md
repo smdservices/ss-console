@@ -1,13 +1,13 @@
-# AI Employee calibration runbook
+# Operator calibration runbook
 
 **Audience:** Captain.
 **Scope:** Conducting one calibration cycle (four 90-minute sessions over two
 weeks) with a customer's partner. Covers what each session is for, what
 Captain prepares, what the partner does, and what gets written to the
 substrate after each session.
-**Source:** Spec at `docs/specs/ai-employee/calibration-session.md`. Backed
+**Source:** Spec at `docs/specs/operator/calibration-session.md`. Backed
 by platform PRD §9.6 and law-firm PRD §11.9.
-**Companion surface:** `portal.smd.services/portal/products/ai-employee/calibration`
+**Companion surface:** `portal.smd.services/portal/products/operator/calibration`
 (principal-only).
 
 > The PRD's 4-6 hour single-block calibration collapses at firms that sign.
@@ -33,7 +33,7 @@ fourteen days is the typical envelope.
 
 Captain may run a calibration cycle on demand by starting a new cycle from
 the portal: principal opens
-`portal.smd.services/portal/products/ai-employee/calibration` and clicks
+`portal.smd.services/portal/products/operator/calibration` and clicks
 "Start new calibration cycle." Starting a new cycle archives any prior cycle.
 
 ## Required framing in every session
@@ -83,7 +83,7 @@ ingestion seam.
 
 **Substrate output.** 10-15 structural-diff entries written under
 `{customer_slug}/voice/cohort/{cohort}/` per
-`docs/specs/ai-employee/voice-ingestion.md`. The voice gate counter
+`docs/specs/operator/voice-ingestion.md`. The voice gate counter
 advances; the dashboard's voice histogram updates on next render.
 
 **Failure modes.**
@@ -128,7 +128,7 @@ Capture per-skill approve / edit / refuse decisions, feeding memory rules.
 
 **Substrate output.** Per-skill calibration outcomes recorded for
 session-2 of the cycle. Memory rules written via the memory ingestion
-writer per `docs/specs/ai-employee/memory-ingestion.md`.
+writer per `docs/specs/operator/memory-ingestion.md`.
 
 **Failure modes.**
 
@@ -147,7 +147,7 @@ writes to `audit_log` via the `log_decision()` emission contract.
 
 **Prep (Captain, 30 minutes before the session).**
 
-- Open the trust-ceiling section on the AI Employee settings page.
+- Open the trust-ceiling section on the Operator settings page.
 - Review the cumulative voice ingestion stats from session 1 and the
   skill calibration outcomes from session 2. Identify skills that look
   ready for promotion and skills that should drop.
@@ -167,7 +167,7 @@ writes to `audit_log` via the `log_decision()` emission contract.
    ceiling decision logged.
 
 **Substrate output.** One `audit_log` row per ceiling change per
-`docs/specs/ai-employee/trust-ceiling-logging.md`.
+`docs/specs/operator/trust-ceiling-logging.md`.
 
 **Failure modes.**
 
@@ -193,7 +193,7 @@ before the blind-test gate (§9.6 gate #3) fires.
 
 1. Open the calibration surface; re-read the framing line.
 2. Partner works through their actual inbox for 45 minutes with the
-   AI Employee active. Captain observes; intervenes only on request.
+   Operator active. Captain observes; intervenes only on request.
 3. Switch to the blind-test materials for the remaining 45 minutes.
    Run the blind test per platform-prd §9.6 gate #3. Document the
    indistinguishability rate.
@@ -237,20 +237,20 @@ in the dossier so the next cycle's prep accounts for it.
 **The customer has no active persona.** The calibration surface renders
 the empty state per `docs/style/empty-state-pattern.md`. Calibration
 cannot run; provision a persona through `customer.yaml` first (see
-`docs/specs/ai-employee/customer-yaml-schema.md`).
+`docs/specs/operator/customer-yaml-schema.md`).
 
-**The customer has no AI Employee subscription.** The calibration
-surface redirects to the AI Employee landing per
+**The customer has no Operator subscription.** The calibration
+surface redirects to the Operator landing per
 `resolveProductAccess()`. No calibration is possible until the
 subscription is provisioned.
 
 ## Cross-references
 
-- spec: `docs/specs/ai-employee/calibration-session.md`
+- spec: `docs/specs/operator/calibration-session.md`
 - demo prep: `docs/runbooks/pi-firm-demo-prep.md`
-- voice ingestion: `docs/specs/ai-employee/voice-ingestion.md`
-- memory ingestion: `docs/specs/ai-employee/memory-ingestion.md`
-- trust-ceiling logging: `docs/specs/ai-employee/trust-ceiling-logging.md`
+- voice ingestion: `docs/specs/operator/voice-ingestion.md`
+- memory ingestion: `docs/specs/operator/memory-ingestion.md`
+- trust-ceiling logging: `docs/specs/operator/trust-ceiling-logging.md`
 - platform PRD §9.6 (voice quality gates), §10 (memory model), §11
   (trust ceilings)
 - law-firm PRD §11.9 (calibration session split)

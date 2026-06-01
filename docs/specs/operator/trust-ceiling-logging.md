@@ -325,7 +325,7 @@ the dispatch path; this module passes it through unchanged.
 Run locally:
 
 ```
-cd ai-employee && uv run --with pytest python -m pytest \
+cd operator && uv run --with pytest python -m pytest \
   safety-substrate/tests/test_trust_ceiling_log.py -v
 ```
 

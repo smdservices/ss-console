@@ -1,9 +1,9 @@
-# Cost Anomaly Worker — nightly per-customer spike detection for AI Employee
+# Cost Anomaly Worker — nightly per-customer spike detection for Operator
 # Per #886. Wires on top of the cost telemetry data path shipped in PR #1023
 # (ss-cost-telemetry runs at 02:00 UTC) and the dashboard from PR #1026.
 #
 # Each night at 03:00 UTC the worker:
-#   1. Enumerates AI Employee customers from the central customer_configs.
+#   1. Enumerates Operator customers from the central customer_configs.
 #   2. Reads the trailing 8 days of cost_telemetry for each customer via
 #      the D1 HTTP API (per-customer DBs per ADR 0009).
 #   3. Runs detectAnomaly() against the aggregate daily series.

@@ -1,14 +1,14 @@
-# AI Employee Service Contract Terms — 2026-05-13
+# Operator Service Contract Terms — 2026-05-13
 
 **Issue:** [#773](https://github.com/venturecrane/ss-console/issues/773)
-**Authorizes:** Contract shape for productized AI Employee SKU. Drives downstream SOW/MSA drafting (separate deliverable under copy/surfaces #775 or its own follow-on).
-**Inputs:** [Pricing analysis](./ai-employee-pricing-2026-05-13.md), [functional shape research](./ai-employee-functional-shape-2026-05-13.md), [stack evaluation](./ai-employee-stack-evaluation-2026-05-13.md), [ADR 0004](../adr/0004-productized-ai-employee-offering.md)
+**Authorizes:** Contract shape for productized Operator SKU. Drives downstream SOW/MSA drafting (separate deliverable under copy/surfaces #775 or its own follow-on).
+**Inputs:** [Pricing analysis](./operator-pricing-2026-05-13.md), [functional shape research](./operator-functional-shape-2026-05-13.md), [stack evaluation](./operator-stack-evaluation-2026-05-13.md), [ADR 0004](../adr/0004-productized-ai-employee-offering.md)
 
 ---
 
 ## Executive summary
 
-The productized AI Employee SKU is a structurally different agreement than SMD's scope-based consulting engagements ([Decision #14](../adr/decision-stack.md#decision-14---payment-terms)). The pricing analysis surfaced the operational obligations the firm hasn't yet had: bounded onboarding, bounded steady-state support, day-60-90 cancellation risk, trust-ceiling discipline, and SLA shape. This doc locks the contract terms that protect the economic model.
+The productized Operator SKU is a structurally different agreement than SMD's scope-based consulting engagements ([Decision #14](../adr/decision-stack.md#decision-14---payment-terms)). The pricing analysis surfaced the operational obligations the firm hasn't yet had: bounded onboarding, bounded steady-state support, day-60-90 cancellation risk, trust-ceiling discipline, and SLA shape. This doc locks the contract terms that protect the economic model.
 
 **Contract shape at a glance:**
 
@@ -116,7 +116,7 @@ These are enumerated in the SOW and must complete before onboarding clock advanc
 **80 hours of Captain time.** Tracked via timestamped activity log per customer.
 
 - Above 80 hours, customer is quoted a scope expansion at $200/hr (matching Captain's Phase 1.5 rate)
-- Above 120 hours: SMD evaluates whether the customer-fit is wrong. Some businesses will not be ready for AI Employee even at the $5K price point. We exit cleanly.
+- Above 120 hours: SMD evaluates whether the customer-fit is wrong. Some businesses will not be ready for Operator even at the $5K price point. We exit cleanly.
 
 **Customer 1's onboarding** is expected to hit the cap — the playbook is being built. Customer 2-3 should land at 60-70 hours. Customer 4-5 at 40-60 hours.
 
@@ -126,7 +126,7 @@ These are enumerated in the SOW and must complete before onboarding clock advanc
 
 ### Included in the retainer
 
-- **One AI Employee** (one named agent for the customer's business)
+- **One Operator** (one named agent for the customer's business)
 - **Up to one vertical pack** of skills (e.g., the v1 marketing-agencies pack)
 - **Skill iteration and customization** within the vertical pack (up to 4 new skills per quarter; major skill development beyond that is a scope expansion)
 - **Multi-gateway connectivity** to up to three customer-facing surfaces (Slack + email + one more by default; additional surfaces are scope expansions)
@@ -195,7 +195,7 @@ Triggers:
 3. **High-volume processing** — customer's load consistently exceeds expected token spend (>2x median customer). Path: usage-based overage charge negotiated upfront, or move to a higher-tier package.
 4. **Compliance certifications** — customer requires SOC2, HIPAA, or other certified compliance posture. Path: this is beyond the productized SKU; refer to a scoped engagement or partner who provides it.
 5. **Dedicated infrastructure** — customer requires single-tenant deployment or specific data residency. Path: scoped engagement, not productized.
-6. **Major architectural changes** — customer wants the agent rebuilt on a different harness, hosted differently, or with custom memory shape. Path: this is a scoped engagement under SMD's primary consulting funnel, not AI Employee.
+6. **Major architectural changes** — customer wants the agent rebuilt on a different harness, hosted differently, or with custom memory shape. Path: this is a scoped engagement under SMD's primary consulting funnel, not Operator.
 
 ### Scope-creep protocol
 
@@ -351,11 +351,11 @@ Contract shape adopted as documented above. Closes #773. Unblocks #774 (service 
 
 ## Sources
 
-- [Pricing analysis companion doc](./ai-employee-pricing-2026-05-13.md)
-- [Functional shape research](./ai-employee-functional-shape-2026-05-13.md) — trust ceiling map, failure modes, customer success cadence
-- [Stack evaluation](./ai-employee-stack-evaluation-2026-05-13.md) — monitoring, watchdog, observability shape
+- [Pricing analysis companion doc](./operator-pricing-2026-05-13.md)
+- [Functional shape research](./operator-functional-shape-2026-05-13.md) — trust ceiling map, failure modes, customer success cadence
+- [Stack evaluation](./operator-stack-evaluation-2026-05-13.md) — monitoring, watchdog, observability shape
 - [ADR 0004 — Productized AI Employee Offering](../adr/0004-productized-ai-employee-offering.md)
 - [Decision Stack #11 — Scope creep protocol](../adr/decision-stack.md#decision-11---scope-creep-protocol) — parking-lot mechanism (adapted for productized customers)
-- [Decision Stack #14 — Payment terms](../adr/decision-stack.md#decision-14---payment-terms) — note: AI Employee uses retainer-monthly, not the deposit-at-signing structure
-- [Decision Stack #27 — Post-handoff safety net](../adr/decision-stack.md#decision-27---post-handoff-safety-net) — analog for scope-based engagements; AI Employee is structurally different
-- [Decision Stack #28 — Internal champion](../adr/decision-stack.md#decision-28---internal-champion) — applies to AI Employee customer-side champion requirement
+- [Decision Stack #14 — Payment terms](../adr/decision-stack.md#decision-14---payment-terms) — note: Operator uses retainer-monthly, not the deposit-at-signing structure
+- [Decision Stack #27 — Post-handoff safety net](../adr/decision-stack.md#decision-27---post-handoff-safety-net) — analog for scope-based engagements; Operator is structurally different
+- [Decision Stack #28 — Internal champion](../adr/decision-stack.md#decision-28---internal-champion) — applies to Operator customer-side champion requirement

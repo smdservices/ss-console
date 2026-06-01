@@ -5,7 +5,7 @@
 ## Source
 
 - platform-prd.md §7.6 (storage architecture), §7.5 (invariant #7)
-- `docs/pm/ai-employee/prd-contributions/round-1/technical-lead.md` R2 + Vectorize sections
+- `docs/pm/operator/prd-contributions/round-1/technical-lead.md` R2 + Vectorize sections
 
 ## Contract
 
@@ -117,19 +117,19 @@ The decommission-archive at `{slug}/decommission-archive/final-{ts}.zip` is move
 - **Vectorize per-account index limit** (100 indexes on standard paid plan): at 50 customers × 2 indexes/customer = 100 indexes. Phase 4 constraint, not Phase 1. Validator warns when customer count × 2 ≥ 80.
 - **R2 bucket per-account limit** (1000 buckets default): not a near-term concern at the scale Phase 1-4 contemplates.
 - **R2 prefix scan slowness** (decommission of a customer with 1M+ objects): batched delete with `-P 8` parallel `xargs`; at 100 obj/sec/worker × 8 = 800/sec; 1M objects in ~20 min. Acceptable for compliance window.
-- **Skill writes to wrong customer's prefix** (bug): runtime helper `r2_key()` enforces; a skill that bypasses by writing directly to R2 SDK is a code review failure. CI grep at `tests/ai-employee/no-raw-r2-writes.test.ts` blocks PRs that import R2 SDK outside the helper module.
+- **Skill writes to wrong customer's prefix** (bug): runtime helper `r2_key()` enforces; a skill that bypasses by writing directly to R2 SDK is a code review failure. CI grep at `tests/operator/no-raw-r2-writes.test.ts` blocks PRs that import R2 SDK outside the helper module.
 - **Decommission archive bucket itself ungoverned**: a separate retention policy at `smd-decommission-archive/{slug}/{ts}/` with a 30-day TTL Worker enforces deletion; Captain alerted if any archive object exceeds 35 days.
 
 ## Verification
 
-1. **Boot-check test** (`tests/ai-employee/invariant-7-boot.test.ts`): provision a fixture customer, then swap one binding to a different slug's name, restart the Machine, assert exit 3 with the documented stdout.
+1. **Boot-check test** (`tests/operator/invariant-7-boot.test.ts`): provision a fixture customer, then swap one binding to a different slug's name, restart the Machine, assert exit 3 with the documented stdout.
 2. **Decommission enumeration test**: seed an R2 bucket with 100 objects under `{slug}/`, plus 5 objects under `other-{slug}/` (simulating mistaken cross-namespace writes), run decommission; assert only `{slug}/`-prefixed objects deleted, the 5 stray objects flagged in stderr.
-3. **CI guardrail**: grep at `tests/ai-employee/no-raw-r2-writes.test.ts` ensures only `ai-employee/adapter/r2_helper.py` (or its TS twin) imports the R2 SDK.
+3. **CI guardrail**: grep at `tests/operator/no-raw-r2-writes.test.ts` ensures only `ai-employee/adapter/r2_helper.py` (or its TS twin) imports the R2 SDK.
 4. **Per-customer Vectorize index count probe** (Captain dashboard daily): emits `VECTORIZE_QUOTA_HIGH` alert at ≥80 indexes.
 
 ## Implementation notes
 
-- New module: `ai-employee/adapter/r2_helper.py` (Python) and `src/lib/ai-employee/r2-helper.ts` (TS) — only files allowed to import the R2 SDK directly. Exports `r2_key(slug, segment, object_id)` + `r2_put`, `r2_get`, `r2_list_prefix`, `r2_delete_prefix`.
+- New module: `ai-employee/adapter/r2_helper.py` (Python) and `src/lib/operator/r2-helper.ts` (TS) — only files allowed to import the R2 SDK directly. Exports `r2_key(slug, segment, object_id)` + `r2_put`, `r2_get`, `r2_list_prefix`, `r2_delete_prefix`.
 - `provision-customer.sh` step 4 creates the bucket and writes a `.healthcheck` object at `{slug}/.healthcheck` containing the provisioning timestamp; boot-check reads this to confirm the bucket binding is live.
 - Vectorize index naming aligned with binding name (1:1) to make the boot check trivial.
 - Retention bucket `smd-decommission-archive` provisioned at platform setup, not per-customer. Captain-only access via wrangler creds.

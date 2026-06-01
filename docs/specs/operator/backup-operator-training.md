@@ -1,11 +1,11 @@
 # Backup operator training requirements
 
-**Spec for issue [#888](https://github.com/venturecrane/ss-console/issues/888).** Training prerequisites a backup operator must satisfy before being trusted as primary on a customer's AI Employee. Captain selects the person and decides their compensation and primary role; this spec defines what they have to learn, what access they must hold, and how Captain reaches them when the platform needs human hands.
+**Spec for issue [#888](https://github.com/venturecrane/ss-console/issues/888).** Training prerequisites a backup operator must satisfy before being trusted as primary on a customer's Operator. Captain selects the person and decides their compensation and primary role; this spec defines what they have to learn, what access they must hold, and how Captain reaches them when the platform needs human hands.
 
 ## Source
 
-- [Platform PRD §4 Persona 3 (Captain unavailability mitigation)](../../pm/ai-employee/platform-prd.md). Names the bus-factor minimum and the hard gate at customer #5.
-- [Platform PRD §16](../../pm/ai-employee/platform-prd.md). Demo framework the backup operator must be able to run.
+- [Platform PRD §4 Persona 3 (Captain unavailability mitigation)](../../pm/operator/platform-prd.md). Names the bus-factor minimum and the hard gate at customer #5.
+- [Platform PRD §16](../../pm/operator/platform-prd.md). Demo framework the backup operator must be able to run.
 - [ADR 0007 (Per-customer Machine isolation)](../../adr/0007-per-customer-machine-isolation.md)
 - [ADR 0008 (Customer-owned memory artifact)](../../adr/0008-customer-owned-memory-artifact.md)
 - [ADR 0009 (Cross-Machine query prohibition)](../../adr/0009-cross-machine-query-prohibition.md)
@@ -17,7 +17,7 @@ This spec does not name the backup operator. It does not set their pay, their ho
 
 ## Readiness gates
 
-A candidate is "trained" only when every gate below is satisfied. Captain marks each gate complete by initialling the line in the operations runbook at `docs/runbooks/ai-employee-backup-operator.md`. Self-attestation is not enough; the hands-on practice gates require Captain to observe the candidate complete the work end-to-end.
+A candidate is "trained" only when every gate below is satisfied. Captain marks each gate complete by initialling the line in the operations runbook at `docs/runbooks/operator-backup-operator.md`. Self-attestation is not enough; the hands-on practice gates require Captain to observe the candidate complete the work end-to-end.
 
 ### Gate 1: Architectural literacy
 
@@ -32,16 +32,16 @@ The backup operator must read and be able to summarize the four isolation ADRs a
 
 The backup operator must have read access to every runbook and spec the platform is operated from, and must have read each one end-to-end. Read access is necessary but not sufficient; the candidate must be able to navigate the documents without Captain guidance.
 
-- [ ] Read [Customer onboarding runbook](../../runbooks/ai-employee-customer-onboarding.md). Knows the 0-15-day arc, what the customer provides on Day 1, and where the per-customer YAML lives.
+- [ ] Read [Customer onboarding runbook](../../runbooks/operator-customer-onboarding.md). Knows the 0-15-day arc, what the customer provides on Day 1, and where the per-customer YAML lives.
 - [ ] Read [PI firm demo prep runbook](../../runbooks/pi-firm-demo-prep.md). Knows the eight sections of demo prep and which sections are Captain-only relationship work.
-- [ ] Read [Calibration runbook](../../runbooks/ai-employee-calibration.md). Knows the four 90-minute session structure and the substrate output of each session.
+- [ ] Read [Calibration runbook](../../runbooks/operator-calibration.md). Knows the four 90-minute session structure and the substrate output of each session.
 - [ ] Read [Decommission customer spec](decommission-customer.md). Knows the nine idempotent steps, the dry-run-versus-live distinction, and the recovery path for a mid-sequence failure.
 - [ ] Read [Sticky-stop spec](sticky-stop.md). Knows the four states (OK, WARN, SOFT_STOP, HARD_STOP), the system-versus-operator distinction, and that `clear()` is Captain-only.
 - [ ] Read [Memory export pipeline spec](memory-export.md). Knows the export archive is the canonical backup per ADR 0008.
 
 ### Gate 3: Hands-on practice
 
-The backup operator must have completed the following exercises against a synthetic test customer, observed by Captain. Each exercise is run once before the operator is marked ready and again every quarter per the [quarterly drill runbook](../../runbooks/ai-employee-quarterly-drill.md).
+The backup operator must have completed the following exercises against a synthetic test customer, observed by Captain. Each exercise is run once before the operator is marked ready and again every quarter per the [quarterly drill runbook](../../runbooks/operator-quarterly-drill.md).
 
 - [ ] **Provision a synthetic test customer end-to-end.** Run `ai-employee/bin/provision-customer.sh {synthetic-slug}` against a non-production fixture. The exercise covers the validator, the Fly app creation, the secret-prompt flow (paste from the test Infisical scope, never echo), and the per-connector smoke test.
 - [ ] **Run a full demo dry-run.** Walk the eight sections of [`pi-firm-demo-prep.md`](../../runbooks/pi-firm-demo-prep.md) for the synthetic customer. End at `prepare-demo-firm.sh` exit 0 and the deliverable readiness checklist.
@@ -59,7 +59,7 @@ The backup operator must hold the credentials and roles required to execute Gate
 - [ ] **GitHub.** Push and review permission on `venturecrane/ss-console`. Verifies by opening a draft PR against a throwaway branch. (Hermes is consumed from upstream `NousResearch/hermes-agent`, which is public; no special access is required since ADR 0024 retired the `venturecrane/hermes-agent` fork.)
 - [ ] **Bitwarden.** Membership in the `smd-services` organization scoped to the customer-credentials collection. Verifies by reading one non-sensitive credential record metadata (never the value).
 - [ ] **Infisical.** Workspace member with read on `/ss/customers/*` and `/ss` shared secrets. Verifies by listing secret names with `infisical secrets list` (names only, never with `--plain`).
-- [ ] **PagerDuty (or Better Stack).** Listed on the "AI Employee production" service rotation, even if at a lower-tier escalation. Verifies by triggering a synthetic incident that pages the operator and acknowledging it.
+- [ ] **PagerDuty (or Better Stack).** Listed on the "Operator production" service rotation, even if at a lower-tier escalation. Verifies by triggering a synthetic incident that pages the operator and acknowledging it.
 - [ ] **SMD ops chat.** Member of the channel where Captain posts customer-day status. Verifies by acknowledging a test post.
 
 ### Gate 5: Communication channels
@@ -73,9 +73,9 @@ The backup operator must have an unambiguous way for Captain to reach them and a
 
 ## Gate sign-off
 
-Captain marks each gate complete in the [operations runbook](../../runbooks/ai-employee-backup-operator.md) by adding the date and the operator's name. The runbook's frontmatter carries a `backup_operator_ready: <date>` marker; a candidate without that marker may not be assigned as primary on any customer.
+Captain marks each gate complete in the [operations runbook](../../runbooks/operator-backup-operator.md) by adding the date and the operator's name. The runbook's frontmatter carries a `backup_operator_ready: <date>` marker; a candidate without that marker may not be assigned as primary on any customer.
 
-The bus-factor minimum gate at customer #5 (per PRD §4 Persona 3) is satisfied when all five gates above are signed off for at least one operator. Re-training is required after any failed [quarterly drill](../../runbooks/ai-employee-quarterly-drill.md).
+The bus-factor minimum gate at customer #5 (per PRD §4 Persona 3) is satisfied when all five gates above are signed off for at least one operator. Re-training is required after any failed [quarterly drill](../../runbooks/operator-quarterly-drill.md).
 
 ## Out of scope (Captain-only decisions)
 
@@ -89,13 +89,13 @@ These items are deliberately not specified here. Captain decides them outside th
 
 ## Cross-references
 
-- [Operations runbook (backup operator)](../../runbooks/ai-employee-backup-operator.md)
-- [Quarterly drill runbook](../../runbooks/ai-employee-quarterly-drill.md)
-- [Customer onboarding runbook](../../runbooks/ai-employee-customer-onboarding.md)
+- [Operations runbook (backup operator)](../../runbooks/operator-backup-operator.md)
+- [Quarterly drill runbook](../../runbooks/operator-quarterly-drill.md)
+- [Customer onboarding runbook](../../runbooks/operator-customer-onboarding.md)
 - [PI firm demo prep runbook](../../runbooks/pi-firm-demo-prep.md)
-- [Calibration runbook](../../runbooks/ai-employee-calibration.md)
+- [Calibration runbook](../../runbooks/operator-calibration.md)
 - [Decommission customer spec](decommission-customer.md)
 - [Sticky-stop spec](sticky-stop.md)
 - [Memory export pipeline spec](memory-export.md)
-- [Platform PRD §4 Persona 3](../../pm/ai-employee/platform-prd.md)
+- [Platform PRD §4 Persona 3](../../pm/operator/platform-prd.md)
 - [Issue #888](https://github.com/venturecrane/ss-console/issues/888)

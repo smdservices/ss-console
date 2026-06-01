@@ -199,8 +199,8 @@ These suggest where to lead the conversation, not which problems to look for. Th
 - **Internal rate:** $175/hr at launch, then $200/hr after first case study, then $250/hr, then $300/hr with volume
 - **Engagement range:** scoped per engagement. Smallest engagements (targeted automation scripts, AI pilots) start around $2,500. Below that, assessment overhead exceeds delivery value. Largest engagements have no fixed ceiling. Nothing published externally.
 - **Paid Assessment:** $250, applied toward engagement if they proceed. First 3 assessments free.
-- **Recurring revenue product:** Productized AI Employee offering — flat-rate monthly retainer SKU, second front door alongside the scope-based consulting funnel. Specific monthly price deferred pending stack cost analysis. See [ADR 0004](docs/adr/0004-productized-ai-employee-offering.md) / Decision #44. The prior "$200-500/mo undefined post-delivery retainer" is superseded.
-- **Post-handoff support for scope-based engagements:** Two-week async stabilization included (Decision #27). Beyond that, customers are quoted a follow-on scope or converted to an AI Employee subscription if the fit is right.
+- **Recurring revenue product:** Productized Operator offering — flat-rate monthly retainer SKU, second front door alongside the scope-based consulting funnel. Specific monthly price deferred pending stack cost analysis. See [ADR 0004](docs/adr/0004-productized-ai-employee-offering.md) / Decision #44. The prior "$200-500/mo undefined post-delivery retainer" is superseded.
+- **Post-handoff support for scope-based engagements:** Two-week async stabilization included (Decision #27). Beyond that, customers are quoted a follow-on scope or converted to an Operator subscription if the fit is right.
 - **No dollar amounts published externally.** Client sees a project price, not hourly rate.
 
 ### The Assessment Call Is the Product
@@ -243,7 +243,7 @@ We are in the **pre-launch phase**. Nothing has been sold yet. The immediate pri
 
 - [x] Payment terms (50% deposit at signing, 50% at completion; 3-milestone for 40+ hr engagements)
 - [ ] Paid assessment entry point ($250 applied toward engagement, first 3 free)
-- [x] ~~Recurring retainer model~~ — superseded 2026-05-13 by [ADR 0004](docs/adr/0004-productized-ai-employee-offering.md) (productized AI Employee SKU). Stack evaluation, pricing analysis, service contract terms, and stack build filed as follow-ons against ADR 0004.
+- [x] ~~Recurring retainer model~~ — superseded 2026-05-13 by [ADR 0004](docs/adr/0004-productized-ai-employee-offering.md) (productized Operator SKU). Stack evaluation, pricing analysis, service contract terms, and stack build filed as follow-ons against ADR 0004.
 - [ ] Client data management system (D1 or similar for assessments, quotes, engagements, invoicing)
 
 ## Domain Context
@@ -360,17 +360,17 @@ Then load this venture's spec for palette and tone: `crane_doc('ss', 'design-spe
 
 The catalog is the shared vocabulary across all eight ventures — eight named patterns (status display by context, redundancy ban, button hierarchy, heading skip ban, typography scale, spacing rhythm, shared primitives, actions and menus) plus the components map (atoms / molecules / organisms with per-venture implementations). The catalog is a map, not a library — each venture maintains its own source. Cite a pattern by its file slug (`patterns/03-button-hierarchy.md`, etc.) when referencing it in PRs and skill output.
 
-## AI Employee Architecture (locked 2026-05-24)
+## Operator Architecture (locked 2026-05-24)
 
-The Phase 1 AI Employee SKU (productized retainer offering, per ADR 0004) runs as a per-customer Fly.io Machine hosting the Nous Research Hermes Agent runtime (`NousResearch/hermes-agent`, MIT). The architectural posture was substantially realigned on 2026-05-24 after six rounds of focused research. Three principles govern all AI Employee work:
+The Phase 1 Operator SKU (productized retainer offering, per ADR 0004) runs as a per-customer Fly.io Machine hosting the Nous Research Hermes Agent runtime (`NousResearch/hermes-agent`, MIT). The architectural posture was substantially realigned on 2026-05-24 after six rounds of focused research. Three principles govern all Operator work:
 
 1. **Hermes is the substrate. Trust it.** Skills, Honcho memory, the Curator, profiles, the tool registry, the plugin hook surface, MCP integration, and approval/guardrail machinery are all native and not reinvented. Teknium's May 2026 hard rule applies: plugins MUST NOT modify Hermes core files. Our overlay is plugin code, hosted in a separate repo (`venturecrane/hermes-smd-overlay`).
 2. **Build only what Hermes won't.** Sample-driven voice transformation, compliance-grade audit emission, content-class trust ceilings, draft routing through reviewer-as-sender, curated vertical skill catalogs, and the customer-facing business surface are the durable moat. None of these are on Hermes' roadmap.
 3. **Mirror, don't gate.** Where Hermes' learning loop creates state (Honcho conclusions, agent-authored skills), our overlay captures a parallel record in per-customer D1 with provenance. Captain dismissal physically removes the state from Hermes. Reviewer-as-sender does the per-draft safety job; no queue stands between the agent and its work.
 
-Load these ADRs before any AI Employee architectural work:
+Load these ADRs before any Operator architectural work:
 
-- **ADR 0004** — Productized AI Employee offering (the SKU itself)
+- **ADR 0004** — Productized Operator offering (the SKU itself)
 - **ADR 0006** — Capability-adapter pattern (typed contracts as TS-side ergonomic; runtime via plugin + MCP)
 - **ADR 0007** — Per-customer Machine isolation
 - **ADR 0010** — Per-customer OAuth token storage on Fly volume
@@ -390,7 +390,7 @@ The 2026-05-24 realignment burial is complete. Removed: `smd.hooks.*` dual-surfa
 ## Key Reference
 
 - **Decision Stack:** `docs/adr/decision-stack.md` (29 locked decisions across 6 layers — buy box, scope, pricing, assessment, distribution, delivery. Source of truth for all collateral and processes.)
-- **AI Employee ADRs:** `docs/adr/0004-*.md` through `docs/adr/0021-*.md`. Always cite the ADR number when referencing an architectural decision.
+- **Operator ADRs:** `docs/adr/0004-*.md` through `docs/adr/0021-*.md`. Always cite the ADR number when referencing an architectural decision.
 - **Package 2 Deep Dive:** `~/Desktop/services-package-2-deep-dive.md` (full problem analysis, delivery model, positioning)
 - `docs/` — Venture documentation as it develops
 

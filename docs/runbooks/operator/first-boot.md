@@ -1,6 +1,6 @@
 # First boot — standing up a customer Machine
 
-How Captain boots a customer's AI Employee Machine end to end for the first time. This is the [ADR 0024](../../adr/0024-hermes-consumption-and-update-cadence.md) / [ADR 0007](../../adr/0007-per-customer-machine-isolation.md) "first real boot" milestone: it provisions a dedicated Fly.io Machine, builds the customer-shape Hermes container (upstream Hermes pinned by SHA + the hermes-smd overlay), and runs the boot smoke test.
+How Captain boots a customer's Operator Machine end to end for the first time. This is the [ADR 0024](../../adr/0024-hermes-consumption-and-update-cadence.md) / [ADR 0007](../../adr/0007-per-customer-machine-isolation.md) "first real boot" milestone: it provisions a dedicated Fly.io Machine, builds the customer-shape Hermes container (upstream Hermes pinned by SHA + the hermes-smd overlay), and runs the boot smoke test.
 
 The first boot is **Captain-gated**: it spends on a real Fly.io org, stages real credentials, and consumes a real Anthropic key. Everything up to `fly deploy` is automated by `provision-customer.sh`; the go/no-go is yours.
 
@@ -40,7 +40,7 @@ The script prompts for each; copy to clipboard, press Enter (or `s` to skip). Va
 
 ### Customer fixture
 
-`ai-employee/customers/<slug>/customer.yaml` must exist and validate. **customer-zero is `smd`** (`ai-employee/customers/smd/customer.yaml`) — we dogfood the SMD AI Employee on SMD itself. Its `hermes_ref` is pinned (`v2026.5.16@a91a57fa…`); the Dockerfile clones `NousResearch/hermes-agent` at that tag and asserts the cloned HEAD matches the SHA.
+`ai-employee/customers/<slug>/customer.yaml` must exist and validate. **customer-zero is `smd`** (`ai-employee/customers/smd/customer.yaml`) — we dogfood the SMD Operator on SMD itself. Its `hermes_ref` is pinned (`v2026.5.16@a91a57fa…`); the Dockerfile clones `NousResearch/hermes-agent` at that tag and asserts the cloned HEAD matches the SHA.
 
 ## The command
 

@@ -37,7 +37,7 @@ If a specific firm uses Xero instead of QuickBooks, or Gmail instead of Outlook,
 
 ## The `no_pm` PracticeManagement adapter
 
-Implementation: [`ai-employee/connectors/no_pm/`](../../../ai-employee/connectors/no_pm/). Conforms to the `PracticeManagement` interface from [`src/lib/ai-employee/capabilities/practice-management.ts`](../../../src/lib/ai-employee/capabilities/practice-management.ts) via the same Python-mirrors-TypeScript shape Filevine uses.
+Implementation: [`ai-employee/connectors/no_pm/`](../../../ai-employee/connectors/no_pm/). Conforms to the `PracticeManagement` interface from [`src/lib/operator/capabilities/practice-management.ts`](../../../src/lib/operator/capabilities/practice-management.ts) via the same Python-mirrors-TypeScript shape Filevine uses.
 
 ### Supported methods
 
@@ -132,7 +132,7 @@ The per-matter view and the global folder view both work; they are two different
 
 ## Validation
 
-The template is validated by the same runtime validator every `customer.yaml` runs through (`src/lib/ai-employee/customer-yaml/validator.ts`). The bracketed-fields shape means an unedited template fails validation -- the customer slug pattern, infisical token_ref pattern, and memory invariants will all reject the placeholder values. This is intentional: the validator forces the operator to fill in real values before provisioning.
+The template is validated by the same runtime validator every `customer.yaml` runs through (`src/lib/operator/customer-yaml/validator.ts`). The bracketed-fields shape means an unedited template fails validation -- the customer slug pattern, infisical token_ref pattern, and memory invariants will all reject the placeholder values. This is intentional: the validator forces the operator to fill in real values before provisioning.
 
 To validate after copying + filling (canonical TS validator per ADR 0019):
 
@@ -160,7 +160,7 @@ npx tsx scripts/validate-customer-yaml.ts \
 `ai-employee/connectors/no_pm/tests/` -- run via:
 
 ```bash
-cd ai-employee && python -m pytest connectors/no_pm/tests/ -v
+cd operator && python -m pytest connectors/no_pm/tests/ -v
 ```
 
 Coverage:

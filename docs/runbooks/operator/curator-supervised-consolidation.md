@@ -4,7 +4,7 @@ How Captain runs a one-off, supervised consolidation of a customer's agent-autho
 
 ## Background — why the curator is off
 
-Hermes' curator runs an autonomous LLM pass (`agent/curator.py:_run_llm_review()`, default aux model `google/gemini-3-flash-preview`) on a 7-day cron. That pass does not merely archive stale skills — it **consolidates and rewrites agent-authored skill content** via `skill_manage`, collapsing many specific skills into broader "umbrella" skills. For the SMD AI Employee that is undesirable by default:
+Hermes' curator runs an autonomous LLM pass (`agent/curator.py:_run_llm_review()`, default aux model `google/gemini-3-flash-preview`) on a 7-day cron. That pass does not merely archive stale skills — it **consolidates and rewrites agent-authored skill content** via `skill_manage`, collapsing many specific skills into broader "umbrella" skills. For the SMD Operator that is undesirable by default:
 
 - It mutates skills we mirror to per-customer D1 with content hashes and a `source_turn_id`, attributing the rewrite to a background "CURATOR" turn with no customer conversation to anchor provenance — corrupting the audit trail.
 - It changes which skills exist and how they are invoked between conversations, without the customer triggering it. Reviewer-as-sender ([ADR 0005](../../adr/0005-reviewer-as-sender.md)) does not see this structural drift.

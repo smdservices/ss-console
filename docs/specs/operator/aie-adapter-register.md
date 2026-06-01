@@ -1,4 +1,4 @@
-# AIEmployee Adapter Register - Hermes Hook Surface (Phase A.5)
+# Operator Adapter Register - Hermes Hook Surface (Phase A.5)
 
 **Status:** Implemented in PR for [#841](https://github.com/venturecrane/ss-console/issues/841).
 

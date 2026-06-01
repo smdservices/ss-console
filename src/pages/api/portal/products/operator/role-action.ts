@@ -4,8 +4,8 @@ import { getProductSubscription, listProductRoles } from '../../../../../lib/por
 import {
   grantProductRole,
   revokeProductRole,
-  isAIEmployeeRole,
-  type AIEmployeeRole,
+  isOperatorRole,
+  type OperatorRole,
 } from '../../../../../lib/portal/product-roles-mutations'
 import type { PortalUserRow } from '../../../../../lib/auth/clerk-bridge'
 import type { Entity } from '../../../../../lib/db/entities'
@@ -92,7 +92,7 @@ async function authorize(locals: App.Locals): Promise<Response | AuthorizedConte
 interface ParsedAction {
   kind: 'grant' | 'revoke'
   targetUserId: string
-  role: AIEmployeeRole
+  role: OperatorRole
 }
 
 function parseForm(formData: FormData): ParsedAction | string {
@@ -101,7 +101,7 @@ function parseForm(formData: FormData): ParsedAction | string {
   const role = formData.get('role')
   if (action !== 'grant' && action !== 'revoke') return 'invalid_action'
   if (typeof targetUserId !== 'string' || targetUserId === '') return 'invalid_user'
-  if (!isAIEmployeeRole(role)) return 'invalid_role'
+  if (!isOperatorRole(role)) return 'invalid_role'
   return { kind: action, targetUserId, role }
 }
 

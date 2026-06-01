@@ -13,9 +13,9 @@
  */
 
 const ALLOWED_OPERATOR_ROLES = ['principal', 'operator', 'compliance'] as const
-export type AIEmployeeRole = (typeof ALLOWED_OPERATOR_ROLES)[number]
+export type OperatorRole = (typeof ALLOWED_OPERATOR_ROLES)[number]
 
-export function isAIEmployeeRole(value: unknown): value is AIEmployeeRole {
+export function isOperatorRole(value: unknown): value is OperatorRole {
   return typeof value === 'string' && (ALLOWED_OPERATOR_ROLES as readonly string[]).includes(value)
 }
 

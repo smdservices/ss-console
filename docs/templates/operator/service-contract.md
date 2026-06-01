@@ -1,6 +1,6 @@
-# AI Employee Service Contract (Template)
+# Operator Service Contract (Template)
 
-> Master agreement for the AI Employee service. Internal drafting template; not a final form.
+> Master agreement for the Operator service. Internal drafting template; not a final form.
 
 ---
 
@@ -29,33 +29,33 @@ Replace every bracketed value before exporting to PDF for DocuSign. Fields are v
 
 ---
 
-# AI Employee Service Agreement
+# Operator Service Agreement
 
-**This AI Employee Service Agreement (this "Agreement") is entered into as of [EFFECTIVE DATE] (the "Effective Date") by and between SMDurgan, LLC, an Arizona limited liability company doing business as SMD Services ("SMD"), and [CUSTOMER LEGAL NAME], a [CUSTOMER STATE OF INCORPORATION] entity with its principal place of business at [CUSTOMER ADDRESS] ("Customer"). SMD and Customer are each a "Party" and collectively the "Parties."**
+**This Operator Service Agreement (this "Agreement") is entered into as of [EFFECTIVE DATE] (the "Effective Date") by and between SMDurgan, LLC, an Arizona limited liability company doing business as SMD Services ("SMD"), and [CUSTOMER LEGAL NAME], a [CUSTOMER STATE OF INCORPORATION] entity with its principal place of business at [CUSTOMER ADDRESS] ("Customer"). SMD and Customer are each a "Party" and collectively the "Parties."**
 
 ## 1. Definitions
 
-1.1 **"AI Employee"** means the configured per-Customer instance of the SMD platform that drafts and surfaces work product for review by Customer's authorized reviewers, comprising the Machine, the Memory Artifact, the configured persona, the enabled skills, and the bound connectors, as those terms are used in the Documentation.
+1.1 **"Operator"** means the configured per-Customer instance of the SMD platform that drafts and surfaces work product for review by Customer's authorized reviewers, comprising the Machine, the Memory Artifact, the configured persona, the enabled skills, and the bound connectors, as those terms are used in the Documentation.
 
-1.2 **"Customer Data"** means all information submitted to, generated within, or processed by the AI Employee on Customer's behalf, including memory rules, voice samples, person mappings, drafts, audit logs, and any substantive content read at draft time from Customer's connected systems.
+1.2 **"Customer Data"** means all information submitted to, generated within, or processed by the Operator on Customer's behalf, including memory rules, voice samples, person mappings, drafts, audit logs, and any substantive content read at draft time from Customer's connected systems.
 
-1.3 **"Documentation"** means the AI Employee platform documentation maintained by SMD, including the Platform PRD, the architecture decision records (ADRs) referenced in this Agreement, and the operational runbooks.
+1.3 **"Documentation"** means the Operator platform documentation maintained by SMD, including the Platform PRD, the architecture decision records (ADRs) referenced in this Agreement, and the operational runbooks.
 
 1.4 **"Machine"** means the dedicated Fly.io Machine provisioned for Customer's exclusive use, as further described in Section 4.
 
 1.5 **"Memory Artifact"** means the per-Customer collection of structured rules, voice samples, person mappings, process knowledge, and audit logs stored in Customer-specific D1, R2, and Vectorize namespaces, as described in the DPA.
 
-1.6 **"Reviewer"** means a Customer-designated individual authorized to review, edit, and send drafts produced by the AI Employee.
+1.6 **"Reviewer"** means a Customer-designated individual authorized to review, edit, and send drafts produced by the Operator.
 
-1.7 **"Service"** means the AI Employee software-as-a-service offering provided by SMD under this Agreement, including provisioning, hosting, monitoring, maintenance, support, and offboarding.
+1.7 **"Service"** means the Operator software-as-a-service offering provided by SMD under this Agreement, including provisioning, hosting, monitoring, maintenance, support, and offboarding.
 
 ## 2. Scope of Service
 
-2.1 **What the Service does.** SMD will provision a per-Customer AI Employee instance configured to Customer's specifications. The AI Employee drafts work product (including but not limited to email replies, intake summaries, calendar entries, and document drafts) and surfaces those drafts to Reviewers for review. Specific skills enabled at the Effective Date are listed in the Statement of Work attached as Exhibit A.
+2.1 **What the Service does.** SMD will provision a per-Customer Operator instance configured to Customer's specifications. The Operator drafts work product (including but not limited to email replies, intake summaries, calendar entries, and document drafts) and surfaces those drafts to Reviewers for review. Specific skills enabled at the Effective Date are listed in the Statement of Work attached as Exhibit A.
 
-2.2 **What the Service does not do.** The AI Employee does not send any customer-bound external message under its own identity. Every outbound message produced by the AI Employee is drafted into a Reviewer's drafts folder for the Reviewer to review, edit, and send under the Reviewer's own identity. This commitment is architectural and is documented in [ADR 0005](../../adr/0005-reviewer-as-sender.md).
+2.2 **What the Service does not do.** The Operator does not send any customer-bound external message under its own identity. Every outbound message produced by the Operator is drafted into a Reviewer's drafts folder for the Reviewer to review, edit, and send under the Reviewer's own identity. This commitment is architectural and is documented in [ADR 0005](../../adr/0005-reviewer-as-sender.md).
 
-2.3 **No autonomous external action.** The AI Employee does not execute transactions, file documents with courts or regulators, or send communications to third parties without a named human Reviewer pressing send. Trust ceilings governing this behavior are documented in the Platform PRD §11.
+2.3 **No autonomous external action.** The Operator does not execute transactions, file documents with courts or regulators, or send communications to third parties without a named human Reviewer pressing send. Trust ceilings governing this behavior are documented in the Platform PRD §11.
 
 2.4 **Configuration changes.** Customer may request reconfiguration (new skills enabled, persona adjustments, scope changes) at any time during the Term. SMD will implement reasonable configuration changes within the operational budget defined in Exhibit A. Changes outside that budget may require a written change order.
 
@@ -73,11 +73,11 @@ Replace every bracketed value before exporting to PDF for DocuSign. Fields are v
 
 ## 4. Per-Customer Infrastructure
 
-4.1 **Dedicated Machine.** SMD will provision and operate a dedicated Fly.io Machine named `hermes-{customer-slug}` for Customer's exclusive use. The Machine is the runtime environment for Customer's AI Employee. No other SMD customer shares this Machine.
+4.1 **Dedicated Machine.** SMD will provision and operate a dedicated Fly.io Machine named `hermes-{customer-slug}` for Customer's exclusive use. The Machine is the runtime environment for Customer's Operator. No other SMD customer shares this Machine.
 
 4.2 **Dedicated storage namespaces.** SMD will provision and operate dedicated D1, R2, and Vectorize namespaces bound to Customer's Machine. No other SMD customer has access to these namespaces. The cross-Machine query prohibition is enforced at boot per the safety substrate invariants described in the Platform PRD §7.5 and [ADR 0009](../../adr/0009-cross-machine-query-prohibition.md).
 
-4.3 **Per-Customer credentials.** SMD will store Customer's connector credentials (OAuth tokens, API keys for systems Customer has authorized the AI Employee to access) at per-Customer paths in SMD's secrets vault. No other SMD customer has access to Customer's credentials. The credential storage and revocation lifecycle is documented in the Documentation.
+4.3 **Per-Customer credentials.** SMD will store Customer's connector credentials (OAuth tokens, API keys for systems Customer has authorized the Operator to access) at per-Customer paths in SMD's secrets vault. No other SMD customer has access to Customer's credentials. The credential storage and revocation lifecycle is documented in the Documentation.
 
 4.4 **Architectural isolation.** Per-Customer infrastructure isolation is an architectural commitment, not a policy. The isolation is enforced by deployment topology per [ADR 0007](../../adr/0007-per-customer-machine-isolation.md), not by runtime tenant scoping.
 
@@ -141,7 +141,7 @@ Acknowledgement means SMD has confirmed receipt and begun triage. Acknowledgemen
 
 (b) Within [OFFBOARDING WINDOW DAYS] days following the Effective Termination Date, SMD will produce and deliver to Customer a portable export of Customer's Memory Artifact in the form described in the DPA and [ADR 0008](../../adr/0008-customer-owned-memory-artifact.md).
 
-(c) SMD will decommission Customer's Machine, namespaces, and credentials per the procedure documented in the [decommission spec](../../specs/ai-employee/decommission-customer.md). SMD will provide written confirmation of decommissioning to Customer.
+(c) SMD will decommission Customer's Machine, namespaces, and credentials per the procedure documented in the [decommission spec](../../specs/operator/decommission-customer.md). SMD will provide written confirmation of decommissioning to Customer.
 
 (d) Customer remains obligated to pay all Fees accrued through the Effective Termination Date.
 

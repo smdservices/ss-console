@@ -76,7 +76,7 @@ Grouped by theme. Priority codes: **P0** = must fix before commit; **P1** = must
 
 ### Theme 7: Law Practice AI is missing from the competitive landscape
 
-- **Issue:** Law Practice AI launched April 2026 with **300+ PI firm clients** and a "five-solution AI operating system" framing that is conceptually adjacent to AI Employee's "one identity, every surface" framing. Both PRDs omit it entirely.
+- **Issue:** Law Practice AI launched April 2026 with **300+ PI firm clients** and a "five-solution AI operating system" framing that is conceptually adjacent to Operator's "one identity, every surface" framing. Both PRDs omit it entirely.
 - **Roles flagging:** Competitor Analyst (sole; high-priority addition with no offsetting case)
 - **Recommended change:** Add **Law Practice AI** as a new row in platform PRD §6 competitive table and law-firm PRD §10.1 named competitive set. Threat level: medium (high install base, no verified persistent-identity / reviewer-as-sender / editable-memory architecture). Note in PRD that this is unverified — they may or may not be a direct competitor depending on what their "five solutions" actually do.
 - **Priority:** P0 (Captain may be asked about it in the demo)
@@ -283,7 +283,7 @@ These are new artifacts both PRDs need that aren't currently anywhere.
 ### M3. EvenUp PLAAS competitive response paragraph
 
 - **Gap:** PLAAS launched May 13, 2026 — 6 days before this review. PI prospects may have seen it. No prepared response.
-- **Recommended location:** Add to **law-firm PRD §10 Competitive Positioning**, after the table. Captain needs a 30-second answer ready: PLAAS uses U.S. human staff (labor cost embedded), does not provide named AI teammate, does not expose customer-editable memory, AI Employee's reviewer-as-sender architecture is structurally different from PLAAS's managed-service model.
+- **Recommended location:** Add to **law-firm PRD §10 Competitive Positioning**, after the table. Captain needs a 30-second answer ready: PLAAS uses U.S. human staff (labor cost embedded), does not provide named AI teammate, does not expose customer-editable memory, Operator's reviewer-as-sender architecture is structurally different from PLAAS's managed-service model.
 - **Why it matters:** Direct competitive comparison most likely to come up in the demo room. See Competitor Analyst §6.3.
 
 ### M4. Pricing response framework for Captain

@@ -5,8 +5,8 @@
 ## Source
 
 - platform-prd.md §11 (trust ceilings), §12 (dashboard IA), §19 (open decision)
-- `docs/pm/ai-employee/prd-contributions/round-1/ux-lead.md` (full role personas)
-- `docs/pm/ai-employee/prd-contributions/round-1/business-analyst.md` OQ-004
+- `docs/pm/operator/prd-contributions/round-1/ux-lead.md` (full role personas)
+- `docs/pm/operator/prd-contributions/round-1/business-analyst.md` OQ-004
 
 ## Contract
 
@@ -72,20 +72,20 @@ In v1 the partner pre-authorizes `inbox-triage-and-draft` and `morning-digest` f
 
 ## Verification
 
-1. **RBAC test suite** at `tests/ai-employee/dashboard-rbac.test.ts` covers the full permission matrix: for every row × role combination, assert the API returns the documented response (200 / 403 / 404).
-2. **UI visibility tests** at `tests/ai-employee/dashboard-ui-roles.test.ts` (Playwright) cover that compliance users see only the Audit tab in the nav, operators see all except Skills/Persona admin actions, principals see everything.
+1. **RBAC test suite** at `tests/operator/dashboard-rbac.test.ts` covers the full permission matrix: for every row × role combination, assert the API returns the documented response (200 / 403 / 404).
+2. **UI visibility tests** at `tests/operator/dashboard-ui-roles.test.ts` (Playwright) cover that compliance users see only the Audit tab in the nav, operators see all except Skills/Persona admin actions, principals see everything.
 3. **Audit log assertion**: every trust promotion / demotion / role-restricted action writes a `RBAC_EVENT` to `audit_log` per d1-schema.md (`action_type`, `actor`, `attempted_action`, `outcome`).
 4. **Clerk integration test**: validates org claim resolution → role mapping under three customer.yaml configurations (principal-only; principal+operator; principal+operator+compliance).
 
 ## Dedicated Compliance dashboard view (#895)
 
-The `compliance` role grants direct access to the audit surface (per the matrix above) regardless of any opt-in. Separately, customers may opt in to a **dedicated Compliance dashboard view** at `/portal/products/ai-employee/compliance` that groups the audit-log entry point, the read-only retention posture, and the evidence packet entry into a single landing for the compliance reviewer.
+The `compliance` role grants direct access to the audit surface (per the matrix above) regardless of any opt-in. Separately, customers may opt in to a **dedicated Compliance dashboard view** at `/portal/products/operator/compliance` that groups the audit-log entry point, the read-only retention posture, and the evidence packet entry into a single landing for the compliance reviewer.
 
 ### Opt-in: `customer.yaml.compliance_enabled`
 
 Top-level optional boolean. Defaults to `false`.
 
-- **`compliance_enabled: false`** (the default). The dedicated Compliance view does NOT render. Sub-50-attorney PI firms typically don't retain ethics counsel; the principal wears the compliance hat and works from the existing Audit surface. RBAC on the audit surface is unchanged — compliance-role users who exist in `users[]` can still hit `/portal/products/ai-employee/audit` directly.
+- **`compliance_enabled: false`** (the default). The dedicated Compliance view does NOT render. Sub-50-attorney PI firms typically don't retain ethics counsel; the principal wears the compliance hat and works from the existing Audit surface. RBAC on the audit surface is unchanged — compliance-role users who exist in `users[]` can still hit `/portal/products/operator/audit` directly.
 
 - **`compliance_enabled: true`**. The dedicated Compliance view renders for compliance and principal roles. The view is the separation-of-duties landing the compliance reviewer uses; the principal sees it as a read-only summary.
 
@@ -95,7 +95,7 @@ Wiring this as an explicit boolean (not auto-derived from "does any user have `r
 
 | Capability                                                   | principal                                                | operator         | compliance                   |
 | ------------------------------------------------------------ | -------------------------------------------------------- | ---------------- | ---------------------------- |
-| Compliance card on AI Employee landing                       | yes if `compliance_enabled`                              | no               | yes (always)                 |
+| Compliance card on Operator landing                          | yes if `compliance_enabled`                              | no               | yes (always)                 |
 | Compliance dashboard renders enabled view                    | yes if `compliance_enabled`                              | n/a (redirected) | yes if `compliance_enabled`  |
 | Compliance dashboard renders "not enabled" empty state       | n/a (no card surfaced)                                   | n/a (redirected) | yes if `!compliance_enabled` |
 | Audit log entry from Compliance dashboard                    | yes                                                      | n/a              | yes                          |
@@ -111,10 +111,10 @@ Audit retention is `customer.yaml.memory.retention.audit_log_days`, governed by 
 
 ## Implementation notes
 
-- New file: `src/lib/ai-employee/rbac.ts` — declares the permission matrix as a typed const; exports `can(user, capability) → boolean` helper.
+- New file: `src/lib/operator/rbac.ts` — declares the permission matrix as a typed const; exports `can(user, capability) → boolean` helper.
 - Dashboard middleware at `src/middleware.ts` extends existing role check to load `customer.yaml.users[]` for the requested customer (or denies).
-- Tab visibility configured in `src/components/ai-employee/Dashboard.tsx` from `rbac.visibleTabs(role)`.
-- Clerk org setup: each AI Employee customer maps to one Clerk org; user roles are Clerk org roles (`principal`, `operator`, `compliance`). The dashboard reads `user.publicMetadata.role` from the active org.
+- Tab visibility configured in `src/components/operator/Dashboard.tsx` from `rbac.visibleTabs(role)`.
+- Clerk org setup: each Operator customer maps to one Clerk org; user roles are Clerk org roles (`principal`, `operator`, `compliance`). The dashboard reads `user.publicMetadata.role` from the active org.
 - `customer.yaml.users[]` schema lives in customer-yaml-schema.md.
 - Audit-log RBAC event shape defined in d1-schema.md.
 

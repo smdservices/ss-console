@@ -5,7 +5,7 @@
 ## Source
 
 - platform-prd.md §10 (memory layers), §7.6 (storage architecture)
-- `docs/pm/ai-employee/prd-contributions/round-1/technical-lead.md` Proposed Data Model
+- `docs/pm/operator/prd-contributions/round-1/technical-lead.md` Proposed Data Model
 
 ## Contract
 
@@ -234,8 +234,8 @@ Boot-check failure → exit 3, writes `INVARIANT_7_VIOLATION` to stdout, refuses
 
 ## Verification
 
-1. **Migration test**: `tests/ai-employee/d1-migrations.test.ts` runs the full migration sequence against an empty D1, asserts every table + index created, asserts `PRAGMA user_version` matches latest migration number.
-2. **Boot-check test**: `tests/ai-employee/d1-boot-check.test.ts` provisions a Machine with a deliberately-wrong D1 binding name; asserts boot exits 3 with `INVARIANT_7_VIOLATION`.
+1. **Migration test**: `tests/operator/d1-migrations.test.ts` runs the full migration sequence against an empty D1, asserts every table + index created, asserts `PRAGMA user_version` matches latest migration number.
+2. **Boot-check test**: `tests/operator/d1-boot-check.test.ts` provisions a Machine with a deliberately-wrong D1 binding name; asserts boot exits 3 with `INVARIANT_7_VIOLATION`.
 3. **Audit immutability test**: as the agent runtime user, attempt DELETE on audit_log; assert permission denied. As Captain, attempt DELETE; assert allowed.
 4. **Quota smoke**: in CI, run 10k draft inserts against a fresh D1 in <60s (sanity check on D1 perf for heavy customer profile).
 

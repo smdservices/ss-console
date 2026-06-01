@@ -39,7 +39,7 @@ These questions ground the demo in the firm's actual operations. They also surfa
 
 Per [ADR 0013](../../adr/0013-ai-employee-positioning-doctrine.md) §2:
 
-> **A managed AI staffer your team reviews before anything leaves the firm.**
+> **A managed Operator your team reviews before anything leaves the firm.**
 
 Do not lead with "first hire your business doesn't have to make" in legal demos. The softer line is the right opener because it disarms the staff-replacement objection upfront.
 
@@ -112,15 +112,15 @@ What the buyer feels: "I am the actor of record. The AI helped, but I sent it."
 
 The 6-step flow answers several partner-level objections without the consultant having to deliver them as canned responses:
 
-| Objection                                               | Demo step that answers it                                                                      |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| "How do I know the AI isn't going to go off the rails?" | Step 6 — the AI cannot send without you                                                        |
-| "What does the AI think it knows about us?"             | Step 2 — readable memory rules cited per draft                                                 |
-| "What if we want to change how it behaves?"             | Step 3 — edit the rule in place, no prompt engineering                                         |
-| "Will I have to retrain it constantly?"                 | Step 4 — versioned change, persists forward, audit log retained                                |
-| "Will it actually understand our firm?"                 | Step 1 — contextually-aware draft using actual matter context and voice library                |
-| "Can the AI send emails to clients?"                    | Step 6 — no, the AI drafts; the reviewer sends from their own account                          |
-| "Are you replacing our staff?"                          | Opener — "managed AI staffer your team reviews"; demo shows the reviewer in control throughout |
+| Objection                                               | Demo step that answers it                                                                    |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| "How do I know the AI isn't going to go off the rails?" | Step 6 — the AI cannot send without you                                                      |
+| "What does the AI think it knows about us?"             | Step 2 — readable memory rules cited per draft                                               |
+| "What if we want to change how it behaves?"             | Step 3 — edit the rule in place, no prompt engineering                                       |
+| "Will I have to retrain it constantly?"                 | Step 4 — versioned change, persists forward, audit log retained                              |
+| "Will it actually understand our firm?"                 | Step 1 — contextually-aware draft using actual matter context and voice library              |
+| "Can the AI send emails to clients?"                    | Step 6 — no, the AI drafts; the reviewer sends from their own account                        |
+| "Are you replacing our staff?"                          | Opener — "managed Operator your team reviews"; demo shows the reviewer in control throughout |
 
 Letting the demo answer the objection is more persuasive than answering it verbally. The consultant's job is to choose the right scenario for the firm's actual operations and let the architecture speak.
 
@@ -134,19 +134,19 @@ Some prospects will have demoed Eve Legal, EvenUp PLAAS, or Law Practice AI befo
 
 Use the locked wedge line ([ADR 0013](../../adr/0013-ai-employee-positioning-doctrine.md) §4):
 
-> Eve is a plaintiff AI platform. AI Employee is a portable AI staffer with firm-owned memory.
+> Eve is a plaintiff AI platform. Operator is a portable operator with firm-owned memory.
 
 Follow with the 30-second managing-partner answer:
 
-> Eve is a plaintiff-firm AI platform. It is strong, but the AI lives inside Eve's product. AI Employee is different: the persona lives in your firm's inbox, calendar, and case system, works through your reviewer, follows your voice rules, and carries a firm-owned editable memory artifact. We are not asking you to move your firm into our platform. We are giving you a staffer-shaped operating layer that can follow your firm across systems.
+> Eve is a plaintiff-firm AI platform. It is strong, but the AI lives inside Eve's product. Operator is different: the persona lives in your firm's inbox, calendar, and case system, works through your reviewer, follows your voice rules, and carries a firm-owned editable memory artifact. We are not asking you to move your firm into our platform. We are giving you an operator-shaped operating layer that can follow your firm across systems.
 
 If the prospect pushes on "can Eve also learn our writing style?":
 
-> Yes, Eve publicly says it learns tone, style, formatting, and can create separate drafting agents. Our difference is that style is only one part of the persona. AI Employee exposes the operating memory itself: the firm can read, edit, version, audit, and export what the persona knows about voice, people, rules, workflows, and review boundaries.
+> Yes, Eve publicly says it learns tone, style, formatting, and can create separate drafting agents. Our difference is that style is only one part of the persona. Operator exposes the operating memory itself: the firm can read, edit, version, audit, and export what the persona knows about voice, people, rules, workflows, and review boundaries.
 
 ### "Why not just use Filevine AI / Clio AI / CASEpeer AI?"
 
-> Those tools help inside their own platforms. AI Employee works across your inbox, calendar, documents, client follow-up, case system, audit, and firm voice, with a human reviewer in the loop. It is a cross-surface operator, not a feature menu inside one vendor's product.
+> Those tools help inside their own platforms. Operator works across your inbox, calendar, documents, client follow-up, case system, audit, and firm voice, with a human reviewer in the loop. It is a cross-surface operator, not a feature menu inside one vendor's product.
 
 ### "Does this give legal advice?"
 
@@ -215,7 +215,7 @@ The first item is the most important and most likely to be the blocker. The 6-st
 - [ADR 0005](../../adr/0005-reviewer-as-sender.md) — reviewer-as-sender architecture
 - [ADR 0008](../../adr/0008-customer-owned-memory-artifact.md) — customer-owned memory artifact
 - [ADR 0011](../../adr/0011-multi-persona-per-customer.md) — multi-persona per customer
-- [ADR 0013](../../adr/0013-ai-employee-positioning-doctrine.md) — AI Employee positioning doctrine
+- [ADR 0013](../../adr/0013-ai-employee-positioning-doctrine.md) — Operator positioning doctrine
 - [ADR 0014](../../adr/0014-pi-vertical-adapter-build-priority.md) — PI vertical adapter build priority
 - [Round-2 competitive analysis](prd-contributions/round-2/competitive-analysis.md)
 - [Round-3 ethics architecture](prd-contributions/round-3/ethics-architecture.md)

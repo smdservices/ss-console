@@ -6,8 +6,8 @@ Sibling to [`memory-retention.md`](./memory-retention.md) (continuous per-data-t
 
 ## Source
 
-- [Platform PRD](../../pm/ai-employee/platform-prd.md) §13 (Compliance & Privacy Posture)
-- [Law Firm PRD](../../pm/ai-employee/law-firm-prd.md) — 7-year retention requirement per state-bar audit norms
+- [Platform PRD](../../pm/operator/platform-prd.md) §13 (Compliance & Privacy Posture)
+- [Law Firm PRD](../../pm/operator/law-firm-prd.md) — 7-year retention requirement per state-bar audit norms
 - [Memory retention spec](./memory-retention.md) — sibling continuous-sweep runner; declares the same `audit_log_days` field for forward-compat
 - [Decommission customer spec](./decommission-customer.md) — the off-boarding pipeline this spec extends with an audit-log carve-out
 - [customer.yaml schema](./customer-yaml-schema.md) §"Memory retention" — the `memory.retention.*` block this spec adds field rules to
@@ -19,13 +19,13 @@ Sibling to [`memory-retention.md`](./memory-retention.md) (continuous per-data-t
 | Acceptance criterion (#893)                                          | Covered by                                                                                                            |
 | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | Retention period documented per vertical (law-firm: 7 years default) | §"Per-vertical defaults" below                                                                                        |
-| customer.yaml supports retention override (longer; not shorter)      | §"Override-up-only enforcement" + `checkMemoryRetention` in `src/lib/ai-employee/customer-yaml/sections-other.ts`     |
+| customer.yaml supports retention override (longer; not shorter)      | §"Override-up-only enforcement" + `checkMemoryRetention` in `src/lib/operator/customer-yaml/sections-other.ts`        |
 | Decommission preserves audit log per retention                       | §"Decommission carve-out" + `DecommissionPipeline._step_d1_memory_voice` audit-log preservation branch                |
 | Retention policy documented in customer contract                     | §"Customer contract surface" — the engagement-letter clause that names the retention window for the signed engagement |
 
 ## Per-vertical defaults
 
-The default window per vertical reflects the regulatory and professional-responsibility norm for that practice. Defaults are codified in `MemoryRetentionPolicy.from_customer_yaml` (Python; `ai-employee/adapter/memory/retention.py`) and mirrored in the portal-side validator (TypeScript; `src/lib/ai-employee/customer-yaml/sections-other.ts`).
+The default window per vertical reflects the regulatory and professional-responsibility norm for that practice. Defaults are codified in `MemoryRetentionPolicy.from_customer_yaml` (Python; `ai-employee/adapter/memory/retention.py`) and mirrored in the portal-side validator (TypeScript; `src/lib/operator/customer-yaml/sections-other.ts`).
 
 | Vertical           | `audit_log_days` default | Rationale                                                                                      |
 | ------------------ | ------------------------ | ---------------------------------------------------------------------------------------------- |

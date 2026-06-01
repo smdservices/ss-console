@@ -5,8 +5,8 @@
 ## Source
 
 - platform-prd.md §20 Phase 1 (`bin/decommission-customer.sh` listed deliverable)
-- `docs/pm/ai-employee/prd-contributions/round-1/technical-lead.md` Critical gap + Blocking Item #6
-- `docs/pm/ai-employee/prd-contributions/round-1/business-analyst.md` BR-013, EC-008
+- `docs/pm/operator/prd-contributions/round-1/technical-lead.md` Critical gap + Blocking Item #6
+- `docs/pm/operator/prd-contributions/round-1/business-analyst.md` BR-013, EC-008
 
 ## Contract
 
@@ -105,7 +105,7 @@ Default 60s per the spec. Per-customer override in `customer.yaml.decommission.d
 
 ## Verification
 
-1. **Drain test** at `tests/ai-employee/decommission-drain.test.ts`: provision fixture customer, kick off 5 long-running LLM calls (each ≥30s), run decommission; assert drain step waits and reports in-flight count every 5s; assert 5 calls complete within window OR hard-kill at 60s.
+1. **Drain test** at `tests/operator/decommission-drain.test.ts`: provision fixture customer, kick off 5 long-running LLM calls (each ≥30s), run decommission; assert drain step waits and reports in-flight count every 5s; assert 5 calls complete within window OR hard-kill at 60s.
 2. **In-flight race test**: deliberate timing — start a draft call at t=58s; assert hard-kill at t=60s drops it cleanly; assert no orphan D1 row.
 3. **Resume test**: kill the script mid-step-4; verify state.json reflects remaining resources; run `--resume`; verify clean completion.
 4. **Idempotency test**: run decommission twice on the same slug; second invocation exits 0 with "already decommissioned".

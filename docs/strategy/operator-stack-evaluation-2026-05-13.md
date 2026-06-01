@@ -1,4 +1,4 @@
-# AI Employee Stack Evaluation — 2026-05-13
+# Operator Stack Evaluation — 2026-05-13
 
 **Issue:** [#771](https://github.com/venturecrane/ss-console/issues/771)
 **Authorizes:** Decision on each stack component per [ADR 0004](../adr/0004-productized-ai-employee-offering.md)
@@ -8,7 +8,7 @@
 
 ## Executive summary
 
-ADR 0004 authorized a productized AI Employee SKU with a "Hermes-leaning, evaluate everything else independently" stack posture. Independent evaluation **confirms Hermes** for the agent harness and recommends specific choices for the five other components.
+ADR 0004 authorized a productized Operator SKU with a "Hermes-leaning, evaluate everything else independently" stack posture. Independent evaluation **confirms Hermes** for the agent harness and recommends specific choices for the five other components.
 
 **The agent harness call.** Hermes and OpenClaw are the only operator-shipped products in this lane. Everything else — Mastra, LangGraph, Cloudflare Agents — is an agent _framework_, a toolkit to build your own. Phase 1 needs a product, not an architecture project. Hermes wins decisively on time-to-first-customer (days vs. 4-6 weeks of agent-managed build to reach parity), ships everything the source episode demoed out of the box, and is MIT-licensed for full portability.
 
@@ -76,7 +76,7 @@ This is a two-cloud architecture for the agent itself. The friction is real but 
 
 ### Pluggable harness adapter — keeping options open
 
-Build customer-facing code against an internal `AIEmployee` interface that abstracts:
+Build customer-facing code against an internal `Operator` interface that abstracts:
 
 - `respond(message, surface)` — model turn against a customer message from any gateway
 - `schedule(task, when)` — defer work for later execution
@@ -112,7 +112,7 @@ After the first 5 paid customers, re-evaluate the harness decision against these
 
 ### Decision asked of Captain
 
-Confirm Hermes on Fly.io for Phase 1, with pluggable `AIEmployee` adapter pattern across the stack. Confirm 90-day re-evaluation cadence.
+Confirm Hermes on Fly.io for Phase 1, with pluggable `Operator` adapter pattern across the stack. Confirm 90-day re-evaluation cadence.
 
 ---
 
@@ -232,9 +232,9 @@ Confirm hybrid. None of this requires new vendors — all three primitives are G
 
 ## Open questions for Captain
 
-1. **Confirm Hermes Phase 1 + adapter pattern.** Recommended: Hermes on Fly.io as the Phase 1 harness implementation, behind a pluggable `AIEmployee` interface. Mastra and CF-native kept on the bench as Phase 2 candidates. 90-day re-evaluation cadence.
+1. **Confirm Hermes Phase 1 + adapter pattern.** Recommended: Hermes on Fly.io as the Phase 1 harness implementation, behind a pluggable `Operator` interface. Mastra and CF-native kept on the bench as Phase 2 candidates. 90-day re-evaluation cadence.
 
-2. **Confirm functional research as a Phase 2 prerequisite.** Per Captain directive (imperative), we need broad signal on what businesses across verticals actually want from these agents — not from one podcast. Research issue is being filed; deliverable is `docs/strategy/ai-employee-functional-shape-2026-MM-DD.md`. This research feeds the Phase 2 re-evaluation criteria.
+2. **Confirm functional research as a Phase 2 prerequisite.** Per Captain directive (imperative), we need broad signal on what businesses across verticals actually want from these agents — not from one podcast. Research issue is being filed; deliverable is `docs/strategy/operator-functional-shape-2026-MM-DD.md`. This research feeds the Phase 2 re-evaluation criteria.
 
 3. **Sandbox primary — fully Cloudflare, or hedge with e2b adapter at launch?** Building the adapter pattern early is cheap; building it under pressure when a customer demands GUI screencast UX is expensive. Recommendation: scaffold the interface, implement CF Sandboxes only until we have evidence of need.
 

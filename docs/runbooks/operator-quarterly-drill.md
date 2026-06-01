@@ -1,7 +1,7 @@
-# AI Employee quarterly drill runbook
+# Operator quarterly drill runbook
 
 **Audience:** The named backup operator, with Captain observing.
-**Scope:** A periodic exercise where the backup operator runs the four named scenarios from [`ai-employee-backup-operator.md`](ai-employee-backup-operator.md) against a synthetic test customer. The drill verifies that the operator's training has not decayed and that the runbooks still match the platform's actual surfaces.
+**Scope:** A periodic exercise where the backup operator runs the four named scenarios from [`operator-backup-operator.md`](operator-backup-operator.md) against a synthetic test customer. The drill verifies that the operator's training has not decayed and that the runbooks still match the platform's actual surfaces.
 **Source:** Platform PRD §4 Persona 3 and issue [#888](https://github.com/venturecrane/ss-console/issues/888).
 **Cadence:** Quarterly. The first drill runs within 90 days of the operator's initial sign-off; subsequent drills run at 90-day intervals from the last passing drill.
 
@@ -27,7 +27,7 @@ Three failure modes the drill exists to catch.
 
 **Setup.** Captain confirms the synthetic customer.yaml validates and no `hermes-{synthetic-slug}` Fly app exists. If a previous drill left a Fly app, Captain destroys it before the drill begins; the drill is not the place to teach destroy-then-provision.
 
-**Procedure.** Operator follows [`ai-employee-backup-operator.md` §1](ai-employee-backup-operator.md). Operator may consult the runbook freely; this is not a memorization test.
+**Procedure.** Operator follows [`operator-backup-operator.md` §1](operator-backup-operator.md). Operator may consult the runbook freely; this is not a memorization test.
 
 **Expected outcome.**
 
@@ -42,16 +42,16 @@ Three failure modes the drill exists to catch.
 **Failure follow-up.** Captain records the failure in the drill log with the specific gap (script renamed, flag changed, credential missing, operator unfamiliar with a prompt). The follow-up is one of:
 
 - **Runbook update.** The platform changed and the runbook did not catch up. File an issue to update the affected runbook section; the operator's training is fine.
-- **Re-training.** The operator was unfamiliar with a step that the runbook covers correctly. Schedule a one-on-one re-walk of [Gate 3 hands-on practice](../specs/ai-employee/backup-operator-training.md#gate-3-hands-on-practice).
-- **Access provision.** A credential is missing or expired. Reissue per [Gate 4 access provisions](../specs/ai-employee/backup-operator-training.md#gate-4-access-provisions).
+- **Re-training.** The operator was unfamiliar with a step that the runbook covers correctly. Schedule a one-on-one re-walk of [Gate 3 hands-on practice](../specs/operator/backup-operator-training.md#gate-3-hands-on-practice).
+- **Access provision.** A credential is missing or expired. Reissue per [Gate 4 access provisions](../specs/operator/backup-operator-training.md#gate-4-access-provisions).
 
 ## Scenario 2: handle a sticky-stop
 
 **Goal.** Operator investigates a deliberately-triggered sticky-stop and either clears it correctly or escalates correctly.
 
-**Setup.** Captain primes the synthetic substrate to enter `SOFT_STOP` on one of the four conditions documented in [`sticky-stop.md`](../specs/ai-employee/sticky-stop.md). Captain rotates the condition across drills (consecutive tool failures, refusal cascade, time-budget overrun, cost threshold) so the operator sees every shape over the course of a year.
+**Setup.** Captain primes the synthetic substrate to enter `SOFT_STOP` on one of the four conditions documented in [`sticky-stop.md`](../specs/operator/sticky-stop.md). Captain rotates the condition across drills (consecutive tool failures, refusal cascade, time-budget overrun, cost threshold) so the operator sees every shape over the course of a year.
 
-**Procedure.** Operator follows [`ai-employee-backup-operator.md` §3](ai-employee-backup-operator.md). Captain observes the investigation without prompting.
+**Procedure.** Operator follows [`operator-backup-operator.md` §3](operator-backup-operator.md). Captain observes the investigation without prompting.
 
 **Expected outcome.**
 
@@ -70,7 +70,7 @@ Three failure modes the drill exists to catch.
 
 **Setup.** Captain stages a recent export of the synthetic customer in the drill's archive directory. Captain deletes one domain (e.g., the memory rules) from the synthetic substrate to create a recoverable gap.
 
-**Procedure.** Operator follows [`ai-employee-backup-operator.md` §4](ai-employee-backup-operator.md). The drill exercises the partial-restore path; full restores are a Captain-coordinated event and are not drilled solo.
+**Procedure.** Operator follows [`operator-backup-operator.md` §4](operator-backup-operator.md). The drill exercises the partial-restore path; full restores are a Captain-coordinated event and are not drilled solo.
 
 **Expected outcome.**
 
@@ -82,15 +82,15 @@ Three failure modes the drill exists to catch.
 
 **Acceptance criteria.** Pass when every expected outcome above is true. Fail when the operator skips the checksum verification, picks the wrong importer, leaves the substrate in a partial state, or omits the audit row.
 
-**Failure follow-up.** Re-training on the memory export spec and the import counterparts. If the gap is the audit log step, walk through the audit-emission contract in [`sticky-stop.md`](../specs/ai-employee/sticky-stop.md) and [`decommission-customer.md`](../specs/ai-employee/decommission-customer.md) as cross-references.
+**Failure follow-up.** Re-training on the memory export spec and the import counterparts. If the gap is the audit log step, walk through the audit-emission contract in [`sticky-stop.md`](../specs/operator/sticky-stop.md) and [`decommission-customer.md`](../specs/operator/decommission-customer.md) as cross-references.
 
 ## Scenario 4: decommission
 
 **Goal.** Operator runs the full nine-step decommission pipeline against the synthetic customer.
 
-**Setup.** Captain confirms the synthetic customer's recent memory export from Scenario 3 is in place; the decommission must not run without a delivered export, by the rule in [`ai-employee-backup-operator.md` §2](ai-employee-backup-operator.md).
+**Setup.** Captain confirms the synthetic customer's recent memory export from Scenario 3 is in place; the decommission must not run without a delivered export, by the rule in [`operator-backup-operator.md` §2](operator-backup-operator.md).
 
-**Procedure.** Operator follows [`ai-employee-backup-operator.md` §2](ai-employee-backup-operator.md). Dry-run first, then live.
+**Procedure.** Operator follows [`operator-backup-operator.md` §2](operator-backup-operator.md). Dry-run first, then live.
 
 **Expected outcome.**
 
@@ -114,7 +114,7 @@ At the end of the drill window, the drill log carries one section per scenario w
 - Notable observations (operator hesitation, runbook ambiguity, surface that surprised the operator)
 - Follow-up classification (runbook update, re-training, access provision, no action)
 
-The drill log is committed to the repo on the same day. The frontmatter of [`ai-employee-backup-operator.md`](ai-employee-backup-operator.md) carries the date of the last passing drill; Captain updates that line as part of the drill close-out.
+The drill log is committed to the repo on the same day. The frontmatter of [`operator-backup-operator.md`](operator-backup-operator.md) carries the date of the last passing drill; Captain updates that line as part of the drill close-out.
 
 ## Failure response
 
@@ -122,7 +122,7 @@ A failed drill is a serious signal, not a paperwork event. Two outcomes the plat
 
 - **Tolerated: a runbook gap surfaced.** The platform changed faster than the runbook did. The drill caught it; the gap gets filed and patched. Re-drill on the affected scenario within 30 days; the standard 90-day cycle continues otherwise.
 - **Tolerated: a single scenario re-training need.** The operator was rusty on one scenario. Re-train on that scenario within 30 days; re-drill the scenario; the standard 90-day cycle continues otherwise.
-- **Not tolerated: a multi-scenario failure.** Three or more scenarios fail in one drill, or any one scenario fails two drills in a row. The bus-factor minimum gate is no longer satisfied. Captain pauses any active customer-onboarding work that would push the live customer count past four, retrains the operator end-to-end against [Gates 1-5 of the training spec](../specs/ai-employee/backup-operator-training.md), and re-runs the full drill before any new customer signs.
+- **Not tolerated: a multi-scenario failure.** Three or more scenarios fail in one drill, or any one scenario fails two drills in a row. The bus-factor minimum gate is no longer satisfied. Captain pauses any active customer-onboarding work that would push the live customer count past four, retrains the operator end-to-end against [Gates 1-5 of the training spec](../specs/operator/backup-operator-training.md), and re-runs the full drill before any new customer signs.
 
 ## When to skip a drill
 
@@ -130,10 +130,10 @@ The drill does not skip. If the operator is unavailable on the scheduled date, t
 
 ## Cross-references
 
-- [Backup operator runbook](ai-employee-backup-operator.md)
-- [Backup operator training requirements](../specs/ai-employee/backup-operator-training.md)
-- [Decommission customer spec](../specs/ai-employee/decommission-customer.md)
-- [Sticky-stop spec](../specs/ai-employee/sticky-stop.md)
-- [Memory export pipeline spec](../specs/ai-employee/memory-export.md)
-- [Platform PRD §4 Persona 3](../pm/ai-employee/platform-prd.md)
+- [Backup operator runbook](operator-backup-operator.md)
+- [Backup operator training requirements](../specs/operator/backup-operator-training.md)
+- [Decommission customer spec](../specs/operator/decommission-customer.md)
+- [Sticky-stop spec](../specs/operator/sticky-stop.md)
+- [Memory export pipeline spec](../specs/operator/memory-export.md)
+- [Platform PRD §4 Persona 3](../pm/operator/platform-prd.md)
 - [Issue #888](https://github.com/venturecrane/ss-console/issues/888)

@@ -5,8 +5,8 @@
 ## Source
 
 - platform-prd.md §12 (dashboard IA)
-- `docs/pm/ai-employee/prd-contributions/round-1/ux-lead.md` User Journey + Gap 6
-- `docs/pm/ai-employee/prd-contributions/round-1/target-customer.md` sign-conditions
+- `docs/pm/operator/prd-contributions/round-1/ux-lead.md` User Journey + Gap 6
+- `docs/pm/operator/prd-contributions/round-1/target-customer.md` sign-conditions
 
 ## Contract
 
@@ -44,11 +44,11 @@ Delivered at customer's local 8am via Resend. Subject line includes draft count:
 │ Hendricks intake (high priority)    │
 │ [Review now]                        │
 │                                     │
-│ Sent from your AI Employee at SMD   │
+│ Sent from your Operator at SMD      │
 └─────────────────────────────────────┘
 ```
 
-CTAs deeplink to `https://portal.smd.services/ai-employee/queue` (Open Queue) and `https://portal.smd.services/ai-employee/queue/{draft-id}` (Review now). Both require Clerk session — if expired, magic-link re-auth lands them back at the deeplink within 8s.
+CTAs deeplink to `https://portal.smd.services/operator/queue` (Open Queue) and `https://portal.smd.services/operator/queue/{draft-id}` (Review now). Both require Clerk session — if expired, magic-link re-auth lands them back at the deeplink within 8s.
 
 ### Screen 2 — Today (mobile)
 
@@ -189,18 +189,18 @@ When connectivity returns, queued edits sync within 5s and the banner clears.
 
 ## Verification
 
-1. **Playwright mobile profile** at `tests/ai-employee/mobile-queue.test.ts` runs the 60-second loop end-to-end on a 375×667 viewport (iPhone SE baseline); asserts p95 wall-clock from list-tap to send-confirm ≤8s.
-2. **Touch-target test** (`tests/ai-employee/mobile-a11y.test.ts`): every tappable element on every queue/draft screen passes the 44×44pt rule.
+1. **Playwright mobile profile** at `tests/operator/mobile-queue.test.ts` runs the 60-second loop end-to-end on a 375×667 viewport (iPhone SE baseline); asserts p95 wall-clock from list-tap to send-confirm ≤8s.
+2. **Touch-target test** (`tests/operator/mobile-a11y.test.ts`): every tappable element on every queue/draft screen passes the 44×44pt rule.
 3. **Service-worker offline test**: simulate network drop after queue load; assert read paths work, write paths show the right banner, sync resumes cleanly.
 4. **Visual regression**: screenshots of every screen at iPhone SE + iPhone 14 Pro Max + Pixel 7 baselines.
 
 ## Implementation notes
 
 - Mobile layout shares the Queue and Memory components with desktop via responsive breakpoints; primary divergence is bottom-nav (mobile) vs side-nav (desktop), and full-bleed full-screen draft detail on mobile.
-- Mobile-only file: `src/components/ai-employee/MobileBottomNav.tsx`.
-- Modal sheet pattern: `src/components/ai-employee/SendConfirmSheet.tsx`.
-- Service worker: `src/sw/ai-employee-queue-cache.ts`; caches `/api/ai-employee/queue` + per-draft GET.
-- Deeplink handler: `src/middleware.ts` already proxies portal subdomain; adds `/ai-employee/queue/{id}` route.
-- The "What Marcus used" sourcing block reads from `audit_log.input_digest` + a sourcing resolver at `src/lib/ai-employee/source-resolver.ts` that maps digests to readable descriptions of memory rules / person mappings / matter attributes.
+- Mobile-only file: `src/components/operator/MobileBottomNav.tsx`.
+- Modal sheet pattern: `src/components/operator/SendConfirmSheet.tsx`.
+- Service worker: `src/sw/operator-queue-cache.ts`; caches `/api/operator/queue` + per-draft GET.
+- Deeplink handler: `src/middleware.ts` already proxies portal subdomain; adds `/operator/queue/{id}` route.
+- The "What Marcus used" sourcing block reads from `audit_log.input_digest` + a sourcing resolver at `src/lib/operator/source-resolver.ts` that maps digests to readable descriptions of memory rules / person mappings / matter attributes.
 
 [AMBIGUITY: The 60-second loop assumes the partner is reviewing on their phone in their own kitchen with no domain restrictions. If the firm restricts personal device access via MDM, the dashboard may need to be reachable from desktop only or via an enterprise app store. Confirm during day-1 onboarding.]

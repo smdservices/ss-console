@@ -7,7 +7,7 @@ Per PM R7, telemetry instrumentation is a **Phase 2 scope item**, not Phase 1 �
 ## Source
 
 - platform-prd.md §15.1 (cost drivers + modeling), §17.1 (COGS/MRR kill criterion)
-- `docs/pm/ai-employee/prd-contributions/round-1/technical-lead.md` Risk 6
+- `docs/pm/operator/prd-contributions/round-1/technical-lead.md` Risk 6
 
 ## Contract
 
@@ -159,7 +159,7 @@ WHERE date >= ?
 GROUP BY date ORDER BY date DESC;
 ```
 
-Surfaced in the Captain dashboard at `admin.smd.services/ai-employee/cost/{customer}`. Phase 4 ships a customer-facing version.
+Surfaced in the Captain dashboard at `admin.smd.services/operator/cost/{customer}`. Phase 4 ships a customer-facing version.
 
 ### COGS/MRR ratio computation
 
@@ -181,7 +181,7 @@ Alert fires when `ratio > 0.40` for two consecutive months. Audit event `COGS_RA
 
 ## Verification
 
-1. **Per-call emission test** at `tests/ai-employee/cost-telemetry-emission.test.ts`: drive 100 mocked Anthropic calls, assert exactly 200 events written (1 in_tokens + 1 out_tokens per call), assert correct cents math against the pricing JSON.
+1. **Per-call emission test** at `tests/operator/cost-telemetry-emission.test.ts`: drive 100 mocked Anthropic calls, assert exactly 200 events written (1 in_tokens + 1 out_tokens per call), assert correct cents math against the pricing JSON.
 2. **Nightly job test**: stub all source APIs; run the worker; assert exactly N rows per customer written for `yesterday` date; assert source failures don't block other sources.
 3. **Pricing-update CI guard**: every customer.yaml's `model` must have an entry in `anthropic_pricing.json`.
 4. **COGS ratio computation test**: seed cost_telemetry with a known total; assert ratio matches expected % to 4 decimal places.
@@ -191,7 +191,7 @@ Alert fires when `ratio > 0.40` for two consecutive months. Audit event `COGS_RA
 - Buffer module: `ai-employee/adapter/cost_event_buffer.py` (Python; flushes via aiohttp to D1 HTTP API). TS twin if/when adapters port.
 - Wrap every Anthropic call via `anthropic_client.py` rather than skill code touching the raw SDK; CI grep blocks direct SDK imports outside this wrapper.
 - Nightly Worker: `infra/workers/cost-telemetry/worker.ts`; cron `0 2 * * *` UTC; lives in main repo so it ships with platform code.
-- Captain dashboard view: `src/pages/admin/ai-employee/cost/[customer].astro` reads from per-customer D1.
+- Captain dashboard view: `src/pages/admin/operator/cost/[customer].astro` reads from per-customer D1.
 - Captain time helper: `crane ai-employee log-time` CLI subcommand. Full command spec at platform-prd.md §15.2; per-event D1 schema at d1-schema.md `captain_time_events`. The CLI writes both the per-event row and the `cost_telemetry` daily rollup in a single transaction.
 - Cross-references:
   - d1-schema.md (cost_telemetry table)
@@ -199,4 +199,4 @@ Alert fires when `ratio > 0.40` for two consecutive months. Audit event `COGS_RA
 
 ## Resolved decisions
 
-**D1 metering access pattern.** Plan around Cloudflare GraphQL Analytics for the nightly D1 read/write pull. The #824 implementation work includes a validation spike against the live Cloudflare account as its first step. **Fallback:** if GraphQL Analytics access turns out to be unworkable for our auth model or rate limits, defer D1 cost-driver instrumentation to phase 2 — Anthropic API tokens dominate the COGS surface (per `docs/strategy/ai-employee-stack-evaluation-2026-05-13.md`); D1 will not be the kill-criterion driver in v1, so a temporary gap is acceptable.
+**D1 metering access pattern.** Plan around Cloudflare GraphQL Analytics for the nightly D1 read/write pull. The #824 implementation work includes a validation spike against the live Cloudflare account as its first step. **Fallback:** if GraphQL Analytics access turns out to be unworkable for our auth model or rate limits, defer D1 cost-driver instrumentation to phase 2 — Anthropic API tokens dominate the COGS surface (per `docs/strategy/operator-stack-evaluation-2026-05-13.md`); D1 will not be the kill-criterion driver in v1, so a temporary gap is acceptable.

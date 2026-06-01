@@ -77,7 +77,7 @@ For each row, the plugin reads the SKILL.md body from the Fly volume's per-profi
 
 ### Read path (admin portal)
 
-`GET /admin/ai-employee/<customer_slug>/skills/<skill_content_hash>/body`
+`GET /admin/operator/<customer_slug>/skills/<skill_content_hash>/body`
 
 1. Look up the row by `(customer_slug, skill_content_hash)` in the per-customer D1.
 2. If `r2_status != 'persisted'`, return 404 — the body either has not been written yet or failed to persist. The admin portal surfaces the gap separately via the `r2_status` indicator on the skill list view.
@@ -98,7 +98,7 @@ The admin endpoint and the Worker-side R2 credential lookup ship in a follow-on 
 | **Bootstrap + provisioning** | ss-console                      | `provision-customer.sh` creates bucket + scoped creds; `bootstrap.sh` validates R2*SKILL_BODIES*\* env; `fly.toml.template` declares the bucket name |
 | **Audit plugin (writer)**    | venturecrane/hermes-smd-overlay | `hermes-smd-audit` post-tool-call hook on `skill_manage` events; boot-time reconciler                                                                |
 | **Contract**                 | both                            | `ai-employee/contracts/skill_capture_v1.json` mirrored in both repos for contract test                                                               |
-| **Admin endpoint**           | ss-console                      | `src/pages/api/admin/ai-employee/[slug]/skills/[hash]/body.ts` (follow-on)                                                                           |
+| **Admin endpoint**           | ss-console                      | `src/pages/api/admin/operator/[slug]/skills/[hash]/body.ts` (follow-on)                                                                              |
 
 The ss-console and overlay PRs file and merge in lockstep so the contract is exercised end-to-end before either lands.
 

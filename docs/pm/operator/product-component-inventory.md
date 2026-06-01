@@ -1,10 +1,10 @@
-# AI Employee — Product Component Inventory
+# Operator — Product Component Inventory
 
 **Locked vocabulary:** 10 components. Every backlog item, spec, PR description, and conversation references one of these.
 
 For each component below: **Have** (defined in PRD/spec or built in code, with reference) and **Yet to define/build** (the gap that turns into backlog).
 
-Nothing AI-Employee is on main yet. PR references: #812 (substrate), #813 (PRDs), #829 (Hermes runbook), #831 (specs), #832 (ADRs + corpus).
+Nothing Operator is on main yet. PR references: #812 (substrate), #813 (PRDs), #829 (Hermes runbook), #831 (specs), #832 (ADRs + corpus).
 
 ---
 
@@ -22,7 +22,7 @@ The Hermes runtime per-customer Machine. The brains.
 
 **Yet to define/build:**
 
-- AIEmployee adapter wiring — `aie_adapter.register()` is a stub; needs hook into Hermes `agent/tool_guardrails.py` (technical-pm risk #1)
+- Operator adapter wiring — `aie_adapter.register()` is a stub; needs hook into Hermes `agent/tool_guardrails.py` (technical-pm risk #1)
 - Per-tool audit emission points
 - Sticky-stop mechanism
 - Decision: Hermes fork vs upstream PR if seam isn't findable cleanly
@@ -164,7 +164,7 @@ The human interface — configure + monitor + interact.
 
 **Yet to define/build:**
 
-- Astro routing for AI Employee surface (under portal subdomain or per-customer subdomain)
+- Astro routing for Operator surface (under portal subdomain or per-customer subdomain)
 - Today tab — draft queue + activity feed (spec #803 partial)
 - Drafts list view
 - Draft detail view + sourcing block ("What Marcus used to write this", #807)

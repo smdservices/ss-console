@@ -1,9 +1,9 @@
-# AI Employee Platform — Product Requirements Document
+# Operator Platform — Product Requirements Document
 
 > **Status:** v0 draft (2026-05-19). Captain review pending.
 > **Companion docs:** Vertical PRDs (`law-firm-prd.md`, future verticals).
-> **Source decisions:** ADR 0004 (Productized AI Employee Offering), Decision #44.
-> **Supporting strategy:** `docs/strategy/ai-employee-functional-shape-2026-05-13.md`, `docs/strategy/ai-employee-stack-evaluation-2026-05-13.md`, `docs/strategy/ai-employee-connector-coverage-2026-05-14.md`, `docs/strategy/ai-employee-pricing-2026-05-13.md`, `docs/strategy/ai-employee-service-contract-2026-05-13.md`.
+> **Source decisions:** ADR 0004 (Productized Operator Offering), Decision #44.
+> **Supporting strategy:** `docs/strategy/operator-functional-shape-2026-05-13.md`, `docs/strategy/operator-stack-evaluation-2026-05-13.md`, `docs/strategy/operator-connector-coverage-2026-05-14.md`, `docs/strategy/operator-pricing-2026-05-13.md`, `docs/strategy/operator-service-contract-2026-05-13.md`.
 
 ## Table of Contents
 
@@ -38,12 +38,12 @@ This PRD documents **the platform vision in full**. It does not commit SMD to bu
 
 **Two reading layers:**
 
-- **The vision layer (most of this document).** The durable architecture, the principles, the long-form skill catalog, the multi-vertical capability shape, the dashboard IA, the compliance posture. This is the platform's north star — what AI Employee becomes at customer #20+. We document it now so downstream decisions don't drift; we do not implement it now.
+- **The vision layer (most of this document).** The durable architecture, the principles, the long-form skill catalog, the multi-vertical capability shape, the dashboard IA, the compliance posture. This is the platform's north star — what Operator becomes at customer #20+. We document it now so downstream decisions don't drift; we do not implement it now.
 - **The v1 commitment layer ([§20 Phased Development](#20-phased-development)).** What ships against the first customer engagement. Materially narrower than the vision. Explicitly enumerated.
 
 **The reason for the split:**
 
-A 20-year PI law firm is meeting with SMD in 2-3 weeks to evaluate the product. A pre-launch venture has zero paying customers on either AI Employee or scope-based consulting. Building the full platform vision before the first customer signs is hubris and bad capital allocation. But shipping v1 without documenting the architectural commitments creates technical debt that ossifies wrong abstractions.
+A 20-year PI law firm is meeting with SMD in 2-3 weeks to evaluate the product. A pre-launch venture has zero paying customers on either Operator or scope-based consulting. Building the full platform vision before the first customer signs is hubris and bad capital allocation. But shipping v1 without documenting the architectural commitments creates technical debt that ossifies wrong abstractions.
 
 The platform PRD is the durable architectural commitment. Phase 1 ships v1. The platform earns its abstractions retroactively, after each customer reveals what's actually load-bearing.
 
@@ -56,7 +56,7 @@ The platform PRD is the durable architectural commitment. Phase 1 ships v1. The 
 - **Single-skill-version** runtime; per-customer skill pinning deferred to Phase 4 (when ≥3 customers exist).
 - **Captain-operated**, with documented bus-factor mitigation (per §4).
 
-**Venture-priority constraint.** Per ADR 0004, AI Employee is a second front door alongside scope-based consulting. The consulting venture has zero clients as of 2026-05-19 and incomplete go-to-market collateral. **No platform work proceeds past Phase 1 spine until at least one of: (a) the PI firm signs as beta-1, (b) the consulting venture signs an engagement, or (c) Captain explicitly authorizes parallel investment.** This is a load-bearing constraint, not a footnote.
+**Venture-priority constraint.** Per ADR 0004, Operator is a second front door alongside scope-based consulting. The consulting venture has zero clients as of 2026-05-19 and incomplete go-to-market collateral. **No platform work proceeds past Phase 1 spine until at least one of: (a) the PI firm signs as beta-1, (b) the consulting venture signs an engagement, or (c) Captain explicitly authorizes parallel investment.** This is a load-bearing constraint, not a footnote.
 
 The Strategist critic's "reconsider approach" finding is addressed by this section. The platform/vertical PRD split is preserved (Captain's directive), but the v1 build commitment is bounded explicitly.
 
@@ -64,11 +64,11 @@ The Strategist critic's "reconsider approach" finding is addressed by this secti
 
 ## 1. Executive Summary
 
-AI Employee is a productized SKU sold by SMD Services. It is a configurable, persistent, learning AI staffer that operates inside a customer's business under one identity, across every operational surface they use (email, calendar, documents, signing, accounting, practice management, etc.). It drafts work in the customer's voice. It never sends to external parties as itself. A named human always reviews and sends.
+Operator is a productized SKU sold by SMD Services. It is a configurable, persistent, learning Operator that operates inside a customer's business under one identity, across every operational surface they use (email, calendar, documents, signing, accounting, practice management, etc.). It drafts work in the customer's voice. It never sends to external parties as itself. A named human always reviews and sends.
 
 The product is sold as a flat-monthly per-customer SKU, not per-seat or per-task. The frame is "the first hire your business doesn't have to make." Customers buy headcount substitution for the operational supply chain of their business, not a tool their team uses.
 
-This PRD specifies the **platform**: what is shared across every AI Employee deployment regardless of vertical. The product family launches with a law-firm vertical (see `law-firm-prd.md`); other verticals follow under the same platform.
+This PRD specifies the **platform**: what is shared across every Operator deployment regardless of vertical. The product family launches with a law-firm vertical (see `law-firm-prd.md`); other verticals follow under the same platform.
 
 The competitive white space the platform claims:
 
@@ -83,7 +83,7 @@ No competitor in 2026 ships all four. Most ship none.
 
 ## 2. Product Vision & Identity
 
-**Working name:** AI Employee. Per-deployment, the customer names the persona (see [Section 9](#9-persona--voice-model)).
+**Working name:** Operator. Per-deployment, the customer names the persona (see [Section 9](#9-persona--voice-model)).
 
 **Tagline (internal positioning):** The first hire your business doesn't have to make.
 
@@ -181,7 +181,7 @@ What kills the Captain: skill changes that ripple across customers in unpredicta
 A productized SKU with a single SPOF on operations cannot scale past first customer. The platform documents the following backup posture in v1:
 
 - **Designated backup operator** (even part-time, even contractual): identified by name in the operations runbook, with read access to all customer Machines and authority to handle the 5-10 most common operational incidents
-- **Operations runbook**: living document at `docs/runbooks/ai-employee-ops.md` covering: OAuth refresh failures, skill regression triage, customer-day incident response, voice calibration session protocol, compliance audit packet generation, customer offboarding flow
+- **Operations runbook**: living document at `docs/runbooks/operator-ops.md` covering: OAuth refresh failures, skill regression triage, customer-day incident response, voice calibration session protocol, compliance audit packet generation, customer offboarding flow
 - **Customer communication template** for Captain PTO: "Captain on PTO [dates]; for urgent issues contact [backup]; non-urgent items queued for return."
 - **Bus-factor minimum**: the platform does not onboard customer #5 until the backup operator is named and trained on the runbook. This is a hard Phase 2 gate.
 
@@ -209,13 +209,13 @@ The four canonical responses today, each insufficient:
 
 4. **Buy a vertical "AI worker" for one task.** Eve Legal (PI workflow), EvenUp (demand letters), Harvey (research), 11x.ai (SDR). Each is a single-skill point solution. Buying five gets you five logins and zero coordination.
 
-The unmet need: **one identity, every surface, persistent memory, customer voice, never sends, transparent and editable.** No competitor in 2026 ships this. AI Employee does.
+The unmet need: **one identity, every surface, persistent memory, customer voice, never sends, transparent and editable.** No competitor in 2026 ships this. Operator does.
 
 ---
 
 ## 6. Competitive Positioning
 
-The legal-AI landscape clusters into seven shapes; AI Employee occupies a distinct white space adjacent to all of them.
+The legal-AI landscape clusters into seven shapes; Operator occupies a distinct white space adjacent to all of them.
 
 | Shape                               | Examples                                                                           | Where it ends                                                                                                                      |
 | ----------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
@@ -228,7 +228,7 @@ The legal-AI landscape clusters into seven shapes; AI Employee occupies a distin
 | **Front-of-funnel intake AI**       | Lawmatics AI Suite (QualifyAI + EngageAI + MerlinAI, March 2026), Lead Docket AI   | Intake + early-lifecycle agentic operations; no matter-lifecycle continuity                                                        |
 | **Platform horizontal AI**          | Microsoft 365 Copilot (hired Robin AI's engineering team + IP; Robin AI shuttered) | Generic. Doesn't know matter, firm rules, or partner voice                                                                         |
 
-**Horizon threat: Harvey downmarket.** Harvey raised $200M in March 2026 at an $11B valuation and has begun explicit mid-market positioning ("How Harvey Helps Mid-Sized Law Firms Scale Legal Work"). The 20-seat minimum keeps Harvey out of AI Employee's SMB target in Phase 1-2, but a future solo/small-firm tier becomes a Phase 3-4 threat. Track but do not optimize against in v1.
+**Horizon threat: Harvey downmarket.** Harvey raised $200M in March 2026 at an $11B valuation and has begun explicit mid-market positioning ("How Harvey Helps Mid-Sized Law Firms Scale Legal Work"). The 20-seat minimum keeps Harvey out of Operator's SMB target in Phase 1-2, but a future solo/small-firm tier becomes a Phase 3-4 threat. Track but do not optimize against in v1.
 
 **Watch item: Smokeball + CoCounsel (March 2026).** Smokeball and Thomson Reuters announced a partnership integrating CoCounsel directly into Smokeball, creating a PM + research + drafting stack with Archie's agentic reasoning as the coordination layer. Not PI-relevant directly (Smokeball does not dominate PI practice management), but signals strategic direction for PM vendors. If Filevine or Clio announces a comparable partnership, the Tier-1 PM adapter strategy carries new competitive risk.
 
@@ -238,17 +238,17 @@ No competitor in 2026 ships editable customer-owned memory plus reviewer-as-send
 
 **1. Productized as an employee, not a tool.** Flat-monthly per-customer SKU. Reframes the buying decision from "how many seats" to "do we want this team member": the cognitive model customers already use for headcount.
 
-**2. Multi-skill across the lifecycle under one persistent identity.** Every other operational AI is either single-skill (Supio = demands), single-surface (Lawmatics = intake), or task-execution-focused without a named teammate (Eve's AI Workforce, EvenUp's PLAAS). AI Employee covers intake, conflict, engagement, status, signing, billing, red-flag, and closing under one persona, one memory, one voice.
+**2. Multi-skill across the lifecycle under one persistent identity.** Every other operational AI is either single-skill (Supio = demands), single-surface (Lawmatics = intake), or task-execution-focused without a named teammate (Eve's AI Workforce, EvenUp's PLAAS). Operator covers intake, conflict, engagement, status, signing, billing, red-flag, and closing under one persona, one memory, one voice.
 
 **3. Versioned, customer-editable memory.** No 2026 competitor exposes what the agent has learned as a human-readable, edit-controlled artifact. Supio gestures at voice learning for demands. Eve has firm-level case-value learning. EvenUp's Firmwide Knowledge Base applies firm standards across documents. None let the customer read or edit. This is both a UX differentiator and a trust mechanism.
 
-**4. Reviewer-as-sender as core abstraction.** Every defensible governance pattern in 2026 ABA guidance says "named human reviewer per output." No vendor builds this into the product flow. AI Employee does: drafts go to drafts, reviewer sends from their own identity, audit log captures the diff between draft and send.
+**4. Reviewer-as-sender as core abstraction.** Every defensible governance pattern in 2026 ABA guidance says "named human reviewer per output." No vendor builds this into the product flow. Operator does: drafts go to drafts, reviewer sends from their own identity, audit log captures the diff between draft and send.
 
 ### Demo-day positioning one-liner
 
-> "Harvey is a research desk. EvenUp PLAAS is a managed service with staff. Clio Duo is a feature inside your PM. Eve runs AI agents that execute tasks. Hermes is the staffer with one identity across every surface, drafts in your voice, never sends, and you can read and edit what it knows about your firm. No one else ships editable customer-owned memory plus reviewer-as-sender plus flat-per-firm under one identity."
+> "Harvey is a research desk. EvenUp PLAAS is a managed service with staff. Clio Duo is a feature inside your PM. Eve runs AI agents that execute tasks. Hermes is the operator with one identity across every surface, drafts in your voice, never sends, and you can read and edit what it knows about your firm. No one else ships editable customer-owned memory plus reviewer-as-sender plus flat-per-firm under one identity."
 
-This frame adapts per vertical by swapping references. For non-legal verticals: "Tool X solves this slice. Tool Y solves that slice. Hermes is the staffer with one identity across every surface, drafts in your voice, never sends, and you can read and edit what it knows about your business."
+This frame adapts per vertical by swapping references. For non-legal verticals: "Tool X solves this slice. Tool Y solves that slice. Hermes is the operator with one identity across every surface, drafts in your voice, never sends, and you can read and edit what it knows about your business."
 
 ### 6.5 Two demo framings (substitution vs. capacity multiplier)
 
@@ -275,13 +275,13 @@ One Fly.io Machine per customer (`hermes-{customer-slug}`). The Hermes agent run
 
 Multi-tenancy is achieved through _deployment isolation_, not _runtime tenancy_. Customer data lives in their Machine's bound storage. Memory queries do not span customers. Connector credentials are per-customer-yaml.
 
-This shape is locked in `docs/strategy/ai-employee-stack-evaluation-2026-05-13.md`.
+This shape is locked in `docs/strategy/operator-stack-evaluation-2026-05-13.md`.
 
 ### 7.2 The capability-interface + adapter pattern
 
 Skills bind to abstract **capability interfaces**, not concrete connectors. A skill that opens a matter calls `PracticeManagement.create_matter(client, type, attrs)`. The skill does not know whether Clio, Filevine, PracticePanther, or a hand-rolled CSV importer fulfills the call.
 
-Capability interfaces (sketch — full set defined in `ai-employee/capabilities/`):
+Capability interfaces (sketch — full set defined in `operator/capabilities/`):
 
 - `PracticeManagement` — search/create/update/list entities (matters, contacts, etc.), time entries, billing entries, documents
 - `Email` — watch inboxes, read threads, create drafts, apply labels
@@ -299,7 +299,7 @@ Concrete adapters live at `ai-employee/connectors/{capability}/{system}/` and im
 
 ### 7.2.1 Capability interface specifications
 
-The formal TypeScript signatures for all eleven capability interfaces live at `src/lib/ai-employee/capabilities/` in the ss-console repo. Each interface is a single file (e.g. `email.ts`, `practice-management.ts`); shared types (`DateRange`, `CapabilitySet`, `HealthStatus`, `AdapterError`) live in `types.ts`; the adapter conformance harness lives in `conformance.ts`. The TypeScript source is the contract — this PRD section summarizes the commitments.
+The formal TypeScript signatures for all eleven capability interfaces live at `src/lib/operator/capabilities/` in the ss-console repo. Each interface is a single file (e.g. `email.ts`, `practice-management.ts`); shared types (`DateRange`, `CapabilitySet`, `HealthStatus`, `AdapterError`) live in `types.ts`; the adapter conformance harness lives in `conformance.ts`. The TypeScript source is the contract — this PRD section summarizes the commitments.
 
 **Adapter base contract.** Every adapter implements `describe_capabilities(): CapabilitySet` and `health_check(): Promise<HealthStatus>`. The `CapabilitySet` declares the capability name, the adapter slug, the version, the set of methods supported, the set of optional methods explicitly NOT supported, and (recommended) per-method field-coverage disclosure that feeds the §12 dashboard "what Marcus used to write this" sourcing block.
 
@@ -326,7 +326,7 @@ The formal TypeScript signatures for all eleven capability interfaces live at `s
 | `CallTracking`       | Call records, recordings, attribution                      | `list_calls`, `get_recording`, `get_attribution`                                                                             | **Read-only**: no origination or messaging methods                                                   |
 | `InternalComms`      | Slack/Teams channels, DMs, mentions                        | `list_channels`, `post_to_channel`, `send_dm`, `react_to_message`, `list_recent_mentions`                                    | **Persona-as-sender for internal-only destinations**: adapters refuse channels with external members |
 
-**Adapter conformance.** `src/lib/ai-employee/capabilities/conformance.ts` defines eight invariants every adapter must satisfy. The two most architecturally load-bearing:
+**Adapter conformance.** `src/lib/operator/capabilities/conformance.ts` defines eight invariants every adapter must satisfy. The two most architecturally load-bearing:
 
 - `NO_AUTONOMOUS_EXTERNAL_SEND` — No adapter exposes a method that sends external messages under any identity other than the reviewer's drafts folder. The harness enforces this by reflecting on the adapter's method names against `BANNED_METHOD_NAMES` (per-capability lists of forbidden names: `Email.send`, `ESign.send_envelope`, `Calendar.send_invitation`, etc.).
 - `NO_AUTONOMOUS_TRUST_TRANSFER` — No `Payments` adapter exposes `initiate_transfer`, `trust_disbursement`, or equivalents, regardless of vendor capability. Per Platform PRD invariant #3 and ADR 0005.
@@ -339,9 +339,9 @@ Conformance suites are authored as `*.conformance.test.ts` files next to each ad
 
 Each customer has one `customer.yaml` declaring: personas, voice, vertical, region, connectors per capability, skills enabled, trust ceilings, scope, escalation rules.
 
-**Formal schema** lives at [`docs/specs/ai-employee/customer-yaml-schema.md`](../../specs/ai-employee/customer-yaml-schema.md) (closes [#790](https://github.com/venturecrane/ss-console/issues/790)). The schema is the contract; the example below is illustrative.
+**Formal schema** lives at [`docs/specs/operator/customer-yaml-schema.md`](../../specs/operator/customer-yaml-schema.md) (closes [#790](https://github.com/venturecrane/ss-console/issues/790)). The schema is the contract; the example below is illustrative.
 
-**Storage model** is pinned by [ADR 0012](../../adr/0012-customer-yaml-storage.md) — git is the source of truth, with portal D1 (`customer_configs`) and per-customer R2 as materialized read replicas. The runtime validator [`src/lib/ai-employee/customer-yaml/validator.ts`](../../../src/lib/ai-employee/customer-yaml/validator.ts) gates merges; the secret detector [`src/lib/ai-employee/customer-yaml/secret-detector.ts`](../../../src/lib/ai-employee/customer-yaml/secret-detector.ts) rejects any literal-secret leak before commit.
+**Storage model** is pinned by [ADR 0012](../../adr/0012-customer-yaml-storage.md) — git is the source of truth, with portal D1 (`customer_configs`) and per-customer R2 as materialized read replicas. The runtime validator [`src/lib/operator/customer-yaml/validator.ts`](../../../src/lib/operator/customer-yaml/validator.ts) gates merges; the secret detector [`src/lib/operator/customer-yaml/secret-detector.ts`](../../../src/lib/operator/customer-yaml/secret-detector.ts) rejects any literal-secret leak before commit.
 
 ```yaml
 schema_version: 1
@@ -380,7 +380,7 @@ personas:
       - integration: ms-graph
         channels: [primary-inbox]
 
-# 11 capability-name keys from src/lib/ai-employee/capabilities/types.ts
+# 11 capability-name keys from src/lib/operator/capabilities/types.ts
 connectors:
   Email:
     adapter: microsoft-graph
@@ -433,7 +433,7 @@ Eight base invariants gate every Hermes container boot:
 
 Invariants 1-5 + 7 + 8 are platform-universal. Invariant 6 (citation-refusal) is law-firm-vertical specific (see `law-firm-prd.md` §9); other regulated verticals get their own invariant 6 equivalents.
 
-**Provenance.** Invariants #1-#5 ship from [PR #812](https://github.com/venturecrane/ss-console/pull/812) and gate Phase 0. Invariants #6 (citation enforcement on fact-bearing fields) and #7 (cross-Machine query prohibition) ship from [PR #958](https://github.com/venturecrane/ss-console/pull/958) per [issue #865](https://github.com/venturecrane/ss-console/issues/865) and the spec at [`docs/specs/ai-employee/safety-invariants.md`](../../specs/ai-employee/safety-invariants.md); invariant #7's audit-log immutability layer pairs with [`docs/specs/ai-employee/audit-log-immutability.md`](../../specs/ai-employee/audit-log-immutability.md) from [issue #892](https://github.com/venturecrane/ss-console/issues/892). Invariant #8 (fabrication discipline as runtime pre-output filter) is specified at [`docs/specs/ai-employee/fabrication-filter.md`](../../specs/ai-employee/fabrication-filter.md), tracked as [issue #798](https://github.com/venturecrane/ss-console/issues/798), and is the open Phase 1 item: not yet runtime-enforced. See §20 for the phase-by-phase gate map.
+**Provenance.** Invariants #1-#5 ship from [PR #812](https://github.com/venturecrane/ss-console/pull/812) and gate Phase 0. Invariants #6 (citation enforcement on fact-bearing fields) and #7 (cross-Machine query prohibition) ship from [PR #958](https://github.com/venturecrane/ss-console/pull/958) per [issue #865](https://github.com/venturecrane/ss-console/issues/865) and the spec at [`docs/specs/operator/safety-invariants.md`](../../specs/operator/safety-invariants.md); invariant #7's audit-log immutability layer pairs with [`docs/specs/operator/audit-log-immutability.md`](../../specs/operator/audit-log-immutability.md) from [issue #892](https://github.com/venturecrane/ss-console/issues/892). Invariant #8 (fabrication discipline as runtime pre-output filter) is specified at [`docs/specs/operator/fabrication-filter.md`](../../specs/operator/fabrication-filter.md), tracked as [issue #798](https://github.com/venturecrane/ss-console/issues/798), and is the open Phase 1 item: not yet runtime-enforced. See §20 for the phase-by-phase gate map.
 
 ### 7.6 Storage architecture (per customer)
 
@@ -458,10 +458,10 @@ The Captain operates through a control-plane interface (this venture's existing 
 
 ### 7.8 Stack pin
 
-Per `docs/strategy/ai-employee-stack-evaluation-2026-05-13.md`:
+Per `docs/strategy/operator-stack-evaluation-2026-05-13.md`:
 
 - Compute: Fly.io Machines
-- Agent runtime: Hermes (pinned SHA, behind a pluggable `AIEmployee` adapter for future runtime swap)
+- Agent runtime: Hermes (pinned SHA, behind a pluggable `Operator` adapter for future runtime swap)
 - Connectors: Composio (managed) + native MCP (vendor or community) + custom MCP wrappers (8 Tier-1 declared)
 - Memory: D1 + R2 + Vectorize per customer
 - Email identity: AgentMail (for internal-facing presence; external send uses the reviewer's account)
@@ -546,7 +546,7 @@ Each customer's agent has a fully developed persona, declared in `customer.yaml`
 
 ### 9.2 Internal vs external persona
 
-**Internal-facing** (dashboard, internal comms, principal-and-staff interaction): The persona is fully visible. The agent is openly an AI Employee named Marcus (or whatever). Disclosure is built in; the audit log uses the persona name; internal Slack/Teams posts come from the persona.
+**Internal-facing** (dashboard, internal comms, principal-and-staff interaction): The persona is fully visible. The agent is openly an Operator named Marcus (or whatever). Disclosure is built in; the audit log uses the persona name; internal Slack/Teams posts come from the persona.
 
 **External-facing** (communication to the customer's customers, vendors, opposing counsel, courts): The persona does not exist externally. Drafts go to the human reviewer's drafts folder under the reviewer's identity. The reviewer sends from their own account. The recipient sees only the reviewer's signature.
 
@@ -867,7 +867,7 @@ The "no training vs. bounded indexing" distinction is critical and explicitly do
 
 Per-vertical regulations (see vertical PRDs for specifics). Platform defaults:
 
-- **Internal-facing**: full AI disclosure. The agent is openly an AI Employee named X. Dashboard, internal comms, audit log all surface this.
+- **Internal-facing**: full AI disclosure. The agent is openly an Operator named X. Dashboard, internal comms, audit log all surface this.
 - **External-facing**: no AI disclosure required unless the vertical's regulatory framework requires it OR the customer's jurisdiction requires it. The platform supports per-jurisdiction disclosure clauses (e.g., engagement letter AI clauses, signature footers) as configurable elements; verticals declare when these apply.
 
 Pattern for regulated verticals: the platform supports both modes (disclose / don't disclose), and the vertical PRD specifies which is the default and what triggers a switch.
@@ -898,7 +898,7 @@ The platform's compliance posture for regulated verticals (law, healthcare, etc.
 
 The packet is the artifact that closes the loop on §13.1's three architectural controls. The customer (or their outside counsel, ethics counsel, or auditor) can request it on demand; the `compliance-audit-export` skill (§8.2) generates it; Captain countersigns; the result is a zip delivered within the §17.1 audit-log-request SLA.
 
-The full content contract lives at `docs/specs/ai-employee/compliance-evidence-packet.md`. This subsection documents the PRD-level shape: what's in the packet, the design constraint, the redaction rules, and the cross-references that downstream skills and templates must honor.
+The full content contract lives at `docs/specs/operator/compliance-evidence-packet.md`. This subsection documents the PRD-level shape: what's in the packet, the design constraint, the redaction rules, and the cross-references that downstream skills and templates must honor.
 
 **Design constraint (UX Lead).** The packet must be readable end-to-end by outside counsel who is not technical. The first document is a plain-language README; the second is an auto-rendered Susan-readable summary PDF; the rest are the underlying technical evidence in case a specific claim needs verification. A non-technical attorney must be able to confirm what the agent did, what it never did, and what controls made that true, without reading source code or D1 schemas.
 
@@ -925,7 +925,7 @@ The full content contract lives at `docs/specs/ai-employee/compliance-evidence-p
 
 **Audit log human-readable format (04-audit-log-human.md).** Events grouped by week, then by category (drafts / memory / trust / connectors / invariants / escalations). Each group has a count + a small sample of representative entries narrated in prose. Generated from a markdown template using the CSV in `03-audit-log.csv`. Captain may amend before delivery. The CSV columns are: `id, ts, action_type, actor, actor_role, skill_name, matter_ref, input_digest, output_digest, diff_digest, trust_ceiling, metadata`. Digests are content addresses; substantive content stays out of the packet by default. Auditors who need a specific underlying object request it separately.
 
-**Customer.yaml redaction rules.** Every top-level customer.yaml field is labeled VISIBLE or REDACTED in the exported `05-customer-yaml.redacted.yml`. Secrets are always REDACTED. The fields that prove the agent's bounded scope (personas, business hours, escalation policy, skills enabled, trust ceilings, the scope envelope) are VISIBLE. The customer.yaml schema authority is `docs/specs/ai-employee/customer-yaml-schema.md`.
+**Customer.yaml redaction rules.** Every top-level customer.yaml field is labeled VISIBLE or REDACTED in the exported `05-customer-yaml.redacted.yml`. Secrets are always REDACTED. The fields that prove the agent's bounded scope (personas, business hours, escalation policy, skills enabled, trust ceilings, the scope envelope) are VISIBLE. The customer.yaml schema authority is `docs/specs/operator/customer-yaml-schema.md`.
 
 | Field path                                                | Disposition | Note                                                                                               |
 | --------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------- |
@@ -977,10 +977,10 @@ The PRD spec lists the state and the clause-reference structure (authority + mat
 
 **Cross-references.**
 
-- Content spec: `docs/specs/ai-employee/compliance-evidence-packet.md`. Full templates, file layout, redaction-validator behavior, failure modes, verification tests.
+- Content spec: `docs/specs/operator/compliance-evidence-packet.md`. Full templates, file layout, redaction-validator behavior, failure modes, verification tests.
 - The `compliance-audit-export` skill (§8.2) is the generator; its SKILL.md aligns to this subsection's contract.
-- Customer.yaml redaction draws field-level vocabulary from `docs/specs/ai-employee/customer-yaml-schema.md`.
-- The audit log shape is the `audit_log` table in `docs/specs/ai-employee/d1-schema.md`.
+- Customer.yaml redaction draws field-level vocabulary from `docs/specs/operator/customer-yaml-schema.md`.
+- The audit log shape is the `audit_log` table in `docs/specs/operator/d1-schema.md`.
 - The signed-DPA artifact references §13.1; the BAA references §13.2 disclosure posture; the engagement-letter clauses cross-reference the vertical PRD (law-firm-prd.md §11.6).
 
 ---
@@ -1039,11 +1039,11 @@ Customers who want to keep paying for memory storage and audit log access but pa
 
 ## 15. Pricing Posture
 
-This PRD does not redefine pricing; it references [`docs/strategy/ai-employee-pricing-2026-05-13.md`](../../strategy/ai-employee-pricing-2026-05-13.md) for the v1 law-firm SKU price, the per-driver COGS model across the §15.1 Light/Medium/Heavy customer profiles, and the assumptions ledger. The pricing doc is a PROPOSAL; Captain finalizes before any customer engagement.
+This PRD does not redefine pricing; it references [`docs/strategy/operator-pricing-2026-05-13.md`](../../strategy/operator-pricing-2026-05-13.md) for the v1 law-firm SKU price, the per-driver COGS model across the §15.1 Light/Medium/Heavy customer profiles, and the assumptions ledger. The pricing doc is a PROPOSAL; Captain finalizes before any customer engagement.
 
 Operational consequences for the platform:
 
-- **Flat-monthly per-customer SKU** is the structural choice. Customers buy "the AI Employee," not "N seats" or "M resolutions" or "P cases."
+- **Flat-monthly per-customer SKU** is the structural choice. Customers buy "the Operator," not "N seats" or "M resolutions" or "P cases."
 - **Pricing positions against headcount, not against tools.** $55-95k loaded paralegal salary is the comparison anchor (see §6.5 below for buyer-fragility caveat).
 - **Specific v1 launch price and tier structure** live in the pricing doc, defended against the §15.1 cost model and the §17.1 ≤40% COGS/MRR margin floor.
 
@@ -1150,7 +1150,7 @@ logged 30m for acme-pi-law (voice-calibration) = $100.00 at $200/hr
 
 **Help text:** `crane ai-employee log-time --help` prints the flag table, the activity-tag taxonomy with one-line descriptions, and an example invocation.
 
-**Implementation contract:** the per-event schema, write path, and audit-row shape are spec'd at [`docs/specs/ai-employee/cost-telemetry-events.md`](../../specs/ai-employee/cost-telemetry-events.md) §"Captain time logging". The D1 columns added to support per-event rows are at [`docs/specs/ai-employee/d1-schema.md`](../../specs/ai-employee/d1-schema.md) `captain_time_events` table.
+**Implementation contract:** the per-event schema, write path, and audit-row shape are spec'd at [`docs/specs/operator/cost-telemetry-events.md`](../../specs/operator/cost-telemetry-events.md) §"Captain time logging". The D1 columns added to support per-event rows are at [`docs/specs/operator/d1-schema.md`](../../specs/operator/d1-schema.md) `captain_time_events` table.
 
 ---
 
@@ -1310,7 +1310,7 @@ Any of these triggers SMD-side intervention (Captain review, possible pause).
 
 This PRD assumes the following are settled (some by existing ADRs, some pending):
 
-- **ADR 0004 — Productized AI Employee SKU**: settled (referenced in CLAUDE.md)
+- **ADR 0004 — Productized Operator SKU**: settled (referenced in CLAUDE.md)
 - **ADR (proposed) — Reviewer-as-sender architecture**: needs an ADR. The decision is locked at the PRD level; formalize as an ADR before merge.
 - **ADR (proposed) — Capability-interface + adapter pattern as the connector layer**: needs an ADR.
 - **ADR (proposed) — Per-customer Machine isolation as the multi-tenancy model**: needs an ADR.
@@ -1334,7 +1334,7 @@ Open product decisions:
 Open architectural decisions:
 
 - **AgentMail's role for internal-facing persona presence**: confirmed for internal comms (dashboard, internal Slack/Teams posts under persona). External communication does not use AgentMail.
-- **Composio vs native MCP vs custom for specific connectors**: per-connector decisions live in vertical PRDs and `docs/strategy/ai-employee-connector-coverage-2026-05-14.md`.
+- **Composio vs native MCP vs custom for specific connectors**: per-connector decisions live in vertical PRDs and `docs/strategy/operator-connector-coverage-2026-05-14.md`.
 
 ---
 
@@ -1358,11 +1358,11 @@ Status: largely complete per `ai-employee-smd-customer-zero` branch progress.
 
 **Architecture:**
 
-- `customer.yaml` schema locked — formal contract at [`docs/specs/ai-employee/customer-yaml-schema.md`](../../specs/ai-employee/customer-yaml-schema.md), runtime validator at [`src/lib/ai-employee/customer-yaml/validator.ts`](../../../src/lib/ai-employee/customer-yaml/validator.ts), secret detector at [`src/lib/ai-employee/customer-yaml/secret-detector.ts`](../../../src/lib/ai-employee/customer-yaml/secret-detector.ts) ([#790](https://github.com/venturecrane/ss-console/issues/790))
+- `customer.yaml` schema locked — formal contract at [`docs/specs/operator/customer-yaml-schema.md`](../../specs/operator/customer-yaml-schema.md), runtime validator at [`src/lib/operator/customer-yaml/validator.ts`](../../../src/lib/operator/customer-yaml/validator.ts), secret detector at [`src/lib/operator/customer-yaml/secret-detector.ts`](../../../src/lib/operator/customer-yaml/secret-detector.ts) ([#790](https://github.com/venturecrane/ss-console/issues/790))
 - Pre-commit + CI validation hook wired against the canonical configs repo per [ADR 0012](../../adr/0012-customer-yaml-storage.md) §5 — blocks merges that carry literal secrets or break schema (validator module lands in this PR; CI workflow + configs-repo location land in the follow-on ADR 0012 implementation phase)
 - Capability-interface contracts defined for: Email, Calendar, DocumentStorage, ESign, PracticeManagement, CourtAccess, Payments, Accounting
 - Per-customer Fly.io Machine + D1 + R2 + Vectorize bound
-- Safety substrate expanded from 5 base invariants (#1-#5, shipped in Phase 0 via [PR #812](https://github.com/venturecrane/ss-console/pull/812)) to 8 total. Phase 1 adds: invariant #6 citation enforcement on fact-bearing fields (the runtime-enforcement layer that pairs with the law-vertical `citation_filter.py`; spec at [`docs/specs/ai-employee/safety-invariants.md`](../../specs/ai-employee/safety-invariants.md), shipped via [PR #958](https://github.com/venturecrane/ss-console/pull/958) / [issue #865](https://github.com/venturecrane/ss-console/issues/865)); invariant #7 cross-Machine query prohibition (boot-time storage-binding check; same spec; shipped via [PR #958](https://github.com/venturecrane/ss-console/pull/958), with audit-log immutability per [`docs/specs/ai-employee/audit-log-immutability.md`](../../specs/ai-employee/audit-log-immutability.md) from [issue #892](https://github.com/venturecrane/ss-console/issues/892)); invariant #8 fabrication discipline as a runtime pre-output filter (spec at [`docs/specs/ai-employee/fabrication-filter.md`](../../specs/ai-employee/fabrication-filter.md), tracked as [issue #798](https://github.com/venturecrane/ss-console/issues/798), not yet runtime-enforced).
+- Safety substrate expanded from 5 base invariants (#1-#5, shipped in Phase 0 via [PR #812](https://github.com/venturecrane/ss-console/pull/812)) to 8 total. Phase 1 adds: invariant #6 citation enforcement on fact-bearing fields (the runtime-enforcement layer that pairs with the law-vertical `citation_filter.py`; spec at [`docs/specs/operator/safety-invariants.md`](../../specs/operator/safety-invariants.md), shipped via [PR #958](https://github.com/venturecrane/ss-console/pull/958) / [issue #865](https://github.com/venturecrane/ss-console/issues/865)); invariant #7 cross-Machine query prohibition (boot-time storage-binding check; same spec; shipped via [PR #958](https://github.com/venturecrane/ss-console/pull/958), with audit-log immutability per [`docs/specs/operator/audit-log-immutability.md`](../../specs/operator/audit-log-immutability.md) from [issue #892](https://github.com/venturecrane/ss-console/issues/892)); invariant #8 fabrication discipline as a runtime pre-output filter (spec at [`docs/specs/operator/fabrication-filter.md`](../../specs/operator/fabrication-filter.md), tracked as [issue #798](https://github.com/venturecrane/ss-console/issues/798), not yet runtime-enforced).
 - **Phase 1 ship gate on invariants:** #1-#7 must be runtime-enforced before Phase 1 closes. Invariant #8 is the open item; #798 lands the runtime filter before first external draft.
 - Automated `bin/provision-customer.sh` AND `bin/decommission-customer.sh`
 
@@ -1408,7 +1408,7 @@ Status: largely complete per `ai-employee-smd-customer-zero` branch progress.
 
 **Operations:**
 
-- Operations runbook at `docs/runbooks/ai-employee-ops.md`
+- Operations runbook at `docs/runbooks/operator-ops.md`
 - Captain operational budget instrumented (≤2 hrs/wk/customer)
 - Cost telemetry instrumented per §15.1 (Captain-only dashboard)
 - Captain CLI time-logging command (`crane ai-employee log-time`) shipped per §15.2 with the closed v1 activity-tag taxonomy enforced
@@ -1424,7 +1424,7 @@ Scope per `law-firm-prd.md`. Phase 2 closes when the law-firm demo to the named 
 
 ### Phase 3 — Second vertical pack
 
-Vertical TBD per `docs/strategy/ai-employee-functional-shape-2026-05-13.md` and emerging customer signals. Marketing agencies remain a documented Phase-1 candidate per the functional-shape doc; the law-firm meeting reshuffled actual sequencing. Track 2 (continuous build of customer-zero) feeds into Phase 3 readiness.
+Vertical TBD per `docs/strategy/operator-functional-shape-2026-05-13.md` and emerging customer signals. Marketing agencies remain a documented Phase-1 candidate per the functional-shape doc; the law-firm meeting reshuffled actual sequencing. Track 2 (continuous build of customer-zero) feeds into Phase 3 readiness.
 
 ### Phase 4 — Multi-customer operations at scale (≥3 customers signed)
 

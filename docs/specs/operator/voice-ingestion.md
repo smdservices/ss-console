@@ -26,7 +26,7 @@ D1 + R2 + audit log) and the architectural rules (ADR 0006, 0008, 0009).
 ## Contract
 
 The pipeline depends on the **Email capability** interface defined in
-`src/lib/ai-employee/capabilities/email.ts`. Specifically the read-side
+`src/lib/operator/capabilities/email.ts`. Specifically the read-side
 methods `list_sent_since(cursor)` and `get_sent_item(message_id)`. The
 pipeline never sends. The pipeline never calls MS Graph or Gmail directly.
 
@@ -95,7 +95,7 @@ Three signals, in order:
    nothing extra in privacy terms.
 
 3. **Body-shape heuristic.** A final pass that excludes messages whose
-   shape (signature markers, the "Drafted by your AI Employee for
+   shape (signature markers, the "Drafted by your Operator for
    review" footer) matches the agent's draft templates. Single hit is
    enough to exclude.
 
@@ -123,7 +123,7 @@ unassigned bucket so the principal can add memory rules later.
 
 ## Storage layout
 
-**R2 key.** Per `docs/specs/ai-employee/r2-vectorize-naming.md`:
+**R2 key.** Per `docs/specs/operator/r2-vectorize-naming.md`:
 
 ```
 {customer-slug}/voice/cohort/{cohort-id}/{sample-id}.json

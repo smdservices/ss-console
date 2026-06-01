@@ -9,7 +9,7 @@
 
 ## Overview
 
-This document provides user stories, acceptance criteria, business rules, edge cases, and a traceability matrix for the AI Employee MVP (Phase 1). It covers: the 6 universal primitives, the 4 v1 cross-cutting skills, the v1 PI overlay skills, the 7 v1 dashboard tabs, the beta-1 Day-1/Week-1/Week-4 partner experience, the calibration session split, the memory edit/delete flows, and the audit log export. Open questions (OQ-XXX) flag ambiguities that require Captain resolution before implementation.
+This document provides user stories, acceptance criteria, business rules, edge cases, and a traceability matrix for the Operator MVP (Phase 1). It covers: the 6 universal primitives, the 4 v1 cross-cutting skills, the v1 PI overlay skills, the 7 v1 dashboard tabs, the beta-1 Day-1/Week-1/Week-4 partner experience, the calibration session split, the memory edit/delete flows, and the audit log export. Open questions (OQ-XXX) flag ambiguities that require Captain resolution before implementation.
 
 ---
 

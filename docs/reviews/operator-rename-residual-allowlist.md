@@ -22,15 +22,22 @@ agents never rewrite the allowlist patterns.
 ## Deferred to PR 2 (boot-substrate cutover)
 
 3. **The `ai-employee/` boot substrate** and all code/comment references to its internals —
-   `ai-employee/{adapter,connectors,skills,safety-substrate,templates,bin,customers,verticals,voice-gate}`.
-   Renaming this directory requires the `hermes-smd-overlay` companion PR + a Fly re-bootstrap
-   (ADR 0034 Delivery). Includes `tests/ai-employee-dockerfile.test.ts` (tests the substrate
-   Dockerfile).
+   `ai-employee/{adapter,connectors,skills,safety-substrate,templates,bin,customers,verticals,voice-gate,grading,migrations}`,
+   `cd ai-employee` substrate shell commands, the `crane ai-employee <subcommand>` CLI namespace,
+   the `ai_employee_*` Python module names, and the `ai-employee-smd-customer-zero` git branch
+   identifier. Renaming the directory requires the `hermes-smd-overlay` companion PR + a Fly
+   re-bootstrap (ADR 0034 Delivery). Includes `tests/ai-employee-dockerfile.test.ts` and the
+   substrate CI workflows `.github/workflows/ai-employee-substrate.yml` and
+   `.github/workflows/ai-employee-skill-regression.yml` (both `working-directory: ai-employee`),
+   plus the spec/PRD references to those workflow filenames.
 
 ## Historical records (immutable by convention)
 
-4. **Historical ADR bodies** — `docs/adr/0004`, `0005`, `0013`, `0023` retain "AI Employee" in
-   their bodies; amendment banners at the top point to ADR 0034. ADRs are historical records.
+4. **Historical ADR bodies** — all numbered ADR files `docs/adr/00NN-*.md` retain "AI Employee"
+   in their bodies (the load-bearing 0004/0013/0023 carry amendment banners pointing to ADR 0034).
+   ADRs are historical records of decisions made under the prior name; `decision-stack.md` and
+   `index.md` (living docs) are renamed. The `src/middleware.ts` legacy-redirect block
+   intentionally references the old `/ai-employee` paths (they are the redirect *sources*).
 5. **ADR 0034 itself + the index entry + the banners** necessarily contain "AI Employee" — they
    are *about* the rename and quote the prior name.
 6. **Dated review artifacts** — `docs/reviews/ai-employee-code-review-*.md` (point-in-time

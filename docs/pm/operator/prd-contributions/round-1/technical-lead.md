@@ -690,7 +690,7 @@ The following nine proposed ADRs from §19 are all Phase 1 dependencies, not Pha
 Storage location (Infisical), refresh timing and retry policy, failure handling (graceful degradation vs. Machine restart), and customer re-authorization flow. Phase 1 blocking.
 
 **ADR (proposed) — Audit log immutability enforcement:**
-D1 does not enforce append-only at the storage layer. The ADR must specify: whether a separate append-only log (Cloudflare Logpush, external SIEM) is required for v1, or whether application-layer enforcement (no DELETE/UPDATE in Hermes code, verified by code review) is sufficient for beta-1. Has compliance implications: if a customer's ethics counsel asks "can the AI Employee operator alter the audit log," the answer must be architecturally grounded, not "we just don't do that."
+D1 does not enforce append-only at the storage layer. The ADR must specify: whether a separate append-only log (Cloudflare Logpush, external SIEM) is required for v1, or whether application-layer enforcement (no DELETE/UPDATE in Hermes code, verified by code review) is sufficient for beta-1. Has compliance implications: if a customer's ethics counsel asks "can the Operator operator alter the audit log," the answer must be architecturally grounded, not "we just don't do that."
 
 **ADR (proposed) — Scale-to-zero policy for Fly.io Machines:**
 Always-on vs. scale-to-zero affects: cost (always-on ~$20-40/mo/Machine at minimum; scale-to-zero near-zero when idle), cold-start latency (2-10s), and the morning digest reliability (must be running at 8am regardless of overnight activity). For Phase 1 with one customer, always-on is affordable and removes the cold-start risk. The ADR should record this decision.
@@ -707,7 +707,7 @@ Formalizes that `customer.yaml` is git-committed, secret-free configuration; def
 
 **Composio session model:** Composio manages OAuth connections by connection ID. Is one Composio connection per customer per capability, or can multiple customers share a Composio app? If shared app, the per-customer isolation of Composio actions must be enforced at the Composio API layer (connection IDs are per-customer) — but this must be verified against Composio's data model.
 
-**Dashboard hosting:** The PRD describes a "dashboard" (§12) but does not specify where it is hosted. The existing SMD venture uses Astro SSR on Cloudflare Workers (per CLAUDE.md). Is the AI Employee dashboard part of the same Astro app (e.g., `admin.smd.services/ai-employee/{customer-slug}/`)? Or a separate Astro deployment? This is a Phase 1 dependency.
+**Dashboard hosting:** The PRD describes a "dashboard" (§12) but does not specify where it is hosted. The existing SMD venture uses Astro SSR on Cloudflare Workers (per CLAUDE.md). Is the Operator dashboard part of the same Astro app (e.g., `admin.smd.services/operator/{customer-slug}/`)? Or a separate Astro deployment? This is a Phase 1 dependency.
 
 **AgentMail binding to Machine:** §7.8 states AgentMail is for "internal-facing presence." How is the AgentMail mailbox bound to a specific Hermes Machine instance? When an internal Slack message comes in addressed to the agent persona, which Machine processes it — and how does AgentMail route to that Machine? The routing architecture is not specified.
 

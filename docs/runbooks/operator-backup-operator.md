@@ -1,9 +1,9 @@
-# AI Employee backup operator runbook
+# Operator backup operator runbook
 
 **Audience:** The named backup operator, with Captain in oversight.
 **Scope:** The four named scenarios the backup operator must be able to execute end-to-end when Captain is unavailable. Provision a new customer, decommission a customer, handle a sticky-stop, restore from backup.
 **Source:** Platform PRD §4 Persona 3 (Captain unavailability mitigation) and issue [#888](https://github.com/venturecrane/ss-console/issues/888).
-**Training prerequisite:** Every gate in [`docs/specs/ai-employee/backup-operator-training.md`](../specs/ai-employee/backup-operator-training.md) must be signed off before the operator is trusted as primary on a live customer.
+**Training prerequisite:** Every gate in [`docs/specs/operator/backup-operator-training.md`](../specs/operator/backup-operator-training.md) must be signed off before the operator is trusted as primary on a live customer.
 
 ## Sign-off marker
 
@@ -18,7 +18,7 @@ A blank marker means no operator is ready. While the marker is blank, Captain re
 
 ## Section 1: Provision a new customer
 
-**When to run.** A new customer has signed and Captain is unavailable to drive the provisioning. The agreed-on Day-0 window started; the customer expects an inbox and a kickoff call inside the 48-72 hour envelope from `ai-employee-customer-onboarding.md` §0.
+**When to run.** A new customer has signed and Captain is unavailable to drive the provisioning. The agreed-on Day-0 window started; the customer expects an inbox and a kickoff call inside the 48-72 hour envelope from `operator-customer-onboarding.md` §0.
 
 **Tool.** `ai-employee/bin/provision-customer.sh` (shipped under issue [#812](https://github.com/venturecrane/ss-console/issues/812)).
 
@@ -45,7 +45,7 @@ A blank marker means no operator is ready. While the marker is blank, Captain re
 - A secret prompt cannot be satisfied because Infisical does not hold the value. Stop. Page Captain.
 - The Fly Machine fails to come up after two re-runs of the provisioner. Stop. Page Captain. Re-running a third time will not change the answer.
 
-**Reference.** [Customer onboarding runbook §2.2](ai-employee-customer-onboarding.md). The runbook covers what Captain does after provisioning lands; the backup operator's scope ends at "Machine live, smoke tests green, Captain paged."
+**Reference.** [Customer onboarding runbook §2.2](operator-customer-onboarding.md). The runbook covers what Captain does after provisioning lands; the backup operator's scope ends at "Machine live, smoke tests green, Captain paged."
 
 ---
 
@@ -53,7 +53,7 @@ A blank marker means no operator is ready. While the marker is blank, Captain re
 
 **When to run.** A customer has exited and the agreed-on decommission date has arrived. Captain is unavailable to drive the run. The backup operator runs the pipeline; Captain reviews the audit trail on return.
 
-**Tool.** `ai-employee/bin/decommission-customer.sh` (shipped under issue [#956](https://github.com/venturecrane/ss-console/issues/956), spec at [`decommission-customer.md`](../specs/ai-employee/decommission-customer.md)).
+**Tool.** `ai-employee/bin/decommission-customer.sh` (shipped under issue [#956](https://github.com/venturecrane/ss-console/issues/956), spec at [`decommission-customer.md`](../specs/operator/decommission-customer.md)).
 
 **Procedure.**
 
@@ -78,13 +78,13 @@ A blank marker means no operator is ready. While the marker is blank, Captain re
 - The memory export has not been delivered to the customer. Stop. Run Section 4 first.
 - A live step fails twice in succession. Stop. Page Captain. Re-running again under time pressure risks compounding the failure.
 
-**Reference.** [Decommission customer spec](../specs/ai-employee/decommission-customer.md). The spec covers the nine steps, exit codes, and the idempotency contract in detail.
+**Reference.** [Decommission customer spec](../specs/operator/decommission-customer.md). The spec covers the nine steps, exit codes, and the idempotency contract in detail.
 
 ---
 
 ## Section 3: Handle a sticky-stop
 
-**When to run.** A customer's substrate has transitioned into `SOFT_STOP` or `HARD_STOP` (per [`sticky-stop.md`](../specs/ai-employee/sticky-stop.md)) and Captain is unavailable. The customer's agent is currently paused; either the substrate is drafting only (SOFT_STOP) or refusing every skill (HARD_STOP).
+**When to run.** A customer's substrate has transitioned into `SOFT_STOP` or `HARD_STOP` (per [`sticky-stop.md`](../specs/operator/sticky-stop.md)) and Captain is unavailable. The customer's agent is currently paused; either the substrate is drafting only (SOFT_STOP) or refusing every skill (HARD_STOP).
 
 **Tool.** Captain `clear()` action through the control plane.
 
@@ -109,13 +109,13 @@ A blank marker means no operator is ready. While the marker is blank, Captain re
 - The condition_triggered is `refusal cascade` and the operator cannot determine whether the skill is drifting unsafe. Hold the stop. Page Captain. A refusal cascade is the substrate detecting a class of failure that warrants Captain review before resume.
 - The investigation produces a remediation the operator is not authorized to apply (a new connector credential, a customer.yaml change, a skill rollback). Hold the stop. Apply nothing under time pressure.
 
-**Reference.** [Sticky-stop spec](../specs/ai-employee/sticky-stop.md) for the state-machine semantics, the Captain `clear()` interface, and the audit-emission contract.
+**Reference.** [Sticky-stop spec](../specs/operator/sticky-stop.md) for the state-machine semantics, the Captain `clear()` interface, and the audit-emission contract.
 
 ---
 
 ## Section 4: Restore from backup
 
-**When to run.** A customer's substrate has lost data. The recovery target is the customer's most recent memory export (per ADR 0008 and the [memory export pipeline spec](../specs/ai-employee/memory-export.md)). The export archive is the canonical backup; no separate backup system exists, by design.
+**When to run.** A customer's substrate has lost data. The recovery target is the customer's most recent memory export (per ADR 0008 and the [memory export pipeline spec](../specs/operator/memory-export.md)). The export archive is the canonical backup; no separate backup system exists, by design.
 
 **Scope of "restore."** The platform's data-ownership posture (ADR 0008) places memory in customer-owned namespaces. "Restore" means re-hydrating those namespaces from a previously-exported archive. It does not mean restoring SMD-owned state (skill catalog, dashboard config, persona identity); those are versioned in `ss-console` and re-applied via re-provisioning.
 
@@ -138,7 +138,7 @@ A blank marker means no operator is ready. While the marker is blank, Captain re
 
 **What this is not.** It is not a substitute for the customer-owned memory artifact ownership posture. The export archive is the customer's property by contract; the restore action re-applies that property to the customer's substrate when the substrate has lost it. SMD does not retain a shadow copy outside the export archive.
 
-**Reference.** [Memory export pipeline spec](../specs/ai-employee/memory-export.md), [ADR 0008 (Customer-owned memory artifact)](../adr/0008-customer-owned-memory-artifact.md).
+**Reference.** [Memory export pipeline spec](../specs/operator/memory-export.md), [ADR 0008 (Customer-owned memory artifact)](../adr/0008-customer-owned-memory-artifact.md).
 
 ---
 
@@ -151,21 +151,21 @@ Every scenario the backup operator runs without Captain present writes an after-
 - Audit-log entries that landed
 - Any stop conditions hit, and how they were handled
 
-Captain reads the note on return and decides whether the scenario revealed a runbook gap or a re-training need. Re-training, when triggered, follows the [quarterly drill runbook](ai-employee-quarterly-drill.md) protocol.
+Captain reads the note on return and decides whether the scenario revealed a runbook gap or a re-training need. Re-training, when triggered, follows the [quarterly drill runbook](operator-quarterly-drill.md) protocol.
 
 ## Cross-references
 
-- [Backup operator training requirements](../specs/ai-employee/backup-operator-training.md)
-- [Quarterly drill runbook](ai-employee-quarterly-drill.md)
-- [Customer onboarding runbook](ai-employee-customer-onboarding.md)
+- [Backup operator training requirements](../specs/operator/backup-operator-training.md)
+- [Quarterly drill runbook](operator-quarterly-drill.md)
+- [Customer onboarding runbook](operator-customer-onboarding.md)
 - [PI firm demo prep runbook](pi-firm-demo-prep.md)
-- [Calibration runbook](ai-employee-calibration.md)
-- [Decommission customer spec](../specs/ai-employee/decommission-customer.md)
-- [Sticky-stop spec](../specs/ai-employee/sticky-stop.md)
-- [Memory export pipeline spec](../specs/ai-employee/memory-export.md)
+- [Calibration runbook](operator-calibration.md)
+- [Decommission customer spec](../specs/operator/decommission-customer.md)
+- [Sticky-stop spec](../specs/operator/sticky-stop.md)
+- [Memory export pipeline spec](../specs/operator/memory-export.md)
 - [ADR 0007 (Per-customer Machine isolation)](../adr/0007-per-customer-machine-isolation.md)
 - [ADR 0008 (Customer-owned memory artifact)](../adr/0008-customer-owned-memory-artifact.md)
 - [ADR 0009 (Cross-Machine query prohibition)](../adr/0009-cross-machine-query-prohibition.md)
 - [ADR 0015 (Hermes fork vs upstream)](../adr/0015-hermes-fork-vs-upstream.md)
-- [Platform PRD §4 Persona 3](../pm/ai-employee/platform-prd.md)
+- [Platform PRD §4 Persona 3](../pm/operator/platform-prd.md)
 - [Issue #888](https://github.com/venturecrane/ss-console/issues/888)

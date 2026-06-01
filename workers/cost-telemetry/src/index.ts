@@ -3,7 +3,7 @@
  *
  * Runs at 02:00 UTC daily per `triggers.crons` in wrangler.toml. Per
  * docs/specs/ai-employee/cost-telemetry-events.md "Nightly Captain job",
- * the worker iterates every active AI Employee customer, pulls
+ * the worker iterates every active Operator customer, pulls
  * yesterday's Anthropic usage, and UPSERTs into each customer's
  * per-customer `cost_telemetry` D1 table.
  *

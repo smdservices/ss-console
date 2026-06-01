@@ -1,4 +1,4 @@
-# AI Employee customer onboarding runbook
+# Operator customer onboarding runbook
 
 **Audience:** Captain.
 **Scope:** End-to-end customer onboarding from the moment Captain decides to sign a prospect through Day-45 pivot-gate decision. Composes the pre-provisioning, day-1, calibration, contract, and steady-state specs into one operational sequence.
@@ -12,14 +12,14 @@ This runbook is a composition document. It does not duplicate procedure that liv
 
 The runbook reads top-to-bottom and assumes the following companion documents are available:
 
-| Step                     | Companion                                                                                                                                                                                                            | What it owns                                                                                         |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Pre-provisioning         | [`pi-firm-demo-prep.md`](./pi-firm-demo-prep.md) (issue [#819](https://github.com/venturecrane/ss-console/issues/819))                                                                                               | Dossier, voice scrape, customer.yaml authoring, Fly Machine provisioning, readiness gate.            |
-| Contract signing         | [`docs/templates/ai-employee/README.md`](../templates/ai-employee/README.md) and [`signing-flow.md`](../templates/ai-employee/signing-flow.md) (issue [#827](https://github.com/venturecrane/ss-console/issues/827)) | Service contract, DPA, BAA-equivalent confidentiality addendum, DocuSign envelope construction.      |
-| Day-1 onboarding         | [`docs/specs/ai-employee/day-1-onboarding.md`](../specs/ai-employee/day-1-onboarding.md) (issue [#803](https://github.com/venturecrane/ss-console/issues/803))                                                       | First-hour screen sequence in the dashboard, Captain-led and self-service paths, mobile fallback.    |
-| Calibration sessions     | `docs/runbooks/ai-employee-calibration.md` (issue [#867](https://github.com/venturecrane/ss-console/issues/867), forward reference: PR #976 in flight as of this runbook's authoring)                                | Four 90-minute calibration sessions across two weeks, voice-gate transitions, trust-ceiling updates. |
-| First-30-days monitoring | This runbook §6.                                                                                                                                                                                                     | Captain's daily checklist, alerting thresholds, escalation paths.                                    |
-| Day-45 pivot gate        | This runbook §7.                                                                                                                                                                                                     | Decision criteria, evidence sources, outcome paths.                                                  |
+| Step                     | Companion                                                                                                                                                                                                   | What it owns                                                                                         |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Pre-provisioning         | [`pi-firm-demo-prep.md`](./pi-firm-demo-prep.md) (issue [#819](https://github.com/venturecrane/ss-console/issues/819))                                                                                      | Dossier, voice scrape, customer.yaml authoring, Fly Machine provisioning, readiness gate.            |
+| Contract signing         | [`docs/templates/operator/README.md`](../templates/operator/README.md) and [`signing-flow.md`](../templates/operator/signing-flow.md) (issue [#827](https://github.com/venturecrane/ss-console/issues/827)) | Service contract, DPA, BAA-equivalent confidentiality addendum, DocuSign envelope construction.      |
+| Day-1 onboarding         | [`docs/specs/operator/day-1-onboarding.md`](../specs/operator/day-1-onboarding.md) (issue [#803](https://github.com/venturecrane/ss-console/issues/803))                                                    | First-hour screen sequence in the dashboard, Captain-led and self-service paths, mobile fallback.    |
+| Calibration sessions     | `docs/runbooks/operator-calibration.md` (issue [#867](https://github.com/venturecrane/ss-console/issues/867), forward reference: PR #976 in flight as of this runbook's authoring)                          | Four 90-minute calibration sessions across two weeks, voice-gate transitions, trust-ceiling updates. |
+| First-30-days monitoring | This runbook §6.                                                                                                                                                                                            | Captain's daily checklist, alerting thresholds, escalation paths.                                    |
+| Day-45 pivot gate        | This runbook §7.                                                                                                                                                                                            | Decision criteria, evidence sources, outcome paths.                                                  |
 
 When a companion is not yet on `main`, this runbook says so explicitly and Captain should treat the cited section as a forward reference until the PR lands.
 
@@ -59,7 +59,7 @@ Two hard constraints govern every step below.
 
 **Actions:**
 
-- [ ] Pull the three templates from `docs/templates/ai-employee/` per the README: `service-contract.md`, `data-processing-addendum.md`, `baa-equivalent-confidentiality.md` (the third only for law-firm or other regulated customers, per the README's "When used" column).
+- [ ] Pull the three templates from `docs/templates/operator/` per the README: `service-contract.md`, `data-processing-addendum.md`, `baa-equivalent-confidentiality.md` (the third only for law-firm or other regulated customers, per the README's "When used" column).
 - [ ] Replace every bracketed field. The standard set is in the templates README §Bracketed fields; the per-template field tables list the narrower fields.
 - [ ] Submit the prepared documents to external counsel licensed in the customer's jurisdiction. Per the templates README, "No file in this directory may be sent to a customer as-is." The pre-customer-zero counsel review is the moment that gates first signature; for customers after customer-zero, counsel review confirms only the bracketed-field substitutions and any jurisdiction-specific deltas.
 - [ ] On counsel sign-off, run the DocuSign envelope construction per `signing-flow.md`. Captain prepares the envelope, customer countersigns. Captain does not send any envelope that still contains the template footer ("This is a TEMPLATE...") visible to the customer; the footer is removed at envelope-prep time.
@@ -79,7 +79,7 @@ Two hard constraints govern every step below.
 
 **Deltas for signed-customer provisioning vs. demo provisioning:**
 
-- The `customer_id` is the legal customer slug, not a `demo-{firm-slug}` slug. If the demo Fly app is being promoted, rename or migrate per Fly's documented procedure; if a fresh app is provisioned, the demo app is decommissioned per `docs/specs/ai-employee/decommission-customer.md`.
+- The `customer_id` is the legal customer slug, not a `demo-{firm-slug}` slug. If the demo Fly app is being promoted, rename or migrate per Fly's documented procedure; if a fresh app is provisioned, the demo app is decommissioned per `docs/specs/operator/decommission-customer.md`.
 - The connectors list in `customer.yaml` now reflects the customer's confirmed PM stack from the meeting, not the website hypothesis. Anything with `confidence: low` in the demo dossier should now resolve to a real adapter or be explicitly deferred with a note in `connectors.yaml`.
 - The voice samples now include any additional samples the customer has agreed to share (per Step 6 of the day-1 onboarding spec: emails, status updates, letters from the partner's own files). These are added to `customers/{slug}/voice/` and re-ingested before the calibration session.
 - The `users[]` list in `customer.yaml` now contains the named principal and any named operator and compliance reviewer. Roles match `dashboard-roles.md`.
@@ -97,7 +97,7 @@ Two hard constraints govern every step below.
 
 **Time budget:** 60 minutes with the partner plus 4 hours with the paralegal, per law-firm PRD §11.8. Captain is in the room (or on the same video call) for both windows.
 
-**Owner spec:** [`docs/specs/ai-employee/day-1-onboarding.md`](../specs/ai-employee/day-1-onboarding.md). The day-1 spec defines the nine-screen dashboard sequence, the Captain-led co-existing path, the operator and compliance variants, and mobile behavior.
+**Owner spec:** [`docs/specs/operator/day-1-onboarding.md`](../specs/operator/day-1-onboarding.md). The day-1 spec defines the nine-screen dashboard sequence, the Captain-led co-existing path, the operator and compliance variants, and mobile behavior.
 
 **What this runbook owns:** sequencing the partner-session vs. the paralegal-session vs. the calibration kickoff.
 
@@ -117,7 +117,7 @@ Two hard constraints govern every step below.
 
 **Time budget:** Four 90-minute sessions across two weeks. Captain attends every session; the principal attends two; the operator attends all four. Total Captain time across the two-week window is 6-8 hours including prep.
 
-**Owner spec:** `docs/runbooks/ai-employee-calibration.md` (issue [#867](https://github.com/venturecrane/ss-console/issues/867), PR #976 in flight as of this runbook's authoring; cite as a forward reference until merged). The calibration runbook owns session agendas, deliverables per session, voice-gate transition criteria, trust-ceiling promotion mechanics, and the calibration dashboard surface.
+**Owner spec:** `docs/runbooks/operator-calibration.md` (issue [#867](https://github.com/venturecrane/ss-console/issues/867), PR #976 in flight as of this runbook's authoring; cite as a forward reference until merged). The calibration runbook owns session agendas, deliverables per session, voice-gate transition criteria, trust-ceiling promotion mechanics, and the calibration dashboard surface.
 
 **What this runbook owns:** the gate conditions that allow first external draft.
 
@@ -126,7 +126,7 @@ Two hard constraints govern every step below.
 - Voice blind-test pass rate ≥80% indistinguishability across at least three judges who know the reviewer (PRD §9.6, §17.1, voice-gate-fallback.md Pass state).
 - At least 30 anchor voice samples ingested across the relevant cohorts (PRD §9.6).
 - Trust ceiling for the first external skill is set per `trust-ceiling.yaml` and confirmed in the partner-signoff session.
-- No outstanding sticky-stop hard-stop event on the customer (see `docs/specs/ai-employee/sticky-stop.md`).
+- No outstanding sticky-stop hard-stop event on the customer (see `docs/specs/operator/sticky-stop.md`).
 
 If any condition fails, the calibration cycle does not "complete" and Step 6 monitoring begins from a no-external-send posture. The customer still has a working agent (morning digest, drafts in the queue, internal-only skills) and is not blocked from steady-state usage.
 
@@ -144,11 +144,11 @@ If any condition fails, the calibration cycle does not "complete" and Step 6 mon
 
 Run from the admin dashboard at `https://admin.smd.services/customers/{slug}/`. Each item below maps to a single panel or query; the panel is the answer.
 
-- [ ] **Audit-log spot-check.** Read the last 24 hours of `audit_log` entries for the customer per `docs/specs/ai-employee/audit-log-immutability.md`. Look for any `ONBOARDING_COMPLETED`, `TRUST_PROMOTED`, or new skill-activation events that were not initiated by Captain. Look for any action-type the spec does not define (a vocabulary gap signals a code path that wrote outside the audit contract).
-- [ ] **Sticky-stop state.** Confirm there is no active hard-stop on the customer per `docs/specs/ai-employee/sticky-stop.md`. If one is active, that is the day's work; Step 6 monitoring does not advance past it.
-- [ ] **Cost telemetry watch.** Read the cost panel per `docs/specs/ai-employee/cost-telemetry-events.md`. Compare the trailing-7-day daily average to the engagement's pricing envelope (per the SKU chosen in Step 1). If daily COGS is on a trajectory to exceed 40% of monthly MRR at end-of-month, that is a Step 7 input and a Captain conversation, not silently absorbed.
+- [ ] **Audit-log spot-check.** Read the last 24 hours of `audit_log` entries for the customer per `docs/specs/operator/audit-log-immutability.md`. Look for any `ONBOARDING_COMPLETED`, `TRUST_PROMOTED`, or new skill-activation events that were not initiated by Captain. Look for any action-type the spec does not define (a vocabulary gap signals a code path that wrote outside the audit contract).
+- [ ] **Sticky-stop state.** Confirm there is no active hard-stop on the customer per `docs/specs/operator/sticky-stop.md`. If one is active, that is the day's work; Step 6 monitoring does not advance past it.
+- [ ] **Cost telemetry watch.** Read the cost panel per `docs/specs/operator/cost-telemetry-events.md`. Compare the trailing-7-day daily average to the engagement's pricing envelope (per the SKU chosen in Step 1). If daily COGS is on a trajectory to exceed 40% of monthly MRR at end-of-month, that is a Step 7 input and a Captain conversation, not silently absorbed.
 - [ ] **Voice-gate state.** Confirm the voice gate is in Pass, Near-pass, or Fail per `voice-gate-fallback.md`. If it has transitioned in the last 24 hours, the daily-digest banner on the customer's dashboard should already reflect the new state; verify that surface matches the gate.
-- [ ] **Refusal cascade scan.** Read the count of refusal events in the last 24 hours per `docs/specs/ai-employee/refusal-handling.md`. A single refusal is normal; a cascade (>5 refusals on the same skill in 24 hours, or refusals across more than three skills in 24 hours) is a signal to look at the system prompt or the connector configuration.
+- [ ] **Refusal cascade scan.** Read the count of refusal events in the last 24 hours per `docs/specs/operator/refusal-handling.md`. A single refusal is normal; a cascade (>5 refusals on the same skill in 24 hours, or refusals across more than three skills in 24 hours) is a signal to look at the system prompt or the connector configuration.
 
 If every item on the daily checklist is green and nothing has changed from the prior day, the day's monitoring is done. Log the time in the Captain CLI per PRD §15.2 so the `captain_time` cost driver is observable.
 
@@ -164,7 +164,7 @@ On top of the daily checklist:
 
 The watchdog and PagerDuty service (per `pi-firm-demo-prep.md` Section 5 connector wiring) page Captain immediately on:
 
-- Any safety invariant violation per `docs/specs/ai-employee/safety-invariants.md`.
+- Any safety invariant violation per `docs/specs/operator/safety-invariants.md`.
 - Any external AI disclosure incident (PRD §17.2). Single incident is a kill signal per PRD §17.1.
 - Daily COGS exceeds the configured hard cap.
 - Hermes Machine stopped or health check failing.
@@ -192,7 +192,7 @@ The customer is "on track at day 45" if all four are true:
 
 1. **Trust trajectory.** At least one skill has been promoted to autonomous OR the principal has explicitly opted (in writing, in the audit log) to keep all skills at `draft_for_review`. Either is a healthy state; what is unhealthy is the absence of an explicit choice.
 2. **Approval rate.** ≥80% of drafts approved across the trailing 30 days. (PRD §17.1 targets ≥85% by week 4 and ≥90% by week 12. The day-45 gate uses 80% as the floor that allows a "continue with adjustments" verdict; below 80% sustained over the 30-day window is a kill criterion per §17.2's "Approval rate <70% sustained over 2+ weeks" if it is also trending toward 70%. Captain reads the trajectory, not the single number.) [TBD: confirm 80% floor with Captain at customer-zero; the §17.1 target is week-4 ≥85% and this runbook proposes 80% as the day-45 floor pending operational data.]
-3. **No sticky-stop hard-stops** in the trailing 30 days (per `docs/specs/ai-employee/sticky-stop.md`). A hard-stop event is a safety-invariant signal; even resolved hard-stops in the 30-day window are reviewed in §7.3.
+3. **No sticky-stop hard-stops** in the trailing 30 days (per `docs/specs/operator/sticky-stop.md`). A hard-stop event is a safety-invariant signal; even resolved hard-stops in the 30-day window are reviewed in §7.3.
 4. **Cost telemetry envelope.** Per-customer monthly COGS ≤40% of MRR (PRD §17.1 margin metric). At day 45 the agent has ~30 days of cost telemetry; if the trailing-30-day daily-average projection puts month-2 over 40%, that triggers SKU re-pricing or usage cap per PRD §17.1.
 
 If all four are true: **continue at current trajectory.** Schedule the next review at day 90 (per the day-1 spec Captain walk-through cadence and the customer's contract term).
@@ -214,7 +214,7 @@ If three or four criteria are red, or any of these is true:
 - An external AI disclosure incident at any point in the engagement.
 - A compliance failure (audit-log incomplete, DPA breach, retention failure) per PRD §17.2.
 
-Then the day-45 review is also an exit conversation. Captain proposes an exit path with no penalty. Run decommission per `docs/specs/ai-employee/decommission-customer.md`. The customer's data is exported per their DPA rights and the Fly Machine, R2 vault, Vectorize index, D1 partition, and Composio project are torn down per `docs/specs/ai-employee/decommission-drain.md`.
+Then the day-45 review is also an exit conversation. Captain proposes an exit path with no penalty. Run decommission per `docs/specs/operator/decommission-customer.md`. The customer's data is exported per their DPA rights and the Fly Machine, R2 vault, Vectorize index, D1 partition, and Composio project are torn down per `docs/specs/operator/decommission-drain.md`.
 
 ### 7.4 Outcome documentation
 

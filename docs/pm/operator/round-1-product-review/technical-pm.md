@@ -1,6 +1,6 @@
 # Technical PM Perspective — Round 1
 
-**Author:** technical-pm (ai-employee-product team)
+**Author:** technical-pm (operator-product team)
 **Date:** 2026-05-20
 **Lens:** Engineering feasibility — can this team actually build this, and at what unfunded cost?
 **Sources:** platform-prd.md, law-firm-prd.md, prior `technical-lead.md`, `synthesis-round-1.md`, PR #831 specs, PR #812 source, PR #832 ADRs 0005-0009, PR #829 hermes runbook, ADR 0004, CLAUDE.md.
@@ -51,7 +51,7 @@ D1 has no per-role permissions. "Immutability" = "we don't write DELETE statemen
 
 ## What's missing
 
-**Infrastructure:** customer-facing dashboard (§12 specifies 7 V1 tabs; no frontend in PR #812; `mobile-approval-flow.md` describes screens that don't exist); OAuth callback endpoint at `admin.smd.services/ai-employee/oauth/{connector}/callback`; `bin/decommission-customer.sh` and `bin/reauth-connector.sh` (specs exist, scripts don't); Captain CLI for ops time logging; Microsoft Graph / DocuSign / QuickBooks / CourtListener / one PM adapter — most Tier-0 not wrapped.
+**Infrastructure:** customer-facing dashboard (§12 specifies 7 V1 tabs; no frontend in PR #812; `mobile-approval-flow.md` describes screens that don't exist); OAuth callback endpoint at `admin.smd.services/operator/oauth/{connector}/callback`; `bin/decommission-customer.sh` and `bin/reauth-connector.sh` (specs exist, scripts don't); Captain CLI for ops time logging; Microsoft Graph / DocuSign / QuickBooks / CourtListener / one PM adapter — most Tier-0 not wrapped.
 
 **Operational tooling:** pre-commit hook for `customer.yaml` secret-exclusion; CI gate for cross-Machine query violation; synthetic-fixture loader for demo provisioning; cost dashboard at control plane; scheduled audit-retention cleanup.
 

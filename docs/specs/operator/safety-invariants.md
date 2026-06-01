@@ -207,7 +207,7 @@ Three distinct failure-mode reasons surface in `BindingMismatch.reason`:
 3. **Empty / unbound** - binding name is the empty string. Reason text contains `"unbound"`.
 4. **Malformed slug** - `customer_slug` itself is invalid (uppercase, leading/trailing hyphen, too short/long, contains characters outside `[a-z0-9-]`). Every binding is flagged because the expected-name derivation is meaningless. Reason text contains `"is not a valid slug"`.
 
-The slug rule (lowercase letters, digits, hyphens; 2-32 chars; no leading or trailing hyphen) mirrors the canonical `customer.yaml` validator at `src/lib/ai-employee/customer-yaml/` (per ADR 0019).
+The slug rule (lowercase letters, digits, hyphens; 2-32 chars; no leading or trailing hyphen) mirrors the canonical `customer.yaml` validator at `src/lib/operator/customer-yaml/` (per ADR 0019).
 
 ### Audit emission
 
@@ -287,7 +287,7 @@ The order is intentional. Citation enforcement runs first because its violation 
 Run from repo root:
 
 ```bash
-cd ai-employee && uv run --with pytest python -m pytest \
+cd operator && uv run --with pytest python -m pytest \
     safety-substrate/tests/test_invariant_6.py \
     safety-substrate/tests/test_invariant_7.py -v
 ```

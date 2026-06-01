@@ -6,7 +6,7 @@
 
 ## When this runbook applies
 
-This runbook applies once Captain has scoped a beta-1 AI Employee engagement and is ready to send the customer the three contract documents for countersignature. The runbook covers:
+This runbook applies once Captain has scoped a beta-1 Operator engagement and is ready to send the customer the three contract documents for countersignature. The runbook covers:
 
 1. Producing the customer-specific final form from each template.
 2. Captain review.
@@ -28,7 +28,7 @@ Determine which templates apply to the engagement:
 | Other professional-services (accounting, healthcare) | Service Contract + DPA, plus the BAA-Equivalent (or a HIPAA BAA, as appropriate) on Captain's call in consultation with counsel. |
 | Non-regulated business                               | Service Contract + DPA.                                                                                                          |
 
-If the engagement requires a HIPAA Business Associate Agreement (Customer is a HIPAA-covered entity or business associate and the AI Employee will read protected health information), Captain must engage external counsel to produce or adapt a HIPAA-compliant BAA. The BAA-Equivalent template in this directory is not a substitute for a HIPAA BAA where one is legally required.
+If the engagement requires a HIPAA Business Associate Agreement (Customer is a HIPAA-covered entity or business associate and the Operator will read protected health information), Captain must engage external counsel to produce or adapt a HIPAA-compliant BAA. The BAA-Equivalent template in this directory is not a substitute for a HIPAA BAA where one is legally required.
 
 ---
 
@@ -138,7 +138,7 @@ The executed DPA and BAA (where applicable) become inputs to Customer's complian
 - `10-dpa.pdf` in the packet is the executed DPA PDF.
 - `11-baa.pdf` in the packet is the executed BAA-Equivalent (or HIPAA BAA) PDF, where applicable.
 
-Captain ensures these PDFs are available to the `compliance-audit-export` skill at the customer-archive path the skill expects, per the [compliance evidence packet spec](../../specs/ai-employee/compliance-evidence-packet.md).
+Captain ensures these PDFs are available to the `compliance-audit-export` skill at the customer-archive path the skill expects, per the [compliance evidence packet spec](../../specs/operator/compliance-evidence-packet.md).
 
 ---
 
@@ -152,7 +152,7 @@ If the Parties agree to extend with modified terms (new monthly fee, new Initial
 
 ## Termination
 
-When Customer or SMD terminates per Service Contract Section 9, no signing event is required. The termination is effected by written notice as described in the Service Contract. The decommissioning procedure documented in the [decommission spec](../../specs/ai-employee/decommission-customer.md) executes in parallel with the offboarding obligations in Service Contract Section 9.4 and DPA Section 10.
+When Customer or SMD terminates per Service Contract Section 9, no signing event is required. The termination is effected by written notice as described in the Service Contract. The decommissioning procedure documented in the [decommission spec](../../specs/operator/decommission-customer.md) executes in parallel with the offboarding obligations in Service Contract Section 9.4 and DPA Section 10.
 
 ---
 

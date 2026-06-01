@@ -90,7 +90,7 @@ Autopilot did not remove the pilot from the cockpit. Instead, aviation created a
 
 The architectural parallel:
 
-| Aviation                          | AI Employee               |
+| Aviation                          | Operator                  |
 | --------------------------------- | ------------------------- |
 | Checklist / operating manual      | Memory artifact           |
 | Pilot-in-command authority        | Reviewer-as-sender        |
@@ -107,7 +107,7 @@ The licensed clinician remains responsible for diagnosis, orders, and patient co
 
 The architectural parallel:
 
-| Healthcare CDS                    | AI Employee                             |
+| Healthcare CDS                    | Operator                                |
 | --------------------------------- | --------------------------------------- |
 | Suggests differential diagnosis   | Drafts client communications            |
 | Flags drug interactions           | Flags escalation criteria, deadlines    |
@@ -124,7 +124,7 @@ Regulated financial workflows separate the preparer from the approver. A trader,
 
 The architectural parallel:
 
-| Finance maker-checker            | AI Employee                        |
+| Finance maker-checker            | Operator                           |
 | -------------------------------- | ---------------------------------- |
 | Maker prepares transaction       | AI persona drafts message          |
 | Checker approves transaction     | Human reviewer approves message    |
@@ -150,7 +150,7 @@ That claim is defensible because:
 
 ---
 
-## What this changes for AI Employee
+## What this changes for Operator
 
 ### In the demo
 
@@ -189,7 +189,7 @@ The combined frame answers several objections simultaneously:
 
 - [ADR 0005](../../../adr/0005-reviewer-as-sender.md) — reviewer-as-sender architecture
 - [ADR 0008](../../../adr/0008-customer-owned-memory-artifact.md) — customer-owned memory artifact
-- [ADR 0013](../../../adr/0013-ai-employee-positioning-doctrine.md) — AI Employee positioning doctrine
+- [ADR 0013](../../../adr/0013-ai-employee-positioning-doctrine.md) — Operator positioning doctrine
 - [Round-2 competitive analysis](../round-2/competitive-analysis.md)
 - [Round-3 OpenAI UPL strategic read](./openai-upl-strategic-read.md) — UPL litigation as the most direct live regulatory signal
 - [Beta-1 demo flow](../../beta-1-demo-flow.md) — the 6-step memory demo that embodies the combined architecture on-stage

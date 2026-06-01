@@ -11,7 +11,7 @@
 
 **Problem:** Small-to-mid professional service businesses need an experienced operational team member handling their daily business supply chain — intake, document collection, deadlines, status updates, billing — but can't afford, recruit, or manage the headcount required. The four existing responses (hire a human, buy software, buy AI features inside software, buy single-task AI point solutions) each fail the same way: no identity, no memory, no continuity, no voice.
 
-**Solution:** AI Employee is a configurable, persistent AI agent provisioned and operated by SMD as a managed service. It runs under a named persona, drafts work in the customer's voice, never sends to external parties without named human review, and learns over time from every correction. The customer's relationship is with the agent and with SMD — not with infrastructure.
+**Solution:** Operator is a configurable, persistent AI agent provisioned and operated by SMD as a managed service. It runs under a named persona, drafts work in the customer's voice, never sends to external parties without named human review, and learns over time from every correction. The customer's relationship is with the agent and with SMD — not with infrastructure.
 
 **Value statement:** For a fraction of the loaded cost of a paralegal or office manager, the customer gets a persistent team member who handles the bottom 30% of daily operational work — the volume that exhausts humans, erodes margins, and never requires the judgment the professional was hired for. The agent is never a replacement for judgment; it is a replacement for the work that doesn't require it.
 
@@ -21,7 +21,7 @@
 
 ## Product Vision and Identity
 
-**Working name:** AI Employee
+**Working name:** Operator
 
 **Per-deployment name:** Customer-configured persona (e.g., "Marcus," "Aiden"). The persona name is a first-class configuration artifact.
 
@@ -43,7 +43,7 @@ A managed-service AI agent platform. SMD provisions and operates one dedicated r
 - Not a research desk, a demand-letter shop, or a single-skill point solution
 - Not a product that positions "AI" as a selling noun — the agent does the work; the agent mentions AI when it is the right answer and says so plainly (per CLAUDE.md "AI & automation is a named capability" standard)
 
-**Critical identity clarification not currently in either PRD:** The CLAUDE.md Claude-first rule ("platform preference only when AI is chosen; NOT firm shape, partnership status, or named stack components") means the marketing surface for AI Employee must not lead with "AI" as identity. The product is "the first hire your firm doesn't have to make" — it does operational work; it uses AI to do it. The AI is the method, not the identity. This distinction is currently absent from both PRDs and must be added to §2 of the platform PRD and §2 of the law-firm PRD before any marketing copy is derived from them.
+**Critical identity clarification not currently in either PRD:** The CLAUDE.md Claude-first rule ("platform preference only when AI is chosen; NOT firm shape, partnership status, or named stack components") means the marketing surface for Operator must not lead with "AI" as identity. The product is "the first hire your firm doesn't have to make" — it does operational work; it uses AI to do it. The AI is the method, not the identity. This distinction is currently absent from both PRDs and must be added to §2 of the platform PRD and §2 of the law-firm PRD before any marketing copy is derived from them.
 
 ---
 
@@ -289,7 +289,7 @@ Phase 1 closes when ALL of the following are true:
 2. Voice blind-test gate documented and Captain has rehearsed calibration protocol
 3. COGS modeling for Light/Medium/Heavy profiles complete and Captain has a pricing response
 4. DPA template reviewed by external counsel and ready to execute
-5. Operations runbook at `docs/runbooks/ai-employee-ops.md` drafted (not just planned)
+5. Operations runbook at `docs/runbooks/operator-ops.md` drafted (not just planned)
 6. The 5 load-bearing ADRs from the ADR section above are authored and merged
 7. Multi-user role model (Principal + Operator, minimum) designed and implementation-ready
 8. PI firm meeting scheduled or scheduled window documented

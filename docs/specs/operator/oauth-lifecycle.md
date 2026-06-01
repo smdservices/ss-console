@@ -5,8 +5,8 @@
 ## Source
 
 - platform-prd.md §7 (no existing OAuth subsection; this becomes §7.9), §18 (Risks)
-- `docs/pm/ai-employee/prd-contributions/round-1/technical-lead.md` Risk 1, Blocking Item #1
-- `docs/pm/ai-employee/prd-contributions/round-1/business-analyst.md` EC-004/005/006
+- `docs/pm/operator/prd-contributions/round-1/technical-lead.md` Risk 1, Blocking Item #1
+- `docs/pm/operator/prd-contributions/round-1/business-analyst.md` EC-004/005/006
 - PR #812 `ai-employee/connectors/lawpay/src/ai_employee_lawpay/oauth.py` (file-based reference impl)
 
 ## Contract
@@ -46,7 +46,7 @@ When a refresh token itself is revoked or expired (Microsoft: 90 days unused; La
 3. Audit-log event `CONNECTOR_AUTH_EXPIRED` written with connector, scopes lost, timestamp.
 4. Captain alert fired (control plane notification — see Captain alert mechanism below).
 5. Captain initiates re-consent: runs `bin/reauth-connector.sh {customer-slug} {connector}` which generates an OAuth authorize URL and emails it to the customer's principal user.
-6. Customer clicks the link, completes OAuth consent in their browser. Callback hits `https://portal.smd.services/ai-employee/oauth/{connector}/callback` (portal subdomain; customer-facing). The portal callback handler proxies the OAuth code back to the customer's per-Machine `/opt/data/oauth/` write path via the per-customer Fly internal network. The admin subdomain stays role-gated for SMD operations only.
+6. Customer clicks the link, completes OAuth consent in their browser. Callback hits `https://portal.smd.services/operator/oauth/{connector}/callback` (portal subdomain; customer-facing). The portal callback handler proxies the OAuth code back to the customer's per-Machine `/opt/data/oauth/` write path via the per-customer Fly internal network. The admin subdomain stays role-gated for SMD operations only.
 7. Captain receives confirmation. New tokens written to the Machine's Fly volume at `/opt/data/oauth/{connector}.json` per ADR 0010. Connector status restored.
 8. Audit-log event `CONNECTOR_AUTH_RESTORED`.
 
@@ -92,7 +92,7 @@ Scopes declared per adapter in `ai-employee/connectors/<capability>/<system>/oau
 ## Verification
 
 1. **Unit tests** at `ai-employee/connectors/<system>/tests/test_oauth.py` cover: token storage round-trip, refresh-on-expiry, refresh-failure → degraded mode, re-consent URL generation.
-2. **Integration test:** `tests/ai-employee/oauth-degraded-mode.test.ts` provisions a fixture customer, force-expires a token, verifies the connector enters degraded mode within 30s and the audit-log event is written.
+2. **Integration test:** `tests/operator/oauth-degraded-mode.test.ts` provisions a fixture customer, force-expires a token, verifies the connector enters degraded mode within 30s and the audit-log event is written.
 3. **Daily probe** (Captain control plane): a scheduled Cloudflare Worker hits `health_check()` on every connector for every active customer; failures emit `CONNECTOR_HEALTH_PROBE_FAILED` audit events and a Captain alert.
 4. **Pre-deploy gate:** `provision-customer.sh` step 7 (native OAuth init) runs `health_check()` on every enabled connector. Any failure aborts provisioning.
 
@@ -101,7 +101,7 @@ Scopes declared per adapter in `ai-employee/connectors/<capability>/<system>/oau
 - Reference Python impl at `ai-employee/connectors/lawpay/src/ai_employee_lawpay/oauth.py` already exists in PR #812 and follows the ADR 0010 Fly-volume pattern. No Infisical hook needed.
 - New module: `ai-employee/adapter/oauth_lifecycle.py` provides shared `TokenStore` (Fly-volume-backed), `RefreshScheduler`, `ReauthFlow` classes used by all connectors.
 - New script: `bin/reauth-connector.sh` (Captain-invoked, generates URL, emails customer).
-- Astro route at `src/pages/portal/products/ai-employee/oauth/[connector]/callback.astro` handles OAuth callbacks on the portal subdomain (customer-facing); proxies the code to the per-customer Machine via Fly internal network. Admin subdomain stays role-gated.
+- Astro route at `src/pages/portal/products/operator/oauth/[connector]/callback.astro` handles OAuth callbacks on the portal subdomain (customer-facing); proxies the code to the per-customer Machine via Fly internal network. Admin subdomain stays role-gated.
 - Daily probe Worker: `infra/workers/oauth-probe/worker.ts`; scheduled cron 0 5 \* \* \* (5am UTC, before morning digest at 8am).
 - Audit log events live in D1 `audit_log` table per d1-schema.md.
 
@@ -109,4 +109,4 @@ Scopes declared per adapter in `ai-employee/connectors/<capability>/<system>/oau
 
 **Composio dropped (ADR 0020, 2026-05-30 revision).** Earlier revisions of this spec routed Gmail, Slack, and similar connectors through Composio's managed OAuth infra and enforced per-connection isolation via a `composio_assertion.py` runtime guard. Composio is now fully retired: every connector is either a vendor-direct/vetted-community MCP (per-user or per-tenant OAuth managed at the MCP layer) or a `build:` adapter using the ADR 0010 Fly-volume token-storage pattern. There is no `composio:` backend, no shared `COMPOSIO_API_KEY`, and no per-connection isolation guard. The token-lifecycle machinery in this spec applies to `build:` adapters; `mcp:` connectors delegate OAuth to the MCP server.
 
-**Re-consent callback URL.** Callbacks land on the portal subdomain (`portal.smd.services/ai-employee/oauth/{connector}/callback`), not admin. Customer-facing OAuth flows belong on the portal where the authenticated customer is already operating; the admin subdomain stays role-gated for SMD operations only. The portal callback handler proxies the OAuth code to the per-customer Machine's `/opt/data/oauth/` write path via the Fly internal network. No new attack surface on admin.
+**Re-consent callback URL.** Callbacks land on the portal subdomain (`portal.smd.services/operator/oauth/{connector}/callback`), not admin. Customer-facing OAuth flows belong on the portal where the authenticated customer is already operating; the admin subdomain stays role-gated for SMD operations only. The portal callback handler proxies the OAuth code to the per-customer Machine's `/opt/data/oauth/` write path via the Fly internal network. No new attack surface on admin.

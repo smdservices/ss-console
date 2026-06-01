@@ -4,8 +4,8 @@
 
 ## Source
 
-- [Platform PRD](../../pm/ai-employee/platform-prd.md) §16 (demo-flow requirements)
-- [Law Firm PRD](../../pm/ai-employee/law-firm-prd.md) §11, §12.5 (demo readiness)
+- [Platform PRD](../../pm/operator/platform-prd.md) §16 (demo-flow requirements)
+- [Law Firm PRD](../../pm/operator/law-firm-prd.md) §11, §12.5 (demo readiness)
 - [PR #832](https://github.com/venturecrane/ss-console/pull/832) — 8 synthetic PI matter fixtures
 - [PR #944](https://github.com/venturecrane/ss-console/pull/944) — memory ingestion pipeline (substrate writer the loader composes with)
 - [PR #951](https://github.com/venturecrane/ss-console/pull/951) — voice ingestion pipeline (substrate writer the loader composes with)

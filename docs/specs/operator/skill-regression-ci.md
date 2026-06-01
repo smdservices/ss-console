@@ -145,7 +145,7 @@ The default list lives in `DEFAULT_SKILL_SLUGS` in the harness. New skills join 
 - `ai-employee/tests/skill_regression.py`: the harness
 - `ai-employee/tests/golden/<skill>/<fixture>.json`: committed goldens
 - `ai-employee/tests/README-regression.md`: operator notes for partners and engineers
-- `docs/specs/ai-employee/skill-regression-ci.md`: this spec
+- `docs/specs/operator/skill-regression-ci.md`: this spec
 
 ## Acceptance criteria mapping (issue #825)
 

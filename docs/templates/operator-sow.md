@@ -1,4 +1,4 @@
-# AI Employee — Statement of Work
+# Operator — Statement of Work
 
 **Between:** SMD Services, a division of SMDurgan, LLC ("SMD")
 **And:** {{CUSTOMER_LEGAL_NAME}} ("Customer")
@@ -10,7 +10,7 @@
 
 ## 1. The Service
 
-SMD will deliver an AI Employee service to Customer. The AI Employee is a dedicated AI agent that learns Customer's business and acts on Customer's behalf within the scope and trust boundaries set out in Exhibit A.
+SMD will deliver an Operator service to Customer. The Operator is a dedicated AI agent that learns Customer's business and acts on Customer's behalf within the scope and trust boundaries set out in Exhibit A.
 
 The agent is named **{{AGENT_NAME}}** (Customer's choice during onboarding). It operates under Customer's direction, communicates via the channels Customer authorizes (email, Slack, etc.), and works within the connectors Customer authenticates.
 
@@ -105,7 +105,7 @@ To the maximum extent permitted by law, neither party will be liable to the othe
 
 ## 13. Intellectual Property
 
-- SMD retains rights to its underlying methodology, runbooks, skill libraries, and the AI Employee service.
+- SMD retains rights to its underlying methodology, runbooks, skill libraries, and the Operator service.
 - Customer retains rights to all of its content, business data, and outputs the agent produces on Customer's behalf.
 - The agent's configuration for Customer (vault contents, brand-voice samples, skill tuning) is Customer's property; SMD provides export on termination.
 

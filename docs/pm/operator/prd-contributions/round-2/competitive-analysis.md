@@ -9,7 +9,7 @@
 
 ## Executive readout
 
-The market has moved hard toward "AI workforce" and "AI operating system" language since round 1. The white space identified in round 1 is still real but narrower than initially scoped. AI Employee should not position as "legal AI." That lane is crowded and increasingly dominated by well-funded vendors. It should position as a managed, named AI staffer that works through the firm's existing human review chain. That framing keeps AI Employee out of direct feature-comparison hell with Eve, Law Practice AI, Filevine, Clio, CoCounsel, and EvenUp.
+The market has moved hard toward "AI workforce" and "AI operating system" language since round 1. The white space identified in round 1 is still real but narrower than initially scoped. Operator should not position as "legal AI." That lane is crowded and increasingly dominated by well-funded vendors. It should position as a managed, named Operator that works through the firm's existing human review chain. That framing keeps Operator out of direct feature-comparison hell with Eve, Law Practice AI, Filevine, Clio, CoCounsel, and EvenUp.
 
 The strongest competitive moats are **portability and ownership**, not "what the AI does." Two architectural facts (customer-owned editable memory and reviewer-as-sender) form a combined ethics architecture position that no competitor in the reviewed set publicly matches. Both individually are defensible for 9-18 months; combined, they are a category position rather than a feature differentiator.
 
@@ -29,9 +29,9 @@ Eve has also taken the "AI Workforce" language. They can make that sound bigger 
 
 The wedge is not capability. It is system of residence and ownership.
 
-> **Eve is a plaintiff AI platform. AI Employee is a portable AI staffer with firm-owned memory.**
+> **Eve is a plaintiff AI platform. Operator is a portable, firm-owned operating layer with persistent memory.**
 
-Eve gives a firm AI agents that operate **inside Eve's platform**. AI Employee gives a firm a persona that lives in the firm's **own** inbox, calendar, and case system, configured to the firm's voice, with memory that belongs to the firm. The persona does not move when the firm changes its case-management system. If the firm churns off the AI Employee platform, the persona leaves with its memory artifact intact and exportable.
+Eve gives a firm AI agents that operate **inside Eve's platform**. Operator gives a firm a persona that lives in the firm's **own** inbox, calendar, and case system, configured to the firm's voice, with memory that belongs to the firm. The persona does not move when the firm changes its case-management system. If the firm churns off the Operator platform, the persona leaves with its memory artifact intact and exportable.
 
 This wedge changes the axis of comparison from "what can the AI do?" to "whose AI is it, and what happens if you leave?"
 
@@ -39,13 +39,13 @@ This wedge changes the axis of comparison from "what can the AI do?" to "whose A
 
 Approved cross-vertical demo answer:
 
-> Eve is a plaintiff-firm AI platform. It is strong, but the AI lives inside Eve's product. AI Employee is different: the persona lives in your firm's inbox, calendar, and case system, works through your reviewer, follows your voice rules, and carries a firm-owned editable memory artifact. We are not asking you to move your firm into our platform. We are giving you a staffer-shaped operating layer that can follow your firm across systems.
+> Eve is a plaintiff-firm AI platform. It is strong, but the AI lives inside Eve's product. Operator is different: the persona lives in your firm's inbox, calendar, and case system, works through your reviewer, follows your voice rules, and carries a firm-owned editable memory artifact. We are not asking you to move your firm into our platform. We are giving you a staffer-shaped operating layer that can follow your firm across systems.
 
 ### Stress test: questions a sophisticated partner will ask
 
 **"Isn't this just semantics? Eve also says agents do case work."**
 
-No. The boundary is not "does it do case work?" The boundary is system of residence. Eve's public copy says Eve is "the only legal AI that works your whole case with you" and lists intake, discovery, demand letters, drafting, and auditor capabilities. AI Employee's argument is that the persona is not a feature inside a vendor workspace. It is a firm-operating identity connected to the firm's existing surfaces.
+No. The boundary is not "does it do case work?" The boundary is system of residence. Eve's public copy says Eve is "the only legal AI that works your whole case with you" and lists intake, discovery, demand letters, drafting, and auditor capabilities. Operator's argument is that the persona is not a feature inside a vendor workspace. It is a firm-operating identity connected to the firm's existing surfaces.
 
 **"If Eve already learns writing style, what is different about your memory?"**
 
@@ -55,7 +55,7 @@ But that is still style learning and drafting-agent configuration based on sampl
 
 **"What happens if we leave you?"**
 
-The strongest answer: you leave with the memory artifact. The AI staffer's operating memory is not trapped in our hidden prompt layer or proprietary case database. The customer's contract grants them ownership of every artifact in their namespace ([ADR 0008](../../../adr/0008-customer-owned-memory-artifact.md)). Offboarding produces a portable export and then verifiable deletion.
+The strongest answer: you leave with the memory artifact. The Operator's operating memory is not trapped in our hidden prompt layer or proprietary case database. The customer's contract grants them ownership of every artifact in their namespace ([ADR 0008](../../../adr/0008-customer-owned-memory-artifact.md)). Offboarding produces a portable export and then verifiable deletion.
 
 That is a real ownership wedge. It resonates with a managing partner who has been burned by software lock-in.
 
@@ -86,7 +86,7 @@ On public evidence, the answer is no across the reviewed set.
 
 Most legal AI vendors are converging on some version of: upload documents, learn style, ground in matters, configure workflows, apply playbooks, create firmwide knowledge base, maintain audit logs. Those are useful, but they keep the AI's belief state mostly opaque.
 
-SMD's customer-owned memory artifact (per [ADR 0008](../../../adr/0008-customer-owned-memory-artifact.md)) is the **firm-readable operating manual** for the AI staffer. That positioning answers five partner-level fears simultaneously:
+SMD's customer-owned memory artifact (per [ADR 0008](../../../adr/0008-customer-owned-memory-artifact.md)) is the **firm-readable operating manual** for the Operator. That positioning answers five partner-level fears simultaneously:
 
 1. **Trust:** "What does this AI think it knows?"
 2. **Control:** "Can we correct it?"
@@ -190,9 +190,9 @@ The external research team recommended a $3,500-$7,500/month band with a $5,000/
 
 Three points worth preserving for internal use:
 
-- **Software floor.** Clio Duo at $39/user/month and Clio base plans starting at $49/user/month set the floor below which AI Employee appears to be "another AI add-on."
-- **Managed-service ceiling.** EvenUp PLAAS (flat-fee, sales-led pricing) sets the upper boundary below which AI Employee should price to avoid full managed-service comparison.
-- **Per-seat pressure.** Harvey at $1,200-$2,000/seat/month with 20-seat minimum, CoCounsel Core historically cited at $225/user/month — per-seat economics make AI Employee's flat-monthly look generous for 5-20 attorney firms and tight for 3-attorney firms.
+- **Software floor.** Clio Duo at $39/user/month and Clio base plans starting at $49/user/month set the floor below which Operator appears to be "another AI add-on."
+- **Managed-service ceiling.** EvenUp PLAAS (flat-fee, sales-led pricing) sets the upper boundary below which Operator should price to avoid full managed-service comparison.
+- **Per-seat pressure.** Harvey at $1,200-$2,000/seat/month with 20-seat minimum, CoCounsel Core historically cited at $225/user/month — per-seat economics make Operator's flat-monthly look generous for 5-20 attorney firms and tight for 3-attorney firms.
 
 Final price is locked elsewhere.
 
@@ -202,7 +202,7 @@ Final price is locked elsewhere.
 
 This round's outputs are locked in two ADRs:
 
-- **[ADR 0013](../../../adr/0013-ai-employee-positioning-doctrine.md)** — AI Employee positioning doctrine: portable persona, firm-owned memory, reviewer-as-sender as ethics architecture; Eve wedge line; legal-vertical opener ("a managed AI staffer your team reviews before anything leaves the firm"); combined moat stack; flat-monthly removed from moat list.
+- **[ADR 0013](../../../adr/0013-ai-employee-positioning-doctrine.md)** — Operator positioning doctrine: portable persona, firm-owned memory, reviewer-as-sender as ethics architecture; Eve wedge line; legal-vertical opener ("a managed Operator your team reviews before anything leaves the firm"); combined moat stack; flat-monthly removed from moat list.
 - **[ADR 0014](../../../adr/0014-pi-vertical-adapter-build-priority.md)** — Practice-management adapter build priority: Filevine first, CASEpeer second, SmartAdvocate third.
 
 ---
@@ -213,7 +213,7 @@ This round's outputs are locked in two ADRs:
 - [ADR 0006](../../../adr/0006-capability-adapter-pattern.md) — capability-adapter pattern
 - [ADR 0008](../../../adr/0008-customer-owned-memory-artifact.md) — customer-owned memory artifact
 - [ADR 0011](../../../adr/0011-multi-persona-per-customer.md) — multi-persona per customer
-- [ADR 0013](../../../adr/0013-ai-employee-positioning-doctrine.md) — AI Employee positioning doctrine
+- [ADR 0013](../../../adr/0013-ai-employee-positioning-doctrine.md) — Operator positioning doctrine
 - [ADR 0014](../../../adr/0014-pi-vertical-adapter-build-priority.md) — PI vertical adapter build priority
 - [Round-1 competitor analyst contribution](../round-1/competitor-analyst.md)
 - [Round-3 ethics architecture](../round-3/ethics-architecture.md)

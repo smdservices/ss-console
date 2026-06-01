@@ -1,8 +1,8 @@
-# AI Employee v1 SKU Pricing and COGS Model
+# Operator v1 SKU Pricing and COGS Model
 
 > **Status:** v1 PROPOSAL. Captain reviews and finalizes before any customer engagement.
 > **Issue:** [#794](https://github.com/venturecrane/ss-console/issues/794) (supersedes the prior #772 framing that scoped this doc to a single PI meeting deadline).
-> **Companion PRDs:** [`docs/pm/ai-employee/platform-prd.md`](../pm/ai-employee/platform-prd.md) §15 (Pricing Posture), §15.1 (Cost telemetry and SKU margin discipline); [`docs/pm/ai-employee/law-firm-prd.md`](../pm/ai-employee/law-firm-prd.md) §11.7 (The order-taking moment).
+> **Companion PRDs:** [`docs/pm/operator/platform-prd.md`](../pm/operator/platform-prd.md) §15 (Pricing Posture), §15.1 (Cost telemetry and SKU margin discipline); [`docs/pm/operator/law-firm-prd.md`](../pm/operator/law-firm-prd.md) §11.7 (The order-taking moment).
 > **Source decisions:** [ADR 0004](../adr/0004-productized-ai-employee-offering.md) (Productized AI Employee Offering, flat-monthly SKU shape locked, specific price deferred to this doc).
 > **Captain rate used in model:** $200/hr loaded cost per `CLAUDE.md` and platform-prd §15.1. The decision-stack #16 "$175/hr launch" rate is the scope-based-consulting external billing rate; the productized SKU models the higher loaded internal cost because every Captain hour spent on a productized customer is an hour not spent on a billable scope engagement.
 
@@ -10,7 +10,7 @@
 
 ## 1. What this doc covers
 
-This doc models the unit economics of the v1 law-firm AI Employee SKU and proposes a launch price. Per the issue's revised framing, this is a product attribute we need regardless of any specific customer meeting. The prior framing (pricing response framework for a specific 2026-06 PI meeting) is dismissed.
+This doc models the unit economics of the v1 law-firm Operator SKU and proposes a launch price. Per the issue's revised framing, this is a product attribute we need regardless of any specific customer meeting. The prior framing (pricing response framework for a specific 2026-06 PI meeting) is dismissed.
 
 In scope:
 
@@ -21,9 +21,9 @@ In scope:
 
 Out of scope:
 
-- Contract terms (notice, escalation, scope-creep protocol). Filed at [`docs/strategy/ai-employee-service-contract-2026-05-13.md`](./ai-employee-service-contract-2026-05-13.md).
+- Contract terms (notice, escalation, scope-creep protocol). Filed at [`docs/strategy/operator-service-contract-2026-05-13.md`](./operator-service-contract-2026-05-13.md).
 - Customer-facing copy, landing pages, SOW variants.
-- Stack-cost evaluation as a standalone exercise. Filed at [`docs/strategy/ai-employee-stack-evaluation-2026-05-13.md`](./ai-employee-stack-evaluation-2026-05-13.md).
+- Stack-cost evaluation as a standalone exercise. Filed at [`docs/strategy/operator-stack-evaluation-2026-05-13.md`](./operator-stack-evaluation-2026-05-13.md).
 
 ---
 
@@ -236,7 +236,7 @@ The pricing model recovers margin sharply at Phase 1.5 once the playbook deliver
 This structure has three properties the issue requires:
 
 - **Defensible against the COGS model.** $16K MRR vs. Medium-profile $6,552 Phase 1 COGS = 41% COGS ratio, just inside the 40% floor for the Medium customer (the expected v1 median per platform-prd §15.1 framing). Light customers run at ~28% COGS ratio (better margin); Heavy customers run at ~67% COGS ratio (above the floor, triggers a tiered conversation or scope-cap negotiation per §6).
-- **Flat-monthly per platform-prd §15 and ADR 0004.** Customers buy "the AI Employee," not "N seats" or "M resolutions." Pricing positions against headcount substitution per platform-prd §15 ($55-95k loaded paralegal salary as the anchor).
+- **Flat-monthly per platform-prd §15 and ADR 0004.** Customers buy "the Operator," not "N seats" or "M resolutions." Pricing positions against headcount substitution per platform-prd §15 ($55-95k loaded paralegal salary as the anchor).
 - **Single tier maximizes Phase 1 sales velocity.** Per the prior version of this doc's correct analysis, tiering pre-revenue is premature optimization. Three tiers means three pricing conversations and the customer trying to game which tier to buy.
 
 **Margin reality check at $16K/mo flat:**
@@ -354,9 +354,9 @@ These four queue against [#794](https://github.com/venturecrane/ss-console/issue
 - [Cloudflare Vectorize pricing](https://developers.cloudflare.com/vectorize/platform/pricing/) (accessed 2026-05-21)
 - [AgentMail pricing page](https://agentmail.to/pricing) (accessed 2026-05-21)
 - [`CLAUDE.md`](../../CLAUDE.md) Captain $200/hr loaded rate
-- [`docs/pm/ai-employee/platform-prd.md`](../pm/ai-employee/platform-prd.md) §15 Pricing Posture, §15.1 Cost telemetry and SKU margin discipline, §15.2 Captain CLI for operations time-logging, §17.1 Per-customer success metrics
-- [`docs/pm/ai-employee/law-firm-prd.md`](../pm/ai-employee/law-firm-prd.md) §11.7 The order-taking moment, §11.8 Beta-1 Day-1/Week-1/Week-4, §11.9 Calibration session split
+- [`docs/pm/operator/platform-prd.md`](../pm/operator/platform-prd.md) §15 Pricing Posture, §15.1 Cost telemetry and SKU margin discipline, §15.2 Captain CLI for operations time-logging, §17.1 Per-customer success metrics
+- [`docs/pm/operator/law-firm-prd.md`](../pm/operator/law-firm-prd.md) §11.7 The order-taking moment, §11.8 Beta-1 Day-1/Week-1/Week-4, §11.9 Calibration session split
 - [ADR 0004 Productized AI Employee Offering](../adr/0004-productized-ai-employee-offering.md)
-- [`docs/strategy/ai-employee-stack-evaluation-2026-05-13.md`](./ai-employee-stack-evaluation-2026-05-13.md) cost-shape inputs
-- [`docs/strategy/ai-employee-service-contract-2026-05-13.md`](./ai-employee-service-contract-2026-05-13.md) contract guardrails companion
+- [`docs/strategy/operator-stack-evaluation-2026-05-13.md`](./operator-stack-evaluation-2026-05-13.md) cost-shape inputs
+- [`docs/strategy/operator-service-contract-2026-05-13.md`](./operator-service-contract-2026-05-13.md) contract guardrails companion
 - [The Startup Ideas Podcast "The $1M+ Solo AI Agent Business"](https://www.youtube.com/watch?v=BI-MNjm1tTQ) (Greg Isenberg + Nick Vasilescu, 2026-05-12) market-pricing operator anecdotes

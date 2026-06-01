@@ -282,7 +282,7 @@ for the dashboard's "is anything stuck?" indicator.
 Run locally:
 
 ```
-cd ai-employee && uv run --with pytest python -m pytest safety-substrate/tests/test_sticky_stop.py -v
+cd operator && uv run --with pytest python -m pytest safety-substrate/tests/test_sticky_stop.py -v
 ```
 
 ## Failure modes

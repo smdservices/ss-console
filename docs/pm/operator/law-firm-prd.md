@@ -1,9 +1,9 @@
-# AI Employee — Law Firm Vertical PRD
+# Operator — Law Firm Vertical PRD
 
 > **Status:** v0 draft (2026-05-19). Captain review pending.
 > **Companion docs:** `platform-prd.md` (the platform spine this vertical extends).
-> **Source decisions:** ADR 0004 (Productized AI Employee Offering).
-> **Supporting strategy:** `docs/strategy/ai-employee-functional-shape-2026-05-13.md`, `docs/strategy/ai-employee-stack-evaluation-2026-05-13.md`, `docs/strategy/ai-employee-connector-coverage-2026-05-14.md`.
+> **Source decisions:** ADR 0004 (Productized Operator Offering).
+> **Supporting strategy:** `docs/strategy/operator-functional-shape-2026-05-13.md`, `docs/strategy/operator-stack-evaluation-2026-05-13.md`, `docs/strategy/operator-connector-coverage-2026-05-14.md`.
 > **Working context:** First customer meeting is a 20-year-old PI litigation firm ($300k+ settlements) in the 2026-06-02 to 2026-06-09 window. No pre-meeting discovery.
 
 ## Table of Contents
@@ -49,9 +49,9 @@ The expansion roadmap in §13 (WC / SSD / immigration / estate / family next) is
 
 ## 1. Executive Summary
 
-The AI Employee platform's first vertical pack is **law firms**. The pack ships with: a law-specific skill catalog (6 specialized dedicated skills + practice-area overlays), a law-specific connector strategy spanning practice management / intake / e-sign / court / payments / accounting, a bar-ethics-defensible disclosure posture (the paralegal frame), and a walk-in-cold demo design tuned for a hostile-curious-but-buyer-grade audience.
+The Operator platform's first vertical pack is **law firms**. The pack ships with: a law-specific skill catalog (6 specialized dedicated skills + practice-area overlays), a law-specific connector strategy spanning practice management / intake / e-sign / court / payments / accounting, a bar-ethics-defensible disclosure posture (the paralegal frame), and a walk-in-cold demo design tuned for a hostile-curious-but-buyer-grade audience.
 
-The product is positioned to law firms as "the first hire you don't have to make" — a configurable, persistent AI staffer that handles intake, conflict-checks, document collection, deadline tracking, status updates, signing chases, billing reconciliation, and red-flag watching. The agent ghostwrites; the partner reviews and sends from their own identity. The product never produces citation-bearing legal arguments, never executes trust transactions, never files anything to a court without partner approval. The boundary is principled and constant.
+The product is positioned to law firms as Operator — a configurable, persistent agent that handles intake, conflict-checks, document collection, deadline tracking, status updates, signing chases, billing reconciliation, and red-flag watching. The agent ghostwrites; the partner reviews and sends from their own identity. The product never produces citation-bearing legal arguments, never executes trust transactions, never files anything to a court without partner approval. The boundary is principled and constant.
 
 The first proof point is a single high-end PI litigation firm demo in 2026-06. The vertical pack must support not just that demo but any law firm we walk into thereafter — across PI, family, estate, corporate, real estate, criminal, immigration, bankruptcy, employment, IP, tax, civil litigation, workers' comp, SSD, education, elder, and T&E litigation practices.
 
@@ -69,7 +69,7 @@ The competitive white space the legal pack claims:
 
 **What this is:**
 
-A complete law-firm pack on top of the AI Employee platform. The pack adds: law-specific skill overlays, law-specific connector adapters, bar-ethics-aware compliance language, legal-vocabulary-fluent voice defaults, and a walk-in-cold demo framework calibrated to the buyer profile of established law firms.
+A complete law-firm pack on top of the Operator platform. The pack adds: law-specific skill overlays, law-specific connector adapters, bar-ethics-aware compliance language, legal-vocabulary-fluent voice defaults, and a walk-in-cold demo framework calibrated to the buyer profile of established law firms.
 
 **What this is NOT:**
 
@@ -78,7 +78,7 @@ A complete law-firm pack on top of the AI Employee platform. The pack adds: law-
 - **Not a Clio replacement.** Or a Filevine replacement. The agent runs _alongside_ the customer's practice management; it does not replace it. We integrate via OAuth and respect their system of record.
 - **Not a vertical-locked persona.** The agent's persona is named per-firm and configured to the firm's voice. Internal-facing only — externally the partner is always the sender.
 
-**Working name:** "AI Employee — Law Firm" (the platform's product name; per-firm persona name is configured during onboarding).
+**Working name:** "Operator — Law Firm" (the platform's product name; per-firm persona name is configured during onboarding).
 
 **Voice standard for law:** The platform's voice principles (per platform PRD §2) plus law-specific defaults — formal-but-warm, never effusive, no exclamation marks in client communication, no contractions in formal letters, no em dashes (carried from SMD voice standard).
 
@@ -114,7 +114,7 @@ In PI: often a case manager handling 80-150 active matters across the firm.
 In family law: a paralegal carrying intake, financial disclosures, and emotional client communication.
 In other practices: equivalent role.
 
-**Critical: the paralegal's substitution anxiety must be addressed, not avoided.** The "first hire your firm doesn't have to make" framing reads to the paralegal as "the first paralegal you don't have to keep." The Captain who pitches the product to the partner without engaging the paralegal as a co-buyer creates an internal stakeholder with every reason to slow the rollout, miscalibrate the agent on purpose, or quietly route around it.
+**Critical: the paralegal's substitution anxiety must be addressed, not avoided.** The "first hire" framing reads to the paralegal as "the first paralegal you don't have to keep." The Captain who pitches the product to the partner without engaging the paralegal as a co-buyer creates an internal stakeholder with every reason to slow the rollout, miscalibrate the agent on purpose, or quietly route around it.
 
 What they need:
 
@@ -355,7 +355,7 @@ These extend the platform's 9 cross-cutting skills with law-firm-aware versions:
 
 The law-firm pack ships a tiered, additive connector strategy. Tier 0 connectors work for any firm regardless of practice management. Tier 1 covers the specific PM systems law firms use. Tier 2 covers adjacent legal tools (intake, court, accounting, communications). All adapters implement the platform's capability interfaces (platform PRD §7.2).
 
-**How adapters wire into a customer.** Each customer's connector bindings live in `customer.yaml` under the `connectors:` map, keyed by canonical capability name. The formal schema — including the secret-exclusion rules that protect privilege (no literal OAuth tokens, no API keys; only `token_ref: 'infisical:/...'`) — is at [`docs/specs/ai-employee/customer-yaml-schema.md`](../../specs/ai-employee/customer-yaml-schema.md). Platform PRD §7.3 shows the worked example. For a law-firm tenant, a leaked credential in git history is a privilege-breach with bar-discipline consequences — the validator and secret detector at [`src/lib/ai-employee/customer-yaml/`](../../../src/lib/ai-employee/customer-yaml/) gate merges before any literal secret enters history.
+**How adapters wire into a customer.** Each customer's connector bindings live in `customer.yaml` under the `connectors:` map, keyed by canonical capability name. The formal schema — including the secret-exclusion rules that protect privilege (no literal OAuth tokens, no API keys; only `token_ref: 'infisical:/...'`) — is at [`docs/specs/operator/customer-yaml-schema.md`](../../specs/operator/customer-yaml-schema.md). Platform PRD §7.3 shows the worked example. For a law-firm tenant, a leaked credential in git history is a privilege-breach with bar-discipline consequences — the validator and secret detector at [`src/lib/operator/customer-yaml/`](../../../src/lib/operator/customer-yaml/) gate merges before any literal secret enters history.
 
 ### 7.1 Tier 0 — Universal connectors (pre-built, every demo)
 
@@ -519,7 +519,7 @@ Per platform PRD §13.2: **internal-facing AI disclosure is fully present; exter
 Concretely:
 
 - **PA / Utah clients**: the platform enables explicit AI-use language in the firm's engagement letter (delivered via the `law-engagement-letter-jurisdictional` skill). The firm's standard engagement template includes the AI clause for PA/UT clients automatically; partner reviews per usual.
-- **All other states**: no external disclosure required. The firm operates the AI Employee under the same supervision frame it uses for paralegal work. No AI footer in external communication.
+- **All other states**: no external disclosure required. The firm operates the Operator under the same supervision frame it uses for paralegal work. No AI footer in external communication.
 
 ### 8.4 The paralegal frame
 
@@ -632,12 +632,12 @@ The platform PRD (§6) lays out the seven competitor shapes. Here's the law-firm
 
 EvenUp's PLAAS launched May 13, 2026, six days before this PRD review. The PI prospect may have already encountered it. Captain needs an answer ready cold:
 
-PLAAS is a managed service, not an agent. EvenUp staffs U.S.-based human case managers and pairs them with AI to handle the pre-litigation lifecycle from sign-up through settlement. The labor cost is embedded in the price. There is no named AI teammate the firm hires by name. There is no customer-editable memory the partner can read or correct. PLAAS produces work; AI Employee produces drafts that a named human reviewer sends from their own identity. The governance architecture is structurally different. For a PI partner deciding between the two:
+PLAAS is a managed service, not an agent. EvenUp staffs U.S.-based human case managers and pairs them with AI to handle the pre-litigation lifecycle from sign-up through settlement. The labor cost is embedded in the price. There is no named AI teammate the firm hires by name. There is no customer-editable memory the partner can read or correct. PLAAS produces work; Operator produces drafts that a named human reviewer sends from their own identity. The governance architecture is structurally different. For a PI partner deciding between the two:
 
 - PLAAS: you outsource pre-litigation operations to EvenUp's staff plus their AI. Variable cost. Pre-litigation only.
-- AI Employee: you hire a named AI teammate who drafts work in your firm's voice across the full matter lifecycle, your paralegals supervise and send, and you can read and edit what it knows about your firm. Flat per-firm cost. Intake through closing.
+- Operator: you hire a named AI teammate who drafts work in your firm's voice across the full matter lifecycle, your paralegals supervise and send, and you can read and edit what it knows about your firm. Flat per-firm cost. Intake through closing.
 
-The right comparison is not "AI vs. AI." It is "managed service vs. supervised agent." Some PI partners will prefer PLAAS for the human-in-the-loop trust signal; AI Employee's reviewer-as-sender architecture is designed to deliver the same trust signal through structure rather than staffing.
+The right comparison is not "AI vs. AI." It is "managed service vs. supervised agent." Some PI partners will prefer PLAAS for the human-in-the-loop trust signal; Operator's reviewer-as-sender architecture is designed to deliver the same trust signal through structure rather than staffing.
 
 ### 10.2 The platform-level threat: Microsoft Copilot
 
@@ -653,14 +653,14 @@ Our differentiation against Copilot:
 
 ### 10.3 The demo-day one-liner (law-firm-specialized)
 
-> "Harvey is a research desk. EvenUp PLAAS is a managed service with staff. Clio Duo is a feature inside your PM. Eve runs AI agents that execute tasks. Hermes is the staffer with one identity across every surface, drafts in your firm's voice, never sends, supervised exactly like your paralegals are, and you can read and edit what it knows about your firm. No one else ships editable customer-owned memory plus reviewer-as-sender plus flat-per-firm under one identity."
+> "Harvey is a research desk. EvenUp PLAAS is a managed service with staff. Clio Duo is a feature inside your PM. Eve runs AI agents that execute tasks. Hermes is the operator with one identity across every surface, drafts in your firm's voice, never sends, supervised exactly like your paralegals are, and you can read and edit what it knows about your firm. No one else ships editable customer-owned memory plus reviewer-as-sender plus flat-per-firm under one identity."
 
 ### 10.4 PI-specific positioning notes
 
 For the named PI firm meeting, the closest competitors the partners will know are **Eve Legal** (AI Workforce: Agents + Auditor + Analyst; 1,000+ plaintiff firms), **EvenUp + PLAAS** (managed pre-litigation lifecycle), and possibly **Law Practice AI** (300+ PI firms; "five-solution" operating system). The differentiators against each:
 
-- vs. Eve: Eve's AI Agents execute tasks for the firm; AI Employee drafts work in the firm's voice and a named reviewer sends from their own account. The governance architecture is different. Eve has no customer-editable memory; AI Employee surfaces memory as a first-class artifact.
-- vs. EvenUp PLAAS: PLAAS is a managed service with embedded U.S. human case managers covering pre-litigation only. AI Employee is a named AI teammate covering the full matter lifecycle, with reviewer-as-sender governance and editable memory. The right framing is "managed service vs. supervised agent."
+- vs. Eve: Eve's AI Agents execute tasks for the firm; Operator drafts work in the firm's voice and a named reviewer sends from their own account. The governance architecture is different. Eve has no customer-editable memory; Operator surfaces memory as a first-class artifact.
+- vs. EvenUp PLAAS: PLAAS is a managed service with embedded U.S. human case managers covering pre-litigation only. Operator is a named AI teammate covering the full matter lifecycle, with reviewer-as-sender governance and editable memory. The right framing is "managed service vs. supervised agent."
 - vs. Law Practice AI: a vertical SaaS with five workflow tools. Conceptually adjacent to "one identity, every surface" but appears to be task-tool oriented rather than a persistent-identity agent with reviewer-as-sender and editable memory. Threat level medium pending product detail.
 
 ---
@@ -673,7 +673,7 @@ The meeting context: walk into a 20-year-old PI firm cold. No pre-meeting discov
 
 | Phase                          | Duration | What happens                                                                                                                                                                                                                                               |
 | ------------------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Opener + framing**           | 5 min    | Brief introduction of SMD and AI Employee. State the principled boundary up front (operational supply chain, not judgment-bearing core).                                                                                                                   |
+| **Opener + framing**           | 5 min    | Brief introduction of SMD and Operator. State the principled boundary up front (operational supply chain, not judgment-bearing core).                                                                                                                      |
 | **Discovery**                  | 10 min   | Informal conversation. "Walk us through Monday morning. Where does intake come from? What system runs matters? What's the most expensive thing you wish you didn't have to do?" Take structured notes that map directly to configuration UI.               |
 | **Live configuration**         | 5 min    | Open the dashboard. Type firm name. Select connectors (Outlook + Filevine + DocuSign + LawPay + Lawmatics + CallRail — based on what they said). Pick the PI overlay. Click Provision. Watch agent come up in 30 seconds. **The aircraft carrier moment.** |
 | **Catalog browse**             | 5 min    | Show the full skill catalog (30+ skills visible). "Tell us where to drill first."                                                                                                                                                                          |
@@ -729,7 +729,7 @@ Per platform PRD §16.2 (revised approach): the demo opens with the agent **alre
 
 **At the meeting — minute 0 to minute 1: open with consent framing.**
 
-> "Before we got here, we built a sandbox version of an AI Employee shaped for your firm — based only on what's published on your website. We did this so you could see what 'configured for our firm' actually looks like instead of a generic demo. We didn't access anything that isn't already public. Want us to walk through exactly what we read before we go further?"
+> "Before we got here, we built a sandbox version of an Operator shaped for your firm — based only on what's published on your website. We did this so you could see what 'configured for our firm' actually looks like instead of a generic demo. We didn't access anything that isn't already public. Want us to walk through exactly what we read before we go further?"
 
 This is the _invitation_, not a flex. If the partner declines the pre-provision, we drop to a generic-PI demo without the firm-specific configuration. If they accept (most will, after the explicit acknowledgment), proceed.
 
@@ -776,7 +776,7 @@ This turns a connector limitation into a strategic value-add.
 
 Show audit log + compliance view + per-state engagement clause library on screen.
 
-**The compliance evidence packet is the artifact behind this moment.** When Susan (firm's outside counsel) asks to see "everything Marcus did and the controls that governed him," Captain generates a packet via the `compliance-audit-export` skill: plain-language README on top, auto-rendered summary PDF, structured audit-log CSV with a human-narrated companion, the firm's customer.yaml (secrets redacted) showing the scope and trust ceilings, the safety-substrate boot logs, the per-state engagement-letter clauses including the Pennsylvania and Utah disclosure language, and Captain's countersignature over the hash set. The packet contents are specified in [platform-prd.md §13.6](./platform-prd.md#136-compliance-evidence-packet-structure) with the full template at [`docs/specs/ai-employee/compliance-evidence-packet.md`](../../specs/ai-employee/compliance-evidence-packet.md). Susan reads it end-to-end without needing a technical background; the technical artifacts are there if she wants to verify a specific claim.
+**The compliance evidence packet is the artifact behind this moment.** When Susan (firm's outside counsel) asks to see "everything Marcus did and the controls that governed him," Captain generates a packet via the `compliance-audit-export` skill: plain-language README on top, auto-rendered summary PDF, structured audit-log CSV with a human-narrated companion, the firm's customer.yaml (secrets redacted) showing the scope and trust ceilings, the safety-substrate boot logs, the per-state engagement-letter clauses including the Pennsylvania and Utah disclosure language, and Captain's countersignature over the hash set. The packet contents are specified in [platform-prd.md §13.6](./platform-prd.md#136-compliance-evidence-packet-structure) with the full template at [`docs/specs/operator/compliance-evidence-packet.md`](../../specs/operator/compliance-evidence-packet.md). Susan reads it end-to-end without needing a technical background; the technical artifacts are there if she wants to verify a specific claim.
 
 ### 11.7 The order-taking moment
 
@@ -791,7 +791,7 @@ The demo's last 15+ minutes are explicit: we are taking the order, not pitching.
 
 The answers shape: skill prioritization, connector roadmap, beta-1 contract terms, persona configuration, and customer-profile classification (Light/Medium/Heavy per platform-prd §15.1) which feeds the pricing conversation.
 
-**Pricing.** The v1 law-firm SKU price, COGS model, and assumptions ledger live in [`docs/strategy/ai-employee-pricing-2026-05-13.md`](../../strategy/ai-employee-pricing-2026-05-13.md). Captain finalizes before quoting any customer. The order-taking conversation does not require a pricing commitment in the room; the pricing doc supports either an in-meeting quote (if the firm is ready) or a follow-on quote in writing (the more common path).
+**Pricing.** The v1 law-firm SKU price, COGS model, and assumptions ledger live in [`docs/strategy/operator-pricing-2026-05-13.md`](../../strategy/operator-pricing-2026-05-13.md). Captain finalizes before quoting any customer. The order-taking conversation does not require a pricing commitment in the room; the pricing doc supports either an in-meeting quote (if the firm is ready) or a follow-on quote in writing (the more common path).
 
 ### 11.8 Beta-1 Day-1 / Week-1 / Week-4 partner experience
 

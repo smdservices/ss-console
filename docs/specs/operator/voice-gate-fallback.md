@@ -5,8 +5,8 @@
 ## Source
 
 - platform-prd.md §9.6 (Voice quality gates)
-- `docs/pm/ai-employee/prd-contributions/synthesis-round-1.md` Theme 10
-- `docs/pm/ai-employee/prd-contributions/round-1/target-customer.md` (Make-or-Break list)
+- `docs/pm/operator/prd-contributions/synthesis-round-1.md` Theme 10
+- `docs/pm/operator/prd-contributions/round-1/target-customer.md` (Make-or-Break list)
 
 ## Contract
 
@@ -66,16 +66,16 @@ Captain runs the disclosure protocol:
 ## Verification
 
 1. **Gate runner**: `bin/run-voice-gate.sh {customer-slug} {sample-set-id}` drives the blind-test, records judge inputs, computes score, writes `audit_log` event.
-2. **Internal-drafts-only test** (`tests/ai-employee/voice-gate-internal-only.test.ts`): flip `external_send_blocked_by_voice_gate = 1` on a fixture customer; assert every `external_send`-class draft is routed to notes/, every send API returns 403, dashboard banner is rendered.
+2. **Internal-drafts-only test** (`tests/operator/voice-gate-internal-only.test.ts`): flip `external_send_blocked_by_voice_gate = 1` on a fixture customer; assert every `external_send`-class draft is routed to notes/, every send API returns 403, dashboard banner is rendered.
 3. **Disclosure artifact test**: generate a fixture disclosure summary; assert the R2 key, format, and partner-readable language match the template in `templates/voice-gate-disclosure.md`.
 4. **Cycle bound test**: simulate 3 near-pass scores; assert the third triggers state transition to Fail.
 
 ## Implementation notes
 
 - New file: `templates/voice-gate-disclosure.md` — Captain-readable template with placeholders for score, judge names, sample IDs.
-- New script: `bin/run-voice-gate.sh` orchestrates the blind-test. Judge inputs collected via dashboard form at `/portal/ai-employee/voice-gate/{run-id}` (compliance role-restricted; only invited judges see it).
-- API gate: `src/pages/api/ai-employee/drafts/[draft_id]/approve.ts` rejects with 403 when `external_send_blocked_by_voice_gate = 1` AND the draft's skill action class is `external_send`.
-- Dashboard banner: `src/components/ai-employee/VoiceGateBanner.tsx` reads the latest `audit_log` `VOICE_GATE_*` event for this customer.
+- New script: `bin/run-voice-gate.sh` orchestrates the blind-test. Judge inputs collected via dashboard form at `/portal/operator/voice-gate/{run-id}` (compliance role-restricted; only invited judges see it).
+- API gate: `src/pages/api/operator/drafts/[draft_id]/approve.ts` rejects with 403 when `external_send_blocked_by_voice_gate = 1` AND the draft's skill action class is `external_send`.
+- Dashboard banner: `src/components/operator/VoiceGateBanner.tsx` reads the latest `audit_log` `VOICE_GATE_*` event for this customer.
 - Cross-reference law-firm-prd.md §11.9 (Calibration session split) — the per-cohort calibration session feeds the sample set used in the gate.
 
 ## Resolved decision — judge pool for solo practitioners
@@ -86,4 +86,4 @@ For solo practitioners (no firm staff to recruit as judges), Captain serves as o
 
 Why this over a relaxed threshold: the blind-test gate exists to enforce independent verification. Relaxing the threshold for the solo cohort weakens the safety floor exactly where independent verification matters most (a solo practitioner has the least staff oversight to catch a voice mismatch in flight). Captain time is a real cost (~30-60 min per gate per customer); we accept that cost to preserve the floor.
 
-[AMBIGUITY: Pricing strategy doc (`docs/strategy/ai-employee-pricing-2026-05-13.md`) does not yet specify internal-drafts-only retainer math. This spec assumes 50-60% but the actual number is gated on §15.1 cost modeling. Resolve before first customer signs.]
+[AMBIGUITY: Pricing strategy doc (`docs/strategy/operator-pricing-2026-05-13.md`) does not yet specify internal-drafts-only retainer math. This spec assumes 50-60% but the actual number is gated on §15.1 cost modeling. Resolve before first customer signs.]
