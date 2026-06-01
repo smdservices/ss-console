@@ -65,8 +65,12 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # connectors into the profile's mcp_servers block (AgentMail is the first
 # vendor), bans the agentmail autonomous-send tools at the trust layer, and
 # makes the profile-config write atomic (recovers a root-owned config.yaml).
+# v0.4.4 adds the voice render-signal fix (#28): render_sample_block now surfaces
+# the stored rhythm signal (sentence-length distribution + punctuation), so the
+# pre_llm_call voice block can actually shape a draft instead of injecting a thin
+# greeting/signoff label. Superset of v0.4.3 (carries all webhook-gate work too).
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="v0.4.3"
+ARG OVERLAY_REF="v0.4.4"
 
 ARG CUSTOMER_SLUG=customer-zero
 
