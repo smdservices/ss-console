@@ -20,13 +20,13 @@ related-issue: https://github.com/venturecrane/ss-console/issues/828
 
 ## Context
 
-The Operator runs a named persona ("Marcus," "Sarah," whatever the customer chooses) across every internal surface: dashboard, internal Slack/Teams, audit log, voice samples, memory artifacts. Internally, the persona is fully visible — the customer's team interacts with their Operator as a teammate with a name and a face.
+The Operator runs a named persona ("the Operator," "Sarah," whatever the customer chooses) across every internal surface: dashboard, internal Slack/Teams, audit log, voice samples, memory artifacts. Internally, the persona is fully visible — the customer's team interacts with their Operator as a teammate with a name and a face.
 
 The product question this ADR resolves is: when the agent drafts an outbound message to a third party (a client, opposing counsel, a vendor, a court, a regulator), under whose identity does that message ship?
 
 Three patterns were available:
 
-1. **Agent-as-sender.** The persona has its own email account and sends directly. Recipient sees "Marcus from Smith Law Firm."
+1. **Agent-as-sender.** The persona has its own email account and sends directly. Recipient sees "the Operator from Smith Law Firm."
 2. **Hybrid.** Some communications go out under the persona (transactional, low-stakes), others go out under the reviewer (high-stakes, regulated).
 3. **Reviewer-as-sender.** The persona does not exist externally. Every outbound message is drafted into the reviewer's drafts folder. The reviewer reviews and clicks send from their own account. Recipient sees only the reviewer's signature.
 
@@ -62,7 +62,7 @@ Specifically:
 **Negative / accepted.**
 
 - Friction is higher per outbound. The reviewer has to open and send each draft (60-second mobile approval flow per PRD §12.6 is the answer; it has to be demoed not just described).
-- The agent persona has no external presence — no LinkedIn, no externally facing email signature, no "from Marcus" inbound channel. Recipients cannot reply directly to the agent. This is the intended posture; replies route to the reviewer who then surfaces them back to the agent through the inbox-triage skill.
+- The agent persona has no external presence — no LinkedIn, no externally facing email signature, no "from the Operator" inbound channel. Recipients cannot reply directly to the agent. This is the intended posture; replies route to the reviewer who then surfaces them back to the agent through the inbox-triage skill.
 - Some customers will ask for the hybrid (Pattern 2). We will decline. The rule's load-bearing property is that it is architectural; weakening it to "configurable per skill" surrenders the moat.
 
 **Out of scope.**
@@ -72,9 +72,4 @@ Specifically:
 
 ## References
 
-- Platform PRD §9.2 Internal vs external persona
-- Platform PRD §11.2 Default trust ceilings (external write skills locked at `draft_for_review`)
-- Platform PRD §13.2 Disclosure posture
-- Platform PRD §16 Demo flow (reviewer-as-sender is the on-stage moment of the demo)
-- Law-firm PRD §8 Bar Ethics & Disclosure Posture
 - [Issue #828](https://github.com/venturecrane/ss-console/issues/828)

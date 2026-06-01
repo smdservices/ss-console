@@ -247,9 +247,9 @@ The `users[].voice_profile_id` field is the seam:
 - When omitted, the user inherits the customer-level **general voice profile** — the aggregate across every sample regardless of authorship. This is the default and what every existing customer uses until per-user calibration runs.
 - When the per-user profile has fewer than `MIN_PROFILE_SAMPLE_COUNT` samples ([`adapter/voice/transform.py`](../../../operator/adapter/voice/transform.py)), Layer 2 falls back to the general profile rather than reshape against a noisy target.
 
-**Distinct from multi-persona.** Per [ADR 0011](../../adr/0011-multi-persona-per-customer.md), a customer's deployment runs one or more **personas** — AI agent identities (Marcus the paralegal-substrate, Casey the intake-handler). v1 ships with one persona. Multi-user voice is orthogonal: a single persona may draft on behalf of several human reviewers, each with their own voice profile. The architecture is:
+**Distinct from multi-persona.** Per [ADR 0011](../../adr/0011-multi-persona-per-customer.md), a customer's deployment runs one or more **personas** — AI agent identities (the Operator the paralegal-substrate, Casey the intake-handler). v1 ships with one persona. Multi-user voice is orthogonal: a single persona may draft on behalf of several human reviewers, each with their own voice profile. The architecture is:
 
-- **Persona** (Marcus) — the AI agent's identity (signature, send-as inbox, skills, trust ceilings)
+- **Persona** (the Operator) — the AI agent's identity (signature, send-as inbox, skills, trust ceilings)
 - **User** (Partner Sarah) — the human who reviews and approves drafts; carries an optional `voice_profile_id`
 - **Voice profile** — the writing-style signature aggregated from samples tagged with one user's slug
 

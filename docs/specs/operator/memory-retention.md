@@ -4,7 +4,7 @@
 
 ## Source
 
-- [Platform PRD](../../pm/operator/platform-prd.md) §13 (Compliance & Privacy Posture)
+- Platform PRD §13 (Compliance & Privacy Posture)
 - [Memory ingestion spec](./memory-ingestion.md) — pipeline that produces the rows retention removes
 - [Voice ingestion spec](./voice-ingestion.md) §"Retention" — voice's `enforce_retention()` predates this spec
 - [Decommission customer spec](./decommission-customer.md) — the off-boarding sibling; retention runs continuously, decommission runs once at end-of-engagement

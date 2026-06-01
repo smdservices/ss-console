@@ -155,7 +155,7 @@ The compaction hook is the runtime enforcement seam for invariant #4 ("don't act
 
 - `register()` seeds `persona.name`, `reviewer.identity`, and `customer.yaml.signature` at boot.
 - The substrate pins `sticky_stop.active` and `trust_ceiling.locked_skills` as state changes.
-- The compaction hook fires after Hermes' internal compaction has run. It receives the live `PinnedSlots` reference and emits an info log with the snapshot (`{"persona.name": "Marcus", ...}`).
+- The compaction hook fires after Hermes' internal compaction has run. It receives the live `PinnedSlots` reference and emits an info log with the snapshot (`{"persona.name": "the Operator", ...}`).
 - Fork-side overlay code is responsible for the actual post-compaction context-injection. This adapter ships the seam; the substrate-side wiring is filed as a follow-on against ADR 0015's overlay-implementation work.
 
 The pinned-slot table is never mutated by the compaction hook. Test coverage in `test_hermes_hook.py::test_pinned_slots_survive_simulated_compaction` asserts that property explicitly.

@@ -253,7 +253,7 @@ Phases 2–3 are the minimum coherent slice for this session. Phases 4–6 are d
 - [ADR 0008](./0008-customer-owned-memory-artifact.md) — customer-owned memory artifact
 - [ADR 0009](./0009-cross-machine-query-prohibition.md) — cross-Machine query prohibition
 - [ADR 0011](./0011-multi-persona-per-customer.md) — multi-persona per customer (§4 declares customer.yaml authoritative; this ADR pins its storage)
-- [Platform PRD](../pm/operator/platform-prd.md) §7.3 (customer.yaml example), §9 (persona model), §20 (Phase 1 deliverables)
+- Platform PRD §7.3 (customer.yaml example), §9 (persona model), §20 (Phase 1 deliverables)
 - [`customer-yaml-schema.md`](../specs/operator/customer-yaml-schema.md) — formal schema contract
 - [Issue #790](https://github.com/venturecrane/ss-console/issues/790) — customer.yaml formal schema with secret-exclusion enforcement
 - [Issue #917](https://github.com/venturecrane/ss-console/issues/917) — Stripe Subscriptions wiring

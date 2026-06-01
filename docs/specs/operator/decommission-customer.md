@@ -4,7 +4,7 @@
 
 ## Source
 
-- [Platform PRD](../../pm/operator/platform-prd.md) §13 (Compliance & Privacy Posture), §14.3 (Phase 1 ops deliverable)
+- Platform PRD §13 (Compliance & Privacy Posture), §14.3 (Phase 1 ops deliverable)
 - [Decommission Drain](./decommission-drain.md) — covers the 60s in-flight grace window (#805)
 - [R2 + Vectorize Naming](./r2-vectorize-naming.md) — per-customer namespace convention (#801)
 - [OAuth Lifecycle](./oauth-lifecycle.md) — per-customer OAuth token lifecycle (build: adapters)

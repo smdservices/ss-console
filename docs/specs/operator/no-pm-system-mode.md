@@ -1,6 +1,6 @@
 # No-PM-System Mode
 
-**Spec for issue [#853](https://github.com/venturecrane/ss-console/issues/853).** The "no practice-management system" capability binding set -- a `customer.yaml` template + capability-adapter configuration that runs the demo flow for customers without an external PM vendor (Filevine, Clio, CASEpeer, SmartAdvocate, etc.).
+**Spec for issue [#853](https://github.com/venturecrane/ss-console/issues/853).** The "no practice-management system" capability binding set -- a `customer.yaml` template + capability-adapter configuration that runs the onboarding flow for customers without an external PM vendor (Filevine, Clio, CASEpeer, SmartAdvocate, etc.).
 
 ## Source
 
@@ -12,7 +12,7 @@
 
 - The default capability-binding set for a no-PM-system customer.
 - The `no_pm` PracticeManagement adapter and its synthetic matter store.
-- The demo flow scene-by-scene: how each surface that the dry-run #889 expects works without an external PM vendor.
+- The flow scene-by-scene: how each surface that the dry-run #889 expects works without an external PM vendor.
 
 ## What this spec does not cover
 
@@ -71,7 +71,7 @@ The adapter binds to a `MatterStore` Protocol that abstracts persistence:
 
 ## Demo flow
 
-How each demo scene from the dry-run [#889](https://github.com/venturecrane/ss-console/issues/889) plays through the no-PM-system stack. The scenes are pulled from the dashboard tab layout the Captain dashboard renders today.
+How each scene from the dry-run [#889](https://github.com/venturecrane/ss-console/issues/889) plays through the no-PM-system stack. The scenes are pulled from the dashboard tab layout the Captain dashboard renders today.
 
 ### Scene 1: Drafts list shows real drafts written from real Outlook emails
 
@@ -80,7 +80,7 @@ How each demo scene from the dry-run [#889](https://github.com/venturecrane/ss-c
 | Inbound        | `Email.list_threads()` -> Microsoft Graph -> Outlook Inbox. The agent reads incoming threads.                                                                                                           |
 | Reasoning      | Persona skill runs against the thread + relevant matter context (read from the synthetic store via `get_matter` if the thread is linked to a matter).                                                   |
 | Outbound       | `Email.create_draft()` -> Microsoft Graph -> reviewer's Outlook Drafts folder. Per [ADR 0005](../../adr/0005-reviewer-as-sender.md), the agent never sends; the reviewer opens Outlook and clicks Send. |
-| Sourcing block | Dashboard renders "what Marcus used to write this" by reading `field_coverage` from each adapter the skill touched, including the no_pm adapter when matter context was used.                           |
+| Sourcing block | Dashboard renders "what the Operator used to write this" by reading `field_coverage` from each adapter the skill touched, including the no_pm adapter when matter context was used.                     |
 
 No `no_pm` write happens in this scene -- the synthetic store is read-only for draft creation. The drafts list is the same surface a Filevine customer sees.
 
@@ -165,11 +165,11 @@ cd operator && python -m pytest connectors/no_pm/tests/ -v
 
 Coverage:
 
-| File                         | Asserts                                                                                                                                                                           |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tests/test_errors.py`       | AdapterError code + capability union pinned against the TypeScript contract                                                                                                       |
-| `tests/test_store.py`        | `InMemoryMatterStore` honors the `MatterStore` protocol (list / get / create / update / docs / notes); status enum enforced                                                       |
-| `tests/test_capabilities.py` | `NoPmPracticeManagement` happy paths; unsupported-method behavior; ADR 0005 attribution; no banned method names; end-to-end demo flow exercises the create -> note -> close cycle |
+| File                         | Asserts                                                                                                                                                                      |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tests/test_errors.py`       | AdapterError code + capability union pinned against the TypeScript contract                                                                                                  |
+| `tests/test_store.py`        | `InMemoryMatterStore` honors the `MatterStore` protocol (list / get / create / update / docs / notes); status enum enforced                                                  |
+| `tests/test_capabilities.py` | `NoPmPracticeManagement` happy paths; unsupported-method behavior; ADR 0005 attribution; no banned method names; end-to-end flow exercises the create -> note -> close cycle |
 
 ### Template
 

@@ -35,9 +35,9 @@ Captain runs the disclosure protocol:
 
 1. **Disclosure conversation.** Captain calls the partner. Transparent script:
 
-   > "The voice gate hasn't passed. Three judges scored Marcus's drafts at {score}% indistinguishable from yours. That's below the threshold we set so that no client could ever say 'did you write this?' We don't ship external drafts until that threshold is met. We have two paths forward."
+   > "The voice gate hasn't passed. Three judges scored the Operator's drafts at {score}% indistinguishable from yours. That's below the threshold we set so that no client could ever say 'did you write this?' We don't ship external drafts until that threshold is met. We have two paths forward."
 
-2. **Path A — Internal-drafts-only mode.** Marcus continues drafting against internal surfaces only (intake notes, status reports to the partner, never to the partner's clients). Reduced retainer per the pricing strategy doc. Continue voice calibration in parallel; re-attempt blind-test at next monthly checkpoint.
+2. **Path A — Internal-drafts-only mode.** the Operator continues drafting against internal surfaces only (intake notes, status reports to the partner, never to the partner's clients). Reduced retainer per the pricing strategy doc. Continue voice calibration in parallel; re-attempt blind-test at next monthly checkpoint.
 
 3. **Path B — Pause beta-1.** Suspend the engagement with transparent explanation. Customer keeps Memory + audit log; refunds last month pro rata. Captain re-engages after Captain-side voice-model improvement, or releases the customer.
 

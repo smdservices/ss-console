@@ -76,17 +76,12 @@ The shared embeddings prohibition follows directly: there is no platform-level V
 
 ## Implementation
 
-- Platform PRD §7.5 invariant #7 records the runtime check.
 - Boot-time check lives in the Hermes container's startup sequence; the check's contract is part of the Hermes runtime pin (per PRD §7.4).
 - CI merge gate is a GitHub Actions workflow gating PRs to `operator/skills/*`, `operator/capabilities/*`, `operator/connectors/*`, and any platform-level prompt templates. The workflow scans diffs for: customer-slug patterns, firm-name patterns, matter-identifier patterns, and substantive-content heuristics. False positives go to human review.
 - Both mechanisms are exercised in the regression test suite per PRD §17.4 (synthetic-fixture-driven cross-customer adversarial tests).
 
 ## References
 
-- Platform PRD §7.1 Multi-tenant model
-- Platform PRD §7.5 Safety substrate (invariant #7)
-- Platform PRD §17.4 (0 cross-customer incidents target)
-- Platform PRD §10.5 Memory isolation
 - [ADR 0007 Per-customer Machine isolation](./0007-per-customer-machine-isolation.md)
 - [ADR 0008 Customer-owned memory artifact](./0008-customer-owned-memory-artifact.md)
 - [Issue #828](https://github.com/venturecrane/ss-console/issues/828)

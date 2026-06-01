@@ -38,7 +38,7 @@ The eleven capability interfaces (`PracticeManagement`, `Email`, `Calendar`, `Do
 
 1. **Schema documentation for skill authors.** When a skill says "calls `Email.create_draft`," the TS interface documents the expected shape (inputs, outputs, error contracts, capability-disclosure metadata).
 2. **`customer.yaml` validator surface.** The TS validator (`src/lib/operator/customer-yaml/sections-connectors.ts`) checks that the declared `connectors{}` provides a valid backend (`mcp:` / `build:` / `synthetic:`) for each required capability and that the backend's tool surface covers the methods the customer's skills actually call.
-3. **Capability-disclosure for the "what Marcus used to write this" sourcing block.** Adapters declare which fields they can populate via the capability metadata; the admin/customer portal renders the sourcing block from this metadata at draft time.
+3. **Capability-disclosure for the "what the Operator used to write this" sourcing block.** Adapters declare which fields they can populate via the capability metadata; the admin/customer portal renders the sourcing block from this metadata at draft time.
 
 The TS interfaces do **not** run at agent runtime. They are not enforced by the Python agent loop.
 
@@ -94,7 +94,7 @@ Selected. We get the documentation and validator benefits of typed capabilities 
 **Negative / accepted.**
 
 - The capability interfaces are not runtime-enforced in Python. A skill author calling a method the chosen backend doesn't expose surfaces only at agent runtime (with a missing-tool error or a tool-execution failure). The TS validator catches the common case; the runtime catches the edge case via the existing tool-not-found error path.
-- Capability-disclosure metadata for the "what Marcus used to write this" sourcing block requires per-backend conformance — MCP server tools, BUILD adapters, and synthetic substrates each declare their capability coverage to a shared schema. Out of scope for this ADR; documented in the connector-strategy ADR.
+- Capability-disclosure metadata for the "what the Operator used to write this" sourcing block requires per-backend conformance — MCP server tools, BUILD adapters, and synthetic substrates each declare their capability coverage to a shared schema. Out of scope for this ADR; documented in the connector-strategy ADR.
 - BUILD adapter authors must hand-write tool schemas that conform to the capability interface's expected shape. Drift between TS interface and BUILD adapter schema is a real risk; the conformance harness in `src/lib/operator/capabilities/conformance.ts` is the mitigation.
 
 ## Verification
@@ -106,8 +106,6 @@ Selected. We get the documentation and validator benefits of typed capabilities 
 
 ## References
 
-- Platform PRD §7.2, §7.2.1, §7.3
-- Law-firm PRD §7 Connector Strategy
 - [ADR 0015 (rewrite)](./0015-hermes-fork-vs-upstream.md) — plugin-only overlay; capability adapters register via `ctx.register_tool()`
 - [ADR 0020 (forthcoming)](./0020-connector-strategy.md) — MCP-first connector strategy per vendor
 - `eggyrooch-blip/hermes-multitenancy` — precedent for plugin-based per-customer tool registration

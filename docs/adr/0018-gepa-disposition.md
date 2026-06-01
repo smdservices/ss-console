@@ -233,7 +233,6 @@ Guards against drift:
 ## References
 
 - [Hermes Agent technical overview](https://datasciencedojo.com/blog/hermes-agent-how-it-works-tutorial/) (Data Science Dojo, Feb 2026) — GEPA subsystem description (genetic prompt-architecture evolution, constraint gates, autonomous PR generation, trace-based root-cause analysis)
-- Platform PRD §7.4 (skill loading and pinning, content-hash SHA), §7.5 (safety substrate, eight base invariants), §17.4 (audit and compliance targets)
 - [ADR 0007 Per-customer Machine isolation](./0007-per-customer-machine-isolation.md) (content-hash pinning that makes prompt-arch immutable per Machine pin)
 - [ADR 0009 Cross-Machine query prohibition](./0009-cross-machine-query-prohibition.md) (the boundary that makes cross-customer trace analysis structurally illegal inside customer Machines)
 - [ADR 0015 Hermes fork vs upstream-PR](./0015-hermes-fork-vs-upstream.md) (the fork governance discipline this ADR preserves)

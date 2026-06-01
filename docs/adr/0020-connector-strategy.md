@@ -117,7 +117,7 @@ An earlier revision reserved a `composio:` backend to broker vendor connections 
 - New customer onboarding is mostly a `customer.yaml` edit, not a code change. MCP-bound capabilities require no SMD code at all.
 - Maintenance burden is bounded: only BUILD adapters are ours to maintain end-to-end. MCP server maintenance is the vendor's (or upstream community's) problem.
 - Per-customer isolation is preserved across all backend patterns. MCP servers run as per-Machine subprocesses; BUILD adapters live in the per-Machine container; synthetic substrates use per-customer D1+R2.
-- Capability-disclosure metadata (the "what Marcus used to write this" sourcing block per ADR 0006 rewrite) works uniformly across backends because the capability-conformance metadata is per-tool, not per-backend.
+- Capability-disclosure metadata (the "what the Operator used to write this" sourcing block per ADR 0006 rewrite) works uniformly across backends because the capability-conformance metadata is per-tool, not per-backend.
 
 **Negative / accepted.**
 

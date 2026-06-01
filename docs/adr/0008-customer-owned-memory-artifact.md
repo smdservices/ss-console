@@ -128,12 +128,6 @@ The persona signature, the agent's email identity (AgentMail or equivalent), and
 
 ## References
 
-- Platform PRD principle P9 (Exit is easy by design)
-- Platform PRD §10 Memory Model & Learning Loop
-- Platform PRD §10.3 The Memory tab (the trust mechanism)
-- Platform PRD §10.4 Mechanics: how the agent knows what got sent (sent-folder watching opt-in posture)
-- Platform PRD §10.5 Memory isolation
-- Platform PRD §13.3 Privacy and data handling
 - [ADR 0007 Per-customer Machine isolation](./0007-per-customer-machine-isolation.md)
 - [ADR 0009 Cross-Machine query prohibition](./0009-cross-machine-query-prohibition.md)
 - [Issue #828](https://github.com/venturecrane/ss-console/issues/828)

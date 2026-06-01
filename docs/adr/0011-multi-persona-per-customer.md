@@ -16,7 +16,7 @@ related-issue: https://github.com/venturecrane/ss-console/issues/790
 
 ## Context
 
-A customer may eventually want more than one AI persona attached to their business — for example, an inbox-triage agent ("Marcus") and a separate intake-handling agent ("Casey") running against the same firm's connectors and memory but with distinct identities, signature blocks, voice envelopes, and skill assignments. The prior ADR locked the data-model commitment (`personas: []` array) but deferred runtime implementation to "Phase 2, gated on a paying multi-persona customer."
+A customer may eventually want more than one AI persona attached to their business — for example, an inbox-triage agent ("the Operator") and a separate intake-handling agent ("Casey") running against the same firm's connectors and memory but with distinct identities, signature blocks, voice envelopes, and skill assignments. The prior ADR locked the data-model commitment (`personas: []` array) but deferred runtime implementation to "Phase 2, gated on a paying multi-persona customer."
 
 Three findings reshape the runtime question:
 
@@ -105,7 +105,7 @@ Selected. Aligns with Hermes' architecture, ships immediately for v1, scales to 
 
 **Negative / accepted.**
 
-- The customer cannot run two personas concurrently in the same conversation (e.g., a single email thread CC'ing Marcus and Casey both). They switch via `/handoff`. We accept this; it matches how human role-switching works in firms.
+- The customer cannot run two personas concurrently in the same conversation (e.g., a single email thread CC'ing the Operator and Casey both). They switch via `/handoff`. We accept this; it matches how human role-switching works in firms.
 - Persona-level skill granularity is bounded by what Hermes' skill loader does per profile. We inherit upstream's behavior; if we need persona-specific skill behaviors that profiles don't support, we revisit.
 - The v1 validator enforces length 1, so a customer who wants two personas immediately requires a v2 unlock release. We accept this; no v1 customer has signed for multi-persona, and unlocking is a validator change, not an architecture pivot.
 

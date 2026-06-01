@@ -80,10 +80,6 @@ Boot-time invariant: at Machine boot, the runtime verifies its storage bindings 
 
 ## References
 
-- Platform PRD §7.1 Multi-tenant model
-- Platform PRD §7.5 Safety substrate (invariant #7 cross-Machine query prohibition)
-- Platform PRD §7.6 Storage architecture (per customer)
-- Platform PRD §17.4 (0 cross-customer incidents target)
 - [ADR 0005 Reviewer-as-sender](./0005-reviewer-as-sender.md)
 - [ADR 0008 Customer-owned memory artifact](./0008-customer-owned-memory-artifact.md)
 - [ADR 0009 Cross-Machine query prohibition](./0009-cross-machine-query-prohibition.md)
