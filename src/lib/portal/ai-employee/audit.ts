@@ -42,6 +42,7 @@
  */
 
 import type { SubscriptionRow } from '../product-access'
+import { type Page, paginate } from './pagination'
 
 /**
  * Accepted `action_type` values for audit rows, mirrored from
@@ -439,41 +440,19 @@ export function applyAuditSort(rows: readonly AuditEntry[], sort: AuditSort): Au
   }
 }
 
-/**
- * Pagination return value. Same shape as the drafts resolver so the
- * page can share the table primitive's pagination contract. `pageCount`
- * is floored at 1 even when there are zero rows so "Page 1 of 1" reads
- * sensibly in the empty state.
- */
-export interface AuditListPage {
-  rows: AuditEntry[]
-  totalCount: number
-  page: number
-  pageSize: number
-  pageCount: number
-}
+/** Pagination return value. See {@link Page} (pagination.ts). */
+export type AuditListPage = Page<AuditEntry>
 
 /**
- * Apply offset-based pagination to a sorted+filtered list. Page is
- * 1-indexed, clamped to [1, pageCount]. Out-of-range pages return the
- * last page rather than an empty result.
+ * Apply offset-based pagination to a sorted+filtered list. Thin wrapper over
+ * the shared {@link paginate}; kept named for call-site + test stability.
  */
 export function paginateAuditEntries(
   rows: readonly AuditEntry[],
   page: number,
   pageSize: number
 ): AuditListPage {
-  const totalCount = rows.length
-  const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
-  const clampedPage = Math.min(Math.max(1, Math.floor(page)), pageCount)
-  const start = (clampedPage - 1) * pageSize
-  return {
-    rows: rows.slice(start, start + pageSize),
-    totalCount,
-    page: clampedPage,
-    pageSize,
-    pageCount,
-  }
+  return paginate(rows, page, pageSize)
 }
 
 /**
