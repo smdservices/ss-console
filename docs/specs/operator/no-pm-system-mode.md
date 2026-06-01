@@ -180,7 +180,6 @@ The template at [`operator/templates/customer-no-pm-system.yaml`](../../../opera
 - [`customer-yaml-schema.md`](customer-yaml-schema.md) -- the schema this template instantiates
 - [`r2-vectorize-naming.md`](r2-vectorize-naming.md) -- the per-customer R2 path convention the synthetic store reuses
 - [`memory-ingestion.md`](memory-ingestion.md) -- the memory pipeline whose substrate the no_pm store rides on
-- [`day-1-onboarding.md`](day-1-onboarding.md) -- the first-hour dashboard walkthrough each demo scene above renders into
 - [ADR 0005](../../adr/0005-reviewer-as-sender.md) -- reviewer-as-sender (the `create_note` attribution rule)
 - [ADR 0006](../../adr/0006-capability-adapter-pattern.md) -- capability-adapter pattern (why this adapter swap works without skill rewrites)
 - [ADR 0007](../../adr/0007-per-customer-machine-isolation.md) -- per-customer Machine isolation (the deployment boundary the synthetic store inherits)

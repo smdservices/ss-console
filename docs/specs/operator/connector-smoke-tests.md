@@ -99,7 +99,7 @@ The shell wrapper [`operator/bin/run-connector-smoke-tests.sh`](../../../operato
 `bin/provision-customer.sh` already invokes the smoke run at Step 8. Today the script logs `WARN` on non-zero exit but continues. The contract this spec locks in is:
 
 - Exit `2` (FAIL) — provisioning MUST abort. Do not flip any skill from `draft_for_review` to `autonomous`.
-- Exit `1` (PARTIAL) — provisioning continues but the Captain sees the failure summary before the customer is handed the dashboard. The Day-1 onboarding step (see [`day-1-onboarding.md`](day-1-onboarding.md)) renders the partial state with the per-connector failure details so the Captain can decide which capabilities to leave at `refused` until the issue is resolved.
+- Exit `1` (PARTIAL) — provisioning continues but the Captain sees the failure summary before the customer is handed the dashboard. Onboarding renders the partial state with the per-connector failure details so the Captain can decide which capabilities to leave at `refused` until the issue is resolved.
 - Exit `0` (PASS) — provisioning continues normally.
 
 Updating `bin/provision-customer.sh` to enforce the abort-on-`2` semantics is a follow-on PR. The framework ships with the contract; the provisioning wiring lands in a separate PR so the abort behavior can be staged separately.

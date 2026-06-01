@@ -49,7 +49,7 @@ This addresses the BA OQ-004 question: a paralegal can run the agent's day-to-da
 
 ### "Maria in the room" scenario
 
-The 20-year partner brings their paralegal to the meeting. Day-1 onboarding (day-1-onboarding.md) creates both users:
+A principal and a day-to-day delegate are onboarded together. Onboarding creates both users:
 
 - Partner = principal
 - Paralegal = operator
