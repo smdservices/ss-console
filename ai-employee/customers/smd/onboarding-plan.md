@@ -45,7 +45,7 @@ Promotion is not on the table until a send transport exists (B1) and the princip
   to send its own mail and report to `team@smd.services`. Gmail is `modify`-scope (structurally
   never-send, `crane_gmail.py`) and AgentMail is unwired (deferred Phase 2 per `provision-customer.sh`).
   The "Crane sends" half of the interview is unbuildable until a transport is chosen: wire an AgentMail
-  identity, add a `gmail.send` scope for Crane's own box, or formally defer. Tracked as a new issue.
+  identity, add a `gmail.send` scope for Crane's own box, or formally defer. Tracked as #1165.
 - **B2 — 🟠 Tiered model is a schema gap.** Interview: routine `claude-sonnet-4-6`, sensitive
   `claude-opus-4-8`. `model:` is a single string; set to the sensitive default. Per-task tiering needs
   a schema/overlay change (relates to #1100).
