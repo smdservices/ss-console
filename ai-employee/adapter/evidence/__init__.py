@@ -2,8 +2,12 @@
 
 Composes the per-customer audit_log, memory tables, voice tables,
 customer.yaml, skill_state, and invariant_boot_checks dumps into a
-single signed tar.gz packet per spec
-``docs/specs/ai-employee/compliance-evidence-packet.md``.
+single digest-verified tar.gz packet (per-artifact SHA-256 + a manifest
+SHA-256 recorded in the append-only audit log) per spec
+``docs/specs/ai-employee/compliance-evidence-packet.md``. The manifest
+is not yet cryptographically signed (``signature="unsigned-stub"``);
+detached Ed25519 signing is a tracked follow-on gated on provisioning
+the Captain signing key.
 
 The public entrypoint is :class:`EvidencePacketBuilder.build`. The
 CLI wrapper at ``ai-employee/bin/generate-evidence-packet.sh`` calls
