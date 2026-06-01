@@ -15,7 +15,7 @@
  * reaches the live path and reports success). These assertions lock the fix.
  *
  * @see ai-employee/templates/Dockerfile
- * @see docs/runbooks/ai-employee/first-boot.md
+ * @see docs/runbooks/operator/first-boot.md
  * @see docs/adr/0028-outbound-integrity-gates-provenance-and-voice.md
  */
 
@@ -37,7 +37,7 @@ const stripHashComments = (s: string): string =>
 const DOCKERFILE_CODE = stripHashComments(DOCKERFILE)
 const BOOTSTRAP_CODE = stripHashComments(BOOTSTRAP)
 
-describe('AI Employee customer Machine Dockerfile', () => {
+describe('Operator customer Machine Dockerfile', () => {
   it('pins OVERLAY_REF to a release tag or a full commit SHA, never a branch', () => {
     // During a first-boot proof OVERLAY_REF is a 40-hex commit SHA on a feature
     // branch; after the boot is green it is repointed to a vX.Y.Z release tag
@@ -83,7 +83,7 @@ describe('AI Employee customer Machine Dockerfile', () => {
  *   3. The venv was not on PATH, so bare `python3 -m honcho.*` / `hermes-smd`
  *      resolved to /usr/bin and crashlooped at boot.
  */
-describe('AI Employee Machine first-boot build/runtime fixes', () => {
+describe('Operator Machine first-boot build/runtime fixes', () => {
   it('installs postgresql-17 (Debian 13 default), never postgresql-16', () => {
     expect(
       /apt-get install[\s\S]*?postgresql-17 postgresql-client-17/.test(DOCKERFILE),
@@ -126,7 +126,7 @@ describe('AI Employee Machine first-boot build/runtime fixes', () => {
  * Assertions run against comment-stripped content: the deferral comments
  * intentionally name the removed commands.
  */
-describe('AI Employee Machine: Honcho deferred, flat-file core (ADR 0016 revised)', () => {
+describe('Operator Machine: Honcho deferred, flat-file core (ADR 0016 revised)', () => {
   it('Dockerfile does not install the fictional honcho-ai client SDK', () => {
     expect(
       /honcho-ai/.test(DOCKERFILE_CODE),

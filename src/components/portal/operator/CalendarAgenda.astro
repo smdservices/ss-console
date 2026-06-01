@@ -1,0 +1,139 @@
+---
+/**
+ * Operator calendar agenda.
+ *
+ * Wraps a list of CalendarItemRow components in a 3px ink frame and
+ * renders pagination controls below when there are more items than fit
+ * on one page. The empty state is owned by the surrounding page (so the
+ * page can use the standard portal empty-state block); this component
+ * only renders when `rows.length > 0`.
+ *
+ * Conflict detection is computed once at the page level via
+ * `detectConflicts(rows)` and passed in as a Map<id, conflictingIds>.
+ * The agenda translates that into a per-row `conflictCount` integer
+ * for the row component. Centralizing the computation here (rather
+ * than at the row level) means the conflict graph is a single source
+ * of truth — the row never thinks about its neighbors.
+ *
+ * Pagination mirrors DraftsListTable so the URL contract is consistent
+ * across Operator sub-surfaces: prev/next links carry the current
+ * filter / sort params plus the new `page`, so a deep link to a
+ * filtered page-N stays linkable. The form GET in FilterBar would
+ * reset pagination by omitting `page` — same convention as drafts.
+ */
+
+import CalendarItemRow from './CalendarItemRow.astro'
+import type { CalendarItem } from '../../../lib/portal/operator/calendar'
+
+interface Props {
+  rows: readonly CalendarItem[]
+  totalCount: number
+  page: number
+  pageSize: number
+  pageCount: number
+  /**
+   * Conflict graph keyed by item id; value is the list of OTHER ids
+   * that overlap with the keyed item. Items not in the map have zero
+   * conflicts. Computed once by the page via detectConflicts so the
+   * row component stays a pure render of one item.
+   */
+  conflictMap: Map<string, string[]>
+  /**
+   * Search params currently applied (filter + sort). The component
+   * threads these through prev/next links so paging preserves
+   * filters. Pass `Astro.url.searchParams` from the page.
+   */
+  searchParams: URLSearchParams
+}
+
+const { rows, totalCount, page, pageSize, pageCount, conflictMap, searchParams } = Astro.props
+
+function buildHref(targetPage: number): string {
+  const next = new URLSearchParams(searchParams)
+  next.set('page', String(targetPage))
+  for (const [key, value] of Array.from(next.entries())) {
+    if (value === '') next.delete(key)
+  }
+  const query = next.toString()
+  return query.length > 0 ? `?${query}` : ''
+}
+
+const hasPrev = page > 1
+const hasNext = page < pageCount
+
+const rangeStart = totalCount === 0 ? 0 : (page - 1) * pageSize + 1
+const rangeEnd = Math.min(page * pageSize, totalCount)
+---
+
+<section aria-label="Calendar agenda">
+  <div class="border-[3px] border-[color:var(--ss-color-text-primary)]">
+    {
+      rows.map((item, index) => {
+        const conflictCount = conflictMap.get(item.id)?.length ?? 0
+        return (
+          <CalendarItemRow
+            item={item}
+            conflictCount={conflictCount}
+            serial={String(index + 1 + (page - 1) * pageSize).padStart(2, '0')}
+          />
+        )
+      })
+    }
+  </div>
+
+  {
+    pageCount > 1 && (
+      <nav
+        aria-label="Calendar pagination"
+        class="mt-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+      >
+        <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
+          Showing {rangeStart} to {rangeEnd} of {totalCount}
+        </p>
+        <ul class="flex items-center gap-2" role="list">
+          <li>
+            {hasPrev ? (
+              <a
+                href={buildHref(page - 1)}
+                rel="prev"
+                class="inline-flex items-center min-h-11 px-4 py-2 border-[2px] border-[color:var(--ss-color-text-primary)] font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-colors"
+              >
+                Previous
+              </a>
+            ) : (
+              <span
+                aria-disabled="true"
+                class="inline-flex items-center min-h-11 px-4 py-2 border-[2px] border-[color:var(--ss-color-border)] font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-muted)]"
+              >
+                Previous
+              </span>
+            )}
+          </li>
+          <li>
+            <span class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)] px-2">
+              Page {page} of {pageCount}
+            </span>
+          </li>
+          <li>
+            {hasNext ? (
+              <a
+                href={buildHref(page + 1)}
+                rel="next"
+                class="inline-flex items-center min-h-11 px-4 py-2 border-[2px] border-[color:var(--ss-color-text-primary)] font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-colors"
+              >
+                Next
+              </a>
+            ) : (
+              <span
+                aria-disabled="true"
+                class="inline-flex items-center min-h-11 px-4 py-2 border-[2px] border-[color:var(--ss-color-border)] font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-muted)]"
+              >
+                Next
+              </span>
+            )}
+          </li>
+        </ul>
+      </nav>
+    )
+  }
+</section>

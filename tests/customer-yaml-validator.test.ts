@@ -1,6 +1,6 @@
 /**
  * Tests for the customer.yaml structural validator
- * (src/lib/ai-employee/customer-yaml/validator.ts).
+ * (src/lib/operator/customer-yaml/validator.ts).
  *
  * Test strategy: build one valid in-memory fixture (the schema's worked
  * example, simplified) and validate it once to lock the happy path. Then
@@ -23,7 +23,7 @@ import {
   type CustomerYaml,
   type ValidationError,
   type ValidationErrorCode,
-} from '../src/lib/ai-employee/customer-yaml'
+} from '../src/lib/operator/customer-yaml'
 
 // -----------------------------------------------------------------------------
 // Fixture builder
@@ -1192,12 +1192,12 @@ describe('validate — voice_cohorts (#857)', () => {
 describe('resolveCohortVocabulary (#857)', () => {
   it('returns BASE_VOICE_COHORTS when voice_cohorts is null', async () => {
     const { resolveCohortVocabulary, BASE_VOICE_COHORTS } =
-      await import('../src/lib/ai-employee/customer-yaml')
+      await import('../src/lib/operator/customer-yaml')
     expect(resolveCohortVocabulary(null)).toEqual(BASE_VOICE_COHORTS)
   })
 
   it('returns the customer cohort list when present', async () => {
-    const { resolveCohortVocabulary } = await import('../src/lib/ai-employee/customer-yaml')
+    const { resolveCohortVocabulary } = await import('../src/lib/operator/customer-yaml')
     const resolved = resolveCohortVocabulary({
       cohorts: ['client', 'mediator'],
       min_samples_per_cohort: null,

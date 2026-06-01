@@ -11,7 +11,7 @@
  *
  * Entity resolution order (handled in resolveClerkPortalContext):
  *   1. users.entity_id  — direct binding (admin-provisioned single-user)
- *   2. entities.clerk_org_id — via active Clerk Organization (AI Employee)
+ *   2. entities.clerk_org_id — via active Clerk Organization (Operator)
  *
  * Magic-link auth on src/lib/auth/session.ts is retained for client
  * invitation acceptance only.

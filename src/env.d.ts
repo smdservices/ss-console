@@ -149,7 +149,7 @@ declare namespace Cloudflare {
     CLERK_SECRET_KEY?: string
     /**
      * Microsoft Graph OAuth 2.0 client ID and secret. Used by the
-     * ai-employee OAuth callback (issue #879) to exchange authorization
+     * Operator OAuth callback (issue #879) to exchange authorization
      * codes for tokens during connector consent flows. Issued by an
      * Azure AD app registration whose redirect URI list includes
      * `${ADMIN_BASE_URL}/api/oauth/callback`.
@@ -158,7 +158,7 @@ declare namespace Cloudflare {
     MICROSOFT_GRAPH_CLIENT_SECRET?: string
     /**
      * HMAC-SHA256 signing key for stateless OAuth state parameters used
-     * by /api/oauth/callback (issue #879, ai-employee connector consent).
+     * by /api/oauth/callback (issue #879, Operator connector consent).
      * 32 random bytes, base64-encoded. Generate with
      * `openssl rand -base64 32`. Rotation: bump the secret in Workers
      * env; in-flight states issued under the old key fail validation at
@@ -182,7 +182,7 @@ declare namespace Cloudflare {
     CF_ACCOUNT_ID?: string
     CF_D1_API_TOKEN?: string
     /**
-     * Shared bearer secret for the per-customer AI Employee Machine
+     * Shared bearer secret for the per-customer Operator Machine
      * heartbeat path (`POST /api/internal/heartbeat`). Wave 1 uses a
      * single shared key authenticating ANY Machine; the X-Tenant-Slug
      * header identifies the tenant. Single-secret shape is right-sized

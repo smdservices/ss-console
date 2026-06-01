@@ -1,0 +1,47 @@
+---
+/**
+ * Matters list table — the 3px ink container that holds one MatterRow
+ * per matter. The container draws the outer ledger border; row
+ * components draw their own 2px ink bottom stitch (and the `:last`
+ * row clears its stitch). Matches the Plainspoken bill-of-lading
+ * register used elsewhere in the portal.
+ *
+ * The component is intentionally a thin shell. The fabrication-safety
+ * decision lives one level up at the page: if `listMatters` returns an
+ * empty array, the page renders the empty state and does not render
+ * this table at all. Passing an empty array here would render an empty
+ * 3px border with no rows inside — visually broken — so the page must
+ * gate.
+ *
+ * Why not PortalListItem (UI-PATTERNS R7)?
+ *
+ * PortalListItem ships two variants today: `status` (money-bearing
+ * artifacts like quotes and invoices) and `document` (file rows).
+ * Matters carry neither — the primary scan-time fields are phase
+ * (lifecycle position) and last-AI-action (skill + timestamp), with no
+ * dollar figure at all. Forcing matters through `status` would render
+ * a "$0" price cell on every row, which reads as a bug. Forcing them
+ * through `document` would drop the phase stamp.
+ *
+ * Per R7's "When to split" guidance ("Split into separate primitives
+ * when more than ~5 conditionals key on `variant`, or when a third
+ * variant is needed"), matters are the third variant. Per #871 they
+ * land in a dedicated component (`MatterRow`) and the matters list
+ * index registers in LIST_INDEX_ALLOWLIST. When the next Operator
+ * surface (calendar, audit) lands and shares the row shape, we
+ * promote MatterRow into PortalListItem as a third variant.
+ */
+
+import MatterRow from './MatterRow.astro'
+import type { Matter } from '../../../lib/portal/operator/matters'
+
+interface Props {
+  matters: Matter[]
+}
+
+const { matters } = Astro.props
+---
+
+<div class="border-[3px] border-[color:var(--ss-color-text-primary)]" role="list">
+  {matters.map((matter, i) => <MatterRow matter={matter} index={i + 1} />)}
+</div>

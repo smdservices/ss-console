@@ -145,6 +145,38 @@ function legacyAuthRedirectTarget(pathname: string): string | null {
   return null
 }
 
+/**
+ * Product renamed "AI Employee" → "Operator" (ADR 0034). Permanent (301)
+ * redirects from the pre-rename URLs so old bookmarks and indexed links keep
+ * working. Runs before the subdomain rewrite, so it must handle both the
+ * canonical paths and the subdomain-relative forms the rewrite would prepend.
+ */
+function redirectLegacyOperatorPaths(
+  context: APIContext,
+  hostname: string,
+  pathname: string
+): Response | null {
+  // Marketing product page: smd.services/ai-employee → /operator.
+  // Also covers admin.smd.services/ai-employee (rewrites to /admin/operator
+  // after the redirect lands on the operator path).
+  if (pathname === '/ai-employee' || pathname.startsWith('/ai-employee/'))
+    return context.redirect(pathname.replace('/ai-employee', '/operator'), 301)
+
+  // Portal product surface: canonical (/portal/products/ai-employee) and the
+  // portal-subdomain-relative form (/products/ai-employee).
+  for (const oldPath of ['/portal/products/ai-employee', '/products/ai-employee']) {
+    if (pathname === oldPath || pathname.startsWith(`${oldPath}/`))
+      return context.redirect(pathname.replace('/ai-employee', '/operator'), 301)
+  }
+
+  // Admin surface: canonical /admin/ai-employee (the admin-subdomain-relative
+  // /ai-employee form is already handled by the marketing rule above).
+  if (pathname === '/admin/ai-employee' || pathname.startsWith('/admin/ai-employee/'))
+    return context.redirect(pathname.replace('/ai-employee', '/operator'), 301)
+
+  return null
+}
+
 function handleLegacyRedirects(
   context: APIContext,
   hostname: string,
@@ -226,6 +258,11 @@ function enforceAuth(context: APIContext, pathname: string): Response | null {
 async function handleRequest(context: APIContext, next: NextFn): Promise<Response> {
   const { pathname } = context.url
   const hostname = context.url.hostname
+
+  // Product renamed "AI Employee" → "Operator" (ADR 0034). 301 old paths
+  // before the subdomain rewrite, since the rewrite terminates the chain.
+  const operatorRename = redirectLegacyOperatorPaths(context, hostname, pathname)
+  if (operatorRename) return operatorRename
 
   const subdomainRewrite = handleSubdomainRewrite(context, hostname, pathname)
   if (subdomainRewrite) return subdomainRewrite

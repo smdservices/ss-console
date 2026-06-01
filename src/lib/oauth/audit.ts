@@ -10,7 +10,7 @@
  *
  * v1 ships a console-only writer. The audit log persistence layer is
  * tracked in issue #891 (D1 audit_log table per
- * docs/specs/ai-employee/d1-schema.md). When #891 lands, swap
+ * docs/specs/operator/d1-schema.md). When #891 lands, swap
  * `emitAuditEvent` to write rows there. The shape of the event payload
  * is stable so the swap is a one-line change inside this file.
  *

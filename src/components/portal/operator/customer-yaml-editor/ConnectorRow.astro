@@ -1,0 +1,119 @@
+---
+/**
+ * ConnectorRow — single capability-to-adapter row inside ConnectorsFields.
+ *
+ * Split out to keep ConnectorsFields under the function-line ceiling.
+ * The `token_ref` is rendered as a read-only chip with the "Captain-
+ * managed" badge — never as an editable input.
+ */
+
+import type { EditableConnector } from '../../../../lib/portal/operator/customer-yaml-editor'
+import type { ValidationError } from '../../../../lib/operator/customer-yaml'
+
+interface Props {
+  capability: string
+  connector: EditableConnector
+  tokenRef: string | null
+  errors: ValidationError[]
+}
+
+const { capability, connector, tokenRef, errors } = Astro.props
+const prefix = `connectors.${capability}`
+const rowErrors = errors.filter((e) => e.path === prefix || e.path.startsWith(`${prefix}.`))
+---
+
+<div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-4">
+  <div class="flex items-baseline justify-between gap-4 mb-4">
+    <h3
+      class="font-['Archivo'] font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]"
+    >
+      {capability}
+    </h3>
+    <label class="inline-flex items-center gap-2 text-sm">
+      <input
+        type="checkbox"
+        name={`${prefix}.enabled`}
+        value="true"
+        checked={connector.enabled}
+        class="border-[2px] border-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+      />
+      enabled
+    </label>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <label class="block">
+      <span
+        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+      >
+        Adapter
+      </span>
+      <input
+        type="text"
+        name={`${prefix}.adapter`}
+        value={connector.adapter}
+        required
+        class="mt-2 w-full px-4 py-2 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+      />
+    </label>
+
+    <label class="block">
+      <span
+        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+      >
+        Backend
+      </span>
+      <input
+        type="text"
+        name={`${prefix}.backend`}
+        value={connector.backend}
+        required
+        placeholder="build:filevine"
+        class="mt-2 w-full px-4 py-2 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+      />
+    </label>
+  </div>
+
+  <label class="block mt-4">
+    <span
+      class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+    >
+      Scopes
+    </span>
+    <input
+      type="text"
+      name={`${prefix}.scopes`}
+      value={connector.scopes.join(', ')}
+      placeholder="comma-separated"
+      class="mt-2 w-full px-4 py-2 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+    />
+  </label>
+
+  <div class="mt-4 border-t-[2px] border-[color:var(--ss-color-text-primary)] pt-3">
+    <span
+      class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+    >
+      OAuth token reference
+    </span>
+    <div class="mt-2 flex items-center gap-3">
+      <code
+        class="flex-1 px-3 py-2 border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-muted)] text-sm font-['JetBrains_Mono'] break-all"
+      >
+        {tokenRef ?? '(none)'}
+      </code>
+      <span
+        class="shrink-0 px-2 py-1 border-[2px] border-[color:var(--ss-color-text-primary)] text-xs font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold text-[color:var(--ss-color-text-primary)]"
+      >
+        Captain-managed
+      </span>
+    </div>
+  </div>
+
+  {
+    rowErrors.map((err) => (
+      <p class="mt-3 text-sm text-[color:var(--ss-color-error)]">
+        <span class="font-['JetBrains_Mono']">{err.path}</span>: {err.message}
+      </p>
+    ))
+  }
+</div>

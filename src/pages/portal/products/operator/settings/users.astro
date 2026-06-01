@@ -1,0 +1,466 @@
+---
+import '../../../../../styles/global.css'
+import { BRAND_NAME } from '../../../../../lib/config/brand'
+import { getPortalClient } from '../../../../../lib/portal/session'
+import { getProductSubscription, listProductRoles } from '../../../../../lib/portal/product-access'
+import { listClerkOrgParticipants } from '../../../../../lib/portal/clerk-org-members'
+import PortalHeader from '../../../../../components/portal/PortalHeader.astro'
+import PortalTabs from '../../../../../components/portal/PortalTabs.astro'
+import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
+import SkipToMain from '../../../../../components/SkipToMain.astro'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Operator — user management.
+ *
+ * URL: portal.smd.services/portal/products/operator/settings/users
+ *
+ * Lists every local user who has at least one non-revoked role in
+ * product_roles for this customer's Operator subscription, and lets
+ * the principal grant/revoke roles on each member. Renders name, email,
+ * last login, and per-row Grant/Revoke buttons for each of the three
+ * Operator roles (principal | operator | compliance).
+ *
+ * Access gate:
+ *   - Clerk session (middleware)
+ *   - Active Operator subscription on this customer
+ *   - Current user must hold the 'principal' role on (entity,
+ *     'operator')
+ *
+ * Anyone else hitting this URL is redirected to the Operator
+ * landing page; the page's role-gate empty state explains why.
+ *
+ * Mutations are HTML-form POSTs to
+ * /api/portal/products/operator/role-action. No JS / fetch logic
+ * here — the action endpoint redirects back with a `?status=` query
+ * param that drives the banner at the top of the page.
+ *
+ * Self-protection: server-side, the action endpoint blocks revoking
+ * your own LAST principal grant (would lock the customer out).
+ *
+ * Invite-new-member flow lives at
+ * `/api/portal/products/operator/invitations` (Clerk Organization
+ * invitation API). After the invitee accepts and signs in for the
+ * first time, the JIT bridge creates their local users row and they
+ * appear in the granted-access list above so the principal can grant
+ * them a role.
+ *
+ * Pending Clerk Organization invitations (sent but not accepted) are
+ * rendered in their own section below the granted-access list so
+ * principals see the full picture of "who's on this account": joined
+ * members + members invited but not yet signed in. Pending invitees
+ * do not have a local users row yet, so they cannot be granted
+ * product roles — that happens after first sign-in.
+ *
+ * Role-management mutations (grant, revoke, invite) emit
+ * `audit:rbac_event` log lines via the rbac-audit module. A
+ * Hermes-side tail-log drain consumes these and persists them to the
+ * per-customer audit_log (drain wiring tracked in #821).
+ */
+
+const PRODUCT_SLUG = 'operator'
+
+const portalData = await getPortalClient(env.DB, Astro.locals)
+if (!portalData) {
+  return Astro.redirect('/auth/sign-in')
+}
+if (!portalData.client) {
+  return Astro.redirect('/auth/sign-in?status=no_subscription')
+}
+
+const { user, client } = portalData
+const orgId = user.org_id
+
+const subscription = await getProductSubscription(env.DB, client.id, PRODUCT_SLUG)
+if (!subscription) {
+  return Astro.redirect('/portal/products/operator')
+}
+
+const callerRoles = await listProductRoles(env.DB, user.id, client.id, PRODUCT_SLUG)
+const isPrincipal = callerRoles.includes('principal')
+if (!isPrincipal) {
+  return Astro.redirect('/portal/products/operator')
+}
+
+// Aggregate roles per user. A single user can hold multiple roles
+// (e.g., principal AND compliance); we group rows here so the UI
+// renders one row per person with a comma-joined role list.
+interface MemberRow {
+  id: string
+  email: string
+  name: string
+  last_login_at: string | null
+  earliest_granted_at: string
+  roles: string[]
+}
+
+const memberRowsRaw = await env.DB.prepare(
+  `SELECT u.id           AS id,
+          u.email        AS email,
+          u.name         AS name,
+          u.last_login_at AS last_login_at,
+          pr.role         AS role,
+          pr.granted_at   AS granted_at
+     FROM product_roles pr
+     JOIN users u ON u.id = pr.user_id
+    WHERE pr.entity_id = ?
+      AND pr.org_id = ?
+      AND pr.product_slug = ?
+      AND pr.revoked_at IS NULL
+    ORDER BY u.name, pr.granted_at ASC`
+)
+  .bind(client.id, orgId, PRODUCT_SLUG)
+  .all<{
+    id: string
+    email: string
+    name: string
+    last_login_at: string | null
+    role: string
+    granted_at: string
+  }>()
+
+const memberMap = new Map<string, MemberRow>()
+for (const row of memberRowsRaw.results ?? []) {
+  const existing = memberMap.get(row.id)
+  if (existing) {
+    existing.roles.push(row.role)
+    if (row.granted_at < existing.earliest_granted_at) {
+      existing.earliest_granted_at = row.granted_at
+    }
+  } else {
+    memberMap.set(row.id, {
+      id: row.id,
+      email: row.email,
+      name: row.name,
+      last_login_at: row.last_login_at,
+      earliest_granted_at: row.granted_at,
+      roles: [row.role],
+    })
+  }
+}
+const members = Array.from(memberMap.values())
+
+const ROLE_ORDER: Record<string, number> = { principal: 0, operator: 1, compliance: 2 }
+for (const m of members) {
+  m.roles.sort((a, b) => (ROLE_ORDER[a] ?? 99) - (ROLE_ORDER[b] ?? 99))
+}
+
+const ALL_ROLES = ['principal', 'operator', 'compliance'] as const
+
+function formatLastLogin(iso: string | null): string {
+  if (!iso) return 'Never'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return 'Never'
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function formatInviteDate(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+// Pending Clerk Organization invitations. The principal needs visibility
+// into who has been invited but not yet signed in. The local member list
+// above only contains users whose first sign-in JIT-created a local users
+// row — pending invitees haven't done that yet. Reading directly from
+// Clerk closes that visibility gap.
+//
+// We surface invites only when the entity is bound to a Clerk Org. If
+// the customer has not been bound yet, there are no invitations to list
+// (the invite form returns `no_clerk_org`). A Clerk failure renders the
+// page without the invitations section but does not break the page —
+// the local members above are the load-bearing surface.
+const clerkParticipants = client.clerk_org_id
+  ? await listClerkOrgParticipants(Astro, client.clerk_org_id)
+  : null
+const pendingInvites = clerkParticipants?.pendingInvites ?? []
+
+// Status banner — set by the role-action and invitations endpoints on redirect.
+const status = Astro.url.searchParams.get('status')
+type BannerStatus = { text: string; tone: 'success' | 'error' | 'info' }
+const STATUS_BANNERS: Record<string, BannerStatus> = {
+  granted: { text: 'Role granted.', tone: 'success' },
+  revoked: { text: 'Role revoked.', tone: 'success' },
+  no_change: { text: 'No change applied.', tone: 'info' },
+  invalid_action: { text: 'Invalid action.', tone: 'error' },
+  invalid_user: { text: 'Invalid user.', tone: 'error' },
+  invalid_role: { text: 'Invalid role.', tone: 'error' },
+  user_not_found: { text: 'User not found.', tone: 'error' },
+  cannot_revoke_last_principal: {
+    text:
+      'You are the only principal on this account. Grant another user the principal role before ' +
+      'revoking your own.',
+    tone: 'error',
+  },
+  invited: {
+    text:
+      'Invitation sent. The invitee will appear here after they accept and sign in for the ' +
+      'first time. Grant them a role then.',
+    tone: 'success',
+  },
+  invalid_email: { text: 'Enter a valid email address.', tone: 'error' },
+  already_member: {
+    text: 'That email is already a member of your workspace.',
+    tone: 'info',
+  },
+  already_invited: {
+    text: 'That email already has an open invitation.',
+    tone: 'info',
+  },
+  no_clerk_org: {
+    text:
+      "Your account isn't bound to a Clerk Organization yet. Contact us to finish setting up " +
+      'invitations.',
+    tone: 'error',
+  },
+  no_clerk_user: {
+    text: 'Your sign-in session is incomplete. Sign out and back in, then try again.',
+    tone: 'error',
+  },
+  invite_failed: {
+    text: 'We could not send the invitation. Try again or contact us if the problem persists.',
+    tone: 'error',
+  },
+}
+const banner = status ? (STATUS_BANNERS[status] ?? null) : null
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+      rel="stylesheet"
+    />
+    <title>Operator · Users | {BRAND_NAME}</title>
+  </head>
+  <body class="min-h-screen bg-[color:var(--ss-color-background)]">
+    <SkipToMain />
+    <PortalHeader clientName={client.name} />
+
+    <PortalTabs pathname={Astro.url.pathname} operatorActive={true} />
+
+    <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
+      <PortalPageHead
+        crumbHref="/portal/products/operator"
+        crumbLabel="Operator"
+        tag="Settings"
+        h1="Users"
+        meta={`${members.length} ${members.length === 1 ? 'member' : 'members'}`}
+      />
+
+      {
+        banner && (
+          <div
+            role="status"
+            class:list={[
+              'mt-6 px-4 py-3 border-[3px] text-sm',
+              banner.tone === 'success'
+                ? 'border-[color:var(--ss-color-complete)] bg-[color:var(--ss-color-complete)]/10 text-[color:var(--ss-color-complete)]'
+                : banner.tone === 'error'
+                  ? 'border-[color:var(--ss-color-error)] bg-[color:var(--ss-color-error)]/10 text-[color:var(--ss-color-error)]'
+                  : 'border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-border-subtle)] text-[color:var(--ss-color-text-primary)]',
+            ]}
+          >
+            {banner.text}
+          </div>
+        )
+      }
+
+      <section class="mt-8">
+        <p
+          class="mb-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        >
+          Granted access
+        </p>
+
+        {
+          members.length === 0 ? (
+            <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center">
+              <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+                No members yet
+              </p>
+              <p class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                Once your team members sign in and you grant them roles, they'll appear here.
+              </p>
+            </div>
+          ) : (
+            <div class="border-[3px] border-[color:var(--ss-color-text-primary)]">
+              {members.map((m, idx) => {
+                const activeRoles = new Set(m.roles)
+                return (
+                  <div
+                    class:list={[
+                      'px-5 py-4',
+                      idx > 0 ? 'border-t-[2px] border-[color:var(--ss-color-text-primary)]' : '',
+                    ]}
+                  >
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-6">
+                      <div class="flex flex-col gap-0.5 min-w-0">
+                        <span class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)] truncate">
+                          {m.name || m.email}
+                        </span>
+                        <span class="text-sm text-[color:var(--ss-color-text-secondary)] truncate">
+                          {m.email}
+                        </span>
+                        <span class="text-xs text-[color:var(--ss-color-text-muted)]">
+                          Last login: {formatLastLogin(m.last_login_at)}
+                        </span>
+                      </div>
+
+                      <div class="flex flex-wrap gap-2 md:justify-end">
+                        {ALL_ROLES.map((role) => {
+                          const isActive = activeRoles.has(role)
+                          return (
+                            <form
+                              method="POST"
+                              action="/api/portal/products/operator/role-action"
+                              class="inline-flex"
+                            >
+                              <input
+                                type="hidden"
+                                name="action"
+                                value={isActive ? 'revoke' : 'grant'}
+                              />
+                              <input type="hidden" name="userId" value={m.id} />
+                              <input type="hidden" name="role" value={role} />
+                              <button
+                                type="submit"
+                                class:list={[
+                                  "inline-flex items-center px-3 py-1.5 text-xs font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold border-[2px] transition-colors",
+                                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2',
+                                  isActive
+                                    ? 'border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-error)] hover:border-[color:var(--ss-color-error)]'
+                                    : 'border-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)]',
+                                ]}
+                              >
+                                {isActive ? `Revoke ${role}` : `Grant ${role}`}
+                              </button>
+                            </form>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        }
+
+        <p class="mt-6 text-sm text-[color:var(--ss-color-text-secondary)]">
+          New team members appear here after they accept their invitation and sign in for the first
+          time. Grant them a role with the buttons above once they appear.
+        </p>
+      </section>
+
+      <section class="mt-12">
+        <p
+          class="mb-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        >
+          Pending invitations
+          {
+            pendingInvites.length > 0 && (
+              <span class="ml-2 normal-case tracking-normal font-normal text-[color:var(--ss-color-text-muted)]">
+                {pendingInvites.length}
+              </span>
+            )
+          }
+        </p>
+
+        {
+          clerkParticipants?.failed ? (
+            <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                We could not load pending invitations from Clerk right now. New invitations will
+                still send; refresh in a moment to see them here.
+              </p>
+            </div>
+          ) : pendingInvites.length === 0 ? (
+            <div class="border-[3px] border-[color:var(--ss-color-text-primary)] p-6">
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                No pending invitations. Invite someone with the form below.
+              </p>
+            </div>
+          ) : (
+            <div class="border-[3px] border-[color:var(--ss-color-text-primary)]">
+              {pendingInvites.map((inv, idx) => (
+                <div
+                  class:list={[
+                    'px-5 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-6',
+                    idx > 0 ? 'border-t-[2px] border-[color:var(--ss-color-text-primary)]' : '',
+                  ]}
+                >
+                  <div class="flex flex-col gap-0.5 min-w-0">
+                    <span class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)] truncate">
+                      {inv.email}
+                    </span>
+                    <span class="text-xs text-[color:var(--ss-color-text-muted)]">
+                      Invited {formatInviteDate(inv.invitedAt)}
+                      {inv.expiresAt && <span> · Expires {formatInviteDate(inv.expiresAt)}</span>}
+                    </span>
+                  </div>
+                  <span class="inline-flex items-center px-3 py-1.5 text-xs font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold border-[2px] border-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-text-primary)]">
+                    Awaiting sign-in
+                  </span>
+                </div>
+              ))}
+            </div>
+          )
+        }
+
+        {
+          clerkParticipants?.truncated && (
+            <p class="mt-3 text-xs text-[color:var(--ss-color-text-muted)]">
+              Showing the first {pendingInvites.length} invitations. More exist than this page can
+              display.
+            </p>
+          )
+        }
+      </section>
+
+      <section class="mt-12">
+        <p
+          class="mb-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        >
+          Invite a new member
+        </p>
+
+        <form
+          method="POST"
+          action="/api/portal/products/operator/invitations"
+          class="flex flex-col sm:flex-row gap-3 max-w-2xl"
+        >
+          <input
+            type="email"
+            name="email"
+            required
+            placeholder="colleague@firm.com"
+            autocomplete="off"
+            class="flex-1 px-4 py-2 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] placeholder-[color:var(--ss-color-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+          />
+          <button
+            type="submit"
+            class="inline-flex items-center justify-center px-5 py-2 font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold text-sm border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-primary)] hover:border-[color:var(--ss-color-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+          >
+            Send invitation
+          </button>
+        </form>
+        <p class="mt-3 text-xs text-[color:var(--ss-color-text-muted)]">
+          The invitee gets a Clerk-hosted sign-up email. Once they sign in, grant them roles from
+          the list above.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

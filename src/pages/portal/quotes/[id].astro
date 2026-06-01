@@ -43,12 +43,8 @@ if (!portalData.client) {
   return Astro.redirect('/auth/sign-in?status=no_subscription')
 }
 
-const aiEmployeeSubscription = await getProductSubscription(
-  env.DB,
-  portalData.client.id,
-  'ai-employee'
-)
-const aiEmployeeActive = aiEmployeeSubscription !== null
+const operatorSubscription = await getProductSubscription(env.DB, portalData.client.id, 'operator')
+const operatorActive = operatorSubscription !== null
 
 const { client } = portalData
 const orgId = portalData.user.org_id
@@ -171,7 +167,7 @@ const supersedingQuoteId = isSuperseded ? (superseding?.id ?? null) : null
     <SkipToMain />
     <PortalHeader clientName={client.name} />
 
-    <PortalTabs pathname={Astro.url.pathname} aiEmployeeActive={aiEmployeeActive} />
+    <PortalTabs pathname={Astro.url.pathname} operatorActive={operatorActive} />
 
     <main id="main" role="main" class="max-w-[1120px] mx-auto px-4 md:px-6 pb-24 md:pb-12">
       <PortalPageHead

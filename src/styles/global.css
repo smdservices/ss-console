@@ -246,7 +246,7 @@
 /*
  * Filled chip used in place of the generic "Intake" eyebrow when a
  * prospect arrives on /book from a productized-SKU marketing CTA
- * (e.g. /ai-employee → /book?interest=ai-employee). Confirms to the
+ * (e.g. /operator → /book?interest=operator). Confirms to the
  * prospect that we know what they are here for. The label/value
  * split lets the product name pop while the "Inquiring about" prefix
  * stays softer.

@@ -4,12 +4,15 @@ date: 2026-05-13
 status: accepted
 captain: Scott Durgan
 supersedes: decision-stack.md#decision-12-retainer-model
+renamed-by: 0034-operator-product-naming.md
 related-strategy: Episode "The $1M+ Solo AI Agent Business" (Greg Isenberg + Nick Vasilescu, 2026-05-12)
 ---
 
 # ADR 0004 — Productized AI Employee Offering
 
-**Status:** Accepted (Captain decision, 2026-05-13).
+**Status:** Accepted, **renamed 2026-06-01 by [ADR 0034](./0034-operator-product-naming.md).** The "Service name" item this ADR left open is now resolved: the product's customer-facing name is **Operator**. Everything else in this ADR — the flat-rate retainer SKU, the second-front-door positioning, the Hermes-leaning stack — stands unchanged. Where this ADR says "AI Employee," read "Operator."
+
+**Status (original):** Accepted (Captain decision, 2026-05-13).
 
 **Source:** Captain directive following [The Startup Ideas Podcast — "The $1M+ Solo AI Agent Business"](https://www.youtube.com/watch?v=BI-MNjm1tTQ) (Greg Isenberg + Nick Vasilescu, 2026-05-12). Transcript synthesis and strategic shape questions resolved in session 2026-05-13.
 

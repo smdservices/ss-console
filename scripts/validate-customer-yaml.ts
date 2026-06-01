@@ -4,7 +4,7 @@
  *
  * Replaces the retired `ai-employee/adapter/validate_customer_yaml.py`
  * with an invocation of the canonical TS validator at
- * `src/lib/ai-employee/customer-yaml/` (per ADR 0019: TS is the canonical
+ * `src/lib/operator/customer-yaml/` (per ADR 0019: TS is the canonical
  * pre-merge gate; the overlay's bootstrap/validate.py is the runtime
  * re-check; the in-tree Python copy was on a stale schema and is gone).
  *
@@ -23,7 +23,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
 
-import { validate } from '../src/lib/ai-employee/customer-yaml'
+import { validate } from '../src/lib/operator/customer-yaml'
 
 function fail(code: number, message: string): never {
   process.stderr.write(`${message}\n`)

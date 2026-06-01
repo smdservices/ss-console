@@ -1,7 +1,7 @@
 /**
  * Fleet-status reader for the admin dashboard (ADR 0023 Wave 1).
  *
- * The `/admin/ai-employee/costs/` page already enumerates AI Employee
+ * The `/admin/operator/costs/` page already enumerates Operator
  * customers via `listCostCustomers()`. This module returns the
  * per-customer heartbeat snapshot (heartbeat freshness, Sentry-24h
  * error count, uptime, version) so the page can render three new
