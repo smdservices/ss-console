@@ -39,7 +39,7 @@ Run through this at the Hermes Machine that will be on screen during the meeting
 
 ### Fixture state
 
-- [ ] Demo fixtures loaded. If issue [#890](https://github.com/venturecrane/ss-console/issues/890) (demo-fixture loader) has shipped, run `ai-employee/bin/load-demo-fixtures.sh {firm-slug} law-firm`. If #890 is still open, hand-seed per [pi-firm-demo-prep.md §6](./pi-firm-demo-prep.md#section-6-run-the-readiness-checks) `06_synthetic_matter` check.
+- [ ] Demo fixtures loaded. If issue [#890](https://github.com/venturecrane/ss-console/issues/890) (demo-fixture loader) has shipped, run `operator/bin/load-demo-fixtures.sh {firm-slug} law-firm`. If #890 is still open, hand-seed per [pi-firm-demo-prep.md §6](./pi-firm-demo-prep.md#section-6-run-the-readiness-checks) `06_synthetic_matter` check.
 - [ ] At least one fresh draft is in the queue, authored by the persona, within the last 4 hours. The draft references a real fixture matter. (If no fresh draft exists, the demo opens cold and Scene 2 has no draft to show; pause and trigger a fixture-driven draft generation before continuing.)
 - [ ] The "What Marcus used to write this" sourcing block (per issue [#807](https://github.com/venturecrane/ss-console/issues/807)) renders on the chosen demo draft. Open the draft detail view and confirm at least one matter record, one memory rule, and one voice sample line in the block.
 - [ ] Voice gate state is Pass or Near-pass (per [`docs/specs/operator/voice-gate-fallback.md`](../specs/operator/voice-gate-fallback.md)). If Fail, the Approve & Send affordance is disabled for external-send skills; the demo loses Scene 4 and Captain must pivot to a structural narration (per the Scene 4 failure recovery below).
@@ -311,7 +311,7 @@ Per [pi-firm-demo-prep.md decommissioning section](./pi-firm-demo-prep.md#decomm
 
 Captain fills this in within 24 hours of the meeting closing. Structured so a follow-on engagement (a fix, a re-rehearsal, a different opening, a different pricing position) can be triggered from the data.
 
-> Save the completed form to `ai-employee/customers/{firm-slug}/demo-debrief-{YYYY-MM-DD}.md`. The customer directory persists in the dossier per [pi-firm-demo-prep.md](./pi-firm-demo-prep.md) and survives the decommission tombstone.
+> Save the completed form to `operator/customers/{firm-slug}/demo-debrief-{YYYY-MM-DD}.md`. The customer directory persists in the dossier per [pi-firm-demo-prep.md](./pi-firm-demo-prep.md) and survives the decommission tombstone.
 
 ### Section A: Meeting metadata
 

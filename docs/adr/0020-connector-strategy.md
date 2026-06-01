@@ -4,8 +4,8 @@ date: 2026-05-24
 status: accepted
 captain: Scott Durgan
 supersedes: none
-related-prd: docs/pm/ai-employee/platform-prd.md §7.2, §7.3
-related-spec: docs/specs/ai-employee/customer-yaml-schema.md
+related-prd: docs/pm/operator/platform-prd.md §7.2, §7.3
+related-spec: docs/specs/operator/customer-yaml-schema.md
 related-issue: TBD (filed as follow-on to the locked Hermes-alignment plan dated 2026-05-24)
 ---
 
@@ -17,10 +17,10 @@ related-issue: TBD (filed as follow-on to the locked Hermes-alignment plan dated
 
 ## Context
 
-The AI Employee touches the customer's external systems through eleven capability interfaces (ADR 0006 rewrite). Each capability resolves at runtime through one of three backend patterns, distinguished by the `customer.yaml.connectors{}.backend:` prefix:
+The Operator touches the customer's external systems through eleven capability interfaces (ADR 0006 rewrite). Each capability resolves at runtime through one of three backend patterns, distinguished by the `customer.yaml.connectors{}.backend:` prefix:
 
 - `mcp:<server>` — Model Context Protocol server (vendor-official or vetted community)
-- `build:<vendor>` — Python adapter we maintain in `ai-employee/connectors/<vendor>/`
+- `build:<vendor>` — Python adapter we maintain in `operator/connectors/<vendor>/`
 - `synthetic:<name>` — In-process substrate using per-customer D1+R2 (e.g., `no_pm`)
 
 **Composio is dropped.** An earlier revision of this ADR reserved a fourth `composio:<connector>` backend as a long-tail fallback. As of the 2026-05-30 revision it is removed entirely: every vendor we plan to wire has a vendor-direct or vetted-community MCP, or a BUILD adapter, and we connect to MCPs directly. The `composio:` prefix is no longer an accepted backend and the per-connection runtime guard has been retired. New vendors with no first-party MCP are wired with a BUILD adapter.
@@ -35,7 +35,7 @@ The decision matrix exists because connector choice for each vendor has real tra
 
 1. **Vendor-direct MCP** — first-party, vendor-maintained, vendor-supported. Default choice when one exists.
 2. **Vetted community MCP** — small, focused, securely reviewable, actively maintained (acceptance criteria below).
-3. **BUILD adapter** in `ai-employee/connectors/<vendor>/` — when no acceptable MCP exists, or when trust-ceiling enforcement is safer to own end-to-end (e.g., trust-account writes against LawPay). This is also the fallback for any long-tail vendor that has not shipped a first-party MCP.
+3. **BUILD adapter** in `operator/connectors/<vendor>/` — when no acceptable MCP exists, or when trust-ceiling enforcement is safer to own end-to-end (e.g., trust-account writes against LawPay). This is also the fallback for any long-tail vendor that has not shipped a first-party MCP.
 
 ### Per-vendor decision table
 

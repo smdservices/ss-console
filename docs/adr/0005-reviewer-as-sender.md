@@ -5,7 +5,7 @@ status: accepted
 captain: Scott Durgan
 supersedes: none
 amended-by: 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md
-related-prd: docs/pm/ai-employee/platform-prd.md §3, §9.2, §13.2, §16
+related-prd: docs/pm/operator/platform-prd.md §3, §9.2, §13.2, §16
 related-issue: https://github.com/venturecrane/ss-console/issues/828
 ---
 
@@ -13,7 +13,7 @@ related-issue: https://github.com/venturecrane/ss-console/issues/828
 
 **Status:** Accepted, **amended 2026-05-29 by [ADR 0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md).** ADR 0025 overturns this ADR's central modality — the holding that reviewer-as-sender is "architectural, not configurable" (§Decision below). Under ADR 0025, reviewer-as-sender is retained as **(a) the default exposure configuration** and **(b) a vertical-pack-lockable floor** (the law pack pins it non-raisable), but it is no longer a global absolute: customers may configure autonomous external send on the exposure axis where no vertical floor forbids it. Everything else in this ADR — the internal/external persona split, the disclosure/liability reasoning (which becomes _why_ the default and the regulated-vertical floor exist), and the drafts mechanism — stands unchanged. Read this ADR with that amendment in mind.
 
-**Status (original):** Accepted (Captain decision; embedded in the AI Employee PRDs since first draft; recorded here as a standalone ADR per [#828](https://github.com/venturecrane/ss-console/issues/828)).
+**Status (original):** Accepted (Captain decision; embedded in the Operator PRDs since first draft; recorded here as a standalone ADR per [#828](https://github.com/venturecrane/ss-console/issues/828)).
 
 **Source:** Platform PRD principle P2 ("Reviewer is always the sender") and Persona model §9.2 (internal vs external persona split). Reinforced by `synthesis-round-1.md` Theme 6/8 — the platform's defensible competitive position depends on this pattern remaining architectural rather than configurable.
 
@@ -21,7 +21,7 @@ related-issue: https://github.com/venturecrane/ss-console/issues/828
 
 ## Context
 
-The AI Employee runs a named persona ("Marcus," "Sarah," whatever the customer chooses) across every internal surface: dashboard, internal Slack/Teams, audit log, voice samples, memory artifacts. Internally, the persona is fully visible — the customer's team interacts with their AI Employee as a teammate with a name and a face.
+The Operator runs a named persona ("Marcus," "Sarah," whatever the customer chooses) across every internal surface: dashboard, internal Slack/Teams, audit log, voice samples, memory artifacts. Internally, the persona is fully visible — the customer's team interacts with their Operator as a teammate with a name and a face.
 
 The product question this ADR resolves is: when the agent drafts an outbound message to a third party (a client, opposing counsel, a vendor, a court, a regulator), under whose identity does that message ship?
 
@@ -73,11 +73,11 @@ Specifically:
 
 ## References
 
-- Platform PRD principle P2 (`docs/pm/ai-employee/platform-prd.md` §3)
+- Platform PRD principle P2 (`docs/pm/operator/platform-prd.md` §3)
 - Platform PRD §9.2 Internal vs external persona
 - Platform PRD §11.2 Default trust ceilings (external write skills locked at `draft_for_review`)
 - Platform PRD §13.2 Disclosure posture
 - Platform PRD §16 Demo flow (reviewer-as-sender is the on-stage moment of the demo)
 - Law-firm PRD §8 Bar Ethics & Disclosure Posture
-- `docs/pm/ai-employee/prd-contributions/synthesis-round-1.md` Themes 6 and 8 (defensible competitive position)
+- `docs/pm/operator/prd-contributions/synthesis-round-1.md` Themes 6 and 8 (defensible competitive position)
 - [Issue #828](https://github.com/venturecrane/ss-console/issues/828)

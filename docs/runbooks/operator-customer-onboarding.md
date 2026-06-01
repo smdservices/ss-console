@@ -47,7 +47,7 @@ Two hard constraints govern every step below.
 - [ ] Write a short customer-intent note: customer legal name, signing party, target effective date, monthly fee, initial term months, governing law state, sub-processor list to be appended. This note is the brief that drives Step 2.
 - [ ] If the demo firm was a pre-provisioned demo (`hermes-demo-{firm-slug}` per PRD §16.2), confirm whether the same Fly app will be promoted to a paying tenant or whether a fresh app will be provisioned for the signed customer. The default is to promote in place once the customer.yaml is updated and the readiness check re-runs green.
 
-**Output:** A customer-intent note in the customer directory (`ai-employee/customers/{firm-slug}/INTENT.md` or a single commit message on the dossier branch). This is the audit trail that the signing path is open.
+**Output:** A customer-intent note in the customer directory (`operator/customers/{firm-slug}/INTENT.md` or a single commit message on the dossier branch). This is the audit trail that the signing path is open.
 
 ---
 
@@ -85,7 +85,7 @@ Two hard constraints govern every step below.
 - The `users[]` list in `customer.yaml` now contains the named principal and any named operator and compliance reviewer. Roles match `dashboard-roles.md`.
 - The `failure_recipients` list now points to Captain's monitored inbox, not the demo escalation address.
 
-**Gate:** Run `ai-employee/bin/prepare-demo-firm.sh --firm-slug {slug}` until it exits 0. If any check fails, fix and re-run. Do not proceed to Step 4 from a yellow readiness report.
+**Gate:** Run `operator/bin/prepare-demo-firm.sh --firm-slug {slug}` until it exits 0. If any check fails, fix and re-run. Do not proceed to Step 4 from a yellow readiness report.
 
 **Output:** A green readiness report dated within 24 hours of the scheduled day-1 session.
 
@@ -201,7 +201,7 @@ If all four are true: **continue at current trajectory.** Schedule the next revi
 
 If one or two of the four criteria are amber (criterion-3 cannot be amber; it is binary):
 
-- Document the adjustment plan in the customer directory (`ai-employee/customers/{slug}/day-45-review.md`).
+- Document the adjustment plan in the customer directory (`operator/customers/{slug}/day-45-review.md`).
 - Schedule a 30-60 minute customer conversation in week 7 to walk the partner and operator through the adjustments. This conversation is not a renegotiation; it is a calibration update.
 - Adjustments typically take one of three shapes: (a) trust-ceiling tuning (promote, demote, or refuse a skill); (b) voice recalibration (additional samples, additional cohorts, re-run blind test); (c) connector or scope adjustment (add or remove a connector, narrow the inbox scope, change the digest cadence).
 - Re-run day-45 criteria at day 75. If the customer is on track at day 75, return to the standard cadence; if not, re-evaluate per §7.4.
@@ -246,7 +246,7 @@ Audit-log event: `DAY_45_REVIEW_COMPLETED` with `metadata.verdict` set to `conti
 
 By Day-45, the following must exist for customer `{slug}`:
 
-**In the customer directory (`ai-employee/customers/{slug}/`):**
+**In the customer directory (`operator/customers/{slug}/`):**
 
 - [ ] `customer.yaml` validated per `customer-yaml-schema.md`
 - [ ] `dossier.md` complete through Section 9

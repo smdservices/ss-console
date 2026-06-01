@@ -4,7 +4,7 @@
 
 **Related:** [aie-adapter-register.md](aie-adapter-register.md), [audit-log-immutability.md](audit-log-immutability.md), [trust-ceiling-logging.md](trust-ceiling-logging.md), [refusal-handling.md](refusal-handling.md), [capability-contracts.md](capability-contracts.md), [ADR 0005 (reviewer-as-sender)](../../adr/0005-reviewer-as-sender.md).
 
-This spec is the contract for `ai-employee/adapter/audit_emit_points.py`. It thickens the per-tool audit emission shape that PR [#981](https://github.com/venturecrane/ss-console/pull/981) landed (`aie_adapter.register()` + the `hermes_hook` surface) with a closed tool registry, a closed BANNED set, a latency timer, and scope-aware metadata extraction.
+This spec is the contract for `operator/adapter/audit_emit_points.py`. It thickens the per-tool audit emission shape that PR [#981](https://github.com/venturecrane/ss-console/pull/981) landed (`aie_adapter.register()` + the `hermes_hook` surface) with a closed tool registry, a closed BANNED set, a latency timer, and scope-aware metadata extraction.
 
 ---
 

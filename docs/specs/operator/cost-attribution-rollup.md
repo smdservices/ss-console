@@ -66,7 +66,7 @@ The categories match platform-prd §15.1 and the pricing model in docs/strategy/
 | `CAPTAIN_TIME`         | `captain_time`                                            |
 | `OTHER`                | anything not in the explicit map above                    |
 
-Adding a new driver requires editing `_DRIVER_TO_CATEGORY` in `ai-employee/adapter/cost_rollup.py` in the same PR that adds the emitter. Drivers that arrive without a category land in `OTHER`; their raw name is preserved in `per_driver_detail_cents` so they surface in the dashboard for triage.
+Adding a new driver requires editing `_DRIVER_TO_CATEGORY` in `operator/adapter/cost_rollup.py` in the same PR that adds the emitter. Drivers that arrive without a category land in `OTHER`; their raw name is preserved in `per_driver_detail_cents` so they surface in the dashboard for triage.
 
 ### COGS/MRR ratio
 
@@ -103,7 +103,7 @@ CREATE TABLE cost_telemetry (
 
 Migration `0006_cost_attribution_rollup.sql` adds:
 
-1. `captain_time_events` — the per-event Captain time table referenced by cost-telemetry-events.md "Captain time logging" but not present in migration 0001. The `crane ai-employee log-time` CLI writes one row here per invocation and pairs that with a same-day UPSERT into `cost_telemetry` under `driver='captain_time'`.
+1. `captain_time_events` — the per-event Captain time table referenced by cost-telemetry-events.md "Captain time logging" but not present in migration 0001. The `crane operator log-time` CLI writes one row here per invocation and pairs that with a same-day UPSERT into `cost_telemetry` under `driver='captain_time'`.
 2. `idx_cost_telemetry_date` — a stand-alone date index for monthly-scan queries. The existing `(date, driver)` PK already covers exact-date reads; this index gives the planner an alternative for date-only scans.
 
 Neither change touches existing rows. The migration is additive.
@@ -122,7 +122,7 @@ Per [ADR 0009](../../adr/0009-cross-machine-query-prohibition.md), `cost_telemet
 
 ## Verification
 
-Unit tests at `ai-employee/adapter/tests/test_cost_rollup.py` cover:
+Unit tests at `operator/adapter/tests/test_cost_rollup.py` cover:
 
 1. Year-month input validation (shape, month bounds, year bounds, non-string).
 2. Empty-month rollup returns zero totals with every category key present.
@@ -138,13 +138,13 @@ Unit tests at `ai-employee/adapter/tests/test_cost_rollup.py` cover:
 Run from repo root:
 
 ```
-cd ai-employee && python -m pytest adapter/tests/test_cost_rollup.py -v
+cd operator && python -m pytest adapter/tests/test_cost_rollup.py -v
 ```
 
 ## Implementation notes
 
-- Module: `ai-employee/adapter/cost_rollup.py`.
-- Migration: `ai-employee/migrations/0006_cost_attribution_rollup.sql`.
+- Module: `operator/adapter/cost_rollup.py`.
+- Migration: `operator/migrations/0006_cost_attribution_rollup.sql`.
 - The aggregate query uses a half-open date range (`date >= 'YYYY-MM-01' AND date < 'YYYY-MM+1-01'`) so the `(date, driver)` PK serves the scan without a function call per row.
 - A production D1 HTTP reader is not implemented here. The `RowReader` Protocol accepts any async `fetch_rows(sql, params)`. The `SqliteRowReader` implementation ships for tests and local dev; the production wrapper around `HttpD1Executor` is a small wiring exercise that lives outside this module's scope.
 - Cross-references:

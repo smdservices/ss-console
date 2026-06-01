@@ -41,7 +41,7 @@ The recipes the agent runs. The customer-value layer.
   - `proposal-drafter`, `ar-chaser`, `scope-creep-flagger`, `asset-collection-follower`, `retainer-hours-reconciler`, `paid-media-anomaly-watcher`, `status-report-assembler` (marketing-agency scaffolds)
 - Skill versioning + content-hash pinning (`adapter/resolve_skill_pins.py`)
 - Skill validation in `customer.yaml` validator
-- Grading matrix at `ai-employee/grading/matrix.md`
+- Grading matrix at `operator/grading/matrix.md`
 
 **Yet to define/build:**
 

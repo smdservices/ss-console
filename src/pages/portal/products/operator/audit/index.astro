@@ -27,7 +27,7 @@ import { env } from 'cloudflare:workers'
  * Per #873 and PRD §13, every safety-relevant action the Operator
  * takes emits an audit event. This surface is the read-only viewer
  * over those events. The audit writer landed in PR #942
- * (`ai-employee/adapter/audit_log.py`).
+ * (`operator/adapter/audit_log.py`).
  *
  * Data source: per-customer Hermes Machine D1 (ADR 0007 + 0009). The
  * portal Worker cannot bind directly to a per-customer D1; the read

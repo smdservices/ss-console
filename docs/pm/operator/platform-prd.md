@@ -295,7 +295,7 @@ Capability interfaces (sketch — full set defined in `operator/capabilities/`):
 - `CallTracking` — call records, call recordings, attribution data
 - `InternalComms` — Slack/Teams channel posts, DMs, mentions
 
-Concrete adapters live at `ai-employee/connectors/{capability}/{system}/` and implement the relevant interface.
+Concrete adapters live at `operator/connectors/{capability}/{system}/` and implement the relevant interface.
 
 ### 7.2.1 Capability interface specifications
 
@@ -385,7 +385,7 @@ connectors:
   Email:
     adapter: microsoft-graph
     backend: mcp:softeria/ms-365-mcp-server
-    token_ref: 'infisical:/ai-employee/smith-pi-firm/email/refresh' # NEVER literal secrets
+    token_ref: 'infisical:/operator/smith-pi-firm/email/refresh' # NEVER literal secrets
   PracticeManagement:
     adapter: filevine
     backend: build:filevine-mcp
@@ -416,7 +416,7 @@ memory: # ADR 0009 isolation invariants — validator enforces equality with cus
 
 ### 7.4 Skill loading and pinning
 
-Skills live in `ai-employee/skills/{skill-name}/SKILL.md` plus a `references/` folder. Each skill is pinned per customer by content-hash. A skill update to the platform catalog does _not_ propagate to running customers until the Captain explicitly re-pins them. This prevents silent regressions.
+Skills live in `operator/skills/{skill-name}/SKILL.md` plus a `references/` folder. Each skill is pinned per customer by content-hash. A skill update to the platform catalog does _not_ propagate to running customers until the Captain explicitly re-pins them. This prevents silent regressions.
 
 ### 7.5 Safety substrate
 
@@ -1087,7 +1087,7 @@ Captain operations time is one of the nine cost drivers in §15.1 and the only o
 **Command shape (canonical):**
 
 ```
-crane ai-employee log-time --customer {slug} --minutes {N} --activity {tag} [--note "{text}"] [--date YYYY-MM-DD]
+crane operator log-time --customer {slug} --minutes {N} --activity {tag} [--note "{text}"] [--date YYYY-MM-DD]
 ```
 
 **Flags:**
@@ -1144,11 +1144,11 @@ logged 30m for acme-pi-law (voice-calibration) = $100.00 at $200/hr
 | D1 binding unavailable for the customer            | 3         | `cannot reach D1 for {slug}: {detail}` (Captain alerted via stderr)           |
 | Underlying D1 write fails after one retry          | 3         | `D1 write failed for {slug}: {detail}`                                        |
 
-**Idempotency:** none, by design. The cost_telemetry feed is event-sourced for captain_time; correcting a mis-logged entry is a follow-on operation (a separate `crane ai-employee log-time --reverse` is a Phase 4 follow-on, not in scope here).
+**Idempotency:** none, by design. The cost_telemetry feed is event-sourced for captain_time; correcting a mis-logged entry is a follow-on operation (a separate `crane operator log-time --reverse` is a Phase 4 follow-on, not in scope here).
 
 **Audit:** every successful invocation writes an `audit_log` row with `action_type: CAPTAIN_TIME_LOGGED`, `actor: captain`, and metadata containing the activity tag, minutes, computed cost cents, and date. This makes the time log inspectable in the Captain dashboard alongside other administrative events.
 
-**Help text:** `crane ai-employee log-time --help` prints the flag table, the activity-tag taxonomy with one-line descriptions, and an example invocation.
+**Help text:** `crane operator log-time --help` prints the flag table, the activity-tag taxonomy with one-line descriptions, and an example invocation.
 
 **Implementation contract:** the per-event schema, write path, and audit-row shape are spec'd at [`docs/specs/operator/cost-telemetry-events.md`](../../specs/operator/cost-telemetry-events.md) §"Captain time logging". The D1 columns added to support per-event rows are at [`docs/specs/operator/d1-schema.md`](../../specs/operator/d1-schema.md) `captain_time_events` table.
 
@@ -1350,7 +1350,7 @@ Scope:
 - Provisioning script (`bin/provision-customer.sh`)
 - First customer-zero (`hermes-smd`) live
 
-Status: largely complete per `ai-employee-smd-customer-zero` branch progress.
+Status: largely complete per `operator-smd-customer-zero` branch progress.
 
 ### Phase 1 — Platform spine + first-customer-ready v1 (in flight)
 
@@ -1411,7 +1411,7 @@ Status: largely complete per `ai-employee-smd-customer-zero` branch progress.
 - Operations runbook at `docs/runbooks/operator-ops.md`
 - Captain operational budget instrumented (≤2 hrs/wk/customer)
 - Cost telemetry instrumented per §15.1 (Captain-only dashboard)
-- Captain CLI time-logging command (`crane ai-employee log-time`) shipped per §15.2 with the closed v1 activity-tag taxonomy enforced
+- Captain CLI time-logging command (`crane operator log-time`) shipped per §15.2 with the closed v1 activity-tag taxonomy enforced
 - Backup operator designated by name (gate before customer #5, not customer #1)
 
 **Single skill version** in v1; per-customer skill pinning is Phase 4.
@@ -1466,7 +1466,7 @@ Scope:
 - **Practice-area overlay**: A configuration + small skills pack for a sub-segment within a vertical (e.g., PI within law-firm).
 - **Primitive**: One of the six universal operational skills every business needs (intake, doc-collection, deadline-docketer, status-update, signing, billing).
 - **Reviewer-as-sender**: The architectural pattern where the agent never sends externally; named humans review drafts and send from their own accounts.
-- **Skill**: A unit of capability the agent can perform. Lives at `ai-employee/skills/{skill-name}/`.
+- **Skill**: A unit of capability the agent can perform. Lives at `operator/skills/{skill-name}/`.
 - **Specialized dedicated skill**: A vertical-specific skill that doesn't reduce to primitive configuration (e.g., IP docketing rules engine).
 - **Trust ceiling**: One of `autonomous`, `draft_for_review`, `disabled`. Per-skill, per-customer.
 - **Vertical pack**: A complete set of overlays, specialized skills, connector adapters, persona defaults, and demo materials for one industry vertical (e.g., law-firm).

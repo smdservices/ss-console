@@ -12,12 +12,12 @@
 
 ## Files
 
-- `ai-employee/adapter/memory/export.py` -- `export_memory()` plus the `MemoryExportManifest` shape
-- `ai-employee/adapter/voice/export.py` -- `export_voice_library()` plus the `VoiceExportManifest` shape and the privacy guard
-- `ai-employee/bin/lib/export.py` -- `run_export()` orchestrator that composes memory + voice into a tar.gz, plus the `run_export_for_decommission()` integration seam
-- `ai-employee/adapter/memory/tests/test_export.py` -- memory unit tests
-- `ai-employee/adapter/voice/tests/test_export.py` -- voice unit tests
-- `ai-employee/bin/tests/test_export.py` -- end-to-end orchestrator tests against a tar.gz on disk
+- `operator/adapter/memory/export.py` -- `export_memory()` plus the `MemoryExportManifest` shape
+- `operator/adapter/voice/export.py` -- `export_voice_library()` plus the `VoiceExportManifest` shape and the privacy guard
+- `operator/bin/lib/export.py` -- `run_export()` orchestrator that composes memory + voice into a tar.gz, plus the `run_export_for_decommission()` integration seam
+- `operator/adapter/memory/tests/test_export.py` -- memory unit tests
+- `operator/adapter/voice/tests/test_export.py` -- voice unit tests
+- `operator/bin/tests/test_export.py` -- end-to-end orchestrator tests against a tar.gz on disk
 
 ## Contract
 

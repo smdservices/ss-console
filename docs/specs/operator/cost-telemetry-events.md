@@ -47,11 +47,11 @@ Rollup is one row per `(date, driver)` per customer. Insertion is UPSERT — mul
 | `third_party_api_lawpay`        | LawPay billing API (if cost model includes per-call fees)                                   | Daily nightly                     | `api_calls`       |
 | `third_party_api_docusign`      | DocuSign billing                                                                            | Daily nightly                     | `envelopes`       |
 | `third_party_api_courtlistener` | CourtListener (free tier; logged as units only)                                             | Daily nightly                     | `api_calls`       |
-| `captain_time`                  | Captain logs via `crane ai-employee log-time` CLI (platform-prd.md §15.2)                   | On-demand by Captain              | `captain_minutes` |
+| `captain_time`                  | Captain logs via `crane operator log-time` CLI (platform-prd.md §15.2)                      | On-demand by Captain              | `captain_minutes` |
 
 ### Per-call emission (Claude API)
 
-Adapter at `ai-employee/adapter/anthropic_client.py` wraps every Anthropic API call:
+Adapter at `operator/adapter/anthropic_client.py` wraps every Anthropic API call:
 
 ```python
 async def chat_completion(prompt: ...) -> Response:
@@ -67,7 +67,7 @@ async def chat_completion(prompt: ...) -> Response:
 
 A buffer flushes to D1 every 60s or 500 events, whichever comes first. Flushed via D1 UPSERT (`ON CONFLICT (date, driver) DO UPDATE SET amount_cents = amount_cents + excluded.amount_cents, units = units + excluded.units`).
 
-Model pricing live in `ai-employee/adapter/anthropic_pricing.json`:
+Model pricing live in `operator/adapter/anthropic_pricing.json`:
 
 ```json
 {
@@ -102,7 +102,7 @@ Captain operations time is event-sourced, not rollup-keyed. Every invocation of 
 **Canonical CLI** (full command spec at platform-prd.md §15.2):
 
 ```
-crane ai-employee log-time --customer {slug} --minutes {N} --activity {tag} [--note "{text}"] [--date YYYY-MM-DD]
+crane operator log-time --customer {slug} --minutes {N} --activity {tag} [--note "{text}"] [--date YYYY-MM-DD]
 ```
 
 **Activity tags** form a closed v1 enum. The CLI rejects any tag not in the list. See platform-prd.md §15.2 for the full taxonomy. Freeform strings are explicitly out of scope; new tags require a PR.
@@ -143,7 +143,7 @@ The rollup row is what §17.1 COGS/MRR computation reads. Per-event detail (acti
 
 **Audit log row.** Each successful CLI invocation also writes one `audit_log` row with `action_type: CAPTAIN_TIME_LOGGED`, `actor: captain`, and a metadata JSON containing `{activity, minutes, amount_cents, date, event_id}`. This surfaces the time log in the Captain dashboard alongside other administrative events.
 
-**Idempotency.** None, by design. Re-running the same command writes a second row in both `captain_time_events` and accumulates in `cost_telemetry`. This is intentional: Captain may log two distinct 15-minute calibration sessions on the same day for the same customer and both must persist. Correcting a mis-logged entry is a follow-on operation (`crane ai-employee log-time --reverse` is a Phase 4 follow-on, not in scope here).
+**Idempotency.** None, by design. Re-running the same command writes a second row in both `captain_time_events` and accumulates in `cost_telemetry`. This is intentional: Captain may log two distinct 15-minute calibration sessions on the same day for the same customer and both must persist. Correcting a mis-logged entry is a follow-on operation (`crane operator log-time --reverse` is a Phase 4 follow-on, not in scope here).
 
 ### Per-customer rollup view
 
@@ -188,11 +188,11 @@ Alert fires when `ratio > 0.40` for two consecutive months. Audit event `COGS_RA
 
 ## Implementation notes
 
-- Buffer module: `ai-employee/adapter/cost_event_buffer.py` (Python; flushes via aiohttp to D1 HTTP API). TS twin if/when adapters port.
+- Buffer module: `operator/adapter/cost_event_buffer.py` (Python; flushes via aiohttp to D1 HTTP API). TS twin if/when adapters port.
 - Wrap every Anthropic call via `anthropic_client.py` rather than skill code touching the raw SDK; CI grep blocks direct SDK imports outside this wrapper.
 - Nightly Worker: `infra/workers/cost-telemetry/worker.ts`; cron `0 2 * * *` UTC; lives in main repo so it ships with platform code.
 - Captain dashboard view: `src/pages/admin/operator/cost/[customer].astro` reads from per-customer D1.
-- Captain time helper: `crane ai-employee log-time` CLI subcommand. Full command spec at platform-prd.md §15.2; per-event D1 schema at d1-schema.md `captain_time_events`. The CLI writes both the per-event row and the `cost_telemetry` daily rollup in a single transaction.
+- Captain time helper: `crane operator log-time` CLI subcommand. Full command spec at platform-prd.md §15.2; per-event D1 schema at d1-schema.md `captain_time_events`. The CLI writes both the per-event row and the `cost_telemetry` daily rollup in a single transaction.
 - Cross-references:
   - d1-schema.md (cost_telemetry table)
   - decommission-drain.md (final cost_telemetry export before D1 deletion)

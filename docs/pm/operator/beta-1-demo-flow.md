@@ -1,6 +1,6 @@
 # Beta-1 Demo Flow
 
-**Status:** Approved. The 6-step memory demo is the beta-1 demo centerpiece. Locked in [ADR 0013](../../adr/0013-ai-employee-positioning-doctrine.md) §6 (ethics architecture as combined moat) and informed by the round-2 and round-3 competitive analysis deliverables.
+**Status:** Approved. The 6-step memory demo is the beta-1 demo centerpiece. Locked in [ADR 0013](../../adr/0013-operator-positioning-doctrine.md) §6 (ethics architecture as combined moat) and informed by the round-2 and round-3 competitive analysis deliverables.
 
 **Audience:** Beta-1 demo attendees (managing partners and operations leads at 3-20 attorney PI plaintiff firms in Phoenix). The flow is calibrated for in-person demonstrations to sophisticated buyers.
 
@@ -37,7 +37,7 @@ These questions ground the demo in the firm's actual operations. They also surfa
 
 ## The opener (legal-vertical)
 
-Per [ADR 0013](../../adr/0013-ai-employee-positioning-doctrine.md) §2:
+Per [ADR 0013](../../adr/0013-operator-positioning-doctrine.md) §2:
 
 > **A managed Operator your team reviews before anything leaves the firm.**
 
@@ -132,7 +132,7 @@ Some prospects will have demoed Eve Legal, EvenUp PLAAS, or Law Practice AI befo
 
 ### "How are you different from Eve 2.0?"
 
-Use the locked wedge line ([ADR 0013](../../adr/0013-ai-employee-positioning-doctrine.md) §4):
+Use the locked wedge line ([ADR 0013](../../adr/0013-operator-positioning-doctrine.md) §4):
 
 > Eve is a plaintiff AI platform. Operator is a portable operator with firm-owned memory.
 
@@ -215,7 +215,7 @@ The first item is the most important and most likely to be the blocker. The 6-st
 - [ADR 0005](../../adr/0005-reviewer-as-sender.md) — reviewer-as-sender architecture
 - [ADR 0008](../../adr/0008-customer-owned-memory-artifact.md) — customer-owned memory artifact
 - [ADR 0011](../../adr/0011-multi-persona-per-customer.md) — multi-persona per customer
-- [ADR 0013](../../adr/0013-ai-employee-positioning-doctrine.md) — Operator positioning doctrine
+- [ADR 0013](../../adr/0013-operator-positioning-doctrine.md) — Operator positioning doctrine
 - [ADR 0014](../../adr/0014-pi-vertical-adapter-build-priority.md) — PI vertical adapter build priority
 - [Round-2 competitive analysis](prd-contributions/round-2/competitive-analysis.md)
 - [Round-3 ethics architecture](prd-contributions/round-3/ethics-architecture.md)

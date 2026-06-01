@@ -394,7 +394,7 @@ Input:
   - customer.yaml must exist at config/customers/{customer-slug}.yaml
   - Dry-run flag: --dry-run (prints plan, makes no changes)
   - Secret injection strategy: reads from Infisical at path
-    /ai-employee/{customer-slug}/ — never from customer.yaml directly
+    /operator/{customer-slug}/ — never from customer.yaml directly
 
 Steps (ordered, each must succeed before proceeding):
   1. Validate customer.yaml against schema (see schema section)
@@ -589,7 +589,7 @@ persona:
 connectors:
   <CapabilityName>: <adapter-slug> # e.g. Email: microsoft-graph
   # CapabilityName must be a registered capability interface name
-  # adapter-slug must exist in ai-employee/connectors/{capability}/{adapter}/
+  # adapter-slug must exist in operator/connectors/{capability}/{adapter}/
 
 skills:
   - <skill-name>:
@@ -615,7 +615,7 @@ business_hours: # [OPTIONAL] defaults to M-F 8am-6pm local
 # Fields NOT allowed in customer.yaml:
 # - Any field containing 'token', 'secret', 'key', 'password', 'credential'
 # - Any field whose value looks like a JWT, base64 blob, or UUID secret pattern
-# These belong in Infisical at path /ai-employee/{customer-slug}/
+# These belong in Infisical at path /operator/{customer-slug}/
 ```
 
 ### Risk 3: The skill loader reference-loading issue is deferred too far (SEVERITY: MEDIUM)

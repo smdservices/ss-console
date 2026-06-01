@@ -158,7 +158,7 @@ The combined ethics architecture is the spine of the beta-1 demo. The 6-step mem
 
 ### In the marketing
 
-Memory becomes a headline pillar per [ADR 0013](../../../adr/0013-ai-employee-positioning-doctrine.md). Reviewer-as-sender is positioned as regulatory foresight, not as "safer than competitors." The two are framed together in higher-context materials (deck, proposal, demo opener) and separately only at the feature-level on the website.
+Memory becomes a headline pillar per [ADR 0013](../../../adr/0013-operator-positioning-doctrine.md). Reviewer-as-sender is positioned as regulatory foresight, not as "safer than competitors." The two are framed together in higher-context materials (deck, proposal, demo opener) and separately only at the feature-level on the website.
 
 ### In the proposal
 
@@ -181,7 +181,7 @@ The combined frame answers several objections simultaneously:
 - The capability-adapter pattern ([ADR 0006](../../../adr/0006-capability-adapter-pattern.md)) is unchanged. The ethics architecture is a positioning frame; the adapter pattern is a code structure.
 - The customer-owned memory artifact ADR ([ADR 0008](../../../adr/0008-customer-owned-memory-artifact.md)) is unchanged. This deep-dive reinforces the positioning value of the architecture already locked.
 - The reviewer-as-sender ADR ([ADR 0005](../../../adr/0005-reviewer-as-sender.md)) is unchanged. This deep-dive reframes the external language around it.
-- The multi-persona schema lock ([ADR 0011](../../../adr/0011-multi-persona-per-customer.md)) is unchanged. Multi-persona positioning at v1 is governed by [ADR 0013](../../../adr/0013-ai-employee-positioning-doctrine.md) §8.
+- The multi-persona schema lock ([ADR 0011](../../../adr/0011-multi-persona-per-customer.md)) is unchanged. Multi-persona positioning at v1 is governed by [ADR 0013](../../../adr/0013-operator-positioning-doctrine.md) §8.
 
 ---
 
@@ -189,7 +189,7 @@ The combined frame answers several objections simultaneously:
 
 - [ADR 0005](../../../adr/0005-reviewer-as-sender.md) — reviewer-as-sender architecture
 - [ADR 0008](../../../adr/0008-customer-owned-memory-artifact.md) — customer-owned memory artifact
-- [ADR 0013](../../../adr/0013-ai-employee-positioning-doctrine.md) — Operator positioning doctrine
+- [ADR 0013](../../../adr/0013-operator-positioning-doctrine.md) — Operator positioning doctrine
 - [Round-2 competitive analysis](../round-2/competitive-analysis.md)
 - [Round-3 OpenAI UPL strategic read](./openai-upl-strategic-read.md) — UPL litigation as the most direct live regulatory signal
 - [Beta-1 demo flow](../../beta-1-demo-flow.md) — the 6-step memory demo that embodies the combined architecture on-stage

@@ -4,21 +4,21 @@ date: 2026-05-20
 status: accepted
 captain: Scott Durgan
 supersedes: none
-related-prd: docs/pm/ai-employee/platform-prd.md §7.1, §7.5, §7.6, §17.4
+related-prd: docs/pm/operator/platform-prd.md §7.1, §7.5, §7.6, §17.4
 related-issue: https://github.com/venturecrane/ss-console/issues/828
 ---
 
 # ADR 0007 — Per-Customer Machine Isolation
 
-**Status:** Accepted (Captain decision; embedded in the AI Employee PRDs since first draft; recorded here as a standalone ADR per [#828](https://github.com/venturecrane/ss-console/issues/828)).
+**Status:** Accepted (Captain decision; embedded in the Operator PRDs since first draft; recorded here as a standalone ADR per [#828](https://github.com/venturecrane/ss-console/issues/828)).
 
-**Source:** Platform PRD §7.1 multi-tenant model and §7.5 safety substrate (invariant #7, cross-Machine query prohibition). Locked in `docs/strategy/ai-employee-stack-evaluation-2026-05-13.md` and reinforced by `synthesis-round-1.md` Themes 11 and 17.
+**Source:** Platform PRD §7.1 multi-tenant model and §7.5 safety substrate (invariant #7, cross-Machine query prohibition). Locked in `docs/strategy/operator-stack-evaluation-2026-05-13.md` and reinforced by `synthesis-round-1.md` Themes 11 and 17.
 
 ---
 
 ## Context
 
-The AI Employee runs as a long-lived agent process per customer. The product surface includes:
+The Operator runs as a long-lived agent process per customer. The product surface includes:
 
 - Per-customer persona, voice samples, memory rules, person-mappings (PRD §9, §10)
 - Per-customer connector credentials (OAuth tokens for Microsoft Graph, Filevine, DocuSign, etc.)
@@ -34,7 +34,7 @@ Three patterns were available:
 2. **Shared runtime with per-customer namespaces.** One process, namespaced storage and credentials per customer, application-level isolation. The runtime still has the ability to read across customers.
 3. **Per-customer Machine.** One Fly.io Machine per customer (`hermes-{customer-slug}`). Each Machine has its own storage bindings, its own credentials, its own pinned skill catalog. No runtime path crosses customer boundaries.
 
-Pattern 1 is the standard SaaS multi-tenant pattern and is appropriate when the cost of cross-tenant leakage is bounded and recoverable (e.g., a single customer's records briefly visible to another customer). For an AI Employee in a regulated practice (PI law, but the principle applies to every regulated vertical the platform will ship — workers' comp, immigration, medical, accounting), the cost of cross-tenant leakage is unbounded: privilege breach, bar discipline, customer-existential lawsuit. The platform cannot ship multi-tenant in any sense that allows a runtime path between customers.
+Pattern 1 is the standard SaaS multi-tenant pattern and is appropriate when the cost of cross-tenant leakage is bounded and recoverable (e.g., a single customer's records briefly visible to another customer). For an Operator in a regulated practice (PI law, but the principle applies to every regulated vertical the platform will ship — workers' comp, immigration, medical, accounting), the cost of cross-tenant leakage is unbounded: privilege breach, bar discipline, customer-existential lawsuit. The platform cannot ship multi-tenant in any sense that allows a runtime path between customers.
 
 Pattern 2 places the isolation guarantee in application code. It is auditable but only as good as the code review. A bug in the tenant-scoping layer is a cross-customer data leak.
 
@@ -85,8 +85,8 @@ Boot-time invariant: at Machine boot, the runtime verifies its storage bindings 
 - Platform PRD §7.5 Safety substrate (invariant #7 cross-Machine query prohibition)
 - Platform PRD §7.6 Storage architecture (per customer)
 - Platform PRD §17.4 (0 cross-customer incidents target)
-- `docs/strategy/ai-employee-stack-evaluation-2026-05-13.md`
-- `docs/pm/ai-employee/prd-contributions/synthesis-round-1.md` Themes 11 (fabrication discipline runtime enforcement) and 17 (cross-customer prohibition CI gate)
+- `docs/strategy/operator-stack-evaluation-2026-05-13.md`
+- `docs/pm/operator/prd-contributions/synthesis-round-1.md` Themes 11 (fabrication discipline runtime enforcement) and 17 (cross-customer prohibition CI gate)
 - [ADR 0005 Reviewer-as-sender](./0005-reviewer-as-sender.md)
 - [ADR 0008 Customer-owned memory artifact](./0008-customer-owned-memory-artifact.md)
 - [ADR 0009 Cross-Machine query prohibition](./0009-cross-machine-query-prohibition.md)

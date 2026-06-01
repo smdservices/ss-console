@@ -18,20 +18,20 @@ The CI surface specified here is the enforced regression suite. It is intentiona
 
 ### Trigger paths
 
-The workflow at `.github/workflows/ai-employee-skill-regression.yml` runs on every pull request that touches any of:
+The workflow at `.github/workflows/operator-skill-regression.yml` runs on every pull request that touches any of:
 
-- `ai-employee/skills/**`
-- `ai-employee/adapter/**`
-- `ai-employee/fixtures/**`
-- `ai-employee/tests/skill_regression.py` (the harness itself)
-- `ai-employee/tests/golden/**` (the golden snapshots)
-- `.github/workflows/ai-employee-skill-regression.yml`
+- `operator/skills/**`
+- `operator/adapter/**`
+- `operator/fixtures/**`
+- `operator/tests/skill_regression.py` (the harness itself)
+- `operator/tests/golden/**` (the golden snapshots)
+- `.github/workflows/operator-skill-regression.yml`
 
 The same workflow runs on `push` to `main` as a backstop. Failure blocks merge.
 
 ### What the harness extracts
 
-The harness lives at `ai-employee/tests/skill_regression.py`. For each fixture, it parses the reference output `.md` file (`*-draft.md`, `*-memo.md`, or `*-refusal.md`) and produces a stable JSON document.
+The harness lives at `operator/tests/skill_regression.py`. For each fixture, it parses the reference output `.md` file (`*-draft.md`, `*-memo.md`, or `*-refusal.md`) and produces a stable JSON document.
 
 Two variants:
 
@@ -89,7 +89,7 @@ The body fingerprint catches every other regression in one stable check. Body te
 
 The harness fails with exit 1 on any of:
 
-- The golden file at `ai-employee/tests/golden/<skill>/<fixture>.json` is missing.
+- The golden file at `operator/tests/golden/<skill>/<fixture>.json` is missing.
 - The `SKILL.md` for a requested slug does not exist or has no YAML frontmatter.
 - A fixture `.yaml` exists with no paired `.md` reference output.
 - A reference `.md` file has neither an envelope block nor a `SkillRefusalError` block.
@@ -102,7 +102,7 @@ The first four conditions ship a useful error message in the per-fixture row of 
 When a partner has reviewed and signed off on a reference output change, the bypass is:
 
 ```bash
-python3 ai-employee/tests/skill_regression.py --regenerate <skill-slug>
+python3 operator/tests/skill_regression.py --regenerate <skill-slug>
 ```
 
 This overwrites the golden JSON files for that skill. The PR then carries both the fixture `.md` change AND the regenerated golden JSON. The PR description must record the partner sign-off. There is no `--no-verify` or skip-CI form; merging requires the gate to pass on the new goldens.
@@ -141,18 +141,18 @@ The default list lives in `DEFAULT_SKILL_SLUGS` in the harness. New skills join 
 
 ## Files
 
-- `.github/workflows/ai-employee-skill-regression.yml`: the workflow
-- `ai-employee/tests/skill_regression.py`: the harness
-- `ai-employee/tests/golden/<skill>/<fixture>.json`: committed goldens
-- `ai-employee/tests/README-regression.md`: operator notes for partners and engineers
+- `.github/workflows/operator-skill-regression.yml`: the workflow
+- `operator/tests/skill_regression.py`: the harness
+- `operator/tests/golden/<skill>/<fixture>.json`: committed goldens
+- `operator/tests/README-regression.md`: operator notes for partners and engineers
 - `docs/specs/operator/skill-regression-ci.md`: this spec
 
 ## Acceptance criteria mapping (issue #825)
 
-| Criterion                                                          | Location                                                                                                                                                                                                                                                                            |
-| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CI workflow file present and triggered on relevant paths           | `.github/workflows/ai-employee-skill-regression.yml`, paths filter on `ai-employee/skills/**`, `ai-employee/adapter/**`, `ai-employee/fixtures/**`                                                                                                                                  |
-| Fixture-runner harness shells out to the adapter with each fixture | `ai-employee/tests/skill_regression.py`. Note: the v1 harness reads the reference `.md` directly rather than re-invoking the adapter (the adapter is the Phase A stub at `aie_adapter.py`); the harness contract is identical to "run adapter, capture structured output, compare." |
-| Golden output comparison with clear diff on failure                | `diff_summary()` in the harness, surfaced in both the console output and the PR comment                                                                                                                                                                                             |
-| PR comment surface showing fixture-by-fixture pass / fail          | `Comment on PR` step uses `actions/github-script@v7` with a sticky-marker upsert                                                                                                                                                                                                    |
-| Captain documented bypass mechanism for intentional output changes | `--regenerate <skill-slug>` mode, documented in `ai-employee/tests/README-regression.md` and in this spec                                                                                                                                                                           |
+| Criterion                                                          | Location                                                                                                                                                                                                                                                                         |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CI workflow file present and triggered on relevant paths           | `.github/workflows/operator-skill-regression.yml`, paths filter on `operator/skills/**`, `operator/adapter/**`, `operator/fixtures/**`                                                                                                                                           |
+| Fixture-runner harness shells out to the adapter with each fixture | `operator/tests/skill_regression.py`. Note: the v1 harness reads the reference `.md` directly rather than re-invoking the adapter (the adapter is the Phase A stub at `aie_adapter.py`); the harness contract is identical to "run adapter, capture structured output, compare." |
+| Golden output comparison with clear diff on failure                | `diff_summary()` in the harness, surfaced in both the console output and the PR comment                                                                                                                                                                                          |
+| PR comment surface showing fixture-by-fixture pass / fail          | `Comment on PR` step uses `actions/github-script@v7` with a sticky-marker upsert                                                                                                                                                                                                 |
+| Captain documented bypass mechanism for intentional output changes | `--regenerate <skill-slug>` mode, documented in `operator/tests/README-regression.md` and in this spec                                                                                                                                                                           |

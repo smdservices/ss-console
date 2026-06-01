@@ -27,7 +27,7 @@
 
 ### 2. Provisioning script doesn't match the spec's surface, and the gap is load-bearing. (HIGH)
 
-`provision-customer.sh` does: validate, render `fly.toml`, create Fly app + volume, stage three tenant-wide secrets, deploy, smoke. It does **not**: provision D1 / R2 / Vectorize resources (validator only checks keys exist, not resources); inject per-customer Infisical paths (`oauth-lifecycle.md` specifies `/ai-employee/{slug}/{connector}/refresh_token`); build the OAuth consent endpoint (ambiguity #4). What ships provisions a chat-only Hermes container. What the v1 PRD describes provisions a multi-substrate, OAuth-wired, audit-logging customer instance. Different work.
+`provision-customer.sh` does: validate, render `fly.toml`, create Fly app + volume, stage three tenant-wide secrets, deploy, smoke. It does **not**: provision D1 / R2 / Vectorize resources (validator only checks keys exist, not resources); inject per-customer Infisical paths (`oauth-lifecycle.md` specifies `/operator/{slug}/{connector}/refresh_token`); build the OAuth consent endpoint (ambiguity #4). What ships provisions a chat-only Hermes container. What the v1 PRD describes provisions a multi-substrate, OAuth-wired, audit-logging customer instance. Different work.
 
 ### 3. Composio per-connection isolation is unresolved and silently undermines per-customer isolation. (HIGH)
 

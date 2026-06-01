@@ -397,7 +397,7 @@ What customers expect that doesn't reliably work yet:
 
 ### Expansive — any vertical where we can deliver value
 
-Per Captain directive (2026-05-13): **Operator follows an expansive vertical strategy.** Any vertical where we can realistically deliver $5K/mo of value to a $750K-$5M revenue business is in scope. This is distinct from SMD's primary consulting funnel verticals ([Decision #3](../adr/decision-stack.md#decision-3---launch-verticals)) — the Operator SKU is a second front door per [ADR 0004](../adr/0004-productized-ai-employee-offering.md), not a vertical-constrained extension of the consulting funnel. SMD's primary consulting funnel continues unchanged. The two acquisition paths serve the same buyer band through different doors.
+Per Captain directive (2026-05-13): **Operator follows an expansive vertical strategy.** Any vertical where we can realistically deliver $5K/mo of value to a $750K-$5M revenue business is in scope. This is distinct from SMD's primary consulting funnel verticals ([Decision #3](../adr/decision-stack.md#decision-3---launch-verticals)) — the Operator SKU is a second front door per [ADR 0004](../adr/0004-productized-operator-offering.md), not a vertical-constrained extension of the consulting funnel. SMD's primary consulting funnel continues unchanged. The two acquisition paths serve the same buyer band through different doors.
 
 The core platform — multi-gateway agent runtime, trust-ceiling discipline, memory layer, connector layer — is vertical-agnostic. Vertical packs are skill bundles layered on top. A new vertical pack ranges from a few hours of skill assembly (low-compliance verticals) to a few days of skill design (regulated verticals like insurance, law, real estate). The marginal cost of adding a vertical is low; the opportunity cost of pre-committing to one is high.
 
@@ -525,6 +525,6 @@ These confirmations unblock the Wave 2 follow-on issues:
 Substantive sources cited inline above. Aggregator entries:
 
 - [Stack evaluation companion doc](./operator-stack-evaluation-2026-05-13.md)
-- [ADR 0004 — Productized AI Employee Offering](../adr/0004-productized-ai-employee-offering.md)
+- [ADR 0004 — Productized Operator Offering](../adr/0004-productized-operator-offering.md)
 - [SMD Decision Stack](../adr/decision-stack.md) — Decision #3 (verticals), Decision #16 (pricing model), Decision #20 (positioning standard), Decision #44 (productized Operator)
 - [Source episode — The $1M+ Solo AI Agent Business](https://www.youtube.com/watch?v=BI-MNjm1tTQ) (Greg Isenberg + Nick Vasilescu, 2026-05-12)

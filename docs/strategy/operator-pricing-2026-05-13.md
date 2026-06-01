@@ -3,7 +3,7 @@
 > **Status:** v1 PROPOSAL. Captain reviews and finalizes before any customer engagement.
 > **Issue:** [#794](https://github.com/venturecrane/ss-console/issues/794) (supersedes the prior #772 framing that scoped this doc to a single PI meeting deadline).
 > **Companion PRDs:** [`docs/pm/operator/platform-prd.md`](../pm/operator/platform-prd.md) §15 (Pricing Posture), §15.1 (Cost telemetry and SKU margin discipline); [`docs/pm/operator/law-firm-prd.md`](../pm/operator/law-firm-prd.md) §11.7 (The order-taking moment).
-> **Source decisions:** [ADR 0004](../adr/0004-productized-ai-employee-offering.md) (Productized AI Employee Offering, flat-monthly SKU shape locked, specific price deferred to this doc).
+> **Source decisions:** [ADR 0004](../adr/0004-productized-operator-offering.md) (Productized Operator Offering, flat-monthly SKU shape locked, specific price deferred to this doc).
 > **Captain rate used in model:** $200/hr loaded cost per `CLAUDE.md` and platform-prd §15.1. The decision-stack #16 "$175/hr launch" rate is the scope-based-consulting external billing rate; the productized SKU models the higher loaded internal cost because every Captain hour spent on a productized customer is an hour not spent on a billable scope engagement.
 
 ---
@@ -356,7 +356,7 @@ These four queue against [#794](https://github.com/venturecrane/ss-console/issue
 - [`CLAUDE.md`](../../CLAUDE.md) Captain $200/hr loaded rate
 - [`docs/pm/operator/platform-prd.md`](../pm/operator/platform-prd.md) §15 Pricing Posture, §15.1 Cost telemetry and SKU margin discipline, §15.2 Captain CLI for operations time-logging, §17.1 Per-customer success metrics
 - [`docs/pm/operator/law-firm-prd.md`](../pm/operator/law-firm-prd.md) §11.7 The order-taking moment, §11.8 Beta-1 Day-1/Week-1/Week-4, §11.9 Calibration session split
-- [ADR 0004 Productized AI Employee Offering](../adr/0004-productized-ai-employee-offering.md)
+- [ADR 0004 Productized Operator Offering](../adr/0004-productized-operator-offering.md)
 - [`docs/strategy/operator-stack-evaluation-2026-05-13.md`](./operator-stack-evaluation-2026-05-13.md) cost-shape inputs
 - [`docs/strategy/operator-service-contract-2026-05-13.md`](./operator-service-contract-2026-05-13.md) contract guardrails companion
 - [The Startup Ideas Podcast "The $1M+ Solo AI Agent Business"](https://www.youtube.com/watch?v=BI-MNjm1tTQ) (Greg Isenberg + Nick Vasilescu, 2026-05-12) market-pricing operator anecdotes

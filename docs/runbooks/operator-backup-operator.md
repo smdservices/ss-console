@@ -20,20 +20,20 @@ A blank marker means no operator is ready. While the marker is blank, Captain re
 
 **When to run.** A new customer has signed and Captain is unavailable to drive the provisioning. The agreed-on Day-0 window started; the customer expects an inbox and a kickoff call inside the 48-72 hour envelope from `operator-customer-onboarding.md` §0.
 
-**Tool.** `ai-employee/bin/provision-customer.sh` (shipped under issue [#812](https://github.com/venturecrane/ss-console/issues/812)).
+**Tool.** `operator/bin/provision-customer.sh` (shipped under issue [#812](https://github.com/venturecrane/ss-console/issues/812)).
 
 **Procedure.**
 
-1. Confirm the customer.yaml exists at `ai-employee/customers/{slug}/customer.yaml`. If it does not, stop. Authoring the customer.yaml from scratch is Captain-only work; the backup operator does not synthesize customer config under time pressure.
+1. Confirm the customer.yaml exists at `operator/customers/{slug}/customer.yaml`. If it does not, stop. Authoring the customer.yaml from scratch is Captain-only work; the backup operator does not synthesize customer config under time pressure.
 2. Validate the yaml (canonical TS validator per ADR 0019):
    ```bash
    npx tsx scripts/validate-customer-yaml.ts \
-     ai-employee/customers/{slug}/customer.yaml
+     operator/customers/{slug}/customer.yaml
    ```
    The validator must exit 0 before proceeding.
 3. Run the provisioner:
    ```bash
-   ai-employee/bin/provision-customer.sh {slug}
+   operator/bin/provision-customer.sh {slug}
    ```
 4. When the script prompts for secrets, paste from Infisical via pbpaste. Never echo secret values to the terminal.
 5. After the script exits 0, confirm the Fly Machine is live (`fly machine list -a hermes-{slug}`) and the per-connector smoke tests are green.
@@ -53,7 +53,7 @@ A blank marker means no operator is ready. While the marker is blank, Captain re
 
 **When to run.** A customer has exited and the agreed-on decommission date has arrived. Captain is unavailable to drive the run. The backup operator runs the pipeline; Captain reviews the audit trail on return.
 
-**Tool.** `ai-employee/bin/decommission-customer.sh` (shipped under issue [#956](https://github.com/venturecrane/ss-console/issues/956), spec at [`decommission-customer.md`](../specs/operator/decommission-customer.md)).
+**Tool.** `operator/bin/decommission-customer.sh` (shipped under issue [#956](https://github.com/venturecrane/ss-console/issues/956), spec at [`decommission-customer.md`](../specs/operator/decommission-customer.md)).
 
 **Procedure.**
 
@@ -61,15 +61,15 @@ A blank marker means no operator is ready. While the marker is blank, Captain re
 2. Confirm the memory export ran first. The customer-owned memory artifact (per ADR 0008) must be exported and delivered to the customer before substrate deletion. Section 4 of this runbook covers the export procedure.
 3. Dry-run first:
    ```bash
-   ai-employee/bin/decommission-customer.sh {slug} --dry-run
+   operator/bin/decommission-customer.sh {slug} --dry-run
    ```
    Every line should read `[ planned]`. Review the planned manifest against the nine steps in the spec.
 4. Live run:
    ```bash
-   ai-employee/bin/decommission-customer.sh {slug} --live
+   operator/bin/decommission-customer.sh {slug} --live
    ```
    Wait for `DECOMMISSION_FINAL`. If the script halts with exit code 3, the run is resumable. Re-run the same command; every step is idempotent.
-5. After the script exits 0, confirm the dated tombstone at `ai-employee/customers/{slug}.decommissioned.{iso-date}/`, the compliance manifest at `{archive_root}/{slug}/`, and the audit-log entries.
+5. After the script exits 0, confirm the dated tombstone at `operator/customers/{slug}.decommissioned.{iso-date}/`, the compliance manifest at `{archive_root}/{slug}/`, and the audit-log entries.
 6. Page Captain with the result.
 
 **Stop conditions.**
@@ -126,7 +126,7 @@ A blank marker means no operator is ready. While the marker is blank, Captain re
 3. Decide the restore scope:
    - **Full restore.** The customer's substrate is empty or unrecoverable. Re-provision the Fly Machine via `provision-customer.sh` and then re-ingest every domain from the archive.
    - **Partial restore.** A specific domain (memory rules, voice diffs, audit log) was corrupted or wrongly deleted. Re-ingest only the affected domain.
-4. Run the restore. The restore tooling lives alongside the export tooling at `ai-employee/adapter/memory/` and `ai-employee/adapter/voice/`. Each adapter exposes an `import_*()` counterpart to its `export_*()` function. Use the per-domain importers; do not hand-edit D1 or R2.
+4. Run the restore. The restore tooling lives alongside the export tooling at `operator/adapter/memory/` and `operator/adapter/voice/`. Each adapter exposes an `import_*()` counterpart to its `export_*()` function. Use the per-domain importers; do not hand-edit D1 or R2.
 5. Verify the restored state. The customer's dashboard should render the memory tab with every rule the export carried. The audit log should carry the restore event (action_type `MEMORY_RESTORED`) with the source archive's manifest hash.
 6. Page Captain with the result. Customer-facing communication about the restore is Captain-only.
 
@@ -144,7 +144,7 @@ A blank marker means no operator is ready. While the marker is blank, Captain re
 
 ## After-action
 
-Every scenario the backup operator runs without Captain present writes an after-action note to `ai-employee/customers/{slug}/backup-operator-runs/{iso-date}-{scenario}.md`. The note carries:
+Every scenario the backup operator runs without Captain present writes an after-action note to `operator/customers/{slug}/backup-operator-runs/{iso-date}-{scenario}.md`. The note carries:
 
 - Trigger (what page or request put the operator on the scenario)
 - Outcome (what completed, what was held for Captain, what was escalated)

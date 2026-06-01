@@ -4,8 +4,8 @@ date: 2026-05-24
 status: accepted
 captain: Scott Durgan
 supersedes: none
-related-prd: docs/pm/ai-employee/platform-prd.md §7.3, §7.4
-related-spec: docs/specs/ai-employee/customer-yaml-schema.md
+related-prd: docs/pm/operator/platform-prd.md §7.3, §7.4
+related-spec: docs/specs/operator/customer-yaml-schema.md
 related-issue: TBD (filed as follow-on to the locked Hermes-alignment plan dated 2026-05-24)
 ---
 
@@ -17,7 +17,7 @@ related-issue: TBD (filed as follow-on to the locked Hermes-alignment plan dated
 
 ## Context
 
-The product surface SMD authors and customers interact with is described in `customer.yaml` (`docs/specs/ai-employee/customer-yaml-schema.md`). Its vocabulary: `customer_id`, `personas[]`, `connectors{}` keyed by capability, `scope`, `escalation`, `voice_library`, `memory`. This vocabulary maps onto SMD-product concepts: a customer's identity, the AI persona(s) representing them, the vendor systems they use, the safety envelope, the voice substrate, the per-customer storage namespacing.
+The product surface SMD authors and customers interact with is described in `customer.yaml` (`docs/specs/operator/customer-yaml-schema.md`). Its vocabulary: `customer_id`, `personas[]`, `connectors{}` keyed by capability, `scope`, `escalation`, `voice_library`, `memory`. This vocabulary maps onto SMD-product concepts: a customer's identity, the AI persona(s) representing them, the vendor systems they use, the safety envelope, the voice substrate, the per-customer storage namespacing.
 
 The runtime surface Hermes actually consumes is described in its own per-profile `~/.hermes/profiles/<slug>/config.yaml` plus `SOUL.md`, plus the upstream `~/.hermes/.env` for secrets, plus optional MCP server configs. Hermes' vocabulary: `profile`, `model`, `mcp_servers`, `personalities`, `memory.honcho.*`, `agent`, `terminal`, `compression`. These are concepts the Hermes maintainers chose; they predate the SMD product.
 
@@ -81,7 +81,7 @@ The structural-vs-non-structural cut is the safety boundary: OAuth tokens on the
 
 ### Validation hooks
 
-The TS validator (`src/lib/ai-employee/customer-yaml/`) is the canonical schema validator and runs on PR review and at provisioning. The Python translation in `bootstrap/translate.py` performs a **runtime re-validation** to defend against (a) corrupted volume content, (b) R2-source drift relative to the TS validator's expectations, (c) test-fixture drift. The Python validator is a thin re-check, not a replacement — the TS validator is the source of truth.
+The TS validator (`src/lib/operator/customer-yaml/`) is the canonical schema validator and runs on PR review and at provisioning. The Python translation in `bootstrap/translate.py` performs a **runtime re-validation** to defend against (a) corrupted volume content, (b) R2-source drift relative to the TS validator's expectations, (c) test-fixture drift. The Python validator is a thin re-check, not a replacement — the TS validator is the source of truth.
 
 ## Alternatives Considered
 
@@ -118,7 +118,7 @@ Selected. Localizes the translation logic in code that's plugin-adjacent, testab
 
 ## Verification
 
-1. **Bootstrap translates a known fixture to a known output.** `pytest tests/test_bootstrap_translate.py` against `ai-employee/templates/customer-no-pm-system.yaml` produces a profile config that matches a checked-in golden.
+1. **Bootstrap translates a known fixture to a known output.** `pytest tests/test_bootstrap_translate.py` against `operator/templates/customer-no-pm-system.yaml` produces a profile config that matches a checked-in golden.
 2. **Idempotency.** Running `hermes-smd bootstrap` twice in succession produces no file changes on the second run (compared via `sha256sum` of every generated file).
 3. **Structural change is rejected (not applied) by the sidecar.** Synthetic customer.yaml change in R2 that renames a persona slug produces an admin-portal event and no file changes on the volume.
 4. **Non-structural change is applied without restart.** Synthetic customer.yaml change in R2 that adds an escalation contact triggers a config rewrite and SIGHUP; the Hermes process PID does not change.
@@ -127,8 +127,8 @@ Selected. Localizes the translation logic in code that's plugin-adjacent, testab
 ## References
 
 - Locked Hermes-alignment build plan dated 2026-05-24, §6 (Machine architecture rework)
-- [`docs/specs/ai-employee/customer-yaml-schema.md`](../specs/ai-employee/customer-yaml-schema.md) — the canonical customer.yaml schema
-- [`ai-employee/templates/customer-no-pm-system.yaml`](../../ai-employee/templates/customer-no-pm-system.yaml) — the most common template
+- [`docs/specs/operator/customer-yaml-schema.md`](../specs/operator/customer-yaml-schema.md) — the canonical customer.yaml schema
+- [`operator/templates/customer-no-pm-system.yaml`](../../operator/templates/customer-no-pm-system.yaml) — the most common template
 - [ADR 0006 (rewrite)](./0006-capability-adapter-pattern.md) — connector backend prefixes
 - [ADR 0007](./0007-per-customer-machine-isolation.md) — per-customer Machine model
 - [ADR 0010](./0010-per-customer-oauth-token-storage.md) — OAuth token storage on volume; the structural-vs-non-structural cut protects this

@@ -1,6 +1,6 @@
 # Inbound Trust Boundary — Spec
 
-_ADR 0027. The contract both the ss-console runtime (`ai-employee/adapter/inbound_envelope.py`) and the overlay (`hermes-smd-inbound`, `hermes-smd-webhook-router`) pin to. Authored 2026-05-29._
+_ADR 0027. The contract both the ss-console runtime (`operator/adapter/inbound_envelope.py`) and the overlay (`hermes-smd-inbound`, `hermes-smd-webhook-router`) pin to. Authored 2026-05-29._
 
 ## Purpose
 
@@ -15,7 +15,7 @@ Untrusted external content (email bodies, webhook payloads, connector/MCP result
 
 ## The envelope
 
-`InboundEnvelope` (frozen dataclass; Python source of truth in `ai-employee/adapter/inbound_envelope.py`):
+`InboundEnvelope` (frozen dataclass; Python source of truth in `operator/adapter/inbound_envelope.py`):
 
 | field                 | meaning                                                                                  |
 | --------------------- | ---------------------------------------------------------------------------------------- |
@@ -48,11 +48,11 @@ The nonce makes the closing sentinel unforgeable: content cannot end the quarant
 
 ## Audit
 
-One `INBOUND_RECEIVED` row (`ai-employee/adapter/audit_log.py` / `d1-schema.md`) per inbound item, `metadata = envelope.audit_metadata()` — provenance only, never the content bytes. So the legal-hold record shows what was principal instruction vs. third-party data.
+One `INBOUND_RECEIVED` row (`operator/adapter/audit_log.py` / `d1-schema.md`) per inbound item, `metadata = envelope.audit_metadata()` — provenance only, never the content bytes. So the legal-hold record shows what was principal instruction vs. third-party data.
 
 ## CI corpus
 
-The boundary's CODE behavior is asserted deterministically (no live model) against the `edge-pi-*.json` injection fixtures (`ai-employee/verticals/law-firm/addons/pi/fixtures/edge-prompt-injection/`), in `ai-employee/adapter/tests/test_inbound_envelope.py`, run by `ai-employee-substrate.yml`:
+The boundary's CODE behavior is asserted deterministically (no live model) against the `edge-pi-*.json` injection fixtures (`operator/verticals/law-firm/addons/pi/fixtures/edge-prompt-injection/`), in `operator/adapter/tests/test_inbound_envelope.py`, run by `operator-substrate.yml`:
 
 1. the whole untrusted body lands inside the nonce fence;
 2. each fixture's injection payload sits only inside the fence (no instruction-position leak);

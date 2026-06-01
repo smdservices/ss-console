@@ -136,7 +136,7 @@ CREATE TABLE cost_telemetry (
 
 -- 6a. Captain time events (event-sourced; rolls up into cost_telemetry per cost-telemetry-events.md)
 -- Captain operations time is the one cost driver that is not auto-instrumented from a vendor API.
--- It is logged via the `crane ai-employee log-time` CLI (platform-prd.md §15.2). Multiple events
+-- It is logged via the `crane operator log-time` CLI (platform-prd.md §15.2). Multiple events
 -- per day per activity are expected (Captain may log two distinct calibration sessions in one
 -- day); the table is intentionally not UPSERT-keyed.
 CREATE TABLE captain_time_events (
@@ -227,7 +227,7 @@ Boot-check failure → exit 3, writes `INVARIANT_7_VIOLATION` to stdout, refuses
 
 ## Failure modes
 
-- **Migration drift** (Machine running an older schema than the one in `ai-employee/migrations/`): boot-check inspects `PRAGMA user_version`; mismatch → exit 5, alert Captain. Migrations are forward-only — there is no rollback path because audit-log immutability would be violated.
+- **Migration drift** (Machine running an older schema than the one in `operator/migrations/`): boot-check inspects `PRAGMA user_version`; mismatch → exit 5, alert Captain. Migrations are forward-only — there is no rollback path because audit-log immutability would be violated.
 - **D1 write quota exceeded** (Cloudflare paid plan: 50M writes/month per database): adapter returns `upstream_error`; degraded mode; Captain alerted. v1 customer profile is well under this ceiling.
 - **Concurrent writes** to the same `draft_queue.id`: SQLite UNIQUE handles. Application-layer retry on conflict.
 - **Audit-log delete attempt** (compromised process): D1 supports DELETE; we enforce immutability at the application layer by granting the agent runtime only INSERT permission on `audit_log` via Cloudflare D1 role-restricted bindings. Captain has DELETE permission for legally-mandated redactions only (per legal hold + retention policy in compliance-evidence-packet.md).
@@ -241,10 +241,10 @@ Boot-check failure → exit 3, writes `INVARIANT_7_VIOLATION` to stdout, refuses
 
 ## Implementation notes
 
-- Migrations at `ai-employee/migrations/{NNNN}_{name}.sql`. Migration runner: `ai-employee/adapter/run_migrations.py` (called by `provision-customer.sh` step 3).
+- Migrations at `operator/migrations/{NNNN}_{name}.sql`. Migration runner: `operator/adapter/run_migrations.py` (called by `provision-customer.sh` step 3).
 - D1 bindings declared per-Machine in `config/fly/hermes-template.toml`; substituted by `provision-customer.sh` with `customer-slug`.
 - Audit-log INSERT-only role configured at the Cloudflare Worker binding level (not in D1 itself — D1 doesn't have per-role permissions yet). Worker enforces.
-- ULIDs generated via `ai-employee/adapter/ulid.py`; lexicographically sortable, suitable as PK with timestamp prefix.
+- ULIDs generated via `operator/adapter/ulid.py`; lexicographically sortable, suitable as PK with timestamp prefix.
 - Heavy-write tables (`audit_log`, `cost_telemetry`) batched with 50ms write window to reduce D1 cost.
 
 [AMBIGUITY: Cloudflare D1 currently does not support per-role permissions at the database level — INSERT-only enforcement happens in the Worker layer. If a compromised Worker bypasses that enforcement, audit-log immutability is broken. PRD §10.1 calls audit_log "immutable rows" but Tech Lead Risk flagged this. Decide: (a) accept Worker-layer enforcement as v1 sufficient + add Logpush mirror for compliance evidence, or (b) defer launch until D1 ships per-role permissions.]

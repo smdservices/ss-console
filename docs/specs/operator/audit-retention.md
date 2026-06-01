@@ -25,7 +25,7 @@ Sibling to [`memory-retention.md`](./memory-retention.md) (continuous per-data-t
 
 ## Per-vertical defaults
 
-The default window per vertical reflects the regulatory and professional-responsibility norm for that practice. Defaults are codified in `MemoryRetentionPolicy.from_customer_yaml` (Python; `ai-employee/adapter/memory/retention.py`) and mirrored in the portal-side validator (TypeScript; `src/lib/operator/customer-yaml/sections-other.ts`).
+The default window per vertical reflects the regulatory and professional-responsibility norm for that practice. Defaults are codified in `MemoryRetentionPolicy.from_customer_yaml` (Python; `operator/adapter/memory/retention.py`) and mirrored in the portal-side validator (TypeScript; `src/lib/operator/customer-yaml/sections-other.ts`).
 
 | Vertical           | `audit_log_days` default | Rationale                                                                                      |
 | ------------------ | ------------------------ | ---------------------------------------------------------------------------------------------- |

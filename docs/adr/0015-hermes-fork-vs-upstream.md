@@ -5,7 +5,7 @@ status: partially-superseded
 captain: Scott Durgan
 superseded-by: 0024-hermes-consumption-and-update-cadence.md (fork half only)
 supersedes: 0015-hermes-fork-vs-upstream.md (prior version of this file; see `git log docs/adr/0015-hermes-fork-vs-upstream.md`)
-related-prd: docs/pm/ai-employee/platform-prd.md §7.1, §7.4, §7.5
+related-prd: docs/pm/operator/platform-prd.md §7.1, §7.4, §7.5
 related-issue: https://github.com/venturecrane/ss-console/issues/844
 ---
 
@@ -125,7 +125,7 @@ How we know we are following this decision:
 - [Hermes PR #5295](https://github.com/NousResearch/hermes-agent/pull/5295) — enforcement of the no-core-modification rule
 - [Hermes PR #31290](https://github.com/NousResearch/hermes-agent/pull/31290) — Teknium's profile soft-guard, Captain-merged 2026-05-24, signals architectural-vs-application boundary
 - [`eggyrooch-blip/hermes-multitenancy`](https://github.com/eggyrooch-blip/hermes-multitenancy) — community precedent for substantial plugin-based extension
-- [ADR 0004](./0004-productized-ai-employee-offering.md) — the SKU this fork posture supports
+- [ADR 0004](./0004-productized-operator-offering.md) — the SKU this fork posture supports
 - [ADR 0007](./0007-per-customer-machine-isolation.md) — per-customer Machine isolation; the per-customer pin attaches via `hermes_ref`
 - [ADR 0016 (rewrite)](./0016-honcho-disposition.md) — the symmetric "no patches to upstream code" discipline applied to Honcho
 - [ADR 0017 (rewrite)](./0017-skill-curator-disposition.md) — the symmetric "trust native, mirror, don't gate" posture applied to skill creation

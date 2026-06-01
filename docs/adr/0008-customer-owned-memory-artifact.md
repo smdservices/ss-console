@@ -5,7 +5,7 @@ status: superseded
 superseded-date: 2026-05-24
 captain: Scott Durgan
 supersedes: none
-related-prd: docs/pm/ai-employee/platform-prd.md §10, §13.3, §3 (P3, P9)
+related-prd: docs/pm/operator/platform-prd.md §10, §13.3, §3 (P3, P9)
 related-issue: https://github.com/venturecrane/ss-console/issues/828
 ---
 
@@ -17,7 +17,7 @@ related-issue: https://github.com/venturecrane/ss-console/issues/828
 
 The "customer-owned memory artifact" is not a separate system. It is the union of three concrete per-customer subsystems, each independently customer-owned, portable, and operationally readable:
 
-1. **D1 `persona_observations`** — the mirror of Honcho's conclusions (see [ADR 0016 rewrite](./0016-honcho-disposition.md)). Carries provenance (`source_message_ids`, `confidence`, `evidence_status`) and is the customer-readable record of "what the AI Employee has learned about how to communicate on your behalf."
+1. **D1 `persona_observations`** — the mirror of Honcho's conclusions (see [ADR 0016 rewrite](./0016-honcho-disposition.md)). Carries provenance (`source_message_ids`, `confidence`, `evidence_status`) and is the customer-readable record of "what the Operator has learned about how to communicate on your behalf."
 2. **R2 `vaults/<customer-slug>/voice/`** — the voice-samples vault. The customer's authored samples (real sent communications) that anchor the agent's drafts. Customer-readable, customer-editable; offboarding exports the bucket prefix.
 3. **D1 `audit_log`** — the immutable per-tool-call ledger (emitted by `hermes-smd-audit` plugin via Hermes' `post_tool_call` + `post_llm_call` hooks). Customer-readable, append-only, retained per audit-log retention policy (already shipped via PR #1024).
 
@@ -35,7 +35,7 @@ The remainder of this file is the original ADR text as authored 2026-05-20. The 
 
 ---
 
-**Original status:** Accepted (Captain decision; embedded in the AI Employee PRDs since first draft; recorded here as a standalone ADR per [#828](https://github.com/venturecrane/ss-console/issues/828)).
+**Original status:** Accepted (Captain decision; embedded in the Operator PRDs since first draft; recorded here as a standalone ADR per [#828](https://github.com/venturecrane/ss-console/issues/828)).
 
 **Source:** Platform PRD principles P3 ("Memory is the customer's, readable and editable") and P9 ("No lock-in. Exit is easy by design"). Architecture §10 (Memory Model & Learning Loop) is the implementation; this ADR captures the data-ownership and portability rationale.
 
@@ -43,7 +43,7 @@ The remainder of this file is the original ADR text as authored 2026-05-20. The 
 
 ## Context
 
-The AI Employee gets better at the customer's business over time. It accumulates:
+The Operator gets better at the customer's business over time. It accumulates:
 
 - Hard rules the customer set ("we don't take medmal under $1M," "always CC paralegal Sarah on new intake")
 - Person-mappings (who's who at the firm, key counterparties)
@@ -129,7 +129,7 @@ The persona signature, the agent's email identity (AgentMail or equivalent), and
 
 ## References
 
-- Platform PRD principle P3 (`docs/pm/ai-employee/platform-prd.md` §3)
+- Platform PRD principle P3 (`docs/pm/operator/platform-prd.md` §3)
 - Platform PRD principle P9 (Exit is easy by design)
 - Platform PRD §10 Memory Model & Learning Loop
 - Platform PRD §10.3 The Memory tab (the trust mechanism)

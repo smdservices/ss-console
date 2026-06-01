@@ -86,7 +86,7 @@ function validFixture(): Record<string, unknown> {
       Email: {
         adapter: 'microsoft-graph',
         backend: 'mcp:softeria/ms-365-mcp-server',
-        token_ref: 'infisical:/ai-employee/smith-pi-firm/email/refresh',
+        token_ref: 'infisical:/operator/smith-pi-firm/email/refresh',
       },
       Calendar: { adapter: 'microsoft-graph', backend: 'mcp:softeria/ms-365-mcp-server' },
       PracticeManagement: {
@@ -147,7 +147,7 @@ describe('validate — happy path', () => {
     expect(value.personas).toHaveLength(1)
     expect(value.personas[0].skills).toHaveLength(2)
     expect(value.connectors.Email?.token_ref).toBe(
-      'infisical:/ai-employee/smith-pi-firm/email/refresh'
+      'infisical:/operator/smith-pi-firm/email/refresh'
     )
   })
 
@@ -1874,11 +1874,11 @@ describe('validate — memory.r2_skill_bodies_* known-optional (ADR 0022)', () =
   it('accepts memory block with skill_bodies fields populated', () => {
     const f = validFixture()
     ;(f['memory'] as Record<string, unknown>)['r2_skill_bodies_bucket'] =
-      'smd-ai-employee-skill-bodies'
+      'smd-operator-skill-bodies'
     ;(f['memory'] as Record<string, unknown>)['r2_skill_bodies_prefix'] = 'smith-pi-firm/'
     const r = validate(f)
     if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
-    expect(r.value.memory.r2_skill_bodies_bucket).toBe('smd-ai-employee-skill-bodies')
+    expect(r.value.memory.r2_skill_bodies_bucket).toBe('smd-operator-skill-bodies')
     expect(r.value.memory.r2_skill_bodies_prefix).toBe('smith-pi-firm/')
   })
 

@@ -1,6 +1,6 @@
 # Safety Invariants #6 and #7
 
-**Spec for issue [#865](https://github.com/venturecrane/ss-console/issues/865).** Runtime implementation of two platform PRD §7.5 invariants. Base invariants #1-#5 ship from PR #812 and are exercised by per-fixture tests under `ai-employee/safety-substrate/tests/`. Invariant #6 is partially shipped as `citation_filter.py` (law-vertical refusal layer) plus the citation-enforcement layer documented here. Invariant #7 is shipped here for the first time. Invariant #8 (fabrication discipline) lives in [fabrication-filter.md](fabrication-filter.md) (issue #798).
+**Spec for issue [#865](https://github.com/venturecrane/ss-console/issues/865).** Runtime implementation of two platform PRD §7.5 invariants. Base invariants #1-#5 ship from PR #812 and are exercised by per-fixture tests under `operator/safety-substrate/tests/`. Invariant #6 is partially shipped as `citation_filter.py` (law-vertical refusal layer) plus the citation-enforcement layer documented here. Invariant #7 is shipped here for the first time. Invariant #8 (fabrication discipline) lives in [fabrication-filter.md](fabrication-filter.md) (issue #798).
 
 ## Source
 
@@ -12,7 +12,7 @@
 
 ## Invariant #6 - citation enforcement for fact-bearing fields
 
-Platform PRD §7.5 invariant #6 names a "citation-refusal layer." The law-firm vertical implements that as **refusal on fabricated legal citations** in any output (case names, reporter cites, statute references, court rules). That layer is `ai-employee/safety-substrate/citation_filter.py`, shipped with PR #812 and exercised by `tests/test_invariant_6_no_citations.py`.
+Platform PRD §7.5 invariant #6 names a "citation-refusal layer." The law-firm vertical implements that as **refusal on fabricated legal citations** in any output (case names, reporter cites, statute references, court rules). That layer is `operator/safety-substrate/citation_filter.py`, shipped with PR #812 and exercised by `tests/test_invariant_6_no_citations.py`.
 
 The complement shipped here is **citation enforcement on fact-bearing fields**. Every fact a skill renders into a declared fact-bearing field must carry a `Citation` attached to a real source. The two layers cover the two failure modes:
 
@@ -25,7 +25,7 @@ Both layers ship together. Either failing on its own is a single-layer enforceme
 
 ### Module shape
 
-`ai-employee/safety-substrate/invariants/invariant_6.py`. Pure-function contract.
+`operator/safety-substrate/invariants/invariant_6.py`. Pure-function contract.
 
 ```python
 from invariants.invariant_6 import (
@@ -156,7 +156,7 @@ The invariant runs once at Machine startup before any request is served. Fly/Clo
 
 ### Module shape
 
-`ai-employee/safety-substrate/invariants/invariant_7.py`.
+`operator/safety-substrate/invariants/invariant_7.py`.
 
 ```python
 from invariants.invariant_7 import (
@@ -279,10 +279,10 @@ The order is intentional. Citation enforcement runs first because its violation 
 
 ## Tests
 
-| Test file                                                | Coverage                                                                                                                   |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `ai-employee/safety-substrate/tests/test_invariant_6.py` | 18 cases. Citation constructor contract, passing cases, `none`-edge case, missing-citation, partial coverage, audit shape. |
-| `ai-employee/safety-substrate/tests/test_invariant_7.py` | 14 cases. Snapshot contract, passing case, cross-Machine, wrong-suffix, empty, malformed slug, audit shape, refusal text.  |
+| Test file                                             | Coverage                                                                                                                   |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `operator/safety-substrate/tests/test_invariant_6.py` | 18 cases. Citation constructor contract, passing cases, `none`-edge case, missing-citation, partial coverage, audit shape. |
+| `operator/safety-substrate/tests/test_invariant_7.py` | 14 cases. Snapshot contract, passing case, cross-Machine, wrong-suffix, empty, malformed slug, audit shape, refusal text.  |
 
 Run from repo root:
 

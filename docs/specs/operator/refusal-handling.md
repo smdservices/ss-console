@@ -18,13 +18,13 @@ the skill MUST abort.
   - §11.4: every action at every ceiling is logged
 - platform-prd.md §7.5: safety substrate invariants
   - invariant #5 (ceiling enforced in code, not in prompt)
-- `ai-employee/adapter/trust_ceiling.py` (`enforce()` decision tree)
-- `ai-employee/safety-substrate/trust_ceiling_log.py` (sibling module
+- `operator/adapter/trust_ceiling.py` (`enforce()` decision tree)
+- `operator/safety-substrate/trust_ceiling_log.py` (sibling module
   from PR #953; canonical audit row writer this module delegates to)
-- `ai-employee/safety-substrate/sticky_stop.py` (sibling module from
+- `operator/safety-substrate/sticky_stop.py` (sibling module from
   PR #948; provides the per-state-machine refusal counter that the
   dispatch path may wire in for sticky-stop transition decisions)
-- `ai-employee/adapter/audit_log.py` (PR #942): writer +
+- `operator/adapter/audit_log.py` (PR #942): writer +
   `ACCEPTED_ACTION_TYPES`
 - ADR 0005 (reviewer-as-sender): refusal handling never originates an
   outbound customer-bound message; rows are written for the in-app
@@ -33,7 +33,7 @@ the skill MUST abort.
 
 ## Module + integration point
 
-The module is `ai-employee/safety-substrate/refusal.py`. The public
+The module is `operator/safety-substrate/refusal.py`. The public
 surface:
 
 ```python
@@ -289,7 +289,7 @@ notification feed is internal to the dashboard.
 
 ## Verification
 
-`ai-employee/safety-substrate/tests/test_refusal.py` exercises:
+`operator/safety-substrate/tests/test_refusal.py` exercises:
 
 - Happy path: one refusal emits exactly one decision row + one
   notification row, aborted=True, customer-facing message present

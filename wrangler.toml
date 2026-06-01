@@ -115,12 +115,12 @@ id = "daf6a3220f8f42f28f3da7e82f663088"
 [observability]
 enabled = true
 
-# ---------- Audit-log Logpush mirror (per docs/specs/ai-employee/audit-log-immutability.md) ----------
+# ---------- Audit-log Logpush mirror (per docs/specs/operator/audit-log-immutability.md) ----------
 # Issue #892. The per-customer Operator audit_log table is mirrored to an
 # immutable R2 archive bucket with bucket-level Object Lock. Even a compromised
 # Worker cannot delete a row from an Object-Lock bucket inside the retention
 # window. The mirror is the compliance-grade copy that the periodic integrity
-# check (ai-employee/adapter/audit_log_integrity.py) compares against the D1
+# check (operator/adapter/audit_log_integrity.py) compares against the D1
 # rows.
 #
 # This block is forward-config: the bucket lives on the per-customer Hermes

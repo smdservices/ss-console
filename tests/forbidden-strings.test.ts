@@ -312,7 +312,7 @@ describe('IntakeClosed.astro fabrication guard (no follow-up promises)', () => {
 // context). Comments are stripped first, so an explanatory note that mentions
 // a fenced term does not trip the guard.
 //
-// @see docs/adr/0013-ai-employee-positioning-doctrine.md
+// @see docs/adr/0013-operator-positioning-doctrine.md
 // ============================================================================
 
 const OPERATOR_PAGE = resolve('src/pages/operator.astro')
@@ -564,7 +564,7 @@ describe('portal list-row registry: UI-PATTERNS R7 enforcement', () => {
  * @see docs/adr/0024-hermes-consumption-and-update-cadence.md (hermes_ref pin format)
  */
 describe('operator customer.yaml invariants', () => {
-  const customersRoot = resolve('ai-employee/customers')
+  const customersRoot = resolve('operator/customers')
   // v{YYYY}.{M}.{D}@{40-hex-sha} — fork tags like -smd.N do not match.
   const HERMES_REF_RE = /^v\d{4}\.\d{1,2}\.\d{1,2}@[0-9a-f]{40}$/
 

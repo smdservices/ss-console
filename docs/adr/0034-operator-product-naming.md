@@ -1,10 +1,10 @@
 ---
-title: Operator — Product Naming and Capability Realignment (supersedes "AI Employee")
+title: Operator — Product Naming and Capability Realignment (supersedes "Operator")
 date: 2026-06-01
 status: accepted
 captain: Scott Durgan
-supersedes: 0004-productized-ai-employee-offering.md §"Service name"
-amends: 0013-ai-employee-positioning-doctrine.md
+supersedes: 0004-productized-operator-offering.md §"Service name"
+amends: 0013-operator-positioning-doctrine.md
 related-adr: 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0031-content-sensitivity-send-floor.md
 ---
 
@@ -12,13 +12,13 @@ related-adr: 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0031
 
 **Status:** Accepted (Captain decision, 2026-06-01).
 
-**Source:** Captain directive. ADR 0004 productized the offering under the working term **"AI Employee"** and explicitly deferred the customer-facing name: _"'AI Employee' is the working term in this ADR. The customer-facing brand for the SKU may differ,"_ with a filed follow-on for the service-name decision. This ADR resolves that deferral.
+**Source:** Captain directive. ADR 0004 productized the offering under the working term **"Operator"** and explicitly deferred the customer-facing name: _"'Operator' is the working term in this ADR. The customer-facing brand for the SKU may differ,"_ with a filed follow-on for the service-name decision. This ADR resolves that deferral.
 
 ---
 
 ## Context
 
-"AI Employee" was the working name from the first productization (ADR 0004, 2026-05-13). It carried an implicit posture: a staffer that waits to be assigned work and drafts for a human to send. That posture was literally true under the original [ADR 0005](./0005-reviewer-as-sender.md) holding ("reviewer-as-sender is architectural, not configurable" — the agent cannot send).
+"Operator" was the working name from the first productization (ADR 0004, 2026-05-13). It carried an implicit posture: a staffer that waits to be assigned work and drafts for a human to send. That posture was literally true under the original [ADR 0005](./0005-reviewer-as-sender.md) holding ("reviewer-as-sender is architectural, not configurable" — the agent cannot send).
 
 The architecture has since moved past that posture:
 
@@ -30,18 +30,18 @@ The product **acts**. It initiates, decides, and — within configured ceilings 
 
 ## Decision
 
-**The product is renamed from "AI Employee" to "Operator."** This is a capability realignment, not a marketing rebrand. "Operator" names what the product is: an agent that operates — it takes on the recurring work, acts within configured authority, and gets things done. The realignment is consistent with, and downstream of, the autonomy posture already locked in ADR 0025 and ADR 0031.
+**The product is renamed from "Operator" to "Operator."** This is a capability realignment, not a marketing rebrand. "Operator" names what the product is: an agent that operates — it takes on the recurring work, acts within configured authority, and gets things done. The realignment is consistent with, and downstream of, the autonomy posture already locked in ADR 0025 and ADR 0031.
 
 ### 1. Scope of the rename
 
-"Operator" replaces "AI Employee" across:
+"Operator" replaces "Operator" across:
 
 - **Customer-facing marketing** (the product page, home-page intro, nav, CTAs, intake `interest=operator`).
 - **Product, portal, and admin UI** (route `/operator`, `/portal/products/operator/**`, `/admin/operator/**`, all user-visible labels and status copy).
 - **Doctrine and docs** (ADRs as living references, PRDs, specs, templates, strategy, runbooks, decision-stack, CLAUDE.md).
 - **Code identifiers** (route paths, `OPERATOR_PRODUCT_SLUG`, `PRODUCT_SLUG = 'operator'`, symbols, component names).
-- **The portal subscription slug** (`subscriptions.product_slug` / `product_roles.product_slug` migrated `'ai-employee'` → `'operator'`).
-- **The boot substrate** (`ai-employee/` adapter + customer-config tree, Dockerfile, bootstrap) — **deferred to a gated cutover (see Delivery)** because it is read by a separate repo and a live Fly volume.
+- **The portal subscription slug** (`subscriptions.product_slug` / `product_roles.product_slug` migrated `'operator'` → `'operator'`).
+- **The boot substrate** (`operator/` adapter + customer-config tree, Dockerfile, bootstrap) — **deferred to a gated cutover (see Delivery)** because it is read by a separate repo and a live Fly volume.
 
 ### 2. "Operator" is the product. Humans who operate stay operators too.
 
@@ -56,21 +56,21 @@ A human who gets things done is an operator; so is the product. Context disambig
 ### 3. What this ADR does to ADR 0004 and ADR 0013
 
 - **Supersedes** the "Service name" item ADR 0004 left open. The customer-facing brand is **Operator**. Everything else in ADR 0004 (the flat-rate retainer SKU, second-front-door positioning, Hermes-leaning stack) stands unchanged.
-- **Amends** [ADR 0013](./0013-ai-employee-positioning-doctrine.md): the brand **name** becomes Operator. The positioning **doctrine** — portable persona, firm-owned editable memory as the headline pillar, reviewer-as-sender as ethics architecture, the Eve wedge, the legal-vertical opener — is **name-independent and stands.** Where ADR 0013 says "AI Employee," read "Operator."
+- **Amends** [ADR 0013](./0013-operator-positioning-doctrine.md): the brand **name** becomes Operator. The positioning **doctrine** — portable persona, firm-owned editable memory as the headline pillar, reviewer-as-sender as ethics architecture, the Eve wedge, the legal-vertical opener — is **name-independent and stands.** Where ADR 0013 says "Operator," read "Operator."
 
 ### 4. What does NOT change
 
 - The `operator` RBAC enum value (see §2).
-- **External infrastructure resource names**, which are slug-independent and not customer-facing: the Sentry project `smd-ai-employee`, the R2 buckets `smd-ai-employee-skill-bodies` / `ss-ai-employee-<customer_id>-skills`, the generic OAuth callback `/api/oauth/callback`, and the Machine heartbeat path. Renaming these is infra coordination with no positioning value; they may be migrated in a later infra step but are explicitly out of scope here.
-- The legacy `interest=ai-employee` intake alias is retained so pre-rename marketing links still resolve.
+- **External infrastructure resource names**, which are slug-independent and not customer-facing: the Sentry project `smd-operator`, the R2 buckets `smd-operator-skill-bodies` / `ss-operator-<customer_id>-skills`, the generic OAuth callback `/api/oauth/callback`, and the Machine heartbeat path. Renaming these is infra coordination with no positioning value; they may be migrated in a later infra step but are explicitly out of scope here.
+- The legacy `interest=operator` intake alias is retained so pre-rename marketing links still resolve.
 
 ## Delivery
 
 Comprehensive in scope; sequenced so the live customer (Crane) cannot crashloop. A path read by a separate repo plus a live Fly volume cannot be renamed in one atomic merge.
 
-- **PR 1 (this repo):** marketing, product/portal/admin UI, docs, code identifiers, the DB `product_slug` migration, and `src/**` renames + middleware 301 redirects. Leaves the `ai-employee/` boot substrate untouched, so it merges and deploys without touching Crane.
+- **PR 1 (this repo):** marketing, product/portal/admin UI, docs, code identifiers, the DB `product_slug` migration, and `src/**` renames + middleware 301 redirects. Leaves the `operator/` boot substrate untouched, so it merges and deploys without touching Crane.
 - **Overlay companion PR** (`venturecrane/hermes-smd-overlay`): path/config change for the substrate rename; hard predecessor to PR 2.
-- **PR 2 (gated):** renames the `ai-employee/` boot substrate, merged only after the overlay PR is in and a deliberate Fly re-bootstrap is staged and Crane verified healthy.
+- **PR 2 (gated):** renames the `operator/` boot substrate, merged only after the overlay PR is in and a deliberate Fly re-bootstrap is staged and Crane verified healthy.
 
 ## Consequences
 
@@ -84,12 +84,12 @@ Comprehensive in scope; sequenced so the live customer (Crane) cannot crashloop.
 
 - The "operator" word now does double duty (product and human role). Mitigation: §2 records the dual usage as deliberate; the RBAC enum is untouched; UI references the product by persona name. Accepted as a contextual ambiguity, not a defect.
 - A three-landing delivery (PR1 / overlay / PR2) is more coordination than one merge. Accepted: it is the only sequence that keeps the live customer up.
-- Historical ADRs and review artifacts retain "AI Employee" in their bodies (amendment banners point here); external infra names retain the old slug. Accepted: ADRs are historical records, and infra-name churn has no positioning value.
+- Historical ADRs and review artifacts retain "Operator" in their bodies (amendment banners point here); external infra names retain the old slug. Accepted: ADRs are historical records, and infra-name churn has no positioning value.
 
 ## References
 
-- [ADR 0004](./0004-productized-ai-employee-offering.md) — productized SKU; its "Service name" deferral is resolved here.
-- [ADR 0013](./0013-ai-employee-positioning-doctrine.md) — positioning doctrine; amended (name only; doctrine stands).
+- [ADR 0004](./0004-productized-operator-offering.md) — productized SKU; its "Service name" deferral is resolved here.
+- [ADR 0013](./0013-operator-positioning-doctrine.md) — positioning doctrine; amended (name only; doctrine stands).
 - [ADR 0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) — configurable autonomy ceilings (the capability this name reflects).
 - [ADR 0031](./0031-content-sensitivity-send-floor.md) — content-sensitivity send floor.
 - `docs/adr/decision-stack.md` — Decision #44 (Productized offering) updated to name the product Operator.

@@ -1,6 +1,6 @@
 # Connector Smoke-Test Framework
 
-**Spec for issue [#852](https://github.com/venturecrane/ss-console/issues/852).** Operationalizes the Phase A stub at [`ai-employee/adapter/run_prod_smoke_test.py`](../../../ai-employee/adapter/run_prod_smoke_test.py) (originally landed in PR #812) into a real connector regression surface. For every enabled BUILD or Composio connector declared in [`customer.yaml`](customer-yaml-schema.md), one read-only call against the customer's tenant runs before any skill exercises a write capability. Auth, scope, and shape issues surface day-1.
+**Spec for issue [#852](https://github.com/venturecrane/ss-console/issues/852).** Operationalizes the Phase A stub at [`operator/adapter/run_prod_smoke_test.py`](../../../operator/adapter/run_prod_smoke_test.py) (originally landed in PR #812) into a real connector regression surface. For every enabled BUILD or Composio connector declared in [`customer.yaml`](customer-yaml-schema.md), one read-only call against the customer's tenant runs before any skill exercises a write capability. Auth, scope, and shape issues surface day-1.
 
 ## Source
 
@@ -33,7 +33,7 @@ Per-connector results aggregate into a `SmokeReport` with one `overall_status`.
 
 ## Read-only allowlist
 
-Probes are registered with one method drawn from a hardcoded per-capability allowlist defined in [`adapter/connector_smoke.py`](../../../ai-employee/adapter/connector_smoke.py) `READ_ONLY_METHODS_BY_CAPABILITY`. A probe that attempts to register a method outside the allowlist raises `ProbeRegistrationError` at construction time. There is no runtime path that lands on a write method.
+Probes are registered with one method drawn from a hardcoded per-capability allowlist defined in [`adapter/connector_smoke.py`](../../../operator/adapter/connector_smoke.py) `READ_ONLY_METHODS_BY_CAPABILITY`. A probe that attempts to register a method outside the allowlist raises `ProbeRegistrationError` at construction time. There is no runtime path that lands on a write method.
 
 | Capability         | Representative probes                                            |
 | ------------------ | ---------------------------------------------------------------- |
@@ -49,7 +49,7 @@ Probes are registered with one method drawn from a hardcoded per-capability allo
 | CallTracking       | `list_calls(limit=1)`                                            |
 | InternalComms      | `list_channels(limit=1)`                                         |
 
-Mutating prefixes — `create_*`, `send_*`, `upload_*`, `post_*`, `update_*`, `delete_*`, `share_*` — are forbidden by allowlist construction. The test [`test_allowlist_contains_no_mutating_method_names`](../../../ai-employee/adapter/tests/test_connector_smoke.py) asserts this.
+Mutating prefixes — `create_*`, `send_*`, `upload_*`, `post_*`, `update_*`, `delete_*`, `share_*` — are forbidden by allowlist construction. The test [`test_allowlist_contains_no_mutating_method_names`](../../../operator/adapter/tests/test_connector_smoke.py) asserts this.
 
 ## Conformance shape check
 
@@ -64,7 +64,7 @@ Mirrors `assertCapabilitySetWellFormed` from [`src/lib/operator/capabilities/con
 
 Each violation produces a string entry in `ConnectorSmokeResult.shape_violations`. A probe that returns data BUT fails any shape check is graded `partial` rather than `pass` — the connector is reachable, but it does not honestly describe what it implements.
 
-The framework accepts either a Python dataclass (mirror of `CapabilitySet` per the Filevine adapter pattern at [`ai-employee/connectors/filevine/capabilities.py`](../../../ai-employee/connectors/filevine/capabilities.py)) or a dict-shaped payload (Composio / MCP responses normalized upstream).
+The framework accepts either a Python dataclass (mirror of `CapabilitySet` per the Filevine adapter pattern at [`operator/connectors/filevine/capabilities.py`](../../../operator/connectors/filevine/capabilities.py)) or a dict-shaped payload (Composio / MCP responses normalized upstream).
 
 ## Grading rules
 
@@ -88,13 +88,13 @@ The aggregated `SmokeReport.overall_status` rolls up:
 
 ## CLI exit codes
 
-The CLI wrapper at [`ai-employee/adapter/run_prod_smoke_test.py`](../../../ai-employee/adapter/run_prod_smoke_test.py) exits with:
+The CLI wrapper at [`operator/adapter/run_prod_smoke_test.py`](../../../operator/adapter/run_prod_smoke_test.py) exits with:
 
 - `0` on `pass`
 - `1` on `partial`
 - `2` on `fail`
 
-The shell wrapper [`ai-employee/bin/run-connector-smoke-tests.sh`](../../../ai-employee/bin/run-connector-smoke-tests.sh) propagates the exit code and prints a human-readable status line.
+The shell wrapper [`operator/bin/run-connector-smoke-tests.sh`](../../../operator/bin/run-connector-smoke-tests.sh) propagates the exit code and prints a human-readable status line.
 
 ## Failure handling at provisioning time
 
@@ -141,19 +141,19 @@ Each audit row's metadata block carries:
 
 ## Probe registration
 
-Each vendor connector package exposes `register_smoke_probes(registry: SmokeProbeRegistry) -> None`. The CLI imports each entry in `_REGISTERED_PACKAGES` (in [`run_prod_smoke_test.py`](../../../ai-employee/adapter/run_prod_smoke_test.py)) at startup. Import failures are logged and skipped — a connector that fails to import surfaces during the run as "no probe registered for <capability>" anyway, which is the right diagnostic.
+Each vendor connector package exposes `register_smoke_probes(registry: SmokeProbeRegistry) -> None`. The CLI imports each entry in `_REGISTERED_PACKAGES` (in [`run_prod_smoke_test.py`](../../../operator/adapter/run_prod_smoke_test.py)) at startup. Import failures are logged and skipped — a connector that fails to import surfaces during the run as "no probe registered for <capability>" anyway, which is the right diagnostic.
 
 When a new connector ships, the connector package author MUST:
 
 1. Add `register_smoke_probes(registry)` to the package.
 2. Add the package to `_REGISTERED_PACKAGES` in `run_prod_smoke_test.py`.
-3. Add a test under that connector's `tests/` directory exercising the probe with the package's existing `FakeHttpClient` (Filevine's mirror is at [`ai-employee/connectors/filevine/tests/_helpers.py`](../../../ai-employee/connectors/filevine/tests/_helpers.py)).
+3. Add a test under that connector's `tests/` directory exercising the probe with the package's existing `FakeHttpClient` (Filevine's mirror is at [`operator/connectors/filevine/tests/_helpers.py`](../../../operator/connectors/filevine/tests/_helpers.py)).
 
 The registry is a per-process object, not a singleton. CLI invocations construct a fresh registry each run; tests construct their own. This makes the framework safe to test against multiple connectors simultaneously without polluting state.
 
 ## Non-goals
 
-- **Vendor sandbox testing.** Sandbox-credentialed exercise of an adapter end-to-end lives with the connector (e.g. [`ai-employee/connectors/filevine/bin/smoke-test-filevine.py`](../../../ai-employee/connectors/filevine/bin/smoke-test-filevine.py)). The framework here is the production-tenant regression surface, not the developer sandbox.
+- **Vendor sandbox testing.** Sandbox-credentialed exercise of an adapter end-to-end lives with the connector (e.g. [`operator/connectors/filevine/bin/smoke-test-filevine.py`](../../../operator/connectors/filevine/bin/smoke-test-filevine.py)). The framework here is the production-tenant regression surface, not the developer sandbox.
 - **Full conformance harness re-execution.** The TypeScript conformance harness runs in JS CI against the adapter package; the framework here cross-checks only the shape invariants that can be verified by inspecting a real response.
 - **Write-path verification.** Not in scope by design. The framework's purpose is to surface read-path issues before any write capability runs.
 
@@ -169,9 +169,9 @@ The framework enforces three invariants beyond the per-test assertions:
 
 ## File map
 
-| File                                                                                                              | Purpose                                                                                     |
-| ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| [`ai-employee/adapter/connector_smoke.py`](../../../ai-employee/adapter/connector_smoke.py)                       | Framework module: `SmokeProbe`, `SmokeProbeRegistry`, `SmokeReport`, `run_smoke_tests()`.   |
-| [`ai-employee/adapter/run_prod_smoke_test.py`](../../../ai-employee/adapter/run_prod_smoke_test.py)               | CLI entrypoint. Loads registered probes, runs `run_smoke_tests`, exits 0/1/2.               |
-| [`ai-employee/bin/run-connector-smoke-tests.sh`](../../../ai-employee/bin/run-connector-smoke-tests.sh)           | Shell wrapper for provisioning + cron callers.                                              |
-| [`ai-employee/adapter/tests/test_connector_smoke.py`](../../../ai-employee/adapter/tests/test_connector_smoke.py) | 38-test suite covering registration validation, shape conformance, grading, audit emission. |
+| File                                                                                                        | Purpose                                                                                     |
+| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| [`operator/adapter/connector_smoke.py`](../../../operator/adapter/connector_smoke.py)                       | Framework module: `SmokeProbe`, `SmokeProbeRegistry`, `SmokeReport`, `run_smoke_tests()`.   |
+| [`operator/adapter/run_prod_smoke_test.py`](../../../operator/adapter/run_prod_smoke_test.py)               | CLI entrypoint. Loads registered probes, runs `run_smoke_tests`, exits 0/1/2.               |
+| [`operator/bin/run-connector-smoke-tests.sh`](../../../operator/bin/run-connector-smoke-tests.sh)           | Shell wrapper for provisioning + cron callers.                                              |
+| [`operator/adapter/tests/test_connector_smoke.py`](../../../operator/adapter/tests/test_connector_smoke.py) | 38-test suite covering registration validation, shape conformance, grading, audit emission. |

@@ -11,7 +11,7 @@ Hermes' curator runs an autonomous LLM pass (`agent/curator.py:_run_llm_review()
 
 So the autonomous curator is disabled per-customer. **In-conversation skill auto-creation (`skill_manage`) stays on** — skills still evolve with the customer's workflow. Only the unsupervised background consolidation is off.
 
-How it is enforced: `ai-employee/templates/bootstrap.sh` step 7b runs `ensure-curator-disabled.py` after profile materialization and before Hermes starts, writing `curator.enabled: false` into each `/opt/data/profiles/<slug>/config.yaml`. The boot smoke test (`ai-employee/bin/boot-smoke-test.sh`) re-verifies it with `--check`. (Real-world motivation: NousResearch/hermes-agent#18373, where the curator autonomously consolidated 54 user skills into 12 umbrellas on a fresh install.)
+How it is enforced: `operator/templates/bootstrap.sh` step 7b runs `ensure-curator-disabled.py` after profile materialization and before Hermes starts, writing `curator.enabled: false` into each `/opt/data/profiles/<slug>/config.yaml`. The boot smoke test (`operator/bin/boot-smoke-test.sh`) re-verifies it with `--check`. (Real-world motivation: NousResearch/hermes-agent#18373, where the curator autonomously consolidated 54 user skills into 12 umbrellas on a fresh install.)
 
 ## When to consider a consolidation pass
 

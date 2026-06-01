@@ -6,8 +6,8 @@
 
 This spec is the authoritative shape of:
 
-- `ai-employee/verticals/<vertical-slug>/vertical.yaml`
-- `ai-employee/verticals/<vertical-slug>/addons/<addon-slug>/addon.yaml`
+- `operator/verticals/<vertical-slug>/vertical.yaml`
+- `operator/verticals/<vertical-slug>/addons/<addon-slug>/addon.yaml`
 - The `vertical:` and `addons:` fields on `customer.yaml`
 
 It supplements (does not replace) [`customer-yaml-schema.md`](customer-yaml-schema.md), which remains the source of truth for the rest of `customer.yaml`.
@@ -16,8 +16,8 @@ It supplements (does not replace) [`customer-yaml-schema.md`](customer-yaml-sche
 
 Per ADR 0022 §"Decision":
 
-1. **Platform (`ai-employee/core/`)** — same for every customer regardless of vertical. Hermes substrate, plugin overlay, capability contracts, customer.yaml schema, OAuth substrate, bootstrap CLI, trust ceiling enforcement, audit emission, voice transformation pipeline. No vertical-specific code at this layer.
-2. **Vertical packs + add-on packs (`ai-employee/verticals/`)** — first-class versioned artifacts. See §"Filesystem layout" below.
+1. **Platform (`operator/core/`)** — same for every customer regardless of vertical. Hermes substrate, plugin overlay, capability contracts, customer.yaml schema, OAuth substrate, bootstrap CLI, trust ceiling enforcement, audit emission, voice transformation pipeline. No vertical-specific code at this layer.
+2. **Vertical packs + add-on packs (`operator/verticals/`)** — first-class versioned artifacts. See §"Filesystem layout" below.
 3. **Customer configuration (`customer.yaml`)** — the customer subscribes to one vertical plus zero or more add-ons. See §"`customer.yaml` extension fields."
 
 ## Filesystem layout
@@ -47,7 +47,7 @@ operator/
         bookkeeping/                 # composable across verticals
 ```
 
-PR 4 (ADR 0022 Stream 4) ships the PI migration: the previously top-level PI skills, fixtures, and bundles now live under `verticals/law-firm/addons/pi/` per the layout above. Shared law skills (`law-conflict-check`, `law-client-status-update`) remain at `ai-employee/skills/` until a second law addon exists.
+PR 4 (ADR 0022 Stream 4) ships the PI migration: the previously top-level PI skills, fixtures, and bundles now live under `verticals/law-firm/addons/pi/` per the layout above. Shared law skills (`law-conflict-check`, `law-client-status-update`) remain at `operator/skills/` until a second law addon exists.
 
 ## `vertical.yaml` manifest fields
 
@@ -110,7 +110,7 @@ memory:
   r2_vault_path: 'vaults/<customer-id>/'
   vectorize_index: 'hermes-<customer-id>-vault'
   # ADR 0022 Stream 2 — populated at bootstrap, never hand-authored:
-  r2_skill_bodies_bucket: 'smd-ai-employee-skill-bodies' # shared-bucket default
+  r2_skill_bodies_bucket: 'smd-operator-skill-bodies' # shared-bucket default
   r2_skill_bodies_prefix: '<customer-id>/' # shared-bucket prefix
 ```
 

@@ -184,11 +184,11 @@ Full `invariant_boot_checks` dump. Columns: `id, ts, invariant_num, passed, fail
 
 ## Implementation notes
 
-- New skill: `ai-employee/skills/compliance-audit-export/SKILL.md` per §8.2 of platform PRD; trust_ceiling: autonomous (read-only operation).
-- Renderer: `ai-employee/adapter/compliance_packet_renderer.py`; reads templates from `ai-employee/templates/compliance/`.
+- New skill: `operator/skills/compliance-audit-export/SKILL.md` per §8.2 of platform PRD; trust_ceiling: autonomous (read-only operation).
+- Renderer: `operator/adapter/compliance_packet_renderer.py`; reads templates from `operator/templates/compliance/`.
 - PDF rendering via Pandoc → wkhtmltopdf in the Fly Machine (no external service; keeps customer data in-customer-instance).
 - Captain signing: detached signature using Captain's RSA key, key stored in Infisical at `/captain/signing-key`. New Captain key rotation procedure documented in operations runbook.
-- Markdown templates at `ai-employee/templates/compliance/{00-readme,01-summary,04-audit-log-human}.md.tmpl`.
+- Markdown templates at `operator/templates/compliance/{00-readme,01-summary,04-audit-log-human}.md.tmpl`.
 - Voice sample content withheld by default; separate signed-export path at `bin/export-voice-samples.sh` produces a `voice-samples-export-{ts}.zip` requiring explicit Captain + principal confirmation.
 
 [AMBIGUITY: Whether the audit-log human-narrative (§04) requires Captain manual review or ships auto-generated. UX Lead Gap 4 implies Captain review; SLA of ≤60s suggests automated. Decision: auto-render for the first export, Captain-review-and-amend before delivery to outside counsel. This caveat noted in README.]

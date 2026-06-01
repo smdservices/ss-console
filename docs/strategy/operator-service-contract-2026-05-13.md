@@ -2,7 +2,7 @@
 
 **Issue:** [#773](https://github.com/venturecrane/ss-console/issues/773)
 **Authorizes:** Contract shape for productized Operator SKU. Drives downstream SOW/MSA drafting (separate deliverable under copy/surfaces #775 or its own follow-on).
-**Inputs:** [Pricing analysis](./operator-pricing-2026-05-13.md), [functional shape research](./operator-functional-shape-2026-05-13.md), [stack evaluation](./operator-stack-evaluation-2026-05-13.md), [ADR 0004](../adr/0004-productized-ai-employee-offering.md)
+**Inputs:** [Pricing analysis](./operator-pricing-2026-05-13.md), [functional shape research](./operator-functional-shape-2026-05-13.md), [stack evaluation](./operator-stack-evaluation-2026-05-13.md), [ADR 0004](../adr/0004-productized-operator-offering.md)
 
 ---
 
@@ -354,7 +354,7 @@ Contract shape adopted as documented above. Closes #773. Unblocks #774 (service 
 - [Pricing analysis companion doc](./operator-pricing-2026-05-13.md)
 - [Functional shape research](./operator-functional-shape-2026-05-13.md) — trust ceiling map, failure modes, customer success cadence
 - [Stack evaluation](./operator-stack-evaluation-2026-05-13.md) — monitoring, watchdog, observability shape
-- [ADR 0004 — Productized AI Employee Offering](../adr/0004-productized-ai-employee-offering.md)
+- [ADR 0004 — Productized Operator Offering](../adr/0004-productized-operator-offering.md)
 - [Decision Stack #11 — Scope creep protocol](../adr/decision-stack.md#decision-11---scope-creep-protocol) — parking-lot mechanism (adapted for productized customers)
 - [Decision Stack #14 — Payment terms](../adr/decision-stack.md#decision-14---payment-terms) — note: Operator uses retainer-monthly, not the deposit-at-signing structure
 - [Decision Stack #27 — Post-handoff safety net](../adr/decision-stack.md#decision-27---post-handoff-safety-net) — analog for scope-based engagements; Operator is structurally different

@@ -5,7 +5,7 @@ status: accepted
 captain: Scott Durgan
 supersedes: 0015-hermes-fork-vs-upstream.md
 amends: 0007-per-customer-machine-isolation.md, 0018-gepa-disposition.md
-related-prd: docs/pm/ai-employee/platform-prd.md §7.1, §7.4, §7.5
+related-prd: docs/pm/operator/platform-prd.md §7.1, §7.4, §7.5
 related-issue: https://github.com/venturecrane/ss-console/issues/1133 (migration Steps 2–5)
 ---
 
@@ -27,15 +27,15 @@ The fork half does not hold up. The fork was born under the _original_ ADR 0015,
 
 ### The fork's three stated justifications, tested against the code
 
-1. **Immutability (upstream can retag / force-push).** The build already pins `HERMES_UPSTREAM_SHA=a91a57fa…` (`ai-employee/templates/Dockerfile`) and asserts the clone against it. A commit SHA is content-addressed; upstream cannot mutate what a SHA points to. Pinning upstream by SHA delivers full immutability with no fork. The fork tag is a label that must equal a SHA we already trust. **Redundant.**
+1. **Immutability (upstream can retag / force-push).** The build already pins `HERMES_UPSTREAM_SHA=a91a57fa…` (`operator/templates/Dockerfile`) and asserts the clone against it. A commit SHA is content-addressed; upstream cannot mutate what a SHA points to. Pinning upstream by SHA delivers full immutability with no fork. The fork tag is a label that must equal a SHA we already trust. **Redundant.**
 
-2. **Availability hedge (upstream could disappear).** This is the only property a mirror uniquely provides, and the current wiring discards it. `ai-employee/bin/provision-customer.sh:144` runs `git ls-remote --tags https://github.com/NousResearch/hermes-agent.git` on **every provision** to resolve the upstream SHA, and `die`s if it fails. Both the fork **and** upstream must be reachable at build time. If Nous deletes the repo, provisioning fails regardless of the fork. The fork does not remove the upstream dependency; it adds a second repo that must also be up. **Defeated by our own verification step.**
+2. **Availability hedge (upstream could disappear).** This is the only property a mirror uniquely provides, and the current wiring discards it. `operator/bin/provision-customer.sh:144` runs `git ls-remote --tags https://github.com/NousResearch/hermes-agent.git` on **every provision** to resolve the upstream SHA, and `die`s if it fails. Both the fork **and** upstream must be reachable at build time. If Nous deletes the repo, provisioning fails regardless of the fork. The fork does not remove the upstream dependency; it adds a second repo that must also be up. **Defeated by our own verification step.**
 
 3. **A place to put a security patch.** Real, but weak. A reviewable `.patch` file applied during the base-image build (diff visible in PR, documented in a changelog) is more auditable than a forked branch carrying a magic `-smd.security.N` tag. Furthermore the "AGPL §13 unmodified-deployment safe harbor" the Dockerfile cites is misapplied: **Hermes is MIT** (no copyleft, no source-offer obligation, no safe harbor needed). The component that _is_ AGPL — **Honcho** (`plastic-labs/honcho`, AGPL-3.0) — has **no** integrity assertion, only a `TODO(ci)` in the Dockerfile. The assertion guards the license that does not need it and skips the one that does. (Legal review flag, not a legal opinion.)
 
 ### The deeper smell: per-customer from-source rebuilds
 
-`fly deploy` builds the Dockerfile **from source for every customer** (`ai-employee/templates/fly.toml.template` `[build] dockerfile=…`). Each provision re-clones Hermes, re-runs `npm install` + `playwright install` + `uv sync` + web/TUI bundle builds + Honcho install + overlay install. The build is identical across customers (the only baked per-customer input is `CUSTOMER_SLUG`; the real per-customer data, `customer.yaml`, is correctly fetched from R2 at boot, not baked). There is **no golden base image and no registry push.** N customers means N from-scratch builds pulling from two GitHub repos each, with no guarantee two customers built a week apart get byte-identical transitive dependencies. The fork is a symptom of this build shape.
+`fly deploy` builds the Dockerfile **from source for every customer** (`operator/templates/fly.toml.template` `[build] dockerfile=…`). Each provision re-clones Hermes, re-runs `npm install` + `playwright install` + `uv sync` + web/TUI bundle builds + Honcho install + overlay install. The build is identical across customers (the only baked per-customer input is `CUSTOMER_SLUG`; the real per-customer data, `customer.yaml`, is correctly fetched from R2 at boot, not baked). There is **no golden base image and no registry push.** N customers means N from-scratch builds pulling from two GitHub repos each, with no guarantee two customers built a week apart get byte-identical transitive dependencies. The fork is a symptom of this build shape.
 
 ### The update-cadence problem
 
@@ -62,7 +62,7 @@ SMD consumes Hermes as a **SHA-pinned upstream dependency, packaged into a golde
 
 ### 1. Pin upstream by commit SHA, not via a fork tag
 
-`customer.yaml.hermes_ref` pins an **upstream** ref of the form `vYYYY.M.D@<40-char-sha>` (tag for human readability, SHA for immutability). The validator (`src/lib/ai-employee/customer-yaml/helpers.ts`, `validator.ts`) is updated to this shape. There is no `-smd.N` suffix and no fork.
+`customer.yaml.hermes_ref` pins an **upstream** ref of the form `vYYYY.M.D@<40-char-sha>` (tag for human readability, SHA for immutability). The validator (`src/lib/operator/customer-yaml/helpers.ts`, `validator.ts`) is updated to this shape. There is no `-smd.N` suffix and no fork.
 
 ### 2. Build one golden base image; the registry is the mirror
 
@@ -177,7 +177,7 @@ How we know we are following this decision:
 - [ADR 0007 — Per-customer Machine isolation](./0007-per-customer-machine-isolation.md) (no-silent-propagation preserved; pin role clarified to rollback/canary)
 - [ADR 0018 — GEPA disposition](./0018-gepa-disposition.md) ("quarterly rebase" language to be amended to the two-clocks model)
 - [ADR 0021 — Leverage Hermes native primitives](./0021-leverage-hermes-native-primitives.md) (pull-based capability adoption)
-- [Stack evaluation 2026-05-13](../strategy/ai-employee-stack-evaluation-2026-05-13.md) (adapter posture; 90-day strategic cadence)
+- [Stack evaluation 2026-05-13](../strategy/operator-stack-evaluation-2026-05-13.md) (adapter posture; 90-day strategic cadence)
 - Upstream plugin policy: `AGENTS.md` in [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent)
 - [NousResearch/hermes-agent tags](https://github.com/NousResearch/hermes-agent/tags) (weekly date-based release cadence)
-- `ai-employee/templates/Dockerfile`, `ai-employee/bin/provision-customer.sh`, `ai-employee/templates/fly.toml.template` (current build wiring)
+- `operator/templates/Dockerfile`, `operator/bin/provision-customer.sh`, `operator/templates/fly.toml.template` (current build wiring)

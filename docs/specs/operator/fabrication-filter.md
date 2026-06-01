@@ -128,9 +128,9 @@ Severity mapping:
 ## Verification
 
 1. **Filter test suite** at `tests/operator/fabrication-filter.test.ts` covers: every action class × every sourced_from × clean/flag/block decision. ≥40 cases.
-2. **Frontmatter CI gate** at `tests/operator/skill-frontmatter.test.ts` walks every `ai-employee/skills/*/SKILL.md` and asserts `client_facing_fields` block is present and well-formed.
+2. **Frontmatter CI gate** at `tests/operator/skill-frontmatter.test.ts` walks every `operator/skills/*/SKILL.md` and asserts `client_facing_fields` block is present and well-formed.
 3. **Production audit-log assertion**: a weekly Captain query against `audit_log` reports flag/block rate per skill. If block rate > 5% on any skill, that skill is reviewed.
-4. **Regression fixture corpus**: `ai-employee/fixtures/fabrication/` contains 20+ historical Pattern A/B violations (e.g., the "We'll reach out to schedule kickoff" string from CLAUDE.md). Every fixture must produce a `block` outcome — this protects against regression to the SS-console Apr-15 audit failures.
+4. **Regression fixture corpus**: `operator/fixtures/fabrication/` contains 20+ historical Pattern A/B violations (e.g., the "We'll reach out to schedule kickoff" string from CLAUDE.md). Every fixture must produce a `block` outcome — this protects against regression to the SS-console Apr-15 audit failures.
 
 ## Implementation notes
 
@@ -146,7 +146,7 @@ Severity mapping:
 > universal markers (`fabrication_markers.json`, every vertical) + Tier-2
 > citation filter (law-vertical only). See `docs/adr/0028-outbound-integrity-gates-provenance-and-voice.md`.
 
-- The marker registry is `ai-employee/safety-substrate/fabrication_markers.json`
+- The marker registry is `operator/safety-substrate/fabrication_markers.json`
   (the single source of truth); the overlay vendors a copy with a CI hash-check.
   Updates require PR + Captain sign-off.
 - Filter implementation (overlay): `shared/outbound_gate.py` + `shared/fabrication_markers.py`.
@@ -154,6 +154,6 @@ Severity mapping:
   time) is the eventual Tier-1; ADR 0028 ships the pattern-marker subset first and
   defers the source-tag model.
 - Empty-state pattern reference: `docs/style/empty-state-pattern.md` (existing).
-- Citation-refusal substrate (§9.3 of law-firm PRD, invariant #6) lives at `ai-employee/adapter/citation_refusal.py`; fabrication filter runs first, citation refusal second. Both are pre-emit hooks.
+- Citation-refusal substrate (§9.3 of law-firm PRD, invariant #6) lives at `operator/adapter/citation_refusal.py`; fabrication filter runs first, citation refusal second. Both are pre-emit hooks.
 
 [AMBIGUITY: The 5% block-rate ceiling is a heuristic; tune against real data after week 4 of beta-1. May be too lax (block rate should be near 0 once skills are mature) or too strict (some skills are inherently low-source like brainstorming surfaces). Captain monitors and adjusts.]

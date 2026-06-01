@@ -26,13 +26,13 @@ The loader's invariants are tighter than the prep tool's. The prep tool reads st
 ## CLI
 
 ```bash
-ai-employee/bin/load-demo-fixtures.sh <customer-slug> <vertical>
-ai-employee/bin/load-demo-fixtures.sh <customer-slug> <vertical> --unload
+operator/bin/load-demo-fixtures.sh <customer-slug> <vertical>
+operator/bin/load-demo-fixtures.sh <customer-slug> <vertical> --unload
 ```
 
 ### Arguments
 
-- `<customer-slug>` — the per-customer directory name under `ai-employee/customers/`. Must match `^[a-z0-9][a-z0-9-]{0,31}$` and must NOT begin with `_` (reserved for `_template/`).
+- `<customer-slug>` — the per-customer directory name under `operator/customers/`. Must match `^[a-z0-9][a-z0-9-]{0,31}$` and must NOT begin with `_` (reserved for `_template/`).
 - `<vertical>` — currently `pi` for personal-injury. The structure supports additional verticals registered in `bin/lib/demo_fixtures.VERTICAL_REGISTRY`. Unknown verticals exit with code 2.
 - `--unload` — optional. Removes every row tagged `is_demo_fixture: true` from the per-customer substrate. Idempotent.
 
@@ -70,7 +70,7 @@ The loader writes through two storage Protocols (`MemorySubstrateWriter`, `Voice
 `FilesystemMemoryStore` and `FilesystemVoiceStore` write to a single per-customer JSON document under:
 
 ```
-ai-employee/customers/{slug}/.demo-fixtures-state.json
+operator/customers/{slug}/.demo-fixtures-state.json
 ```
 
 This keeps the loader useful from any workstation, mirroring the snapshot pattern `demo_prep.py` uses for readiness checks. The state file is gitignored at the customer-directory level (the `_template/` is the only checked-in customer dir) and is removed on `--unload`.
@@ -147,12 +147,12 @@ VERTICAL_REGISTRY["real-estate"] = VerticalConfig(
 
 The PI matter parser is currently hard-coded for the markdown envelope shipped by PR #832. Verticals using a different envelope (JSON, plain text) supply their own parser; the loader's row-builder shape is vertical-agnostic.
 
-The `_demo_manifest.md` file at `ai-employee/fixtures/_demo_manifest.md` is the canonical list of what gets loaded; it is updated when a vertical is added.
+The `_demo_manifest.md` file at `operator/fixtures/_demo_manifest.md` is the canonical list of what gets loaded; it is updated when a vertical is added.
 
 ## What this loader does NOT do
 
-- Does not modify `ai-employee/fixtures/` (read-only at runtime).
-- Does not modify `ai-employee/customers/{slug}/customer.yaml`.
+- Does not modify `operator/fixtures/` (read-only at runtime).
+- Does not modify `operator/customers/{slug}/customer.yaml`.
 - Does not invoke `bin/provision-customer.sh`, the Fly Machine, Composio, AgentMail, SignWell, or any outbound service.
 - Does not generate new synthetic content. The synthesized calendar items and voice cohorts derived from the corpus are deterministic functions of corpus state, not LLM output.
 - Does not write outside the per-customer directory + (in production) the per-customer D1 namespace + the per-customer R2 prefix.

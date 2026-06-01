@@ -19,7 +19,7 @@ Three failure modes the drill exists to catch.
 
 **Drill window.** The four scenarios run inside one continuous window. Captain observes the entire window; the operator drives every command. Estimated time: three to four hours for an operator at full proficiency, longer for an operator whose skills have decayed (in which case the drill itself surfaces the gap).
 
-**Drill log.** Captain opens a drill log at `ai-employee/customers/{synthetic-slug}/drills/{iso-date}-drill.md` before the drill begins. Every scenario's outcome lands in the log as it completes. The log persists; quarterly drill history is the visible record of the bus-factor program's health.
+**Drill log.** Captain opens a drill log at `operator/customers/{synthetic-slug}/drills/{iso-date}-drill.md` before the drill begins. Every scenario's outcome lands in the log as it completes. The log persists; quarterly drill history is the visible record of the bus-factor program's health.
 
 ## Scenario 1: provision
 
@@ -96,7 +96,7 @@ Three failure modes the drill exists to catch.
 
 - Dry-run output shows nine `[ planned]` lines.
 - Live run reaches `DECOMMISSION_FINAL` without halting.
-- A dated tombstone exists at `ai-employee/customers/{synthetic-slug}.decommissioned.{iso-date}/`.
+- A dated tombstone exists at `operator/customers/{synthetic-slug}.decommissioned.{iso-date}/`.
 - A compliance manifest landed in the archive root.
 - A second live run of the same slug reports `skipped` for every applicable step (idempotency contract).
 - Operator paged Captain with the result.

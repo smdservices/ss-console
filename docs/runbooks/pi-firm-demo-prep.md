@@ -3,7 +3,7 @@
 **Audience:** Captain.
 **Scope:** Pre-meeting preparation for a first-call demo with a personal-injury law firm. Covers the 24-48 hour window before the meeting.
 **Source:** Platform PRD §16.2 (pre-provisioning) and §16.3 (demo deliverables). Implements the operational half of issue [#819](https://github.com/venturecrane/ss-console/issues/819).
-**Companion tooling:** `ai-employee/customers/_template/`, `ai-employee/bin/provision-customer.sh`, `ai-employee/bin/prepare-demo-firm.sh`.
+**Companion tooling:** `operator/customers/_template/`, `operator/bin/provision-customer.sh`, `operator/bin/prepare-demo-firm.sh`.
 
 > The PRD window: anything later than `T - 24 hours` violates §16.2. Build in slack. The earliest acceptable provisioning time is `T - 48 hours`; treat anything inside the 24 hour cushion as a recovery path, not the plan.
 
@@ -50,10 +50,10 @@ Output: the firm's legal name, a chosen slug matching `^[a-z0-9][a-z0-9-]{0,31}$
 Copy the template:
 
 ```bash
-cp -r ai-employee/customers/_template ai-employee/customers/{firm-slug}
+cp -r operator/customers/_template operator/customers/{firm-slug}
 ```
 
-Open `ai-employee/customers/{firm-slug}/dossier.md` and fill every bracketed field in sections 1-7. Source citations only; no paraphrased press releases without verifying the underlying filing.
+Open `operator/customers/{firm-slug}/dossier.md` and fill every bracketed field in sections 1-7. Source citations only; no paraphrased press releases without verifying the underlying filing.
 
 The dossier sections map to the issue acceptance criteria:
 
@@ -79,7 +79,7 @@ Sources, in preferred order:
 
 For each sample:
 
-- Save the source as a local file under `ai-employee/customers/{firm-slug}/voice/` with a descriptive filename (e.g. `partner-lastname-2024-03-demand-letter.txt`). The file extension is informational only.
+- Save the source as a local file under `operator/customers/{firm-slug}/voice/` with a descriptive filename (e.g. `partner-lastname-2024-03-demand-letter.txt`). The file extension is informational only.
 - Record the citation in dossier section 5 so the source is auditable.
 - Run the voice ingestion pipeline against the directory to compute the structural-diff and store it in R2. (Until the live ingestion CLI lands, hand-drop the structural-diff JSON files into the same directory; the readiness check counts files, not run history.)
 
@@ -91,7 +91,7 @@ What Captain does NOT do:
 
 ## Section 4: Author the customer.yaml
 
-Open `ai-employee/customers/{firm-slug}/customer.yaml` and replace every bracketed field. The schema is documented at `docs/specs/operator/customer-yaml-schema.md`. Required edits, in order:
+Open `operator/customers/{firm-slug}/customer.yaml` and replace every bracketed field. The schema is documented at `docs/specs/operator/customer-yaml-schema.md`. Required edits, in order:
 
 1. `customer_id` matches the directory slug.
 2. `customer_name` is the legal name from dossier section 1.
@@ -106,17 +106,17 @@ Validate before moving on (canonical TS validator per ADR 0019):
 
 ```bash
 npx tsx scripts/validate-customer-yaml.ts \
-  ai-employee/customers/{firm-slug}/customer.yaml
+  operator/customers/{firm-slug}/customer.yaml
 ```
 
 The validator must exit 0 before Section 5. A non-zero exit means the file is structurally wrong and would fail at provisioning time anyway; fix it now.
 
 ## Section 5: Provision the Fly Machine
 
-The provisioning script is `ai-employee/bin/provision-customer.sh`, shipped under issue [#812](https://github.com/venturecrane/ss-console/issues/812). It is read-write and creates real Fly resources; do not run it against a firm that has not been identified and confirmed.
+The provisioning script is `operator/bin/provision-customer.sh`, shipped under issue [#812](https://github.com/venturecrane/ss-console/issues/812). It is read-write and creates real Fly resources; do not run it against a firm that has not been identified and confirmed.
 
 ```bash
-ai-employee/bin/provision-customer.sh {firm-slug}
+operator/bin/provision-customer.sh {firm-slug}
 ```
 
 What the script does (one command, idempotent):
@@ -133,10 +133,10 @@ If the script fails at any step, re-run with the same slug; every step is idempo
 
 ## Section 6: Run the readiness checks
 
-`ai-employee/bin/prepare-demo-firm.sh` is the verification tool. It is read-only and re-runnable. Run it as many times as needed during prep until it exits 0.
+`operator/bin/prepare-demo-firm.sh` is the verification tool. It is read-only and re-runnable. Run it as many times as needed during prep until it exits 0.
 
 ```bash
-ai-employee/bin/prepare-demo-firm.sh --firm-slug {firm-slug}
+operator/bin/prepare-demo-firm.sh --firm-slug {firm-slug}
 ```
 
 It verifies, in order:
@@ -195,10 +195,10 @@ When every box is checked, the demo is ready.
 
 **Filevine smoke fails.** Two paths: fix the credential or downscope. To downscope: edit `connectors.PracticeManagement` in customer.yaml to `adapter: synthetic`, `backend: synthetic:fixture`. Re-run validation and readiness. The demo will run as the no-PM angle; the firm will see the agent operating on synthetic fixtures and the assessment-call conversation pivots to "your PM connector lands after signing."
 
-**Synthetic matter fixture missing.** Pick a fixture from `ai-employee/skills/{lead-skill}/fixtures/` or `ai-employee/fixtures/law-firm/` and either copy it into `ai-employee/customers/{firm-slug}/fixtures/` or set `demo.matter_fixture` in customer.yaml to its relative path.
+**Synthetic matter fixture missing.** Pick a fixture from `operator/skills/{lead-skill}/fixtures/` or `operator/fixtures/law-firm/` and either copy it into `operator/customers/{firm-slug}/fixtures/` or set `demo.matter_fixture` in customer.yaml to its relative path.
 
 **Captain runs out of prep time.** The demo is deferred. Do not run the demo from a yellow readiness report; the failure modes are predictable (a connector returns no data mid-conversation, the voice match feels off, the synthetic matter doesn't match the practice area) and they each blow up the meeting. Defer and rebook.
 
 ## Decommissioning a demo firm that did not convert
 
-If the firm does not sign within the agreed-upon window after the demo, run `ai-employee/bin/decommission-customer.sh {firm-slug} --live` per the per-customer decommission spec (`docs/specs/operator/decommission-customer.md`, shipped under issue [#820](https://github.com/venturecrane/ss-console/issues/820), wrapper added in PR [#956](https://github.com/venturecrane/ss-console/issues/956)). The decommission pipeline tombstones the customer directory, removes memory and voice substrate, and archives the compliance evidence packet. The dossier is preserved in the tombstone for future re-engagement.
+If the firm does not sign within the agreed-upon window after the demo, run `operator/bin/decommission-customer.sh {firm-slug} --live` per the per-customer decommission spec (`docs/specs/operator/decommission-customer.md`, shipped under issue [#820](https://github.com/venturecrane/ss-console/issues/820), wrapper added in PR [#956](https://github.com/venturecrane/ss-console/issues/956)). The decommission pipeline tombstones the customer directory, removes memory and voice substrate, and archives the compliance evidence packet. The dossier is preserved in the tombstone for future re-engagement.

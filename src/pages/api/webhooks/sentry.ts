@@ -2,7 +2,7 @@
  * POST /api/webhooks/sentry
  *
  * Sentry alert-rule webhook receiver (ADR 0023 Wave 1). Configured as
- * an Internal Integration webhook in the shared `smd-ai-employee` Sentry
+ * an Internal Integration webhook in the shared `smd-operator` Sentry
  * project; each customer's alert rules POST here when they fire.
  *
  * Auth: HMAC-SHA256 over the raw body, signature in

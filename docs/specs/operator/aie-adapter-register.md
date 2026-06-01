@@ -6,7 +6,7 @@
 
 > **Note (ADR 0024, 2026-05-28):** This spec's references to a "vendored fork with an SMD overlay layer in the fork" describe the pre-2026-05-24 posture. That posture is superseded: all SMD extension code lives in the plugin-only `venturecrane/hermes-smd-overlay` repo (ADR 0015 rewrite), and the `venturecrane/hermes-agent` fork was retired entirely in favor of pinning `NousResearch/hermes-agent` directly (ADR 0024). The adapter contract below stands; only the "where the overlay lives" framing changed.
 
-This spec is the contract for `ai-employee/adapter/aie_adapter.py::register()` and the typed hook surface it consumes (`ai-employee/adapter/hermes_hook.py`). The contract is held on the adapter side so the SMD overlay layer in the Hermes fork (per ADR 0015) can swap its internal implementation without renegotiating the integration.
+This spec is the contract for `operator/adapter/aie_adapter.py::register()` and the typed hook surface it consumes (`operator/adapter/hermes_hook.py`). The contract is held on the adapter side so the SMD overlay layer in the Hermes fork (per ADR 0015) can swap its internal implementation without renegotiating the integration.
 
 ---
 
@@ -34,7 +34,7 @@ Out of scope (covered by separate work or filed as follow-ons):
 
 ## 3. Hook surface
 
-The contract is in `ai-employee/adapter/hermes_hook.py`. Four hook-type aliases:
+The contract is in `operator/adapter/hermes_hook.py`. Four hook-type aliases:
 
 | Hook         | Signature                                                       | Purpose                                                                                                                           |
 | ------------ | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |

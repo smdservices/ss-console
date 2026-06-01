@@ -37,7 +37,7 @@ If a specific firm uses Xero instead of QuickBooks, or Gmail instead of Outlook,
 
 ## The `no_pm` PracticeManagement adapter
 
-Implementation: [`ai-employee/connectors/no_pm/`](../../../ai-employee/connectors/no_pm/). Conforms to the `PracticeManagement` interface from [`src/lib/operator/capabilities/practice-management.ts`](../../../src/lib/operator/capabilities/practice-management.ts) via the same Python-mirrors-TypeScript shape Filevine uses.
+Implementation: [`operator/connectors/no_pm/`](../../../operator/connectors/no_pm/). Conforms to the `PracticeManagement` interface from [`src/lib/operator/capabilities/practice-management.ts`](../../../src/lib/operator/capabilities/practice-management.ts) via the same Python-mirrors-TypeScript shape Filevine uses.
 
 ### Supported methods
 
@@ -138,7 +138,7 @@ To validate after copying + filling (canonical TS validator per ADR 0019):
 
 ```bash
 npx tsx scripts/validate-customer-yaml.ts \
-  ai-employee/customers/{firm-slug}/customer.yaml
+  operator/customers/{firm-slug}/customer.yaml
 ```
 
 ## Failure modes
@@ -157,7 +157,7 @@ npx tsx scripts/validate-customer-yaml.ts \
 
 ### Adapter tests
 
-`ai-employee/connectors/no_pm/tests/` -- run via:
+`operator/connectors/no_pm/tests/` -- run via:
 
 ```bash
 cd operator && python -m pytest connectors/no_pm/tests/ -v
@@ -173,7 +173,7 @@ Coverage:
 
 ### Template
 
-The template at [`ai-employee/templates/customer-no-pm-system.yaml`](../../../ai-employee/templates/customer-no-pm-system.yaml) is the wire shape an operator copies into `ai-employee/customers/{firm-slug}/customer.yaml`. The bracketed fields force the operator to fill in real values before the validator passes; the connector bindings ship pre-wired so the operator never has to hand-author them.
+The template at [`operator/templates/customer-no-pm-system.yaml`](../../../operator/templates/customer-no-pm-system.yaml) is the wire shape an operator copies into `operator/customers/{firm-slug}/customer.yaml`. The bracketed fields force the operator to fill in real values before the validator passes; the connector bindings ship pre-wired so the operator never has to hand-author them.
 
 ## Cross-references
 
@@ -187,5 +187,5 @@ The template at [`ai-employee/templates/customer-no-pm-system.yaml`](../../../ai
 - [ADR 0008](../../adr/0008-customer-owned-memory-artifact.md) -- customer-owned memory artifact (decommission drains the synthetic store like any other per-customer artifact)
 - [ADR 0009](../../adr/0009-cross-machine-query-prohibition.md) -- cross-Machine query prohibition (the isolation invariant the synthetic store relies on)
 - [ADR 0014](../../adr/0014-pi-vertical-adapter-build-priority.md) -- PI-vertical adapter build priority (the Filevine / CASEpeer / SmartAdvocate ladder this template runs alongside)
-- [`ai-employee/connectors/no_pm/README.md`](../../../ai-employee/connectors/no_pm/README.md) -- adapter implementation notes
-- [`ai-employee/connectors/filevine/README.md`](../../../ai-employee/connectors/filevine/README.md) -- the real-PM-vendor analogue
+- [`operator/connectors/no_pm/README.md`](../../../operator/connectors/no_pm/README.md) -- adapter implementation notes
+- [`operator/connectors/filevine/README.md`](../../../operator/connectors/filevine/README.md) -- the real-PM-vendor analogue

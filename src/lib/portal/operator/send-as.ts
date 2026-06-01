@@ -18,7 +18,7 @@
  *
  * **Connector wiring lands across two PRs.** The Microsoft Graph send
  * surface ships in Python at
- * `ai-employee/connectors/ms_graph/send.py:send_draft_as_reviewer`
+ * `operator/connectors/ms_graph/send.py:send_draft_as_reviewer`
  * (issue #881, wave-2). The portal Worker reaches the per-customer
  * Hermes Machine via the Hermes bridge that is still tracked in #821.
  * Until the bridge lands, `sendAsReviewer` returns
@@ -30,7 +30,7 @@
  *
  * **Audit emission.** Every send attempt — successful, pending, or
  * failed — emits a `send_approved` event via `recordSendApprovedAudit`.
- * The per-customer Hermes audit_log (see `ai-employee/adapter/audit_log.py`)
+ * The per-customer Hermes audit_log (see `operator/adapter/audit_log.py`)
  * uses an uppercase vocabulary (DRAFT_APPROVED, etc.) and lives on the
  * Hermes Machine's D1. The portal Worker cannot bind to a per-customer
  * D1 directly, so this module records into a typed `AuditEvent`
@@ -232,7 +232,7 @@ export async function sendAsReviewer(draft: DraftDetail, reviewer: Reviewer): Pr
 /**
  * Connector dispatch — bridge call to the per-customer Hermes Machine
  * that holds the reviewer's OAuth grant and invokes
- * `ai-employee/connectors/ms_graph/send.py:send_draft_as_reviewer`.
+ * `operator/connectors/ms_graph/send.py:send_draft_as_reviewer`.
  *
  * The Python module is the wave-2 reviewer-as-sender concrete impl
  * (issue #881). The portal Worker cannot reach it directly because
@@ -270,7 +270,7 @@ async function dispatchViaConnector(_draft: DraftDetail, reviewer: Reviewer): Pr
  * Record the `send_approved` audit event for a draft approval.
  *
  * The per-customer Hermes audit_log (see
- * `ai-employee/adapter/audit_log.py`) is the eventual destination.
+ * `operator/adapter/audit_log.py`) is the eventual destination.
  * Today the portal cannot reach it directly — the bridge is the
  * subject of #821 plus a follow-on audit drain issue. Until then,
  * the event is emitted as a structured log line with a stable

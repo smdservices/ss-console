@@ -2,7 +2,7 @@
 /**
  * Standalone customer.yaml validator wrapper.
  *
- * Replaces the retired `ai-employee/adapter/validate_customer_yaml.py`
+ * Replaces the retired `operator/adapter/validate_customer_yaml.py`
  * with an invocation of the canonical TS validator at
  * `src/lib/operator/customer-yaml/` (per ADR 0019: TS is the canonical
  * pre-merge gate; the overlay's bootstrap/validate.py is the runtime
@@ -16,7 +16,7 @@
  *   1 — schema validation errors (printed to stderr)
  *   2 — file not readable / not parseable YAML
  *
- * Called by `ai-employee/bin/provision-customer.sh` before any Fly action.
+ * Called by `operator/bin/provision-customer.sh` before any Fly action.
  */
 
 import { readFileSync } from 'node:fs'

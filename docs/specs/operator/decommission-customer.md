@@ -13,24 +13,24 @@
 
 ## Files
 
-- `ai-employee/bin/decommission-customer.sh` — shell wrapper, dispatches to the Python CLI
-- `ai-employee/bin/lib/decommission.py` — `DecommissionPipeline` + Protocols + NoOp stubs
-- `ai-employee/bin/lib/decommission_cli.py` — argparse-based CLI entrypoint, audit-writer construction
-- `ai-employee/bin/tests/test_decommission.py` — end-to-end tests against the `smd` fixture
-- `ai-employee/bin/fixtures/smd/` — synthetic customer-zero fixture for tests
+- `operator/bin/decommission-customer.sh` — shell wrapper, dispatches to the Python CLI
+- `operator/bin/lib/decommission.py` — `DecommissionPipeline` + Protocols + NoOp stubs
+- `operator/bin/lib/decommission_cli.py` — argparse-based CLI entrypoint, audit-writer construction
+- `operator/bin/tests/test_decommission.py` — end-to-end tests against the `smd` fixture
+- `operator/bin/fixtures/smd/` — synthetic customer-zero fixture for tests
 
 ## Contract
 
 ### Invocation
 
 ```
-ai-employee/bin/decommission-customer.sh <slug> [--dry-run|--live]
+operator/bin/decommission-customer.sh <slug> [--dry-run|--live]
 ```
 
 Default is `--dry-run`. The Python CLI may also be invoked directly:
 
 ```
-cd ai-employee && uv run --quiet --with pyyaml python3 \
+cd operator && uv run --quiet --with pyyaml python3 \
   -m bin.lib.decommission_cli <slug> [--dry-run|--live] \
   [--customers-root PATH] [--archive-root PATH] [--audit-db PATH] [--actor NAME]
 ```
@@ -58,7 +58,7 @@ The pipeline also runs a trailing `09_observability_cleanup` step (ADR 0023 Wave
 | 5   | `05_agentmail`          | Deprovision the AgentMail inbox and forwarding rules.                                                                        | `NoOpStub` skip until AgentMail admin API wired.                                                   |
 | 6   | `06_fly_machine`        | `fly machine destroy hermes-{slug} --force`.                                                                                 | `NoOpStub` skip until Fly destroy wired.                                                           |
 | 7   | `07_compliance_archive` | Generate the compliance evidence packet per `compliance-evidence-packet.md` and copy to `archive_root/{slug}/`.              | Each call writes a new timestamped manifest; the cold-storage retention policy handles overwrites. |
-| 8   | `08_tombstone`          | Rename `ai-employee/customers/{slug}/` to `{slug}.decommissioned.{iso-date}` and drop a `DECOMMISSIONED.md` marker.          | Returns `skipped: true, reason: already_tombstoned` when the dated tombstone is present.           |
+| 8   | `08_tombstone`          | Rename `operator/customers/{slug}/` to `{slug}.decommissioned.{iso-date}` and drop a `DECOMMISSIONED.md` marker.             | Returns `skipped: true, reason: already_tombstoned` when the dated tombstone is present.           |
 
 ### Audit-log emission
 
@@ -96,7 +96,7 @@ This keeps dry-run vs live diffs cheap — Captain can compare side-by-side befo
 
 ### `smd-cli` integration
 
-When the Captain CLI lands at `bin/smd-cli` (or `ai-employee/bin/smd-cli`), register a `decommission` subcommand that delegates to this script:
+When the Captain CLI lands at `bin/smd-cli` (or `operator/bin/smd-cli`), register a `decommission` subcommand that delegates to this script:
 
 ```
 smd-cli decommission <slug>     # equivalent to: bin/decommission-customer.sh <slug> --live
@@ -120,7 +120,7 @@ Live mode halts on the first step that raises. The failed step's audit row is wr
 
 ## Test plan
 
-`ai-employee/bin/tests/test_decommission.py` runs against the `smd` synthetic fixture (copied into a tmp path per test):
+`operator/bin/tests/test_decommission.py` runs against the `smd` synthetic fixture (copied into a tmp path per test):
 
 | Test                                                  | Asserts                                                                                                                                                                           |
 | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -136,7 +136,7 @@ Live mode halts on the first step that raises. The failed step's audit row is wr
 Run with:
 
 ```
-cd ai-employee && uv run --quiet --with pytest --with pyyaml python3 -m pytest bin/tests/test_decommission.py -v
+cd operator && uv run --quiet --with pytest --with pyyaml python3 -m pytest bin/tests/test_decommission.py -v
 ```
 
 ## Open work

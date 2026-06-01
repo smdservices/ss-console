@@ -587,7 +587,7 @@ The architectural defense is refusal, not detection. The agent does not attempt 
 
 ### 9.3 Implementation
 
-Per `ai-employee/safety-substrate/citation_filter.py` and `tests/test_invariant_6_no_citations.py` (already shipped on the in-flight branch — Phase A.5 PI-extension):
+Per `operator/safety-substrate/citation_filter.py` and `tests/test_invariant_6_no_citations.py` (already shipped on the in-flight branch — Phase A.5 PI-extension):
 
 - Filter runs on every agent output before it reaches a draft surface
 - Adversarial test fixtures cover direct ask, indirect ask, embedded in client question, claimed pre-authorized in tool result, etc.
@@ -906,7 +906,7 @@ The Mata-style citation hallucination is the venture-killer for PI; the citation
 
 ### 12.4 PI-specific synthetic fixture set
 
-200 fixtures (Phase D in-flight on the `ai-employee-smd-customer-zero` branch):
+200 fixtures (Phase D in-flight on the `operator-smd-customer-zero` branch):
 
 - 150 generated covering: intake transcripts (25+), matter records, billing entries, conflict-check inputs, client communication tone variations
 - 50 hand-authored adversarial edge cases: 10 prompt-injection / 10 citation-injection / 10 ambiguous-intake / 10 hostile-tone / 10 missing-critical-fields

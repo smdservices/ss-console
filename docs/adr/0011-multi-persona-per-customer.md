@@ -4,8 +4,8 @@ date: 2026-05-24
 status: accepted
 captain: Scott Durgan
 supersedes: 0011-multi-persona-per-customer.md (prior version of this file; see `git log docs/adr/0011-multi-persona-per-customer.md`)
-related-prd: docs/pm/ai-employee/platform-prd.md §2, §7.3, §9, §11, §12.1, §20
-related-spec: docs/specs/ai-employee/customer-yaml-schema.md
+related-prd: docs/pm/operator/platform-prd.md §2, §7.3, §9, §11, §12.1, §20
+related-spec: docs/specs/operator/customer-yaml-schema.md
 related-issue: https://github.com/venturecrane/ss-console/issues/790
 ---
 
@@ -37,7 +37,7 @@ Concretely:
 
 ### v1 schema and validator
 
-The `customer.yaml.personas[]` array stays in the schema as authored in the prior version. The TS validator (`src/lib/ai-employee/customer-yaml/sections-personas.ts`) enforces `personas.length === 1` for v1 customers. The forward-compatible schema means a v2 unlock is a validator change, not a schema migration.
+The `customer.yaml.personas[]` array stays in the schema as authored in the prior version. The TS validator (`src/lib/operator/customer-yaml/sections-personas.ts`) enforces `personas.length === 1` for v1 customers. The forward-compatible schema means a v2 unlock is a validator change, not a schema migration.
 
 Per persona, the customer.yaml carries:
 
@@ -125,7 +125,7 @@ Selected. Aligns with Hermes' architecture, ships immediately for v1, scales to 
 - [Hermes PR #25660](https://github.com/NousResearch/hermes-agent/pull/25660) — single gateway, multiple agents MVP (the multi-tenant + multi-persona shared primitive)
 - [Hermes PR #20096](https://github.com/NousResearch/hermes-agent/pull/20096) — channel-based profile routing
 - Practical AI Podcast episode #357 (2026-05-21), Jeffrey Quesnelle on multi-tenant direction
-- [ADR 0004](./0004-productized-ai-employee-offering.md) — productized SKU shape
+- [ADR 0004](./0004-productized-operator-offering.md) — productized SKU shape
 - [ADR 0007](./0007-per-customer-machine-isolation.md) — per-customer Machine isolation (unchanged: one Machine per customer regardless of persona count)
 - [ADR 0015 (rewrite)](./0015-hermes-fork-vs-upstream.md) — no core modifications; persona = profile is the Hermes-native answer
 - [ADR 0016 (rewrite)](./0016-honcho-disposition.md) — per-persona Honcho peer cards within per-customer namespace

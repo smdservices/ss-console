@@ -17,7 +17,7 @@ import {
   runVoiceGate,
   type JudgeIdentification,
   type RecipientCohort,
-} from '../ai-employee/voice-gate/index.js'
+} from '../operator/voice-gate/index.js'
 
 describe('runVoiceGate', () => {
   it('composes panel + scoring for a passing run', () => {

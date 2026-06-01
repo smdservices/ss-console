@@ -4,7 +4,7 @@ date: 2026-05-21
 status: accepted
 captain: Scott Durgan
 supersedes: none
-related-prd: docs/pm/ai-employee/platform-prd.md §7.2; docs/pm/ai-employee/law-firm-prd.md §7
+related-prd: docs/pm/operator/platform-prd.md §7.2; docs/pm/operator/law-firm-prd.md §7
 related-issue: https://github.com/venturecrane/ss-console/issues/828
 ---
 
@@ -12,13 +12,13 @@ related-issue: https://github.com/venturecrane/ss-console/issues/828
 
 **Status:** Accepted. Locks the practice-management capability-adapter build sequence for the PI law-firm vertical in v1. The capability-adapter pattern itself is locked separately in [ADR 0006](./0006-capability-adapter-pattern.md); this ADR sequences which `PracticeManagement` adapter ships first, second, and third for the PI vertical.
 
-**Source:** Round-2 and round-3 deliverables from the external competitive analysis engagement (May 2026), filed at [`docs/pm/ai-employee/prd-contributions/round-2/`](../pm/ai-employee/prd-contributions/round-2/) and [`docs/pm/ai-employee/prd-contributions/round-3/`](../pm/ai-employee/prd-contributions/round-3/). Phoenix-specific public signals (job listings, staff profiles, regional implementation consultant commentary) reinforce the same ordering.
+**Source:** Round-2 and round-3 deliverables from the external competitive analysis engagement (May 2026), filed at [`docs/pm/operator/prd-contributions/round-2/`](../pm/operator/prd-contributions/round-2/) and [`docs/pm/operator/prd-contributions/round-3/`](../pm/operator/prd-contributions/round-3/). Phoenix-specific public signals (job listings, staff profiles, regional implementation consultant commentary) reinforce the same ordering.
 
 ---
 
 ## Context
 
-Per [ADR 0006](./0006-capability-adapter-pattern.md), the AI Employee skill catalog binds to abstract capability interfaces. The `PracticeManagement` capability is one of the eleven defined interfaces (Platform PRD §7.2), and PI plaintiff firms run on a fragmented set of practice-management systems: Filevine, CASEpeer, SmartAdvocate, Clio Manage, MyCase, Neos, Litify, and a handful of smaller PI-specific platforms.
+Per [ADR 0006](./0006-capability-adapter-pattern.md), the Operator skill catalog binds to abstract capability interfaces. The `PracticeManagement` capability is one of the eleven defined interfaces (Platform PRD §7.2), and PI plaintiff firms run on a fragmented set of practice-management systems: Filevine, CASEpeer, SmartAdvocate, Clio Manage, MyCase, Neos, Litify, and a handful of smaller PI-specific platforms.
 
 The first paying customer (beta-1, June 2026, Phoenix metro PI plaintiff firm) will be on exactly one of these systems. Which adapter we build first dictates which firms we can demo and sign in the first six months. Building the wrong adapter first delays revenue.
 
@@ -45,7 +45,7 @@ Rationale:
 - **PI AI momentum.** Reuters reported in 2025 that Filevine raised $400M and that more of its revenue now comes from AI products than from traditional case-management software. Their AI product set (medical chronologies, deposition analysis, drafting) is specifically aimed at the PI plaintiff workflow. Filevine is investing where our beta-1 buyer is buying.
 - **Phoenix-local signal.** Phoenix PI job postings and public legal-support job listings explicitly reference Filevine usage in PI litigation support workflows. Kelly Law Team, a likely beta-1 target, has public staff profile signals tied to Filevine. This is anecdotal rather than market-share-grade, but it converges with the national signal.
 - **Flexibility across PI sub-verticals.** A 2026 PI software comparison (cited in the round-3 deliverable) characterized CASEpeer and SmartAdvocate as purpose-built for PI, Filevine as most flexible across practice areas, Litify as enterprise plaintiff, and Clio and MyCase as general-practice systems that work for PI but are not PI-specific. Filevine's flexibility matters because the v1 customer base will include PI-heavy firms that also handle workers' comp, mass tort, or wrongful death matters. A Filevine-first adapter covers those firms without forcing a vendor switch.
-- **AI-vendor parity check.** Filevine's own AI product set creates a coherent comparison ground. When a beta-1 prospect asks "why not just use Filevine AI?", the answer is the locked Eve wedge applied to Filevine: Filevine AI helps inside Filevine. AI Employee works across inbox, calendar, documents, client follow-up, case system, and firm voice with a human reviewer in the loop. The cross-surface architecture is the wedge.
+- **AI-vendor parity check.** Filevine's own AI product set creates a coherent comparison ground. When a beta-1 prospect asks "why not just use Filevine AI?", the answer is the locked Eve wedge applied to Filevine: Filevine AI helps inside Filevine. Operator works across inbox, calendar, documents, client follow-up, case system, and firm voice with a human reviewer in the loop. The cross-surface architecture is the wedge.
 
 ### Build second: CASEpeer
 
@@ -91,7 +91,7 @@ That line is approved cross-vertical and matches the architecture.
 - **Engineering scope aligned to sales motion.** Filevine first means the first paying customer's most likely stack is supported on day one. CASEpeer and SmartAdvocate follow as the pipeline broadens.
 - **Adapter build cost is bounded.** Three adapters, in priority order, sized to the actual buyer set. We do not speculatively build for Clio, MyCase, Litify, or Neos.
 - **Demo coherence.** The "we integrate with your system" question has a confident answer for the three most likely PI prospects in Phoenix. For other systems, the capability-adapter pattern answer (the persona is decoupled) is honest and accurate.
-- **Composes with positioning doctrine.** [ADR 0013](./0013-ai-employee-positioning-doctrine.md) makes "portable, firm-owned, human-reviewed AI staffer" the brand position. The adapter-priority decision reinforces it: the persona is portable across the three most likely PI practice-management systems, with the capability layer ensuring that portability scales beyond v1.
+- **Composes with positioning doctrine.** [ADR 0013](./0013-operator-positioning-doctrine.md) makes "portable, firm-owned, human-reviewed AI staffer" the brand position. The adapter-priority decision reinforces it: the persona is portable across the three most likely PI practice-management systems, with the capability layer ensuring that portability scales beyond v1.
 
 ### Negative / accepted
 
@@ -113,11 +113,11 @@ Build sequence is enforced through three mechanisms:
 
 ### Issue and milestone ordering
 
-The P0 AI Employee backlog issues for `PracticeManagement` adapter work are filed in sequence: Filevine adapter first, CASEpeer second, SmartAdvocate third. Issues for non-prioritized vendors (Clio, MyCase, Litify, Neos) are filed as "speculative" and not pulled into a sprint until a real customer pipeline justifies them.
+The P0 Operator backlog issues for `PracticeManagement` adapter work are filed in sequence: Filevine adapter first, CASEpeer second, SmartAdvocate third. Issues for non-prioritized vendors (Clio, MyCase, Litify, Neos) are filed as "speculative" and not pulled into a sprint until a real customer pipeline justifies them.
 
 ### customer.yaml schema enforcement
 
-The `customer.yaml` schema (`docs/specs/ai-employee/customer-yaml-schema.md`) declares which `PracticeManagement` adapter values are valid. v1 ships with `filevine` only. v2 adds `casepeer`. v3 adds `smartadvocate`. A provisioning attempt against an unsupported adapter fails at schema validation, not at runtime.
+The `customer.yaml` schema (`docs/specs/operator/customer-yaml-schema.md`) declares which `PracticeManagement` adapter values are valid. v1 ships with `filevine` only. v2 adds `casepeer`. v3 adds `smartadvocate`. A provisioning attempt against an unsupported adapter fails at schema validation, not at runtime.
 
 ### Sales playbook
 
@@ -128,11 +128,11 @@ The beta-1 outreach playbook screens for Filevine first, CASEpeer second, SmartA
 ## References
 
 - [ADR 0006](./0006-capability-adapter-pattern.md) — capability-adapter pattern (the architectural pattern this ADR sequences within)
-- [ADR 0013](./0013-ai-employee-positioning-doctrine.md) — AI Employee positioning doctrine (the brand-level frame this sequencing supports)
-- [Platform PRD §7.2](../pm/ai-employee/platform-prd.md) — capability interface + adapter pattern
-- [Law-firm PRD §7](../pm/ai-employee/law-firm-prd.md) — connector strategy (Tier-0/Tier-1/Tier-2 ladder)
-- [Round-2 competitive analysis](../pm/ai-employee/prd-contributions/round-2/competitive-analysis.md) — competitive landscape context
-- [Round-3 ethics architecture](../pm/ai-employee/prd-contributions/round-3/ethics-architecture.md) — combined moat framing
-- [Round-3 vendor demo capture template](../pm/ai-employee/prd-contributions/round-3/vendor-demo-capture-template.md) — buyer-side intelligence collection plan
+- [ADR 0013](./0013-operator-positioning-doctrine.md) — Operator positioning doctrine (the brand-level frame this sequencing supports)
+- [Platform PRD §7.2](../pm/operator/platform-prd.md) — capability interface + adapter pattern
+- [Law-firm PRD §7](../pm/operator/law-firm-prd.md) — connector strategy (Tier-0/Tier-1/Tier-2 ladder)
+- [Round-2 competitive analysis](../pm/operator/prd-contributions/round-2/competitive-analysis.md) — competitive landscape context
+- [Round-3 ethics architecture](../pm/operator/prd-contributions/round-3/ethics-architecture.md) — combined moat framing
+- [Round-3 vendor demo capture template](../pm/operator/prd-contributions/round-3/vendor-demo-capture-template.md) — buyer-side intelligence collection plan
 - Reuters reporting on Filevine raise and AI revenue mix (cited in round-3 deliverable)
 - [Issue #828](https://github.com/venturecrane/ss-console/issues/828)

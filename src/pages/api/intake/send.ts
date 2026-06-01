@@ -41,11 +41,9 @@ const MIN_FORM_FILL_MS = 2000
  * cached link cannot break a legitimate submission. Extending this list
  * requires an explicit code change.
  */
-const ALLOWED_INTERESTS = new Set<string>(['operator', 'ai-employee'])
+const ALLOWED_INTERESTS = new Set<string>(['operator'])
 const INTEREST_LABELS: Record<string, string> = {
   operator: 'Operator',
-  // Legacy alias: pre-rename /book?interest=ai-employee links still resolve.
-  'ai-employee': 'Operator',
 }
 
 interface ValidatedSendBody {

@@ -4,7 +4,7 @@ date: 2026-05-28
 status: accepted
 captain: Scott Durgan
 supersedes: 0017-skill-curator-disposition.md (2026-05-24 version of this file; see `git log docs/adr/0017-skill-curator-disposition.md`)
-related-prd: docs/pm/ai-employee/platform-prd.md §7.4, §7.5
+related-prd: docs/pm/operator/platform-prd.md §7.4, §7.5
 related-issue: https://github.com/venturecrane/ss-console/issues/1135
 ---
 
@@ -102,7 +102,7 @@ How we know we are following this decision:
 1. **Curator disabled in a provisioned Machine.** `hermes curator status` reports the curator is not scheduled to run autonomously; bootstrap-emitted config contains `curator.enabled: false`.
 2. **`skill_manage` is in the customer-profile toolset** at boot. The ADR 0019 translation does not strip it.
 3. **`hermes-smd-audit` emits `AGENT_SKILL_CREATED`** on agent `skill_manage` invocations (smoke test in the overlay).
-4. **The admin portal surfaces the inventory** at `/admin/ai-employee/<customer>/skills` with timestamps, source-turn references, and a remove action.
+4. **The admin portal surfaces the inventory** at `/admin/operator/<customer>/skills` with timestamps, source-turn references, and a remove action.
 5. **Removal physically deletes** and emits `AGENT_SKILL_REMOVED`; re-creation is not blocked.
 6. **A supervised-consolidation runbook exists** for Captain-driven `hermes curator run --dry-run`.
 

@@ -1,7 +1,7 @@
 # Operator Stack Evaluation — 2026-05-13
 
 **Issue:** [#771](https://github.com/venturecrane/ss-console/issues/771)
-**Authorizes:** Decision on each stack component per [ADR 0004](../adr/0004-productized-ai-employee-offering.md)
+**Authorizes:** Decision on each stack component per [ADR 0004](../adr/0004-productized-operator-offering.md)
 **Captain decision required** — does not auto-execute.
 
 ---
@@ -258,7 +258,7 @@ Confirm hybrid. None of this requires new vendors — all three primitives are G
 
 ## Sources
 
-- [ADR 0004 — Productized AI Employee Offering](../adr/0004-productized-ai-employee-offering.md)
+- [ADR 0004 — Productized Operator Offering](../adr/0004-productized-operator-offering.md)
 - [Hermes agent (Nous Research)](https://github.com/nousresearch/hermes-agent) — primary repository, MIT-licensed
 - [Hermes agent docs](https://hermes-agent.nousresearch.com/)
 - [Fly.io Machines pricing](https://fly.io/docs/about/pricing/)

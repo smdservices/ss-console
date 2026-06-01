@@ -43,7 +43,7 @@ export type Vertical = (typeof ACCEPTED_VERTICALS)[number]
  *
  * v1 ships with `law-firm/pi` only — the existing law-PI assets that the PI
  * migration PR (ADR 0022 Stream 4) relocates into
- * `ai-employee/verticals/law/addons/pi/`. Future add-ons append to this map
+ * `operator/verticals/law/addons/pi/`. Future add-ons append to this map
  * as their packs land; no inheritance machinery in v1 (ADR 0022 §"Flat
  * manifest in v1").
  */
@@ -120,7 +120,7 @@ export type TrustCeiling = (typeof ACCEPTED_TRUST_CEILINGS)[number]
 
 /**
  * Action classes a tool call is categorized into, mirroring the Python
- * `ActionClass` enum in `ai-employee/adapter/trust_ceiling.py`. Per ADR 0025,
+ * `ActionClass` enum in `operator/adapter/trust_ceiling.py`. Per ADR 0025,
  * autonomy is enforced as a configurable ceiling **per action class** rather
  * than one scalar applied to the whole skill — splitting the exposure axis
  * (external_send) from the initiation and internal axes.
@@ -215,7 +215,7 @@ export const WEBHOOK_URL_PATTERN =
  * omitted.
  *
  * Slug names line up with the voice-gate harness
- * (`ai-employee/voice-gate/types.ts :: RecipientCohort`). The harness
+ * (`operator/voice-gate/types.ts :: RecipientCohort`). The harness
  * historically shipped three cohorts (`client`, `opposing-counsel`,
  * `internal-team`); #857 lifts the cohort vocabulary into the schema
  * and adds `court` as the fourth base cohort to match the PRD §17.1
@@ -456,8 +456,8 @@ export interface Memory {
    * amending the validator.
    *
    * - `r2_skill_bodies_bucket` — the bucket name. Shared-bucket model uses
-   *   `smd-ai-employee-skill-bodies` (Captain default); per-customer model
-   *   uses `ss-ai-employee-<customer_id>-skills`.
+   *   `smd-operator-skill-bodies` (Captain default); per-customer model
+   *   uses `ss-operator-<customer_id>-skills`.
    * - `r2_skill_bodies_prefix` — the customer's key prefix within the
    *   bucket. Shared-bucket model uses `<customer_id>/`; per-customer
    *   bucket uses empty string.

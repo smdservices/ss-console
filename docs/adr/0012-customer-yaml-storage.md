@@ -4,8 +4,8 @@ date: 2026-05-21
 status: accepted
 captain: Scott Durgan
 supersedes: none
-related-prd: docs/pm/ai-employee/platform-prd.md §7.3, §9, §20
-related-spec: docs/specs/ai-employee/customer-yaml-schema.md
+related-prd: docs/pm/operator/platform-prd.md §7.3, §9, §20
+related-spec: docs/specs/operator/customer-yaml-schema.md
 related-issue: https://github.com/venturecrane/ss-console/issues/790, https://github.com/venturecrane/ss-console/issues/924
 ---
 
@@ -47,7 +47,7 @@ The hybrid pattern is the only one that does not cut a corner on either reviewab
 
 ### 1. Git is the source of truth
 
-Each customer's configuration lives at one canonical path: `customer-configs/<customer-slug>.yaml`. The file is human-edited, PR-reviewed, and validated against the [`customer-yaml-schema.md`](../specs/ai-employee/customer-yaml-schema.md) contract before merge.
+Each customer's configuration lives at one canonical path: `customer-configs/<customer-slug>.yaml`. The file is human-edited, PR-reviewed, and validated against the [`customer-yaml-schema.md`](../specs/operator/customer-yaml-schema.md) contract before merge.
 
 **Repository location:** TBD — captured as a follow-on decision in the implementation issue. Two options:
 
@@ -145,7 +145,7 @@ Cleaner than D1-only or R2-only paths, where offboarding can leave orphan rows o
 
 When the schema changes (new fields, new validations), the order of operations:
 
-1. Update [`customer-yaml-schema.md`](../specs/ai-employee/customer-yaml-schema.md) and the pydantic validator + portal projection mapping.
+1. Update [`customer-yaml-schema.md`](../specs/operator/customer-yaml-schema.md) and the pydantic validator + portal projection mapping.
 2. Bump `schema_version` in the spec.
 3. Migrate existing customer YAML files via PR — each customer file gets the new field, defaults applied, validated.
 4. CI on merge re-syncs all replicas with the new schema_version.
@@ -181,7 +181,7 @@ The escape hatches do not write to git. They only re-project from a known-good g
 
 - **More moving parts than D1-only or R2-only.** A CI workflow, a sync job, a drift cron, an admin CLI. Each is a small piece; together they're more surface than a single store. Accepted because the alternative is corner-cutting.
 - **CI flakiness can block onboarding.** Mitigated by the escape-hatch CLI. Not eliminated. Accepted because the alternative — letting anyone hand-edit a replica — is worse.
-- **Two schema parsers.** Portal projects from YAML to JSON; Hermes parses YAML to its pydantic model. They must stay aligned against the same schema spec. Drift between them is a class of bug. Mitigated by both consumers building against the [`customer-yaml-schema.md`](../specs/ai-employee/customer-yaml-schema.md) contract and a cross-consumer test suite (Phase 2). Accepted at v1 because divergence at one customer × one persona × one schema version is detectable in QA.
+- **Two schema parsers.** Portal projects from YAML to JSON; Hermes parses YAML to its pydantic model. They must stay aligned against the same schema spec. Drift between them is a class of bug. Mitigated by both consumers building against the [`customer-yaml-schema.md`](../specs/operator/customer-yaml-schema.md) contract and a cross-consumer test suite (Phase 2). Accepted at v1 because divergence at one customer × one persona × one schema version is detectable in QA.
 - **Storage cost of the canonical YAML.** R2 is cheap, but every Hermes Machine pulls its YAML at boot. Insignificant at any plausible customer count. Noted for completeness.
 
 ### Out of scope
@@ -254,8 +254,8 @@ Phases 2–3 are the minimum coherent slice for this session. Phases 4–6 are d
 - [ADR 0008](./0008-customer-owned-memory-artifact.md) — customer-owned memory artifact
 - [ADR 0009](./0009-cross-machine-query-prohibition.md) — cross-Machine query prohibition
 - [ADR 0011](./0011-multi-persona-per-customer.md) — multi-persona per customer (§4 declares customer.yaml authoritative; this ADR pins its storage)
-- [Platform PRD](../pm/ai-employee/platform-prd.md) §7.3 (customer.yaml example), §9 (persona model), §20 (Phase 1 deliverables)
-- [`customer-yaml-schema.md`](../specs/ai-employee/customer-yaml-schema.md) — formal schema contract
+- [Platform PRD](../pm/operator/platform-prd.md) §7.3 (customer.yaml example), §9 (persona model), §20 (Phase 1 deliverables)
+- [`customer-yaml-schema.md`](../specs/operator/customer-yaml-schema.md) — formal schema contract
 - [Issue #790](https://github.com/venturecrane/ss-console/issues/790) — customer.yaml formal schema with secret-exclusion enforcement
 - [Issue #917](https://github.com/venturecrane/ss-console/issues/917) — Stripe Subscriptions wiring
 - [Issue #924](https://github.com/venturecrane/ss-console/issues/924) — `getActivePersona()` portal resolver helper (immediate consumer of this ADR)

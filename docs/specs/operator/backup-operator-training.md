@@ -43,11 +43,11 @@ The backup operator must have read access to every runbook and spec the platform
 
 The backup operator must have completed the following exercises against a synthetic test customer, observed by Captain. Each exercise is run once before the operator is marked ready and again every quarter per the [quarterly drill runbook](../../runbooks/operator-quarterly-drill.md).
 
-- [ ] **Provision a synthetic test customer end-to-end.** Run `ai-employee/bin/provision-customer.sh {synthetic-slug}` against a non-production fixture. The exercise covers the validator, the Fly app creation, the secret-prompt flow (paste from the test Infisical scope, never echo), and the per-connector smoke test.
+- [ ] **Provision a synthetic test customer end-to-end.** Run `operator/bin/provision-customer.sh {synthetic-slug}` against a non-production fixture. The exercise covers the validator, the Fly app creation, the secret-prompt flow (paste from the test Infisical scope, never echo), and the per-connector smoke test.
 - [ ] **Run a full demo dry-run.** Walk the eight sections of [`pi-firm-demo-prep.md`](../../runbooks/pi-firm-demo-prep.md) for the synthetic customer. End at `prepare-demo-firm.sh` exit 0 and the deliverable readiness checklist.
 - [ ] **Perform sticky-stop recovery.** Drive the synthetic customer's substrate into HARD_STOP (one of the four conditions documented in [`sticky-stop.md`](sticky-stop.md)). Investigate the cause through the audit-log entries. Issue `clear()` with a non-empty captain_id and reason. Verify the audit row recording the resume.
 - [ ] **Run a memory export and verify the archive.** Execute the export pipeline ([`memory-export.md`](memory-export.md)) against the synthetic customer. Open the tar.gz, confirm the manifest checksums, and confirm every domain (memory rules, voice diffs, audit log) is present.
-- [ ] **Decommission the synthetic test customer.** Run `ai-employee/bin/decommission-customer.sh {synthetic-slug} --dry-run` followed by `--live`. Confirm the dated tombstone, the archived compliance packet, and a clean second run that reports `skipped` for every step.
+- [ ] **Decommission the synthetic test customer.** Run `operator/bin/decommission-customer.sh {synthetic-slug} --dry-run` followed by `--live`. Confirm the dated tombstone, the archived compliance packet, and a clean second run that reports `skipped` for every step.
 
 ### Gate 4: Access provisions
 

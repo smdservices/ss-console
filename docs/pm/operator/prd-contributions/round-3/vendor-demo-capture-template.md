@@ -83,7 +83,7 @@ Ask each vendor the same 15 questions. Record answers in the quote-log template.
 14. Which integrations are native versus custom or professional services?
 15. What does the first 30 days look like?
 
-These questions are calibrated to surface evidence on the specific competitive dimensions Operator competes on (see [ADR 0013](../../../adr/0013-ai-employee-positioning-doctrine.md)). Questions 10, 11, and 12 are particularly important because they cover the moats (memory ownership, portability, multi-persona) that competitors are least likely to address publicly.
+These questions are calibrated to surface evidence on the specific competitive dimensions Operator competes on (see [ADR 0013](../../../adr/0013-operator-positioning-doctrine.md)). Questions 10, 11, and 12 are particularly important because they cover the moats (memory ownership, portability, multi-persona) that competitors are least likely to address publicly.
 
 ---
 
@@ -204,6 +204,6 @@ The quote-log lives at `docs/pm/operator/prd-contributions/competitive-intellige
 
 ## References
 
-- [ADR 0013](../../../adr/0013-ai-employee-positioning-doctrine.md) — Operator positioning doctrine (the dimensions the demo questions are calibrated against)
+- [ADR 0013](../../../adr/0013-operator-positioning-doctrine.md) — Operator positioning doctrine (the dimensions the demo questions are calibrated against)
 - [Round-2 competitive analysis](../round-2/competitive-analysis.md) §5 (pricing posture context)
 - [Round-3 ethics architecture](./ethics-architecture.md) (the moats the demo questions probe)

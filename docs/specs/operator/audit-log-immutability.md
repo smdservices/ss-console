@@ -1,7 +1,7 @@
 # Audit log immutability
 
 > **Status — pending rehome (2026-05-25):** the original implementation
-> (`ai-employee/adapter/audit_log_immutability.py` + `audit_log_integrity.py`)
+> (`operator/adapter/audit_log_immutability.py` + `audit_log_integrity.py`)
 > was retired when the in-tree Hermes adapter was removed per ADR 0015
 > rewrite. The immutability **requirement** stands; its new home is the
 > overlay's `hermes-smd-audit` plugin (write-side rejection of
@@ -57,7 +57,7 @@ mirror row with no D1 row — surfaced as `IN_MIRROR_NOT_IN_D1`.
 
 ## Layer 1: Worker-layer enforcement
 
-Module: `ai-employee/adapter/audit_log_immutability.py`
+Module: `operator/adapter/audit_log_immutability.py`
 
 ### Grammar
 
@@ -161,7 +161,7 @@ not erase the D1 row.
 
 ## Layer 3: Periodic integrity check
 
-Module: `ai-employee/adapter/audit_log_integrity.py`
+Module: `operator/adapter/audit_log_integrity.py`
 
 ### Contract
 
@@ -309,16 +309,16 @@ delivery.
 
 Tests:
 
-- `ai-employee/adapter/tests/test_audit_log_immutability.py` — wrapper,
+- `operator/adapter/tests/test_audit_log_immutability.py` — wrapper,
   inspector, legal-hold bypass, mirror protocol stub
-- `ai-employee/adapter/tests/test_audit_log_integrity.py` — comparator
+- `operator/adapter/tests/test_audit_log_integrity.py` — comparator
   across clean, only-in-D1, only-in-mirror, mismatch, multi-finding,
   loader-failure cases
 
 Run locally:
 
 ```
-cd ai-employee && uv run --with pytest python -m pytest adapter/tests/test_audit_log_immutability.py adapter/tests/test_audit_log_integrity.py -v
+cd operator && uv run --with pytest python -m pytest adapter/tests/test_audit_log_immutability.py adapter/tests/test_audit_log_integrity.py -v
 ```
 
 ## Cross-references

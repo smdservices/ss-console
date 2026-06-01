@@ -1,0 +1,40 @@
+# TEMPLATE addon.yaml for a new add-on pack — ADR 0022 Stream 1.
+#
+# Add-ons specialize a vertical (e.g. law-firm/pi specializes law-firm) or
+# compose across verticals (e.g. accounting/bookkeeping can attach to a
+# law-firm customer). Copy this file to
+# operator/verticals/<vertical-slug>/addons/<addon-slug>/addon.yaml.
+#
+# The addon slug MUST be registered in ACCEPTED_ADDONS under its origin
+# vertical (src/lib/operator/customer-yaml/types.ts). Customers
+# subscribe via customer.yaml:
+#   addons:
+#     - law-firm/pi@2.1.0
+#
+# Authoritative spec: docs/specs/operator/vertical-manifest-schema.md
+#
+# IMPORTANT: no `extends:` field; v1 is flat (ADR 0022 §"Flat manifest in v1").
+
+name: '[ADDON-SLUG, e.g., pi]'
+version: '0.1.0' # MAJOR.MINOR.PATCH
+
+# Addon-specific compliance constraints layered on top of the parent
+# vertical's compliance list.
+compliance: []
+
+# Add-on skills. These are additive to the vertical-default skills, not a
+# replacement. Skills live under `skills/<name>/` relative to this addon.yaml.
+skills: []
+
+# Add-on-specific connectors (rare — most add-ons inherit the vertical's
+# connector defaults). Format matches vertical.yaml connectors.
+connectors: []
+
+# Add-on test fixtures (e.g. PI-specific synthetic matters for law-firm/pi).
+fixtures: []
+
+# Add-on-specific templates.
+templates: []
+
+# Add-on certification battery. Runs in addition to the vertical's evals.
+evals: []

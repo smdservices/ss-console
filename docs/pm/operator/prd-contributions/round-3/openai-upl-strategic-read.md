@@ -108,7 +108,7 @@ This version is approved for delivery to managing partners. It avoids overclaim,
 ## What the case does not change
 
 - The architecture ([ADR 0005](../../../adr/0005-reviewer-as-sender.md), [ADR 0008](../../../adr/0008-customer-owned-memory-artifact.md)) is unchanged. The case validates the architectural choice; it does not require new architecture.
-- The positioning doctrine ([ADR 0013](../../../adr/0013-ai-employee-positioning-doctrine.md)) is unchanged. The case is one of several inputs to the regulatory-foresight framing; it does not introduce new doctrine.
+- The positioning doctrine ([ADR 0013](../../../adr/0013-operator-positioning-doctrine.md)) is unchanged. The case is one of several inputs to the regulatory-foresight framing; it does not introduce new doctrine.
 - The competitive matrix is unchanged. The case is a market signal, not a competitor.
 
 ---
@@ -138,6 +138,6 @@ Tracking the case does not require new infrastructure. A monthly check on Reuter
 - Reuters: OpenAI motion to dismiss Nippon Life Insurance v. OpenAI (cited in round-2 deliverable)
 - ABA Law Technology Today coverage: Nippon Life v. OpenAI complaint (March 4, 2026)
 - [ADR 0005](../../../adr/0005-reviewer-as-sender.md) — reviewer-as-sender architecture (the architectural answer to UPL exposure)
-- [ADR 0013](../../../adr/0013-ai-employee-positioning-doctrine.md) — Operator positioning doctrine §5 (reviewer-as-sender as regulatory foresight)
+- [ADR 0013](../../../adr/0013-operator-positioning-doctrine.md) — Operator positioning doctrine §5 (reviewer-as-sender as regulatory foresight)
 - [Round-2 competitive analysis](../round-2/competitive-analysis.md) §3 (regulatory signal)
 - [Round-3 ethics architecture](./ethics-architecture.md) (the combined positioning frame)

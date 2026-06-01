@@ -289,7 +289,7 @@ async function safeText(response: Response): Promise<string> {
 
 /**
  * Driver categories that the dashboard groups raw drivers into. Mirrors
- * the buckets in ai-employee/adapter/cost_rollup.py — keeping the two
+ * the buckets in operator/adapter/cost_rollup.py — keeping the two
  * lists in sync is intentional. The Worker side uses Python; this side
  * uses TypeScript; both read the same closed enum from
  * cost-telemetry-events.md "Drivers + emission sources".

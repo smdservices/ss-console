@@ -7,7 +7,7 @@ related-issue: https://github.com/venturecrane/ss-console/issues/1051
 deliverable: Recommendation — RETIRE
 ---
 
-# MCP vs BUILD — `ai-employee/connectors/ms_graph/` retirement evaluation
+# MCP vs BUILD — `operator/connectors/ms_graph/` retirement evaluation
 
 Per ADR 0020's MCP-first directive and ADR 0021 Stream F. Evaluates whether to
 retire the BUILD `ms_graph` connector in favor of available Microsoft Graph
@@ -24,13 +24,13 @@ adapter entirely.
 
 The 48-hour customer-zero parallel-run gate the original ADR 0021 plan
 contemplated is **not required** — customer-zero (SMD's own synthetic
-fixture at `ai-employee/bin/fixtures/smd/customer.yaml`) binds Email to
+fixture at `operator/bin/fixtures/smd/customer.yaml`) binds Email to
 `adapter: synthetic, backend: synthetic:fixture`. There is no production
 usage of `build:ms-graph` to coordinate around.
 
 ## 1. Current BUILD adapter surface
 
-The connector at `ai-employee/connectors/ms_graph/` is 2,456 lines of
+The connector at `operator/connectors/ms_graph/` is 2,456 lines of
 Python across 8 files implementing three capability interfaces from
 `docs/specs/operator/capability-contracts.md`:
 
@@ -67,13 +67,13 @@ abstraction means a retire-to-MCP migration is a customer.yaml change,
 not a skill-source change.
 
 Grep confirms no skill SKILL.md or skill code references `ms_graph` by
-name. The only references in `ai-employee/` outside `connectors/ms_graph/`
+name. The only references in `operator/` outside `connectors/ms_graph/`
 itself:
 
-- `ai-employee/customers/_template/customer.yaml` — example placeholders
+- `operator/customers/_template/customer.yaml` — example placeholders
   showing `adapter: '[gmail / microsoft-graph / synthetic]'` and
   `backend: '[composio:gmail / build:ms-graph / synthetic:fixture]'`
-- `ai-employee/templates/customer-no-pm-system.yaml` — has a `token_ref`
+- `operator/templates/customer-no-pm-system.yaml` — has a `token_ref`
   for `microsoft-graph-oauth-refresh` (relic from when the no-PM-system
   template assumed M365)
 
@@ -198,7 +198,7 @@ DocumentStorage to softeria is a direct slot-in.
 
 Update three configurations:
 
-1. `ai-employee/customers/_template/customer.yaml` — change example
+1. `operator/customers/_template/customer.yaml` — change example
    bindings:
 
    ```yaml
@@ -216,14 +216,14 @@ Update three configurations:
        - https://graph.microsoft.com/Files.ReadWrite.AppFolder
    ```
 
-2. `ai-employee/templates/customer-no-pm-system.yaml` — same change to
+2. `operator/templates/customer-no-pm-system.yaml` — same change to
    the live binding (currently `backend: build:ms-graph` for all three).
 
-3. `ai-employee/bin/provision-customer.sh` — drop the `MSGraphOAuth`
+3. `operator/bin/provision-customer.sh` — drop the `MSGraphOAuth`
    consent step from the boot sequence for `mcp:m365-mail` / `mcp:m365-calendar`
    bindings; keep it for `mcp:softeria` (which still uses delegated OAuth).
 
-4. `ai-employee/connectors/ms_graph/README.md` — add a deprecation banner
+4. `operator/connectors/ms_graph/README.md` — add a deprecation banner
    pointing at this decision packet and the removal PR (next step).
 
 No customer-zero coordination needed (synthetic Email binding).
@@ -234,7 +234,7 @@ Once the migration PR lands and the safety substrate test battery
 (`run_invariants.py`) passes against the new bindings on any test
 customer, delete the BUILD adapter:
 
-1. `rm -rf ai-employee/connectors/ms_graph/`
+1. `rm -rf operator/connectors/ms_graph/`
 2. Update `docs/adr/0020-connector-strategy.md` — record the retirement
    (under the "Retired connectors" section, which doesn't exist yet; add
    it as part of this PR)

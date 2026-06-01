@@ -1,5 +1,5 @@
 ---
-title: Workforce Model — How Multiple AI Employees Relate, Delegate, and Stay Accountable
+title: Workforce Model — How Multiple Operators Relate, Delegate, and Stay Accountable
 date: 2026-05-29
 status: accepted
 captain: Scott Durgan
@@ -9,7 +9,7 @@ related-note: note_01KSS3TCTKWYVF6EZ04482X389, note_01KSTYSNC9CYPKYFJZ3TJ7F6RM
 
 # ADR 0029 — Workforce Model
 
-**Status:** Accepted as **direction** (Captain decision, 2026-05-29). This ADR locks the _principles_ that govern more-than-one AI employee; the relationship/delegation _implementation_ is deferred to when the SKU sells past a single agent. The audit graded this function **SCHEMA ONLY** — the principles need to be settled now so that when the code lands it lands correctly, not retrofitted.
+**Status:** Accepted as **direction** (Captain decision, 2026-05-29). This ADR locks the _principles_ that govern more-than-one Operator; the relationship/delegation _implementation_ is deferred to when the SKU sells past a single agent. The audit graded this function **SCHEMA ONLY** — the principles need to be settled now so that when the code lands it lands correctly, not retrofitted.
 
 **Source:** ADR 0004's SKU sells across a range — "single agent → multiple → teams/groups" (thesis note `note_01KSS3TCTKWYVF6EZ04482X389`). v1 ships one persona (ADR 0011 caps `personas[]` at length 1). The 2026-05-29 audit found "zero inter-employee relationship/delegation code." That is correct and fine for v1 — but the _doctrine_ for the multi-employee end of the range is unwritten, which means the first multi-employee build would invent it ad hoc. This ADR prevents that.
 
@@ -17,7 +17,7 @@ related-note: note_01KSS3TCTKWYVF6EZ04482X389, note_01KSTYSNC9CYPKYFJZ3TJ7F6RM
 
 ## Context
 
-"Workforce" is the harness function that governs what happens when a customer has more than one AI employee, or one employee that fields a team of sub-agents. The questions are not engine questions — they are product guarantees that must hold no matter which runtime delegates the work:
+"Workforce" is the harness function that governs what happens when a customer has more than one Operator, or one employee that fields a team of sub-agents. The questions are not engine questions — they are product guarantees that must hold no matter which runtime delegates the work:
 
 - **What is the unit of an "employee"?** ADR 0011 establishes persona = Hermes profile. An employee may be one persona; a "team" is several. The workforce model needs a stable noun.
 - **How does work move between employees?** Hermes provides `delegate_task` (ADR 0021) for compound workflows _within_ an agent. Inter-_employee_ handoff is a different relationship and needs its own rules.
@@ -101,7 +101,7 @@ When multi-employee implementation begins, it is conformant iff:
 
 ## References
 
-- [ADR 0004 — Productized AI Employee offering](./0004-productized-ai-employee-offering.md) (the single→team SKU range)
+- [ADR 0004 — Productized Operator offering](./0004-productized-operator-offering.md) (the single→team SKU range)
 - [ADR 0007 — Per-customer Machine isolation](./0007-per-customer-machine-isolation.md) / [ADR 0009 — Cross-Machine query prohibition](./0009-cross-machine-query-prohibition.md) (the customer isolation boundary the workforce lives inside)
 - [ADR 0011 — Multi-persona per customer](./0011-multi-persona-per-customer.md) (persona = profile; v1 capped at 1 — this ADR is the multi-employee direction)
 - [ADR 0021 — Leverage Hermes native primitives](./0021-leverage-hermes-native-primitives.md) (`delegate_task` — intra-agent delegation primitive)

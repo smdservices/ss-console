@@ -4,7 +4,7 @@
 
 **Audience:** Anyone pitching or demoing the Operator — Captain, future sales, demo prep. Not client-facing. Do not paste these verbatim into marketing copy; they are the reasoning, not the published voice.
 
-**Relationship to other docs:** Complements [ADR 0013 — Positioning Doctrine](../../adr/0013-ai-employee-positioning-doctrine.md) and [beta-1-demo-flow.md](./beta-1-demo-flow.md). ADR 0013's competitive cards (the Eve wedge, ethics architecture) are legal-vertical-weighted; this doc is the cross-vertical layer. Grounded in the harness thesis (`note_01KSS3TCTKWYVF6EZ04482X389`).
+**Relationship to other docs:** Complements [ADR 0013 — Positioning Doctrine](../../adr/0013-operator-positioning-doctrine.md) and [beta-1-demo-flow.md](./beta-1-demo-flow.md). ADR 0013's competitive cards (the Eve wedge, ethics architecture) are legal-vertical-weighted; this doc is the cross-vertical layer. Grounded in the harness thesis (`note_01KSS3TCTKWYVF6EZ04482X389`).
 
 **Pricing note:** As of 2026-05-30 the published `$5,000/mo` price was pulled from the marketing page; pricing now routes to the first conversation. These cards assume the number is introduced _in conversation, after the anchor has been moved_, never cold.
 
@@ -144,7 +144,7 @@ Plus the tuning curves diverge: the Operator's tuning _decreases_ as trust gradu
 
 ## References
 
-- [ADR 0013 — Operator Positioning Doctrine](../../adr/0013-ai-employee-positioning-doctrine.md) (moat stack, fenced language, legal-vertical cards)
+- [ADR 0013 — Operator Positioning Doctrine](../../adr/0013-operator-positioning-doctrine.md) (moat stack, fenced language, legal-vertical cards)
 - [ADR 0007 — Per-customer Machine isolation](../../adr/0007-per-customer-machine-isolation.md), [ADR 0008 — Customer-owned memory artifact](../../adr/0008-customer-owned-memory-artifact.md) (ownership/shared-worker basis)
 - [ADR 0011 — Multi-persona per customer](../../adr/0011-multi-persona-per-customer.md), [ADR 0030 — The Control Plane](../../adr/0030-control-plane-human-principal-surface.md) (multi-human roles)
 - [ADR 0025 — Autonomy ceilings are configurable](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) (governed authority)

@@ -1,0 +1,71 @@
+# Operator safety substrate CI.
+#
+# Closes the gap the harness-pivot review flagged: the Python safety-substrate
+# invariants (trust-ceiling enforcement incl. the ADR 0025 exposure rules, the
+# citation/no-fabrication invariants, sticky-stop, isolation) and the adapter
+# tests (audit log, inbound trust boundary, namespace assertion) were NOT run
+# in CI — only locally. This workflow gates them on every PR that touches the
+# substrate, so a trust-gate regression cannot merge green.
+#
+# Two runners, because the suite is intentionally dual-mode:
+#   * run()-style invariants (test_invariant_*.py with a `def run()` +
+#     __main__ that exits non-zero on failure) are executed directly;
+#   * pytest-style tests (adapter/tests, the pytest invariants, the inbound
+#     boundary test) are collected by pytest.
+
+name: operator-substrate
+
+on:
+  pull_request:
+    paths:
+      - 'operator/adapter/**'
+      - 'operator/bin/**'
+      - 'operator/safety-substrate/**'
+      - 'operator/verticals/**'
+      - '.github/workflows/operator-substrate.yml'
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  substrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '>=3.11'
+
+      - name: Install pytest
+        run: python3 -m pip install --quiet pytest
+
+      - name: Run run()-style safety invariants
+        working-directory: operator
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          fail=0
+          for f in safety-substrate/tests/test_invariant_*.py; do
+            # Only the pure run()-style files (top-level def run(), no pytest
+            # import); pytest-style invariants are covered by the pytest step.
+            if grep -q '^def run()' "$f" && ! grep -q 'import pytest' "$f"; then
+              echo "== invariant: $f =="
+              if ! python3 "$f"; then
+                echo "FAILED: $f"
+                fail=1
+              fi
+            fi
+          done
+          exit $fail
+
+      - name: Run pytest suites (adapter + evidence + pytest-style invariants)
+        working-directory: operator
+        # bin/tests/test_voice_corpus.py is named explicitly: the rest of bin/tests
+        # needs substrate deps (pyyaml etc.) not installed in this bare-pytest env,
+        # but the voice-corpus tracer lib imports only adapter.voice + stdlib.
+        run: python3 -m pytest adapter/tests adapter/evidence/tests safety-substrate/tests bin/tests/test_voice_corpus.py -q

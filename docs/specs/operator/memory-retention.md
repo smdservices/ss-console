@@ -13,12 +13,12 @@
 
 ## Files
 
-| Path                                          | Role                                                                                              |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `ai-employee/adapter/memory/retention.py`     | Memory retention runner + policy + cross-pipeline orchestrator. New in this PR.                   |
-| `ai-employee/adapter/voice/pipeline.py`       | Voice retention enforcer (`enforce_retention()`). Pre-existing from PR #951; this PR composes it. |
-| `ai-employee/bin/cron-retention.py`           | Scheduled-job entrypoint that wires policy + clients and calls the cross-pipeline runner.         |
-| `ai-employee/adapter/tests/test_retention.py` | Unit tests for policy parsing, per-type window enforcement, scope filtering, idempotency, audit.  |
+| Path                                       | Role                                                                                              |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `operator/adapter/memory/retention.py`     | Memory retention runner + policy + cross-pipeline orchestrator. New in this PR.                   |
+| `operator/adapter/voice/pipeline.py`       | Voice retention enforcer (`enforce_retention()`). Pre-existing from PR #951; this PR composes it. |
+| `operator/bin/cron-retention.py`           | Scheduled-job entrypoint that wires policy + clients and calls the cross-pipeline runner.         |
+| `operator/adapter/tests/test_retention.py` | Unit tests for policy parsing, per-type window enforcement, scope filtering, idempotency, audit.  |
 
 ## Acceptance map
 

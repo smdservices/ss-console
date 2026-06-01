@@ -8,7 +8,7 @@
  *
  * Provider slugs match the `connectors:` value shape in customer.yaml
  * (see docs/specs/operator/customer-yaml-schema.md and the per-connector
- * oauth_scopes.json files in ai-employee/connectors/). v1 covers the
+ * oauth_scopes.json files in operator/connectors/). v1 covers the
  * Phase 1 connectors that ship with first customer-zero: Microsoft Graph
  * and Google Workspace. Subsequent providers (Clio, LawPay, QuickBooks,
  * Slack, etc.) layer in by extending PROVIDERS without touching the
