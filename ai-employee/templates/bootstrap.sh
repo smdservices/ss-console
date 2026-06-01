@@ -133,27 +133,37 @@ done
 # ============================================================================
 # Step 2: verify (or fetch) customer.yaml on the volume
 # ============================================================================
-# Storage model change (§6): customer.yaml lives on the volume, not baked
-# into the image. R2 at vaults/<slug>/customer.yaml is the source of truth;
-# provisioning writes it there. Bootstrap fetches to /opt/data on first boot
-# and uses the volume copy on subsequent boots.
+# Storage model (§6): customer.yaml lives on the volume, not baked into the
+# image. R2 at vaults/<slug>/customer.yaml is the SOURCE OF TRUTH; provisioning
+# (and ai-employee/bin/sync-customer-yaml.sh, for edits) writes it there.
+# Bootstrap re-fetches from R2 on EVERY boot so merged config edits propagate on
+# restart, falling back to the volume copy only if R2 is unreachable. (The live
+# no-restart reload path — the customer-sync sidecar — is a Phase-2 stub.)
 CUSTOMER_YAML="/opt/data/customer.yaml"
 R2_ENDPOINT_URL="${R2_ENDPOINT_URL:-https://${R2_ACCOUNT_ID:-}.r2.cloudflarestorage.com}"
 R2_CUSTOMER_YAML_URI="s3://${R2_BUCKET_CONFIG}/vaults/${CUSTOMER_SLUG}/customer.yaml"
 
-if [ -f "${CUSTOMER_YAML}" ]; then
-  log "customer.yaml present on volume: ${CUSTOMER_YAML}"
+# Re-fetch from R2 (source of truth) on EVERY boot so merged customer.yaml edits
+# propagate on restart. Previously bootstrap only fetched when the volume copy was
+# ABSENT, so edits to an already-provisioned machine never reached it (the
+# customer-sync sidecar is a Phase-2 stub). Fetch to a temp path and atomically
+# swap, so a transient R2 failure never corrupts or strands the existing copy;
+# fall back to the volume copy if R2 is unreachable; die only if neither yields a
+# config. awscli is installed in the Dockerfile; R2 speaks S3 with a custom endpoint.
+if AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}" \
+   AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}" \
+     aws s3 cp \
+       --endpoint-url "${R2_ENDPOINT_URL}" \
+       --only-show-errors \
+       "${R2_CUSTOMER_YAML_URI}" \
+       "${CUSTOMER_YAML}.r2.tmp"; then
+  mv -f "${CUSTOMER_YAML}.r2.tmp" "${CUSTOMER_YAML}"
+  log "customer.yaml refreshed from R2 (source of truth): ${R2_CUSTOMER_YAML_URI}"
+elif [ -f "${CUSTOMER_YAML}" ]; then
+  rm -f "${CUSTOMER_YAML}.r2.tmp" 2>/dev/null || true
+  log "WARN: R2 fetch failed; using existing volume copy: ${CUSTOMER_YAML}"
 else
-  log "customer.yaml missing on volume; fetching from R2: ${R2_CUSTOMER_YAML_URI}"
-  # awscli is installed in the Dockerfile. R2 speaks S3 with a custom endpoint.
-  AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}" \
-  AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}" \
-    aws s3 cp \
-      --endpoint-url "${R2_ENDPOINT_URL}" \
-      "${R2_CUSTOMER_YAML_URI}" \
-      "${CUSTOMER_YAML}" \
-    || die "Failed to fetch customer.yaml from R2 (${R2_CUSTOMER_YAML_URI})"
-  log "customer.yaml fetched from R2 -> ${CUSTOMER_YAML}"
+  die "customer.yaml not on volume and R2 fetch failed (${R2_CUSTOMER_YAML_URI})"
 fi
 
 # ============================================================================
