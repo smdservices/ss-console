@@ -18,7 +18,7 @@
  * "immutably audited," honestly scoped `portal_intent`.
  */
 
-import { ACCEPTED_ACTION_CLASSES, type ActionClass } from '../../ai-employee/customer-yaml/types'
+import type { ActionClass } from '../../ai-employee/customer-yaml/types'
 import type { D1Database } from '@cloudflare/workers-types'
 
 export type Ceiling = 'autonomous' | 'draft_for_review' | 'refused'
@@ -42,6 +42,11 @@ export function restrictiveness(c: Ceiling): number {
   return RESTRICTIVENESS[c]
 }
 
+// 'n/a' is never RETURNED by changeDirection() below, but it is the DB default
+// for config_change_audit.direction (migration 0046, CHECK allows it). This is
+// the READ type for that column (see ConfigChangeAuditRow.direction), so 'n/a'
+// must stay to model a row written via the column default. Not dead — load-bearing
+// for the read path.
 export type ChangeDirection = 'raise' | 'lower' | 'lateral' | 'n/a'
 
 /**
@@ -267,9 +272,6 @@ export async function applySkillToggle(
 
   return { outcome: 'accepted', reason: null }
 }
-
-/** Action classes accepted on the action-ceiling path, re-exported for callers. */
-export const ACTION_CLASSES: readonly ActionClass[] = ACCEPTED_ACTION_CLASSES
 
 export interface ConfigChangeAuditRow {
   id: number
