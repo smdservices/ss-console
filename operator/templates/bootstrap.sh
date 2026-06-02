@@ -348,6 +348,39 @@ log "Active persona profile: ${ACTIVE_PROFILE}"
 # dir are hermes-owned, so these mkdirs create hermes-owned, writable dirs.
 mkdir -p "${HERMES_HOME}/logs" "${HERMES_HOME}/profiles/${ACTIVE_PROFILE}/logs"
 
+# ---------- Ensure overlay plugins are PRESENT on the volume (before gateway) ----------
+# The Dockerfile's `hermes plugins install` lands the overlay pack under
+# ${HERMES_HOME} (= /opt/data) — the Fly VOLUME mountpoint. On a persisted volume
+# the build-time install is SHADOWED, so the overlay pack (trust / inbound / audit
+# / voice hooks — the safety harness) is ABSENT at runtime and the gateway would
+# boot WITHOUT it. Re-install here, idempotently, as the hermes user, after the
+# volume mount and before the gateway launches.
+#
+# Use a deterministic DIRECTORY check, NOT `hermes plugins list` — the list does
+# not report an installed-but-not-yet-loaded pack before the gateway starts (that
+# false-negative previously dragged a healthy install into a fail-closed abort).
+# FAIL-CLOSED on a genuine install failure: a Machine whose overlay pack cannot be
+# installed MUST NOT serve (matches the Dockerfile build-time hard gate).
+# The dir check is a no-op skip on the common path: a fresh volume receives the
+# build-time-installed pack via Fly's empty-volume copy, and a persisted volume
+# keeps it across deploys — so the slow `git clone` only runs in the rare reseed
+# case and does not normally delay the public :8643 listener below.
+OVERLAY_PLUGIN_DIR="${HERMES_HOME}/plugins/hermes-smd-overlay"
+if [ -d "${OVERLAY_PLUGIN_DIR}" ]; then
+  log "Overlay plugin present on the volume (${OVERLAY_PLUGIN_DIR})"
+else
+  log "Overlay plugin absent (volume shadows build-time install); installing at runtime..."
+  # Clear a stale/empty plugins dir (e.g. a root-owned dir left by a diagnostic).
+  # rm needs only parent write (${HERMES_HOME} is hermes-owned), not target
+  # ownership, so this succeeds even on a root-owned empty dir.
+  rm -rf "${HERMES_HOME}/plugins" 2>/dev/null || true
+  /opt/hermes/.venv/bin/hermes plugins install venturecrane/hermes-smd-overlay --enable \
+    || die "runtime overlay plugin install failed — refusing to launch a harness-less gateway"
+  [ -d "${OVERLAY_PLUGIN_DIR}" ] \
+    || die "overlay plugin dir missing after install — refusing to launch a harness-less gateway"
+  log "Overlay plugin installed + enabled at runtime"
+fi
+
 # Inbound webhook front-door gate (overlay `hermes-smd-webhook-gate`). It binds
 # the public port (8643), verifies the vendor signature (AgentMail), and forwards
 # to the gateway's machine-local :8644 with the Generic header. FAIL-CLOSED: only

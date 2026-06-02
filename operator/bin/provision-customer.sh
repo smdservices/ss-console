@@ -14,7 +14,16 @@
 # then runs the boot smoke test (boot-smoke-test.sh) to verify the Hermes
 # profile + plugin chain came up cleanly.
 #
-# Operator prerequisites (set in your shell / .envrc / direnv before running):
+# CANONICAL INVOCATION (do not hunt for R2 creds — they are in Infisical /ss prod):
+#   operator/bin/reprovision.sh <slug>
+#   # which is exactly:
+#   infisical run --env=prod --path=/ss --silent -- operator/bin/provision-customer.sh <slug>
+# The R2_* below are injected by that `infisical run`. They were historically NOT
+# stored anywhere (every agent re-derived them and lost ~2h); they are now in
+# Infisical /ss and are derivable from CLOUDFLARE_API_TOKEN (id + sha256(value)).
+# See docs/runbooks/operator/first-boot.md "R2 credentials".
+#
+# Operator prerequisites (injected by reprovision.sh; or set manually before running):
 #   R2_ENDPOINT_URL        — Cloudflare R2 endpoint (https://<account>.r2.cloudflarestorage.com)
 #   R2_ACCESS_KEY_ID       — R2 access key (operator-local, used for `aws s3 cp` upload)
 #   R2_SECRET_ACCESS_KEY   — R2 secret (operator-local)
@@ -91,9 +100,12 @@ die() { log "FATAL: $*"; exit 1; }
 # Machine can fetch from R2 at boot — but those are set via pbpaste below,
 # not echoed here.
 R2_BUCKET_CONFIG="${R2_BUCKET_CONFIG:-smd-customer-config}"
-[ -n "${R2_ENDPOINT_URL:-}" ] || die "R2_ENDPOINT_URL not set in operator env (see header for prerequisites)"
-[ -n "${R2_ACCESS_KEY_ID:-}" ] || die "R2_ACCESS_KEY_ID not set in operator env"
-[ -n "${R2_SECRET_ACCESS_KEY:-}" ] || die "R2_SECRET_ACCESS_KEY not set in operator env"
+# If these are unset you almost certainly ran this script directly instead of
+# through the wrapper. The creds are in Infisical /ss prod — do NOT re-derive them.
+R2_HINT="R2 creds missing. Run via: operator/bin/reprovision.sh ${SLUG}  (= infisical run --env=prod --path=/ss -- operator/bin/provision-customer.sh ${SLUG}). They live in Infisical /ss prod; see docs/runbooks/operator/first-boot.md."
+[ -n "${R2_ENDPOINT_URL:-}" ] || die "R2_ENDPOINT_URL not set. ${R2_HINT}"
+[ -n "${R2_ACCESS_KEY_ID:-}" ] || die "R2_ACCESS_KEY_ID not set. ${R2_HINT}"
+[ -n "${R2_SECRET_ACCESS_KEY:-}" ] || die "R2_SECRET_ACCESS_KEY not set. ${R2_HINT}"
 command -v aws >/dev/null 2>&1 || die "aws CLI not found (required for R2 customer.yaml upload)"
 command -v pbpaste >/dev/null 2>&1 || die "pbpaste not found (macOS-only; required for secret entry flow)"
 
