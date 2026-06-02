@@ -34,6 +34,8 @@ The effect: every session inherited an assumed posture — reviewer-as-sender �
 
 For every configurable axis of the harness (exposure, initiation, external send, autonomy level, tool access, identity posture), absence of authored configuration is **not** a cue to apply a "safe posture." There is no fallback posture. The configuration is the entitlement; the absence of configuration is the absence of entitlement.
 
+**A safety property of the unconfigured state is not the product's identity.** The harness fails closed when nothing is authored — that is a correct _safety property_, and §2 below is exactly that. But fail-closed (and the older "draft-for-review" framing it replaced) must **never** be allowed to describe what the Operator _is_, its default posture, or its market position. The moment "it drafts for your review" becomes the product's identity, the product is back in the cage the configurability was meant to open. **The Operator has no default posture. It has whatever the engagement authors** — from draft-everything to trusted-autonomous-send, per action class. "Unconfigured is fail-closed" answers "what happens before you've said anything," not "what is this product."
+
 ### 2. Unauthored entitled action ⇒ fail-closed (REFUSED), not draft
 
 When an externally-consequential action class (`EXTERNAL_SEND`, and the catch-all for any unrecognized entitled class) has **no authored ceiling**, `enforce()` resolves it to `REFUSED`: the action does not execute, and **no draft is produced**. A draft is itself a behavior the harness was never told to perform; producing one is an imposed posture by another name. No grant means no action.

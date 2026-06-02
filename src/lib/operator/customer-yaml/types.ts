@@ -237,9 +237,11 @@ export interface PersonaSkill {
    * Skill-level scalar ceiling. Governs `internal_write` and acts as the
    * cap the per-action overrides resolve under. Retained from the
    * pre-ADR-0025 schema for back-compat: a skill with only `trust_ceiling`
-   * set keeps its previous meaning, and `external_send` stays at the safe
-   * `draft_for_review` default (reviewer-as-sender) unless explicitly raised
-   * in `action_ceilings`.
+   * set keeps its previous meaning. Note (ADR 0035): the scalar does NOT
+   * grant `external_send` — an `external_send` with no `action_ceilings`
+   * entry is unauthored and fail-closed (refused, no draft). There is no
+   * `draft_for_review` default; reviewer-as-sender is a value authored in
+   * `action_ceilings`, not a fallback.
    */
   trust_ceiling: TrustCeiling
   /**
