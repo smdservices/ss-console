@@ -10,45 +10,56 @@ the credential format end to end (onboarding-retro lesson: control the
 integration, don't assume someone else's file formats).
 
 Token resolution: --token, else $GOOGLE_TOKEN_PATH, else /opt/data/oauth/google.json
-(the per-customer Fly volume path, ADR 0010).
+(the per-customer Fly volume path, ADR 0010). Credential loading/refresh is shared
+with the sibling Google CLIs via _google_auth.py.
 
 Subcommands:
   search <query> [--max N]      print matching message IDs, one per line
   get <id> [--format json|meta] print one message as JSON (full or metadata)
+  capabilities                  print this adapter's CapabilitySet (ADR 0006)
 
-Send is intentionally absent — the token scope (gmail.modify) cannot send, so
-Crane structurally cannot send as the principal.
+Send is intentionally absent. The guarantee is the AUTHORED token scope
+(gmail.modify) — Google itself refuses send for that scope — not a harness
+posture (ADR 0035). The principal authored read/label/archive/draft, never send,
+for their own Gmail identity at consent time.
 """
 
 import argparse
 import json
-import os
 import sys
 
-DEFAULT_TOKEN = "/opt/data/oauth/google.json"
+from _google_auth import add_token_arg, service
+
+CAPABILITY = "Email"
+ADAPTER = "google-gmail"
+VERSION = "1.0.0"
+# Contract method names (src/lib/operator/capabilities/email.ts). The CLI
+# exposes the read/draft-read subset; everything else is declared unsupported.
+SUPPORTED_METHODS = ["list_threads", "get_thread"]
+UNSUPPORTED_METHODS = [
+    "create_draft",
+    "update_draft",
+    "apply_label",
+    "move_to_folder",
+    "list_sent_since",
+    "get_sent_item",
+    "get_scoped_folders",
+]
 
 
-def _creds(token_path: str):
-    from google.auth.transport.requests import Request
-    from google.oauth2.credentials import Credentials
-
-    creds = Credentials.from_authorized_user_file(token_path)
-    if not creds.valid:
-        if creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-            # Persist the refreshed access token (0600 preserved by O_TRUNC write).
-            fd = os.open(token_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-            with os.fdopen(fd, "w") as fh:
-                fh.write(creds.to_json())
-        else:
-            raise RuntimeError("token invalid and not refreshable (re-run consent)")
-    return creds
+def describe_capabilities() -> dict:
+    """CapabilitySet for the capability-disclosure / conformance contract."""
+    return {
+        "capability": CAPABILITY,
+        "adapter": ADAPTER,
+        "version": VERSION,
+        "supported_methods": SUPPORTED_METHODS,
+        "unsupported_methods": UNSUPPORTED_METHODS,
+    }
 
 
 def _service(token_path: str):
-    from googleapiclient.discovery import build
-
-    return build("gmail", "v1", credentials=_creds(token_path), cache_discovery=False)
+    return service("gmail", "v1", token_path)
 
 
 def cmd_search(svc, args) -> int:
@@ -70,10 +81,12 @@ def cmd_get(svc, args) -> int:
     return 0
 
 
-def main() -> int:
+def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="crane_gmail.py")
-    ap.add_argument("--token", default=os.environ.get("GOOGLE_TOKEN_PATH", DEFAULT_TOKEN))
+    add_token_arg(ap)
     sub = ap.add_subparsers(dest="cmd", required=True)
+
+    sub.add_parser("capabilities", help="print this adapter's CapabilitySet (no token needed)")
 
     g = sub.add_parser("gmail")
     gsub = g.add_subparsers(dest="op", required=True)
@@ -86,7 +99,14 @@ def main() -> int:
     ge.add_argument("id")
     ge.add_argument("--format", choices=["json", "meta"], default="json")
 
-    args = ap.parse_args()
+    return ap
+
+
+def main() -> int:
+    args = build_parser().parse_args()
+    if args.cmd == "capabilities":
+        print(json.dumps(describe_capabilities(), ensure_ascii=False))
+        return 0
     try:
         svc = _service(args.token)
         if args.op == "search":

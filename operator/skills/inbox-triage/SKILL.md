@@ -38,7 +38,7 @@ This is SMD's customer-zero capability. We are using ourselves to learn the deli
 
 ## Prerequisites
 
-Requires Google Workspace skill (`productivity/google-workspace`) and `python3`. See frontmatter.
+Requires the operator's Google CLIs (`/app/connectors/google/crane_gmail.py`, and `crane_calendar.py` for availability lookups) and `python3`. See frontmatter. This skill does NOT use the Hermes-native `google-workspace` skill — that skill is disabled for this customer (it mints an unscoped, send-capable credential); the scope-limited operator path is used instead.
 
 ## How to Run
 
@@ -127,7 +127,7 @@ The agent MAY:
 
 - Read mail (`gmail.readonly`).
 - Write to the local file system inside `~/.hermes/customer_notes/smd/`.
-- Use `gws` calendar lookups in read-only mode to check Captain's availability before suggesting meeting times.
+- Use `crane_calendar.py list-events` (read-only) to check Captain's availability before suggesting meeting times.
 
 The agent MUST NOT, without explicit Captain instruction in the current invocation:
 
