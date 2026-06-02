@@ -10,7 +10,9 @@ related-note: note_01KSS3TCTKWYVF6EZ04482X389, note_01KSTYSNC9CYPKYFJZ3TJ7F6RM
 
 # ADR 0025 — Autonomy Ceilings Are Configurable
 
-**Status:** Accepted (Captain decision, 2026-05-29). This ADR records the decision and mandates a product modification; the code change is sequenced in the migration plan below and tracked by a follow-on issue.
+**Status:** Accepted (Captain decision, 2026-05-29), **amended 2026-06-02 by [ADR 0035](./0035-no-imposed-entitlement-defaults.md).** This ADR correctly made autonomy a configurable per-action-class ceiling, but it then introduced a contradiction: §Decision says "no autonomy posture is hardcoded," while §4 makes unauthored external action classes **default to `draft_for_review`** — a hardcoded posture. ADR 0035 resolves this in favor of §Decision: there is **no imposed default**. An unauthored entitled action is fail-closed (refused — no send, no draft). Reviewer-as-sender (§4) is **one authored option**, not "the default"; the vertical-pack-lockable floor (§4) survives as an **authored constraint**, not a default. Read §4 and §6's "default" framing as superseded; the two-axis model, enforced-in-code, agent-never-self-raises, and reversibility floors all stand.
+
+This ADR records the decision and mandates a product modification; the code change is sequenced in the migration plan below and tracked by a follow-on issue.
 
 **Source:** The 2026-05-28/29 working session that defined the Operator product as a **harness** — a set of functions and guarantees independent of the underlying engine (recorded in note `note_01KSS3TCTKWYVF6EZ04482X389`, "The Harness Is the Product"). A grounded code audit the next day (`note_01KSTYSNC9CYPKYFJZ3TJ7F6RM`) confirmed against live code that the autonomy posture is **hardcoded**, not configured: `operator/adapter/trust_ceiling.py:117-127` refuses every autonomous external send regardless of how the customer's ceiling is set. The session named this the keystone correction. This ADR locks it.
 
@@ -81,6 +83,8 @@ Whether the agent may run unprompted (cron, webhook, delegated task) is a distin
 The hardcoded refusal at `trust_ceiling.py:117-127` is removed. `enforce()` consults the configured `EXTERNAL_SEND` ceiling: `autonomous` permits send without per-turn approval; `draft_for_review` routes to a draft (the reviewer-as-sender default); `refused` blocks. The same applies through the overlay `hermes-smd-trust` hook.
 
 ### 4. Reviewer-as-sender is the default and a lockable floor, not an absolute
+
+> _**Amended by [ADR 0035](./0035-no-imposed-entitlement-defaults.md):** the "default" half of this section is superseded. There is no imposed default. Absent authored configuration, an external action class is **fail-closed (refused — no send, no draft)**, not `draft_for_review`. Reviewer-as-sender is one authored option; the lockable floor below survives as an authored constraint._
 
 - **Default.** Absent explicit configuration, every external action class defaults to `draft_for_review` with reviewer-as-sender identity. The secure posture is what you get for free; autonomy is an opt-in the principal must take deliberately.
 - **Vertical floor.** A vertical pack (ADR 0022) may declare a non-raisable ceiling for an action class. The law pack pins `EXTERNAL_SEND = draft_for_review`. Customer configuration cannot raise above a vertical floor — the existing "cannot raise above authored" rule (`trust_ceiling.py` docstring) generalizes to "cannot raise above the most restrictive of {vertical floor, authored ceiling}."

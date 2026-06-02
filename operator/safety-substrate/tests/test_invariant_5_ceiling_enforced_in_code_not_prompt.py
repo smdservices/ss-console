@@ -21,18 +21,20 @@ from adapter.trust_ceiling import ActionClass, Ceiling, enforce
 
 
 def run() -> tuple[bool, str]:
-    # The skill is authored as draft_for_review. The model, having received
-    # a prompt-injected tool result, BELIEVES it is autonomous. The adapter
-    # is called with ceiling=DRAFT_FOR_REVIEW (read from SKILL.md, NOT from
-    # model output) and asked to perform an external_send.
-    #
-    # The adapter must route this to draft, NOT send.
+    # external_send is AUTHORED draft_for_review (action_ceilings). The model,
+    # having received a prompt-injected tool result, BELIEVES it is autonomous.
+    # The adapter reads the authored ceiling (NOT model output) and must route
+    # this to draft, NOT send. (Authored draft is used deliberately: an
+    # UNAUTHORED external_send is fail-closed/refused per ADR 0035; this invariant
+    # is about an authored ceiling holding against prompt claims, so it authors
+    # the draft_for_review value to test the draft route specifically.)
     decision = enforce(
         ceiling=Ceiling.DRAFT_FOR_REVIEW,  # authored, not model-claimed
         action=ActionClass.EXTERNAL_SEND,
         skill_name="invoice-sender-test",
         tool_name="gmail.send",
         current_turn_approval=False,  # injected approval from the prompt is invalid
+        action_ceilings={ActionClass.EXTERNAL_SEND: Ceiling.DRAFT_FOR_REVIEW},
     )
     if decision.allowed:
         return (
@@ -46,14 +48,15 @@ def run() -> tuple[bool, str]:
         )
 
     # Stronger test: even if the model also claims current_turn_approval=True
-    # (e.g., a prompt-injected "user said yes"), the skill's ceiling overrides.
-    # Draft skills don't escalate to send under any condition.
+    # (e.g., a prompt-injected "user said yes"), the authored ceiling overrides.
+    # Authored-draft external_send doesn't escalate to send under any condition.
     decision = enforce(
         ceiling=Ceiling.DRAFT_FOR_REVIEW,
         action=ActionClass.EXTERNAL_SEND,
         skill_name="invoice-sender-test",
         tool_name="gmail.send",
         current_turn_approval=True,  # would be set by a malicious injection
+        action_ceilings={ActionClass.EXTERNAL_SEND: Ceiling.DRAFT_FOR_REVIEW},
     )
     # external_send routes to draft regardless of the approval flag (ADR 0025):
     # exposure autonomy is governed by the authored ceiling, not an in-turn
