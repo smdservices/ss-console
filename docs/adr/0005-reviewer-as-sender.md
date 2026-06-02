@@ -4,13 +4,13 @@ date: 2026-05-20
 status: accepted
 captain: Scott Durgan
 supersedes: none
-amended-by: 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md
+amended-by: 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0035-operator-thesis.md
 related-issue: https://github.com/venturecrane/ss-console/issues/828
 ---
 
 # ADR 0005 — Reviewer-as-Sender
 
-**Status:** Accepted, **amended 2026-05-29 by [ADR 0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md).** ADR 0025 overturns this ADR's central modality — the holding that reviewer-as-sender is "architectural, not configurable" (§Decision below). Under ADR 0025, reviewer-as-sender is retained as **(a) the default exposure configuration** and **(b) a vertical-pack-lockable floor** (the law pack pins it non-raisable), but it is no longer a global absolute: customers may configure autonomous external send on the exposure axis where no vertical floor forbids it. Everything else in this ADR — the internal/external persona split, the disclosure/liability reasoning (which becomes _why_ the default and the regulated-vertical floor exist), and the drafts mechanism — stands unchanged. Read this ADR with that amendment in mind.
+**Status:** Accepted, **amended 2026-05-29 by [ADR 0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md).** ADR 0025 overturns this ADR's central modality — the holding that reviewer-as-sender is "architectural, not configurable" (§Decision below). Under ADR 0025, reviewer-as-sender is retained as **(a) the default exposure configuration** and **(b) a vertical-pack-lockable floor** (the law pack pins it non-raisable), but it is no longer a global absolute: customers may configure autonomous external send on the exposure axis where no vertical floor forbids it. Everything else in this ADR — the internal/external persona split, the disclosure/liability reasoning (which becomes _why_ the default and the regulated-vertical floor exist), and the drafts mechanism — stands unchanged. Read this ADR with that amendment in mind. **Further amended by [ADR 0035 — The Operator Thesis](./0035-operator-thesis.md):** this ADR's competitive claim that "the platform's defensible position depends on this pattern remaining architectural" (Source, below) is superseded — reviewer-as-sender is one authored option, and the moat is the **harness + the guide + the memory**, never a single feature (ADR 0035, Tenet 4).
 
 **Status (original):** Accepted (Captain decision; embedded in the Operator PRDs since first draft; recorded here as a standalone ADR per [#828](https://github.com/venturecrane/ss-console/issues/828)).
 
