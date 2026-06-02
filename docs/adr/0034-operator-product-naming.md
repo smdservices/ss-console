@@ -21,7 +21,7 @@ related-adr: 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0031
 
 The architecture has since moved past that posture:
 
-- [ADR 0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) made autonomy a **configurable per-action-class ceiling** (initiation and exposure as independent axes) and removed the hardcoded refusal of autonomous external send. Reviewer-as-sender became the **default** and a **vertical-pack-lockable floor**, not a global absolute.
+- [ADR 0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) made autonomy a **configurable per-action-class ceiling** (initiation and exposure as independent axes) and removed the hardcoded refusal of autonomous external send. [ADR 0035](./0035-no-imposed-entitlement-defaults.md) then removed any imposed default: reviewer-as-sender is **one authored option** (and a vertical-pack-lockable constraint where pinned), not a default — unauthored external actions are fail-closed.
 - [ADR 0031](./0031-content-sensitivity-send-floor.md) added the **content-sensitivity send floor** (money/contract/scope/legal always drafts) that sits on top of the configurable ceiling.
 - Customer-zero ("Crane") proved autonomous bidirectional email on 2026-06-01: it received an inbound message via webhook and replied in-thread, recipient-locked, with no human in the loop.
 

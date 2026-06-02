@@ -57,7 +57,7 @@ The boundary's CODE behavior is asserted deterministically (no live model) again
 1. the whole untrusted body lands inside the nonce fence;
 2. each fixture's injection payload sits only inside the fence (no instruction-position leak);
 3. a forged closing sentinel with a guessed nonce is still fenced by the real nonce;
-4. **the load-bearing assertion:** an injected `external_send` is refused by `enforce()` at the default ceiling, regardless of the fence.
+4. **the load-bearing assertion:** an injected `external_send` is refused by `enforce()` when the action class is unauthored (fail-closed per ADR 0035), regardless of the fence.
 
 ## Surfaces & sequencing
 
