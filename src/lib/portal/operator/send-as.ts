@@ -1,14 +1,18 @@
 /**
  * Reviewer-as-sender send pathway for the Operator draft queue.
  *
- * Per ADR 0005 (`docs/adr/0005-reviewer-as-sender.md`), every
- * customer-bound external message MUST ship under the human reviewer's
- * identity. The Operator persona ("Marcus", "Sarah", whatever the
- * customer chose) is fully visible internally but has no external
- * sending identity. This module is the only sanctioned path for the
- * portal to send a drafted message — it routes via the reviewer's
- * email account, lands in the reviewer's Sent folder, and records the
- * audit event under the reviewer's actor id.
+ * This is the send path for messages an engagement routed to
+ * `draft_for_review` (per ADR 0005's reviewer-as-sender realization) — one
+ * authored exposure option, NOT a product default. Per ADR 0035 there is no
+ * default posture: an `external_send` authored `autonomous` ships under the
+ * agent's own configured identity and never touches this path; an unauthored
+ * one is fail-closed. When `draft_for_review` IS the authored ceiling (or a
+ * vertical floor pins it), the drafted message ships under the human
+ * reviewer's identity — the Operator persona is fully visible internally but
+ * has no external sending identity on this path. This module is the only
+ * sanctioned path for the portal to send such a drafted message: it routes
+ * via the reviewer's email account, lands in the reviewer's Sent folder, and
+ * records the audit event under the reviewer's actor id.
  *
  * The reviewer-as-sender contract is enforced by the function
  * signature: `sendAsReviewer` takes the `Reviewer` identity as a
