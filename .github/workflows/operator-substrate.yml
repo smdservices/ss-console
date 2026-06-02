@@ -21,6 +21,7 @@ on:
       - 'operator/adapter/**'
       - 'operator/bin/**'
       - 'operator/safety-substrate/**'
+      - 'operator/connectors/google/**'
       - '.github/workflows/operator-substrate.yml'
   push:
     branches: [main]
@@ -67,4 +68,4 @@ jobs:
         # bin/tests/test_voice_corpus.py is named explicitly: the rest of bin/tests
         # needs substrate deps (pyyaml etc.) not installed in this bare-pytest env,
         # but the voice-corpus tracer lib imports only adapter.voice + stdlib.
-        run: python3 -m pytest adapter/tests adapter/evidence/tests safety-substrate/tests bin/tests/test_voice_corpus.py -q
+        run: python3 -m pytest adapter/tests adapter/evidence/tests safety-substrate/tests bin/tests/test_voice_corpus.py connectors/google/tests -q
