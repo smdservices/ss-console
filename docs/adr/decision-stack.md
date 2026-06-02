@@ -737,17 +737,17 @@ Same engine, same data model, same artifact shape. Fields fill progressively as 
 
 ---
 
-## Decision #45 - Reviewer-as-Sender (Operator architectural invariant)
+## Decision #45 - Entitlement Is Configurable; Reviewer-as-Sender Is One Authored Option
 
-**ADR:** [docs/adr/0005-reviewer-as-sender.md](./0005-reviewer-as-sender.md)
+**ADR:** [docs/adr/0005-reviewer-as-sender.md](./0005-reviewer-as-sender.md) (amended) → [0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) → [0035](./0035-no-imposed-entitlement-defaults.md)
 
-**Decision: Every customer-bound external message ships under the human reviewer's identity. The Operator persona does not exist as a sending identity to the outside world. This is architectural, not advisory.**
+**Decision: Entitlement is configurable across the full spectrum of the harness — per capability and action-class, on independent axes (exposure, initiation, external send, autonomy). The harness imposes no default posture; it faithfully enforces what an engagement authors. An entitled action with no authored entitlement is fail-closed (refused — no send, no draft).**
 
-The persona is fully visible internally (dashboard, internal Slack/Teams, audit log). Externally — to the customer's clients, opposing counsel, courts, regulators, vendors — the persona does not exist. Drafts go to the reviewer's drafts folder. The reviewer reviews and sends from their own account. Trust-ceiling promotion to `autonomous` is not available for any skill whose output crosses the external boundary.
+Reviewer-as-sender (the persona has no external sending identity; drafts go to the reviewer, who reviews and sends from their own account) is **one configurable option an engagement may author** — valuable for compliance, and pinnable by a regulated-vertical pack as a non-raisable constraint where required. It is **not** a default and **not** an architectural invariant: this decision originally read "architectural, not advisory" / "promotion to autonomous is not available," which ADR 0025 overturned and ADR 0035 finished correcting by removing the residual default-framing. The persona remains fully visible internally regardless of the external exposure configuration.
 
-**Cross-layer impact (Layer 6 - Delivery).** Defines how productized Operator delivery operates. Customer compliance counsel can sign off knowing the human-in-the-loop posture is structural.
+**Cross-layer impact (Layer 6 - Delivery).** The product expresses its full range — from draft-everything to trusted-autonomous-send — per action class, per customer. Compliance posture is an authored configuration (and a regulated-vertical pin), code-enforced and audited, not an assumed baseline.
 
-**Captain authorized:** 2026-05-20 per ADR record (decision embedded in PRDs since first draft).
+**Captain authorized:** 2026-05-20 (original); amended 2026-05-29 (ADR 0025); corrected 2026-06-02 (ADR 0035 — no imposed defaults).
 
 ---
 
