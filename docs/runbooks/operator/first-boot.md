@@ -17,16 +17,40 @@ It does **not** exercise a real agent turn, a live LLM call, or a connector writ
 - `fly` CLI, authenticated to the target org (`fly auth login`). The script creates the app with `--org personal`; change that in `provision-customer.sh` if booting into a different org.
 - `aws` CLI (for the R2 `customer.yaml` upload), `openssl`, `pbpaste` (macOS).
 
-### Operator environment (exported before running — never pasted into chat)
+### R2 credentials — DO NOT hunt for or re-mint these
+
+The operator-local R2 creds are stored in **Infisical `/ss` (prod)** and are injected
+automatically by the wrapper. **Use the wrapper** and you never touch them:
 
 ```
-R2_ENDPOINT_URL        # https://<account>.r2.cloudflarestorage.com
-R2_ACCESS_KEY_ID       # operator-local, used by `aws s3 cp` for the customer.yaml upload
-R2_SECRET_ACCESS_KEY
-R2_BUCKET_CONFIG       # optional; defaults to "smd-customer-config"
+operator/bin/reprovision.sh <slug>
+```
+
+For months these were not stored anywhere and every agent re-derived them (a ~2h
+trap). They are now in `/ss` and are **derivable from `CLOUDFLARE_API_TOKEN`** (also
+in `/ss`) — Cloudflare R2's S3 API accepts a CF API token directly:
+
+- `R2_ACCESS_KEY_ID` = the CF token's id (`GET /user/tokens/verify` → `result.id`)
+- `R2_SECRET_ACCESS_KEY` = `sha256_hex(CLOUDFLARE_API_TOKEN value)`
+- `R2_ENDPOINT_URL` = `https://<account_id>.r2.cloudflarestorage.com`
+- `R2_BUCKET_CONFIG` = `smd-customer-config`
+
+The same derived pair has R/W on every bucket in the account, so it also covers the
+`R2_SKILL_BODIES_*` skill-bodies bucket — **no per-bucket token minting is needed.**
+To verify they're present: `crane_secret_check({ path: '/ss', env: 'prod', names: ['R2_ACCESS_KEY_ID','R2_SECRET_ACCESS_KEY','R2_ENDPOINT_URL','R2_BUCKET_CONFIG'] })`.
+
+```
 # Optional (warn-and-skip if unset): CF_API_TOKEN + CF_ACCOUNT_ID (per-customer skill-bodies
 # bucket auto-create), SENTRY_DSN, MACHINE_HEARTBEAT_KEY, HEALTHCHECKS_API_KEY (ADR 0023 Wave 1).
 ```
+
+### Overlay plugins are volume-shadowed (handled in bootstrap)
+
+The Dockerfile installs the `hermes-smd-overlay` pack under `${HERMES_HOME}` (= the
+Fly volume mount); on a **persisted** volume the build-time install is shadowed.
+`bootstrap.sh` therefore re-installs + enables it at runtime (fail-closed) before the
+gateway launches, so the trust/audit/voice safety harness always loads. The boot
+smoke test step `hermes-plugins-installed` is the live verification.
 
 ### Secrets you'll be prompted to paste (clipboard → `fly secrets`, never echoed)
 
@@ -44,17 +68,19 @@ The script prompts for each; copy to clipboard, press Enter (or `s` to skip). Va
 
 ## The command
 
-From the **repo root** (not a worktree subdir), with the operator env exported:
+From the **repo root**, use the wrapper (injects the R2 creds from Infisical `/ss`):
 
 ```bash
-operator/bin/provision-customer.sh smd
+operator/bin/reprovision.sh smd
+# fully non-interactive (skip the secret prompts — Machine secrets persist across deploy):
+yes s | operator/bin/reprovision.sh smd
 ```
 
-That single command: validates `customer.yaml` → uploads it to R2 → renders `fly.toml` → creates the Fly app + a 10 GB volume → prompts for secrets → `fly deploy` (builds the Dockerfile: clones+asserts upstream Hermes, installs the overlay **v0.2.0**, bundles Postgres/Redis/Honcho) → runs the boot smoke test. It is idempotent — safe to re-run.
+That single command: validates `customer.yaml` → uploads it to R2 → renders `fly.toml` → creates the Fly app + a 10 GB volume → prompts for secrets → `fly deploy` (builds the Dockerfile: clones+asserts upstream Hermes, installs the overlay **v0.4.5**, bundles Postgres/Redis/Honcho) → runs the boot smoke test. It is idempotent — safe to re-run.
 
-## Overlay pin (why v0.2.0 matters)
+## Overlay pin (why v0.4.5 matters)
 
-The Dockerfile pins the overlay at **v0.2.0** (`OVERLAY_REF`). The runtime trust plugin imports `shared.outbound_gate`, which first shipped after v0.1.1. The build now hard-asserts the policy core is importable (`import shared.outbound_gate, shared.inbound, shared.action_classes`) — a stale pin fails the build instead of booting a harness-less Machine. If you bump the overlay, re-tag and bump `OVERLAY_REF` in lockstep. (Known follow-up: `hermes plugins install` clones the overlay's default branch and cannot pin a ref, so the _plugin surface_ tracks main HEAD at build time; for a tagged build, main == the tag.)
+The Dockerfile pins the overlay at **v0.4.5** (`OVERLAY_REF`). The runtime trust plugin imports `shared.outbound_gate`, which first shipped after v0.1.1. The build now hard-asserts the policy core is importable (`import shared.outbound_gate, shared.inbound, shared.action_classes`) — a stale pin fails the build instead of booting a harness-less Machine. If you bump the overlay, re-tag and bump `OVERLAY_REF` in lockstep. (Known follow-up: `hermes plugins install` clones the overlay's default branch and cannot pin a ref, so the _plugin surface_ tracks main HEAD at build time; for a tagged build, main == the tag.)
 
 ## What to watch on the FIRST ever boot
 

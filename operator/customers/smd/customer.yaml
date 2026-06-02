@@ -9,9 +9,13 @@ schema_version: 1
 #
 # Every value below traces to a stated interview answer. Capabilities the substrate
 # cannot yet honor are NOT encoded here — they live as open-items in onboarding-plan.md.
-# The biggest one: Crane has no outbound send transport yet (Gmail is modify-scope /
-# never-send; AgentMail is unwired, deferred Phase 2). This config is therefore the
-# buildable subset: inbox triage + draft-for-review, no autonomous sending.
+# Crane's outbound identity is its OWN AgentMail mailbox (smdcrane@agentmail.to):
+# autonomous send/reply from that identity (action_ceilings.external_send: autonomous),
+# gated ON TOP by the content-sensitivity floor (ADR 0031 — money/contract/scope/legal
+# drop to draft), the trusted-sender allowlist, and recipient-lock. The principal's
+# intake Gmail (smdurgan@smdurgan.com) stays modify-scope (read/label/archive/draft,
+# never-send). Telegram is wired (DM, allowlisted). Inbound AgentMail → inbox-triage
+# via the webhook trigger below.
 #
 # Not provisioned, not committed by the skill. Captain reviews before either.
 

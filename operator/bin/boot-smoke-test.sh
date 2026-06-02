@@ -37,7 +37,11 @@ ssh_exec() {
   local step="$1"
   shift
   local cmd="$*"
-  if fly ssh console -a "${APP_NAME}" --command "${cmd}" >/dev/null 2>&1; then
+  # `fly ssh console --command` execs the string directly (no shell), so compound
+  # commands (&&, |, $(...), [ ]) fail unless wrapped in an explicit shell. Wrap
+  # every check in `sh -c` so shell constructs evaluate ON THE MACHINE. (Check
+  # commands contain no single quotes, so the single-quoted wrapper is safe.)
+  if fly ssh console -a "${APP_NAME}" --command "sh -c '${cmd}'" >/dev/null 2>&1; then
     pass "${step}"
   else
     fail "${step} — command failed: ${cmd}"
@@ -82,7 +86,7 @@ ssh_exec "hermes-profiles-dir" "test -d /opt/data/profiles && [ -n \"\$(ls -A /o
 # ---------- Step 7: overlay plugins installed ----------
 # `hermes plugins list` should include the four hermes-smd-* plugins
 # installed at image-build time via `hermes plugins install venturecrane/hermes-smd-overlay`.
-ssh_exec "hermes-plugins-installed" "hermes plugins list | grep -q hermes-smd-"
+ssh_exec "hermes-plugins-installed" "/opt/hermes/.venv/bin/hermes plugins list | grep -q hermes-smd-"
 
 # ---------- Step 8: Hermes curator disabled (ADR 0017) ----------
 # The autonomous curator is turned off per-customer (it rewrites agent-authored
