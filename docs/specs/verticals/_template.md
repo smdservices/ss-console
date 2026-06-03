@@ -3,12 +3,12 @@ title: 'Vertical Spec: [VERTICAL] (Operator pack) — TEMPLATE'
 date: '[YYYY-MM-DD]'
 status: draft
 captain: Scott Durgan
-related-adr: 0022-vertical-pack-architecture.md, 0035-operator-thesis.md
+related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md
 ---
 
 # Vertical Spec: [VERTICAL] — TEMPLATE
 
-Copy to `docs/specs/verticals/<slug>.md` and fill in. Worked reference: `law-firm.md`. This is the brief that drives the pack's manifest, marketing surface, N=0 proof, and delivery SOP. Per [ADR 0035](../../adr/0035-operator-thesis.md), the Operator competes with a **hire**, not software; the incumbent system of record is a **connection target, not a competitor**.
+Copy to `docs/specs/verticals/<slug>.md` and fill in. Worked reference: `law-firm.md`. This is the brief that drives the pack's manifest, marketing surface, N=0 proof, and delivery SOP. Per [ADR 0037](../../adr/0037-operator-thesis.md), the Operator competes with a **hire**, not software; the incumbent system of record is a **connection target, not a competitor**.
 
 ## The role we digitize
 
@@ -33,7 +33,7 @@ State plainly whether the pilot needs a BUILD adapter (hard path) or rides an ex
 
 ## Compliance floor (authored, not assumed)
 
-Per [ADR 0035](../../adr/0035-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised. [Name the vertical's floors: send floor, privacy/regulatory boundary, routing constraints.]
+Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised. [Name the vertical's floors: send floor, privacy/regulatory boundary, routing constraints.]
 
 ## Labor-market dislocation (the demand hook)
 

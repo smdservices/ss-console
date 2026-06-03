@@ -3,12 +3,12 @@ title: 'Vertical Spec: Law Firm (Operator pack)'
 date: 2026-06-02
 status: draft
 captain: Scott Durgan
-related-adr: 0022-vertical-pack-architecture.md, 0035-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md
+related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md
 ---
 
 # Vertical Spec: Law Firm
 
-The brief that drives the Law pack's manifest, N=0 proof, marketing surface, and delivery SOP, and the worked reference the other packs are skinned from. Per [ADR 0035](../../adr/0035-operator-thesis.md), the Operator competes with a **hire**, not with software; the firm's practice-management suite is a **connection target, not a competitor**.
+The brief that drives the Law pack's manifest, N=0 proof, marketing surface, and delivery SOP, and the worked reference the other packs are skinned from. Per [ADR 0037](../../adr/0037-operator-thesis.md), the Operator competes with a **hire**, not with software; the firm's practice-management suite is a **connection target, not a competitor**.
 
 The substance of the pack is here: the domain read, the personas, the twelve specified skills, and the connector map. The manifest (`operator/verticals/law-firm/vertical.yaml`) declares the identifiers; the runtime skill bodies are built from this spec in `hermes-smd-overlay`.
 
@@ -78,7 +78,7 @@ The pilot rides Clio's MCP, so the system of record needs no BUILD adapter. Paym
 
 ## Compliance floor (authored, not assumed)
 
-Per [ADR 0035](../../adr/0035-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised.
+Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised.
 
 - **UPL boundary** — connective work only. Never legal advice, never a recommended course, never legal substance. The twelve skills are intake, scheduling, chasing, status, logging, tracking. This scope discipline is what keeps the pack clear of unauthorized practice.
 - **Reviewer-as-sender floor** — external messages ship under a human reviewer's identity ([ADR 0005](../../adr/0005-reviewer-as-sender.md)), one authored exposure option ([ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md)); the law pack pins it non-raisable for client-bound and tribunal-bound mail.

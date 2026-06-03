@@ -13,7 +13,7 @@ name: '[VERTICAL-SLUG]' # matches ACCEPTED_VERTICALS
 version: 0.1.0
 
 # Vertical-level safety floors (free-form slugs). Fail-closed, authored per
-# ADR 0035 Tenet 3 / ADR 0025. Name the compliance line for the vertical
+# ADR 0037 Tenet 3 / ADR 0025. Name the compliance line for the vertical
 # (e.g. a regulated-practice send floor, a privacy boundary).
 compliance: []
 

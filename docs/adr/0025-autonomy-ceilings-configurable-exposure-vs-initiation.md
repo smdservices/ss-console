@@ -4,7 +4,6 @@ date: 2026-05-29
 status: accepted
 captain: Scott Durgan
 amends: 0005-reviewer-as-sender.md
-amended-by: 0031-content-sensitivity-send-floor.md, 0035-operator-thesis.md
 related-issue: https://github.com/venturecrane/ss-console/issues/828
 related-note: note_01KSS3TCTKWYVF6EZ04482X389, note_01KSTYSNC9CYPKYFJZ3TJ7F6RM
 ---
@@ -14,8 +13,6 @@ related-note: note_01KSS3TCTKWYVF6EZ04482X389, note_01KSTYSNC9CYPKYFJZ3TJ7F6RM
 **Status:** Accepted (Captain decision, 2026-05-29), **amended 2026-06-02 by [ADR 0035](./0035-no-imposed-entitlement-defaults.md).** This ADR correctly made autonomy a configurable per-action-class ceiling, but it then introduced a contradiction: §Decision says "no autonomy posture is hardcoded," while §4 makes unauthored external action classes **default to `draft_for_review`** — a hardcoded posture. ADR 0035 resolves this in favor of §Decision: there is **no imposed default**. An unauthored entitled action is fail-closed (refused — no send, no draft). Reviewer-as-sender (§4) is **one authored option**, not "the default"; the vertical-pack-lockable floor (§4) survives as an **authored constraint**, not a default. **Read every "default" / "secure default" / "conservative default" phrase below that describes reviewer-as-sender or `draft_for_review` as superseded** (this includes §4, §6, the Consequences bullets, and the migration plan): the unconfigured state is fail-closed, and "draft-everything" is one thing an engagement may author, never the product's default posture or identity. The two-axis model, enforced-in-code, agent-never-self-raises, and reversibility floors all stand.
 
 This ADR records the decision and mandates a product modification; the code change is sequenced in the migration plan below and tracked by a follow-on issue.
-
-> **Framing amended by [ADR 0035 — The Operator Thesis](./0035-operator-thesis.md).** Where this ADR says reviewer-as-sender is the "default" (§4), read "default" as the **fail-closed unconfigured safety state**, not a product identity or market posture — the Operator has no imposed default posture (ADR 0035, Tenet 3). And the competitive reframing this ADR began ("the defensible claim shifts from 'we never let the AI send' to 'configurable, code-enforced, audited, floored'") is completed there: the moat is the **harness + the guide + the memory**, never any single feature (ADR 0035, Tenet 4). The mechanisms and code decisions in this ADR are unchanged.
 
 **Source:** The 2026-05-28/29 working session that defined the Operator product as a **harness** — a set of functions and guarantees independent of the underlying engine (recorded in note `note_01KSS3TCTKWYVF6EZ04482X389`, "The Harness Is the Product"). A grounded code audit the next day (`note_01KSTYSNC9CYPKYFJZ3TJ7F6RM`) confirmed against live code that the autonomy posture is **hardcoded**, not configured: `operator/adapter/trust_ceiling.py:117-127` refuses every autonomous external send regardless of how the customer's ceiling is set. The session named this the keystone correction. This ADR locks it.
 

@@ -7,7 +7,7 @@ amends: 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure
 related-adr: 0004-productized-operator-offering.md, 0022-vertical-pack-architecture.md, 0034-operator-product-naming.md
 ---
 
-# ADR 0035 — The Operator Thesis
+# ADR 0037 — The Operator Thesis
 
 **Status:** Accepted (Captain decision, 2026-06-02).
 

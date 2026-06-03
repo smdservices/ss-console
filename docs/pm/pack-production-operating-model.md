@@ -3,14 +3,14 @@ title: Operator Pack Production — Operating Model
 date: 2026-06-02
 status: draft
 captain: Scott Durgan
-related-adr: 0022-vertical-pack-architecture.md, 0035-operator-thesis.md, 0020-connector-strategy.md
+related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0020-connector-strategy.md
 ---
 
 # Operator Pack Production — Operating Model
 
 How we turn a vertical from the target landscape into a built, marketed, deliverable Operator pack, and how we hand each one to an agent team. Extracted from the **Law pack** (the first one built end-to-end); Law is the worked reference every later pack is skinned from.
 
-The frame is [ADR 0035](../adr/0035-operator-thesis.md): the Operator competes with a **hire**, not software; incumbent systems are **connection targets, not competitors**; the moat is the harness + the guide + the memory. Packs are ~80% templates, honed per client. The hard part (positioning) is done; this is the build.
+The frame is [ADR 0037](../adr/0037-operator-thesis.md): the Operator competes with a **hire**, not software; incumbent systems are **connection targets, not competitors**; the moat is the harness + the guide + the memory. Packs are ~80% templates, honed per client. The hard part (positioning) is done; this is the build.
 
 ## A pack is five artifacts
 

@@ -3,7 +3,7 @@ title: 'Operator Pack Delivery SOP (generic, honed per client)'
 date: 2026-06-02
 status: draft
 captain: Scott Durgan
-related-adr: 0022-vertical-pack-architecture.md, 0035-operator-thesis.md, 0019-customer-yaml-to-profile-config-translation.md
+related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0019-customer-yaml-to-profile-config-translation.md
 ---
 
 # Operator Pack Delivery SOP

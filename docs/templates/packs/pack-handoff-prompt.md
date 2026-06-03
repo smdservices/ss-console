@@ -3,7 +3,7 @@ title: Operator Pack Hand-off Prompt (template)
 date: 2026-06-02
 status: draft
 captain: Scott Durgan
-related-adr: 0022-vertical-pack-architecture.md, 0035-operator-thesis.md
+related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md
 ---
 
 # Operator Pack Hand-off Prompt
@@ -20,7 +20,7 @@ Build the Operator vertical pack for **[VERTICAL]** (slug: `[slug]`). Produce th
 - `docs/specs/verticals/law-firm.md` and `operator/verticals/law-firm/` — the worked reference (spec, manifest, addon, N=0 fixtures).
 - `src/pages/packs/law-firm.astro` — the marketing surface to clone.
 - `docs/specs/operator/vertical-manifest-schema.md` — the manifest schema.
-- `docs/adr/0035-operator-thesis.md` — the positioning doctrine (compete-with-a-hire; system-features are connection targets, not rivals).
+- `docs/adr/0037-operator-thesis.md` — the positioning doctrine (compete-with-a-hire; system-features are connection targets, not rivals).
 
 **Produce:**
 

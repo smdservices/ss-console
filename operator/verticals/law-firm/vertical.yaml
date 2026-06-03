@@ -9,14 +9,14 @@
 #
 # The intake-and-matter coordinator pack: substance-free connective work across
 # a firm's practice-management system, email, calendar, documents, e-sign, and
-# trust ledger. Per ADR 0035 the Operator competes with the coordinator hire;
+# trust ledger. Per ADR 0037 the Operator competes with the coordinator hire;
 # the PM suite is a connection target, not a competitor.
 
 name: law-firm
 version: 0.1.0
 
 # Vertical-level safety floors (free-form slugs). Fail-closed, authored per
-# ADR 0035 Tenet 3 / ADR 0025. See the brief's "Compliance floor".
+# ADR 0037 Tenet 3 / ADR 0025. See the brief's "Compliance floor".
 compliance:
   - upl-boundary # connective work only; never legal advice or substance
   - privilege # privileged content stays inside firm surfaces
