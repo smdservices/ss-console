@@ -3,12 +3,12 @@ title: 'Vertical Spec: RIA / Wealth Management (Operator pack)'
 date: 2026-06-02
 status: draft
 captain: Scott Durgan
-related-adr: 0022-vertical-pack-architecture.md, 0035-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
+related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
 ---
 
 # Vertical Spec: RIA / Wealth Management
 
-The brief that drives the RIA pack's manifest, N=0 proof, marketing surface, and delivery SOP, skinned from the worked reference (`law-firm.md`). Per [ADR 0035](../../adr/0035-operator-thesis.md), the Operator competes with a **hire** (the client service associate), not with software; the advisor CRM and custodian are **connection targets, not competitors**.
+The brief that drives the RIA pack's manifest, N=0 proof, marketing surface, and delivery SOP, skinned from the worked reference (`law-firm.md`). Per [ADR 0037](../../adr/0037-operator-thesis.md), the Operator competes with a **hire** (the client service associate), not with software; the advisor CRM and custodian are **connection targets, not competitors**.
 
 > **Read this first, two warnings.** (1) **This is the most contested vertical in our own lane.** Jump and Zocks have raised $170M+ and are explicitly building "agentic operating systems that orchestrate work across the advisor stack", the same connective layer this pack is. They are notetaker-origin advisor copilots expanding outward; the seat we target is the **client service associate (CSA)**, which the research names directly ("CSAs spend hours chasing signatures, re-entering intake data into the CRM, and tracking document status"). We compete here, eyes open, like dental. (2) **This is the heaviest compliance floor in the dozen**, SEC/state RIA rules, the fiduciary advice line, Reg S-P privacy, SEC books-and-records, the Marketing Rule, and no money movement. The pack is connective-only and fail-closed on advice and on money.
 
@@ -81,7 +81,7 @@ Twelve RIA-specific skills plus two spine skills reused as-is. Format per skill:
 
 ## Compliance floor (authored, not assumed)
 
-Per [ADR 0035](../../adr/0035-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised. This is the heaviest floor in the dozen.
+Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised. This is the heaviest floor in the dozen.
 
 - **No investment advice or recommendation** — connective coordination only. Never a recommendation, never an opinion on a holding, allocation, market, or product, never a distribution amount. Advice is the investment-adviser representative's fiduciary act. This is the RIA analog of the law pack's UPL boundary, and it is the brightest line.
 - **No money movement** — the Operator never moves, transfers, distributes, or trades. It gathers a client's request and routes it to the firm's verified human process for execution.
@@ -101,7 +101,7 @@ Per the corrected lens: **system-features are connection targets; only a true em
 - **Connection targets (zero threat):** the CRM and its AI agents (Wealthbox, Redtail), planning and portfolio tools. The systems we connect across.
 - **Real competitors, in our lane:** Jump and Zocks ($170M+ raised) began as AI meeting-notetakers and are expanding into "agentic operating systems" that orchestrate across the advisor stack, the connective layer. They are real and well-funded, and we do not pretend otherwise.
 
-The honest wedge: Jump and Zocks are advisor-copilot tools, anchored in the meeting and the advisor's productivity, expanding outward. The Operator is the **client-service-associate seat itself**, a configured employee competing with a hire, doing the onboarding, NIGO chasing, money-movement-request coordination, and document work under the firm's compliance regime, with reviewer-as-sender and a retained audit trail built for SEC books-and-records. We win on four things, none of which is a single feature (ADR 0035 Tenet 4, the moat is harness + guide + memory):
+The honest wedge: Jump and Zocks are advisor-copilot tools, anchored in the meeting and the advisor's productivity, expanding outward. The Operator is the **client-service-associate seat itself**, a configured employee competing with a hire, doing the onboarding, NIGO chasing, money-movement-request coordination, and document work under the firm's compliance regime, with reviewer-as-sender and a retained audit trail built for SEC books-and-records. We win on four things, none of which is a single feature (ADR 0037 Tenet 4, the moat is harness + guide + memory):
 
 1. **The operations seat, not the advisor's copilot**, the CSA work the research names, not meeting notes expanding outward.
 2. **Compliance built into the substrate**, money fail-closed, advice fail-closed, comms retained for books-and-records, in the most regulated vertical in the dozen.

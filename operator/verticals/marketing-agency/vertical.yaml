@@ -9,7 +9,7 @@
 #
 # The account-coordinator pack: substance-free connective work across a
 # project-management platform, email, calendar, documents, and the books. Per
-# ADR 0035 the Operator competes with the coordinator hire; the PM platform is a
+# ADR 0037 the Operator competes with the coordinator hire; the PM platform is a
 # connection target, not a competitor.
 #
 # Lightest-regulated vertical, one sharp line: NO FABRICATION. Deliver only
@@ -20,7 +20,7 @@ name: marketing-agency
 version: 0.1.0
 
 # Vertical-level safety floors (free-form slugs). Fail-closed, authored per
-# ADR 0035 Tenet 3 / ADR 0025. See the brief's "Compliance floor".
+# ADR 0037 Tenet 3 / ADR 0025. See the brief's "Compliance floor".
 compliance:
   - no-fabrication # deliver only authored deliverables/metrics/status; never invent a number, result, or claim
   - client-confidentiality # no client's info/assets/results cross into another client's comms

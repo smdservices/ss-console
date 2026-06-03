@@ -3,12 +3,12 @@ title: 'Vertical Spec: Home Services (Operator pack)'
 date: 2026-06-02
 status: draft
 captain: Scott Durgan
-related-adr: 0022-vertical-pack-architecture.md, 0035-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
+related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
 ---
 
 # Vertical Spec: Home Services
 
-The brief that drives the home-services pack's manifest, N=0 proof, marketing surface, and delivery SOP, skinned from the worked reference (`law-firm.md`). Per [ADR 0035](../../adr/0035-operator-thesis.md), the Operator competes with a **hire** (the office CSR and dispatcher), not with software; the field-service management platform is a **connection target, not a competitor**.
+The brief that drives the home-services pack's manifest, N=0 proof, marketing surface, and delivery SOP, skinned from the worked reference (`law-firm.md`). Per [ADR 0037](../../adr/0037-operator-thesis.md), the Operator competes with a **hire** (the office CSR and dispatcher), not with software; the field-service management platform is a **connection target, not a competitor**.
 
 > **Two boundaries up front.** (1) **Phone is out of scope on purpose.** The home-services AI market is crowded with phone-answering and AI-receptionist bots, and the FSM platforms have native AI dispatch. The Operator is the **async connective office**, not the phone line, which is exactly where those products sit. (2) **The safety line is the emergency dispatch.** A gas leak, an active flood, no heat in a freeze, an electrical hazard, these are routed to a person immediately and never handled async, and the Operator never diagnoses the problem or commits a price.
 
@@ -78,7 +78,7 @@ Twelve home-services-specific skills plus two spine skills reused as-is. Format 
 
 ## Compliance floor (authored, not assumed)
 
-Per [ADR 0035](../../adr/0035-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised.
+Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised.
 
 - **No diagnosis or pricing commitment** — connective coordination only. The Operator never states what is wrong, what the fix is, or what it will cost as a commitment; the tech diagnoses and the company prices. Estimates and quotes are the company's authored numbers.
 - **Emergency-dispatch escalation (fail-open to a human)** — a possible emergency (gas, fire, flood, no heat in a freeze, electrical hazard) routes to a person and the on-call dispatcher immediately, and life-safety issues are pointed to 911. Never handled async, never diagnosed.
@@ -96,7 +96,7 @@ Per the corrected lens: **system-features are connection targets; only a true em
 - **Connection targets (zero threat):** FSM-native AI, ServiceTitan's Titan Intelligence (Atlas assists CSRs, Dispatch Pro for AI dispatching), Housecall Pro and Jobber features. Powerful, inside the systems we connect across.
 - **Slice-automators (vendors, not seat-replacers):** the AI answering and receptionist field for contractors is crowded, and it is the phone-and-booking slice. None runs the whole async office, estimate follow-up, invoicing, memberships, recall, parts, and the emergency routing, configured to the shop. And it is the phone lane the Operator deliberately does not enter.
 
-The honest read: a hard-to-staff seat the shop still needs, with native AI inside the FSM and a crowd of phone bots around it. We win on four things, none of which is a single feature (ADR 0035 Tenet 4, the moat is harness + guide + memory):
+The honest read: a hard-to-staff seat the shop still needs, with native AI inside the FSM and a crowd of phone bots around it. We win on four things, none of which is a single feature (ADR 0037 Tenet 4, the moat is harness + guide + memory):
 
 1. **The connective whole**, the async office around the field, not a phone bot.
 2. **The money and retention work**, estimate follow-up, invoicing, memberships, and recall, where the recoverable revenue is.

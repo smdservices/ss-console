@@ -3,12 +3,12 @@ title: 'Vertical Spec: Marketing Agency (Operator pack)'
 date: 2026-06-02
 status: draft
 captain: Scott Durgan
-related-adr: 0022-vertical-pack-architecture.md, 0035-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
+related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
 ---
 
 # Vertical Spec: Marketing Agency
 
-The brief that drives the marketing-agency pack's manifest, N=0 proof, marketing surface, and delivery SOP, skinned from the worked reference (`law-firm.md`). Per [ADR 0035](../../adr/0035-operator-thesis.md), the Operator competes with a **hire** (the account coordinator and project manager), not with software; the project-management platform is a **connection target, not a competitor**.
+The brief that drives the marketing-agency pack's manifest, N=0 proof, marketing surface, and delivery SOP, skinned from the worked reference (`law-firm.md`). Per [ADR 0037](../../adr/0037-operator-thesis.md), the Operator competes with a **hire** (the account coordinator and project manager), not with software; the project-management platform is a **connection target, not a competitor**.
 
 > **The lightest-regulated vertical, with one sharp line.** A marketing agency has no UPL, no HIPAA, no SEC. The one hard line is fabrication: the Operator delivers only authored deliverables, authored report metrics, and authored status, never an invented number, claim, or result. Client confidentiality (no cross-client leakage) and no unilateral scope or contract commitment round out the floor.
 
@@ -78,7 +78,7 @@ Twelve marketing-agency-specific skills plus two spine skills reused as-is. Form
 
 ## Compliance floor (authored, not assumed)
 
-Per [ADR 0035](../../adr/0035-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised. This is the lightest floor in the dozen, with one sharp line.
+Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised. This is the lightest floor in the dozen, with one sharp line.
 
 - **No fabrication** — the Operator delivers only authored deliverables, authored report metrics, and authored status. It never invents, estimates, or adjusts a number, result, or claim. This is the sharp line, reports and status carry only what the agency authored.
 - **Client confidentiality** — no client's information, assets, or results cross into another client's communications.
@@ -96,7 +96,7 @@ Per the corrected lens: **system-features are connection targets; only a true em
 - **Connection targets (zero threat):** PM-platform-native AI, Asana's AI intake and workflows, Monday's AI, ClickUp Brain. Workflow automation inside the systems we connect across, not a cross-system client-facing coordinator.
 - **Slice-automators (vendors, not seat-replacers):** generic AI assistants and PM automations handle task routing and internal workflow, the internal slice. None runs the whole client-facing account-coordination seat, onboarding through renewal, configured to the agency and in its voice, under human review.
 
-The honest read: a high-churn seat the agency still needs, with native AI automating internal workflow rather than running client coordination. We win on four things, none of which is a single feature (ADR 0035 Tenet 4, the moat is harness + guide + memory):
+The honest read: a high-churn seat the agency still needs, with native AI automating internal workflow rather than running client coordination. We win on four things, none of which is a single feature (ADR 0037 Tenet 4, the moat is harness + guide + memory):
 
 1. **The client-facing whole**, the account-coordination seat, not internal task automation.
 2. **The asset-and-approval chase where projects stall**, the client inputs and sign-offs that hold work up.

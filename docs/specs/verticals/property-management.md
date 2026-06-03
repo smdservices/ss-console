@@ -3,12 +3,12 @@ title: 'Vertical Spec: Property Management (Operator pack)'
 date: 2026-06-02
 status: draft
 captain: Scott Durgan
-related-adr: 0022-vertical-pack-architecture.md, 0035-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
+related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
 ---
 
 # Vertical Spec: Property Management
 
-The brief that drives the property-management pack's manifest, N=0 proof, marketing surface, and delivery SOP, skinned from the worked reference (`law-firm.md`). Per [ADR 0035](../../adr/0035-operator-thesis.md), the Operator competes with a **hire** (the leasing and tenant coordinator), not with software; the property-management platform is a **connection target, not a competitor**.
+The brief that drives the property-management pack's manifest, N=0 proof, marketing surface, and delivery SOP, skinned from the worked reference (`law-firm.md`). Per [ADR 0037](../../adr/0037-operator-thesis.md), the Operator competes with a **hire** (the leasing and tenant coordinator), not with software; the property-management platform is a **connection target, not a competitor**.
 
 > **The distinctive floor here is Fair Housing.** Every prospect-facing and resident-facing message is subject to the Fair Housing Act, and HUD has confirmed the FHA applies when AI is used in screening and advertising. The pack enforces it architecturally: consistent criteria applied the same way to everyone, no protected-class inference, no steering, an audit trail, and human escalation for any protected-class-sensitive question. The second floor is the maintenance emergency, a habitability emergency (no heat, flood, gas, fire) is routed to a person immediately, never handled async.
 
@@ -78,7 +78,7 @@ Twelve property-management-specific skills plus two spine skills reused as-is. F
 
 ## Compliance floor (authored, not assumed)
 
-Per [ADR 0035](../../adr/0035-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised.
+Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised.
 
 - **Fair Housing** — every prospect- and resident-facing message applies the company's consistent, published criteria the same way to everyone. The Operator never infers, asks about, or acts on protected-class status, never steers a prospect toward or away from a unit or area, and routes any protected-class-sensitive question to a person. Consistent rules, an audit trail, and human escalation are the architecture HUD's AI guidance calls for.
 - **No screening or adverse-action decision** — the Operator coordinates the application and routes it; it never makes or communicates the screening decision or an adverse action, which the company owns.
@@ -97,7 +97,7 @@ Per the corrected lens: **system-features are connection targets; only a true em
 - **Connection targets (zero threat):** platform-native AI, AppFolio's Realm-X (native generative AI woven into the OS, saving users hours on busywork), Yardi and Buildium features. Powerful, and inside the systems we connect across, not a cross-system coordinator.
 - **Slice-automators (vendors, not seat-replacers):** the AI leasing-assistant field (a crowded set of tools) automates the leasing and maintenance-triage slice. None runs the whole resident-and-owner lifecycle with Fair-Housing discipline and habitability escalation, configured to the company.
 
-The honest read: a squeezed seat the company still needs, with native AI inside the platform and slice automation around leasing. We win on four things, none of which is a single feature (ADR 0035 Tenet 4, the moat is harness + guide + memory):
+The honest read: a squeezed seat the company still needs, with native AI inside the platform and slice automation around leasing. We win on four things, none of which is a single feature (ADR 0037 Tenet 4, the moat is harness + guide + memory):
 
 1. **The connective whole**, the full resident-and-owner lifecycle, not the leasing slice.
 2. **Fair Housing and habitability as features**, consistent-criteria discipline and emergency escalation are coordination a generic leasing bot cannot safely do.

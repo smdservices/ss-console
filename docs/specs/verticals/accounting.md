@@ -3,12 +3,12 @@ title: 'Vertical Spec: Accounting Firm (Operator pack)'
 date: 2026-06-02
 status: draft
 captain: Scott Durgan
-related-adr: 0022-vertical-pack-architecture.md, 0035-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
+related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
 ---
 
 # Vertical Spec: Accounting Firm
 
-The brief that drives the accounting pack's manifest, N=0 proof, marketing surface, and delivery SOP, skinned from the worked reference (`law-firm.md`). Per [ADR 0035](../../adr/0035-operator-thesis.md), the Operator competes with a **hire** (the firm administrator and client coordinator), not with software; the practice-management platform is a **connection target, not a competitor**.
+The brief that drives the accounting pack's manifest, N=0 proof, marketing surface, and delivery SOP, skinned from the worked reference (`law-firm.md`). Per [ADR 0037](../../adr/0037-operator-thesis.md), the Operator competes with a **hire** (the firm administrator and client coordinator), not with software; the practice-management platform is a **connection target, not a competitor**.
 
 > **Where accounting sits, the cleanest open seat in the dozen.** The labor shortage is the most severe of any vertical: the profession has lost 300,000+ accountants since 2020, roughly three-quarters of CPAs are at or near retirement, the pipeline is shrinking, unemployment sits near 1-2%, and firms are turning away clients for lack of capacity. The funded AI here, Basis, Truewind, Zeni, targets the **work** (the AI staff accountant doing close, entries, audit-prep), not the connective admin seat. The connective coordinator seat, onboarding, document chasing, deadlines, e-sign, billing, is open and the firm cannot hire for it either. Research even names the opening: every firm runs four to six disconnected tools, and the glue is a person.
 
@@ -79,7 +79,7 @@ Twelve accounting-specific skills plus two spine skills reused as-is. Format per
 
 ## Compliance floor (authored, not assumed)
 
-Per [ADR 0035](../../adr/0035-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised.
+Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised.
 
 - **No tax or accounting advice** — connective coordination only. Never a tax position, never a deduction or treatment, never an interpretation of financials, never a due-date computation. The twelve skills are onboarding, document chasing, scheduling, deadline relay, e-sign chasing, status, billing, and renewal. This is the accounting analog of the law pack's UPL boundary.
 - **Taxpayer-information confidentiality (IRC §7216)** — taxpayer information is not disclosed or used beyond preparing the engagement without the consent the law requires. The Operator does not share or repurpose taxpayer data.
@@ -98,7 +98,7 @@ Per the corrected lens: **system-features are connection targets; only a true em
 - **Connection targets (zero threat):** practice-management platform features and portals (Karbon, Canopy, TaxDome automations), QuickBooks and Xero. The systems we connect across.
 - **Employee-replacers, but in a different lane:** the funded AI, Basis, Truewind, Zeni, is the **AI staff accountant**, doing the close, the entries, audit-prep, and consolidation. That is the credentialed work, not the connective admin seat. It competes with the preparer, not the coordinator. The coordinator seat, onboarding, PBC chasing, deadlines, e-sign, billing, is not what they are building.
 
-The honest read: the most acute labor shortage in the dozen, and the funded competition is aimed at a different seat. We win on four things, none of which is a single feature (ADR 0035 Tenet 4, the moat is harness + guide + memory):
+The honest read: the most acute labor shortage in the dozen, and the funded competition is aimed at a different seat. We win on four things, none of which is a single feature (ADR 0037 Tenet 4, the moat is harness + guide + memory):
 
 1. **The connective whole**, the full coordinator seat, onboarding through renewal, not a single automation.
 2. **The chasing the firm cannot staff**, PBC document collection and deadline tracking, where the work actually stalls.

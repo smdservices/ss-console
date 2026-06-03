@@ -3,12 +3,12 @@ title: 'Vertical Spec: Dental Practice (Operator pack)'
 date: 2026-06-02
 status: draft
 captain: Scott Durgan
-related-adr: 0022-vertical-pack-architecture.md, 0035-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
+related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
 ---
 
 # Vertical Spec: Dental Practice
 
-The brief that drives the dental pack's manifest, N=0 proof, marketing surface, and delivery SOP, skinned from the worked reference (`law-firm.md`). Per [ADR 0035](../../adr/0035-operator-thesis.md), the Operator competes with a **hire** (the front-desk and treatment coordinator), not with software; the practice-management system is a **connection target, not a competitor**.
+The brief that drives the dental pack's manifest, N=0 proof, marketing surface, and delivery SOP, skinned from the worked reference (`law-firm.md`). Per [ADR 0037](../../adr/0037-operator-thesis.md), the Operator competes with a **hire** (the front-desk and treatment coordinator), not with software; the practice-management system is a **connection target, not a competitor**.
 
 > **Read this first, dental is the most contested vertical in the dozen.** The seat is open by the labor test (42% of practices carry a front-desk vacancy, 45-60 days to fill, structural shortage). But unlike the others, dental has a real, funded, multi-function competitor: Arini (YC-backed, deployed across hundreds of DSOs) answers calls and handles scheduling, insurance verification, and recall with bidirectional integration into Dentrix, Eaglesoft, and Open Dental. That is not a slice, it is a genuine front-desk product. Our honest wedge is the **async connective whole Arini's phone-first product does not run**, treatment-plan follow-up, claims and billing follow-up, reactivation, records, and the cross-system glue, plus a configurable substrate rather than a fixed receptionist. We enter against a real incumbent here, not an open field. See "Competitive read."
 
@@ -81,7 +81,7 @@ Twelve dental-specific skills plus two spine skills reused as-is. Format per ski
 
 ## Compliance floor (authored, not assumed)
 
-Per [ADR 0035](../../adr/0035-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised.
+Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised.
 
 - **No clinical advice** — connective front-desk and coordination work only. Never a diagnosis, never a treatment recommendation, never a clinical interpretation, never a urgency judgment. The twelve skills are intake, scheduling, recall, benefits relay, plan follow-up, claims and billing, records, and escalation. This is the dental analog of the law pack's UPL boundary.
 - **Benefits relay, never a coverage guarantee** — `insurance-verification-relay` relays what the payer returns; it never guarantees coverage or states a patient's out-of-pocket as a promise.
@@ -100,7 +100,7 @@ Per the corrected lens: **system-features are connection targets; only a true em
 - **Connection targets (zero threat):** PMS-native and bolt-on patient comms (Weave, Dental Intelligence, NexHealth reminders). Clinical AI in a different lane entirely (Pearl, Overjet read radiographs, that is not the front desk). Slices and adjacent products.
 - **The real competitor:** Arini (YC-backed, hundreds of DSO deployments) is a phone-first AI receptionist that also schedules, verifies insurance, and runs recall, with bidirectional PMS integration. This is a genuine front-desk product, not a slice. The phone-answering category around it (a long list of voice vendors) is crowded.
 
-The honest wedge: Arini owns the phone and the live-call slice of the seat. The Operator runs the **async connective whole that a phone receptionist does not**, the treatment-plan follow-up that recovers unscheduled production, the claims and patient-billing follow-up, reactivation, forms and records, and the cross-system glue, configured to the practice's protocols and voice, under human review. We win on four things, none of which is a single feature (ADR 0035 Tenet 4, the moat is harness + guide + memory):
+The honest wedge: Arini owns the phone and the live-call slice of the seat. The Operator runs the **async connective whole that a phone receptionist does not**, the treatment-plan follow-up that recovers unscheduled production, the claims and patient-billing follow-up, reactivation, forms and records, and the cross-system glue, configured to the practice's protocols and voice, under human review. We win on four things, none of which is a single feature (ADR 0037 Tenet 4, the moat is harness + guide + memory):
 
 1. **The async connective whole**, the back-of-front-desk a voice receptionist does not run.
 2. **The money work**, unscheduled treatment, unpaid claims, and patient balances, where the recoverable dollars are.

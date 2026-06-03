@@ -3,12 +3,12 @@ title: 'Vertical Spec: Mortgage (Operator pack)'
 date: 2026-06-02
 status: draft
 captain: Scott Durgan
-related-adr: 0022-vertical-pack-architecture.md, 0035-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
+related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
 ---
 
 # Vertical Spec: Mortgage
 
-The brief that drives the mortgage pack's manifest, N=0 proof, marketing surface, and delivery SOP, skinned from the worked reference (`law-firm.md`). Per [ADR 0035](../../adr/0035-operator-thesis.md), the Operator competes with a **hire** (the loan processor and loan-officer assistant), not with software; the loan origination system is a **connection target, not a competitor**.
+The brief that drives the mortgage pack's manifest, N=0 proof, marketing surface, and delivery SOP, skinned from the worked reference (`law-firm.md`). Per [ADR 0037](../../adr/0037-operator-thesis.md), the Operator competes with a **hire** (the loan processor and loan-officer assistant), not with software; the loan origination system is a **connection target, not a competitor**.
 
 > **The thesis, in the industry's own words.** Mortgage-technology analysts describe 2026's direction as "AI orchestration layered on top of existing LOS platforms, not a replacement," and note that the Encompass SDK and APIs let third-party software push data, attach documents, and read loan state, "exactly what an orchestration layer needs." That orchestration seat is the loan processor. The funded AI here is largely in document processing and underwriting-prep (the work); the borrower-coordination and condition-chasing seat is the opening. The safety line, as in title, is wire fraud at closing.
 
@@ -78,7 +78,7 @@ Twelve mortgage-specific skills plus two spine skills reused as-is. Format per s
 
 ## Compliance floor (authored, not assumed)
 
-Per [ADR 0035](../../adr/0035-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised.
+Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised.
 
 - **No lending or mortgage advice** — connective coordination only. Never advises on loan products, rates, whether to lock, or eligibility; never negotiates or commits terms. Advising and negotiating loan terms is licensed loan-officer activity (and implicates RESPA, TILA, and loan-officer-compensation rules). This is the mortgage analog of the law pack's UPL boundary.
 - **No credit or underwriting decision** — the Operator never approves, denies, or conditions a loan; the underwriter decides.
@@ -97,7 +97,7 @@ Per the corrected lens: **system-features are connection targets; only a true em
 - **Connection targets (zero threat):** LOS and POS features and AI (Encompass, Floify's auto-verification, Arive). The systems we connect across, and the industry frames AI as orchestration on top of them.
 - **Employee-replacers, mostly in a different lane:** the funded mortgage AI concentrates on document processing and underwriting-prep, classifying and extracting from documents, the work, not the borrower-coordination seat. The cross-party chasing and status seat is the opening, and the industry literally describes the future as an orchestration layer on the LOS, which is what this pack is.
 
-The honest read: a cyclical seat the shop still needs, with the funded competition aimed at document processing rather than coordination. We win on four things, none of which is a single feature (ADR 0035 Tenet 4, the moat is harness + guide + memory):
+The honest read: a cyclical seat the shop still needs, with the funded competition aimed at document processing rather than coordination. We win on four things, none of which is a single feature (ADR 0037 Tenet 4, the moat is harness + guide + memory):
 
 1. **The connective whole**, application through closing across every party, not a document classifier.
 2. **The condition-chasing where loans stall**, the open-stip follow-up that holds up closings.

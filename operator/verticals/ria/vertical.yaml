@@ -8,7 +8,7 @@
 # (ria is registered by this PR). All list fields are required; [] is valid.
 #
 # The client-service-associate pack: substance-free connective work across an
-# advisor CRM, email, calendar, documents, e-sign, and team comms. Per ADR 0035
+# advisor CRM, email, calendar, documents, e-sign, and team comms. Per ADR 0037
 # the Operator competes with the CSA hire; the CRM/custodian are connection
 # targets, not competitors.
 #
@@ -21,7 +21,7 @@ name: ria
 version: 0.1.0
 
 # Vertical-level safety floors (free-form slugs). Fail-closed, authored per
-# ADR 0035 Tenet 3 / ADR 0025. See the brief's "Compliance floor" (heaviest in
+# ADR 0037 Tenet 3 / ADR 0025. See the brief's "Compliance floor" (heaviest in
 # the dozen).
 compliance:
   - no-investment-advice # connective work only; never a recommendation or opinion on a holding/allocation/product

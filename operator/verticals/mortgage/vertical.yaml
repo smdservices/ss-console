@@ -8,7 +8,7 @@
 # (mortgage is registered by this PR). All list fields are required; [] is valid.
 #
 # The loan-processor pack: substance-free connective work across a loan
-# origination system, email, calendar, documents, and team comms. Per ADR 0035
+# origination system, email, calendar, documents, and team comms. Per ADR 0037
 # the Operator competes with the processor hire; the LOS is a connection target.
 # The industry frames 2026 as "AI orchestration on top of the LOS" — which is
 # exactly this pack.
@@ -20,7 +20,7 @@ name: mortgage
 version: 0.1.0
 
 # Vertical-level safety floors (free-form slugs). Fail-closed, authored per
-# ADR 0035 Tenet 3 / ADR 0025. See the brief's "Compliance floor".
+# ADR 0037 Tenet 3 / ADR 0025. See the brief's "Compliance floor".
 compliance:
   - no-lending-or-mortgage-advice # never advise on products, rates, lock, or eligibility (licensed LO activity)
   - no-credit-or-underwriting-decision # never approve, deny, or condition a loan

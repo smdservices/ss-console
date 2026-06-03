@@ -3,12 +3,12 @@ title: 'Vertical Spec: Title & Escrow (Operator pack)'
 date: 2026-06-02
 status: draft
 captain: Scott Durgan
-related-adr: 0022-vertical-pack-architecture.md, 0035-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
+related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
 ---
 
 # Vertical Spec: Title & Escrow
 
-The brief that drives the title pack's manifest, N=0 proof, marketing surface, and delivery SOP, skinned from the worked reference (`law-firm.md`). Per [ADR 0035](../../adr/0035-operator-thesis.md), the Operator competes with a **hire** (the closing coordinator and escrow assistant), not with software; the title production system is a **connection target, not a competitor**.
+The brief that drives the title pack's manifest, N=0 proof, marketing surface, and delivery SOP, skinned from the worked reference (`law-firm.md`). Per [ADR 0037](../../adr/0037-operator-thesis.md), the Operator competes with a **hire** (the closing coordinator and escrow assistant), not with software; the title production system is a **connection target, not a competitor**.
 
 > **The safety line here is wire fraud, and it is absolute.** A title and escrow file moves real money, and seller impersonation and wire-instruction fraud are the dominant threats in the industry. The Operator **never transmits, confirms, or changes wire instructions, and never moves or disburses escrow funds.** Any inbound message touching wire instructions or banking details is routed to a human through the company's verified process, fail-closed. This is the title analog of the clinical packs' emergency router.
 
@@ -78,7 +78,7 @@ Twelve title-specific skills plus two spine skills reused as-is. Format per skil
 
 ## Compliance floor (authored, not assumed)
 
-Per [ADR 0035](../../adr/0035-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised.
+Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised.
 
 - **No legal or title advice** — connective coordination only. Never an opinion on title, marketability, exceptions, requirements, or the contract. This is the title analog of the law pack's UPL boundary.
 - **No fund movement or disbursement** — the Operator never moves, requests, directs, or confirms the disbursement of escrow funds. Funds are the escrow officer's, under the company's controls.
@@ -97,7 +97,7 @@ Per the corrected lens: **system-features are connection targets; only a true em
 - **Connection targets (zero threat):** TPS-native AI and tools, Qualia's embedded AI, SoftPro and ResWare features, and the fraud-prevention layer (CertifID and the like, which we route to, not compete with). The systems we connect across.
 - **Slice-automators (vendors, not seat-replacers):** point-automation tools (Alanna, Pythonic and similar) integrate into the TPS for order entry, document review, and client updates, the connective slices. None runs the whole closing desk across every party with the wire-safety discipline, configured to the company.
 
-The honest read: a high-volume seat the company still needs, and only slice automation around it. We win on four things, none of which is a single feature (ADR 0035 Tenet 4, the moat is harness + guide + memory):
+The honest read: a high-volume seat the company still needs, and only slice automation around it. We win on four things, none of which is a single feature (ADR 0037 Tenet 4, the moat is harness + guide + memory):
 
 1. **The connective whole**, opening through recording across every party, not a single automation.
 2. **The wire-safety discipline as a feature**, a coordinator that provably never touches funds or wire instructions is safer than a generic bot in the one place that matters most.

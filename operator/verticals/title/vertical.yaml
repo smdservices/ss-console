@@ -8,7 +8,7 @@
 # (title is registered by this PR). All list fields are required; [] is valid.
 #
 # The closing-coordinator pack: substance-free connective work across a title
-# production system, email, calendar, documents, and team comms. Per ADR 0035
+# production system, email, calendar, documents, and team comms. Per ADR 0037
 # the Operator competes with the closing-coordinator hire; the TPS is a
 # connection target, not a competitor.
 #
@@ -20,7 +20,7 @@ name: title
 version: 0.1.0
 
 # Vertical-level safety floors (free-form slugs). Fail-closed, authored per
-# ADR 0035 Tenet 3 / ADR 0025. See the brief's "Compliance floor".
+# ADR 0037 Tenet 3 / ADR 0025. See the brief's "Compliance floor".
 compliance:
   - no-legal-or-title-advice # connective work only; never an opinion on title or the contract
   - no-fund-movement-or-disbursement # never moves, directs, or confirms disbursement of escrow funds

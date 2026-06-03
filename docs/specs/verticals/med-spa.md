@@ -3,12 +3,12 @@ title: 'Vertical Spec: Med Spa (Operator pack)'
 date: 2026-06-02
 status: draft
 captain: Scott Durgan
-related-adr: 0022-vertical-pack-architecture.md, 0035-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
+related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
 ---
 
 # Vertical Spec: Med Spa
 
-The brief that drives the med-spa pack's manifest, N=0 proof, marketing surface, and delivery SOP, skinned from the worked reference (`law-firm.md`). Per [ADR 0035](../../adr/0035-operator-thesis.md), the Operator competes with a **hire** (the patient coordinator), not with software; the spa-management platform is a **connection target, not a competitor**.
+The brief that drives the med-spa pack's manifest, N=0 proof, marketing surface, and delivery SOP, skinned from the worked reference (`law-firm.md`). Per [ADR 0037](../../adr/0037-operator-thesis.md), the Operator competes with a **hire** (the patient coordinator), not with software; the spa-management platform is a **connection target, not a competitor**.
 
 > **Where med spa sits.** Integration is the easy end: the platforms (Boulevard, Zenoti, Mangomint) are modern cloud software with APIs, so a `build:` adapter on a clean API. The seat is open, the category is booming and staffing churns. The AI in the market is native-platform slices (Zenoti's AI Workforce, Boulevard's texting), booking and SMS inside the platform, not the connective whole. The med-spa-specific twist is compliance: treatments are medical, performed under medical direction, so the coordination has hard lines a salon does not.
 
@@ -81,7 +81,7 @@ Twelve med-spa-specific skills plus two spine skills reused as-is. Format per sk
 
 ## Compliance floor (authored, not assumed)
 
-Per [ADR 0035](../../adr/0035-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised.
+Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised.
 
 - **No medical advice** — connective coordination only. Treatments are medical procedures performed under medical direction. Never a recommendation, never a clinical opinion, never an assessment of a reaction. The twelve skills are leads, scheduling, the exam gate, memberships, authored care delivery, financing, reviews, reactivation, and escalation.
 - **Good-faith-exam gate** — the Operator schedules the required medical exam and never substitutes for it or clears a client for treatment; clearance is the provider's.
@@ -100,7 +100,7 @@ Per the corrected lens: **system-features are connection targets; only a true em
 - **Connection targets (zero threat):** platform-native AI and comms, Zenoti's AI Workforce (AI receptionist, SmartBot), Boulevard's texting, Mangomint automations. Booking and SMS slices inside the platform we connect across. They do not run the cross-system patient journey.
 - **Slice-automators (vendors, not seat-replacers):** generic AI booking and answering services point at spas, the booking-and-SMS slice. None runs the connective whole, the good-faith-exam gate, memberships and packages, authored pre/post-care, financing, reactivation, and the safety escalation, configured to the spa and in its voice.
 
-The honest read: a fast-growing category with a high-churn seat and only slice automation in the market. We win on four things, none of which is a single feature (ADR 0035 Tenet 4, the moat is harness + guide + memory):
+The honest read: a fast-growing category with a high-churn seat and only slice automation in the market. We win on four things, none of which is a single feature (ADR 0037 Tenet 4, the moat is harness + guide + memory):
 
 1. **The connective whole**, the full patient journey, not a booking bot.
 2. **The compliance gates as features**, the good-faith-exam gate and adverse-event escalation are coordination a generic booking bot cannot safely do.
