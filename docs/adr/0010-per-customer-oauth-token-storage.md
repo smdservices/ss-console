@@ -33,6 +33,7 @@ Shared SMD-side secrets (Anthropic API key, Composio API key, AgentMail API key,
 - File permissions: `0600`, owned by the `hermes` user (uid 10000)
 - Filesystem: per-customer Fly volume (already provisioned per ADR 0007)
 - Format: JSON `{ "access_token": <str>, "refresh_token": <str>, "scopes": [...], "expires_at": <iso8601>, "obtained_at": <iso8601>, "provider": <str> }`
+  - **Amended by [ADR 0036](./0036-oauth-token-relay-fly-secret-restart.md) (2026-06-02):** this shape was aspirational and does not match the connector code. The Google connectors read the file via `google.oauth2.credentials.Credentials.from_authorized_user_file`, so the authoritative on-disk shape is the **google-auth authorized-user JSON**: `{ "token", "refresh_token", "token_uri", "client_id", "client_secret", "scopes": [...], "universe_domain", "account", "expiry": <iso8601> }`. The relay (`src/lib/oauth/store.ts`) emits exactly this. Other providers follow their own client library's on-disk format.
 - Never logged. Never echoed. Token reads are recorded in the audit log as `oauth.token_read { provider, scopes, ts }` (no token value).
 
 ## Why Fly volume over Infisical

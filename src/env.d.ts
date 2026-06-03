@@ -168,6 +168,14 @@ declare namespace Cloudflare {
      */
     OAUTH_STATE_SIGNING_KEY?: string
     /**
+     * Fly.io API token (SMD-owned, from Infisical) used by the OAuth token
+     * relay (`src/lib/oauth/store.ts`) to set a customer app's
+     * `GOOGLE_TOKEN_JSON` secret and restart its Machine on connect/re-consent.
+     * Must be a Worker secret, never a `[vars]` entry. Scope it to the
+     * customer apps it manages. See the OAuth-token-relay ADR.
+     */
+    FLY_API_TOKEN?: string
+    /**
      * Cloudflare account id and D1 HTTP API token, used by the Captain
      * cost dashboard (issue #885) to read per-customer `cost_telemetry`
      * rows over HTTP. Per ADR 0009 each customer has their own D1
