@@ -33,6 +33,12 @@ interface Props {
 }
 
 const { rows } = Astro.props
+
+// One Google consent covers every Google connector (Gmail/Calendar/Drive), so
+// the section shows a single "Connect Google" affordance rather than a button
+// per row (UI-PATTERNS R2, redundancy ban). The initiate route lives at
+// /portal/products/operator/oauth/google-workspace (GET → Google consent).
+const hasGoogleConnector = rows.some((row) => (row.adapter ?? '').toLowerCase().includes('google'))
 ---
 
 <section aria-labelledby="settings-connectors-heading" class="mt-section">
@@ -88,4 +94,14 @@ const { rows } = Astro.props
       )
     }
   </div>
+  {
+    hasGoogleConnector ? (
+      <a
+        href="/portal/products/operator/oauth/google-workspace"
+        class="mt-stack inline-flex items-center min-h-11 px-4 py-2 font-['Archivo_Narrow'] text-xs md:text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)] border-[2px] border-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 no-underline"
+      >
+        Connect Google
+      </a>
+    ) : null
+  }
 </section>
