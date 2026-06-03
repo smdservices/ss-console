@@ -1,0 +1,42 @@
+# Add-on pack manifest: accounting/bookkeeping
+#
+# Schema: docs/specs/operator/vertical-manifest-schema.md (identical to
+# vertical.yaml). `name` MUST appear in ACCEPTED_ADDONS['accounting'] in
+# src/lib/operator/customer-yaml/types.ts (bookkeeping is registered). Add-on
+# assets are ADDITIVE on top of the accounting base; the base does not declare
+# them.
+#
+# Monthly client-accounting-services (CAS) connective skin: month-end
+# close-status updates to the client, recurring report delivery, and relaying
+# the recurring categorization/document questions a monthly engagement
+# generates. The bookkeeping WORK stays with the firm; this is coordination.
+
+name: bookkeeping
+version: 0.1.0
+
+# Additive floors on top of the base accounting compliance set.
+compliance:
+  - close-status-relay-only # report close status the firm sets; never assert the books are correct
+  - categorization-questions-relay # relay the firm's categorization questions; never categorize a transaction
+
+personas: []
+
+# Bookkeeping/CAS-specific connective skills (bodies in hermes-smd-overlay).
+skills:
+  - close-status-updater # sends the month-end close status the firm marks
+  - monthly-report-deliverer # delivers the firm's authored monthly reports on cadence
+  - categorization-question-relay # relays the firm's open questions to the client, collects answers
+
+# Inherits the base accounting connectors.
+connectors: []
+
+templates:
+  - month-end-close-update.md
+  - monthly-report-delivery.md
+
+fixtures:
+  - synthetic-monthly-cas-client
+
+evals:
+  - cert-bookkeeping-close-status-relay-only
+  - cert-bookkeeping-no-categorization

@@ -1,0 +1,111 @@
+# Vertical pack manifest: dental
+#
+# Schema: docs/specs/operator/vertical-manifest-schema.md (ADR 0022 Stream 1).
+# Brief:  docs/specs/verticals/dental.md (the skill catalog, connector map,
+#         personas, and domain read this manifest declares the identifiers for).
+#
+# `name` MUST match ACCEPTED_VERTICALS in src/lib/operator/customer-yaml/types.ts
+# (dental is registered by this PR). All list fields are required; [] is valid.
+#
+# The front-desk-and-treatment-coordinator pack: substance-free connective work
+# across a practice's PMS, email, calendar, documents, payments, and team comms.
+# Per ADR 0035 the Operator competes with the coordinator hire; the PMS is a
+# connection target, not a competitor.
+#
+# NB: dental is the most CONTESTED vertical (Arini, a funded multi-function AI
+# receptionist, is a real competitor). The wedge is the async connective whole
+# its phone-first product does not run. Phone is out of scope on purpose.
+
+name: dental
+version: 0.1.0
+
+# Vertical-level safety floors (free-form slugs). Fail-closed, authored per
+# ADR 0035 Tenet 3 / ADR 0025. See the brief's "Compliance floor".
+compliance:
+  - no-clinical-advice # connective work only; never diagnosis, treatment rec, or urgency judgment
+  - benefits-relay-no-guarantee # relay payer-returned benefits; never guarantee coverage or out-of-pocket
+  - emergency-escalation-fail-open # possible emergencies go to a human immediately; never handled async
+  - hipaa-phi-in-practice-surfaces # PHI stays inside practice surfaces
+  - reviewer-as-sender-floor # external mail under a human reviewer (ADR 0005)
+
+# Reference persona archetypes (templates, not runtime personas). See the
+# brief's "Personas".
+personas:
+  - slug: front-desk-coordinator
+    title: Front-Desk Coordinator
+  - slug: treatment-coordinator
+    title: Treatment Coordinator
+  - slug: office-manager
+    title: Office Manager
+
+# Vertical-default skills. Two spine skills reused as-is; the twelve
+# dental-specific skills are specified in the brief; their runtime bodies live
+# in hermes-smd-overlay (alongside the PMS build adapter).
+skills:
+  # spine (reused)
+  - inbox-triage # routes inbound; first gate the emergency router hooks
+  - status-report-assembler # compiles the digests
+  # new patient and scheduling
+  - new-patient-intake # escalates a dental emergency rather than handling it async
+  - appointment-scheduler # async; never assigns clinical urgency
+  - appointment-reminder-confirmer # also works the ASAP/short-call list
+  - no-show-rebooker
+  # the recall engine
+  - recare-recall # surfaces what the practice's interval marks due; never sets the interval
+  # benefits, treatment, and money
+  - insurance-verification-relay # relays payer-returned benefits; never guarantees coverage
+  - treatment-plan-followup # scheduling logistics; never upsells or frames clinical need
+  - claims-status-followup # chases status; never adjudicates a claim
+  - patient-billing-followup
+  # records and proactive
+  - forms-and-records-collector
+  - reactivation-winback
+  - emergency-escalation-router # routes possible emergencies to a human, never triages
+
+# Vertical-default connectors (capability + adapter + backend). MCP-first per
+# ADR 0020; no PMS ships an MCP, so the system of record is a BUILD adapter.
+# Open Dental (open API) is the pilot. Capabilities map onto the closed
+# CapabilityName union (the PMS is PracticeManagement, as Clio is for law).
+# Phone is out of scope on purpose (that is the competitor's lane).
+connectors:
+  - capability: PracticeManagement
+    adapter: open-dental
+    backend: 'build:open-dental' # pilot PMS (open API); Dentrix/Eaglesoft are the legacy tail
+  - capability: Email
+    adapter: m365-mail
+    backend: 'mcp:m365-mail'
+  - capability: Calendar
+    adapter: m365-calendar
+    backend: 'mcp:m365-calendar'
+  - capability: DocumentStorage
+    adapter: ms-365
+    backend: 'mcp:softeria/ms-365-mcp-server'
+  - capability: Payments
+    adapter: dental-payments
+    backend: 'build:dental-payments' # patient-balance follow-up
+  - capability: InternalComms
+    adapter: slack
+    backend: 'mcp:slack' # emergency escalation to the team
+
+# Connective-artifact templates the pack provides (the N=0 proof; see
+# fixtures/n0-deliverability-proof.md).
+templates:
+  - new-patient-acknowledgment.md
+  - recare-recall-reminder.md
+  - benefits-summary-internal.md
+  - treatment-plan-followup.md
+  - claim-status-followup.md
+  - patient-balance-reminder.md
+  - emergency-holding-acknowledgment.md
+
+# Synthetic test fixtures shipped with the pack.
+fixtures:
+  - synthetic-recare-overdue
+  - synthetic-unscheduled-treatment-plan
+
+# Certification evals the pack must pass before a customer is bound to it.
+evals:
+  - cert-connective-no-clinical-advice
+  - cert-benefits-relay-no-guarantee
+  - cert-emergency-escalation-fail-open
+  - cert-treatment-followup-no-upsell
