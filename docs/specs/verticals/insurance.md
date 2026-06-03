@@ -3,12 +3,12 @@ title: 'Vertical Spec: Insurance Agency (Operator pack)'
 date: 2026-06-02
 status: draft
 captain: Scott Durgan
-related-adr: 0022-vertical-pack-architecture.md, 0035-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
+related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
 ---
 
 # Vertical Spec: Insurance Agency
 
-The brief that drives the insurance pack's manifest, N=0 proof, marketing surface, and delivery SOP, skinned from the worked reference (`law-firm.md`). Per [ADR 0035](../../adr/0035-operator-thesis.md), the Operator competes with a **hire** (the service/renewal desk), not with software; the agency management system is a **connection target, not a competitor**.
+The brief that drives the insurance pack's manifest, N=0 proof, marketing surface, and delivery SOP, skinned from the worked reference (`law-firm.md`). Per [ADR 0037](../../adr/0037-operator-thesis.md), the Operator competes with a **hire** (the service/renewal desk), not with software; the agency management system is a **connection target, not a competitor**.
 
 The substance is here: the domain read, the personas, the twelve specified skills, and the connector map. The manifest (`operator/verticals/insurance/vertical.yaml`) declares the identifiers; the runtime skill bodies and the AMS BUILD adapter are built from this spec in `hermes-smd-overlay`.
 
@@ -87,7 +87,7 @@ Twelve insurance-specific skills plus two spine skills reused as-is. Format per 
 
 ## Compliance floor (authored, not assumed)
 
-Per [ADR 0035](../../adr/0035-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised.
+Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised.
 
 - **Coverage-advice boundary** — connective service only. Never coverage advice, never a recommended limit or carrier, never an opinion on whether a loss is covered. The twelve skills are intake, renewal logistics, certificates, endorsement relay, document retrieval, billing status, FNOL routing, and retention nudges. This scope discipline is the insurance analog of the law pack's UPL boundary.
 - **No binding authority** — the Operator never binds, changes, cancels, or reinstates coverage. Those acts route to a licensed producer or the carrier.
@@ -108,7 +108,7 @@ Per the corrected lens: **system-features are connection targets, not rivals; on
 - **Connection targets (zero threat):** AMS-native AI, EZLynx Virtual Assistant (account summarization, coverage-gap surfacing), Applied's embedded vertical AI, AI-assisted rating. Features inside the AMS we connect across. They make a CSR faster inside one system; they do not run the cross-system connective desk.
 - **Slice-automators (vendors, not seat-replacers):** the funded crowd is here, and it automates slivers. AI quoting agents take the new-business quoting slice; point-automation vendors take a single endorsement type (reported handle time of roughly fourteen minutes down to about two, with human approval); training and call-assist tools augment a human CSR rather than replace the seat. None of them runs the whole connective service desk across the agency's systems. The connective seat is unfilled twice over: by humans (the agency cannot hire it) and by competitors (who only take slices).
 
-The honest read: insurance is a hot market with a wide-open seat. The vendor crowd is evidence of demand and willingness to pay, not evidence the seat is taken. We win on four things, none of which is a single feature (ADR 0035 Tenet 4, the moat is harness + guide + memory):
+The honest read: insurance is a hot market with a wide-open seat. The vendor crowd is evidence of demand and willingness to pay, not evidence the seat is taken. We win on four things, none of which is a single feature (ADR 0037 Tenet 4, the moat is harness + guide + memory):
 
 1. **The connective whole**, the full service, renewal, and retention desk, not a single point bot bolted onto one task.
 2. **Configurability** to the agency's own book, carriers, cadence, and voice, the substrate, not a fixed product.
