@@ -1,51 +1,66 @@
 # Vertical pack manifest: law-firm
 #
 # Schema: docs/specs/operator/vertical-manifest-schema.md (ADR 0022 Stream 1).
-# Brief:  docs/specs/verticals/law-firm.md.
+# Brief:  docs/specs/verticals/law-firm.md (the skill catalog, connector map,
+#         personas, and domain read this manifest declares the identifiers for).
 #
 # `name` MUST match ACCEPTED_VERTICALS in src/lib/operator/customer-yaml/types.ts
-# (law-firm is already registered). All list fields are required; [] is valid
-# and means "the pack does not provide this artifact class."
+# (law-firm is already registered). All list fields are required; [] is valid.
 #
-# The intake-and-matter coordinator pack: substance-free connective work
-# (intake, scheduling, engagement-letter chase, matter-status, logging) across
-# a firm's practice-management system, email, calendar, and documents. Per
-# ADR 0035 the Operator competes with the coordinator hire; the PM suite is a
-# connection target, not a competitor.
+# The intake-and-matter coordinator pack: substance-free connective work across
+# a firm's practice-management system, email, calendar, documents, e-sign, and
+# trust ledger. Per ADR 0035 the Operator competes with the coordinator hire;
+# the PM suite is a connection target, not a competitor.
 
 name: law-firm
 version: 0.1.0
 
-# Vertical-level safety constraints (free-form slugs). Floors, fail-closed,
-# authored per ADR 0035 Tenet 3 / ADR 0025. See the brief's "Compliance floor".
+# Vertical-level safety floors (free-form slugs). Fail-closed, authored per
+# ADR 0035 Tenet 3 / ADR 0025. See the brief's "Compliance floor".
 compliance:
   - upl-boundary # connective work only; never legal advice or substance
   - privilege # privileged content stays inside firm surfaces
   - conflict-routing # capture + route to a human; never auto-clear
   - reviewer-as-sender-floor # external mail under a human reviewer (ADR 0005), non-raisable floor
+  - trust-funds-read-only # report trust balances; never move money
   - aba-512-supervision # maps to ABA Model Rule 5.3 / Formal Opinion 512
 
-# Reference persona archetypes (templates, not runtime personas).
+# Reference persona archetypes (templates, not runtime personas). The seat the
+# pack fills, described by role. See the brief's "Personas".
 personas:
   - slug: intake-coordinator
     title: Intake & Matter Coordinator
+  - slug: paralegal-intake
+    title: Paralegal Running Intake & Matters
+  - slug: office-manager-intake
+    title: Office Manager Handling Intake
 
-# Vertical-default skills. Spine skills are reused (inbox-triage,
-# status-report-assembler); law-specific skill bodies live in
-# hermes-smd-overlay (the first hand-off).
+# Vertical-default skills. Two spine skills are reused as-is; the twelve
+# law-specific skills are specified in the brief's "Skill catalog"; their
+# runtime bodies live in hermes-smd-overlay (the first hand-off).
 skills:
-  - inbox-triage # spine (reused)
-  - status-report-assembler # spine (reused)
-  - matter-intake # law-specific
-  - consult-scheduler # law-specific
-  - engagement-letter-chaser # law-specific
-  - matter-status-update # law-specific
-  - conflict-intake-router # law-specific (gather + route, never clear)
-  - stalled-matter-nudge # law-specific
-  - document-receipt-logger # law-specific
+  # spine (reused)
+  - inbox-triage # routes inbound to the right skill
+  - status-report-assembler # compiles the digests
+  # intake
+  - new-matter-intake
+  - conflict-intake-router # gather + route; never clears
+  - consult-scheduler
+  # keeping matters moving
+  - engagement-letter-chaser
+  - trust-balance-nudge # read-only on funds
+  - matter-status-responder
+  - document-receipt-logger
+  - stalled-matter-nudge
+  - deadline-and-sol-tracker # tracks authored dates; never computes a limitation
+  # proactive
+  - client-matter-digest
+  - referral-source-acknowledgment
+  - intake-to-system-sync
 
 # Vertical-default connectors (capability + adapter + backend). MCP-first per
-# ADR 0020; the pilot needs no BUILD adapter (Clio MCP exists).
+# ADR 0020; the pilot's system of record (Clio) has an MCP, so the pilot needs
+# no BUILD adapter. Payments/IntakeCRM are BUILD (the overlay hand-off).
 connectors:
   - capability: PracticeManagement
     adapter: clio
@@ -62,15 +77,23 @@ connectors:
   - capability: ESign
     adapter: docusign
     backend: 'build:docusign'
+  - capability: Payments
+    adapter: lawpay
+    backend: 'build:lawpay' # trust-account writes owned; read-only here
+  - capability: IntakeCRM
+    adapter: clio-grow
+    backend: 'build:clio-grow'
 
-# SOP / letter / email templates the pack provides (the N=0 connective
-# artifacts; see fixtures/).
+# Connective-artifact templates the pack provides (the N=0 proof; see
+# fixtures/n0-deliverability-proof.md).
 templates:
   - intake-acknowledgment.md
   - consult-booking.md
   - engagement-letter-chase.md
   - matter-status-update.md
   - document-received-log.md
+  - trust-replenishment-request.md
+  - stalled-matter-followup.md
 
 # Synthetic test fixtures shipped with the pack.
 fixtures:
@@ -81,3 +104,5 @@ fixtures:
 evals:
   - cert-connective-no-legal-advice
   - cert-intake-ack-deliverability
+  - cert-conflict-routing-human
+  - cert-trust-funds-read-only
