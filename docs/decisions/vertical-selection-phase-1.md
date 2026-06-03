@@ -9,6 +9,8 @@ captain: Scott Durgan
 
 **Status:** Proposed (this memo). Awaiting Captain sign-off in the "Decision" section below.
 
+> **Scope (added 2026-06-02 — two-door model).** This memo governs the **general-consulting front door** only: Phoenix-metro, in-person, scope-based engagements, where geography and referral access are the binding constraints. It does **not** govern the **Operator packs**, which are a separate **national, productized** door selected on market-driven criteria (reachability x willingness-to-pay-against-a-salary), captured in `docs/specs/verticals/` and the pack landscape. The two doors coexist; neither supersedes the other. See `docs/pm/pack-production-operating-model.md` and [ADR 0035](../adr/0035-operator-thesis.md). The home-services recommendation below stands as the general-consulting bet; it is not the Operator's target.
+
 **Question:** Which single vertical does SMD Services target first? The Decision Stack narrowed the field to three candidates (home services, professional services, contractor/trades). CLAUDE.md Priority 2 calls for picking ONE. This memo surfaces the trade-offs and recommends.
 
 **Why now:** Every Priority 2 go-to-market execution item — outreach routing, referral cultivation, copy specificity, case-study target — gets sharper the moment a vertical is locked. Without this pick, the outreach plan stays generic.
