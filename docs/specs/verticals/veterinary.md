@@ -3,12 +3,12 @@ title: 'Vertical Spec: Veterinary Clinic (Operator pack)'
 date: 2026-06-02
 status: draft
 captain: Scott Durgan
-related-adr: 0022-vertical-pack-architecture.md, 0035-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
+related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
 ---
 
 # Vertical Spec: Veterinary Clinic
 
-The brief that drives the veterinary pack's manifest, N=0 proof, marketing surface, and delivery SOP, skinned from the worked reference (`law-firm.md`). Per [ADR 0035](../../adr/0035-operator-thesis.md), the Operator competes with a **hire** (the front-desk client coordinator), not with software; the practice information management system is a **connection target, not a competitor**.
+The brief that drives the veterinary pack's manifest, N=0 proof, marketing surface, and delivery SOP, skinned from the worked reference (`law-firm.md`). Per [ADR 0037](../../adr/0037-operator-thesis.md), the Operator competes with a **hire** (the front-desk client coordinator), not with software; the practice information management system is a **connection target, not a competitor**.
 
 The substance is here: the domain read, the personas, the twelve specified skills, and the connector map. The manifest (`operator/verticals/veterinary/vertical.yaml`) declares the identifiers; the runtime skill bodies and the PIMS BUILD adapter are built from this spec in `hermes-smd-overlay`.
 
@@ -84,7 +84,7 @@ Twelve veterinary-specific skills plus two spine skills reused as-is. Format per
 
 ## Compliance floor (authored, not assumed)
 
-Per [ADR 0035](../../adr/0035-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised.
+Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised.
 
 - **No veterinary medical advice** — connective front-desk work only. Never a diagnosis, never a treatment recommendation, never an interpretation of a result, never a urgency or triage judgment. The twelve skills are intake, scheduling, reminders, recall, refill relay, result delivery of authored content, estimates, boarding, follow-up, and escalation. This scope discipline is the veterinary analog of the law pack's UPL boundary.
 - **Emergency escalation (fail-open to a human)** — a message that may describe an emergency is handed to a person at the clinic immediately, never handled async and never answered with medical content. `emergency-escalation-router` errs toward escalation by design.
@@ -107,7 +107,7 @@ Per the corrected lens: **system-features are connection targets, not rivals; on
 
 The triage slice is one we **will not** take, on safety grounds: assessing urgency is veterinary medical judgment, and the hybrid services already concede that a human handles emergency symptom assessment. Our `emergency-escalation-router` does the opposite of triage, it routes a possible emergency to a person without judging it. That is both the compliance floor and a clean line between us and the triage vendors.
 
-The honest read: veterinary is a hot market with the most open seat in the dozen. We win on four things, none of which is a single feature (ADR 0035 Tenet 4, the moat is harness + guide + memory):
+The honest read: veterinary is a hot market with the most open seat in the dozen. We win on four things, none of which is a single feature (ADR 0037 Tenet 4, the moat is harness + guide + memory):
 
 1. **The connective whole**, the full front desk, not a phone bot or a symptom checker bolted onto one task.
 2. **Configurability** to the clinic's own protocols, schedule, services, and voice, the substrate, not a fixed product.
