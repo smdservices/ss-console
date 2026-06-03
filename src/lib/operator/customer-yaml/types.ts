@@ -34,6 +34,8 @@ export const ACCEPTED_VERTICALS = [
   'title',
   'mortgage',
   'ria',
+  'property-management',
+  'home-services',
   'mixed',
 ] as const
 export type Vertical = (typeof ACCEPTED_VERTICALS)[number]
@@ -64,6 +66,8 @@ export const ACCEPTED_ADDONS: Readonly<Record<Vertical, readonly string[]>> = {
   title: [],
   mortgage: [],
   ria: [],
+  'property-management': [],
+  'home-services': [],
   mixed: [],
 } as const
 
@@ -122,6 +126,8 @@ export const VERTICAL_AUDIT_LOG_DAYS_DEFAULTS: Readonly<Record<Vertical, number>
   title: 2555,
   mortgage: 2555,
   ria: 2555,
+  'property-management': 1825,
+  'home-services': 1095,
   mixed: 2555,
 } as const
 

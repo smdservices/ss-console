@@ -1,0 +1,105 @@
+# Vertical pack manifest: marketing-agency
+#
+# Schema: docs/specs/operator/vertical-manifest-schema.md (ADR 0022 Stream 1).
+# Brief:  docs/specs/verticals/marketing-agency.md (the skill catalog, connector
+#         map, personas, and domain read this manifest declares for).
+#
+# `name` MUST match ACCEPTED_VERTICALS in src/lib/operator/customer-yaml/types.ts
+# (marketing-agency was already registered). All list fields required; [] ok.
+#
+# The account-coordinator pack: substance-free connective work across a
+# project-management platform, email, calendar, documents, and the books. Per
+# ADR 0035 the Operator competes with the coordinator hire; the PM platform is a
+# connection target, not a competitor.
+#
+# Lightest-regulated vertical, one sharp line: NO FABRICATION. Deliver only
+# authored deliverables, report metrics, and status; never invent a number,
+# result, or claim.
+
+name: marketing-agency
+version: 0.1.0
+
+# Vertical-level safety floors (free-form slugs). Fail-closed, authored per
+# ADR 0035 Tenet 3 / ADR 0025. See the brief's "Compliance floor".
+compliance:
+  - no-fabrication # deliver only authored deliverables/metrics/status; never invent a number, result, or claim
+  - client-confidentiality # no client's info/assets/results cross into another client's comms
+  - no-unilateral-scope-or-commitment # relay authored scope/terms/dates; never commit on its own
+  - reviewer-as-sender-floor # external mail under a human reviewer (ADR 0005)
+
+# Reference persona archetypes (templates, not runtime personas). See the
+# brief's "Personas".
+personas:
+  - slug: account-coordinator
+    title: Account Coordinator
+  - slug: project-manager
+    title: Project Manager
+  - slug: account-director
+    title: Account Director
+
+# Vertical-default skills. Two spine skills reused as-is; the twelve
+# marketing-agency-specific skills are specified in the brief; their runtime
+# bodies live in hermes-smd-overlay (alongside the PM platform build adapter).
+skills:
+  # spine (reused)
+  - inbox-triage # routes inbound to the right skill
+  - status-report-assembler # compiles the digests
+  # onboarding and status
+  - client-onboarding # relays authored onboarding; never commits scope or deliverables
+  - project-status-updater # reports platform status; never invents progress or a result
+  - client-status-responder # status only; no fabricated metric or claim
+  # the asset-and-approval chase (the connective heart)
+  - asset-feedback-chaser # chases the agency's open items; never produces the missing input
+  - deliverable-review-router # routes the authored deliverable; never alters or approves it
+  - meeting-notes-actionizer # works only from authored notes; invents no action or commitment
+  # timelines and money
+  - meeting-scheduler
+  - deadline-milestone-reminder # surfaces platform dates; makes no delivery commitment
+  - timeline-change-communicator # relays the authored change; never promises a new date
+  - invoice-payment-followup
+  - report-deliverer # delivers authored metrics only; never invents/estimates/adjusts a number
+  - retainer-renewal-coordinator # relays authored renewal terms; never re-scopes or re-prices
+
+# Vertical-default connectors (capability + adapter + backend). MCP-first per
+# ADR 0020; the PM platforms have APIs but no MCP, so the system of record is a
+# BUILD adapter. The Accounting connector is read-mostly (invoice/AR status).
+# Capabilities map onto the closed CapabilityName union (the PM platform is
+# PracticeManagement).
+connectors:
+  - capability: PracticeManagement
+    adapter: asana
+    backend: 'build:asana' # pilot PM platform (API); Monday/ClickUp next
+  - capability: Email
+    adapter: m365-mail
+    backend: 'mcp:m365-mail'
+  - capability: Calendar
+    adapter: m365-calendar
+    backend: 'mcp:m365-calendar'
+  - capability: DocumentStorage
+    adapter: ms-365
+    backend: 'mcp:softeria/ms-365-mcp-server'
+  - capability: Accounting
+    adapter: quickbooks
+    backend: 'build:quickbooks' # invoice/AR status, read-mostly
+
+# Connective-artifact templates the pack provides (the N=0 proof; see
+# fixtures/n0-deliverability-proof.md).
+templates:
+  - client-kickoff.md
+  - project-status-update.md
+  - asset-feedback-chase.md
+  - deliverable-review-request.md
+  - timeline-change-note.md
+  - report-delivery.md
+
+# Synthetic test fixtures shipped with the pack.
+fixtures:
+  - synthetic-new-retainer-onboarding
+  - synthetic-stalled-asset-approval
+
+# Certification evals the pack must pass before a customer is bound to it.
+evals:
+  - cert-no-fabrication-authored-only
+  - cert-client-confidentiality
+  - cert-no-unilateral-scope-commitment
+  - cert-report-delivery-authored-metrics-only
