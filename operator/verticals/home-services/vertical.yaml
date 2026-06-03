@@ -1,0 +1,104 @@
+# Vertical pack manifest: home-services
+#
+# Schema: docs/specs/operator/vertical-manifest-schema.md (ADR 0022 Stream 1).
+# Brief:  docs/specs/verticals/home-services.md (the skill catalog, connector
+#         map, personas, and domain read this manifest declares for).
+#
+# `name` MUST match ACCEPTED_VERTICALS in src/lib/operator/customer-yaml/types.ts
+# (home-services is registered by this PR). All list fields required; [] ok.
+#
+# The async-office pack: substance-free connective work across an FSM platform,
+# email, calendar, documents, and team comms. Per ADR 0037 the Operator competes
+# with the CSR/dispatcher hire; the FSM is a connection target, not a competitor.
+#
+# BOUNDARIES: phone is out of scope on purpose (the AI-receptionist crowd's lane;
+# this is the async office). Safety: emergency dispatch (gas/fire/flood/no-heat/
+# electrical) routes to a person immediately; never diagnose or commit a price.
+
+name: home-services
+version: 0.1.0
+
+# Vertical-level safety floors (free-form slugs). Fail-closed, authored per
+# ADR 0037 Tenet 3 / ADR 0025. See the brief's "Compliance floor".
+compliance:
+  - no-diagnosis-or-pricing-commitment # never state the problem, the fix, or the price; the tech/company does
+  - emergency-dispatch-escalation-fail-open # gas/fire/flood/no-heat/electrical go to a human immediately; 911 for life-safety
+  - no-payment-authority # follow up on invoices; never process a payment
+  - reviewer-as-sender-floor # external mail under a human reviewer (ADR 0005)
+
+# Reference persona archetypes (templates, not runtime personas). See the
+# brief's "Personas".
+personas:
+  - slug: dispatcher
+    title: Dispatcher
+  - slug: csr-coordinator
+    title: CSR / Office Coordinator
+  - slug: office-manager
+    title: Office Manager
+
+# Vertical-default skills. Two spine skills reused as-is; the twelve
+# home-services-specific skills are specified in the brief; their runtime bodies
+# live in hermes-smd-overlay (alongside the FSM build adapter).
+skills:
+  # spine (reused)
+  - inbox-triage # routes inbound; first gate the emergency router hooks
+  - status-report-assembler # compiles the digests
+  # intake and scheduling
+  - service-request-intake # escalates an emergency; never diagnoses or quotes
+  - job-scheduler # async; never the diagnosis or the price
+  - appointment-reminder-confirmer # carries the arrival window
+  - dispatch-status-updater # relays the board's status; never what the tech will find or cost
+  # money and retention
+  - estimate-quote-followup # approval logistics; never quotes/adjusts/commits a price
+  - invoice-payment-followup
+  - membership-plan-coordinator # relays authored plan terms
+  - maintenance-recall # surfaces what the company's cadence marks due; no diagnostic claim
+  - parts-followup
+  # proactive and safety
+  - review-referral-request
+  - reactivation-winback
+  - emergency-dispatch-escalation-router # routes possible emergencies to a person, never triages; 911 for life-safety
+
+# Vertical-default connectors (capability + adapter + backend). MCP-first per
+# ADR 0020; the FSM platforms have APIs but no MCP, so the system of record is a
+# BUILD adapter. NO CallTracking connector in v1 (phone is out of scope on
+# purpose). Capabilities map onto the closed CapabilityName union (the FSM is
+# PracticeManagement).
+connectors:
+  - capability: PracticeManagement
+    adapter: servicetitan
+    backend: 'build:servicetitan' # pilot FSM (API); Housecall Pro / Jobber next
+  - capability: Email
+    adapter: m365-mail
+    backend: 'mcp:m365-mail'
+  - capability: Calendar
+    adapter: m365-calendar
+    backend: 'mcp:m365-calendar'
+  - capability: DocumentStorage
+    adapter: ms-365
+    backend: 'mcp:softeria/ms-365-mcp-server'
+  - capability: InternalComms
+    adapter: slack
+    backend: 'mcp:slack' # emergency-dispatch escalation
+
+# Connective-artifact templates the pack provides (the N=0 proof; see
+# fixtures/n0-deliverability-proof.md).
+templates:
+  - service-request-ack.md
+  - job-confirmation.md
+  - dispatch-en-route-update.md
+  - estimate-followup.md
+  - maintenance-recall-reminder.md
+  - emergency-dispatch-holding-note.md
+
+# Synthetic test fixtures shipped with the pack.
+fixtures:
+  - synthetic-hvac-service-request
+  - synthetic-gas-smell-emergency
+
+# Certification evals the pack must pass before a customer is bound to it.
+evals:
+  - cert-connective-no-diagnosis-or-pricing
+  - cert-emergency-dispatch-fail-open
+  - cert-estimate-followup-no-quote
+  - cert-no-payment-authority
