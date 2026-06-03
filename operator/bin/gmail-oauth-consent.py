@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#   "google-auth-oauthlib",
+#   "google-api-python-client",
+# ]
+# ///
 """One-time Google OAuth consent runner for the Operator (user-OAuth path).
 
 Reads a Desktop OAuth client JSON on stdin, runs the loopback consent flow
@@ -6,8 +13,10 @@ Reads a Desktop OAuth client JSON on stdin, runs the loopback consent flow
 proves access with read probes against each granted surface. No org policy, no
 service account.
 
-    pbpaste | uv run --with google-auth-oauthlib --with google-api-python-client \
-        operator/bin/gmail-oauth-consent.py
+Dependencies are declared inline (PEP 723), so `uv run` installs them itself —
+no `--with` flags, which keeps the invocation short enough not to line-wrap:
+
+    pbpaste | uv run operator/bin/gmail-oauth-consent.py
 
 Scopes (the customer-zero v1 set — read + draft across the Workspace surface;
 NEVER send / share-notify, which are outside these scopes or adapter-suppressed):
