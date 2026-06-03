@@ -1,0 +1,113 @@
+# Vertical pack manifest: ria
+#
+# Schema: docs/specs/operator/vertical-manifest-schema.md (ADR 0022 Stream 1).
+# Brief:  docs/specs/verticals/ria.md (the skill catalog, connector map,
+#         personas, and domain read this manifest declares the identifiers for).
+#
+# `name` MUST match ACCEPTED_VERTICALS in src/lib/operator/customer-yaml/types.ts
+# (ria is registered by this PR). All list fields are required; [] is valid.
+#
+# The client-service-associate pack: substance-free connective work across an
+# advisor CRM, email, calendar, documents, e-sign, and team comms. Per ADR 0037
+# the Operator competes with the CSA hire; the CRM/custodian are connection
+# targets, not competitors.
+#
+# CONTEXT: most contested vertical for our thesis (Jump/Zocks $170M+ building
+# advisor-stack orchestration) AND heaviest compliance floor in the dozen.
+# Fail-closed on investment advice and on money. No custodian/trading/banking
+# connector by design.
+
+name: ria
+version: 0.1.0
+
+# Vertical-level safety floors (free-form slugs). Fail-closed, authored per
+# ADR 0037 Tenet 3 / ADR 0025. See the brief's "Compliance floor" (heaviest in
+# the dozen).
+compliance:
+  - no-investment-advice # connective work only; never a recommendation or opinion on a holding/allocation/product
+  - no-money-movement # never moves/transfers/distributes/trades; gather request, route to verified human
+  - reg-s-p-privacy # client NPI stays in firm surfaces (Reg S-P)
+  - sec-books-and-records # comms retained/archivable (Rule 204-2); reviewer-as-sender + audit trail
+  - marketing-rule-compliance # review/testimonial asks comply with SEC Rule 206(4)-1
+  - reviewer-as-sender-floor # external mail under a human reviewer (ADR 0005)
+
+# Reference persona archetypes (templates, not runtime personas). See the
+# brief's "Personas".
+personas:
+  - slug: client-service-associate
+    title: Client Service Associate
+  - slug: operations-associate
+    title: Operations Associate
+  - slug: advisor-principal
+    title: Advisor / Principal
+
+# Vertical-default skills. Two spine skills reused as-is; the twelve
+# RIA-specific skills are specified in the brief; their runtime bodies live in
+# hermes-smd-overlay (alongside the CRM build adapter).
+skills:
+  # spine (reused)
+  - inbox-triage # routes inbound; first gate the money-movement safety router hooks
+  - status-report-assembler # compiles the digests
+  # onboarding and accounts
+  - client-onboarding-paperwork # relays authored paperwork; never advises on accounts or investments
+  - account-opening-tracker # chases NIGO items; never decides if paperwork is in good order
+  - account-maintenance-router # relays the paperwork; never makes the change or advises
+  # the money line (request only)
+  - money-movement-request-coordinator # gathers and routes; NEVER executes a money movement
+  # reviews, reminders, and documents
+  - meeting-scheduler
+  - meeting-prep-assembler # assembles authored materials only; adds no analysis or recommendation
+  - required-action-reminder # surfaces firm-tracked actions (e.g. RMDs); never computes or advises an amount
+  - document-collector
+  # status, billing, and reviews
+  - client-status-responder # status only; no investment or account opinion
+  - billing-fee-followup
+  - annual-review-coordinator
+  - money-movement-safety-router # routes any money/banking instruction to a verified human; never executes
+
+# Vertical-default connectors (capability + adapter + backend). MCP-first per
+# ADR 0020; the CRMs have APIs but no MCP, so the data of record is a BUILD
+# adapter. NO custodian/trading/banking connector by design: the Operator
+# coordinates paperwork and requests; operations executes. Capabilities map onto
+# the closed CapabilityName union (the CRM is PracticeManagement).
+connectors:
+  - capability: PracticeManagement
+    adapter: wealthbox
+    backend: 'build:wealthbox' # CRM data of record (API); Redtail is the next adapter
+  - capability: Email
+    adapter: m365-mail
+    backend: 'mcp:m365-mail'
+  - capability: Calendar
+    adapter: m365-calendar
+    backend: 'mcp:m365-calendar'
+  - capability: DocumentStorage
+    adapter: ms-365
+    backend: 'mcp:softeria/ms-365-mcp-server'
+  - capability: ESign
+    adapter: docusign
+    backend: 'build:docusign'
+  - capability: InternalComms
+    adapter: slack
+    backend: 'mcp:slack' # money-movement safety routing
+
+# Connective-artifact templates the pack provides (the N=0 proof; see
+# fixtures/n0-deliverability-proof.md).
+templates:
+  - client-welcome-onboarding.md
+  - nigo-chase.md
+  - money-movement-request-ack.md
+  - required-action-reminder.md
+  - client-status-update.md
+  - money-movement-safety-holding-note.md
+
+# Synthetic test fixtures shipped with the pack.
+fixtures:
+  - synthetic-new-account-onboarding
+  - synthetic-money-movement-instruction
+
+# Certification evals the pack must pass before a customer is bound to it.
+evals:
+  - cert-connective-no-investment-advice
+  - cert-no-money-movement
+  - cert-required-action-no-amount-computation
+  - cert-money-movement-safety-fail-closed

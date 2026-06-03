@@ -1,0 +1,106 @@
+# Vertical pack manifest: mortgage
+#
+# Schema: docs/specs/operator/vertical-manifest-schema.md (ADR 0022 Stream 1).
+# Brief:  docs/specs/verticals/mortgage.md (the skill catalog, connector map,
+#         personas, and domain read this manifest declares the identifiers for).
+#
+# `name` MUST match ACCEPTED_VERTICALS in src/lib/operator/customer-yaml/types.ts
+# (mortgage is registered by this PR). All list fields are required; [] is valid.
+#
+# The loan-processor pack: substance-free connective work across a loan
+# origination system, email, calendar, documents, and team comms. Per ADR 0037
+# the Operator competes with the processor hire; the LOS is a connection target.
+# The industry frames 2026 as "AI orchestration on top of the LOS" — which is
+# exactly this pack.
+#
+# SAFETY: closing wire fraud is real. The Operator NEVER transmits or changes
+# wire instructions. No banking/wire connector by design.
+
+name: mortgage
+version: 0.1.0
+
+# Vertical-level safety floors (free-form slugs). Fail-closed, authored per
+# ADR 0037 Tenet 3 / ADR 0025. See the brief's "Compliance floor".
+compliance:
+  - no-lending-or-mortgage-advice # never advise on products, rates, lock, or eligibility (licensed LO activity)
+  - no-credit-or-underwriting-decision # never approve, deny, or condition a loan
+  - wire-instruction-safety-fail-closed # never transmits/confirms/changes wire instructions
+  - npi-glba # NPI stays in shop surfaces per GLBA
+  - reviewer-as-sender-floor # external mail under a human reviewer (ADR 0005)
+
+# Reference persona archetypes (templates, not runtime personas). See the
+# brief's "Personas".
+personas:
+  - slug: loan-processor
+    title: Loan Processor
+  - slug: lo-assistant
+    title: Loan Officer Assistant
+  - slug: branch-manager
+    title: Branch / Operations Manager
+
+# Vertical-default skills. Two spine skills reused as-is; the twelve
+# mortgage-specific skills are specified in the brief; their runtime bodies live
+# in hermes-smd-overlay (alongside the LOS build adapter).
+skills:
+  # spine (reused)
+  - inbox-triage # routes inbound; first gate the wire-safety router hooks
+  - status-report-assembler # compiles the digests
+  # application and conditions
+  - application-intake # routes to a licensed LO; never advises on products or rates
+  - condition-stip-chaser # chases underwriting's conditions; never decides if one is satisfied
+  - doc-collection-tracker # collects and tracks; never interprets a document
+  # services and verifications
+  - appraisal-order-tracker # logistics; never comments on value
+  - title-order-coordinator
+  - voe-vod-requester # requests and logs; never interprets
+  # status, dates, and closing
+  - borrower-status-updater # status only; no opinion on approval, rate, or timing
+  - realtor-lo-status-updater
+  - milestone-reminder # surfaces the file's dates; never advises whether to lock or act
+  - closing-coordination # logistics; never communicates wire instructions
+  - post-closing-followup
+  - wire-instruction-safety-router # routes any wire/banking message to a verified human; never acts
+
+# Vertical-default connectors (capability + adapter + backend). MCP-first per
+# ADR 0020; no LOS ships an MCP, so the system of record is a BUILD adapter.
+# Encompass (SDK/APIs) is the system of record; Floify/Arive are the modern
+# points of integration. NO banking/wire connector by design. Capabilities map
+# onto the closed CapabilityName union (the LOS is PracticeManagement).
+connectors:
+  - capability: PracticeManagement
+    adapter: encompass
+    backend: 'build:encompass' # LOS system of record (SDK/API); Floify/Arive are POS integration points
+  - capability: Email
+    adapter: m365-mail
+    backend: 'mcp:m365-mail'
+  - capability: Calendar
+    adapter: m365-calendar
+    backend: 'mcp:m365-calendar'
+  - capability: DocumentStorage
+    adapter: ms-365
+    backend: 'mcp:softeria/ms-365-mcp-server'
+  - capability: InternalComms
+    adapter: slack
+    backend: 'mcp:slack' # wire-safety routing and team digests
+
+# Connective-artifact templates the pack provides (the N=0 proof; see
+# fixtures/n0-deliverability-proof.md).
+templates:
+  - application-acknowledgment.md
+  - condition-chase.md
+  - borrower-status-update.md
+  - milestone-reminder.md
+  - closing-coordination.md
+  - wire-safety-holding-note.md
+
+# Synthetic test fixtures shipped with the pack.
+fixtures:
+  - synthetic-purchase-loan-conditions
+  - synthetic-wire-change-request
+
+# Certification evals the pack must pass before a customer is bound to it.
+evals:
+  - cert-connective-no-lending-advice
+  - cert-no-underwriting-decision
+  - cert-milestone-no-lock-advice
+  - cert-wire-safety-fail-closed
