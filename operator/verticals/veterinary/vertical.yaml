@@ -1,0 +1,109 @@
+# Vertical pack manifest: veterinary
+#
+# Schema: docs/specs/operator/vertical-manifest-schema.md (ADR 0022 Stream 1).
+# Brief:  docs/specs/verticals/veterinary.md (the skill catalog, connector map,
+#         personas, and domain read this manifest declares the identifiers for).
+#
+# `name` MUST match ACCEPTED_VERTICALS in src/lib/operator/customer-yaml/types.ts
+# (veterinary is registered by this PR). All list fields are required; [] is valid.
+#
+# The front-desk-coordinator pack: substance-free connective work across a
+# clinic's practice information management system (PIMS), email, calendar,
+# documents, and team comms. Per ADR 0035 the Operator competes with the
+# front-desk hire; the PIMS is a connection target, not a competitor.
+#
+# NB: the PIMS has no MCP, so the pilot needs a build: adapter (like insurance),
+# but on a modern cloud API (ezyVet / Vetspire / Provet), lighter than the
+# legacy insurance AMS. Phone is deliberately out of scope (the AI-receptionist
+# crowd is phone bots; this pack is the async connective desk).
+
+name: veterinary
+version: 0.1.0
+
+# Vertical-level safety floors (free-form slugs). Fail-closed, authored per
+# ADR 0035 Tenet 3 / ADR 0025. See the brief's "Compliance floor".
+compliance:
+  - no-medical-advice # connective front-desk work only; never diagnosis, triage, or result interpretation
+  - emergency-escalation-fail-open # possible emergencies go to a human immediately; never handled async
+  - no-prescription-authorization # refills route to the doctor; never authorize or advise on dosing
+  - reviewer-as-sender-floor # external mail under a human reviewer (ADR 0005)
+  - records-stay-in-clinic # client and patient records stay inside clinic surfaces
+
+# Reference persona archetypes (templates, not runtime personas). The seat the
+# pack fills, described by role. See the brief's "Personas".
+personas:
+  - slug: client-service-rep
+    title: Client Service Representative
+  - slug: practice-manager
+    title: Practice Manager
+  - slug: assistant-front-of-house
+    title: Veterinary Assistant (Front of House)
+
+# Vertical-default skills. Two spine skills are reused as-is; the twelve
+# veterinary-specific skills are specified in the brief's "Skill catalog"; their
+# runtime bodies live in hermes-smd-overlay (alongside the PIMS build adapter).
+skills:
+  # spine (reused)
+  - inbox-triage # routes inbound; first gate the emergency router hooks
+  - status-report-assembler # compiles the digests
+  # new client and scheduling
+  - new-client-intake # escalates a possible emergency rather than handling it async
+  - appointment-scheduler # never assigns clinical urgency
+  - appointment-reminder-confirmer
+  - no-show-rebooker
+  # the recall engine
+  - wellness-recall # surfaces what the clinic's protocol marks due; never sets the protocol
+  # the service desk
+  - refill-request-router # routes to the doctor; never authorizes or advises on dosing
+  - results-callback-coordinator # conveys only the doctor's authored result; never interprets
+  - estimate-followup
+  - boarding-grooming-coordinator # states vaccine status as recorded; no medical clearance
+  # proactive and safety
+  - post-visit-followup # conveys authored discharge content; escalates medical replies
+  - lapsed-client-winback
+  - emergency-escalation-router # the safety skill: routes possible emergencies to a human, never triages
+
+# Vertical-default connectors (capability + adapter + backend). MCP-first per
+# ADR 0020; no PIMS ships an MCP, so the system of record is a BUILD adapter on
+# a modern cloud API. Capabilities map onto the closed CapabilityName union (the
+# PIMS is the PracticeManagement system of record, as Clio is for law). Phone is
+# out of scope on purpose (see the brief).
+connectors:
+  - capability: PracticeManagement
+    adapter: ezyvet
+    backend: 'build:ezyvet' # pilot PIMS; Vetspire (open GraphQL) and Provet are the next adapters
+  - capability: Email
+    adapter: m365-mail
+    backend: 'mcp:m365-mail'
+  - capability: Calendar
+    adapter: m365-calendar
+    backend: 'mcp:m365-calendar'
+  - capability: DocumentStorage
+    adapter: ms-365
+    backend: 'mcp:softeria/ms-365-mcp-server'
+  - capability: InternalComms
+    adapter: slack
+    backend: 'mcp:slack' # emergency escalation to the clinic's on-call/front-desk channel
+
+# Connective-artifact templates the pack provides (the N=0 proof; see
+# fixtures/n0-deliverability-proof.md).
+templates:
+  - new-client-acknowledgment.md
+  - appointment-confirmation.md
+  - wellness-recall-reminder.md
+  - refill-acknowledgment.md
+  - estimate-followup.md
+  - emergency-holding-acknowledgment.md
+  - post-visit-followup.md
+
+# Synthetic test fixtures shipped with the pack.
+fixtures:
+  - synthetic-wellness-recall-canine
+  - synthetic-emergency-inbound-message
+
+# Certification evals the pack must pass before a customer is bound to it.
+evals:
+  - cert-connective-no-medical-advice
+  - cert-emergency-escalation-fail-open
+  - cert-refill-no-authorization
+  - cert-results-authored-content-only
