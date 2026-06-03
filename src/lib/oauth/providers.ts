@@ -25,8 +25,7 @@
  * upstream.
  */
 
-import { env } from 'cloudflare:workers'
-
+import { googleWorkspaceProvider } from './providers/google-workspace.js'
 import { microsoftGraphProvider } from './providers/ms-graph.js'
 
 export interface ProviderTokenResponse {
@@ -57,79 +56,9 @@ export interface OAuthProvider {
   exchange_code(args: { code: string; redirect_uri: string }): Promise<ProviderTokenResponse>
 }
 
-const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
-
-interface RawTokenJson {
-  access_token?: unknown
-  refresh_token?: unknown
-  scope?: unknown
-  expires_in?: unknown
-}
-
-async function postFormForToken(
-  tokenUrl: string,
-  body: URLSearchParams,
-  providerLabel: string
-): Promise<ProviderTokenResponse> {
-  const response = await fetch(tokenUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  })
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => '')
-    // Issuer error bodies are not logged with token material — they only
-    // contain error codes and descriptions per the OAuth 2 RFC.
-    throw new Error(`${providerLabel} token exchange failed (${response.status}): ${text}`)
-  }
-
-  const raw: RawTokenJson = await response.json()
-
-  if (typeof raw.access_token !== 'string' || raw.access_token.length === 0) {
-    throw new Error(`${providerLabel} token exchange returned no access_token`)
-  }
-
-  const expiresInSec = typeof raw.expires_in === 'number' ? raw.expires_in : 3600
-  const now = Date.now()
-  return {
-    access_token: raw.access_token,
-    refresh_token: typeof raw.refresh_token === 'string' ? raw.refresh_token : null,
-    scopes: typeof raw.scope === 'string' ? raw.scope : '',
-    expires_at: new Date(now + expiresInSec * 1000).toISOString(),
-    obtained_at: new Date(now).toISOString(),
-  }
-}
-
-const googleWorkspace: OAuthProvider = {
-  slug: 'google-workspace',
-  label: 'Google Workspace',
-  token_url: GOOGLE_TOKEN_URL,
-  async exchange_code({ code, redirect_uri }) {
-    const clientId = env.GOOGLE_CLIENT_ID
-    const clientSecret = env.GOOGLE_CLIENT_SECRET
-    if (!clientId || !clientSecret) {
-      throw new Error(
-        'Google Workspace client credentials are not configured (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET).'
-      )
-    }
-    return postFormForToken(
-      GOOGLE_TOKEN_URL,
-      new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        code,
-        redirect_uri,
-        grant_type: 'authorization_code',
-      }),
-      googleWorkspace.label
-    )
-  },
-}
-
 const PROVIDERS: Record<string, OAuthProvider> = {
   [microsoftGraphProvider.slug]: microsoftGraphProvider,
-  [googleWorkspace.slug]: googleWorkspace,
+  [googleWorkspaceProvider.slug]: googleWorkspaceProvider,
 }
 
 export function getOAuthProvider(slug: string): OAuthProvider | null {

@@ -169,6 +169,16 @@ function portalCallbackUrl(portalBase: string, providerSlug: string): string {
   return `${portalBase}/portal/products/operator/oauth/${encodeURIComponent(providerSlug)}/callback`
 }
 
+/**
+ * Map a store-failure reason to the user-facing redirect reason. Actionable
+ * reasons (e.g. Google returned no refresh_token → revoke + reconnect) surface
+ * to the settings page; everything else collapses to a generic store_failed.
+ * The full store reason is preserved in the audit trail regardless.
+ */
+function storeFailureReason(reason: string): string {
+  return reason === 'missing_refresh_token' ? 'missing_refresh_token' : 'store_failed'
+}
+
 function reviewerMatchesClerk(
   authResult: { userId?: string | null } | null,
   reviewer_id: string
@@ -246,7 +256,7 @@ export const GET: APIRoute = async ({ request, redirect, locals, params }) => {
   })
 
   if (!storeResult.ok) {
-    return reject(ctx, 'store_failed', {
+    return reject(ctx, storeFailureReason(storeResult.reason), {
       customer_id,
       provider: providerSlug,
       reviewer_id,
