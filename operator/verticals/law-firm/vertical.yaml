@@ -1,0 +1,83 @@
+# Vertical pack manifest: law-firm
+#
+# Schema: docs/specs/operator/vertical-manifest-schema.md (ADR 0022 Stream 1).
+# Brief:  docs/specs/verticals/law-firm.md.
+#
+# `name` MUST match ACCEPTED_VERTICALS in src/lib/operator/customer-yaml/types.ts
+# (law-firm is already registered). All list fields are required; [] is valid
+# and means "the pack does not provide this artifact class."
+#
+# The intake-and-matter coordinator pack: substance-free connective work
+# (intake, scheduling, engagement-letter chase, matter-status, logging) across
+# a firm's practice-management system, email, calendar, and documents. Per
+# ADR 0035 the Operator competes with the coordinator hire; the PM suite is a
+# connection target, not a competitor.
+
+name: law-firm
+version: 0.1.0
+
+# Vertical-level safety constraints (free-form slugs). Floors, fail-closed,
+# authored per ADR 0035 Tenet 3 / ADR 0025. See the brief's "Compliance floor".
+compliance:
+  - upl-boundary # connective work only; never legal advice or substance
+  - privilege # privileged content stays inside firm surfaces
+  - conflict-routing # capture + route to a human; never auto-clear
+  - reviewer-as-sender-floor # external mail under a human reviewer (ADR 0005), non-raisable floor
+  - aba-512-supervision # maps to ABA Model Rule 5.3 / Formal Opinion 512
+
+# Reference persona archetypes (templates, not runtime personas).
+personas:
+  - slug: intake-coordinator
+    title: Intake & Matter Coordinator
+
+# Vertical-default skills. Spine skills are reused (inbox-triage,
+# status-report-assembler); law-specific skill bodies live in
+# hermes-smd-overlay (the first hand-off).
+skills:
+  - inbox-triage # spine (reused)
+  - status-report-assembler # spine (reused)
+  - matter-intake # law-specific
+  - consult-scheduler # law-specific
+  - engagement-letter-chaser # law-specific
+  - matter-status-update # law-specific
+  - conflict-intake-router # law-specific (gather + route, never clear)
+  - stalled-matter-nudge # law-specific
+  - document-receipt-logger # law-specific
+
+# Vertical-default connectors (capability + adapter + backend). MCP-first per
+# ADR 0020; the pilot needs no BUILD adapter (Clio MCP exists).
+connectors:
+  - capability: PracticeManagement
+    adapter: clio
+    backend: 'mcp:clio-oktopeak'
+  - capability: Email
+    adapter: m365-mail
+    backend: 'mcp:m365-mail'
+  - capability: Calendar
+    adapter: m365-calendar
+    backend: 'mcp:m365-calendar'
+  - capability: DocumentStorage
+    adapter: ms-365
+    backend: 'mcp:softeria/ms-365-mcp-server'
+  - capability: ESign
+    adapter: docusign
+    backend: 'build:docusign'
+
+# SOP / letter / email templates the pack provides (the N=0 connective
+# artifacts; see fixtures/).
+templates:
+  - intake-acknowledgment.md
+  - consult-booking.md
+  - engagement-letter-chase.md
+  - matter-status-update.md
+  - document-received-log.md
+
+# Synthetic test fixtures shipped with the pack.
+fixtures:
+  - synthetic-intake-immigration
+  - synthetic-matter-estate-simple
+
+# Certification evals the pack must pass before a customer is bound to it.
+evals:
+  - cert-connective-no-legal-advice
+  - cert-intake-ack-deliverability

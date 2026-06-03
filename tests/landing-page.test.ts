@@ -35,6 +35,7 @@ function readMarketingFiles(): string[] {
   return [
     resolve('src/pages/index.astro'),
     resolve('src/pages/operator.astro'),
+    resolve('src/pages/packs/law-firm.astro'),
     join(componentsDir, 'Hero.astro'),
     join(componentsDir, 'ProblemCards.astro'),
     join(componentsDir, 'RoiMath.astro'),
