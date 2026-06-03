@@ -1,0 +1,271 @@
+---
+export const prerender = false
+
+import Base from '../../layouts/Base.astro'
+import Nav from '../../components/Nav.astro'
+import Footer from '../../components/Footer.astro'
+import CtaButton from '../../components/CtaButton.astro'
+
+const productSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: 'Operator for Law Firms',
+  description:
+    'A dedicated Operator for your firm that handles the intake and matter coordination: it reads the new-client inquiry, books the consult, chases the signed engagement, keeps your practice-management system current, and nudges the matter that has gone quiet. Connective work only, never legal advice.',
+  brand: { '@type': 'Brand', name: 'SMD Services' },
+  offers: {
+    '@type': 'Offer',
+    availability: 'https://schema.org/InStock',
+    seller: { '@type': 'Organization', name: 'SMD Services' },
+  },
+}
+
+const roleLenses = [
+  {
+    title: 'New-client intake',
+    body: 'A new inquiry lands, wherever it comes from. The Operator reads it, captures the details that matter, drafts the first reply in your voice, and offers times for the consult. The person who used to drop or slow that first response is no longer the bottleneck.',
+  },
+  {
+    title: 'Keeping matters moving',
+    body: 'The engagement letter that sits unsigned, the matter that goes quiet, the document you are waiting on. The Operator watches the work in flight, chases what stalled, and drafts the follow-up, with everything logged in your practice-management system.',
+  },
+  {
+    title: 'The routine back-and-forth',
+    body: 'The status questions you answer the same way every time, the consult scheduling, the receipt of a document. Drafts go to a reviewer on your team until you trust the Operator to handle a kind of message on its own.',
+  },
+]
+---
+
+<Base
+  title="Operator for Law Firms | SMD Services"
+  description="A dedicated Operator for your firm that handles intake and matter coordination: it reads the inquiry, books the consult, chases the signed engagement, keeps your practice-management system current, and nudges the stalled matter. Connective work only, never legal advice."
+>
+  <Nav />
+  <main id="main" role="main">
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(productSchema)} />
+
+    <!-- § 01 Hero -->
+    <section
+      class="relative overflow-hidden bg-[color:var(--ss-color-background)] px-6 pt-24 pb-32"
+    >
+      <div class="mx-auto max-w-5xl text-center">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
+          >§ 01</span
+        >
+        <h1
+          class="mb-8 font-['Archivo'] text-5xl md:text-7xl font-black uppercase leading-[1.05] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Fill The Seat.
+        </h1>
+        <p
+          class="mx-auto mb-12 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          The intake and matter coordinator your firm keeps meaning to hire, built as a dedicated
+          Operator. It reads the inquiry, books the consult, chases the signed engagement, and keeps
+          your practice-management system current. The work moves. Your team gets the room back.
+        </p>
+        <CtaButton href="/book?interest=law-firm" data-ev="law-firm-hero-cta"
+          >Start the conversation</CtaButton
+        >
+      </div>
+    </section>
+
+    <!-- § 02 The real comparison -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 02</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          The Real Comparison.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            Intake and matter coordination usually gets solved by hiring someone to own it, or by
+            the owner and a paralegal owning it on top of everything else. It is a seat small firms
+            keep meaning to fill, and a hard one to keep filled.
+          </p>
+          <p>
+            That hire takes months to learn how your firm runs, and the day they leave, what they
+            learned walks out with them. The new-client call that does not get returned and the
+            engagement that does not get chased cost you the work itself.
+          </p>
+          <p>
+            An Operator fills that same seat. It gets up to speed quickly, it does not quit, and the
+            understanding it builds of how your firm runs stays with the firm, not in any one
+            person's head.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 03 What it does -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 03</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          What It Does.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            We build the Operator for your firm and connect it to the tools you already run: your
+            practice-management system, your email, your calendar, your documents.
+          </p>
+          <p>
+            A new inquiry comes in. It reads the request, captures the details that matter, drafts
+            the first reply in your voice, offers times, and books the consult. It chases the
+            engagement letter to signature, answers the routine status questions, logs the documents
+            that arrive, and nudges the matter that went quiet. The coordination moves the way it
+            always did. The seat doing it changed.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 04 It stays in its lane -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 04</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          It Stays In Its Lane.
+        </h2>
+        <div
+          class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)] mb-12"
+        >
+          <p>
+            The Operator does coordination, never legal work. It does not give legal advice, it does
+            not recommend a course of action, and it does not draft legal substance. Intake,
+            scheduling, chasing, status, logging. That is the line, and it holds.
+          </p>
+          <p>
+            You decide what it can do on its own and what waits for a person to approve. Until you
+            sign off on a kind of message, its drafts go to a reviewer on your team, who sends them
+            under their own name. The Operator cannot give itself more authority. Only you can.
+            Every action it takes is recorded where you can see it: what it did, when, and why.
+          </p>
+        </div>
+        <div class="text-center">
+          <CtaButton
+            variant="secondary"
+            href="/book?interest=law-firm"
+            data-ev="law-firm-section-cta">Talk through the fit</CtaButton
+          >
+        </div>
+      </div>
+    </section>
+
+    <!-- § 05 One coordinator, your whole firm -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 05</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          One Coordinator. Your Whole Firm.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            One Operator for the whole firm, not a separate assistant for each attorney. Everyone
+            works with the same one, and it gets sharper from everyone's input.
+          </p>
+          <p>
+            The understanding it builds, your voice, your intake patterns, the way you run a matter,
+            is a record you can read and correct. It belongs to the firm, not to any one person's
+            account. When someone moves on, what the Operator knows about how you run does not go
+            with them. It stays.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 06 Where it fits -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 06</span
+        >
+        <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Where It Fits.
+        </h2>
+        <p
+          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          A few shapes the seat can take. We build it around how your firm runs, so these are
+          starting points, not a menu.
+        </p>
+
+        <div
+          class="grid grid-cols-1 md:grid-cols-3 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
+        >
+          {
+            roleLenses.map((lens, i) => (
+              <div
+                class:list={[
+                  'flex flex-col gap-4 p-8 min-h-[16rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
+                  i % 3 !== 2 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
+                ]}
+              >
+                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
+                  {lens.title}
+                </p>
+                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                  {lens.body}
+                </p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- § 07 Start the conversation -->
+    <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
+      <div class="mx-auto max-w-5xl text-center">
+        <span
+          class="inline-block bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
+          >§ 07</span
+        >
+        <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
+        >
+          Start The Conversation.
+        </h2>
+        <p class="mx-auto mb-6 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
+          It starts with a conversation. We learn how your firm runs, find the coordination that is
+          eating your team's time, and figure out where a dedicated Operator fits. If the fit is not
+          right, we say so.
+        </p>
+        <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
+          Pricing is a flat monthly subscription, scoped to the seat we build together, and we walk
+          through it before any setup begins.
+        </p>
+        <CtaButton
+          variant="outline-white"
+          href="/book?interest=law-firm"
+          data-ev="law-firm-final-cta">Start the conversation</CtaButton
+        >
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Base>

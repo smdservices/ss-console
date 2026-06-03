@@ -41,9 +41,10 @@ const MIN_FORM_FILL_MS = 2000
  * cached link cannot break a legitimate submission. Extending this list
  * requires an explicit code change.
  */
-const ALLOWED_INTERESTS = new Set<string>(['operator'])
+const ALLOWED_INTERESTS = new Set<string>(['operator', 'law-firm'])
 const INTEREST_LABELS: Record<string, string> = {
   operator: 'Operator',
+  'law-firm': 'Operator for Law Firms',
 }
 
 interface ValidatedSendBody {

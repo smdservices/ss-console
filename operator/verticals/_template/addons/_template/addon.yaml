@@ -1,0 +1,20 @@
+# Add-on pack manifest — REFERENCE TEMPLATE (never a real add-on)
+#
+# Copy to operator/verticals/<vertical>/addons/<addon>/ and fill in. Worked
+# reference: operator/verticals/law-firm/addons/pi/addon.yaml.
+#
+# Schema identical to vertical.yaml. `name` MUST appear in
+# ACCEPTED_ADDONS['<vertical>'] in src/lib/operator/customer-yaml/types.ts.
+# Add-on assets are ADDITIVE on the parent vertical; the parent does not
+# declare them. Connectors are usually [] (inherited from the parent).
+
+name: '[ADDON-SLUG]' # in ACCEPTED_ADDONS[<vertical>]
+version: 0.1.0
+
+compliance: [] # additive floors on top of the parent vertical
+personas: []
+skills: [] # add-on-specific skill identifiers
+connectors: [] # usually inherits the parent's
+templates: []
+fixtures: []
+evals: []

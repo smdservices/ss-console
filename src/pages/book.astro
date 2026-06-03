@@ -30,7 +30,7 @@ let prefillTokenError: 'expired' | 'invalid' | null = null
 // values are silently dropped so a stale URL or cached link does not
 // pollute the form. The same allow-list is enforced again at the API
 // boundary in /api/intake/send.ts.
-const ALLOWED_INTERESTS = new Set<string>(['operator'])
+const ALLOWED_INTERESTS = new Set<string>(['operator', 'law-firm'])
 const interestParam = Astro.url.searchParams.get('interest')
 const interest = interestParam && ALLOWED_INTERESTS.has(interestParam) ? interestParam : undefined
 
