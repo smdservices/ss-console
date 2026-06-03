@@ -1,0 +1,42 @@
+# Add-on pack manifest: law-firm/pi
+#
+# Schema: docs/specs/operator/vertical-manifest-schema.md (identical to
+# vertical.yaml). `name` MUST appear in ACCEPTED_ADDONS['law-firm'] in
+# src/lib/operator/customer-yaml/types.ts (pi is registered). Add-on assets are
+# ADDITIVE on top of the law-firm base; the base does not declare them.
+#
+# PI-specific connective skin: medical-records request and follow-up,
+# treatment-status tracking, lien-status logging, and demand-package ASSEMBLY
+# (collation of authored components, never legal argument). Rides the
+# California Initiative 25-0022 margin-compression timing (see the brief's
+# "Labor-market dislocation").
+
+name: pi
+version: 0.1.0
+
+# Additive floors on top of the base law-firm compliance set.
+compliance:
+  - medical-lien-logging # log lien status; never advise on lien strategy
+  - demand-package-assembly-no-argument # collate authored components only; no legal argument
+
+personas: []
+
+# PI-specific connective skills (bodies in hermes-smd-overlay).
+skills:
+  - medical-records-chaser
+  - treatment-status-follower
+  - lien-status-logger
+  - demand-package-assembler # assembly/collation only, never argument
+
+# Inherits the base law-firm connectors.
+connectors: []
+
+templates:
+  - medical-records-request.md
+  - lien-status-update.md
+
+fixtures:
+  - synthetic-matter-pi-auto
+
+evals:
+  - cert-pi-no-legal-argument
