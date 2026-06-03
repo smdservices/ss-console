@@ -12,7 +12,7 @@ The brief that drives the insurance pack's manifest, N=0 proof, marketing surfac
 
 The substance is here: the domain read, the personas, the twelve specified skills, and the connector map. The manifest (`operator/verticals/insurance/vertical.yaml`) declares the identifiers; the runtime skill bodies and the AMS BUILD adapter are built from this spec in `hermes-smd-overlay`.
 
-> **Read this first, it differs from law.** Insurance is the inverse of the law pack on two axes. (1) **Integration is the hard path, not the easy one.** Law rode Clio's MCP and needed no BUILD adapter for its system of record; the insurance system of record is an agency management system (AMS) with no MCP, so the pilot **requires a `build:` adapter** before the first customer onboards. (2) **The market is contested, not open.** The native-AMS AI and a cluster of funded entrants are already in this space. That is evidence of demand, not a reason to avoid it, but it changes the wedge: we do not claim an open seat. See "Competitive read" below.
+> **Read this first.** Insurance differs from law on exactly one axis, and it is not demand. **Integration is the hard path, not the easy one.** Law rode Clio's MCP and needed no BUILD adapter for its system of record; the insurance system of record is an agency management system (AMS) with no MCP, so the pilot **requires a `build:` adapter** before the first customer onboards. That is a build-effort difference, not a demand difference. On demand, the seat is **more open than law's**, not less: insurance has the worst labor shortage in the dozen (see "Labor-market context"). There is a crowd of AI vendors in this market, but they automate slices (one does quoting, one does a single endorsement type), and a crowd of vendors is not a closed seat. See "Competitive read."
 
 ## The agency service desk's world
 
@@ -101,23 +101,23 @@ Insurance is the strongest labor hook of any vertical, and it pulls in both dire
 
 We do not presume which pressure applies to a given agency: some cannot keep the desk staffed and want it covered, some want to free an existing person for account work, some are cutting and still have to service the book. Keep dated figures in outreach and channel timing, not on the evergreen landing page, and do not imply pre-knowledge of any agency's situation.
 
-## Competitive read (system-features excluded, and the seat is contested)
+## Competitive read (a crowd of vendors is not a closed seat)
 
-Per the corrected lens: **system-features are connection targets, not rivals; only true employee-replacers count.** Unlike law, the employee-replacer column here is populated.
+Per the corrected lens: **system-features are connection targets, not rivals; only a true employee-replacer counts; and the seat is closed only when the business stops needing the employee.** Insurance has many AI vendors and an unfilled seat at the same time. Those are different facts, and conflating them is the trap. The seat is closed when an agency no longer needs a CSR. Insurance is the opposite of that: it cannot hire the CSR it needs (see "Labor-market context").
 
 - **Connection targets (zero threat):** AMS-native AI, EZLynx Virtual Assistant (account summarization, coverage-gap surfacing), Applied's embedded vertical AI, AI-assisted rating. Features inside the AMS we connect across. They make a CSR faster inside one system; they do not run the cross-system connective desk.
-- **Employee-replacers (the real column, and it is occupied):** funded entrants are here. AI quoting agents target the new-business and quoting lane; point-automation vendors do end-to-end endorsement automation (reported handle time of roughly fourteen minutes down to about two, with human approval). The new-business/quoting lane and the single-task endorsement lane are the most contested.
+- **Slice-automators (vendors, not seat-replacers):** the funded crowd is here, and it automates slivers. AI quoting agents take the new-business quoting slice; point-automation vendors take a single endorsement type (reported handle time of roughly fourteen minutes down to about two, with human approval); training and call-assist tools augment a human CSR rather than replace the seat. None of them runs the whole connective service desk across the agency's systems. The connective seat is unfilled twice over: by humans (the agency cannot hire it) and by competitors (who only take slices).
 
-The honest read: insurance is a hot, contested market, and that is evidence of demand and willingness to pay, not a reason to avoid it. It changes the wedge. We do not claim an open seat. We win on four things, none of which is a single feature (ADR 0035 Tenet 4, the moat is harness + guide + memory):
+The honest read: insurance is a hot market with a wide-open seat. The vendor crowd is evidence of demand and willingness to pay, not evidence the seat is taken. We win on four things, none of which is a single feature (ADR 0035 Tenet 4, the moat is harness + guide + memory):
 
 1. **The connective whole**, the full service, renewal, and retention desk, not a single point bot bolted onto one task.
 2. **Configurability** to the agency's own book, carriers, cadence, and voice, the substrate, not a fixed product.
 3. **The integration barrier itself**, the legacy AMS with no open API is exactly what leaves the long tail of agencies underserved by the native-AMS AI, and the harness that crosses it is the moat.
-4. **Competing with a hire**, priced against a service salary, not a per-seat software line.
+4. **Competing with a hire**, priced against a service salary the agency cannot fill, not a per-seat software line.
 
 ## The wedge
 
-> The service-and-renewal desk at independent P&C agencies: answer the new-client inquiry and route it to a producer, run the renewal cadence, assemble the certificate, relay the endorsement, answer the billing question, route the first notice of loss, and chase the cancellation notice before a policy lapses. Connects to the agency's management system and reads carrier data as it downloads there, runs the connective layer only, and stays clear of coverage advice and binding. It enters a contested market on the connective whole rather than a single automation, on configurability to the agency's own book, and on an integration barrier, the legacy AMS, that the moat is built to cross.
+> The service-and-renewal desk at independent P&C agencies: answer the new-client inquiry and route it to a producer, run the renewal cadence, assemble the certificate, relay the endorsement, answer the billing question, route the first notice of loss, and chase the cancellation notice before a policy lapses. Connects to the agency's management system and reads carrier data as it downloads there, runs the connective layer only, and stays clear of coverage advice and binding. It wins on a seat the agency cannot fill and the slice-automation vendors do not cover: the connective whole rather than a single automation, configured to the agency's own book, across the integration barrier, the legacy AMS, that the moat is built to cross.
 
 ## Base vs. add-on
 
