@@ -58,17 +58,19 @@ personas:
       - direct
       - executive-summary
       - concise
-    # v1 skills: (1) inbox-triage — triage the intake Gmail, draft replies for review;
-    # (2) workspace — on-demand read + draft across Gmail/Calendar/Drive+Docs. Neither
-    # sends as Scott: the AUTHORED gmail.modify token scope makes send impossible at
-    # Google (ADR 0035 — the constraint is the scope the principal consented to, not a
-    # harness default), and the Calendar/Drive CLIs expose no send/share/invite verb.
+    # v1 skill: inbox-triage — triage the intake Gmail, draft replies for review.
+    # Does not send as Scott: the AUTHORED gmail.modify token scope makes send
+    # impossible at Google (ADR 0035 — the constraint is the consented scope, not a
+    # harness default).
+    #
+    # NOTE: the `workspace` skill (on-demand Gmail/Calendar/Drive read+draft) is NOT
+    # bound here yet. Its SKILL.md exists in the repo, but a customer Machine's skill
+    # catalog is served from the per-customer R2 skills bucket (ss-operator-smd-skills),
+    # and there is no pipeline step that pushes a newly-added repo skill into that
+    # bucket. Binding it before it's deployed crashes boot (skill-pin resolution).
+    # Re-add once the skill-deployment pipeline lands (tracked follow-on).
     skills:
       - name: inbox-triage
-        version: pending
-        trust_ceiling: draft_for_review
-        enabled: true
-      - name: workspace
         version: pending
         trust_ceiling: draft_for_review
         enabled: true
