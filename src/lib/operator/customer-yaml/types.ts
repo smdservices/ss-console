@@ -51,7 +51,7 @@ export const ACCEPTED_ADDONS: Readonly<Record<Vertical, readonly string[]>> = {
   'marketing-agency': [],
   'real-estate': [],
   manufacturing: [],
-  insurance: [],
+  insurance: ['commercial'],
   mixed: [],
 } as const
 
