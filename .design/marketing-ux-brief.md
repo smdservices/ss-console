@@ -6,7 +6,7 @@ _First-pass brief, authored 2026-04-19 alongside the identity sweep. Scope: the 
 
 Marketing is the first thing a prospective client sees. They're reading it on a laptop between jobs or on a phone in a truck cab. They're deciding whether to book a call, not whether to read about a framework. Copy + clarity first; chrome second.
 
-SMD Services sells scope-based consulting engagements to businesses doing $750k–$5M in revenue. Positioning: collaborative guide, not diagnostic expert. Marketing must read like the firm it belongs to — calm, direct, substance over polish, evidence over reassurance.
+SMD Services sells scope-based consulting engagements to growing, owner-led businesses. Positioning: collaborative guide, not diagnostic expert. Marketing must read like the firm it belongs to — calm, direct, substance over polish, evidence over reassurance.
 
 ## Scope
 
@@ -81,7 +81,7 @@ Landing-page samples (already in production, kept as tone reference):
 
 - Hero: "Operational consulting for growing businesses. Figure out what's in the way. Build the right solution together."
 - What we do: "Process design. Custom tools. Systems that talk to each other. AI when AI is the right answer — and nowhere it isn't."
-- Who we help: "$750k to $5M in revenue. Past startup. Not yet ready for a dedicated operations person."
+- Who we help: "Owner-led businesses where the operational load has outgrown the systems holding it together."
 - CTA: "Book a conversation."
 
 ## Success criteria

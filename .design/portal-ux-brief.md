@@ -4,7 +4,7 @@ _Revised 2026-04-19 against the Modern Institutional identity (see `.design/DESI
 
 ## Context
 
-SMD Services sells scope-based consulting engagements to businesses doing $750k-$5M in revenue. The portal is the documented side of a relationship between our visits — not software the client bought.
+SMD Services sells scope-based consulting engagements to growing, owner-led businesses. The portal is the documented side of a relationship between our visits — not software the client bought.
 
 The portal is the project file from a small design studio, printed to the client's screen. Authority through precision, not decoration.
 
