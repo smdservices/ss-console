@@ -247,6 +247,36 @@ fi
 # Redis remain installed in the image (for Phase 2) but are not started here.
 
 # ============================================================================
+# Step 6b: seed/refresh the repo skill catalog onto the volume (#1206)
+# ============================================================================
+# Repo skills are baked into the image at /app/skills (Dockerfile
+# `COPY operator/skills/ /app/skills/`), but the catalog the overlay's
+# pin-resolver reads at step 7 is ${HERMES_HOME}/skills (= /opt/data/skills, the
+# Fly VOLUME). On a persisted volume the baked catalog is SHADOWED — the SAME
+# failure mode handled for the overlay plugin pack further below — so a skill
+# added to the repo and bound in customer.yaml is present in the image but
+# ABSENT on the volume the resolver checks, and `hermes-smd bootstrap` (step 7)
+# crash-loops with "skill '<name>' not found at /opt/data/skills/<name>"
+# (#1197, #1206).
+#
+# Fix: additively overlay /app/skills onto ${HERMES_HOME}/skills on every boot.
+# ADDITIVE, never a destructive mirror — agent-authored skills that live only on
+# the volume (ADR 0017) are preserved; repo skills are refreshed to the image
+# version (the image is the deploy unit). The copy runs as the hermes user into
+# the hermes-owned volume. FAIL-CLOSED: a Machine whose bound catalog cannot be
+# seeded MUST NOT proceed to a guaranteed crash-loop with a misleading error.
+if [ -d /app/skills ]; then
+  log "Seeding repo skill catalog onto the volume (/app/skills -> ${HERMES_HOME}/skills)..."
+  mkdir -p "${HERMES_HOME}/skills" \
+    || die "cannot create ${HERMES_HOME}/skills for the skill catalog seed"
+  cp -a /app/skills/. "${HERMES_HOME}/skills/" \
+    || die "skill catalog seed failed (/app/skills -> ${HERMES_HOME}/skills) — refusing to boot into a crash-loop"
+  log "Skill catalog seeded ($(find "${HERMES_HOME}/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ') skill dir(s) on volume)"
+else
+  log "WARNING: /app/skills absent from image; skipping catalog seed (bound skills must already be on the volume)"
+fi
+
+# ============================================================================
 # Step 7: hermes-smd bootstrap (customer.yaml -> per-profile config)
 # ============================================================================
 # Installed at image build time via `pip install hermes-smd-overlay`. Reads
