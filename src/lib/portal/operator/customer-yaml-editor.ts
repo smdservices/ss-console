@@ -449,6 +449,7 @@ function lockedFromCurrent(
   | 'memory'
   | 'users'
   | 'compliance_enabled'
+  | 'google_auth'
 > {
   return {
     schema_version: current.schema_version,
@@ -468,6 +469,10 @@ function lockedFromCurrent(
     memory: current.memory,
     users: current.users,
     compliance_enabled: current.compliance_enabled,
+    // google_auth is not user-editable in the portal (the Google credential
+    // mode is a provisioning/setup decision, not a self-serve toggle).
+    // Preserve verbatim across portal edits. (#1213)
+    google_auth: current.google_auth,
   }
 }
 

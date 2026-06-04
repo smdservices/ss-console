@@ -188,6 +188,49 @@ else
 fi
 
 # ============================================================================
+# Step 2c: materialize Google DWD env from customer.yaml (if mode: dwd)
+# ============================================================================
+# When customer.yaml authors `google_auth.mode: dwd`, the Google connector CLIs
+# run in service-account / domain-wide-delegation mode: _google_auth.credentials
+# branches on the on-disk key's "type" and reads the impersonation subject +
+# scopes from the environment, FAIL-CLOSED (ss-console #1212 / #1213). Export
+# them here from customer.yaml so the gateway (Step 11, same shell) — and the
+# execute_code subprocesses it spawns to run the connectors — inherit them.
+# No-op for the default user-OAuth customer: nothing is exported and the
+# connectors read the relayed authorized-user token at ${GOOGLE_TOKEN_FILE}.
+# Tab-delimited key/value so the space-joined scope list survives intact.
+GOOGLE_DWD_ENV="$(/opt/hermes/.venv/bin/python3 - "${CUSTOMER_YAML}" <<'PY'
+import sys
+import yaml
+
+data = yaml.safe_load(open(sys.argv[1])) or {}
+ga = data.get("google_auth") or {}
+if (ga.get("mode") or "user_oauth") != "dwd":
+    sys.exit(0)
+subject = (ga.get("subject") or "").strip()
+scopes = [s for s in (ga.get("scopes") or []) if isinstance(s, str) and s.strip()]
+# Fail-closed parity with the validator + connector: emit nothing on a partial
+# DWD block so the connector refuses (no subject/scopes) rather than acting
+# under a wrong/empty identity.
+if not subject or not scopes:
+    sys.exit(0)
+print("GOOGLE_IMPERSONATE_SUBJECT\t%s" % subject)
+print("GOOGLE_OAUTH_SCOPES\t%s" % " ".join(scopes))
+PY
+)" || die "failed to read google_auth from customer.yaml"
+if [ -n "${GOOGLE_DWD_ENV}" ]; then
+  while IFS="$(printf '\t')" read -r _key _val; do
+    [ -n "${_key}" ] || continue
+    export "${_key}=${_val}"
+    log "Google DWD env exported: ${_key}"
+  done <<EOF
+${GOOGLE_DWD_ENV}
+EOF
+else
+  log "google_auth.mode != dwd (or unset); Google connectors use the user-OAuth token"
+fi
+
+# ============================================================================
 # Steps 3-6: Honcho data plane — DEFERRED to Phase 2 (ADR 0016, revised)
 # ============================================================================
 # Previously: start Postgres, start Redis, run `python -m honcho.migrations`,

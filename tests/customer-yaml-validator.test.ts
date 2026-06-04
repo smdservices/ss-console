@@ -1960,3 +1960,84 @@ describe('validate — telegram block (ADR 0033)', () => {
     expect(r.errors.some((e) => e.path === 'telegram.require_mention')).toBe(true)
   })
 })
+
+// -----------------------------------------------------------------------------
+// google_auth (DWD vs user-OAuth) — ss-console #1213
+// -----------------------------------------------------------------------------
+
+describe('validate — google_auth', () => {
+  const DWD_SCOPES = [
+    'https://mail.google.com/',
+    'https://www.googleapis.com/auth/calendar',
+    'https://www.googleapis.com/auth/drive',
+  ]
+
+  it('defaults google_auth to null when the block is absent (user-OAuth)', () => {
+    const r = validate(validFixture())
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.google_auth).toBeNull()
+  })
+
+  it('accepts mode: user_oauth with null subject and empty scopes', () => {
+    const f = validFixture()
+    f['google_auth'] = { mode: 'user_oauth' }
+    const r = validate(f)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.google_auth).toEqual({ mode: 'user_oauth', subject: null, scopes: [] })
+  })
+
+  it('accepts a complete dwd block', () => {
+    const f = validFixture()
+    f['google_auth'] = { mode: 'dwd', subject: 'owner@firm.com', scopes: DWD_SCOPES }
+    const r = validate(f)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.google_auth).toEqual({
+      mode: 'dwd',
+      subject: 'owner@firm.com',
+      scopes: DWD_SCOPES,
+    })
+  })
+
+  it('rejects an unknown mode', () => {
+    const f = validFixture()
+    f['google_auth'] = { mode: 'service_account', subject: 'owner@firm.com', scopes: DWD_SCOPES }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'google_auth.mode' && e.code === 'EnumViolation')).toBe(
+      true
+    )
+  })
+
+  it('fails closed: dwd without a subject', () => {
+    const f = validFixture()
+    f['google_auth'] = { mode: 'dwd', scopes: DWD_SCOPES }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'google_auth.subject')).toBe(true)
+  })
+
+  it('fails closed: dwd with an empty scopes list', () => {
+    const f = validFixture()
+    f['google_auth'] = { mode: 'dwd', subject: 'owner@firm.com', scopes: [] }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'google_auth.scopes' && e.code === 'EmptyList')).toBe(
+      true
+    )
+  })
+
+  it('rejects a non-object google_auth', () => {
+    const f = validFixture()
+    f['google_auth'] = 'dwd'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'google_auth' && e.code === 'TypeMismatch')).toBe(true)
+  })
+})
