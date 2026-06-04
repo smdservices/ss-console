@@ -9,9 +9,9 @@ import CtaButton from '../../components/CtaButton.astro'
 const productSchema = {
   '@context': 'https://schema.org',
   '@type': 'Product',
-  name: 'Operator for Law Firms',
+  name: 'Operator for Insurance Agencies',
   description:
-    'A dedicated Operator that runs intake and keeps your matters moving: it answers the new inquiry, books the consult, chases the engagement letter to signature, keeps your practice-management system current, and nudges the matter that has gone quiet. The law stays with your lawyers; you set the line.',
+    'A dedicated Operator that services your book: it works new-quote intake and routes it to a producer, runs the renewal cadence, turns around certificates and endorsements, fields billing questions, and routes first notice of loss. The licensed acts stay with your licensed people; you set the line.',
   brand: { '@type': 'Brand', name: 'SMD Services' },
   offers: {
     '@type': 'Offer',
@@ -22,23 +22,23 @@ const productSchema = {
 
 const roleLenses = [
   {
-    title: 'New-client intake',
-    body: 'A new inquiry lands, wherever it comes from. The Operator captures the details that matter, drafts the first reply in your voice, and offers times for the consult. The person who used to drop or slow that first response is no longer the bottleneck, and the legal advice waits for a lawyer.',
+    title: 'New-business intake',
+    body: 'A quote request lands, by web form, phone, or referral. The Operator captures the exposure that matters, drafts the acknowledgment in your voice, and routes it to a producer. The quote and the bind stay with the licensed producer; everything up to them moves without waiting on anyone.',
   },
   {
-    title: 'Keeping matters moving',
-    body: 'The engagement letter that sits unsigned, the matter that goes quiet, the document you are waiting on. The Operator watches the work in flight, chases what stalled, and drafts the follow-up, with everything logged in your practice-management system.',
+    title: 'The renewal desk',
+    body: 'The cadence that has to run so nothing lapses. The Operator surfaces what is coming, reaches the client to confirm changes, and chases the carrier for the answer, all of it logged in your management system. Remarketing and the coverage call stay with the producer.',
   },
   {
-    title: 'The routine back-and-forth',
-    body: 'The status questions answered the same way every time, the consult scheduling, the receipt of a document. Drafts go to a reviewer on your team until you trust the Operator to handle a kind of message on its own.',
+    title: 'The service desk',
+    body: 'The certificate a client needs today, the endorsement, the ID card, the billing question, the first notice of loss. The Operator builds each from what is on the policy and routes it for review until you widen what it sends on its own. A certificate always clears a person first.',
   },
 ]
 ---
 
 <Base
-  title="Operator for Law Firms | SMD Services"
-  description="A dedicated Operator that runs intake and keeps your matters moving: it answers the inquiry, books the consult, chases the signed engagement letter, keeps your practice-management system current, and nudges the stalled matter. The law stays with your lawyers. You set the line."
+  title="Operator for Insurance Agencies | SMD Services"
+  description="A dedicated Operator that services your book: new-quote intake routed to a producer, the renewal cadence, certificates and endorsements, billing questions, and first notice of loss. The licensed acts stay with your licensed people. You set the line."
 >
   <Nav />
   <main id="main" role="main">
@@ -56,17 +56,17 @@ const roleLenses = [
         <h1
           class="mb-8 font-['Archivo'] text-5xl md:text-7xl font-black uppercase leading-[1.05] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
         >
-          The Intake Desk, Fully Staffed.
+          The Service Desk, Fully Staffed.
         </h1>
         <p
           class="mx-auto mb-12 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
         >
-          A dedicated Operator that runs intake and keeps your matters moving, the way a sharp legal
-          assistant would: it answers the new inquiry, books the consult, chases the engagement
-          letter to signature, and keeps your practice-management system current. You add capacity
-          to the front of the firm without adding to payroll.
+          A dedicated Operator that services your book the way a sharp account manager would: it
+          works new-quote intake, runs the renewal cadence, turns around COIs and endorsements,
+          fields the billing questions, and routes first notice of loss. You add capacity to the
+          desk without adding to payroll.
         </p>
-        <CtaButton href="/book?interest=law-firm" data-ev="law-firm-hero-cta"
+        <CtaButton href="/book?interest=insurance" data-ev="insurance-hero-cta"
           >Start the conversation</CtaButton
         >
       </div>
@@ -86,16 +86,15 @@ const roleLenses = [
         </h2>
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
-            Intake and matter coordination is one of the hardest seats to keep filled. Legal leaders
-            say skilled support is harder to find than it was a year ago, and the assistant or
-            paralegal you train is the one a bigger firm hires away. The work does not wait while
-            the seat sits open. The call that does not get returned and the engagement that does not
-            get chased are the matter itself, gone.
+            The hard market made the service desk heavier, and the hiring market made it harder to
+            staff. Insurance runs near full employment in its own ranks, a wave of retirements is
+            underway, and a good CSR gets poached about the time you finish training them. The work
+            does not slow down to wait for the hire.
           </p>
           <p>
-            An Operator fills that seat now. It runs intake at full speed, all the time, and what it
-            learns about how your firm runs, your practice areas, your intake questions, your voice,
-            stays with the firm instead of leaving with the person who had it.
+            An Operator fills that seat now. It services the book at full speed, all the time, and
+            what it learns about how your agency runs, your carriers, your appetite, your voice,
+            stays with the agency instead of walking out the door with the person who had it.
           </p>
         </div>
       </div>
@@ -115,15 +114,18 @@ const roleLenses = [
         </h2>
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
-            We build the Operator for your firm and connect it to the tools you already run: your
-            practice-management system, your email and calendar, your documents.
+            We build the Operator for your agency and connect it to the systems you already run:
+            your management system, your email and calendar, your document storage. It reads carrier
+            downloads as they land, so renewals, billing status, and cancellation notices are in
+            front of it, not buried.
           </p>
           <p>
-            A new inquiry lands, wherever it comes from. It captures the details that matter, drafts
-            the first reply in your voice, and offers times for the consult. It chases the
-            engagement letter to signature, answers the routine status questions, logs the documents
-            that arrive, and nudges the matter that has gone quiet. The coordination moves the way
-            it always did, logged in your practice-management system as it happens.
+            A quote request comes in. It captures the exposure, drafts the acknowledgment in your
+            voice, and routes it to a producer. It runs the renewal cadence so nothing lapses,
+            builds the certificate from what is on the policy, relays the endorsement to the carrier
+            and confirms it back, answers the routine billing question, and chases a cancellation
+            notice to the cure before coverage drops. Every piece of it is logged in your management
+            system as it happens.
           </p>
         </div>
       </div>
@@ -145,31 +147,32 @@ const roleLenses = [
           class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)] mb-12"
         >
           <p>
-            The Operator does coordination and brings the law to a lawyer. Legal advice, the
-            strategy, the judgment about a matter, drafting legal substance, those stay with your
-            attorneys. Not because the software could not write a clear sentence, but because the
-            license is the point: practicing law takes a licensed attorney, and a trained but
-            unlicensed paralegal could not give that advice either.
+            The Operator does the full workup and brings every quote, endorsement, and renewal to
+            your producer ready to act. The acts that carry a license, binding coverage, quoting a
+            premium, making the coverage call, stay with your licensed people. Not because the
+            software could not format a binder, but because the license is the point: your state DOI
+            and your E&amp;O carrier want a person's name on those acts, and a trained but
+            unlicensed assistant could not make them either.
           </p>
           <p>
-            You govern where that line sits. Out of the box, anything that touches legal substance
-            waits for a lawyer, and every outbound message goes through a reviewer on your team who
-            sends it under their own name. You widen what the Operator runs on its own as you learn
-            what it is good at. It never grants itself more authority, and every action it takes is
-            logged where you can see it.
+            You govern where that line sits. Out of the box, anything that carries the license waits
+            for a person, and every outbound message goes through a reviewer on your team who sends
+            it under their own name. You widen what the Operator runs on its own as you learn what
+            it is good at. It never grants itself more authority. Every action it takes is logged
+            where you can see it: what it did, when, and why.
           </p>
         </div>
         <div class="text-center">
           <CtaButton
             variant="secondary"
-            href="/book?interest=law-firm"
-            data-ev="law-firm-section-cta">Talk through the fit</CtaButton
+            href="/book?interest=insurance"
+            data-ev="insurance-section-cta">Talk through the fit</CtaButton
           >
         </div>
       </div>
     </section>
 
-    <!-- § 05 One coordinator, your whole firm -->
+    <!-- § 05 One coordinator, your whole agency -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -179,18 +182,18 @@ const roleLenses = [
         <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          One Coordinator. Your Whole Firm.
+          One Coordinator. Your Whole Agency.
         </h2>
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
-            One Operator for the whole firm, not a separate assistant for each attorney. Everyone
-            works with the same one, and it gets sharper from everyone's corrections.
+            One Operator for the whole agency, not a separate tool for each producer. Everyone works
+            with the same one, and it gets sharper from everyone's corrections.
           </p>
           <p>
-            What it learns, your practice areas, your intake questions, the way you run a matter,
-            your voice, is a record you can read and correct. It belongs to the firm, not to a
-            person's login. When someone moves on, what the Operator knows about how you run does
-            not leave with them.
+            What it learns, your carriers, your appetite, your voice, the way you run a renewal, is
+            a record you can read and correct. It belongs to the agency, not to a person's login.
+            When someone moves on, what the Operator knows about how you run does not leave with
+            them.
           </p>
         </div>
       </div>
@@ -211,7 +214,7 @@ const roleLenses = [
         <p
           class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
         >
-          A few shapes the seat can take. We build it around how your firm runs, so these are
+          A few shapes the seat can take. We build it around how your agency runs, so these are
           starting points, not a menu.
         </p>
 
@@ -252,9 +255,9 @@ const roleLenses = [
           Start The Conversation.
         </h2>
         <p class="mx-auto mb-6 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
-          It starts with a conversation. We learn how your firm runs, find the intake and
-          coordination work that is eating your team's time, and figure out where a dedicated
-          Operator fits. If it is not a fit, we will tell you.
+          It starts with a conversation. We learn how your agency runs, find the service and renewal
+          work that is eating your team's time, and figure out where a dedicated Operator fits. If
+          it is not a fit, we will tell you.
         </p>
         <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
           Pricing is a flat monthly subscription, scoped to the seat we build together, and we walk
@@ -262,8 +265,8 @@ const roleLenses = [
         </p>
         <CtaButton
           variant="outline-white"
-          href="/book?interest=law-firm"
-          data-ev="law-firm-final-cta">Start the conversation</CtaButton
+          href="/book?interest=insurance"
+          data-ev="insurance-final-cta">Start the conversation</CtaButton
         >
       </div>
     </section>
