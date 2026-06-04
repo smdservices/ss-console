@@ -224,6 +224,8 @@ RUN chmod +x /app/bootstrap.sh
 # overlay materializes profile configs, ensuring the autonomous curator is off
 # before Hermes starts; the boot smoke test re-runs it with --check.
 COPY operator/templates/ensure-curator-disabled.py /app/ensure-curator-disabled.py
+COPY operator/templates/ensure-disabled-skills.py /app/ensure-disabled-skills.py
+COPY operator/templates/ensure-operator-identity.py /app/ensure-operator-identity.py
 COPY operator/templates/ensure-telegram-allowlist.py /app/ensure-telegram-allowlist.py
 
 # NOTE: customer.yaml is NOT copied into the image. It lives on the Fly

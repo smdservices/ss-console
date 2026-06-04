@@ -1,6 +1,6 @@
 schema_version: 1
 
-# SMD Services — customer-zero (internal "eat our own cooking" instance, ADR 0004 / #776).
+# SMD Services customer Operator.
 #
 # AUTHORED by the aie-onboard skill (2026-05-31) from the REAL onboarding interview
 # at operator/customers/smd/onboarding-interview-2026-05-31.md. This REPLACES the
@@ -9,13 +9,11 @@ schema_version: 1
 #
 # Every value below traces to a stated interview answer. Capabilities the substrate
 # cannot yet honor are NOT encoded here — they live as open-items in onboarding-plan.md.
-# Crane's outbound identity is its OWN AgentMail mailbox (smdcrane@agentmail.to):
-# autonomous send/reply from that identity (action_ceilings.external_send: autonomous),
-# gated ON TOP by the content-sensitivity floor (ADR 0031 — money/contract/scope/legal
-# drop to draft), the trusted-sender allowlist, and recipient-lock. The principal's
-# intake Gmail (smdurgan@smdurgan.com) stays modify-scope (read/label/archive/draft,
-# never-send). Telegram is wired (DM, allowlisted). Inbound AgentMail → inbox-triage
-# via the webhook trigger below.
+# Crane is provisioned as a customer Workspace employee. Google authority is a
+# customer-owned service account with domain-wide delegation impersonating the
+# Operator's Workspace user, materialized on the customer Machine. Action ceilings
+# and content-sensitivity floors still govern when the Operator may use that
+# authority autonomously.
 #
 # Not provisioned, not committed by the skill. Captain reviews before either.
 
@@ -36,13 +34,29 @@ machine:
   size: shared-cpu-1x
   memory_mb: 1024
 
+# ---- GOOGLE WORKSPACE AUTHORITY ----
+# Customer-owned Google Cloud service account with domain-wide delegation.
+# GOOGLE_SERVICE_ACCOUNT_JSON is a Fly secret containing base64-encoded service
+# account JSON. Bootstrap writes it to /opt/data/oauth/google.json and exports the
+# subject + scope list for the Google connector CLIs.
+google_auth:
+  mode: dwd
+  subject: crane@smd.services
+  scopes:
+    - https://www.googleapis.com/auth/gmail.modify
+    - https://www.googleapis.com/auth/gmail.send
+    - https://www.googleapis.com/auth/calendar.events
+    - https://www.googleapis.com/auth/drive
+    - https://www.googleapis.com/auth/documents
+    - https://www.googleapis.com/auth/spreadsheets
+
 # ---- HUMANS WITH PORTAL ACCESS ----
 users:
   - email: scott@smd.services
     role: principal
     full_name: Scott Durgan
-    # Gmail draft replies go out in Scott's voice (Scott sends them). Real writing
-    # samples are an onboarding open-item; until then Layer 2 falls back to general.
+    # Real writing samples are an onboarding open-item; until then Layer 2 falls
+    # back to general.
     voice_profile_id: scott
 
 # ---- PERSONAS ----
@@ -58,10 +72,9 @@ personas:
       - direct
       - executive-summary
       - concise
-    # v1 skill: inbox-triage — triage the intake Gmail, draft replies for review.
-    # Does not send as Scott: the AUTHORED gmail.modify token scope makes send
-    # impossible at Google (ADR 0035 — the constraint is the consented scope, not a
-    # harness default).
+    # v1 skill: inbox-triage. The Workspace credential can read, write, and send
+    # as Crane's customer-owned Workspace user. Trust ceilings and content floors
+    # decide whether a given external communication is sent or drafted.
     #
     # NOTE: the `workspace` skill (on-demand Gmail/Calendar/Drive read+draft) is NOT
     # bound here yet. Its SKILL.md exists in the repo, but a customer Machine's skill
@@ -74,14 +87,8 @@ personas:
         version: pending
         trust_ceiling: draft_for_review
         enabled: true
-    # Native Google skills to suppress for this customer: they mint an unscoped,
-    # send-capable full-Workspace credential that contradicts the scope-limited token
-    # (the #1192 trap). AUTHORED here as the source of truth. Runtime materialization
-    # (the "suppress" half of #1192) is a follow-on: the running profile reads
-    # profiles/<slug>/config.yaml where `skills` is already a LIST of skill refs, but
-    # Hermes' disable knob (skills.disabled) wants `skills` as a mapping — the materializer
-    # must resolve that shape (mirroring ensure-curator-disabled.py) before it ships. The
-    # `workspace` skill above is the "expose" half and already gives Crane a configured path.
+    # Native Google/Himalaya skills remain disabled because this customer uses
+    # the audited BUILD connector CLIs and the customer-owned DWD credential.
     skills_disabled:
       - google-workspace
       - himalaya
@@ -92,30 +99,13 @@ personas:
         wake_policy: always
 
 # ---- CONNECTORS ----
-# All Google ("We run everything in Google"). Google rides BUILD adapters per ADR 0020
-# (scope-limited CLIs in operator/connectors/google/, on one user-OAuth token; the
-# native google-workspace skill is disabled — see skills_disabled above). The intake
-# Gmail (smdurgan@smdurgan.com) holds gmail.modify, so Crane reads/labels/archives/drafts
-# but never sends as Scott — the authored token scope is the wall (ADR 0035), not a
-# harness posture. Crane's own outbound identity (AgentMail) is the Email connector below.
+# Google Workspace rides BUILD adapters per ADR 0020 on the shared DWD credential
+# declared in google_auth. The Machine acts as Crane's customer-owned computer.
 connectors:
-  # Crane's OWN mailbox identity = AgentMail (smdcrane@agentmail.to), wired as an
-  # MCP server (overlay mcp_registry → mcp.agentmail.to, key AGENTMAIL_API_KEY).
-  # This is what makes Crane reachable + able to send/reply on its own identity.
-  # The intake Gmail (smdurgan@smdurgan.com) is triaged by the inbox-triage skill
-  # via crane_gmail.py directly (gmail.modify, never-send) — NOT this connector.
   Email:
-    adapter: agentmail
-    backend: mcp:agentmail
+    adapter: google-gmail
+    backend: build:google-gmail
     enabled: true
-    # Inbound: AgentMail pushes `message.received` here. The route slug
-    # (last path segment, `agentmail`) is materialized by the overlay into a
-    # platforms.webhook route; the front-door gate (webhook_gate.py) verifies
-    # AgentMail's X-AgentMail-Signature before the native adapter routes it.
-    webhook_url: https://hermes-smd.fly.dev/webhooks/agentmail
-  # Calendar + Drive/Docs: BUILD CLIs (crane_calendar.py / crane_drive.py) on the SAME
-  # google.json token as Gmail. Read + draft only — no external invite/share verb.
-  # Scopes (authored at consent): calendar.events; drive.readonly + drive.file.
   Calendar:
     adapter: google-calendar
     backend: build:google-calendar
@@ -125,23 +115,10 @@ connectors:
     backend: build:google-drive
     enabled: true
 
-# ---- WEBHOOK TRIGGERS (inbound, ADR 0021 Stream E) ----
-# AgentMail message.received → inbox-triage (inbound reply branch). The overlay
-# translate.py materializes this into platforms.webhook; the route HMAC secret is
-# the Fly secret WEBHOOK_SECRET_AGENTMAIL (fail-closed without it). The autonomous
-# reply is recipient-locked (reply_to_message, in-thread to the original sender)
-# and governed by the trust-gate + content floor (money/contract → draft).
-webhook_triggers:
-  - source: agentmail
-    event_type: message.received
-    skill: inbox-triage
-    persona: crane
-
 # ---- TELEGRAM CHANNEL (ADR 0033) ----
-# Crane is reachable on Telegram via Hermes' native polling adapter (getUpdates) —
-# NO webhook/public surface (unlike AgentMail email above). The bot TOKEN is the Fly
-# secret TELEGRAM_BOT_TOKEN (credential, sourced from Infisical prod
-# /ss/operator/customer-zero/telegram/), which auto-enables the polling platform.
+# Crane is reachable on Telegram via Hermes' native polling adapter (getUpdates).
+# No webhook/public surface. The bot TOKEN is the Fly
+# secret TELEGRAM_BOT_TOKEN, which auto-enables the polling platform.
 # The image must be built with the Dockerfile `--extra messaging` (python-telegram-bot);
 # `--extra all` omits it.
 #
@@ -167,19 +144,17 @@ scope:
   email_folders_blind: []
   email_keyword_blocks: []
   domain_blocks: []
-  # Inbound autonomous reply acts only on direction from trusted senders
-  # (interview: smdurgan.com / smd.services). Untrusted/spoofed sender → the
-  # inbound reply branch triages only, never sends. DMARC-in-code (AgentMail
-  # surfaces headers['Authentication-Results']) is the documented evolution upgrade.
+  # Autonomous external sends act only on direction from trusted senders
+  # (interview: smdurgan.com / smd.services). Untrusted/spoofed senders are
+  # triaged only.
   trusted_sender_domains:
     - smdurgan.com
     - smd.services
   # ---- TRUST CEILINGS (per-action, ADR 0025) ----
-  # Crane sends from its OWN AgentMail identity (smdcrane@agentmail.to) without
-  # per-message approval ("default send level autonomous", interview). Floors that
-  # still apply ON TOP: content-sensitivity floor (ADR 0031) drops money/contract/
-  # scope/legal to draft-for-review; principal-identity (Gmail) sends stay hard-
-  # banned (draft only); commitment/destructive keep current-turn-approval floors.
+  # Crane may send externally from its customer Workspace identity within the
+  # authored ceiling. Floors still apply on top: content-sensitivity floor
+  # (ADR 0031) drops money/contract/scope/legal to draft-for-review;
+  # commitment/destructive actions keep their approval floors.
   action_ceilings:
     external_send: autonomous
 
