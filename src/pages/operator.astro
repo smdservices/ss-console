@@ -34,6 +34,25 @@ const roleLenses = [
     body: 'The questions you answer the same way every time. Status updates, scheduling, the routine back-and-forth. Drafts go to a reviewer on your team until you trust the Operator to handle a kind of message on its own.',
   },
 ]
+
+const industries = [
+  { name: 'Law firms', seat: 'Intake and matter coordination', slug: 'law-firm' },
+  { name: 'Insurance agencies', seat: 'The service and renewal desk', slug: 'insurance' },
+  { name: 'Accounting firms', seat: 'The document chase, through busy season', slug: 'accounting' },
+  { name: 'Advisory firms', seat: 'Client service and operations', slug: 'ria' },
+  { name: 'Mortgage brokers', seat: 'The pipeline, to clear-to-close', slug: 'mortgage' },
+  { name: 'Veterinary clinics', seat: 'The front desk', slug: 'veterinary' },
+  { name: 'Dental practices', seat: 'The front office', slug: 'dental' },
+  { name: 'Med spas', seat: 'Booking, membership, and rebooking', slug: 'med-spa' },
+  { name: 'Title and escrow', seat: 'The closing desk', slug: 'title' },
+  {
+    name: 'Property management',
+    seat: 'Resident and owner coordination',
+    slug: 'property-management',
+  },
+  { name: 'Marketing agencies', seat: 'Account coordination', slug: 'marketing-agency' },
+  { name: 'Home services', seat: 'Answering and booking the call', slug: 'home-services' },
+]
 ---
 
 <Base
@@ -249,12 +268,57 @@ const roleLenses = [
       </div>
     </section>
 
-    <!-- § 07 Start the conversation -->
+    <!-- § 07 Built for your industry -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 07</span
+        >
+        <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Built For Your Industry.
+        </h2>
+        <p
+          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          The role is built around your operation. For these, we have already mapped the seat the
+          Operator fills, the work it takes on, and the line it does not cross. Find yours.
+        </p>
+
+        <div
+          class="grid grid-cols-1 md:grid-cols-3 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
+        >
+          {
+            industries.map((industry, i) => (
+              <a
+                href={`/packs/${industry.slug}`}
+                data-ev={`operator-industry-${industry.slug}`}
+                class:list={[
+                  'group flex flex-col gap-2 p-8 min-h-[10rem] border-b-[3px] border-[color:var(--ss-color-text-primary)] transition-colors hover:bg-white',
+                  i % 3 !== 2 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
+                ]}
+              >
+                <p class="font-['Archivo'] text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] group-hover:text-[color:var(--ss-color-primary)]">
+                  {industry.name}
+                </p>
+                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                  {industry.seat}
+                </p>
+              </a>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- § 08 Start the conversation -->
     <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
       <div class="mx-auto max-w-5xl text-center">
         <span
           class="inline-block bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
-          >§ 07</span
+          >§ 08</span
         >
         <h2
           class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
