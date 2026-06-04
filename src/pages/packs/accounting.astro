@@ -9,9 +9,9 @@ import CtaButton from '../../components/CtaButton.astro'
 const productSchema = {
   '@context': 'https://schema.org',
   '@type': 'Product',
-  name: 'Operator for Law Firms',
+  name: 'Operator for Accounting Firms',
   description:
-    'A dedicated Operator that runs intake and keeps your matters moving: it answers the new inquiry, books the consult, chases the engagement letter to signature, keeps your practice-management system current, and nudges the matter that has gone quiet. The law stays with your lawyers; you set the line.',
+    'A dedicated Operator that runs the client chase: it sends the PBC list, chases the missing documents, routes the return for review, runs the deadline and extension cadence, and keeps your practice-management system current. The return is signed by your CPAs; you set the line.',
   brand: { '@type': 'Brand', name: 'SMD Services' },
   offers: {
     '@type': 'Offer',
@@ -22,23 +22,23 @@ const productSchema = {
 
 const roleLenses = [
   {
-    title: 'New-client intake',
-    body: 'A new inquiry lands, wherever it comes from. The Operator captures the details that matter, drafts the first reply in your voice, and offers times for the consult. The person who used to drop or slow that first response is no longer the bottleneck, and the legal advice waits for a lawyer.',
+    title: 'The document chase',
+    body: 'The PBC list that has to go out, the client who has gone quiet, the item still missing days before the deadline. The Operator sends the list, chases what is outstanding as many times as it takes, in your voice, and updates the file as documents land. It collects; it never gives tax advice.',
   },
   {
-    title: 'Keeping matters moving',
-    body: 'The engagement letter that sits unsigned, the matter that goes quiet, the document you are waiting on. The Operator watches the work in flight, chases what stalled, and drafts the follow-up, with everything logged in your practice-management system.',
+    title: 'Into review',
+    body: 'When the file is ready, the Operator routes the return to a preparer and a reviewer and answers the routine status question in the meantime. The tax position and the signature stay with your CPAs.',
   },
   {
-    title: 'The routine back-and-forth',
-    body: 'The status questions answered the same way every time, the consult scheduling, the receipt of a document. Drafts go to a reviewer on your team until you trust the Operator to handle a kind of message on its own.',
+    title: 'Deadline and extension cadence',
+    body: 'The deadlines that do not move and the extensions that have to be tracked. The Operator runs the cadence, surfaces what is approaching, and keeps the practice-management system current, so nothing slips through the cracks in the rush.',
   },
 ]
 ---
 
 <Base
-  title="Operator for Law Firms | SMD Services"
-  description="A dedicated Operator that runs intake and keeps your matters moving: it answers the inquiry, books the consult, chases the signed engagement letter, keeps your practice-management system current, and nudges the stalled matter. The law stays with your lawyers. You set the line."
+  title="Operator for Accounting Firms | SMD Services"
+  description="A dedicated Operator that runs the client chase: the PBC list, the missing documents, routing the return for review, the deadline and extension cadence, and keeping your practice-management system current. The return is signed by your CPAs. You set the line."
 >
   <Nav />
   <main id="main" role="main">
@@ -56,17 +56,17 @@ const roleLenses = [
         <h1
           class="mb-8 font-['Archivo'] text-5xl md:text-7xl font-black uppercase leading-[1.05] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
         >
-          The Intake Desk, Fully Staffed.
+          Busy Season, Fully Staffed.
         </h1>
         <p
           class="mx-auto mb-12 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
         >
-          A dedicated Operator that runs intake and keeps your matters moving, the way a sharp legal
-          assistant would: it answers the new inquiry, books the consult, chases the engagement
-          letter to signature, and keeps your practice-management system current. You add capacity
-          to the front of the firm without adding to payroll.
+          A dedicated Operator that runs the client chase, the way a sharp firm administrator would:
+          it works the PBC list, chases the missing documents, routes the return for review, and
+          keeps the deadline and extension cadence on schedule. You add capacity through busy season
+          without adding to payroll.
         </p>
-        <CtaButton href="/book?interest=law-firm" data-ev="law-firm-hero-cta"
+        <CtaButton href="/book?interest=accounting" data-ev="accounting-hero-cta"
           >Start the conversation</CtaButton
         >
       </div>
@@ -86,16 +86,16 @@ const roleLenses = [
         </h2>
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
-            Intake and matter coordination is one of the hardest seats to keep filled. Legal leaders
-            say skilled support is harder to find than it was a year ago, and the assistant or
-            paralegal you train is the one a bigger firm hires away. The work does not wait while
-            the seat sits open. The call that does not get returned and the engagement that does not
-            get chased are the matter itself, gone.
+            Skilled preparers are harder to find every year. The profession is retiring faster than
+            it is replacing, the pipeline into it has thinned, and the staff you train through one
+            busy season is the staff a bigger firm recruits before the next. The work does not wait:
+            the return cannot start until the documents come in, and the documents do not come in on
+            their own.
           </p>
           <p>
-            An Operator fills that seat now. It runs intake at full speed, all the time, and what it
-            learns about how your firm runs, your practice areas, your intake questions, your voice,
-            stays with the firm instead of leaving with the person who had it.
+            An Operator fills that seat now. It runs the chase at full speed, all the time, and what
+            it learns about how your firm runs, your clients, your workpapers, your cadence, stays
+            with the firm instead of leaving with the person who had it.
           </p>
         </div>
       </div>
@@ -116,14 +116,14 @@ const roleLenses = [
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
             We build the Operator for your firm and connect it to the tools you already run: your
-            practice-management system, your email and calendar, your documents.
+            practice-management system, your email, your document storage.
           </p>
           <p>
-            A new inquiry lands, wherever it comes from. It captures the details that matter, drafts
-            the first reply in your voice, and offers times for the consult. It chases the
-            engagement letter to signature, answers the routine status questions, logs the documents
-            that arrive, and nudges the matter that has gone quiet. The coordination moves the way
-            it always did, logged in your practice-management system as it happens.
+            The engagement opens. It sends the PBC list, chases the missing items, and follows up on
+            the client who has gone quiet, as many times as it takes, in your voice. It routes the
+            return to a reviewer when the file is ready, answers the routine status question, and
+            keeps the deadline and extension cadence on schedule. Every piece of it is logged in
+            your practice-management system as it happens.
           </p>
         </div>
       </div>
@@ -145,25 +145,25 @@ const roleLenses = [
           class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)] mb-12"
         >
           <p>
-            The Operator does coordination and brings the law to a lawyer. Legal advice, the
-            strategy, the judgment about a matter, drafting legal substance, those stay with your
-            attorneys. Not because the software could not write a clear sentence, but because the
-            license is the point: practicing law takes a licensed attorney, and a trained but
-            unlicensed paralegal could not give that advice either.
+            The Operator runs the chase and brings the return to a person ready for review. The
+            judgment that carries a license, the tax position, the audit opinion, signing the
+            return, stays with your CPAs. Not because the software could not add a column, but
+            because the license is the point: the return is signed by a person who stands behind it,
+            and an unlicensed staff preparer could not sign it either.
           </p>
           <p>
-            You govern where that line sits. Out of the box, anything that touches legal substance
-            waits for a lawyer, and every outbound message goes through a reviewer on your team who
-            sends it under their own name. You widen what the Operator runs on its own as you learn
-            what it is good at. It never grants itself more authority, and every action it takes is
-            logged where you can see it.
+            You govern where that line sits. Out of the box, the return waits for a preparer and a
+            reviewer, and every outbound message goes through a person on your team who sends it
+            under their own name. You widen what the Operator runs on its own as you learn what it
+            is good at. It never grants itself more authority, and every action it takes is logged
+            where you can see it.
           </p>
         </div>
         <div class="text-center">
           <CtaButton
             variant="secondary"
-            href="/book?interest=law-firm"
-            data-ev="law-firm-section-cta">Talk through the fit</CtaButton
+            href="/book?interest=accounting"
+            data-ev="accounting-section-cta">Talk through the fit</CtaButton
           >
         </div>
       </div>
@@ -183,14 +183,13 @@ const roleLenses = [
         </h2>
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
-            One Operator for the whole firm, not a separate assistant for each attorney. Everyone
-            works with the same one, and it gets sharper from everyone's corrections.
+            One Operator for the whole firm, not a separate tool for each preparer. Everyone works
+            with the same one, and it gets sharper from everyone's corrections.
           </p>
           <p>
-            What it learns, your practice areas, your intake questions, the way you run a matter,
-            your voice, is a record you can read and correct. It belongs to the firm, not to a
-            person's login. When someone moves on, what the Operator knows about how you run does
-            not leave with them.
+            What it learns, your clients, your workpapers, your cadence, your voice, is a record you
+            can read and correct. It belongs to the firm, not to a person's login. When someone
+            moves on, what the Operator knows about how you run does not leave with them.
           </p>
         </div>
       </div>
@@ -252,9 +251,9 @@ const roleLenses = [
           Start The Conversation.
         </h2>
         <p class="mx-auto mb-6 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
-          It starts with a conversation. We learn how your firm runs, find the intake and
-          coordination work that is eating your team's time, and figure out where a dedicated
-          Operator fits. If it is not a fit, we will tell you.
+          It starts with a conversation. We learn how your firm runs, find the client chase and the
+          coordination that is eating your team's time, and figure out where a dedicated Operator
+          fits. If it is not a fit, we will tell you.
         </p>
         <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
           Pricing is a flat monthly subscription, scoped to the seat we build together, and we walk
@@ -262,8 +261,8 @@ const roleLenses = [
         </p>
         <CtaButton
           variant="outline-white"
-          href="/book?interest=law-firm"
-          data-ev="law-firm-final-cta">Start the conversation</CtaButton
+          href="/book?interest=accounting"
+          data-ev="accounting-final-cta">Start the conversation</CtaButton
         >
       </div>
     </section>
