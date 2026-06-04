@@ -24,6 +24,7 @@ import { checkHermesRef, checkRequiredString, isPlainObject, secretFindingToErro
 import {
   type AddonSpec,
   type CustomerYaml,
+  type GoogleAuth,
   type MachineSpec,
   type Memory,
   type Observability,
@@ -57,6 +58,7 @@ import { checkVoiceCohorts } from './sections-voice'
 import { checkWebhookTriggers } from './sections-webhook-triggers'
 import { checkExtendsReserved, checkVerticalPinned } from './sections-vertical'
 import { checkAddons } from './sections-addons'
+import { checkGoogleAuth } from './sections-google-auth'
 
 export type {
   CustomerYaml,
@@ -75,6 +77,7 @@ export type {
   User,
   UserRole,
   Connector,
+  GoogleAuth,
   Scope,
   Escalation,
   Memory,
@@ -105,6 +108,7 @@ export {
   ACCEPTED_LOG_LEVELS,
   ACCEPTED_LOG_SHIPS,
   ACCEPTED_BACKEND_PREFIXES,
+  ACCEPTED_GOOGLE_AUTH_MODES,
   ACCEPTED_SCHEMA_VERSIONS,
   ACCEPTED_WAKE_POLICIES,
   AUDIT_LOG_DAYS_MAX,
@@ -175,6 +179,7 @@ interface ParsedSections {
   users: ReturnType<typeof checkUsers>
   personas: ReturnType<typeof checkPersonas>
   connectors: ReturnType<typeof checkConnectors>
+  googleAuth: GoogleAuth | null
   scope: ReturnType<typeof checkScope>
   escalation: ReturnType<typeof checkEscalation>
   memory: Memory | null
@@ -207,6 +212,7 @@ function validateSections(
   const users = checkUsers(root, errors)
   const personas = checkPersonas(root, errors)
   const connectors = checkConnectors(root, customerId, errors)
+  const googleAuth = checkGoogleAuth(root, errors)
   const scope = checkScope(root, errors)
   checkTelegram(root, errors) // optional telegram block; validate-only (ADR 0033)
   const escalation = checkEscalation(root, errors)
@@ -223,6 +229,7 @@ function validateSections(
     users,
     personas,
     connectors,
+    googleAuth,
     scope,
     escalation,
     memory,
@@ -255,6 +262,7 @@ function assembleCustomerYaml(root: Record<string, unknown>, p: ParsedSections):
     users: p.users,
     personas: p.personas,
     connectors: p.connectors,
+    google_auth: p.googleAuth,
     scope: p.scope,
     escalation: p.escalation,
     voice_library: p.voiceLibrary,

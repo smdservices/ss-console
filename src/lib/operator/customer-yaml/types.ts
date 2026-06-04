@@ -181,6 +181,21 @@ export type LogShip = (typeof ACCEPTED_LOG_SHIPS)[number]
 
 export const ACCEPTED_BACKEND_PREFIXES = ['mcp:', 'build:', 'synthetic:'] as const
 
+/**
+ * Google credential mode for the optional top-level `google_auth.mode`
+ * (ADR 0035; connector dispatch shipped in ss-console #1212, boot wiring #1213).
+ *
+ * - `user_oauth` — the default when `google_auth` is absent. The Google
+ *   connector CLIs read an authorized-user token relayed to
+ *   `/opt/data/oauth/google.json`; nothing is materialized into the env.
+ * - `dwd` — service-account key with domain-wide delegation. The Operator
+ *   impersonates `google_auth.subject` at `google_auth.scopes`; bootstrap
+ *   exports `GOOGLE_IMPERSONATE_SUBJECT` + `GOOGLE_OAUTH_SCOPES` so the
+ *   connector's service-account branch (`_google_auth.credentials`) activates.
+ */
+export const ACCEPTED_GOOGLE_AUTH_MODES = ['user_oauth', 'dwd'] as const
+export type GoogleAuthMode = (typeof ACCEPTED_GOOGLE_AUTH_MODES)[number]
+
 export const ACCEPTED_SCHEMA_VERSIONS = [1] as const
 export type SchemaVersion = (typeof ACCEPTED_SCHEMA_VERSIONS)[number]
 
@@ -410,6 +425,26 @@ export interface Connector {
 }
 
 /**
+ * Google credential selection for the customer's Operator (ADR 0035;
+ * connector dispatch #1212, boot wiring #1213). Optional top-level block;
+ * absent ⇒ user-OAuth (the connectors read a relayed authorized-user token at
+ * `/opt/data/oauth/google.json` and nothing is materialized).
+ *
+ * Modeled here rather than per-connector because ONE Google identity is shared
+ * across Gmail (read by the inbox-triage skill via crane_gmail), Calendar, and
+ * Drive — and Gmail is not a `connectors[]` entry. When `mode: 'dwd'`, bootstrap
+ * exports `GOOGLE_IMPERSONATE_SUBJECT` (= `subject`) and `GOOGLE_OAUTH_SCOPES`
+ * (= space-joined `scopes`) so the connectors' service-account branch runs.
+ */
+export interface GoogleAuth {
+  mode: GoogleAuthMode
+  /** Email to impersonate; required (non-null) for `dwd`, null for `user_oauth`. */
+  subject: string | null
+  /** OAuth scopes the DWD service account requests; non-empty for `dwd`, [] otherwise. */
+  scopes: string[]
+}
+
+/**
  * Top-level webhook trigger mapping. ADR 0021 Stream E uses this to route
  * inbound webhook payloads (from `connectors[].webhook_url`) to a specific
  * skill invocation on a specific persona via the overlay's
@@ -588,6 +623,13 @@ export interface CustomerYaml {
   users: User[]
   personas: Persona[]
   connectors: Partial<Record<CapabilityName, Connector>>
+  /**
+   * Google credential mode (ADR 0035 / #1213). `null` ⇒ user-OAuth default
+   * (today's behavior). When `{ mode: 'dwd', ... }`, bootstrap materializes the
+   * impersonation subject + scopes as env so the connectors' service-account
+   * branch runs instead of reading a relayed authorized-user token.
+   */
+  google_auth: GoogleAuth | null
   scope: Scope
   escalation: Escalation
   voice_library: VoiceLibrary | null
