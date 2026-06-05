@@ -15,7 +15,15 @@
  *     only there (ADR 0017).
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -120,37 +128,72 @@ describe('validate-customer-yaml: author-time skill-body guardrail (#1206)', () 
 })
 
 describe('bootstrap.sh: skill-catalog seed is additive (#1206)', () => {
-  it('overlays repo skills onto the volume without clobbering agent-authored skills', () => {
+  it('replaces stale aliases additively, preserving agent-authored skills, never touching the source', () => {
     const dir = makeTmpDir()
     const appSkills = join(dir, 'app', 'skills')
     const volSkills = join(dir, 'opt', 'data', 'skills')
+    // Repo (image) catalog: two skills.
     mkdirSync(join(appSkills, 'inbox-triage'), { recursive: true })
     writeFileSync(join(appSkills, 'inbox-triage', 'SKILL.md'), '# repo body v2\n')
-    // A skill that lives ONLY on the volume — the agent-authored case (ADR 0017).
+    mkdirSync(join(appSkills, 'proposal-drafter'), { recursive: true })
+    writeFileSync(join(appSkills, 'proposal-drafter', 'SKILL.md'), '# proposal repo body\n')
+    // Volume preexisting state:
+    mkdirSync(volSkills, { recursive: true })
+    //  (a) a stale SYMLINK alias to the image copy — the exact shape that made a
+    //      bare `cp -a /app/skills/. .../skills/` abort with "are the same file"
+    //      and crash-loop the boot on the customer-zero redeploy.
+    symlinkSync(join(appSkills, 'inbox-triage'), join(volSkills, 'inbox-triage'))
+    //  (b) a skill that lives ONLY on the volume — the agent-authored case (ADR 0017).
     mkdirSync(join(volSkills, 'agent-authored-skill'), { recursive: true })
     writeFileSync(join(volSkills, 'agent-authored-skill', 'SKILL.md'), '# authored at runtime\n')
 
-    // The exact idiom from bootstrap.sh step 6b.
-    execFileSync('cp', ['-a', `${appSkills}/.`, `${volSkills}/`])
+    // The exact per-skill replace idiom from bootstrap.sh step 6b.
+    const seed = `
+      set -eu
+      HERMES_HOME='${join(dir, 'opt', 'data')}'
+      for _src in '${appSkills}'/*/; do
+        [ -e "$_src" ] || continue
+        _name=$(basename "$_src")
+        _dst="$HERMES_HOME/skills/$_name"
+        if [ -L "$_dst" ]; then rm -f "$_dst"; else rm -rf "$_dst"; fi
+        cp -a "$_src" "$_dst"
+      done
+    `
+    execFileSync('bash', ['-c', seed])
 
-    // Repo skill landed on the volume...
-    expect(existsSync(join(volSkills, 'inbox-triage', 'SKILL.md'))).toBe(true)
+    // The stale alias is now a REAL dir carrying the repo body (no "same file" error).
+    expect(lstatSync(join(volSkills, 'inbox-triage')).isSymbolicLink()).toBe(false)
     expect(readFileSync(join(volSkills, 'inbox-triage', 'SKILL.md'), 'utf8')).toContain(
       'repo body v2'
     )
-    // ...and the agent-authored skill was preserved, not wiped.
-    expect(existsSync(join(volSkills, 'agent-authored-skill', 'SKILL.md'))).toBe(true)
+    // The other repo skill landed on the volume.
+    expect(readFileSync(join(volSkills, 'proposal-drafter', 'SKILL.md'), 'utf8')).toContain(
+      'proposal repo body'
+    )
+    // The agent-authored skill was preserved, not wiped.
     expect(readFileSync(join(volSkills, 'agent-authored-skill', 'SKILL.md'), 'utf8')).toContain(
       'authored at runtime'
     )
+    // Clearing the alias must NOT have mutated the image source it pointed at.
+    expect(readFileSync(join(appSkills, 'inbox-triage', 'SKILL.md'), 'utf8')).toContain(
+      'repo body v2'
+    )
   })
 
-  it('bootstrap.sh seeds the catalog additively and never destructively wipes it', () => {
+  it('bootstrap.sh seeds per-skill additively and never destructively wipes the catalog', () => {
     const script = readFileSync(BOOTSTRAP_SH, 'utf8')
-    // The additive seed must be present...
-    expect(script).toContain('cp -a /app/skills/.')
-    // ...and there must be NO destructive mirror of the skills catalog, which
-    // would delete agent-authored skills on the volume (the regression guard).
-    expect(script).not.toMatch(/rm\s+-rf[^\n]*\$\{HERMES_HOME\}\/skills/)
+    // The per-skill replace idiom must be present: scoped to one repo skill at a
+    // time so agent-authored skills (present only on the volume) survive.
+    expect(script).toContain('for _src in /app/skills/*/')
+    expect(script).toContain('cp -a "${_src}" "${_dst}"')
+    // Symlink-safety: an aliasing entry (the "are the same file" crash-loop) is
+    // removed as a LINK, never recursed through into the read-only /app/skills.
+    expect(script).toContain('[ -L "${_dst}" ]')
+    expect(script).toContain('[ -L "${HERMES_HOME}/skills" ]')
+    // Regression guard: the clear stays scoped to a single named skill — the
+    // catalog ROOT is never wiped (that would delete agent-authored skills), and
+    // its children are never globbed away.
+    expect(script).not.toMatch(/rm\s+-rf\s+["']?\$\{HERMES_HOME\}\/skills["'\s]/)
+    expect(script).not.toMatch(/rm\s+-rf\s+["']?\$\{HERMES_HOME\}\/skills\/\*/)
   })
 })
