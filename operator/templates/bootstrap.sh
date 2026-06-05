@@ -294,10 +294,41 @@ fi
 # seeded MUST NOT proceed to a guaranteed crash-loop with a misleading error.
 if [ -d /app/skills ]; then
   log "Seeding repo skill catalog onto the volume (/app/skills -> ${HERMES_HOME}/skills)..."
+  # If the catalog ROOT is itself a stale symlink (an older seeding approach
+  # aliased the whole dir back into /app/skills), drop the link before seeding —
+  # never write THROUGH it into the read-only image tree, and never let the
+  # per-skill clear below recurse through it and delete the source. `-L` tests
+  # the link; `rm -f` drops only the link, not its target.
+  if [ -L "${HERMES_HOME}/skills" ]; then
+    rm -f "${HERMES_HOME}/skills" \
+      || die "cannot clear stale ${HERMES_HOME}/skills symlink for the skill catalog seed"
+  fi
   mkdir -p "${HERMES_HOME}/skills" \
     || die "cannot create ${HERMES_HOME}/skills for the skill catalog seed"
-  cp -a /app/skills/. "${HERMES_HOME}/skills/" \
-    || die "skill catalog seed failed (/app/skills -> ${HERMES_HOME}/skills) — refusing to boot into a crash-loop"
+  # Per-skill replace, scoped to one repo skill name at a time. Each repo skill
+  # overwrites any stale volume entry of the SAME name — including a symlink
+  # alias left by an older seeding approach, which is what made a bare
+  # `cp -a /app/skills/. ${HERMES_HOME}/skills/` abort with "are the same file"
+  # and crash-loop the boot on a persisted volume. Agent-authored skills (present
+  # only on the volume, never under /app/skills) are never iterated, so the
+  # overlay stays ADDITIVE (ADR 0017). The `-L` guard removes an aliasing entry
+  # as a LINK (never recursing into /app/skills); a real stale dir is removed in
+  # place. FAIL-CLOSED: any unseedable bound skill stops the boot here rather
+  # than at a misleading "skill not found" crash in step 7.
+  for _src in /app/skills/*/; do
+    [ -e "${_src}" ] || continue
+    _name=$(basename "${_src}")
+    _dst="${HERMES_HOME}/skills/${_name}"
+    if [ -L "${_dst}" ]; then
+      rm -f "${_dst}" \
+        || die "skill catalog seed: cannot clear stale alias ${_dst}"
+    else
+      rm -rf "${_dst}" \
+        || die "skill catalog seed: cannot clear stale ${_dst}"
+    fi
+    cp -a "${_src}" "${_dst}" \
+      || die "skill catalog seed failed for ${_name} (/app/skills -> ${HERMES_HOME}/skills) — refusing to boot into a crash-loop"
+  done
   log "Skill catalog seeded ($(find "${HERMES_HOME}/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ') skill dir(s) on volume)"
 else
   log "WARNING: /app/skills absent from image; skipping catalog seed (bound skills must already be on the volume)"
