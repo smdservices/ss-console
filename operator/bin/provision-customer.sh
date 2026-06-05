@@ -219,14 +219,26 @@ fi
 # Redis (Honcho) + observations.db. 10GB is the floor (was 1GB pre-§6);
 # per-customer fixed disk pressure should not be a thing we manage per customer.
 log "Creating persistent volume (idempotent, 10GB)..."
-if fly volumes list -a "${APP_NAME}" --json 2>/dev/null | python3 -c "import sys, json; data = json.load(sys.stdin) if sys.stdin.read else []" 2>/dev/null; then
-  if ! fly volumes list -a "${APP_NAME}" --json | grep -q '"name":"hermes_state"'; then
-    fly volumes create hermes_state --size 10 --region "${FLY_REGION}" -a "${APP_NAME}" --yes
-  else
-    log "Volume hermes_state exists; skipping create"
-  fi
+# Count existing hermes_state volumes with a real JSON parse. The prior check
+# grepped for '"name":"hermes_state"', which NEVER matched — `fly volumes list
+# --json` pretty-prints '"name": "hermes_state"' WITH a space after the colon —
+# so every (re)provision silently minted a fresh, unattached 10GB orphan volume.
+# Fail closed: if volumes cannot be enumerated, refuse to create rather than risk
+# yet another orphan.
+VOL_COUNT="$(fly volumes list -a "${APP_NAME}" --json 2>/dev/null | python3 -c '
+import sys, json
+try:
+    vols = json.load(sys.stdin)
+except Exception:
+    sys.exit(2)
+print(sum(1 for v in vols if isinstance(v, dict) and v.get("name") == "hermes_state"))
+')" || VOL_COUNT="ERR"
+if [ "${VOL_COUNT}" = "ERR" ]; then
+  die "could not enumerate volumes for ${APP_NAME}; refusing to create a possibly-duplicate volume"
+elif [ "${VOL_COUNT}" -ge 1 ]; then
+  log "Volume hermes_state exists (${VOL_COUNT}); skipping create"
 else
-  fly volumes create hermes_state --size 10 --region "${FLY_REGION}" -a "${APP_NAME}" --yes || true
+  fly volumes create hermes_state --size 10 --region "${FLY_REGION}" -a "${APP_NAME}" --yes
 fi
 
 # ---------- Step 5b: create per-customer skill-bodies R2 bucket (ADR 0022 Stream 2) ----------
