@@ -57,22 +57,22 @@ Alert routing per `customer.yaml` `escalation.failure_recipients`. v1 channel: e
 
 Scopes declared per adapter in `operator/connectors/<capability>/<system>/oauth_scopes.json` (machine-readable, validated at provision time against `customer.yaml.oauth_scopes`).
 
-| Adapter                                                                         | Scopes (v1)                                                                             | Refresh TTL                       | Re-auth interval     |
-| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | --------------------------------- | -------------------- |
-| microsoft-graph (Email)                                                         | `Mail.Read`, `Mail.ReadWrite`, `MailboxSettings.Read` (NO `Mail.Send` — Pattern A only) | 1 hr access / 90 day idle refresh | At 75 days idle      |
-| microsoft-graph (Calendar)                                                      | `Calendars.ReadWrite`, `MailboxSettings.Read`                                           | same                              | same                 |
-| microsoft-graph (OneDrive)                                                      | `Files.Read`, `Files.ReadWrite.AppFolder`                                               | same                              | same                 |
-| google-workspace (Gmail)                                                        | `gmail.readonly`, `gmail.compose`, `gmail.modify` (NO `gmail.send`)                     | 1 hr / indefinite refresh         | n/a (refresh stable) |
-| google-workspace (Calendar)                                                     | `calendar.events`, `calendar.readonly`                                                  | same                              | n/a                  |
-| google-workspace (Drive)                                                        | `drive.readonly`, `drive.file`                                                          | same                              | n/a                  |
-| docusign (ESign)                                                                | `signature`, `extended`                                                                 | 8 hr / 30 day refresh             | At 25 days idle      |
-| lawpay (Payments)                                                               | `invoices.read`, `payments.read`, `clients.read`, `aging.read`                          | 1 hr / indefinite                 | n/a                  |
-| quickbooks (Accounting)                                                         | `com.intuit.quickbooks.accounting`                                                      | 1 hr / 100 day refresh            | At 85 days idle      |
-| courtlistener (CourtAccess)                                                     | API key only (no OAuth)                                                                 | n/a                               | n/a                  |
-| filevine / clio / smartadvocate / casepeer / neos / mycase (PracticeManagement) | per-vendor; see `operator/connectors/practice-mgmt/<system>/oauth_scopes.json`          | per-vendor                        | per-vendor           |
-| follow-up-boss / lead-docket (IntakeCRM)                                        | per-vendor read+write to leads                                                          | per-vendor                        | per-vendor           |
-| callrail (CallTracking)                                                         | API key only                                                                            | n/a                               | n/a                  |
-| slack / microsoft-teams (InternalComms)                                         | `chat:write` (bot scope) for agent persona only                                         | bot token; long-lived             | n/a                  |
+| Adapter                                                                         | Scopes (v1)                                                                             | Refresh TTL                       | Re-auth interval |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | --------------------------------- | ---------------- |
+| microsoft-graph (Email)                                                         | `Mail.Read`, `Mail.ReadWrite`, `MailboxSettings.Read` (NO `Mail.Send` — Pattern A only) | 1 hr access / 90 day idle refresh | At 75 days idle  |
+| microsoft-graph (Calendar)                                                      | `Calendars.ReadWrite`, `MailboxSettings.Read`                                           | same                              | same             |
+| microsoft-graph (OneDrive)                                                      | `Files.Read`, `Files.ReadWrite.AppFolder`                                               | same                              | same             |
+| google-workspace (Gmail)                                                        | `gmail.modify`, `gmail.send`                                                            | 1 hr DWD access                   | n/a              |
+| google-workspace (Calendar)                                                     | `calendar.events`                                                                       | same                              | n/a              |
+| google-workspace (Drive / Docs / Sheets)                                        | `drive`, `documents`, `spreadsheets`                                                    | same                              | n/a              |
+| docusign (ESign)                                                                | `signature`, `extended`                                                                 | 8 hr / 30 day refresh             | At 25 days idle  |
+| lawpay (Payments)                                                               | `invoices.read`, `payments.read`, `clients.read`, `aging.read`                          | 1 hr / indefinite                 | n/a              |
+| quickbooks (Accounting)                                                         | `com.intuit.quickbooks.accounting`                                                      | 1 hr / 100 day refresh            | At 85 days idle  |
+| courtlistener (CourtAccess)                                                     | API key only (no OAuth)                                                                 | n/a                               | n/a              |
+| filevine / clio / smartadvocate / casepeer / neos / mycase (PracticeManagement) | per-vendor; see `operator/connectors/practice-mgmt/<system>/oauth_scopes.json`          | per-vendor                        | per-vendor       |
+| follow-up-boss / lead-docket (IntakeCRM)                                        | per-vendor read+write to leads                                                          | per-vendor                        | per-vendor       |
+| callrail (CallTracking)                                                         | API key only                                                                            | n/a                               | n/a              |
+| slack / microsoft-teams (InternalComms)                                         | `chat:write` (bot scope) for agent persona only                                         | bot token; long-lived             | n/a              |
 
 ## Failure modes
 

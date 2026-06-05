@@ -1,28 +1,22 @@
 #!/usr/bin/env python3
-"""crane_drive.py — thin Google Drive + Docs CLI for the Operator (user-OAuth token).
+"""crane_drive.py - thin Google Drive, Docs, and Sheets CLI for the Operator.
 
 Mirrors crane_gmail.py: a deliberately minimal CLI the agent shells to via
-`execute_code`. Implements the read + create-draft subset of the DocumentStorage
-capability contract (src/lib/operator/capabilities/document-storage.ts), covering
-both Drive files and Google Docs:
+`execute_code`. Customer Workspace deployments normally use a customer-owned
+service-account key with domain-wide delegation.
 
   list                  list files (optionally within a folder / by query)
   get <id>              read one file's metadata
   export <id>           export a Doc (or file) to text (default text/plain)
-  create-doc            create an app-owned Google Doc from text content
+  create-doc            create a Google Doc from text content
+  docs-create           create a native Google Doc
+  docs-get <id>         read a native Google Doc
+  docs-append <id>      append text to a native Google Doc
+  sheets-create         create a Google Sheet
+  sheets-get-values     read a Sheets range
+  sheets-update-values  write values to a Sheets range
+  share <id>            create a Drive permission
   capabilities          print this adapter's CapabilitySet (ADR 0006; no token)
-
-External sharing is the EXTERNAL_SEND-class action and is intentionally absent —
-there is NO share verb (the contract's share_document / send_share_invitation are
-banned, and share_document_draft is declared unsupported for v1). The conformance
-suite asserts no banned verb exists.
-
-The hard wall is the AUTHORED token scope, not these verbs (ADR 0035):
-`execute_code` can call the Drive API at the granted scope directly. Reads use
-`drive.readonly` (read/export any file); `create-doc` needs `drive.file` (create
-+ access only files the app owns — it cannot touch the principal's existing
-files). `drive.readonly` is a whole-Drive read grant: an authored entitlement,
-flagged in ADR 0020 as the highest-blast-radius scope in the v1 set.
 
 Token resolution shared with the sibling Google CLIs via _google_auth.py.
 """
@@ -38,14 +32,12 @@ from _google_auth import add_token_arg, service
 CAPABILITY = "DocumentStorage"
 ADAPTER = "google-drive"
 VERSION = "1.0.0"
-# Contract method names (document-storage.ts). CLI exposes read + create; the
-# rest (incl. external sharing) are declared unsupported.
+# Contract method names (document-storage.ts). The CLI also exposes practical
+# Workspace subcommands for Docs, Sheets, and Drive permissions.
 SUPPORTED_METHODS = ["list_folder", "get_document", "download_document", "upload_document"]
 UNSUPPORTED_METHODS = [
-    "update_document",
     "list_versions",
     "download_version",
-    "share_document_draft",
     "get_scoped_folders",
 ]
 
@@ -66,6 +58,14 @@ def describe_capabilities() -> dict:
 
 def _service(token_path: str):
     return service("drive", "v3", token_path)
+
+
+def _docs_service(token_path: str):
+    return service("docs", "v1", token_path)
+
+
+def _sheets_service(token_path: str):
+    return service("sheets", "v4", token_path)
 
 
 def cmd_list(svc, args) -> int:
@@ -128,6 +128,95 @@ def cmd_create_doc(svc, args) -> int:
     return 0
 
 
+def cmd_docs_create(token_path: str, args) -> int:
+    svc = _docs_service(token_path)
+    doc = svc.documents().create(body={"title": args.title}).execute()
+    if args.content:
+        _append_doc_text(svc, doc["documentId"], args.content)
+    print(json.dumps(doc, ensure_ascii=False))
+    return 0
+
+
+def cmd_docs_get(token_path: str, args) -> int:
+    svc = _docs_service(token_path)
+    doc = svc.documents().get(documentId=args.id).execute()
+    print(json.dumps(doc, ensure_ascii=False))
+    return 0
+
+
+def cmd_docs_append(token_path: str, args) -> int:
+    svc = _docs_service(token_path)
+    doc = _append_doc_text(svc, args.id, args.text)
+    print(json.dumps({"documentId": args.id, "response": doc}, ensure_ascii=False))
+    return 0
+
+
+def _append_doc_text(svc, document_id: str, text: str) -> dict:
+    doc = svc.documents().get(documentId=document_id).execute()
+    content = doc.get("body", {}).get("content", [])
+    end_index = max((item.get("endIndex", 1) for item in content), default=1)
+    requests = [{"insertText": {"location": {"index": max(end_index - 1, 1)}, "text": text}}]
+    return svc.documents().batchUpdate(
+        documentId=document_id, body={"requests": requests}
+    ).execute()
+
+
+def cmd_sheets_create(token_path: str, args) -> int:
+    svc = _sheets_service(token_path)
+    sheet = svc.spreadsheets().create(
+        body={"properties": {"title": args.title}}, fields="spreadsheetId,spreadsheetUrl"
+    ).execute()
+    print(json.dumps(sheet, ensure_ascii=False))
+    return 0
+
+
+def cmd_sheets_get_values(token_path: str, args) -> int:
+    svc = _sheets_service(token_path)
+    values = svc.spreadsheets().values().get(
+        spreadsheetId=args.id, range=args.range
+    ).execute()
+    print(json.dumps(values, ensure_ascii=False))
+    return 0
+
+
+def cmd_sheets_update_values(token_path: str, args) -> int:
+    svc = _sheets_service(token_path)
+    values = json.loads(args.values_json)
+    if not isinstance(values, list):
+        print("crane_drive error: --values-json must be a JSON array of rows", file=sys.stderr)
+        return 1
+    updated = svc.spreadsheets().values().update(
+        spreadsheetId=args.id,
+        range=args.range,
+        valueInputOption=args.value_input_option,
+        body={"values": values},
+    ).execute()
+    print(json.dumps(updated, ensure_ascii=False))
+    return 0
+
+
+def cmd_share(svc, args) -> int:
+    if args.type in {"user", "group"} and not args.email:
+        print(f"crane_drive error: --email is required for type={args.type}", file=sys.stderr)
+        return 1
+    if args.type == "domain" and not args.domain:
+        print("crane_drive error: --domain is required for type=domain", file=sys.stderr)
+        return 1
+    body = {"type": args.type, "role": args.role}
+    if args.email:
+        body["emailAddress"] = args.email
+    if args.domain:
+        body["domain"] = args.domain
+    permission = svc.permissions().create(
+        fileId=args.id,
+        body=body,
+        sendNotificationEmail=args.notify,
+        fields="id,type,role,emailAddress,domain",
+    ).execute()
+    print(json.dumps(permission, ensure_ascii=False))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="crane_drive.py")
     add_token_arg(ap)
@@ -153,6 +242,38 @@ def build_parser() -> argparse.ArgumentParser:
     cd.add_argument("--folder", help="parent folder ID (app-owned)")
     cd.add_argument("--drafted-by-skill", required=True, help="audit: skill that authored the draft")
 
+    dc = sub.add_parser("docs-create")
+    dc.add_argument("--title", required=True)
+    dc.add_argument("--content")
+
+    dg = sub.add_parser("docs-get")
+    dg.add_argument("id")
+
+    da = sub.add_parser("docs-append")
+    da.add_argument("id")
+    da.add_argument("--text", required=True)
+
+    sc = sub.add_parser("sheets-create")
+    sc.add_argument("--title", required=True)
+
+    sg = sub.add_parser("sheets-get-values")
+    sg.add_argument("id")
+    sg.add_argument("--range", required=True)
+
+    su = sub.add_parser("sheets-update-values")
+    su.add_argument("id")
+    su.add_argument("--range", required=True)
+    su.add_argument("--values-json", required=True, help='JSON array of rows, e.g. [["A","B"]]')
+    su.add_argument("--value-input-option", choices=["RAW", "USER_ENTERED"], default="USER_ENTERED")
+
+    sh = sub.add_parser("share")
+    sh.add_argument("id")
+    sh.add_argument("--type", choices=["user", "group", "domain", "anyone"], required=True)
+    sh.add_argument("--role", choices=["reader", "commenter", "writer"], required=True)
+    sh.add_argument("--email")
+    sh.add_argument("--domain")
+    sh.add_argument("--notify", action="store_true")
+
     return ap
 
 
@@ -166,8 +287,19 @@ def main() -> int:
         "get": cmd_get,
         "export": cmd_export,
         "create-doc": cmd_create_doc,
+        "share": cmd_share,
+    }
+    token_dispatch = {
+        "docs-create": cmd_docs_create,
+        "docs-get": cmd_docs_get,
+        "docs-append": cmd_docs_append,
+        "sheets-create": cmd_sheets_create,
+        "sheets-get-values": cmd_sheets_get_values,
+        "sheets-update-values": cmd_sheets_update_values,
     }
     try:
+        if args.cmd in token_dispatch:
+            return token_dispatch[args.cmd](args.token, args)
         svc = _service(args.token)
         return dispatch[args.cmd](svc, args)
     except Exception as exc:  # noqa: BLE001 — surface the raw error for the agent/operator

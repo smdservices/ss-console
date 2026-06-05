@@ -99,10 +99,12 @@ for var in "${REQUIRED_ENV[@]}"; do
   log "env check OK: ${var} present"
 done
 
-# Per-customer optional env (Google OAuth tokens land here after the OAuth
-# flow runs in-container). Not required at boot; specific skills check.
+# Per-customer optional env. DWD customers set GOOGLE_SERVICE_ACCOUNT_JSON;
+# legacy user-OAuth customers set GOOGLE_TOKEN_JSON. Specific connector skills
+# check for the credential they need.
 OPTIONAL_ENV=(
   GOOGLE_TOKEN_JSON
+  GOOGLE_SERVICE_ACCOUNT_JSON
   GOOGLE_CLIENT_SECRET_JSON
   # Honcho (inferred memory) is deferred to Phase 2 (ADR 0016 revised). These
   # are unused at boot in Phase 1; kept optional for forward-compat so the
@@ -111,14 +113,7 @@ OPTIONAL_ENV=(
   HONCHO_API_KEY
   # R2 endpoint URL override (defaults to the Cloudflare R2 S3 endpoint).
   R2_ENDPOINT_URL
-  # AGENTMAIL_API_KEY — the persona's own outbound mailbox identity (ADR 0005
-  # reviewer-as-sender). NOW CONSUMED: a customer.yaml `Email` connector with
-  # backend `mcp:agentmail` is materialized by the overlay translator
-  # (bootstrap.translate._materialize_mcp_servers) into the profile's
-  # `mcp_servers` block, injecting this key as the `x-api-key` header. Kept
-  # OPTIONAL on purpose — if it is unset the translator logs and skips the
-  # agentmail server (the Machine still boots; the Email connector is simply
-  # not wired) rather than crashlooping on a missing key.
+  # Optional for customers that still bind AgentMail as an MCP connector.
   AGENTMAIL_API_KEY
 )
 
@@ -167,24 +162,53 @@ else
 fi
 
 # ============================================================================
-# Step 2b: materialize the Google OAuth token to the volume (if provided)
+# Step 2b: materialize Google credentials to the volume (if provided)
 # ============================================================================
-# crane_gmail.py (the inbox-triage fetch path) reads a Google authorized-user
-# token at /opt/data/oauth/google.json per ADR 0010. The token is delivered
-# BASE64-ENCODED as the GOOGLE_TOKEN_JSON Fly secret (base64 so the JSON's
-# quotes/braces survive dotenv secret storage intact). Scope is gmail.modify
-# (read + archive + trash + draft; the token CANNOT send, enforced at Google).
-# Write it 0600, hermes-owned. crane_gmail refreshes and rewrites this file in
-# place, so it must be writable by hermes. Skipped if unset — Gmail triage is
-# simply unavailable that boot, no crash.
+# Google connectors read /opt/data/oauth/google.json through _google_auth.py.
+# For the external-customer Workspace path, this file is a customer-owned
+# service-account key authorized with domain-wide delegation. For the legacy
+# user-OAuth path, it is the google-auth authorized-user token relayed by the
+# portal OAuth flow. Both Fly secrets are base64-encoded so JSON survives secret
+# storage intact. Write 0600, hermes-owned.
 GOOGLE_TOKEN_FILE="/opt/data/oauth/google.json"
-if [ -n "${GOOGLE_TOKEN_JSON:-}" ]; then
+GOOGLE_AUTH_MODE="$(/opt/hermes/.venv/bin/python3 - "${CUSTOMER_YAML}" <<'PY'
+import sys
+import yaml
+
+data = yaml.safe_load(open(sys.argv[1])) or {}
+ga = data.get("google_auth") or {}
+print(ga.get("mode") or "user_oauth")
+PY
+)" || die "failed to read google_auth.mode from customer.yaml"
+
+if [ "${GOOGLE_AUTH_MODE}" = "dwd" ]; then
+  [ -n "${GOOGLE_SERVICE_ACCOUNT_JSON:-}" ] \
+    || die "google_auth.mode=dwd requires GOOGLE_SERVICE_ACCOUNT_JSON Fly secret"
+  mkdir -p /opt/data/oauth
+  ( umask 077; printf '%s' "${GOOGLE_SERVICE_ACCOUNT_JSON}" | base64 -d > "${GOOGLE_TOKEN_FILE}" ) \
+    || die "GOOGLE_SERVICE_ACCOUNT_JSON is not valid base64 (expected base64-encoded service-account JSON)"
+  if ! /opt/hermes/.venv/bin/python3 - "${GOOGLE_TOKEN_FILE}" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as fh:
+    data = json.load(fh)
+if data.get("type") != "service_account":
+    raise SystemExit("not a service_account key")
+if not data.get("client_email") or not data.get("private_key"):
+    raise SystemExit("missing service-account key fields")
+PY
+  then
+    die "GOOGLE_SERVICE_ACCOUNT_JSON must decode to a Google service-account key"
+  fi
+  log "Google service-account credential materialized to ${GOOGLE_TOKEN_FILE} (0600)"
+elif [ -n "${GOOGLE_TOKEN_JSON:-}" ]; then
   mkdir -p /opt/data/oauth
   ( umask 077; printf '%s' "${GOOGLE_TOKEN_JSON}" | base64 -d > "${GOOGLE_TOKEN_FILE}" ) \
     || die "GOOGLE_TOKEN_JSON is not valid base64 (expected base64-encoded google.json)"
-  log "Google OAuth token materialized to ${GOOGLE_TOKEN_FILE} (0600)"
+  log "Google user-OAuth token materialized to ${GOOGLE_TOKEN_FILE} (0600)"
 else
-  log "GOOGLE_TOKEN_JSON not set; Gmail triage unavailable this boot"
+  log "No Google credential secret set; Google Workspace connectors unavailable this boot"
 fi
 
 # ============================================================================
@@ -218,6 +242,9 @@ print("GOOGLE_IMPERSONATE_SUBJECT\t%s" % subject)
 print("GOOGLE_OAUTH_SCOPES\t%s" % " ".join(scopes))
 PY
 )" || die "failed to read google_auth from customer.yaml"
+if [ "${GOOGLE_AUTH_MODE}" = "dwd" ] && [ -z "${GOOGLE_DWD_ENV}" ]; then
+  die "google_auth.mode=dwd requires google_auth.subject and google_auth.scopes"
+fi
 if [ -n "${GOOGLE_DWD_ENV}" ]; then
   while IFS="$(printf '\t')" read -r _key _val; do
     [ -n "${_key}" ] || continue
@@ -292,6 +319,15 @@ hermes-smd bootstrap \
   || die "hermes-smd bootstrap failed; check customer.yaml structure"
 log "Profile config(s) generated under ${HERMES_HOME}/profiles/"
 
+# Step 7a: write customer-owned operator identity facts into SOUL.md. The
+# overlay-generated SOUL covers persona and tone, but the agent also needs the
+# authored customer Workspace identity and connector path to answer identity
+# questions correctly over Telegram.
+log "Writing customer-owned operator identity facts into SOUL.md..."
+/opt/hermes/.venv/bin/python3 /app/ensure-operator-identity.py "${CUSTOMER_YAML}" "${HERMES_HOME}" \
+  || die "Failed to write operator identity facts into SOUL.md"
+log "Operator identity facts written"
+
 # ============================================================================
 # Step 7b: disable the Hermes curator (ADR 0017 / ss-console#1135)
 # ============================================================================
@@ -314,6 +350,28 @@ log "Disabling Hermes curator in profile configs (ADR 0017)..."
 /opt/hermes/.venv/bin/python3 /app/ensure-curator-disabled.py "${HERMES_HOME}" \
   || die "Failed to disable curator in profile configs (ADR 0017)"
 log "Curator disabled in profile config(s)"
+
+# Step 7b.1: enforce persona-disabled bundled skills. Hermes bundles a broad
+# universal skill catalog into every profile; customer.yaml skills_disabled is
+# the per-customer authority. Apply it after hermes-smd bootstrap writes the
+# profile skill tree and prompt snapshot, before the gateway can expose a
+# disabled connector path to the model.
+log "Removing customer-disabled bundled skills from profile catalogs..."
+/opt/hermes/.venv/bin/python3 /app/ensure-disabled-skills.py "${CUSTOMER_YAML}" "${HERMES_HOME}" \
+  || die "Failed to enforce persona skills_disabled entries"
+log "Disabled skill guard passed"
+
+# Hermes' gateway startup sync can rehydrate bundled skill directories after
+# this preflight guard runs. Keep a short-lived reconciler alive during gateway
+# startup so disabled bundled skills are removed again after that sync without
+# mutating the overlay's profile `skills` list shape.
+(
+  for _ in 1 2 3 4 5 6; do
+    sleep 5
+    /opt/hermes/.venv/bin/python3 /app/ensure-disabled-skills.py "${CUSTOMER_YAML}" "${HERMES_HOME}" \
+      || true
+  done
+) &
 
 # Step 7c: fail closed if Telegram would run without an allowlist (ADR 0033).
 # TELEGRAM_BOT_TOKEN alone auto-enables Hermes' Telegram platform, and the pinned

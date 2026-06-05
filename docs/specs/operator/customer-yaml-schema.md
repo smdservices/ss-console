@@ -34,6 +34,15 @@ machine:
   size: <string> # Fly VM class (performance-1x, etc.)
   memory_mb: <int> # 256-8192
 
+# ---- GOOGLE WORKSPACE AUTHORITY (OPTIONAL) ----
+# Present when Google Workspace uses customer-owned domain-wide delegation.
+# GOOGLE_SERVICE_ACCOUNT_JSON is stored as an environment secret, never here.
+
+google_auth:
+  mode: <enum> # user_oauth | dwd
+  subject: <email> # REQUIRED when mode=dwd; Workspace user to impersonate
+  scopes: <list<string>> # REQUIRED non-empty when mode=dwd
+
 # ---- HUMANS WITH PORTAL ACCESS (REQUIRED) ----
 # See dashboard-roles.md.
 

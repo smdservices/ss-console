@@ -8,15 +8,12 @@ contract invariants at the CLI surface:
 * CAPABILITY_SET_HONEST       — describe_capabilities() declares a known
                                 capability, non-empty adapter/version, and
                                 disjoint supported/unsupported method sets.
-* NO_AUTONOMOUS_EXTERNAL_SEND — none of the banned method names appear in the
-                                declared methods OR in the CLI subcommands.
-
-The banned-name lists are pinned from `BANNED_METHOD_NAMES` in conformance.ts.
-Drift between the two languages is a P0 (per that file's header).
+* WORKSPACE_VERBS_EXPOSED      - customer-owned Workspace DWD includes send,
+                                calendar updates, Drive sharing, Docs, Sheets.
 
 Plus two behavioral regression walls:
-* Calendar create/update force `sendUpdates="none"` and never any other value
-  (reviewer-as-sender: the adapter never notifies attendees).
+* Calendar create/update default to `sendUpdates="none"` unless explicitly told
+  to notify attendees.
 * crane_gmail keeps its `gmail search` / `gmail get` subcommand shape, which the
   live `inbox-triage` skill shells to.
 """
@@ -33,13 +30,6 @@ import crane_drive  # type: ignore[import-not-found]
 import crane_gmail  # type: ignore[import-not-found]
 from connectors.filevine.errors import CAPABILITY_NAMES  # type: ignore[import-not-found]
 
-# Pinned from BANNED_METHOD_NAMES in src/lib/operator/capabilities/conformance.ts.
-BANNED_METHOD_NAMES = {
-    "Email": ["send", "send_message", "send_draft", "send_email"],
-    "Calendar": ["send_invitation", "send_invite", "send_event"],
-    "DocumentStorage": ["share_document", "send_share_invitation"],
-}
-
 ADAPTERS = [crane_gmail, crane_calendar, crane_drive]
 
 
@@ -48,6 +38,16 @@ def _subcommands(mod) -> list[str]:
     for action in mod.build_parser()._subparsers._group_actions:
         names.extend(action.choices.keys())
     return names
+
+
+def _gmail_ops() -> set[str]:
+    ap = crane_gmail.build_parser()
+    gmail_parser = next(
+        action.choices["gmail"]
+        for action in ap._subparsers._group_actions
+        if "gmail" in action.choices
+    )
+    return {name for action in gmail_parser._subparsers._group_actions for name in action.choices}
 
 
 def test_capability_set_honest():
@@ -62,26 +62,14 @@ def test_capability_set_honest():
         assert sup.isdisjoint(unsup), f"{mod.__name__}: supported/unsupported overlap"
 
 
-def test_no_autonomous_external_send():
-    """No banned method name appears in declared methods or subcommands."""
-    for mod in ADAPTERS:
-        caps = mod.describe_capabilities()
-        banned = BANNED_METHOD_NAMES.get(caps["capability"], [])
-        declared = set(caps["supported_methods"]) | set(caps["unsupported_methods"])
-        present = [b for b in banned if b in declared]
-        assert not present, f"{mod.__name__}: banned method(s) declared: {present}"
+def test_workspace_verbs_exposed_for_customer_owned_dwd():
+    """DWD mode exposes normal Workspace employee operations."""
+    assert {"send", "create-draft", "modify", "archive"} <= _gmail_ops()
+    assert "send_message" in crane_gmail.describe_capabilities()["supported_methods"]
 
-        subs_norm = {s.replace("-", "_") for s in _subcommands(mod)}
-        present_subs = [b for b in banned if b in subs_norm]
-        assert not present_subs, f"{mod.__name__}: banned subcommand(s): {present_subs}"
-
-
-def test_no_send_or_share_subcommand_anywhere():
-    """Defense in depth: no external-send/share verb on any Google connector."""
-    for mod in ADAPTERS:
-        subs = _subcommands(mod)
-        suspicious = [s for s in subs if "send" in s or "share" in s]
-        assert not suspicious, f"{mod.__name__}: suspicious subcommand(s): {suspicious}"
+    drive_subs = set(_subcommands(crane_drive))
+    assert {"share", "docs-create", "docs-get", "docs-append"} <= drive_subs
+    assert {"sheets-create", "sheets-get-values", "sheets-update-values"} <= drive_subs
 
 
 def test_capabilities_subcommand_runs_without_token():
@@ -97,12 +85,11 @@ def test_capabilities_subcommand_runs_without_token():
         assert json.loads(out.stdout) == mod.describe_capabilities()
 
 
-def test_calendar_never_notifies_attendees():
-    """Calendar create/update force sendUpdates='none' and use no other value."""
+def test_calendar_notifications_default_to_none():
+    """Calendar create/update default sendUpdates to none."""
     src = Path(crane_calendar.__file__).read_text()
-    assert 'sendUpdates="none"' in src
-    for forbidden in ('sendUpdates="all"', 'sendUpdates="externalOnly"'):
-        assert forbidden not in src, f"crane_calendar must never set {forbidden}"
+    assert 'default="none"' in src
+    assert 'choices=["none", "all", "externalOnly"]' in src
 
 
 def test_gmail_subcommand_shape_preserved():
