@@ -1,27 +1,15 @@
 #!/usr/bin/env python3
-"""crane_calendar.py — thin Google Calendar CLI for the Operator (user-OAuth token).
+"""crane_calendar.py - thin Google Calendar CLI for the Operator.
 
 Mirrors crane_gmail.py: a deliberately minimal CLI the agent shells to via
-`execute_code`. Implements the read + draft subset of the Calendar capability
-contract (src/lib/operator/capabilities/calendar.ts):
+`execute_code`. Customer Workspace deployments normally use a customer-owned
+service-account key with domain-wide delegation.
 
   list-events           read events in a window (calendar.events / .readonly)
   get-event <id>        read one event
-  create-event-draft    create an UNCONFIRMED event with NO invitations sent
-  update-event-draft    edit a draft event, still sending nothing
+  create-event-draft    create an event, defaulting to no invite notifications
+  update-event-draft    edit an event, defaulting to no invite notifications
   capabilities          print this adapter's CapabilitySet (ADR 0006; no token)
-
-Reviewer-as-sender (ADR 0005), as ONE authored option (ADR 0035): there is no
-send-invitation verb. create/update force `sendUpdates="none"` and attach NO
-attendees — the principal reviews the draft event and adds external attendees +
-sends the invite from their own calendar client. The conformance suite asserts
-no banned verb (send_invitation / send_invite / send_event) exists.
-
-The hard wall is the AUTHORED token scope, not these verbs: `execute_code` can
-call the Calendar API at the granted scope directly. `calendar.events` permits
-creating events; "never notify externally" is adapter discipline here, an
-authored acceptance for customer-zero (the principal's own calendar). Reads need
-only `calendar.readonly`.
 
 Token resolution shared with the sibling Google CLIs via _google_auth.py.
 """
@@ -85,8 +73,6 @@ def cmd_get_event(svc, args) -> int:
 
 
 def cmd_create_event_draft(svc, args) -> int:
-    # Draft = unconfirmed event, NO attendees, NO notifications. The reviewer
-    # adds attendees and sends from their own client (ADR 0005).
     body: dict = {
         "summary": args.title,
         "status": "tentative",
@@ -97,8 +83,10 @@ def cmd_create_event_draft(svc, args) -> int:
         body["description"] = args.description
     if args.location:
         body["location"] = args.location
+    if args.attendee:
+        body["attendees"] = [{"email": email} for email in args.attendee]
     created = svc.events().insert(
-        calendarId=args.calendar_id, body=body, sendUpdates="none"
+        calendarId=args.calendar_id, body=body, sendUpdates=args.send_updates
     ).execute()
     print(json.dumps({
         "id": created.get("id"),
@@ -106,6 +94,7 @@ def cmd_create_event_draft(svc, args) -> int:
         "status_in_reviewer_ui": "tentative",
         "created_at": created.get("created"),
         "drafted_by_skill": args.drafted_by_skill,
+        "send_updates": args.send_updates,
     }, ensure_ascii=False))
     return 0
 
@@ -122,17 +111,20 @@ def cmd_update_event_draft(svc, args) -> int:
         patch["start"] = {"dateTime": args.start}
     if args.end is not None:
         patch["end"] = {"dateTime": args.end}
+    if args.attendee:
+        patch["attendees"] = [{"email": email} for email in args.attendee]
     if not patch:
         print("crane_calendar error: update-event-draft requires at least one field", file=sys.stderr)
         return 1
     updated = svc.events().patch(
-        calendarId=args.calendar_id, eventId=args.id, body=patch, sendUpdates="none"
+        calendarId=args.calendar_id, eventId=args.id, body=patch, sendUpdates=args.send_updates
     ).execute()
     print(json.dumps({
         "id": updated.get("id"),
         "calendar_id": args.calendar_id,
         "status_in_reviewer_ui": updated.get("status", "tentative"),
         "created_at": updated.get("created"),
+        "send_updates": args.send_updates,
     }, ensure_ascii=False))
     return 0
 
@@ -161,6 +153,8 @@ def build_parser() -> argparse.ArgumentParser:
     ce.add_argument("--end", required=True, help="RFC3339 end dateTime")
     ce.add_argument("--description")
     ce.add_argument("--location")
+    ce.add_argument("--attendee", action="append", default=[])
+    ce.add_argument("--send-updates", choices=["none", "all", "externalOnly"], default="none")
     ce.add_argument("--calendar-id", default="primary")
     ce.add_argument("--drafted-by-skill", required=True, help="audit: skill that authored the draft")
 
@@ -172,6 +166,8 @@ def build_parser() -> argparse.ArgumentParser:
     ue.add_argument("--location")
     ue.add_argument("--start")
     ue.add_argument("--end")
+    ue.add_argument("--attendee", action="append", default=[])
+    ue.add_argument("--send-updates", choices=["none", "all", "externalOnly"], default="none")
 
     return ap
 
