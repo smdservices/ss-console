@@ -82,6 +82,12 @@ declare namespace Cloudflare {
      */
     RESEND_WEBHOOK_SECRET?: string
     ANTHROPIC_API_KEY?: string
+    /** ElevenLabs API key (voice agent for the assessment funnel). Org key from /vc. */
+    ELEVENLABS_API_KEY?: string
+    /** ID of the ElevenLabs assessment agent (custom-LLM = our interviewer). */
+    ELEVENLABS_ASSESSMENT_AGENT_ID?: string
+    /** Optional shared secret the agent's custom-LLM sends as `Authorization: Bearer`. */
+    ELEVENLABS_LLM_SECRET?: string
     SIGNWELL_API_KEY?: string
     SIGNWELL_WEBHOOK_SECRET?: string
     STRIPE_API_KEY?: string
