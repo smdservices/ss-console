@@ -10,10 +10,12 @@ import { toAnthropicRequest } from '../src/lib/claude/assessment-llm'
 import { INTERVIEWER_SYSTEM } from '../src/lib/assessment/prompts'
 
 describe('toAnthropicRequest', () => {
-  it('uses the interviewer skill as the authoritative system prompt', () => {
+  it('uses the interviewer skill as the authoritative system prompt + a voice addendum', () => {
     const { system } = toAnthropicRequest([{ role: 'user', content: 'hi' }])
-    expect(system).toBe(INTERVIEWER_SYSTEM)
+    expect(system.startsWith(INTERVIEWER_SYSTEM)).toBe(true)
     expect(system).toContain('operations consultant')
+    expect(system).toContain('VOICE MODE')
+    expect(system).toContain('Never say, spell, or output any completion marker')
   })
 
   it('appends any system text ElevenLabs injects after ours', () => {
