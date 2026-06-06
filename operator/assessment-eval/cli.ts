@@ -67,10 +67,11 @@ async function main(): Promise<void> {
   if (!persona) usageAndExit('--persona is required')
 
   const interviewerRaw = flags.get('interviewer') ?? 'real'
-  if (interviewerRaw !== 'real' && interviewerRaw !== 'null') {
-    usageAndExit("--interviewer must be 'real' or 'null'")
+  if (interviewerRaw !== 'real' && interviewerRaw !== 'null' && interviewerRaw !== 'flat') {
+    usageAndExit("--interviewer must be 'real', 'flat', or 'null'")
   }
-  const interviewerId: InterviewerId = interviewerRaw === 'null' ? 'null' : 'assessment-interview'
+  const interviewerId: InterviewerId =
+    interviewerRaw === 'null' ? 'null' : interviewerRaw === 'flat' ? 'flat' : 'assessment-interview'
 
   const apiKey = process.env['ANTHROPIC_API_KEY']
   if (!apiKey) usageAndExit('ANTHROPIC_API_KEY is not set')
