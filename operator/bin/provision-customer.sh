@@ -363,6 +363,27 @@ stage_secret_from_env() {
 stage_secret_from_env SENTRY_DSN            "${SENTRY_DSN:-}"            "Sentry DSN for the shared smd-operator project"
 stage_secret_from_env MACHINE_HEARTBEAT_KEY "${MACHINE_HEARTBEAT_KEY:-}" "shared bearer for POST /api/internal/heartbeat"
 
+# ---------- Step 6b-clio: connector secrets (law vertical + Google DWD) ----------
+# Staged from operator env (Infisical /ss, injected by reprovision.sh's
+# `infisical run --path=/ss`), same no-paste pattern as observability. Each is
+# warn+skip when unset, so a customer that doesn't use a given connector still
+# provisions cleanly.
+#
+# Clio (mcp:clio-oktopeak): client_id/secret authenticate the OAuth app; the
+# encryption key decrypts the seed token; CLIO_TOKENS_ENC_B64 is the base64 of
+# ~/.clio-mcp/tokens.enc captured at off-box consent (bootstrap.sh Step 2d seeds
+# it; the overlay materializer reads id/secret/key into the mcp_servers env).
+stage_secret_from_env CLIO_CLIENT_ID         "${CLIO_CLIENT_ID:-}"         "Clio OAuth app client id"
+stage_secret_from_env CLIO_CLIENT_SECRET     "${CLIO_CLIENT_SECRET:-}"     "Clio OAuth app client secret"
+stage_secret_from_env CLIO_ENCRYPTION_KEY    "${CLIO_ENCRYPTION_KEY:-}"    "AES key for the Clio token file (subprocess reads it as ENCRYPTION_KEY)"
+stage_secret_from_env CLIO_TOKENS_ENC_B64    "${CLIO_TOKENS_ENC_B64:-}"    "base64 of the seed ~/.clio-mcp/tokens.enc"
+
+# Google service-account key (DWD). REQUIRED for any customer.yaml with
+# google_auth.mode: dwd — bootstrap.sh Step 2b dies without it. Base64-encoded
+# service-account JSON. Shared across the smd.services domain (one SA, domain-wide
+# delegation impersonating each customer's authored subject).
+stage_secret_from_env GOOGLE_SERVICE_ACCOUNT_JSON "${GOOGLE_SERVICE_ACCOUNT_JSON:-}" "base64 service-account key (domain-wide delegation)"
+
 # ---------- Step 6c: healthchecks.io check (ADR 0023 Wave 1) ----------
 # Idempotent create-or-find. Healthchecks.io's POST /api/v3/checks/ creates
 # a new check; if a check with the same `unique` keys (tags+name) already
