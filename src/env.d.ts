@@ -7,6 +7,12 @@ declare module '*.wasm' {
   export default module
 }
 
+/** Raw-text imports (Vite ?raw) — used to load operator skill bodies as the single source of truth. */
+declare module '*.md?raw' {
+  const content: string
+  export default content
+}
+
 /**
  * Service binding shape for the `ss-enrichment-workflow` Worker (#631).
  * ss-web's lead-gen workers and admin endpoints dispatch entity enrichment
