@@ -23,14 +23,18 @@ Method: [ADR 0038](../../../docs/adr/0038-operator-vertical-delivery-method.md).
 
 **Absorbed safety function (not a 7th skill).** `new-matter-intake` carries a **conflict detect-and-halt invariant**: on intake it runs a read-only name/entity check (`search_contacts` + `list_matters` cross-check) and, on any hit, **halts the consult/engagement chain** and surfaces _"possible conflict — human clearance required."_ Clearance stays definitionally human; intake is never structurally _blind_ to a conflict. Advancing a matter past a surfaced conflict hit is a `fails` safety violation.
 
-## Spine — reused in concept, not literally "as-is" (2) — **spot-check finding**
+## Spine — law-specific skills (2) — **resolved 2026-06-05**
 
-`inbox-triage` (routes inbound to the right wedge skill) and `status-report-assembler` (compiles digests) are reused in **concept**. The 2026-06-04 spot-check corrected the original "reused as-is" assumption:
+The wedge needs two spine skills: one to route inbound mail to the right wedge skill, one to assemble the firm's matter digest. The original plan said "reuse `inbox-triage` + `status-report-assembler` as-is"; the 2026-06-04 spot-check flagged that their bodies are vertical-specific, and the 2026-06-05 spine pass confirmed it and authored law's own:
 
-- **Selector:** the blind cross-skill simulation confirmed neither spine skill **misroutes** against the six wedge skills (the `matter-status-responder` ↔ `status-report-assembler` adjacency resolved correctly). Good.
-- **But their current bodies are vertical-specific, not law-generic.** `inbox-triage`'s description and body are customer-zero/Gmail-framed ("Daily Gmail triage… for owner"); `status-report-assembler`'s are agency-framed ("Weekly client status report from PM tools + analytics" — Asana/GA/paid-media). Reusing them for law needs a **law-context variant or config** (law-routing categories that target the wedge skills; a digest sourced from Clio, not Asana/GA), **not** a literal copy.
+- **`inbox-triage` is customer-zero's** (`customer: smd` — Gmail, `smdcrane@agentmail.to`, Scott's voice). **`status-report-assembler` is marketing's** (`vertical: marketing-agency` — Asana/GA4/paid-media, client-facing weekly reports). Neither is a generic spine; the skills dir is keyed by `name:`, so law cannot overload either.
+- **Law's spine, authored as purpose-built skills** (`operator/skills/`):
+  - **`matter-inbox-router`** (`vertical: law-firm`) — classifies inbound firm mail and routes each message to the wedge skill that owns it (intake / scheduler / engagement-chaser / status-responder / trust-nudge), conflict-cross-check-first, UPL-safe. It **dispatches, it does not draft** — the routed-to skill drafts under reviewer-as-sender.
+  - **`matter-status-digest`** (`vertical: law-firm`) — assembles the internal "state of the practice" digest from **Clio reads** (open-by-stage, upcoming dates, quiet matters via the `stalled-matter-nudge` recency model, low-trust via LawPay read, held matters), internal-only, reports state and never prescribes a legal next step.
+- **Selector check still holds:** the routing rubric targets the six wedge skills explicitly; the `matter-status-responder` (reactive, one client) vs. `matter-status-digest` (proactive, the principal) adjacency is a clean directional split, not an overlap.
+- **Shared-core note (ADR 0038 §7):** both carry a frontmatter shared-core-candidate marker. The common router/digest core is **earned at vertical-2 (marketing), not designed up front** — extract it from the law/marketing duplication then (rule-of-three). Until then these are the law delta.
 
-→ **Flag (connect/infra step):** generalize the spine bodies or author law-context configs before the wedge runs on a real Machine. Do not assume the marketing-framed spine bodies serve law unchanged.
+The wedge now binds `matter-inbox-router` + `matter-status-digest` (see `vertical.yaml` and `operator/customers/pilot-law/customer.yaml`). The old marketing-framed-spine flag is **closed.**
 
 ## Deferred — 6 (each off the named job's critical path)
 

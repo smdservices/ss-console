@@ -59,3 +59,22 @@ There is **no trust-account / IOLTA tool** in the Clio MCP. `get_billing_summary
 - Exact field names/types of `get_matter` / `get_contact` / `list_tasks` payloads (e.g., the "responsible attorney", "practice area", "open date", last-activity timestamp keys) are **assumed** from the input-parameter names; verify against the sandbox before relying on a specific key in `output-format.md`.
 - "Last activity" for `stalled-matter-nudge` has no dedicated read; recency is **inferred** from the most recent of `list_tasks` / `list_calendar_entries` / notes timestamps — confirm there is no first-class `updated_at` on the matter at connect.
 - Pagination caps (`export_audit_log` max 1000/page) noted; other tools' default `limit` values unstated — assume small, paginate.
+
+## CONNECT-STEP DIFF — source-level (oktopeak/clio-mcp v2.0.0, read 2026-06-05)
+
+Read the connector's actual tool source (`src/tools/*.ts`) ahead of the live round-trip. This resolves most of the ASSUMED list from the published-doc shapes; the **live-tenant** round-trip (ADR 0038 §3.6) still has to confirm Clio's API returns these fields populated. Three findings carry forward; the rest confirm.
+
+**Finding 1 — `create_matter` AND `create_calendar_entry` ARE registered, callable tools in the v2.0.0 source**, contradicting the README's "write restricted to tasks/notes/documents." The README is **not authoritative**; the code registers both writes. Our fail-closed draft-and-surface posture stays correct as the _default_, but the connect step must **empirically test** whether each write actually succeeds against the sandbox (Clio plan / OAuth-scope dependent) before deciding whether either skill may graduate to autonomous-write. Do not treat "gated" as settled.
+
+**Finding 2 — matter reads carry NO responsible/originating attorney.** `MATTER_DETAIL_FIELDS` = `id,display_number,description,status,client{id,name},practice_area{id,name},open_date,close_date,billable`. `responsible_attorney`/`originating_attorney` are **create-only inputs**, never returned by `get_matter`/`list_matters`. Any skill that needs "who owns this matter" (addressing a status reply, routing a nudge) cannot read it from the matter. Mitigation is a fork/config to widen the field const, or a separate `list_users` association — **not free.** Audit `matter-status-responder`, `stalled-matter-nudge`, `consult-scheduler` output-formats for an attorney dependency before "deliverable."
+
+**Finding 3 (sharpest) — there is no matter-level last-activity signal.** `get_matter` has no `updated_at`; `list_tasks` exposes `due_at` (a _future_ due date, no `created_at`/`updated_at` in `TASK_FIELDS`); calendar entries give `start_at`/`end_at`. So "when did this matter last see activity" is **not cleanly answerable** from the current tool surface. `stalled-matter-nudge`'s trigger is thinner than the fixtures assume — its "gone quiet" detection needs a re-think (e.g. lean on note timestamps via a different read, or accept a weaker heuristic and say so). Flag per ADR 0038 tripwire: a wedge skill whose signal the connector can't supply is a mis-cut to address, not paper over.
+
+**Confirmed (no divergence):**
+
+- `search_contacts` returns the assumed envelope — `{ contacts[], total_count (meta.records), has_more, next_page_token }`; `next_page_token` parsed from `meta.paging.next`.
+- `get_contact` carries `created_at`/`updated_at` (matters do not).
+- Matter identifier is `display_number`; matter status enum is `open|pending|closed`.
+- `list_tasks` status input is Capitalized (`Pending|Complete|In Progress|In Review|Draft`) → mapped to lowercase for the API; `due_date` is `due_at[:10]`.
+- `get_billing_summary` → `{ matter_id, bill_count, total_billed, total_outstanding, last_invoice_date }` — note the key is **`total_outstanding`**, not the assumed `outstanding_balance`; filters out `draft`/`void` bills. This is AR, **not trust** (confirms trust rides `build:lawpay`).
+- Default `limit` is 25 (max 200) across list tools; 429 rate-limit retry/backoff is built in.
