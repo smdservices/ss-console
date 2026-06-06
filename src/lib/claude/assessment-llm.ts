@@ -20,6 +20,17 @@ const MAX_TOKENS = 1024
 const OPENAI_MODEL_LABEL = 'smd-assessment-interviewer'
 
 /**
+ * Appended to the interviewer system prompt for the voice channel: the reply is
+ * spoken aloud, so it must stay short and must never voice the typed-mode
+ * completion marker or any markdown/symbols. The voice session ends on the
+ * owner's action, not a sentinel.
+ */
+const VOICE_ADDENDUM = `
+
+--- VOICE MODE ---
+You are speaking aloud to the owner over a live voice call. Keep every reply short and natural for speech — a sentence or two, one question at a time. Never say, spell, or output any completion marker, a line of equals signs, or "===ASSESSMENT-COMPLETE===". When you have covered the ground, give a brief, warm spoken wrap-up and stop. Never read markdown, symbols, or formatting aloud.`
+
+/**
  * Split incoming OpenAI messages into the Anthropic shape: our interviewer
  * prompt is the authoritative system; any system text ElevenLabs injects is
  * appended after it; user/assistant turns become the message list. Anthropic
@@ -34,7 +45,8 @@ export function toAnthropicRequest(messages: ReadonlyArray<OpenAIChatMessage>): 
     .filter((m) => m.role === 'system' && typeof m.content === 'string')
     .map((m) => m.content)
     .join('\n\n')
-  const system = extraSystem ? `${INTERVIEWER_SYSTEM}\n\n${extraSystem}` : INTERVIEWER_SYSTEM
+  const base = extraSystem ? `${INTERVIEWER_SYSTEM}\n\n${extraSystem}` : INTERVIEWER_SYSTEM
+  const system = base + VOICE_ADDENDUM
 
   const turns = messages
     .filter((m) => m.role === 'user' || m.role === 'assistant')

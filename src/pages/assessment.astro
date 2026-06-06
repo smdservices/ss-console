@@ -21,10 +21,18 @@ import Base from '../layouts/Base.astro'
         It's a real conversation, not a form. Talk the way you'd talk to a colleague who's trying to
         understand your business. When we're done, you'll see the findings.
       </p>
-      <button id="start-btn" class="btn" type="button">Start the assessment</button>
+      <div class="intro-actions">
+        <button id="start-voice" class="btn" type="button">Talk to it</button>
+        <button id="start-btn" class="btn btn-ghost" type="button">Or type instead</button>
+      </div>
     </div>
 
     <div id="chat" class="chat" hidden></div>
+
+    <div id="voice-controls" class="voice-controls" hidden aria-live="polite">
+      <span id="voice-status" class="voice-status">Connecting…</span>
+      <button id="voice-end" class="btn" type="button">End &amp; see findings</button>
+    </div>
 
     <div id="thinking" class="thinking" hidden aria-live="polite">
       <span></span><span></span><span></span>
@@ -51,6 +59,9 @@ import Base from '../layouts/Base.astro'
 
   <script>
     import '../scripts/assessment.ts'
+  </script>
+  <script>
+    import '../scripts/assessment-voice.ts'
   </script>
 </Base>
 
@@ -97,6 +108,38 @@ import Base from '../layouts/Base.astro'
     margin: 0 0 1.2rem;
     color: #444;
     line-height: 1.55;
+  }
+  .intro-actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .btn-ghost {
+    background: transparent;
+    color: #1a1a1a;
+    border: 1px solid #d8d8d8;
+    font-weight: 500;
+  }
+  .btn-ghost:hover {
+    background: #f0f0f0;
+  }
+  .voice-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 1rem 0;
+    padding: 0.85rem 1rem;
+    border: 1px solid #e6e6e6;
+    border-radius: 10px;
+    background: #fafafa;
+    position: sticky;
+    bottom: 0;
+  }
+  .voice-status {
+    font-size: 0.95rem;
+    color: #555;
   }
   .btn {
     appearance: none;
