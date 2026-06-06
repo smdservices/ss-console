@@ -258,6 +258,53 @@ else
 fi
 
 # ============================================================================
+# Step 2d: seed the Clio MCP OAuth token to the volume (if Clio connector enabled)
+# ============================================================================
+# The clio-mcp stdio server (wired into mcp_servers by the overlay materializer,
+# v0.4.6+) reads its OAuth token from ~/.clio-mcp/tokens.enc (hermes home =
+# /opt/data), AES-256-GCM encrypted under ENCRYPTION_KEY. The consent was
+# captured off-box (no browser in a headless Machine); we seed the encrypted
+# token here from the CLIO_TOKENS_ENC_B64 Fly secret. The connector REFRESHES
+# and rewrites the file in place thereafter, so we only seed when ABSENT — never
+# clobber a refreshed token on the persistent volume. The client_id/secret +
+# ENCRYPTION_KEY reach the subprocess via the materialized mcp_servers env block
+# (ENCRYPTION_KEY <- CLIO_ENCRYPTION_KEY remap), not from here.
+CLIO_ENABLED="$(/opt/hermes/.venv/bin/python3 - "${CUSTOMER_YAML}" <<'PY'
+import sys
+import yaml
+
+data = yaml.safe_load(open(sys.argv[1])) or {}
+conns = data.get("connectors") or {}
+for rec in conns.values():
+    if (
+        isinstance(rec, dict)
+        and rec.get("enabled")
+        and str(rec.get("backend", "")) == "mcp:clio-oktopeak"
+    ):
+        print("yes")
+        break
+PY
+)" || die "failed to read connectors from customer.yaml"
+
+if [ "${CLIO_ENABLED}" = "yes" ]; then
+  CLIO_TOKEN_DIR="/opt/data/.clio-mcp"
+  CLIO_TOKEN_FILE="${CLIO_TOKEN_DIR}/tokens.enc"
+  if [ -f "${CLIO_TOKEN_FILE}" ]; then
+    log "Clio token already on volume (${CLIO_TOKEN_FILE}); leaving in place (connector refreshes it)"
+  elif [ -n "${CLIO_TOKENS_ENC_B64:-}" ]; then
+    [ -n "${CLIO_ENCRYPTION_KEY:-}" ] \
+      || die "mcp:clio-oktopeak enabled with a seed token but CLIO_ENCRYPTION_KEY is unset (token could not be decrypted at runtime)"
+    mkdir -p "${CLIO_TOKEN_DIR}"
+    ( umask 077; printf '%s' "${CLIO_TOKENS_ENC_B64}" | base64 -d > "${CLIO_TOKEN_FILE}" ) \
+      || die "CLIO_TOKENS_ENC_B64 is not valid base64 (expected base64 of ~/.clio-mcp/tokens.enc)"
+    chmod 600 "${CLIO_TOKEN_FILE}"
+    log "Clio OAuth token seeded to ${CLIO_TOKEN_FILE} (0600)"
+  else
+    log "mcp:clio-oktopeak enabled but no CLIO_TOKENS_ENC_B64 seed; connector unauthenticated until a token is provided"
+  fi
+fi
+
+# ============================================================================
 # Steps 3-6: Honcho data plane — DEFERRED to Phase 2 (ADR 0016, revised)
 # ============================================================================
 # Previously: start Postgres, start Redis, run `python -m honcho.migrations`,

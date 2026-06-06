@@ -72,8 +72,12 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # v0.4.5 adds _materialize_telegram_platform (#32, ADR 0033): authors the Telegram
 # allowlist from customer.yaml.telegram into the profile config.yaml (fail-closed on
 # empty allow_from). Superset of v0.4.4.
+# v0.4.6 (#35) adds a LOCAL stdio MCP transport to the connector materializer and
+# wires Clio (mcp:clio-oktopeak) as a `clio-mcp` command server with a remapped
+# env block (ENCRYPTION_KEY <- CLIO_ENCRYPTION_KEY). Pairs with the clio-mcp
+# install + Clio token-seed block below. Superset of v0.4.5.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="v0.4.5"
+ARG OVERLAY_REF="v0.4.6"
 
 ARG CUSTOMER_SLUG=customer-zero
 
@@ -172,6 +176,15 @@ RUN uv pip install --no-cache-dir \
 # to read the principal's Gmail via a user-OAuth token (ADR 0010). These two
 # libraries are all it needs (read/modify; no oauthlib — consent happens off-box).
 RUN uv pip install --no-cache-dir google-api-python-client google-auth
+
+# ---------- Clio MCP server (law vertical practice-management connector) ----------
+# @oktopeak/clio-mcp (MIT) is a LOCAL stdio MCP server. The overlay (v0.4.6+)
+# materializes customer.yaml `mcp:clio-oktopeak` into the profile mcp_servers
+# block as a `clio-mcp` command server; install it globally so the binary is on
+# PATH for the gateway to launch. Pinned to 2.0.0 — the version the connector
+# reality-check and live loop test ran against. It reads its OAuth token from
+# ~/.clio-mcp/tokens.enc (seeded by bootstrap.sh) under ENCRYPTION_KEY.
+RUN npm install -g @oktopeak/clio-mcp@2.0.0
 
 # Register the plugin pack with Hermes' loader. `hermes plugins install` clones
 # the overlay repo's DEFAULT BRANCH HEAD into ~/.hermes/plugins/ — upstream
