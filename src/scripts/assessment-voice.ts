@@ -147,8 +147,18 @@ async function endVoice(): Promise<void> {
   } catch {
     /* ignore */
   }
-  if (turns.length > 0) await drawFindings()
-  else setStatus('No conversation captured.')
+  const ownerTurns = turns.filter((t) => t.speaker === 'owner').length
+  if (ownerTurns >= 1 && turns.length >= 2) {
+    await drawFindings()
+    return
+  }
+  // The session ended before a real exchange — never draft findings from a
+  // greeting alone (that produced a confusing refusal). Offer a retry instead.
+  const report = el<HTMLElement>('report')
+  const reportBody = el<HTMLDivElement>('report-body')
+  report.hidden = false
+  reportBody.innerHTML =
+    '<p class="muted">The conversation ended before we captured enough to draft findings. Refresh and try again — and if it keeps dropping right after the greeting, the voice connection is the issue, not you.</p>'
 }
 
 async function startVoice(): Promise<void> {
