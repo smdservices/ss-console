@@ -18,6 +18,7 @@ import type { InterviewerId } from './types.js'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SKILL_DIR = join(HERE, 'fixtures', 'interviewer-skill')
 const NULL_PATH = join(HERE, 'fixtures', 'null-interviewer.md')
+const FLAT_PATH = join(HERE, 'fixtures', 'flat-interviewer.md')
 const REFERENCES = ['coverage-model.md', 'probe-repertoire.md']
 
 const HARNESS_DIRECTIVE = `You are conducting a live TEXT business assessment with a business owner who has just joined the call.
@@ -31,10 +32,21 @@ That sentinel is how this session ends. It is harness scaffolding — never show
 --- SKILL ---
 `
 
-/** Concatenate the interviewer skill (or the null control) into a system prompt. */
+/** Concatenate the interviewer skill (or a control) into a system prompt. */
 export async function loadInterviewerSystem(interviewerId: InterviewerId): Promise<string> {
-  const body = interviewerId === 'null' ? await readFile(NULL_PATH, 'utf8') : await readSkill()
+  const body = await loadInterviewerBody(interviewerId)
   return HARNESS_DIRECTIVE + body
+}
+
+function loadInterviewerBody(interviewerId: InterviewerId): Promise<string> {
+  switch (interviewerId) {
+    case 'null':
+      return readFile(NULL_PATH, 'utf8')
+    case 'flat':
+      return readFile(FLAT_PATH, 'utf8')
+    case 'assessment-interview':
+      return readSkill()
+  }
 }
 
 async function readSkill(): Promise<string> {

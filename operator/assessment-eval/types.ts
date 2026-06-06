@@ -34,8 +34,17 @@ export interface Turn {
 /** How a conversation ended. */
 export type Termination = 'done_signal' | 'max_turns' | 'error'
 
-/** Which interviewer skill drove the conversation. `null` is the negative control. */
-export type InterviewerId = 'assessment-interview' | 'null'
+/**
+ * Which interviewer skill drove the conversation.
+ * - `assessment-interview` — the real, adaptive skill under test.
+ * - `null` — the broken negative control (shallow + fabricating); proves the
+ *   grader can tell working from broken.
+ * - `flat` — a competent-but-shallow baseline: asks sensible generic discovery
+ *   questions and never fabricates, but does not adapt to tells or probe deeply.
+ *   The real-vs-`flat` margin is what the skill *earns* by being adaptive — a
+ *   falsifiable number, unlike the floor measured against `null`.
+ */
+export type InterviewerId = 'assessment-interview' | 'null' | 'flat'
 
 /** Request shape for a single model turn. */
 export interface ChatRequest {
