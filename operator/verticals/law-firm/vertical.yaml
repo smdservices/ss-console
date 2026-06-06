@@ -35,13 +35,16 @@ personas:
   - slug: office-manager-intake
     title: Office Manager Handling Intake
 
-# Vertical-default skills. Two spine skills are reused as-is; the twelve
+# Vertical-default skills. The spine is law-specific (the 2026-06-05 spine
+# pass corrected the original "reused as-is" assumption: customer-zero's
+# `inbox-triage` and the marketing `status-report-assembler` are other
+# verticals' skills, not a generic spine — see wedge.md "Spine"). The twelve
 # law-specific skills are specified in the brief's "Skill catalog"; their
-# runtime bodies live in hermes-smd-overlay (the first hand-off).
+# runtime bodies live in operator/skills/.
 skills:
-  # spine (reused)
-  - inbox-triage # routes inbound to the right skill
-  - status-report-assembler # compiles the digests
+  # spine (law-specific)
+  - matter-inbox-router # routes inbound mail to the right wedge skill
+  - matter-status-digest # assembles the internal Clio matter digest
   # intake
   - new-matter-intake
   - conflict-intake-router # gather + route; never clears
