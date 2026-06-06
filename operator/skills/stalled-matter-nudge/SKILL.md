@@ -31,7 +31,8 @@ Matters go quiet and slip — not because anyone decided to drop them, but becau
 
 ## Inputs
 
-- The firm's matters and their activity timestamps: `list_matters`, then per matter the most recent of `list_tasks`, `list_calendar_entries`, and notes (the Clio MCP has no first-class matter `updated_at`; recency is the max of these — `clio-surface.md`).
+- The firm's matters and their last-modified time: `list_matters` / `get_matter`, reading the matter's **`updated_at`**. Clio's matter resource carries `updated_at` natively (the connector already requests it on contacts), but the upstream `oktopeak/clio-mcp` omits it from its matter field set — so this skill depends on **widening that field set to include `updated_at`** (the same connector fix `consult-scheduler` / `matter-status-responder` need for `responsible_attorney`). See `clio-surface.md` "CONNECT-STEP DIFF" findings 2–3. Until it lands, recency degrades to the calendar/task signals below and specificity drops — say so, don't fake it.
+- Refinement signals available today: `list_calendar_entries` (the most recent past entry per matter) and `list_tasks` (open tasks + their `due_at`). These power the waiting-vs-stalled filter; they are not the primary clock. **Not available:** per-task created/updated timestamps (`list_tasks` exposes only `due_at`, a future date) and note timestamps (the MCP has no note-read tool) — the earlier "max of task/calendar/note timestamps" model is unbuildable against this connector.
 - The firm's staleness window from `customer.yaml` (days of no activity = stalled), per practice area if authored.
 - Each matter's conflict state.
 
@@ -45,7 +46,7 @@ Triggered on a schedule (e.g., weekly scan).
 
 ## Procedure
 
-1. **Compute recency** per matter: `last_activity = max(task, calendar, note timestamps)`. The matter is a candidate if `today − last_activity > window`.
+1. **Compute recency** per matter: `last_activity = matter.updated_at` (Clio's last-modified timestamp), floored by the most recent `list_calendar_entries` end time when present. The matter is a candidate if `today − last_activity > window`. `updated_at` is last-record-modification — a strong but imperfect proxy (a billing run or a note write bumps it); that is acceptable and far better than a signal the connector cannot supply. If the connector field-widening is not yet live, fall back to calendar-entry recency alone and flag the reduced specificity in the surfaced list.
 2. **Filter out the legitimately-waiting.** A matter with no recent notes but an **open task with a future due date** (awaiting an external response, a court date, a filing window) is **not stalled** — it is waiting on purpose. Do not flag it. (Specificity matters: a false "stalled" flag erodes trust in the list.)
 3. **Gate held matters.** A matter on CONFLICT-HOLD that appears stalled is surfaced **separately** (it needs human clearance, not a client follow-up); draft no client-facing follow-up for it.
 4. **Surface the list** (autonomous): the genuinely-stalled matters, each with its last-activity date and days-quiet.
