@@ -52,4 +52,13 @@ describe('toAnthropicRequest', () => {
     expect(messages).toHaveLength(1)
     expect(messages[0]?.role).toBe('user')
   })
+
+  it('drops empty / whitespace-only turns (never sends an empty message upstream)', () => {
+    const { messages } = toAnthropicRequest([
+      { role: 'user', content: 'real' },
+      { role: 'assistant', content: '   ' },
+      { role: 'user', content: '' },
+    ])
+    expect(messages).toEqual([{ role: 'user', content: 'real' }])
+  })
 })

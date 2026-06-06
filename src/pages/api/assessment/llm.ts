@@ -25,20 +25,42 @@ function json(status: number, body: unknown): Response {
   })
 }
 
+/** Normalize OpenAI content, which may arrive as a string OR an array of parts (ElevenLabs/OpenAI multimodal). */
+function contentToString(content: unknown): string {
+  if (typeof content === 'string') return content
+  if (Array.isArray(content)) {
+    return content
+      .map((part) =>
+        typeof part === 'object' &&
+        part !== null &&
+        typeof (part as { text?: unknown }).text === 'string'
+          ? (part as { text: string }).text
+          : ''
+      )
+      .join('')
+  }
+  return ''
+}
+
+/**
+ * Lenient parse: coerce each message rather than rejecting the whole batch on a
+ * single odd one (the agent may send array-content or empty placeholder turns).
+ * Returns null only if there is no usable conversation at all.
+ */
 function parseMessages(body: unknown): OpenAIChatMessage[] | null {
   if (typeof body !== 'object' || body === null) return null
   const raw = (body as { messages?: unknown }).messages
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > 200) return null
   const messages: OpenAIChatMessage[] = []
   for (const item of raw) {
-    if (typeof item !== 'object' || item === null) return null
+    if (typeof item !== 'object' || item === null) continue
     const role = (item as { role?: unknown }).role
-    const content = (item as { content?: unknown }).content
-    if (typeof role !== 'string') return null
-    if (typeof content !== 'string') return null
+    if (typeof role !== 'string') continue
+    const content = contentToString((item as { content?: unknown }).content)
+    if (content.length === 0) continue
     messages.push({ role, content })
   }
-  return messages
+  return messages.length > 0 ? messages : null
 }
 
 export const POST: APIRoute = async ({ request }: APIContext) => {
@@ -60,9 +82,19 @@ export const POST: APIRoute = async ({ request }: APIContext) => {
   const messages = parseMessages(body)
   if (messages === null) return json(400, { error: 'invalid messages' })
 
+  // Diagnostic: metadata only (counts + roles), never content. Aids wrangler tail
+  // while the voice channel is being stabilized.
+  console.error(
+    `[assessment-llm] in ${messages.length} msgs [${messages.map((m) => m.role).join(',')}]`
+  )
+
   try {
-    return await streamInterviewerCompletion(env.ANTHROPIC_API_KEY, messages)
+    return await streamInterviewerCompletion(env.ANTHROPIC_API_KEY, messages, Date.now())
   } catch {
-    return json(502, { error: 'upstream error' })
+    // Always answer the custom-LLM caller in SSE shape, never JSON.
+    return new Response('data: {"error":"upstream error"}\n\ndata: [DONE]\n\n', {
+      status: 200,
+      headers: { 'content-type': 'text/event-stream; charset=utf-8' },
+    })
   }
 }
