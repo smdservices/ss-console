@@ -51,6 +51,7 @@ export function toAnthropicRequest(messages: ReadonlyArray<OpenAIChatMessage>): 
   const turns = messages
     .filter((m) => m.role === 'user' || m.role === 'assistant')
     .map((m) => ({ role: m.role as 'user' | 'assistant', content: String(m.content ?? '') }))
+    .filter((m) => m.content.trim().length > 0)
 
   if (turns.length === 0 || turns[0]?.role !== 'user') {
     turns.unshift({ role: 'user', content: '[The business owner has joined the call.]' })
@@ -58,15 +59,31 @@ export function toAnthropicRequest(messages: ReadonlyArray<OpenAIChatMessage>): 
   return { system, messages: turns }
 }
 
-function sseChunk(delta: { role?: string; content?: string }, finish: string | null): string {
+function sseChunk(
+  delta: { role?: string; content?: string },
+  finish: string | null,
+  created: number
+): string {
   const payload = {
     id: 'chatcmpl-assessment',
     object: 'chat.completion.chunk',
+    created,
     model: OPENAI_MODEL_LABEL,
     choices: [{ index: 0, delta, finish_reason: finish }],
   }
   return `data: ${JSON.stringify(payload)}\n\n`
 }
+
+/** SSE error event in the shape OpenAI-compatible consumers (ElevenLabs) expect. */
+function sseError(message: string): string {
+  return `data: ${JSON.stringify({ error: message })}\n\ndata: [DONE]\n\n`
+}
+
+const SSE_HEADERS = {
+  'content-type': 'text/event-stream; charset=utf-8',
+  'cache-control': 'no-cache',
+  connection: 'keep-alive',
+} as const
 
 /** Extract the text out of one Anthropic SSE `data:` line, or null if it carries no text. */
 function textFromAnthropicEvent(jsonLine: string): string | null {
@@ -88,14 +105,16 @@ function textFromAnthropicEvent(jsonLine: string): string | null {
 
 /**
  * Call Anthropic with streaming and return an OpenAI-compatible SSE Response.
- * Throws (caller maps to an error response) only on the initial connect; once
- * the stream is open, transport errors end the stream cleanly.
+ * Always returns text/event-stream (an error becomes an SSE `error` event), so
+ * the ElevenLabs custom-LLM parser never sees a non-stream response.
  */
 export async function streamInterviewerCompletion(
   apiKey: string,
-  messages: ReadonlyArray<OpenAIChatMessage>
+  messages: ReadonlyArray<OpenAIChatMessage>,
+  now: number
 ): Promise<Response> {
   const { system, messages: anthropicMessages } = toAnthropicRequest(messages)
+  const created = Math.floor(now / 1000)
 
   const upstream = await fetch(ANTHROPIC_API_URL, {
     method: 'POST',
@@ -114,7 +133,8 @@ export async function streamInterviewerCompletion(
   })
 
   if (!upstream.ok || !upstream.body) {
-    throw new Error(`Anthropic stream failed: ${upstream.status}`)
+    console.error(`[assessment-llm] anthropic ${upstream.status}`)
+    return new Response(sseError(`upstream ${upstream.status}`), { headers: SSE_HEADERS })
   }
 
   const reader = upstream.body.getReader()
@@ -124,12 +144,14 @@ export async function streamInterviewerCompletion(
 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
-      controller.enqueue(encoder.encode(sseChunk({ role: 'assistant', content: '' }, null)))
+      controller.enqueue(
+        encoder.encode(sseChunk({ role: 'assistant', content: '' }, null, created))
+      )
     },
     async pull(controller) {
       const { done, value } = await reader.read()
       if (done) {
-        controller.enqueue(encoder.encode(sseChunk({}, 'stop')))
+        controller.enqueue(encoder.encode(sseChunk({}, 'stop', created)))
         controller.enqueue(encoder.encode('data: [DONE]\n\n'))
         controller.close()
         return
@@ -141,7 +163,7 @@ export async function streamInterviewerCompletion(
         const trimmed = line.trim()
         if (!trimmed.startsWith('data:')) continue
         const text = textFromAnthropicEvent(trimmed.slice(5).trim())
-        if (text) controller.enqueue(encoder.encode(sseChunk({ content: text }, null)))
+        if (text) controller.enqueue(encoder.encode(sseChunk({ content: text }, null, created)))
       }
     },
     cancel() {
@@ -149,11 +171,5 @@ export async function streamInterviewerCompletion(
     },
   })
 
-  return new Response(stream, {
-    headers: {
-      'content-type': 'text/event-stream; charset=utf-8',
-      'cache-control': 'no-cache',
-      connection: 'keep-alive',
-    },
-  })
+  return new Response(stream, { headers: SSE_HEADERS })
 }
