@@ -1,0 +1,97 @@
+---
+name: document-receipt-logger
+description: Logs an inbound document against the right matter — resolves sender to matter, proposes the filing location, drafts a receipt entry, and surfaces it. Records that a document arrived; never interprets its contents.
+version: 0.1.0
+author: SMD Services
+license: MIT
+platforms: [linux, macos]
+prerequisites:
+  skills: []
+  commands: [python3]
+metadata:
+  hermes:
+    tags: [Law, Documents, Filing, Intake, DraftForReview]
+  smd:
+    vertical: law-firm
+    skill_type: read + assembly (filing proposal)
+    trust_ceiling: draft_for_review
+    action_class: read + write
+    connectors:
+      - email # customer-bound — the inbound message + its attachment
+      - clio # PracticeManagement — resolve sender→matter, draft the receipt note (read; write gated)
+      - document-storage # DocumentStorage (mcp:ms-365) — proposed filing target (write gated)
+---
+
+# Document Receipt Logger
+
+When a document arrives in the firm's inbox — a signed agreement, a returned form, a record from a third party — this skill records that it came in and proposes where it belongs: it resolves the sender to a matter, identifies the filing location, drafts a receipt log entry, and surfaces the proposal. It is the firm's "we received this and here is where it goes" step, so a document never sits unfiled and untracked.
+
+It logs **receipt**, not meaning. It records that a document arrived, from whom, and against which matter — it does **not** read the document for legal content, summarize its terms, or act on what it says. Interpreting an inbound document is legal work; this skill is filing hygiene.
+
+## When to Use
+
+Use when inbound documents would otherwise pile up unlogged — the firm wants every received document tied to its matter with a receipt trail. No wedge step depends on a logged document, which is why it is a parallel workflow rather than part of the named-job loop, but unlogged documents are how things get lost.
+
+Runs event-driven (an inbound message with an attachment) and scheduled (sweep the inbox for unlogged attachments).
+
+## Prerequisites
+
+Reads the customer-bound **Email** connector (the inbound message + attachment metadata), Clio (`search_contacts`, `list_matters` to resolve sender→matter; the receipt note is a gated write), and the **DocumentStorage** connector (the proposed filing target; a gated write). Requires `python3` for the fetch block.
+
+## How to Run
+
+```
+hermes run document-receipt-logger                     # sweep inbox for unlogged attachments
+hermes run document-receipt-logger --message <id>      # log one inbound document
+```
+
+## Procedure
+
+Two phases (ADR 0021 Stream A). The mechanical inbox/attachment + Clio resolution runs in one `execute_code` block; the filing proposal stays in the agent's reasoning loop.
+
+### Phase 1 — Fetch (single `execute_code` block)
+
+Enumerate inbound messages carrying attachments in the window. For each, capture sender, subject, and attachment **metadata only** (filename, type, size) — not the document body. Resolve the sender via Clio (`search_contacts` → `list_matters`). Accumulate in-process; `print()` one JSON document of (message → sender, attachment metadata, resolved matter candidates). A single unreadable message is `parse_failed`; the sweep continues.
+
+### Phase 2 — Reason (agent, in-context)
+
+Per `references/algorithm.md`:
+
+1. **Resolve the matter.** Map the sender (and any matter reference in the subject) to a single matter via Clio. A confident single match proceeds; an ambiguous or unknown sender is surfaced for a human to assign, not guessed.
+2. **Propose the filing location** — the matter's document area in DocumentStorage, plus a category if the firm authors one (correspondence, signed-docs, records). The proposal names where; it does not classify the document's legal nature.
+3. **Draft the receipt entry** — a Clio note recording: document received, from whom, when, attachment filename/type, and the resolved matter. Receipt facts only.
+4. **Surface for review.** The proposal (matter + location + receipt draft) is surfaced; in this phase the actual file move and note write are **gated** — a human confirms before the document is filed and the receipt committed.
+
+## Trust Ceiling
+
+**Resolve + propose + draft autonomous; the file move and receipt write are gated (`draft_for_review`).**
+
+The agent MAY: read inbound message + attachment metadata; resolve sender→matter via Clio; propose a filing location; draft the receipt note.
+
+The agent MUST NOT: interpret, summarize, or act on the document's contents; file a document or write the receipt without review (this phase); attach a document to a matter it could not confidently resolve; alter or delete an existing document.
+
+## Safety invariants (any violation → `fails`, no recovery)
+
+1. **Receipt, not meaning.** The skill records that a document arrived; it never reads it for legal content or advises on it.
+2. **No fabricated filing.** A document is tied to a matter only via a confident Clio resolution; an unresolved sender is surfaced for human assignment.
+3. **Fail-closed write.** The file move and receipt note are gated behind human review this phase; nothing is filed autonomously.
+4. **No destructive document action.** Never overwrites, moves, or deletes an existing filed document — it only adds a received one.
+5. **Privilege.** Sender, matter, and attachment metadata stay on firm surfaces.
+
+## Pitfalls
+
+Reading the attachment to "be helpful" and summarizing its terms (out of scope — that is legal work); filing to a guessed matter when the sender is ambiguous; classifying the document's legal type instead of just its filing category; committing the receipt write before review in the fail-closed phase.
+
+## Verification
+
+1. Every logged document traces to a real inbound message and a confidently resolved matter; ambiguous senders are surfaced, not guessed.
+2. The receipt entry contains receipt facts only — no content summary or interpretation.
+3. The file move and note write are gated behind review this phase.
+4. No existing document is altered or deleted.
+5. Attachment contents never appear in the surface or logs — metadata only.
+
+## References
+
+- `references/algorithm.md` — the sender→matter resolution, the metadata-only rule, and the gated filing/receipt flow
+- `references/output-format.md` — the filing proposal + receipt-note draft _(parity fast-follow)_
+- `references/test-cases.md` — fixtures incl. clean match, ambiguous sender, unknown sender, and multi-attachment _(parity fast-follow)_

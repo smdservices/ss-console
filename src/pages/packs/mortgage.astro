@@ -1,0 +1,272 @@
+---
+export const prerender = false
+
+import Base from '../../layouts/Base.astro'
+import Nav from '../../components/Nav.astro'
+import Footer from '../../components/Footer.astro'
+import CtaButton from '../../components/CtaButton.astro'
+
+const productSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: 'Operator for Mortgage Brokers',
+  description:
+    'A dedicated Operator that keeps the pipeline moving: it collects the borrower conditions, keeps every party current, works the condition chain toward clear-to-close, and keeps the loan-origination system current. The loan calls and the money stay with your MLO; one money-and-wire line never moves.',
+  brand: { '@type': 'Brand', name: 'SMD Services' },
+  offers: {
+    '@type': 'Offer',
+    availability: 'https://schema.org/InStock',
+    seller: { '@type': 'Organization', name: 'SMD Services' },
+  },
+}
+
+const roleLenses = [
+  {
+    title: 'Clearing conditions',
+    body: 'The conditions list that has to be worked, the borrower document still outstanding. The Operator collects the conditions, chases what is missing, and works the condition chain so the file moves toward clear-to-close. The lock and the loan calls stay with your MLO.',
+  },
+  {
+    title: 'Keeping every party current',
+    body: 'Borrower, agent, title, underwriting. The Operator keeps each one current at every step and chases the items they owe, so the file does not stall waiting on a status email no one had time to send.',
+  },
+  {
+    title: 'The pipeline',
+    body: 'Turn times, the files approaching a deadline, the ones that have gone quiet. The Operator runs the cadence and surfaces what needs attention, and keeps the loan-origination system current as it goes.',
+  },
+]
+---
+
+<Base
+  title="Operator for Mortgage Brokers | SMD Services"
+  description="A dedicated Operator that keeps the pipeline moving: collecting borrower conditions, keeping every party current, working the condition chain toward clear-to-close, and keeping the loan-origination system current. The loan calls and the money stay with your MLO."
+>
+  <Nav />
+  <main id="main" role="main">
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(productSchema)} />
+
+    <!-- § 01 Hero -->
+    <section
+      class="relative overflow-hidden bg-[color:var(--ss-color-background)] px-6 pt-24 pb-32"
+    >
+      <div class="mx-auto max-w-5xl text-center">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
+          >§ 01</span
+        >
+        <h1
+          class="mb-8 font-['Archivo'] text-5xl md:text-7xl font-black uppercase leading-[1.05] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
+        >
+          The Processing Desk, Fully Staffed.
+        </h1>
+        <p
+          class="mx-auto mb-12 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          A dedicated Operator that keeps the pipeline moving, the way a sharp loan-officer
+          assistant would: it collects the borrower conditions, keeps every party current, works the
+          condition chain toward clear-to-close, and keeps your loan-origination system current. You
+          add capacity without the hire-fast, fire-fast cycle.
+        </p>
+        <CtaButton href="/book?interest=mortgage" data-ev="mortgage-hero-cta"
+          >Start the conversation</CtaButton
+        >
+      </div>
+    </section>
+
+    <!-- § 02 The seat the market won't fill -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 02</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          The Seat The Market Won't Fill.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            Origination staffing runs hot and cold. Shops hire fast in the boom and cut deep in the
+            bust, and the processors and closers they let go move into other fields and do not come
+            back. When the market turns, the talent is gone and everyone is fighting for the same
+            people. The files do not wait: the conditions still have to be cleared, and the parties
+            still have to be kept current.
+          </p>
+          <p>
+            An Operator fills that seat now. It runs the pipeline at full speed, all the time, and
+            what it learns about how your shop runs, your investors, your conditions, your voice,
+            stays with the shop instead of leaving in the next downcycle.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 03 What it does -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 03</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          What It Does.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            We build the Operator for your shop and connect it to the tools you already run: your
+            loan-origination system, your email, your document storage.
+          </p>
+          <p>
+            A file comes in. It collects the borrower conditions, chases the documents the file
+            needs, and works the condition chain so the file keeps moving toward clear-to-close. It
+            keeps the borrower, the agent, and title current at every step, and keeps the
+            loan-origination system current as it goes. Every piece of it is logged there as it
+            happens.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 04 You set the line -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 04</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          You Set The Line.
+        </h2>
+        <div
+          class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)] mb-12"
+        >
+          <p>
+            The Operator works the file and brings the loan calls and the money to a person. The
+            advice, the rate-lock decision, anything that carries an originator's license, those
+            stay with your MLO. Not because the software could not fill a field, but because the
+            loan advice carries a license and a duty to the borrower, and an unlicensed assistant
+            could not give it either.
+          </p>
+          <p>
+            One line is not a setting anyone can move: the Operator never moves money and never
+            transmits or changes wiring or closing-fund instructions. Any message that touches funds
+            or wire details goes to a verified person through your process. Everywhere else you
+            govern what the Operator runs on its own, every outbound message goes through a reviewer
+            who sends it under their own name, and every action it takes is logged where you can see
+            it.
+          </p>
+        </div>
+        <div class="text-center">
+          <CtaButton
+            variant="secondary"
+            href="/book?interest=mortgage"
+            data-ev="mortgage-section-cta">Talk through the fit</CtaButton
+          >
+        </div>
+      </div>
+    </section>
+
+    <!-- § 05 One coordinator, your whole shop -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 05</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          One Coordinator. Your Whole Shop.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            One Operator for the whole shop, not a separate tool for each loan officer. Everyone
+            works with the same one, and it gets sharper from everyone's corrections.
+          </p>
+          <p>
+            What it learns, your investors, your conditions, the way you run a file, your voice, is
+            a record you can read and correct. It belongs to the shop, not to a person's login. When
+            someone moves on, what the Operator knows about how you run does not leave with them.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 06 Where it fits -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 06</span
+        >
+        <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Where It Fits.
+        </h2>
+        <p
+          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          A few shapes the seat can take. We build it around how your shop runs, so these are
+          starting points, not a menu.
+        </p>
+
+        <div
+          class="grid grid-cols-1 md:grid-cols-3 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
+        >
+          {
+            roleLenses.map((lens, i) => (
+              <div
+                class:list={[
+                  'flex flex-col gap-4 p-8 min-h-[16rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
+                  i % 3 !== 2 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
+                ]}
+              >
+                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
+                  {lens.title}
+                </p>
+                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                  {lens.body}
+                </p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- § 07 Start the conversation -->
+    <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
+      <div class="mx-auto max-w-5xl text-center">
+        <span
+          class="inline-block bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
+          >§ 07</span
+        >
+        <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
+        >
+          Start The Conversation.
+        </h2>
+        <p class="mx-auto mb-6 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
+          It starts with a conversation. We learn how your shop runs, find the processing and
+          coordination work that is eating your team's time, and figure out where a dedicated
+          Operator fits. If it is not a fit, we will tell you.
+        </p>
+        <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
+          Pricing is a flat monthly subscription, scoped to the seat we build together, and we walk
+          through it before any setup begins.
+        </p>
+        <CtaButton
+          variant="outline-white"
+          href="/book?interest=mortgage"
+          data-ev="mortgage-final-cta">Start the conversation</CtaButton
+        >
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Base>

@@ -1,0 +1,273 @@
+---
+export const prerender = false
+
+import Base from '../../layouts/Base.astro'
+import Nav from '../../components/Nav.astro'
+import Footer from '../../components/Footer.astro'
+import CtaButton from '../../components/CtaButton.astro'
+
+const productSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: 'Operator for Veterinary Clinics',
+  description:
+    'A dedicated Operator that runs the front of house: it books and confirms appointments, works the recall list, relays refill requests to the doctor, gets released results to clients, and routes a possible emergency straight to a person. The medicine stays with your doctors; one emergency line never moves.',
+  brand: { '@type': 'Brand', name: 'SMD Services' },
+  offers: {
+    '@type': 'Offer',
+    availability: 'https://schema.org/InStock',
+    seller: { '@type': 'Organization', name: 'SMD Services' },
+  },
+}
+
+const roleLenses = [
+  {
+    title: 'Front desk and scheduling',
+    body: 'A new client reaches out and the Operator captures the client and patient, drafts the reply in your voice, and offers a time. It confirms appointments, reminds, and rebooks the no-show. If an inquiry sounds like it could be an emergency, it goes to a person at the clinic right then, never handled later.',
+  },
+  {
+    title: 'The recall engine',
+    body: "The patients overdue for wellness care or vaccines, on your clinic's own protocol. The Operator surfaces who is due, drafts the recall in your voice, and reconnects the client who has not been seen in a while. It surfaces what your protocol marks due; it never decides what care a patient needs.",
+  },
+  {
+    title: 'The service desk',
+    body: "Refill requests relayed to the doctor, the doctor's released result delivered exactly as written, estimate follow-ups, boarding booked against recorded vaccine status. The authorization, the dose, and any medical word stay with the doctor. The Operator carries the logistics around them.",
+  },
+]
+---
+
+<Base
+  title="Operator for Veterinary Clinics | SMD Services"
+  description="A dedicated Operator that runs your front of house: appointments, the recall list, refill requests relayed to the doctor, released results, and a possible emergency routed straight to a person. The medicine stays with your doctors."
+>
+  <Nav />
+  <main id="main" role="main">
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(productSchema)} />
+
+    <!-- § 01 Hero -->
+    <section
+      class="relative overflow-hidden bg-[color:var(--ss-color-background)] px-6 pt-24 pb-32"
+    >
+      <div class="mx-auto max-w-5xl text-center">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
+          >§ 01</span
+        >
+        <h1
+          class="mb-8 font-['Archivo'] text-5xl md:text-7xl font-black uppercase leading-[1.05] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
+        >
+          The Front Desk, Fully Staffed.
+        </h1>
+        <p
+          class="mx-auto mb-12 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          A dedicated Operator that runs your front of house the way your best CSR would: it books
+          and confirms appointments, works your recall list, relays refill requests to the doctor,
+          gets released results to clients, and routes a possible emergency straight to a person.
+          You add capacity to the front desk without adding to payroll.
+        </p>
+        <CtaButton href="/book?interest=veterinary" data-ev="veterinary-hero-cta"
+          >Start the conversation</CtaButton
+        >
+      </div>
+    </section>
+
+    <!-- § 02 The seat the market won't fill -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 02</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          The Seat The Market Won't Fill.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            The front desk is the hardest seat in the building to keep filled. Turnover runs high,
+            burnout runs higher, and the role is first and last contact with every anxious client,
+            all day, on the phones. The work does not slow down to wait for the next hire.
+          </p>
+          <p>
+            An Operator fills that seat now. It runs the front of house at full speed, all the time,
+            and what it learns about how your clinic runs, your protocols, your schedule, your
+            voice, stays with the clinic instead of leaving with the person who had it.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 03 What it does -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 03</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          What It Does.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            We build the Operator for your clinic and connect it to the systems you already run:
+            your practice-management system, your email and calendar, your document storage. It
+            reads the record as results, reminders, and due dates land, so the front desk is working
+            from what is actually in the file.
+          </p>
+          <p>
+            A new client reaches out. It captures the client and patient, drafts the reply in your
+            voice, and offers a time. It confirms and rebooks appointments, works your recall list
+            so wellness care does not slip, relays refill requests to the doctor, gets the doctor's
+            released result to the client exactly as written, follows the estimate, and books
+            boarding. A message that might be an emergency it hands to a person immediately. Every
+            piece of it is logged in your practice-management system as it happens.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 04 You set the line -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 04</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          You Set The Line.
+        </h2>
+        <div
+          class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)] mb-12"
+        >
+          <p>
+            The Operator runs the front of house and brings everything else to a person. The
+            medicine stays with your doctors: the diagnosis, the treatment call, whether a case is
+            urgent, authorizing a refill. Not because the software could not write a careful
+            message, but because medicine on a patient takes a licensed veterinarian who has
+            examined it, and a trained but unlicensed assistant could not make those calls either.
+          </p>
+          <p>
+            One line is not a setting anyone can move: a message that might be an emergency goes
+            straight to a person at your clinic, right then, never handled later and never answered
+            with medical content. Everywhere else, you govern what the Operator runs on its own. Out
+            of the box the clinical calls wait for a doctor, and every outbound message goes through
+            a reviewer on your team who sends it under their own name. It never grants itself more
+            authority, and every action it takes is logged where you can see it.
+          </p>
+        </div>
+        <div class="text-center">
+          <CtaButton
+            variant="secondary"
+            href="/book?interest=veterinary"
+            data-ev="veterinary-section-cta">Talk through the fit</CtaButton
+          >
+        </div>
+      </div>
+    </section>
+
+    <!-- § 05 One coordinator, your whole clinic -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 05</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          One Coordinator. Your Whole Clinic.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            One Operator for the whole clinic, not a separate tool for each doctor or each station.
+            Everyone works with the same one, and it gets sharper from everyone's corrections.
+          </p>
+          <p>
+            What it learns, your protocols, your schedule, your services, your voice, is a record
+            you can read and correct. It belongs to the clinic, not to a person's login. When
+            someone moves on, what the Operator knows about how you run does not leave with them.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 06 Where it fits -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 06</span
+        >
+        <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Where It Fits.
+        </h2>
+        <p
+          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          A few shapes the seat can take. We build it around how your clinic runs, so these are
+          starting points, not a menu.
+        </p>
+
+        <div
+          class="grid grid-cols-1 md:grid-cols-3 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
+        >
+          {
+            roleLenses.map((lens, i) => (
+              <div
+                class:list={[
+                  'flex flex-col gap-4 p-8 min-h-[16rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
+                  i % 3 !== 2 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
+                ]}
+              >
+                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
+                  {lens.title}
+                </p>
+                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                  {lens.body}
+                </p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- § 07 Start the conversation -->
+    <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
+      <div class="mx-auto max-w-5xl text-center">
+        <span
+          class="inline-block bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
+          >§ 07</span
+        >
+        <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
+        >
+          Start The Conversation.
+        </h2>
+        <p class="mx-auto mb-6 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
+          It starts with a conversation. We learn how your clinic runs, find the front-desk work
+          that is eating your team's day, and figure out where a dedicated Operator fits. If it is
+          not a fit, we will tell you.
+        </p>
+        <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
+          Pricing is a flat monthly subscription, scoped to the seat we build together, and we walk
+          through it before any setup begins.
+        </p>
+        <CtaButton
+          variant="outline-white"
+          href="/book?interest=veterinary"
+          data-ev="veterinary-final-cta">Start the conversation</CtaButton
+        >
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Base>

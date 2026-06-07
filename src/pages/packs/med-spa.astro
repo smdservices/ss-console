@@ -1,0 +1,270 @@
+---
+export const prerender = false
+
+import Base from '../../layouts/Base.astro'
+import Nav from '../../components/Nav.astro'
+import Footer from '../../components/Footer.astro'
+import CtaButton from '../../components/CtaButton.astro'
+
+const productSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: 'Operator for Med Spas',
+  description:
+    'A dedicated Operator that runs the front desk: it books and confirms consults and treatments, runs the membership and rebooking cadence, chases the no-show, and handles the routine client back-and-forth. The good-faith exam and the medicine stay with your clinicians; a possible complication routes to a person.',
+  brand: { '@type': 'Brand', name: 'SMD Services' },
+  offers: {
+    '@type': 'Offer',
+    availability: 'https://schema.org/InStock',
+    seller: { '@type': 'Organization', name: 'SMD Services' },
+  },
+}
+
+const roleLenses = [
+  {
+    title: 'Consults and booking',
+    body: 'The consult that has to be booked, the treatment confirmed, the prospect who called and did not book. The Operator captures the request, books and confirms in your voice, and follows up. The good-faith exam and the treatment call stay with your clinicians.',
+  },
+  {
+    title: 'Membership and rebooking',
+    body: 'The membership that runs on rebooking, the client due for the next treatment. The Operator runs the cadence and rebooks, so the recurring revenue does not depend on someone remembering to reach out.',
+  },
+  {
+    title: 'After hours and follow-up',
+    body: 'The call that comes in after you close, the no-show that needs a follow-up within the day. The Operator answers, books, and chases, and routes anything that sounds like a medical concern to a person immediately.',
+  },
+]
+---
+
+<Base
+  title="Operator for Med Spas | SMD Services"
+  description="A dedicated Operator that runs the front desk: booking and confirming consults and treatments, running the membership and rebooking cadence, chasing the no-show, and handling the routine client back-and-forth. The good-faith exam and the medicine stay with your clinicians."
+>
+  <Nav />
+  <main id="main" role="main">
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(productSchema)} />
+
+    <!-- § 01 Hero -->
+    <section
+      class="relative overflow-hidden bg-[color:var(--ss-color-background)] px-6 pt-24 pb-32"
+    >
+      <div class="mx-auto max-w-5xl text-center">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
+          >§ 01</span
+        >
+        <h1
+          class="mb-8 font-['Archivo'] text-5xl md:text-7xl font-black uppercase leading-[1.05] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
+        >
+          The Front Desk, Fully Staffed.
+        </h1>
+        <p
+          class="mx-auto mb-12 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          A dedicated Operator that runs the front desk, the way a sharp patient care coordinator
+          would: it books and confirms consults and treatments, runs the membership and rebooking
+          cadence, chases the no-show, and handles the routine client back-and-forth. You add
+          capacity to a seat that turns over hard, without adding to payroll.
+        </p>
+        <CtaButton href="/book?interest=med-spa" data-ev="med-spa-hero-cta"
+          >Start the conversation</CtaButton
+        >
+      </div>
+    </section>
+
+    <!-- § 02 The seat the market won't fill -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 02</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          The Seat The Market Won't Fill.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            Front-desk turnover runs high, and the seat is the first voice every client hears. The
+            person you train is the one you are soon back on Indeed to replace, and while the seat
+            is open the phone still rings, often after close, and a call that goes unanswered is a
+            booking that goes somewhere else. The work does not wait.
+          </p>
+          <p>
+            An Operator fills that seat now. It runs the front desk at full speed, all the time, and
+            what it learns about how your practice runs, your services, your membership, your voice,
+            stays with the practice instead of leaving with the person who had it.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 03 What it does -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 03</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          What It Does.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            We build the Operator for your practice and connect it to the tools you already run:
+            your practice-management system, your email and calendar.
+          </p>
+          <p>
+            It books and confirms consults and treatments, runs the membership and rebooking
+            cadence, chases every no-show, and answers the routine client question in your voice,
+            including the calls that come in after you close. A message that might be a medical
+            concern it hands to a person right away. Every piece of it is logged in your
+            practice-management system as it happens.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 04 You set the line -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 04</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          You Set The Line.
+        </h2>
+        <div
+          class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)] mb-12"
+        >
+          <p>
+            The Operator runs the front desk and brings the medicine to a person. The good-faith
+            exam, what treatment is appropriate, the dose, those stay with your medical director and
+            your injectors. Not because the software could not book an appointment, but because
+            medical aesthetics takes a licensed clinician who has examined the patient, and a
+            trained but unlicensed coordinator could not make those calls either.
+          </p>
+          <p>
+            One line is not a setting anyone can move: a message that might be a complication or an
+            adverse reaction goes straight to a person at your practice, right then, never handled
+            later and never answered with clinical content. Everywhere else, you govern what the
+            Operator runs on its own. Out of the box the clinical calls wait for a clinician, and
+            every outbound message goes through a reviewer on your team who sends it under their own
+            name. It never grants itself more authority, and every action it takes is logged where
+            you can see it.
+          </p>
+        </div>
+        <div class="text-center">
+          <CtaButton variant="secondary" href="/book?interest=med-spa" data-ev="med-spa-section-cta"
+            >Talk through the fit</CtaButton
+          >
+        </div>
+      </div>
+    </section>
+
+    <!-- § 05 One coordinator, your whole practice -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 05</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          One Coordinator. Your Whole Practice.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            One Operator for the whole practice, not a separate tool for each provider or each
+            location. Everyone works with the same one, and it gets sharper from everyone's
+            corrections.
+          </p>
+          <p>
+            What it learns, your services, your membership, your booking rules, your voice, is a
+            record you can read and correct. It belongs to the practice, not to a person's login.
+            When someone moves on, what the Operator knows about how you run does not leave with
+            them.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 06 Where it fits -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 06</span
+        >
+        <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Where It Fits.
+        </h2>
+        <p
+          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          A few shapes the seat can take. We build it around how your practice runs, so these are
+          starting points, not a menu.
+        </p>
+
+        <div
+          class="grid grid-cols-1 md:grid-cols-3 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
+        >
+          {
+            roleLenses.map((lens, i) => (
+              <div
+                class:list={[
+                  'flex flex-col gap-4 p-8 min-h-[16rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
+                  i % 3 !== 2 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
+                ]}
+              >
+                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
+                  {lens.title}
+                </p>
+                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                  {lens.body}
+                </p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- § 07 Start the conversation -->
+    <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
+      <div class="mx-auto max-w-5xl text-center">
+        <span
+          class="inline-block bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
+          >§ 07</span
+        >
+        <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
+        >
+          Start The Conversation.
+        </h2>
+        <p class="mx-auto mb-6 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
+          It starts with a conversation. We learn how your practice runs, find the front-desk work
+          that is eating your team's day, and figure out where a dedicated Operator fits. If it is
+          not a fit, we will tell you.
+        </p>
+        <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
+          Pricing is a flat monthly subscription, scoped to the seat we build together, and we walk
+          through it before any setup begins.
+        </p>
+        <CtaButton variant="outline-white" href="/book?interest=med-spa" data-ev="med-spa-final-cta"
+          >Start the conversation</CtaButton
+        >
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Base>

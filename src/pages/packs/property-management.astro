@@ -1,0 +1,273 @@
+---
+export const prerender = false
+
+import Base from '../../layouts/Base.astro'
+import Nav from '../../components/Nav.astro'
+import Footer from '../../components/Footer.astro'
+import CtaButton from '../../components/CtaButton.astro'
+
+const productSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: 'Operator for Property Managers',
+  description:
+    'A dedicated Operator that runs resident and owner coordination: it intakes the work order, coordinates the maintenance, runs the lease-renewal cadence, fields routine resident and owner questions, and keeps your management system current. The legal and money calls stay with your people; a real emergency routes to a person.',
+  brand: { '@type': 'Brand', name: 'SMD Services' },
+  offers: {
+    '@type': 'Offer',
+    availability: 'https://schema.org/InStock',
+    seller: { '@type': 'Organization', name: 'SMD Services' },
+  },
+}
+
+const roleLenses = [
+  {
+    title: 'Work orders and maintenance',
+    body: 'The work order that comes in, the vendor that has to be coordinated, the routine fix that has to get scheduled. The Operator intakes the request and runs the coordination, and a true emergency, no heat, gas, a flood, goes straight to a person immediately.',
+  },
+  {
+    title: 'Renewals and the cadence',
+    body: 'The lease coming up for renewal, the delinquency that needs a routine reminder, the turn that has to be coordinated. The Operator runs the cadence so the calendar does not depend on someone remembering. The legal calls stay with your people.',
+  },
+  {
+    title: 'Owners and residents',
+    body: 'The owner asking where their statement is, the resident with a routine question. The Operator answers in your voice and keeps everyone current, so the after-hours back-and-forth does not land on your personal phone.',
+  },
+]
+---
+
+<Base
+  title="Operator for Property Managers | SMD Services"
+  description="A dedicated Operator that runs resident and owner coordination: intaking the work order, coordinating maintenance, running the lease-renewal cadence, fielding routine resident and owner questions, and keeping your management system current. The legal and money calls stay with your people."
+>
+  <Nav />
+  <main id="main" role="main">
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(productSchema)} />
+
+    <!-- § 01 Hero -->
+    <section
+      class="relative overflow-hidden bg-[color:var(--ss-color-background)] px-6 pt-24 pb-32"
+    >
+      <div class="mx-auto max-w-5xl text-center">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
+          >§ 01</span
+        >
+        <h1
+          class="mb-8 font-['Archivo'] text-5xl md:text-7xl font-black uppercase leading-[1.05] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
+        >
+          The Coordination Desk, Fully Staffed.
+        </h1>
+        <p
+          class="mx-auto mb-12 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          A dedicated Operator that runs resident and owner coordination, the way a sharp property
+          manager would: it intakes the work order, coordinates the maintenance, runs the
+          lease-renewal cadence, fields the routine resident and owner questions, and keeps your
+          management system current. You take on more doors without staffing up for every one.
+        </p>
+        <CtaButton href="/book?interest=property-management" data-ev="property-management-hero-cta"
+          >Start the conversation</CtaButton
+        >
+      </div>
+    </section>
+
+    <!-- § 02 The seat the market won't fill -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 02</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          The Seat The Market Won't Fill.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            Property management turns over fast, and the job has a way of landing one person on an
+            island, doing it all. Take on a few hundred more doors and the desk floods, the
+            after-hours calls pile onto someone's personal phone, and the manager you trained burns
+            out and leaves. The work does not wait: the work orders still come in, the renewals
+            still come due, and a resident with no heat cannot wait until morning.
+          </p>
+          <p>
+            An Operator fills that seat now. It runs the coordination at full speed, all the time,
+            and what it learns about how your company runs, your properties, your owners, your
+            voice, stays with the company instead of leaving with the person who had it.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 03 What it does -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 03</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          What It Does.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            We build the Operator for your company and connect it to the tools you already run: your
+            property-management system, your email and calendar.
+          </p>
+          <p>
+            It intakes the work order and coordinates the routine maintenance, runs the
+            lease-renewal cadence, answers the routine resident and owner question in your voice,
+            and keeps the management system current. The after-hours back-and-forth it handles, and
+            anything that sounds like an emergency it routes to a person right away. Every piece of
+            it is logged in your property-management system as it happens.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 04 You set the line -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 04</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          You Set The Line.
+        </h2>
+        <div
+          class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)] mb-12"
+        >
+          <p>
+            The Operator runs the coordination and brings the calls that carry weight to a person.
+            The legal decisions, an eviction, a fair-housing question, whether a unit is habitable,
+            and the money, those stay with your people. Not because the software could not send a
+            notice, but because those calls carry real liability and belong to a person who is
+            accountable for them.
+          </p>
+          <p>
+            One line is not a setting anyone can move: a call that sounds like a real emergency, no
+            heat in winter, a gas smell, a flood, a burst pipe, goes straight to a person, right
+            then, never queued behind the routine. The routine work orders, the renewal cadence, and
+            the owner questions do not wait on one. Everywhere else you govern what the Operator
+            runs on its own, every outbound message goes through a reviewer who sends it under their
+            own name, and every action it takes is logged where you can see it.
+          </p>
+        </div>
+        <div class="text-center">
+          <CtaButton
+            variant="secondary"
+            href="/book?interest=property-management"
+            data-ev="property-management-section-cta">Talk through the fit</CtaButton
+          >
+        </div>
+      </div>
+    </section>
+
+    <!-- § 05 One coordinator, your whole company -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 05</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          One Coordinator. Your Whole Company.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            One Operator for the whole company, not a separate tool for each manager or each
+            property. Everyone works with the same one, and it gets sharper from everyone's
+            corrections.
+          </p>
+          <p>
+            What it learns, your properties, your owners, your routines, your voice, is a record you
+            can read and correct. It belongs to the company, not to a person's login. When someone
+            moves on, what the Operator knows about how you run does not leave with them.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 06 Where it fits -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 06</span
+        >
+        <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Where It Fits.
+        </h2>
+        <p
+          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          A few shapes the seat can take. We build it around how your company runs, so these are
+          starting points, not a menu.
+        </p>
+
+        <div
+          class="grid grid-cols-1 md:grid-cols-3 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
+        >
+          {
+            roleLenses.map((lens, i) => (
+              <div
+                class:list={[
+                  'flex flex-col gap-4 p-8 min-h-[16rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
+                  i % 3 !== 2 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
+                ]}
+              >
+                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
+                  {lens.title}
+                </p>
+                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                  {lens.body}
+                </p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- § 07 Start the conversation -->
+    <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
+      <div class="mx-auto max-w-5xl text-center">
+        <span
+          class="inline-block bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
+          >§ 07</span
+        >
+        <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
+        >
+          Start The Conversation.
+        </h2>
+        <p class="mx-auto mb-6 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
+          It starts with a conversation. We learn how your company runs, find the coordination work
+          that is eating your team's time, and figure out where a dedicated Operator fits. If it is
+          not a fit, we will tell you.
+        </p>
+        <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
+          Pricing is a flat monthly subscription, scoped to the seat we build together, and we walk
+          through it before any setup begins.
+        </p>
+        <CtaButton
+          variant="outline-white"
+          href="/book?interest=property-management"
+          data-ev="property-management-final-cta">Start the conversation</CtaButton
+        >
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Base>
