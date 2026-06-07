@@ -41,10 +41,35 @@ const MIN_FORM_FILL_MS = 2000
  * cached link cannot break a legitimate submission. Extending this list
  * requires an explicit code change.
  */
-const ALLOWED_INTERESTS = new Set<string>(['operator', 'law-firm'])
+const ALLOWED_INTERESTS = new Set<string>([
+  'operator',
+  'law-firm',
+  'insurance',
+  'veterinary',
+  'title',
+  'accounting',
+  'ria',
+  'mortgage',
+  'dental',
+  'med-spa',
+  'marketing-agency',
+  'property-management',
+  'home-services',
+])
 const INTEREST_LABELS: Record<string, string> = {
   operator: 'Operator',
   'law-firm': 'Operator for Law Firms',
+  insurance: 'Operator for Insurance Agencies',
+  veterinary: 'Operator for Veterinary Clinics',
+  title: 'Operator for Title & Escrow',
+  accounting: 'Operator for Accounting Firms',
+  ria: 'Operator for Advisory Firms',
+  mortgage: 'Operator for Mortgage Brokers',
+  dental: 'Operator for Dental Practices',
+  'med-spa': 'Operator for Med Spas',
+  'marketing-agency': 'Operator for Marketing Agencies',
+  'property-management': 'Operator for Property Managers',
+  'home-services': 'Operator for Home Services',
 }
 
 interface ValidatedSendBody {

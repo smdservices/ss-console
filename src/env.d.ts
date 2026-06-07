@@ -7,6 +7,12 @@ declare module '*.wasm' {
   export default module
 }
 
+/** Raw-text imports (Vite ?raw) — used to load operator skill bodies as the single source of truth. */
+declare module '*.md?raw' {
+  const content: string
+  export default content
+}
+
 /**
  * Service binding shape for the `ss-enrichment-workflow` Worker (#631).
  * ss-web's lead-gen workers and admin endpoints dispatch entity enrichment
@@ -76,6 +82,12 @@ declare namespace Cloudflare {
      */
     RESEND_WEBHOOK_SECRET?: string
     ANTHROPIC_API_KEY?: string
+    /** ElevenLabs API key (voice agent for the assessment funnel). Org key from /vc. */
+    ELEVENLABS_API_KEY?: string
+    /** ID of the ElevenLabs assessment agent (custom-LLM = our interviewer). */
+    ELEVENLABS_ASSESSMENT_AGENT_ID?: string
+    /** Optional shared secret the agent's custom-LLM sends as `Authorization: Bearer`. */
+    ELEVENLABS_LLM_SECRET?: string
     SIGNWELL_API_KEY?: string
     SIGNWELL_WEBHOOK_SECRET?: string
     STRIPE_API_KEY?: string

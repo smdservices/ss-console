@@ -170,3 +170,41 @@ describe('Operator Machine: Honcho deferred, flat-file core (ADR 0016 revised)',
     ).toBe(false)
   })
 })
+
+describe('Operator Machine profile guards', () => {
+  it('packages and runs the disabled-skills guard before the gateway starts', () => {
+    expect(
+      DOCKERFILE.includes(
+        'COPY operator/templates/ensure-disabled-skills.py /app/ensure-disabled-skills.py'
+      ),
+      'Dockerfile must package the disabled-skills guard'
+    ).toBe(true)
+    expect(
+      BOOTSTRAP.includes('/app/ensure-disabled-skills.py "${CUSTOMER_YAML}" "${HERMES_HOME}"'),
+      'bootstrap.sh must enforce persona skills_disabled after profile materialization'
+    ).toBe(true)
+    expect(
+      BOOTSTRAP.indexOf('/app/ensure-disabled-skills.py') <
+        BOOTSTRAP.indexOf('exec /opt/hermes/.venv/bin/hermes -p "${ACTIVE_PROFILE}" gateway run'),
+      'disabled-skills guard must run before the Hermes gateway exec'
+    ).toBe(true)
+  })
+
+  it('packages and runs the operator identity guard before the gateway starts', () => {
+    expect(
+      DOCKERFILE.includes(
+        'COPY operator/templates/ensure-operator-identity.py /app/ensure-operator-identity.py'
+      ),
+      'Dockerfile must package the operator identity guard'
+    ).toBe(true)
+    expect(
+      BOOTSTRAP.includes('/app/ensure-operator-identity.py "${CUSTOMER_YAML}" "${HERMES_HOME}"'),
+      'bootstrap.sh must write customer-owned identity facts into SOUL.md'
+    ).toBe(true)
+    expect(
+      BOOTSTRAP.indexOf('/app/ensure-operator-identity.py') <
+        BOOTSTRAP.indexOf('exec /opt/hermes/.venv/bin/hermes -p "${ACTIVE_PROFILE}" gateway run'),
+      'operator identity guard must run before the Hermes gateway exec'
+    ).toBe(true)
+  })
+})

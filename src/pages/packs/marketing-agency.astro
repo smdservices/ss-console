@@ -1,0 +1,270 @@
+---
+export const prerender = false
+
+import Base from '../../layouts/Base.astro'
+import Nav from '../../components/Nav.astro'
+import Footer from '../../components/Footer.astro'
+import CtaButton from '../../components/CtaButton.astro'
+
+const productSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: 'Operator for Marketing Agencies',
+  description:
+    'A dedicated Operator that keeps the account moving: it chases approvals and assets, sends status, keeps the project on track, and handles the routine client back-and-forth. The creative direction and the client relationship stay with your people; it never speaks for the account or signs off.',
+  brand: { '@type': 'Brand', name: 'SMD Services' },
+  offers: {
+    '@type': 'Offer',
+    availability: 'https://schema.org/InStock',
+    seller: { '@type': 'Organization', name: 'SMD Services' },
+  },
+}
+
+const roleLenses = [
+  {
+    title: 'Chasing approvals and assets',
+    body: 'The approval the deliverable is stuck behind, the asset the client owes, the feedback round that has gone quiet. The Operator chases each one in your voice and keeps the work moving, so a deliverable does not sit waiting on a reply nobody had time to send.',
+  },
+  {
+    title: 'Status and the account',
+    body: 'The status update every client expects and someone has to write. The Operator keeps the project current and sends the update, so your account managers spend their hours on the account, not on the back-and-forth about it.',
+  },
+  {
+    title: 'Capacity without churn',
+    body: "The needy client that eats an account manager's week, the firefighting that pushes a good one out. The Operator takes the routine so the manager can carry more without burning out. The relationship and the creative call stay with your people.",
+  },
+]
+---
+
+<Base
+  title="Operator for Marketing Agencies | SMD Services"
+  description="A dedicated Operator that keeps the account moving: chasing approvals and assets, sending status, keeping the project on track, and handling the routine client back-and-forth. The creative direction and the client relationship stay with your people."
+>
+  <Nav />
+  <main id="main" role="main">
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(productSchema)} />
+
+    <!-- § 01 Hero -->
+    <section
+      class="relative overflow-hidden bg-[color:var(--ss-color-background)] px-6 pt-24 pb-32"
+    >
+      <div class="mx-auto max-w-5xl text-center">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
+          >§ 01</span
+        >
+        <h1
+          class="mb-8 font-['Archivo'] text-5xl md:text-7xl font-black uppercase leading-[1.05] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
+        >
+          The Account Desk, Fully Staffed.
+        </h1>
+        <p
+          class="mx-auto mb-12 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          A dedicated Operator that keeps the account moving, the way a sharp account manager would:
+          it chases approvals and assets, sends status, keeps the project on track, and handles the
+          routine client back-and-forth. You add capacity, and your account managers get back the
+          hours they lose to work about work.
+        </p>
+        <CtaButton href="/book?interest=marketing-agency" data-ev="marketing-agency-hero-cta"
+          >Start the conversation</CtaButton
+        >
+      </div>
+    </section>
+
+    <!-- § 02 The seat the market won't fill -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 02</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          The Seat The Market Won't Fill.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            Account managers run on a thin margin before they break. Push one past a handful of
+            needy clients and the work slips or the manager does, and replacing a burned-out account
+            manager costs you the relationships they held. The work does not wait: the approvals
+            still have to be chased, the status still has to go out, the account still has to move
+            while you are hiring.
+          </p>
+          <p>
+            An Operator fills that seat now. It keeps the accounts moving at full speed, all the
+            time, and what it learns about how your shop runs, your clients, your process, your
+            voice, stays with the agency instead of leaving with the person who had it.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 03 What it does -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 03</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          What It Does.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            We build the Operator for your agency and connect it to the tools you already run: your
+            project-management system, your email and calendar, your file storage.
+          </p>
+          <p>
+            It chases the approvals and assets a deliverable is waiting on, sends the status updates
+            clients expect, keeps the project current, and handles the routine back-and-forth that
+            fills an account manager's day. The work about work moves off your people. Every piece
+            of it is logged in your project-management system as it happens.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 04 You set the line -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 04</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          You Set The Line.
+        </h2>
+        <div
+          class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)] mb-12"
+        >
+          <p>
+            The Operator keeps the account moving and brings the judgment calls to a person. The
+            creative direction, the strategy, the client relationship, anything that speaks for the
+            account, those stay with your people. It chases an approval; it does not give one. It
+            drafts the update; it does not decide what the agency commits to. The Operator never
+            speaks for the account or signs off in your name, and it never invents a result or a
+            claim. Those are yours.
+          </p>
+          <p>
+            You govern what it runs on its own. Out of the box, anything that goes to a client goes
+            through a reviewer on your team who sends it under their own name, and you widen what
+            the Operator handles as you learn what it is good at. It never grants itself more
+            authority, and every action it takes is logged where you can see it.
+          </p>
+        </div>
+        <div class="text-center">
+          <CtaButton
+            variant="secondary"
+            href="/book?interest=marketing-agency"
+            data-ev="marketing-agency-section-cta">Talk through the fit</CtaButton
+          >
+        </div>
+      </div>
+    </section>
+
+    <!-- § 05 One coordinator, your whole agency -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 05</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          One Coordinator. Your Whole Agency.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            One Operator for the whole agency, not a separate tool for each account manager.
+            Everyone works with the same one, and it gets sharper from everyone's corrections.
+          </p>
+          <p>
+            What it learns, your clients, your process, your templates, your voice, is a record you
+            can read and correct. It belongs to the agency, not to a person's login. When someone
+            moves on, what the Operator knows about how you run does not leave with them.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 06 Where it fits -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 06</span
+        >
+        <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Where It Fits.
+        </h2>
+        <p
+          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          A few shapes the seat can take. We build it around how your agency runs, so these are
+          starting points, not a menu.
+        </p>
+
+        <div
+          class="grid grid-cols-1 md:grid-cols-3 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
+        >
+          {
+            roleLenses.map((lens, i) => (
+              <div
+                class:list={[
+                  'flex flex-col gap-4 p-8 min-h-[16rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
+                  i % 3 !== 2 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
+                ]}
+              >
+                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
+                  {lens.title}
+                </p>
+                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                  {lens.body}
+                </p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- § 07 Start the conversation -->
+    <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
+      <div class="mx-auto max-w-5xl text-center">
+        <span
+          class="inline-block bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
+          >§ 07</span
+        >
+        <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
+        >
+          Start The Conversation.
+        </h2>
+        <p class="mx-auto mb-6 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
+          It starts with a conversation. We learn how your agency runs, find the
+          account-coordination work that is eating your team's time, and figure out where a
+          dedicated Operator fits. If it is not a fit, we will tell you.
+        </p>
+        <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
+          Pricing is a flat monthly subscription, scoped to the seat we build together, and we walk
+          through it before any setup begins.
+        </p>
+        <CtaButton
+          variant="outline-white"
+          href="/book?interest=marketing-agency"
+          data-ev="marketing-agency-final-cta">Start the conversation</CtaButton
+        >
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Base>

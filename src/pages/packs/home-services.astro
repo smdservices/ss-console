@@ -1,0 +1,272 @@
+---
+export const prerender = false
+
+import Base from '../../layouts/Base.astro'
+import Nav from '../../components/Nav.astro'
+import Footer from '../../components/Footer.astro'
+import CtaButton from '../../components/CtaButton.astro'
+
+const productSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: 'Operator for Home Services',
+  description:
+    'A dedicated Operator that runs the front office: it answers the call, books the job, confirms the appointment, follows up on the estimate, and keeps your field-service system current, including after-hours. A safety emergency routes to your on-call person; the price and the diagnosis stay with your techs.',
+  brand: { '@type': 'Brand', name: 'SMD Services' },
+  offers: {
+    '@type': 'Offer',
+    availability: 'https://schema.org/InStock',
+    seller: { '@type': 'Organization', name: 'SMD Services' },
+  },
+}
+
+const roleLenses = [
+  {
+    title: 'Answer and book',
+    body: 'The call that comes in while everyone is on a job. The Operator answers, captures the details, and books the appointment instead of letting it roll to voicemail, so the lead does not dial a competitor. A safety emergency goes straight to your on-call person.',
+  },
+  {
+    title: 'After hours and peak season',
+    body: 'The call at night, the surge in peak season you cannot staff for. The Operator covers the phone the whole time, so a missed call stops meaning a missed job, and your CSRs are not drowning when volume spikes.',
+  },
+  {
+    title: 'Confirmations and follow-up',
+    body: 'The appointment that needs confirming, the estimate waiting on a yes, the callback that needs chasing. The Operator runs the follow-up and keeps the field-service system current as it goes. The price and the diagnosis stay with your techs.',
+  },
+]
+---
+
+<Base
+  title="Operator for Home Services | SMD Services"
+  description="A dedicated Operator that runs the front office: answering the call, booking the job, confirming the appointment, following up on the estimate, and keeping your field-service system current, including after-hours. A safety emergency routes to your on-call person."
+>
+  <Nav />
+  <main id="main" role="main">
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(productSchema)} />
+
+    <!-- § 01 Hero -->
+    <section
+      class="relative overflow-hidden bg-[color:var(--ss-color-background)] px-6 pt-24 pb-32"
+    >
+      <div class="mx-auto max-w-5xl text-center">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
+          >§ 01</span
+        >
+        <h1
+          class="mb-8 font-['Archivo'] text-5xl md:text-7xl font-black uppercase leading-[1.05] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Every Call, Answered.
+        </h1>
+        <p
+          class="mx-auto mb-12 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          A dedicated Operator that runs the front office, the way a sharp CSR would: it answers the
+          call, books the job, confirms the appointment, follows up on the estimate, and keeps your
+          field-service system current, including the calls that come in after hours. You stop
+          sending leads to voicemail, and you do not add a seat to hire and train.
+        </p>
+        <CtaButton href="/book?interest=home-services" data-ev="home-services-hero-cta"
+          >Start the conversation</CtaButton
+        >
+      </div>
+    </section>
+
+    <!-- § 02 The seat the market won't fill -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 02</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          The Seat The Market Won't Fill.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            This is one of the worst hiring markets the trades have seen. A good CSR or dispatcher
+            is hard to find and harder to keep, the techs are aging out faster than they are
+            replaced, and when the phone rings while everyone is on a job, the call rolls to
+            voicemail and the customer dials a competitor. Peak season only makes it worse: you
+            cannot staff for the surge, so calls get missed exactly when there are the most of them.
+          </p>
+          <p>
+            An Operator fills that seat now. It answers every call at full speed, all the time, and
+            what it learns about how your shop runs, your services, your pricing rules, your voice,
+            stays with the shop instead of leaving with the person who had it.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 03 What it does -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 03</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          What It Does.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            We build the Operator for your shop and connect it to the tools you already run: your
+            field-service system, your email and calendar.
+          </p>
+          <p>
+            The phone rings, after hours or in the middle of peak season, and it answers, captures
+            the job, and books the appointment instead of letting it roll to voicemail. It confirms
+            appointments, follows up on the estimate, chases the callback, and keeps the
+            field-service system current. Anything that sounds like a safety emergency it routes to
+            your on-call person right away. Every piece of it is logged in your field-service system
+            as it happens.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 04 You set the line -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 04</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          You Set The Line.
+        </h2>
+        <div
+          class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)] mb-12"
+        >
+          <p>
+            The Operator runs the front office and brings the job calls to a person. What the job
+            needs and what it costs, the diagnosis and the price, those stay with your techs and
+            your owner, who see the work. The Operator books the call and captures the details; it
+            does not quote the job or decide what is wrong.
+          </p>
+          <p>
+            One line is not a setting anyone can move: a call that sounds like a safety emergency, a
+            gas leak, no heat in a hard freeze, a live electrical hazard, water coming in, goes
+            straight to your on-call person, right then, never queued behind a routine booking.
+            Everywhere else you govern what the Operator runs on its own, every outbound message
+            goes through a reviewer who sends it under their own name, and every action it takes is
+            logged where you can see it.
+          </p>
+        </div>
+        <div class="text-center">
+          <CtaButton
+            variant="secondary"
+            href="/book?interest=home-services"
+            data-ev="home-services-section-cta">Talk through the fit</CtaButton
+          >
+        </div>
+      </div>
+    </section>
+
+    <!-- § 05 One coordinator, your whole shop -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 05</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          One Coordinator. Your Whole Shop.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            One Operator for the whole shop, not a separate tool for each CSR or each tech. Everyone
+            works with the same one, and it gets sharper from everyone's corrections.
+          </p>
+          <p>
+            What it learns, your services, your pricing rules, your booking rules, your voice, is a
+            record you can read and correct. It belongs to the shop, not to a person's login. When
+            someone moves on, what the Operator knows about how you run does not leave with them.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 06 Where it fits -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 06</span
+        >
+        <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Where It Fits.
+        </h2>
+        <p
+          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          A few shapes the seat can take. We build it around how your shop runs, so these are
+          starting points, not a menu.
+        </p>
+
+        <div
+          class="grid grid-cols-1 md:grid-cols-3 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
+        >
+          {
+            roleLenses.map((lens, i) => (
+              <div
+                class:list={[
+                  'flex flex-col gap-4 p-8 min-h-[16rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
+                  i % 3 !== 2 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
+                ]}
+              >
+                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
+                  {lens.title}
+                </p>
+                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                  {lens.body}
+                </p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- § 07 Start the conversation -->
+    <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
+      <div class="mx-auto max-w-5xl text-center">
+        <span
+          class="inline-block bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
+          >§ 07</span
+        >
+        <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
+        >
+          Start The Conversation.
+        </h2>
+        <p class="mx-auto mb-6 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
+          It starts with a conversation. We learn how your shop runs, find the call-handling and
+          coordination work that is eating your team's time, and figure out where a dedicated
+          Operator fits. If it is not a fit, we will tell you.
+        </p>
+        <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
+          Pricing is a flat monthly subscription, scoped to the seat we build together, and we walk
+          through it before any setup begins.
+        </p>
+        <CtaButton
+          variant="outline-white"
+          href="/book?interest=home-services"
+          data-ev="home-services-final-cta">Start the conversation</CtaButton
+        >
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Base>
