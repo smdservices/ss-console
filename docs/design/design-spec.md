@@ -9,7 +9,7 @@
 - **Venture:** SMD Services
 - **Code:** ss
 - **Tagline (internal):** The system that runs the engagements the way the Decision Stack says they should run.
-- **Audience:** SMB owners ($750k–$5M revenue, expanding to $10M). Phoenix metro Phase 1 in-person; remote-capable. Persona: Marcus, HVAC owner, Chandler — phone-first, time-pressed, evaluating whether the firm matches the price.
+- **Audience:** Owner-led businesses across the firm's target verticals (home services, professional and financial services, trades, local health practices, agencies — see `operator/verticals/`). Phoenix metro Phase 1 in-person; remote-capable. Persona: Marcus, HVAC owner, Chandler — phone-first, time-pressed, evaluating whether the firm matches the price.
 - **Brand Voice:** "We" / "our team" — never "I" or "the consultant" (Decision #20). Plainspoken not folksy. Authoritative not corporate. Past-tense events in the portal; future-tense pathfinding on marketing. No em dashes, no AI parallel structures, no fabricated client-facing content (P0 enforcement). Evidence over reassurance.
 - **Identity name:** Plainspoken Sign Shop — 1950s commercial signage register applied to a modern operational portal. "Paint-job, not brochure." Migrated from Desert Functional on 2026-04-23.
 

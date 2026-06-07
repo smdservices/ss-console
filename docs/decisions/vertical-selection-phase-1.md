@@ -10,6 +10,8 @@ captain: Scott Durgan
 **Status:** Proposed (this memo). Awaiting Captain sign-off in the "Decision" section below.
 
 > **Scope (added 2026-06-02 — two-door model).** This memo governs the **general-consulting front door** only: Phoenix-metro, in-person, scope-based engagements, where geography and referral access are the binding constraints. It does **not** govern the **Operator packs**, which are a separate **national, productized** door selected on market-driven criteria (reachability x willingness-to-pay-against-a-salary), captured in `docs/specs/verticals/` and the pack landscape. The two doors coexist; neither supersedes the other. See `docs/pm/pack-production-operating-model.md` and [ADR 0037](../adr/0037-operator-thesis.md). The home-services recommendation below stands as the general-consulting bet; it is not the Operator's target.
+>
+> **Revenue-band criterion retired (2026-06-03).** Criterion #4 below was scored as "revenue-band fit" against a $750k–$5M buy box. That band is retired (ADR 0003; no-revenue-band standard); the venture no longer gates on revenue. The scored tables are preserved as the historical record of how Phase-1 verticals were chosen — read the band references below as point-in-time analysis, not current targeting.
 
 **Question:** Which single vertical does SMD Services target first? The Decision Stack narrowed the field to three candidates (home services, professional services, contractor/trades). CLAUDE.md Priority 2 calls for picking ONE. This memo surfaces the trade-offs and recommends.
 
@@ -34,7 +36,7 @@ What a winning Phase 1 vertical needs, in order of weight:
 1. **Phoenix density** — we're geography-locked to Phoenix metro for Phase 1 (in-person default, per CLAUDE.md and decision stack). If a vertical is nationally common but under-represented locally, it hurts our pipeline math.
 2. **Referral access to the buyer** — the outreach plan leads with bookkeepers and CPAs (per Decision #22 and `outreach-plan.md`). The vertical must concentrate around the referral channels we can actually open this quarter.
 3. **Pain clarity** — we should be able to diagnose the 2–3 most acute gaps within the first 20 minutes of the assessment call. If the pain pattern is too variable, assessment quality drops.
-4. **Revenue-band fit** — $750k–$5M is the buy box (CLAUDE.md). A vertical where the typical shop is $8M or $400k is a bad fit.
+4. **Revenue-band fit** _(historical criterion — see the banner above; the $750k–$5M buy box it references is retired per ADR 0003)_ — at the time, a vertical where the typical shop was far too large or too small to be a fit was scored lower.
 5. **Owner-buyer profile** — the owner writes the check. The vertical needs owners who are reachable, decide in one call, and aren't protected by a gatekeeper.
 6. **Time to first sale** — we need 3 free case-study engagements in the first 90 days. Verticals with long research/decision cycles hurt this.
 7. **Scott's fit** — the delivery team is Scott. His background (20+ years enterprise product + tech, creative technologist, service-driven) matters less than vertical fit in Phase 1; the assessment call pattern is transferable. Marked as the lightest criterion but non-zero.
@@ -111,7 +113,7 @@ Stacking the scores:
 
 Home services wins on every criterion except "Scott's fit," which we've already rated lightest. And the criteria where home services wins biggest (Phoenix density, pain clarity) are the structural ones we can't change.
 
-The referral-channel alignment is the real tiebreaker. The outreach plan's Week 1 move is bookkeeper DM outreach. Bookkeepers serving Phoenix-metro businesses in our revenue band serve trades disproportionately; that's where the first three warm intros will come from.
+The referral-channel alignment is the real tiebreaker. The outreach plan's Week 1 move is bookkeeper DM outreach. Bookkeepers serving Phoenix-metro small businesses serve trades disproportionately; that's where the first three warm intros will come from.
 
 ---
 
