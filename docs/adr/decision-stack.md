@@ -12,19 +12,19 @@ A complete record of every strategic decision made across 6 layers of the SMD Se
 
 ## Quick Reference
 
-|                         |                                                                                                       |
-| ----------------------- | ----------------------------------------------------------------------------------------------------- |
-| **Business**            | SMD Services - operations consulting                                                                  |
-| **Core offering**       | Solutions consulting - scope-based pricing per engagement                                             |
-| **Engagement length**   | Variable - scoped per engagement based on assessment findings                                         |
-| **Target market**       | Phoenix metro (Phase 1), $750k-$5M revenue, home services + professional services + contractor/trades |
-| **Objective**           | Launch the agency and reach profitability                                                             |
-| **Rate**                | $175/hr at launch → $200/hr after first case study → $250/hr → $300/hr                                |
-| **Payment terms**       | 50% deposit at signing, 50% at completion                                                             |
-| **Assessment**          | Free for first 3 clients, then $250 applied toward engagement                                         |
-| **Voice standard**      | We / our team throughout. Never I / the consultant.                                                   |
-| **Decisions locked**    | 36 active decisions across 6 layers (plus venture-wide #20 positioning standard; 2 superseded)        |
-| **Deliverables queued** | 11 artifacts ready to build                                                                           |
+|                         |                                                                                                                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Business**            | SMD Services - operations consulting                                                                                                                                                 |
+| **Core offering**       | Solutions consulting - scope-based pricing per engagement                                                                                                                            |
+| **Engagement length**   | Variable - scoped per engagement based on assessment findings                                                                                                                        |
+| **Target market**       | Phoenix metro (Phase 1); owner-led businesses qualified in conversation, not by a revenue gate (ADR 0003). Lead verticals: home services + professional services + contractor/trades |
+| **Objective**           | Launch the agency and reach profitability                                                                                                                                            |
+| **Rate**                | $175/hr at launch → $200/hr after first case study → $250/hr → $300/hr                                                                                                               |
+| **Payment terms**       | 50% deposit at signing, 50% at completion                                                                                                                                            |
+| **Assessment**          | Free for first 3 clients, then $250 applied toward engagement                                                                                                                        |
+| **Voice standard**      | We / our team throughout. Never I / the consultant.                                                                                                                                  |
+| **Decisions locked**    | 36 active decisions across 6 layers (plus venture-wide #20 positioning standard; 2 superseded)                                                                                       |
+| **Deliverables queued** | 11 artifacts ready to build                                                                                                                                                          |
 
 ---
 
@@ -50,6 +50,8 @@ All five decisions in this layer are foundational. Layers 2-6 build on top of th
 ---
 
 ## Decision #2 - Revenue-Based Qualification
+
+> **SUPERSEDED 2026-06-03.** Revenue is no longer a qualification gate. The operational layer dropped the $750k-$5M filter in [ADR 0003](0003-lead-gen-pivot-actor-identity.md), and the venture-wide no-revenue-band-anchoring standard retired the band as targeting doctrine. We work with any business that can pay and benefit, qualified in conversation. The original decision is preserved below as the historical record.
 
 **Issue:** smdservices/ss-console #2
 
@@ -94,7 +96,7 @@ Revenue correlates better to budget and operational complexity than headcount. A
 
 No retail, restaurant, or healthcare in year one.
 
-Any business in the revenue band with qualifying problem signals is eligible regardless of vertical. Vertical expertise deepens with case studies, not by pre-selection.
+Any business with qualifying problem signals is eligible regardless of vertical. Vertical expertise deepens with case studies, not by pre-selection.
 
 ---
 
@@ -147,7 +149,7 @@ Don't ask for revenue directly. Look for: 3+ years in business, consistent payro
 
 |                        |                                                                                                                                                                                                                              |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Revenue**            | $750k-$5M (expansion to $10M after 5+ engagements)                                                                                                                                                                           |
+| **Revenue**            | Not a gate — qualified in conversation, not by a revenue figure (ADR 0003; Decision #2 superseded)                                                                                                                           |
 | **Geography**          | Phoenix metro (Phase 1), in-person default for assessments                                                                                                                                                                   |
 | **Years in business**  | 3+                                                                                                                                                                                                                           |
 | **Verticals**          | Home services, professional services, contractor/trades (problem-qualified, not vertical-gated)                                                                                                                              |
@@ -721,7 +723,7 @@ Same engine, same data model, same artifact shape. Fields fill progressively as 
 
 **Cross-layer impact.**
 
-- **Layer 1 (Buy Box).** Adds a productized SKU as a second front door. Does not change ICP (Decision #5) — Operator targets the same revenue band, with the addition that the prospect arrives self-diagnosed.
+- **Layer 1 (Buy Box).** Adds a productized SKU as a second front door. Does not change the collaborative-guide ICP posture (Decision #5); the Operator adds a self-diagnosed entry, and its targets are the vertical packs in `operator/verticals/`, selected on market-driven criteria (ADR 0037).
 - **Layer 3 (Pricing).** Adds a flat retainer pricing shape distinct from scope-based quoting (Decision #16, unchanged for the consulting funnel). Specific number deferred.
 - **Layer 5 (Distribution).** Adds a second acquisition path. Prospects who arrive knowing they want an agent skip the assessment funnel and convert directly to a productized retainer.
 - **Layer 6 (Delivery).** Introduces productized service obligations (uptime, monitoring, customer success cadence) that the firm has not yet had. Stack build follow-on must specify watchdog, observability, and incident-response patterns before the first paid customer.
@@ -880,7 +882,7 @@ All 11 artifacts are scaffolded as GitHub issues in smdservices/ss-console. Ever
 
 | Issue | Decision                                                                                                                   |
 | ----- | -------------------------------------------------------------------------------------------------------------------------- |
-| #2    | Revenue-based qualification - $750k-$5M primary                                                                            |
+| #2    | Revenue-based qualification - SUPERSEDED (ADR 0003); revenue is no longer a gate                                           |
 | #3    | Launch verticals - home services + professional services + contractor/trades, problem-qualified                            |
 | #4    | Disqualification criteria - 4 hard stops, 5 soft flags                                                                     |
 | #5    | Ideal client profile - synthesis                                                                                           |
