@@ -2,14 +2,14 @@
  * Cost Telemetry Worker — daily cost-driver ingest.
  *
  * Runs at 02:00 UTC daily per `triggers.crons` in wrangler.toml. Per
- * docs/specs/ai-employee/cost-telemetry-events.md "Nightly Captain job",
- * the worker iterates every active AI Employee customer, pulls
- * yesterday's Anthropic + Composio usage, and UPSERTs into each
- * customer's per-customer `cost_telemetry` D1 table.
+ * docs/specs/operator/cost-telemetry-events.md "Nightly Captain job",
+ * the worker iterates every active Operator customer, pulls
+ * yesterday's Anthropic usage, and UPSERTs into each customer's
+ * per-customer `cost_telemetry` D1 table.
  *
  * Cloudflare D1/R2/Vectorize metering is deferred to phase 2 per the
  * validation-spike outcome documented in
- * ai-employee/adapter/cost_ingest.py. Token cost dominates the COGS
+ * operator/adapter/cost_ingest.py. Token cost dominates the COGS
  * surface for v1.
  *
  * Customer enumeration: the central D1 `customer_configs` table holds
@@ -20,7 +20,7 @@
  * skips customers without one and logs the skip).
  */
 
-import { AnthropicHttpSource, CloudflareD1Client, ComposioHttpSource } from './clients'
+import { AnthropicHttpSource, CloudflareD1Client } from './clients'
 import {
   runIngestForCustomer,
   type CustomerIngestContext,
@@ -32,23 +32,21 @@ export interface Env {
   CF_ACCOUNT_ID: string
   CF_D1_API_TOKEN: string
   ANTHROPIC_API_KEY: string
-  COMPOSIO_API_KEY?: string
   COST_INGEST_BEARER?: string
 }
 
 interface CustomerRow {
   customer_slug: string
   per_customer_d1_database_id: string | null
-  composio_account_id: string | null
 }
 
 /** Read the active customer list with the per-customer D1 id resolved. */
 async function listCustomers(db: D1Database): Promise<CustomerRow[]> {
   // `connectors_json` carries non-secret references including the
-  // per-customer Hermes database id and the composio account id. The
-  // projection layer denormalizes them into the JSON blob per ADR 0012.
-  // For v1 the worker uses two convention keys; if not present the
-  // customer is skipped (logged, not errored).
+  // per-customer Hermes database id. The projection layer denormalizes
+  // it into the JSON blob per ADR 0012. For v1 the worker uses one
+  // convention key; if not present the customer is skipped (logged,
+  // not errored).
   const result = await db
     .prepare('SELECT customer_slug, connectors_json FROM customer_configs')
     .all<{ customer_slug: string; connectors_json: string | null }>()
@@ -56,14 +54,11 @@ async function listCustomers(db: D1Database): Promise<CustomerRow[]> {
   const rows: CustomerRow[] = []
   for (const row of result.results ?? []) {
     let perCustomerDbId: string | null = null
-    let composioAccountId: string | null = null
     if (row.connectors_json) {
       try {
         const parsed = JSON.parse(row.connectors_json) as Record<string, unknown>
         const dbId = parsed['per_customer_d1_database_id']
-        const composio = parsed['composio_account_id']
         if (typeof dbId === 'string' && dbId.length > 0) perCustomerDbId = dbId
-        if (typeof composio === 'string' && composio.length > 0) composioAccountId = composio
       } catch {
         // Bad JSON — skip; not the worker's job to fix projection.
       }
@@ -71,7 +66,6 @@ async function listCustomers(db: D1Database): Promise<CustomerRow[]> {
     rows.push({
       customer_slug: row.customer_slug,
       per_customer_d1_database_id: perCustomerDbId,
-      composio_account_id: composioAccountId,
     })
   }
   return rows
@@ -103,7 +97,6 @@ export async function run(env: Env, day?: string): Promise<RunSummary> {
 
   const d1 = new CloudflareD1Client(env.CF_ACCOUNT_ID, env.CF_D1_API_TOKEN)
   const anthropicSource = new AnthropicHttpSource()
-  const composioSource = env.COMPOSIO_API_KEY ? new ComposioHttpSource() : null
 
   const summary: RunSummary = {
     day: targetDay,
@@ -133,12 +126,10 @@ export async function run(env: Env, day?: string): Promise<RunSummary> {
       customerSlug: customer.customer_slug,
       perCustomerDatabaseId: customer.per_customer_d1_database_id,
       anthropicApiKey: env.ANTHROPIC_API_KEY,
-      composioApiKey: env.COMPOSIO_API_KEY,
-      composioAccountId: customer.composio_account_id ?? undefined,
     }
 
     try {
-      const result = await runIngestForCustomer(ctx, d1, anthropicSource, composioSource, targetDay)
+      const result = await runIngestForCustomer(ctx, d1, anthropicSource, targetDay)
       summary.customersRun++
       summary.perCustomer.push(result)
       if (result.anyFailures) summary.customersWithFailures++

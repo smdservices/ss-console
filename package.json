@@ -25,6 +25,7 @@
     "@astrojs/cloudflare": "^13.1.10",
     "@astrojs/sitemap": "^3.7.2",
     "@clerk/astro": "^3.2.6",
+    "@elevenlabs/client": "^1.9.0",
     "@formepdf/core": "^0.8.2",
     "@formepdf/react": "^0.8.2",
     "@sentry/cloudflare": "^10.51.0",
@@ -54,7 +55,7 @@
     "tailwindcss": "^4.2.2",
     "typescript": "^5.3.0",
     "typescript-eslint": "^8.59.0",
-    "vitest": "^3.0.0"
+    "vitest": "^4.1.8"
   },
   "overrides": {
     "defu": "^6.1.7",

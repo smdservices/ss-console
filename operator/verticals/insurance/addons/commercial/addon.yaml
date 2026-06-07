@@ -1,0 +1,44 @@
+# Add-on pack manifest: insurance/commercial
+#
+# Schema: docs/specs/operator/vertical-manifest-schema.md (identical to
+# vertical.yaml). `name` MUST appear in ACCEPTED_ADDONS['insurance'] in
+# src/lib/operator/customer-yaml/types.ts (commercial is registered). Add-on
+# assets are ADDITIVE on top of the insurance base; the base does not declare
+# them.
+#
+# Commercial-lines connective skin: high-volume certificate (COI) management
+# with holder lists and renewal tracking, additional-insured handling, and
+# premium-audit coordination. Same coverage-advice and no-binding floors as the
+# base, plus a certificate-accuracy floor. Rides the same AMS as the base.
+
+name: commercial
+version: 0.1.0
+
+# Additive floors on top of the base insurance compliance set.
+compliance:
+  - certificate-on-record-only # certificates reflect coverage on record; never add coverage or AI status
+  - premium-audit-no-advocacy # coordinate the audit logistics; never dispute or interpret findings
+
+personas: []
+
+# Commercial-specific connective skills (bodies in hermes-smd-overlay).
+skills:
+  - certificate-management # master holder lists, batch renewal of certificates on record
+  - additional-insured-handler # relays AI requests to the carrier; never confers status itself
+  - premium-audit-coordinator # gathers and routes audit documents; no advocacy or interpretation
+  - coi-renewal-tracker # tracks certificate-renewal cadence against policy renewals
+
+# Inherits the base insurance connectors.
+connectors: []
+
+templates:
+  - certificate-renewal-notice.md
+  - additional-insured-acknowledgment.md
+  - premium-audit-document-request.md
+
+fixtures:
+  - synthetic-commercial-gl-account
+
+evals:
+  - cert-commercial-certificate-on-record-only
+  - cert-commercial-no-binding-or-ai-status

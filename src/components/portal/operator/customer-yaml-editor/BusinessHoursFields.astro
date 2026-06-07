@@ -1,0 +1,149 @@
+---
+/**
+ * BusinessHoursFields — form section for the business_hours block.
+ *
+ * Business hours govern when the agent may take autonomous actions. The
+ * block is optional in the schema; when absent, an upstream default
+ * (M-F 08:00-18:00 in the fly_region timezone) applies. The "Use
+ * default" checkbox returns the block to null (the editable null-or-
+ * present state matches what the schema accepts).
+ *
+ * Hours are HH:MM in the chosen timezone. Day checkboxes use the
+ * lowercase three-letter abbreviation the schema expects.
+ */
+
+import type { EditableBusinessHours } from '../../../../lib/portal/operator/customer-yaml-editor'
+import type { ValidationError } from '../../../../lib/operator/customer-yaml'
+
+interface Props {
+  businessHours: EditableBusinessHours | null
+  errors: ValidationError[]
+}
+
+const { businessHours, errors } = Astro.props
+
+function errorsFor(path: string): ValidationError[] {
+  return errors.filter((e) => e.path === path || e.path.startsWith(`${path}.`))
+}
+
+const isPresent = businessHours !== null
+const days = businessHours?.days ?? []
+
+const DAY_OPTIONS = [
+  { value: 'mon', label: 'Mon' },
+  { value: 'tue', label: 'Tue' },
+  { value: 'wed', label: 'Wed' },
+  { value: 'thu', label: 'Thu' },
+  { value: 'fri', label: 'Fri' },
+  { value: 'sat', label: 'Sat' },
+  { value: 'sun', label: 'Sun' },
+]
+---
+
+<section class="mt-12">
+  <header class="border-b-[2px] border-[color:var(--ss-color-text-primary)] pb-3 mb-6">
+    <p
+      class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold text-[color:var(--ss-color-primary)]"
+    >
+      § 03
+    </p>
+    <h2
+      class="mt-1 font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+    >
+      Business hours
+    </h2>
+    <p class="mt-2 text-sm text-[color:var(--ss-color-text-secondary)]">
+      Hours when the agent may take autonomous actions on this customer's behalf.
+    </p>
+  </header>
+
+  <div class="space-y-6">
+    <label class="inline-flex items-center gap-2 text-sm">
+      <input
+        type="checkbox"
+        name="business_hours.present"
+        value="true"
+        checked={isPresent}
+        class="border-[2px] border-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+      />
+      Set custom business hours (unchecked: use system default)
+    </label>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <label class="block">
+        <span
+          class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        >
+          Timezone (IANA)
+        </span>
+        <input
+          type="text"
+          name="business_hours.timezone"
+          value={businessHours?.timezone ?? ''}
+          placeholder="America/Phoenix"
+          class="mt-2 w-full px-4 py-2 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+        />
+      </label>
+
+      <label class="block">
+        <span
+          class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        >
+          Start (HH:MM)
+        </span>
+        <input
+          type="time"
+          name="business_hours.start"
+          value={businessHours?.start ?? ''}
+          class="mt-2 w-full px-4 py-2 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+        />
+      </label>
+
+      <label class="block">
+        <span
+          class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+        >
+          End (HH:MM)
+        </span>
+        <input
+          type="time"
+          name="business_hours.end"
+          value={businessHours?.end ?? ''}
+          class="mt-2 w-full px-4 py-2 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+        />
+      </label>
+    </div>
+
+    <fieldset class="border-[3px] border-[color:var(--ss-color-text-primary)] p-4">
+      <legend
+        class="px-2 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+      >
+        Active days
+      </legend>
+      <div class="grid grid-cols-4 md:grid-cols-7 gap-3 mt-2">
+        {
+          DAY_OPTIONS.map((d) => (
+            <label class="inline-flex items-center gap-2 text-sm text-[color:var(--ss-color-text-primary)]">
+              <input
+                type="checkbox"
+                name="business_hours.days[]"
+                value={d.value}
+                checked={days.includes(d.value)}
+                class="border-[2px] border-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+              />
+              {d.label}
+            </label>
+          ))
+        }
+      </div>
+    </fieldset>
+
+    {
+      errorsFor('business_hours').map((err) => (
+        <p class="text-sm text-[color:var(--ss-color-error)]">
+          <span class="font-['JetBrains_Mono']">{err.path}</span>: {err.message}
+        </p>
+      ))
+    }
+  </div>
+</section>

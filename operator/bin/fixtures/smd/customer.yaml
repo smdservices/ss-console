@@ -1,0 +1,53 @@
+schema_version: 1
+
+# SYNTHETIC customer-zero fixture for bin/tests/test_decommission.py
+# (issue #820). Mirrors the minimal customer.yaml shape so the
+# decommission pipeline has a directory to tombstone. NOT a real
+# customer; never deployed by provision-customer.sh.
+
+customer_id: smd
+customer_name: 'SMDurgan, LLC (synthetic fixture)'
+vertical: marketing-agency
+fly_region: iad
+
+model: claude-opus-4-7
+hermes_ref: v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
+
+machine:
+  size: shared-cpu-1x
+  memory_mb: 256
+
+users:
+  - email: smdurgan@venturecrane.com
+    role: principal
+    full_name: Scott Durgan
+
+personas:
+  - slug: marcus
+    status: active
+    name: Marcus
+    tone:
+      - warm-but-professional
+      - concise
+    skills:
+      - name: inbox-triage
+        version: pending
+        trust_ceiling: draft_for_review
+        enabled: true
+
+connectors:
+  Email:
+    adapter: synthetic
+    backend: synthetic:fixture
+    enabled: true
+
+scope:
+  email_folders_visible:
+    - Inbox
+  email_folders_blind: []
+  email_keyword_blocks: []
+  domain_blocks: []
+
+escalation:
+  failure_recipients:
+    - smdurgan@venturecrane.com

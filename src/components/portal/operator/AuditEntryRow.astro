@@ -1,0 +1,243 @@
+---
+/**
+ * One row in the Operator audit log table.
+ *
+ * Used only by AuditLogTable. Lives in its own file so the row's cell
+ * vocabulary (timestamp / actor / action / target / decision / reason)
+ * can be tested and revised independently of the table chrome.
+ *
+ * The row is rendered as a `<details>` block so reviewers can expand a
+ * row to read the full `reason` text without a separate detail page or
+ * client-side JavaScript. Truncated text shows in the row caption; the
+ * expanded body shows the full reason plus the row id and any matter
+ * reference. The summary remains keyboard-actionable via the native
+ * `<details>` behavior.
+ *
+ * Plainspoken aesthetic matching DraftRow.astro (#869): 2px ink
+ * divider between rows, file-style mono numerics for timestamp /
+ * actor / target / action cells, Archivo Narrow uppercase labels for
+ * column captions. The outer 3px ink frame is provided by
+ * AuditLogTable — this component is borderless at the row level so
+ * consecutive rows stitch cleanly.
+ *
+ * Why not PortalListItem? PortalListItem's variants are status (title +
+ * money + meta caption) and document (icon + title + eyebrow). Neither
+ * fits the audit row's six-cell vocabulary. A new primitive is the
+ * honest answer; bending PortalListItem to fit would distort both
+ * surfaces. (Same rationale as DraftRow.astro.)
+ */
+
+import StatusPill from '../StatusPill.astro'
+import {
+  decisionTone,
+  formatAuditAction,
+  formatAuditDecision,
+  formatAuditTimestamp,
+  type AuditEntry,
+} from '../../../lib/portal/operator/audit'
+
+interface Props {
+  entry: AuditEntry
+  /**
+   * Short serial shown in the № cell. The table passes the row index
+   * for stable visual rhythm even when ids change underneath.
+   */
+  serial?: string
+}
+
+const { entry, serial } = Astro.props
+const resolvedSerial = serial ?? entry.id.slice(0, 2).toUpperCase()
+
+const decisionLabel = formatAuditDecision(entry.decision)
+const decisionToneValue = decisionTone(entry.decision)
+
+const actionLabel = formatAuditAction(entry.action)
+const tsLabel = formatAuditTimestamp(entry.ts)
+
+// Truncate the reason in the row caption; the full text is in the
+// expanded body. 120 chars matches the table's column width on
+// desktop without forcing a second visual row in the truncated state.
+const reasonTruncated =
+  entry.reason && entry.reason.length > 120
+    ? entry.reason.slice(0, 117) + '…'
+    : (entry.reason ?? '')
+
+const hasExpandableContent = Boolean(entry.reason ?? entry.matterRef)
+---
+
+<details
+  class="group bg-[color:var(--ss-color-surface)] border-b-[2px] border-[color:var(--ss-color-text-primary)] last:border-b-0 transition-colors hover:bg-[color:var(--ss-color-border-subtle)]"
+>
+  <summary
+    class="cursor-pointer list-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
+  >
+    <div
+      class="md:grid md:grid-cols-[56px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto_48px] md:items-stretch"
+    >
+      {/* № cell */}
+      <div
+        class="flex md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-primary)] items-center justify-center md:min-h-[96px] py-3 md:py-0 font-['Archivo'] font-black text-num-cell"
+        aria-hidden="true"
+      >
+        № {resolvedSerial}
+      </div>
+
+      {/* Timestamp */}
+      <div
+        class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-4 flex flex-col justify-center gap-1 min-w-0"
+      >
+        <span
+          class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
+        >
+          When
+        </span>
+        <span class="font-mono text-sm text-[color:var(--ss-color-text-primary)] truncate">
+          {tsLabel}
+        </span>
+      </div>
+
+      {/* Actor */}
+      <div
+        class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-4 flex flex-col justify-center gap-1 min-w-0"
+      >
+        <span
+          class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
+        >
+          Actor
+        </span>
+        <span class="font-mono text-sm text-[color:var(--ss-color-text-primary)] truncate">
+          {entry.actor}
+        </span>
+        {
+          entry.actorRole && (
+            <span class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-muted)]">
+              {entry.actorRole}
+            </span>
+          )
+        }
+      </div>
+
+      {/* Action */}
+      <div
+        class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-4 flex flex-col justify-center gap-1 min-w-0"
+      >
+        <span
+          class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
+        >
+          Action
+        </span>
+        <span class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)] truncate">
+          {actionLabel}
+        </span>
+        {
+          entry.skill && (
+            <span class="font-mono text-xs text-[color:var(--ss-color-text-secondary)] truncate">
+              {entry.skill}
+            </span>
+          )
+        }
+      </div>
+
+      {/* Target */}
+      <div
+        class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-4 flex flex-col justify-center gap-1 min-w-0"
+      >
+        <span
+          class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
+        >
+          Target
+        </span>
+        {
+          entry.target ? (
+            <span class="font-mono text-sm text-[color:var(--ss-color-text-primary)] truncate">
+              {entry.target}
+            </span>
+          ) : (
+            <span class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-muted)]">
+              None
+            </span>
+          )
+        }
+      </div>
+
+      {/* Decision chip */}
+      <div
+        class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-4 flex items-center justify-start md:justify-center"
+      >
+        {
+          decisionLabel.length > 0 ? (
+            <StatusPill tone={decisionToneValue} label={decisionLabel.toUpperCase()} />
+          ) : (
+            <span class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-muted)]">
+              No decision
+            </span>
+          )
+        }
+      </div>
+
+      {/* Expand indicator */}
+      <div
+        aria-hidden="true"
+        class="hidden md:flex items-center justify-center font-['Archivo'] font-black text-2xl text-[color:var(--ss-color-primary)] transition-transform group-open:rotate-180"
+      >
+        {hasExpandableContent ? '▾' : ''}
+      </div>
+    </div>
+
+    {
+      /* Truncated reason caption — only when reason exists. Sits below
+        the row grid so it remains readable on mobile. */
+    }
+    {
+      entry.reason && (
+        <div class="px-5 pb-3 md:pl-[calc(56px+1.25rem)] md:pr-5 -mt-1 md:-mt-3">
+          <p class="font-mono text-sm text-[color:var(--ss-color-text-secondary)]">
+            {reasonTruncated}
+          </p>
+        </div>
+      )
+    }
+  </summary>
+
+  {
+    hasExpandableContent && (
+      <div class="px-5 pb-5 md:pl-[calc(56px+1.25rem)] md:pr-5 flex flex-col gap-3 border-t-[2px] border-[color:var(--ss-color-border-subtle)] pt-4 mt-2">
+        {entry.reason && entry.reason.length > 120 && (
+          <div>
+            <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
+              Full reason
+            </p>
+            <p class="mt-1 font-mono text-sm text-[color:var(--ss-color-text-primary)] whitespace-pre-wrap break-words">
+              {entry.reason}
+            </p>
+          </div>
+        )}
+
+        {entry.matterRef && (
+          <div>
+            <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
+              Matter
+            </p>
+            <p class="mt-1 font-mono text-sm">
+              <a
+                href={`?matter=${encodeURIComponent(entry.matterRef)}`}
+                class="text-[color:var(--ss-color-text-primary)] underline hover:text-[color:var(--ss-color-action)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+              >
+                {entry.matterRef}
+              </a>
+            </p>
+          </div>
+        )}
+
+        <div>
+          <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
+            Event id
+          </p>
+          <p class="mt-1 font-mono text-xs text-[color:var(--ss-color-text-muted)] break-all">
+            {entry.id}
+          </p>
+        </div>
+      </div>
+    )
+  }
+</details>

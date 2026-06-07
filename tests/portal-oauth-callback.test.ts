@@ -1,6 +1,6 @@
 /**
  * Coverage for the customer-facing portal OAuth callback at
- * `src/pages/portal/products/ai-employee/oauth/[connector]/callback.ts`.
+ * `src/pages/portal/products/operator/oauth/[connector]/callback.ts`.
  *
  * Mirrors the admin-side callback test (tests/oauth-callback.test.ts)
  * but exercises the reviewer-id-bound-to-Clerk-session path: state
@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { env as testEnv } from 'cloudflare:workers'
 
 import { issueOAuthState } from '../src/lib/oauth/state'
-import { GET as portalCallback } from '../src/pages/portal/products/ai-employee/oauth/[connector]/callback'
+import { GET as portalCallback } from '../src/pages/portal/products/operator/oauth/[connector]/callback'
 
 const SIGNING_KEY_B64 = 'YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE='
 const PORTAL_BASE = 'https://portal.smd.services'
@@ -78,15 +78,15 @@ describe('portal oauth callback', () => {
 
   it('redirects with missing_params when state and code are absent', async () => {
     const response = await invoke({
-      url: `${PORTAL_BASE}/portal/products/ai-employee/oauth/microsoft-graph/callback`,
+      url: `${PORTAL_BASE}/portal/products/operator/oauth/microsoft-graph/callback`,
       connector: 'microsoft-graph',
     })
     const location = parseRedirect(response)
     expect(location.searchParams.get('status')).toBe('failed')
     expect(location.searchParams.get('reason')).toBe('missing_params')
-    // Redirects back to the AI Employee settings page on the portal subdomain.
+    // Redirects back to the Operator settings page on the portal subdomain.
     expect(location.origin).toBe(PORTAL_BASE)
-    expect(location.pathname).toBe('/portal/products/ai-employee/settings')
+    expect(location.pathname).toBe('/portal/products/operator/settings')
   })
 
   it('redirects with provider_error when issuer rejects consent', async () => {
@@ -95,7 +95,7 @@ describe('portal oauth callback', () => {
       provider: 'microsoft-graph',
       reviewer_id: 'user_xyz',
     })
-    const url = `${PORTAL_BASE}/portal/products/ai-employee/oauth/microsoft-graph/callback?error=consent_required&error_description=admin+consent+required&state=${encodeURIComponent(state)}`
+    const url = `${PORTAL_BASE}/portal/products/operator/oauth/microsoft-graph/callback?error=consent_required&error_description=admin+consent+required&state=${encodeURIComponent(state)}`
     const response = await invoke({
       url,
       connector: 'microsoft-graph',
@@ -107,7 +107,7 @@ describe('portal oauth callback', () => {
   })
 
   it('redirects with bad_state when signature does not verify', async () => {
-    const url = `${PORTAL_BASE}/portal/products/ai-employee/oauth/microsoft-graph/callback?code=abc&state=garbage`
+    const url = `${PORTAL_BASE}/portal/products/operator/oauth/microsoft-graph/callback?code=abc&state=garbage`
     const response = await invoke({
       url,
       connector: 'microsoft-graph',
@@ -123,7 +123,7 @@ describe('portal oauth callback', () => {
       provider: 'microsoft-graph',
       reviewer_id: 'user_owner',
     })
-    const url = `${PORTAL_BASE}/portal/products/ai-employee/oauth/microsoft-graph/callback?code=abc&state=${encodeURIComponent(state)}`
+    const url = `${PORTAL_BASE}/portal/products/operator/oauth/microsoft-graph/callback?code=abc&state=${encodeURIComponent(state)}`
     const response = await invoke({
       url,
       connector: 'microsoft-graph',
@@ -139,7 +139,7 @@ describe('portal oauth callback', () => {
       provider: 'microsoft-graph',
       reviewer_id: 'user_owner',
     })
-    const url = `${PORTAL_BASE}/portal/products/ai-employee/oauth/microsoft-graph/callback?code=abc&state=${encodeURIComponent(state)}`
+    const url = `${PORTAL_BASE}/portal/products/operator/oauth/microsoft-graph/callback?code=abc&state=${encodeURIComponent(state)}`
     const response = await invoke({
       url,
       connector: 'microsoft-graph',
@@ -155,7 +155,7 @@ describe('portal oauth callback', () => {
       provider: 'microsoft-graph',
       reviewer_id: 'user_owner',
     })
-    const url = `${PORTAL_BASE}/portal/products/ai-employee/oauth/google-workspace/callback?code=abc&state=${encodeURIComponent(state)}`
+    const url = `${PORTAL_BASE}/portal/products/operator/oauth/google-workspace/callback?code=abc&state=${encodeURIComponent(state)}`
     const response = await invoke({
       url,
       connector: 'google-workspace',
@@ -180,7 +180,7 @@ describe('portal oauth callback', () => {
         expect(body).toContain('grant_type=authorization_code')
         // The redirect_uri sent to the token endpoint MUST be the portal one.
         expect(body).toContain(
-          'redirect_uri=https%3A%2F%2Fportal.smd.services%2Fportal%2Fproducts%2Fai-employee%2Foauth%2Fmicrosoft-graph%2Fcallback'
+          'redirect_uri=https%3A%2F%2Fportal.smd.services%2Fportal%2Fproducts%2Foperator%2Foauth%2Fmicrosoft-graph%2Fcallback'
         )
         return new Response(
           JSON.stringify({
@@ -196,7 +196,7 @@ describe('portal oauth callback', () => {
       return new Response('not mocked', { status: 500 })
     })
 
-    const url = `${PORTAL_BASE}/portal/products/ai-employee/oauth/microsoft-graph/callback?code=AUTHCODE&state=${encodeURIComponent(state)}`
+    const url = `${PORTAL_BASE}/portal/products/operator/oauth/microsoft-graph/callback?code=AUTHCODE&state=${encodeURIComponent(state)}`
     const response = await invoke({
       url,
       connector: 'microsoft-graph',
@@ -205,7 +205,7 @@ describe('portal oauth callback', () => {
     const location = parseRedirect(response)
     expect(location.searchParams.get('status')).toBe('connected')
     expect(location.searchParams.get('provider')).toBe('microsoft-graph')
-    expect(location.pathname).toBe('/portal/products/ai-employee/settings')
+    expect(location.pathname).toBe('/portal/products/operator/settings')
   })
 
   it('redirects with exchange_failed when the token endpoint rejects the code', async () => {
@@ -222,7 +222,7 @@ describe('portal oauth callback', () => {
         })
     )
 
-    const url = `${PORTAL_BASE}/portal/products/ai-employee/oauth/microsoft-graph/callback?code=BAD&state=${encodeURIComponent(state)}`
+    const url = `${PORTAL_BASE}/portal/products/operator/oauth/microsoft-graph/callback?code=BAD&state=${encodeURIComponent(state)}`
     const response = await invoke({
       url,
       connector: 'microsoft-graph',

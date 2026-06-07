@@ -27,7 +27,7 @@ interface Props {
      * "Intake" eyebrow and the submission carries the value through to
      * the context metadata + admin notification.
      *
-     * Allowed values: 'ai-employee' (others are filtered upstream).
+     * Allowed values: 'operator' (others are filtered upstream).
      */
     interest?: string
   }
@@ -36,7 +36,7 @@ interface Props {
 const { values = {} } = Astro.props
 
 const INTEREST_LABELS: Record<string, string> = {
-  'ai-employee': 'AI Employee',
+  operator: 'Operator',
 }
 const interestLabel = values.interest ? INTEREST_LABELS[values.interest] : null
 

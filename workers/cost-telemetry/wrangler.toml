@@ -1,11 +1,11 @@
-# Cost Telemetry Worker — nightly cost-driver ingest for AI Employee
-# Per docs/specs/ai-employee/cost-telemetry-events.md "Nightly Captain job".
+# Cost Telemetry Worker — nightly cost-driver ingest for Operator
+# Per docs/specs/operator/cost-telemetry-events.md "Nightly Captain job".
 #
-# The worker iterates every active AI Employee customer once per day at
-# 02:00 UTC. For each customer it pulls yesterday's Anthropic token usage
-# and Composio action usage, computes cents via the hardcoded pricing
-# JSON files at ai-employee/adapter/cost_telemetry/, and UPSERTs one or
-# more rows into the customer's per-customer cost_telemetry D1 table.
+# The worker iterates every active Operator customer once per day at
+# 02:00 UTC. For each customer it pulls yesterday's Anthropic token usage,
+# computes cents via the hardcoded pricing JSON files at
+# operator/adapter/cost_telemetry/, and UPSERTs one or more rows into
+# the customer's per-customer cost_telemetry D1 table.
 #
 # The per-customer D1 database id is read from the central
 # customer_configs table (column lookup in src/index.ts). Per ADR 0009,
@@ -13,7 +13,7 @@
 # cost_telemetry table.
 #
 # Cloudflare D1/R2/Vectorize metering is deferred to phase 2 per the
-# validation-spike result documented in ai-employee/adapter/cost_ingest.py.
+# validation-spike result documented in operator/adapter/cost_ingest.py.
 # Token cost dominates the COGS surface; the missing source does not
 # block the §17.1 COGS/MRR kill criterion in v1.
 
@@ -39,5 +39,4 @@ crons = ["0 2 * * *"]
 #   ANTHROPIC_API_KEY   — Org-level key (per-customer keys would shift to
 #                         a per-customer secret lookup; v1 uses the org key
 #                         since billing rolls up at the org level)
-#   COMPOSIO_API_KEY    — Org-level Composio key for the usage API
 #   COST_INGEST_BEARER  — Bearer token for manual /run invocations

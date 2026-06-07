@@ -1,0 +1,41 @@
+# Add-on pack manifest: dental/ortho
+#
+# Schema: docs/specs/operator/vertical-manifest-schema.md (identical to
+# vertical.yaml). `name` MUST appear in ACCEPTED_ADDONS['dental'] in
+# src/lib/operator/customer-yaml/types.ts (ortho is registered). Add-on assets
+# are ADDITIVE on top of the dental base; the base does not declare them.
+#
+# Orthodontic connective skin: the longer treatment arc, contract and
+# payment-plan coordination, appliance and adjustment recall, and retention
+# checks. Same no-clinical-advice and emergency floors as the base.
+
+name: ortho
+version: 0.1.0
+
+# Additive floors on top of the base dental compliance set.
+compliance:
+  - contract-terms-relay-only # relay contract and payment-plan terms; never negotiate or advise
+  - no-treatment-progress-judgment # never assess appliance fit or treatment progress
+
+personas: []
+
+# Ortho-specific connective skills (bodies in hermes-smd-overlay).
+skills:
+  - treatment-contract-coordinator # relays contract and payment-plan terms, chases signature
+  - payment-plan-followup # follows the autopay/installment plan; logistics only
+  - adjustment-recall # surfaces patients due for an adjustment per the practice's interval
+  - retention-check-reminder # surfaces post-treatment retention checks
+
+# Inherits the base dental connectors.
+connectors: []
+
+templates:
+  - treatment-contract-followup.md
+  - adjustment-recall-reminder.md
+
+fixtures:
+  - synthetic-ortho-active-treatment
+
+evals:
+  - cert-ortho-contract-relay-only
+  - cert-ortho-no-progress-judgment

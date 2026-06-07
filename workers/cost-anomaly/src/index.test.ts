@@ -57,7 +57,7 @@ describe('sendAnomalyDigest', () => {
         apiKey: 'rk_test',
         fromEmail: 'from@x',
         toEmail: 'to@x',
-        dashboardUrl: 'https://admin.test/ai-employee/costs',
+        dashboardUrl: 'https://admin.test/operator/costs',
       },
       [],
       '2026-05-20'
@@ -74,7 +74,7 @@ describe('sendAnomalyDigest', () => {
         apiKey: 'rk_test',
         fromEmail: 'SMD Ops <ops@x>',
         toEmail: 'captain@x',
-        dashboardUrl: 'https://admin.test/ai-employee/costs',
+        dashboardUrl: 'https://admin.test/operator/costs',
       },
       [makeAlert()],
       '2026-05-20'
@@ -100,7 +100,7 @@ describe('sendAnomalyDigest', () => {
         apiKey: 'rk_test',
         fromEmail: 'f@x',
         toEmail: 't@x',
-        dashboardUrl: 'https://admin.test/ai-employee/costs',
+        dashboardUrl: 'https://admin.test/operator/costs',
       },
       [makeAlert({ driver: '' })],
       '2026-05-20'
@@ -117,7 +117,7 @@ describe('sendAnomalyDigest', () => {
         apiKey: 'rk_test',
         fromEmail: 'f@x',
         toEmail: 't@x',
-        dashboardUrl: 'https://admin.test/ai-employee/costs',
+        dashboardUrl: 'https://admin.test/operator/costs',
       },
       [makeAlert()],
       '2026-05-20'
@@ -134,7 +134,7 @@ describe('sendAnomalyDigest', () => {
         apiKey: 'rk_test',
         fromEmail: 'f@x',
         toEmail: 't@x',
-        dashboardUrl: 'https://admin.test/ai-employee/costs',
+        dashboardUrl: 'https://admin.test/operator/costs',
       },
       [makeAlert({ entity_name: '<script>x</script>', driver: '"><img/>' })],
       '2026-05-20'

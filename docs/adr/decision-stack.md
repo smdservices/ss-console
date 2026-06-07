@@ -311,7 +311,7 @@ The anchor math is not a PDF we email. It is 1-2 questions per problem type aske
 
 ## Decision #12 - Retainer Model — SUPERSEDED 2026-05-13
 
-> **Superseded by Decision #44 / ADR 0004 (Productized AI Employee Offering).** The undefined "$200-$400/month, define after first delivery" placeholder is retired. SMD's recurring-revenue product is the productized AI Employee SKU. Post-handoff support for scope-based engagements continues under Decision #27 (two-week async stabilization); customers wanting ongoing support beyond that window are quoted a follow-on scope or converted to an AI Employee subscription if the fit is right. The decision below is preserved as historical context; do not implement against it.
+> **Superseded by Decision #44 / ADR 0004 (Productized Operator Offering).** The undefined "$200-$400/month, define after first delivery" placeholder is retired. SMD's recurring-revenue product is the productized Operator SKU. Post-handoff support for scope-based engagements continues under Decision #27 (two-week async stabilization); customers wanting ongoing support beyond that window are quoted a follow-on scope or converted to an Operator subscription if the fit is right. The decision below is preserved as historical context; do not implement against it.
 
 **Issue:** smdservices/ss-console #12
 
@@ -704,54 +704,54 @@ Same engine, same data model, same artifact shape. Fields fill progressively as 
 
 ---
 
-## Decision #44 - Productized AI Employee Offering (cross-layer)
+## Decision #44 - Productized Operator Offering (cross-layer)
 
-**ADR:** [docs/adr/0004-productized-ai-employee-offering.md](./0004-productized-ai-employee-offering.md)
+**ADR:** [docs/adr/0004-productized-operator-offering.md](./0004-productized-operator-offering.md)
 
 **Supersedes:** Decision #12 (Retainer Model)
 
-**Decision: Add a productized AI Employee offering as a second front door alongside the existing scope-based engagement funnel. Flat monthly retainer SKU. Lean Hermes as the agent harness; evaluate everything else independently before adopting any other vendor's stack wholesale. Two front doors, one firm — firm-level voice and solutions-consulting positioning unchanged.**
+**Decision: Add a productized Operator offering as a second front door alongside the existing scope-based engagement funnel. Flat monthly retainer SKU. Lean Hermes as the agent harness; evaluate everything else independently before adopting any other vendor's stack wholesale. Two front doors, one firm — firm-level voice and solutions-consulting positioning unchanged.**
 
 **Four locks:**
 
 1. **Productize as a flat-rate retainer SKU.** Fixed monthly price, not metered, not credit-based, not scoped per engagement. Specific monthly price deferred to follow-on pending stack cost analysis; the _shape_ of the pricing is locked here.
-2. **Second front door, not replacement.** The scope-based assessment funnel (Decisions #16, #18) remains the primary path for prospects whose objectives we need to surface through conversation. AI Employee is the entry point for prospects who already know they want an agent.
+2. **Second front door, not replacement.** The scope-based assessment funnel (Decisions #16, #18) remains the primary path for prospects whose objectives we need to surface through conversation. Operator is the entry point for prospects who already know they want an agent.
 3. **Hermes-leaning stack posture.** Hermes is the leading candidate for the agent harness. Every other component (host/VM, MCP connector layer, email identity, memory layer, build harness) is evaluated independently before adoption. Durable principles: cloud VMs over local hardware, MCP-bridged tooling, agents-building-agents, persistent memory layer, watchdog/observability.
-4. **Decision #12 superseded.** The undefined $200-500/mo post-delivery retainer concept is retired. AI Employee replaces it as SMD's recurring-revenue product. Post-handoff support for scope-based engagements continues under Decision #27 (two-week async stabilization).
+4. **Decision #12 superseded.** The undefined $200-500/mo post-delivery retainer concept is retired. Operator replaces it as SMD's recurring-revenue product. Post-handoff support for scope-based engagements continues under Decision #27 (two-week async stabilization).
 
 **Cross-layer impact.**
 
-- **Layer 1 (Buy Box).** Adds a productized SKU as a second front door. Does not change ICP (Decision #5) — AI Employee targets the same revenue band, with the addition that the prospect arrives self-diagnosed.
+- **Layer 1 (Buy Box).** Adds a productized SKU as a second front door. Does not change ICP (Decision #5) — Operator targets the same revenue band, with the addition that the prospect arrives self-diagnosed.
 - **Layer 3 (Pricing).** Adds a flat retainer pricing shape distinct from scope-based quoting (Decision #16, unchanged for the consulting funnel). Specific number deferred.
 - **Layer 5 (Distribution).** Adds a second acquisition path. Prospects who arrive knowing they want an agent skip the assessment funnel and convert directly to a productized retainer.
 - **Layer 6 (Delivery).** Introduces productized service obligations (uptime, monitoring, customer success cadence) that the firm has not yet had. Stack build follow-on must specify watchdog, observability, and incident-response patterns before the first paid customer.
 
 **Positioning guardrails.**
 
-- Firm-level voice stays solutions consulting. AI Employee is a named offering within that frame, not a competing identity.
-- No "AI-powered firm" branding. AI Employee is the knife; SMD is the chef.
-- AI Employee copy follows the same anti-fabrication rules (Pattern A / Pattern B in CLAUDE.md). No invented timeframes, deliverables, or commitments.
+- Firm-level voice stays solutions consulting. Operator is a named offering within that frame, not a competing identity.
+- No "AI-powered firm" branding. Operator is the knife; SMD is the chef.
+- Operator copy follows the same anti-fabrication rules (Pattern A / Pattern B in CLAUDE.md). No invented timeframes, deliverables, or commitments.
 - No false simplicity. "Unlimited agents" framing common in market practice is rhetorical, not literal. Productized scope language is honest — what the customer gets, what they don't, what triggers a scope conversation.
 
 **Captain authorized:** 2026-05-13, podcast-driven strategic conversation (The Startup Ideas Podcast — "The $1M+ Solo AI Agent Business," Greg Isenberg + Nick Vasilescu, 2026-05-12). See ADR 0004 for full context, decision shape, consequences, and follow-on backlog.
 
 ---
 
-## Decision #45 - Reviewer-as-Sender (AI Employee architectural invariant)
+## Decision #45 - Entitlement Is Configurable; Reviewer-as-Sender Is One Authored Option
 
-**ADR:** [docs/adr/0005-reviewer-as-sender.md](./0005-reviewer-as-sender.md)
+**ADR:** [docs/adr/0005-reviewer-as-sender.md](./0005-reviewer-as-sender.md) (amended) → [0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) → [0035](./0035-no-imposed-entitlement-defaults.md)
 
-**Decision: Every customer-bound external message ships under the human reviewer's identity. The AI Employee persona does not exist as a sending identity to the outside world. This is architectural, not advisory.**
+**Decision: Entitlement is configurable across the full spectrum of the harness — per capability and action-class, on independent axes (exposure, initiation, external send, autonomy). The harness imposes no default posture; it faithfully enforces what an engagement authors. An entitled action with no authored entitlement is fail-closed (refused — no send, no draft).**
 
-The persona is fully visible internally (dashboard, internal Slack/Teams, audit log). Externally — to the customer's clients, opposing counsel, courts, regulators, vendors — the persona does not exist. Drafts go to the reviewer's drafts folder. The reviewer reviews and sends from their own account. Trust-ceiling promotion to `autonomous` is not available for any skill whose output crosses the external boundary.
+Reviewer-as-sender (the persona has no external sending identity; drafts go to the reviewer, who reviews and sends from their own account) is **one configurable option an engagement may author** — valuable for compliance, and pinnable by a regulated-vertical pack as a non-raisable constraint where required. It is **not** a default and **not** an architectural invariant: this decision originally read "architectural, not advisory" / "promotion to autonomous is not available," which ADR 0025 overturned and ADR 0035 finished correcting by removing the residual default-framing. The persona remains fully visible internally regardless of the external exposure configuration.
 
-**Cross-layer impact (Layer 6 - Delivery).** Defines how productized AI Employee delivery operates. Customer compliance counsel can sign off knowing the human-in-the-loop posture is structural.
+**Cross-layer impact (Layer 6 - Delivery).** The product expresses its full range — from draft-everything to trusted-autonomous-send — per action class, per customer. Compliance posture is an authored configuration (and a regulated-vertical pin), code-enforced and audited, not an assumed baseline.
 
-**Captain authorized:** 2026-05-20 per ADR record (decision embedded in PRDs since first draft).
+**Captain authorized:** 2026-05-20 (original); amended 2026-05-29 (ADR 0025); corrected 2026-06-02 (ADR 0035 — no imposed defaults).
 
 ---
 
-## Decision #46 - Capability-Adapter Pattern (AI Employee architectural invariant)
+## Decision #46 - Capability-Adapter Pattern (Operator architectural invariant)
 
 **ADR:** [docs/adr/0006-capability-adapter-pattern.md](./0006-capability-adapter-pattern.md)
 
@@ -759,13 +759,13 @@ The persona is fully visible internally (dashboard, internal Slack/Teams, audit 
 
 Eleven capability interfaces: `PracticeManagement`, `Email`, `Calendar`, `DocumentStorage`, `ESign`, `CourtAccess`, `Payments`, `Accounting`, `IntakeCRM`, `CallTracking`, `InternalComms`. Adding a new vendor is one adapter, not new skill variants. Per-customer adapter swap is configuration.
 
-**Cross-layer impact (Layer 6 - Delivery).** Defines the scalability model for vendor coverage in the AI Employee SKU.
+**Cross-layer impact (Layer 6 - Delivery).** Defines the scalability model for vendor coverage in the Operator SKU.
 
 **Captain authorized:** 2026-05-20 per ADR record.
 
 ---
 
-## Decision #47 - Per-Customer Machine Isolation (AI Employee architectural invariant)
+## Decision #47 - Per-Customer Machine Isolation (Operator architectural invariant)
 
 **ADR:** [docs/adr/0007-per-customer-machine-isolation.md](./0007-per-customer-machine-isolation.md)
 
@@ -779,7 +779,7 @@ Each customer gets dedicated D1, R2, and Vectorize bindings; dedicated OAuth tok
 
 ---
 
-## Decision #48 - Customer-Owned Memory Artifact (AI Employee architectural invariant)
+## Decision #48 - Customer-Owned Memory Artifact (Operator architectural invariant)
 
 **ADR:** [docs/adr/0008-customer-owned-memory-artifact.md](./0008-customer-owned-memory-artifact.md)
 
@@ -787,13 +787,13 @@ Each customer gets dedicated D1, R2, and Vectorize bindings; dedicated OAuth tok
 
 The "no lock-in" claim from Decision #44 / ADR 0004 is backed by architecture, not goodwill. GDPR / CCPA / state-privacy-law right-to-export and right-to-erasure map onto platform operations.
 
-**Cross-layer impact (Layer 6 - Delivery).** Defines the data-ownership boundary for AI Employee customer contracts.
+**Cross-layer impact (Layer 6 - Delivery).** Defines the data-ownership boundary for Operator customer contracts.
 
 **Captain authorized:** 2026-05-20 per ADR record.
 
 ---
 
-## Decision #49 - Cross-Machine Query Prohibition (AI Employee architectural invariant)
+## Decision #49 - Cross-Machine Query Prohibition (Operator architectural invariant)
 
 **ADR:** [docs/adr/0009-cross-machine-query-prohibition.md](./0009-cross-machine-query-prohibition.md)
 
@@ -801,7 +801,7 @@ The "no lock-in" claim from Decision #44 / ADR 0004 is backed by architecture, n
 
 Cross-customer learning is not available as a feature. Platform improvements are SMD-authored from human-readable insights, never derived from runtime data propagation. Pairs with Decisions #47 (Machine isolation) and #48 (memory ownership).
 
-**Cross-layer impact (Layer 6 - Delivery).** Defines the cross-customer perimeter for the AI Employee SKU; the answer to compliance counsel's "could another customer's data ever inform ours?" question.
+**Cross-layer impact (Layer 6 - Delivery).** Defines the cross-customer perimeter for the Operator SKU; the answer to compliance counsel's "could another customer's data ever inform ours?" question.
 
 **Captain authorized:** 2026-05-20 per ADR record.
 
@@ -909,7 +909,7 @@ All 11 artifacts are scaffolded as GitHub issues in smdservices/ss-console. Ever
 | #30   | Case study workflow - agent-drafted, client-approved, one page                                                             |
 | #42   | Taxonomy two-layer model - 5-cat observation, 6-cat delivery (see ADR 0001)                                                |
 | #43   | Outside View unified diagnostic - one product, three depths, portal-resident artifact (see ADR 0002)                       |
-| #44   | Productized AI Employee offering - flat-rate retainer SKU, second front door, Hermes-leaning stack (see ADR 0004)          |
+| #44   | Productized Operator offering - flat-rate retainer SKU, second front door, Hermes-leaning stack (see ADR 0004)             |
 | #45   | Reviewer-as-sender - every customer-bound message ships under the human reviewer's identity (see ADR 0005)                 |
 | #46   | Capability-adapter pattern - skills bind to capability interfaces; adapters implement; customer.yaml wires (see ADR 0006)  |
 | #47   | Per-customer Machine isolation - one Fly.io Machine per customer; deployment isolation, not runtime tenancy (see ADR 0007) |

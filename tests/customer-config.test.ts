@@ -24,6 +24,10 @@ import { ORG_ID } from '../src/lib/constants'
 import {
   getCustomerConfig,
   getActivePersona,
+  getLatestSyncMeta,
+  listCustomerConfigHistory,
+  recordCustomerConfigSync,
+  shouldRecordSync,
   type PersonaConfig,
 } from '../src/lib/portal/customer-config'
 
@@ -262,5 +266,251 @@ describe('customer_configs schema integrity', () => {
     await expect(
       seedConfig(db, { entity_id: 'entity-other', customer_slug: 'same-slug' })
     ).rejects.toThrow()
+  })
+})
+
+// ===========================================================================
+// customer_config_history — ADR 0022 Stream 3 substrate
+// ===========================================================================
+
+describe('shouldRecordSync (pure policy)', () => {
+  it('records the first sync (prev is null)', () => {
+    expect(shouldRecordSync(null, 'sha-aaa', 'ci')).toBe(true)
+  })
+
+  it('records when git_sha differs from previous', () => {
+    expect(shouldRecordSync({ git_sha: 'sha-aaa', synced_by: 'ci' }, 'sha-bbb', 'ci')).toBe(true)
+  })
+
+  it('no-ops when sha matches and source is ci', () => {
+    expect(shouldRecordSync({ git_sha: 'sha-aaa', synced_by: 'ci' }, 'sha-aaa', 'ci')).toBe(false)
+  })
+
+  it('no-ops when sha matches and source is manual', () => {
+    expect(shouldRecordSync({ git_sha: 'sha-aaa', synced_by: 'manual' }, 'sha-aaa', 'manual')).toBe(
+      false
+    )
+  })
+
+  it('no-ops when sha matches and source is bootstrap', () => {
+    expect(shouldRecordSync({ git_sha: 'sha-aaa', synced_by: 'ci' }, 'sha-aaa', 'bootstrap')).toBe(
+      false
+    )
+  })
+
+  it('records when sha matches and source is drift-repair (the recovery exception)', () => {
+    expect(
+      shouldRecordSync({ git_sha: 'sha-aaa', synced_by: 'ci' }, 'sha-aaa', 'drift-repair')
+    ).toBe(true)
+  })
+})
+
+describe('customer_config_history helpers', () => {
+  let db: D1Database
+
+  beforeEach(async () => {
+    db = await freshDb()
+  })
+
+  it('returns empty list when no history exists', async () => {
+    const rows = await listCustomerConfigHistory(db, 'smith-pi-firm')
+    expect(rows).toEqual([])
+  })
+
+  it('records the first sync with prev_git_sha=null', async () => {
+    const result = await recordCustomerConfigSync(db, {
+      customer_slug: 'smith-pi-firm',
+      git_sha: 'sha-aaa',
+      synced_at: '2026-05-27T00:00:00Z',
+      synced_by: 'ci',
+      actor: null,
+      r2_shadow_key: null,
+    })
+    expect(result.recorded).toBe(true)
+    expect(result.skipped_reason).toBeNull()
+
+    const rows = await listCustomerConfigHistory(db, 'smith-pi-firm')
+    expect(rows).toHaveLength(1)
+    expect(rows[0].git_sha).toBe('sha-aaa')
+    expect(rows[0].prev_git_sha).toBeNull()
+    expect(rows[0].synced_by).toBe('ci')
+    expect(rows[0].actor).toBeNull()
+  })
+
+  it('chains prev_git_sha across consecutive syncs', async () => {
+    await recordCustomerConfigSync(db, {
+      customer_slug: 'smith-pi-firm',
+      git_sha: 'sha-aaa',
+      synced_at: '2026-05-27T00:00:00Z',
+      synced_by: 'ci',
+      actor: null,
+      r2_shadow_key: null,
+    })
+    await recordCustomerConfigSync(db, {
+      customer_slug: 'smith-pi-firm',
+      git_sha: 'sha-bbb',
+      synced_at: '2026-05-27T00:01:00Z',
+      synced_by: 'ci',
+      actor: null,
+      r2_shadow_key: null,
+    })
+    const rows = await listCustomerConfigHistory(db, 'smith-pi-firm')
+    expect(rows).toHaveLength(2)
+    // listCustomerConfigHistory returns most-recent-first.
+    expect(rows[0].git_sha).toBe('sha-bbb')
+    expect(rows[0].prev_git_sha).toBe('sha-aaa')
+    expect(rows[1].git_sha).toBe('sha-aaa')
+    expect(rows[1].prev_git_sha).toBeNull()
+  })
+
+  it('no-ops a CI re-sync at identical git_sha', async () => {
+    await recordCustomerConfigSync(db, {
+      customer_slug: 'smith-pi-firm',
+      git_sha: 'sha-aaa',
+      synced_at: '2026-05-27T00:00:00Z',
+      synced_by: 'ci',
+      actor: null,
+      r2_shadow_key: null,
+    })
+    const result = await recordCustomerConfigSync(db, {
+      customer_slug: 'smith-pi-firm',
+      git_sha: 'sha-aaa',
+      synced_at: '2026-05-27T00:01:00Z',
+      synced_by: 'ci',
+      actor: null,
+      r2_shadow_key: null,
+    })
+    expect(result.recorded).toBe(false)
+    expect(result.skipped_reason).toContain('identical git_sha')
+    const rows = await listCustomerConfigHistory(db, 'smith-pi-firm')
+    expect(rows).toHaveLength(1)
+  })
+
+  it('records a drift-repair re-sync at identical git_sha', async () => {
+    await recordCustomerConfigSync(db, {
+      customer_slug: 'smith-pi-firm',
+      git_sha: 'sha-aaa',
+      synced_at: '2026-05-27T00:00:00Z',
+      synced_by: 'ci',
+      actor: null,
+      r2_shadow_key: null,
+    })
+    const result = await recordCustomerConfigSync(db, {
+      customer_slug: 'smith-pi-firm',
+      git_sha: 'sha-aaa',
+      synced_at: '2026-05-27T00:30:00Z',
+      synced_by: 'drift-repair',
+      actor: 'system:drift-cron',
+      r2_shadow_key: null,
+    })
+    expect(result.recorded).toBe(true)
+    const rows = await listCustomerConfigHistory(db, 'smith-pi-firm')
+    expect(rows).toHaveLength(2)
+    expect(rows[0].synced_by).toBe('drift-repair')
+    expect(rows[0].actor).toBe('system:drift-cron')
+    // prev_git_sha on the drift-repair row points at the original ci row's
+    // sha — which IS the same sha. That's correct: the chain reflects the
+    // last sync we materialized, not the last unique sha.
+    expect(rows[0].prev_git_sha).toBe('sha-aaa')
+  })
+
+  it('persists r2_shadow_key when the caller passes it', async () => {
+    await recordCustomerConfigSync(db, {
+      customer_slug: 'smith-pi-firm',
+      git_sha: 'sha-aaa',
+      synced_at: '2026-05-27T00:00:00Z',
+      synced_by: 'ci',
+      actor: null,
+      r2_shadow_key: 'customers/smith-pi-firm/history/sha-aaa.yaml',
+    })
+    const rows = await listCustomerConfigHistory(db, 'smith-pi-firm')
+    expect(rows[0].r2_shadow_key).toBe('customers/smith-pi-firm/history/sha-aaa.yaml')
+  })
+
+  it('CHECK constraint rejects an unknown synced_by value', async () => {
+    await expect(
+      db
+        .prepare(
+          'INSERT INTO customer_config_history (customer_slug, git_sha, synced_at, synced_by) ' +
+            'VALUES (?, ?, ?, ?)'
+        )
+        .bind('smith-pi-firm', 'sha-bogus', '2026-05-27T00:00:00Z', 'not-a-valid-source')
+        .run()
+    ).rejects.toThrow()
+  })
+
+  it('isolates history per customer_slug', async () => {
+    await recordCustomerConfigSync(db, {
+      customer_slug: 'smith-pi-firm',
+      git_sha: 'sha-aaa',
+      synced_at: '2026-05-27T00:00:00Z',
+      synced_by: 'ci',
+      actor: null,
+      r2_shadow_key: null,
+    })
+    await recordCustomerConfigSync(db, {
+      customer_slug: 'jones-pi-firm',
+      git_sha: 'sha-xxx',
+      synced_at: '2026-05-27T00:00:00Z',
+      synced_by: 'ci',
+      actor: null,
+      r2_shadow_key: null,
+    })
+    const smith = await listCustomerConfigHistory(db, 'smith-pi-firm')
+    const jones = await listCustomerConfigHistory(db, 'jones-pi-firm')
+    expect(smith).toHaveLength(1)
+    expect(jones).toHaveLength(1)
+    expect(smith[0].git_sha).toBe('sha-aaa')
+    expect(jones[0].git_sha).toBe('sha-xxx')
+  })
+
+  it('listCustomerConfigHistory respects the limit argument', async () => {
+    for (let i = 0; i < 5; i++) {
+      await recordCustomerConfigSync(db, {
+        customer_slug: 'smith-pi-firm',
+        git_sha: `sha-${i}`,
+        synced_at: `2026-05-27T00:0${i}:00Z`,
+        synced_by: 'ci',
+        actor: null,
+        r2_shadow_key: null,
+      })
+    }
+    const limited = await listCustomerConfigHistory(db, 'smith-pi-firm', 3)
+    expect(limited).toHaveLength(3)
+    expect(limited[0].git_sha).toBe('sha-4')
+  })
+})
+
+describe('getLatestSyncMeta', () => {
+  let db: D1Database
+
+  beforeEach(async () => {
+    db = await freshDb()
+  })
+
+  it('returns null when no history exists', async () => {
+    const meta = await getLatestSyncMeta(db, 'smith-pi-firm')
+    expect(meta).toBeNull()
+  })
+
+  it('returns the most recent row by synced_at', async () => {
+    await recordCustomerConfigSync(db, {
+      customer_slug: 'smith-pi-firm',
+      git_sha: 'sha-aaa',
+      synced_at: '2026-05-27T00:00:00Z',
+      synced_by: 'ci',
+      actor: null,
+      r2_shadow_key: null,
+    })
+    await recordCustomerConfigSync(db, {
+      customer_slug: 'smith-pi-firm',
+      git_sha: 'sha-bbb',
+      synced_at: '2026-05-27T00:01:00Z',
+      synced_by: 'manual',
+      actor: 'partner@smith-pi-firm.example',
+      r2_shadow_key: null,
+    })
+    const meta = await getLatestSyncMeta(db, 'smith-pi-firm')
+    expect(meta).toEqual({ git_sha: 'sha-bbb', synced_by: 'manual' })
   })
 })

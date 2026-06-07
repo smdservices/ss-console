@@ -1,0 +1,190 @@
+---
+import '../../../../../styles/global.css'
+import { BRAND_NAME } from '../../../../../lib/config/brand'
+import {
+  resolveOperatorAccess,
+  OPERATOR_LANDING_PATH,
+} from '../../../../../lib/portal/operator-access'
+import {
+  defaultAuditDateRange,
+  distinctAuditSkills,
+  listAuditEntries,
+  parseAuditListParams,
+} from '../../../../../lib/portal/operator/audit'
+import PortalHeader from '../../../../../components/portal/PortalHeader.astro'
+import PortalTabs from '../../../../../components/portal/PortalTabs.astro'
+import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
+import SkipToMain from '../../../../../components/SkipToMain.astro'
+import AuditFilterBar from '../../../../../components/portal/operator/AuditFilterBar.astro'
+import AuditLogTable from '../../../../../components/portal/operator/AuditLogTable.astro'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Operator — Audit log viewer.
+ *
+ * URL: portal.smd.services/portal/products/operator/audit
+ *
+ * Per #873 and PRD §13, every safety-relevant action the Operator
+ * takes emits an audit event. This surface is the read-only viewer
+ * over those events. The audit writer landed in PR #942
+ * (`operator/adapter/audit_log.py`).
+ *
+ * Data source: per-customer Hermes Machine D1 (ADR 0007 + 0009). The
+ * portal Worker cannot bind directly to a per-customer D1; the read
+ * path is pending Hermes runtime wiring (#821). Until that bridge
+ * ships, `listAuditEntries` returns an empty typed list and the page
+ * renders the empty-state block per docs/style/empty-state-pattern.md
+ * — no fabricated events, no synthetic trace, no "coming soon" copy.
+ *
+ * Filter / sort / pagination machinery is wired today so the URL
+ * contract is stable when the bridge lands.
+ *
+ * Access gate (see resolveOperatorAccess):
+ *   - Clerk session (middleware)
+ *   - Local entity bound to the active Clerk organization
+ *   - Active Operator subscription on this customer
+ *   - Caller holds principal OR compliance role
+ *
+ * Note: operators are NOT granted access. Audit transparency for the
+ * operator's own actions is delivered through the drafts queue
+ * (their direct surface). The audit viewer is org-wide and sensitive
+ * — restricted to principal and compliance per the issue contract.
+ *
+ * Per-matter drill-down: a `?matter=<id>` query string filters the
+ * table to rows whose `matterRef` matches that id. The empty-state
+ * messaging acknowledges the active filter so the reviewer knows the
+ * page is honestly empty under the filter rather than empty overall.
+ *
+ * Default date range: when neither `from` nor `to` is set, the page
+ * resolves a "last N days" window (DEFAULT_AUDIT_RANGE_DAYS = 7) so
+ * the page is fast even for customers with months of history. The
+ * window appears in the form's date inputs so reviewers see exactly
+ * what is being filtered.
+ *
+ * Evidence packet export is a follow-on (#878 in the audit/compliance
+ * issue cluster); this PR ships the viewer only.
+ */
+
+const access = await resolveOperatorAccess(env.DB, Astro.locals, {
+  allowedRoles: ['principal', 'compliance'],
+})
+if (access.kind === 'redirect') {
+  return Astro.redirect(access.to)
+}
+const { client, subscription, roles } = access
+
+// Belt-and-braces role check per the issue's explicit requirement: the
+// audit log is sensitive and the surface must verify the resolved role
+// is principal OR compliance even though resolveOperatorAccess
+// already enforces this via allowedRoles. The failure mode (operator
+// or a future role accidentally seeing org-wide audit) is bad enough
+// that the redundant assertion is worth keeping.
+const hasAuditRole = roles.includes('principal') || roles.includes('compliance')
+if (!hasAuditRole) {
+  return Astro.redirect(OPERATOR_LANDING_PATH)
+}
+
+const params = parseAuditListParams(Astro.url.searchParams)
+
+// Apply the default "last 7 days" window when no explicit range was
+// requested. The form re-hydrates from the resolved range so reviewers
+// see the window the page actually filtered on.
+const resolvedParams = (() => {
+  if (params.from === null && params.to === null) {
+    const range = defaultAuditDateRange()
+    return { ...params, from: range.from, to: range.to }
+  }
+  return params
+})()
+
+const auditPage = await listAuditEntries(subscription, resolvedParams)
+
+// availableSkills is derived from the current page of audit rows; the
+// Hermes bridge will replace this with a customer-wide summary when
+// #821 lands. Empty list today is honest — there are no skills to
+// surface until rows arrive.
+const availableSkills = distinctAuditSkills(auditPage.rows)
+
+// Empty-state copy varies based on whether a matter filter is active.
+// The base copy is the same shape as the drafts page; the matter
+// variant acknowledges the filter so the reviewer doesn't think the
+// log is empty overall.
+const matterFilter = resolvedParams.matter
+const emptyHeading = matterFilter ? 'No audit events for this matter' : 'No audit events yet'
+const emptyBody = matterFilter
+  ? 'No actions in the selected window have this matter reference. Clear the matter filter to see firm-wide audit activity.'
+  : 'Every action your Operator takes is recorded here: drafts created, sends approved, identity changes, memory access.'
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+      rel="stylesheet"
+    />
+    <title>Operator · Audit | {BRAND_NAME}</title>
+  </head>
+  <body class="min-h-screen bg-[color:var(--ss-color-background)]">
+    <SkipToMain />
+    <PortalHeader clientName={client.name} />
+
+    <PortalTabs pathname={Astro.url.pathname} operatorActive={true} />
+
+    <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
+      <PortalPageHead
+        crumbHref="/portal/products/operator"
+        crumbLabel="Operator"
+        tag="Section"
+        h1="Audit"
+        meta={auditPage.totalCount > 0 ? `${auditPage.totalCount} total` : null}
+      />
+
+      <div class="mt-8 flex flex-col gap-6">
+        <AuditFilterBar
+          skills={resolvedParams.skills}
+          actions={resolvedParams.actions}
+          from={resolvedParams.from}
+          to={resolvedParams.to}
+          matter={resolvedParams.matter}
+          q={resolvedParams.q}
+          sort={resolvedParams.sort}
+          availableSkills={availableSkills}
+        />
+
+        {
+          auditPage.totalCount === 0 ? (
+            <section
+              aria-label="No audit events"
+              class="border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center"
+            >
+              <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+                {emptyHeading}
+              </p>
+              <p class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                {emptyBody}
+              </p>
+            </section>
+          ) : (
+            <AuditLogTable
+              rows={auditPage.rows}
+              totalCount={auditPage.totalCount}
+              page={auditPage.page}
+              pageSize={auditPage.pageSize}
+              pageCount={auditPage.pageCount}
+              searchParams={Astro.url.searchParams}
+            />
+          )
+        }
+      </div>
+    </main>
+  </body>
+</html>

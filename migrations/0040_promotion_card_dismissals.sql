@@ -3,7 +3,7 @@
 --
 -- Adds the `promotion_card_dismissals` table that records when a customer's
 -- principal dismisses a "Skill ready for promotion?" recommendation card on
--- the AI Employee landing page (Today tab per platform-prd.md §12.1).
+-- the Operator landing page (Today tab per platform-prd.md §12.1).
 --
 -- The card surfaces a skill once its 4-week approval-rate threshold has been
 -- met (per §11.3 Promotion mechanics). A principal who is not ready to

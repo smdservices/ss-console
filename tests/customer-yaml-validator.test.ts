@@ -1,6 +1,6 @@
 /**
  * Tests for the customer.yaml structural validator
- * (src/lib/ai-employee/customer-yaml/validator.ts).
+ * (src/lib/operator/customer-yaml/validator.ts).
  *
  * Test strategy: build one valid in-memory fixture (the schema's worked
  * example, simplified) and validate it once to lock the happy path. Then
@@ -23,7 +23,7 @@ import {
   type CustomerYaml,
   type ValidationError,
   type ValidationErrorCode,
-} from '../src/lib/ai-employee/customer-yaml'
+} from '../src/lib/operator/customer-yaml'
 
 // -----------------------------------------------------------------------------
 // Fixture builder
@@ -47,7 +47,7 @@ function validFixture(): Record<string, unknown> {
     practice_areas: ['personal-injury', 'workers-comp'],
     fly_region: 'lax',
     model: 'claude-opus-4-7',
-    hermes_ref: 'v2026.5.7-smd.0',
+    hermes_ref: 'v2026.5.7@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0',
     machine: {
       size: 'performance-1x',
       memory_mb: 1024,
@@ -86,7 +86,7 @@ function validFixture(): Record<string, unknown> {
       Email: {
         adapter: 'microsoft-graph',
         backend: 'mcp:softeria/ms-365-mcp-server',
-        token_ref: 'infisical:/ai-employee/smith-pi-firm/email/refresh',
+        token_ref: 'infisical:/operator/smith-pi-firm/email/refresh',
       },
       Calendar: { adapter: 'microsoft-graph', backend: 'mcp:softeria/ms-365-mcp-server' },
       PracticeManagement: {
@@ -147,7 +147,7 @@ describe('validate — happy path', () => {
     expect(value.personas).toHaveLength(1)
     expect(value.personas[0].skills).toHaveLength(2)
     expect(value.connectors.Email?.token_ref).toBe(
-      'infisical:/ai-employee/smith-pi-firm/email/refresh'
+      'infisical:/operator/smith-pi-firm/email/refresh'
     )
   })
 
@@ -228,6 +228,113 @@ describe('validate — MissingField', () => {
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(r.errors.some((e) => e.path === 'pause.reason')).toBe(true)
+  })
+})
+
+// -----------------------------------------------------------------------------
+// Observability (ADR 0023 Wave 1)
+// -----------------------------------------------------------------------------
+
+describe('validate — observability block (ADR 0023)', () => {
+  it('fills defaults when block is absent', () => {
+    const r = validate(validFixture())
+    if (!r.ok) throw new Error('expected ok')
+    expect(r.value.observability.sentry.enabled).toBe(true)
+    expect(r.value.observability.health.period_seconds).toBe(60)
+    expect(r.value.observability.health.grace_minutes).toBe(5)
+  })
+
+  it('fills defaults when block is an empty object', () => {
+    const f = validFixture()
+    f['observability'] = {}
+    const r = validate(f)
+    if (!r.ok) throw new Error('expected ok')
+    expect(r.value.observability).toEqual({
+      sentry: { enabled: true },
+      health: { period_seconds: 60, grace_minutes: 5 },
+    })
+  })
+
+  it('accepts a fully populated observability block', () => {
+    const f = validFixture()
+    f['observability'] = {
+      sentry: { enabled: false },
+      health: { period_seconds: 30, grace_minutes: 10 },
+    }
+    const r = validate(f)
+    if (!r.ok) throw new Error('expected ok')
+    expect(r.value.observability.sentry.enabled).toBe(false)
+    expect(r.value.observability.health.period_seconds).toBe(30)
+    expect(r.value.observability.health.grace_minutes).toBe(10)
+  })
+
+  it('partial population fills only missing fields', () => {
+    const f = validFixture()
+    f['observability'] = { health: { period_seconds: 120 } }
+    const r = validate(f)
+    if (!r.ok) throw new Error('expected ok')
+    expect(r.value.observability.sentry.enabled).toBe(true) // default
+    expect(r.value.observability.health.period_seconds).toBe(120) // overridden
+    expect(r.value.observability.health.grace_minutes).toBe(5) // default
+  })
+
+  it('rejects non-boolean sentry.enabled', () => {
+    const f = validFixture()
+    f['observability'] = { sentry: { enabled: 'yes' } }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'observability.sentry.enabled' && e.code === 'TypeMismatch')
+    ).toBe(true)
+  })
+
+  it('rejects non-positive-integer health.period_seconds', () => {
+    const f = validFixture()
+    f['observability'] = { health: { period_seconds: 0 } }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) => e.path === 'observability.health.period_seconds' && e.code === 'TypeMismatch'
+      )
+    ).toBe(true)
+  })
+
+  it('rejects non-positive-integer health.grace_minutes', () => {
+    const f = validFixture()
+    f['observability'] = { health: { grace_minutes: -1 } }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) => e.path === 'observability.health.grace_minutes' && e.code === 'TypeMismatch'
+      )
+    ).toBe(true)
+  })
+
+  it('rejects non-object observability', () => {
+    const f = validFixture()
+    f['observability'] = 'invalid'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'observability' && e.code === 'TypeMismatch')).toBe(true)
+  })
+
+  it('does not accept an alert_webhook field (deferred per ADR 0023 §9)', () => {
+    const f = validFixture()
+    // Including alert_webhook is silently ignored — validator doesn't gate on
+    // unknown keys, but the field doesn't appear in the typed output.
+    f['observability'] = { alert_webhook: 'https://example.com/webhook' }
+    const r = validate(f)
+    if (!r.ok) throw new Error('expected ok (unknown keys ignored)')
+    // The typed shape has no alert_webhook field.
+    expect('alert_webhook' in (r.value.observability as unknown as Record<string, unknown>)).toBe(
+      false
+    )
   })
 })
 
@@ -391,6 +498,37 @@ describe('validate — personas[]', () => {
     }
     expect(r.value.personas).toHaveLength(2)
   })
+
+  it('accepts a plain-object voice_overrides / escalation_overrides', () => {
+    const f = validFixture()
+    const persona = (f['personas'] as Array<Record<string, unknown>>)[0]
+    persona['voice_overrides'] = { greeting: 'Hi' }
+    persona['escalation_overrides'] = { after_hours: 'page' }
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.personas[0].voice_overrides).toEqual({ greeting: 'Hi' })
+    expect(r.value.personas[0].escalation_overrides).toEqual({ after_hours: 'page' })
+  })
+
+  it('absent overrides resolve to null (no error)', () => {
+    const f = validFixture()
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.personas[0].voice_overrides).toBeNull()
+    expect(r.value.personas[0].escalation_overrides).toBeNull()
+  })
+
+  it('rejects a non-object override (the gate the old `unknown` typing skipped)', () => {
+    const f = validFixture()
+    const persona = (f['personas'] as Array<Record<string, unknown>>)[0]
+    persona['voice_overrides'] = 'not-an-object'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'personas[0].voice_overrides' && e.code === 'TypeMismatch')
+    ).toBe(true)
+  })
 })
 
 // -----------------------------------------------------------------------------
@@ -420,8 +558,8 @@ describe('validate — connectors', () => {
     expect(codesOf(r.errors)).toContain('InvalidBackend')
   })
 
-  it('accepts all four documented backend prefixes', () => {
-    const prefixes = ['composio:gmail', 'mcp:foo/bar', 'build:wrapper', 'synthetic:fixture']
+  it('accepts all documented backend prefixes', () => {
+    const prefixes = ['mcp:foo/bar', 'build:wrapper', 'synthetic:fixture']
     for (const backend of prefixes) {
       const f = validFixture()
       ;(f['connectors'] as Record<string, Record<string, unknown>>)['Email'] = {
@@ -456,130 +594,6 @@ describe('validate — connectors', () => {
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(codesOf(r.errors)).toContain('InvalidTokenRef')
-  })
-})
-
-// -----------------------------------------------------------------------------
-// Composio per-connection isolation (issue #850)
-//
-// The validator must require a composio_connection_id whenever backend
-// starts with "composio:", and that ID must embed the customer_id slug.
-// The runtime backstop lives at
-// ai-employee/adapter/connectors/composio_assertion.py.
-// -----------------------------------------------------------------------------
-
-describe('validate — composio per-connection isolation', () => {
-  function fixtureWithComposioEmail(connectionId: string | null): Record<string, unknown> {
-    const f = validFixture()
-    const entry: Record<string, unknown> = {
-      adapter: 'gmail',
-      backend: 'composio:gmail',
-      token_ref: 'infisical:/ai-employee/smith-pi-firm/email/refresh',
-    }
-    if (connectionId !== null) entry['composio_connection_id'] = connectionId
-    ;(f['connectors'] as Record<string, unknown>)['Email'] = entry
-    return f
-  }
-
-  it('accepts a well-formed composio connection ID bound to customer_id', () => {
-    const r = validate(fixtureWithComposioEmail('conn_smith-pi-firm_xyz-1234'))
-    if (!r.ok) {
-      throw new Error(`expected ok; got: ${JSON.stringify(r.errors, null, 2)}`)
-    }
-    expect(r.value.connectors.Email?.composio_connection_id).toBe('conn_smith-pi-firm_xyz-1234')
-  })
-
-  it('requires composio_connection_id when backend is composio:*', () => {
-    const r = validate(fixtureWithComposioEmail(null))
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(
-      r.errors.some(
-        (e) => e.code === 'MissingField' && e.path === 'connectors.Email.composio_connection_id'
-      )
-    ).toBe(true)
-  })
-
-  it('rejects composio_connection_id that does not match conn_{slug}_{suffix}', () => {
-    const r = validate(fixtureWithComposioEmail('not-a-conn-id'))
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(
-      r.errors.some(
-        (e) => e.code === 'InvalidFormat' && e.path === 'connectors.Email.composio_connection_id'
-      )
-    ).toBe(true)
-  })
-
-  it('rejects composio_connection_id whose slug differs from customer_id (cross-customer leak)', () => {
-    const r = validate(fixtureWithComposioEmail('conn_other-customer_xyz-1234'))
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(
-      r.errors.some(
-        (e) =>
-          e.code === 'IsolationViolation' && e.path === 'connectors.Email.composio_connection_id'
-      )
-    ).toBe(true)
-  })
-
-  it('rejects composio_connection_id with too-short suffix', () => {
-    const r = validate(fixtureWithComposioEmail('conn_smith-pi-firm_abc'))
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(codesOf(r.errors)).toContain('InvalidFormat')
-  })
-
-  it('rejects composio_connection_id when present on a non-composio backend', () => {
-    const f = validFixture()
-    ;(f['connectors'] as Record<string, Record<string, unknown>>)['Email'][
-      'composio_connection_id'
-    ] = 'conn_smith-pi-firm_xyz-1234'
-    const r = validate(f)
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(
-      r.errors.some(
-        (e) =>
-          e.code === 'IsolationViolation' && e.path === 'connectors.Email.composio_connection_id'
-      )
-    ).toBe(true)
-  })
-
-  it('rejects non-string composio_connection_id', () => {
-    const f = fixtureWithComposioEmail(null)
-    ;(f['connectors'] as Record<string, Record<string, unknown>>)['Email'][
-      'composio_connection_id'
-    ] = 12345
-    const r = validate(f)
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(codesOf(r.errors)).toContain('TypeMismatch')
-  })
-
-  it('accepts a composio_connection_id with the maximum suffix length', () => {
-    const longSuffix = 'a'.repeat(80)
-    const r = validate(fixtureWithComposioEmail(`conn_smith-pi-firm_${longSuffix}`))
-    if (!r.ok) {
-      throw new Error(`expected ok; got: ${JSON.stringify(r.errors, null, 2)}`)
-    }
-  })
-
-  it('rejects a composio_connection_id with a suffix longer than 80 chars', () => {
-    const tooLong = 'a'.repeat(81)
-    const r = validate(fixtureWithComposioEmail(`conn_smith-pi-firm_${tooLong}`))
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(codesOf(r.errors)).toContain('InvalidFormat')
-  })
-
-  it('handles multi-dash customer slugs in the connection ID', () => {
-    const f = fixtureWithComposioEmail('conn_smith-pi-firm_a-b-c-d')
-    const r = validate(f)
-    if (!r.ok) {
-      throw new Error(`expected ok; got: ${JSON.stringify(r.errors, null, 2)}`)
-    }
-    expect(r.value.connectors.Email?.composio_connection_id).toBe('conn_smith-pi-firm_a-b-c-d')
   })
 })
 
@@ -770,105 +784,117 @@ describe('validate — aggregate error behavior', () => {
 })
 
 // -----------------------------------------------------------------------------
-// hermes_ref fork-tag enforcement (ADR 0015)
+// hermes_ref upstream-pin enforcement (ADR 0024)
 // -----------------------------------------------------------------------------
 
-describe('validate — hermes_ref fork-tag enforcement (ADR 0015)', () => {
-  it('accepts a fork tag at the initial -smd.0 revision', () => {
+describe('validate — hermes_ref upstream-pin enforcement (ADR 0024)', () => {
+  it('accepts a valid upstream pin (v{date}@{40-hex-sha})', () => {
     const f = validFixture()
-    f['hermes_ref'] = 'v2026.5.7-smd.0'
+    f['hermes_ref'] = 'v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0'
     const r = validate(f)
     if (!r.ok) {
       throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
     }
-    expect(r.value.hermes_ref).toBe('v2026.5.7-smd.0')
+    expect(r.value.hermes_ref).toBe('v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0')
   })
 
-  it('accepts a fork tag at a higher SMD revision', () => {
+  it('accepts another valid upstream pin at a different release', () => {
     const f = validFixture()
-    f['hermes_ref'] = 'v2026.5.7-smd.12'
+    f['hermes_ref'] = 'v2026.5.28@0123456789abcdef0123456789abcdef01234567'
     expect(validate(f).ok).toBe(true)
   })
 
-  it('accepts a security-patch fork tag (escape-valve shape)', () => {
+  it('rejects a retired -smd.N fork tag', () => {
+    const f = validFixture()
+    f['hermes_ref'] = 'v2026.5.16-smd.0'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidFormat')
+  })
+
+  it('rejects a retired -smd.security.N fork tag', () => {
     const f = validFixture()
     f['hermes_ref'] = 'v2026.5.16-smd.security.0'
-    expect(validate(f).ok).toBe(true)
-  })
-
-  it('accepts a security-patch tag at higher iteration', () => {
-    const f = validFixture()
-    f['hermes_ref'] = 'v2026.5.16-smd.security.7'
-    expect(validate(f).ok).toBe(true)
-  })
-
-  it('rejects legacy SemVer-style upstream tags (Hermes moved to date-based tags in 2026)', () => {
-    const f = validFixture()
-    f['hermes_ref'] = 'v0.14.0-smd.0'
     const r = validate(f)
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(codesOf(r.errors)).toContain('InvalidFormat')
   })
 
-  it('rejects SemVer pre-release identifiers', () => {
+  it('rejects a bare date-tag (no @sha)', () => {
     const f = validFixture()
-    f['hermes_ref'] = 'v0.14.0-rc.1-smd.0'
-    const r = validate(f)
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(codesOf(r.errors)).toContain('InvalidFormat')
-  })
-
-  it('rejects a bare upstream tag (no -smd.N suffix)', () => {
-    const f = validFixture()
-    f['hermes_ref'] = 'v2026.5.7'
+    f['hermes_ref'] = 'v2026.5.16'
     const r = validate(f)
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(r.errors.some((e) => e.path === 'hermes_ref' && e.code === 'InvalidFormat')).toBe(true)
   })
 
+  it('rejects legacy SemVer-style tags (year is not 4 digits)', () => {
+    const f = validFixture()
+    f['hermes_ref'] = 'v0.14.0@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidFormat')
+  })
+
   it('rejects a missing v-prefix', () => {
     const f = validFixture()
-    f['hermes_ref'] = '2026.5.7-smd.0'
+    f['hermes_ref'] = '2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0'
     const r = validate(f)
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(codesOf(r.errors)).toContain('InvalidFormat')
   })
 
-  it('rejects an -smd.N suffix with a non-integer counter', () => {
+  it('rejects a short SHA (fewer than 40 hex chars)', () => {
     const f = validFixture()
-    f['hermes_ref'] = 'v2026.5.7-smd.beta'
+    f['hermes_ref'] = 'v2026.5.16@a91a57fa'
     const r = validate(f)
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(codesOf(r.errors)).toContain('InvalidFormat')
   })
 
-  it('rejects an -smd suffix without a counter', () => {
+  it('rejects a long SHA (more than 40 hex chars)', () => {
     const f = validFixture()
-    f['hermes_ref'] = 'v2026.5.7-smd'
+    f['hermes_ref'] = 'v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0ff'
     const r = validate(f)
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(codesOf(r.errors)).toContain('InvalidFormat')
   })
 
-  // The rewritten ADR 0015 regex (^v\d{4}\.\d{1,2}\.\d{1,2}-smd\.(security\.)?\d+$)
-  // intentionally allows any decimal counter shape, including leading zeros.
-  // The original regex's leading-zero rejection was a defensive invariant
-  // that the rewritten ADR did not carry forward; operationally, fork-tag
-  // counters are author-controlled and the linter on the fork repo catches
-  // shape violations before any customer.yaml sees the value.
-  it('accepts an -smd.N counter with leading zeros (per rewritten ADR 0015)', () => {
+  it('rejects a non-hex SHA', () => {
     const f = validFixture()
-    f['hermes_ref'] = 'v2026.5.7-smd.01'
-    expect(validate(f).ok).toBe(true)
+    f['hermes_ref'] = 'v2026.5.16@zz1a57fa5a13d516c38b07a141a9ce8a3daabeb0'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidFormat')
   })
 
-  it('rejects an arbitrary content-hash SHA', () => {
+  it('rejects an uppercase SHA (must be lowercase hex)', () => {
+    const f = validFixture()
+    f['hermes_ref'] = 'v2026.5.16@A91A57FA5A13D516C38B07A141A9CE8A3DAABEB0'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidFormat')
+  })
+
+  it('rejects a date-tag with an empty @sha', () => {
+    const f = validFixture()
+    f['hermes_ref'] = 'v2026.5.16@'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidFormat')
+  })
+
+  it('rejects a bare content-hash SHA (no v{date}@ prefix)', () => {
     const f = validFixture()
     f['hermes_ref'] = '7ce6b504a269ac3f9aed5b406b7a18c432e2fdb5'
     const r = validate(f)
@@ -1166,12 +1192,12 @@ describe('validate — voice_cohorts (#857)', () => {
 describe('resolveCohortVocabulary (#857)', () => {
   it('returns BASE_VOICE_COHORTS when voice_cohorts is null', async () => {
     const { resolveCohortVocabulary, BASE_VOICE_COHORTS } =
-      await import('../src/lib/ai-employee/customer-yaml')
+      await import('../src/lib/operator/customer-yaml')
     expect(resolveCohortVocabulary(null)).toEqual(BASE_VOICE_COHORTS)
   })
 
   it('returns the customer cohort list when present', async () => {
-    const { resolveCohortVocabulary } = await import('../src/lib/ai-employee/customer-yaml')
+    const { resolveCohortVocabulary } = await import('../src/lib/operator/customer-yaml')
     const resolved = resolveCohortVocabulary({
       cohorts: ['client', 'mediator'],
       min_samples_per_cohort: null,
@@ -1652,5 +1678,369 @@ describe('validate — ADR 0021 webhook_triggers', () => {
       throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
     }
     expect(r.value.webhook_triggers).toEqual([])
+  })
+})
+
+// -----------------------------------------------------------------------------
+// Vertical pinned form + addons + extends (ADR 0022 Stream 1)
+// -----------------------------------------------------------------------------
+
+describe('validate — vertical pinned form (ADR 0022)', () => {
+  it('accepts bare vertical (back-compat path)', () => {
+    const r = validate(validFixture())
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.vertical).toBe('law-firm')
+    expect(r.value.vertical_version).toBeNull()
+  })
+
+  it('accepts pinned vertical (law-firm@1.4.0)', () => {
+    const f = validFixture()
+    f['vertical'] = 'law-firm@1.4.0'
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.vertical).toBe('law-firm')
+    expect(r.value.vertical_version).toBe('1.4.0')
+  })
+
+  it('rejects malformed semver (missing patch)', () => {
+    const f = validFixture()
+    f['vertical'] = 'law-firm@1.4'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidVerticalSpec')
+  })
+
+  it('rejects pre-release suffix (1.4.0-rc1)', () => {
+    const f = validFixture()
+    f['vertical'] = 'law-firm@1.4.0-rc1'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidVerticalSpec')
+  })
+
+  it('rejects empty version (law-firm@)', () => {
+    const f = validFixture()
+    f['vertical'] = 'law-firm@'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidVerticalSpec')
+  })
+
+  it('rejects empty vertical (@1.4.0)', () => {
+    const f = validFixture()
+    f['vertical'] = '@1.4.0'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidVerticalSpec')
+  })
+
+  it('rejects unknown vertical in pinned form', () => {
+    const f = validFixture()
+    f['vertical'] = 'petshop@1.0.0'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('EnumViolation')
+  })
+
+  it('rejects non-string vertical', () => {
+    const f = validFixture()
+    f['vertical'] = 42
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('TypeMismatch')
+  })
+})
+
+describe('validate — addons array (ADR 0022)', () => {
+  it('accepts omitted addons (defaults to empty list)', () => {
+    const r = validate(validFixture())
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.addons).toEqual([])
+  })
+
+  it('accepts empty addons array', () => {
+    const f = validFixture()
+    f['addons'] = []
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.addons).toEqual([])
+  })
+
+  it('accepts single registered addon (law-firm/pi@2.1.0)', () => {
+    const f = validFixture()
+    f['addons'] = ['law-firm/pi@2.1.0']
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.addons).toEqual([{ vertical: 'law-firm', addon: 'pi', version: '2.1.0' }])
+  })
+
+  it('rejects addons as non-array', () => {
+    const f = validFixture()
+    f['addons'] = 'law-firm/pi@2.1.0'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('TypeMismatch')
+  })
+
+  it('rejects addon entry missing slash', () => {
+    const f = validFixture()
+    f['addons'] = ['law-firm-pi@2.1.0']
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidAddonSpec')
+  })
+
+  it('rejects addon entry missing version', () => {
+    const f = validFixture()
+    f['addons'] = ['law-firm/pi']
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidAddonSpec')
+  })
+
+  it('rejects addon entry with malformed semver', () => {
+    const f = validFixture()
+    f['addons'] = ['law-firm/pi@2.1']
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidAddonSpec')
+  })
+
+  it('rejects addon referencing unknown vertical', () => {
+    const f = validFixture()
+    f['addons'] = ['petshop/pi@1.0.0']
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('EnumViolation')
+  })
+
+  it('rejects addon slug not registered under the parent vertical', () => {
+    const f = validFixture()
+    f['addons'] = ['law-firm/notreal@1.0.0']
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('UnknownAddon')
+  })
+
+  it('rejects duplicate addon entries', () => {
+    const f = validFixture()
+    f['addons'] = ['law-firm/pi@2.1.0', 'law-firm/pi@2.1.1']
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('InvalidAddonSpec')
+  })
+})
+
+describe('validate — extends reserved (ADR 0022)', () => {
+  it('rejects top-level extends with explicit error', () => {
+    const f = validFixture()
+    f['extends'] = 'law-firm@1.0.0'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('ExtendsReserved')
+    expect(r.errors.find((e) => e.code === 'ExtendsReserved')?.message).toMatch(/reserved/i)
+  })
+
+  it('does not flag extends when absent', () => {
+    const r = validate(validFixture())
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    // No ExtendsReserved error in the success path.
+    expect(r.ok).toBe(true)
+  })
+})
+
+describe('validate — memory.r2_skill_bodies_* known-optional (ADR 0022)', () => {
+  it('accepts memory block without skill_bodies fields', () => {
+    const r = validate(validFixture())
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.memory.r2_skill_bodies_bucket).toBeNull()
+    expect(r.value.memory.r2_skill_bodies_prefix).toBeNull()
+  })
+
+  it('accepts memory block with skill_bodies fields populated', () => {
+    const f = validFixture()
+    ;(f['memory'] as Record<string, unknown>)['r2_skill_bodies_bucket'] =
+      'smd-operator-skill-bodies'
+    ;(f['memory'] as Record<string, unknown>)['r2_skill_bodies_prefix'] = 'smith-pi-firm/'
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.memory.r2_skill_bodies_bucket).toBe('smd-operator-skill-bodies')
+    expect(r.value.memory.r2_skill_bodies_prefix).toBe('smith-pi-firm/')
+  })
+
+  it('rejects skill_bodies_bucket as non-string', () => {
+    const f = validFixture()
+    ;(f['memory'] as Record<string, unknown>)['r2_skill_bodies_bucket'] = 123
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'memory.r2_skill_bodies_bucket' && e.code === 'TypeMismatch')
+    ).toBe(true)
+  })
+
+  it('rejects skill_bodies_prefix as empty string', () => {
+    const f = validFixture()
+    ;(f['memory'] as Record<string, unknown>)['r2_skill_bodies_prefix'] = ''
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'memory.r2_skill_bodies_prefix' && e.code === 'EmptyField')
+    ).toBe(true)
+  })
+})
+
+// -----------------------------------------------------------------------------
+// Telegram block (ADR 0033) — optional; fail-closed allowlist
+// -----------------------------------------------------------------------------
+
+describe('validate — telegram block (ADR 0033)', () => {
+  it('accepts an enabled block with a non-empty numeric allow_from', () => {
+    const f = validFixture()
+    f['telegram'] = { enabled: true, allow_from: ['7367659986'], require_mention: false }
+    const r = validate(f)
+    expect(r.ok).toBe(true)
+  })
+
+  it('accepts absence of the block (optional)', () => {
+    const r = validate(validFixture())
+    expect(r.ok).toBe(true)
+  })
+
+  it('rejects enabled with an empty allow_from (fail-open trap)', () => {
+    const f = validFixture()
+    f['telegram'] = { enabled: true, allow_from: [] }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'telegram.allow_from' && e.code === 'MissingField')
+    ).toBe(true)
+  })
+
+  it('rejects enabled with allow_from omitted', () => {
+    const f = validFixture()
+    f['telegram'] = { enabled: true }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'telegram.allow_from')).toBe(true)
+  })
+
+  it('rejects a non-numeric allow_from entry', () => {
+    const f = validFixture()
+    f['telegram'] = { enabled: true, allow_from: ['@scott'] }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'telegram.allow_from[0]')).toBe(true)
+  })
+
+  it('rejects a non-boolean require_mention', () => {
+    const f = validFixture()
+    f['telegram'] = { enabled: true, allow_from: ['7367659986'], require_mention: 'no' }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'telegram.require_mention')).toBe(true)
+  })
+})
+
+// -----------------------------------------------------------------------------
+// google_auth (DWD vs user-OAuth) — ss-console #1213
+// -----------------------------------------------------------------------------
+
+describe('validate — google_auth', () => {
+  const DWD_SCOPES = [
+    'https://www.googleapis.com/auth/gmail.modify',
+    'https://www.googleapis.com/auth/gmail.send',
+    'https://www.googleapis.com/auth/calendar.events',
+    'https://www.googleapis.com/auth/drive',
+    'https://www.googleapis.com/auth/documents',
+    'https://www.googleapis.com/auth/spreadsheets',
+  ]
+
+  it('defaults google_auth to null when the block is absent (user-OAuth)', () => {
+    const r = validate(validFixture())
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.google_auth).toBeNull()
+  })
+
+  it('accepts mode: user_oauth with null subject and empty scopes', () => {
+    const f = validFixture()
+    f['google_auth'] = { mode: 'user_oauth' }
+    const r = validate(f)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.google_auth).toEqual({ mode: 'user_oauth', subject: null, scopes: [] })
+  })
+
+  it('accepts a complete dwd block', () => {
+    const f = validFixture()
+    f['google_auth'] = { mode: 'dwd', subject: 'owner@firm.com', scopes: DWD_SCOPES }
+    const r = validate(f)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.google_auth).toEqual({
+      mode: 'dwd',
+      subject: 'owner@firm.com',
+      scopes: DWD_SCOPES,
+    })
+  })
+
+  it('rejects an unknown mode', () => {
+    const f = validFixture()
+    f['google_auth'] = { mode: 'service_account', subject: 'owner@firm.com', scopes: DWD_SCOPES }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'google_auth.mode' && e.code === 'EnumViolation')).toBe(
+      true
+    )
+  })
+
+  it('fails closed: dwd without a subject', () => {
+    const f = validFixture()
+    f['google_auth'] = { mode: 'dwd', scopes: DWD_SCOPES }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'google_auth.subject')).toBe(true)
+  })
+
+  it('fails closed: dwd with an empty scopes list', () => {
+    const f = validFixture()
+    f['google_auth'] = { mode: 'dwd', subject: 'owner@firm.com', scopes: [] }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'google_auth.scopes' && e.code === 'EmptyList')).toBe(
+      true
+    )
+  })
+
+  it('rejects a non-object google_auth', () => {
+    const f = validFixture()
+    f['google_auth'] = 'dwd'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'google_auth' && e.code === 'TypeMismatch')).toBe(true)
   })
 })

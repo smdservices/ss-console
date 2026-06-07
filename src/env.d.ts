@@ -7,6 +7,12 @@ declare module '*.wasm' {
   export default module
 }
 
+/** Raw-text imports (Vite ?raw) — used to load operator skill bodies as the single source of truth. */
+declare module '*.md?raw' {
+  const content: string
+  export default content
+}
+
 /**
  * Service binding shape for the `ss-enrichment-workflow` Worker (#631).
  * ss-web's lead-gen workers and admin endpoints dispatch entity enrichment
@@ -76,6 +82,12 @@ declare namespace Cloudflare {
      */
     RESEND_WEBHOOK_SECRET?: string
     ANTHROPIC_API_KEY?: string
+    /** ElevenLabs API key (voice agent for the assessment funnel). Org key from /vc. */
+    ELEVENLABS_API_KEY?: string
+    /** ID of the ElevenLabs assessment agent (custom-LLM = our interviewer). */
+    ELEVENLABS_ASSESSMENT_AGENT_ID?: string
+    /** Optional shared secret the agent's custom-LLM sends as `Authorization: Bearer`. */
+    ELEVENLABS_LLM_SECRET?: string
     SIGNWELL_API_KEY?: string
     SIGNWELL_WEBHOOK_SECRET?: string
     STRIPE_API_KEY?: string
@@ -149,7 +161,7 @@ declare namespace Cloudflare {
     CLERK_SECRET_KEY?: string
     /**
      * Microsoft Graph OAuth 2.0 client ID and secret. Used by the
-     * ai-employee OAuth callback (issue #879) to exchange authorization
+     * Operator OAuth callback (issue #879) to exchange authorization
      * codes for tokens during connector consent flows. Issued by an
      * Azure AD app registration whose redirect URI list includes
      * `${ADMIN_BASE_URL}/api/oauth/callback`.
@@ -158,7 +170,7 @@ declare namespace Cloudflare {
     MICROSOFT_GRAPH_CLIENT_SECRET?: string
     /**
      * HMAC-SHA256 signing key for stateless OAuth state parameters used
-     * by /api/oauth/callback (issue #879, ai-employee connector consent).
+     * by /api/oauth/callback (issue #879, Operator connector consent).
      * 32 random bytes, base64-encoded. Generate with
      * `openssl rand -base64 32`. Rotation: bump the secret in Workers
      * env; in-flight states issued under the old key fail validation at
@@ -167,6 +179,14 @@ declare namespace Cloudflare {
      * src/lib/oauth/state.ts.
      */
     OAUTH_STATE_SIGNING_KEY?: string
+    /**
+     * Fly.io API token (SMD-owned, from Infisical) used by the OAuth token
+     * relay (`src/lib/oauth/store.ts`) to set a customer app's
+     * `GOOGLE_TOKEN_JSON` secret and restart its Machine on connect/re-consent.
+     * Must be a Worker secret, never a `[vars]` entry. Scope it to the
+     * customer apps it manages. See the OAuth-token-relay ADR.
+     */
+    FLY_API_TOKEN?: string
     /**
      * Cloudflare account id and D1 HTTP API token, used by the Captain
      * cost dashboard (issue #885) to read per-customer `cost_telemetry`
@@ -181,6 +201,32 @@ declare namespace Cloudflare {
      */
     CF_ACCOUNT_ID?: string
     CF_D1_API_TOKEN?: string
+    /**
+     * Shared bearer secret for the per-customer Operator Machine
+     * heartbeat path (`POST /api/internal/heartbeat`). Wave 1 uses a
+     * single shared key authenticating ANY Machine; the X-Tenant-Slug
+     * header identifies the tenant. Single-secret shape is right-sized
+     * for fleet-of-one (SMD customer-zero); per-tenant upgrade path is
+     * documented in ADR 0023 §"Cross-cutting calls" #10 (gated on
+     * customer #2 onboarding). Generated with `openssl rand -hex 32`.
+     */
+    MACHINE_HEARTBEAT_KEY?: string
+    /**
+     * Sentry Internal Integration Client Secret used to verify
+     * `Sentry-Hook-Signature` headers on inbound alert-rule webhook
+     * deliveries to `/api/webhooks/sentry`. Pulled from the SMD-owned
+     * `smd-operator` Sentry project's Internal Integration settings
+     * (ADR 0023 Wave 1).
+     */
+    SENTRY_WEBHOOK_SECRET?: string
+    /**
+     * Shared bearer token for inbound healthchecks.io webhook deliveries
+     * to `/api/webhooks/healthchecks`. Healthchecks.io does NOT sign
+     * webhooks, so the integration is configured with an
+     * `Authorization: Bearer <secret>` header set in the healthchecks.io
+     * UI (ADR 0023 Wave 1).
+     */
+    HEALTHCHECKS_WEBHOOK_SECRET?: string
   }
 }
 

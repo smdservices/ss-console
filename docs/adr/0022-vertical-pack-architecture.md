@@ -5,7 +5,7 @@ status: accepted
 captain: Scott Durgan
 supersedes: none
 related-prd: none
-related-spec: docs/specs/ai-employee/vertical-manifest-schema.md (to land alongside first migration PR)
+related-spec: docs/specs/operator/vertical-manifest-schema.md (to land alongside first migration PR)
 related-issue: '#1091'
 ---
 
@@ -13,7 +13,7 @@ related-issue: '#1091'
 
 **Status:** Accepted (Captain decision, 2026-05-25).
 
-**Source:** A strategic design conversation on how to package the AI Employee
+**Source:** A strategic design conversation on how to package the Operator
 SKU for multiple business verticals (law, accounting, home services,
 healthcare, etc.) without scattering vertical-specific changes across the
 existing flat filesystem layout, and how to preserve a customer's evolution
@@ -31,11 +31,11 @@ templates, fixtures, compliance constraints) is packaged.
 
 Today, vertical specialization exists as a naming convention:
 
-- PI-specific skills live in `ai-employee/skills/` with a `law-pi-*` prefix
+- PI-specific skills live in `operator/skills/` with a `law-pi-*` prefix
 - PI-specific connectors (`filevine`, `clio`, `lawpay`) live flat under
-  `ai-employee/connectors/` alongside generic ones (`gmail`, `qbo`)
-- PI fixtures live at `ai-employee/fixtures/law-firm/pi/`
-- A single `ai-employee/customers/_template/customer.yaml` exists; no
+  `operator/connectors/` alongside generic ones (`gmail`, `qbo`)
+- PI fixtures live at `operator/fixtures/law-firm/pi/`
+- A single `operator/customers/_template/customer.yaml` exists; no
   vertical-default templates
 
 Two failure modes if this stays informal:
@@ -63,7 +63,7 @@ expensive to retrofit.
 A three-layer architecture, with vertical as a first-class artifact, and an
 event-sourced state substrate commitment.
 
-### Layer 1: Platform (`ai-employee/core/`)
+### Layer 1: Platform (`operator/core/`)
 
 Same for every customer regardless of vertical. Hermes substrate, plugin
 overlay (`hermes-smd-audit`, `-trust`, `-voice`, `-memory-mirror`,
@@ -74,12 +74,12 @@ enforcement, audit emission, voice transformation pipeline.
 
 No vertical-specific code lives at this layer.
 
-### Layer 2: Vertical Packs and Add-on Packs (`ai-employee/verticals/`)
+### Layer 2: Vertical Packs and Add-on Packs (`operator/verticals/`)
 
 Filesystem layout:
 
 ```
-ai-employee/
+operator/
   verticals/
     law/
       vertical.yaml          # manifest: declared skills, connectors, personas, compliance, templates, fixtures, evals, version
@@ -166,7 +166,7 @@ trail is sufficient to express what was original and what evolved.
 
 ### Time-machine substrate commitment
 
-**Every state-changing operation in the AI Employee substrate MUST be
+**Every state-changing operation in the Operator substrate MUST be
 event-sourced into D1 with enough fidelity for retrospective reconstruction.**
 This is a substrate constraint that applies to every new state-mutating
 subsystem from this ADR forward, not a feature.
@@ -216,7 +216,7 @@ they are until the vertical manifest schema lands; migration into
 
 Order of operations:
 
-1. **Vertical manifest schema PR** — `docs/specs/ai-employee/vertical-manifest-schema.md`,
+1. **Vertical manifest schema PR** — `docs/specs/operator/vertical-manifest-schema.md`,
    `vertical.yaml` and `addon.yaml` reference structures, customer.yaml schema
    extension for `vertical:` + `addons:`.
 2. **Substrate gap PRs** — agent-authored skill file content persistence to

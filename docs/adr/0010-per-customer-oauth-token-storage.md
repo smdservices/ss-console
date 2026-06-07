@@ -4,7 +4,7 @@ date: 2026-05-20
 status: accepted
 captain: Scott Durgan
 supersedes: none
-related-prd: docs/pm/ai-employee/platform-prd.md §7.3, docs/specs/ai-employee/oauth-lifecycle.md
+related-prd: docs/specs/operator/oauth-lifecycle.md
 related-issue: https://github.com/venturecrane/ss-console/issues/878
 ---
 
@@ -12,7 +12,7 @@ related-issue: https://github.com/venturecrane/ss-console/issues/878
 
 **Status:** Accepted.
 
-**Source:** [#878](https://github.com/venturecrane/ss-console/issues/878). Spec-author ambiguity surfaced: the LawPay connector landed in PR #812 reads tokens from a Fly-volume `tokens.json`, while the OAuth lifecycle spec (#789, now `docs/specs/ai-employee/oauth-lifecycle.md`) referenced Infisical. The first connectors are shipping; a pick is needed before more layer in.
+**Source:** [#878](https://github.com/venturecrane/ss-console/issues/878). Spec-author ambiguity surfaced: the LawPay connector landed in PR #812 reads tokens from a Fly-volume `tokens.json`, while the OAuth lifecycle spec (#789, now `docs/specs/operator/oauth-lifecycle.md`) referenced Infisical. The first connectors are shipping; a pick is needed before more layer in.
 
 ## Decision
 
@@ -33,6 +33,7 @@ Shared SMD-side secrets (Anthropic API key, Composio API key, AgentMail API key,
 - File permissions: `0600`, owned by the `hermes` user (uid 10000)
 - Filesystem: per-customer Fly volume (already provisioned per ADR 0007)
 - Format: JSON `{ "access_token": <str>, "refresh_token": <str>, "scopes": [...], "expires_at": <iso8601>, "obtained_at": <iso8601>, "provider": <str> }`
+  - **Amended by [ADR 0036](./0036-oauth-token-relay-fly-secret-restart.md) (2026-06-02):** this shape was aspirational and does not match the connector code. The Google connectors read the file via `google.oauth2.credentials.Credentials.from_authorized_user_file`, so the authoritative on-disk shape is the **google-auth authorized-user JSON**: `{ "token", "refresh_token", "token_uri", "client_id", "client_secret", "scopes": [...], "universe_domain", "account", "expiry": <iso8601> }`. The relay (`src/lib/oauth/store.ts`) emits exactly this. Other providers follow their own client library's on-disk format.
 - Never logged. Never echoed. Token reads are recorded in the audit log as `oauth.token_read { provider, scopes, ts }` (no token value).
 
 ## Why Fly volume over Infisical
@@ -69,7 +70,7 @@ Customer OAuth tokens — Google, Microsoft, Clio, LawPay, QuickBooks, Slack, Gi
 
 ## What lives in the customer.yaml schema
 
-Per the formal schema (`docs/specs/ai-employee/customer-yaml-schema.md`), `customer.yaml` already excludes literal secret values. The OAuth section declares scopes only:
+Per the formal schema (`docs/specs/operator/customer-yaml-schema.md`), `customer.yaml` already excludes literal secret values. The OAuth section declares scopes only:
 
 ```yaml
 oauth_scopes:

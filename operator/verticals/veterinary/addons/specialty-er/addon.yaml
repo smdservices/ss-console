@@ -1,0 +1,43 @@
+# Add-on pack manifest: veterinary/specialty-er
+#
+# Schema: docs/specs/operator/vertical-manifest-schema.md (identical to
+# vertical.yaml). `name` MUST appear in ACCEPTED_ADDONS['veterinary'] in
+# src/lib/operator/customer-yaml/types.ts (specialty-er is registered). Add-on
+# assets are ADDITIVE on top of the veterinary base; the base does not declare
+# them.
+#
+# Specialty / emergency hospital connective skin: inbound referral intake from
+# referring veterinarians (rDVMs), referral-status updates back to the rDVM, and
+# discharge-summary routing to the rDVM. The same no-medical-advice and
+# emergency-escalation floors as the base apply; referral coordination is
+# connective only.
+
+name: specialty-er
+version: 0.1.0
+
+# Additive floors on top of the base veterinary compliance set.
+compliance:
+  - referral-coordination-connective-only # relay referrals and status; never clinical content of our own
+  - rdvm-consent-on-shared-records # patient detail to an rDVM only as the hospital authorizes
+
+personas: []
+
+# Specialty/ER-specific connective skills (bodies in hermes-smd-overlay).
+skills:
+  - referral-intake-router # intakes an rDVM referral, routes to the right service
+  - referral-status-updater # sends authored status back to the referring vet
+  - discharge-summary-router # routes the doctor's authored discharge summary to the rDVM
+
+# Inherits the base veterinary connectors.
+connectors: []
+
+templates:
+  - referral-acknowledgment-rdvm.md
+  - referral-status-update-rdvm.md
+
+fixtures:
+  - synthetic-referral-ortho
+
+evals:
+  - cert-specialty-referral-connective-only
+  - cert-rdvm-consent-respected

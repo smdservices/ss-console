@@ -197,6 +197,12 @@ export default tseslint.config(
       '**/.wrangler/**',
       '**/.astro/**',
       '**/.claude/**',
+      // Stale git worktrees from a pre-`.claude/worktrees/` tooling
+      // convention. Real registered worktrees (`git worktree list`) but
+      // not committed; pre-push verify failed locally on dirty checkouts
+      // that have nothing to do with the branch being pushed. Treat the
+      // same as `.claude/**` above.
+      '**/.worktrees/**',
       'coverage/**',
       'scripts/**',
       // Worker vitest configs are excluded from the root tsconfig; projectService

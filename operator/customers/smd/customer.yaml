@@ -1,0 +1,181 @@
+schema_version: 1
+
+# SMD Services customer Operator.
+#
+# AUTHORED by the aie-onboard skill (2026-05-31) from the REAL onboarding interview
+# at operator/customers/smd/onboarding-interview-2026-05-31.md. This REPLACES the
+# prior config, which was seeded from a test fixture (aie-onboard test-cases.md Case 1)
+# and carried the wrong identity (venturecrane.com) for a long time.
+#
+# Every value below traces to a stated interview answer. Capabilities the substrate
+# cannot yet honor are NOT encoded here — they live as open-items in onboarding-plan.md.
+# Crane is provisioned as a customer Workspace employee. Google authority is a
+# customer-owned service account with domain-wide delegation impersonating the
+# Operator's Workspace user, materialized on the customer Machine. Action ceilings
+# and content-sensitivity floors still govern when the Operator may use that
+# authority autonomously.
+#
+# Not provisioned, not committed by the skill. Captain reviews before either.
+
+# ---- IDENTITY ----
+customer_id: smd
+customer_name: 'SMDurgan, LLC'
+vertical: mixed # interview §Runtime; enum has no consulting/services value (#1141)
+fly_region: lax # "We're in Phoenix" → closest Fly region
+
+# ---- RUNTIME ----
+# Interview wants TIERED models (routine: claude-sonnet-4-6, sensitive: claude-opus-4-8).
+# The schema has a single `model:` string — per-task tiering is a schema gap (open-item).
+# Set to the sensitive-tier default; drafting the principal's mail is sensitive work.
+model: claude-opus-4-8
+hermes_ref: v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
+
+machine:
+  size: shared-cpu-1x
+  memory_mb: 1024
+
+# ---- GOOGLE WORKSPACE AUTHORITY ----
+# Customer-owned Google Cloud service account with domain-wide delegation.
+# GOOGLE_SERVICE_ACCOUNT_JSON is a Fly secret containing base64-encoded service
+# account JSON. Bootstrap writes it to /opt/data/oauth/google.json and exports the
+# subject + scope list for the Google connector CLIs.
+google_auth:
+  mode: dwd
+  subject: crane@smd.services
+  scopes:
+    - https://www.googleapis.com/auth/gmail.modify
+    - https://www.googleapis.com/auth/gmail.send
+    - https://www.googleapis.com/auth/calendar.events
+    - https://www.googleapis.com/auth/drive
+    - https://www.googleapis.com/auth/documents
+    - https://www.googleapis.com/auth/spreadsheets
+
+# ---- HUMANS WITH PORTAL ACCESS ----
+users:
+  - email: scott@smd.services
+    role: principal
+    full_name: Scott Durgan
+    # Real writing samples are an onboarding open-item; until then Layer 2 falls
+    # back to general.
+    voice_profile_id: scott
+
+# ---- PERSONAS ----
+# "I want to call the assistant Crane ... a Chief of Staff, not a secretary."
+personas:
+  - slug: crane
+    status: active
+    name: Crane
+    title: Chief of Staff
+    # "plainspoken and direct — executive-summary first ... keep it short."
+    tone:
+      - plainspoken
+      - direct
+      - executive-summary
+      - concise
+    # v1 skill: inbox-triage. The Workspace credential can read, write, and send
+    # as Crane's customer-owned Workspace user. Trust ceilings and content floors
+    # decide whether a given external communication is sent or drafted.
+    #
+    # NOTE: the `workspace` skill (on-demand Gmail/Calendar/Drive read+draft) is NOT
+    # bound here yet. Its SKILL.md exists in the repo, but a customer Machine's skill
+    # catalog is served from the per-customer R2 skills bucket (ss-operator-smd-skills),
+    # and there is no pipeline step that pushes a newly-added repo skill into that
+    # bucket. Binding it before it's deployed crashes boot (skill-pin resolution).
+    # Re-add once the skill-deployment pipeline lands (tracked follow-on).
+    skills:
+      - name: inbox-triage
+        version: pending
+        trust_ceiling: draft_for_review
+        enabled: true
+    # Native Google/Himalaya skills remain disabled because this customer uses
+    # the audited BUILD connector CLIs and the customer-owned DWD credential.
+    skills_disabled:
+      - google-workspace
+      - himalaya
+    # "reading what comes in ... hourly, 0700–1900 Phoenix."
+    cron:
+      - skill: inbox-triage
+        schedule: '0 7-19 * * *' # hourly 0700–1900 (fly_region: lax tz)
+        wake_policy: always
+
+# ---- CONNECTORS ----
+# Google Workspace rides BUILD adapters per ADR 0020 on the shared DWD credential
+# declared in google_auth. The Machine acts as Crane's customer-owned computer.
+connectors:
+  Email:
+    adapter: google-gmail
+    backend: build:google-gmail
+    enabled: true
+  Calendar:
+    adapter: google-calendar
+    backend: build:google-calendar
+    enabled: true
+  DocumentStorage:
+    adapter: google-drive
+    backend: build:google-drive
+    enabled: true
+
+# ---- TELEGRAM CHANNEL (ADR 0033) ----
+# Crane is reachable on Telegram via Hermes' native polling adapter (getUpdates).
+# No webhook/public surface. The bot TOKEN is the Fly
+# secret TELEGRAM_BOT_TOKEN, which auto-enables the polling platform.
+# The image must be built with the Dockerfile `--extra messaging` (python-telegram-bot);
+# `--extra all` omits it.
+#
+# The ALLOWLIST below is the AUTHORED SOURCE OF TRUTH (not a loose Fly secret): the
+# overlay translate.py _materialize_telegram_platform materializes it into the profile
+# config.yaml `telegram:` block, which Hermes maps to TELEGRAM_ALLOWED_USERS.
+# MANDATORY and fail-closed: the pinned Hermes ref allows ALL users when the allowlist
+# is empty (telegram.py: `if not allowed_csv: return True`); the materializer raises on
+# an empty allow_from, and the bootstrap guard (ensure-telegram-allowlist.py) refuses to
+# launch if the token is set without a resolvable allowlist. Proven live 2026-06-01.
+telegram:
+  enabled: true
+  # Permitted Telegram numeric user id(s). DM-only. 7367659986 = Scott Durgan.
+  allow_from:
+    - '7367659986'
+  # 1:1 DM assistant: reply to every DM from an allowed user (no @mention needed).
+  require_mention: false
+
+# ---- SCOPE ----
+scope:
+  email_folders_visible:
+    - Inbox
+  email_folders_blind: []
+  email_keyword_blocks: []
+  domain_blocks: []
+  # Autonomous external sends act only on direction from trusted senders
+  # (interview: smdurgan.com / smd.services). Untrusted/spoofed senders are
+  # triaged only.
+  trusted_sender_domains:
+    - smdurgan.com
+    - smd.services
+  # ---- TRUST CEILINGS (per-action, ADR 0025) ----
+  # Crane may send externally from its customer Workspace identity within the
+  # authored ceiling. Floors still apply on top: content-sensitivity floor
+  # (ADR 0031) drops money/contract/scope/legal to draft-for-review;
+  # commitment/destructive actions keep their approval floors.
+  action_ceilings:
+    external_send: autonomous
+
+# ---- ESCALATION ----
+# "just flag it to me" → red flags + run failures go to the boss/escalation address.
+escalation:
+  red_flag_recipients:
+    - team@smd.services
+  failure_recipients:
+    - team@smd.services
+
+# ---- VOICE LIBRARY ----
+# Deterministic R2 path. The principal supplied NO writing samples in the interview —
+# sample collection is an open onboarding item (onboarding-plan.md Phase 1). Not fabricated.
+voice_library:
+  samples_path: 'r2://vaults/smd/voice/samples/'
+
+# ---- MEMORY (per-customer isolation invariants; must match customer_id) ----
+# Phase 1 runs on Hermes' flat-file memory core (MEMORY.md/USER.md). Inferred memory
+# (Honcho) is deferred to Phase 2 — see ADR 0016 (revised 2026-05-30).
+memory:
+  d1_namespace: smd
+  r2_vault_path: 'vaults/smd/'
+  vectorize_index: 'hermes-smd-vault'

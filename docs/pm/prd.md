@@ -1552,6 +1552,5 @@ All 20 issues from the PRD review panel have been resolved. Decisions made 2026-
 ---
 
 _SMD Services Client Portal - Product Requirements Document | Confidential_
-_Source: docs/pm/prd-contributions/ (round-1 audit trail)_
 
 <!-- Synthesis: 19 sections, 12711 words, 0 unresolved issues, 1 round, all resolved 2026-03-30 -->

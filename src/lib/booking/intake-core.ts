@@ -35,7 +35,7 @@ export interface IntakeInput {
   howHeard?: string | null
   /**
    * Productized SKU the prospect arrived inquiring about (e.g.
-   * 'ai-employee'). Set when /book is reached from a product-detail
+   * 'operator'). Set when /book is reached from a product-detail
    * marketing CTA. Stored in context metadata and surfaced in the
    * admin notification so sales can route the lead. Allowed values
    * are validated at the API boundary; this field accepts the
@@ -216,7 +216,7 @@ async function resolveMeeting(
 }
 
 const INTEREST_LABELS: Record<string, string> = {
-  'ai-employee': 'AI Employee',
+  operator: 'Operator',
 }
 
 function buildIntakeLines(input: IntakeInput): string[] {

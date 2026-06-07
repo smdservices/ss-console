@@ -56,11 +56,11 @@ coverage/
 # commit (contains tenant data). See migrations/rollbacks/README.md.
 backups/
 
-# AI Employee per-customer rendered output (fly.toml etc. with customer slugs
+# Operator per-customer rendered output (fly.toml etc. with customer slugs
 # substituted in). The templates and customer.yaml configs are tracked; the
 # rendered artifacts are per-deploy and gitignored.
-ai-employee/.rendered/
-ai-employee/safety-substrate/logs/
+operator/.rendered/
+operator/safety-substrate/logs/
 
 # Python build artifacts (setuptools generates these inside each connector
 # package on `pip install -e .`). Track pyproject.toml, never the egg-info.

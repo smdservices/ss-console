@@ -4,15 +4,14 @@ date: 2026-05-20
 status: accepted
 captain: Scott Durgan
 supersedes: none
-related-prd: docs/pm/ai-employee/platform-prd.md §7.1, §7.5 (invariant #7), §17.4
 related-issue: https://github.com/venturecrane/ss-console/issues/828
 ---
 
 # ADR 0009 — Cross-Machine Query Prohibition
 
-**Status:** Accepted (Captain decision; embedded in the AI Employee PRDs since first draft; recorded here as a standalone ADR per [#828](https://github.com/venturecrane/ss-console/issues/828)).
+**Status:** Accepted (Captain decision; embedded in the Operator PRDs since first draft; recorded here as a standalone ADR per [#828](https://github.com/venturecrane/ss-console/issues/828)).
 
-**Source:** Platform PRD §7.5 safety substrate (invariant #7) and §17.4 (0 cross-customer incidents target). Pairs with [ADR 0007](./0007-per-customer-machine-isolation.md) (deployment-level isolation) and [ADR 0008](./0008-customer-owned-memory-artifact.md) (data-ownership posture). Reinforced by `synthesis-round-1.md` Theme 17 (CI gate on shared catalog merges).
+**Source:** The safety-substrate cross-customer isolation invariant (#7) and the zero-cross-customer-incidents target. Pairs with [ADR 0007](./0007-per-customer-machine-isolation.md) (deployment-level isolation) and [ADR 0008](./0008-customer-owned-memory-artifact.md) (data-ownership posture).
 
 ---
 
@@ -77,18 +76,12 @@ The shared embeddings prohibition follows directly: there is no platform-level V
 
 ## Implementation
 
-- Platform PRD §7.5 invariant #7 records the runtime check.
 - Boot-time check lives in the Hermes container's startup sequence; the check's contract is part of the Hermes runtime pin (per PRD §7.4).
-- CI merge gate is a GitHub Actions workflow gating PRs to `ai-employee/skills/*`, `ai-employee/capabilities/*`, `ai-employee/connectors/*`, and any platform-level prompt templates. The workflow scans diffs for: customer-slug patterns, firm-name patterns, matter-identifier patterns, and substantive-content heuristics. False positives go to human review.
+- CI merge gate is a GitHub Actions workflow gating PRs to `operator/skills/*`, `operator/capabilities/*`, `operator/connectors/*`, and any platform-level prompt templates. The workflow scans diffs for: customer-slug patterns, firm-name patterns, matter-identifier patterns, and substantive-content heuristics. False positives go to human review.
 - Both mechanisms are exercised in the regression test suite per PRD §17.4 (synthetic-fixture-driven cross-customer adversarial tests).
 
 ## References
 
-- Platform PRD §7.1 Multi-tenant model
-- Platform PRD §7.5 Safety substrate (invariant #7)
-- Platform PRD §17.4 (0 cross-customer incidents target)
-- Platform PRD §10.5 Memory isolation
-- `docs/pm/ai-employee/prd-contributions/synthesis-round-1.md` Theme 17 (CI gate on shared catalog merges)
 - [ADR 0007 Per-customer Machine isolation](./0007-per-customer-machine-isolation.md)
 - [ADR 0008 Customer-owned memory artifact](./0008-customer-owned-memory-artifact.md)
 - [Issue #828](https://github.com/venturecrane/ss-console/issues/828)

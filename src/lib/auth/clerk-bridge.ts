@@ -136,7 +136,7 @@ export async function resolveClerkEntity(
 /**
  * Resolve a local entity from a users.entity_id reference. Used when the
  * client is bound to an entity directly (without an intermediating Clerk
- * Organization). The AI Employee product flows still rely on Clerk Orgs
+ * Organization). The Operator product flows still rely on Clerk Orgs
  * for invitation + member management, so resolveClerkEntity(orgId) stays
  * the fallback when entity_id is null.
  */
@@ -160,9 +160,9 @@ export async function resolveEntityByUserBinding(
  * Resolution order:
  *   1. users.entity_id (explicit binding, set by admin tools)
  *   2. entities.clerk_org_id (Clerk Organization binding, used by
- *      AI Employee invitation flows)
+ *      Operator invitation flows)
  *
- * The two paths coexist because AI Employee features still need Clerk
+ * The two paths coexist because Operator features still need Clerk
  * Organizations for multi-user matter access; direct binding via
  * entity_id is the simpler path for single-user portal access.
  */

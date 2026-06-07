@@ -1,16 +1,18 @@
 ---
 title: Hermes Fork Posture — Pin-Only Fork, Plugin-Only Overlay, No Core-File Modifications
 date: 2026-05-24
-status: accepted
+status: partially-superseded
 captain: Scott Durgan
+superseded-by: 0024-hermes-consumption-and-update-cadence.md (fork half only)
 supersedes: 0015-hermes-fork-vs-upstream.md (prior version of this file; see `git log docs/adr/0015-hermes-fork-vs-upstream.md`)
-related-prd: docs/pm/ai-employee/platform-prd.md §7.1, §7.4, §7.5
 related-issue: https://github.com/venturecrane/ss-console/issues/844
 ---
 
 # ADR 0015 — Hermes Fork Posture
 
-**Status:** Accepted (Captain decision, 2026-05-24).
+> **Partially superseded 2026-05-28 by [ADR 0024](./0024-hermes-consumption-and-update-cadence.md).** The **fork half** of this ADR (the pin-only `venturecrane/hermes-agent` fork, the `v{upstream}-smd.N` tag scheme, and the security-patch escape valve hosted on the fork) is retired: a first-principles audit found the fork to be a retrofitted relic whose immutability benefit was redundant with SHA-pinning and whose availability benefit was defeated by the provision-time `git ls-remote` to upstream. SMD now pins `NousResearch/hermes-agent` directly by `v{date}@{sha}`. The **plugin-only-overlay half** of this ADR (all SMD code in `venturecrane/hermes-smd-overlay`, no core-file modifications) stands unchanged and is the durable, verified decision. Read this ADR for the overlay posture; read ADR 0024 for how Hermes is pinned, built, and updated.
+
+**Status:** Accepted 2026-05-24; fork half superseded by ADR 0024 on 2026-05-28.
 
 **Source:** The locked Hermes-alignment build plan dated 2026-05-24, following Teknium's (Nous Research lead) May 2026 policy statement and PR #5295 enforcement. This rewrite replaces the prior version which proposed a "thin vendored fork with SMD overlay layer" — a posture that, on first-source review of Hermes' plugin policy, puts SMD's overlay on the wrong side of upstream rules and creates fork-divergence costs we accepted under a false assumption about how the integration would land.
 
@@ -122,7 +124,7 @@ How we know we are following this decision:
 - [Hermes PR #5295](https://github.com/NousResearch/hermes-agent/pull/5295) — enforcement of the no-core-modification rule
 - [Hermes PR #31290](https://github.com/NousResearch/hermes-agent/pull/31290) — Teknium's profile soft-guard, Captain-merged 2026-05-24, signals architectural-vs-application boundary
 - [`eggyrooch-blip/hermes-multitenancy`](https://github.com/eggyrooch-blip/hermes-multitenancy) — community precedent for substantial plugin-based extension
-- [ADR 0004](./0004-productized-ai-employee-offering.md) — the SKU this fork posture supports
+- [ADR 0004](./0004-productized-operator-offering.md) — the SKU this fork posture supports
 - [ADR 0007](./0007-per-customer-machine-isolation.md) — per-customer Machine isolation; the per-customer pin attaches via `hermes_ref`
 - [ADR 0016 (rewrite)](./0016-honcho-disposition.md) — the symmetric "no patches to upstream code" discipline applied to Honcho
 - [ADR 0017 (rewrite)](./0017-skill-curator-disposition.md) — the symmetric "trust native, mirror, don't gate" posture applied to skill creation

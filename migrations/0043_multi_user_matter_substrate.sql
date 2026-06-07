@@ -34,7 +34,7 @@
 -- co-counsel pattern) — the UNIQUE constraint is per (entity, matter, user,
 -- active-row), enforced by the partial unique index below.  Re-assigning a
 -- matter that already has an active row for that user is a no-op (see
--- assignMatter() in src/lib/portal/ai-employee/matter-assignment.ts).
+-- assignMatter() in src/lib/portal/operator/matter-assignment.ts).
 CREATE TABLE IF NOT EXISTS matter_assignments (
   id              TEXT PRIMARY KEY,
   org_id          TEXT NOT NULL REFERENCES organizations(id),
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS matter_assignments (
 
   -- The assigned user (paralegal, principal, etc.).  REFERENCES users so a
   -- soft-deleted user row cleans up cleanly via the existing user mgmt
-  -- flow.  This is the user the AI Employee routes inbound actions to.
+  -- flow.  This is the user the Operator routes inbound actions to.
   assignee_user_id TEXT NOT NULL REFERENCES users(id),
 
   assigned_by     TEXT REFERENCES users(id),
@@ -79,7 +79,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_matter_assignments_unique_active
 --
 -- Designed for self-service: the user themselves marks themselves away.
 -- Principals MAY also mark another user away via the principal-managed
--- branch in src/lib/portal/ai-employee/pto.ts (see set_by column).  Both
+-- branch in src/lib/portal/operator/pto.ts (see set_by column).  Both
 -- cases emit an `audit:rbac_event` with subAction='pto_set'.
 --
 -- The backup user (nullable) is recommended but not required — a PTO row
@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS user_pto (
   -- `backup_user_id` if set.  When null, the action queues without
   -- auto-routing (the principal handles it at standup).  REFERENCES the
   -- same users table; the backup must hold a product_role on (entity,
-  -- 'ai-employee') — that check is enforced by set_pto() in pto.ts, not
+  -- 'operator') — that check is enforced by set_pto() in pto.ts, not
   -- the schema.
   backup_user_id  TEXT REFERENCES users(id),
 
@@ -119,7 +119,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_user_pto_unique_active
 
 -- ---------- user_notification_prefs ----------
 -- Per-user notification routing rules.  Mirrors the closed NotificationType
--- vocabulary from src/lib/portal/ai-employee/notifications.ts plus a
+-- vocabulary from src/lib/portal/operator/notifications.ts plus a
 -- per-event-scope axis ('mine' = matters assigned to this user only;
 -- 'all' = every matter on the firm).
 --
@@ -142,7 +142,7 @@ CREATE TABLE IF NOT EXISTS user_notification_prefs (
   user_id         TEXT NOT NULL REFERENCES users(id),
 
   -- Event type vocabulary mirrors NotificationType in
-  -- src/lib/portal/ai-employee/notifications.ts:
+  -- src/lib/portal/operator/notifications.ts:
   --   'draft_ready' | 'error' | 'calibration_prompt' | 'weekly_digest'
   event_type      TEXT NOT NULL,
 

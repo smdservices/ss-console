@@ -1,9 +1,9 @@
-# Cost Anomaly Worker — nightly per-customer spike detection for AI Employee
+# Cost Anomaly Worker — nightly per-customer spike detection for Operator
 # Per #886. Wires on top of the cost telemetry data path shipped in PR #1023
 # (ss-cost-telemetry runs at 02:00 UTC) and the dashboard from PR #1026.
 #
 # Each night at 03:00 UTC the worker:
-#   1. Enumerates AI Employee customers from the central customer_configs.
+#   1. Enumerates Operator customers from the central customer_configs.
 #   2. Reads the trailing 8 days of cost_telemetry for each customer via
 #      the D1 HTTP API (per-customer DBs per ADR 0009).
 #   3. Runs detectAnomaly() against the aggregate daily series.
@@ -12,7 +12,7 @@
 #   5. Sends a single Captain digest email via Resend listing the new
 #      alerts. No email = no breaches that night.
 #
-# The dashboard banner (src/pages/admin/ai-employee/costs/index.astro)
+# The dashboard banner (src/pages/admin/operator/costs/index.astro)
 # reads from cost_anomaly_alerts and lets Captain snooze/ack from the same
 # surface. The snooze/ack mutations live in ss-web's admin API; this
 # worker is detect-and-notify only.

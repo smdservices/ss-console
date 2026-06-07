@@ -4,8 +4,7 @@ date: 2026-05-25
 status: accepted
 captain: Scott Durgan
 supersedes: none
-related-prd: docs/pm/ai-employee/platform-prd.md §7.5
-related-spec: docs/specs/ai-employee/customer-yaml-schema.md
+related-spec: docs/specs/operator/customer-yaml-schema.md
 related-issue: TBD (parent tracking issue filed alongside this ADR)
 ---
 
@@ -15,7 +14,7 @@ related-issue: TBD (parent tracking issue filed alongside this ADR)
 
 **Source:** A focused review of the Hermes Agent documentation
 (`hermes-agent.nousresearch.com/docs/llms.txt`, May 2026) against the current
-state of the AI Employee codebase after the 2026-05-24 realignment (ADRs
+state of the Operator codebase after the 2026-05-24 realignment (ADRs
 0015–0020). The review identified six concrete capabilities that Hermes ships
 natively and that SMD's product would benefit from but does not yet leverage.
 
@@ -78,14 +77,14 @@ against the upstream source.
 
 ### Six work streams
 
-| Stream | Capability                                                  | Change                                                                                                                                                                                                                                               |
-| ------ | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A      | `execute_code`                                              | Rewrite four batch-loop skills to use a single Python `execute_code` block                                                                                                                                                                           |
-| B      | No-agent cron (`{"wakeAgent": false}`)                      | Two watcher skills get pre-run scripts with arithmetic-only polling                                                                                                                                                                                  |
-| C      | `delegate_task`                                             | Three compound-research PI skills parallelize sub-tasks into 3 named subagents                                                                                                                                                                       |
-| D      | Skill bundles + `customer.yaml.personas[].bundles[]`        | Three workflow bundles authored; schema extended                                                                                                                                                                                                     |
-| E      | `pre_gateway_dispatch` + `customer.yaml.webhook_triggers[]` | Filevine + Clio subscribe(); overlay routes events to skills                                                                                                                                                                                         |
-| F      | MCP-first                                                   | Customer.yaml templates bind Email/Calendar/DocumentStorage to MCP (PR #1081). The `ai-employee/connectors/ms_graph/` BUILD adapter was already deleted in #1065 (pre-Wave-2 realignment), so the Wave-4 "removal PR" is documentation cleanup only. |
+| Stream | Capability                                                  | Change                                                                                                                                                                                                                                            |
+| ------ | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A      | `execute_code`                                              | Rewrite four batch-loop skills to use a single Python `execute_code` block                                                                                                                                                                        |
+| B      | No-agent cron (`{"wakeAgent": false}`)                      | Two watcher skills get pre-run scripts with arithmetic-only polling                                                                                                                                                                               |
+| C      | `delegate_task`                                             | Three compound-research PI skills parallelize sub-tasks into 3 named subagents                                                                                                                                                                    |
+| D      | Skill bundles + `customer.yaml.personas[].bundles[]`        | Three workflow bundles authored; schema extended                                                                                                                                                                                                  |
+| E      | `pre_gateway_dispatch` + `customer.yaml.webhook_triggers[]` | Filevine + Clio subscribe(); overlay routes events to skills                                                                                                                                                                                      |
+| F      | MCP-first                                                   | Customer.yaml templates bind Email/Calendar/DocumentStorage to MCP (PR #1081). The `operator/connectors/ms_graph/` BUILD adapter was already deleted in #1065 (pre-Wave-2 realignment), so the Wave-4 "removal PR" is documentation cleanup only. |
 
 The exhaustive scope, file paths, dispatch waves, and verification criteria
 live in the plan document at `~/.claude/plans/vectorized-prancing-dove.md`
@@ -169,7 +168,7 @@ Re-evaluate annually.
   on quiet days while preserving full audit visibility via `suppressed_wake` rows.
 - **Inbound event triggers.** Webhook-driven intake eliminates polling
   cadence for known event sources, getting closer to zero-touch operation.
-- **One less BUILD adapter to maintain.** `ai-employee/connectors/ms_graph/`
+- **One less BUILD adapter to maintain.** `operator/connectors/ms_graph/`
   retires after the 48-hour customer-zero parallel run.
 
 ### Negative

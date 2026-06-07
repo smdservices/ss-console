@@ -199,8 +199,8 @@ These suggest where to lead the conversation, not which problems to look for. Th
 - **Internal rate:** $175/hr at launch, then $200/hr after first case study, then $250/hr, then $300/hr with volume
 - **Engagement range:** scoped per engagement. Smallest engagements (targeted automation scripts, AI pilots) start around $2,500. Below that, assessment overhead exceeds delivery value. Largest engagements have no fixed ceiling. Nothing published externally.
 - **Paid Assessment:** $250, applied toward engagement if they proceed. First 3 assessments free.
-- **Recurring revenue product:** Productized AI Employee offering — flat-rate monthly retainer SKU, second front door alongside the scope-based consulting funnel. Specific monthly price deferred pending stack cost analysis. See [ADR 0004](docs/adr/0004-productized-ai-employee-offering.md) / Decision #44. The prior "$200-500/mo undefined post-delivery retainer" is superseded.
-- **Post-handoff support for scope-based engagements:** Two-week async stabilization included (Decision #27). Beyond that, customers are quoted a follow-on scope or converted to an AI Employee subscription if the fit is right.
+- **Recurring revenue product:** Productized Operator offering — flat-rate monthly retainer SKU, second front door alongside the scope-based consulting funnel. Specific monthly price deferred pending stack cost analysis. See [ADR 0004](docs/adr/0004-productized-operator-offering.md) / Decision #44. The prior "$200-500/mo undefined post-delivery retainer" is superseded.
+- **Post-handoff support for scope-based engagements:** Two-week async stabilization included (Decision #27). Beyond that, customers are quoted a follow-on scope or converted to an Operator subscription if the fit is right.
 - **No dollar amounts published externally.** Client sees a project price, not hourly rate.
 
 ### The Assessment Call Is the Product
@@ -243,7 +243,7 @@ We are in the **pre-launch phase**. Nothing has been sold yet. The immediate pri
 
 - [x] Payment terms (50% deposit at signing, 50% at completion; 3-milestone for 40+ hr engagements)
 - [ ] Paid assessment entry point ($250 applied toward engagement, first 3 free)
-- [x] ~~Recurring retainer model~~ — superseded 2026-05-13 by [ADR 0004](docs/adr/0004-productized-ai-employee-offering.md) (productized AI Employee SKU). Stack evaluation, pricing analysis, service contract terms, and stack build filed as follow-ons against ADR 0004.
+- [x] ~~Recurring retainer model~~ — superseded 2026-05-13 by [ADR 0004](docs/adr/0004-productized-operator-offering.md) (productized Operator SKU). Stack evaluation, pricing analysis, service contract terms, and stack build filed as follow-ons against ADR 0004.
 - [ ] Client data management system (D1 or similar for assessments, quotes, engagements, invoicing)
 
 ## Domain Context
@@ -360,17 +360,29 @@ Then load this venture's spec for palette and tone: `crane_doc('ss', 'design-spe
 
 The catalog is the shared vocabulary across all eight ventures — eight named patterns (status display by context, redundancy ban, button hierarchy, heading skip ban, typography scale, spacing rhythm, shared primitives, actions and menus) plus the components map (atoms / molecules / organisms with per-venture implementations). The catalog is a map, not a library — each venture maintains its own source. Cite a pattern by its file slug (`patterns/03-button-hierarchy.md`, etc.) when referencing it in PRs and skill output.
 
-## AI Employee Architecture (locked 2026-05-24)
+## The Operator Thesis (load first — [ADR 0037](docs/adr/0037-operator-thesis.md))
 
-The Phase 1 AI Employee SKU (productized retainer offering, per ADR 0004) runs as a per-customer Fly.io Machine hosting the Nous Research Hermes Agent runtime (`NousResearch/hermes-agent`, MIT). The architectural posture was substantially realigned on 2026-05-24 after six rounds of focused research. Three principles govern all AI Employee work:
+The canonical frame for what the Operator _is_. Load this before any Operator strategy, marketing, competitive, or vertical-selection work, so it is built upon, not re-derived.
+
+1. **Competes with a hire, not with software. (mission-critical)** Every system does a subset; the human is the connective tissue between them, and the Operator is that human. Incumbent systems (Clio, the AMS, the PSA) are **connection targets, not competitors**; more disconnected systems = more value; price against a **salary**, not a software seat.
+2. **A configurable substrate, not a tool with a use case.** No fixed function; authored per engagement across skills, entitlements (initiation × exposure), voice, connectors, memory. The only hard limit is connectability — if we can connect, we can work with it.
+3. **No imposed defaults.** Unconfigured is fail-closed (a safety state), not an identity. Ask "what did the engagement author?", never "what does the system assume?"
+4. **The moat is the harness + the guide + the memory — never a single feature.** Not voice, not audit, not reviewer-as-sender. Calling one feature "the moat" is a category error.
+5. **Packs turn the universal into the recognizable.** "All things to all people" is the capability; "exactly your thing" is the package. Packs compose and cluster into families that compound. The magnitude is the strategy; the pack is the entry.
+6. **Targeting is market-driven, on reachability × willingness-to-pay.** Pick verticals where the coordinator role is most acute/expensive, most cheaply reachable, highest-paying (vs a salary). The guide is a resource we supply, not a constraint on which market to pick.
+
+## Operator Architecture (locked 2026-05-24)
+
+The Phase 1 Operator SKU (productized retainer offering, per ADR 0004) runs as a per-customer Fly.io Machine hosting the Nous Research Hermes Agent runtime (`NousResearch/hermes-agent`, MIT). The architectural posture was substantially realigned on 2026-05-24 after six rounds of focused research. Three principles govern all Operator work:
 
 1. **Hermes is the substrate. Trust it.** Skills, Honcho memory, the Curator, profiles, the tool registry, the plugin hook surface, MCP integration, and approval/guardrail machinery are all native and not reinvented. Teknium's May 2026 hard rule applies: plugins MUST NOT modify Hermes core files. Our overlay is plugin code, hosted in a separate repo (`venturecrane/hermes-smd-overlay`).
-2. **Build only what Hermes won't.** Sample-driven voice transformation, compliance-grade audit emission, content-class trust ceilings, draft routing through reviewer-as-sender, curated vertical skill catalogs, and the customer-facing business surface are the durable moat. None of these are on Hermes' roadmap.
+2. **Build only what Hermes won't.** Sample-driven voice transformation, compliance-grade audit emission, content-class trust ceilings, draft routing through reviewer-as-sender, curated vertical skill catalogs, and the customer-facing business surface are what we build on top of Hermes — none are on its roadmap. (These are capabilities, not the moat: the moat is the harness + the guide + the memory, per [ADR 0037](docs/adr/0037-operator-thesis.md) Tenet 4. No single feature is the moat.)
 3. **Mirror, don't gate.** Where Hermes' learning loop creates state (Honcho conclusions, agent-authored skills), our overlay captures a parallel record in per-customer D1 with provenance. Captain dismissal physically removes the state from Hermes. Reviewer-as-sender does the per-draft safety job; no queue stands between the agent and its work.
 
-Load these ADRs before any AI Employee architectural work:
+Load these ADRs before any Operator architectural work:
 
-- **ADR 0004** — Productized AI Employee offering (the SKU itself)
+- **ADR 0037** — The Operator Thesis (what it is / competes with a hire / configurable substrate / no defaults / moat = harness+guide+memory / packs / market-driven targeting) — load first
+- **ADR 0004** — Productized Operator offering (the SKU itself)
 - **ADR 0006** — Capability-adapter pattern (typed contracts as TS-side ergonomic; runtime via plugin + MCP)
 - **ADR 0007** — Per-customer Machine isolation
 - **ADR 0010** — Per-customer OAuth token storage on Fly volume
@@ -378,19 +390,19 @@ Load these ADRs before any AI Employee architectural work:
 - **ADR 0012** — customer.yaml storage (Git source of truth → D1+R2 materialized)
 - **ADR 0015** — Hermes fork posture (pin-only fork, plugin-only overlay)
 - **ADR 0016** — Honcho disposition (mirror, don't gate; tuned config; TTL archival)
-- **ADR 0017** — Skill Curator disposition (trust Hermes-native; mirror to D1 inventory)
+- **ADR 0017** — Skill Curator disposition (disable autonomous curator per-customer; keep in-conversation `skill_manage`; mirror to D1 inventory; supervised `--dry-run` consolidation only)
 - **ADR 0019** — customer.yaml → per-profile config translation
 - **ADR 0020** — Connector strategy (MCP-first; BUILD only where no acceptable MCP)
 - **ADR 0021** — Leverage Hermes native primitives (`execute_code`, `delegate_task`, no-agent cron, skill bundles, webhook gateway via `pre_gateway_dispatch`, MCP-first connector retirement)
 
-Connectors are wired by `customer.yaml.connectors{}` backend prefix: `mcp:` (vendor or vetted-community MCP server), `build:` (Python adapter we maintain), `composio:` (long-tail via Composio with per-connection isolation guard), `synthetic:` (no_pm substrate).
+Connectors are wired by `customer.yaml.connectors{}` backend prefix: `mcp:` (vendor or vetted-community MCP server), `build:` (Python adapter we maintain), `synthetic:` (no_pm substrate). Composio is dropped (ADR 0020, 2026-05-30 revision) — we connect to MCPs directly, and long-tail vendors with no first-party MCP get a `build:` adapter.
 
 The 2026-05-24 realignment burial is complete. Removed: `smd.hooks.*` dual-surface scaffolding, Honcho interceptor, Curator interceptor, GEPA boot-check (ADR 0018 superseded), in-tree YAML validator, the pre-realignment MS Graph adapter, and the `clio/` / `dotloop/` / `shipstation/` connector dirs whose MCP-first decisions superseded them. New BUILD adapters land in `venturecrane/hermes-smd-overlay`, not this tree.
 
 ## Key Reference
 
 - **Decision Stack:** `docs/adr/decision-stack.md` (29 locked decisions across 6 layers — buy box, scope, pricing, assessment, distribution, delivery. Source of truth for all collateral and processes.)
-- **AI Employee ADRs:** `docs/adr/0004-*.md` through `docs/adr/0021-*.md`. Always cite the ADR number when referencing an architectural decision.
+- **Operator ADRs:** `docs/adr/0004-*.md` through `docs/adr/0035-*.md`. Always cite the ADR number when referencing an architectural decision. The Operator Thesis (ADR 0037) is the positioning frame the rest hang from.
 - **Package 2 Deep Dive:** `~/Desktop/services-package-2-deep-dive.md` (full problem analysis, delivery model, positioning)
 - `docs/` — Venture documentation as it develops
 

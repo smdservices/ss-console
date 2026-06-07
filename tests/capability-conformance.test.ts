@@ -1,6 +1,6 @@
 /**
- * Tests for the AI Employee capability conformance harness
- * (src/lib/ai-employee/capabilities/conformance.ts).
+ * Tests for the Operator capability conformance harness
+ * (src/lib/operator/capabilities/conformance.ts).
  *
  * The harness defends ADR 0005 (reviewer-as-sender) and the Platform
  * PRD invariants at the adapter layer: an adapter that exposes
@@ -26,7 +26,7 @@ import {
   type CapabilityName,
   type CapabilitySet,
   type HealthStatus,
-} from '../src/lib/ai-employee/capabilities'
+} from '../src/lib/operator/capabilities'
 
 function makeAdapter(
   capability: CapabilityName,

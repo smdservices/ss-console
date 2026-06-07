@@ -25,23 +25,35 @@ function readAllSrcFiles(): string[] {
   return files
 }
 
-// Marketing surfaces for the scope-based consulting funnel. The "no dollar
-// amounts" check below applies to these files. Productized SKU detail pages
-// (e.g. src/pages/ai-employee.astro for the AI Employee subscription) are
-// intentionally EXCLUDED from this list — those surfaces may publish a
-// price because the offering is a fixed product, not a custom scope. New
-// home-page sections SHOULD be added here so a future edit cannot
-// accidentally publish a price on the home funnel.
+// Marketing surfaces. The "no dollar amounts" check below applies to these
+// files. The Operator SKU page (src/pages/operator.astro) is included:
+// as of 2026-05-30 we pulled the published $5,000/mo price and route pricing
+// to the first conversation, so no dollar amount may appear on that surface
+// either. New marketing sections SHOULD be added here so a future edit cannot
+// accidentally publish a price.
 function readMarketingFiles(): string[] {
   return [
     resolve('src/pages/index.astro'),
+    resolve('src/pages/operator.astro'),
+    resolve('src/pages/packs/law-firm.astro'),
+    resolve('src/pages/packs/insurance.astro'),
+    resolve('src/pages/packs/veterinary.astro'),
+    resolve('src/pages/packs/title.astro'),
+    resolve('src/pages/packs/accounting.astro'),
+    resolve('src/pages/packs/ria.astro'),
+    resolve('src/pages/packs/mortgage.astro'),
+    resolve('src/pages/packs/dental.astro'),
+    resolve('src/pages/packs/med-spa.astro'),
+    resolve('src/pages/packs/marketing-agency.astro'),
+    resolve('src/pages/packs/property-management.astro'),
+    resolve('src/pages/packs/home-services.astro'),
     join(componentsDir, 'Hero.astro'),
     join(componentsDir, 'ProblemCards.astro'),
     join(componentsDir, 'RoiMath.astro'),
     join(componentsDir, 'HowWeEngage.astro'),
     join(componentsDir, 'HowWePrice.astro'),
     join(componentsDir, 'WhatYouGet.astro'),
-    join(componentsDir, 'AiEmployeeIntro.astro'),
+    join(componentsDir, 'OperatorIntro.astro'),
     join(componentsDir, 'CaseStudies.astro'),
     join(componentsDir, 'About.astro'),
     join(componentsDir, 'FinalCta.astro'),

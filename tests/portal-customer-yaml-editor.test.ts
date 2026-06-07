@@ -1,6 +1,6 @@
 /**
  * Tests for the customer.yaml editor resolver + validation library
- * (src/lib/portal/ai-employee/customer-yaml-editor.ts).
+ * (src/lib/portal/operator/customer-yaml-editor.ts).
  *
  * Coverage:
  *   - locked-field policy: exact paths, wildcard children, wildcard
@@ -31,8 +31,8 @@ import {
   projectEditableConfig,
   validateEditableChanges,
   type EditableCustomerConfig,
-} from '../src/lib/portal/ai-employee/customer-yaml-editor'
-import { validate, type CustomerYaml } from '../src/lib/ai-employee/customer-yaml'
+} from '../src/lib/portal/operator/customer-yaml-editor'
+import { validate, type CustomerYaml } from '../src/lib/operator/customer-yaml'
 
 // -----------------------------------------------------------------------------
 // Fixture builder — mirrors the validator test fixture
@@ -47,7 +47,7 @@ function validFixture(): Record<string, unknown> {
     practice_areas: ['personal-injury', 'workers-comp'],
     fly_region: 'lax',
     model: 'claude-opus-4-7',
-    hermes_ref: 'v2026.5.7-smd.0',
+    hermes_ref: 'v2026.5.7@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0',
     machine: { size: 'performance-1x', memory_mb: 1024 },
     users: [{ email: 'partner@firm.com', role: 'principal', full_name: 'Jane Smith' }],
     personas: [
@@ -80,7 +80,7 @@ function validFixture(): Record<string, unknown> {
       Email: {
         adapter: 'microsoft-graph',
         backend: 'mcp:softeria/ms-365-mcp-server',
-        token_ref: 'infisical:/ai-employee/smith-pi-firm/email/refresh',
+        token_ref: 'infisical:/operator/smith-pi-firm/email/refresh',
       },
       PracticeManagement: {
         adapter: 'filevine',
@@ -169,7 +169,7 @@ describe('projectEditableConfig', () => {
     const resolved = projectEditableConfig(validYaml())
     expect(resolved.editable.connectors.Email).not.toHaveProperty('token_ref')
     expect(resolved.locked.connector_token_refs.Email).toBe(
-      'infisical:/ai-employee/smith-pi-firm/email/refresh'
+      'infisical:/operator/smith-pi-firm/email/refresh'
     )
   })
 
@@ -218,7 +218,7 @@ describe('applyEditableChanges', () => {
     }
     const merged = applyEditableChanges(current, tampered)
     expect(merged.connectors.Email?.token_ref).toBe(
-      'infisical:/ai-employee/smith-pi-firm/email/refresh'
+      'infisical:/operator/smith-pi-firm/email/refresh'
     )
   })
 

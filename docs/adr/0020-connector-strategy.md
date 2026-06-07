@@ -1,11 +1,10 @@
 ---
-title: Connector Strategy — MCP-First Where Vendor or Vetted-Community Server Exists, BUILD Only When No Acceptable MCP, Composio for Long Tail
+title: Connector Strategy — MCP-First Where Vendor or Vetted-Community Server Exists, BUILD Only When No Acceptable MCP
 date: 2026-05-24
 status: accepted
 captain: Scott Durgan
 supersedes: none
-related-prd: docs/pm/ai-employee/platform-prd.md §7.2, §7.3
-related-spec: docs/specs/ai-employee/customer-yaml-schema.md
+related-spec: docs/specs/operator/customer-yaml-schema.md
 related-issue: TBD (filed as follow-on to the locked Hermes-alignment plan dated 2026-05-24)
 ---
 
@@ -17,14 +16,15 @@ related-issue: TBD (filed as follow-on to the locked Hermes-alignment plan dated
 
 ## Context
 
-The AI Employee touches the customer's external systems through eleven capability interfaces (ADR 0006 rewrite). Each capability resolves at runtime through one of four backend patterns, distinguished by the `customer.yaml.connectors{}.backend:` prefix:
+The Operator touches the customer's external systems through eleven capability interfaces (ADR 0006 rewrite). Each capability resolves at runtime through one of three backend patterns, distinguished by the `customer.yaml.connectors{}.backend:` prefix:
 
 - `mcp:<server>` — Model Context Protocol server (vendor-official or vetted community)
-- `build:<vendor>` — Python adapter we maintain in `ai-employee/connectors/<vendor>/`
-- `composio:<connector>` — Composio-brokered tool with per-customer connection ID
+- `build:<vendor>` — Python adapter we maintain in `operator/connectors/<vendor>/`
 - `synthetic:<name>` — In-process substrate using per-customer D1+R2 (e.g., `no_pm`)
 
-The MCP ecosystem matured significantly in v0.14.0 of Hermes. The official MCP catalog at `github.com/modelcontextprotocol/servers` plus vendor-maintained servers (Microsoft `microsoft/mcp`, Intuit `intuit/quickbooks-online-mcp-server`, Twilio Labs `twilio-labs/mcp`, ShipStation `shipstation/mcp-shipstation-api`, CourtListener hosted at `mcp.courtlistener.com`) cover a substantial fraction of the vendors we expect to wire. Community MCPs cover others (`oktopeak/clio-mcp` for Clio practice management). For the rest, BUILD adapters or Composio remain the options.
+**Composio is dropped.** An earlier revision of this ADR reserved a fourth `composio:<connector>` backend as a long-tail fallback. As of the 2026-05-30 revision it is removed entirely: every vendor we plan to wire has a vendor-direct or vetted-community MCP, or a BUILD adapter, and we connect to MCPs directly. The `composio:` prefix is no longer an accepted backend and the per-connection runtime guard has been retired. New vendors with no first-party MCP are wired with a BUILD adapter.
+
+The MCP ecosystem matured significantly in v0.14.0 of Hermes. The official MCP catalog at `github.com/modelcontextprotocol/servers` plus vendor-maintained servers (Microsoft `microsoft/mcp`, Intuit `intuit/quickbooks-online-mcp-server`, Twilio Labs `twilio-labs/mcp`, ShipStation `shipstation/mcp-shipstation-api`, CourtListener hosted at `mcp.courtlistener.com`) cover a substantial fraction of the vendors we expect to wire. Community MCPs cover others (`oktopeak/clio-mcp` for Clio practice management). For the rest, BUILD adapters are the option.
 
 The decision matrix exists because connector choice for each vendor has real tradeoffs (maintainership, license, capability coverage, auth model) and we want the choice to be reasoned, recorded, and consistent across customers.
 
@@ -34,8 +34,7 @@ The decision matrix exists because connector choice for each vendor has real tra
 
 1. **Vendor-direct MCP** — first-party, vendor-maintained, vendor-supported. Default choice when one exists.
 2. **Vetted community MCP** — small, focused, securely reviewable, actively maintained (acceptance criteria below).
-3. **BUILD adapter** in `ai-employee/connectors/<vendor>/` — when no acceptable MCP exists, or when trust-ceiling enforcement is safer to own end-to-end (e.g., trust-account writes against LawPay).
-4. **Composio** — long-tail fallback only when none of the above apply. As of this revision, zero currently planned bindings rely on composio; schema support remains for future long-tail vendors that haven't shipped a first-party MCP.
+3. **BUILD adapter** in `operator/connectors/<vendor>/` — when no acceptable MCP exists, or when trust-ceiling enforcement is safer to own end-to-end (e.g., trust-account writes against LawPay). This is also the fallback for any long-tail vendor that has not shipped a first-party MCP.
 
 ### Per-vendor decision table
 
@@ -46,9 +45,9 @@ The following table is the canonical wiring for new customer.yaml authoring. Exi
 | Email                            | Microsoft 365 (Outlook)                  | `mcp:m365-mail` (hosted at `agent365.svc.cloud.microsoft`, per-tenant)                        | First-party Microsoft. Per-tenant URL: `/agents/tenants/{tenant_id}/servers/mcp_MailTools`. Auth via Microsoft Entra tenant ID — each customer firm is its own tenant.                                                                                                                                         |
 | Calendar                         | Microsoft 365                            | `mcp:m365-calendar` (hosted, per-tenant)                                                      | Same hosted pattern: `/servers/mcp_CalendarTools`. Per-tenant Entra auth.                                                                                                                                                                                                                                      |
 | DocumentStorage                  | OneDrive / SharePoint                    | `mcp:softeria/ms-365-mcp-server` (community, MIT)                                             | Microsoft has shipped M365 Mail/Calendar/Teams/User/Copilot Chat as first-party MCPs but NOT OneDrive/SharePoint. Migrated to the community MIT server in ADR 0021 Stream F (PR #1081). The prior `build:microsoft_graph` adapter was deleted in #1065. Revisit binding when MS ships a first-party Drive MCP. |
-| Email                            | Google Workspace (Gmail)                 | `mcp:google-gmail` (`gmailmcp.googleapis.com/mcp/v1`, **Preview**)                            | First-party Google. Per-user OAuth 2.0 (`gmail.readonly` + `gmail.compose`). **Status: Workspace Developer Preview, not GA** — flag with customer at onboarding.                                                                                                                                               |
-| Calendar                         | Google Workspace                         | `mcp:google-calendar` (`googleapis.com/mcp/v1` pattern, **Preview**)                          | Same Preview status, per-user OAuth. Verify exact endpoint slug against Google's `developers.google.com/workspace/calendar/api/guides/configure-mcp-server` before binding.                                                                                                                                    |
-| DocumentStorage                  | Google Drive                             | `mcp:google-drive` (**Preview**)                                                              | Same — Preview, per-user OAuth. Same caveat: verify exact endpoint slug.                                                                                                                                                                                                                                       |
+| Email                            | Google Workspace (Gmail)                 | `build:google-gmail` (`operator/connectors/google/crane_gmail.py`)                            | BUILD, not the Preview Google MCP. Customer-owned domain-wide delegation impersonates the Operator's Workspace user. Scopes: `gmail.modify` + `gmail.send`; trust ceilings and content floors govern use. See §"Google Workspace: BUILD, not MCP".                                                             |
+| Calendar                         | Google Workspace                         | `build:google-calendar` (`operator/connectors/google/crane_calendar.py`)                      | BUILD. Scope `calendar.events`; read/write events, attendees, and explicit `sendUpdates` control. Default notification behavior is `none`; authored workflows may notify. Same Preview / no-OAuth-MCP reasons; one shared Google credential.                                                                   |
+| DocumentStorage                  | Google Drive + Docs + Sheets             | `build:google-drive` (`operator/connectors/google/crane_drive.py`)                            | BUILD. Scopes `drive` + `documents` + `spreadsheets`; read/write Drive files, edit native Docs/Sheets, and share when allowed by the customer's action ceilings.                                                                                                                                               |
 | PracticeManagement               | Clio                                     | `mcp:clio-oktopeak` (community, MIT)                                                          | Community MCP at `oktopeak/clio-mcp`, v2.0.0 (2026-05-23) added HTTP transport + 6 tools. Code-review per acceptance criteria before first Clio customer.                                                                                                                                                      |
 | PracticeManagement               | Filevine                                 | `build:filevine`                                                                              | No acceptable MCP exists. REST + GraphQL with OAuth client-credentials; clean BUILD shape.                                                                                                                                                                                                                     |
 | PracticeManagement               | CASEpeer / SmartAdvocate / Neos / MyCase | `build:<vendor>`                                                                              | Per the PI vertical adapter build priority (ADR 0014).                                                                                                                                                                                                                                                         |
@@ -68,6 +67,16 @@ The following table is the canonical wiring for new customer.yaml authoring. Exi
 | InternalComms                    | Teams                                    | `mcp:m365-teams` (hosted at `agent365.svc.cloud.microsoft`, per-tenant)                       | First-party Microsoft. URL pattern: `/servers/mcp_TeamsServer`. Per-tenant Entra auth.                                                                                                                                                                                                                         |
 | PracticeManagement (real-estate) | Dotloop                                  | `build:dotloop`                                                                               | No acceptable MCP.                                                                                                                                                                                                                                                                                             |
 
+### Google Workspace: BUILD, not MCP (amended 2026-06-02)
+
+The three Google rows above were `mcp:google-*` in the original table. They are now `build:` adapters (`operator/connectors/google/crane_{gmail,calendar,drive}.py`), decided during the SMD Services connector session. Three reasons, in order of weight:
+
+1. **Customer-owned Workspace authority.** The hard security boundary is the customer-owned Google Workspace delegation, not the fact that these are wrapper CLIs. For standard Workspace customers, `customer.yaml.google_auth.mode=dwd` points the Machine at a customer service account authorized through domain-wide delegation and impersonating the Operator's Workspace user. The Fly Machine is that user's computer; `execute_code` can call Google at the granted scopes. The BUILD adapters provide audited, ergonomic operations while trust ceilings and content floors govern use.
+2. **Preview, not GA.** Google's hosted Gmail/Calendar/Drive MCPs are Workspace **Developer Preview**, and the overlay's `_materialize_mcp_servers` wires only static header-key MCPs — there is **no OAuth-MCP wiring path**. Declaring `mcp:google-*` was inert (silently skipped at boot).
+3. **One owned credential path.** Gmail, Calendar, Drive, Docs, and Sheets ride the same credential file at `/opt/data/oauth/google.json` through shared `_google_auth.py`. User-OAuth remains a legacy path for narrow tests and non-DWD tenants; the standard Workspace path is DWD with `GOOGLE_SERVICE_ACCOUNT_JSON`, `GOOGLE_IMPERSONATE_SUBJECT`, and `GOOGLE_OAUTH_SCOPES`.
+
+These are CLIs the agent shells to via `execute_code` (ADR 0021), not `ctx.register_tool()`-registered tools — so no `build:` runtime materialization is required in the overlay (the binaries ship in the Machine image at `/app/connectors/google/`). Revisit the MCP option if/when Google's Workspace MCPs reach GA _and_ the overlay grows an OAuth-MCP wiring path.
+
 ### Acceptance criteria for community MCPs
 
 Before binding a paying customer to a community-maintained MCP server, the overlay maintainer (Captain or designated reviewer):
@@ -79,19 +88,12 @@ Before binding a paying customer to a community-maintained MCP server, the overl
 
 For `oktopeak/clio-mcp` (already chosen for Clio), the review is light — 26 tools, ABA Opinion 512 alignment in the README, OAuth 2.0 + AES-256-GCM token store. Captain confirmed during the audit; review captured in connector docs.
 
-### Composio per-connection runtime guard
-
-**As of this revision, no currently planned binding uses composio** — every prior composio row in the table above migrated to a vendor-direct MCP. The runtime guard described below remains in `hermes-smd-trust` as schema and infrastructure support for any future long-tail vendor that requires composio brokerage. The `composio:` backend prefix in `customer.yaml` continues to be validated.
-
-Composio runs on a tenant-wide API key. Per-customer isolation requires a per-customer `composio_connection_id` and a runtime check that every Composio tool call references the right connection ID. The `hermes-smd-trust` plugin's `composio_guard.py` (ported from `ai-employee/adapter/connectors/composio_assertion.py`) runs via `transform_tool_result` hook on every Composio tool result; mismatch raises before the result reaches the model. This is not theater — Composio's shared-key model has real risk of tenant cross-contamination without it.
-
 ### Customer.yaml backend resolution at boot
 
 Per ADR 0019 (customer.yaml → per-profile config translation), the bootstrap CLI resolves backend prefixes at startup:
 
 - `mcp:<server>` → writes `mcp_servers.<server>` entry in the per-profile Hermes config; the MCP server boots as a child process of Hermes per Hermes' MCP integration.
 - `build:<vendor>` → the `hermes-smd-trust` plugin (or a dedicated per-vendor sub-plugin in the overlay) instantiates the Python adapter at plugin init and registers its tools via `ctx.register_tool()`.
-- `composio:<connector>` → the Composio connection ID is set from `customer.yaml.connectors{}.composio_connection_id`; the guard activates via `transform_tool_result`.
 - `synthetic:<name>` → the synthetic substrate's Hermes-registered tools are wired with per-customer D1+R2 bindings via env vars.
 
 ## Alternatives Considered
@@ -106,40 +108,38 @@ Build Python adapters for every vendor we wire.
 
 Refuse to BUILD anything; require an MCP for every vendor.
 
-**Rejected.** Several vendors (Filevine, LawPay, Dotloop) have no acceptable MCP. Refusing to wire them blocks customers. Composio covers some of these but with shared-key tenancy risk that BUILD avoids.
+**Rejected.** Several vendors (Filevine, LawPay, Dotloop) have no acceptable MCP. Refusing to wire them blocks customers. We wire them with BUILD adapters instead.
 
 ### Pattern 3: Decision matrix per vendor (this decision)
 
-Selected. Each vendor's wiring is a reasoned choice from the four options. The default is vendor-direct MCP-first; deviations are documented.
+Selected. Each vendor's wiring is a reasoned choice from the three backend options. The default is vendor-direct MCP-first; deviations are documented.
 
-### Pattern 4: Keep composio as the default for vendor-direct-available systems
+### Pattern 4: Broker vendor connections through Composio
 
-Continue routing Google, HubSpot, Salesforce, Stripe, Slack, and Xero through composio because the brokered pattern was already wired.
+An earlier revision reserved a `composio:` backend to broker vendor connections through Composio's tenant-wide API.
 
-**Rejected.** Where a vendor ships a first-party MCP, brokering through composio adds three costs without commensurate benefit: (a) shared-key tenancy risk that requires the per-connection runtime guard, (b) an additional API surface to maintain, (c) a third-party in the trust chain visible to compliance-audited customers. Vendor-direct MCPs use per-customer OAuth or per-customer API keys as the isolation primitive — its own boundary, matching ADR 0010's per-customer secret storage.
+**Rejected.** Brokering through Composio adds three costs without commensurate benefit: (a) shared-key tenancy risk that requires a per-connection runtime guard, (b) an additional API surface to maintain, (c) a third-party in the trust chain visible to compliance-audited customers. Vendor-direct MCPs use per-customer OAuth or per-customer API keys as the isolation primitive — its own boundary, matching ADR 0010's per-customer secret storage. Vendors with no first-party MCP are wired with BUILD adapters, which avoid the shared-key risk entirely. Composio is dropped.
 
 ## Consequences
 
 **Positive.**
 
 - New customer onboarding is mostly a `customer.yaml` edit, not a code change. MCP-bound capabilities require no SMD code at all.
-- Maintenance burden is bounded: only BUILD adapters and the Composio guard are ours to maintain end-to-end. MCP server maintenance is the vendor's (or upstream community's) problem.
-- Per-customer isolation is preserved across all backend patterns. MCP servers run as per-Machine subprocesses; BUILD adapters live in the per-Machine container; Composio uses per-customer connection IDs guarded at runtime; synthetic substrates use per-customer D1+R2.
-- Capability-disclosure metadata (the "what Marcus used to write this" sourcing block per ADR 0006 rewrite) works uniformly across backends because the capability-conformance metadata is per-tool, not per-backend.
+- Maintenance burden is bounded: only BUILD adapters are ours to maintain end-to-end. MCP server maintenance is the vendor's (or upstream community's) problem.
+- Per-customer isolation is preserved across all backend patterns. MCP servers run as per-Machine subprocesses; BUILD adapters live in the per-Machine container; synthetic substrates use per-customer D1+R2.
+- Capability-disclosure metadata (the "what the Operator used to write this" sourcing block per ADR 0006 rewrite) works uniformly across backends because the capability-conformance metadata is per-tool, not per-backend.
 
 **Negative / accepted.**
 
 - Community MCPs (Clio for now) require human review before binding paying customers. The review is small (a few hours per MCP) but it's real per-vendor work.
 - BUILD adapters carry vendor-API-drift risk that doesn't apply to MCP servers (where the maintainer handles drift). We accept this cost where no MCP exists.
-- Composio cost scales with tool calls. Long-term, if a customer's tool-call volume puts us near Composio's pricing cliff, we migrate that vendor to BUILD. No pre-scheduled monitoring; we act when a real customer's volume justifies it.
 
 ## Verification
 
-1. **The `customer.yaml` validator accepts and resolves all four backend prefixes** (`mcp:`, `build:`, `composio:`, `synthetic:`). Unknown prefixes fail validation.
+1. **The `customer.yaml` validator accepts and resolves the three backend prefixes** (`mcp:`, `build:`, `synthetic:`). Unknown prefixes — including the retired `composio:` — fail validation.
 2. **The bootstrap CLI generates correct per-profile config** for each backend type. Smoke tests against `_template` customers with one of each backend produce working Hermes configs.
 3. **MCP server bindings produce working tool registrations** at Hermes startup. The first agent turn after boot can call a tool from each configured MCP server.
 4. **BUILD adapter tool registration via `ctx.register_tool()`** works in `hermes-smd-trust` or per-vendor sub-plugins. Tool calls dispatch to the Python adapter and back.
-5. **Composio per-connection guard fires** on every Composio tool result. Mismatch synthetic test (artificial wrong connection ID) raises and the result is rejected.
 
 ## References
 
@@ -159,8 +159,6 @@ Continue routing Google, HubSpot, Salesforce, Stripe, Slack, and Xero through co
 - [`twilio-labs/mcp`](https://github.com/twilio-labs/mcp) — Twilio Labs MCP
 - [`shipstation/mcp-shipstation-api`](https://github.com/shipstation/mcp-shipstation-api) — ShipStation MCP (license unconfirmed)
 - [CourtListener MCP](https://mcp.courtlistener.com)
-- [Composio toolkits](https://composio.dev/toolkits/) — long-tail fallback only; no currently planned binding uses composio
 - [ADR 0006 (rewrite)](./0006-capability-adapter-pattern.md) — backend prefix model
-- [ADR 0014](./0014-pi-vertical-adapter-build-priority.md) — PI vertical adapter build priority
 - [ADR 0015 (rewrite)](./0015-hermes-fork-vs-upstream.md) — plugin-only overlay; the runtime registration happens in plugins
 - [ADR 0019](./0019-customer-yaml-to-profile-config-translation.md) — backend resolution at boot
