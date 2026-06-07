@@ -4,7 +4,7 @@ This file provides guidance for Claude Code agents working in this repository.
 
 ## About This Venture
 
-**SMD Services** is a solutions consulting venture under SMDurgan, LLC. We sell scope-based consulting engagements to growing businesses ($750k-$5M revenue, expanding to $10M). This is NOT a SaaS product. It is a services business.
+**SMD Services** is a solutions consulting venture under SMDurgan, LLC. We sell scope-based consulting engagements to growing businesses. This is NOT a SaaS product. It is a services business.
 
 **Objective:** Launch the venture and reach profitability.
 
@@ -249,7 +249,7 @@ We are in the **pre-launch phase**. Nothing has been sold yet. The immediate pri
 ## Domain Context
 
 - **Geography:** Phoenix metro (Phase 1, in-person default), remote-capable
-- **Target:** $750k-$5M revenue businesses, expanding to $10M. The "too big for one person, too small for a COO" framing still works, but the revenue range replaces employee count as the primary gate.
+- **Target:** Established, owner-led businesses with real operational load and the ability to pay for a solution. No revenue-band gate — we work with any business that can pay and benefit, and qualification happens in conversation, not by filtering on a guessed revenue figure (the operational layer already dropped this gate — see ADR 0003 and `tests/lead-gen-revenue-gate.test.ts`). The "too big for one person, too small for a COO" framing still captures the shape of the buyer. For the Operator specifically, the target profiles are defined by the vertical packs in `operator/verticals/`.
 - **Buyer:** The owner. Sometimes the office manager, but the owner writes the check.
 - **Competition:** Traditional consultancies ($15-50k+ engagements, slow), fractional CTOs/COOs (ongoing cost, no bounded deliverable), EOS implementers (framework-locked), managed IT providers (technical only). Nobody does assessment + implementation + handoff as bounded, scope-priced engagements.
 - **Referral sources:** Vistage, EO Arizona, fractional CFOs, local networking groups (BNI, chamber of commerce), accountants/bookkeepers, commercial insurance agents, SBA/SCORE
