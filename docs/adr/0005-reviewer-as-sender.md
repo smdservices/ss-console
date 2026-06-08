@@ -4,7 +4,7 @@ date: 2026-05-20
 status: accepted
 captain: Scott Durgan
 supersedes: none
-amended-by: 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md
+amended-by: 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0035-no-imposed-entitlement-defaults.md
 related-issue: https://github.com/venturecrane/ss-console/issues/828
 ---
 

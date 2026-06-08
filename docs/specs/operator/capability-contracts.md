@@ -4,16 +4,15 @@
 
 ## Source
 
-- Email Pattern decision: see Pattern A/B Resolution below
+- Send modality: see "Send is a configurable entitlement" below
 
-## Pattern A vs Pattern B resolution
+## Send is a configurable entitlement (ADR 0035)
 
-**v1 ships Pattern A only.**
+**Send is configured per engagement, never assumed.** Earlier drafts of this spec locked "Pattern A only" — agent drafts, reviewer always sends — as an architectural invariant. That is the dead default struck by [ADR 0035](../../adr/0035-no-imposed-entitlement-defaults.md) (amending [ADR 0005](../../adr/0005-reviewer-as-sender.md) / [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md)). The current holding:
 
-- **Pattern A** (v1): agent creates draft in the reviewer's drafts folder via the Email/PracticeManagement adapter. Reviewer opens their own client, edits, sends from their own identity. No programmatic send. No agent-held send token.
-- **Pattern B** (v2, deferred): dashboard-triggered programmatic send via reviewer-delegated OAuth scope. Requires `mail.send` scope; not in Phase 1 OAuth consent.
-
-The `Email` interface deliberately omits a `send` method. Adapters that expose programmatic send (e.g. Microsoft Graph's `/me/sendMail`) must not implement a `send` capability in v1 — the OAuth scope itself is not requested.
+- An adapter **may** expose a send method. Whether a send executes autonomously, routes to a reviewer draft (reviewer-as-sender), or is refused is decided **at runtime** by `trust_ceiling.enforce()` per the authored `EXTERNAL_SEND` ceiling, **fail-closed when unauthored** (no send, no draft).
+- **Reviewer-as-sender** ([ADR 0005](../../adr/0005-reviewer-as-sender.md)) is **one authored option**, not the default — and a regulated-vertical pack may pin it as a non-raisable floor. The capability layer does not enforce it by omitting `send`; the trust ceiling enforces the authored posture.
+- The interfaces below currently ship create/update-draft methods; a `send` method is added per adapter as the configured entitlement requires. Irreversible actions (money movement, ledger posting, court filing) remain `COMMITMENT`/`DESTRUCTIVE` and additionally require explicit current-turn approval ([ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) reversibility floor).
 
 ## Contract
 
@@ -165,7 +164,10 @@ interface Payments {
   get_aging_report(): Promise<AgingReport>
   describe_capabilities(): CapabilitySet
   health_check(): Promise<HealthStatus>
-  // No autonomous fund transfers ever. No method to initiate trust-account moves.
+  // Fund movement is COMMITMENT/DESTRUCTIVE: no autonomous-transfer method is
+  // exposed, and any such action is gated on explicit current-turn approval
+  // (ADR 0025 reversibility floor). External send of a payment request is a
+  // configurable entitlement, ceiling-gated like any other send (ADR 0035).
 }
 
 // ---------- 8. Accounting ----------
@@ -230,7 +232,7 @@ Adapter conformance suite at `operator/capabilities/tests/conformance/<capabilit
 2. Every error case rejects with a structured `CapabilityError`, never a raw exception
 3. `health_check` returns within 5s
 4. `describe_capabilities` returns the adapter's actual feature set (no overclaiming)
-5. No method named `send_*`, `transfer_*`, `sign_*`, or `commit_*` exists on Email, ESign, or Payments (reviewer-as-sender enforcement; CI grep)
+5. No method for an **irreversible action** — fund movement (`transfer_*`, `disburse`, `initiate_transfer`), ledger posting, or court filing — exists on Payments / Accounting / CourtAccess adapters (the ADR 0025 reversibility floor; conformance harness `BANNED_METHOD_NAMES`). External-send methods (`send_*` on Email/ESign/Calendar/IntakeCRM) are **permitted** — their execution is gated at runtime by the trust ceiling per the authored `EXTERNAL_SEND` posture (ADR 0035), not by method absence.
 
 ## Implementation notes
 
@@ -242,4 +244,4 @@ Adapter conformance suite at `operator/capabilities/tests/conformance/<capabilit
 
 **Adapter language: Python runtime, TypeScript doctrine.** The substrate is already Python end-to-end (Hermes overlay, audit log, memory pipeline, voice pipeline, trust ceiling — all Python; see `operator/adapter/`). PR #812's LawPay and ShipStation Python adapters are correct as shipped. TypeScript signatures here document the contract; Python `typing.Protocol` declarations in each adapter enforce it at runtime. No TS-adapter migration. This avoids a translation layer for no functional gain and keeps the connector adapters co-located with the Python substrate they interact with.
 
-**Calendar.respond_to_invitation_draft shape.** The `DraftRef` return type is correct as written. RSVP-as-single-API-call is true at the calendar-provider level, but Pattern A discipline (reviewer-as-sender, ADR 0005) requires the partner to confirm before any commitment is recorded on their behalf. The adapter's `respond_to_invitation_draft` returns a `DraftRef`; the partner taps Accept/Decline in the dashboard; the dashboard fires the actual API call as a partner-tap action. Same pattern as Email: agent drafts, partner sends. No interface reshape needed.
+**Calendar.respond_to_invitation_draft shape.** The `DraftRef` return type is correct for the **reviewer-as-sender** posture, which an engagement may author for calendar responses (ADR 0005, one authored option). Under that posture the adapter returns a `DraftRef`, the partner taps Accept/Decline in the dashboard, and the dashboard fires the API call. Where an engagement instead authors `EXTERNAL_SEND: autonomous` for this action, the trust ceiling permits a direct response — the modality is configured per engagement (ADR 0035), not fixed by the interface shape. No interface reshape needed either way.

@@ -20,8 +20,9 @@ unsupported in `describe_capabilities().unsupported_methods` and raise
 ``capability_not_supported`` if invoked. This satisfies the
 UNSUPPORTED_METHODS_THROW invariant.
 
-No autonomous send paths exist anywhere in this module -- per ADR 0005
-and the conformance harness's NO_AUTONOMOUS_EXTERNAL_SEND invariant.
+This PM/DocumentStorage module exposes no send surface (out of scope for
+Filevine here). Send, where a connector has it, is a configurable entitlement
+gated at runtime by the trust ceiling (ADR 0035), not method-banned.
 """
 
 from __future__ import annotations

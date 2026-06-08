@@ -42,34 +42,20 @@ from connectors.filevine.errors import (  # type: ignore[import-not-found]
 from _helpers import FakeResponse, make_client  # type: ignore[import-not-found]
 
 
-# Pinned from `BANNED_METHOD_NAMES` in conformance.ts.
+# Pinned from `BANNED_METHOD_NAMES` in conformance.ts. External-send methods are
+# NOT banned (ADR 0035 — configurable entitlement gated at runtime by the trust
+# ceiling); the surviving entries are the irreversibility floor (ADR 0025): money
+# movement, ledger posting, court filing.
 BANNED_METHOD_NAMES = {
-    "Email": ["send", "send_message", "send_draft", "send_email"],
-    "Calendar": ["send_invitation", "send_invite", "send_event"],
-    "ESign": [
-        "send_envelope",
-        "create_and_send_envelope",
-        "send_signing_request",
-        "initiate_signing",
-    ],
-    "DocumentStorage": ["share_document", "send_share_invitation"],
-    "Payments": [
-        "send_payment_request",
-        "initiate_transfer",
-        "trust_disbursement",
-        "transfer_funds",
-        "disburse",
-    ],
+    "Email": [],
+    "Calendar": [],
+    "ESign": [],
+    "DocumentStorage": [],
+    "Payments": ["initiate_transfer", "trust_disbursement", "transfer_funds", "disburse"],
     "Accounting": ["post_invoice", "post_expense_entry", "post_to_general_ledger"],
-    "IntakeCRM": ["send_to_lead", "send_lead_email", "message_lead"],
+    "IntakeCRM": [],
     "CourtAccess": ["file_document", "submit_filing", "send_to_court"],
-    "CallTracking": [
-        "create_call",
-        "originate_call",
-        "place_call",
-        "send_text",
-        "send_sms",
-    ],
+    "CallTracking": [],
     "InternalComms": [],
     "PracticeManagement": [],
 }
