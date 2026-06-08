@@ -450,6 +450,8 @@ function lockedFromCurrent(
   | 'users'
   | 'compliance_enabled'
   | 'google_auth'
+  | 'authority'
+  | 'credential_custody_default'
 > {
   return {
     schema_version: current.schema_version,
@@ -473,6 +475,15 @@ function lockedFromCurrent(
     // mode is a provisioning/setup decision, not a self-serve toggle).
     // Preserve verbatim across portal edits. (#1213)
     google_auth: current.google_auth,
+    // authority (ADR 0041) is SMD-set and NEVER client-editable — a client
+    // editing their own authority block would be self-granting authority
+    // (privilege escalation). The switches are flipped by SMD per domain;
+    // the client portal preserves the block verbatim across any self-serve
+    // config edit, even when the `configuration` domain is client-operable.
+    authority: current.authority,
+    // credential_custody_default (ADR 0042) is set at provisioning / via the
+    // connectors authority domain, not the general config editor. Preserve.
+    credential_custody_default: current.credential_custody_default,
   }
 }
 
@@ -500,6 +511,10 @@ function mergeConnectors(
       // changing it via the editor would risk cross-customer routing.
       // Configured at provisioning time, never via portal.
       webhook_url: existing.webhook_url,
+      // credential_custody locked — ADR 0042. Custody is a security decision
+      // in the connectors authority domain, set via the dedicated custody flow,
+      // never through the general config editor.
+      credential_custody: existing.credential_custody,
     }
   }
   return merged

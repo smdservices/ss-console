@@ -223,6 +223,25 @@ declare namespace Cloudflare {
      */
     MACHINE_HEARTBEAT_KEY?: string
     /**
+     * Per-customer secret-relay endpoint base for the write-only static-secret
+     * entry path (ADR 0042 / ADR 0036). When set, the client credential-entry
+     * endpoint relays a client-entered API key into the customer's per-customer
+     * vault (Fly secret + Machine restart) and is enabled; when unset,
+     * `isSecretTransportConfigured` returns false and the endpoint returns an
+     * honest `not_enabled`. Provisioned at the integration step that wires the
+     * relay — see src/lib/operator/credential-secret-transport.ts.
+     */
+    OPERATOR_SECRET_RELAY_URL?: string
+    /**
+     * Base URL/credential locator for the live console→Machine runtime read
+     * path (ADR 0043 path A). When set, per-operator drill-ins fetch deep
+     * detail (audit log, drafts, matters) live from one customer's Machine;
+     * when unset, `isRuntimeReadConfigured` returns false and drill-in
+     * surfaces render honest empty states. Wired at the integration step —
+     * see src/lib/operator/runtime-read-transport.ts.
+     */
+    OPERATOR_RUNTIME_READ_URL?: string
+    /**
      * Sentry Internal Integration Client Secret used to verify
      * `Sentry-Hook-Signature` headers on inbound alert-rule webhook
      * deliveries to `/api/webhooks/sentry`. Pulled from the SMD-owned

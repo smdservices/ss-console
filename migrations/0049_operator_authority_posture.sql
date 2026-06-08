@@ -1,0 +1,22 @@
+-- Operator authority posture projection — ADR 0041
+-- ============================================================================
+--
+-- Adds the projected `authority` block (per-domain client-self-serve switches
+-- over SMD's always-present full control) to the customer_configs read replica.
+-- Source of truth is `customer.yaml.authority` in git (ADR 0012); CI projects
+-- it here on merge alongside the other *_json columns.
+--
+-- NULL is the launch-safe state: an absent authority_json resolves to the
+-- default posture (`{ default: "managed", overrides: {} }`) — SMD operates
+-- every domain, every client switch off — via parseAuthorityPosture() in
+-- src/lib/operator/authority.ts. No backfill needed; the resolver treats a
+-- null row identically to an explicit launch-default block.
+--
+-- The resolved-side contract (domains, holders, resolver) lives in
+-- src/lib/operator/authority.ts; the authoring-side validator lives in
+-- src/lib/operator/customer-yaml/sections-authority.ts.
+--
+-- Forward-only, additive. No drops.
+-- ============================================================================
+
+ALTER TABLE customer_configs ADD COLUMN authority_json TEXT;
