@@ -4,6 +4,7 @@ import {
   updateQuote,
   updateQuoteStatus,
   parseDeliverables,
+  parseLineItems,
 } from '../../../../lib/db/quotes'
 import type { LineItem, DeliverableRow } from '../../../../lib/db/quotes'
 import { getEntity } from '../../../../lib/db/entities'
@@ -101,7 +102,7 @@ async function handleGeneratePdf(
     )
   }
 
-  const lineItems: LineItem[] = JSON.parse(existing.line_items) as LineItem[]
+  const lineItems: LineItem[] = parseLineItems(existing.line_items)
   const authoredDeliverables: DeliverableRow[] = parseDeliverables(existing)
   const sowItems = buildSowItems(lineItems, authoredDeliverables)
 
@@ -160,13 +161,13 @@ function parseJsonArray<T extends object>(
 function parseLineItemsField(formData: FormData): LineItem[] | undefined {
   const raw = formData.get('line_items')
   if (!raw || typeof raw !== 'string') return undefined
-  try {
-    const parsed = JSON.parse(raw) as unknown
-    if (Array.isArray(parsed) && parsed.length > 0) return parsed as LineItem[]
-  } catch {
-    // Invalid JSON — skip
-  }
-  return undefined
+  // parseLineItems parses + validates each element against the LineItem shape
+  // (never casts, never throws). An empty result means the field was absent,
+  // malformed, or had no valid rows — in all cases we skip the update so a
+  // bad payload can't blank out a quote's line items. Returns undefined to
+  // signal "leave unchanged" to buildUpdateData.
+  const parsed = parseLineItems(raw)
+  return parsed.length > 0 ? parsed : undefined
 }
 
 function parseDepositPct(formData: FormData): number | undefined {
