@@ -52,6 +52,7 @@ import {
   checkScope,
   checkVoiceLibrary,
 } from './sections-other'
+import { checkCredentialCustodyDefault } from './sections-connectors'
 import { checkTelegram } from './sections-telegram'
 import { checkObservability } from './sections-observability'
 import { checkVoiceCohorts } from './sections-voice'
@@ -59,6 +60,9 @@ import { checkWebhookTriggers } from './sections-webhook-triggers'
 import { checkExtendsReserved, checkVerticalPinned } from './sections-vertical'
 import { checkAddons } from './sections-addons'
 import { checkGoogleAuth } from './sections-google-auth'
+import { checkAuthority } from './sections-authority'
+import type { AuthorityPosture } from '../authority'
+import type { CredentialCustody } from '../credential-custody'
 
 export type {
   CustomerYaml,
@@ -123,6 +127,34 @@ export {
   type SyncSource,
 } from './types'
 export { resolveCohortVocabulary } from './sections-voice'
+export {
+  ACCEPTED_AUTHORITY_DEFAULTS,
+  ACCEPTED_AUTHORITY_HOLDERS,
+  ALL_AUTHORITY_DOMAINS,
+  DEFAULT_AUTHORITY_POSTURE,
+  SMD_ONLY_AUTHORITY_DOMAINS,
+  SWITCHABLE_AUTHORITY_DOMAINS,
+  canClientRead,
+  isClientOperable,
+  isSwitchableDomain,
+  parseAuthorityPosture,
+  resolveAllDomains,
+  resolveDomainAuthority,
+  type AuthorityDefault,
+  type AuthorityDomain,
+  type AuthorityHolder,
+  type AuthorityPosture,
+  type SmdOnlyAuthorityDomain,
+  type SwitchableAuthorityDomain,
+} from '../authority'
+export {
+  ACCEPTED_CREDENTIAL_CUSTODY,
+  DEFAULT_CREDENTIAL_CUSTODY,
+  parseCredentialCustody,
+  resolveCredentialCustody,
+  smdCanReachSecret,
+  type CredentialCustody,
+} from '../credential-custody'
 
 export interface ValidateOptions {
   /** Raw YAML text. When provided, scanRawYaml runs as the first pass so a
@@ -191,6 +223,8 @@ interface ParsedSections {
   observability: Observability
   webhookTriggers: ReturnType<typeof checkWebhookTriggers>
   complianceEnabled: boolean
+  authority: AuthorityPosture
+  credentialCustodyDefault: CredentialCustody
 }
 
 function validateSections(
@@ -241,6 +275,8 @@ function validateSections(
     observability: checkObservability(root, errors),
     webhookTriggers,
     complianceEnabled: checkComplianceEnabled(root, errors),
+    authority: checkAuthority(root, errors),
+    credentialCustodyDefault: checkCredentialCustodyDefault(root, errors),
   }
 }
 
@@ -274,5 +310,7 @@ function assembleCustomerYaml(root: Record<string, unknown>, p: ParsedSections):
     observability: p.observability,
     webhook_triggers: p.webhookTriggers,
     compliance_enabled: p.complianceEnabled,
+    authority: p.authority,
+    credential_custody_default: p.credentialCustodyDefault,
   }
 }

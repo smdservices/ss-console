@@ -6,13 +6,40 @@
 
 import type { CapabilityName } from '../capabilities/types'
 import {
+  ACCEPTED_CREDENTIAL_CUSTODY,
+  DEFAULT_CREDENTIAL_CUSTODY,
+  type CredentialCustody,
+} from '../credential-custody'
+import {
   ACCEPTED_BACKEND_PREFIXES,
   ACCEPTED_CAPABILITY_NAMES,
   WEBHOOK_URL_PATTERN,
   type Connector,
   type ValidationError,
 } from './types'
-import { isPlainObject } from './helpers'
+import { isPlainObject, optionalEnum } from './helpers'
+
+/**
+ * `credential_custody_default` (ADR 0042) — optional top-level client-level
+ * default applied to every connector whose own `credential_custody` is null.
+ * Defaults to `delegated` (the hands-off value) when absent. Per-connector
+ * values override it; the resolver is `resolveCredentialCustody`. Lives with
+ * the connectors section because custody is the security dimension of the
+ * connectors authority domain.
+ */
+export function checkCredentialCustodyDefault(
+  root: Record<string, unknown>,
+  errors: ValidationError[]
+): CredentialCustody {
+  const v = optionalEnum(
+    root,
+    'credential_custody_default',
+    ACCEPTED_CREDENTIAL_CUSTODY,
+    'credential_custody_default',
+    errors
+  )
+  return v ?? DEFAULT_CREDENTIAL_CUSTODY
+}
 
 export function checkConnectors(
   root: Record<string, unknown>,
@@ -70,6 +97,15 @@ function checkOneConnector(
   if (webhookUrl === undefined) return null
   const enabled = typeof value['enabled'] === 'boolean' ? value['enabled'] : true
   const tokenRef = typeof value['token_ref'] === 'string' ? value['token_ref'] : null
+  // ADR 0042: optional per-connector custody; null ⇒ inherit the client-level
+  // credential_custody_default. Enum-gated; absence is the common case.
+  const custody = optionalEnum(
+    value,
+    'credential_custody',
+    ACCEPTED_CREDENTIAL_CUSTODY,
+    `connectors.${key}.credential_custody`,
+    errors
+  )
   return {
     adapter,
     backend,
@@ -77,6 +113,7 @@ function checkOneConnector(
     scopes,
     token_ref: tokenRef,
     webhook_url: webhookUrl,
+    credential_custody: custody,
   }
 }
 
