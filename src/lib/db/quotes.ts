@@ -170,6 +170,43 @@ export interface UpdateQuoteData {
 }
 
 /**
+ * Type guard for a single persisted line item. Validates the full LineItem
+ * shape so malformed or partially-shaped elements are rejected rather than
+ * cast through. Mirrors the per-element predicates in parseSchedule /
+ * parseDeliverables.
+ */
+function isLineItem(row: unknown): row is LineItem {
+  return (
+    row != null &&
+    typeof row === 'object' &&
+    typeof (row as Record<string, unknown>).problem === 'string' &&
+    typeof (row as Record<string, unknown>).description === 'string' &&
+    typeof (row as Record<string, unknown>).estimated_hours === 'number'
+  )
+}
+
+/**
+ * Parse a persisted JSON line-items string into validated rows. Returns an
+ * empty array when the input is null, missing, malformed, or not an array —
+ * never throws, never casts. Each element is validated against the LineItem
+ * shape (see isLineItem), so corrupt or shape-changed JSON yields a clean
+ * (possibly empty) result instead of an unhandled exception downstream.
+ *
+ * Use this anywhere a stored `line_items` column is read back. Mirrors
+ * parseSchedule / parseDeliverables.
+ */
+export function parseLineItems(raw: string | null): LineItem[] {
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(isLineItem)
+  } catch {
+    return []
+  }
+}
+
+/**
  * Parse the persisted JSON schedule into typed rows. Returns an empty array
  * when the column is null, missing, or malformed — callers should treat
  * "empty" the same as "not authored yet" and render nothing.
@@ -235,7 +272,7 @@ export function getMissingAuthoredContent(quote: Quote): string[] {
  * statuses (accepted, declined, expired, superseded) are terminal and do not
  * block a repeat quote (#472).
  */
-export const OPEN_QUOTE_STATUSES: QuoteStatus[] = ['draft', 'sent']
+const OPEN_QUOTE_STATUSES: QuoteStatus[] = ['draft', 'sent']
 
 /**
  * Return true if the entity has at least one draft or sent quote.
@@ -418,7 +455,7 @@ function appendTotalsFields(
   const lineItems = data.lineItems
   const rate = data.rate
   if (lineItems !== undefined || rate !== undefined) {
-    const effectiveItems = lineItems ?? (JSON.parse(existing.line_items) as LineItem[])
+    const effectiveItems = lineItems ?? parseLineItems(existing.line_items)
     const effectiveRate = rate ?? existing.rate
     const totalHours = effectiveItems.reduce((sum, item) => sum + item.estimated_hours, 0)
     const totalPrice = totalHours * effectiveRate

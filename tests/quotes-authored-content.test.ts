@@ -35,6 +35,7 @@ import {
   updateQuoteStatus,
   parseSchedule,
   parseDeliverables,
+  parseLineItems,
   getMissingAuthoredContent,
 } from '../src/lib/db/quotes'
 import type { Quote } from '../src/lib/db/quotes'
@@ -140,6 +141,54 @@ describe('parseDeliverables', () => {
     ])
     expect(parseDeliverables(makeQuote({ deliverables: json }))).toEqual([
       { title: 'Good', body: 'ok' },
+    ])
+  })
+})
+
+describe('parseLineItems', () => {
+  it('returns empty array when raw is null', () => {
+    expect(parseLineItems(null)).toEqual([])
+  })
+
+  it('returns empty array when raw is an empty string', () => {
+    expect(parseLineItems('')).toEqual([])
+  })
+
+  it('returns empty array when raw is not a JSON array', () => {
+    expect(parseLineItems('{"problem":"x","description":"y","estimated_hours":1}')).toEqual([])
+  })
+
+  it('returns empty array — does NOT throw — when JSON is malformed', () => {
+    // Regression: previously `JSON.parse(existing.line_items) as LineItem[]`
+    // threw an unhandled exception on corrupt stored JSON, surfacing as a 500
+    // in handleGeneratePdf and appendTotalsFields. parse-don't-cast (#833/#834/#835).
+    expect(() => parseLineItems('not json')).not.toThrow()
+    expect(parseLineItems('not json')).toEqual([])
+    expect(parseLineItems('{ truncated')).toEqual([])
+  })
+
+  it('returns parsed rows when JSON is a valid LineItem array', () => {
+    const json = JSON.stringify([
+      { problem: 'Lead leakage', description: 'Follow-up automation.', estimated_hours: 12 },
+      { problem: 'Manual quoting', description: 'Quote builder.', estimated_hours: 8 },
+    ])
+    expect(parseLineItems(json)).toEqual([
+      { problem: 'Lead leakage', description: 'Follow-up automation.', estimated_hours: 12 },
+      { problem: 'Manual quoting', description: 'Quote builder.', estimated_hours: 8 },
+    ])
+  })
+
+  it('drops rows of the wrong shape (missing fields or wrong types)', () => {
+    const json = JSON.stringify([
+      { problem: 'Good', description: 'ok', estimated_hours: 4 },
+      { problem: 'No hours', description: 'ok' }, // missing estimated_hours
+      { problem: 'String hours', description: 'ok', estimated_hours: '4' }, // wrong type
+      { description: 'No problem', estimated_hours: 1 }, // missing problem
+      null,
+      'a string',
+    ])
+    expect(parseLineItems(json)).toEqual([
+      { problem: 'Good', description: 'ok', estimated_hours: 4 },
     ])
   })
 })
