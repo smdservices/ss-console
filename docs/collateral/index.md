@@ -12,6 +12,7 @@ Sales and marketing collateral for the SMD Services go-to-market motion, includi
 - [google-business-profile.md](./google-business-profile.md) - Google Business Profile setup and optimization guide
 - [lead-automation-blueprint.md](./lead-automation-blueprint.md) - Lead automation system blueprint
 - [one-pager.md](./one-pager.md) - SMD Services one-pager sales document
+- [operator-law-talk-track.md](./operator-law-talk-track.md) - Operator (law) founder-led talk-track, objection responses, and the live-demo showcase (derives from ADR 0040)
 - [outreach-plan.md](./outreach-plan.md) - Outreach plan and sequences
 - [pricing-framework.md](./pricing-framework.md) - Internal scope-to-price methodology (not client-facing)
 - [proposal-sow-template.md](./proposal-sow-template.md) - Proposal and Statement of Work template
