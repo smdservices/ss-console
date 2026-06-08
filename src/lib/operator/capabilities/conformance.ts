@@ -60,17 +60,26 @@ export const CONFORMANCE_INVARIANTS = {
     'All errors thrown are AdapterError instances with codes in the closed AdapterErrorCode union.',
 
   /**
-   * Per ADR 0005, no adapter exposes a method that sends an external
-   * message under any identity other than the reviewer's drafts
-   * folder. Email cannot have `send`; ESign cannot have
-   * `send_envelope`; Calendar cannot have `send_invitation`;
-   * DocumentStorage cannot have `share_document` (only
-   * `share_document_draft`); Payments cannot have
-   * `send_payment_request` (only `create_payment_request_draft`);
-   * etc. The harness asserts these method names are not present.
+   * Reversibility floor (ADR 0025). Adapters MUST NOT expose autonomous
+   * methods for irreversible actions — money movement, ledger posting,
+   * court filing. These are COMMITMENT / DESTRUCTIVE action classes that
+   * `trust_ceiling.enforce()` additionally gates on explicit current-turn
+   * approval; the adapter-level absence is defense-in-depth.
+   *
+   * External *send* (email, SMS, calendar invites, document sharing, lead
+   * messaging) is NOT in this floor. Per ADR 0035 it is a configurable
+   * entitlement: an adapter MAY expose send methods, and whether a send
+   * executes autonomously, routes to a reviewer draft, or is refused is
+   * decided at runtime by `trust_ceiling.enforce()` per the authored
+   * EXTERNAL_SEND ceiling (fail-closed when unauthored). Reviewer-as-sender
+   * (ADR 0005, amended by ADR 0035) is one authored option, never an imposed
+   * default — the harness does not ban send method names.
+   *
+   * (Key name retained for compatibility with existing conformance suites;
+   * its meaning is the reversibility floor above.)
    */
   NO_AUTONOMOUS_EXTERNAL_SEND:
-    "No adapter exposes a method that sends external messages under any identity other than the reviewer's drafts folder.",
+    'Adapters do not expose autonomous methods for irreversible actions (money movement, ledger posting, court filing). External send is a configurable entitlement gated at runtime by the trust ceiling, not banned at the adapter.',
 
   /**
    * Per Platform PRD invariant #3, no Payments adapter exposes a
@@ -116,21 +125,23 @@ export type ConformanceInvariantKey = keyof typeof CONFORMANCE_INVARIANTS
  * Adding a banned name requires an ADR.
  */
 export const BANNED_METHOD_NAMES: Record<CapabilityName, string[]> = {
-  Email: ['send', 'send_message', 'send_draft', 'send_email'],
-  Calendar: ['send_invitation', 'send_invite', 'send_event'],
-  ESign: ['send_envelope', 'create_and_send_envelope', 'send_signing_request', 'initiate_signing'],
-  DocumentStorage: ['share_document', 'send_share_invitation'],
-  Payments: [
-    'send_payment_request',
-    'initiate_transfer',
-    'trust_disbursement',
-    'transfer_funds',
-    'disburse',
-  ],
+  // External-send methods are intentionally NOT listed — they are configurable
+  // entitlements gated at runtime by `trust_ceiling.enforce()` per the authored
+  // EXTERNAL_SEND ceiling (ADR 0025/0035), not banned at the adapter. The
+  // surviving entries are the irreversibility floor (ADR 0025): money movement,
+  // ledger posting, and court filing, which COMMITMENT/DESTRUCTIVE gating also
+  // requires explicit current-turn approval for. `send_payment_request` was an
+  // external send (an invoice/request) and is removed; the fund-movement methods
+  // stay.
+  Email: [],
+  Calendar: [],
+  ESign: [],
+  DocumentStorage: [],
+  Payments: ['initiate_transfer', 'trust_disbursement', 'transfer_funds', 'disburse'],
   Accounting: ['post_invoice', 'post_expense_entry', 'post_to_general_ledger'],
-  IntakeCRM: ['send_to_lead', 'send_lead_email', 'message_lead'],
+  IntakeCRM: [],
   CourtAccess: ['file_document', 'submit_filing', 'send_to_court'],
-  CallTracking: ['create_call', 'originate_call', 'place_call', 'send_text', 'send_sms'],
+  CallTracking: [],
   InternalComms: [],
   PracticeManagement: [],
 }
