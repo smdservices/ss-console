@@ -14,6 +14,13 @@ interface Turn {
 
 const turns: Turn[] = []
 
+/**
+ * Signed session token issued by the server on the opening turn (ADR 0039 /
+ * 2026-06-08 hardening). Echoed on every subsequent turn so the server can
+ * enforce its per-session ceiling. Null until the opener returns it.
+ */
+let session: string | null = null
+
 function el<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id)
   if (!node) throw new Error(`missing #${id}`)
@@ -129,7 +136,7 @@ async function operatorTurn(): Promise<void> {
     const res = await fetch('/api/assessment/turn', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ turns }),
+      body: JSON.stringify(session ? { turns, session } : { turns }),
     })
     const data: unknown = await res.json()
     const message = strField(data, 'message')
@@ -138,6 +145,10 @@ async function operatorTurn(): Promise<void> {
       setComposerEnabled(true)
       return
     }
+    // The opening turn carries the freshly minted session token; hold onto it
+    // for every subsequent turn. Later turns omit it from the response.
+    const issued = strField(data, 'session')
+    if (issued) session = issued
     appendBubble('operator', message)
     turns.push({ speaker: 'operator', text: message })
     if (boolField(data, 'done')) {
