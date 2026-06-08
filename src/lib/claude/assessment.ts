@@ -30,6 +30,25 @@ const FINDINGS_MAX_TOKENS = 4096
 const KICKOFF =
   '[The business owner has just started the assessment. Begin with your warm opening.]'
 
+/**
+ * The operator's opening message, served as a fixed constant rather than an LLM
+ * call (2026-06-08 hardening). The opening is produced from a fixed synthetic
+ * prompt with zero owner input — the same warm, lightly-framed greeting every
+ * time — so it is effectively a constant and never needed a live generation.
+ *
+ * Serving it statically closes the residual IP-rotation cost vector on
+ * `/api/assessment/turn`: an attacker can no longer POST empty `turns` to burn
+ * one LLM call per request. The model is only invoked once the owner has
+ * actually replied (a continuing turn, which the signed-session ceiling gates).
+ *
+ * The copy is faithful to the interviewer skill's opening directive ("Open
+ * warm, frame lightly... invite them to walk you through how the business
+ * actually runs day to day. Let them talk."). It withholds the completion
+ * sentinel and is never `done`.
+ */
+export const ASSESSMENT_OPENING_MESSAGE =
+  "Thanks for making the time. I'd love to start by just understanding how your business actually runs day to day. Walk me through it in your own words. Where does the day usually start, and what's on your plate before anything else happens?"
+
 /** Error from the Anthropic API or an unexpected response shape. */
 export class AssessmentApiError extends Error {
   constructor(
@@ -98,9 +117,19 @@ export function parseOperatorReply(raw: string): AssessmentTurnResult {
 }
 
 /**
+ * The operator's opening message — a fixed constant, no LLM call. Returned for
+ * the opening turn (empty `turns`); see `ASSESSMENT_OPENING_MESSAGE` for why
+ * this is static. Never `done`.
+ */
+export function assessmentOpening(): AssessmentTurnResult {
+  return { message: ASSESSMENT_OPENING_MESSAGE, done: false }
+}
+
+/**
  * Produce the operator's next message given the conversation so far.
- * `turns` is the visible history (empty for the opening). When the interviewer
- * judges the assessment complete it emits the sentinel; we strip it and flag `done`.
+ * `turns` is the visible history; it must be non-empty (the opening is served
+ * statically by `assessmentOpening`). When the interviewer judges the
+ * assessment complete it emits the sentinel; we strip it and flag `done`.
  */
 export async function assessmentTurn(
   apiKey: string,
