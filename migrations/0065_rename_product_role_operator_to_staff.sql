@@ -1,0 +1,37 @@
+-- ============================================================================
+-- Migration 0065: rename product_roles.role 'operator' -> 'staff'
+-- ============================================================================
+--
+-- The client-internal human role formerly named 'operator' is renamed to
+-- 'staff' to stop it colliding with the product name "Operator". The role
+-- vocabulary is now principal | staff | compliance.
+--   - docs/design/operator/02-client-portal.md §2 (Captain-resolved 2026-06-08)
+--   - docs/design/operator/00-foundations.md §2 (Layer 2 RBAC)
+--
+-- Migration 0048 deliberately DEFERRED this rename. It migrated
+-- subscriptions/product_roles.product_slug to 'operator' (the product) but
+-- explicitly left product_roles.role = 'operator' (the HUMAN role) untouched,
+-- noting it was unrelated to the product slug. This migration completes that
+-- deferred rename.
+--
+-- TABLE TOUCHED:
+--   product_roles.role  — the human-role value ONLY.
+--
+-- NOT TOUCHED:
+--   product_roles.product_slug / subscriptions.product_slug  — the value
+--     'operator' there is the PRODUCT, set by migration 0048. It stays.
+--
+-- There is no CHECK constraint on product_roles.role (migration 0038), so this
+-- is a pure data UPDATE — no schema change. Idempotent and safe on zero rows
+-- (pre-launch: no client role grants are expected in production yet).
+--
+-- DEPLOY COORDINATION: ships in the same deploy as the role-rename code, which
+-- now resolves access against the 'staff' role. After the code lands, an
+-- existing grant of 'operator' would no longer match any allowedRoles list;
+-- this migration realigns existing rows. Code + migration must land together.
+--
+-- ROLLBACK (manual, if the code PR is reverted):
+--   UPDATE product_roles SET role = 'operator' WHERE role = 'staff';
+-- ============================================================================
+
+UPDATE product_roles SET role = 'staff' WHERE role = 'operator';

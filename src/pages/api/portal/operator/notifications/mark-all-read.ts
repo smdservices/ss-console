@@ -60,7 +60,7 @@ function withMarkedParam(target: string, marked: number): string {
 
 export const POST: APIRoute = async ({ request, locals }) => {
   const access = await resolveOperatorAccess(env.DB, locals, {
-    allowedRoles: ['principal', 'operator', 'compliance'],
+    allowedRoles: ['principal', 'staff', 'compliance'],
   })
   if (access.kind === 'redirect') {
     return new Response(null, {

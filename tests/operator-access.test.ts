@@ -139,7 +139,7 @@ describe('resolveOperatorAccess', () => {
     vi.mocked(getPortalClient).mockResolvedValue(null)
 
     const result = await resolveOperatorAccess(db, fakeLocals, {
-      allowedRoles: ['operator', 'principal'],
+      allowedRoles: ['staff', 'principal'],
     })
 
     expect(result.kind).toBe('redirect')
@@ -155,7 +155,7 @@ describe('resolveOperatorAccess', () => {
     })
 
     const result = await resolveOperatorAccess(db, fakeLocals, {
-      allowedRoles: ['operator', 'principal'],
+      allowedRoles: ['staff', 'principal'],
     })
 
     expect(result.kind).toBe('redirect')
@@ -173,7 +173,7 @@ describe('resolveOperatorAccess', () => {
     })
 
     const result = await resolveOperatorAccess(db, fakeLocals, {
-      allowedRoles: ['operator', 'principal'],
+      allowedRoles: ['staff', 'principal'],
     })
 
     expect(result.kind).toBe('redirect')
@@ -193,7 +193,7 @@ describe('resolveOperatorAccess', () => {
     })
 
     const result = await resolveOperatorAccess(db, fakeLocals, {
-      allowedRoles: ['operator', 'principal'],
+      allowedRoles: ['staff', 'principal'],
     })
 
     expect(result.kind).toBe('redirect')
@@ -213,7 +213,7 @@ describe('resolveOperatorAccess', () => {
     })
 
     const result = await resolveOperatorAccess(db, fakeLocals, {
-      allowedRoles: ['operator', 'principal'],
+      allowedRoles: ['staff', 'principal'],
     })
 
     expect(result.kind).toBe('redirect')
@@ -234,7 +234,7 @@ describe('resolveOperatorAccess', () => {
 
     // Drafts allows operator | principal only — compliance must be redirected
     const result = await resolveOperatorAccess(db, fakeLocals, {
-      allowedRoles: ['operator', 'principal'],
+      allowedRoles: ['staff', 'principal'],
     })
 
     expect(result.kind).toBe('redirect')
@@ -254,7 +254,7 @@ describe('resolveOperatorAccess', () => {
     })
 
     const result = await resolveOperatorAccess(db, fakeLocals, {
-      allowedRoles: ['operator', 'principal'],
+      allowedRoles: ['staff', 'principal'],
     })
 
     expect(result.kind).toBe('allowed')
@@ -270,19 +270,19 @@ describe('resolveOperatorAccess', () => {
     await seedEntity(db)
     await seedUser(db, USER_ID, 'operator@firm.com')
     await seedSubscription(db, 'active')
-    await grantRole(db, USER_ID, 'operator')
+    await grantRole(db, USER_ID, 'staff')
     vi.mocked(getPortalClient).mockResolvedValue({
       user: mockUser(USER_ID, 'operator@firm.com'),
       client: mockClient(),
     })
 
     const result = await resolveOperatorAccess(db, fakeLocals, {
-      allowedRoles: ['operator', 'principal'],
+      allowedRoles: ['staff', 'principal'],
     })
 
     expect(result.kind).toBe('allowed')
     if (result.kind === 'allowed') {
-      expect(result.roles).toContain('operator')
+      expect(result.roles).toContain('staff')
     }
   })
 
@@ -297,7 +297,7 @@ describe('resolveOperatorAccess', () => {
     })
 
     const result = await resolveOperatorAccess(db, fakeLocals, {
-      allowedRoles: ['operator', 'principal'],
+      allowedRoles: ['staff', 'principal'],
     })
 
     // Provisioning subscriptions DO return — the helper matches getProductSubscription
@@ -320,7 +320,7 @@ describe('resolveOperatorAccess', () => {
     })
 
     const result = await resolveOperatorAccess(db, fakeLocals, {
-      allowedRoles: ['operator', 'principal'],
+      allowedRoles: ['staff', 'principal'],
     })
 
     expect(result.kind).toBe('allowed')
@@ -341,7 +341,7 @@ describe('resolveOperatorAccess', () => {
 
     // Audit accepts principal | operator | compliance
     const result = await resolveOperatorAccess(db, fakeLocals, {
-      allowedRoles: ['principal', 'operator', 'compliance'],
+      allowedRoles: ['principal', 'staff', 'compliance'],
     })
 
     expect(result.kind).toBe('allowed')

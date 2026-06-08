@@ -55,7 +55,7 @@ import { env } from 'cloudflare:workers'
  */
 
 const access = await resolveOperatorAccess(env.DB, Astro.locals, {
-  allowedRoles: ['operator', 'principal'],
+  allowedRoles: ['staff', 'principal'],
 })
 if (access.kind === 'redirect') {
   return Astro.redirect(access.to)
