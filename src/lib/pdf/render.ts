@@ -24,6 +24,16 @@ import formeWasm from '@formepdf/core/pkg/forme_bg.wasm'
 /**
  * Ensure the Forme WASM module is initialized before rendering.
  * Memoizes the init promise; resets on failure so the next call retries.
+ *
+ * Accepted module-scope-state exception (coding-standards.md §10, "Module-level
+ * `let`/`const` for immutable init-time values only"): this is NOT request-scoped
+ * state. `init(formeWasm)` binds the build-imported, immutable WebAssembly.Module
+ * into the @formepdf/core glue exactly once per isolate; the result is idempotent
+ * and carries no per-request data. Memoizing it here is the correct pattern —
+ * re-initializing per request would re-instantiate the WASM instance on every
+ * PDF render for no benefit. The promise is re-nulled ONLY on init failure so a
+ * subsequent render retries a cold init rather than awaiting a permanently
+ * rejected promise; it is never reassigned per request on the success path.
  */
 let wasmReady: Promise<void> | null = null
 function ensureWasm(): Promise<void> {
