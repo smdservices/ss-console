@@ -1,5 +1,5 @@
 import type { APIContext, APIRoute } from 'astro'
-import { createQuote } from '../../../../lib/db/quotes'
+import { createQuote, parseLineItems } from '../../../../lib/db/quotes'
 import type { LineItem } from '../../../../lib/db/quotes'
 import { env } from 'cloudflare:workers'
 
@@ -27,16 +27,6 @@ function getStringField(formData: FormData, key: string): string | null {
   return v && typeof v === 'string' ? v : null
 }
 
-function parseLineItems(json: string): LineItem[] | null {
-  try {
-    const parsed = JSON.parse(json) as unknown
-    if (!Array.isArray(parsed) || parsed.length === 0) return null
-    return parsed as LineItem[]
-  } catch {
-    return null
-  }
-}
-
 function parseDepositPct(formData: FormData): number {
   const raw = getStringField(formData, 'deposit_pct')
   const v = raw ? parseFloat(raw) : 0.5
@@ -53,8 +43,11 @@ function parseQuoteForm(redirect: Redirect, formData: FormData): ParsedQuoteForm
     return redirect(`/admin/entities/${entityId ?? ''}?error=missing`, 302)
   }
 
+  // parseLineItems parses + validates each element against the LineItem shape,
+  // returning [] for malformed JSON, a non-array, or no valid rows. An empty
+  // result means there's nothing valid to quote — reject it.
   const lineItems = parseLineItems(lineItemsJson)
-  if (!lineItems) {
+  if (lineItems.length === 0) {
     return redirect(`/admin/entities/${entityId}?error=invalid_line_items`, 302)
   }
 
