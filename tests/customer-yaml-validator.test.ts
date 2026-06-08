@@ -2044,3 +2044,150 @@ describe('validate — google_auth', () => {
     expect(r.errors.some((e) => e.path === 'google_auth' && e.code === 'TypeMismatch')).toBe(true)
   })
 })
+
+// -----------------------------------------------------------------------------
+// Authority posture (ADR 0041)
+// -----------------------------------------------------------------------------
+
+describe('validate — authority posture', () => {
+  it('defaults to managed/no-overrides when the block is absent', () => {
+    const r = validate(validFixture())
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.authority).toEqual({ default: 'managed', overrides: {} })
+  })
+
+  it('accepts a valid authority block with per-domain overrides', () => {
+    const f = validFixture()
+    f['authority'] = {
+      default: 'managed',
+      overrides: { people_access: 'client', connectors: 'client' },
+    }
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.authority.default).toBe('managed')
+    expect(r.value.authority.overrides.people_access).toBe('client')
+    expect(r.value.authority.overrides.connectors).toBe('client')
+  })
+
+  it('accepts default: self_managed with an override pinning a domain back to managed', () => {
+    const f = validFixture()
+    f['authority'] = { default: 'self_managed', overrides: { connectors: 'managed' } }
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.authority.default).toBe('self_managed')
+    expect(r.value.authority.overrides.connectors).toBe('managed')
+  })
+
+  it('rejects an unknown authority.default value', () => {
+    const f = validFixture()
+    f['authority'] = { default: 'fully_managed' }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'authority.default' && e.code === 'EnumViolation')).toBe(
+      true
+    )
+  })
+
+  it('rejects an unknown override domain', () => {
+    const f = validFixture()
+    f['authority'] = { default: 'managed', overrides: { not_a_domain: 'client' } }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) => e.path === 'authority.overrides.not_a_domain' && e.code === 'UnknownAuthorityDomain'
+      )
+    ).toBe(true)
+  })
+
+  it('rejects an SMD-only domain used as a client switch', () => {
+    const f = validFixture()
+    f['authority'] = { default: 'managed', overrides: { cost: 'client' } }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) => e.path === 'authority.overrides.cost' && e.code === 'UnknownAuthorityDomain'
+      )
+    ).toBe(true)
+  })
+
+  it('rejects an invalid override value', () => {
+    const f = validFixture()
+    f['authority'] = { default: 'managed', overrides: { connectors: 'smd' } }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) => e.path === 'authority.overrides.connectors' && e.code === 'EnumViolation'
+      )
+    ).toBe(true)
+  })
+
+  it('rejects a non-object authority block', () => {
+    const f = validFixture()
+    f['authority'] = 'managed'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'authority' && e.code === 'TypeMismatch')).toBe(true)
+  })
+})
+
+// -----------------------------------------------------------------------------
+// Credential custody (ADR 0042)
+// -----------------------------------------------------------------------------
+
+describe('validate — credential custody', () => {
+  it('defaults credential_custody_default to delegated when absent', () => {
+    const r = validate(validFixture())
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.credential_custody_default).toBe('delegated')
+  })
+
+  it('per-connector credential_custody defaults to null (inherit) when absent', () => {
+    const r = validate(validFixture())
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.connectors.Email?.credential_custody).toBeNull()
+  })
+
+  it('accepts an explicit client-level default and per-connector override', () => {
+    const f = validFixture()
+    f['credential_custody_default'] = 'self_held'
+    ;(f['connectors'] as Record<string, Record<string, unknown>>)['Email']['credential_custody'] =
+      'delegated'
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.credential_custody_default).toBe('self_held')
+    expect(r.value.connectors.Email?.credential_custody).toBe('delegated')
+  })
+
+  it('rejects an invalid client-level default', () => {
+    const f = validFixture()
+    f['credential_custody_default'] = 'smd-holds'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'credential_custody_default' && e.code === 'EnumViolation')
+    ).toBe(true)
+  })
+
+  it('rejects an invalid per-connector custody value', () => {
+    const f = validFixture()
+    ;(f['connectors'] as Record<string, Record<string, unknown>>)['Email']['credential_custody'] =
+      'shared'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) => e.path === 'connectors.Email.credential_custody' && e.code === 'EnumViolation'
+      )
+    ).toBe(true)
+  })
+})

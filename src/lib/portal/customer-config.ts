@@ -19,6 +19,13 @@
  * an optional selector parameter; v1 callers continue to work).
  */
 
+import { parseAuthorityPosture, type AuthorityPosture } from '../operator/authority'
+import {
+  DEFAULT_CREDENTIAL_CUSTODY,
+  parseCredentialCustody,
+  type CredentialCustody,
+} from '../operator/credential-custody'
+
 export type PersonaStatus = 'active' | 'archived'
 
 export interface PersonaSendAs {
@@ -75,6 +82,23 @@ export interface CustomerConfigRow {
    * can backfill before CI sync writes the column.
    */
   vertical: string | null
+  /**
+   * Resolved authority posture (ADR 0041) — per-domain client-self-serve
+   * switches over SMD's always-present full control. Always present: a null
+   * `authority_json` column resolves to the launch default
+   * (`{ default: 'managed', overrides: {} }`) via parseAuthorityPosture, so
+   * portals never special-case absence. The resolver + domain contract live
+   * in src/lib/operator/authority.ts.
+   */
+  authority: AuthorityPosture
+  /**
+   * Resolved client-level default credential custody (ADR 0042). Always
+   * present: a null `credential_custody_default` column resolves to
+   * `delegated`. Per-connector overrides live inside `connectors`. The
+   * resolver `resolveCredentialCustody` lives in
+   * src/lib/operator/credential-custody.ts.
+   */
+  credential_custody_default: CredentialCustody
   git_sha: string
   synced_at: string
 }
@@ -92,6 +116,8 @@ interface CustomerConfigDbRow {
   scope_json: string | null
   compliance_enabled: number
   vertical: string | null
+  authority_json: string | null
+  credential_custody_default: string | null
   git_sha: string
   synced_at: string
 }
@@ -102,8 +128,11 @@ interface CustomerConfigDbRow {
  * for ensuring the projection is well-formed; a malformed JSON column is a
  * corruption signal, not a routine condition to recover from.
  */
-function parseJsonNullable<T>(value: string | null): T | null {
-  if (value === null) return null
+function parseJsonNullable<T>(value: string | null | undefined): T | null {
+  // null = column is SQL NULL; undefined = column absent from the row (e.g. a
+  // freshly-added projection column a row predates, or a partial test row).
+  // Both mean "no value" — only a present, malformed JSON string is corruption.
+  if (value === null || value === undefined) return null
   return JSON.parse(value) as T
 }
 
@@ -138,6 +167,12 @@ function projectRow(row: CustomerConfigDbRow): CustomerConfigRow {
     scope: parseJsonNullable(row.scope_json),
     compliance_enabled: row.compliance_enabled === 1,
     vertical: row.vertical,
+    // JSON-syntax corruption throws like any other projected column; semantic
+    // shape (unknown override keys/values) is tolerated by parseAuthorityPosture,
+    // and a null column resolves to the launch-default posture.
+    authority: parseAuthorityPosture(parseJsonNullable(row.authority_json)),
+    credential_custody_default:
+      parseCredentialCustody(row.credential_custody_default) ?? DEFAULT_CREDENTIAL_CUSTODY,
     git_sha: row.git_sha,
     synced_at: row.synced_at,
   }
