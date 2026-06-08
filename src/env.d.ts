@@ -180,6 +180,17 @@ declare namespace Cloudflare {
      */
     OAUTH_STATE_SIGNING_KEY?: string
     /**
+     * HMAC signing key for public live-assessment session tokens
+     * (`/api/assessment/turn`, ADR 0039 node [1]). Base64-encoded raw bytes;
+     * generate with `openssl rand -base64 32`. A dedicated key keeps
+     * assessment sessions cryptographically independent of booking links and
+     * OAuth state — rotating one must not invalidate the others. The signed
+     * `sid` is what makes the per-session turn/cost ceiling unforgeable, which
+     * is what defeats IP-rotation budget exhaustion. Must be a Worker secret,
+     * never a `[vars]` entry. See src/lib/assessment/session.ts.
+     */
+    ASSESSMENT_SESSION_SIGNING_KEY?: string
+    /**
      * Fly.io API token (SMD-owned, from Infisical) used by the OAuth token
      * relay (`src/lib/oauth/store.ts`) to set a customer app's
      * `GOOGLE_TOKEN_JSON` secret and restart its Machine on connect/re-consent.
