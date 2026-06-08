@@ -14,12 +14,15 @@
 import { describe, expect, it } from 'vitest'
 import { FINDINGS_SYSTEM, INTERVIEWER_SYSTEM } from '../src/lib/assessment/prompts'
 import {
+  assessmentOpening,
   assessmentTurn,
+  ASSESSMENT_OPENING_MESSAGE,
   buildTranscript,
   parseOperatorReply,
   toApiMessages,
   type Turn,
 } from '../src/lib/claude/assessment'
+import { ASSESSMENT_COMPLETE_SENTINEL } from '../src/lib/assessment/prompts'
 
 describe('skill bodies load into the prompts (?raw single source of truth)', () => {
   it('interviewer prompt carries the interview skill and BOTH references', () => {
@@ -53,6 +56,23 @@ describe('turn protocol', () => {
     expect(msgs.map((m) => m.role)).toEqual(['user', 'assistant', 'user'])
     expect(msgs[1]?.content).toContain('tell me about the business') // operator turn
     expect(msgs[2]?.content).toContain('HVAC') // owner turn
+  })
+})
+
+describe('static opening (no LLM call — closes the IP-rotation opener cost vector)', () => {
+  it('returns the fixed opening message and is never done', () => {
+    const result = assessmentOpening()
+    expect(result.message).toBe(ASSESSMENT_OPENING_MESSAGE)
+    expect(result.message.length).toBeGreaterThan(20)
+    expect(result.done).toBe(false)
+  })
+
+  it('never leaks the completion sentinel in the opening copy', () => {
+    expect(ASSESSMENT_OPENING_MESSAGE).not.toContain(ASSESSMENT_COMPLETE_SENTINEL)
+  })
+
+  it('opening copy carries no em dash (shipped user-facing string)', () => {
+    expect(ASSESSMENT_OPENING_MESSAGE).not.toContain('—')
   })
 })
 
