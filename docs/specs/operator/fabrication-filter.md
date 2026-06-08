@@ -139,8 +139,9 @@ Severity mapping:
 > `hermes-smd-trust` plugin's **`pre_tool_call`** hook (the only return-value-
 > blocking hook), as a second evaluation after the ceiling check, on
 > draft-creating tools — inspecting the draft body in the tool `args` before the
-> tool runs. Send tools are permanently banned, so "before emit" reduces to
-> "before the draft-creating tool executes." Provenance is two-tier: Tier-1
+> tool runs. With send a configurable entitlement (ADR 0035), the filter runs
+> before any client-facing content is emitted — whether the tool drafts or sends —
+> at the same `pre_tool_call` hook, after the ceiling check. Provenance is two-tier: Tier-1
 > universal markers (`fabrication_markers.json`, every vertical) + Tier-2
 > citation filter (law-vertical only). See `docs/adr/0028-outbound-integrity-gates-provenance-and-voice.md`.
 

@@ -75,12 +75,12 @@ How each scene from the dry-run [#889](https://github.com/venturecrane/ss-consol
 
 ### Scene 1: Drafts list shows real drafts written from real Outlook emails
 
-| Component      | Binding                                                                                                                                                                                                 |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Inbound        | `Email.list_threads()` -> Microsoft Graph -> Outlook Inbox. The agent reads incoming threads.                                                                                                           |
-| Reasoning      | Persona skill runs against the thread + relevant matter context (read from the synthetic store via `get_matter` if the thread is linked to a matter).                                                   |
-| Outbound       | `Email.create_draft()` -> Microsoft Graph -> reviewer's Outlook Drafts folder. Per [ADR 0005](../../adr/0005-reviewer-as-sender.md), the agent never sends; the reviewer opens Outlook and clicks Send. |
-| Sourcing block | Dashboard renders "what the Operator used to write this" by reading `field_coverage` from each adapter the skill touched, including the no_pm adapter when matter context was used.                     |
+| Component      | Binding                                                                                                                                                                                                                                                                                                                                          |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Inbound        | `Email.list_threads()` -> Microsoft Graph -> Outlook Inbox. The agent reads incoming threads.                                                                                                                                                                                                                                                    |
+| Reasoning      | Persona skill runs against the thread + relevant matter context (read from the synthetic store via `get_matter` if the thread is linked to a matter).                                                                                                                                                                                            |
+| Outbound       | `Email.create_draft()` -> Microsoft Graph -> reviewer's Outlook Drafts folder, under the **authored** reviewer-as-sender posture ([ADR 0005](../../adr/0005-reviewer-as-sender.md), one option). Under an authored autonomous `EXTERNAL_SEND` ceiling the agent sends directly; the modality is configured per engagement (ADR 0035), not fixed. |
+| Sourcing block | Dashboard renders "what the Operator used to write this" by reading `field_coverage` from each adapter the skill touched, including the no_pm adapter when matter context was used.                                                                                                                                                              |
 
 No `no_pm` write happens in this scene -- the synthetic store is read-only for draft creation. The drafts list is the same surface a Filevine customer sees.
 
@@ -143,15 +143,15 @@ npx tsx scripts/validate-customer-yaml.ts \
 
 ## Failure modes
 
-| Condition                                                                        | Adapter behavior                                                                                                      |
-| -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Caller invokes an unsupported method                                             | `AdapterError(code="capability_not_supported")` with message pointing at the right capability binding                 |
-| `search_matters` with unknown status                                             | `AdapterError(code="validation_failed")` listing the valid status enum                                                |
-| `get_matter` with unknown id                                                     | Returns `null` (NULL_FOR_ABSENT)                                                                                      |
-| `update_matter` / `create_note` with unknown matter id                           | `AdapterError(code="not_found")`                                                                                      |
-| `create_matter` with duplicate id                                                | `AdapterError(code="validation_failed")` (the store rejects; the adapter translates)                                  |
-| Underlying `MatterStore` raises                                                  | `health_check` returns `"unhealthy"`; reads bubble the error wrapped in `AdapterError(code="unknown", cause=exc)`     |
-| Caller invokes a banned method name (`send`, `publish`, `share_externally`, ...) | Test `test_adapter_has_no_banned_method_names` asserts none exist on the adapter class -- conformance failure at boot |
+| Condition                                                                                             | Adapter behavior                                                                                                                                                                                        |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Caller invokes an unsupported method                                                                  | `AdapterError(code="capability_not_supported")` with message pointing at the right capability binding                                                                                                   |
+| `search_matters` with unknown status                                                                  | `AdapterError(code="validation_failed")` listing the valid status enum                                                                                                                                  |
+| `get_matter` with unknown id                                                                          | Returns `null` (NULL_FOR_ABSENT)                                                                                                                                                                        |
+| `update_matter` / `create_note` with unknown matter id                                                | `AdapterError(code="not_found")`                                                                                                                                                                        |
+| `create_matter` with duplicate id                                                                     | `AdapterError(code="validation_failed")` (the store rejects; the adapter translates)                                                                                                                    |
+| Underlying `MatterStore` raises                                                                       | `health_check` returns `"unhealthy"`; reads bubble the error wrapped in `AdapterError(code="unknown", cause=exc)`                                                                                       |
+| Caller invokes an out-of-scope method (`send`, `publish`, `share_externally`, ...) on this PM adapter | Test `test_adapter_has_no_banned_method_names` asserts none exist — this no-PM adapter exposes no send/publish surface (send, where a connector has it, is ceiling-gated at runtime, not method-banned) |
 
 ## Verification
 

@@ -120,7 +120,7 @@ Per the no-fabrication rule (Platform PRD invariant #8 + CLAUDE.md project polic
 - The `metadata.drafted_by_skill` field carries the audit trail for the dashboard sourcing block.
 - The `metadata.draft: true` flag distinguishes connector-created notes from hand-typed ones, so a future Filevine review surface (or the dashboard) can render them with the right affordance.
 
-There is no autonomous-send method anywhere in this connector. Filevine has an outbound email surface (via its UI) -- the connector deliberately does not expose it. The reviewer-as-sender boundary is enforced by the `BANNED_METHOD_NAMES` list in the conformance harness; the corresponding Python test (`tests/test_conformance.py::test_adapter_has_no_banned_method_names`) asserts neither adapter exposes any banned method name.
+This connector exposes no send surface — Filevine's outbound email lives in its UI and is out of scope for the PM/DocumentStorage adapters here. That is a scope choice, not a structural ban: send, where a connector exposes it, is a configurable entitlement gated at runtime by the trust ceiling (ADR 0035), not method-banned. The conformance harness's `BANNED_METHOD_NAMES` now lists only the irreversibility floor (money movement, ledger posting, court filing); `tests/test_conformance.py::test_adapter_has_no_banned_method_names` asserts neither adapter exposes any of those.
 
 ## Per-customer isolation
 

@@ -161,7 +161,7 @@ The framework enforces three invariants beyond the per-test assertions:
 
 1. **No mutating method ever invoked.** Enforced by the `READ_ONLY_METHODS_BY_CAPABILITY` allowlist + `ProbeRegistrationError` at construction time. Tested by `test_probe_rejects_write_method` and `test_allowlist_contains_no_mutating_method_names`.
 
-2. **No autonomous external send.** Inherited from the connectors themselves — none of the registered probes route through a method that emits external messages under any identity. The TypeScript conformance harness's `NO_AUTONOMOUS_EXTERNAL_SEND` invariant covers the broader connector surface; the smoke framework's contribution is to refuse to invoke any name from the BANNED_METHOD_NAMES list at probe registration time.
+2. **Read-only probes.** Smoke probes only ever invoke read methods — they never send, write, or move anything, regardless of a connector's configured send entitlement. Send itself is a configurable entitlement gated at runtime by the trust ceiling (ADR 0035), not banned at the adapter; the smoke framework simply does not exercise it, and additionally refuses to invoke any name from the irreversibility-floor list (`BANNED_METHOD_NAMES`: money movement, ledger posting, court filing) at probe registration time.
 
 3. **Per-customer audit log isolation.** The optional `AuditLogWriter` writes only to the per-customer D1 bound by the calling environment (see [`audit-log-immutability.md`](audit-log-immutability.md) for Worker-layer enforcement). Cross-customer queries are forbidden by binding scope per [ADR 0009](../../adr/0009-cross-machine-query-prohibition.md).
 
