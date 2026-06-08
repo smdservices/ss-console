@@ -257,7 +257,8 @@ signals — already partly the `fleet_status` pattern) so the fleet view is alwa
 briefly down, and **A** for deep per-operator drill-ins (full audit log, a specific draft, matter detail) so detail is
 fresh on demand. Either way the read is per-customer and audited; it must never become a cross-customer join. This is the
 highest-leverage shared component for both portals and is **specced and built first** — every other surface displays on
-top of it. It likely warrants its own short ADR once the endpoint/auth shape is chosen.
+top of it. The A+B split and its isolation invariants are fixed in [ADR 0043](../../adr/0043-operator-runtime-read-path.md);
+the endpoint/auth shape is an implementation detail specced with the build.
 
 ---
 
@@ -272,8 +273,8 @@ per-operator config-authoring UI, governance/floors UI (action-class), connector
 memory/agent-skills review, authority switch panel, SMD-internal roles, and the runtime read path (§7).
 
 **Net-new ADRs (this package):** [0041](../../adr/0041-operator-authority-posture.md) (authority), [0042](../../adr/0042-operator-credential-custody.md)
-(credential custody). The SMD-internal role model (§2) and the runtime read path (§7) likely each warrant a short ADR
-once the approach is chosen.
+(credential custody), [0043](../../adr/0043-operator-runtime-read-path.md) (runtime read path). The SMD-internal role
+model (§2) likely warrants a short ADR once the approach is chosen.
 
 **Sequence suggestion:** runtime read path (§7) → fleet roster + overview (read-only, lights up the fleet) → config
 authoring + governance (the daily SMD job) → connectors/custody → memory/lifecycle → authority panel (last, since

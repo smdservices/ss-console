@@ -1,7 +1,7 @@
 ---
 title: Operator Authority Posture — Per-Domain Client Self-Serve, SMD Always Full Control
 date: 2026-06-08
-status: proposed
+status: accepted
 captain: Scott Durgan
 related-spec: docs/design/operator/00-foundations.md
 related-adr: docs/adr/0035-no-imposed-entitlement-defaults.md, docs/adr/0030-control-plane-human-principal-surface.md
@@ -9,7 +9,7 @@ related-adr: docs/adr/0035-no-imposed-entitlement-defaults.md, docs/adr/0030-con
 
 # ADR 0041 — Operator Authority Posture
 
-**Status:** Proposed (2026-06-08), as the foundation for the Operator portal-management designs
+**Status:** Accepted (Captain decision, 2026-06-08), as the foundation for the Operator portal-management designs
 (`docs/design/operator/`).
 
 ## Context

@@ -1,7 +1,7 @@
 ---
 title: Operator Credential Custody — Delegated by Default, Self-Held for Privacy, Per Connector
 date: 2026-06-08
-status: proposed
+status: accepted
 captain: Scott Durgan
 related-spec: docs/design/operator/00-foundations.md
 related-adr: docs/adr/0010-per-customer-oauth-token-storage.md, docs/adr/0036-oauth-token-relay-fly-secret-restart.md
@@ -9,7 +9,7 @@ related-adr: docs/adr/0010-per-customer-oauth-token-storage.md, docs/adr/0036-oa
 
 # ADR 0042 — Operator Credential Custody
 
-**Status:** Proposed (2026-06-08), as the foundation for how clients connect their external systems to the Operator.
+**Status:** Accepted (Captain decision, 2026-06-08), as the foundation for how clients connect their external systems to the Operator.
 
 ## Context
 
