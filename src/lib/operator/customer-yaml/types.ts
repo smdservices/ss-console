@@ -7,6 +7,8 @@
  */
 
 import type { CapabilityName } from '../capabilities/types'
+import type { AuthorityPosture } from '../authority'
+import type { CredentialCustody } from '../credential-custody'
 
 export const ACCEPTED_CAPABILITY_NAMES: ReadonlySet<CapabilityName> = new Set<CapabilityName>([
   'PracticeManagement',
@@ -422,6 +424,15 @@ export interface Connector {
    * Null when the connector is pull-only (no vendor push events configured).
    */
   webhook_url: string | null
+  /**
+   * Per-connector credential custody (ADR 0042). `null` ⇒ inherit the
+   * client-level `credential_custody_default`. An explicit value pins this
+   * connector: `delegated` (SMD can read/rotate or drive re-consent) or
+   * `self_held` (only the client can re-establish; SMD cannot reach the
+   * secret). The resolver + semantics live in
+   * src/lib/operator/credential-custody.ts.
+   */
+  credential_custody: CredentialCustody | null
 }
 
 /**
@@ -671,6 +682,21 @@ export interface CustomerYaml {
    * side effect of seat provisioning.
    */
   compliance_enabled: boolean
+  /**
+   * Authority posture (ADR 0041) — per-domain client-self-serve switches over
+   * SMD's always-present full control. Always non-null on a validated
+   * CustomerYaml: an absent block resolves to the launch default
+   * (`{ default: 'managed', overrides: {} }`) via `checkAuthority`. The
+   * resolved-side contract and resolver live in src/lib/operator/authority.ts.
+   */
+  authority: AuthorityPosture
+  /**
+   * Client-level default credential custody (ADR 0042). Applies to every
+   * connector whose own `credential_custody` is null. Defaults to `delegated`
+   * when the field is absent. Per-connector values override it. The resolver
+   * is `resolveCredentialCustody` in src/lib/operator/credential-custody.ts.
+   */
+  credential_custody_default: CredentialCustody
 }
 
 export type ValidationErrorCode =
@@ -710,6 +736,7 @@ export type ValidationErrorCode =
   | 'UnknownAddon'
   | 'InvalidActionClass'
   | 'InvalidActionCeiling'
+  | 'UnknownAuthorityDomain'
 
 export interface ValidationError {
   code: ValidationErrorCode
