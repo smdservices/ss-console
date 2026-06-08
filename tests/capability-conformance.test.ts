@@ -2,11 +2,13 @@
  * Tests for the Operator capability conformance harness
  * (src/lib/operator/capabilities/conformance.ts).
  *
- * The harness defends ADR 0005 (reviewer-as-sender) and the Platform
- * PRD invariants at the adapter layer: an adapter that exposes
- * `Email.send` or `Payments.initiate_transfer` is a release blocker,
- * not a code-review nit. These tests verify the harness catches what
- * it claims to catch.
+ * The harness enforces the ADR 0025 reversibility floor at the adapter
+ * layer: an adapter that exposes `Payments.initiate_transfer` (or any
+ * money-movement / ledger-posting / court-filing method) is a release
+ * blocker. External send (`Email.send`, etc.) is NOT banned — per ADR
+ * 0035 it is a configurable entitlement gated at runtime by the trust
+ * ceiling, so the harness permits send methods. These tests verify both:
+ * send is allowed, the irreversibility floor is caught.
  *
  * Vendor adapters do not exist yet — the tests use minimal in-test
  * fakes to drive each invariant. Adapter authors copy the fake shape
@@ -94,8 +96,8 @@ describe('capability conformance: invariant constants', () => {
   })
 })
 
-describe('capability conformance: NO_AUTONOMOUS_EXTERNAL_SEND', () => {
-  it('passes a vanilla Email adapter without forbidden methods', () => {
+describe('capability conformance: external send is permitted (ADR 0035)', () => {
+  it('passes a vanilla Email adapter', () => {
     const adapter = makeAdapter('Email')
     const result = inspectAdapter(adapter)
     expect(result.passed).toBe(true)
@@ -103,47 +105,48 @@ describe('capability conformance: NO_AUTONOMOUS_EXTERNAL_SEND', () => {
     expect(result.invariants.NO_AUTONOMOUS_EXTERNAL_SEND).toBe(true)
   })
 
-  it('fails an Email adapter that exposes a send() method (ADR 0005 violation)', () => {
+  it('PERMITS an Email adapter that exposes a send() method (send is ceiling-gated, not banned)', () => {
     const adapter = makeAdapter('Email', { send: () => Promise.resolve() })
     const result = inspectAdapter(adapter)
-    expect(result.passed).toBe(false)
-    expect(result.banned_methods_present).toContain('send')
-    expect(result.invariants.NO_AUTONOMOUS_EXTERNAL_SEND).toBe(false)
-    expect(result.notes.some((n) => n.includes('send'))).toBe(true)
+    expect(result.passed).toBe(true)
+    expect(result.banned_methods_present).toEqual([])
   })
 
-  it('fails an ESign adapter that exposes send_envelope (ADR 0005 violation)', () => {
+  it('PERMITS an ESign adapter that exposes send_envelope', () => {
     const adapter = makeAdapter('ESign', { send_envelope: () => Promise.resolve() })
     const result = inspectAdapter(adapter)
-    expect(result.passed).toBe(false)
-    expect(result.banned_methods_present).toContain('send_envelope')
+    expect(result.passed).toBe(true)
+    expect(result.banned_methods_present).toEqual([])
   })
 
-  it('fails a Calendar adapter that exposes send_invitation', () => {
+  it('PERMITS a Calendar adapter that exposes send_invitation', () => {
     const adapter = makeAdapter('Calendar', { send_invitation: () => Promise.resolve() })
     const result = inspectAdapter(adapter)
-    expect(result.passed).toBe(false)
-    expect(result.banned_methods_present).toContain('send_invitation')
+    expect(result.passed).toBe(true)
+    expect(result.banned_methods_present).toEqual([])
   })
 
-  it('fails a DocumentStorage adapter that exposes share_document (use share_document_draft)', () => {
+  it('PERMITS a DocumentStorage adapter that exposes share_document', () => {
     const adapter = makeAdapter('DocumentStorage', { share_document: () => Promise.resolve() })
     const result = inspectAdapter(adapter)
-    expect(result.passed).toBe(false)
-    expect(result.banned_methods_present).toContain('share_document')
+    expect(result.passed).toBe(true)
+    expect(result.banned_methods_present).toEqual([])
   })
+})
 
-  it('lists every forbidden method when an adapter exposes several', () => {
-    const adapter = makeAdapter('Email', {
-      send: () => Promise.resolve(),
-      send_email: () => Promise.resolve(),
-      send_message: () => Promise.resolve(),
+describe('capability conformance: irreversibility floor (ADR 0025)', () => {
+  it('lists every irreversible method when a Payments adapter exposes several', () => {
+    const adapter = makeAdapter('Payments', {
+      initiate_transfer: () => Promise.resolve(),
+      transfer_funds: () => Promise.resolve(),
+      disburse: () => Promise.resolve(),
     })
     const result = inspectAdapter(adapter)
     expect(result.banned_methods_present).toEqual(
-      expect.arrayContaining(['send', 'send_email', 'send_message'])
+      expect.arrayContaining(['initiate_transfer', 'transfer_funds', 'disburse'])
     )
     expect(result.banned_methods_present).toHaveLength(3)
+    expect(result.passed).toBe(false)
   })
 })
 

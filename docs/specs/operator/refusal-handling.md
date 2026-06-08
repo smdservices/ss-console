@@ -260,13 +260,14 @@ decides on its own ladder whether the count warrants a transition.
 Keeping the two paths separate means the refusal handler stays a
 pure emitter and the sticky-stop policy stays in one place.
 
-## No autonomous send
+## Refusals emit internally only
 
 This module never originates an outbound customer-bound message.
 Every consequence of a refusal is mediated through an audit row that
 a downstream surface (in-app notification, Captain alert UI) polls.
-ADR 0005 (reviewer-as-sender) is not relaxed by this work; the
-notification feed is internal to the dashboard.
+This is orthogonal to send entitlements: whether the operator may send
+externally is governed by the trust ceiling (ADR 0025/0035), not by this
+module. The notification feed is internal to the dashboard.
 
 ## Failure modes
 

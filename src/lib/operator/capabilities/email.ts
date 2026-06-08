@@ -2,18 +2,18 @@
  * Email capability — watch inboxes, read threads, create drafts, apply
  * labels, watch the sent folder.
  *
- * Pattern A is locked at v1 by ADR 0005 (reviewer-as-sender). The
- * interface has NO send method. Drafts go to the reviewer's drafts
- * folder; the reviewer reviews and presses Send from their own email
- * client. The agent has no autonomous send path.
- *
- * The corresponding Pattern B (dashboard-orchestrated programmatic send
- * via stored OAuth token) was considered and explicitly rejected — it
- * surrenders the architectural property ADR 0005 protects.
+ * Send is a configurable entitlement (ADR 0035), not a fixed posture. An
+ * adapter MAY expose a send method; whether a send executes autonomously,
+ * routes to a reviewer draft, or is refused is decided at runtime by
+ * `trust_ceiling.enforce()` per the authored EXTERNAL_SEND ceiling
+ * (fail-closed when unauthored). Reviewer-as-sender (ADR 0005, amended by
+ * ADR 0035) is one authored option among several — the agent is not
+ * categorically barred from an autonomous send path; the engagement authors
+ * the posture. This interface currently ships create/update-draft methods; a
+ * send method is added per adapter as the configured entitlement requires.
  *
  * Implemented by adapters for Microsoft Graph (Outlook), Google
- * Workspace (Gmail), IMAP/SMTP (rare), and any future vendor where the
- * `create_draft` semantics align with the reviewer's native client.
+ * Workspace (Gmail), IMAP/SMTP (rare), and any future vendor.
  */
 
 import type { AdapterBase, DateRange } from './types'
@@ -168,10 +168,12 @@ export interface Email extends AdapterBase {
   create_draft(input: DraftInput): Promise<DraftRef>
   update_draft(draft_id: string, updates: DraftUpdate): Promise<DraftRef>
 
-  // NO send method. Per ADR 0005 the reviewer sends from their own
-  // client; the agent has no autonomous send path. Adding a `send()`
-  // method here would be an architectural regression and is blocked
-  // by the conformance harness.
+  // No `send` method ships on this interface today, but adding one is NOT an
+  // architectural regression: send is a configurable entitlement (ADR 0035),
+  // gated at runtime by `trust_ceiling.enforce()` per the authored EXTERNAL_SEND
+  // ceiling (fail-closed when unauthored). A `send()` method is added per adapter
+  // when an engagement authors a send posture; reviewer-as-sender (ADR 0005) is
+  // one such authored option, not a hard interface constraint.
 
   // Label / folder operations
   apply_label(thread_id: string, label: string): Promise<void>
