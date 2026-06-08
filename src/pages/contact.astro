@@ -85,7 +85,7 @@ import Footer from '../components/Footer.astro'
 
         button.disabled = true
         button.textContent = 'Sending...'
-        status.innerHTML = ''
+        status.replaceChildren()
 
         const data = {
           name: form.elements.namedItem('name').value,
@@ -94,8 +94,21 @@ import Footer from '../components/Footer.astro'
           website: form.elements.namedItem('website').value,
         }
 
-        function setBanner(variant, html) {
-          status.innerHTML = '<div class="ss-banner ss-banner-' + variant + '">' + html + '</div>'
+        // Build the banner with safe DOM construction. `content` is either a
+        // plain string (set via textContent — never parsed as HTML) or a Node
+        // assembled by the caller for the one case that needs a link. Response
+        // field values (validation messages, body.error) are server-controlled
+        // but flow into this sink as untrusted text, so they go through
+        // textContent, not innerHTML.
+        function setBanner(variant, content) {
+          const banner = document.createElement('div')
+          banner.className = 'ss-banner ss-banner-' + variant
+          if (typeof content === 'string') {
+            banner.textContent = content
+          } else {
+            banner.appendChild(content)
+          }
+          status.replaceChildren(banner)
         }
 
         try {
@@ -119,10 +132,17 @@ import Footer from '../components/Footer.astro'
             throw new Error(body.error || 'Request failed')
           }
         } catch {
-          setBanner(
-            'error',
-            'Something went wrong. Please email <a href="mailto:team@smd.services" class="ss-quiet-link">team@smd.services</a> directly.'
-          )
+          // The mailto link is authored markup, not dynamic data — build it as
+          // a real element so the surrounding copy stays plain text.
+          const frag = document.createDocumentFragment()
+          frag.appendChild(document.createTextNode('Something went wrong. Please email '))
+          const link = document.createElement('a')
+          link.href = 'mailto:team@smd.services'
+          link.className = 'ss-quiet-link'
+          link.textContent = 'team@smd.services'
+          frag.appendChild(link)
+          frag.appendChild(document.createTextNode(' directly.'))
+          setBanner('error', frag)
         } finally {
           button.disabled = false
           button.textContent = 'Send message'

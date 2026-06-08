@@ -402,9 +402,10 @@ def test_unsupported_methods_raise_capability_not_supported():
         )
 
 
-# Banned method names -- the conformance harness rejects adapters that
-# expose autonomous send paths. The no_pm adapter is read+write-to-store
-# only; this test asserts none of the banned names slip in.
+# This no_pm PM adapter is read+write-to-store only and exposes no send/publish
+# surface; this test asserts none of these out-of-scope names slip in. (Send,
+# where a connector has it, is ceiling-gated at runtime, not method-banned --
+# ADR 0035.)
 _BANNED_METHOD_NAMES = frozenset(
     {
         "send",

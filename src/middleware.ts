@@ -70,6 +70,9 @@ async function resolveLegacyPortalSession(
   const sessionData = await validateSession(env.DB, env.SESSIONS, token)
   if (sessionData && sessionData.role === 'client') {
     context.locals.session = sessionData
+    // Fire-and-forget sliding-window renewal: a KV/D1 write failure here must
+    // not fail an otherwise-authenticated request. The session stays valid off
+    // its existing expiry; the next request retries the renewal.
     renewSession(env.DB, env.SESSIONS, token, sessionData).catch(() => {})
     return token
   }
