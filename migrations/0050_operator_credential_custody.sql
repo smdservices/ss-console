@@ -1,0 +1,22 @@
+-- Operator credential-custody default projection — ADR 0042
+-- ============================================================================
+--
+-- Adds the client-level `credential_custody_default` to the customer_configs
+-- read replica. Per-connector custody rides inside connectors_json (each
+-- connector binding carries an optional `credential_custody`); this column is
+-- only the client-wide default applied when a connector does not pin its own.
+--
+-- Source of truth is `customer.yaml.credential_custody_default` in git
+-- (ADR 0012); CI projects it here on merge. NULL resolves to `delegated`
+-- (the hands-off default) via parseCredentialCustody() in
+-- src/lib/operator/credential-custody.ts — no backfill needed.
+--
+-- Custody governs whether SMD staff can reach a connector's secret value to
+-- re-establish a broken connection (delegated) or only the client can
+-- (self_held). Both modes store the secret in the per-customer isolated vault
+-- (ADR 0010); secrets never enter this table.
+--
+-- Forward-only, additive. No drops.
+-- ============================================================================
+
+ALTER TABLE customer_configs ADD COLUMN credential_custody_default TEXT;
