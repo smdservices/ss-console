@@ -8,24 +8,27 @@
 
 Replace every bracketed value before exporting to PDF for DocuSign. Fields are validated by the signing-flow checklist in [`signing-flow.md`](./signing-flow.md).
 
-| Field                               | Meaning                                                                 |
-| ----------------------------------- | ----------------------------------------------------------------------- |
-| `[CUSTOMER LEGAL NAME]`             | The customer's full legal entity name.                                  |
-| `[CUSTOMER STATE OF INCORPORATION]` | The state under whose laws the customer is organized.                   |
-| `[CUSTOMER ADDRESS]`                | The customer's principal place of business.                             |
-| `[EFFECTIVE DATE]`                  | The date the contract becomes effective (ISO 8601: YYYY-MM-DD).         |
-| `[MONTHLY FEE]`                     | The monthly recurring fee in U.S. dollars.                              |
-| `[INITIAL TERM MONTHS]`             | The initial term length in months.                                      |
-| `[TERMINATION NOTICE DAYS]`         | The advance notice period either party must provide to terminate.       |
-| `[GOVERNING LAW STATE]`             | The U.S. state whose law governs this agreement.                        |
-| `[LIABILITY CAP AMOUNT]`            | The aggregate liability cap, typically expressed as a multiple of fees. |
-| `[OFFBOARDING WINDOW DAYS]`         | The number of days SMD has to deliver the memory export on offboarding. |
-| `[UPTIME PERCENTAGE]`               | The monthly Machine uptime SLA percentage.                              |
-| `[SEVERITY 1 RESPONSE HOURS]`       | The response time commitment for severity 1 incidents, in hours.        |
-| `[SEVERITY 2 RESPONSE HOURS]`       | The response time commitment for severity 2 incidents, in hours.        |
-| `[CUSTOMER SIGNATORY NAME]`         | The name of the individual signing for the customer.                    |
-| `[CUSTOMER SIGNATORY TITLE]`        | The title of the individual signing for the customer.                   |
-| `[ADDITIONAL TERMS]`                | Any negotiated additions specific to this engagement.                   |
+| Field                               | Meaning                                                                                            |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `[CUSTOMER LEGAL NAME]`             | The customer's full legal entity name.                                                             |
+| `[CUSTOMER STATE OF INCORPORATION]` | The state under whose laws the customer is organized.                                              |
+| `[CUSTOMER ADDRESS]`                | The customer's principal place of business.                                                        |
+| `[EFFECTIVE DATE]`                  | The date the contract becomes effective (ISO 8601: YYYY-MM-DD).                                    |
+| `[MONTHLY FEE]`                     | The monthly recurring fee in U.S. dollars.                                                         |
+| `[INITIAL TERM MONTHS]`             | The initial term length in months.                                                                 |
+| `[TERMINATION NOTICE DAYS]`         | The advance notice period either party must provide to terminate.                                  |
+| `[EVALUATION PERIOD DAYS]`          | The length of the early evaluation window during which either party may terminate for convenience. |
+| `[EVALUATION NOTICE DAYS]`          | The advance notice period to terminate during the Evaluation Period.                               |
+| `[GOVERNING LAW STATE]`             | The U.S. state whose law governs this agreement.                                                   |
+| `[LIABILITY CAP AMOUNT]`            | The aggregate liability cap, typically expressed as a multiple of fees.                            |
+| `[INSURANCE LIMITS]`                | The per-claim/aggregate limits SMD carries for E&O, cyber, and CGL coverage (stated in Exhibit A). |
+| `[OFFBOARDING WINDOW DAYS]`         | The number of days SMD has to deliver the memory export on offboarding.                            |
+| `[UPTIME PERCENTAGE]`               | The monthly Machine uptime SLA percentage.                                                         |
+| `[SEVERITY 1 RESPONSE HOURS]`       | The response time commitment for severity 1 incidents, in hours.                                   |
+| `[SEVERITY 2 RESPONSE HOURS]`       | The response time commitment for severity 2 incidents, in hours.                                   |
+| `[CUSTOMER SIGNATORY NAME]`         | The name of the individual signing for the customer.                                               |
+| `[CUSTOMER SIGNATORY TITLE]`        | The title of the individual signing for the customer.                                              |
+| `[ADDITIONAL TERMS]`                | Any negotiated additions specific to this engagement.                                              |
 
 ---
 
@@ -49,15 +52,19 @@ Replace every bracketed value before exporting to PDF for DocuSign. Fields are v
 
 1.7 **"Service"** means the Operator software-as-a-service offering provided by SMD under this Agreement, including provisioning, hosting, monitoring, maintenance, support, and offboarding.
 
+1.8 **"Entitlement Configuration"** means the per-action-class authorization Customer authors for the Operator, recorded in Exhibit A. For each class of action the Operator may take (for example, reading, internal writing, external sending, committing, or destructive operations), Customer authors two independent ceilings: an **initiation** ceiling (whether the Operator may act unprompted) and an **exposure** ceiling (`autonomous`, `draft_for_review`, or `refused`). The Operator enforces the Entitlement Configuration in code, audits every action against it, and can never raise its own ceiling. An action class for which Customer has authored no entitlement is fail-closed (refused). A vertical pack may pin a non-raisable floor for an action class that Customer configuration cannot raise. This model is documented in [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) and [ADR 0035](../../adr/0035-no-imposed-entitlement-defaults.md).
+
 ## 2. Scope of Service
 
 2.1 **What the Service does.** SMD will provision a per-Customer Operator instance configured to Customer's specifications. The Operator drafts work product (including but not limited to email replies, intake summaries, calendar entries, and document drafts) and surfaces those drafts to Reviewers for review. Specific skills enabled at the Effective Date are listed in the Statement of Work attached as Exhibit A.
 
-2.2 **What the Service does not do.** The Operator does not send any customer-bound external message under its own identity. Every outbound message produced by the Operator is drafted into a Reviewer's drafts folder for the Reviewer to review, edit, and send under the Reviewer's own identity. This commitment is architectural and is documented in [ADR 0005](../../adr/0005-reviewer-as-sender.md).
+2.2 **The Operator acts only within Customer's Entitlement Configuration.** The Operator takes an action only where Customer has authored an entitlement for that action class in Exhibit A, and only up to the ceiling Customer authored. An action class for which Customer has authored no entitlement is fail-closed (refused). The Operator enforces this in code, audits every action against the authored configuration, and cannot raise its own ceiling. This is the no-imposed-defaults posture documented in [ADR 0035](../../adr/0035-no-imposed-entitlement-defaults.md).
 
-2.3 **No autonomous external action.** The Operator does not execute transactions, file documents with courts or regulators, or send communications to third parties without a named human Reviewer pressing send. Trust ceilings governing this behavior are documented in the Platform PRD §11.
+2.3 **Sending identity and the reviewer-as-sender option.** For each external-send action class, Customer authors whether the Operator drafts for a human to send (`draft_for_review`), sends autonomously (`autonomous`), or is refused. Where Customer authors `draft_for_review`, the Operator drafts the message into a Reviewer's drafts folder and the Reviewer sends it under the Reviewer's own identity (the "reviewer-as-sender" posture, documented in [ADR 0005](../../adr/0005-reviewer-as-sender.md) and made configurable by [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md)). For Customers in a regulated profession, the applicable vertical pack pins external send to reviewer-as-sender as a non-raisable floor; the law pack does so, and that floor is recorded in Exhibit A and cannot be raised by Customer configuration. Every external action, autonomous or reviewer-sent, is attributable in the audit log to a named human principal who owns the channel and authored the ceiling.
 
-2.4 **Configuration changes.** Customer may request reconfiguration (new skills enabled, persona adjustments, scope changes) at any time during the Term. SMD will implement reasonable configuration changes within the operational budget defined in Exhibit A. Changes outside that budget may require a written change order.
+2.4 **Reversibility floors.** Independent of the exposure ceiling Customer authors, action classes that are committing or destructive retain current-turn human-approval floors as documented in the Platform PRD §11. These floors concern reversibility and apply regardless of any autonomy Customer authors for other classes.
+
+2.5 **Configuration changes.** Customer may request reconfiguration (new skills enabled, persona adjustments, entitlement or scope changes) at any time during the Term. SMD will implement reasonable configuration changes within the operational budget defined in Exhibit A. Changes outside that budget may require a written change order. A change to the Entitlement Configuration is a privileged, audited control-plane act performed by Customer's authorized principal, never by the Operator.
 
 ## 3. Fees and Payment
 
@@ -131,7 +138,13 @@ Acknowledgement means SMD has confirmed receipt and begun triage. Acknowledgemen
 
 9.1 **Term.** This Agreement begins on the Effective Date and continues for an initial term of [INITIAL TERM MONTHS] months (the "Initial Term"). After the Initial Term, this Agreement automatically renews for successive one-month periods (each a "Renewal Term," and together with the Initial Term, the "Term") unless either Party gives written notice of non-renewal in accordance with Section 9.2.
 
-9.2 **Termination for convenience.** After the Initial Term, either Party may terminate this Agreement for convenience by giving the other Party at least [TERMINATION NOTICE DAYS] days' written notice.
+9.2 **Termination for convenience.**
+
+(a) **Evaluation Period.** During the first [EVALUATION PERIOD DAYS] days after the Effective Date (the "Evaluation Period"), either Party may terminate this Agreement for convenience by giving the other Party at least [EVALUATION NOTICE DAYS] days' written notice. On termination under this Section 9.2(a), SMD refunds the unearned portion of any prepaid Fee, no early-termination charge applies, and the offboarding obligations in Section 9.4 apply in full.
+
+(b) **After the Initial Term.** After the Initial Term, either Party may terminate this Agreement for convenience by giving the other Party at least [TERMINATION NOTICE DAYS] days' written notice.
+
+(c) **During the Initial Term, after the Evaluation Period.** Between the end of the Evaluation Period and the end of the Initial Term, termination for convenience is not available; during that period this Agreement may be terminated only for cause under Section 9.3 or as the Parties otherwise agree in writing (including under any Design Partner Addendum attached as Exhibit D).
 
 9.3 **Termination for cause.** Either Party may terminate this Agreement for cause if the other Party materially breaches this Agreement and fails to cure the breach within thirty (30) days after receiving written notice of the breach.
 
@@ -159,6 +172,8 @@ Acknowledgement means SMD has confirmed receipt and begun triage. Acknowledgemen
 
 10.4 **Disclaimer.** EXCEPT AS EXPRESSLY SET FORTH IN THIS SECTION 10, THE SERVICE IS PROVIDED "AS IS" AND SMD DISCLAIMS ALL OTHER WARRANTIES, EXPRESS OR IMPLIED, INCLUDING IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
 
+10.5 **Insurance.** During the Term, SMD will maintain, at its own expense, commercially reasonable insurance appropriate to the Service, including (a) professional liability / errors and omissions coverage, (b) technology and cyber liability coverage, and (c) commercial general liability coverage, in each case with limits no less than those stated in Exhibit A ([INSURANCE LIMITS]). On Customer's written request, SMD will provide a certificate of insurance evidencing the coverage in force.
+
 ## 11. Limitation of Liability
 
 11.1 **Liability cap.** EXCEPT FOR THE EXCLUSIONS SET FORTH IN SECTION 11.3, EACH PARTY'S AGGREGATE LIABILITY UNDER OR IN CONNECTION WITH THIS AGREEMENT, WHETHER IN CONTRACT, TORT, OR OTHERWISE, WILL NOT EXCEED [LIABILITY CAP AMOUNT].
@@ -171,7 +186,7 @@ Acknowledgement means SMD has confirmed receipt and begun triage. Acknowledgemen
 
 12.1 **SMD indemnification.** SMD will defend, indemnify, and hold harmless Customer from and against any third-party claim alleging that the Service, as provided by SMD and used in accordance with this Agreement, infringes any U.S. patent, copyright, or trademark of a third party. SMD's obligations under this Section 12.1 are conditioned on Customer (a) promptly notifying SMD of the claim, (b) giving SMD sole control of the defense and settlement, and (c) providing reasonable cooperation.
 
-12.2 **Customer indemnification.** Customer will defend, indemnify, and hold harmless SMD from and against any third-party claim arising out of (a) Customer Data, (b) Customer's use of the Service in violation of this Agreement or applicable law, or (c) any communication, transaction, or action taken by a Reviewer using the Service.
+12.2 **Customer indemnification.** Customer will defend, indemnify, and hold harmless SMD from and against any third-party claim arising out of (a) Customer Data, (b) Customer's use of the Service in violation of this Agreement or applicable law, or (c) any communication, transaction, or action taken by a Reviewer through the Service, or taken autonomously by the Operator within an exposure or initiation ceiling Customer authored in the Entitlement Configuration. This Section 12.2(c) does not extend to actions outside the authored Entitlement Configuration, to SMD's failure to enforce the Entitlement Configuration as specified, or to SMD's gross negligence or willful misconduct.
 
 12.3 **Sole remedy.** This Section 12 states each Party's sole and exclusive remedy and the other Party's sole and exclusive liability for third-party claims of the types described.
 
@@ -239,13 +254,19 @@ This Exhibit A describes the Service as configured for Customer at the Effective
 
 **Persona configuration.** [Configured persona name, signature, avatar reference, tone descriptors.]
 
-**Skills enabled at Effective Date.** [List of enabled skills with their trust ceilings.]
+**Skills enabled at Effective Date.** [List of enabled skills.]
 
-**Connectors bound at Effective Date.** [List of connectors with the systems they integrate.]
+**Authored entitlement posture (Entitlement Configuration).** [For each enabled action class, the initiation ceiling and exposure ceiling Customer has authored (`autonomous` / `draft_for_review` / `refused`). Action classes not listed are fail-closed (refused).] **Vertical-pinned floors:** [Any non-raisable floors imposed by the applicable vertical pack. For law-firm and other regulated-profession Customers, external send is pinned to `draft_for_review` (reviewer-as-sender) and cannot be raised by Customer configuration.]
+
+**Connectors bound at Effective Date.** [List of connectors with the systems they integrate. The connector sub-processors named in DPA Section 5 follow from this list.]
 
 **Reviewers authorized at Effective Date.** [List of Reviewer names and email addresses.]
 
 **Operational budget.** SMD's operational budget for ongoing maintenance, configuration changes, and Customer support is up to two (2) hours per week, consistent with Platform PRD §20 Phase 1 ops budget. Hours beyond this budget may require a written change order.
+
+**Insurance limits.** [INSURANCE LIMITS: per-claim and aggregate limits for the professional liability / E&O, technology / cyber, and commercial general liability coverage SMD maintains under Section 10.5.]
+
+**Evaluation Period.** [EVALUATION PERIOD DAYS] days from the Effective Date, with [EVALUATION NOTICE DAYS] days' notice to terminate for convenience under Section 9.2(a).
 
 **Pass-through cost categories.** [List of third-party services whose costs are passed through, if any.]
 
@@ -260,6 +281,12 @@ The Data Processing Addendum is attached as a separate document. See [`data-proc
 ## Exhibit C: BAA-Equivalent Confidentiality Addendum (if applicable)
 
 If Customer is a law firm or other professional-services firm subject to industry-specific confidentiality obligations, the BAA-Equivalent Confidentiality Addendum is attached as a separate document. See [`baa-equivalent-confidentiality.md`](./baa-equivalent-confidentiality.md).
+
+---
+
+## Exhibit D: Design Partner Addendum (if applicable)
+
+If this engagement is a design-partner / founding-customer engagement, the Design Partner Addendum is attached as a separate document and modifies the terms of this Agreement as stated in that Addendum. See [`design-partner-addendum.md`](./design-partner-addendum.md).
 
 ---
 

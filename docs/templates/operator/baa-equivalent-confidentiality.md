@@ -74,7 +74,7 @@ The name "BAA-equivalent" reflects that this addendum performs the equivalent fu
 
 (b) The Memory Artifact retains only Customer-curated and structural-diff content per DPA Section 4.2. The Memory Artifact does not contain the substantive text of privileged communications or work product.
 
-(c) Every customer-bound external message related to a Matter is sent under a Reviewer's identity per [ADR 0005](../../adr/0005-reviewer-as-sender.md). The Operator does not send communications to clients, opposing counsel, courts, or other third parties under its own identity.
+(c) Every customer-bound external message related to a Matter is sent under a Reviewer's identity. For Customers in a regulated profession, the applicable vertical pack pins external send to reviewer-as-sender as a non-raisable floor; the law pack does so, and that floor is recorded in Exhibit A to the Service Agreement and cannot be raised by Customer configuration ([ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md), [ADR 0035](../../adr/0035-no-imposed-entitlement-defaults.md)). With that floor in force, the Operator does not send communications to clients, opposing counsel, courts, or other third parties under its own identity; the reviewer-as-sender posture is documented in [ADR 0005](../../adr/0005-reviewer-as-sender.md).
 
 (d) Customer's Machine is exclusive to Customer per [ADR 0007](../../adr/0007-per-customer-machine-isolation.md). No other SMD customer's Machine has any path to read, infer from, or learn from Customer's Protected Information per [ADR 0009](../../adr/0009-cross-machine-query-prohibition.md).
 
