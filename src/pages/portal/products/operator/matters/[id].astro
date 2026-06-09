@@ -14,12 +14,13 @@ import MatterAssignmentSection from '../../../../../components/portal/operator/M
 import SkipToMain from '../../../../../components/SkipToMain.astro'
 import { env } from 'cloudflare:workers'
 import {
-  getMatter,
   formatMatterAge,
   resolveMatterPhaseStamp,
   resolveMatterPhaseTone,
   MATTER_PHASE_LABEL,
 } from '../../../../../lib/portal/operator/matters'
+import { loadMatterDetail } from '../../../../../lib/portal/operator/matters-read'
+import { getCustomerConfig } from '../../../../../lib/portal/customer-config'
 import {
   listMatterAssignments,
   type MatterAssignment,
@@ -77,14 +78,30 @@ const access = await resolveOperatorAccess(env.DB, Astro.locals, {
 if (access.kind === 'redirect') {
   return Astro.redirect(access.to)
 }
-const { client, roles } = access
+const { client, user, roles } = access
 
 const matterId = Astro.params.id
 if (!matterId || typeof matterId !== 'string') {
   return Astro.redirect('/portal/products/operator/matters')
 }
 
-const matter = await getMatter(env.DB, client.id, matterId)
+// Route detail through the frozen ADR 0043 runtime read path
+// (matters-read.loadMatterDetail → readMachineRuntime). Null until
+// OPERATOR_RUNTIME_READ_URL is wired (client-portal §5.4); the page renders the
+// honest not-found branch.
+const config = await getCustomerConfig(env.DB, client.id)
+const customerSlug = config?.customer_slug ?? client.id
+const actorRole = roles.includes('principal')
+  ? 'principal'
+  : roles.includes('compliance')
+    ? 'compliance'
+    : 'staff'
+const matter = await loadMatterDetail(
+  { db: env.DB, env, actorUserId: user.id },
+  customerSlug,
+  { actor: user.email, actorRole },
+  matterId
+)
 
 // Pre-compute the header meta column once. The page renders the
 // not-found branch when matter === null, otherwise the full detail
