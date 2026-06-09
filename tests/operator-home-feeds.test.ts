@@ -19,8 +19,15 @@ describe('loadHomeFeeds', () => {
   it('reflects whether the runtime read path is configured', () => {
     expect(loadHomeFeeds({}).runtimeConfigured).toBe(false)
     expect(loadHomeFeeds({ OPERATOR_RUNTIME_READ_URL: '' }).runtimeConfigured).toBe(false)
+    // Both the host template and the master secret are required now (ADR 0043 A).
     expect(
       loadHomeFeeds({ OPERATOR_RUNTIME_READ_URL: 'https://hermes-x.fly.dev' }).runtimeConfigured
+    ).toBe(false)
+    expect(
+      loadHomeFeeds({
+        OPERATOR_RUNTIME_READ_URL: 'https://hermes-x.fly.dev',
+        OPERATOR_RUNTIME_READ_SECRET: 'm',
+      }).runtimeConfigured
     ).toBe(true)
   })
 })

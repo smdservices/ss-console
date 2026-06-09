@@ -391,6 +391,24 @@ stage_secret_from_env R2_SKILL_BODIES_SECRET_ACCESS_KEY \
 stage_secret_from_env SENTRY_DSN            "${SENTRY_DSN:-}"            "Sentry DSN for the shared smd-operator project"
 stage_secret_from_env MACHINE_HEARTBEAT_KEY "${MACHINE_HEARTBEAT_KEY:-}" "shared bearer for POST /api/internal/heartbeat"
 
+# OPERATOR_RUNTIME_READ_KEY — PER-CUSTOMER bearer for the console→Machine runtime
+# read endpoint (ADR 0043 path A). Unlike the shared heartbeat key, this is
+# derived per customer: key = HMAC-SHA256(OPERATOR_RUNTIME_READ_SECRET, customer_id).
+# The master (OPERATOR_RUNTIME_READ_SECRET) lives ONLY on ss-web; each Machine
+# holds only its own derived key, so a key extracted from one Machine cannot read
+# another. The console derives the SAME value via WebCrypto
+# (src/lib/operator/runtime-read-transport.ts → deriveRuntimeReadKey); the HMAC
+# input MUST be byte-identical — the slug string with NO trailing newline
+# (printf '%s'), matching the TS TextEncoder. This exact command is pinned by
+# tests/runtime-read-transport.test.ts ("cross-side") so the two never drift.
+if [ -n "${OPERATOR_RUNTIME_READ_SECRET:-}" ]; then
+  _rt_key="$(printf '%s' "${SLUG}" | openssl dgst -sha256 -hmac "${OPERATOR_RUNTIME_READ_SECRET}" | sed 's/^.*= //')"
+  stage_secret_from_env OPERATOR_RUNTIME_READ_KEY "${_rt_key}" "per-customer runtime read bearer (ADR 0043 A)"
+  unset _rt_key
+else
+  log "WARN: OPERATOR_RUNTIME_READ_SECRET not set in operator env — skipping runtime read key (runtime drill-ins stay empty for this Machine)"
+fi
+
 # ---------- Step 6b-clio: connector secrets (law vertical + Google DWD) ----------
 # Staged from operator env (Infisical /ss, injected by reprovision.sh's
 # `infisical run --path=/ss`), same no-paste pattern as observability. Each is

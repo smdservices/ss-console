@@ -233,14 +233,23 @@ declare namespace Cloudflare {
      */
     OPERATOR_SECRET_RELAY_URL?: string
     /**
-     * Base URL/credential locator for the live console→Machine runtime read
-     * path (ADR 0043 path A). When set, per-operator drill-ins fetch deep
-     * detail (audit log, drafts, matters) live from one customer's Machine;
-     * when unset, `isRuntimeReadConfigured` returns false and drill-in
-     * surfaces render honest empty states. Wired at the integration step —
-     * see src/lib/operator/runtime-read-transport.ts.
+     * Host template for the live console→Machine runtime read path (ADR 0043
+     * path A). A `{app}` placeholder is substituted with the registry-resolved
+     * Fly app (e.g. `https://{app}.fly.dev`); absent, it falls back to
+     * `https://<app>.fly.dev`. Enables the read path together with
+     * OPERATOR_RUNTIME_READ_SECRET — when either is unset,
+     * `isRuntimeReadConfigured` is false and drill-in surfaces render honest
+     * empty states. See src/lib/operator/runtime-read-transport.ts.
      */
     OPERATOR_RUNTIME_READ_URL?: string
+    /**
+     * Master secret for the per-customer runtime read key. The console sends
+     * `Bearer HMAC-SHA256(master, customer_slug)`; each Machine holds only its
+     * own derived key (set at provision). The master lives ONLY on the console.
+     * Required (with OPERATOR_RUNTIME_READ_URL) to enable the read path.
+     * See src/lib/operator/runtime-read-transport.ts (ADR 0043 path A).
+     */
+    OPERATOR_RUNTIME_READ_SECRET?: string
     /**
      * Sentry Internal Integration Client Secret used to verify
      * `Sentry-Hook-Signature` headers on inbound alert-rule webhook
