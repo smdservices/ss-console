@@ -1,0 +1,171 @@
+---
+import '../../../../../styles/global.css'
+import { BRAND_NAME } from '../../../../../lib/config/brand'
+import { resolveOperatorAccess } from '../../../../../lib/portal/operator-access'
+import { getCustomerConfig } from '../../../../../lib/portal/customer-config'
+import { loadWorkItems } from '../../../../../lib/portal/operator/work-read'
+import PortalHeader from '../../../../../components/portal/PortalHeader.astro'
+import PortalTabs from '../../../../../components/portal/PortalTabs.astro'
+import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
+import SkipToMain from '../../../../../components/SkipToMain.astro'
+import DomainSurface from '../../../../../components/portal/operator/DomainSurface.astro'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Operator — Work (client-portal §5.3). Where a human handles what the
+ * operator's configuration routes to them.
+ *
+ * URL: portal.smd.services/portal/products/operator/work
+ *
+ * Entirely entitlement-conditional (ADR 0035): an item exists here ONLY because
+ * a skill was authored to route to a human. The surface imposes no stage of its
+ * own — it renders whatever the entitlements produced. Where no skill routes to
+ * a person, it is empty by design (not a broken queue), and the Home "what
+ * needs you" entry is likewise absent.
+ *
+ * Dual-mode via <DomainSurface domain="runtime">: when the runtime switch is on
+ * and the user's role permits (principal/staff), the assigned human acts on the
+ * item; when off (launch default), it is Read + Request and SMD handles the
+ * work. Compliance resolves to read_request here (its role does not operate the
+ * runtime domain). Fed by the frozen ADR 0043 read path — empty until wired.
+ */
+
+const access = await resolveOperatorAccess(env.DB, Astro.locals, {
+  allowedRoles: ['principal', 'staff', 'compliance'],
+})
+if (access.kind === 'redirect') {
+  return Astro.redirect(access.to)
+}
+const { user, client, roles } = access
+
+const config = await getCustomerConfig(env.DB, client.id)
+const customerSlug = config?.customer_slug ?? client.id
+const actorRole = roles.includes('principal')
+  ? 'principal'
+  : roles.includes('staff')
+    ? 'staff'
+    : 'compliance'
+const items = await loadWorkItems({ db: env.DB, env, actorUserId: user.id }, customerSlug, {
+  actor: user.email,
+  actorRole,
+})
+
+const RETURN_TO = '/portal/products/operator/work'
+const cr = Astro.url.searchParams.get('cr')
+const crMessage =
+  cr === 'filed'
+    ? 'Your request was sent.'
+    : cr === 'invalid'
+      ? "That request couldn't be filed. Please add a short description and try again."
+      : cr === 'error'
+        ? 'Something went wrong filing your request. Please try again.'
+        : null
+
+const listClass =
+  'm-0 list-none p-0 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]'
+const emptyClass =
+  'border-[3px] border-[color:var(--ss-color-text-primary)] p-8 md:p-12 text-center'
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+      rel="stylesheet"
+    />
+    <title>Operator · Work | {BRAND_NAME}</title>
+  </head>
+  <body class="min-h-screen bg-[color:var(--ss-color-background)]">
+    <SkipToMain />
+    <PortalHeader clientName={client.name} />
+
+    <PortalTabs pathname={Astro.url.pathname} operatorActive={true} />
+
+    <main id="main" role="main" class="max-w-5xl mx-auto px-4 md:px-6 pb-24 md:pb-12">
+      <PortalPageHead
+        crumbHref="/portal/products/operator"
+        crumbLabel="Operator"
+        tag="Section"
+        h1="Work"
+        meta={items.length > 0 ? `${items.length} waiting` : null}
+      />
+
+      {
+        crMessage && (
+          <div
+            role="status"
+            class={`mt-6 border-[3px] px-5 py-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold ${
+              cr === 'filed'
+                ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
+                : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]'
+            }`}
+          >
+            {crMessage}
+          </div>
+        )
+      }
+
+      <div class="mt-8">
+        {
+          items.length === 0 ? (
+            <section aria-label="Nothing waiting" class={emptyClass}>
+              <p class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+                Nothing needs a person
+              </p>
+              <p class="mt-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
+                Your operator handles its work and routes something here only when it needs a human.
+              </p>
+            </section>
+          ) : (
+            <DomainSurface
+              authority={config?.authority ?? null}
+              domain="runtime"
+              roles={roles}
+              returnTo={RETURN_TO}
+              domainLabel="work routed to a person"
+            >
+              <ul slot="read" role="list" class={listClass}>
+                {items.map((it) => (
+                  <li class="border-b-[2px] border-[color:var(--ss-color-text-primary)] last:border-b-0 px-5 md:px-7 py-4">
+                    <p class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)] m-0">
+                      {it.subject}
+                    </p>
+                    <p class="mt-1 text-caption text-[color:var(--ss-color-text-secondary)] m-0">
+                      {it.recipient} · {it.skill}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+              <ul slot="operable" role="list" class={listClass}>
+                {items.map((it) => (
+                  <li class="border-b-[2px] border-[color:var(--ss-color-text-primary)] last:border-b-0">
+                    <a
+                      href={`/portal/products/operator/drafts/${it.id}`}
+                      class="block px-5 md:px-7 py-4 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
+                    >
+                      <p class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)] m-0">
+                        {it.subject}
+                      </p>
+                      <p class="mt-1 text-caption text-[color:var(--ss-color-text-secondary)] m-0">
+                        {it.recipient} · {it.skill}
+                      </p>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </DomainSurface>
+          )
+        }
+      </div>
+    </main>
+  </body>
+</html>
