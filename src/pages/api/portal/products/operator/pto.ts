@@ -9,6 +9,7 @@ import {
 } from '../../../../../lib/portal/operator/rbac-audit'
 import type { PortalUserRow } from '../../../../../lib/auth/clerk-bridge'
 import type { Entity } from '../../../../../lib/db/entities'
+import { isPeopleAccessOperable } from '../../../../../lib/portal/operator/people-access-gate'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -77,6 +78,14 @@ async function authorize(locals: App.Locals): Promise<Response | AuthorizedConte
 
   const subscription = await getProductSubscription(env.DB, client.id, PRODUCT_SLUG)
   if (!subscription) return jsonError(404, 'No active subscription')
+
+  // Layer-1 authority gate (ADR 0041): PTO / coverage is the people_access
+  // domain. At launch (managed posture) SMD operates the roster and its
+  // coverage; self-service PTO becomes Read + Request. Refuse the mutation
+  // server-side rather than trust the portal's read-only render.
+  if (!(await isPeopleAccessOperable(env.DB, client.id))) {
+    return redirectWithStatus('not_permitted')
+  }
 
   return { user, client, orgId: user.org_id, isPrincipal: roles.includes('principal') }
 }

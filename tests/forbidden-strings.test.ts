@@ -484,6 +484,12 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // entitlement-produced work items; empty by design until a skill routes to a
   // human (ADR 0035).
   resolve('src/pages/portal/products/operator/work/index.astro'),
+  // `products/operator/team/index.astro` (§5.7) renders the people-on-this-
+  // account roster as identity rows (name + email/last-login, away badge, role
+  // chips) inside the dual-mode read/operable slots — not the PortalListItem
+  // status/document record-row vocabulary. The .map( iterates members; the
+  // people_access domain is Read + Request at launch (ADR 0041).
+  resolve('src/pages/portal/products/operator/team/index.astro'),
 ]
 
 /** Collect every `index.astro` under `src/pages/portal/` EXCEPT the home. */
