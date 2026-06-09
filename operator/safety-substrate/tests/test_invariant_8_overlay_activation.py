@@ -17,6 +17,26 @@ an ungoverned operator must never start. A future Hermes re-pin that breaks the
 plugin-load contract (the original failure mode) fails loudly here instead of
 silently shipping an inert overlay.
 
+PROCESS-BOUNDARY LIMITATION (read this — it is why #1285 hid for so long). This
+invariant runs in the PRE-GATEWAY ``run_invariants`` process. It loads the overlay
+and asserts the registration LOGIC is sound in THAT process's plugin manager. It
+CANNOT assert the property that actually matters at runtime — that the overlay's
+hooks fire through the *gateway* process's live singleton on a real turn — because
+it is a different process. #1285 was exactly this gap: every registration/logic
+invariant stayed green while the gateway's own singleton was cached without the
+overlay and every hook was inert on live turns. So this check is necessary but
+PROVABLY INSUFFICIENT on its own.
+
+The AUTHORITATIVE LIVE GATE is the overlay's ``gateway:startup`` HookRegistry
+handler (``hooks/smd-overlay-activation/handler.py`` in hermes-smd-overlay). It
+runs IN the gateway process: it force-loads the overlay into the live singleton,
+then drives a REAL ``pre_tool_call`` dispatch self-check (trust must block a banned
+send tool) and fails closed (``os._exit``) if the operator is not governed — the
+only place the live-turn property can be asserted. bootstrap.sh fail-closes if that
+handler is not wired onto the volume. This invariant and the live handler are
+COMPLEMENTARY tiers, not redundant: this one catches a broken registration/logic
+contract early and cheaply; the handler catches an inert live singleton.
+
 Environment handling: the activation assertions run whenever the overlay is
 installed (the Machine boot context, and any env where it's present). When the
 overlay is NOT installed (CI / bare checkout), there is nothing to activate, so
