@@ -61,6 +61,15 @@ export const AUTHORITY_DOMAIN_LABELS: Record<
   cost: 'Cost & economics',
 }
 
+/**
+ * Total label lookup for any domain string (e.g. an audit row's stored domain).
+ * Returns the friendly label when known, else the raw string — never throws and
+ * never casts. Use this for display of stored/untrusted domain values.
+ */
+export function safeAuthorityDomainLabel(domain: string): string {
+  return (AUTHORITY_DOMAIN_LABELS as Record<string, string>)[domain] ?? domain
+}
+
 export interface DomainAuthorityRow {
   domain: SwitchableAuthorityDomain
   label: string
