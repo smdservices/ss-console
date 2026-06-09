@@ -8,6 +8,7 @@ import {
   buildInviteAuditEvent,
   recordRbacAuditEvent,
 } from '../../../../../lib/portal/operator/rbac-audit'
+import { isPeopleAccessOperable } from '../../../../../lib/portal/operator/people-access-gate'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -77,6 +78,13 @@ async function authorize(locals: App.Locals): Promise<Response | AuthorizedConte
 
   const subscription = await getProductSubscription(env.DB, client.id, PRODUCT_SLUG)
   if (!subscription) return jsonError(404, 'No active subscription')
+
+  // Layer-1 authority gate (ADR 0041): inviting people is the people_access
+  // domain. At launch (managed posture) SMD operates the roster; refuse the
+  // mutation server-side rather than trust the portal's read-only render.
+  if (!(await isPeopleAccessOperable(env.DB, client.id))) {
+    return redirectWithStatus('not_permitted')
+  }
 
   return { user, client }
 }
