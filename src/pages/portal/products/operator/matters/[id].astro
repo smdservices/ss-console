@@ -107,7 +107,7 @@ if (matter) {
 // any active product_role on (entity, 'operator') and is NOT already
 // assigned — those rows surface in the section's "Assign someone"
 // dropdown.
-const canMutateAssignments = roles.includes('principal') || roles.includes('operator')
+const canMutateAssignments = roles.includes('principal') || roles.includes('staff')
 let assignments: MatterAssignment[] = []
 let assignableMembers: Array<{ id: string; name: string; email: string }> = []
 if (matter) {

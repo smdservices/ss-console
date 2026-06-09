@@ -24,7 +24,7 @@ import { env } from 'cloudflare:workers'
  *
  *   action:  'grant' | 'revoke'  — which mutation to run
  *   userId:  TEXT                — target user's local users.id
- *   role:    'principal' | 'operator' | 'compliance'
+ *   role:    'principal' | 'staff' | 'compliance'
  *
  * Authorization:
  *   - Clerk session required (middleware enforces)
