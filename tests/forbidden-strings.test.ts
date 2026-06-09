@@ -477,6 +477,13 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // for N, shipped at 1 (roster-of-one shows the single operator without
   // switcher chrome). The .map( iterates personas into identity sections.
   resolve('src/pages/portal/products/operator/operators/index.astro'),
+  // `products/operator/work/index.astro` (§5.3) renders work items routed to a
+  // person as plain rows (subject + recipient/skill) inside the dual-mode
+  // read/operable slots — not the PortalListItem status/document record-row
+  // vocabulary (no money/status/document cell). The .map( iterates the
+  // entitlement-produced work items; empty by design until a skill routes to a
+  // human (ADR 0035).
+  resolve('src/pages/portal/products/operator/work/index.astro'),
 ]
 
 /** Collect every `index.astro` under `src/pages/portal/` EXCEPT the home. */
