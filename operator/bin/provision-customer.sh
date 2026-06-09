@@ -313,6 +313,23 @@ prompt_and_set() {
   log "Staged ${secret_name}"
 }
 
+# stage_secret_from_env: stage NAME from a value already in the operator env
+# (Infisical /ss via `infisical run`), warn-and-skip when unset. Defined here so
+# both Step 6 (R2 skill-bodies) and Step 6b (observability / connector) can use
+# it — bash needs the definition before the first call.
+stage_secret_from_env() {
+  local secret_name="$1"
+  local env_value="$2"
+  local description="$3"
+  if [ -z "${env_value:-}" ]; then
+    log "WARN: ${secret_name} not set in operator env (${description}) — skipping stage"
+    return 0
+  fi
+  printf '%s=%s\n' "${secret_name}" "${env_value}" \
+    | fly secrets import --stage -a "${APP_NAME}" >/dev/null
+  log "Staged ${secret_name} (value never logged)"
+}
+
 # Required secrets per bootstrap.sh.
 # AGENTMAIL_API_KEY removed 2026-05-29: the persona's own outbound mailbox
 # identity (ADR 0005 reviewer-as-sender / ADR 0008) is deferred to Phase 2
@@ -331,14 +348,22 @@ prompt_and_set R2_ACCESS_KEY_ID     "R2 access key ID (Machine-scoped, R/W on s3
 prompt_and_set R2_SECRET_ACCESS_KEY "R2 secret access key (paired with R2_ACCESS_KEY_ID above)"
 prompt_and_set R2_ENDPOINT_URL      "R2 endpoint URL (Cloudflare account R2 endpoint)"
 
-# ADR 0022 Stream 2 — bucket-scoped R2 credentials for the per-customer
-# skill bodies bucket. Issue these via the CF dashboard with a policy
-# scoped to ${R2_SKILL_BODIES_BUCKET} only (Object Read + Write). The
-# bucket itself is the trust boundary per ADR 0007; a misconfigured token
-# scope would be the only path to cross-tenant leakage, so the operator
-# verifies the scope before pasting.
-prompt_and_set R2_SKILL_BODIES_ACCESS_KEY_ID "R2 access key ID scoped to bucket ${R2_SKILL_BODIES_BUCKET}"
-prompt_and_set R2_SKILL_BODIES_SECRET_ACCESS_KEY "R2 secret access key paired with R2_SKILL_BODIES_ACCESS_KEY_ID above"
+# ADR 0022 Stream 2 — skill-bodies bucket R2 credentials. Per the first-boot
+# runbook ("R2 credentials — DO NOT hunt for or re-mint these"), the account-wide
+# derived CF-token pair (R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY) has R/W on
+# EVERY bucket in the account, so it already covers the per-customer skill-bodies
+# bucket — no per-bucket token minting is needed. Stage the skill-bodies-specific
+# creds when an engagement explicitly authored a narrower scoped token, else
+# default to the account-wide pair so bootstrap's required-env check passes
+# without a manual paste (and so an agent can provision end-to-end). The bucket
+# is still the per-customer trust boundary (ADR 0007); a scoped token can be
+# layered on later by setting R2_SKILL_BODIES_* in /ss.
+stage_secret_from_env R2_SKILL_BODIES_ACCESS_KEY_ID \
+  "${R2_SKILL_BODIES_ACCESS_KEY_ID:-${R2_ACCESS_KEY_ID:-}}" \
+  "R2 access key ID for bucket ${R2_SKILL_BODIES_BUCKET} (defaults to the account-wide R2 pair)"
+stage_secret_from_env R2_SKILL_BODIES_SECRET_ACCESS_KEY \
+  "${R2_SKILL_BODIES_SECRET_ACCESS_KEY:-${R2_SECRET_ACCESS_KEY:-}}" \
+  "R2 secret access key for bucket ${R2_SKILL_BODIES_BUCKET} (defaults to the account-wide R2 pair)"
 
 # HONCHO_API_KEY — DEFERRED to Phase 2 (ADR 0016 revised). No in-Machine Honcho
 # server is provisioned in Phase 1, so there is no shared secret to generate.
@@ -363,18 +388,6 @@ prompt_and_set R2_SKILL_BODIES_SECRET_ACCESS_KEY "R2 secret access key paired wi
 # Sentry init silently no-ops and heartbeat POSTs will 401 — both visible
 # as "no signal yet" on the admin dashboard, which is the empty-state we
 # want anyway.
-stage_secret_from_env() {
-  local secret_name="$1"
-  local env_value="$2"
-  local description="$3"
-  if [ -z "${env_value:-}" ]; then
-    log "WARN: ${secret_name} not set in operator env (${description}) — skipping stage"
-    return 0
-  fi
-  printf '%s=%s\n' "${secret_name}" "${env_value}" \
-    | fly secrets import --stage -a "${APP_NAME}" >/dev/null
-  log "Staged ${secret_name} (value never logged)"
-}
 stage_secret_from_env SENTRY_DSN            "${SENTRY_DSN:-}"            "Sentry DSN for the shared smd-operator project"
 stage_secret_from_env MACHINE_HEARTBEAT_KEY "${MACHINE_HEARTBEAT_KEY:-}" "shared bearer for POST /api/internal/heartbeat"
 
