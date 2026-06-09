@@ -22,6 +22,7 @@ import {
   type AlivenessSignal,
 } from '../../../../lib/portal/operator/aliveness'
 import { getCustomerConfig } from '../../../../lib/portal/customer-config'
+import { loadHomeFeeds, type HomeFeeds } from '../../../../lib/portal/operator/home'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -36,7 +37,7 @@ import { env } from 'cloudflare:workers'
  *   3. Active subscription on (entity, 'operator') in the
  *      subscriptions table
  *   4. At least one role granted on (user, entity, 'operator') in
- *      product_roles — vocabulary: principal | operator | compliance
+ *      product_roles — vocabulary: principal | staff | compliance
  *
  * Anything less degrades to the appropriate empty state per
  * docs/style/empty-state-pattern.md. No fabrication.
@@ -116,7 +117,7 @@ const customerConfig = access ? await getCustomerConfig(env.DB, client.id) : nul
 const complianceViewEnabled = customerConfig?.compliance_enabled ?? false
 if (access) {
   const userRoles = access.roles
-  const ACTIVE_DOER_ROLES = ['operator', 'principal']
+  const ACTIVE_DOER_ROLES = ['staff', 'principal']
   const canAct = userRoles.some((r) => ACTIVE_DOER_ROLES.includes(r))
   if (canAct) {
     sectionCards.push({
@@ -180,6 +181,27 @@ let promotionCandidates: PromotionCandidate[] = []
 if (access?.roles.includes('principal')) {
   promotionCandidates = await listPromotionReadySkills(env.DB, client.id)
 }
+
+// Home/Today runtime feeds (client-portal §5.1): recent activity, what-needs-you,
+// escalations. Fed by the live runtime read path (ADR 0043), which fails closed
+// until OPERATOR_RUNTIME_READ_URL is wired — so these render honest empty states
+// today. needsAttentionCount stays 0 by construction, so Home never fabricates a
+// review queue the entitlements did not author (ADR 0035). PR2 wires the read.
+const homeFeeds: HomeFeeds | null = access ? loadHomeFeeds(env) : null
+
+// Change-request filing outcome (client-portal §3). The dual-mode "Request a
+// change" form 303s back with ?cr=filed|invalid|error so the surface it returned
+// to can show a banner.
+const crStatus = Astro.url.searchParams.get('cr')
+const crMessage =
+  crStatus === 'filed'
+    ? 'Your request was sent.'
+    : crStatus === 'invalid'
+      ? "That request couldn't be filed. Please add a short description and try again."
+      : crStatus === 'error'
+        ? 'Something went wrong filing your request. Please try again.'
+        : null
+const crTone = crStatus === 'filed' ? 'complete' : 'error'
 ---
 
 <!doctype html>
@@ -213,6 +235,21 @@ if (access?.roles.includes('principal')) {
         h1="Operator"
         meta={null}
       />
+
+      {
+        crMessage && (
+          <div
+            role="status"
+            class={`mt-6 border-[3px] px-5 py-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold ${
+              crTone === 'complete'
+                ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-complete)]'
+                : 'border-[color:var(--ss-color-error)] text-[color:var(--ss-color-error)]'
+            }`}
+          >
+            {crMessage}
+          </div>
+        )
+      }
 
       {
         surfaceState === 'no_subscription' && (
@@ -275,6 +312,80 @@ if (access?.roles.includes('principal')) {
             <div class="mt-8">
               <AlivenessHeader signal={alivenessSignal} />
             </div>
+
+            {/* Home / Today (client-portal §5.1): what needs you, what it did,
+                escalations. Runtime-fed; honest empty until the read path is
+                wired. "What needs you" appears ONLY when work is genuinely
+                routed to a human for this client — never a fabricated queue
+                (ADR 0035). */}
+            {homeFeeds && (
+              <section class="mt-8 flex flex-col gap-8" aria-label="What's happening">
+                {homeFeeds.needsAttentionCount > 0 && (
+                  <section class="border-[3px] border-[color:var(--ss-color-primary)] bg-[color:var(--ss-color-background)]">
+                    <div class="bg-[color:var(--ss-color-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
+                      What needs you
+                    </div>
+                    <a
+                      href="/portal/products/operator/drafts"
+                      class="block px-5 md:px-7 py-5 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
+                    >
+                      <p class="font-['Archivo'] text-xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
+                        {homeFeeds.needsAttentionCount}{' '}
+                        {homeFeeds.needsAttentionCount === 1 ? 'item needs' : 'items need'} your
+                        review
+                      </p>
+                    </a>
+                  </section>
+                )}
+
+                <section class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
+                  <div class="flex items-center justify-between gap-4 bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5">
+                    <span class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
+                      Recent activity
+                    </span>
+                    <a
+                      href="/portal/products/operator/activity"
+                      class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold underline underline-offset-2 hover:text-[color:var(--ss-color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-background)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--ss-color-text-primary)]"
+                    >
+                      Full record
+                    </a>
+                  </div>
+                  {homeFeeds.recentActivity.length === 0 ? (
+                    <p class="px-5 md:px-7 py-8 text-sm text-[color:var(--ss-color-text-secondary)]">
+                      No activity to show yet.
+                    </p>
+                  ) : (
+                    <ul role="list" class="divide-y-[2px] divide-[color:var(--ss-color-border)]">
+                      {homeFeeds.recentActivity.map((item) => (
+                        <li class="px-5 md:px-7 py-4">
+                          <p class="text-sm text-[color:var(--ss-color-text-primary)]">
+                            {item.summary}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+
+                {homeFeeds.escalations.length > 0 && (
+                  <section class="border-[3px] border-[color:var(--ss-color-error)] bg-[color:var(--ss-color-background)]">
+                    <div class="bg-[color:var(--ss-color-error)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
+                      Escalations
+                    </div>
+                    <ul role="list" class="divide-y-[2px] divide-[color:var(--ss-color-border)]">
+                      {homeFeeds.escalations.map((item) => (
+                        <li class="px-5 md:px-7 py-4">
+                          <p class="text-sm text-[color:var(--ss-color-text-primary)]">
+                            {item.summary}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+              </section>
+            )}
+
             <div class="mt-10 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-10 lg:gap-12 lg:items-start">
               <div class="flex flex-col gap-8 min-w-0">
                 <PromotionCardList candidates={promotionCandidates} />

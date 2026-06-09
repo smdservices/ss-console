@@ -76,7 +76,7 @@ const { client, subscription, roles } = access
 // Belt-and-braces role check per the issue's explicit requirement: the
 // audit log is sensitive and the surface must verify the resolved role
 // is principal OR compliance even though resolveOperatorAccess
-// already enforces this via allowedRoles. The failure mode (operator
+// already enforces this via allowedRoles. The failure mode (staff
 // or a future role accidentally seeing org-wide audit) is bad enough
 // that the redundant assertion is worth keeping.
 const hasAuditRole = roles.includes('principal') || roles.includes('compliance')

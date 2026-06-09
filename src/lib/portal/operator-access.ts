@@ -11,7 +11,7 @@
  *   4. Caller holds at least one allowed role → otherwise landing page (no_role state)
  *
  * Each surface differs only in which roles it accepts. Drafts, matters, and calendar are
- * for active users (operator or principal); audit is open to all three roles since
+ * for active users (staff or principal); audit is open to all three roles since
  * compliance is the dedicated viewer; settings is principal-only.
  *
  * Status check: this helper treats provisioning, active, and paused subscriptions as
@@ -44,7 +44,7 @@ export type OperatorAccess =
 export interface ResolveOperatorAccessOptions {
   /**
    * Roles that grant access to the surface. Any one match is enough. Pass the
-   * canonical product_roles vocabulary values (`principal`, `operator`,
+   * canonical product_roles vocabulary values (`principal`, `staff`,
    * `compliance`) — typos will silently 401 every visitor.
    */
   allowedRoles: readonly string[]

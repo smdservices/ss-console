@@ -54,7 +54,7 @@ function validFixture(): Record<string, unknown> {
     },
     users: [
       { email: 'partner@firm.com', role: 'principal', full_name: 'Jane Smith' },
-      { email: 'paralegal@firm.com', role: 'operator', full_name: 'Pat Lee' },
+      { email: 'paralegal@firm.com', role: 'staff', full_name: 'Pat Lee' },
     ],
     personas: [
       {

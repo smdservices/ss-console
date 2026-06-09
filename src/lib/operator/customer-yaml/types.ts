@@ -166,7 +166,7 @@ export const ACCEPTED_ACTION_CLASSES = [
 ] as const
 export type ActionClass = (typeof ACCEPTED_ACTION_CLASSES)[number]
 
-export const ACCEPTED_USER_ROLES = ['principal', 'operator', 'compliance'] as const
+export const ACCEPTED_USER_ROLES = ['principal', 'staff', 'compliance'] as const
 export type UserRole = (typeof ACCEPTED_USER_ROLES)[number]
 
 export const ACCEPTED_PERSONA_STATUSES = ['active', 'archived'] as const

@@ -135,11 +135,11 @@ export const AUDIT_DECISIONS: readonly AuditDecision[] = [
  * action. Mirrors `operator/adapter/audit_log.py::ActorRole`. The
  * column itself is nullable in the writer; null surfaces as `null` here.
  */
-export type AuditActorRole = 'principal' | 'operator' | 'compliance' | 'agent' | 'captain'
+export type AuditActorRole = 'principal' | 'staff' | 'compliance' | 'agent' | 'captain'
 
 export const AUDIT_ACTOR_ROLES: readonly AuditActorRole[] = [
   'principal',
-  'operator',
+  'staff',
   'compliance',
   'agent',
   'captain',

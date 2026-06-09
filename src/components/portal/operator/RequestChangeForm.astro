@@ -1,0 +1,71 @@
+---
+/**
+ * "Request a change" affordance — the Read + Request half of the dual-mode
+ * surface (client-portal §3, ADR 0041 §4.3). When a domain is SMD-operated
+ * (its authority switch is off — the launch default for every domain), the
+ * client cannot edit directly; this disclosure lets them file a change request
+ * that lands in the admin change-request inbox.
+ *
+ * Plain HTML <form method="POST"> — no client JS (the portal ships 0KB JS).
+ * Posts to /api/portal/operator/change-request, which validates the domain and
+ * summary server-side (createChangeRequest) and 303-redirects back to
+ * `returnTo` with a `?cr=` status the host surface reads to show a banner.
+ *
+ * This is never the *only* path to SMD — every surface also carries the
+ * page-level contact affordance — but it is the structured one that becomes an
+ * inbox item with a domain and a lifecycle.
+ */
+
+import { OPERATOR_ROOT } from '../../../lib/portal/operator/return-to'
+
+interface Props {
+  /** The switchable authority domain this request concerns. */
+  domain: string
+  /** Human-readable domain name for the prompt; falls back to the slug. */
+  domainLabel?: string | null
+  /** Same-origin path to return to after filing (validated server-side too). */
+  returnTo?: string
+}
+
+const { domain, domainLabel = null, returnTo = OPERATOR_ROOT } = Astro.props
+const label = domainLabel ?? domain.replace(/_/g, ' ')
+const fieldId = `change-request-${domain}`
+---
+
+<details class="border-t-[2px] border-[color:var(--ss-color-border)]">
+  <summary
+    class="cursor-pointer list-none px-5 md:px-7 py-3 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
+  >
+    Request a change
+  </summary>
+  <form
+    method="POST"
+    action="/api/portal/operator/change-request"
+    class="flex flex-col gap-3 px-5 md:px-7 pb-5 pt-2"
+  >
+    <input type="hidden" name="domain" value={domain} />
+    <input type="hidden" name="return_to" value={returnTo} />
+    <label
+      for={fieldId}
+      class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+    >
+      What would you like changed about {label}?
+    </label>
+    <textarea
+      id={fieldId}
+      name="summary"
+      required
+      rows="3"
+      maxlength="4000"
+      class="w-full border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
+    ></textarea>
+    <div>
+      <button
+        type="submit"
+        class="inline-flex items-center min-h-11 px-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-background)] bg-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+      >
+        Send request
+      </button>
+    </div>
+  </form>
+</details>

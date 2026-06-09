@@ -55,7 +55,7 @@ import { env } from 'cloudflare:workers'
  */
 
 const access = await resolveOperatorAccess(env.DB, Astro.locals, {
-  allowedRoles: ['operator', 'principal'],
+  allowedRoles: ['staff', 'principal'],
 })
 if (access.kind === 'redirect') {
   return Astro.redirect(access.to)
@@ -73,7 +73,7 @@ const draft = await getDraft(subscription, draftId)
 // enforced that one of principal/operator is present; pick the more
 // powerful role when both are held so the surface labels reflect the
 // stronger grant.
-const callerRole: 'principal' | 'operator' = roles.includes('principal') ? 'principal' : 'operator'
+const callerRole: 'principal' | 'staff' = roles.includes('principal') ? 'principal' : 'staff'
 
 // Undo window — pending bridge wiring for the per-customer override.
 // DEFAULT_UNDO_WINDOW_MS is 5_000 per the issue's stated default.
