@@ -147,6 +147,11 @@ if (access) {
     label: 'Connections',
     description: 'The systems your Operator connects to, and how their credentials are held.',
   })
+  sectionCards.push({
+    href: '/portal/products/operator/configure',
+    label: 'Configure',
+    description: "Your Operator's skills, governance, voice, scope, and hours.",
+  })
   const isCompliance = userRoles.includes('compliance')
   const isPrincipal = userRoles.includes('principal')
   const showComplianceCard =

@@ -463,6 +463,14 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // NotificationRow. The .map( hits render the read-slot and operable-slot
   // connector lists; both go through <ConnectionRowCard>.
   resolve('src/pages/portal/products/operator/connections/index.astro'),
+  // `products/operator/configure/index.astro` (§5.6) renders config FIELD rows
+  // (skill name + on/off, action-class + governance floor) as plain text <li>s
+  // inside config section cards — not the PortalListItem status/document
+  // repeating-card vocabulary. Same justification as settings/advanced (a
+  // structured config surface, not a list of records). The .map( hits iterate
+  // the skill list and the action-class governance rows; neither carries a
+  // money/status/document cell that PortalListItem's variants model.
+  resolve('src/pages/portal/products/operator/configure/index.astro'),
 ]
 
 /** Collect every `index.astro` under `src/pages/portal/` EXCEPT the home. */
