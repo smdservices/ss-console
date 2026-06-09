@@ -36,11 +36,16 @@ The wedge needs two spine skills: one to route inbound mail to the right wedge s
 
 The wedge now binds `matter-inbox-router` + `matter-status-digest` (see `vertical.yaml` and `operator/customers/pilot-law/customer.yaml`). The old marketing-framed-spine flag is **closed.**
 
-## Deferred — 6 (each off the named job's critical path)
+## Date-awareness layer — `deadline-and-sol-tracker` (activated 2026-06-08)
+
+The tracker runs as a **scheduled internal surface alongside the named-job loop, never inside its critical path** — it is the date mirror the firm reads against, not a step the intake→current→trust→stalled loop depends on. This is the deliberate authoring its own deferral condition called for ("nearest of all to legal judgment, so authored deliberately, never by default"): it is authored on, explicitly, at `draft_for_review`, with its cardinal **never-computes** line hardened by an adversarial computation-bait fixture.
+
+It sits adjacent to `matter-status-digest` exactly as the digest sits adjacent to the responder (wedge.md "Spine"): the **digest** reports broad matter state (open-by-stage, quiet matters, trust); the **tracker** reports critical-date proximity (overdue / imminent / upcoming). Clean directional split, verified by the tracker's `tests/selector_test.md`. The tracker reads `list_calendar_entries` + `list_tasks(due_at)` — both available today, no connector field-widening required (unlike the escalation routing follow-on).
+
+## Deferred — 5 (each off the named job's critical path)
 
 - **`conflict-intake-router` — #1 depth-add.** Its detect-and-surface job is absorbed (above); what's deferred is the _full_ router: rich multi-party capture, routing to the specific assigned person, the cross-matter cadence scan. Add first, deliberately, when depth is wanted. It sits adjacent to a compliance floor, so it is never "just another skill."
 - **`document-receipt-logger`** — inbound-document filing is a parallel workflow; no wedge step depends on a logged document.
-- **`deadline-and-sol-tracker`** — tracks firm-authored dates on a separate surface; nearest of all to legal judgment, so authored deliberately, never by default. The intake→current→trust→stalled loop does not depend on it.
 - **`client-matter-digest`** — proactive scheduled digest; a richer form of the wedge's reactive `matter-status-responder`.
 - **`referral-source-acknowledgment`** — courtesy thank-you, off the matter-progression path.
 - **`intake-to-system-sync`** — only load-bearing when a _separate_ intake CRM (Clio Grow / Lawmatics) runs alongside Clio; the pilot assumes Clio as single system of record, and it needs `build:clio-grow`, which the wedge avoids.
