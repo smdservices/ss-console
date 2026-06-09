@@ -117,6 +117,12 @@ const customerConfig = access ? await getCustomerConfig(env.DB, client.id) : nul
 const complianceViewEnabled = customerConfig?.compliance_enabled ?? false
 if (access) {
   const userRoles = access.roles
+  sectionCards.push({
+    href: '/portal/products/operator/onboarding',
+    label: 'Get started',
+    description:
+      'The three steps to a working operator: invite your team, connect systems, calibrate.',
+  })
   const ACTIVE_DOER_ROLES = ['staff', 'principal']
   const canAct = userRoles.some((r) => ACTIVE_DOER_ROLES.includes(r))
   if (canAct) {
@@ -137,10 +143,30 @@ if (access) {
     })
   }
   sectionCards.push({
-    href: '/portal/products/operator/audit',
-    label: 'Audit',
+    href: '/portal/products/operator/activity',
+    label: 'Activity',
     description:
       'A full record of every action your Operator takes: drafts created, sends approved, identity changes.',
+  })
+  sectionCards.push({
+    href: '/portal/products/operator/connections',
+    label: 'Connections',
+    description: 'The systems your Operator connects to, and how their credentials are held.',
+  })
+  sectionCards.push({
+    href: '/portal/products/operator/configure',
+    label: 'Configure',
+    description: "Your Operator's skills, governance, voice, scope, and hours.",
+  })
+  sectionCards.push({
+    href: '/portal/products/operator/team',
+    label: 'Team',
+    description: 'The people on your account, their roles, and who is covering for whom.',
+  })
+  sectionCards.push({
+    href: '/portal/products/operator/account',
+    label: 'Account',
+    description: 'Your subscription, escalation contacts, and notification preferences.',
   })
   const isCompliance = userRoles.includes('compliance')
   const isPrincipal = userRoles.includes('principal')

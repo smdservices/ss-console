@@ -76,8 +76,35 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # wires Clio (mcp:clio-oktopeak) as a `clio-mcp` command server with a remapped
 # env block (ENCRYPTION_KEY <- CLIO_ENCRYPTION_KEY). Pairs with the clio-mcp
 # install + Clio token-seed block below. Superset of v0.4.5.
+# v0.4.8 (#39) adds the authenticated read-only `GET /runtime/<kind>` to the
+# webhook gate (ADR 0043 path A): the console→Machine runtime read the ss-console
+# drill-ins call. Per-customer bearer (HMAC-SHA256(master, customer_id), staged
+# below as OPERATOR_RUNTIME_READ_KEY), fresh mode=ro connection + busy_timeout,
+# ULID keyset pagination, digests never exposed. Superset of v0.4.7.
+# v0.4.9 (#40) fixes two gate env-read bugs the live verify-gate caught: the gate
+# is a separate process from the Hermes agent, so it reads CUSTOMER_SLUG (its
+# Machine-wide var) with SMD_CUSTOMER_SLUG preferred, and treats
+# SMD_D1_AUDIT_BINDING as a direct path or a var-name. read_runtime returns
+# honest-empty (not 500) when the audit DB/table doesn't exist yet. Superset of v0.4.8.
+# v0.4.10 (#41, #42) makes audit emission actually WRITE: D1Client accepts the
+# direct-path binding, and AuditLogWriter.ensure_schema() creates audit_log at
+# register (the Machine's bootstrap never applied the per-customer migrations, so
+# the table was missing). The runtime-read seam now has data to surface
+# (ss-console#1285). Superset of v0.4.9.
+# v0.4.11 (#43) is THE activation fix: the umbrella register() fans out to all
+# sub-plugins. Hermes ignores the plugin.yaml `plugins:` aggregation list, so the
+# umbrella had loaded as a manifest-only plugin with no register() — none of the
+# five functional plugins (audit, trust, voice, webhook-router, memory-mirror)
+# ever registered on a live gateway. No audit, and no trust/ceiling enforcement.
+# v0.4.12 adds the gateway:startup ACTIVATION GATE (hooks/smd-overlay-activation):
+# the authoritative LIVE boot check that force-loads the overlay into the gateway's
+# live plugin singleton and drives a real pre_tool_call dispatch self-check, failing
+# closed if the operator is not governed (ss-console#1285). The pre-gateway invariant 8
+# asserts registration/logic; the live gate asserts the live-turn property. Superset of
+# v0.4.11 (fan-out). NOTE: v0.4.11 was the previously-pinned ref but was never tagged —
+# the bump to v0.4.12 also un-dangles that pin.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="v0.4.6"
+ARG OVERLAY_REF="v0.4.12"
 
 ARG CUSTOMER_SLUG=customer-zero
 
@@ -201,6 +228,22 @@ RUN npm install -g @oktopeak/clio-mcp@2.0.0
 # their own policy core MUST NOT build green.
 RUN /opt/hermes/.venv/bin/hermes plugins install \
       venturecrane/hermes-smd-overlay --enable
+
+# Stage a PINNED copy of the overlay at a NON-VOLUME path (/app/overlay-pack) so
+# bootstrap.sh can refresh the per-customer volume's overlay to this exact
+# OVERLAY_REF on EVERY boot. /opt/data is the Fly volume mount and SHADOWS the
+# build-time `hermes plugins install` above, so without this the volume keeps
+# whatever overlay a past provision left behind — an OVERLAY_REF bump never
+# reaches the running gateway (the ss-console#1285 delivery bug: the overlay was
+# inert because the volume's copy was stale and bootstrap only checked presence,
+# never freshness). Cloned at the PINNED ref (unlike the unpinned install above), and
+# hard-gated on BOTH the fan-out __init__.py and the gateway:startup activation gate
+# (the live boot check, ss-console#1285) so a mis-pinned ref lacking either fails the
+# build instead of shipping a Machine with no live governance gate.
+RUN git clone --depth 1 --branch "${OVERLAY_REF}" "${OVERLAY_REPO}" /app/overlay-pack \
+      && rm -rf /app/overlay-pack/.git \
+      && test -f /app/overlay-pack/__init__.py \
+      && test -f /app/overlay-pack/hooks/smd-overlay-activation/handler.py
 
 # Deterministic build-time assertion that the pinned `shared` policy core is
 # importable in the venv. This catches a stale/mis-pinned OVERLAY_REF (the exact

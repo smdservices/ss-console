@@ -1,0 +1,146 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro'
+import { resolveEntityIdBySlug } from '../../../../lib/admin/operator-overview'
+import {
+  parseConnectorViews,
+  custodyBadge,
+  backendLabel,
+  connectionStateLabel,
+} from '../../../../lib/admin/connectors-view'
+import { getCustomerConfig } from '../../../../lib/portal/customer-config'
+import { isSecretTransportConfigured } from '../../../../lib/operator/credential-secret-transport'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Operator admin console — connectors & credentials (§5.4, ADR 0042 / 0020).
+ *
+ * Per connector: backend, scopes, credential custody (delegated / self-held),
+ * and connection state. Reads the authored bindings from customer_configs; it
+ * does not reach the per-customer Machine, so it shows the AUTHORED state and is
+ * explicit that live health needs the runtime read path — never a fabricated
+ * "connected/green."
+ *
+ * Honest gating (handoff landmine): the static-secret rotation + OAuth re-consent
+ * execution ride the secret relay (ADR 0036), which is gated until
+ * OPERATOR_SECRET_RELAY_URL is wired. When it is not configured, the surface
+ * says "not enabled" rather than offering a button onto a half-built relay.
+ */
+
+const session = Astro.locals.session!
+if (session.role !== 'admin') {
+  return Astro.redirect('/auth/sign-in')
+}
+
+const slug = Astro.params.customer ?? ''
+const entityId = await resolveEntityIdBySlug(env.DB, slug)
+const config = entityId ? await getCustomerConfig(env.DB, entityId) : null
+const notFound = !entityId || !config
+
+const connectors = config
+  ? parseConnectorViews(config.connectors, config.credential_custody_default)
+  : []
+const relayEnabled = isSecretTransportConfigured(env)
+---
+
+<AdminLayout
+  title={`Operator — Connectors — ${slug}`}
+  breadcrumbs={[
+    { label: 'Dashboard', href: '/admin' },
+    { label: 'Operator', href: '/admin/operator' },
+    { label: slug, href: `/admin/operator/${encodeURIComponent(slug)}` },
+    { label: 'Connectors' },
+  ]}
+  maxWidth="max-w-5xl"
+>
+  <div class="space-y-card">
+    {
+      notFound ? (
+        <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+          <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+            Operator not found
+          </h2>
+          <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+            No operator is provisioned under <code>{slug}</code>.{' '}
+            <a href="/admin/operator" class="text-[color:var(--ss-color-action)] hover:underline">
+              Back to the fleet
+            </a>
+            .
+          </p>
+        </div>
+      ) : (
+        <>
+          <header>
+            <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+              Connectors &amp; credentials — {slug}
+            </h2>
+            <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+              The systems this operator connects to, and who holds each credential. Custody is the
+              client-level default unless a connector pins its own.
+            </p>
+          </header>
+
+          {connectors.length === 0 ? (
+            <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                No connectors configured for this operator yet.
+              </p>
+            </div>
+          ) : (
+            <div class="grid gap-card md:grid-cols-2">
+              {connectors.map((c) => {
+                const badge = custodyBadge(c.custody)
+                return (
+                  <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+                    <div class="flex items-center justify-between gap-2 mb-2">
+                      <span class="font-medium text-[color:var(--ss-color-text-primary)]">
+                        {c.capability}
+                      </span>
+                      <span class={badge.classes}>{badge.label}</span>
+                    </div>
+                    <dl class="text-sm space-y-1">
+                      <div class="flex justify-between gap-4">
+                        <dt class="text-[color:var(--ss-color-text-secondary)]">Backend</dt>
+                        <dd class="text-[color:var(--ss-color-text-primary)]">
+                          {backendLabel(c.backendKind)}
+                        </dd>
+                      </div>
+                      <div class="flex justify-between gap-4">
+                        <dt class="text-[color:var(--ss-color-text-secondary)]">State</dt>
+                        <dd class="text-[color:var(--ss-color-text-primary)]">
+                          {connectionStateLabel(c.configured)}
+                        </dd>
+                      </div>
+                      <div class="flex justify-between gap-4">
+                        <dt class="text-[color:var(--ss-color-text-secondary)]">Scopes</dt>
+                        <dd class="text-[color:var(--ss-color-text-primary)] text-right">
+                          {c.scopes.length > 0 ? c.scopes.join(', ') : '—'}
+                        </dd>
+                      </div>
+                    </dl>
+                    <p class="text-xs text-[color:var(--ss-color-text-muted)] mt-2">
+                      {badge.detail}
+                    </p>
+                    <p class="text-xs text-[color:var(--ss-color-text-muted)] mt-2">
+                      {c.smdCanReach
+                        ? relayEnabled
+                          ? 'SMD can rotate / re-establish this credential.'
+                          : 'Re-establishment not enabled here yet (secret relay not configured).'
+                        : 'Re-establishment is client-initiated (self-held).'}
+                    </p>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          <p class="text-xs text-[color:var(--ss-color-text-muted)]">
+            Connection state is the authored binding, not a live probe — live connector health and
+            token freshness come from the per-operator runtime read. Static-secret rotation and
+            OAuth re-consent execution ride the secret relay (ADR 0036); they light up here once it
+            is configured.
+          </p>
+        </>
+      )
+    }
+  </div>
+</AdminLayout>

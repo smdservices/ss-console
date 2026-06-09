@@ -575,13 +575,33 @@ mkdir -p "${HERMES_HOME}/logs" "${HERMES_HOME}/profiles/${ACTIVE_PROFILE}/logs"
 # keeps it across deploys — so the slow `git clone` only runs in the rare reseed
 # case and does not normally delay the public :8643 listener below.
 OVERLAY_PLUGIN_DIR="${HERMES_HOME}/plugins/hermes-smd-overlay"
-if [ -d "${OVERLAY_PLUGIN_DIR}" ]; then
-  log "Overlay plugin present on the volume (${OVERLAY_PLUGIN_DIR})"
+OVERLAY_PACK="/app/overlay-pack"
+# REFRESH the volume's overlay from the image-pinned pack on EVERY boot — do NOT
+# skip when a dir is merely present. The volume (/opt/data) persists across
+# deploys and shadows the build-time install, so a presence-only check kept a
+# STALE overlay forever: every OVERLAY_REF bump rebuilt the image but the running
+# gateway kept loading the old volume copy, and the overlay sat inert — no audit,
+# no trust enforcement (ss-console#1285). Refreshing from the pinned, non-volume
+# pack makes a bump actually take effect, and is idempotent on a steady-state
+# boot (same bytes).
+if [ -d "${OVERLAY_PACK}" ]; then
+  log "Refreshing overlay on the volume from the image-pinned pack (${OVERLAY_PACK})..."
+  mkdir -p "${HERMES_HOME}/plugins"
+  rm -rf "${OVERLAY_PLUGIN_DIR}"
+  # cp (not cp -a): the copies are owned by the running hermes user, not the
+  # root-owned image source — a root-owned volume file would break a later
+  # hermes-user write (the .skills_prompt_snapshot.json FATAL we hit).
+  cp -r "${OVERLAY_PACK}" "${OVERLAY_PLUGIN_DIR}"
+  /opt/hermes/.venv/bin/hermes plugins enable hermes-smd-overlay >/dev/null 2>&1 || true
+  [ -f "${OVERLAY_PLUGIN_DIR}/__init__.py" ] \
+    || die "overlay fan-out __init__.py missing after refresh — refusing to launch an ungoverned gateway"
+  log "Overlay refreshed on the volume (fan-out register present)"
+elif [ -d "${OVERLAY_PLUGIN_DIR}" ]; then
+  # No staged pack (older image) but a volume copy exists — leave it; the
+  # activation invariant is the backstop that halts boot if it is inert.
+  log "Overlay present on the volume; no image pack to refresh from (${OVERLAY_PLUGIN_DIR})"
 else
-  log "Overlay plugin absent (volume shadows build-time install); installing at runtime..."
-  # Clear a stale/empty plugins dir (e.g. a root-owned dir left by a diagnostic).
-  # rm needs only parent write (${HERMES_HOME} is hermes-owned), not target
-  # ownership, so this succeeds even on a root-owned empty dir.
+  log "Overlay absent and no image pack; installing at runtime (unpinned fallback)..."
   rm -rf "${HERMES_HOME}/plugins" 2>/dev/null || true
   /opt/hermes/.venv/bin/hermes plugins install venturecrane/hermes-smd-overlay --enable \
     || die "runtime overlay plugin install failed — refusing to launch a harness-less gateway"
@@ -589,6 +609,49 @@ else
     || die "overlay plugin dir missing after install — refusing to launch a harness-less gateway"
   log "Overlay plugin installed + enabled at runtime"
 fi
+
+# ---------- Seed the gateway-startup ACTIVATION GATE onto the volume ----------
+# The overlay's LIVE governance gate is a HookRegistry handler
+# (hooks/smd-overlay-activation) that fires at gateway:startup IN the gateway
+# process: it force-loads the overlay into the live PluginManager singleton, then
+# drives a REAL pre_tool_call dispatch self-check and fails closed (os._exit) if the
+# operator is not actually governed. This closes ss-console#1285 — registered hooks
+# were inert on the live gateway because its plugin singleton was cached (idempotent
+# discovery) WITHOUT the overlay; the pre-gateway safety-substrate invariant could
+# not catch it (it runs in a different process and asserts its own singleton).
+#
+# Hermes' HookRegistry loads handlers from ${HERMES_HOME}/hooks/ (the volume) — NOT
+# from the plugin dir — so the handler must be seeded THERE, separately from the
+# plugin pack. Source preference: the image-pinned pack (always current with
+# OVERLAY_REF), else the hooks/ shipped inside the overlay plugin dir just placed on
+# the volume. Refresh on every boot (idempotent; same bytes) so an OVERLAY_REF bump
+# takes effect. Uses cp -r (not -a) for the same reason as the plugin refresh: files
+# land hermes-owned, not root-owned (the .skills_prompt_snapshot.json FATAL).
+if [ -d "${OVERLAY_PACK}/hooks" ]; then
+  _HOOKS_SRC="${OVERLAY_PACK}/hooks"
+elif [ -d "${OVERLAY_PLUGIN_DIR}/hooks" ]; then
+  _HOOKS_SRC="${OVERLAY_PLUGIN_DIR}/hooks"
+else
+  _HOOKS_SRC=""
+fi
+ACTIVATION_HOOK_DIR="${HERMES_HOME}/hooks/smd-overlay-activation"
+if [ -n "${_HOOKS_SRC}" ]; then
+  log "Seeding overlay gateway hooks onto the volume from ${_HOOKS_SRC}..."
+  mkdir -p "${HERMES_HOME}/hooks"
+  for _hookdir in "${_HOOKS_SRC}"/*/; do
+    [ -d "${_hookdir}" ] || continue
+    _name="$(basename "${_hookdir}")"
+    rm -rf "${HERMES_HOME}/hooks/${_name}"
+    cp -r "${_hookdir}" "${HERMES_HOME}/hooks/${_name}"
+  done
+  log "Overlay gateway hooks seeded onto the volume"
+fi
+# FAIL-CLOSED: the live activation gate must be wired no matter which overlay branch
+# ran above. Without it the gateway has no in-process check that the overlay governs
+# live turns — the exact unverified state ss-console#1285 shipped. Better to crash-loop
+# (Fly restarts) than to serve an operator we cannot prove is governed.
+{ [ -f "${ACTIVATION_HOOK_DIR}/HOOK.yaml" ] && [ -f "${ACTIVATION_HOOK_DIR}/handler.py" ]; } \
+  || die "overlay activation gate missing (${ACTIVATION_HOOK_DIR}) — refusing to launch a gateway with no live governance self-check (ss-console#1285)"
 
 # Inbound webhook front-door gate (overlay `hermes-smd-webhook-gate`). It binds
 # the public port (8643), verifies the vendor signature (AgentMail), and forwards

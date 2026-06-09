@@ -1,0 +1,119 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro'
+import { resolveEntityIdBySlug } from '../../../../lib/admin/operator-overview'
+import { listOperatorUsers, roleBadge, principalCount } from '../../../../lib/admin/people-view'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Operator admin console — people & access (§5.7).
+ *
+ * The client's own users and their client-internal Operator roles
+ * (principal / staff / compliance). Read-only this PR: granting/revoking roles
+ * mutates access controls (a guardrailed action needing an explicit directive),
+ * so the surface shows who has what and defers the write rather than shipping an
+ * unauthorized access-control mutation. SMD always retains the ability via the
+ * foundation; it is simply not wired into a button here yet.
+ *
+ * Honest state (foundations §7): a client with no users yet is a real
+ * pre-onboarding state. A missing principal is surfaced as a real signal
+ * (onboarding seeds exactly one), not hidden.
+ */
+
+const session = Astro.locals.session!
+if (session.role !== 'admin') {
+  return Astro.redirect('/auth/sign-in')
+}
+
+const slug = Astro.params.customer ?? ''
+const entityId = await resolveEntityIdBySlug(env.DB, slug)
+const notFound = entityId === null
+const users = entityId ? await listOperatorUsers(env.DB, entityId) : []
+const principals = principalCount(users)
+---
+
+<AdminLayout
+  title={`Operator — People — ${slug}`}
+  breadcrumbs={[
+    { label: 'Dashboard', href: '/admin' },
+    { label: 'Operator', href: '/admin/operator' },
+    { label: slug, href: `/admin/operator/${encodeURIComponent(slug)}` },
+    { label: 'People' },
+  ]}
+  maxWidth="max-w-5xl"
+>
+  <div class="space-y-card">
+    {
+      notFound ? (
+        <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+          <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+            Operator not found
+          </h2>
+          <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+            No operator is provisioned under <code>{slug}</code>.{' '}
+            <a href="/admin/operator" class="text-[color:var(--ss-color-action)] hover:underline">
+              Back to the fleet
+            </a>
+            .
+          </p>
+        </div>
+      ) : (
+        <>
+          <header>
+            <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+              People &amp; access — {slug}
+            </h2>
+            <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+              The client's own users and their Operator roles. Read-only here; role grants and
+              revokes are an access-control change handled on directive.
+            </p>
+          </header>
+
+          {principals === 0 && users.length > 0 && (
+            <div class="rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-attention)] bg-white p-card text-sm text-[color:var(--ss-color-text-primary)]">
+              No principal is assigned. Onboarding seeds exactly one principal — this client needs
+              one set.
+            </div>
+          )}
+
+          <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+            {users.length === 0 ? (
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                No client users have Operator roles yet. Onboarding seeds the first principal.
+              </p>
+            ) : (
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="text-left text-xs text-[color:var(--ss-color-text-secondary)] border-b border-[color:var(--ss-color-border)]">
+                    <th class="pb-2 font-medium">User</th>
+                    <th class="pb-2 font-medium">Email</th>
+                    <th class="pb-2 font-medium">Roles</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-[color:var(--ss-color-border-subtle)]">
+                  {users.map((u) => (
+                    <tr>
+                      <td class="py-2 pr-4 text-[color:var(--ss-color-text-primary)]">
+                        {u.name ?? '—'}
+                      </td>
+                      <td class="py-2 pr-4 text-[color:var(--ss-color-text-secondary)]">
+                        {u.email}
+                      </td>
+                      <td class="py-2">
+                        <span class="inline-flex flex-wrap gap-1">
+                          {u.roles.map((r) => {
+                            const b = roleBadge(r)
+                            return <span class={b.classes}>{b.label}</span>
+                          })}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </>
+      )
+    }
+  </div>
+</AdminLayout>

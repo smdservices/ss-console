@@ -188,6 +188,13 @@ name = "ss-web-staging"
 # GOOGLE_CLIENT_SECRET     — Google Cloud OAuth 2.0 client secret
 # BOOKING_ENCRYPTION_KEY   — 32-byte base64 random; AES-GCM encryption of refresh tokens
 #
+# Operator runtime read (ADR 0043 path A):
+# OPERATOR_RUNTIME_READ_URL    — host template for the console→Machine read
+#                                (e.g. https://{app}.fly.dev); enables the path
+# OPERATOR_RUNTIME_READ_SECRET — master from which each Machine's per-customer
+#                                read key is derived (HMAC-SHA256(master, slug));
+#                                lives ONLY here, never on a Machine
+#
 # Bulk-load from Infisical:
 #   infisical export --env=prod --path=/ss --format=dotenv \
 #     | grep -vE '^(APP_|ADMIN_|PORTAL_|MEETING_|NEW_BUSINESS_|JOB_MONITOR_|REVIEW_MINING_|PUBLIC_)' \

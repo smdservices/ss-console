@@ -4,61 +4,125 @@
  *
  *   1. The console→Machine transport ({@link MachineRuntimeTransport}) — the
  *      authenticated, read-only HTTP call to one customer's Machine read
- *      endpoint. Until that endpoint + the per-customer console→Machine
- *      credential are wired, {@link isRuntimeReadConfigured} returns false and
- *      drill-in surfaces render honest empty states (the design's documented
- *      "until built, runtime surfaces render empty states"). The not-configured
- *      transport throws, and `readMachineRuntime` is fail-closed, so a caller
- *      always gets a clean empty result — never a crash.
+ *      endpoint (the overlay's `GET /runtime/<kind>`). Guarded by
+ *      {@link isRuntimeReadConfigured}: until `OPERATOR_RUNTIME_READ_URL` and
+ *      `OPERATOR_RUNTIME_READ_SECRET` are both set, drill-in surfaces render
+ *      honest empty states. `readMachineRuntime` is fail-closed, so a transport
+ *      throw always collapses to a clean empty result — never a crash.
  *
  *   2. The console-side read-audit sink ({@link RuntimeReadAudit}) — a D1
  *      insert into `operator_runtime_read_audit`.
  *
- * Keeping both here means the drill-in surfaces stay thin and the one piece the
- * integration team implements (the Machine read transport) is isolated.
+ * Per-customer key (no shared key): the bearer is `HMAC-SHA256(master, slug)`
+ * where the master (`OPERATOR_RUNTIME_READ_SECRET`) lives ONLY here and each
+ * Machine holds only its own derived key (set at provision). The canonical HMAC
+ * input is the customer slug (== customer_id); the provision script MUST derive
+ * over the identical string (see `operator/bin/provision-customer.sh`). A key
+ * extracted from one Machine cannot read another, and the master never leaves
+ * the console.
  */
 
-import type { MachineRuntimeTransport, RuntimeReadAudit } from './runtime-read'
+import type { MachineRuntimeTransport, RuntimeReadAudit, RuntimeReadQuery } from './runtime-read'
+import { RuntimeReadUnauthorizedError } from './runtime-read'
+import { resolveCustomerFlyApp } from './fly-app-registry'
 
 /**
- * Structural view of the env the transport needs. Optional field so this module
- * compiles before the binding is provisioned; declared in env.d.ts. When the
- * Machine read endpoint + per-customer credential land, this check returns true.
+ * Structural view of the env the transport needs. Optional fields so this
+ * module compiles before the bindings are provisioned; declared in env.d.ts.
  */
 export interface RuntimeReadEnv {
-  /** Base URL/credential locator for the console→Machine read calls. Absent
-   * until the live read path is wired. */
+  /** Enable flag + per-customer host template for the console→Machine read.
+   * A `{app}` placeholder is substituted with the registry-resolved Fly app;
+   * absent placeholder falls back to `https://<app>.fly.dev`. */
   OPERATOR_RUNTIME_READ_URL?: string
+  /** Master secret from which each Machine's per-customer read key is derived
+   * (`HMAC-SHA256(master, slug)`). Lives only on the console. */
+  OPERATOR_RUNTIME_READ_SECRET?: string
 }
 
+/**
+ * Wired only when BOTH the host template and the master secret are present.
+ * Either missing → not configured → surfaces fail closed to empty states.
+ */
 export function isRuntimeReadConfigured(env: RuntimeReadEnv): boolean {
   return (
-    typeof env.OPERATOR_RUNTIME_READ_URL === 'string' && env.OPERATOR_RUNTIME_READ_URL.length > 0
+    typeof env.OPERATOR_RUNTIME_READ_URL === 'string' &&
+    env.OPERATOR_RUNTIME_READ_URL.length > 0 &&
+    typeof env.OPERATOR_RUNTIME_READ_SECRET === 'string' &&
+    env.OPERATOR_RUNTIME_READ_SECRET.length > 0
   )
 }
 
 export class RuntimeReadNotConfiguredError extends Error {
   constructor() {
-    super('operator runtime read path is not configured (OPERATOR_RUNTIME_READ_URL unset)')
+    super(
+      'operator runtime read path is not configured ' +
+        '(OPERATOR_RUNTIME_READ_URL / OPERATOR_RUNTIME_READ_SECRET unset)'
+    )
     this.name = 'RuntimeReadNotConfiguredError'
   }
 }
 
 /**
- * Construct the production console→Machine transport. Until the Machine read
- * endpoint is wired (guarded by isRuntimeReadConfigured), `read` throws — which
- * `readMachineRuntime` collapses to a fail-closed empty result. Read-only by
- * construction: the only method is `read`, scoped to one customer per call.
- *
- * INTEGRATION STEP: replace the throwing body with the authenticated read —
- *   GET {OPERATOR_RUNTIME_READ_URL}/{customerSlug}/{query.kind}?... with the
- *   per-customer console→Machine credential (ADR 0043 §A). Throw
- *   RuntimeReadUnauthorizedError on 401/403; throw on any other failure so the
- *   client fails closed. The contract above this seam does not change.
+ * Derive a Machine's per-customer read key: `hex(HMAC-SHA256(master, slug))`.
+ * The canonical input is the customer slug with NO trailing newline — the
+ * provision script's `printf '%s'` must match exactly or every read 401s.
+ * Exported so the cross-side match test can pin it against the shell derivation.
  */
-export function createMachineRuntimeTransport(_env: RuntimeReadEnv): MachineRuntimeTransport {
+export async function deriveRuntimeReadKey(master: string, customerSlug: string): Promise<string> {
+  const enc = new TextEncoder()
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(master),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  )
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(customerSlug))
+  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+/** Build the per-customer Machine base URL from the host template + Fly app. */
+function machineBaseUrl(template: string, app: string): string {
+  return template.includes('{app}') ? template.replace('{app}', app) : `https://${app}.fly.dev`
+}
+
+/** Append the read query params the Machine endpoint understands. */
+function appendQuery(url: URL, query: RuntimeReadQuery): void {
+  if (query.cursor) url.searchParams.set('cursor', query.cursor)
+  if (typeof query.limit === 'number') url.searchParams.set('limit', String(query.limit))
+  if (query.id) url.searchParams.set('id', query.id)
+}
+
+/**
+ * Construct the production console→Machine transport. Read-only by construction
+ * (the only method is `read`, scoped to one customer per call). Throws on any
+ * failure so `readMachineRuntime` collapses it to a fail-closed empty result;
+ * a 401/403 throws {@link RuntimeReadUnauthorizedError} so the audit row records
+ * `unauthorized` rather than `unreachable`.
+ */
+export function createMachineRuntimeTransport(env: RuntimeReadEnv): MachineRuntimeTransport {
   return {
-    read: () => Promise.reject(new RuntimeReadNotConfiguredError()),
+    read: async (customerSlug, query) => {
+      if (!isRuntimeReadConfigured(env)) throw new RuntimeReadNotConfiguredError()
+      const app = resolveCustomerFlyApp(customerSlug)
+      // Unlisted customer → refuse to target any app (fail-closed unreachable).
+      if (!app) throw new Error(`runtime read: unknown customer ${customerSlug}`)
+
+      const url = new URL(
+        `${machineBaseUrl(env.OPERATOR_RUNTIME_READ_URL!, app)}/runtime/${query.kind}`
+      )
+      appendQuery(url, query)
+      const bearer = await deriveRuntimeReadKey(env.OPERATOR_RUNTIME_READ_SECRET!, customerSlug)
+
+      const resp = await fetch(url.toString(), {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${bearer}`, 'X-Tenant-Slug': customerSlug },
+      })
+      if (resp.status === 401 || resp.status === 403) throw new RuntimeReadUnauthorizedError()
+      if (!resp.ok) throw new Error(`runtime read failed: ${resp.status}`)
+      return { data: await resp.json() }
+    },
   }
 }
 

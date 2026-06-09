@@ -8,6 +8,7 @@ import PortalPageHead from '../../../../../components/portal/PortalPageHead.astr
 import SkipToMain from '../../../../../components/SkipToMain.astro'
 import { env } from 'cloudflare:workers'
 import { getActivePto, listActivePto } from '../../../../../lib/portal/operator/pto'
+import { isPeopleAccessOperable } from '../../../../../lib/portal/operator/people-access-gate'
 
 /**
  * Operator — PTO / OOO self-service.
@@ -48,6 +49,14 @@ if (access.kind === 'redirect') {
 }
 const { client, user, roles } = access
 const isPrincipal = roles.includes('principal')
+
+// Layer-1 authority gate (ADR 0041): coverage/PTO is the people_access operable
+// detail page. When the domain is not client-operable (managed posture — the
+// launch default), there is no direct-management door: send to the read-only
+// Team surface, where coverage is visible and a change can be requested.
+if (!(await isPeopleAccessOperable(env.DB, client.id))) {
+  return Astro.redirect('/portal/products/operator/team')
+}
 
 const myPto = await getActivePto(env.DB, client.id, user.id)
 const firmWidePto = isPrincipal ? await listActivePto(env.DB, client.id) : []

@@ -46,6 +46,13 @@ primary_region = "{{FLY_REGION}}"
   # Hermes runtime
   HERMES_HOME = "/opt/data"
   CUSTOMER_SLUG = "{{CUSTOMER_SLUG}}"
+  # The SMD overlay plugins (audit, voice, webhook-router, trust, memory-mirror)
+  # resolve the per-customer namespace via require("SMD_CUSTOMER_SLUG", ...). It
+  # was never set here — only CUSTOMER_SLUG was — so every one of those plugins
+  # bailed to its degraded no-op branch on customer-zero: audit emission never
+  # wrote, so the runtime-read seam (ADR 0043) read a dry well (ss-console#1285).
+  # Set it to the same slug so the whole SMD suite registers cleanly.
+  SMD_CUSTOMER_SLUG = "{{CUSTOMER_SLUG}}"
   HERMES_LOG_LEVEL = "info"
 
   # R2 config bucket — bucket NAME is not a credential; the keys are
