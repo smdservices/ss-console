@@ -55,7 +55,7 @@ import {
   validateTeachMarcusInput,
 } from '../../../../../../lib/portal/operator/teach-marcus'
 
-const ROLES_THAT_CAN_TEACH = ['principal', 'operator'] as const
+const ROLES_THAT_CAN_TEACH = ['principal', 'staff'] as const
 
 function jsonResponse(status: number, payload: unknown): Response {
   return new Response(JSON.stringify(payload), {
@@ -109,7 +109,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 
   const { user, client, subscription, roles } = access
 
-  const teachingRole = roles.find((r): r is 'principal' | 'operator' =>
+  const teachingRole = roles.find((r): r is 'principal' | 'staff' =>
     (ROLES_THAT_CAN_TEACH as readonly string[]).includes(r)
   )
   if (!teachingRole) {

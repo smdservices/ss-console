@@ -56,7 +56,7 @@ import {
   type Reviewer,
 } from '../../../../../../lib/portal/operator/send-as'
 
-const ROLES_THAT_CAN_SEND = ['principal', 'operator'] as const
+const ROLES_THAT_CAN_SEND = ['principal', 'staff'] as const
 
 function jsonResponse(status: number, payload: unknown): Response {
   return new Response(JSON.stringify(payload), {
@@ -111,7 +111,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   // present, so this find is total — but we keep the explicit guard
   // so a future widening of the allowed role list cannot silently
   // promote `compliance` into the send pathway.
-  const sendingRole = roles.find((r): r is 'principal' | 'operator' =>
+  const sendingRole = roles.find((r): r is 'principal' | 'staff' =>
     (ROLES_THAT_CAN_SEND as readonly string[]).includes(r)
   )
   if (!sendingRole) {
