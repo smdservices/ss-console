@@ -96,15 +96,16 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # umbrella had loaded as a manifest-only plugin with no register() — none of the
 # five functional plugins (audit, trust, voice, webhook-router, memory-mirror)
 # ever registered on a live gateway. No audit, and no trust/ceiling enforcement.
-# v0.4.12 adds the gateway:startup ACTIVATION GATE (hooks/smd-overlay-activation):
-# the authoritative LIVE boot check that force-loads the overlay into the gateway's
-# live plugin singleton and drives a real pre_tool_call dispatch self-check, failing
-# closed if the operator is not governed (ss-console#1285). The pre-gateway invariant 8
-# asserts registration/logic; the live gate asserts the live-turn property. Superset of
-# v0.4.11 (fan-out). NOTE: v0.4.11 was the previously-pinned ref but was never tagged —
-# the bump to v0.4.12 also un-dangles that pin.
+# v0.4.13 adds the boot AUDIT self-check to the gateway:startup ACTIVATION GATE
+# (hooks/smd-overlay-activation): the handler force-loads the overlay into the gateway's
+# live plugin singleton, proves trust FIRES (pre_tool_call blocks a banned tool), AND
+# proves the AUDIT WRITE path works live (drives a real post_llm_call dispatch and
+# confirms a row lands in audit_log) — the ss-console#1285 Q2 question answered
+# self-provingly at boot. Fail-closed on any check (os._exit). The pre-gateway invariant
+# 8 asserts registration/logic; the live gate asserts the live-turn + audit property.
+# Superset of v0.4.12 (activation gate) / v0.4.11 (fan-out).
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="v0.4.12"
+ARG OVERLAY_REF="v0.4.13"
 
 ARG CUSTOMER_SLUG=customer-zero
 
