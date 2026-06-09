@@ -266,6 +266,22 @@ const personas = config?.personas ?? []
               <ul class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
                 <li>
                   <a
+                    href={`/admin/operator/${encodeURIComponent(slug)}/governance`}
+                    class="text-[color:var(--ss-color-action)] hover:underline"
+                  >
+                    Governance
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href={`/admin/operator/${encodeURIComponent(slug)}/authority`}
+                    class="text-[color:var(--ss-color-action)] hover:underline"
+                  >
+                    Authority
+                  </a>
+                </li>
+                <li>
+                  <a
                     href={`/admin/operator/costs/${encodeURIComponent(slug)}`}
                     class="text-[color:var(--ss-color-action)] hover:underline"
                   >
@@ -282,8 +298,8 @@ const personas = config?.personas ?? []
                 </li>
               </ul>
               <p class="text-xs text-[color:var(--ss-color-text-muted)] mt-3">
-                Configuration, governance, connectors, runtime, memory, people, authority, and
-                lifecycle drill-ins land as their surfaces ship.
+                Configuration, connectors, runtime, memory, people, and lifecycle drill-ins land as
+                their surfaces ship.
               </p>
             </div>
           </>

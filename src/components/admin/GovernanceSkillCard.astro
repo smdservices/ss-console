@@ -1,0 +1,109 @@
+---
+import {
+  resolveSkillCells,
+  ceilingLabel,
+  actionClassLabel,
+  type GovernanceSkill,
+  type GovernanceCell,
+} from '../../lib/admin/governance'
+
+/**
+ * One skill's action-class governance card for the admin governance surface
+ * (§5.3). Extracted from the page so the page's persona/skill maps stay under
+ * the function-length ceiling. Renders the floor / effective / set-ceiling row
+ * per action class; an unauthored class shows "unconfigured · fail-closed"
+ * (ADR 0035 — never a default value).
+ */
+
+interface Props {
+  skill: GovernanceSkill
+  vertical: string | null
+  /** persona slug, posted with the ceiling change */
+  personaSlug: string
+  /** the governance POST endpoint for this customer */
+  formAction: string
+}
+
+const { skill, vertical, personaSlug, formAction } = Astro.props
+const CEILING_OPTIONS = ['autonomous', 'draft_for_review', 'refused'] as const
+
+function effectiveText(cell: GovernanceCell): string {
+  return cell.status === 'fail_closed'
+    ? 'unconfigured · fail-closed'
+    : ceilingLabel(cell.effective!)
+}
+function effectiveClass(cell: GovernanceCell): string {
+  return cell.status === 'fail_closed'
+    ? 'text-[color:var(--ss-color-text-muted)] italic'
+    : 'text-[color:var(--ss-color-text-primary)]'
+}
+---
+
+<div
+  class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card"
+>
+  <div class="flex items-center justify-between gap-2 mb-3">
+    <span class="font-medium text-[color:var(--ss-color-text-primary)]">{skill.name}</span>
+    <span
+      class={skill.enabled
+        ? 'text-xs text-[color:var(--ss-color-complete)]'
+        : 'text-xs text-[color:var(--ss-color-text-muted)]'}
+    >
+      {skill.enabled ? 'enabled' : 'disabled'}
+    </span>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr
+          class="text-left text-xs text-[color:var(--ss-color-text-secondary)] border-b border-[color:var(--ss-color-border)]"
+        >
+          <th class="pb-2 font-medium">Action class</th>
+          <th class="pb-2 font-medium">Floor</th>
+          <th class="pb-2 font-medium">Effective</th>
+          <th class="pb-2 font-medium">Set ceiling</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-[color:var(--ss-color-border-subtle)]">
+        {
+          resolveSkillCells(skill, vertical).map((cell) => (
+            <tr>
+              <td class="py-2 pr-4 text-[color:var(--ss-color-text-primary)]">
+                {actionClassLabel(cell.actionClass)}
+              </td>
+              <td class="py-2 pr-4 text-[color:var(--ss-color-text-secondary)]">
+                {cell.floor ? ceilingLabel(cell.floor) : '—'}
+              </td>
+              <td class={`py-2 pr-4 ${effectiveClass(cell)}`}>{effectiveText(cell)}</td>
+              <td class="py-2">
+                <form method="post" action={formAction} class="flex items-center gap-2">
+                  <input type="hidden" name="persona_slug" value={personaSlug} />
+                  <input type="hidden" name="skill_name" value={skill.name} />
+                  {cell.actionClass !== 'internal_write' && (
+                    <input type="hidden" name="action_class" value={cell.actionClass} />
+                  )}
+                  <select
+                    name="level"
+                    class="rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] bg-white px-2 py-1 text-xs"
+                  >
+                    {CEILING_OPTIONS.map((opt) => (
+                      <option value={opt} selected={cell.authored === opt}>
+                        {ceilingLabel(opt)}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="submit"
+                    class="text-xs text-[color:var(--ss-color-action)] hover:underline"
+                  >
+                    Set
+                  </button>
+                </form>
+              </td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
