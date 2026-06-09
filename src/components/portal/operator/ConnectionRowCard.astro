@@ -1,0 +1,117 @@
+---
+/**
+ * One connector row on the Connections surface (client-portal §5.8). Renders in
+ * two modes from a single markup so both DomainSurface slots stay consistent:
+ *
+ *   - operable=false (Read + Request): status, health, and resolved custody.
+ *   - operable=true  (connections switch on, principal): adds the operable
+ *     controls — OAuth re-authorize and the write-only static-secret field.
+ *
+ * The write-only field is the highest-care element on the client side. It is a
+ * plain 0-JS form posting to the connector secret endpoint, which 303-redirects
+ * back; the raw value lives only in the POST body (never a URL, never logged,
+ * never stored in the console DB). `autocomplete="off"` keeps the browser from
+ * caching it. The custody note states honestly whether SMD can rotate it.
+ */
+
+import { formatConnectorHealth } from '../../../lib/portal/operator/settings'
+import {
+  formatCustody,
+  describeCustody,
+  type ConnectionRow,
+} from '../../../lib/portal/operator/connections'
+
+interface Props {
+  row: ConnectionRow
+  operable: boolean
+  returnTo: string
+}
+
+const { row, operable, returnTo } = Astro.props
+const connectorId = row.adapter || row.capabilityName
+const secretAction = `/api/portal/products/operator/connectors/${encodeURIComponent(connectorId)}/secret`
+const fieldId = `secret-${connectorId}`
+
+const btn =
+  "inline-flex items-center min-h-11 px-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+---
+
+<li class="border-b-[2px] border-[color:var(--ss-color-text-primary)] last:border-b-0">
+  <div class="flex flex-col gap-2 px-5 md:px-7 py-5">
+    <div class="flex items-baseline justify-between gap-4 flex-wrap">
+      <p
+        class="font-['Archivo'] text-base md:text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] m-0"
+      >
+        {row.capabilityName}
+      </p>
+      <span
+        class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+      >
+        {formatCustody(row.custody)}
+      </span>
+    </div>
+    <p class="text-caption text-[color:var(--ss-color-text-secondary)] m-0">
+      {row.adapter ? `${row.adapter} · ` : ''}{formatConnectorHealth(row.health)}
+    </p>
+    <p class="text-sm text-[color:var(--ss-color-text-secondary)] m-0">
+      {describeCustody(row.custody)}
+    </p>
+
+    {
+      operable && (
+        <div class="mt-2 flex flex-col gap-3">
+          <form
+            method="POST"
+            action="/api/portal/operator/settings/connector-reconsent"
+            class="m-0"
+          >
+            <input type="hidden" name="capabilityName" value={row.capabilityName} />
+            <button
+              type="submit"
+              class={`${btn} text-[color:var(--ss-color-text-primary)] border-[2px] border-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)]`}
+            >
+              Re-authorize (OAuth)
+            </button>
+          </form>
+
+          <details class="border-t-[2px] border-[color:var(--ss-color-border)]">
+            <summary class="cursor-pointer list-none py-2 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-primary)] hover:text-[color:var(--ss-color-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset">
+              Enter or update an API key
+            </summary>
+            <form method="POST" action={secretAction} class="flex flex-col gap-3 pt-2">
+              <input type="hidden" name="return_to" value={returnTo} />
+              <label
+                for={fieldId}
+                class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]"
+              >
+                API key for {row.capabilityName}
+              </label>
+              <input
+                id={fieldId}
+                type="password"
+                name="secret"
+                required
+                autocomplete="off"
+                spellcheck={false}
+                class="w-full border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
+              />
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)] m-0">
+                {row.smdReachable
+                  ? 'Stored so SMD can rotate it for you when needed.'
+                  : 'Stored write-only. Only your Operator can use it; SMD cannot read it back.'}
+              </p>
+              <div>
+                <button
+                  type="submit"
+                  class={`${btn} text-[color:var(--ss-color-background)] bg-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-primary)]`}
+                >
+                  Save key
+                </button>
+              </div>
+            </form>
+          </details>
+        </div>
+      )
+    }
+  </div>
+</li>
