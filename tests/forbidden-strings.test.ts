@@ -490,6 +490,12 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // status/document record-row vocabulary. The .map( iterates members; the
   // people_access domain is Read + Request at launch (ADR 0041).
   resolve('src/pages/portal/products/operator/team/index.astro'),
+  // `products/operator/account/index.astro` (§5.9) renders escalation
+  // recipients as plain contact rows (one email per row) inside read-only
+  // domain surfaces — not the PortalListItem status/document record-row
+  // vocabulary. The .map( iterates authored escalation recipients; subscription
+  // is the SMD-only provisioning domain shown as an honest status surface.
+  resolve('src/pages/portal/products/operator/account/index.astro'),
 ]
 
 /** Collect every `index.astro` under `src/pages/portal/` EXCEPT the home. */

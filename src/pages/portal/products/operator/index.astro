@@ -157,6 +157,11 @@ if (access) {
     label: 'Team',
     description: 'The people on your account, their roles, and who is covering for whom.',
   })
+  sectionCards.push({
+    href: '/portal/products/operator/account',
+    label: 'Account',
+    description: 'Your subscription, escalation contacts, and notification preferences.',
+  })
   const isCompliance = userRoles.includes('compliance')
   const isPrincipal = userRoles.includes('principal')
   const showComplianceCard =
