@@ -6,7 +6,6 @@
  * (city SODA API) signals a growing or launching business in Arizona,
  * the AI produces a NewBusinessQualification result matching this schema.
  *
- * @see docs/collateral/lead-automation-blueprint.md — Pipeline 3 architecture
  * @see src/lead-gen/prompts/new-business-prompt.ts — The prompt that produces this output
  */
 

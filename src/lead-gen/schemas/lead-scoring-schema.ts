@@ -5,7 +5,6 @@
  * Re-exports canonical problem and vertical types from the assessment schema
  * to maintain a single source of truth.
  *
- * @see docs/collateral/lead-automation-blueprint.md — Pipeline architecture
  * @see src/portal/assessments/extraction-schema.ts — Canonical problem/vertical types
  */
 

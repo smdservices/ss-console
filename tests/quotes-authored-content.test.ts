@@ -686,12 +686,15 @@ describe('migration 0021: authored content columns', () => {
 })
 
 describe('backfill decision doc', () => {
+  // Archived 2026-06-09: the decision (Option A) was resolved long ago, so the
+  // record was moved to docs/archive/ in the docs cleanup. The decision doc must
+  // still exist and carry the three options + recommendation for the audit trail.
   it('exists at the expected path', () => {
-    expect(existsSync(resolve('docs/decisions/quotes-authored-content-backfill.md'))).toBe(true)
+    expect(existsSync(resolve('docs/archive/quotes-authored-content-backfill.md'))).toBe(true)
   })
 
   it('lists all three options and gives a recommendation', () => {
-    const md = readFileSync(resolve('docs/decisions/quotes-authored-content-backfill.md'), 'utf-8')
+    const md = readFileSync(resolve('docs/archive/quotes-authored-content-backfill.md'), 'utf-8')
     expect(md).toMatch(/Option A/)
     expect(md).toMatch(/Option B/)
     expect(md).toMatch(/Option C/)

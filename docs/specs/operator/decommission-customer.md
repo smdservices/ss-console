@@ -5,7 +5,6 @@
 ## Source
 
 - Platform PRD §13 (Compliance & Privacy Posture), §14.3 (Phase 1 ops deliverable)
-- [Decommission Drain](./decommission-drain.md) — covers the 60s in-flight grace window (#805)
 - [R2 + Vectorize Naming](./r2-vectorize-naming.md) — per-customer namespace convention (#801)
 - [OAuth Lifecycle](./oauth-lifecycle.md) — per-customer OAuth token lifecycle (build: adapters)
 - [Compliance Evidence Packet](./compliance-evidence-packet.md) — packet structure (#802)
@@ -59,6 +58,14 @@ The pipeline also runs a trailing `09_observability_cleanup` step (ADR 0023 Wave
 | 6   | `06_fly_machine`        | `fly machine destroy hermes-{slug} --force`.                                                                                 | `NoOpStub` skip until Fly destroy wired.                                                           |
 | 7   | `07_compliance_archive` | Generate the compliance evidence packet per `compliance-evidence-packet.md` and copy to `archive_root/{slug}/`.              | Each call writes a new timestamped manifest; the cold-storage retention policy handles overwrites. |
 | 8   | `08_tombstone`          | Rename `operator/customers/{slug}/` to `{slug}.decommissioned.{iso-date}` and drop a `DECOMMISSIONED.md` marker.             | Returns `skipped: true, reason: already_tombstoned` when the dated tombstone is present.           |
+
+### Step 1 drain-window contract (#805)
+
+`01_drain` is more than a marker write — it is the 60-second in-flight grace gate that makes atomic decommission (BR-013) achievable. Without it, D1 deletion races in-flight Anthropic responses returning mid-stream.
+
+- **Pause, then poll.** After the agent is paused, poll `audit_log` every 5s for in-flight `DRAFT_%` activity in the trailing 60s window. Proceed as soon as the count hits zero, or when 60s elapse — whichever comes first.
+- **Hard-kill at the boundary.** When the window elapses with calls still in flight, do not wait further: `fly machine stop hermes-{slug} --signal SIGKILL` terminates the runtime. Any in-flight Anthropic stream is dropped and no D1 write completes. The lost draft was mid-generation and never sent, so the cost is one truncated draft, not a customer-facing failure. Emit `DECOMMISSION_HARD_KILL` with `metadata = {in_flight_count: N, drain_duration_seconds: <window>}`.
+- **Configurable per customer.** Default 60s. Override via `customer.yaml.decommission.drain_window_seconds`, bounded 30–300s (the script enforces the bounds). Heavy-draft workflows may request a longer window; fastest off-boarding may request shorter.
 
 ### Audit-log emission
 

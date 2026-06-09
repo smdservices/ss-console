@@ -6,7 +6,7 @@
  * Any re-introduction of these strings is a P0 compliance failure.
  *
  * @see CLAUDE.md — "No fabricated client-facing content"
- * @see docs/reviews/code-review-2026-04-16.md
+ * @see docs/archive/code-review-2026-04-16.md
  * @see GitHub issues #398
  */
 

@@ -148,7 +148,7 @@ cd operator && python -m pytest adapter/tests/test_cost_rollup.py -v
 - Cross-references:
   - [cost-telemetry-events.md](cost-telemetry-events.md) — the emitter side
   - [d1-schema.md](d1-schema.md) — the table shape this reads
-  - [decommission-drain.md](decommission-drain.md) — final rollup before D1 deletion
+  - [decommission-customer.md](decommission-customer.md) — final rollup before D1 deletion
 
 [AMBIGUITY: Cron seam — should the on-demand rollup be paired with a nightly persist into a `cost_summary` table, or is on-demand sufficient through Phase 4? Captain decision.]
 

@@ -86,7 +86,7 @@ Failure → exit 3 before any request is served. Boot-check result written to `i
 
 ## Decommissioning enumeration
 
-`bin/decommission-customer.sh` per decommission-drain.md uses the prefix to enumerate and delete:
+`bin/decommission-customer.sh` per decommission-customer.md uses the prefix to enumerate and delete:
 
 ```bash
 # R2 objects
@@ -129,4 +129,4 @@ The decommission-archive at `{slug}/decommission-archive/final-{ts}.zip` is move
 - Vectorize index naming aligned with binding name (1:1) to make the boot check trivial.
 - Retention bucket `smd-decommission-archive` provisioned at platform setup, not per-customer. Captain-only access via wrangler creds.
 
-[AMBIGUITY: Wrangler/Cloudflare API throttling on bulk delete (decommissioning a heavy customer with hundreds of thousands of R2 objects) may exceed account rate limits and stretch decommissioning beyond the 60-second drain window in decommission-drain.md. Validate against a synthetic heavy customer fixture before launch.]
+[AMBIGUITY: Wrangler/Cloudflare API throttling on bulk delete (decommissioning a heavy customer with hundreds of thousands of R2 objects) may exceed account rate limits and stretch decommissioning beyond the 60-second drain window in decommission-customer.md. Validate against a synthetic heavy customer fixture before launch.]
