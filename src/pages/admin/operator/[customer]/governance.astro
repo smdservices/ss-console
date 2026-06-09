@@ -1,0 +1,148 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro'
+import GovernanceSkillCard from '../../../../components/admin/GovernanceSkillCard.astro'
+import { resolveEntityIdBySlug } from '../../../../lib/admin/operator-overview'
+import { readGovernanceConfig } from '../../../../lib/admin/governance'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Operator admin console — trust & governance (§5.3, ADR 0025 / ADR 0035).
+ *
+ * The entitlement surface on the action-class model: per persona × skill ×
+ * action class, the SMD-set floor (non-raisable), the authored ceiling, and the
+ * effective ceiling. SMD adjusts a ceiling within the floor; the change is
+ * floor-checked and recorded to config_change_audit (deferred git write-back,
+ * ADR 0012 — the live replica is not mutated).
+ *
+ * The rule that does not bend (ADR 0035 / foundations §8): an action class with
+ * no authored ceiling renders **unconfigured → fail-closed**, never a presumed
+ * "draft for review." Reviewer-as-sender is a value authored in action_ceilings,
+ * not a fallback. resolveCell encodes that; this page renders it literally.
+ *
+ * Floors are set by the vertical pack (config-governance VERTICAL_FLOORS), not
+ * edited per-customer here — shown read-only with that provenance stated.
+ */
+
+const session = Astro.locals.session!
+if (session.role !== 'admin') {
+  return Astro.redirect('/auth/sign-in')
+}
+
+const slug = Astro.params.customer ?? ''
+const entityId = await resolveEntityIdBySlug(env.DB, slug)
+const config = entityId ? await readGovernanceConfig(env.DB, slug) : null
+
+const status = Astro.url.searchParams.get('status')
+const STATUS_MESSAGES: Record<string, { text: string; ok: boolean }> = {
+  saved: { text: 'Ceiling change recorded. It applies on the next config sync.', ok: true },
+  floor_blocked: {
+    text: 'Rejected: that value would raise the ceiling above the vertical floor.',
+    ok: false,
+  },
+  invalid_level: { text: 'Invalid ceiling value.', ok: false },
+  invalid_action_class: { text: 'Invalid action class.', ok: false },
+  not_found: { text: 'Operator or skill not found.', ok: false },
+  malformed: { text: 'Config projection is malformed.', ok: false },
+}
+const banner = status ? STATUS_MESSAGES[status] : null
+const formAction = `/admin/operator/${encodeURIComponent(slug)}/governance`
+---
+
+<AdminLayout
+  title={`Operator — Governance — ${slug}`}
+  breadcrumbs={[
+    { label: 'Dashboard', href: '/admin' },
+    { label: 'Operator', href: '/admin/operator' },
+    { label: slug, href: `/admin/operator/${encodeURIComponent(slug)}` },
+    { label: 'Governance' },
+  ]}
+  maxWidth="max-w-6xl"
+>
+  <div class="space-y-card">
+    {
+      !config || !config.ok ? (
+        <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+          <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+            {config && config.error === 'malformed' ? 'Config malformed' : 'Operator not found'}
+          </h2>
+          <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+            {config && config.error === 'malformed' ? (
+              <>
+                The customer_configs row for <code>{slug}</code> could not be parsed.
+              </>
+            ) : (
+              <>
+                No operator is provisioned under <code>{slug}</code>.{' '}
+                <a
+                  href="/admin/operator"
+                  class="text-[color:var(--ss-color-action)] hover:underline"
+                >
+                  Back to the fleet
+                </a>
+                .
+              </>
+            )}
+          </p>
+        </div>
+      ) : (
+        <>
+          <header>
+            <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+              Trust &amp; governance — {slug}
+            </h2>
+            <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+              Per skill, per action class: the floor SMD pins (non-raisable), the authored ceiling,
+              and the effective ceiling. An action class with no authored ceiling is unconfigured
+              and fail-closed — never a default. Floors come from the vertical pack.
+            </p>
+          </header>
+
+          {banner && (
+            <div
+              class={`rounded-[var(--ss-radius-card)] border p-card text-sm ${
+                banner.ok
+                  ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-text-primary)]'
+                  : 'border-[color:var(--ss-color-attention)] text-[color:var(--ss-color-text-primary)]'
+              }`}
+            >
+              {banner.text}
+            </div>
+          )}
+
+          {config.personas.map((persona) => (
+            <section class="space-y-stack">
+              <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)]">
+                {persona.name || persona.slug}
+                <span class="text-xs font-normal text-[color:var(--ss-color-text-muted)]">
+                  {' '}
+                  · {persona.skills.length} skill{persona.skills.length === 1 ? '' : 's'}
+                </span>
+              </h3>
+
+              {persona.skills.length === 0 ? (
+                <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                  No skills configured for this persona.
+                </p>
+              ) : (
+                persona.skills.map((skill) => (
+                  <GovernanceSkillCard
+                    skill={skill}
+                    vertical={config.vertical}
+                    personaSlug={persona.slug}
+                    formAction={formAction}
+                  />
+                ))
+              )}
+            </section>
+          ))}
+
+          <p class="text-xs text-[color:var(--ss-color-text-muted)]">
+            Floors are pinned by the vertical pack and are not editable here. A ceiling change is
+            floor-checked and recorded to the config-change ledger; it applies on the next config
+            sync (the live config is not edited directly).
+          </p>
+        </>
+      )
+    }
+  </div>
+</AdminLayout>
