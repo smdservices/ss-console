@@ -471,6 +471,12 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // the skill list and the action-class governance rows; neither carries a
   // money/status/document cell that PortalListItem's variants model.
   resolve('src/pages/portal/products/operator/configure/index.astro'),
+  // `products/operator/operators/index.astro` (§5.2) renders the persona roster
+  // as operator IDENTITY cards (name + status header, title, what-it-handles,
+  // tone) — not the PortalListItem status/document record-row vocabulary. Built
+  // for N, shipped at 1 (roster-of-one shows the single operator without
+  // switcher chrome). The .map( iterates personas into identity sections.
+  resolve('src/pages/portal/products/operator/operators/index.astro'),
 ]
 
 /** Collect every `index.astro` under `src/pages/portal/` EXCEPT the home. */
