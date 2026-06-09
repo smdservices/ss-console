@@ -1,0 +1,257 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro'
+import { listFleetRoster, type RosterCustomer } from '../../../lib/admin/fleet-roster'
+import {
+  posturePill,
+  rosterHealth,
+  rosterHealthDotClass,
+  personaSummary,
+} from '../../../lib/admin/fleet-roster'
+import { listRuntimeSummary, type RuntimeSummaryRow } from '../../../lib/admin/runtime-summary'
+import {
+  listFleetStatus,
+  heartbeatDisplay,
+  relativeTimestamp,
+  type FleetStatusRow,
+} from '../../../lib/admin/fleet-status'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Operator admin console — fleet home (the roster).
+ *
+ * The default landing for `/admin/operator`. One row per operator (per
+ * client), built for scanning a growing fleet: "is anything on fire across all
+ * my operators." Composes three console-side projections only — customer_configs
+ * (identity, personas, posture), operator_runtime_summary (health/alerts/last
+ * activity mirror, ADR 0043 B), and fleet_status (heartbeat). It never reads a
+ * Machine's runtime D1 directly and never joins two customers (ADR 0009).
+ *
+ * Design: docs/design/operator/01-admin-portal.md §4.1.
+ *
+ * Empty / honest states (foundations §7): a fleet of zero is a real state, not
+ * an error. Before any Machine pushes a summary, health falls back to the
+ * heartbeat alone and last-activity / alert columns read "—" rather than
+ * fabricating activity. A roster-of-one client with one persona is the normal
+ * v1 state, not a placeholder.
+ *
+ * Connector health (§5.4) and per-operator cost (§4.3 / §5.8) are deliberately
+ * not roster columns: connector liveness needs the per-operator runtime read,
+ * and cost is the SMD-only economics surface with its own page. Both are one
+ * click away from each row's overview.
+ */
+
+const session = Astro.locals.session!
+
+// /admin/* already requires the admin role at the middleware layer; re-check
+// here so a routing misconfig can't silently fall through (mirrors the costs
+// page). Today admin === Captain; the smd_admin/smd_operator seam (§2) layers
+// on later without reworking this gate.
+if (session.role !== 'admin') {
+  return Astro.redirect('/auth/sign-in')
+}
+
+const roster = await listFleetRoster(env.DB)
+const summaryRows = await listRuntimeSummary(env.DB)
+const fleetStatusRows = await listFleetStatus(env.DB)
+
+const summaryByEntity = new Map<string, RuntimeSummaryRow>(summaryRows.map((r) => [r.entity_id, r]))
+const summaryBySlug = new Map<string, RuntimeSummaryRow>(
+  summaryRows.map((r) => [r.customer_slug, r])
+)
+const fleetByEntity = new Map<string, FleetStatusRow>(fleetStatusRows.map((r) => [r.entity_id, r]))
+const fleetBySlug = new Map<string, FleetStatusRow>(
+  fleetStatusRows.map((r) => [r.customer_slug, r])
+)
+
+function summaryFor(c: RosterCustomer): RuntimeSummaryRow | undefined {
+  return summaryByEntity.get(c.entity_id) ?? summaryBySlug.get(c.customer_slug)
+}
+function fleetFor(c: RosterCustomer): FleetStatusRow | undefined {
+  return fleetByEntity.get(c.entity_id) ?? fleetBySlug.get(c.customer_slug)
+}
+
+interface RosterView {
+  customer: RosterCustomer
+  personaLine: string
+  personaNames: string
+  posture: ReturnType<typeof posturePill>
+  health: ReturnType<typeof rosterHealth>
+  openAlerts: number | null
+  lastActivity: string | null
+}
+
+const views: RosterView[] = roster.map((customer) => {
+  const summary = summaryFor(customer)
+  const fleet = fleetFor(customer)
+  const hb = heartbeatDisplay(fleet?.last_heartbeat_ts ?? null)
+  const health = rosterHealth(hb.color, hb.label, summary?.summary_status ?? null)
+  const names = customer.personas.map((p) => p.name).filter(Boolean)
+  return {
+    customer,
+    personaLine: personaSummary(customer.personas),
+    personaNames: names.join(', '),
+    posture: posturePill(customer.authority),
+    health,
+    openAlerts: summary ? summary.open_alerts : null,
+    lastActivity: summary?.last_activity_ts ? relativeTimestamp(summary.last_activity_ts) : null,
+  }
+})
+
+// Sort: rows needing attention first (config error, then red/yellow health,
+// then open alerts), then alphabetical by slug. Same "eye lands on trouble"
+// ordering as the costs page.
+const HEALTH_SORT: Record<string, number> = { red: 3, yellow: 2, gray: 1, green: 0 }
+views.sort((a, b) => {
+  const aErr = a.customer.config_error ? 1 : 0
+  const bErr = b.customer.config_error ? 1 : 0
+  if (aErr !== bErr) return bErr - aErr
+  const h = (HEALTH_SORT[b.health.color] ?? 0) - (HEALTH_SORT[a.health.color] ?? 0)
+  if (h !== 0) return h
+  const alerts = (b.openAlerts ?? 0) - (a.openAlerts ?? 0)
+  if (alerts !== 0) return alerts
+  return a.customer.customer_slug.localeCompare(b.customer.customer_slug)
+})
+
+const totalOperators = roster.length
+---
+
+<AdminLayout
+  title="Operator — Fleet"
+  breadcrumbs={[{ label: 'Dashboard', href: '/admin' }, { label: 'Operator' }]}
+  maxWidth="max-w-6xl"
+>
+  <div class="space-y-card">
+    <header class="flex items-end justify-between gap-4">
+      <div>
+        <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+          Operator fleet
+        </h2>
+        <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+          Every operator at a glance: persona roster, authority posture, health, and open alerts.
+          Health and activity read the per-customer summary mirror (ADR 0043); deep detail lives in
+          each operator's drill-in.
+        </p>
+      </div>
+      <div class="text-right">
+        <p class="text-xs uppercase tracking-wide text-[color:var(--ss-color-text-muted)]">
+          Operators
+        </p>
+        <p class="text-2xl font-bold text-[color:var(--ss-color-text-primary)]">
+          {totalOperators}
+        </p>
+      </div>
+    </header>
+
+    <div
+      class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card"
+    >
+      {
+        roster.length === 0 ? (
+          <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+            No operators provisioned yet. The fleet is empty until <code>customer_configs</code> has
+            at least one row.
+          </p>
+        ) : (
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-left text-xs text-[color:var(--ss-color-text-secondary)] border-b border-[color:var(--ss-color-border)]">
+                  <th class="pb-2 font-medium">Operator</th>
+                  <th class="pb-2 font-medium">Personas</th>
+                  <th class="pb-2 font-medium">Posture</th>
+                  <th class="pb-2 font-medium">Health</th>
+                  <th class="pb-2 font-medium text-right">Open alerts</th>
+                  <th class="pb-2 font-medium text-right">Last activity</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[color:var(--ss-color-border-subtle)]">
+                {views.map((v) => (
+                  <tr class="align-top">
+                    <td class="py-3 pr-4">
+                      <a
+                        href={`/admin/operator/${encodeURIComponent(v.customer.customer_slug)}`}
+                        class="font-medium text-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-primary)]"
+                      >
+                        {v.customer.entity_name ?? v.customer.customer_slug}
+                      </a>
+                      <p class="text-xs text-[color:var(--ss-color-text-muted)]">
+                        {v.customer.customer_slug}
+                        {v.customer.vertical ? ` · ${v.customer.vertical}` : ''}
+                      </p>
+                      {v.customer.config_error && (
+                        <p class="text-xs text-[color:var(--ss-color-error)] mt-0.5">
+                          Config needs attention — projection malformed
+                        </p>
+                      )}
+                    </td>
+                    <td class="py-3 pr-4">
+                      <span class="text-[color:var(--ss-color-text-primary)]">{v.personaLine}</span>
+                      {v.personaNames && (
+                        <p class="text-xs text-[color:var(--ss-color-text-muted)]">
+                          {v.personaNames}
+                        </p>
+                      )}
+                    </td>
+                    <td class="py-3 pr-4">
+                      <span class={v.posture.classes}>{v.posture.label}</span>
+                    </td>
+                    <td class="py-3 pr-4">
+                      <span class="inline-flex items-center gap-2">
+                        <span
+                          class={`inline-block h-2 w-2 rounded-full ${rosterHealthDotClass(v.health.color)}`}
+                          aria-hidden="true"
+                        />
+                        <span class="text-[color:var(--ss-color-text-secondary)]">
+                          {v.health.label}
+                        </span>
+                      </span>
+                      {v.health.note && (
+                        <p class="text-xs text-[color:var(--ss-color-text-muted)] mt-0.5">
+                          {v.health.note}
+                        </p>
+                      )}
+                    </td>
+                    <td class="py-3 pr-4 text-right">
+                      {v.openAlerts === null ? (
+                        <span class="text-[color:var(--ss-color-text-muted)]">—</span>
+                      ) : v.openAlerts > 0 ? (
+                        <span class="font-semibold text-[color:var(--ss-color-error)]">
+                          {v.openAlerts}
+                        </span>
+                      ) : (
+                        <span class="text-[color:var(--ss-color-text-secondary)]">0</span>
+                      )}
+                    </td>
+                    <td class="py-3 text-right text-[color:var(--ss-color-text-secondary)]">
+                      {v.lastActivity ?? '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      }
+
+      <div
+        class="mt-4 pt-4 border-t border-[color:var(--ss-color-border-subtle)] space-y-2 text-xs text-[color:var(--ss-color-text-muted)]"
+      >
+        <p>
+          <strong>Health</strong> takes the more alarming of the per-customer heartbeat (<code
+            >fleet_status</code
+          >) and the summary rollup (<code>operator_runtime_summary</code>, which folds in
+          sticky-stop, escalation pressure, and connector health). A gray dot with "no signal yet"
+          means no heartbeat has arrived; it does not mean the operator is healthy.
+        </p>
+        <p>
+          <strong>Connector health</strong> and <strong>cost</strong> are per-operator surfaces: connector
+          liveness needs a live read against the operator's Machine, and cost is the SMD-only economics
+          view at <a
+            href="/admin/operator/costs"
+            class="text-[color:var(--ss-color-action)] hover:underline">Operator costs</a
+          >.
+        </p>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
