@@ -62,15 +62,30 @@ _REQUIRED_HOOKS = {
 _BANNED_PROBE_TOOL = "email_send"
 
 
-def _find_overlay() -> Path | None:
-    candidates = []
+def _overlay_dirs() -> list[Path]:
+    dirs = []
     home = os.environ.get("HERMES_HOME")
     if home:
-        candidates.append(Path(home) / "plugins" / "hermes-smd-overlay")
-    candidates.append(Path("/opt/data/plugins/hermes-smd-overlay"))
-    candidates.append(Path.home() / ".hermes" / "plugins" / "hermes-smd-overlay")
-    for c in candidates:
+        dirs.append(Path(home) / "plugins" / "hermes-smd-overlay")
+    dirs.append(Path("/opt/data/plugins/hermes-smd-overlay"))
+    dirs.append(Path.home() / ".hermes" / "plugins" / "hermes-smd-overlay")
+    return dirs
+
+
+def _find_overlay() -> Path | None:
+    """The overlay dir that carries the fan-out register (__init__.py)."""
+    for c in _overlay_dirs():
         if (c / "__init__.py").exists():
+            return c
+    return None
+
+
+def _stale_overlay_dir() -> Path | None:
+    """An overlay dir that EXISTS but lacks the fan-out __init__.py — a
+    pre-fan-out / stale install that would boot ungoverned. Distinguished from
+    'no overlay at all' so the former FAILs the gate and only the latter is N/A."""
+    for c in _overlay_dirs():
+        if c.exists() and not (c / "__init__.py").exists():
             return c
     return None
 
@@ -130,6 +145,13 @@ def _trust_gates_banned_action(ctx: _RecordingCtx) -> bool:
 def run() -> tuple[bool, str]:
     overlay = _find_overlay()
     if overlay is None:
+        stale = _stale_overlay_dir()
+        if stale is not None:
+            return (
+                False,
+                f"FAIL: overlay dir present at {stale} but missing the fan-out register "
+                "__init__.py — stale/pre-fan-out overlay; the operator would boot ungoverned",
+            )
         return (True, "N/A: overlay not installed in this environment — activation check skipped")
 
     try:

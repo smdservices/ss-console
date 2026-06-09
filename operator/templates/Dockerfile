@@ -224,6 +224,19 @@ RUN npm install -g @oktopeak/clio-mcp@2.0.0
 RUN /opt/hermes/.venv/bin/hermes plugins install \
       venturecrane/hermes-smd-overlay --enable
 
+# Stage a PINNED copy of the overlay at a NON-VOLUME path (/app/overlay-pack) so
+# bootstrap.sh can refresh the per-customer volume's overlay to this exact
+# OVERLAY_REF on EVERY boot. /opt/data is the Fly volume mount and SHADOWS the
+# build-time `hermes plugins install` above, so without this the volume keeps
+# whatever overlay a past provision left behind — an OVERLAY_REF bump never
+# reaches the running gateway (the ss-console#1285 delivery bug: the overlay was
+# inert because the volume's copy was stale and bootstrap only checked presence,
+# never freshness). Cloned at the PINNED ref (unlike the unpinned install above),
+# and hard-gated on the fan-out __init__.py so a mis-pinned ref fails the build.
+RUN git clone --depth 1 --branch "${OVERLAY_REF}" "${OVERLAY_REPO}" /app/overlay-pack \
+      && rm -rf /app/overlay-pack/.git \
+      && test -f /app/overlay-pack/__init__.py
+
 # Deterministic build-time assertion that the pinned `shared` policy core is
 # importable in the venv. This catches a stale/mis-pinned OVERLAY_REF (the exact
 # v0.1.1 `ModuleNotFoundError: shared.outbound_gate`) at BUILD time rather than
