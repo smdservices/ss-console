@@ -81,8 +81,13 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # drill-ins call. Per-customer bearer (HMAC-SHA256(master, customer_id), staged
 # below as OPERATOR_RUNTIME_READ_KEY), fresh mode=ro connection + busy_timeout,
 # ULID keyset pagination, digests never exposed. Superset of v0.4.7.
+# v0.4.9 (#40) fixes two gate env-read bugs the live verify-gate caught: the gate
+# is a separate process from the Hermes agent, so it reads CUSTOMER_SLUG (its
+# Machine-wide var) with SMD_CUSTOMER_SLUG preferred, and treats
+# SMD_D1_AUDIT_BINDING as a direct path or a var-name. read_runtime returns
+# honest-empty (not 500) when the audit DB/table doesn't exist yet. Superset of v0.4.8.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="v0.4.8"
+ARG OVERLAY_REF="v0.4.9"
 
 ARG CUSTOMER_SLUG=customer-zero
 
