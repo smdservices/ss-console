@@ -123,6 +123,14 @@ personas:
         version: pending
         trust_ceiling: draft_for_review
         enabled: true
+      # date-awareness layer (activated 2026-06-08): a scheduled internal
+      # surface ALONGSIDE the wedge loop, never inside it. Surfaces firm-authored
+      # court/filing/SOL dates by proximity; never computes a deadline
+      # (wedge.md "Date-awareness layer"). Internal-only at draft_for_review.
+      - name: deadline-and-sol-tracker
+        version: pending
+        trust_ceiling: draft_for_review
+        enabled: true
     # Native Google/Himalaya skills disabled — this customer uses the audited
     # BUILD connector CLIs and the DWD credential, same as customer-zero.
     skills_disabled:
