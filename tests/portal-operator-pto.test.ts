@@ -80,8 +80,8 @@ async function grantRole(db: D1Database, userId: string, role: string): Promise<
 describe('setPto', () => {
   it('inserts a fresh PTO row when no active one exists', async () => {
     const db = await freshDb()
-    await grantRole(db, USER_ALEX, 'operator')
-    await grantRole(db, USER_JAMIE, 'operator')
+    await grantRole(db, USER_ALEX, 'staff')
+    await grantRole(db, USER_JAMIE, 'staff')
     const result = await setPto(db, {
       orgId: ORG_ID,
       entityId: ENTITY_A,
@@ -98,7 +98,7 @@ describe('setPto', () => {
 
   it('accepts a null backup (queue for principal handoff)', async () => {
     const db = await freshDb()
-    await grantRole(db, USER_ALEX, 'operator')
+    await grantRole(db, USER_ALEX, 'staff')
     const result = await setPto(db, {
       orgId: ORG_ID,
       entityId: ENTITY_A,
@@ -114,7 +114,7 @@ describe('setPto', () => {
 
   it('rejects a backup who is the same as the away user (self loop)', async () => {
     const db = await freshDb()
-    await grantRole(db, USER_ALEX, 'operator')
+    await grantRole(db, USER_ALEX, 'staff')
     const result = await setPto(db, {
       orgId: ORG_ID,
       entityId: ENTITY_A,
@@ -129,7 +129,7 @@ describe('setPto', () => {
 
   it('rejects a backup with no Operator product role', async () => {
     const db = await freshDb()
-    await grantRole(db, USER_ALEX, 'operator')
+    await grantRole(db, USER_ALEX, 'staff')
     const result = await setPto(db, {
       orgId: ORG_ID,
       entityId: ENTITY_A,
@@ -144,7 +144,7 @@ describe('setPto', () => {
 
   it('rejects an unknown backup user id', async () => {
     const db = await freshDb()
-    await grantRole(db, USER_ALEX, 'operator')
+    await grantRole(db, USER_ALEX, 'staff')
     const result = await setPto(db, {
       orgId: ORG_ID,
       entityId: ENTITY_A,
@@ -159,8 +159,8 @@ describe('setPto', () => {
 
   it('returns already_active when a PTO row exists for the user', async () => {
     const db = await freshDb()
-    await grantRole(db, USER_ALEX, 'operator')
-    await grantRole(db, USER_JAMIE, 'operator')
+    await grantRole(db, USER_ALEX, 'staff')
+    await grantRole(db, USER_JAMIE, 'staff')
     await setPto(db, {
       orgId: ORG_ID,
       entityId: ENTITY_A,
@@ -184,7 +184,7 @@ describe('setPto', () => {
 describe('clearPto', () => {
   it('returns true when an active row flips to cleared', async () => {
     const db = await freshDb()
-    await grantRole(db, USER_ALEX, 'operator')
+    await grantRole(db, USER_ALEX, 'staff')
     await setPto(db, {
       orgId: ORG_ID,
       entityId: ENTITY_A,
@@ -213,7 +213,7 @@ describe('clearPto', () => {
 
   it('allows a fresh setPto after a clear', async () => {
     const db = await freshDb()
-    await grantRole(db, USER_ALEX, 'operator')
+    await grantRole(db, USER_ALEX, 'staff')
     await setPto(db, {
       orgId: ORG_ID,
       entityId: ENTITY_A,
@@ -240,8 +240,8 @@ describe('clearPto', () => {
 describe('updatePtoBackup', () => {
   it('updates the backup on an active row', async () => {
     const db = await freshDb()
-    await grantRole(db, USER_ALEX, 'operator')
-    await grantRole(db, USER_JAMIE, 'operator')
+    await grantRole(db, USER_ALEX, 'staff')
+    await grantRole(db, USER_JAMIE, 'staff')
     await grantRole(db, USER_PAT, 'principal')
     await setPto(db, {
       orgId: ORG_ID,
@@ -274,7 +274,7 @@ describe('updatePtoBackup', () => {
 
   it('returns backup_invalid when the new backup has no role', async () => {
     const db = await freshDb()
-    await grantRole(db, USER_ALEX, 'operator')
+    await grantRole(db, USER_ALEX, 'staff')
     await setPto(db, {
       orgId: ORG_ID,
       entityId: ENTITY_A,
@@ -295,8 +295,8 @@ describe('updatePtoBackup', () => {
 describe('listActivePto', () => {
   it('returns every active away user for the entity', async () => {
     const db = await freshDb()
-    await grantRole(db, USER_ALEX, 'operator')
-    await grantRole(db, USER_JAMIE, 'operator')
+    await grantRole(db, USER_ALEX, 'staff')
+    await grantRole(db, USER_JAMIE, 'staff')
     await setPto(db, {
       orgId: ORG_ID,
       entityId: ENTITY_A,
@@ -317,7 +317,7 @@ describe('listActivePto', () => {
 
   it('omits cleared rows', async () => {
     const db = await freshDb()
-    await grantRole(db, USER_ALEX, 'operator')
+    await grantRole(db, USER_ALEX, 'staff')
     await setPto(db, {
       orgId: ORG_ID,
       entityId: ENTITY_A,

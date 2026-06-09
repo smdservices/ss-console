@@ -46,7 +46,7 @@ function makeEntry(overrides: Partial<AuditEntry> = {}): AuditEntry {
     id: '01HX5N3K2A',
     ts: '2026-05-20T10:00:00.000Z',
     actor: 'person-1',
-    actorRole: 'operator',
+    actorRole: 'staff',
     action: 'DRAFT_CREATED',
     target: 'draft-9',
     decision: 'draft_for_review',

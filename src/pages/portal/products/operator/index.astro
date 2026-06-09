@@ -36,7 +36,7 @@ import { env } from 'cloudflare:workers'
  *   3. Active subscription on (entity, 'operator') in the
  *      subscriptions table
  *   4. At least one role granted on (user, entity, 'operator') in
- *      product_roles — vocabulary: principal | operator | compliance
+ *      product_roles — vocabulary: principal | staff | compliance
  *
  * Anything less degrades to the appropriate empty state per
  * docs/style/empty-state-pattern.md. No fabrication.
@@ -116,7 +116,7 @@ const customerConfig = access ? await getCustomerConfig(env.DB, client.id) : nul
 const complianceViewEnabled = customerConfig?.compliance_enabled ?? false
 if (access) {
   const userRoles = access.roles
-  const ACTIVE_DOER_ROLES = ['operator', 'principal']
+  const ACTIVE_DOER_ROLES = ['staff', 'principal']
   const canAct = userRoles.some((r) => ACTIVE_DOER_ROLES.includes(r))
   if (canAct) {
     sectionCards.push({

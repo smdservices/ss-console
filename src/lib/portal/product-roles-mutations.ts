@@ -12,7 +12,7 @@
  * returns true.
  */
 
-const ALLOWED_OPERATOR_ROLES = ['principal', 'operator', 'compliance'] as const
+const ALLOWED_OPERATOR_ROLES = ['principal', 'staff', 'compliance'] as const
 export type OperatorRole = (typeof ALLOWED_OPERATOR_ROLES)[number]
 
 export function isOperatorRole(value: unknown): value is OperatorRole {
