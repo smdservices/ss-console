@@ -1,0 +1,93 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro'
+import { resolveEntityIdBySlug } from '../../../../lib/admin/operator-overview'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Operator admin console — memory & agent-skills (§5.6).
+ *
+ * The operator's learned state: memory observations (with evidence status) and
+ * agent-authored skills (with provenance + Captain-approval), mirrored from the
+ * runtime with SMD dismiss / disable as a platform-safety capability.
+ *
+ * Honest state (foundations §7, §5.6): Honcho memory inference is Phase-2, and
+ * the memory/agent-skill read path is not in the runtime read contract yet
+ * (RUNTIME_READ_KINDS covers audit/draft/matter/activity only). So this surface
+ * states that plainly rather than fabricating observations or a skill inventory.
+ * It lights up when the memory read + mirror land; the dismiss/disable controls
+ * are platform-safety actions wired with that path.
+ */
+
+const session = Astro.locals.session!
+if (session.role !== 'admin') {
+  return Astro.redirect('/auth/sign-in')
+}
+
+const slug = Astro.params.customer ?? ''
+const entityId = await resolveEntityIdBySlug(env.DB, slug)
+const notFound = entityId === null
+---
+
+<AdminLayout
+  title={`Operator — Memory — ${slug}`}
+  breadcrumbs={[
+    { label: 'Dashboard', href: '/admin' },
+    { label: 'Operator', href: '/admin/operator' },
+    { label: slug, href: `/admin/operator/${encodeURIComponent(slug)}` },
+    { label: 'Memory' },
+  ]}
+  maxWidth="max-w-5xl"
+>
+  <div class="space-y-card">
+    {
+      notFound ? (
+        <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+          <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+            Operator not found
+          </h2>
+          <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+            No operator is provisioned under <code>{slug}</code>.{' '}
+            <a href="/admin/operator" class="text-[color:var(--ss-color-action)] hover:underline">
+              Back to the fleet
+            </a>
+            .
+          </p>
+        </div>
+      ) : (
+        <>
+          <header>
+            <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+              Memory &amp; agent-skills — {slug}
+            </h2>
+            <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+              The operator's learned observations and agent-authored skills.
+            </p>
+          </header>
+
+          <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card space-y-stack">
+            <div>
+              <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)]">
+                Observations
+              </h3>
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+                Memory inference is Phase-2. Observations with their evidence status appear here
+                once the memory mirror lands; SMD dismiss (removal from the learning loop) is wired
+                with it.
+              </p>
+            </div>
+            <div>
+              <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)]">
+                Agent-authored skills
+              </h3>
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+                Skills the operator wrote for itself, with provenance and Captain-approval state,
+                appear here once the skill-inventory mirror lands; SMD approve / disable (a
+                platform- safety capability) is wired with it.
+              </p>
+            </div>
+          </div>
+        </>
+      )
+    }
+  </div>
+</AdminLayout>
