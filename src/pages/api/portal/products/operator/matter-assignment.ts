@@ -82,7 +82,7 @@ async function authorize(locals: App.Locals): Promise<Response | AuthorizedConte
 
   const { user, client } = portalData
   const roles = await listProductRoles(env.DB, user.id, client.id, PRODUCT_SLUG)
-  const canMutate = roles.includes('principal') || roles.includes('operator')
+  const canMutate = roles.includes('principal') || roles.includes('staff')
   if (!canMutate) return jsonError(403, 'Forbidden')
 
   const subscription = await getProductSubscription(env.DB, client.id, PRODUCT_SLUG)
