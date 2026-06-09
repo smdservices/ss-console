@@ -137,10 +137,15 @@ if (access) {
     })
   }
   sectionCards.push({
-    href: '/portal/products/operator/audit',
-    label: 'Audit',
+    href: '/portal/products/operator/activity',
+    label: 'Activity',
     description:
       'A full record of every action your Operator takes: drafts created, sends approved, identity changes.',
+  })
+  sectionCards.push({
+    href: '/portal/products/operator/connections',
+    label: 'Connections',
+    description: 'The systems your Operator connects to, and how their credentials are held.',
   })
   const isCompliance = userRoles.includes('compliance')
   const isPrincipal = userRoles.includes('principal')
