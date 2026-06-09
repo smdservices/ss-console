@@ -56,6 +56,25 @@ die() {
   exit 1
 }
 
+# Replace a volume dir with a fresh copy of ${src}, TOLERANT of stray root-owned
+# files inside the old ${dest}. We `mv` the old dir aside instead of `rm -rf`-ing
+# it: a rename only needs write+exec on the (hermes-owned) PARENT dir, not on the
+# dir's contents — so a root-owned file left inside (e.g. a __pycache__/*.pyc
+# written by a root `ssh console` that imported the overlay) cannot make this fail
+# under `set -e` and crash-loop the boot (the ss-console#1285 self-inflicted
+# outage: bootstrap runs as hermes and `rm -rf` choked on root-owned .pyc). The
+# moved-aside copy is best-effort cleaned; if its root-owned files survive the rm
+# that is harmless — it is out of the plugin/hook search path.
+replace_dir_tolerant() {
+  _rdt_src="$1"; _rdt_dest="$2"
+  if [ -e "${_rdt_dest}" ]; then
+    mv "${_rdt_dest}" "${_rdt_dest}.stale.$$" \
+      || die "could not move aside stale dir ${_rdt_dest} (is its parent hermes-writable?)"
+    rm -rf "${_rdt_dest}.stale.$$" 2>/dev/null || true
+  fi
+  cp -r "${_rdt_src}" "${_rdt_dest}"
+}
+
 # NOTE: the wait_for() bounded-retry helper and supervise() restart wrapper
 # were removed with the Honcho data plane (steps 3-6); Postgres/Redis/Honcho
 # were their only callers. Phase 2 reintroduces supervision when it vendors the
@@ -586,11 +605,12 @@ OVERLAY_PACK="/app/overlay-pack"
 if [ -d "${OVERLAY_PACK}" ]; then
   log "Refreshing overlay on the volume from the image-pinned pack (${OVERLAY_PACK})..."
   mkdir -p "${HERMES_HOME}/plugins"
-  rm -rf "${OVERLAY_PLUGIN_DIR}"
-  # cp (not cp -a): the copies are owned by the running hermes user, not the
-  # root-owned image source — a root-owned volume file would break a later
-  # hermes-user write (the .skills_prompt_snapshot.json FATAL we hit).
-  cp -r "${OVERLAY_PACK}" "${OVERLAY_PLUGIN_DIR}"
+  # replace_dir_tolerant (mv-aside, not rm -rf) so a stray root-owned file in the
+  # old overlay dir can't crash-loop the boot under set -e. cp (not cp -a): the
+  # copies are owned by the running hermes user, not the root-owned image source —
+  # a root-owned volume file would break a later hermes-user write (the
+  # .skills_prompt_snapshot.json FATAL we hit).
+  replace_dir_tolerant "${OVERLAY_PACK}" "${OVERLAY_PLUGIN_DIR}"
   /opt/hermes/.venv/bin/hermes plugins enable hermes-smd-overlay >/dev/null 2>&1 || true
   [ -f "${OVERLAY_PLUGIN_DIR}/__init__.py" ] \
     || die "overlay fan-out __init__.py missing after refresh — refusing to launch an ungoverned gateway"
@@ -640,8 +660,10 @@ if [ -n "${_HOOKS_SRC}" ]; then
   for _hookdir in "${_HOOKS_SRC}"/*/; do
     [ -d "${_hookdir}" ] || continue
     _name="$(basename "${_hookdir}")"
-    rm -rf "${HERMES_HOME}/hooks/${_name}"
-    cp -r "${_hookdir}" "${HERMES_HOME}/hooks/${_name}"
+    # mv-aside (same root-owned-.pyc tolerance as the overlay refresh): a root
+    # `ssh console` that loaded handler.py would leave a root-owned __pycache__
+    # here, which a plain `rm -rf` under set -e would choke on.
+    replace_dir_tolerant "${_hookdir}" "${HERMES_HOME}/hooks/${_name}"
   done
   log "Overlay gateway hooks seeded onto the volume"
 fi
