@@ -117,6 +117,12 @@ const customerConfig = access ? await getCustomerConfig(env.DB, client.id) : nul
 const complianceViewEnabled = customerConfig?.compliance_enabled ?? false
 if (access) {
   const userRoles = access.roles
+  sectionCards.push({
+    href: '/portal/products/operator/onboarding',
+    label: 'Get started',
+    description:
+      'The three steps to a working operator: invite your team, connect systems, calibrate.',
+  })
   const ACTIVE_DOER_ROLES = ['staff', 'principal']
   const canAct = userRoles.some((r) => ACTIVE_DOER_ROLES.includes(r))
   if (canAct) {
