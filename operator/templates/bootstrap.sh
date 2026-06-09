@@ -464,21 +464,20 @@ log "Verifying Telegram allowlist (fail-closed, ADR 0033)..."
 log "Telegram allowlist guard passed"
 
 # ============================================================================
-# Step 8: safety substrate invariant checks (Phase A.5 gate)
+# Step 8: safety substrate invariant checks — MOVED below the overlay refresh
 # ============================================================================
-# PRESERVED VERBATIM from the prior bootstrap.sh. The five invariants must
-# hold across compaction, restart, tool failure, prompt injection, and
-# ceiling-escalation attempts. Re-runs on every container start so a Hermes
-# SHA bump can't regress the floor. This is the OpenClaw mitigation.
-log "Running safety substrate invariant checks (Phase A.5 gate)..."
-if ! /opt/hermes/.venv/bin/python3 /app/safety-substrate/run_invariants.py \
-       --customer "${CUSTOMER_SLUG}" \
-       --fixtures /app/safety-substrate/tests \
-       --strict ; then
-  die "Safety substrate invariant check FAILED — agent will not start. \
-Inspect /app/safety-substrate/logs/$(date -u +%Y%m%d).log for which invariant failed."
-fi
-log "Safety substrate invariants PASSED"
+# The Phase A.5 gate now runs AFTER the overlay refresh + activation-hook seed
+# (search "Phase A.5 gate — runs AFTER overlay refresh" below), not here.
+#
+# WHY (ss-console#1285 follow-up — crash-loop deadlock). invariant_8 validates
+# that the volume overlay carries the fan-out __init__.py. The refresh that
+# REPAIRS the overlay from the image-pinned pack runs later in this script. With
+# the gate HERE (before the refresh), a volume overlay left partial — e.g. an
+# interrupted refresh where `rm -rf` completed but `cp` did not, which a restart
+# racing a boot can cause — failed invariant_8 and the `die` killed the boot
+# BEFORE the refresh could repair it. Every reboot repeated it: an unbreakable
+# crash-loop. Moving the gate to after the refresh makes each boot repair the
+# overlay first, then validate what will actually launch — self-healing.
 
 # ============================================================================
 # Step 9: pause guard
@@ -652,6 +651,26 @@ fi
 # (Fly restarts) than to serve an operator we cannot prove is governed.
 { [ -f "${ACTIVATION_HOOK_DIR}/HOOK.yaml" ] && [ -f "${ACTIVATION_HOOK_DIR}/handler.py" ]; } \
   || die "overlay activation gate missing (${ACTIVATION_HOOK_DIR}) — refusing to launch a gateway with no live governance self-check (ss-console#1285)"
+
+# ============================================================================
+# Step 8 (moved): safety substrate invariant checks — Phase A.5 gate — runs AFTER overlay refresh
+# ============================================================================
+# Runs here, AFTER the overlay refresh + activation-hook seed above, so
+# invariant_8 validates the freshly-repaired overlay (fan-out __init__.py
+# present) rather than a stale/partial volume copy left by an interrupted prior
+# boot — which previously deadlocked into a crash-loop (see "Step 8" note above).
+# The five invariants must still hold across compaction, restart, tool failure,
+# prompt injection, and ceiling-escalation attempts; re-run every boot so a
+# Hermes SHA bump can't regress the floor (OpenClaw mitigation).
+log "Running safety substrate invariant checks (Phase A.5 gate)..."
+if ! /opt/hermes/.venv/bin/python3 /app/safety-substrate/run_invariants.py \
+       --customer "${CUSTOMER_SLUG}" \
+       --fixtures /app/safety-substrate/tests \
+       --strict ; then
+  die "Safety substrate invariant check FAILED — agent will not start. \
+Inspect /app/safety-substrate/logs/$(date -u +%Y%m%d).log for which invariant failed."
+fi
+log "Safety substrate invariants PASSED"
 
 # Inbound webhook front-door gate (overlay `hermes-smd-webhook-gate`). It binds
 # the public port (8643), verifies the vendor signature (AgentMail), and forwards
