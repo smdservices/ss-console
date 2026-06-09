@@ -283,6 +283,21 @@ log "Values flow directly into 'fly secrets import' — never appear in this ter
 prompt_and_set() {
   local secret_name="$1"
   local description="$2"
+  # Agent / non-interactive path FIRST: when the secret is already present in
+  # the operator env (reprovision.sh runs this under `infisical run --path=/ss`,
+  # which injects every /ss key as an env var), stage it from there — no
+  # clipboard, no prompt. This is what lets an agent run the provisioner: the
+  # values flow vault -> env -> `fly secrets import` and never touch a terminal
+  # or transcript. Closes the recurring "agents can't paste, re-derive for 2h"
+  # trap reprovision.sh documents. A human with the secret only on their
+  # clipboard (not in /ss) falls through to the prompt below.
+  local env_value="${!secret_name:-}"
+  if [ -n "${env_value}" ]; then
+    printf '%s=%s\n' "${secret_name}" "${env_value}" \
+      | fly secrets import --stage -a "${APP_NAME}" >/dev/null
+    log "Staged ${secret_name} from operator env (value never logged)"
+    return 0
+  fi
   echo ""
   echo "  >> Copy ${description} to clipboard, then press Enter to stage ${secret_name} (or 's' to skip)"
   read -r response
