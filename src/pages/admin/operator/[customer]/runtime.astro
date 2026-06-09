@@ -1,0 +1,150 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro'
+import { resolveEntityIdBySlug } from '../../../../lib/admin/operator-overview'
+import {
+  RUNTIME_VIEWS,
+  parseRuntimeView,
+  loadRuntimeView,
+  type RuntimeViewResult,
+} from '../../../../lib/admin/runtime-observe'
+import {
+  isRuntimeReadConfigured,
+  createMachineRuntimeTransport,
+  createRuntimeReadAudit,
+} from '../../../../lib/operator/runtime-read-transport'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Operator admin console — runtime observe (§5.5, ADR 0043 path A).
+ *
+ * SMD observes what one operator is doing — activity/drafts, audit log, matters
+ * — read across the isolation boundary via the live per-customer read path. That
+ * path is fail-closed: until the Machine read endpoint is wired
+ * (OPERATOR_RUNTIME_READ_URL), every view renders an honest "not enabled" state.
+ * This is the documented design (foundations §6/§7), not a gap to fill — the IA
+ * and the read wiring are here, so the views light up the moment the endpoint
+ * lands. Each real read attempt is audited (operator_runtime_read_audit); a
+ * not-enabled path performs no read and writes no audit noise.
+ */
+
+const session = Astro.locals.session!
+if (session.role !== 'admin') {
+  return Astro.redirect('/auth/sign-in')
+}
+
+const slug = Astro.params.customer ?? ''
+const entityId = await resolveEntityIdBySlug(env.DB, slug)
+const notFound = entityId === null
+
+const view = parseRuntimeView(Astro.url.searchParams.get('view'))
+const configured = isRuntimeReadConfigured(env)
+
+let result: RuntimeViewResult = { status: 'not_enabled' }
+if (!notFound) {
+  result = await loadRuntimeView(
+    {
+      transport: createMachineRuntimeTransport(env),
+      audit: createRuntimeReadAudit(env.DB, { actorUserId: session.userId }),
+    },
+    slug,
+    view,
+    { actor: session.email, actorRole: session.role },
+    configured
+  )
+}
+---
+
+<AdminLayout
+  title={`Operator — Runtime — ${slug}`}
+  breadcrumbs={[
+    { label: 'Dashboard', href: '/admin' },
+    { label: 'Operator', href: '/admin/operator' },
+    { label: slug, href: `/admin/operator/${encodeURIComponent(slug)}` },
+    { label: 'Runtime' },
+  ]}
+  maxWidth="max-w-5xl"
+>
+  <div class="space-y-card">
+    {
+      notFound ? (
+        <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+          <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+            Operator not found
+          </h2>
+          <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+            No operator is provisioned under <code>{slug}</code>.{' '}
+            <a href="/admin/operator" class="text-[color:var(--ss-color-action)] hover:underline">
+              Back to the fleet
+            </a>
+            .
+          </p>
+        </div>
+      ) : (
+        <>
+          <header>
+            <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+              Runtime — {slug}
+            </h2>
+            <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+              What this operator is doing, read live from its Machine. Read-only observe; every read
+              is audited.
+            </p>
+          </header>
+
+          <nav class="flex gap-2 border-b border-[color:var(--ss-color-border)]">
+            {RUNTIME_VIEWS.map((v) => (
+              <a
+                href={`/admin/operator/${encodeURIComponent(slug)}/runtime?view=${v.id}`}
+                class={`px-3 py-2 text-sm -mb-px border-b-2 ${
+                  v.id === view.id
+                    ? 'border-[color:var(--ss-color-primary)] text-[color:var(--ss-color-text-primary)] font-medium'
+                    : 'border-transparent text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)]'
+                }`}
+              >
+                {v.label}
+              </a>
+            ))}
+          </nav>
+
+          <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+            {result.status === 'not_enabled' ? (
+              <div>
+                <p class="text-sm text-[color:var(--ss-color-text-primary)]">
+                  The runtime read path is not enabled yet.
+                </p>
+                <p class="text-xs text-[color:var(--ss-color-text-muted)] mt-1">
+                  Live {view.noun} appear here once a Machine read endpoint is wired (
+                  <code>OPERATOR_RUNTIME_READ_URL</code>, ADR 0043 path A). The view is dark, not
+                  empty — no data has been read.
+                </p>
+              </div>
+            ) : result.status === 'unreachable' ? (
+              <div>
+                <p class="text-sm text-[color:var(--ss-color-text-primary)]">
+                  This operator's runtime is unreachable right now.
+                </p>
+                <p class="text-xs text-[color:var(--ss-color-text-muted)] mt-1">
+                  Reason: {result.reason}. The read fails closed — try again, or check the
+                  operator's health on the overview.
+                </p>
+              </div>
+            ) : result.status === 'empty' ? (
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                No {view.noun} recorded for this operator.
+              </p>
+            ) : (
+              <div>
+                <p class="text-sm text-[color:var(--ss-color-text-primary)]">
+                  {result.count} {view.noun}.
+                </p>
+                <p class="text-xs text-[color:var(--ss-color-text-muted)] mt-1">
+                  The detailed {view.noun} view ships with the Machine read endpoint.
+                </p>
+              </div>
+            )}
+          </div>
+        </>
+      )
+    }
+  </div>
+</AdminLayout>
