@@ -77,7 +77,7 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # env block (ENCRYPTION_KEY <- CLIO_ENCRYPTION_KEY). Pairs with the clio-mcp
 # install + Clio token-seed block below. Superset of v0.4.5.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="v0.4.6"
+ARG OVERLAY_REF="v0.4.7"
 
 ARG CUSTOMER_SLUG=customer-zero
 
