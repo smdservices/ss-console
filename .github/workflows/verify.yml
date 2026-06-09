@@ -3,8 +3,12 @@ name: Verify
 on:
   push:
     branches: [main]
+  # Run on EVERY pull request regardless of base branch. A `branches: [main]`
+  # filter here (removed 2026-06-08) matched on the PR's *base*, so a stacked
+  # PR whose base was a feature branch silently skipped this entire suite and
+  # merged on lightweight gates only. Running on all PRs makes stacked and
+  # shallow PRs equally safe; re-adding a base filter reopens that hole.
   pull_request:
-    branches: [main]
 
 jobs:
   verify:

@@ -3,8 +3,12 @@ name: Security
 on:
   push:
     branches: [main]
+  # Run on EVERY pull request regardless of base branch. A `branches: [main]`
+  # filter here (removed 2026-06-08) matched on the PR's *base*, so a stacked
+  # PR whose base was a feature branch skipped Semgrep, Secret Detection, and
+  # npm-audit entirely and merged with no security signal. Running on all PRs
+  # closes that hole; re-adding a base filter reopens it.
   pull_request:
-    branches: [main]
   schedule:
     # Daily at 13:00 UTC (06:00 Phoenix) so new advisories surface before the workday
     - cron: '0 13 * * *'
