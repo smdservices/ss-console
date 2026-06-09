@@ -28,6 +28,8 @@ Determine which templates apply to the engagement:
 | Other professional-services (accounting, healthcare) | Service Contract + DPA, plus the BAA-Equivalent (or a HIPAA BAA, as appropriate) on Captain's call in consultation with counsel. |
 | Non-regulated business                               | Service Contract + DPA.                                                                                                          |
 
+If the engagement is a **design-partner / founding-customer** engagement, add the Design Partner Addendum (Exhibit D) to the set regardless of customer type. It attaches to the Service Contract and modifies it per its own terms.
+
 If the engagement requires a HIPAA Business Associate Agreement (Customer is a HIPAA-covered entity or business associate and the Operator will read protected health information), Captain must engage external counsel to produce or adapt a HIPAA-compliant BAA. The BAA-Equivalent template in this directory is not a substitute for a HIPAA BAA where one is legally required.
 
 ---
@@ -41,10 +43,12 @@ For each applicable template:
    - `[CUSTOMER LEGAL NAME]`, `[CUSTOMER STATE OF INCORPORATION]`, `[CUSTOMER ADDRESS]`
    - `[EFFECTIVE DATE]`
    - `[MONTHLY FEE]`, `[INITIAL TERM MONTHS]`, `[TERMINATION NOTICE DAYS]`
-   - `[GOVERNING LAW STATE]`, `[LIABILITY CAP AMOUNT]`
-   - `[OFFBOARDING WINDOW DAYS]`, plus DPA-specific retention and incident-response fields
+   - `[EVALUATION PERIOD DAYS]`, `[EVALUATION NOTICE DAYS]`
+   - `[GOVERNING LAW STATE]`, `[LIABILITY CAP AMOUNT]`, `[INSURANCE LIMITS]`
+   - `[OFFBOARDING WINDOW DAYS]`, `[EMAIL IDENTITY PROVIDER]`, plus DPA-specific retention and incident-response fields
    - `[UPTIME PERCENTAGE]`, `[SEVERITY 1 RESPONSE HOURS]`, `[SEVERITY 2 RESPONSE HOURS]`
    - `[CUSTOMER SIGNATORY NAME]`, `[CUSTOMER SIGNATORY TITLE]`
+   - For a design-partner engagement, the Design Partner Addendum fields: `[DESIGN PARTNER FEE]`, `[DESIGN PARTNER TERM MONTHS]`, `[FEE LOCK MONTHS]`, `[EXIT NOTICE DAYS]`, `[FEEDBACK CADENCE]`
    - `[ADDITIONAL TERMS]` (use to record negotiated additions; if none, write "None.")
 3. Populate Exhibit A in the Service Contract with the actual Statement of Work for this engagement (configured persona, enabled skills, bound connectors, authorized Reviewers, pass-through cost categories).
 4. Remove every "This is a TEMPLATE" footer block from the working drafts before export. The footer is for internal templates only; customer-facing final forms do not carry it. (The footer's removal is itself a checklist item below.)
@@ -103,7 +107,7 @@ For each reviewed document:
 
 1. Log into DocuSign as the SMD principal signer account.
 2. Create a new envelope.
-3. Upload the PDFs in the order: Service Contract, DPA, BAA-Equivalent (if applicable).
+3. Upload the PDFs in the order: Service Contract, DPA, BAA-Equivalent (if applicable), Design Partner Addendum (if applicable).
 4. Add recipients:
    - SMD signatory (Captain) as Signer 1.
    - Customer signatory as Signer 2, addressed to `[CUSTOMER SIGNATORY NAME]` at the email address Customer designated.
@@ -126,6 +130,7 @@ Once Customer countersigns:
    - `service-contract.executed.pdf`
    - `dpa.executed.pdf`
    - `baa-equivalent.executed.pdf` (if applicable)
+   - `design-partner-addendum.executed.pdf` (if applicable)
    - `certificate-of-completion.pdf`
 4. Record the engagement in the SMD customer registry with the effective date, term, fee, and DocuSign envelope ID.
 
