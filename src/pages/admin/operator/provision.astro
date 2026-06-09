@@ -1,0 +1,526 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro'
+import {
+  parseProvisioningForm,
+  buildCandidateDoc,
+  validateCandidate,
+  recordProvisioningIntent,
+  listProvisioningIntent,
+  verticalOptions,
+  trustCeilingOptions,
+  userRoleOptions,
+  capabilityOptions,
+  type ProvisioningInput,
+  type CandidateValidation,
+} from '../../../lib/admin/provisioning'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Operator admin console — provisioning (§4.5).
+ *
+ * Stands up a new operator. Steps 1-3 of the §4.5 flow live here: pick a
+ * vertical, author the customer.yaml essentials, validate via the existing
+ * validator + secret-exclusion scan. Step 4+ (commit to the configs repo,
+ * Machine stand-up, connector consent, subscription activation) is the existing
+ * provisioning tooling — a Worker cannot write git or call Fly (ADR 0012 §2;
+ * git write-back is OUT OF SCOPE at v1). So on a clean validation this surface
+ * emits the validated customer.yaml as the deliverable the operator drops into
+ * operator/customers/<slug>/customer.yaml before running
+ * operator/bin/reprovision.sh <slug> (#1262 is making that agent-runnable).
+ *
+ * Honest seam (foundations §7): the surface never claims a Machine was stood up
+ * or git was committed. It records the authoring + validation attempt as
+ * provisioning intent and hands the validated config to the tooling explicitly.
+ *
+ * smd_admin-only (today admin === Captain). In-page POST so the form redisplays
+ * with the entered values and inline validation results without a redirect.
+ */
+
+const session = Astro.locals.session!
+if (session.role !== 'admin') {
+  return Astro.redirect('/auth/sign-in')
+}
+
+const DEFAULTS = {
+  model: 'claude-opus-4-7',
+  machine_size: 'shared-cpu-1x',
+  machine_memory_mb: 1024,
+}
+// The common capability set authored at stand-up; the pack materializes the rest.
+const CONNECTOR_SLOTS = ['Email', 'Calendar', 'PracticeManagement', 'DocumentStorage']
+
+let input: ProvisioningInput | null = null
+let validation: CandidateValidation | null = null
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  input = parseProvisioningForm(form)
+  validation = validateCandidate(buildCandidateDoc(input))
+  await recordProvisioningIntent(env.DB, {
+    customer_id: input.customer_id,
+    customer_name: input.customer_name,
+    vertical: input.vertical,
+    actor_user_id: session.userId,
+    actor_email: session.email,
+    actor_role: session.role,
+    outcome: validation.result.ok ? 'validated' : 'rejected',
+    error_count: validation.result.ok ? 0 : validation.result.errors.length,
+    candidate_yaml: validation.result.ok ? validation.yamlText : '',
+  })
+}
+
+const recent = await listProvisioningIntent(env.DB, 10)
+
+// Field value helper: repopulate from the submitted input, else the default.
+function fv(key: keyof ProvisioningInput, fallback = ''): string {
+  if (!input) return fallback
+  const v = input[key]
+  if (Array.isArray(v)) return v.join(', ')
+  return v === undefined || v === null || Number.isNaN(v) ? fallback : String(v)
+}
+function connectorAt(i: number): { capability: string; adapter: string; backend: string } {
+  const row = input?.connectors[i]
+  return {
+    capability: row?.capability ?? CONNECTOR_SLOTS[i] ?? '',
+    adapter: row?.adapter ?? '',
+    backend: row?.backend ?? '',
+  }
+}
+
+const ok = validation?.result.ok === true
+const errors = validation && !validation.result.ok ? validation.result.errors : []
+
+const inputClass =
+  'w-full rounded-[var(--ss-radius-badge)] border border-[color:var(--ss-color-border)] ' +
+  'px-3 py-2 text-sm text-[color:var(--ss-color-text-primary)] ' +
+  'focus:outline-none focus:ring-2 focus:ring-[color:var(--ss-color-action)]'
+const labelClass = 'block text-xs font-medium text-[color:var(--ss-color-text-secondary)] mb-1'
+const cardClass =
+  'bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card'
+---
+
+<AdminLayout
+  title="Operator — Provision"
+  breadcrumbs={[
+    { label: 'Dashboard', href: '/admin' },
+    { label: 'Operator', href: '/admin/operator' },
+    { label: 'Provision' },
+  ]}
+  maxWidth="max-w-5xl"
+>
+  <div class="space-y-card">
+    <header>
+      <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+        Provision a new operator
+      </h2>
+      <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+        Author the customer.yaml essentials and validate them. On a clean pass this emits the
+        validated config to drop into <code>operator/customers/&lt;slug&gt;/customer.yaml</code> and hand
+        to the stand-up tooling — the console does not stand up the Machine or commit to git.
+      </p>
+    </header>
+
+    {
+      ok && validation && (
+        <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-complete)] p-card space-y-stack">
+          <div>
+            <h3 class="text-base font-semibold text-[color:var(--ss-color-complete)]">
+              Validated — ready for stand-up
+            </h3>
+            <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+              The candidate passed the validator and secret-exclusion scan. Recorded as provisioning
+              intent. Next, the operator (or #1262 tooling) commits this and runs the stand-up:
+            </p>
+          </div>
+          <ol class="text-sm text-[color:var(--ss-color-text-primary)] list-decimal pl-5 space-y-1">
+            <li>
+              Save the YAML below to{' '}
+              <code>operator/customers/{fv('customer_id')}/customer.yaml</code> and commit it (git
+              is the source of truth, ADR 0012).
+            </li>
+            <li>
+              Run <code>operator/bin/reprovision.sh {fv('customer_id')}</code> to stand up the Fly
+              Machine.
+            </li>
+            <li>
+              Drive connector consent and activate the subscription from this operator's drill-in.
+            </li>
+          </ol>
+          {/* prettier-ignore */}
+          <pre class="text-xs font-mono bg-[color:var(--ss-color-surface)] border border-[color:var(--ss-color-border-subtle)] rounded-[var(--ss-radius-badge)] p-4 overflow-x-auto whitespace-pre">{validation.yamlText}</pre>
+        </div>
+      )
+    }
+
+    {
+      errors.length > 0 && (
+        <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-error)] p-card">
+          <h3 class="text-base font-semibold text-[color:var(--ss-color-error)]">
+            {errors.length} validation {errors.length === 1 ? 'error' : 'errors'} — not ready
+          </h3>
+          <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1 mb-3">
+            Fix these and resubmit. Nothing was stood up. The attempt is recorded as a rejected
+            provisioning intent.
+          </p>
+          <ul class="space-y-1.5 text-sm">
+            {errors.map((e) => (
+              <li class="flex gap-3">
+                <code class="text-xs text-[color:var(--ss-color-text-muted)] shrink-0 w-40 truncate">
+                  {e.path}
+                </code>
+                <span class="text-[color:var(--ss-color-text-primary)]">{e.message}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )
+    }
+
+    <form method="POST" class="space-y-card">
+      <div class={cardClass}>
+        <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-3">
+          Identity
+        </h3>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label class={labelClass} for="customer_id">Customer slug</label>
+            <input
+              class={inputClass}
+              id="customer_id"
+              name="customer_id"
+              value={fv('customer_id')}
+              placeholder="smith-pi-firm"
+              pattern="[a-z0-9][a-z0-9-]{0,31}"
+              required
+            />
+          </div>
+          <div>
+            <label class={labelClass} for="customer_name">Legal name</label>
+            <input
+              class={inputClass}
+              id="customer_name"
+              name="customer_name"
+              value={fv('customer_name')}
+              placeholder="Smith PI Firm"
+              required
+            />
+          </div>
+          <div>
+            <label class={labelClass} for="vertical">Vertical pack</label>
+            <select class={inputClass} id="vertical" name="vertical" required>
+              <option value="">Select…</option>
+              {
+                verticalOptions().map((v) => (
+                  <option value={v} selected={fv('vertical') === v}>
+                    {v}
+                  </option>
+                ))
+              }
+            </select>
+          </div>
+          <div>
+            <label class={labelClass} for="practice_areas">Practice areas (comma-separated)</label>
+            <input
+              class={inputClass}
+              id="practice_areas"
+              name="practice_areas"
+              value={fv('practice_areas')}
+              placeholder="personal-injury, workers-comp"
+              required
+            />
+          </div>
+          <div>
+            <label class={labelClass} for="fly_region">Fly region</label>
+            <input
+              class={inputClass}
+              id="fly_region"
+              name="fly_region"
+              value={fv('fly_region')}
+              placeholder="lax"
+              required
+            />
+          </div>
+        </div>
+      </div>
+
+      <div class={cardClass}>
+        <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-3">
+          Runtime
+        </h3>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label class={labelClass} for="model">Model</label>
+            <input
+              class={inputClass}
+              id="model"
+              name="model"
+              value={fv('model', DEFAULTS.model)}
+              required
+            />
+          </div>
+          <div>
+            <label class={labelClass} for="hermes_ref">Hermes ref (upstream pin)</label>
+            <input
+              class={inputClass}
+              id="hermes_ref"
+              name="hermes_ref"
+              value={fv('hermes_ref')}
+              placeholder="v2026.5.7@<40-hex-sha>"
+              required
+            />
+          </div>
+          <div>
+            <label class={labelClass} for="machine_size">Machine size</label>
+            <input
+              class={inputClass}
+              id="machine_size"
+              name="machine_size"
+              value={fv('machine_size', DEFAULTS.machine_size)}
+              required
+            />
+          </div>
+          <div>
+            <label class={labelClass} for="machine_memory_mb">Memory (MB, 256–8192)</label>
+            <input
+              class={inputClass}
+              id="machine_memory_mb"
+              name="machine_memory_mb"
+              type="number"
+              min="256"
+              max="8192"
+              value={fv('machine_memory_mb', String(DEFAULTS.machine_memory_mb))}
+              required
+            />
+          </div>
+        </div>
+      </div>
+
+      <div class={cardClass}>
+        <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-3">
+          Primary user (portal access)
+        </h3>
+        <div class="grid sm:grid-cols-3 gap-4">
+          <div>
+            <label class={labelClass} for="user_email">Email</label>
+            <input
+              class={inputClass}
+              id="user_email"
+              name="user_email"
+              type="email"
+              value={fv('user_email')}
+              required
+            />
+          </div>
+          <div>
+            <label class={labelClass} for="user_full_name">Full name</label>
+            <input
+              class={inputClass}
+              id="user_full_name"
+              name="user_full_name"
+              value={fv('user_full_name')}
+              required
+            />
+          </div>
+          <div>
+            <label class={labelClass} for="user_role">Role</label>
+            <select class={inputClass} id="user_role" name="user_role" required>
+              {
+                userRoleOptions().map((r) => (
+                  <option value={r} selected={fv('user_role', 'principal') === r}>
+                    {r}
+                  </option>
+                ))
+              }
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class={cardClass}>
+        <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-3">
+          Primary persona
+        </h3>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label class={labelClass} for="persona_slug">Slug</label>
+            <input
+              class={inputClass}
+              id="persona_slug"
+              name="persona_slug"
+              value={fv('persona_slug')}
+              placeholder="marcus"
+              pattern="[a-z0-9][a-z0-9-]{0,31}"
+              required
+            />
+          </div>
+          <div>
+            <label class={labelClass} for="persona_name">Name</label>
+            <input
+              class={inputClass}
+              id="persona_name"
+              name="persona_name"
+              value={fv('persona_name')}
+              placeholder="Marcus"
+              required
+            />
+          </div>
+          <div>
+            <label class={labelClass} for="persona_title">Title (optional)</label>
+            <input
+              class={inputClass}
+              id="persona_title"
+              name="persona_title"
+              value={fv('persona_title')}
+              placeholder="AI Associate"
+            />
+          </div>
+          <div>
+            <label class={labelClass} for="persona_tone">Tone (comma-separated, 3–5)</label>
+            <input
+              class={inputClass}
+              id="persona_tone"
+              name="persona_tone"
+              value={fv('persona_tone')}
+              placeholder="warm-but-professional, concise"
+              required
+            />
+          </div>
+          <div>
+            <label class={labelClass} for="skill_name">Lead skill</label>
+            <input
+              class={inputClass}
+              id="skill_name"
+              name="skill_name"
+              value={fv('skill_name')}
+              placeholder="matter-inbox-router"
+              required
+            />
+          </div>
+          <div>
+            <label class={labelClass} for="skill_trust_ceiling">Skill trust ceiling</label>
+            <select class={inputClass} id="skill_trust_ceiling" name="skill_trust_ceiling" required>
+              {
+                trustCeilingOptions().map((c) => (
+                  <option value={c} selected={fv('skill_trust_ceiling', 'draft_for_review') === c}>
+                    {c}
+                  </option>
+                ))
+              }
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class={cardClass}>
+        <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-1">
+          Connectors
+        </h3>
+        <p class="text-xs text-[color:var(--ss-color-text-muted)] mb-3">
+          The capability set authored at stand-up. Fill the ones in scope; leave a row blank to skip
+          it. Backend must be prefixed <code>mcp:</code>, <code>build:</code>, or
+          <code>synthetic:</code>.
+        </p>
+        <div class="space-y-3">
+          {
+            CONNECTOR_SLOTS.map((_, i) => {
+              const c = connectorAt(i)
+              return (
+                <div class="grid sm:grid-cols-3 gap-3">
+                  <select class={inputClass} name="connector_capability">
+                    <option value="">— none —</option>
+                    {capabilityOptions().map((cap) => (
+                      <option value={cap} selected={c.capability === cap}>
+                        {cap}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    class={inputClass}
+                    name="connector_adapter"
+                    value={c.adapter}
+                    placeholder="adapter (e.g. clio)"
+                  />
+                  <input
+                    class={inputClass}
+                    name="connector_backend"
+                    value={c.backend}
+                    placeholder="mcp:clio-oktopeak"
+                  />
+                </div>
+              )
+            })
+          }
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button
+          type="submit"
+          class="rounded-[var(--ss-radius-badge)] bg-[color:var(--ss-color-action)] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+        >
+          Validate candidate
+        </button>
+        <p class="text-xs text-[color:var(--ss-color-text-muted)]">
+          Per-domain authority defaults to SMD-managed (fail-closed); flip on the authority surface
+          after stand-up.
+        </p>
+      </div>
+    </form>
+
+    <div class={cardClass}>
+      <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-3">
+        Recent provisioning attempts
+      </h3>
+      {
+        recent.length === 0 ? (
+          <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+            No provisioning attempts yet.
+          </p>
+        ) : (
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-left text-xs text-[color:var(--ss-color-text-secondary)] border-b border-[color:var(--ss-color-border)]">
+                <th class="pb-2 font-medium">Customer</th>
+                <th class="pb-2 font-medium">Vertical</th>
+                <th class="pb-2 font-medium">Outcome</th>
+                <th class="pb-2 font-medium">By</th>
+                <th class="pb-2 font-medium text-right">When</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-[color:var(--ss-color-border-subtle)]">
+              {recent.map((r) => (
+                <tr>
+                  <td class="py-2 pr-4 text-[color:var(--ss-color-text-primary)]">
+                    {r.customer_name}
+                    <span class="text-xs text-[color:var(--ss-color-text-muted)]">
+                      {' '}
+                      · {r.customer_id}
+                    </span>
+                  </td>
+                  <td class="py-2 pr-4 text-[color:var(--ss-color-text-secondary)]">
+                    {r.vertical}
+                  </td>
+                  <td class="py-2 pr-4">
+                    {r.outcome === 'validated' ? (
+                      <span class="text-[color:var(--ss-color-complete)]">Validated</span>
+                    ) : (
+                      <span class="text-[color:var(--ss-color-error)]">
+                        Rejected ({r.error_count})
+                      </span>
+                    )}
+                  </td>
+                  <td class="py-2 pr-4 text-[color:var(--ss-color-text-secondary)]">
+                    {r.actor_email}
+                  </td>
+                  <td class="py-2 text-right text-[color:var(--ss-color-text-muted)] font-mono text-xs">
+                    {r.created_at.slice(0, 16).replace('T', ' ')}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )
+      }
+    </div>
+  </div>
+</AdminLayout>
