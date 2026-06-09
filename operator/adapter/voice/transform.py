@@ -1241,28 +1241,42 @@ def _first_nonempty_index(lines: list) -> Optional[int]:
 # ---------------------------------------------------------------------------
 
 
-def _has_introduced_disallowed_tokens(before: str, after: str) -> bool:
+def _has_introduced_entity_tokens(before: str, after: str) -> bool:
     """Return True if ``after`` contains entity-shaped tokens not in ``before``.
 
-    The guard checks for new dollar amounts, dates, phone numbers, URLs,
-    and email addresses. Any of these appearing in ``after`` but not in
-    ``before`` is treated as fabrication and aborts the change.
+    The shared fabrication FLOOR: new dollar amounts, dates, phone numbers,
+    URLs, or email addresses appearing in ``after`` but not in ``before`` are
+    fabrication and must abort the change. Both the structural transform and the
+    preference corrections (``adapter.voice.corrections``) hold to this floor —
+    neither may inject a date/amount/contact the source didn't contain.
 
-    Note: tokens may be REARRANGED between before and after (a sentence
-    split moves a phone number to the next sentence); only NEW tokens
-    are disallowed. The check uses set membership of the matched strings.
+    Note: tokens may be REARRANGED between before and after (a sentence split
+    moves a phone number to the next sentence); only NEW tokens are disallowed.
     """
     for pattern in (_DOLLAR_RE, _DATE_RE, _PHONE_RE, _URL_RE, _EMAIL_RE):
-        before_matches = set(pattern.findall(before))
-        after_matches = set(pattern.findall(after))
-        new_tokens = after_matches - before_matches
+        new_tokens = set(pattern.findall(after)) - set(pattern.findall(before))
         if new_tokens:
             log.warning(
-                "voice transform aborted: introduced %r — %s",
+                "voice change aborted: introduced %r — %s",
                 sorted(new_tokens),
                 pattern.pattern[:40],
             )
             return True
+    return False
+
+
+def _has_introduced_disallowed_tokens(before: str, after: str) -> bool:
+    """Stricter guard for the STRUCTURAL transform: no new entity tokens AND no
+    new content words beyond the closed structural-connector set.
+
+    The structural transform only *reshapes* — it never adds words — so any new
+    word outside ``_ALLOWED_CONNECTORS`` is a fabrication here. Preference
+    corrections use the looser :func:`_has_introduced_entity_tokens` floor
+    instead, because a lexical substitution ("under" for "pursuant to")
+    legitimately introduces a new non-entity word the firm authored.
+    """
+    if _has_introduced_entity_tokens(before, after):
+        return True
 
     before_word_set = {w.lower() for w in _WORD_SPLIT.findall(before)}
     after_word_set = {w.lower() for w in _WORD_SPLIT.findall(after)}
