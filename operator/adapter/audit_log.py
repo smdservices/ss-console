@@ -131,6 +131,7 @@ ACCEPTED_ACTION_TYPES = frozenset(
         "VOICE_GATE_FAILED",
         # Fabrication and escalation
         "FABRICATION_FILTER_TRIGGERED",
+        "IDENTIFIER_UNVERIFIED",  # A1 report-only identifier gate (tier3, non-blocking)
         "ESCALATION_FIRED",
         "ESCALATION_ACKNOWLEDGED",
         # Decommission lifecycle

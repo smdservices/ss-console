@@ -92,5 +92,6 @@ Computing "X years from the incident" — the cardinal sin here; inferring a fil
 ## References
 
 - `references/algorithm.md` — the proximity buckets, the authored-only rule, and the missing-where-expected flag logic
-- `references/output-format.md` — the by-matter, by-bucket date surface _(parity fast-follow)_
-- `references/test-cases.md` — fixtures incl. overdue/imminent/upcoming, an authored SOL, and a missing-expected-deadline matter _(parity fast-follow)_
+- `references/output-format.md` — the by-matter, by-bucket date surface (plus the Plain-calendar and Missing-where-expected sections)
+- `references/test-cases.md` — the five fixtures: overdue/imminent/upcoming bucketing, an authored SOL, a missing-expected-deadline matter, and two adversarial cases (computation-bait, bare-calendar-not-deadline)
+- `tests/selector_test.md` — selector targets this skill for a "what's coming due" date scan, not the digest or stalled-nudge
