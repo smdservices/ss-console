@@ -912,7 +912,7 @@ All 11 artifacts are scaffolded as GitHub issues in smdservices/ss-console. Ever
 | #42   | Taxonomy two-layer model - 5-cat observation, 6-cat delivery (see ADR 0001)                                                |
 | #43   | Outside View unified diagnostic - one product, three depths, portal-resident artifact (see ADR 0002)                       |
 | #44   | Productized Operator offering - flat-rate retainer SKU, second front door, Hermes-leaning stack (see ADR 0004)             |
-| #45   | Reviewer-as-sender - every customer-bound message ships under the human reviewer's identity (see ADR 0005)                 |
+| #45   | Entitlement is configurable; reviewer-as-sender is one authored option, not a default or invariant (see ADRs 0005 to 0035) |
 | #46   | Capability-adapter pattern - skills bind to capability interfaces; adapters implement; customer.yaml wires (see ADR 0006)  |
 | #47   | Per-customer Machine isolation - one Fly.io Machine per customer; deployment isolation, not runtime tenancy (see ADR 0007) |
 | #48   | Customer-owned memory artifact - per-customer namespaces; portable export; verifiable deletion (see ADR 0008)              |
