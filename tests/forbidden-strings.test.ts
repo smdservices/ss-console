@@ -496,6 +496,13 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // vocabulary. The .map( iterates authored escalation recipients; subscription
   // is the SMD-only provisioning domain shown as an honest status surface.
   resolve('src/pages/portal/products/operator/account/index.astro'),
+  // `products/operator/onboarding/index.astro` (§6) renders the three
+  // get-started steps as numbered guidance cards (step number, title,
+  // description, honest status badge) linking to Team/Connections/Calibration —
+  // not the PortalListItem status/document record-row vocabulary. The .map(
+  // iterates the derived steps; a step with no signal reads "to do", never a
+  // fabricated completion.
+  resolve('src/pages/portal/products/operator/onboarding/index.astro'),
 ]
 
 /** Collect every `index.astro` under `src/pages/portal/` EXCEPT the home. */
