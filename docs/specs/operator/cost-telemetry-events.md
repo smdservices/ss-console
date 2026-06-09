@@ -190,7 +190,7 @@ Alert fires when `ratio > 0.40` for two consecutive months. Audit event `COGS_RA
 - Captain time helper: `crane operator log-time` CLI subcommand. Per-event D1 schema at d1-schema.md `captain_time_events`. The CLI writes both the per-event row and the `cost_telemetry` daily rollup in a single transaction.
 - Cross-references:
   - d1-schema.md (cost_telemetry table)
-  - decommission-drain.md (final cost_telemetry export before D1 deletion)
+  - decommission-customer.md (final cost_telemetry export before D1 deletion)
 
 ## Resolved decisions
 

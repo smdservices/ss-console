@@ -5,7 +5,6 @@
  * When Google/Yelp reviews for an Arizona business reveal operational
  * pain patterns, the AI produces a ReviewScoring result matching this schema.
  *
- * @see docs/collateral/lead-automation-blueprint.md — Pipeline 1 architecture
  * @see src/lead-gen/prompts/review-scoring-prompt.ts — The prompt that produces this output
  */
 

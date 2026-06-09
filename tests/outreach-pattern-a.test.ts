@@ -62,7 +62,7 @@ We came across your part-time shop coordinator opening and your recent customer 
 
   // Regression coverage for 2026-05-18 prompt tightening. Each phrase below
   // appeared verbatim in a real validator rejection in the prior 14 days
-  // (see docs/audits/lead-gen-pivot-validation-2026-05-08.md and
+  // (see docs/archive/lead-gen-pivot-validation-2026-05-08.md and
   // enrichment_runs.error_message). The mechanical pre-filter should catch
   // them before the Haiku classifier call.
   const NEW_BANLIST_CASES: Array<{ phrase: string; label: string }> = [
