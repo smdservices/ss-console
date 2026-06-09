@@ -14,7 +14,6 @@
  * When Claude drafts a personalized check-in email for a bookkeeper/CPA referral
  * partner, it produces a PartnerEmailDraft result matching this schema.
  *
- * @see docs/collateral/lead-automation-blueprint.md — Pipeline 5 architecture
  * @see src/lead-gen/prompts/partner-nurture-prompt.ts — The prompt that produces this output
  * @see Decision #20 — Voice Standard ("we" voice)
  * @see Decision #22 — Bookkeeper/CPA Referral Channel

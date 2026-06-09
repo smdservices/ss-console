@@ -5,7 +5,6 @@
  * When an Arizona job posting signals operational pain at a small business,
  * the AI produces a JobQualification result matching this schema.
  *
- * @see docs/collateral/lead-automation-blueprint.md — Pipeline 2 architecture
  * @see src/lead-gen/prompts/job-qualification-prompt.ts — The prompt that produces this output
  */
 
