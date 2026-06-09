@@ -152,6 +152,11 @@ if (access) {
     label: 'Configure',
     description: "Your Operator's skills, governance, voice, scope, and hours.",
   })
+  sectionCards.push({
+    href: '/portal/products/operator/team',
+    label: 'Team',
+    description: 'The people on your account, their roles, and who is covering for whom.',
+  })
   const isCompliance = userRoles.includes('compliance')
   const isPrincipal = userRoles.includes('principal')
   const showComplianceCard =
