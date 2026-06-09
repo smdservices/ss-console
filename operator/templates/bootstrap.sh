@@ -575,13 +575,33 @@ mkdir -p "${HERMES_HOME}/logs" "${HERMES_HOME}/profiles/${ACTIVE_PROFILE}/logs"
 # keeps it across deploys — so the slow `git clone` only runs in the rare reseed
 # case and does not normally delay the public :8643 listener below.
 OVERLAY_PLUGIN_DIR="${HERMES_HOME}/plugins/hermes-smd-overlay"
-if [ -d "${OVERLAY_PLUGIN_DIR}" ]; then
-  log "Overlay plugin present on the volume (${OVERLAY_PLUGIN_DIR})"
+OVERLAY_PACK="/app/overlay-pack"
+# REFRESH the volume's overlay from the image-pinned pack on EVERY boot — do NOT
+# skip when a dir is merely present. The volume (/opt/data) persists across
+# deploys and shadows the build-time install, so a presence-only check kept a
+# STALE overlay forever: every OVERLAY_REF bump rebuilt the image but the running
+# gateway kept loading the old volume copy, and the overlay sat inert — no audit,
+# no trust enforcement (ss-console#1285). Refreshing from the pinned, non-volume
+# pack makes a bump actually take effect, and is idempotent on a steady-state
+# boot (same bytes).
+if [ -d "${OVERLAY_PACK}" ]; then
+  log "Refreshing overlay on the volume from the image-pinned pack (${OVERLAY_PACK})..."
+  mkdir -p "${HERMES_HOME}/plugins"
+  rm -rf "${OVERLAY_PLUGIN_DIR}"
+  # cp (not cp -a): the copies are owned by the running hermes user, not the
+  # root-owned image source — a root-owned volume file would break a later
+  # hermes-user write (the .skills_prompt_snapshot.json FATAL we hit).
+  cp -r "${OVERLAY_PACK}" "${OVERLAY_PLUGIN_DIR}"
+  /opt/hermes/.venv/bin/hermes plugins enable hermes-smd-overlay >/dev/null 2>&1 || true
+  [ -f "${OVERLAY_PLUGIN_DIR}/__init__.py" ] \
+    || die "overlay fan-out __init__.py missing after refresh — refusing to launch an ungoverned gateway"
+  log "Overlay refreshed on the volume (fan-out register present)"
+elif [ -d "${OVERLAY_PLUGIN_DIR}" ]; then
+  # No staged pack (older image) but a volume copy exists — leave it; the
+  # activation invariant is the backstop that halts boot if it is inert.
+  log "Overlay present on the volume; no image pack to refresh from (${OVERLAY_PLUGIN_DIR})"
 else
-  log "Overlay plugin absent (volume shadows build-time install); installing at runtime..."
-  # Clear a stale/empty plugins dir (e.g. a root-owned dir left by a diagnostic).
-  # rm needs only parent write (${HERMES_HOME} is hermes-owned), not target
-  # ownership, so this succeeds even on a root-owned empty dir.
+  log "Overlay absent and no image pack; installing at runtime (unpinned fallback)..."
   rm -rf "${HERMES_HOME}/plugins" 2>/dev/null || true
   /opt/hermes/.venv/bin/hermes plugins install venturecrane/hermes-smd-overlay --enable \
     || die "runtime overlay plugin install failed — refusing to launch a harness-less gateway"
