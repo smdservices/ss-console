@@ -91,8 +91,15 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # register (the Machine's bootstrap never applied the per-customer migrations, so
 # the table was missing). The runtime-read seam now has data to surface
 # (ss-console#1285). Superset of v0.4.9.
+# v0.4.11 (#43) is THE activation fix: the umbrella register() fans out to all
+# sub-plugins. Hermes ignores the plugin.yaml `plugins:` aggregation list, so the
+# umbrella had loaded as a manifest-only plugin with no register() — none of the
+# five functional plugins (audit, trust, voice, webhook-router, memory-mirror)
+# ever registered on a live gateway. No audit, and no trust/ceiling enforcement.
+# The new safety-substrate invariant 8 asserts activation as a HARD boot gate.
+# Superset of v0.4.10.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="v0.4.10"
+ARG OVERLAY_REF="v0.4.11"
 
 ARG CUSTOMER_SLUG=customer-zero
 
