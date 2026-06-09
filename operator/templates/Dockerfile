@@ -86,8 +86,13 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # Machine-wide var) with SMD_CUSTOMER_SLUG preferred, and treats
 # SMD_D1_AUDIT_BINDING as a direct path or a var-name. read_runtime returns
 # honest-empty (not 500) when the audit DB/table doesn't exist yet. Superset of v0.4.8.
+# v0.4.10 (#41, #42) makes audit emission actually WRITE: D1Client accepts the
+# direct-path binding, and AuditLogWriter.ensure_schema() creates audit_log at
+# register (the Machine's bootstrap never applied the per-customer migrations, so
+# the table was missing). The runtime-read seam now has data to surface
+# (ss-console#1285). Superset of v0.4.9.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="v0.4.9"
+ARG OVERLAY_REF="v0.4.10"
 
 ARG CUSTOMER_SLUG=customer-zero
 
