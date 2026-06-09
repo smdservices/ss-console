@@ -290,6 +290,14 @@ const personas = config?.personas ?? []
                 </li>
                 <li>
                   <a
+                    href={`/admin/operator/${encodeURIComponent(slug)}/runtime`}
+                    class="text-[color:var(--ss-color-action)] hover:underline"
+                  >
+                    Runtime
+                  </a>
+                </li>
+                <li>
+                  <a
                     href={`/admin/operator/costs/${encodeURIComponent(slug)}`}
                     class="text-[color:var(--ss-color-action)] hover:underline"
                   >
@@ -306,8 +314,7 @@ const personas = config?.personas ?? []
                 </li>
               </ul>
               <p class="text-xs text-[color:var(--ss-color-text-muted)] mt-3">
-                Configuration, runtime, memory, people, and lifecycle drill-ins land as their
-                surfaces ship.
+                Configuration, memory, people, and lifecycle drill-ins land as their surfaces ship.
               </p>
             </div>
           </>
