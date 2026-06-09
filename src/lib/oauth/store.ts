@@ -26,6 +26,7 @@
 import { env } from 'cloudflare:workers'
 
 import type { ProviderTokenResponse } from './providers.js'
+import { resolveCustomerFlyApp } from '../operator/fly-app-registry'
 
 export interface StoreTokenInput {
   customer_id: string
@@ -48,17 +49,6 @@ export interface OAuthTokenStore {
 const FLY_GRAPHQL_URL = 'https://api.fly.io/graphql'
 const FLY_MACHINES_API = 'https://api.machines.dev/v1'
 const GOOGLE_TOKEN_URI = 'https://oauth2.googleapis.com/token'
-
-/**
- * Explicit customer_id → Fly app registry. Deliberately NOT a `hermes-${id}`
- * string convention: setting a secret on the wrong app is a cross-tenant leak
- * vector, so an unlisted customer is rejected (`unknown_customer`) rather than
- * guessed. Graduates to a customer.yaml/D1 lookup as customers are added
- * (ADR 0012). customer-zero ("smd") → `hermes-smd`.
- */
-const CUSTOMER_FLY_APPS: Readonly<Record<string, string>> = Object.freeze({
-  smd: 'hermes-smd',
-})
 
 /** provider slug → the Fly secret name bootstrap.sh decodes to the volume. */
 const PROVIDER_SECRET_NAME: Readonly<Record<string, string>> = Object.freeze({
@@ -180,7 +170,7 @@ export function createFlySecretTokenStore(): OAuthTokenStore {
         )
         return { ok: false, reason: 'unavailable' }
       }
-      const app = CUSTOMER_FLY_APPS[input.customer_id]
+      const app = resolveCustomerFlyApp(input.customer_id)
       if (!app) {
         console.error(
           `[oauth/store] unknown customer_id=${input.customer_id}; refusing to target any app`
