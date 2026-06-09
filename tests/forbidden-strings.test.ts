@@ -406,7 +406,7 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // `products/operator/index.astro` is the Operator dashboard
   // landing (one customer per render), not a list of products. The
   // small `.map(roles, …)` inside the sidebar renders a bullet list of
-  // granted role names (principal / operator / compliance) — text
+  // granted role names (principal / staff / compliance) — text
   // items inside a chrome card, not a list-row card surface.
   resolve('src/pages/portal/products/operator/index.astro'),
   // `products/operator/matters/index.astro` (#871) iterates matters

@@ -72,7 +72,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   }
 
   const access = await resolveOperatorAccess(env.DB, locals, {
-    allowedRoles: ['principal', 'operator', 'compliance'],
+    allowedRoles: ['principal', 'staff', 'compliance'],
   })
   if (access.kind === 'redirect') {
     // Auth failure: the caller must sign in / pick an org / activate

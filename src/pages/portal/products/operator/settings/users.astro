@@ -145,7 +145,7 @@ for (const m of members) {
   m.roles.sort((a, b) => (ROLE_ORDER[a] ?? 99) - (ROLE_ORDER[b] ?? 99))
 }
 
-const ALL_ROLES = ['principal', 'operator', 'compliance'] as const
+const ALL_ROLES = ['principal', 'staff', 'compliance'] as const
 
 function formatLastLogin(iso: string | null): string {
   if (!iso) return 'Never'

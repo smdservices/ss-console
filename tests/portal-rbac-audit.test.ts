@@ -191,7 +191,7 @@ describe('buildRoleAuditEvent', () => {
     actorEmail: 'pat.owner@smithlaw.com',
     targetUserId: 'u-alex-002',
     targetEmail: 'alex.paralegal@smithlaw.com',
-    role: 'operator',
+    role: 'staff',
     now: new Date('2026-05-23T10:00:00.000Z'),
   }
 
@@ -207,7 +207,7 @@ describe('buildRoleAuditEvent', () => {
     expect(event.actorEmail).toBe('pat.owner@smithlaw.com')
     expect(event.targetUserId).toBe('u-alex-002')
     expect(event.targetEmail).toBe('alex.paralegal@smithlaw.com')
-    expect(event.role).toBe('operator')
+    expect(event.role).toBe('staff')
     expect(event.timestamp).toBe('2026-05-23T10:00:00.000Z')
   })
 
@@ -293,7 +293,7 @@ describe('recordRbacAuditEvent — emission contract', () => {
           actorEmail: 'pat@x.com',
           targetUserId: 'u-alex',
           targetEmail: 'alex@x.com',
-          role: 'operator',
+          role: 'staff',
           now: new Date('2026-05-23T12:00:00.000Z'),
         })
       )
@@ -306,7 +306,7 @@ describe('recordRbacAuditEvent — emission contract', () => {
     expect(parsed.type).toBe('audit:rbac_event')
     expect(parsed.subAction).toBe('role_granted')
     expect(parsed.customer_id).toBe('cust-1')
-    expect(parsed.role).toBe('operator')
+    expect(parsed.role).toBe('staff')
     expect(parsed.timestamp).toBe('2026-05-23T12:00:00.000Z')
   })
 

@@ -59,7 +59,7 @@ import {
  */
 
 const access = await resolveOperatorAccess(env.DB, Astro.locals, {
-  allowedRoles: ['principal', 'operator', 'compliance'],
+  allowedRoles: ['principal', 'staff', 'compliance'],
 })
 if (access.kind === 'redirect') {
   return Astro.redirect(access.to)
