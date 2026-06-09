@@ -562,6 +562,7 @@ PY
 )" || die "failed to read active persona from customer.yaml"
 [ -n "${ACTIVE_PROFILE}" ] || die "no active persona with a slug in customer.yaml"
 log "Active persona profile: ${ACTIVE_PROFILE}"
+PROFILE_HERMES_HOME="${HERMES_HOME}/profiles/${ACTIVE_PROFILE}"
 
 # `exec` so the gateway inherits the foreground slot under tini cleanly.
 #
@@ -573,7 +574,7 @@ log "Active persona profile: ${ACTIVE_PROFILE}"
 # user. Hermes writes a rotating log and does NOT create the parent dir itself
 # — on a fresh volume the open() would fail. The volume root and the profile
 # dir are hermes-owned, so these mkdirs create hermes-owned, writable dirs.
-mkdir -p "${HERMES_HOME}/logs" "${HERMES_HOME}/profiles/${ACTIVE_PROFILE}/logs"
+mkdir -p "${HERMES_HOME}/logs" "${PROFILE_HERMES_HOME}/logs"
 
 # ---------- Ensure overlay plugins are PRESENT on the volume (before gateway) ----------
 # The Dockerfile's `hermes plugins install` lands the overlay pack under
@@ -629,6 +630,27 @@ else
   log "Overlay plugin installed + enabled at runtime"
 fi
 
+# `hermes -p <profile>` rewrites HERMES_HOME to the profile directory before
+# importing Hermes modules. Plugin discovery therefore scans the profile's
+# plugins directory, not the root volume directory refreshed above. Materialize
+# the same pinned pack into the active profile and enable it in that profile's
+# config so force-discovery from the gateway process can load it.
+PROFILE_OVERLAY_PLUGIN_DIR="${PROFILE_HERMES_HOME}/plugins/hermes-smd-overlay"
+if [ -d "${OVERLAY_PACK}" ]; then
+  mkdir -p "${PROFILE_HERMES_HOME}/plugins"
+  replace_dir_tolerant "${OVERLAY_PACK}" "${PROFILE_OVERLAY_PLUGIN_DIR}"
+elif [ -d "${OVERLAY_PLUGIN_DIR}" ]; then
+  mkdir -p "${PROFILE_HERMES_HOME}/plugins"
+  replace_dir_tolerant "${OVERLAY_PLUGIN_DIR}" "${PROFILE_OVERLAY_PLUGIN_DIR}"
+else
+  die "overlay source missing before profile materialization — refusing to launch an ungoverned gateway"
+fi
+[ -f "${PROFILE_OVERLAY_PLUGIN_DIR}/__init__.py" ] \
+  || die "profile overlay fan-out missing (${PROFILE_OVERLAY_PLUGIN_DIR}) — refusing to launch an ungoverned gateway"
+/opt/hermes/.venv/bin/hermes -p "${ACTIVE_PROFILE}" plugins enable hermes-smd-overlay >/dev/null \
+  || die "failed to enable hermes-smd-overlay in active profile ${ACTIVE_PROFILE}"
+log "Overlay materialized + enabled in active profile"
+
 # ---------- Seed the gateway-startup ACTIVATION GATE onto the volume ----------
 # The overlay's LIVE governance gate is a HookRegistry handler
 # (hooks/smd-overlay-activation) that fires at gateway:startup IN the gateway
@@ -639,13 +661,11 @@ fi
 # discovery) WITHOUT the overlay; the pre-gateway safety-substrate invariant could
 # not catch it (it runs in a different process and asserts its own singleton).
 #
-# Hermes' HookRegistry loads handlers from ${HERMES_HOME}/hooks/ (the volume) — NOT
-# from the plugin dir — so the handler must be seeded THERE, separately from the
-# plugin pack. Source preference: the image-pinned pack (always current with
-# OVERLAY_REF), else the hooks/ shipped inside the overlay plugin dir just placed on
-# the volume. Refresh on every boot (idempotent; same bytes) so an OVERLAY_REF bump
-# takes effect. Uses cp -r (not -a) for the same reason as the plugin refresh: files
-# land hermes-owned, not root-owned (the .skills_prompt_snapshot.json FATAL).
+# Hermes' `-p <profile>` handling rewrites HERMES_HOME before gateway/hooks.py
+# defines its module-level HOOKS_DIR. The live gateway therefore loads handlers
+# from ${PROFILE_HERMES_HOME}/hooks, not the root volume's hooks directory. Seed
+# the selected profile directly. Refresh on every boot so an OVERLAY_REF bump
+# takes effect. Uses cp -r (not -a) so files land hermes-owned.
 if [ -d "${OVERLAY_PACK}/hooks" ]; then
   _HOOKS_SRC="${OVERLAY_PACK}/hooks"
 elif [ -d "${OVERLAY_PLUGIN_DIR}/hooks" ]; then
@@ -653,19 +673,20 @@ elif [ -d "${OVERLAY_PLUGIN_DIR}/hooks" ]; then
 else
   _HOOKS_SRC=""
 fi
-ACTIVATION_HOOK_DIR="${HERMES_HOME}/hooks/smd-overlay-activation"
+PROFILE_HOOKS_DIR="${PROFILE_HERMES_HOME}/hooks"
+ACTIVATION_HOOK_DIR="${PROFILE_HOOKS_DIR}/smd-overlay-activation"
 if [ -n "${_HOOKS_SRC}" ]; then
-  log "Seeding overlay gateway hooks onto the volume from ${_HOOKS_SRC}..."
-  mkdir -p "${HERMES_HOME}/hooks"
+  log "Seeding overlay gateway hooks into active profile from ${_HOOKS_SRC}..."
+  mkdir -p "${PROFILE_HOOKS_DIR}"
   for _hookdir in "${_HOOKS_SRC}"/*/; do
     [ -d "${_hookdir}" ] || continue
     _name="$(basename "${_hookdir}")"
     # mv-aside (same root-owned-.pyc tolerance as the overlay refresh): a root
     # `ssh console` that loaded handler.py would leave a root-owned __pycache__
     # here, which a plain `rm -rf` under set -e would choke on.
-    replace_dir_tolerant "${_hookdir}" "${HERMES_HOME}/hooks/${_name}"
+    replace_dir_tolerant "${_hookdir}" "${PROFILE_HOOKS_DIR}/${_name}"
   done
-  log "Overlay gateway hooks seeded onto the volume"
+  log "Overlay gateway hooks seeded into active profile"
 fi
 # FAIL-CLOSED: the live activation gate must be wired no matter which overlay branch
 # ran above. Without it the gateway has no in-process check that the overlay governs

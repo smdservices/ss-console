@@ -172,6 +172,39 @@ describe('Operator Machine: Honcho deferred, flat-file core (ADR 0016 revised)',
 })
 
 describe('Operator Machine profile guards', () => {
+  it('installs and enables the overlay inside the active profile Hermes home', () => {
+    expect(
+      BOOTSTRAP.includes('PROFILE_HERMES_HOME="${HERMES_HOME}/profiles/${ACTIVE_PROFILE}"'),
+      'bootstrap.sh must name the Hermes home selected by `hermes -p <profile>`'
+    ).toBe(true)
+    expect(
+      BOOTSTRAP.includes(
+        'PROFILE_OVERLAY_PLUGIN_DIR="${PROFILE_HERMES_HOME}/plugins/hermes-smd-overlay"'
+      ),
+      'profiled plugin discovery must receive the pinned overlay pack'
+    ).toBe(true)
+    expect(
+      BOOTSTRAP_CODE.includes('hermes -p "${ACTIVE_PROFILE}" plugins enable hermes-smd-overlay'),
+      'the overlay must be enabled in the active profile config'
+    ).toBe(true)
+  })
+
+  it('seeds and hard-gates the activation hook inside the active profile', () => {
+    expect(
+      BOOTSTRAP.includes('PROFILE_HOOKS_DIR="${PROFILE_HERMES_HOME}/hooks"'),
+      'HookRegistry resolves hooks from the profiled Hermes home'
+    ).toBe(true)
+    expect(
+      BOOTSTRAP.includes('ACTIVATION_HOOK_DIR="${PROFILE_HOOKS_DIR}/smd-overlay-activation"'),
+      'the boot gate must validate the hook path the profiled gateway scans'
+    ).toBe(true)
+    expect(
+      BOOTSTRAP.indexOf('ACTIVATION_HOOK_DIR="${PROFILE_HOOKS_DIR}') <
+        BOOTSTRAP.indexOf('exec /opt/hermes/.venv/bin/hermes -p "${ACTIVE_PROFILE}" gateway run'),
+      'the live activation hook must be installed before gateway startup'
+    ).toBe(true)
+  })
+
   it('packages and runs the disabled-skills guard before the gateway starts', () => {
     expect(
       DOCKERFILE.includes(
