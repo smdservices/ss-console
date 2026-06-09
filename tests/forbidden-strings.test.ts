@@ -454,6 +454,36 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // alongside the row iteration; row rendering itself goes through
   // <NotificationRow>.
   resolve('src/pages/portal/products/operator/notifications/index.astro'),
+  // `products/operator/connections/index.astro` (§5.8) iterates connectors
+  // through the dedicated <ConnectionRowCard> primitive, not PortalListItem. A
+  // connection row's vocabulary (capability + adapter/health + custody badge +
+  // custody description + the operable OAuth/write-only-secret controls) does
+  // not fit either of PortalListItem's two variants (status / document). Same
+  // justification as DraftRow / MatterRow / AuditEntryRow / CalendarItemRow /
+  // NotificationRow. The .map( hits render the read-slot and operable-slot
+  // connector lists; both go through <ConnectionRowCard>.
+  resolve('src/pages/portal/products/operator/connections/index.astro'),
+  // `products/operator/configure/index.astro` (§5.6) renders config FIELD rows
+  // (skill name + on/off, action-class + governance floor) as plain text <li>s
+  // inside config section cards — not the PortalListItem status/document
+  // repeating-card vocabulary. Same justification as settings/advanced (a
+  // structured config surface, not a list of records). The .map( hits iterate
+  // the skill list and the action-class governance rows; neither carries a
+  // money/status/document cell that PortalListItem's variants model.
+  resolve('src/pages/portal/products/operator/configure/index.astro'),
+  // `products/operator/operators/index.astro` (§5.2) renders the persona roster
+  // as operator IDENTITY cards (name + status header, title, what-it-handles,
+  // tone) — not the PortalListItem status/document record-row vocabulary. Built
+  // for N, shipped at 1 (roster-of-one shows the single operator without
+  // switcher chrome). The .map( iterates personas into identity sections.
+  resolve('src/pages/portal/products/operator/operators/index.astro'),
+  // `products/operator/work/index.astro` (§5.3) renders work items routed to a
+  // person as plain rows (subject + recipient/skill) inside the dual-mode
+  // read/operable slots — not the PortalListItem status/document record-row
+  // vocabulary (no money/status/document cell). The .map( iterates the
+  // entitlement-produced work items; empty by design until a skill routes to a
+  // human (ADR 0035).
+  resolve('src/pages/portal/products/operator/work/index.astro'),
 ]
 
 /** Collect every `index.astro` under `src/pages/portal/` EXCEPT the home. */

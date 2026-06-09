@@ -47,7 +47,7 @@ interface Props {
    * component still guards the action in case future RBAC widens
    * the read path.
    */
-  callerRole: 'principal' | 'operator' | 'compliance'
+  callerRole: 'principal' | 'staff' | 'compliance'
   /**
    * Reviewer's email address — the identity the message will ship
    * from per ADR 0005. Shown in the sender strip and surfaced
@@ -84,7 +84,7 @@ const SEND_TONE: Record<DraftSendStatus, Tone> = {
 const sendTone = SEND_TONE[draft.sendStatus]
 const sendLabel = formatDraftSendStatus(draft.sendStatus).toUpperCase()
 
-const canApprove = callerRole === 'principal' || callerRole === 'operator'
+const canApprove = callerRole === 'principal' || callerRole === 'staff'
 
 // Human-friendly date for the "drafted by [persona] on [ts]" preamble.
 // We format on the server so the rendered HTML is deterministic and

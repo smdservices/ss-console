@@ -8,11 +8,9 @@ import PortalPageHead from '../../../../../components/portal/PortalPageHead.astr
 import MattersListTable from '../../../../../components/portal/operator/MattersListTable.astro'
 import SkipToMain from '../../../../../components/SkipToMain.astro'
 import { env } from 'cloudflare:workers'
-import {
-  filterMattersByAssignee,
-  listMatters,
-  type Matter,
-} from '../../../../../lib/portal/operator/matters'
+import { filterMattersByAssignee, type Matter } from '../../../../../lib/portal/operator/matters'
+import { loadMatters } from '../../../../../lib/portal/operator/matters-read'
+import { getCustomerConfig } from '../../../../../lib/portal/customer-config'
 import {
   listAssignedMatterIdsForUser,
   parseMatterScope,
@@ -67,9 +65,24 @@ const access = await resolveOperatorAccess(env.DB, Astro.locals, {
 if (access.kind === 'redirect') {
   return Astro.redirect(access.to)
 }
-const { client, user } = access
+const { client, user, roles } = access
 
-const allMatters: Matter[] = await listMatters(env.DB, client.id)
+// Route the matter list through the frozen ADR 0043 runtime read path
+// (matters-read.loadMatters → readMachineRuntime). Fails closed to an empty
+// list until OPERATOR_RUNTIME_READ_URL is wired (client-portal §5.4).
+const config = await getCustomerConfig(env.DB, client.id)
+const customerSlug = config?.customer_slug ?? client.id
+const actorRole = roles.includes('principal')
+  ? 'principal'
+  : roles.includes('compliance')
+    ? 'compliance'
+    : 'staff'
+
+const allMatters: Matter[] = await loadMatters(
+  { db: env.DB, env, actorUserId: user.id },
+  customerSlug,
+  { actor: user.email, actorRole }
+)
 
 const assignedMatterIds = await listAssignedMatterIdsForUser(env.DB, client.id, user.id)
 const myMatters = filterMattersByAssignee(allMatters, assignedMatterIds)

@@ -1,0 +1,95 @@
+---
+/**
+ * Dual-mode surface wrapper (client-portal §3 — the heart of the portal). Every
+ * client-portal domain surface wraps its content in this. It composes the three
+ * access layers (foundations §2) into one of two render modes:
+ *
+ *   - operable     → the client edits directly. Renders the `operable` slot.
+ *   - read_request → identical data, read-only, plus a "Request a change" form
+ *                    that files into the admin inbox. Renders the `read` slot.
+ *
+ * The decision is NOT made here — it is the frozen logic in
+ * `resolveDomainSurface` (Layer 1 authority ∧ Layer 2 role). This component is
+ * the presentational shell over that decision; the server-side write endpoints
+ * re-check the same composition (never trust a client-rendered mode). At launch
+ * every authority switch is off, so every surface renders read_request
+ * regardless of role — flipping a switch (an SMD action) turns it operable with
+ * no rebuild.
+ *
+ * Visibility: a domain the client may not read (only `cost`) renders nothing.
+ * Non-switchable visible domains (e.g. provisioning) render read-only with no
+ * change-request form — there is no client switch to request for them.
+ *
+ * Slots:
+ *   - `read`     — the read-only data view. Always authored by the caller.
+ *   - `operable` — the editable controls. Authored by surfaces that have an
+ *                  operable build; omitted by read-only surfaces, in which case
+ *                  operable mode falls back to the `read` slot so the surface is
+ *                  never blank.
+ */
+
+import {
+  resolveDomainSurface,
+  type DomainSurfaceMode,
+} from '../../../lib/portal/operator/domain-surface'
+import {
+  isSwitchableDomain,
+  type AuthorityDomain,
+  type AuthorityPosture,
+} from '../../../lib/operator/authority'
+import { clientRolePermits } from '../../../lib/portal/operator/client-rbac'
+import { OPERATOR_ROOT } from '../../../lib/portal/operator/return-to'
+import RequestChangeForm from './RequestChangeForm.astro'
+
+interface Props {
+  /** Resolved authority posture for this customer (CustomerConfigRow.authority). */
+  authority: AuthorityPosture | null
+  /** The domain this surface governs. */
+  domain: AuthorityDomain
+  /** The acting user's client-internal roles (principal | staff | compliance). */
+  roles: readonly string[]
+  /** Same-origin path the change-request form returns to. Defaults to operator root. */
+  returnTo?: string
+  /** Human-readable domain name for the request prompt. */
+  domainLabel?: string | null
+  /** Suppress the "Request a change" form even in read_request mode (default false). */
+  hideRequest?: boolean
+}
+
+const {
+  authority,
+  domain,
+  roles,
+  returnTo = OPERATOR_ROOT,
+  domainLabel = null,
+  hideRequest = false,
+} = Astro.props
+
+const permits = clientRolePermits(roles, domain)
+const { visible, mode }: { visible: boolean; mode: DomainSurfaceMode } = resolveDomainSurface(
+  authority,
+  domain,
+  permits
+)
+
+// The operable slot is optional. When a read-only surface (no operable build)
+// somehow resolves operable, fall back to the read slot rather than render blank.
+const hasOperable = Astro.slots.has('operable')
+const renderOperable = mode === 'operable' && hasOperable
+
+// "Request a change" only makes sense for a switchable domain the client cannot
+// currently operate. Non-switchable domains (provisioning) have no switch to
+// request; operable mode needs no request.
+const showRequest = !hideRequest && mode === 'read_request' && isSwitchableDomain(domain)
+---
+
+{
+  visible && (
+    <div data-domain-surface={domain} data-mode={mode}>
+      {renderOperable ? <slot name="operable" /> : <slot name="read" />}
+      {showRequest && (
+        <RequestChangeForm domain={domain} domainLabel={domainLabel} returnTo={returnTo} />
+      )}
+    </div>
+  )
+}

@@ -71,7 +71,7 @@ export interface Reviewer {
   userId: string
   email: string
   displayName: string | null
-  role: 'principal' | 'operator'
+  role: 'principal' | 'staff'
 }
 
 /**

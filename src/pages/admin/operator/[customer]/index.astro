@@ -1,0 +1,354 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro'
+import { posturePill, rosterHealth, rosterHealthDotClass } from '../../../../lib/admin/fleet-roster'
+import {
+  resolveEntityIdBySlug,
+  domainAuthoritySummary,
+  smdOnlyDomains,
+  authorityHolderBadge,
+  subscriptionState,
+  personaStatusDisplay,
+  skillCountLabel,
+} from '../../../../lib/admin/operator-overview'
+import { getRuntimeSummary } from '../../../../lib/admin/runtime-summary'
+import {
+  listFleetStatus,
+  heartbeatDisplay,
+  relativeTimestamp,
+} from '../../../../lib/admin/fleet-status'
+import { getCustomerConfig, type CustomerConfigRow } from '../../../../lib/portal/customer-config'
+import { getProductSubscription } from '../../../../lib/portal/product-access'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Operator admin console — per-operator overview (the drill-in hub).
+ *
+ * The hub for one operator: identity, persona roster (built for N, shows one at
+ * v1), authority posture + per-domain switch summary, health summary, and
+ * subscription state. Reads only console-side projections — never a Machine's
+ * runtime D1 (ADR 0009). Deep runtime detail is the §5.5 surface.
+ *
+ * Design: docs/design/operator/01-admin-portal.md §5.1.
+ *
+ * Honest states (foundations §7): a missing operator is a real 404; a corrupt
+ * config projection renders an explicit error, not a fabricated page; a
+ * roster-of-one and a not-yet-activated subscription are real v1 states.
+ */
+
+const session = Astro.locals.session!
+if (session.role !== 'admin') {
+  return Astro.redirect('/auth/sign-in')
+}
+
+const slug = Astro.params.customer ?? ''
+
+const entityId = await resolveEntityIdBySlug(env.DB, slug)
+
+let config: CustomerConfigRow | null = null
+let configError: string | null = null
+if (entityId) {
+  try {
+    config = await getCustomerConfig(env.DB, entityId)
+  } catch (err) {
+    configError = err instanceof Error ? err.message : String(err)
+  }
+}
+
+// Not found: no operator with this slug. A real 404 (foundations §7), not a
+// fabricated empty operator.
+const notFound = entityId === null || (config === null && configError === null)
+if (notFound) {
+  Astro.response.status = 404
+}
+
+const summary = config ? await getRuntimeSummary(env.DB, slug) : null
+const fleetRows = config ? await listFleetStatus(env.DB) : []
+const fleet =
+  fleetRows.find((r) => r.entity_id === entityId) ?? fleetRows.find((r) => r.customer_slug === slug)
+const subscription =
+  config && entityId ? await getProductSubscription(env.DB, entityId, 'operator') : null
+
+const hb = heartbeatDisplay(fleet?.last_heartbeat_ts ?? null)
+const health = rosterHealth(hb.color, hb.label, summary?.summary_status ?? null)
+const posture = config ? posturePill(config.authority) : null
+const domainRows = config ? domainAuthoritySummary(config.authority) : []
+const smdOnly = smdOnlyDomains()
+const sub = subscriptionState(subscription?.status ?? null)
+const lastActivity = summary?.last_activity_ts ? relativeTimestamp(summary.last_activity_ts) : null
+
+const headerName = slug
+const personas = config?.personas ?? []
+---
+
+<AdminLayout
+  title={`Operator — ${headerName}`}
+  breadcrumbs={[
+    { label: 'Dashboard', href: '/admin' },
+    { label: 'Operator', href: '/admin/operator' },
+    { label: headerName },
+  ]}
+  maxWidth="max-w-6xl"
+>
+  <div class="space-y-card">
+    {
+      notFound ? (
+        <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+          <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+            Operator not found
+          </h2>
+          <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+            No operator is provisioned under <code>{slug}</code>.{' '}
+            <a href="/admin/operator" class="text-[color:var(--ss-color-action)] hover:underline">
+              Back to the fleet
+            </a>
+            .
+          </p>
+        </div>
+      ) : configError ? (
+        <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-error)] p-card">
+          <h2 class="text-xl font-semibold text-[color:var(--ss-color-error)]">
+            Config projection malformed
+          </h2>
+          <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+            The <code>customer_configs</code> row for <code>{slug}</code> could not be parsed. This
+            is a projection corruption signal, not a routine state — the customer.yaml sync needs
+            attention.
+          </p>
+          <p class="text-xs text-[color:var(--ss-color-text-muted)] mt-2 font-mono">
+            {configError}
+          </p>
+        </div>
+      ) : (
+        config && (
+          <>
+            <header class="flex items-start justify-between gap-4">
+              <div>
+                <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+                  {headerName}
+                </h2>
+                <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+                  {config.vertical ? `${config.vertical} · ` : ''}
+                  <code>{config.entity_id}</code>
+                </p>
+                <p class="text-sm mt-1">
+                  <span class="text-[color:var(--ss-color-text-muted)]">Subscription:</span>{' '}
+                  <span class={sub.colorClass}>{sub.label}</span>
+                </p>
+              </div>
+              {posture && <span class={posture.classes}>{posture.label}</span>}
+            </header>
+
+            <div class="grid gap-card md:grid-cols-2">
+              {/* Health summary */}
+              <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+                <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-3">
+                  Health
+                </h3>
+                <div class="flex items-center gap-2 mb-2">
+                  <span
+                    class={`inline-block h-2.5 w-2.5 rounded-full ${rosterHealthDotClass(health.color)}`}
+                    aria-hidden="true"
+                  />
+                  <span class="text-sm text-[color:var(--ss-color-text-primary)]">
+                    Heartbeat {health.label}
+                  </span>
+                </div>
+                {health.note && (
+                  <p class="text-xs text-[color:var(--ss-color-text-muted)] mb-2">{health.note}</p>
+                )}
+                <dl class="text-sm space-y-1">
+                  <div class="flex justify-between gap-4">
+                    <dt class="text-[color:var(--ss-color-text-secondary)]">Open alerts</dt>
+                    <dd
+                      class={
+                        summary && summary.open_alerts > 0
+                          ? 'font-semibold text-[color:var(--ss-color-error)]'
+                          : 'text-[color:var(--ss-color-text-primary)]'
+                      }
+                    >
+                      {summary ? summary.open_alerts : '—'}
+                    </dd>
+                  </div>
+                  <div class="flex justify-between gap-4">
+                    <dt class="text-[color:var(--ss-color-text-secondary)]">Last activity</dt>
+                    <dd class="text-[color:var(--ss-color-text-primary)]">{lastActivity ?? '—'}</dd>
+                  </div>
+                  <div class="flex justify-between gap-4">
+                    <dt class="text-[color:var(--ss-color-text-secondary)]">Draft queue</dt>
+                    <dd class="text-[color:var(--ss-color-text-primary)]">
+                      {summary && summary.draft_queue_depth !== null
+                        ? summary.draft_queue_depth
+                        : '—'}
+                    </dd>
+                  </div>
+                </dl>
+                <p class="text-xs text-[color:var(--ss-color-text-muted)] mt-3">
+                  Health reads the per-customer summary mirror and heartbeat. A "—" draft queue
+                  means no skill is authored to draft, not zero pending.
+                </p>
+              </div>
+
+              {/* Persona roster (built for N, shows one at v1) */}
+              <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+                <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-3">
+                  Personas ({personas.length})
+                </h3>
+                {personas.length === 0 ? (
+                  <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                    No personas configured.
+                  </p>
+                ) : (
+                  <ul class="space-y-3">
+                    {personas.map((p) => {
+                      const st = personaStatusDisplay(p.status)
+                      return (
+                        <li class="border-b border-[color:var(--ss-color-border-subtle)] pb-3 last:border-0 last:pb-0">
+                          <div class="flex items-center justify-between gap-2">
+                            <span class="font-medium text-[color:var(--ss-color-text-primary)]">
+                              {p.name}
+                            </span>
+                            <span class="inline-flex items-center gap-1.5 text-xs text-[color:var(--ss-color-text-secondary)]">
+                              <span
+                                class={`inline-block h-2 w-2 rounded-full ${st.dotClass}`}
+                                aria-hidden="true"
+                              />
+                              {st.label}
+                            </span>
+                          </div>
+                          <p class="text-xs text-[color:var(--ss-color-text-muted)]">
+                            {p.title ? `${p.title} · ` : ''}
+                            {skillCountLabel(p.skills.length)}
+                          </p>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+
+            {/* Authority posture — per-domain switch summary */}
+            <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+              <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-1">
+                Authority posture
+              </h3>
+              <p class="text-xs text-[color:var(--ss-color-text-muted)] mb-3">
+                SMD operates every domain in every state. A "Client + SMD" badge means the client
+                org also holds operable controls for that domain (an additive switch), never instead
+                of SMD. Flip switches on the Authority surface.
+              </p>
+              <ul class="grid gap-2 sm:grid-cols-2 text-sm">
+                {domainRows.map((d) => {
+                  const badge = authorityHolderBadge(d.holder)
+                  return (
+                    <li class="flex items-center justify-between gap-2">
+                      <span class="text-[color:var(--ss-color-text-primary)]">{d.label}</span>
+                      <span class={badge.classes}>{badge.label}</span>
+                    </li>
+                  )
+                })}
+                {smdOnly.map((d) => (
+                  <li class="flex items-center justify-between gap-2">
+                    <span class="text-[color:var(--ss-color-text-secondary)]">{d.label}</span>
+                    <span class="text-[10px] uppercase tracking-wide text-[color:var(--ss-color-text-muted)]">
+                      SMD only
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Drill-ins */}
+            <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+              <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-3">
+                Drill-ins
+              </h3>
+              <ul class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                <li>
+                  <a
+                    href={`/admin/operator/${encodeURIComponent(slug)}/config`}
+                    class="text-[color:var(--ss-color-action)] hover:underline"
+                  >
+                    Configuration
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href={`/admin/operator/${encodeURIComponent(slug)}/governance`}
+                    class="text-[color:var(--ss-color-action)] hover:underline"
+                  >
+                    Governance
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href={`/admin/operator/${encodeURIComponent(slug)}/authority`}
+                    class="text-[color:var(--ss-color-action)] hover:underline"
+                  >
+                    Authority
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href={`/admin/operator/${encodeURIComponent(slug)}/connectors`}
+                    class="text-[color:var(--ss-color-action)] hover:underline"
+                  >
+                    Connectors
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href={`/admin/operator/${encodeURIComponent(slug)}/runtime`}
+                    class="text-[color:var(--ss-color-action)] hover:underline"
+                  >
+                    Runtime
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href={`/admin/operator/${encodeURIComponent(slug)}/memory`}
+                    class="text-[color:var(--ss-color-action)] hover:underline"
+                  >
+                    Memory
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href={`/admin/operator/${encodeURIComponent(slug)}/people`}
+                    class="text-[color:var(--ss-color-action)] hover:underline"
+                  >
+                    People
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href={`/admin/operator/${encodeURIComponent(slug)}/lifecycle`}
+                    class="text-[color:var(--ss-color-action)] hover:underline"
+                  >
+                    Lifecycle
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href={`/admin/operator/costs/${encodeURIComponent(slug)}`}
+                    class="text-[color:var(--ss-color-action)] hover:underline"
+                  >
+                    Cost
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href={`/admin/operator/config-history/${encodeURIComponent(slug)}`}
+                    class="text-[color:var(--ss-color-action)] hover:underline"
+                  >
+                    Config history
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </>
+        )
+      )
+    }
+  </div>
+</AdminLayout>
