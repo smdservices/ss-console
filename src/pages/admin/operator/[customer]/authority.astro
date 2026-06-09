@@ -1,0 +1,198 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro'
+import {
+  resolveEntityIdBySlug,
+  domainAuthoritySummary,
+  smdOnlyDomains,
+  authorityHolderBadge,
+  safeAuthorityDomainLabel,
+} from '../../../../lib/admin/operator-overview'
+import { toggleHolder, listAuthorityAudit } from '../../../../lib/admin/authority-write'
+import { getCustomerConfig } from '../../../../lib/portal/customer-config'
+import { relativeTimestamp } from '../../../../lib/admin/fleet-status'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Operator admin console — authority panel (§5.9, ADR 0041).
+ *
+ * The per-domain client-self-serve switch panel for one customer. SMD flips a
+ * domain to `client` to hand the client org operable controls for it (additive,
+ * never instead of SMD). Launch state: every switch off (managed). Every flip
+ * is recorded to the authority-intent ledger with the Layer-0 SMD actor.
+ *
+ * SMD always retains full control of every domain in every state — this panel
+ * governs only the CLIENT org's operability. A flip records INTENT (ADR 0012:
+ * customer.yaml in git is the source of truth; the value reaches the runtime via
+ * the deferred git write-back), so the displayed holder is the materialized
+ * posture and recent flips show in the history below until the next sync.
+ */
+
+const session = Astro.locals.session!
+if (session.role !== 'admin') {
+  return Astro.redirect('/auth/sign-in')
+}
+
+const slug = Astro.params.customer ?? ''
+const entityId = await resolveEntityIdBySlug(env.DB, slug)
+const config = entityId ? await getCustomerConfig(env.DB, entityId) : null
+const notFound = !entityId || !config
+
+const domainRows = config ? domainAuthoritySummary(config.authority) : []
+const smdOnly = smdOnlyDomains()
+const history = entityId ? await listAuthorityAudit(env.DB, entityId) : []
+
+const status = Astro.url.searchParams.get('status')
+const STATUS_MESSAGES: Record<string, { text: string; ok: boolean }> = {
+  saved: { text: 'Flip recorded. It applies on the next config sync.', ok: true },
+  no_change: { text: 'No change — that domain is already set to the requested holder.', ok: false },
+  invalid_domain: { text: 'That domain is not client-switchable.', ok: false },
+  invalid_holder: { text: 'Invalid request.', ok: false },
+  not_found: { text: 'Operator not found.', ok: false },
+}
+const banner = status ? STATUS_MESSAGES[status] : null
+---
+
+<AdminLayout
+  title={`Operator — Authority — ${slug}`}
+  breadcrumbs={[
+    { label: 'Dashboard', href: '/admin' },
+    { label: 'Operator', href: '/admin/operator' },
+    { label: slug, href: `/admin/operator/${encodeURIComponent(slug)}` },
+    { label: 'Authority' },
+  ]}
+  maxWidth="max-w-5xl"
+>
+  <div class="space-y-card">
+    {
+      notFound ? (
+        <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+          <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+            Operator not found
+          </h2>
+          <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+            No operator is provisioned under <code>{slug}</code>.{' '}
+            <a href="/admin/operator" class="text-[color:var(--ss-color-action)] hover:underline">
+              Back to the fleet
+            </a>
+            .
+          </p>
+        </div>
+      ) : (
+        <>
+          <header>
+            <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+              Authority — {slug}
+            </h2>
+            <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+              SMD operates every domain in every state. Granting a domain to the client gives the
+              client org operable controls in addition to SMD — never instead. Launch state is every
+              switch off.
+            </p>
+          </header>
+
+          {banner && (
+            <div
+              class={`rounded-[var(--ss-radius-card)] border p-card text-sm ${
+                banner.ok
+                  ? 'border-[color:var(--ss-color-complete)] text-[color:var(--ss-color-text-primary)]'
+                  : 'border-[color:var(--ss-color-attention)] text-[color:var(--ss-color-text-primary)]'
+              }`}
+            >
+              {banner.text}
+            </div>
+          )}
+
+          <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+            <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-3">
+              Client-switchable domains
+            </h3>
+            <ul class="divide-y divide-[color:var(--ss-color-border-subtle)]">
+              {domainRows.map((d) => {
+                const badge = authorityHolderBadge(d.holder)
+                const target = toggleHolder(d.holder)
+                const actionLabel =
+                  target === 'client' ? 'Grant client access' : 'Revoke client access'
+                return (
+                  <li class="flex items-center justify-between gap-4 py-3">
+                    <div>
+                      <p class="text-[color:var(--ss-color-text-primary)]">{d.label}</p>
+                      <p class="text-xs text-[color:var(--ss-color-text-muted)]">
+                        Currently operated by: <span class="font-medium">{badge.label}</span>
+                      </p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                      <span class={badge.classes}>{badge.label}</span>
+                      <form
+                        method="post"
+                        action={`/admin/operator/${encodeURIComponent(slug)}/authority`}
+                      >
+                        <input type="hidden" name="domain" value={d.domain} />
+                        <input type="hidden" name="new_holder" value={target} />
+                        <button
+                          type="submit"
+                          class="text-xs text-[color:var(--ss-color-action)] hover:underline"
+                        >
+                          {actionLabel}
+                        </button>
+                      </form>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+
+          <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+            <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-2">
+              SMD-only domains
+            </h3>
+            <p class="text-xs text-[color:var(--ss-color-text-muted)] mb-3">
+              Never client-switchable. SMD operates these in every state.
+            </p>
+            <ul class="grid gap-2 sm:grid-cols-2 text-sm">
+              {smdOnly.map((d) => (
+                <li class="flex items-center justify-between gap-2">
+                  <span class="text-[color:var(--ss-color-text-secondary)]">{d.label}</span>
+                  <span class="text-[10px] uppercase tracking-wide text-[color:var(--ss-color-text-muted)]">
+                    SMD only
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+            <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-3">
+              Recent authority changes
+            </h3>
+            {history.length === 0 ? (
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                No authority changes recorded for this operator.
+              </p>
+            ) : (
+              <ul class="space-y-2 text-sm">
+                {history.map((h) => (
+                  <li class="flex items-start justify-between gap-4">
+                    <div>
+                      <span class="text-[color:var(--ss-color-text-primary)]">
+                        {safeAuthorityDomainLabel(h.domain)}
+                      </span>
+                      <span class="text-[color:var(--ss-color-text-secondary)]">
+                        {' '}
+                        · {h.old_holder} → {h.new_holder}
+                      </span>
+                      <p class="text-xs text-[color:var(--ss-color-text-muted)]">
+                        by {h.actor_email} · {relativeTimestamp(h.created_at)}
+                        {h.source === 'portal_intent' ? ' · pending sync' : ''}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
+      )
+    }
+  </div>
+</AdminLayout>
