@@ -96,10 +96,15 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # umbrella had loaded as a manifest-only plugin with no register() — none of the
 # five functional plugins (audit, trust, voice, webhook-router, memory-mirror)
 # ever registered on a live gateway. No audit, and no trust/ceiling enforcement.
-# The new safety-substrate invariant 8 asserts activation as a HARD boot gate.
-# Superset of v0.4.10.
+# v0.4.12 adds the gateway:startup ACTIVATION GATE (hooks/smd-overlay-activation):
+# the authoritative LIVE boot check that force-loads the overlay into the gateway's
+# live plugin singleton and drives a real pre_tool_call dispatch self-check, failing
+# closed if the operator is not governed (ss-console#1285). The pre-gateway invariant 8
+# asserts registration/logic; the live gate asserts the live-turn property. Superset of
+# v0.4.11 (fan-out). NOTE: v0.4.11 was the previously-pinned ref but was never tagged —
+# the bump to v0.4.12 also un-dangles that pin.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="v0.4.11"
+ARG OVERLAY_REF="v0.4.12"
 
 ARG CUSTOMER_SLUG=customer-zero
 
@@ -231,11 +236,14 @@ RUN /opt/hermes/.venv/bin/hermes plugins install \
 # whatever overlay a past provision left behind — an OVERLAY_REF bump never
 # reaches the running gateway (the ss-console#1285 delivery bug: the overlay was
 # inert because the volume's copy was stale and bootstrap only checked presence,
-# never freshness). Cloned at the PINNED ref (unlike the unpinned install above),
-# and hard-gated on the fan-out __init__.py so a mis-pinned ref fails the build.
+# never freshness). Cloned at the PINNED ref (unlike the unpinned install above), and
+# hard-gated on BOTH the fan-out __init__.py and the gateway:startup activation gate
+# (the live boot check, ss-console#1285) so a mis-pinned ref lacking either fails the
+# build instead of shipping a Machine with no live governance gate.
 RUN git clone --depth 1 --branch "${OVERLAY_REF}" "${OVERLAY_REPO}" /app/overlay-pack \
       && rm -rf /app/overlay-pack/.git \
-      && test -f /app/overlay-pack/__init__.py
+      && test -f /app/overlay-pack/__init__.py \
+      && test -f /app/overlay-pack/hooks/smd-overlay-activation/handler.py
 
 # Deterministic build-time assertion that the pinned `shared` policy core is
 # importable in the venv. This catches a stale/mis-pinned OVERLAY_REF (the exact
