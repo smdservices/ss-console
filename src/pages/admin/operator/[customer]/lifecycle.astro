@@ -1,0 +1,133 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro'
+import { resolveEntityIdBySlug, subscriptionState } from '../../../../lib/admin/operator-overview'
+import {
+  listFleetStatus,
+  heartbeatDisplay,
+  formatUptime,
+  relativeTimestamp,
+} from '../../../../lib/admin/fleet-status'
+import { getProductSubscription } from '../../../../lib/portal/product-access'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Operator admin console — lifecycle (§5.10).
+ *
+ * Provision status, Machine liveness (heartbeat / uptime / version), and the
+ * config-history trail. SMD-only domain.
+ *
+ * Read this PR: pin/repin, resize, pause/resume, and decommission are SMD-only
+ * lifecycle operations — decommission is destructive and the others are
+ * guardrailed lifecycle changes that need an explicit Captain directive to wire.
+ * So this surface shows status and links the existing config-history; the
+ * mutating actions are deferred rather than shipped as un-directed controls.
+ */
+
+const session = Astro.locals.session!
+if (session.role !== 'admin') {
+  return Astro.redirect('/auth/sign-in')
+}
+
+const slug = Astro.params.customer ?? ''
+const entityId = await resolveEntityIdBySlug(env.DB, slug)
+const notFound = entityId === null
+
+const subscription = entityId ? await getProductSubscription(env.DB, entityId, 'operator') : null
+const sub = subscriptionState(subscription?.status ?? null)
+const fleetRows = entityId ? await listFleetStatus(env.DB) : []
+const fleet =
+  fleetRows.find((r) => r.entity_id === entityId) ?? fleetRows.find((r) => r.customer_slug === slug)
+const hb = heartbeatDisplay(fleet?.last_heartbeat_ts ?? null)
+---
+
+<AdminLayout
+  title={`Operator — Lifecycle — ${slug}`}
+  breadcrumbs={[
+    { label: 'Dashboard', href: '/admin' },
+    { label: 'Operator', href: '/admin/operator' },
+    { label: slug, href: `/admin/operator/${encodeURIComponent(slug)}` },
+    { label: 'Lifecycle' },
+  ]}
+  maxWidth="max-w-5xl"
+>
+  <div class="space-y-card">
+    {
+      notFound ? (
+        <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+          <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+            Operator not found
+          </h2>
+          <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+            No operator is provisioned under <code>{slug}</code>.{' '}
+            <a href="/admin/operator" class="text-[color:var(--ss-color-action)] hover:underline">
+              Back to the fleet
+            </a>
+            .
+          </p>
+        </div>
+      ) : (
+        <>
+          <header>
+            <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+              Lifecycle — {slug}
+            </h2>
+            <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+              Provision status and Machine liveness. SMD-only domain.
+            </p>
+          </header>
+
+          <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+            <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-3">
+              Status
+            </h3>
+            <dl class="text-sm grid sm:grid-cols-2 gap-x-6 gap-y-1">
+              <div class="flex justify-between gap-4">
+                <dt class="text-[color:var(--ss-color-text-secondary)]">Subscription</dt>
+                <dd class={sub.colorClass}>{sub.label}</dd>
+              </div>
+              <div class="flex justify-between gap-4">
+                <dt class="text-[color:var(--ss-color-text-secondary)]">Heartbeat</dt>
+                <dd class="text-[color:var(--ss-color-text-primary)]">{hb.label}</dd>
+              </div>
+              <div class="flex justify-between gap-4">
+                <dt class="text-[color:var(--ss-color-text-secondary)]">Uptime</dt>
+                <dd class="text-[color:var(--ss-color-text-primary)]">
+                  {formatUptime(fleet?.process_uptime_seconds ?? null)}
+                </dd>
+              </div>
+              <div class="flex justify-between gap-4">
+                <dt class="text-[color:var(--ss-color-text-secondary)]">Version</dt>
+                <dd class="text-[color:var(--ss-color-text-primary)] font-mono text-xs">
+                  {fleet?.version ?? '—'}
+                </dd>
+              </div>
+              <div class="flex justify-between gap-4">
+                <dt class="text-[color:var(--ss-color-text-secondary)]">Last audit</dt>
+                <dd class="text-[color:var(--ss-color-text-primary)]">
+                  {relativeTimestamp(fleet?.last_audit_ts ?? null)}
+                </dd>
+              </div>
+            </dl>
+          </div>
+
+          <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+            <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-3">
+              History &amp; operations
+            </h3>
+            <a
+              href={`/admin/operator/config-history/${encodeURIComponent(slug)}`}
+              class="text-sm text-[color:var(--ss-color-action)] hover:underline"
+            >
+              View config-history (customer.yaml sync log)
+            </a>
+            <p class="text-xs text-[color:var(--ss-color-text-muted)] mt-3">
+              Pin / repin Hermes, resize, pause / resume, and decommission are SMD-only lifecycle
+              operations handled on directive (decommission is destructive); they are not wired as
+              controls here.
+            </p>
+          </div>
+        </>
+      )
+    }
+  </div>
+</AdminLayout>

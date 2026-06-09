@@ -1,0 +1,189 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro'
+import { resolveEntityIdBySlug } from '../../../../lib/admin/operator-overview'
+import { sectionPresence, presenceBadge, toneSummary } from '../../../../lib/admin/config-view'
+import { personaStatusDisplay, skillCountLabel } from '../../../../lib/admin/operator-overview'
+import { getCustomerConfig, type CustomerConfigRow } from '../../../../lib/portal/customer-config'
+import { env } from 'cloudflare:workers'
+
+/**
+ * Operator admin console — configuration view (§5.2).
+ *
+ * SMD's read view of the client's authored customer.yaml projection: identity,
+ * personas (voice + skills), and which customer-scope sections are configured.
+ * Authoring of ceilings ships on the governance surface; broader field editing
+ * is a follow-on, so this surface is read. Opaque sections (scope, business
+ * hours, voice library, escalation are typed `unknown` in the projection) are
+ * shown as configured / not-set presence rather than a guessed structure
+ * (no fabrication, foundations §7).
+ */
+
+const session = Astro.locals.session!
+if (session.role !== 'admin') {
+  return Astro.redirect('/auth/sign-in')
+}
+
+const slug = Astro.params.customer ?? ''
+const entityId = await resolveEntityIdBySlug(env.DB, slug)
+
+let config: CustomerConfigRow | null = null
+let configError: string | null = null
+if (entityId) {
+  try {
+    config = await getCustomerConfig(env.DB, entityId)
+  } catch (err) {
+    configError = err instanceof Error ? err.message : String(err)
+  }
+}
+const notFound = entityId === null || (config === null && configError === null)
+
+const sections = config
+  ? [
+      { label: 'Scope envelope', presence: sectionPresence(config.scope) },
+      { label: 'Business hours', presence: sectionPresence(config.business_hours) },
+      { label: 'Voice library', presence: sectionPresence(config.voice_library) },
+      { label: 'Escalation', presence: sectionPresence(config.escalation) },
+    ]
+  : []
+---
+
+<AdminLayout
+  title={`Operator — Config — ${slug}`}
+  breadcrumbs={[
+    { label: 'Dashboard', href: '/admin' },
+    { label: 'Operator', href: '/admin/operator' },
+    { label: slug, href: `/admin/operator/${encodeURIComponent(slug)}` },
+    { label: 'Configuration' },
+  ]}
+  maxWidth="max-w-5xl"
+>
+  <div class="space-y-card">
+    {
+      notFound ? (
+        <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+          <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+            Operator not found
+          </h2>
+          <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+            No operator is provisioned under <code>{slug}</code>.{' '}
+            <a href="/admin/operator" class="text-[color:var(--ss-color-action)] hover:underline">
+              Back to the fleet
+            </a>
+            .
+          </p>
+        </div>
+      ) : configError ? (
+        <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-error)] p-card">
+          <h2 class="text-xl font-semibold text-[color:var(--ss-color-error)]">
+            Config projection malformed
+          </h2>
+          <p class="text-xs text-[color:var(--ss-color-text-muted)] mt-2 font-mono">
+            {configError}
+          </p>
+        </div>
+      ) : (
+        config && (
+          <>
+            <header>
+              <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+                Configuration — {slug}
+              </h2>
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+                The authored configuration for this operator (read view). Trust ceilings are edited
+                on the governance surface.
+              </p>
+            </header>
+
+            <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+              <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-3">
+                Identity
+              </h3>
+              <dl class="text-sm grid sm:grid-cols-2 gap-x-6 gap-y-1">
+                <div class="flex justify-between gap-4">
+                  <dt class="text-[color:var(--ss-color-text-secondary)]">Vertical</dt>
+                  <dd class="text-[color:var(--ss-color-text-primary)]">
+                    {config.vertical ?? '—'}
+                  </dd>
+                </div>
+                <div class="flex justify-between gap-4">
+                  <dt class="text-[color:var(--ss-color-text-secondary)]">Schema version</dt>
+                  <dd class="text-[color:var(--ss-color-text-primary)]">{config.schema_version}</dd>
+                </div>
+                <div class="flex justify-between gap-4">
+                  <dt class="text-[color:var(--ss-color-text-secondary)]">Compliance mode</dt>
+                  <dd class="text-[color:var(--ss-color-text-primary)]">
+                    {config.compliance_enabled ? 'On' : 'Off'}
+                  </dd>
+                </div>
+                <div class="flex justify-between gap-4">
+                  <dt class="text-[color:var(--ss-color-text-secondary)]">Synced</dt>
+                  <dd class="text-[color:var(--ss-color-text-primary)] font-mono text-xs">
+                    {config.git_sha.slice(0, 8)}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+
+            <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+              <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-3">
+                Personas ({config.personas.length})
+              </h3>
+              {config.personas.length === 0 ? (
+                <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                  No personas configured.
+                </p>
+              ) : (
+                <ul class="space-y-3">
+                  {config.personas.map((p) => {
+                    const st = personaStatusDisplay(p.status)
+                    return (
+                      <li class="border-b border-[color:var(--ss-color-border-subtle)] pb-3 last:border-0 last:pb-0">
+                        <div class="flex items-center justify-between gap-2">
+                          <span class="font-medium text-[color:var(--ss-color-text-primary)]">
+                            {p.name}
+                          </span>
+                          <span class="inline-flex items-center gap-1.5 text-xs text-[color:var(--ss-color-text-secondary)]">
+                            <span
+                              class={`inline-block h-2 w-2 rounded-full ${st.dotClass}`}
+                              aria-hidden="true"
+                            />
+                            {st.label}
+                          </span>
+                        </div>
+                        <p class="text-xs text-[color:var(--ss-color-text-muted)]">
+                          {p.title ? `${p.title} · ` : ''}
+                          {skillCountLabel(p.skills.length)} · tone: {toneSummary(p.tone)}
+                        </p>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
+
+            <div class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+              <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)] mb-3">
+                Customer scope
+              </h3>
+              <ul class="space-y-2 text-sm">
+                {sections.map((s) => {
+                  const b = presenceBadge(s.presence)
+                  return (
+                    <li class="flex items-center justify-between gap-4">
+                      <span class="text-[color:var(--ss-color-text-primary)]">{s.label}</span>
+                      <span class={b.classes}>{b.label}</span>
+                    </li>
+                  )
+                })}
+              </ul>
+              <p class="text-xs text-[color:var(--ss-color-text-muted)] mt-3">
+                These sections are shown as configured / not set; their detailed editors land with
+                the config-authoring write path.
+              </p>
+            </div>
+          </>
+        )
+      )
+    }
+  </div>
+</AdminLayout>
