@@ -76,8 +76,13 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # wires Clio (mcp:clio-oktopeak) as a `clio-mcp` command server with a remapped
 # env block (ENCRYPTION_KEY <- CLIO_ENCRYPTION_KEY). Pairs with the clio-mcp
 # install + Clio token-seed block below. Superset of v0.4.5.
+# v0.4.8 (#39) adds the authenticated read-only `GET /runtime/<kind>` to the
+# webhook gate (ADR 0043 path A): the console→Machine runtime read the ss-console
+# drill-ins call. Per-customer bearer (HMAC-SHA256(master, customer_id), staged
+# below as OPERATOR_RUNTIME_READ_KEY), fresh mode=ro connection + busy_timeout,
+# ULID keyset pagination, digests never exposed. Superset of v0.4.7.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="v0.4.7"
+ARG OVERLAY_REF="v0.4.8"
 
 ARG CUSTOMER_SLUG=customer-zero
 
