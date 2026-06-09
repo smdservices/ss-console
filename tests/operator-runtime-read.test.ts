@@ -132,9 +132,17 @@ describe('readMachineRuntime', () => {
     expect(result.ok).toBe(true)
   })
 
-  it('is not configured by default (no env binding)', () => {
+  it('requires BOTH the host template and the master secret (ADR 0043 A)', () => {
     expect(isRuntimeReadConfigured({})).toBe(false)
-    expect(isRuntimeReadConfigured({ OPERATOR_RUNTIME_READ_URL: 'https://x' })).toBe(true)
+    // URL alone is no longer sufficient — the per-customer key needs the master.
+    expect(isRuntimeReadConfigured({ OPERATOR_RUNTIME_READ_URL: 'https://x' })).toBe(false)
+    expect(isRuntimeReadConfigured({ OPERATOR_RUNTIME_READ_SECRET: 'm' })).toBe(false)
+    expect(
+      isRuntimeReadConfigured({
+        OPERATOR_RUNTIME_READ_URL: 'https://x',
+        OPERATOR_RUNTIME_READ_SECRET: 'm',
+      })
+    ).toBe(true)
   })
 })
 
