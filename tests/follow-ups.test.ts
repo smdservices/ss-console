@@ -375,10 +375,12 @@ describe('follow-ups: admin dashboard integration', () => {
     expect(source()).toContain('listFollowUps')
   })
 
-  it('admin layout shows follow-ups nav link', () => {
-    const layout = readFileSync(resolve('src/layouts/AdminLayout.astro'), 'utf-8')
-    expect(layout).toContain('Follow-ups')
-    expect(layout).toContain('/admin/follow-ups')
+  it('follow-ups remain reachable via the Settings hub', () => {
+    // Demoted from the top nav to Settings (ADR 0046) — a sub-function of
+    // the funnel, not a product line. Still one click away.
+    const settings = readFileSync(resolve('src/pages/admin/settings/index.astro'), 'utf-8')
+    expect(settings).toContain('Follow-ups')
+    expect(settings).toContain('/admin/follow-ups')
   })
 
   it('admin dashboard shows upcoming and overdue follow-ups', () => {
