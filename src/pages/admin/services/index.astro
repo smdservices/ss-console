@@ -3,9 +3,12 @@
  * Services — the global, cross-client delivery list (ADR 0046).
  *
  * Every in-flight service across all clients, both kinds, risk-sorted.
- * Composed view-side from engagements + operators (the `service` spine is
- * deferred). Consulting rows drill to the client hub; operator rows to the
- * cockpit.
+ * The render is still composed view-side from engagements + operators; the
+ * full render-migration onto the `service` spine is Stage 3 (done once for
+ * both delivery types). Stage 1b adds one spine READ — `findConsultingSpineDrift`
+ * — that validates the consulting spine ↔ engagement invariant on every load
+ * and surfaces a warning strip on drift, so the spine is no longer write-only.
+ * Consulting rows drill to the client hub; operator rows to the cockpit.
  */
 import AdminLayout from '../../../layouts/AdminLayout.astro'
 import { listEngagements } from '../../../lib/db/engagements'
@@ -20,17 +23,22 @@ import {
   type OperatorInput,
 } from '../../../lib/admin/services-list'
 import { serviceToneDotClass } from '../../../lib/admin/client-hub'
+import { findConsultingSpineDrift, hasSpineDrift } from '../../../lib/db/services'
 import { env } from 'cloudflare:workers'
 
 const session = Astro.locals.session!
 
-const [engagements, entities, quotes, roster, runtime] = await Promise.all([
+const [engagements, entities, quotes, roster, runtime, spineDrift] = await Promise.all([
   listEngagements(env.DB, session.orgId),
   listEntities(env.DB, session.orgId),
   listQuotes(env.DB, session.orgId),
   listFleetRoster(env.DB),
   listRuntimeSummary(env.DB),
+  // ADR 0046 Stage 1b: the read that makes the consulting spine self-validating.
+  // Renders nothing when clean (the normal case); flags drift loudly otherwise.
+  findConsultingSpineDrift(env.DB, session.orgId),
 ])
+const showSpineDrift = hasSpineDrift(spineDrift)
 
 const nameById = new Map(entities.map((e) => [e.id, e.name]))
 const quotesById = new Map<string, Quote>(quotes.map((q) => [q.id, q]))
@@ -67,6 +75,33 @@ const COL = 'grid grid-cols-[1.4fr_1.9fr_0.9fr_1.1fr_0.9fr_1.6fr] gap-4 items-ce
   maxWidth="max-w-6xl"
 >
   <h1 class="mb-5 text-2xl font-bold text-[color:var(--ss-color-text-primary)]">Services</h1>
+
+  {
+    showSpineDrift && (
+      <div class="mb-6 border border-[color:var(--ss-color-error)] border-l-[3px] bg-[rgba(160,42,42,0.04)] px-[18px] py-3.5">
+        <div class="mb-1 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-error)]">
+          Service spine drift
+        </div>
+        <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+          The commercial spine is out of sync with delivery records — these need manual
+          reconciliation (ADR 0046).
+        </p>
+        <ul class="mt-2 list-none space-y-1 font-['JetBrains_Mono'] text-xs text-[color:var(--ss-color-text-primary)]">
+          {spineDrift.orphanEngagements.map((e) => (
+            <li>
+              engagement {e.id} ({e.status}) →{' '}
+              {e.service_id ? `dangling service ${e.service_id}` : 'no service_id'}
+            </li>
+          ))}
+          {spineDrift.childlessServices.map((s) => (
+            <li>
+              service {s.id} ({s.status}) → no engagement
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
 
   <!-- stat band -->
   <div class="mb-6 flex border border-[color:var(--ss-color-text-primary)]">

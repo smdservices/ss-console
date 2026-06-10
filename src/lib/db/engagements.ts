@@ -14,6 +14,13 @@ export interface Engagement {
   org_id: string
   entity_id: string
   quote_id: string
+  /**
+   * Parent `service` spine row (ADR 0046). Added by migration 0068 and set by
+   * every creation path (SOW finalize + `createEngagement`). Nullable only for
+   * historical safety — a NULL here on an in-flight engagement is a spine-drift
+   * corruption surfaced by `findConsultingSpineDrift` in `db/services.ts`.
+   */
+  service_id: string | null
   scope_summary: string | null
   start_date: string | null
   estimated_end: string | null
@@ -204,6 +211,15 @@ export async function getEngagement(
 
 /**
  * Create a new engagement. Returns the created engagement record.
+ *
+ * ADR 0046: every engagement is a delivery child of a `service` spine row.
+ * This path creates both in one atomic `db.batch([...])` — the consulting
+ * service parent (born `active`, since `projectConsultingStatus('scheduled')`
+ * is `active`) and the engagement carrying `service_id`. The service INSERT is
+ * inlined (not via the `createService` DAL, which does its own INSERT+SELECT)
+ * so it stays inside the same atomic batch, exactly like the SOW finalize hook
+ * (`src/lib/sow/service-finalize.ts` `buildCoreStmts`). Signal resolution is an
+ * independent read and stays outside the batch.
  */
 export async function createEngagement(
   db: D1Database,
@@ -211,6 +227,9 @@ export async function createEngagement(
   data: CreateEngagementData
 ): Promise<Engagement> {
   const id = crypto.randomUUID()
+  // 'svc_' prefix is the shared invariant with the backfill (migrations
+  // 0069/0070) and the SOW hook — every service id carries it.
+  const serviceId = `svc_${crypto.randomUUID()}`
   const now = new Date().toISOString()
 
   // Resolve originating-signal attribution (#589). `undefined` means "use
@@ -222,25 +241,33 @@ export async function createEngagement(
       ? await getDefaultOriginatingSignalId(db, orgId, data.entity_id)
       : data.originating_signal_id
 
-  await db
-    .prepare(
-      `INSERT INTO engagements (id, org_id, entity_id, quote_id, scope_summary, start_date, estimated_end, status, estimated_hours, originating_signal_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, ?, ?)`
-    )
-    .bind(
-      id,
-      orgId,
-      data.entity_id,
-      data.quote_id,
-      data.scope_summary ?? null,
-      data.start_date ?? null,
-      data.estimated_end ?? null,
-      data.estimated_hours ?? null,
-      originatingSignalId,
-      now,
-      now
-    )
-    .run()
+  await db.batch([
+    db
+      .prepare(
+        `INSERT INTO services (id, org_id, entity_id, quote_id, type, cadence, status, started_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 'consulting', 'one_time', 'active', ?, ?, ?)`
+      )
+      .bind(serviceId, orgId, data.entity_id, data.quote_id, now, now, now),
+    db
+      .prepare(
+        `INSERT INTO engagements (id, org_id, entity_id, quote_id, service_id, scope_summary, start_date, estimated_end, status, estimated_hours, originating_signal_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, ?, ?)`
+      )
+      .bind(
+        id,
+        orgId,
+        data.entity_id,
+        data.quote_id,
+        serviceId,
+        data.scope_summary ?? null,
+        data.start_date ?? null,
+        data.estimated_end ?? null,
+        data.estimated_hours ?? null,
+        originatingSignalId,
+        now,
+        now
+      ),
+  ])
 
   const engagement = await getEngagement(db, orgId, id)
   if (!engagement) {
