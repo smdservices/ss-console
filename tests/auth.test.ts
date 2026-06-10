@@ -279,31 +279,22 @@ describe('auth: after-sign-in surface selection (host-aware dual-role dispatch)'
   })
 })
 
-describe('auth: cross-surface switch links', () => {
-  it('admin layout links to the portal Operator view via the absolute portal origin', () => {
+describe('auth: portal products stay decoupled (no cross-surface links)', () => {
+  // The admin console and the client portal are two separate products that
+  // happen to share a login credential. Neither should link into the other
+  // (Captain decision 2026-06-10 — "Amazon doesn't put a Costco button in its
+  // header"). Each is navigated to and operated independently; the host-aware
+  // dispatcher routes each product's own sign-in to that product.
+  it('admin layout does not link into the client portal', () => {
     const source = readFileSync(resolve('src/layouts/AdminLayout.astro'), 'utf-8')
-    expect(source).toContain('buildPortalUrl')
-    expect(source).toContain('/portal/products/operator')
-    expect(source).toContain('Operator (client view)')
+    expect(source).not.toContain('buildPortalUrl')
+    expect(source).not.toContain('Operator (client view)')
   })
 
-  it('portal header gates the admin-console link behind an isAdmin prop and absolute admin origin', () => {
+  it('portal header does not link into the admin console', () => {
     const source = readFileSync(resolve('src/components/portal/PortalHeader.astro'), 'utf-8')
-    expect(source).toContain('isAdmin')
-    expect(source).toContain('buildAdminUrl')
-    expect(source).toContain('Admin console')
-    // Default false so ordinary clients never see the link.
-    expect(source).toContain('isAdmin = false')
-  })
-
-  it('portal entry pages pass the viewer admin status into the header', () => {
-    for (const page of [
-      'src/pages/portal/index.astro',
-      'src/pages/portal/products/operator/index.astro',
-    ]) {
-      const source = readFileSync(resolve(page), 'utf-8')
-      expect(source).toContain("isAdmin={portalData.user.role === 'admin'}")
-    }
+    expect(source).not.toContain('buildAdminUrl')
+    expect(source).not.toContain('Admin console')
   })
 })
 

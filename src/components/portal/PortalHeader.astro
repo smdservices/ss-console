@@ -19,33 +19,17 @@
 import SmdLogo from '../SmdLogo.astro'
 import { SignOutButton } from '@clerk/astro/components'
 import { FIRM_CONTACT } from '../../lib/config/firm-contact'
-import { buildAdminUrl, getAdminBaseUrl } from '../../lib/config/app-url'
-import { env } from 'cloudflare:workers'
 
 interface Props {
   clientName: string
-  /**
-   * Render an "Admin console" cross-surface switch link. Only true for an
-   * admin viewing the portal (SMD dogfooding its own Operator from the
-   * customer seat) — pass `portalData.user.role === 'admin'` from the page.
-   * Defaults false so ordinary clients never see it.
-   */
-  isAdmin?: boolean
 }
 
-const { clientName, isAdmin = false } = Astro.props
+const { clientName } = Astro.props
 
 const phoneDigits = FIRM_CONTACT.phone.replace(/[^+\d]/g, '')
 const smsHref = `sms:${phoneDigits}`
 const telHref = `tel:${phoneDigits}`
 const mailtoHref = `mailto:${FIRM_CONTACT.email}`
-
-// Cross-surface switch back to the admin console. Must be the ABSOLUTE admin
-// origin: a relative '/admin' would be mangled by the portal-subdomain rewrite
-// in src/middleware.ts. Hidden when ADMIN_BASE_URL is unconfigured (local dev)
-// or the viewer is not an admin. The Clerk session is shared across subdomains,
-// so this navigates without re-authentication.
-const adminSwitchHref = isAdmin && getAdminBaseUrl(env) ? buildAdminUrl(env, '/') : null
 
 const iconClasses =
   'inline-flex items-center justify-center w-11 h-11 rounded-[var(--ss-radius-button)] text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-primary)] active:text-[color:var(--ss-color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2'
@@ -65,19 +49,6 @@ const iconClasses =
       </p>
     </div>
     <div class="flex items-center gap-1">
-      {
-        adminSwitchHref && (
-          <a
-            href={adminSwitchHref}
-            class="hidden sm:inline-flex items-center gap-1.5 min-h-11 px-2 mr-1 font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-primary)] active:text-[color:var(--ss-color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
-          >
-            <span class="material-symbols-outlined text-base" aria-hidden="true">
-              swap_horiz
-            </span>
-            Admin console
-          </a>
-        )
-      }
       <a href={mailtoHref} aria-label="Email us" class={iconClasses}>
         <span class="material-symbols-outlined" aria-hidden="true">mail</span>
       </a>
