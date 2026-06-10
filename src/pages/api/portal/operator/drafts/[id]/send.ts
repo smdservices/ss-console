@@ -1,8 +1,8 @@
 /**
  * POST /api/portal/operator/drafts/:id/send
  *
- * Approve & Send endpoint for the Operator draft queue. Per ADR 0005
- * (reviewer-as-sender), every customer-bound external message ships
+ * Approve & Send endpoint for the Operator draft queue. Per ADR 0005,
+ * every customer-bound external message ships
  * under the human reviewer's identity. This endpoint is the only
  * portal-side path that triggers the connector send.
  *
@@ -23,7 +23,7 @@
  *
  * Response shape:
  *   200 OK with JSON `{ status, reviewerEmail, sentAt, error }`. The
- *   `status` mirrors the `SendStatus` vocabulary in send-as.ts.
+ *   `status` mirrors the `SendStatus` vocabulary in send-approved.ts.
  *   4xx / 5xx with JSON `{ error: string }` for auth + validation
  *   failures.
  *
@@ -36,7 +36,7 @@
  *   approval is still a recorded action.
  *
  * Failure handling:
- *   On `sendAsReviewer` returning `{ status: 'failed' }`, the
+ *   On `sendApprovedDraft` returning `{ status: 'failed' }`, the
  *   response includes the error so the UI can surface it inline.
  *   The draft does not move out of the queue — the next list render
  *   shows it with `sendStatus: 'send_failed'`. There is no silent
@@ -52,9 +52,9 @@ import {
   clampUndoWindowMs,
   hashDraftBody,
   recordSendApprovedAudit,
-  sendAsReviewer,
+  sendApprovedDraft,
   type Reviewer,
-} from '../../../../../../lib/portal/operator/send-as'
+} from '../../../../../../lib/portal/operator/send-approved'
 
 const ROLES_THAT_CAN_SEND = ['principal', 'staff'] as const
 
@@ -131,7 +131,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   // ADR 0005 invariant: the draft must already be staged into the
   // reviewer's mailbox. The reviewer's email IS the sending identity;
   // a mismatch is a programmer error or a stale draft from a prior
-  // reviewer assignment. `sendAsReviewer` re-checks this, but the
+  // reviewer assignment. `sendApprovedDraft` re-checks this, but the
   // endpoint short-circuits here so the audit row records the
   // mismatch reason rather than a generic failure.
   if (user.email.toLowerCase() !== draft.reviewerEmail.toLowerCase()) {
@@ -150,7 +150,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   }
 
   const undoWindowMs = clampUndoWindowMs(body.undoWindowMs)
-  const result = await sendAsReviewer(draft, reviewer)
+  const result = await sendApprovedDraft(draft, reviewer)
   const draftHash = await hashDraftBody(draft.bodyPlain)
 
   // Audit fires for every approval. The send status field on the

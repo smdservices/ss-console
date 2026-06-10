@@ -3,7 +3,7 @@ title: The Operator Thesis — What It Is, What It Competes With, How We Target 
 date: 2026-06-02
 status: accepted
 captain: Scott Durgan
-amends: 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md
+amends: 0005-external-send-identity.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md
 related-adr: 0004-productized-operator-offering.md, 0022-vertical-pack-architecture.md, 0034-operator-product-naming.md
 ---
 
@@ -11,13 +11,13 @@ related-adr: 0004-productized-operator-offering.md, 0022-vertical-pack-architect
 
 **Status:** Accepted (Captain decision, 2026-06-02).
 
-**Purpose.** This is the canonical, citable answer to _what the Operator is, what it competes with, and how we choose where to point it._ The perspective had been re-derived from scratch in successive strategy sessions and kept drifting back toward stale framings — the product as a fixed supervised-comms tool, reviewer-as-sender as "the moat," "draft-for-review is the default." This ADR locks the perspective so it is built upon, not re-litigated. Vertical selection, marketing positioning, competitive analysis, and the pack roadmap all derive from these tenets and should cite them.
+**Purpose.** This is the canonical, citable answer to _what the Operator is, what it competes with, and how we choose where to point it._ The perspective had been re-derived from scratch in successive strategy sessions and kept drifting back toward stale framings — the product as a fixed supervised-comms tool, draft-for-review send as "the moat," "draft-for-review is the default." This ADR locks the perspective so it is built upon, not re-litigated. Vertical selection, marketing positioning, competitive analysis, and the pack roadmap all derive from these tenets and should cite them.
 
 ## Context
 
 The thesis was established over a 2026-06-02 working session that corrected four drift points in how agents (and docs) talked about the Operator:
 
-1. **Reviewer-as-sender as a fixed, defining feature** — when [ADR 0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) had already made autonomy fully configurable across two axes (initiation × exposure), per action class.
+1. **Draft-for-review send as a fixed, defining feature** — when [ADR 0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) had already made autonomy fully configurable across two axes (initiation × exposure), per action class.
 2. **"Draft-for-review is the default" treated as product identity** — when it is only the _fail-closed unconfigured safety state_, not a posture the product inherently has.
 3. **The product framed as a comms-drafting tool competing with vertical SaaS** — when it is connective tissue across a business's systems, competing with a _human hire_. Incumbent systems are connection targets, not rivals.
 4. **Targeting anchored on "product-fit"** — when a configurable substrate fits nearly anything connectable, which makes "fit" a near-useless selector and pushes the real decision onto market factors.
@@ -40,7 +40,7 @@ _Consequence:_ never reason about the Operator as if it has one shape or one use
 
 ### 3. No imposed defaults.
 
-The harness assumes no posture. Unconfigured is **fail-closed** — a safety property of the unconfigured state, not an identity or a market stance. Reviewer-as-sender, autonomous send, draft-for-review are _authored options_, not what the Operator "is."
+The harness assumes no posture. Unconfigured is **fail-closed** — a safety property of the unconfigured state, not an identity or a market stance. Autonomous send and draft-for-review are _authored options_, not what the Operator "is."
 
 _Consequence:_ when reasoning about what an Operator does for a customer, ask **"what did the engagement author?"** — never "what does the system assume?"
 
@@ -48,7 +48,7 @@ _Consequence:_ when reasoning about what an Operator does for a customer, ask **
 
 Three things are scarce and compound: configurable trust enforced in code (**the harness**), the human who authors it well for a specific business (**the guide**), and the per-customer operating memory that deepens and raises switching cost over time (**the memory**). Competitors will have configurable agents; they will not easily have the guide or the accumulated memory.
 
-_Consequence:_ calling any one feature — voice fidelity, audit, reviewer-as-sender — "the moat" is a category error. Do not build positioning on a single feature.
+_Consequence:_ calling any one feature — voice fidelity, audit, draft-for-review send — "the moat" is a category error. Do not build positioning on a single feature.
 
 ### 5. Packs turn the universal into the recognizable.
 
@@ -65,7 +65,7 @@ _Consequence:_ competitive analysis evaluates "where is the coordinator role mos
 ## What this corrects (the rip)
 
 - **"Draft-for-review is the default."** Reframed by Tenet 3: unconfigured is the fail-closed _safety state_, not a default posture or product identity. [ADR 0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) §4's "default" language is read in that light — it describes a code mechanism, not what the product _is_.
-- **"Reviewer-as-sender is the durable moat."** Corrected by Tenet 4: no single feature is the moat. [ADR 0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) already began this shift ("the defensible claim shifts from 'we never let the AI send' to 'trust is configurable, code-enforced, audited, and floored by your vertical's compliance constraints'"); this ADR completes it as positioning doctrine and extends it: the moat is the harness **plus the guide plus the memory**, never a capability in isolation. The stale phrasing in `CLAUDE.md` (Operator Architecture §2, "draft routing through reviewer-as-sender ... are the durable moat") is corrected in the same change.
+- **"Draft-for-review send is the durable moat."** Corrected by Tenet 4: no single feature is the moat. [ADR 0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) already began this shift ("the defensible claim shifts from 'we never let the AI send' to 'trust is configurable, code-enforced, audited, and floored by your vertical's compliance constraints'"); this ADR completes it as positioning doctrine and extends it: the moat is the harness **plus the guide plus the memory**, never a capability in isolation. The stale phrasing in `CLAUDE.md` (Operator Architecture §2, "draft routing ... are the durable moat") is corrected in the same change.
 - **Competitive framing.** Prior analyses scored a vertical _down_ when an incumbent suite (Clio, Karbon, the AMS, the PSA) shipped an in-app AI feature, treating it as "absorbing our layer." Tenet 1 inverts this: those suites are silos the Operator connects across, and their fragmentation is the reason connective tissue is valuable.
 
 ## Consequences
@@ -94,7 +94,7 @@ We are following this decision when:
 ## References
 
 - [ADR 0004 — Productized Operator offering](./0004-productized-operator-offering.md) (the SKU)
-- [ADR 0005 — Reviewer-as-sender](./0005-reviewer-as-sender.md) (amended: its competitive "we never let the AI send" framing is superseded by Tenet 4; the mechanism stands as one authored option)
+- [ADR 0005 — External-send identity](./0005-external-send-identity.md) (amended: its competitive "we never let the AI send" framing is superseded by Tenet 4; the mechanism stands as one authored option)
 - [ADR 0022 — Vertical pack architecture](./0022-vertical-pack-architecture.md) (packs, Tenet 5)
 - [ADR 0025 — Autonomy ceilings are configurable](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) (amended: "default" reframed as fail-closed safety state, not identity; the moat reframing completed)
 - [ADR 0034 — Operator product naming](./0034-operator-product-naming.md)

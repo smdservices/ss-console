@@ -739,13 +739,13 @@ Same engine, same data model, same artifact shape. Fields fill progressively as 
 
 ---
 
-## Decision #45 - Entitlement Is Configurable; Reviewer-as-Sender Is One Authored Option
+## Decision #45 - Entitlement Is Configurable; External Send Is One Authored Option
 
-**ADR:** [docs/adr/0005-reviewer-as-sender.md](./0005-reviewer-as-sender.md) (amended) → [0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) → [0035](./0035-no-imposed-entitlement-defaults.md)
+**ADR:** [docs/adr/0005-external-send-identity.md](./0005-external-send-identity.md) (amended) → [0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) → [0035](./0035-no-imposed-entitlement-defaults.md)
 
 **Decision: Entitlement is configurable across the full spectrum of the harness — per capability and action-class, on independent axes (exposure, initiation, external send, autonomy). The harness imposes no default posture; it faithfully enforces what an engagement authors. An entitled action with no authored entitlement is fail-closed (refused — no send, no draft).**
 
-Reviewer-as-sender (the persona has no external sending identity; drafts go to the reviewer, who reviews and sends from their own account) is **one configurable option an engagement may author** — valuable for compliance, and pinnable by a regulated-vertical pack as a non-raisable constraint where required. It is **not** a default and **not** an architectural invariant: this decision originally read "architectural, not advisory" / "promotion to autonomous is not available," which ADR 0025 overturned and ADR 0035 finished correcting by removing the residual default-framing. The persona remains fully visible internally regardless of the external exposure configuration.
+Draft-for-review external send (the persona has no external sending identity; drafts go to the approver, who reviews and sends from their own account) is **one configurable option an engagement may author** — valuable for compliance, and pinnable by a regulated-vertical pack as a non-raisable constraint where required. It is **not** a default and **not** an architectural invariant: this decision originally read "architectural, not advisory" / "promotion to autonomous is not available," which ADR 0025 overturned and ADR 0035 finished correcting by removing the residual default-framing. The persona remains fully visible internally regardless of the external exposure configuration.
 
 **Cross-layer impact (Layer 6 - Delivery).** The product expresses its full range — from draft-everything to trusted-autonomous-send — per action class, per customer. Compliance posture is an authored configuration (and a regulated-vertical pin), code-enforced and audited, not an assumed baseline.
 
@@ -880,43 +880,43 @@ All 11 artifacts are scaffolded as GitHub issues in smdservices/ss-console. Ever
 
 # Appendix - Decision Index
 
-| Issue | Decision                                                                                                                   |
-| ----- | -------------------------------------------------------------------------------------------------------------------------- |
-| #2    | Revenue-based qualification - SUPERSEDED (ADR 0003); revenue is no longer a gate                                           |
-| #3    | Launch verticals - home services + professional services + contractor/trades, problem-qualified                            |
-| #4    | Disqualification criteria - 4 hard stops, 5 soft flags                                                                     |
-| #5    | Ideal client profile - synthesis                                                                                           |
-| #6    | Financial visibility - in core with 30-day prerequisite gate                                                               |
-| #9    | Tool evaluation framework - rubric-based, bias toward keep                                                                 |
-| #10   | Scope boundary language - positive definition + 4 exclusions                                                               |
-| #11   | Scope creep protocol - parking lot, pre-handoff review                                                                     |
-| #12   | Retainer model - SUPERSEDED 2026-05-13 by #44 (see ADR 0004)                                                               |
-| #13   | Paid assessment - free for first 3, then $250                                                                              |
-| #14   | Payment terms - 50% deposit at signing, 50% at completion                                                                  |
-| #15   | ROI anchor math - owner does the math, we ask the questions                                                                |
-| #16   | Pricing model - scope-based, $175/hr → $200 → $250 → $300 rate progression                                                 |
-| #17   | Assessment capture - MacWhisper Pro + Claude extraction                                                                    |
-| #18   | Assessment to proposal - solution design phase, SOW within 48 hours                                                        |
-| #19   | Follow-up cadence - 3-touch over 7 days, then mark dead                                                                    |
-| #20   | Positioning standard - we voice, team framing (venture-wide)                                                               |
-| #21   | Networking strategy - BNI + chambers + vertical associations                                                               |
-| #22   | Accountant partnership - co-value, no fee, warm handoff                                                                    |
-| #23   | Client referral incentive - no formal incentive, ask at handoff                                                            |
-| #24   | Outreach messaging - vertical-specific message and channel                                                                 |
-| #25   | Pipeline math - 15-20 touches/week, 2-3 engagements/month, 25-30% close                                                    |
-| #26   | Review request - verbal at handoff, automated email 2 days later                                                           |
-| #27   | Safety net - 2-week async from handoff                                                                                     |
-| #28   | Internal champion - identify at assessment, orient Day 1                                                                   |
-| #29   | Feedback collection - verbal at handoff, survey 30 days later                                                              |
-| #30   | Case study workflow - agent-drafted, client-approved, one page                                                             |
-| #42   | Taxonomy two-layer model - 5-cat observation, 6-cat delivery (see ADR 0001)                                                |
-| #43   | Outside View unified diagnostic - one product, three depths, portal-resident artifact (see ADR 0002)                       |
-| #44   | Productized Operator offering - flat-rate retainer SKU, second front door, Hermes-leaning stack (see ADR 0004)             |
-| #45   | Entitlement is configurable; reviewer-as-sender is one authored option, not a default or invariant (see ADRs 0005 to 0035) |
-| #46   | Capability-adapter pattern - skills bind to capability interfaces; adapters implement; customer.yaml wires (see ADR 0006)  |
-| #47   | Per-customer Machine isolation - one Fly.io Machine per customer; deployment isolation, not runtime tenancy (see ADR 0007) |
-| #48   | Customer-owned memory artifact - per-customer namespaces; portable export; verifiable deletion (see ADR 0008)              |
-| #49   | Cross-Machine query prohibition - boot-time binding check + shared-catalog merge gate (see ADR 0009)                       |
+| Issue | Decision                                                                                                                             |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| #2    | Revenue-based qualification - SUPERSEDED (ADR 0003); revenue is no longer a gate                                                     |
+| #3    | Launch verticals - home services + professional services + contractor/trades, problem-qualified                                      |
+| #4    | Disqualification criteria - 4 hard stops, 5 soft flags                                                                               |
+| #5    | Ideal client profile - synthesis                                                                                                     |
+| #6    | Financial visibility - in core with 30-day prerequisite gate                                                                         |
+| #9    | Tool evaluation framework - rubric-based, bias toward keep                                                                           |
+| #10   | Scope boundary language - positive definition + 4 exclusions                                                                         |
+| #11   | Scope creep protocol - parking lot, pre-handoff review                                                                               |
+| #12   | Retainer model - SUPERSEDED 2026-05-13 by #44 (see ADR 0004)                                                                         |
+| #13   | Paid assessment - free for first 3, then $250                                                                                        |
+| #14   | Payment terms - 50% deposit at signing, 50% at completion                                                                            |
+| #15   | ROI anchor math - owner does the math, we ask the questions                                                                          |
+| #16   | Pricing model - scope-based, $175/hr → $200 → $250 → $300 rate progression                                                           |
+| #17   | Assessment capture - MacWhisper Pro + Claude extraction                                                                              |
+| #18   | Assessment to proposal - solution design phase, SOW within 48 hours                                                                  |
+| #19   | Follow-up cadence - 3-touch over 7 days, then mark dead                                                                              |
+| #20   | Positioning standard - we voice, team framing (venture-wide)                                                                         |
+| #21   | Networking strategy - BNI + chambers + vertical associations                                                                         |
+| #22   | Accountant partnership - co-value, no fee, warm handoff                                                                              |
+| #23   | Client referral incentive - no formal incentive, ask at handoff                                                                      |
+| #24   | Outreach messaging - vertical-specific message and channel                                                                           |
+| #25   | Pipeline math - 15-20 touches/week, 2-3 engagements/month, 25-30% close                                                              |
+| #26   | Review request - verbal at handoff, automated email 2 days later                                                                     |
+| #27   | Safety net - 2-week async from handoff                                                                                               |
+| #28   | Internal champion - identify at assessment, orient Day 1                                                                             |
+| #29   | Feedback collection - verbal at handoff, survey 30 days later                                                                        |
+| #30   | Case study workflow - agent-drafted, client-approved, one page                                                                       |
+| #42   | Taxonomy two-layer model - 5-cat observation, 6-cat delivery (see ADR 0001)                                                          |
+| #43   | Outside View unified diagnostic - one product, three depths, portal-resident artifact (see ADR 0002)                                 |
+| #44   | Productized Operator offering - flat-rate retainer SKU, second front door, Hermes-leaning stack (see ADR 0004)                       |
+| #45   | Entitlement is configurable; draft-for-review external send is one authored option, not a default or invariant (see ADRs 0025, 0035) |
+| #46   | Capability-adapter pattern - skills bind to capability interfaces; adapters implement; customer.yaml wires (see ADR 0006)            |
+| #47   | Per-customer Machine isolation - one Fly.io Machine per customer; deployment isolation, not runtime tenancy (see ADR 0007)           |
+| #48   | Customer-owned memory artifact - per-customer namespaces; portable export; verifiable deletion (see ADR 0008)                        |
+| #49   | Cross-Machine query prohibition - boot-time binding check + shared-catalog merge gate (see ADR 0009)                                 |
 
 ---
 

@@ -71,7 +71,7 @@ The agent MUST NOT: send the nudge; interpret, explain, or negotiate any term of
 1. **No term interpretation.** The skill never explains, defines, or characterizes a clause/obligation in the engagement letter (UPL).
 2. **Cadence respect.** No nudge before the interval; none past the max (surface to human instead); none on a signed/declined/expired letter.
 3. **Conflict-hold gate.** No chase on a held matter.
-4. **Reviewer-as-sender.** The nudge is drafted, never sent.
+4. **External-send draft floor.** The nudge is drafted, never sent.
 5. **Privilege.** Letter content stays inside firm surfaces; nothing to third parties.
 
 ## Voice Rules

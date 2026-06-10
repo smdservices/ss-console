@@ -26,7 +26,7 @@ compliance:
   - no-medical-advice # connective front-desk work only; never diagnosis, triage, or result interpretation
   - emergency-escalation-fail-open # possible emergencies go to a human immediately; never handled async
   - no-prescription-authorization # refills route to the doctor; never authorize or advise on dosing
-  - reviewer-as-sender-floor # external mail under a human reviewer (ADR 0005)
+  - external-send-draft-floor # external mail under a human reviewer (ADR 0005)
   - records-stay-in-clinic # client and patient records stay inside clinic surfaces
 
 # Reference persona archetypes (templates, not runtime personas). The seat the

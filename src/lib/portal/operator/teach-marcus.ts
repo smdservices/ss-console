@@ -20,7 +20,7 @@
  *   the drain path; until then this module emits a structured
  *   `audit:memory_rule_added` log line that a Hermes-side tail-log
  *   drain consumes (same pattern as `recordSendApprovedAudit` in
- *   send-as.ts).
+ *   send-approved.ts).
  *
  *   The portal does NOT push the rule into Hermes runtime. The bridge
  *   layer is responsible for propagation. This module's contract is:
@@ -261,7 +261,7 @@ export function buildMemoryRuleAddedAuditEvent(input: {
  * stable `[audit:memory_rule_added]` prefix so the Hermes-side tail-
  * log drain can JSON.parse it without scraping arbitrary log text.
  *
- * Same shape as `recordSendApprovedAudit` in send-as.ts — the two are
+ * Same shape as `recordSendApprovedAudit` in send-approved.ts — the two are
  * the only portal-side audit emitters today and they share the
  * structured-log idiom.
  */

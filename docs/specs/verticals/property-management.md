@@ -3,7 +3,7 @@ title: 'Vertical Spec: Property Management (Operator pack)'
 date: 2026-06-02
 status: draft
 captain: Scott Durgan
-related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
+related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0005-external-send-identity.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
 ---
 
 # Vertical Spec: Property Management
@@ -28,7 +28,7 @@ That coordination is a real seat, the leasing or tenant coordinator who keeps pr
 
 ## Skill catalog
 
-Twelve property-management-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send sits at the reviewer-as-sender floor ([ADR 0005](../../adr/0005-reviewer-as-sender.md)) unless the engagement authors otherwise.
+Twelve property-management-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send sits at the external-send draft floor unless the engagement authors otherwise.
 
 ### Leasing (Fair-Housing-sensitive)
 
@@ -84,7 +84,7 @@ Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; 
 - **No screening or adverse-action decision** — the Operator coordinates the application and routes it; it never makes or communicates the screening decision or an adverse action, which the company owns.
 - **Maintenance-emergency escalation (fail-open to a human)** — a possible habitability emergency goes to a person and the emergency vendor immediately, never handled async and never diagnosed.
 - **No legal or eviction advice, no money movement** — the Operator follows the company's authored delinquency process, gives no legal or eviction advice, and never processes rent or deposits.
-- **Reviewer-as-sender floor** — external mail ships under a human reviewer's identity ([ADR 0005](../../adr/0005-reviewer-as-sender.md)).
+- **External-send draft floor** — external mail ships under a human reviewer's identity ([ADR 0035](../../adr/0035-no-imposed-entitlement-defaults.md)).
 
 ## Labor-market context (the demand, without presumption)
 

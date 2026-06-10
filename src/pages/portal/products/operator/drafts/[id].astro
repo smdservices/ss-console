@@ -4,7 +4,7 @@ import { BRAND_NAME } from '../../../../../lib/config/brand'
 import { resolveOperatorAccess } from '../../../../../lib/portal/operator-access'
 import { getActivePersona } from '../../../../../lib/portal/customer-config'
 import { getDraft } from '../../../../../lib/portal/operator/drafts'
-import { DEFAULT_UNDO_WINDOW_MS } from '../../../../../lib/portal/operator/send-as'
+import { DEFAULT_UNDO_WINDOW_MS } from '../../../../../lib/portal/operator/send-approved'
 import PortalHeader from '../../../../../components/portal/PortalHeader.astro'
 import PortalTabs from '../../../../../components/portal/PortalTabs.astro'
 import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
@@ -19,7 +19,7 @@ import { env } from 'cloudflare:workers'
  *
  * URL: portal.smd.services/portal/products/operator/drafts/[id]
  *
- * Per ADR 0005 (reviewer-as-sender), this is the on-stage moment of the
+ * Per ADR 0005, this is the on-stage moment of the
  * beta-1 demo: customer logs in, sees a draft Marcus wrote, clicks
  * Approve & Send, the message ships under the reviewer's identity. The
  * page is responsible for:
@@ -51,7 +51,7 @@ import { env } from 'cloudflare:workers'
  * per-customer config (`customer.yaml send.undo_window_seconds`).
  * That config lives on the Hermes side and surfaces through the
  * bridge; until the bridge exposes it, the page passes the
- * `DEFAULT_UNDO_WINDOW_MS` constant from send-as.ts.
+ * `DEFAULT_UNDO_WINDOW_MS` constant from send-approved.ts.
  */
 
 const access = await resolveOperatorAccess(env.DB, Astro.locals, {

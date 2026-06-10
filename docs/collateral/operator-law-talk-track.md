@@ -70,6 +70,6 @@ We get in front of firms by borrowing the trust of the people who already serve 
 
 - Never open with "AI employee." Lead with the seat and the outcome.
 - Never say "we don't do legal work." It's paralegal and coordinator work, never licensed work (the same line a human paralegal works within).
-- Reviewer-as-sender is one option the firm can choose, not what the Operator "is." Don't present any fixed posture (never sends, never moves money) as the product's identity; those are dials the firm sets.
+- Draft-for-review send is one option the firm can choose, not what the Operator "is." Don't present any fixed posture (never sends, never moves money) as the product's identity; those are dials the firm sets.
 - Salary is the frame, not the moat. The durable why-us is the spine plus the managed-and-compounding combination.
 - Keep the horizontal "serves any business" story out of the room; it dilutes the "built for your firm" intimacy.

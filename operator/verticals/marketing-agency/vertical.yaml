@@ -25,7 +25,7 @@ compliance:
   - no-fabrication # deliver only authored deliverables/metrics/status; never invent a number, result, or claim
   - client-confidentiality # no client's info/assets/results cross into another client's comms
   - no-unilateral-scope-or-commitment # relay authored scope/terms/dates; never commit on its own
-  - reviewer-as-sender-floor # external mail under a human reviewer (ADR 0005)
+  - external-send-draft-floor # external mail under a human reviewer (ADR 0005)
 
 # Reference persona archetypes (templates, not runtime personas). See the
 # brief's "Personas".

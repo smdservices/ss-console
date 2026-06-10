@@ -3,14 +3,14 @@ title: Autonomy Ceilings Are Configurable — Split Initiation From Exposure
 date: 2026-05-29
 status: accepted
 captain: Scott Durgan
-amends: 0005-reviewer-as-sender.md
+amends: 0005-external-send-identity.md
 related-issue: https://github.com/venturecrane/ss-console/issues/828
 related-note: note_01KSS3TCTKWYVF6EZ04482X389, note_01KSTYSNC9CYPKYFJZ3TJ7F6RM
 ---
 
 # ADR 0025 — Autonomy Ceilings Are Configurable
 
-**Status:** Accepted (Captain decision, 2026-05-29), **amended 2026-06-02 by [ADR 0035](./0035-no-imposed-entitlement-defaults.md).** This ADR correctly made autonomy a configurable per-action-class ceiling, but it then introduced a contradiction: §Decision says "no autonomy posture is hardcoded," while §4 makes unauthored external action classes **default to `draft_for_review`** — a hardcoded posture. ADR 0035 resolves this in favor of §Decision: there is **no imposed default**. An unauthored entitled action is fail-closed (refused — no send, no draft). Reviewer-as-sender (§4) is **one authored option**, not "the default"; the vertical-pack-lockable floor (§4) survives as an **authored constraint**, not a default. **Read every "default" / "secure default" / "conservative default" phrase below that describes reviewer-as-sender or `draft_for_review` as superseded** (this includes §4, §6, the Consequences bullets, and the migration plan): the unconfigured state is fail-closed, and "draft-everything" is one thing an engagement may author, never the product's default posture or identity. The two-axis model, enforced-in-code, agent-never-self-raises, and reversibility floors all stand.
+**Status:** Accepted (Captain decision, 2026-05-29), **amended 2026-06-02 by [ADR 0035](./0035-no-imposed-entitlement-defaults.md).** This ADR correctly made autonomy a configurable per-action-class ceiling, but it then introduced a contradiction: §Decision says "no autonomy posture is hardcoded," while §4 makes unauthored external action classes **default to `draft_for_review`** — a hardcoded posture. ADR 0035 resolves this in favor of §Decision: there is **no imposed default**. An unauthored entitled action is fail-closed (refused — no send, no draft). Draft-for-review external send (§4) is **one authored option**, not "the default"; the vertical-pack-lockable floor (§4) survives as an **authored constraint**, not a default. **Read every "default" / "secure default" / "conservative default" phrase below that describes `draft_for_review` external send as superseded** (this includes §4, §6, the Consequences bullets, and the migration plan): the unconfigured state is fail-closed, and "draft-everything" is one thing an engagement may author, never the product's default posture or identity. The two-axis model, enforced-in-code, agent-never-self-raises, and reversibility floors all stand.
 
 This ADR records the decision and mandates a product modification; the code change is sequenced in the migration plan below and tracked by a follow-on issue.
 
@@ -51,12 +51,12 @@ The harness thesis is explicit: **the harness invariant is "every action is gate
 
 ### The collision with ADR 0005, named honestly
 
-ADR 0005 (Reviewer-as-Sender) decided that every customer-bound external message ships under the human reviewer's identity, and stated this is **"architectural, not configurable"** (§Decision, line 41), explicitly declining the hybrid because "weakening it to 'configurable per skill' surrenders the moat" (§Consequences, line 64). This ADR **overturns that specific modality.** It does not discard reviewer-as-sender. The distinction the session drew, and that this ADR makes load-bearing, is between:
+ADR 0005 (external-send identity) decided that every customer-bound external message ships under the human reviewer's identity, and stated this is **"architectural, not configurable"** (§Decision, line 41), explicitly declining the hybrid because "weakening it to 'configurable per skill' surrenders the moat" (§Consequences, line 64). This ADR **overturns that specific modality.** It does not discard the draft-for-review posture. The distinction the session drew, and that this ADR makes load-bearing, is between:
 
-- **The mechanism** (reviewer-as-sender: a human reviews each draft and sends from their own account) — this becomes the **default** and a **vertical-pack-lockable floor**, no longer a global absolute.
+- **The mechanism** (a human reviews each draft and sends from their own account) — this becomes the **default** and a **vertical-pack-lockable floor**, no longer a global absolute.
 - **The residual invariant** (what stays architectural and non-configurable): every external action is enforced against the _configured_ ceiling in code; every external action is attributable to a **named human principal of record** and fully audited; and the agent can **never raise its own ceiling**.
 
-The compliance and liability reasoning in ADR 0005 (ABA Formal Opinion 512, state AI-disclosure rules, the supervising-attorney requirement) does not evaporate — it is **why reviewer-as-sender remains the default and why regulated verticals lock it.** A law-vertical pack (ADR 0022 compliance constraints) pins `EXTERNAL_SEND = draft_for_review` as a non-raisable floor, so the moat and the disclosure posture hold exactly where they are load-bearing, while the customers who want autonomy get the axis. The moat was never "humans always approve"; per the thesis it is **the harness + the guide** — configurable trust, enforced in code, audited, wired into a specific business by someone who sat in the owner's office.
+The compliance and liability reasoning in ADR 0005 (ABA Formal Opinion 512, state AI-disclosure rules, the supervising-attorney requirement) does not evaporate — it is **why a regulated vertical would author and lock the draft-for-review posture.** A law-vertical pack (ADR 0022 compliance constraints) pins `EXTERNAL_SEND = draft_for_review` as a non-raisable floor, so the moat and the disclosure posture hold exactly where they are load-bearing, while the customers who want autonomy get the axis. The moat was never "humans always approve"; per the thesis it is **the harness + the guide** — configurable trust, enforced in code, audited, wired into a specific business by someone who sat in the owner's office.
 
 ### The consequence that makes the next ADR necessary
 
@@ -80,19 +80,19 @@ Whether the agent may run unprompted (cron, webhook, delegated task) is a distin
 
 ### 3. `EXTERNAL_SEND` autonomy is permitted when, and only when, it is configured
 
-The hardcoded refusal at `trust_ceiling.py:117-127` is removed. `enforce()` consults the configured `EXTERNAL_SEND` ceiling: `autonomous` permits send without per-turn approval; `draft_for_review` routes to a draft (the reviewer-as-sender default); `refused` blocks. The same applies through the overlay `hermes-smd-trust` hook.
+The hardcoded refusal at `trust_ceiling.py:117-127` is removed. `enforce()` consults the configured `EXTERNAL_SEND` ceiling: `autonomous` permits send without per-turn approval; `draft_for_review` routes to a draft (routing to a draft); `refused` blocks. The same applies through the overlay `hermes-smd-trust` hook.
 
-### 4. Reviewer-as-sender is the default and a lockable floor, not an absolute
+### 4. Draft-for-review external send is a lockable floor, not an absolute
 
-> _**Amended by [ADR 0035](./0035-no-imposed-entitlement-defaults.md):** the "default" half of this section is superseded. There is no imposed default. Absent authored configuration, an external action class is **fail-closed (refused — no send, no draft)**, not `draft_for_review`. Reviewer-as-sender is one authored option; the lockable floor below survives as an authored constraint._
+> _**Amended by [ADR 0035](./0035-no-imposed-entitlement-defaults.md):** the "default" half of this section is superseded. There is no imposed default. Absent authored configuration, an external action class is **fail-closed (refused — no send, no draft)**, not `draft_for_review`. Draft-for-review external send is one authored option; the lockable floor below survives as an authored constraint._
 
-- **Default.** Absent explicit configuration, every external action class defaults to `draft_for_review` with reviewer-as-sender identity. The secure posture is what you get for free; autonomy is an opt-in the principal must take deliberately.
+- **Default.** Absent explicit configuration, an external action class authored to `draft_for_review` ships under the approver as send identity. The secure posture is what you get for free; autonomy is an opt-in the principal must take deliberately.
 - **Vertical floor.** A vertical pack (ADR 0022) may declare a non-raisable ceiling for an action class. The law pack pins `EXTERNAL_SEND = draft_for_review`. Customer configuration cannot raise above a vertical floor — the existing "cannot raise above authored" rule (`trust_ceiling.py` docstring) generalizes to "cannot raise above the most restrictive of {vertical floor, authored ceiling}."
 
 ### 5. The residual invariants stay architectural (non-configurable)
 
 - **Enforced in code, not prompt.** Unchanged from invariant 5. The model can ask all it wants; the adapter and the overlay hook decide.
-- **Accountability to a named human principal.** Every external action is attributable to a specific human of record (the channel owner / configured sender identity). Reviewer-as-sender is one realization (the reviewer _is_ the principal and the sender); an autonomous-send configuration still names the principal who owns the channel and authorized the ceiling, recorded in the audit log.
+- **Accountability to a named human principal.** Every external action is attributable to a specific human of record (the channel owner / configured sender identity). A draft-for-review send is one realization (the approver _is_ the principal and the sender); an autonomous-send configuration still names the principal who owns the channel and authorized the ceiling, recorded in the audit log.
 - **The agent cannot raise its own ceiling.** A ceiling change is a control-plane act performed by the human principal, never by the agent or by prompt. (Governance: ADR 0026.)
 
 ### 6. Identity posture is configurable alongside exposure
@@ -104,9 +104,9 @@ ADR 0005's internal/external persona split (the persona is fully visible interna
 There are **two** code layers that today encode "no autonomous external send," and this ADR addresses only the first:
 
 1. **The trust-ceiling gate** (`adapter/trust_ceiling.py::enforce()`, run live by the overlay `hermes-smd-trust` `pre_tool_call` hook). This is the configurable authority layer — the subject of this ADR. After implementation, the gate consults the configured per-action ceiling and permits a send tool to fire when `external_send` is raised to `autonomous` (floored by the vertical).
-2. **The capability-adapter surface ban** (`src/lib/operator/capabilities/conformance.ts` `NO_AUTONOMOUS_EXTERNAL_SEND` + `BANNED_METHOD_NAMES`). Our own `build:` capability adapters are _structurally_ forbidden from exposing a send method at all — the `Email` adapter has no `send`, only draft. This is the deeper, structural form of reviewer-as-sender (ADR 0005 / ADR 0006).
+2. **The capability-adapter surface ban** (`src/lib/operator/capabilities/conformance.ts` `NO_AUTONOMOUS_EXTERNAL_SEND` + `BANNED_METHOD_NAMES`). Our own `build:` capability adapters are _structurally_ forbidden from exposing a send method at all — the `Email` adapter has no `send`, only draft. This is the deeper, structural form of draft-only external send (ADR 0006).
 
-The consequence: raising the ceiling makes autonomous send real on the **MCP-connector path** (ADR 0020's primary path — an MCP server exposes a `send` tool the gate governs). It does **not** make our `build:` adapters send, because those have no send method to call regardless of ceiling. That is the intended conservative posture: build adapters stay structurally draft-only; autonomous send is reached through a ceiling-gated MCP tool, never by an adapter that smuggles in a `send`. Whether to ever lift the `build:`-adapter ban is a separate, genuinely ADR-0005-architectural decision, deliberately **not** decided here.
+The consequence: raising the ceiling makes autonomous send real on the **MCP-connector path** (ADR 0020's primary path — an MCP server exposes a `send` tool the gate governs). It does **not** make our `build:` adapters send, because those have no send method to call regardless of ceiling. That is the intended conservative posture: build adapters stay structurally draft-only; autonomous send is reached through a ceiling-gated MCP tool, never by an adapter that smuggles in a `send`. Whether to ever lift the `build:`-adapter ban is a separate architectural decision, deliberately **not** decided here.
 
 ---
 
@@ -114,7 +114,7 @@ The consequence: raising the ceiling makes autonomous send real on the **MCP-con
 
 ### A. Keep ADR 0005 fully absolute; make only non-message action classes configurable
 
-**Rejected by Captain.** This was the narrow reading (exposure-as-config applies to everything except external messaging, which stays hardcoded reviewer-as-sender). It preserves the moat framing untouched but forecloses the autonomous-communication configurations the SKU is meant to sell, and it leaves the product unable to express "this trusted customer's employee may send routine email on its own." The Captain's direction is explicit: _modify the product to make this configurable._
+**Rejected by Captain.** This was the narrow reading (exposure-as-config applies to everything except external messaging, which stays hardcoded draft-only). It preserves the moat framing untouched but forecloses the autonomous-communication configurations the SKU is meant to sell, and it leaves the product unable to express "this trusted customer's employee may send routine email on its own." The Captain's direction is explicit: _modify the product to make this configurable._
 
 ### B. Make exposure configurable but leave initiation fused to it
 
@@ -136,7 +136,7 @@ The consequence: raising the ceiling makes autonomous send real on the **MCP-con
 
 - The product can finally express its own range: from draft-everything (the conservative default) to trusted-autonomous-send, per action class, per customer — the spread ADR 0004's SKU promises.
 - Initiation and exposure decouple cleanly, so "self-starting but always-drafting" and "human-triggered but autonomous-send" both become expressible.
-- Reviewer-as-sender survives as the default and the regulated-vertical floor, so the compliance posture and the law-vertical moat are preserved precisely where they matter, without imposing them on customers who don't need them.
+- Draft-for-review external send survives as an authored option and the regulated-vertical floor, so the compliance posture and the law-vertical moat are preserved precisely where they matter, without imposing them on customers who don't need them.
 - The configuration surface is promoted to a security boundary, which forces the governance discipline (ADR 0026) that the audit found missing (the trust-ceiling change endpoint currently logs intent only, no persist, no audit — `src/pages/api/portal/operator/settings/trust-ceiling.ts:68`).
 
 **Negative / accepted.**
@@ -184,7 +184,7 @@ How we know we are following this decision:
 ## References
 
 - [ADR 0004 — Productized Operator offering](./0004-productized-operator-offering.md) (the SKU whose range this unblocks)
-- [ADR 0005 — Reviewer-as-Sender](./0005-reviewer-as-sender.md) (amended: declassified from architectural-absolute to default + vertical-pack-lockable floor; identity/persona split, drafts mechanism, and compliance reasoning preserved)
+- [ADR 0005 — External-Send Identity](./0005-external-send-identity.md) (amended: declassified from architectural-absolute to default + vertical-pack-lockable floor; identity/persona split, drafts mechanism, and compliance reasoning preserved)
 - [ADR 0011 — Multi-persona per customer](./0011-multi-persona-per-customer.md) (internal/external persona identity)
 - [ADR 0022 — Vertical pack architecture](./0022-vertical-pack-architecture.md) (the compliance-constraint / floor mechanism)
 - [ADR 0026 — Config surface is a security boundary](./0026-config-surface-is-a-security-boundary.md) (companion; governs how a ceiling raise is persisted and audited)
@@ -192,4 +192,4 @@ How we know we are following this decision:
 - `operator/adapter/trust_ceiling.py` (the `enforce()` logic and `ActionClass` enum)
 - `operator/safety-substrate/tests/test_invariant_2_no_external_send_without_confirmation.py` (the invariant being reshaped)
 - `src/lib/operator/customer-yaml/types.ts`, `sections-personas.ts` (the ceiling vocabulary and validator)
-- [Issue #828](https://github.com/venturecrane/ss-console/issues/828) (reviewer-as-sender origin)
+- [Issue #828](https://github.com/venturecrane/ss-console/issues/828) (external-send identity origin)

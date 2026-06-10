@@ -39,7 +39,7 @@ All four functions present to the human principal (ADR 0011's principal role) as
 
 ### 2. Review: the draft queue is the human-in-the-loop realization
 
-The draft-for-review queue is where `draft_for_review`-ceilinged output (ADR 0025) lands for human review, edit, and send (reviewer-as-sender default, ADR 0005). "Teach" feeds reviewer edits back as voice/behavior signal (ADR 0028 voice, ADR 0016 memory). When ADR 0025 configures an action class to autonomous, items of that class do not queue — but the queue remains the surface for everything still gated. The live populating bridge (#821) is the remaining build.
+The draft-for-review queue is where `draft_for_review`-ceilinged output (ADR 0025) lands for human review, edit, and send (draft-for-review posture, ADR 0035). "Teach" feeds reviewer edits back as voice/behavior signal (ADR 0028 voice, ADR 0016 memory). When ADR 0025 configures an action class to autonomous, items of that class do not queue — but the queue remains the surface for everything still gated. The live populating bridge (#821) is the remaining build.
 
 ### 3. Memory control: mirror, don't gate — dismissal removes
 
@@ -88,13 +88,13 @@ Nothing the agent does can drive a control-plane act. Proposals from the agent (
 
 1. Review, memory control, config, and lifecycle present as one principal-authenticated surface with a shared audit guarantee.
 2. Every state-changing control-plane act writes a principal-attributed entry to the immutable audit log.
-3. Draft items populate from the live runtime (#821 bridge); send is reviewer-as-sender by default; teach feeds voice/memory.
+3. Draft items populate from the live runtime (#821 bridge); send routes to draft by default; teach feeds voice/memory.
 4. Dismissing a memory physically removes it from both the mirror (`dismissed_at`/`active`) and Honcho.
 5. No agent/tool/prompt code path performs a control-plane act; the agent can only propose items for the principal to act on.
 
 ## References
 
-- [ADR 0005 — Reviewer-as-Sender](./0005-reviewer-as-sender.md) (draft review → send is the reviewer-as-sender realization)
+- [ADR 0005 — External-send identity](./0005-external-send-identity.md) (draft review → send is the draft-for-review realization)
 - [ADR 0011 — Multi-persona per customer](./0011-multi-persona-per-customer.md) (principal role; principal-only authority acts)
 - [ADR 0016 — Honcho disposition](./0016-honcho-disposition.md) (mirror, don't gate; dismissal = physical DELETE)
 - [ADR 0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) / [ADR 0026](./0026-config-surface-is-a-security-boundary.md) (the authority function operated here) / [ADR 0029](./0029-workforce-model-inter-employee-mediation.md) (roster surfaces here)

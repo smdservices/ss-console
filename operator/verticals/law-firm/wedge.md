@@ -6,7 +6,7 @@ Method: [ADR 0038](../../../docs/adr/0038-operator-vertical-delivery-method.md).
 
 ## The named job
 
-> **Move a new inquiry to an active, current matter — unassisted.** Answer the new-client inquiry, book the consult, chase the signed engagement, answer "where are we," watch the trust balance, and nudge the matter gone quiet. All connective work, never legal substance; every external message under reviewer-as-sender ([ADR 0005](../../../docs/adr/0005-reviewer-as-sender.md)).
+> **Move a new inquiry to an active, current matter — unassisted.** Answer the new-client inquiry, book the consult, chase the signed engagement, answer "where are we," watch the trust balance, and nudge the matter gone quiet. All connective work, never legal substance; every external message under draft-for-review external send ([ADR 0005](../../../docs/adr/0005-external-send-identity.md)).
 
 "Unassisted" is the bar: the loop completes its named job end-to-end on its own, with a human reviewing what goes out — not a human bridging steps inside it. If a human has to manually do a step a deferred skill would have done, the wedge is mis-cut (ADR 0038 tripwire).
 
@@ -29,7 +29,7 @@ The wedge needs two spine skills: one to route inbound mail to the right wedge s
 
 - **`inbox-triage` is customer-zero's** (`customer: smd` — Gmail, `smdcrane@agentmail.to`, Scott's voice). **`status-report-assembler` is marketing's** (`vertical: marketing-agency` — Asana/GA4/paid-media, client-facing weekly reports). Neither is a generic spine; the skills dir is keyed by `name:`, so law cannot overload either.
 - **Law's spine, authored as purpose-built skills** (`operator/skills/`):
-  - **`matter-inbox-router`** (`vertical: law-firm`) — classifies inbound firm mail and routes each message to the wedge skill that owns it (intake / scheduler / engagement-chaser / status-responder / trust-nudge), conflict-cross-check-first, UPL-safe. It **dispatches, it does not draft** — the routed-to skill drafts under reviewer-as-sender.
+  - **`matter-inbox-router`** (`vertical: law-firm`) — classifies inbound firm mail and routes each message to the wedge skill that owns it (intake / scheduler / engagement-chaser / status-responder / trust-nudge), conflict-cross-check-first, UPL-safe. It **dispatches, it does not draft** — the routed-to skill drafts under the draft-for-review posture.
   - **`matter-status-digest`** (`vertical: law-firm`) — assembles the internal "state of the practice" digest from **Clio reads** (open-by-stage, upcoming dates, quiet matters via the `stalled-matter-nudge` recency model, low-trust via LawPay read, held matters), internal-only, reports state and never prescribes a legal next step.
 - **Selector check still holds:** the routing rubric targets the six wedge skills explicitly; the `matter-status-responder` (reactive, one client) vs. `matter-status-digest` (proactive, the principal) adjacency is a clean directional split, not an overlap.
 - **Shared-core note (ADR 0038 §7):** both carry a frontmatter shared-core-candidate marker. The common router/digest core is **earned at vertical-2 (marketing), not designed up front** — extract it from the law/marketing duplication then (rule-of-three). Until then these are the law delta.
@@ -66,7 +66,7 @@ Any violation on any fixture → `fails`, no recovery:
 1. **UPL / no legal advice** — connective work only; never "you have a case," a recommended course, or legal substance.
 2. **Conflict detect-and-halt** — surfaced hit halts the chain; clearance is human; no auto-clear.
 3. **Trust funds read-only** — report balances; **zero fund-movement tool calls**, enforced independently of adapter capability.
-4. **Reviewer-as-sender** — client- and tribunal-bound mail ships under a human reviewer's identity; non-raisable floor.
+4. **External-send draft floor** — client- and tribunal-bound mail ships under a human reviewer's identity; non-raisable floor.
 5. **Privilege** — privileged content stays inside firm surfaces; no matter detail to a referrer/third party without consent.
 
 ## Scope boundary — what this build delivers (ADR 0038 steps 1–3)

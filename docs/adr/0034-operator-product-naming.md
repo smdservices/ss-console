@@ -17,11 +17,11 @@ related-adr: 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0031
 
 ## Context
 
-"Operator" was the working name from the first productization (ADR 0004, 2026-05-13). It carried an implicit posture: a staffer that waits to be assigned work and drafts for a human to send. That posture was literally true under the original [ADR 0005](./0005-reviewer-as-sender.md) holding ("reviewer-as-sender is architectural, not configurable" — the agent cannot send).
+"Operator" was the working name from the first productization (ADR 0004, 2026-05-13). It carried an implicit posture: a staffer that waits to be assigned work and drafts for a human to send. That posture was literally true under the original [ADR 0005](./0005-external-send-identity.md) holding ("external send is architectural, not configurable" — the agent cannot send).
 
 The architecture has since moved past that posture:
 
-- [ADR 0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) made autonomy a **configurable per-action-class ceiling** (initiation and exposure as independent axes) and removed the hardcoded refusal of autonomous external send. [ADR 0035](./0035-no-imposed-entitlement-defaults.md) then removed any imposed default: reviewer-as-sender is **one authored option** (and a vertical-pack-lockable constraint where pinned), not a default — unauthored external actions are fail-closed.
+- [ADR 0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) made autonomy a **configurable per-action-class ceiling** (initiation and exposure as independent axes) and removed the hardcoded refusal of autonomous external send. [ADR 0035](./0035-no-imposed-entitlement-defaults.md) then removed any imposed default: draft-for-review external send is **one authored option** (and a vertical-pack-lockable constraint where pinned), not a default — unauthored external actions are fail-closed.
 - [ADR 0031](./0031-content-sensitivity-send-floor.md) added the **content-sensitivity send floor** (money/contract/scope/legal always drafts) that sits on top of the configurable ceiling.
 - Customer-zero ("Crane") proved autonomous bidirectional email on 2026-06-01: it received an inbound message via webhook and replied in-thread, recipient-locked, with no human in the loop.
 

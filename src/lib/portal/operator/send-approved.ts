@@ -1,8 +1,8 @@
 /**
- * Reviewer-as-sender send pathway for the Operator draft queue.
+ * Draft-for-review external send pathway for the Operator draft queue.
  *
  * This is the send path for messages an engagement routed to
- * `draft_for_review` (per ADR 0005's reviewer-as-sender realization) — one
+ * `draft_for_review` — one
  * authored exposure option, NOT a product default. Per ADR 0035 there is no
  * default posture: an `external_send` authored `autonomous` ships under the
  * agent's own configured identity and never touches this path; an unauthored
@@ -14,8 +14,8 @@
  * via the reviewer's email account, lands in the reviewer's Sent folder, and
  * records the audit event under the reviewer's actor id.
  *
- * The reviewer-as-sender contract is enforced by the function
- * signature: `sendAsReviewer` takes the `Reviewer` identity as a
+ * The draft-for-review contract is enforced by the function
+ * signature: `sendApprovedDraft` takes the `Reviewer` identity as a
  * REQUIRED positional argument. There is no overload that accepts an
  * "agent" or "system" sender. A code path that wants to send without
  * a reviewer cannot compile.
@@ -25,7 +25,7 @@
  * `operator/connectors/ms_graph/send.py:send_draft_as_reviewer`
  * (issue #881, wave-2). The portal Worker reaches the per-customer
  * Hermes Machine via the Hermes bridge that is still tracked in #821.
- * Until the bridge lands, `sendAsReviewer` returns
+ * Until the bridge lands, `sendApprovedDraft` returns
  * `{ status: 'pending_connector' }` and the audit row is queued. The
  * UI flow is fully working end-to-end — the network send is the only
  * stub. When #821 lands, the body of `dispatchViaConnector` swaps in
@@ -212,7 +212,10 @@ export async function hashDraftBody(bodyPlain: string): Promise<string> {
  *                  ADR 0005. There is no overload that allows a null
  *                  or "system" reviewer.
  */
-export async function sendAsReviewer(draft: DraftDetail, reviewer: Reviewer): Promise<SendResult> {
+export async function sendApprovedDraft(
+  draft: DraftDetail,
+  reviewer: Reviewer
+): Promise<SendResult> {
   // ADR 0005 invariant: the reviewer's email is the sending identity.
   // The draft carries a `reviewerEmail` field; it should match the
   // resolved reviewer. If a mismatch occurs (rare — only if the draft
@@ -225,7 +228,7 @@ export async function sendAsReviewer(draft: DraftDetail, reviewer: Reviewer): Pr
       reviewerEmail: reviewer.email,
       sentAt: null,
       error:
-        'Reviewer-as-sender mismatch: this draft was staged into a different reviewer mailbox. ' +
+        'Send identity mismatch: this draft was staged into a different reviewer mailbox. ' +
         'Have the staged reviewer approve it, or ask your principal to re-stage the draft.',
     }
   }
@@ -238,7 +241,7 @@ export async function sendAsReviewer(draft: DraftDetail, reviewer: Reviewer): Pr
  * that holds the reviewer's OAuth grant and invokes
  * `operator/connectors/ms_graph/send.py:send_draft_as_reviewer`.
  *
- * The Python module is the wave-2 reviewer-as-sender concrete impl
+ * The Python module is the wave-2 draft-for-review external send concrete impl
  * (issue #881). The portal Worker cannot reach it directly because
  * the per-customer Machine binding is owned by Hermes; the Hermes
  * bridge is the seam, tracked in #821.
@@ -252,8 +255,8 @@ export async function sendAsReviewer(draft: DraftDetail, reviewer: Reviewer): Pr
  *   Python SendOutcome.status="sent"   -> SendResult.status="sent"
  *   Python SendOutcome.status="failed" -> SendResult.status="failed"
  *
- * The function is split out from `sendAsReviewer` so the validation
- * (reviewer-as-sender invariant, draft integrity) stays in the
+ * The function is split out from `sendApprovedDraft` so the validation
+ * (send-identity invariant, draft integrity) stays in the
  * exported surface and the network call is the one mutation point
  * for the bridge PR.
  */

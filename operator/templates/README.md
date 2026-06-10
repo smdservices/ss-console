@@ -105,7 +105,7 @@ The full step list and the exact failure-handling lives in `bootstrap.sh` itself
 
 Phase 1 runs on Hermes' always-on flat-file memory core (`MEMORY.md`/`USER.md`), which Hermes auto-creates and maintains per profile. This is in-session memory only: the customer-owned explicit memory (D1/R2 rules, person-mappings, voice) is **not on the runtime read path** until the tail-log drain (#821), and inferred memory (Honcho) is **deferred to Phase 2**. A first inbound message proves the harness (quarantine → draft → reviewer), not the product memory.
 
-When Honcho lands in Phase 2, it degrades gracefully if unresponsive mid-session: the agent continues without Honcho writes for that turn, `hermes-smd-audit` emits `MEMORY_PROVIDER_DEGRADED`, and `MEMORY_PROVIDER_RECOVERED` on reconnect. We do not fail-closed — a memory-system bug should not brick the Operator, and reviewer-as-sender catches any single bad draft regardless of memory state. ADR 0016 governs the mirror, the dismissal flow, and TTL archival.
+When Honcho lands in Phase 2, it degrades gracefully if unresponsive mid-session: the agent continues without Honcho writes for that turn, `hermes-smd-audit` emits `MEMORY_PROVIDER_DEGRADED`, and `MEMORY_PROVIDER_RECOVERED` on reconnect. We do not fail-closed — a memory-system bug should not brick the Operator, and draft-for-review external send catches any single bad draft regardless of memory state. ADR 0016 governs the mirror, the dismissal flow, and TTL archival.
 
 ## Updating customer.yaml
 

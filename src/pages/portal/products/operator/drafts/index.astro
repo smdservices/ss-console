@@ -22,7 +22,7 @@ import { env } from 'cloudflare:workers'
  *
  * Per PRD §12, the draft queue is the primary user-facing surface: every
  * message the Operator proposes lands here for human review before it
- * goes out (reviewer-as-sender, ADR 0005). Listing fields per #869:
+ * goes out. Listing fields per #869:
  * sender, recipient, skill, trust-ceiling decision, age, priority.
  *
  * Data source lives on the per-customer Hermes Machine D1 (ADR 0007 +

@@ -284,7 +284,7 @@ export interface PersonaSkill {
    * set keeps its previous meaning. Note (ADR 0035): the scalar does NOT
    * grant `external_send` — an `external_send` with no `action_ceilings`
    * entry is unauthored and fail-closed (refused, no draft). There is no
-   * `draft_for_review` default; reviewer-as-sender is a value authored in
+   * `draft_for_review` default; it is a value authored in
    * `action_ceilings`, not a fallback.
    */
   trust_ceiling: TrustCeiling

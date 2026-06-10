@@ -3,7 +3,7 @@
  * payment-status monitoring.
  *
  * READ-ONLY for transaction data and trust-account state. Writes are
- * limited to DRAFT payment requests (per ADR 0005 reviewer-as-sender).
+ * limited to DRAFT payment requests.
  * The agent does not initiate trust transfers or move money under any
  * configuration. Invariant #3 (no commitment execution) governs.
  *

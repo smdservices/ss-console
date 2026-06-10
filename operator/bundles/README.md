@@ -80,5 +80,5 @@ The schema is canonical in
   Stream D — Skill bundles for multi-step workflows.
 - [ADR 0017](../../docs/adr/0017-skill-curator-disposition.md) — Hermes-
   native skill management surface (`skill_manage`).
-- [ADR 0005](../../docs/adr/0005-reviewer-as-sender.md) — Email drafts
+- [ADR 0005](../../docs/adr/0005-external-send-identity.md) — Email drafts
   land in the partner's drafts folder; no agent send path.

@@ -11,7 +11,7 @@
 -- visibility-and-reversibility, not upfront gating. The agent gets better at
 -- the customer's business over time. The blast radius of agent-authored
 -- skills is bounded by the connector surface in customer.yaml; per-draft
--- safety is held by reviewer-as-sender (ADR 0005).
+-- safety is held by draft-for-review external send (ADR 0005).
 --
 -- Schema is the authoritative copy from ADR 0017 §"Decision".
 --

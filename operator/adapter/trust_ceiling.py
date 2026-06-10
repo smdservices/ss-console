@@ -20,7 +20,7 @@ imposes **no default posture**: `enforce()` resolves the effective ceiling for
 an action as the most restrictive of {vertical floor, the customer's explicit
 per-action override, the unauthored resolution}. The `external_send` class,
 when no ceiling is authored, is **fail-closed** (`refused` — no send, no draft);
-`draft_for_review` (reviewer-as-sender) is a value the engagement authors
+`draft_for_review` is a value the engagement authors
 explicitly, never a fallback. An authored ceiling can never be raised above a
 vertical-pack floor, and the agent can never raise its own ceiling (that is a
 control-plane act, ADR 0026).
@@ -74,7 +74,7 @@ def _unauthored_resolution(action: ActionClass, skill_ceiling: Ceiling) -> Ceili
     """How an action class resolves when the engagement authored NO ceiling for
     it. There is no imposed posture (ADR 0035): an unauthored entitled action is
     fail-closed (`refused`) — it does not execute, and no draft is produced.
-    `draft_for_review` / reviewer-as-sender is a value an engagement authors
+    `draft_for_review` is a value an engagement authors
     explicitly, never a fallback.
 
     `READ` resolves to `autonomous` at this layer because read *breadth* is
@@ -133,7 +133,7 @@ def enforce(
     vertical pack. Both optional — when omitted, the unauthored resolution
     applies (ADR 0035): entitled classes such as `external_send` are
     fail-closed (`refused` — no send, no draft) until the engagement authors a
-    ceiling. Reviewer-as-sender (`draft_for_review`) is an authored value, not a
+    ceiling. The `draft_for_review` posture is an authored value, not a
     fallback posture.
 
     `current_turn_approval` is True iff the operator explicitly approved this
@@ -210,10 +210,10 @@ def enforce(
                 reason="external_send refused: configured ceiling (or vertical floor) is refused",
                 audit_action="refuse",
             )
-        # draft_for_review — an AUTHORED reviewer-as-sender ceiling (not a default)
+        # draft_for_review — an AUTHORED draft_for_review ceiling (not a default)
         return EnforcementDecision(
             allowed=False,
-            reason="external_send at authored draft_for_review ceiling; routing to draft (reviewer-as-sender)",
+            reason="external_send at authored draft_for_review ceiling; routing to draft",
             audit_action="draft",
         )
 

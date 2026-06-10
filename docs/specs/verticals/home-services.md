@@ -3,7 +3,7 @@ title: 'Vertical Spec: Home Services (Operator pack)'
 date: 2026-06-02
 status: draft
 captain: Scott Durgan
-related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
+related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0005-external-send-identity.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
 ---
 
 # Vertical Spec: Home Services
@@ -28,7 +28,7 @@ That coordination is a real seat, the CSR or dispatcher who keeps customers and 
 
 ## Skill catalog
 
-Twelve home-services-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send sits at the reviewer-as-sender floor ([ADR 0005](../../adr/0005-reviewer-as-sender.md)) unless the engagement authors otherwise.
+Twelve home-services-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send sits at the external-send draft floor unless the engagement authors otherwise.
 
 ### Intake and scheduling
 
@@ -83,7 +83,7 @@ Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; 
 - **No diagnosis or pricing commitment** — connective coordination only. The Operator never states what is wrong, what the fix is, or what it will cost as a commitment; the tech diagnoses and the company prices. Estimates and quotes are the company's authored numbers.
 - **Emergency-dispatch escalation (fail-open to a human)** — a possible emergency (gas, fire, flood, no heat in a freeze, electrical hazard) routes to a person and the on-call dispatcher immediately, and life-safety issues are pointed to 911. Never handled async, never diagnosed.
 - **No payment authority** — the Operator follows up on invoices but never processes a payment.
-- **Reviewer-as-sender floor** — external mail ships under a human reviewer's identity ([ADR 0005](../../adr/0005-reviewer-as-sender.md)).
+- **External-send draft floor** — external mail ships under a human reviewer's identity ([ADR 0035](../../adr/0035-no-imposed-entitlement-defaults.md)).
 
 ## Labor-market context (the demand, without presumption)
 

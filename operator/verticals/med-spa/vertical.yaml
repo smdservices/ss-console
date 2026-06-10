@@ -25,7 +25,7 @@ compliance:
   - good-faith-exam-gate # schedule the required exam; never substitute or clear a client for treatment
   - authored-care-only # pre/post-care conveys only the provider's authored instructions
   - adverse-event-escalation-fail-open # possible adverse reactions go to a provider immediately
-  - hipaa-phi-and-reviewer-as-sender # PHI stays in spa surfaces; external mail under a human reviewer (ADR 0005)
+  - hipaa-phi-and-external-send-draft # PHI stays in spa surfaces; external mail under a human reviewer (ADR 0005)
 
 # Reference persona archetypes (templates, not runtime personas). See the
 # brief's "Personas".

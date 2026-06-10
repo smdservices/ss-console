@@ -3,7 +3,7 @@ title: Operator Vertical Delivery Method — Build Through Vertical-One, Wedge-D
 date: 2026-06-03
 status: accepted
 captain: Scott Durgan
-related-adr: 0004-productized-operator-offering.md, 0005-reviewer-as-sender.md, 0006-capability-adapter-pattern.md, 0019-customer-yaml-to-profile-config-translation.md, 0022-vertical-pack-architecture.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0035-no-imposed-entitlement-defaults.md, 0037-operator-thesis.md
+related-adr: 0004-productized-operator-offering.md, 0005-external-send-identity.md, 0006-capability-adapter-pattern.md, 0019-customer-yaml-to-profile-config-translation.md, 0022-vertical-pack-architecture.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0035-no-imposed-entitlement-defaults.md, 0037-operator-thesis.md
 related-issue: '#1206, #1166, #1194'
 ---
 
@@ -29,7 +29,7 @@ This ADR is **not**:
 
 - a multi-vertical framework or template engine designed up front (that is how the prior demo metastasized — see "Template");
 - a commitment to deliver all ~12 skills a vertical's spec declares (see "the wedge");
-- a safety guarantee for non-send or irreversible actions (reviewer-as-sender does not cover them — see "Hardening model");
+- a safety guarantee for non-send or irreversible actions (draft-for-review gating does not cover them — see "Hardening model");
 - a substitute for a client's own legal/compliance review of what their Operator does.
 
 ## Decision — the method
@@ -44,7 +44,7 @@ The build unit is the **wedge**: the core connective loop, roughly five to six o
 
 A wedge is not honest until it **names the concrete, end-to-end client job the loop completes unassisted**, and each deferred skill carries a one-line justification for why it is _off that job's critical path_. This keeps "deliverable" from quietly degrading into "demonstrable."
 
-**Deliverable** means the wedge loop: boots on a per-customer Fly Machine ([ADR 0007](./0007-per-customer-machine-isolation.md)), **completes its named job unassisted**, passes its safety evals, and runs for a real client under reviewer-as-sender gating ([ADR 0005](./0005-reviewer-as-sender.md)).
+**Deliverable** means the wedge loop: boots on a per-customer Fly Machine ([ADR 0007](./0007-per-customer-machine-isolation.md)), **completes its named job unassisted**, passes its safety evals, and runs for a real client under draft-for-review gating ([ADR 0005](./0005-external-send-identity.md)).
 
 ### 3. The per-vertical motion (seven steps)
 
@@ -73,7 +73,7 @@ Everything beyond this floor — signed evidence packets ([#1171](https://github
 
 **Phase 2, the client's environment — fit and real edge cases.** This is the part the prior framing got wrong, and the correction is load-bearing:
 
-> **Reviewer-as-sender ([ADR 0005](./0005-reviewer-as-sender.md)) gates outbound _sends_ only. It is not a blanket production-safety guarantee.**
+> **Draft-for-review gating ([ADR 0005](./0005-external-send-identity.md)) covers outbound _sends_ only. It is not a blanket production-safety guarantee.**
 
 It does **not** cover three residual risk classes:
 
@@ -121,7 +121,7 @@ Falsifiable, stated directionally (concrete thresholds get set once vertical-1 y
 
 - The stub-to-real-vendor divergence is non-trivial on vertical-1 (the fixtures-first model under-fits reality).
 - A deferred skill proves load-bearing at the first client (the wedge cut was wishful).
-- Reviewer-as-sender misses a harm in production — read-side, irreversible non-send, or fatigue (the §5 bounds were insufficient).
+- Draft-for-review gating misses a harm in production — read-side, irreversible non-send, or fatigue (the §5 bounds were insufficient).
 - Vertical-2 cannot extract a shared core (rule-of-three became rule-of-never).
 - The entitlement model cannot express insurance's constraints (the §4 carve-out was still under-modeled).
 

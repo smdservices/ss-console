@@ -693,7 +693,7 @@ export function buildAuditMetadata(
 
 /**
  * Emit the audit event to Worker tail logs. Mirrors the
- * `recordSendApprovedAudit` pattern in `send-as.ts` (PR #960): a single
+ * `recordSendApprovedAudit` pattern in `send-approved.ts` (PR #960): a single
  * `console.info` line prefixed with `audit:customer_yaml_updated` so a
  * Hermes-side drain consumes it and persists to the per-customer D1.
  *
