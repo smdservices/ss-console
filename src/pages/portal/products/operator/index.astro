@@ -249,7 +249,7 @@ const crTone = crStatus === 'filed' ? 'complete' : 'error'
   </head>
   <body class="min-h-screen bg-[color:var(--ss-color-background)]">
     <SkipToMain />
-    <PortalHeader clientName={client.name} />
+    <PortalHeader clientName={client.name} isAdmin={portalData.user.role === 'admin'} />
 
     <PortalTabs pathname={Astro.url.pathname} operatorActive={subscription !== null} />
 
