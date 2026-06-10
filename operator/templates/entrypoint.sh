@@ -15,6 +15,8 @@ log() {
 BROKER_DIR="/opt/data/workspace-broker"
 BROKER_SOCKET="/run/smd-workspace-broker/broker.sock"
 chown -R hermes:hermes /opt/data
+chown hermes:workspace-connectors /opt/data
+chmod 0750 /opt/data
 mkdir -p "${BROKER_DIR}" "$(dirname "${BROKER_SOCKET}")"
 rm -f "${BROKER_DIR}/google.json"
 chown -R workspace-broker:workspace-broker "${BROKER_DIR}"
@@ -68,6 +70,7 @@ done
 unset GOOGLE_SERVICE_ACCOUNT_JSON GOOGLE_TOKEN_JSON GOOGLE_CLIENT_SECRET_JSON
 unset GOOGLE_IMPERSONATE_SUBJECT GOOGLE_OAUTH_SCOPES GOOGLE_TOKEN_PATH
 
+export HOME=/opt/data
 log "Workspace broker started as uid $(id -u workspace-broker); dropping gateway to hermes"
 exec setpriv \
   --reuid=hermes \
