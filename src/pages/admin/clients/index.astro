@@ -1,0 +1,113 @@
+---
+/**
+ * Clients list — the post-acceptance account directory (ADR 0046).
+ *
+ * Entities past the acceptance line (engaged / delivered / ongoing).
+ * Pre-acceptance records live in Leads. Same `entities` table, split by
+ * stage — the surface follows the record's current job.
+ */
+import AdminLayout from '../../../layouts/AdminLayout.astro'
+import { listEntities, ENTITY_VERTICALS, ENTITY_STAGES } from '../../../lib/db/entities'
+import type { EntityStage } from '../../../lib/db/entities'
+import { getInvoiceRollupForEntities } from '../../../lib/db/invoices'
+import { listFleetRoster } from '../../../lib/admin/fleet-roster'
+import { formatMoney } from '../../../lib/admin/client-hub'
+import { env } from 'cloudflare:workers'
+
+const session = Astro.locals.session!
+
+const CLIENT_STAGES: EntityStage[] = ['engaged', 'delivered', 'ongoing']
+
+const [clients, roster] = await Promise.all([
+  listEntities(env.DB, session.orgId, { stages: CLIENT_STAGES }),
+  listFleetRoster(env.DB),
+])
+
+const rollups = await getInvoiceRollupForEntities(
+  env.DB,
+  session.orgId,
+  clients.map((c) => c.id)
+)
+const operatorEntityIds = new Set(roster.map((r) => r.entity_id))
+
+function verticalLabel(v: string | null): string {
+  return ENTITY_VERTICALS.find((x) => x.value === v)?.label ?? v ?? '—'
+}
+function stageLabel(s: string): string {
+  return ENTITY_STAGES.find((x) => x.value === s)?.label ?? s
+}
+
+const COL = 'grid grid-cols-[1.6fr_1.4fr_0.9fr_0.9fr_1fr] gap-4 items-center'
+---
+
+<AdminLayout
+  title="Clients | SMD Services"
+  breadcrumbs={[{ label: 'Clients' }]}
+  maxWidth="max-w-6xl"
+>
+  <div class="mb-5 flex items-end justify-between">
+    <h1 class="text-2xl font-bold text-[color:var(--ss-color-text-primary)]">Clients</h1>
+    <span class="font-['JetBrains_Mono'] text-[13px] text-[color:var(--ss-color-text-muted)]">
+      {clients.length}
+      {clients.length === 1 ? 'client' : 'clients'}
+    </span>
+  </div>
+
+  {
+    clients.length === 0 ? (
+      <p class="border border-[color:var(--ss-color-border)] px-5 py-8 text-center text-[15px] italic text-[color:var(--ss-color-text-secondary)]">
+        No clients yet. A lead becomes a client when its first service is accepted.
+      </p>
+    ) : (
+      <div>
+        <div
+          class={`${COL} border-b border-[color:var(--ss-color-text-primary)] px-3.5 pb-2.5 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]`}
+        >
+          <span>Client</span>
+          <span>Vertical</span>
+          <span>Stage</span>
+          <span>Services</span>
+          <span class="text-right">Outstanding</span>
+        </div>
+        {clients.map((c) => {
+          const rollup = rollups.get(c.id)
+          const outstanding = rollup?.outstanding_amount ?? 0
+          const hasOperator = operatorEntityIds.has(c.id)
+          return (
+            <a
+              href={`/admin/clients/${c.id}`}
+              class={`${COL} border-b border-[color:var(--ss-color-border-subtle)] px-3.5 py-3.5 transition-colors hover:bg-[rgba(26,21,18,0.025)]`}
+            >
+              <span class="font-semibold text-[color:var(--ss-color-text-primary)]">{c.name}</span>
+              <span class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                {verticalLabel(c.vertical)}
+              </span>
+              <span class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-text-secondary)]">
+                {stageLabel(c.stage)}
+              </span>
+              <span>
+                {hasOperator && (
+                  <span class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-primary)]">
+                    Operator
+                  </span>
+                )}
+              </span>
+              <span
+                class:list={[
+                  "text-right font-['JetBrains_Mono'] text-[13px] font-medium",
+                  rollup?.has_overdue
+                    ? 'text-[color:var(--ss-color-error)]'
+                    : outstanding > 0
+                      ? 'text-[color:var(--ss-color-primary)]'
+                      : 'text-[color:var(--ss-color-text-muted)]',
+                ]}
+              >
+                {formatMoney(outstanding)}
+              </span>
+            </a>
+          )
+        })}
+      </div>
+    )
+  }
+</AdminLayout>
