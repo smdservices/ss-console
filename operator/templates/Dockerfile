@@ -109,10 +109,13 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # v0.4.15 makes that contract fail-closed for every callback in the live manager
 # and probes trust through the same block-message interpreter model_tools uses
 # immediately before tool execution.
+# 4985c5d0 adds the ADR 0045 Workspace capability tools, broker grants, paired
+# audit evidence, and a live registry boot gate. Pin the reviewed commit until
+# the corresponding overlay release tag is cut.
 # Superset of v0.4.14 (synchronous voice) / v0.4.13 (audit self-check) /
 # v0.4.12 (activation gate) / v0.4.11 (fan-out).
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="v0.4.15"
+ARG OVERLAY_REF="4985c5d02ddf8e6d9c6699c398273aad23efe7a1"
 
 ARG CUSTOMER_SLUG=customer-zero
 
@@ -158,12 +161,18 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       build-essential curl nodejs npm python3 python3-pip python3-venv \
       ripgrep ffmpeg gcc python3-dev libffi-dev procps git openssh-client \
-      docker-cli tini ca-certificates \
+      docker-cli tini ca-certificates util-linux \
       postgresql-17 postgresql-client-17 redis-server awscli \
  && rm -rf /var/lib/apt/lists/*
 
-# ---------- hermes user ----------
-RUN useradd -u 10000 -m -d /opt/data hermes
+# ---------- runtime principals ----------
+# The gateway and credential broker are distinct non-root principals. The
+# shared group grants socket access only; it grants no credential-file access.
+RUN groupadd -r workspace-connectors \
+ && useradd -u 10000 -m -d /opt/data hermes \
+ && useradd -u 10001 -r -m -d /opt/workspace-broker workspace-broker \
+ && usermod -a -G workspace-connectors hermes \
+ && usermod -a -G workspace-connectors workspace-broker
 COPY --chmod=0755 --from=uv_source /usr/local/bin/uv /usr/local/bin/uvx /usr/local/bin/
 
 WORKDIR /opt/hermes
@@ -206,11 +215,16 @@ RUN uv pip install --no-cache-dir --no-deps -e "."
 RUN uv pip install --no-cache-dir \
       "git+${OVERLAY_REPO}@${OVERLAY_REF}"
 
-# ---------- Gmail reader deps (crane_gmail.py — inbox-triage fetch path) ----------
-# The inbox-triage skill shells to operator/connectors/google/crane_gmail.py
-# to read the principal's Gmail via a user-OAuth token (ADR 0010). These two
-# libraries are all it needs (read/modify; no oauthlib — consent happens off-box).
-RUN uv pip install --no-cache-dir google-api-python-client google-auth
+# ---------- Workspace capability broker ----------
+# Google libraries and credentials live in a broker-only venv. The Hermes venv
+# deliberately has neither, so execute_code and terminal cannot recreate an
+# ambient privileged connector path.
+COPY operator/workspace_broker/ /opt/workspace-broker/workspace_broker/
+RUN uv venv /opt/workspace-broker/.venv \
+ && uv pip install --python /opt/workspace-broker/.venv/bin/python \
+      google-api-python-client google-auth pyyaml \
+ && chmod -R a+rX /opt/workspace-broker \
+ && chown -R root:root /opt/workspace-broker
 
 # ---------- Clio MCP server (law vertical practice-management connector) ----------
 # @oktopeak/clio-mcp (MIT) is a LOCAL stdio MCP server. The overlay (v0.4.6+)
@@ -248,7 +262,11 @@ RUN /opt/hermes/.venv/bin/hermes plugins install \
 # hard-gated on BOTH the fan-out __init__.py and the gateway:startup activation gate
 # (the live boot check, ss-console#1285) so a mis-pinned ref lacking either fails the
 # build instead of shipping a Machine with no live governance gate.
-RUN git clone --depth 1 --branch "${OVERLAY_REF}" "${OVERLAY_REPO}" /app/overlay-pack \
+RUN git init /app/overlay-pack \
+      && cd /app/overlay-pack \
+      && git remote add origin "${OVERLAY_REPO}" \
+      && git fetch --depth 1 origin "${OVERLAY_REF}" \
+      && git checkout --detach FETCH_HEAD \
       && rm -rf /app/overlay-pack/.git \
       && test -f /app/overlay-pack/__init__.py \
       && test -f /app/overlay-pack/hooks/smd-overlay-activation/handler.py
@@ -282,7 +300,8 @@ COPY operator/safety-substrate/ /app/safety-substrate/
 
 # Bootstrap entrypoint
 COPY operator/templates/bootstrap.sh /app/bootstrap.sh
-RUN chmod +x /app/bootstrap.sh
+COPY operator/templates/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/bootstrap.sh /app/entrypoint.sh
 
 # Curator disable guard (ADR 0017). bootstrap.sh step 7b runs this after the
 # overlay materializes profile configs, ensuring the autonomous curator is off
@@ -321,13 +340,9 @@ ENV HERMES_WEB_DIST=/opt/hermes/hermes_cli/web_dist
 
 VOLUME [ "/opt/data" ]
 
-# Drop to non-root for runtime. bootstrap.sh does no root-requiring work:
-# env validation, R2 fetch, safety-substrate python run, hermes-smd bootstrap,
-# and the Hermes gateway all run as the hermes user.
-# Closes semgrep dockerfile.security.last-user-is-root.
-USER hermes
-
 # tini as PID 1: reaps zombies, forwards signals to the foreground child
-# (the Hermes gateway via `exec` in bootstrap.sh) and to any supervised
-# background children (the customer-sync sidecar; Phase 2 adds Honcho).
-ENTRYPOINT [ "/usr/bin/tini", "-g", "--", "/app/bootstrap.sh" ]
+# and starts a root-only launcher. The launcher creates broker-owned runtime
+# paths, starts the broker as uid 10001, strips Google secrets, then execs the
+# existing bootstrap and gateway as uid 10000 with no_new_privs.
+# nosemgrep: dockerfile.security.missing-user-entrypoint.missing-user-entrypoint - Root PID 1 only creates protected paths, starts uid 10001, and execs uid 10000.
+ENTRYPOINT [ "/usr/bin/tini", "-g", "--", "/app/entrypoint.sh" ]

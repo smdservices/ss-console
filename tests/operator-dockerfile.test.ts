@@ -55,8 +55,8 @@ describe('Operator customer Machine Dockerfile', () => {
     ).toBe(true)
   })
 
-  it('pins the fail-closed synchronous-hook release', () => {
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="v0.4.15"')
+  it('pins the broker-capable overlay revision', () => {
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="4985c5d02ddf8e6d9c6699c398273aad23efe7a1"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

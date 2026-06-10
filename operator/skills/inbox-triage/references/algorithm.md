@@ -111,21 +111,19 @@ content; the consolidated note is the deliverable.
 - **Not a real-time skill.** Daily cadence is the design. If Captain wants
   faster triage, that's a different skill.
 
-## Performance budget (post-`execute_code` migration)
+## Performance budget
 
-The fetch step runs inside an `execute_code` block (per ADR 0021 Stream A)
-that calls `terminal` with `google_api.py gmail search` + per-message
-`gmail get`. Only the consolidated JSON of fetched messages enters the
-agent's conversation context — individual message bodies do not appear as
-separate tool results.
+The fetch step uses `workspace_gmail_search` followed by one classified
+`workspace_gmail_get` call per message. Provider responses enter context as
+ordinary tool results. This is an accepted latency and context tradeoff for
+credential mediation; batching must be added broker-side, never by exposing the
+credential to `execute_code`.
 
 Token budget per run (25-message fixture):
 
 - Pre-migration: ~100 tool-call results × ~500 tokens average per message
   body = ~50k tokens of inbound context per run, plus the classification
   reasoning.
-- Post-migration: 1 consolidated JSON blob (~15-25k tokens for 25
-  messages) + the classification reasoning.
-- Acceptance target: ≥50% token reduction vs. pre-migration baseline,
-  measured against the 25-message synthetic fixture used in
-  customer-zero's grading pipeline.
+- Broker migration baseline: up to 26 classified calls for a 25-message run.
+- Acceptance target: the run remains within the model context limit and broker
+  p95 overhead is measured separately from provider latency.
