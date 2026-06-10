@@ -1,13 +1,13 @@
 ---
 name: inbox-triage
 description: Daily Gmail triage with categorized reply drafts for owner.
-version: 0.1.0
+version: 0.2.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
 prerequisites:
   skills: []
-  commands: [python3]
+  commands: []
 metadata:
   hermes:
     tags: [Email, Triage, Draft, SMD, Customer-Zero]
@@ -38,7 +38,10 @@ This is SMD's customer-zero capability. We are using ourselves to learn the deli
 
 ## Prerequisites
 
-Requires the operator's Google CLIs (`/app/connectors/google/crane_gmail.py`, and `crane_calendar.py` for availability lookups) and `python3`. See frontmatter. This skill does NOT use the Hermes-native `google-workspace` skill — that skill is disabled for this customer (it mints an unscoped, send-capable credential); the scope-limited operator path is used instead.
+Requires `workspace_gmail_search`, `workspace_gmail_get`, and
+`workspace_calendar_list`. Do not use the Hermes-native `google-workspace`
+skill, connector CLIs, `terminal`, or `execute_code`. Those paths have no
+Workspace credential.
 
 ## How to Run
 
@@ -62,54 +65,19 @@ hermes run inbox-triage --max 25
 
 ## Procedure
 
-The skill runs in two phases. The mechanical fetch loop runs inside a single `execute_code` block — intermediate per-message tool results never enter the conversation context (ADR 0021 Stream A). Classification, drafting, and the cross-message theme scan stay in the agent's reasoning loop where they belong.
+The skill runs in two phases.
 
-### Phase 1 — Fetch (single `execute_code` block)
+### Phase 1 — Fetch
 
-Invoke `execute_code` with a Python script that does the mechanical work. `crane_gmail.py` is the SMD-maintained Gmail reader (reads the principal's inbox via a user-OAuth token on the volume, ADR 0010; scope `gmail.modify` — read/archive/trash/draft, never send); `terminal` is exposed by `execute_code` (foreground mode only — see Hermes' code-execution docs):
-
-```python
-import json
-import shlex
-
-WINDOW = "newer_than:1d"   # override per `--window` arg
-MAX_MESSAGES = 25          # override per `--max` arg
-GMAIL = "/opt/hermes/.venv/bin/python3 /app/connectors/google/crane_gmail.py"
-
-def run(cmd: str) -> str:
-    """Call into the Hermes-exposed terminal tool. Strips trailing whitespace."""
-    return terminal(cmd).strip()
-
-# 1. Enumerate unread messages in the window.
-search_query = f'is:unread {WINDOW}'
-ids_raw = run(
-    f'{GMAIL} gmail search {shlex.quote(search_query)} --max {MAX_MESSAGES}'
-)
-message_ids = [line.strip() for line in ids_raw.splitlines() if line.strip()]
-
-# 2. Fetch full body for each. Accumulate; do NOT print per-message.
-messages = []
-for mid in message_ids:
-    raw = run(f'{GMAIL} gmail get {shlex.quote(mid)} --format json')
-    try:
-        messages.append(json.loads(raw))
-    except json.JSONDecodeError:
-        # A single bad message must not abort the batch — record + continue.
-        messages.append({"id": mid, "error": "parse_failed", "raw_excerpt": raw[:200]})
-
-# 3. Emit ONE JSON document. This is the only thing that enters context.
-print(json.dumps({
-    "window": WINDOW,
-    "fetched": len(messages),
-    "messages": messages,
-}, ensure_ascii=False))
-```
-
-Only the final `print()` output enters the conversation context — typically ~15-25k tokens for 25 messages instead of ~100 separate tool-call result blocks. The per-message body parsing and accumulation happens in the child process and stays there.
+1. Call `workspace_gmail_search` with query `is:unread <window>` and the
+   requested maximum.
+2. Call `workspace_gmail_get` for each returned message ID.
+3. Continue past an individual read failure and record the failed ID. Never
+   replace source data with inferred fields.
 
 ### Phase 2 — Reason (agent, in-context)
 
-The agent reads the JSON returned by `execute_code` and, per the rules in `references/algorithm.md`:
+The agent reads the broker tool results and, per the rules in `references/algorithm.md`:
 
 1. **Classify each message** along three axes — `action_class`, `priority`, `confidence`. See `references/categorization-rubric.md`.
 2. **Draft replies** for `REPLY`-classified messages, matching Captain's voice per `references/voice.md`. Drafts touching money / scope / commitment are forced `LOW` confidence regardless of prose quality.
@@ -125,9 +93,9 @@ Customer-zero ceiling for SMD: **draft only.**
 
 The agent MAY:
 
-- Read mail (`gmail.readonly`).
+- Read mail through `workspace_gmail_*`.
 - Write to the local file system inside `~/.hermes/customer_notes/smd/`.
-- Use `crane_calendar.py list-events` (read-only) to check Captain's availability before suggesting meeting times.
+- Use `workspace_calendar_list` to check Captain's availability.
 
 The agent MUST NOT, without explicit Captain instruction in the current invocation:
 
@@ -176,7 +144,7 @@ A successful triage run satisfies all of:
 
 ## References
 
-- `references/algorithm.md` — detailed per-message classification, draft, and cross-message theme rules (ADR 0021 Stream A — extracted from the prior `## Procedure` section so the prose stays available for graders after the `execute_code` migration)
+- `references/algorithm.md` — detailed per-message classification, draft, and cross-message theme rules
 - `references/voice.md` — Captain's voice rules, with positive and negative examples
 - `references/output-format.md` — exact structure of the daily triage note
 - `references/categorization-rubric.md` — how the agent decides between action classes

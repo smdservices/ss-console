@@ -179,102 +179,45 @@ elif [ -f "${CUSTOMER_YAML}" ]; then
 else
   die "customer.yaml not on volume and R2 fetch failed (${R2_CUSTOMER_YAML_URI})"
 fi
+chmod 0644 "${CUSTOMER_YAML}" \
+  || die "customer.yaml must be readable by the separate Workspace broker principal"
 
 # ============================================================================
-# Step 2b: materialize Google credentials to the volume (if provided)
+# Step 2b: verify mediated Workspace broker readiness
 # ============================================================================
-# Google connectors read /opt/data/oauth/google.json through _google_auth.py.
-# For the external-customer Workspace path, this file is a customer-owned
-# service-account key authorized with domain-wide delegation. For the legacy
-# user-OAuth path, it is the google-auth authorized-user token relayed by the
-# portal OAuth flow. Both Fly secrets are base64-encoded so JSON survives secret
-# storage intact. Write 0600, hermes-owned.
-GOOGLE_TOKEN_FILE="/opt/data/oauth/google.json"
-GOOGLE_AUTH_MODE="$(/opt/hermes/.venv/bin/python3 - "${CUSTOMER_YAML}" <<'PY'
-import sys
-import yaml
-
-data = yaml.safe_load(open(sys.argv[1])) or {}
-ga = data.get("google_auth") or {}
-print(ga.get("mode") or "user_oauth")
-PY
-)" || die "failed to read google_auth.mode from customer.yaml"
-
-if [ "${GOOGLE_AUTH_MODE}" = "dwd" ]; then
-  [ -n "${GOOGLE_SERVICE_ACCOUNT_JSON:-}" ] \
-    || die "google_auth.mode=dwd requires GOOGLE_SERVICE_ACCOUNT_JSON Fly secret"
-  mkdir -p /opt/data/oauth
-  ( umask 077; printf '%s' "${GOOGLE_SERVICE_ACCOUNT_JSON}" | base64 -d > "${GOOGLE_TOKEN_FILE}" ) \
-    || die "GOOGLE_SERVICE_ACCOUNT_JSON is not valid base64 (expected base64-encoded service-account JSON)"
-  if ! /opt/hermes/.venv/bin/python3 - "${GOOGLE_TOKEN_FILE}" <<'PY'
+# entrypoint.sh started the broker as a separate uid and removed every Google
+# credential variable from this gateway process. The broker reads the authored
+# subject/scopes directly from customer.yaml and is the only process permitted
+# to read its credential file.
+[ -n "${SMD_WORKSPACE_BROKER_SOCKET:-}" ] \
+  || die "SMD_WORKSPACE_BROKER_SOCKET is unset; refusing ambient Workspace auth"
+[ -S "${SMD_WORKSPACE_BROKER_SOCKET}" ] \
+  || die "Workspace broker socket missing: ${SMD_WORKSPACE_BROKER_SOCKET}"
+if ! /opt/hermes/.venv/bin/python3 - \
+  "${SMD_WORKSPACE_BROKER_SOCKET}" "${CUSTOMER_YAML}" <<'PY'
 import json
+import socket
 import sys
 
-with open(sys.argv[1], encoding="utf-8") as fh:
-    data = json.load(fh)
-if data.get("type") != "service_account":
-    raise SystemExit("not a service_account key")
-if not data.get("client_email") or not data.get("private_key"):
-    raise SystemExit("missing service-account key fields")
-PY
-  then
-    die "GOOGLE_SERVICE_ACCOUNT_JSON must decode to a Google service-account key"
-  fi
-  log "Google service-account credential materialized to ${GOOGLE_TOKEN_FILE} (0600)"
-elif [ -n "${GOOGLE_TOKEN_JSON:-}" ]; then
-  mkdir -p /opt/data/oauth
-  ( umask 077; printf '%s' "${GOOGLE_TOKEN_JSON}" | base64 -d > "${GOOGLE_TOKEN_FILE}" ) \
-    || die "GOOGLE_TOKEN_JSON is not valid base64 (expected base64-encoded google.json)"
-  log "Google user-OAuth token materialized to ${GOOGLE_TOKEN_FILE} (0600)"
-else
-  log "No Google credential secret set; Google Workspace connectors unavailable this boot"
-fi
-
-# ============================================================================
-# Step 2c: materialize Google DWD env from customer.yaml (if mode: dwd)
-# ============================================================================
-# When customer.yaml authors `google_auth.mode: dwd`, the Google connector CLIs
-# run in service-account / domain-wide-delegation mode: _google_auth.credentials
-# branches on the on-disk key's "type" and reads the impersonation subject +
-# scopes from the environment, FAIL-CLOSED (ss-console #1212 / #1213). Export
-# them here from customer.yaml so the gateway (Step 11, same shell) — and the
-# execute_code subprocesses it spawns to run the connectors — inherit them.
-# No-op for the default user-OAuth customer: nothing is exported and the
-# connectors read the relayed authorized-user token at ${GOOGLE_TOKEN_FILE}.
-# Tab-delimited key/value so the space-joined scope list survives intact.
-GOOGLE_DWD_ENV="$(/opt/hermes/.venv/bin/python3 - "${CUSTOMER_YAML}" <<'PY'
-import sys
 import yaml
 
-data = yaml.safe_load(open(sys.argv[1])) or {}
-ga = data.get("google_auth") or {}
-if (ga.get("mode") or "user_oauth") != "dwd":
-    sys.exit(0)
-subject = (ga.get("subject") or "").strip()
-scopes = [s for s in (ga.get("scopes") or []) if isinstance(s, str) and s.strip()]
-# Fail-closed parity with the validator + connector: emit nothing on a partial
-# DWD block so the connector refuses (no subject/scopes) rather than acting
-# under a wrong/empty identity.
-if not subject or not scopes:
-    sys.exit(0)
-print("GOOGLE_IMPERSONATE_SUBJECT\t%s" % subject)
-print("GOOGLE_OAUTH_SCOPES\t%s" % " ".join(scopes))
+socket_path, customer_path = sys.argv[1:]
+with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+    client.settimeout(5)
+    client.connect(socket_path)
+    client.sendall(b'{"action":"health"}\n')
+    response = json.loads(client.makefile("rb").readline())
+if response.get("ok") is not True or response.get("customer_ready") is not True:
+    raise SystemExit("broker health check failed")
+customer = yaml.safe_load(open(customer_path, encoding="utf-8")) or {}
+google_auth = customer.get("google_auth") or {}
+if google_auth and response.get("credential_ready") is not True:
+    raise SystemExit("customer has google_auth but broker has no credential")
 PY
-)" || die "failed to read google_auth from customer.yaml"
-if [ "${GOOGLE_AUTH_MODE}" = "dwd" ] && [ -z "${GOOGLE_DWD_ENV}" ]; then
-  die "google_auth.mode=dwd requires google_auth.subject and google_auth.scopes"
+then
+  die "Workspace broker health/readiness check failed"
 fi
-if [ -n "${GOOGLE_DWD_ENV}" ]; then
-  while IFS="$(printf '\t')" read -r _key _val; do
-    [ -n "${_key}" ] || continue
-    export "${_key}=${_val}"
-    log "Google DWD env exported: ${_key}"
-  done <<EOF
-${GOOGLE_DWD_ENV}
-EOF
-else
-  log "google_auth.mode != dwd (or unset); Google connectors use the user-OAuth token"
-fi
+log "Workspace broker ready; gateway environment is credential-free"
 
 # ============================================================================
 # Step 2d: seed the Clio MCP OAuth token to the volume (if Clio connector enabled)
