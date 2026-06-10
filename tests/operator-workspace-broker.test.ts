@@ -24,6 +24,13 @@ describe('ADR 0045 Workspace capability broker', () => {
     expect(entrypoint).toContain('rm -f "${BROKER_DIR}/google.json"')
     expect(entrypoint).toContain('chmod 0700 "${BROKER_DIR}"')
     expect(entrypoint).toContain('chown workspace-broker:workspace-broker "${BROKER_DIR}"')
+    expect(entrypoint).toContain(
+      'chown workspace-broker:workspace-broker "${SMD_WORKSPACE_CREDENTIAL_PATH}"'
+    )
+    expect(entrypoint).toContain('chmod 0600 "${SMD_WORKSPACE_CREDENTIAL_PATH}"')
+    expect(entrypoint).toContain(
+      'materialize_credential(Path(os.environ["SMD_WORKSPACE_CREDENTIAL_PATH"]))'
+    )
   })
 
   it('strips every Google credential from the gateway environment', () => {
@@ -34,6 +41,12 @@ describe('ADR 0045 Workspace capability broker', () => {
       'unset GOOGLE_IMPERSONATE_SUBJECT GOOGLE_OAUTH_SCOPES GOOGLE_TOKEN_PATH'
     )
     expect(bootstrap).not.toContain('GOOGLE_TOKEN_FILE="/opt/data/oauth/google.json"')
+  })
+
+  it('does not pass Google credentials into the broker child environment', () => {
+    const brokerChild = entrypoint.slice(entrypoint.indexOf('setpriv'))
+    expect(brokerChild).not.toContain('GOOGLE_SERVICE_ACCOUNT_JSON=')
+    expect(brokerChild).not.toContain('GOOGLE_TOKEN_JSON=')
   })
 
   it('does not install Google provider libraries into the Hermes venv', () => {
