@@ -55,6 +55,10 @@ describe('Operator customer Machine Dockerfile', () => {
     ).toBe(true)
   })
 
+  it('pins the synchronous voice-hook release', () => {
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="v0.4.14"')
+  })
+
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
     // The specific regression: a `|| echo "WARN ...; continuing"` on the plugin
     // install line that let a harness-less image build green.

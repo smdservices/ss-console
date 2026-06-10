@@ -103,9 +103,13 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # confirms a row lands in audit_log) — the ss-console#1285 Q2 question answered
 # self-provingly at boot. Fail-closed on any check (os._exit). The pre-gateway invariant
 # 8 asserts registration/logic; the live gate asserts the live-turn + audit property.
-# Superset of v0.4.12 (activation gate) / v0.4.11 (fan-out).
+# v0.4.14 makes the voice pre/post LLM hooks synchronous, matching Hermes'
+# synchronous PluginManager dispatcher. Earlier versions returned coroutine objects,
+# so live turns skipped voice-context injection and logged unawaited-coroutine warnings.
+# Superset of v0.4.13 (audit self-check) / v0.4.12 (activation gate) /
+# v0.4.11 (fan-out).
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="v0.4.13"
+ARG OVERLAY_REF="v0.4.14"
 
 ARG CUSTOMER_SLUG=customer-zero
 
