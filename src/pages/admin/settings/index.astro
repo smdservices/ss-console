@@ -1,0 +1,57 @@
+---
+/**
+ * Settings — utility & configuration hub (ADR 0046).
+ *
+ * Home for the surfaces demoted from the top-level nav: lead-generator
+ * config and the follow-up cadence layer (sub-functions of the funnel,
+ * not product lines), plus connectors. Nothing is removed — these stay
+ * one click away.
+ */
+import AdminLayout from '../../../layouts/AdminLayout.astro'
+
+const links: { label: string; href: string; desc: string }[] = [
+  {
+    label: 'Lead generators',
+    href: '/admin/generators',
+    desc: 'Signal pipelines that feed Leads — enable/disable, last-run status.',
+  },
+  {
+    label: 'Follow-ups',
+    href: '/admin/follow-ups',
+    desc: 'Follow-up cadences across leads and clients.',
+  },
+  {
+    label: 'Pipelines',
+    href: '/admin/settings/pipelines',
+    desc: 'Pipeline configuration.',
+  },
+  {
+    label: 'Google connect',
+    href: '/admin/settings/google-connect',
+    desc: 'Connect Google Workspace for calendar and mail.',
+  },
+]
+---
+
+<AdminLayout
+  title="Settings | SMD Services"
+  breadcrumbs={[{ label: 'Settings' }]}
+  maxWidth="max-w-5xl"
+>
+  <h1 class="mb-5 text-2xl font-bold text-[color:var(--ss-color-text-primary)]">Settings</h1>
+  <div class="border-t border-[color:var(--ss-color-text-primary)]">
+    {
+      links.map((l) => (
+        <a
+          href={l.href}
+          class="flex items-baseline justify-between gap-6 border-b border-[color:var(--ss-color-border-subtle)] px-3.5 py-4 transition-colors hover:bg-[rgba(26,21,18,0.025)]"
+        >
+          <span class="font-semibold text-[color:var(--ss-color-text-primary)]">{l.label}</span>
+          <span class="flex-1 text-right text-sm text-[color:var(--ss-color-text-secondary)]">
+            {l.desc}
+          </span>
+        </a>
+      ))
+    }
+  </div>
+</AdminLayout>
