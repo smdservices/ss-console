@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -13,16 +14,20 @@ from workspace_broker.server import Broker, GrantStore
 
 
 class _Operations:
+    dispatch_count = 0
+
     @staticmethod
     def supports(operation: str) -> bool:
         return operation == "workspace_docs_create"
 
-    @staticmethod
-    def dispatch(operation: str, payload: dict) -> dict:
+    @classmethod
+    def dispatch(cls, operation: str, payload: dict) -> dict:
+        cls.dispatch_count += 1
         return {"operation": operation, "title": payload["title"]}
 
 
 def _broker(tmp_path: Path) -> Broker:
+    _Operations.dispatch_count = 0
     broker = Broker.__new__(Broker)
     broker.customer_slug = "smd"
     broker.gateway_pid = 42
@@ -69,6 +74,79 @@ def test_grant_rejects_operation_widening() -> None:
         )
 
 
+def test_grant_rejects_forged_signature() -> None:
+    store = GrantStore()
+    expected = {
+        "customer_slug": "smd",
+        "operation": "workspace_docs_create",
+        "payload_digest": "digest-1",
+    }
+    token = store.mint(expected)
+    encoded, signature = token.split(".")
+    replacement = "A" if signature[0] != "A" else "B"
+    forged = f"{encoded}.{replacement}{signature[1:]}"
+
+    with pytest.raises(ValueError, match="invalid grant signature"):
+        store.consume(forged, expected)
+
+
+def test_grant_rejects_payload_substitution() -> None:
+    store = GrantStore()
+    token = store.mint(
+        {
+            "customer_slug": "smd",
+            "operation": "workspace_docs_create",
+            "payload_digest": "digest-1",
+        }
+    )
+
+    with pytest.raises(ValueError, match="payload_digest mismatch"):
+        store.consume(
+            token,
+            {
+                "customer_slug": "smd",
+                "operation": "workspace_docs_create",
+                "payload_digest": "digest-2",
+            },
+        )
+
+
+def test_grant_rejects_cross_customer_use() -> None:
+    store = GrantStore()
+    token = store.mint(
+        {
+            "customer_slug": "smd",
+            "operation": "workspace_docs_create",
+            "payload_digest": "digest-1",
+        }
+    )
+
+    with pytest.raises(ValueError, match="customer_slug mismatch"):
+        store.consume(
+            token,
+            {
+                "customer_slug": "another-customer",
+                "operation": "workspace_docs_create",
+                "payload_digest": "digest-1",
+            },
+        )
+
+
+def test_grant_rejects_expired_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    store = GrantStore()
+    expected = {
+        "customer_slug": "smd",
+        "operation": "workspace_docs_create",
+        "payload_digest": "digest-1",
+    }
+    token = store.mint(expected)
+    expired_time = time.time() + 60
+    monkeypatch.setattr(time, "time", lambda: expired_time)
+
+    with pytest.raises(ValueError, match="expired grant"):
+        store.consume(token, expected)
+
+
 def test_broker_rejects_non_gateway_peer(tmp_path: Path) -> None:
     broker = _broker(tmp_path)
 
@@ -81,6 +159,40 @@ def test_broker_rejects_non_gateway_peer(tmp_path: Path) -> None:
             },
             peer_pid=43,
         )
+
+
+def test_broker_rejects_missing_grant_before_provider_execution(tmp_path: Path) -> None:
+    broker = _broker(tmp_path)
+
+    with pytest.raises(ValueError, match="malformed grant"):
+        broker.handle(
+            {
+                "action": "execute",
+                "operation": "workspace_docs_create",
+                "payload": {"title": "Test"},
+            },
+            peer_pid=42,
+        )
+
+    assert _Operations.dispatch_count == 0
+
+
+def test_broker_rejects_unsupported_operation_before_provider_execution(
+    tmp_path: Path,
+) -> None:
+    broker = _broker(tmp_path)
+
+    with pytest.raises(ValueError, match="unsupported Workspace operation"):
+        broker.handle(
+            {
+                "action": "authorize",
+                "operation": "workspace_gmail_send",
+                "payload": {"to": "principal@example.com"},
+            },
+            peer_pid=42,
+        )
+
+    assert _Operations.dispatch_count == 0
 
 
 def test_broker_authorize_execute_writes_receipt_journal(tmp_path: Path) -> None:
