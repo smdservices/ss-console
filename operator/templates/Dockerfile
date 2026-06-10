@@ -109,13 +109,13 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # v0.4.15 makes that contract fail-closed for every callback in the live manager
 # and probes trust through the same block-message interpreter model_tools uses
 # immediately before tool execution.
-# 4985c5d0 adds the ADR 0045 Workspace capability tools, broker grants, paired
+# aa0cc7bc adds the ADR 0045 Workspace capability tools, broker grants, paired
 # audit evidence, and a live registry boot gate. Pin the reviewed commit until
 # the corresponding overlay release tag is cut.
 # Superset of v0.4.14 (synchronous voice) / v0.4.13 (audit self-check) /
 # v0.4.12 (activation gate) / v0.4.11 (fan-out).
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="4985c5d02ddf8e6d9c6699c398273aad23efe7a1"
+ARG OVERLAY_REF="aa0cc7bc04a52407817b2ea0a139f4c08f5bd33d"
 
 ARG CUSTOMER_SLUG=customer-zero
 
