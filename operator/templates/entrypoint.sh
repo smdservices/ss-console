@@ -14,9 +14,10 @@ log() {
 
 BROKER_DIR="/opt/data/workspace-broker"
 BROKER_SOCKET="/run/smd-workspace-broker/broker.sock"
+chown -R hermes:hermes /opt/data
 mkdir -p "${BROKER_DIR}" "$(dirname "${BROKER_SOCKET}")"
 rm -f "${BROKER_DIR}/google.json"
-chown workspace-broker:workspace-broker "${BROKER_DIR}"
+chown -R workspace-broker:workspace-broker "${BROKER_DIR}"
 chmod 0700 "${BROKER_DIR}"
 chown workspace-broker:workspace-connectors "$(dirname "${BROKER_SOCKET}")"
 chmod 2750 "$(dirname "${BROKER_SOCKET}")"
