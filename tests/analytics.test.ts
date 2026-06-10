@@ -248,7 +248,7 @@ describe('analytics: dashboard page', () => {
   it('has breadcrumb navigation', () => {
     const code = source()
     expect(code).toContain('/admin')
-    expect(code).toContain('Dashboard')
+    expect(code).toContain('Home')
     expect(code).toContain('Analytics')
   })
 
@@ -289,8 +289,12 @@ describe('analytics: dashboard page', () => {
 describe('analytics: admin dashboard integration', () => {
   const source = () => readFileSync(resolve('src/pages/admin/index.astro'), 'utf-8')
 
-  it('admin dashboard imports getPipelineConversion', () => {
-    expect(source()).toContain('getPipelineConversion')
+  it('admin home surfaces the acquisition pipeline', () => {
+    // Home (the launchpad) composes its own acquisition view from entity
+    // stages rather than the analytics conversion report (ADR 0046).
+    const code = source()
+    expect(code).toContain('Acquisition')
+    expect(code).toContain('/admin/entities')
   })
 
   it('admin layout shows Analytics nav link', () => {
@@ -299,15 +303,15 @@ describe('analytics: admin dashboard integration', () => {
     expect(layout).toContain('/admin/analytics')
   })
 
-  it('admin dashboard shows pipeline total metric', () => {
-    expect(source()).toContain('totalPipeline')
+  it('admin home shows the acquisition lead metric', () => {
+    expect(source()).toContain('leadsActive')
   })
 
-  it('admin dashboard shows active engagements metric', () => {
-    expect(source()).toContain('activeEngagements')
+  it('admin home shows the delivery (in-motion) metric', () => {
+    expect(source()).toContain('deliveryStats')
   })
 
-  it('admin dashboard shows revenue report', () => {
-    expect(source()).toContain('getRevenueReport')
+  it('admin home shows the one-time revenue totals', () => {
+    expect(source()).toContain('oneTimeTotals')
   })
 })
