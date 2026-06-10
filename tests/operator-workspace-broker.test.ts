@@ -22,6 +22,8 @@ describe('ADR 0045 Workspace capability broker', () => {
   it('keeps broker code root-owned and credentials broker-only', () => {
     expect(dockerfile).toContain('chown -R root:root /opt/workspace-broker')
     expect(entrypoint).toContain('chown -R hermes:hermes /opt/data')
+    expect(entrypoint).toContain('chown hermes:workspace-connectors /opt/data')
+    expect(entrypoint).toContain('chmod 0750 /opt/data')
     expect(entrypoint).toContain('rm -f "${BROKER_DIR}/google.json"')
     expect(entrypoint).toContain('chmod 0700 "${BROKER_DIR}"')
     expect(entrypoint).toContain('chown -R workspace-broker:workspace-broker "${BROKER_DIR}"')
@@ -34,6 +36,13 @@ describe('ADR 0045 Workspace capability broker', () => {
     )
     expect(entrypoint.indexOf('chown -R hermes:hermes /opt/data')).toBeLessThan(
       entrypoint.indexOf('chown -R workspace-broker:workspace-broker "${BROKER_DIR}"')
+    )
+  })
+
+  it('runs the gateway with a writable non-root home', () => {
+    expect(entrypoint).toContain('export HOME=/opt/data')
+    expect(entrypoint.indexOf('export HOME=/opt/data')).toBeLessThan(
+      entrypoint.lastIndexOf('exec setpriv')
     )
   })
 
