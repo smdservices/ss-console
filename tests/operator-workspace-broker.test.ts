@@ -21,6 +21,7 @@ describe('ADR 0045 Workspace capability broker', () => {
 
   it('keeps broker code root-owned and credentials broker-only', () => {
     expect(dockerfile).toContain('chown -R root:root /opt/workspace-broker')
+    expect(entrypoint).toContain('rm -f "${BROKER_DIR}/google.json"')
     expect(entrypoint).toContain('chmod 0700 "${BROKER_DIR}"')
     expect(entrypoint).toContain('chown workspace-broker:workspace-broker "${BROKER_DIR}"')
   })
