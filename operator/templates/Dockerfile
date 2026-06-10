@@ -115,7 +115,7 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # Superset of v0.4.14 (synchronous voice) / v0.4.13 (audit self-check) /
 # v0.4.12 (activation gate) / v0.4.11 (fan-out).
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="aa0cc7bc04a52407817b2ea0a139f4c08f5bd33d"
+ARG OVERLAY_REF="4d21dc61b0134c4eb6395f837d9577fcd7cd6ec5"
 
 ARG CUSTOMER_SLUG=customer-zero
 

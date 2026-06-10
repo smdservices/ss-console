@@ -56,7 +56,7 @@ describe('Operator customer Machine Dockerfile', () => {
   })
 
   it('pins the broker-capable overlay revision', () => {
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="aa0cc7bc04a52407817b2ea0a139f4c08f5bd33d"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="4d21dc61b0134c4eb6395f837d9577fcd7cd6ec5"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
