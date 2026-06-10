@@ -187,7 +187,7 @@ def main() -> None:
     broker.socket_path.unlink(missing_ok=True)
     with ThreadedUnixServer(str(broker.socket_path), RequestHandler) as server:
         server.broker = broker  # type: ignore[attr-defined]
-        os.chmod(broker.socket_path, 0o660)
+        os.chmod(broker.socket_path, 0o660)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions - Broker owner and connector group require socket access; all other users remain denied.
         server.serve_forever()
 
 
