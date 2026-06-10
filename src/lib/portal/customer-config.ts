@@ -103,7 +103,7 @@ export interface CustomerConfigRow {
   synced_at: string
 }
 
-interface CustomerConfigDbRow {
+export interface CustomerConfigDbRow {
   entity_id: string
   org_id: string
   customer_slug: string
@@ -153,7 +153,7 @@ function parseJsonRequired<T>(value: string, column: string, entityId: string): 
   }
 }
 
-function projectRow(row: CustomerConfigDbRow): CustomerConfigRow {
+export function projectRow(row: CustomerConfigDbRow): CustomerConfigRow {
   return {
     entity_id: row.entity_id,
     org_id: row.org_id,
