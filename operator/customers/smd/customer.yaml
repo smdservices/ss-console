@@ -11,9 +11,8 @@ schema_version: 1
 # cannot yet honor are NOT encoded here — they live as open-items in onboarding-plan.md.
 # Crane is provisioned as a customer Workspace employee. Google authority is a
 # customer-owned service account with domain-wide delegation impersonating the
-# Operator's Workspace user, materialized on the customer Machine. Action ceilings
-# and content-sensitivity floors still govern when the Operator may use that
-# authority autonomously.
+# Operator's Workspace user. A separate capability broker holds the credential;
+# the gateway receives only short-lived grants for classified operations.
 #
 # Not provisioned, not committed by the skill. Captain reviews before either.
 
@@ -37,14 +36,12 @@ machine:
 # ---- GOOGLE WORKSPACE AUTHORITY ----
 # Customer-owned Google Cloud service account with domain-wide delegation.
 # GOOGLE_SERVICE_ACCOUNT_JSON is a Fly secret containing base64-encoded service
-# account JSON. Bootstrap writes it to /opt/data/oauth/google.json and exports the
-# subject + scope list for the Google connector CLIs.
+# account JSON. Only the separate Workspace broker process can decode or read it.
 google_auth:
   mode: dwd
   subject: crane@smd.services
   scopes:
     - https://www.googleapis.com/auth/gmail.modify
-    - https://www.googleapis.com/auth/gmail.send
     - https://www.googleapis.com/auth/calendar.events
     - https://www.googleapis.com/auth/drive
     - https://www.googleapis.com/auth/documents
@@ -72,23 +69,18 @@ personas:
       - direct
       - executive-summary
       - concise
-    # v1 skill: inbox-triage. The Workspace credential can read, write, and send
-    # as Crane's customer-owned Workspace user. Trust ceilings and content floors
-    # decide whether a given external communication is sent or drafted.
-    #
-    # NOTE: the `workspace` skill (on-demand Gmail/Calendar/Drive read+draft) is NOT
-    # bound here yet. Its SKILL.md exists in the repo, but a customer Machine's skill
-    # catalog is served from the per-customer R2 skills bucket (ss-operator-smd-skills),
-    # and there is no pipeline step that pushes a newly-added repo skill into that
-    # bucket. Binding it before it's deployed crashes boot (skill-pin resolution).
-    # Re-add once the skill-deployment pipeline lands (tracked follow-on).
+    # Inbox triage plus on-demand broker-mediated Workspace reads and writes.
     skills:
       - name: inbox-triage
         version: pending
         trust_ceiling: draft_for_review
         enabled: true
+      - name: workspace
+        version: pending
+        trust_ceiling: draft_for_review
+        enabled: true
     # Native Google/Himalaya skills remain disabled because this customer uses
-    # the audited BUILD connector CLIs and the customer-owned DWD credential.
+    # broker-mediated first-class tools and the customer-owned DWD credential.
     skills_disabled:
       - google-workspace
       - himalaya
@@ -99,8 +91,7 @@ personas:
         wake_policy: always
 
 # ---- CONNECTORS ----
-# Google Workspace rides BUILD adapters per ADR 0020 on the shared DWD credential
-# declared in google_auth. The Machine acts as Crane's customer-owned computer.
+# Google Workspace rides first-class tools mediated by the ADR 0045 broker.
 connectors:
   Email:
     adapter: google-gmail
@@ -151,10 +142,8 @@ scope:
     - smdurgan.com
     - smd.services
   # ---- TRUST CEILINGS (per-action, ADR 0025) ----
-  # Crane may send externally from its customer Workspace identity within the
-  # authored ceiling. Floors still apply on top: content-sensitivity floor
-  # (ADR 0031) drops money/contract/scope/legal to draft-for-review;
-  # commitment/destructive actions keep their approval floors.
+  # Crane may send from its own AgentMail identity within the authored ceiling.
+  # Sending from the principal Workspace identity remains permanently banned.
   action_ceilings:
     external_send: autonomous
 
