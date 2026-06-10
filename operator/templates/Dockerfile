@@ -106,10 +106,13 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # v0.4.14 makes the voice pre/post LLM hooks synchronous, matching Hermes'
 # synchronous PluginManager dispatcher. Earlier versions returned coroutine objects,
 # so live turns skipped voice-context injection and logged unawaited-coroutine warnings.
-# Superset of v0.4.13 (audit self-check) / v0.4.12 (activation gate) /
-# v0.4.11 (fan-out).
+# v0.4.15 makes that contract fail-closed for every callback in the live manager
+# and probes trust through the same block-message interpreter model_tools uses
+# immediately before tool execution.
+# Superset of v0.4.14 (synchronous voice) / v0.4.13 (audit self-check) /
+# v0.4.12 (activation gate) / v0.4.11 (fan-out).
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="v0.4.14"
+ARG OVERLAY_REF="v0.4.15"
 
 ARG CUSTOMER_SLUG=customer-zero
 
