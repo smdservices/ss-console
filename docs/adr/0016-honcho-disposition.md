@@ -25,7 +25,7 @@ Reviewing the Hermes docs + our harness intent (PRD §10) resolved the posture (
 
 **What the Decision below still means, and what changed.** The decision to _keep_ Honcho as the inferred-memory provider stands; the mirror/dismissal/evidence-status/TTL machinery is the right shape for Phase 2. What is **reversed** is the disposition that Honcho is the _sole_ memory provider with the flat-file core **tombstoned** — the flat-file core is always-on (Hermes' own model), and Honcho runs alongside and feeds the owned D1 file. The "in-container unmodified Honcho image" wiring (and Verification #6's `docker image inspect plasticlabs/honcho`) is replaced by **vendored source at a pinned tag** in Phase 2.
 
-**Loud caveat.** With Honcho off and the explicit D1/R2 memory not yet on the runtime read path (the tail-log drain, #821), the Phase-1 agent has **in-session flat-file memory only**. The first real boot proves the **harness** (quarantine → draft → reviewer-as-sender), not the product memory.
+**Loud caveat.** With Honcho off and the explicit D1/R2 memory not yet on the runtime read path (the tail-log drain, #821), the Phase-1 agent has **in-session flat-file memory only**. The first real boot proves the **harness** (quarantine → draft → send), not the product memory.
 
 ---
 
@@ -45,7 +45,7 @@ Three first-source findings that changed the disposition calculus:
 
 2. **Documented hallucination failure mode.** [Honcho issue #626](https://github.com/plastic-labs/honcho/issues/626) — the shipped extraction prompt's few-shot examples teach the model to over-attribute (one mention of a dog produces "the user has a dog"). [Honcho issue #658](https://github.com/plastic-labs/honcho/issues/658) — explicit user corrections do not propagate; obsolete facts persist as current-tense state. Both are open at time of writing. These are the real risks the disposition must address.
 
-3. **The malpractice framing was overstated.** The prior ADR cast Honcho-driven persona evolution as a malpractice exposure for professional-services customers. First-principles: reviewer-as-sender (ADR 0005) closes the one-shot harm path. The very next outbound draft after a bad Honcho learning is human-reviewed. The malpractice path requires _systematic drift across many drafts each of which looks fine individually_ — a different, narrower, slower risk.
+3. **The malpractice framing was overstated.** The prior ADR cast Honcho-driven persona evolution as a malpractice exposure for professional-services customers. First-principles: draft-for-review (ADR 0035) closes the one-shot harm path. The very next outbound draft after a bad Honcho learning is human-reviewed. The malpractice path requires _systematic drift across many drafts each of which looks fine individually_ — a different, narrower, slower risk.
 
 The Captain has directed (2026-05-24) the architectural inversion: **trust Hermes' learning loop natively; add visibility and reversibility; do not gate.** This applies symmetrically to Honcho (this ADR) and the Curator/`skill_manage` (ADR 0017).
 
@@ -118,7 +118,7 @@ Captain can restore an archived conclusion from D1 if needed (the inverse of dis
 ### What this ADR explicitly does NOT do
 
 - **No write-path interception.** No `HonchoInterceptor`, no `verify_honcho_intercepted` boot check, no `proposer_only` blocking. The prior version of this ADR specified those. They are deleted as part of the locked alignment plan.
-- **No malpractice framing.** The job of this ADR is voice-integrity and observability for an opaque learning system, not a malpractice gate. Reviewer-as-sender holds that job at the per-draft layer.
+- **No malpractice framing.** The job of this ADR is voice-integrity and observability for an opaque learning system, not a malpractice gate. Draft-for-review gating holds that job at the per-draft layer.
 - **No Honcho code modification.** Honcho runs from a pinned upstream image, byte-for-byte unmodified. CI on the Machine image build asserts the Honcho layer hash matches upstream. This preserves the AGPL § 13 unmodified-deployment safe harbor (see locked plan §5 fork posture).
 - **No Plastic Labs commercial relationship as a precondition.** Self-host Shape 1 per the AGPL analysis. We may engage Plastic Labs commercially if a real reason surfaces; we do not do so as a goodwill gesture.
 
@@ -134,7 +134,7 @@ Use Hermes' built-in `MEMORY.md`/`USER.md` flat-file memory only.
 
 The prior ADR specified an interceptor that catches deriver writes and routes them to a review queue before they affect persona state.
 
-**Rejected.** No native interception surface exists. Building one requires either forking Honcho (AGPL implications, maintenance burden) or proxying Honcho's API (latency, brittleness, doesn't catch Dreamer-loop writes). The cost is high; the benefit is one-shot-harm prevention that reviewer-as-sender already provides.
+**Rejected.** No native interception surface exists. Building one requires either forking Honcho (AGPL implications, maintenance burden) or proxying Honcho's API (latency, brittleness, doesn't catch Dreamer-loop writes). The cost is high; the benefit is one-shot-harm prevention that draft-for-review already provides.
 
 ### Pattern 3: Use Plastic Labs hosted Honcho
 
@@ -157,7 +157,7 @@ Selected. Self-host preserves the product story and the AGPL safe harbor; the mi
 
 **Negative / accepted.**
 
-- Honcho can still learn something wrong between session-end mirrors. The first draft after a bad learning may reflect it. Reviewer-as-sender catches the draft. We accept this cost.
+- Honcho can still learn something wrong between session-end mirrors. The first draft after a bad learning may reflect it. The approver catches the draft. We accept this cost.
 - Captain inspection of unevidenced conclusions is operational work. We accept this; it is the active mitigation for bug #626.
 - D1 `persona_observations` grows with usage. TTL archival caps unbounded growth. The archive table accumulates as well but is materially smaller per-row and cheaper to query.
 - If Plastic Labs relicenses Honcho (e.g., SSPL), we pin to the last AGPL version and decide migration vs. fork. The risk is forward-looking, not present.
@@ -179,7 +179,7 @@ Selected. Self-host preserves the product story and the AGPL safe harbor; the mi
 - [Honcho issue #658](https://github.com/plastic-labs/honcho/issues/658) — temporal-awareness bug; obsolete facts persist
 - [Honcho issue #716](https://github.com/plastic-labs/honcho/issues/716) — deriver silently produces zero observations on some providers
 - [Hermes Honcho plugin README](https://github.com/NousResearch/hermes-agent/blob/main/plugins/memory/honcho/README.md)
-- [ADR 0005](./0005-reviewer-as-sender.md) — closes the one-shot harm path at the per-draft layer
+- [ADR 0005](./0005-external-send-identity.md) — closes the one-shot harm path at the per-draft layer
 - [ADR 0015 (rewrite)](./0015-hermes-fork-vs-upstream.md) — plugin-only overlay; this disposition is implemented by `hermes-smd-memory-mirror`
 - [ADR 0017 (rewrite)](./0017-skill-curator-disposition.md) — symmetric "mirror, don't gate" posture for the skill-creation loop
 - AGPL § 13 analysis (locked Hermes-alignment plan, §5)

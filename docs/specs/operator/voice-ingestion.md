@@ -189,7 +189,7 @@ when `errors > 0`.
 
 ## ADR conformance
 
-- **ADR 0005 (reviewer-as-sender).** Pipeline reads sent folder only.
+- **ADR 0005.** Pipeline reads sent folder only.
   No send paths.
 - **ADR 0006 (capability adapter pattern).** Pipeline depends on
   `EmailSource` (which wraps the `Email` capability), never on MS

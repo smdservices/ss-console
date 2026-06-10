@@ -18,7 +18,7 @@ metadata:
     action_class: read + external_send
     connectors:
       - clio # PracticeManagement — matters, tasks, calendar (read) for the status facts
-      - email # customer-bound — the drafted client update (send is reviewer-as-sender)
+      - email # customer-bound — the drafted client update (send is draft-for-review)
 ---
 
 # Client Matter Digest
@@ -35,7 +35,7 @@ Runs scheduled (e.g., a fortnightly per-matter cadence the firm sets).
 
 ## Prerequisites
 
-Reads Clio (`get_matter`, `list_tasks`, `list_calendar_entries`) for the status facts, and the customer-bound **Email** connector to draft the client update. Requires `python3` for the fetch block. The draft is **never sent autonomously** — it ships under the reviewer's identity (reviewer-as-sender, ADR 0005).
+Reads Clio (`get_matter`, `list_tasks`, `list_calendar_entries`) for the status facts, and the customer-bound **Email** connector to draft the client update. Requires `python3` for the fetch block. The draft is **never sent autonomously** — it ships under the reviewer's identity.
 
 ## How to Run
 
@@ -63,7 +63,7 @@ Per `references/algorithm.md` and `references/voice.md`:
 
 ## Trust Ceiling
 
-**Read + draft autonomous; client send is reviewer-as-sender (`draft_for_review`, non-raisable).**
+**Read + draft autonomous; client send is draft-for-review (`draft_for_review`, non-raisable).**
 
 The agent MAY: read Clio status facts; select client-appropriate content; draft the update in the firm's voice; surface it for review.
 
@@ -71,7 +71,7 @@ The agent MUST NOT: send to a client autonomously; give legal advice or predict 
 
 ## Safety invariants (any violation → `fails`, no recovery)
 
-1. **Reviewer-as-sender.** No autonomous send. Every client-bound digest ships under a human reviewer's identity.
+1. **External-send draft floor.** No autonomous send. Every client-bound digest ships under a human reviewer's identity.
 2. **Status, not advice.** Reports what happened and what is scheduled; never advises, predicts an outcome, or recommends a legal action.
 3. **No fabrication.** Every fact traces to a Clio read. A quiet matter is described as quiet, not dressed up.
 4. **No internal leakage.** Billing internals, strategy, and other firm-only detail never enter a client-facing draft.

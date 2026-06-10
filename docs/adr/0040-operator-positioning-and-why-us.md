@@ -4,7 +4,7 @@ date: 2026-06-07
 status: accepted
 captain: Scott Durgan
 amends: 0037-operator-thesis.md
-related-adr: 0004-productized-operator-offering.md, 0005-reviewer-as-sender.md, 0022-vertical-pack-architecture.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0034-operator-product-naming.md, 0035-no-imposed-entitlement-defaults.md, 0038-operator-vertical-delivery-method.md, 0039-operator-led-assessment-funnel.md
+related-adr: 0004-productized-operator-offering.md, 0005-external-send-identity.md, 0022-vertical-pack-architecture.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0034-operator-product-naming.md, 0035-no-imposed-entitlement-defaults.md, 0038-operator-vertical-delivery-method.md, 0039-operator-led-assessment-funnel.md
 related-doc: docs/specs/operator/competitive-landscape.md
 ---
 
@@ -14,7 +14,7 @@ related-doc: docs/specs/operator/competitive-landscape.md
 
 **Purpose.** The citable answer to _how we position the Operator and answer a buyer's "why you, why this,"_ law-first. It derives from [ADR 0037](./0037-operator-thesis.md) (the thesis) and turns it into the words we use in market. All downstream collateral — the sales talk-track + objection responses, and the marketing pages (`src/pages/operator.astro`, `src/pages/packs/law-firm.astro`) — derives from this ADR; it is not authored independently. The evidence behind the competitive posture lives in the [competitive landscape reference](../specs/operator/competitive-landscape.md).
 
-**Why this exists.** Across strategy sessions the positioning kept drifting back to stale framings (reviewer-as-sender as identity, "we don't do legal work," fixed-limit language, "AI employee" as the opener). This ADR locks the corrected framing so collateral is generated _from_ it rather than re-derived — and re-importing the errors — each time.
+**Why this exists.** Across strategy sessions the positioning kept drifting back to stale framings (send-identity-as-the-product, "we don't do legal work," fixed-limit language, "AI employee" as the opener). This ADR locks the corrected framing so collateral is generated _from_ it rather than re-derived — and re-importing the errors — each time.
 
 ## Context
 
@@ -51,7 +51,7 @@ The Operator does **paralegal and coordinator work** — connective and substant
 
 These were correct-at-the-time mechanisms or shorthand that drifted into _identity_. None may appear as product identity in any collateral:
 
-- **Reviewer-as-sender is not the identity or the mantra.** It is one authored option among configurable entitlements ([0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md)/[0035](./0035-no-imposed-entitlement-defaults.md)). Do not present it as what the Operator "is."
+- **Draft-for-review send is not the identity or the mantra.** It is one authored option among configurable entitlements ([0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md)/[0035](./0035-no-imposed-entitlement-defaults.md)). Do not present it as what the Operator "is."
 - **"We don't do legal work" is wrong.** Replace with the paralegal / license-line framing (§5).
 - **Fixed-limit language** ("never sends," "never moves money," "never clears a conflict") **is not product identity.** Those are configurable dials the firm sets; presenting them as inherent contradicts the harness thesis.
 - **Do not open with "AI employee."** That framing lowers trust and raises replacement fear ([ADR 0039](./0039-operator-led-assessment-funnel.md) / the BCG finding). Lead with the seat and the outcome; "AI" stays downstream.
@@ -76,12 +76,12 @@ Getting in front of firms is a **trust-borrowing**, not an awareness, problem. T
 
 ## Verification
 
-We are following this decision when: collateral leads with the hire frame and the spine (§2), never with "AI employee"; no surface reasserts reviewer-as-sender, fixed limits, or "we don't do legal work" as identity; the boundary is stated as the paralegal / license line; competitive analyses rank on the cell and treat incumbents as connection targets; and the provable-trio is tracked as product work.
+We are following this decision when: collateral leads with the hire frame and the spine (§2), never with "AI employee"; no surface reasserts send-identity-as-the-product, fixed limits, or "we don't do legal work" as identity; the boundary is stated as the paralegal / license line; competitive analyses rank on the cell and treat incumbents as connection targets; and the provable-trio is tracked as product work.
 
 ## References
 
 - [ADR 0037 — The Operator Thesis](./0037-operator-thesis.md) (parent; this operationalizes it into positioning)
 - [ADR 0004](./0004-productized-operator-offering.md) / [ADR 0034](./0034-operator-product-naming.md) (the SKU and naming)
-- [ADR 0005](./0005-reviewer-as-sender.md) / [ADR 0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) / [ADR 0035](./0035-no-imposed-entitlement-defaults.md) (entitlements — the basis of the rip)
+- [ADR 0005](./0005-external-send-identity.md) / [ADR 0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) / [ADR 0035](./0035-no-imposed-entitlement-defaults.md) (entitlements — the basis of the rip)
 - [ADR 0022](./0022-vertical-pack-architecture.md) (packs), [ADR 0038](./0038-operator-vertical-delivery-method.md) (delivery method), [ADR 0039](./0039-operator-led-assessment-funnel.md) (assessment funnel + the trust finding)
 - [Competitive landscape reference](../specs/operator/competitive-landscape.md) (the evidence behind the competitive posture)

@@ -59,7 +59,7 @@ The shared embeddings prohibition follows directly: there is no platform-level V
 - Customer-owned memory (ADR 0008) is reinforced. Voice samples, person-mappings, and corrections do not flow to other customers via any pathway.
 - The CI merge gate catches the subtler failure mode of well-meaning but customer-specific platform patterns. Enforcement is mechanical, not human goodwill.
 - Compliance counsel has a clean answer to "could the firm next door's data ever inform ours?" — no, by these two mechanisms. Both auditable.
-- Composes with reviewer-as-sender (ADR 0005), per-customer Machine isolation (ADR 0007), and customer-owned memory (ADR 0008). Together they define the cross-customer perimeter.
+- Composes with the draft-for-review posture (ADR 0035), per-customer Machine isolation (ADR 0007), and customer-owned memory (ADR 0008). Together they define the cross-customer perimeter.
 
 **Negative / accepted.**
 

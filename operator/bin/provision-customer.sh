@@ -332,7 +332,7 @@ stage_secret_from_env() {
 
 # Required secrets per bootstrap.sh.
 # AGENTMAIL_API_KEY removed 2026-05-29: the persona's own outbound mailbox
-# identity (ADR 0005 reviewer-as-sender / ADR 0008) is deferred to Phase 2
+# identity (ADR 0005 / ADR 0008) is deferred to Phase 2
 # multi-persona (ADR 0011) and not yet implemented — no connector, OAuth flow,
 # plugin, or skill code reads it (cost_rollup.py only maps it as a future
 # cost-driver category). bootstrap.sh moved it to OPTIONAL_ENV in lockstep.

@@ -3,7 +3,7 @@ title: 'Vertical Spec: Veterinary Clinic (Operator pack)'
 date: 2026-06-02
 status: draft
 captain: Scott Durgan
-related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
+related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0005-external-send-identity.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
 ---
 
 # Vertical Spec: Veterinary Clinic
@@ -30,7 +30,7 @@ That coordination is a real seat, the client service representative or reception
 
 ## Skill catalog
 
-Twelve veterinary-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send sits at the reviewer-as-sender floor ([ADR 0005](../../adr/0005-reviewer-as-sender.md)) unless the engagement authors otherwise.
+Twelve veterinary-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send sits at the external-send draft floor unless the engagement authors otherwise.
 
 ### New client and scheduling
 
@@ -89,7 +89,7 @@ Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; 
 - **No veterinary medical advice** — connective front-desk work only. Never a diagnosis, never a treatment recommendation, never an interpretation of a result, never a urgency or triage judgment. The twelve skills are intake, scheduling, reminders, recall, refill relay, result delivery of authored content, estimates, boarding, follow-up, and escalation. This scope discipline is the veterinary analog of the law pack's UPL boundary.
 - **Emergency escalation (fail-open to a human)** — a message that may describe an emergency is handed to a person at the clinic immediately, never handled async and never answered with medical content. `emergency-escalation-router` errs toward escalation by design.
 - **No prescription authorization** — refill requests route to the doctor for authorization; the Operator never authorizes a refill, sets a dose, or advises on medication, and flags controlled substances for the doctor.
-- **Reviewer-as-sender floor** — external mail ships under a human reviewer's identity ([ADR 0005](../../adr/0005-reviewer-as-sender.md)), one authored exposure option ([ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md)).
+- **External-send draft floor** — external mail ships under a human reviewer's identity, one authored exposure option ([ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md)).
 - **Records stay in clinic surfaces** — client and patient records stay inside the clinic's systems; the Operator does not exfiltrate them.
 
 ## Labor-market context (the demand, without presumption)

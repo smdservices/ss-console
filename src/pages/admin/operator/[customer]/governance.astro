@@ -16,7 +16,7 @@ import { env } from 'cloudflare:workers'
  *
  * The rule that does not bend (ADR 0035 / foundations §8): an action class with
  * no authored ceiling renders **unconfigured → fail-closed**, never a presumed
- * "draft for review." Reviewer-as-sender is a value authored in action_ceilings,
+ * "draft for review." Draft-for-review is a value authored in action_ceilings,
  * not a fallback. resolveCell encodes that; this page renders it literally.
  *
  * Floors are set by the vertical pack (config-governance VERTICAL_FLOORS), not

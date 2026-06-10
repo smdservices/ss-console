@@ -40,7 +40,7 @@ The 2026-05-24 ADR conflated these two under "trust the native loop." Disabling 
 Why the autonomous curator is wrong **for this product specifically** (the generic Hermes user calculus differs):
 
 - **It corrupts the audit/provenance moat.** This ADR (retained below) mirrors agent skill creation to per-customer D1 with content hashes and a `source_turn_id`. A cron-driven LLM rewrite mutates the artifacts we attest to, attributed to a background "CURATOR" turn with no customer conversation to anchor provenance. For a compliance-grade product, an unsupervised background rewrite of audited artifacts is the wrong default.
-- **Reviewer-as-sender (ADR 0005) does not cover it.** That gate catches a single bad outbound draft. Curator consolidation changes _which skills exist and how they are invoked_ — structural behavioral drift between conversations that the per-draft reviewer never sees and the customer never triggered. The #18373 reporter's words: consolidation "fundamentally changes discovery, invocation, profile behavior, and operational assumptions."
+- **Draft-for-review review (ADR 0035) does not cover it.** That gate catches a single bad outbound draft. Curator consolidation changes _which skills exist and how they are invoked_ — structural behavioral drift between conversations that the per-draft reviewer never sees and the customer never triggered. The #18373 reporter's words: consolidation "fundamentally changes discovery, invocation, profile behavior, and operational assumptions."
 - **Hermes offers no partial control.** There is no flag to keep auto-archival while skipping the LLM consolidation pass. `curator.enabled: false` (or `hermes curator pause`) is the only lever.
 
 ## Decision
@@ -60,9 +60,9 @@ Concretely:
 
 ### Pattern 1: Trust the native curator loop (2026-05-24 decision)
 
-Leave the curator running natively; rely on reviewer-as-sender for harm and visibility for drift.
+Leave the curator running natively; rely on draft-for-review for harm and visibility for drift.
 
-**Rejected.** Its premise — the curator does not write content — is false. The autonomous LLM rewrite corrupts provenance and produces unsupervised structural drift that reviewer-as-sender does not catch. The #18373 incident is concrete evidence the risk is real, not hypothetical.
+**Rejected.** Its premise — the curator does not write content — is false. The autonomous LLM rewrite corrupts provenance and produces unsupervised structural drift that draft-for-review does not catch. The #18373 incident is concrete evidence the risk is real, not hypothetical.
 
 ### Pattern 2: Strip `skill_manage` from customer profiles
 
@@ -74,7 +74,7 @@ Replace runtime skill authoring with a Captain-driven catalog only.
 
 Route each `skill_manage` invocation to a Captain approval queue.
 
-**Rejected (unchanged from prior ADR).** Breaks workflow ergonomics; the one-shot harm path is closed by reviewer-as-sender. Disabling the autonomous curator removes the systematic-drift vector more cheaply than gating every authoring call.
+**Rejected (unchanged from prior ADR).** Breaks workflow ergonomics; the one-shot harm path is closed by draft-for-review. Disabling the autonomous curator removes the systematic-drift vector more cheaply than gating every authoring call.
 
 ### Pattern 4: Disable the curator, keep `skill_manage`, supervise consolidation (this decision)
 
@@ -114,7 +114,7 @@ Implementation tracked in [#1135](https://github.com/venturecrane/ss-console/iss
 - Upstream [issue #18373](https://github.com/NousResearch/hermes-agent/issues/18373) — autonomous consolidation of 54 user skills into 12 umbrellas (v2026.4.30)
 - Upstream [PR #18389](https://github.com/NousResearch/hermes-agent/pull/18389) — first-run deferral + `--dry-run`; does not make consolidation supervised
 - [Curator docs](https://hermes-agent.nousresearch.com/docs/user-guide/features/curator) and [CLI commands](https://hermes-agent.nousresearch.com/docs/reference/cli-commands)
-- [ADR 0005](./0005-reviewer-as-sender.md) — reviewer-as-sender (closes the one-shot draft path, not structural skill drift)
+- [ADR 0005](./0005-external-send-identity.md) — external-send identity (closes the one-shot draft path, not structural skill drift)
 - [ADR 0015](./0015-hermes-fork-vs-upstream.md) — plugin-only overlay; this disposition is a config flag, not a core modification
 - [ADR 0016](./0016-honcho-disposition.md) — Honcho disposition (sibling learning subsystem)
 - [ADR 0019](./0019-customer-yaml-to-profile-config-translation.md) — the config-translation seam that emits `curator.enabled: false`

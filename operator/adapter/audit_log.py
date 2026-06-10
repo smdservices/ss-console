@@ -169,7 +169,7 @@ ACCEPTED_ACTION_TYPES = frozenset(
         #     refusing to assemble the final draft, when any subagent's
         #     return fails the assembly-time schema contract (missing or
         #     empty required keys). The Devil's Advocate critique safety
-        #     constraint: a reviewer-as-sender never sees a quietly
+        #     constraint: the approver never sees a quietly
         #     incomplete draft. Carries subagent_role, missing_key,
         #     matter_ref in metadata.
         "SUBAGENT_STOPPED",

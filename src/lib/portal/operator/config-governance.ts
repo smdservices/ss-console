@@ -71,7 +71,7 @@ export function changeDirection(oldValue: Ceiling, newValue: Ceiling): ChangeDir
  * constant is authored data, not fabrication.
  *
  * For a law firm, ABA Formal Opinion 512 / state AI-disclosure rules pin every
- * outbound communication to reviewer-as-sender, so `external_send` is floored
+ * outbound communication to draft-for-review external send, so `external_send` is floored
  * at `draft_for_review` and cannot be promoted to `autonomous`.
  */
 export const VERTICAL_FLOORS: Readonly<Record<string, Partial<Record<ActionClass, Ceiling>>>> = {

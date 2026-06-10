@@ -111,7 +111,7 @@ The persona signature, the agent's email identity (AgentMail or equivalent), and
 - GDPR / CCPA / state-privacy-law compliance is structurally cleaner. Right-to-export and right-to-erasure map onto operations the platform already performs.
 - Customer compliance counsel can satisfy themselves before signing that the firm's data is the firm's data. This is the answer to the "what if SMD goes out of business" question and to the "what if SMD gets subpoenaed" question (SMD has audit-log visibility but the customer holds the substantive content).
 - The Memory tab as a trust surface (PRD §10.3) is honest. The customer is not viewing a snapshot they have no power over; they are viewing the live artifact they own.
-- Customer-owned memory composes with reviewer-as-sender (ADR 0005), per-customer Machine isolation (ADR 0007), and cross-Machine query prohibition (ADR 0009). The four decisions reinforce each other.
+- Customer-owned memory composes with the draft-for-review posture (ADR 0035), per-customer Machine isolation (ADR 0007), and cross-Machine query prohibition (ADR 0009). The four decisions reinforce each other.
 
 **Negative / accepted.**
 

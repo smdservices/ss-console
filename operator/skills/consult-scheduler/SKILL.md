@@ -77,7 +77,7 @@ The agent MUST NOT: write the calendar entry autonomously this phase; send the c
 1. **Conflict-hold gate.** No proposal or booking on a halted matter.
 2. **Rule adherence.** Every proposed slot satisfies business hours, blackout windows, no-double-book, and buffer rules. A slot that violates any rule is a failure even if the client asked for it.
 3. **No autonomous calendar write.** Zero executed `create_calendar_entry` this phase; the booking is surfaced for confirm.
-4. **Reviewer-as-sender.** The confirmation is drafted, never sent.
+4. **External-send draft floor.** The confirmation is drafted, never sent.
 5. **No legal substance.** The confirmation is scheduling-only — no advice, no qualification opinion, no merits.
 
 ## Voice Rules

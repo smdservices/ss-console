@@ -69,9 +69,9 @@ Notes on the binding shape:
 - No `token_ref` -- the synthetic store does not authenticate against an external API. The per-customer D1 + R2 binding is wired at provision time (see `bin/provision-customer.sh`).
 - The companion `customer-no-pm-system.yaml` template at `operator/templates/customer-no-pm-system.yaml` ships the full default binding set (MS Graph for email + calendar, DocuSign for signatures, OneDrive for documents, QuickBooks for accounting, no_pm for practice management).
 
-## ADR 0005 -- reviewer-as-sender attribution
+## ADR 0005 -- external send attribution
 
-`create_note` is the only mutating method that produces user-visible content. Per [ADR 0005](../../../docs/adr/0005-reviewer-as-sender.md):
+`create_note` is the only mutating method that produces user-visible content. Per [ADR 0005](../../../docs/adr/0005-external-send-identity.md):
 
 - The note's `author_account_id` is the reviewer's account, not "Operator" and not the persona name.
 - The note body is the drafted content verbatim. No "[Drafted by Marcus]" prefix.

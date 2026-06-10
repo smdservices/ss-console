@@ -111,7 +111,7 @@ Per the no-fabrication rule (Platform PRD invariant #8 + CLAUDE.md project polic
 - The only synthesized field is `StoredDocument.path` -- Filevine has no folder concept, so `path` is constructed as `projects/<projectId>/<filename>`. This synthesis is declared in `describe_capabilities().field_coverage["list_documents"].derived` so the dashboard discloses the synthesis to the human reviewer.
 - No vendor status, ID, or attribution is invented. If Filevine returns a record with no `projectId`, the adapter raises `AdapterError(code="unknown")` rather than synthesizing one.
 
-## ADR 0005 -- reviewer-as-sender attribution
+## ADR 0005 -- external send attribution
 
 `create_note` is the only mutating method. Per ADR 0005:
 

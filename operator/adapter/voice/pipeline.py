@@ -37,7 +37,7 @@ Design rules
   can remove it.
 * ADR 0009 (cross-machine query prohibition): no tenant ID on rows;
   isolation is the D1/R2 binding.
-* ADR 0005 (reviewer-as-sender): the pipeline only READS from the sent
+* ADR 0005: the pipeline only READS from the sent
   folder. It never sends.
 
 Per-issue acceptance:

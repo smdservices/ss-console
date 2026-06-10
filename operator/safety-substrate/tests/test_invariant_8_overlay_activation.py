@@ -76,7 +76,7 @@ _REQUIRED_HOOKS = {
     "pre_gateway_dispatch",  # webhook-router
 }
 
-# A permanently-banned tool (BANNED_TOOLS, ADR 0005 reviewer-as-sender): the
+# A permanently-banned tool (BANNED_TOOLS, ADR 0035 external-send draft floor): the
 # trust gate must refuse it regardless of the customer's authored ceiling, so it
 # is a deterministic "this must be gated" probe.
 _BANNED_PROBE_TOOL = "email_send"

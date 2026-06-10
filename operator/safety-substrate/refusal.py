@@ -64,7 +64,7 @@ Design rules
 * **NO autonomous send.** This module never originates an outbound
   customer-bound message. It writes audit rows that the in-app
   notification surface and the Captain alert surface poll for. ADR
-  0005 (reviewer-as-sender) is not relaxed here.
+  0005 is not relaxed here.
 
 * **The skill MUST NOT execute the refused action.** The handler
   returns a `RefusalOutcome` whose `aborted == True`. The dispatch

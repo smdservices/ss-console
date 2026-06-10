@@ -1,21 +1,21 @@
 /**
- * Tests for the Operator reviewer-as-sender pathway
- * (src/lib/portal/operator/send-as.ts) and the supporting detail
+ * Tests for the Operator draft-for-review send pathway
+ * (src/lib/portal/operator/send-approved.ts) and the supporting detail
  * resolver (src/lib/portal/operator/drafts.ts).
  *
- * The reviewer-as-sender invariant is the architectural property of
+ * The draft-for-review send invariant is the architectural property of
  * ADR 0005 — no code path may ship a customer-bound message under any
  * identity other than the human reviewer's email. These tests pin the
  * contract at three layers:
  *
- *   1. Function signature: `sendAsReviewer` requires a `Reviewer`
+ *   1. Function signature: `sendApprovedDraft` requires a `Reviewer`
  *      positional arg. A call without a reviewer must fail TypeScript
  *      compilation. We can't assert that at runtime, but we can
  *      verify the runtime-side mismatch guard rejects a draft whose
  *      staged mailbox differs from the reviewer's email.
  *
  *   2. Result shape: while the Microsoft Graph connector (#822) is
- *      pending, `sendAsReviewer` returns `{ status: 'pending_connector' }`.
+ *      pending, `sendApprovedDraft` returns `{ status: 'pending_connector' }`.
  *      The test pins that contract — no fake "delivered" status, no
  *      silent success.
  *
@@ -37,9 +37,9 @@ import {
   clampUndoWindowMs,
   hashDraftBody,
   recordSendApprovedAudit,
-  sendAsReviewer,
+  sendApprovedDraft,
   type Reviewer,
-} from '../src/lib/portal/operator/send-as'
+} from '../src/lib/portal/operator/send-approved'
 import type { DraftDetail } from '../src/lib/portal/operator/drafts'
 import { formatDraftSendStatus } from '../src/lib/portal/operator/drafts'
 
@@ -67,7 +67,7 @@ function makeDraft(overrides: Partial<DraftDetail> = {}): DraftDetail {
     // adding fabricated content.
     sources: [],
     // voiceProfileLabel is required on DraftDetail per #858. The
-    // send-as flow never reads it — voice attribution is a separate
+    // draft-send flow never reads it — voice attribution is a separate
     // surface on the detail page.
     voiceProfileLabel: null,
     ...overrides,
@@ -140,11 +140,11 @@ describe('hashDraftBody', () => {
   })
 })
 
-describe('sendAsReviewer — reviewer-as-sender invariant', () => {
+describe('sendApprovedDraft — draft-for-review send invariant', () => {
   it('returns pending_connector while the connector is stubbed (#822)', async () => {
     const draft = makeDraft()
     const reviewer = makeReviewer()
-    const result = await sendAsReviewer(draft, reviewer)
+    const result = await sendApprovedDraft(draft, reviewer)
     expect(result.status).toBe('pending_connector')
     expect(result.reviewerEmail).toBe(reviewer.email)
     expect(result.sentAt).toBeNull()
@@ -154,7 +154,7 @@ describe('sendAsReviewer — reviewer-as-sender invariant', () => {
   it('refuses to send when the draft is staged for a different reviewer mailbox', async () => {
     const draft = makeDraft({ reviewerEmail: 'someone.else@smithlaw.com' })
     const reviewer = makeReviewer({ email: 'pat.owner@smithlaw.com' })
-    const result = await sendAsReviewer(draft, reviewer)
+    const result = await sendApprovedDraft(draft, reviewer)
     expect(result.status).toBe('failed')
     expect(result.error).toMatch(/staged into a different reviewer mailbox/i)
   })
@@ -164,16 +164,16 @@ describe('sendAsReviewer — reviewer-as-sender invariant', () => {
     // invariant must not refuse a valid send because of case drift.
     const draft = makeDraft({ reviewerEmail: 'Pat.Owner@smithlaw.com' })
     const reviewer = makeReviewer({ email: 'pat.owner@smithlaw.com' })
-    const result = await sendAsReviewer(draft, reviewer)
+    const result = await sendApprovedDraft(draft, reviewer)
     expect(result.status).toBe('pending_connector')
   })
 
   it('does not expose an "agent" or "system" send pathway', () => {
     // The function signature requires a Reviewer. We can't call it
     // without one (TypeScript would refuse). This test pins the
-    // signature shape — sendAsReviewer accepts exactly two args, the
+    // signature shape — sendApprovedDraft accepts exactly two args, the
     // second being a Reviewer.
-    expect(sendAsReviewer.length).toBe(2)
+    expect(sendApprovedDraft.length).toBe(2)
   })
 })
 

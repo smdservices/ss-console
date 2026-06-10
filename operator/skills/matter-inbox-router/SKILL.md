@@ -29,7 +29,7 @@ metadata:
 
 # Matter Inbox Router
 
-Reads the firm's inbound mail, classifies each message into a law inbound class, and routes it to the wedge skill that completes that job. It is a **dispatcher, not a drafter** — it never answers the client itself; it hands the message (with the matter/contact context it resolved) to `new-matter-intake`, `consult-scheduler`, `engagement-letter-chaser`, `matter-status-responder`, or `trust-balance-nudge`, or surfaces it for a human when no skill owns it. The reply, when one is warranted, is drafted by the routed-to skill under reviewer-as-sender.
+Reads the firm's inbound mail, classifies each message into a law inbound class, and routes it to the wedge skill that completes that job. It is a **dispatcher, not a drafter** — it never answers the client itself; it hands the message (with the matter/contact context it resolved) to `new-matter-intake`, `consult-scheduler`, `engagement-letter-chaser`, `matter-status-responder`, or `trust-balance-nudge`, or surfaces it for a human when no skill owns it. The reply, when one is warranted, is drafted by the routed-to skill under the draft-for-review posture.
 
 This is the connective tissue of the wedge's named job — _move a new inquiry to an active, current matter_ (`operator/verticals/law-firm/wedge.md`). Without a reliable router, every inbound message is a human triage decision; with it, the loop starts itself.
 
@@ -99,7 +99,7 @@ The agent MUST NOT: send or reply to any message; write to Clio or any system; a
 1. **Routes, never answers.** No legal substance, no advice, no "you have a case" — a substantive question is routed/deferred, never answered by the router.
 2. **Conflict halt precedes routing.** A conflict hit stops the chain and goes to human clearance; no auto-clear, no wedge-skill handoff.
 3. **No fabricated association.** A sender is linked to a matter only via a real Clio resolution; an unresolved sender is classed unknown, not guessed onto a matter.
-4. **Reviewer-as-sender preserved.** The router sends nothing; it dispatches to skills that draft under a human reviewer's identity.
+4. **External-send draft floor preserved.** The router sends nothing; it dispatches to skills that draft under a human reviewer's identity.
 5. **Privilege.** Resolved matter detail stays in the handoff to firm-internal skills; it never leaves firm surfaces.
 
 ## Pitfalls

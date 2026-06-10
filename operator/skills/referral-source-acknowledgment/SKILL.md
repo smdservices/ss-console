@@ -1,6 +1,6 @@
 ---
 name: referral-source-acknowledgment
-description: Drafts a courtesy thank-you to the source who referred a new matter — warm, prompt, and confidential. Acknowledges the referral without disclosing client identity or matter detail. Reviewer-as-sender.
+description: Drafts a courtesy thank-you to the source who referred a new matter — warm, prompt, and confidential. Acknowledges the referral without disclosing client identity or matter detail. Drafted for review, never auto-sent.
 version: 0.1.0
 author: SMD Services
 license: MIT
@@ -18,7 +18,7 @@ metadata:
     action_class: read + external_send
     connectors:
       - clio # PracticeManagement — matter → referral source contact (read)
-      - email # customer-bound — the drafted thank-you (send is reviewer-as-sender)
+      - email # customer-bound — the drafted thank-you (send is draft-for-review)
 ---
 
 # Referral Source Acknowledgment
@@ -35,7 +35,7 @@ Runs event-driven (a new matter is opened with a referral source recorded) and s
 
 ## Prerequisites
 
-Reads Clio (`get_matter` / `get_contact`) to identify the referral source on a new matter, and the customer-bound **Email** connector to draft the thank-you. Requires `python3` for the fetch block. The draft is **never sent autonomously** (reviewer-as-sender, ADR 0005).
+Reads Clio (`get_matter` / `get_contact`) to identify the referral source on a new matter, and the customer-bound **Email** connector to draft the thank-you. Requires `python3` for the fetch block. The draft is **never sent autonomously**.
 
 ## How to Run
 
@@ -63,7 +63,7 @@ Per `references/algorithm.md` and `references/voice.md`:
 
 ## Trust Ceiling
 
-**Read + draft autonomous; send is reviewer-as-sender (`draft_for_review`, non-raisable).**
+**Read + draft autonomous; send is draft-for-review (`draft_for_review`, non-raisable).**
 
 The agent MAY: read the matter's referral source from Clio; draft a confidentiality-respecting thank-you; surface it for review.
 
@@ -72,7 +72,7 @@ The agent MUST NOT: send autonomously; disclose the client's identity or matter 
 ## Safety invariants (any violation → `fails`, no recovery)
 
 1. **Confidentiality first.** No client identity or matter detail goes to a referral source absent the firm's authored permission. When in doubt, acknowledge generally.
-2. **Reviewer-as-sender.** No autonomous send; the thank-you ships under a human's identity.
+2. **External-send draft floor.** No autonomous send; the thank-you ships under a human's identity.
 3. **No fabricated referral.** The source is acknowledged only when Clio records the referral link; an unresolved source is surfaced, not assumed.
 4. **Right recipient.** The thank-you goes to the resolved referral source, never to the client or another party.
 5. **Privilege.** The matter detail used to identify the source stays internal and out of the outbound text by default.

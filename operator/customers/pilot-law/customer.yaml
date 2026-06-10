@@ -63,7 +63,7 @@ google_auth:
     - https://www.googleapis.com/auth/calendar.events
 
 # ---- HUMANS WITH PORTAL ACCESS ----
-# Scott is the reviewer-as-sender human for the sandbox (ADR 0005).
+# Scott is the approver for the sandbox (ADR 0005).
 users:
   - email: scott@smd.services
     role: principal
@@ -197,7 +197,7 @@ scope:
   domain_blocks: []
   # No trusted_sender_domains and no autonomous external_send: the wedge is
   # draft-and-surface. Every client-/tribunal-bound message ships under the
-  # human reviewer's identity (reviewer-as-sender floor, non-raisable).
+  # human reviewer's identity (external-send draft floor, non-raisable).
   action_ceilings:
     external_send: draft_for_review
 

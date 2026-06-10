@@ -3,7 +3,7 @@ title: Outbound Integrity Gates — Provenance and Voice Fidelity Run on Live Ou
 date: 2026-05-29
 status: accepted
 captain: Scott Durgan
-related-adr: 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md
+related-adr: 0005-external-send-identity.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md
 related-issue: https://github.com/venturecrane/ss-console/issues/855
 related-note: note_01KSS3TCTKWYVF6EZ04482X389, note_01KSTYSNC9CYPKYFJZ3TJ7F6RM
 ---
@@ -26,7 +26,7 @@ Two functions, one shared defect.
 
 Both pass the harness membership test — provenance integrity and voice fidelity are promised regardless of which engine writes the words, so both are harness functions. And both fail the same way: the capability is built, but it does not sit on the live action path. The audit named the outbound enforcement gap the **sharpest next target**, precisely because the highest-leverage, lowest-risk fix is connecting a control that already exists.
 
-This matters more under ADR 0025: once a customer can configure autonomous `EXTERNAL_SEND`, there is no human reviewer to catch a fabricated citation or an off-voice message before it ships. The reviewer-as-sender default (ADR 0005) provided an incidental human integrity check; autonomous configurations remove it, so the gates must run in code.
+This matters more under ADR 0025: once a customer can configure autonomous `EXTERNAL_SEND`, there is no human reviewer to catch a fabricated citation or an off-voice message before it ships. The draft-for-review posture (ADR 0035) provided an incidental human integrity check; autonomous configurations remove it, so the gates must run in code.
 
 ## Decision
 
@@ -56,9 +56,9 @@ The voice transform rewrites tone and phrasing; it may never introduce facts, cl
 
 ## Alternatives Considered
 
-### A. Leave provenance as a boot test; rely on reviewer-as-sender to catch fabrication
+### A. Leave provenance as a boot test; rely on the draft-for-review to catch fabrication
 
-**Rejected.** ADR 0025 makes reviewer-as-sender optional; the human catch disappears for autonomous configs. And even with a reviewer, a plausible fabricated citation is exactly what a busy reviewer rubber-stamps. The control exists — run it.
+**Rejected.** ADR 0025 makes draft-for-review optional; the human catch disappears for autonomous configs. And even with a reviewer, a plausible fabricated citation is exactly what a busy reviewer rubber-stamps. The control exists — run it.
 
 ### B. Keep voice as prompt-priming only (no output gate)
 
@@ -91,7 +91,7 @@ The voice transform rewrites tone and phrasing; it may never introduce facts, cl
 
 ## References
 
-- [ADR 0005 — Reviewer-as-Sender](./0005-reviewer-as-sender.md) (the incidental human integrity check that autonomous configs remove)
+- [ADR 0005 — External-send identity](./0005-external-send-identity.md) (the incidental human integrity check that autonomous configs remove)
 - [ADR 0025 — Autonomy ceilings are configurable](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) (why the gates must run in code once a reviewer is optional)
 - CLAUDE.md "No fabricated client-facing content" (the P0 provenance rule these gates enforce at runtime)
 - `operator/safety-substrate/citation_filter.py` + `invariants/invariant_6.py` (built provenance filter; boot-test-only today)

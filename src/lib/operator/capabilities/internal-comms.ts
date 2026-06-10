@@ -4,7 +4,7 @@
  *
  * Per ADR 0005, INTERNAL destinations are persona-visible: posts come
  * from the named persona as the customer's internal teammate.
- * External destinations remain reviewer-as-sender (Email). This
+ * External destinations remain draft-for-review external send (Email). This
  * interface is for internal-only surfaces; adapters MUST refuse to
  * post to any channel that has external members or guests.
  *

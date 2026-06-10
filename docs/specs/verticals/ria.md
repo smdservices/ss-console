@@ -3,7 +3,7 @@ title: 'Vertical Spec: RIA / Wealth Management (Operator pack)'
 date: 2026-06-02
 status: draft
 captain: Scott Durgan
-related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
+related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0005-external-send-identity.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0020-connector-strategy.md
 ---
 
 # Vertical Spec: RIA / Wealth Management
@@ -28,7 +28,7 @@ That coordination is a real seat, the client service associate who keeps the acc
 
 ## Skill catalog
 
-Twelve RIA-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send sits at the reviewer-as-sender floor ([ADR 0005](../../adr/0005-reviewer-as-sender.md)) unless the engagement authors otherwise.
+Twelve RIA-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send sits at the external-send draft floor unless the engagement authors otherwise.
 
 ### Onboarding and accounts
 
@@ -86,9 +86,9 @@ Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; 
 - **No investment advice or recommendation** — connective coordination only. Never a recommendation, never an opinion on a holding, allocation, market, or product, never a distribution amount. Advice is the investment-adviser representative's fiduciary act. This is the RIA analog of the law pack's UPL boundary, and it is the brightest line.
 - **No money movement** — the Operator never moves, transfers, distributes, or trades. It gathers a client's request and routes it to the firm's verified human process for execution.
 - **Reg S-P privacy** — client nonpublic personal information stays inside the firm's surfaces; the Operator does not exfiltrate or repurpose it.
-- **SEC books-and-records** — client communications are retained and archivable (SEC Rule 204-2). Reviewer-as-sender and the audit log give every external message a reviewer of record and a retained trail.
+- **SEC books-and-records** — client communications are retained and archivable (SEC Rule 204-2). Draft-for-review external send and the audit log give every external message a reviewer of record and a retained trail.
 - **Marketing Rule** — any review or testimonial-adjacent ask complies with the SEC Marketing Rule (Rule 206(4)-1); the Operator does not solicit or relay testimonials outside the firm's compliant process.
-- **Reviewer-as-sender floor** — external mail ships under a human reviewer's identity ([ADR 0005](../../adr/0005-reviewer-as-sender.md)).
+- **External-send draft floor** — external mail ships under a human reviewer's identity ([ADR 0035](../../adr/0035-no-imposed-entitlement-defaults.md)).
 
 ## Labor-market context (the demand, without presumption)
 
@@ -101,7 +101,7 @@ Per the corrected lens: **system-features are connection targets; only a true em
 - **Connection targets (zero threat):** the CRM and its AI agents (Wealthbox, Redtail), planning and portfolio tools. The systems we connect across.
 - **Real competitors, in our lane:** Jump and Zocks ($170M+ raised) began as AI meeting-notetakers and are expanding into "agentic operating systems" that orchestrate across the advisor stack, the connective layer. They are real and well-funded, and we do not pretend otherwise.
 
-The honest wedge: Jump and Zocks are advisor-copilot tools, anchored in the meeting and the advisor's productivity, expanding outward. The Operator is the **client-service-associate seat itself**, a configured employee competing with a hire, doing the onboarding, NIGO chasing, money-movement-request coordination, and document work under the firm's compliance regime, with reviewer-as-sender and a retained audit trail built for SEC books-and-records. We win on four things, none of which is a single feature (ADR 0037 Tenet 4, the moat is harness + guide + memory):
+The honest wedge: Jump and Zocks are advisor-copilot tools, anchored in the meeting and the advisor's productivity, expanding outward. The Operator is the **client-service-associate seat itself**, a configured employee competing with a hire, doing the onboarding, NIGO chasing, money-movement-request coordination, and document work under the firm's compliance regime, with draft-for-review external send and a retained audit trail built for SEC books-and-records. We win on four things, none of which is a single feature (ADR 0037 Tenet 4, the moat is harness + guide + memory):
 
 1. **The operations seat, not the advisor's copilot**, the CSA work the research names, not meeting notes expanding outward.
 2. **Compliance built into the substrate**, money fail-closed, advice fail-closed, comms retained for books-and-records, in the most regulated vertical in the dozen.

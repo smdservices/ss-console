@@ -28,7 +28,7 @@ Out of scope: the Hermes runtime internals, the connector adapters, and the cons
 
 We design these portals from first principles. **Nothing in the existing portal/UX layer is treated as a
 constraint** — not the built `/portal/products/operator/*` pages, not the dashboard tab IA in
-[dashboard-roles.md](../../specs/operator/dashboard-roles.md), not the "Pattern A / reviewer-as-sender" framing in the
+[dashboard-roles.md](../../specs/operator/dashboard-roles.md), not the "Pattern A" framing in the
 runtime specs. Those are reference material and a parts bin: we reuse a component only where it is genuinely right and
 does not compromise the design, and otherwise ignore it. We do not bend the design to fit a possibly-misguided artifact.
 
@@ -310,7 +310,7 @@ it doesn't, these govern:
 
 **Legacy portal/UX artifacts — do not adopt (clean slate, §1):**
 
-- The "**Pattern A / reviewer-as-sender / autonomous sends BANNED / no `send` method**" framing in
+- The "**Pattern A / autonomous sends BANNED / no `send` method**" framing in
   [capability-contracts.md](../../specs/operator/capability-contracts.md), [audit-emit-points.md](../../specs/operator/audit-emit-points.md),
   and the specs [index.md](../../specs/operator/index.md) is a **dead default** superseded by
   [ADR 0035](../../adr/0035-no-imposed-entitlement-defaults.md). We do not design to it. The portals treat draft-review

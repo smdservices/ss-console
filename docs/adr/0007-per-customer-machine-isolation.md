@@ -64,7 +64,7 @@ Boot-time invariant: at Machine boot, the runtime verifies its storage bindings 
 - Per-customer cost attribution. Compute, storage, and connector token usage are per-Machine. COGS is line-itemable to a customer.
 - Per-customer skill pinning is mechanically clean. Updating one customer's pinned SHA does not require coordinating with other customers' runtimes.
 - Per-customer compliance posture. Customers with stricter data-residency requirements get a Machine in the right region; customers with HIPAA scope get a Machine with the right BAA. The compliance unit of work is the Machine.
-- The reviewer-as-sender architecture (ADR 0005) and the customer-owned memory artifact (ADR 0008) both reduce to per-customer Machine bindings. The decisions compose cleanly.
+- The draft-for-review posture (ADR 0035) and the customer-owned memory artifact (ADR 0008) both reduce to per-customer Machine bindings. The decisions compose cleanly.
 
 **Negative / accepted.**
 
@@ -80,7 +80,7 @@ Boot-time invariant: at Machine boot, the runtime verifies its storage bindings 
 
 ## References
 
-- [ADR 0005 Reviewer-as-sender](./0005-reviewer-as-sender.md)
+- [ADR 0005 — External-send identity](./0005-external-send-identity.md)
 - [ADR 0008 Customer-owned memory artifact](./0008-customer-owned-memory-artifact.md)
 - [ADR 0009 Cross-Machine query prohibition](./0009-cross-machine-query-prohibition.md)
 - [Issue #828](https://github.com/venturecrane/ss-console/issues/828)

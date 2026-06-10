@@ -12,11 +12,11 @@ class; ADR 0035 removes the imposed default. The invariant is now:
     draft_for_review skill scalar does NOT silently author a draft route; the
     entitlement must be authored explicitly in `action_ceilings`.
   - An AUTHORED `external_send = draft_for_review` routes to draft
-    (reviewer-as-sender, now an authored value rather than the default).
+    (an authored draft_for_review value, never a default).
   - An explicit autonomous override permits the send.
   - A vertical-pack floor can only narrow: a floor of draft_for_review beats a
     customer override of autonomous, so a regulated vertical (e.g. law) keeps
-    reviewer-as-sender even if the customer tries to raise it.
+    draft_for_review even if the customer tries to raise it.
   - A skill whose scalar ceiling is `refused` runs nothing at all.
 
 Failure mode this still protects against: a misconfigured prompt or
@@ -71,7 +71,7 @@ def run() -> tuple[bool, str]:
         )
 
     # Scenario B2: an AUTHORED external_send=draft_for_review routes to draft —
-    # reviewer-as-sender is a value you author, distinct from unauthored=refused.
+    # draft_for_review is a value you author, distinct from unauthored=refused.
     decision = enforce(
         ceiling=Ceiling.AUTONOMOUS,
         action=ActionClass.EXTERNAL_SEND,

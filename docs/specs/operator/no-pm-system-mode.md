@@ -50,7 +50,7 @@ Implementation: [`operator/connectors/no_pm/`](../../../operator/connectors/no_p
 | `create_matter`         | Persists a new matter; synthesizes `mat_<hex>` id and ISO `opened_at` when omitted; defaults `status` to `"open"`                                                  |
 | `update_matter`         | Merges `custom_fields`; auto-records `closed_at` from server clock when status flips to `"closed"`; `not_found` if id is unknown                                   |
 | `list_matter_documents` | Returns the matter's per-customer R2 document index entries in insertion order                                                                                     |
-| `create_note`           | Records a reviewer-attributed note per [ADR 0005](../../adr/0005-reviewer-as-sender.md); `drafted_by_skill` rides on the row for the dashboard sourcing block      |
+| `create_note`           | Records a reviewer-attributed note per [ADR 0005](../../adr/0005-external-send-identity.md); `drafted_by_skill` rides on the row for the dashboard sourcing block  |
 
 ### Unsupported methods (raise `capability_not_supported`)
 
@@ -75,12 +75,12 @@ How each scene from the dry-run [#889](https://github.com/venturecrane/ss-consol
 
 ### Scene 1: Drafts list shows real drafts written from real Outlook emails
 
-| Component      | Binding                                                                                                                                                                                                                                                                                                                                          |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Inbound        | `Email.list_threads()` -> Microsoft Graph -> Outlook Inbox. The agent reads incoming threads.                                                                                                                                                                                                                                                    |
-| Reasoning      | Persona skill runs against the thread + relevant matter context (read from the synthetic store via `get_matter` if the thread is linked to a matter).                                                                                                                                                                                            |
-| Outbound       | `Email.create_draft()` -> Microsoft Graph -> reviewer's Outlook Drafts folder, under the **authored** reviewer-as-sender posture ([ADR 0005](../../adr/0005-reviewer-as-sender.md), one option). Under an authored autonomous `EXTERNAL_SEND` ceiling the agent sends directly; the modality is configured per engagement (ADR 0035), not fixed. |
-| Sourcing block | Dashboard renders "what the Operator used to write this" by reading `field_coverage` from each adapter the skill touched, including the no_pm adapter when matter context was used.                                                                                                                                                              |
+| Component      | Binding                                                                                                                                                                                                                                                                                                                                                     |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Inbound        | `Email.list_threads()` -> Microsoft Graph -> Outlook Inbox. The agent reads incoming threads.                                                                                                                                                                                                                                                               |
+| Reasoning      | Persona skill runs against the thread + relevant matter context (read from the synthetic store via `get_matter` if the thread is linked to a matter).                                                                                                                                                                                                       |
+| Outbound       | `Email.create_draft()` -> Microsoft Graph -> reviewer's Outlook Drafts folder, under the **authored** draft-for-review posture ([ADR 0035](../../adr/0035-no-imposed-entitlement-defaults.md), one option). Under an authored autonomous `EXTERNAL_SEND` ceiling the agent sends directly; the modality is configured per engagement (ADR 0035), not fixed. |
+| Sourcing block | Dashboard renders "what the Operator used to write this" by reading `field_coverage` from each adapter the skill touched, including the no_pm adapter when matter context was used.                                                                                                                                                                         |
 
 No `no_pm` write happens in this scene -- the synthetic store is read-only for draft creation. The drafts list is the same surface a Filevine customer sees.
 
@@ -180,7 +180,7 @@ The template at [`operator/templates/customer-no-pm-system.yaml`](../../../opera
 - [`customer-yaml-schema.md`](customer-yaml-schema.md) -- the schema this template instantiates
 - [`r2-vectorize-naming.md`](r2-vectorize-naming.md) -- the per-customer R2 path convention the synthetic store reuses
 - [`memory-ingestion.md`](memory-ingestion.md) -- the memory pipeline whose substrate the no_pm store rides on
-- [ADR 0005](../../adr/0005-reviewer-as-sender.md) -- reviewer-as-sender (the `create_note` attribution rule)
+- [ADR 0005](../../adr/0005-external-send-identity.md) -- external send identity (the `create_note` attribution rule)
 - [ADR 0006](../../adr/0006-capability-adapter-pattern.md) -- capability-adapter pattern (why this adapter swap works without skill rewrites)
 - [ADR 0007](../../adr/0007-per-customer-machine-isolation.md) -- per-customer Machine isolation (the deployment boundary the synthetic store inherits)
 - [ADR 0008](../../adr/0008-customer-owned-memory-artifact.md) -- customer-owned memory artifact (decommission drains the synthetic store like any other per-customer artifact)

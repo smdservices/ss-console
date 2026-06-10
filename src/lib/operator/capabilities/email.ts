@@ -6,8 +6,8 @@
  * adapter MAY expose a send method; whether a send executes autonomously,
  * routes to a reviewer draft, or is refused is decided at runtime by
  * `trust_ceiling.enforce()` per the authored EXTERNAL_SEND ceiling
- * (fail-closed when unauthored). Reviewer-as-sender (ADR 0005, amended by
- * ADR 0035) is one authored option among several — the agent is not
+ * (fail-closed when unauthored). The draft-for-review external send posture
+ * (ADR 0035) is one authored option among several — the agent is not
  * categorically barred from an autonomous send path; the engagement authors
  * the posture. This interface currently ships create/update-draft methods; a
  * send method is added per adapter as the configured entitlement requires.
@@ -79,7 +79,7 @@ export interface ThreadQuery {
 }
 
 // ---------------------------------------------------------------------------
-// Drafts — reviewer-as-sender contract
+// Drafts — draft-for-review contract
 // ---------------------------------------------------------------------------
 
 /**
@@ -172,7 +172,7 @@ export interface Email extends AdapterBase {
   // architectural regression: send is a configurable entitlement (ADR 0035),
   // gated at runtime by `trust_ceiling.enforce()` per the authored EXTERNAL_SEND
   // ceiling (fail-closed when unauthored). A `send()` method is added per adapter
-  // when an engagement authors a send posture; reviewer-as-sender (ADR 0005) is
+  // when an engagement authors a send posture; draft-for-review external send is
   // one such authored option, not a hard interface constraint.
 
   // Label / folder operations

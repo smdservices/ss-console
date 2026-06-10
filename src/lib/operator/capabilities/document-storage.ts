@@ -6,7 +6,7 @@
  * inside the PM system. This capability is the standalone document
  * store (SharePoint, Google Drive, Dropbox, Box).
  *
- * Writes here are not "outbound" in the reviewer-as-sender sense (the
+ * Writes here are not "outbound" in the draft-for-review external send sense (the
  * agent writes to the customer's own storage, not to an external
  * recipient). Sharing a document with an external party IS outbound;
  * the interface provides `share_document_draft` which, per ADR 0005,
