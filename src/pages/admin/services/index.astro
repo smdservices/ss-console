@@ -1,0 +1,151 @@
+---
+/**
+ * Services — the global, cross-client delivery list (ADR 0046).
+ *
+ * Every in-flight service across all clients, both kinds, risk-sorted.
+ * Composed view-side from engagements + operators (the `service` spine is
+ * deferred). Consulting rows drill to the client hub; operator rows to the
+ * cockpit.
+ */
+import AdminLayout from '../../../layouts/AdminLayout.astro'
+import { listEngagements } from '../../../lib/db/engagements'
+import { listEntities } from '../../../lib/db/entities'
+import { listQuotes } from '../../../lib/db/quotes'
+import type { Quote } from '../../../lib/db/quotes'
+import { listFleetRoster } from '../../../lib/admin/fleet-roster'
+import { listRuntimeSummary } from '../../../lib/admin/runtime-summary'
+import {
+  buildServiceList,
+  serviceListStats,
+  type OperatorInput,
+} from '../../../lib/admin/services-list'
+import { serviceToneDotClass } from '../../../lib/admin/client-hub'
+import { env } from 'cloudflare:workers'
+
+const session = Astro.locals.session!
+
+const [engagements, entities, quotes, roster, runtime] = await Promise.all([
+  listEngagements(env.DB, session.orgId),
+  listEntities(env.DB, session.orgId),
+  listQuotes(env.DB, session.orgId),
+  listFleetRoster(env.DB),
+  listRuntimeSummary(env.DB),
+])
+
+const nameById = new Map(entities.map((e) => [e.id, e.name]))
+const quotesById = new Map<string, Quote>(quotes.map((q) => [q.id, q]))
+const runtimeByEntity = new Map(runtime.map((r) => [r.entity_id, r]))
+
+const operators: OperatorInput[] = roster.map((r) => ({
+  entityId: r.entity_id,
+  clientName: r.entity_name ?? r.customer_slug,
+  configError: r.config_error,
+  openAlerts: runtimeByEntity.get(r.entity_id)?.open_alerts ?? null,
+  hasRuntime: runtimeByEntity.has(r.entity_id),
+}))
+
+const rows = buildServiceList({
+  engagements,
+  entityName: (id) => nameById.get(id) ?? '—',
+  quotesById,
+  operators,
+  now: new Date(),
+})
+const stats = serviceListStats(rows)
+
+const riskClass: Record<string, string> = {
+  alert: 'text-[color:var(--ss-color-error)] font-semibold',
+  warn: 'text-[color:var(--ss-color-primary)] font-medium',
+  muted: 'text-[color:var(--ss-color-text-muted)]',
+}
+const COL = 'grid grid-cols-[1.4fr_1.9fr_0.9fr_1.1fr_0.9fr_1.6fr] gap-4 items-center'
+---
+
+<AdminLayout
+  title="Services | SMD Services"
+  breadcrumbs={[{ label: 'Services' }]}
+  maxWidth="max-w-6xl"
+>
+  <h1 class="mb-5 text-2xl font-bold text-[color:var(--ss-color-text-primary)]">Services</h1>
+
+  <!-- stat band -->
+  <div class="mb-6 flex border border-[color:var(--ss-color-text-primary)]">
+    {
+      [
+        { label: 'In motion', value: stats.inMotion, risk: false },
+        { label: 'Consulting', value: stats.consulting, risk: false },
+        { label: 'Operator', value: stats.operator, risk: false },
+        { label: 'At risk', value: stats.atRisk, risk: true },
+      ].map((cell, i) => (
+        <div
+          class:list={[
+            'flex-1 px-[18px] py-[11px]',
+            i < 3 && 'border-r border-[color:var(--ss-color-border)]',
+          ]}
+        >
+          <span class="mb-1 block font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]">
+            {cell.label}
+          </span>
+          <span
+            class:list={[
+              'text-lg font-bold',
+              cell.risk && cell.value > 0 && 'text-[color:var(--ss-color-error)]',
+            ]}
+          >
+            {cell.value}
+          </span>
+        </div>
+      ))
+    }
+  </div>
+
+  {
+    rows.length === 0 ? (
+      <p class="border border-[color:var(--ss-color-border)] px-5 py-8 text-center text-[15px] italic text-[color:var(--ss-color-text-secondary)]">
+        No services in motion.
+      </p>
+    ) : (
+      <div>
+        <div
+          class={`${COL} border-b border-[color:var(--ss-color-text-primary)] px-3.5 pb-2.5 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]`}
+        >
+          <span>Client</span>
+          <span>Service</span>
+          <span>Type</span>
+          <span>Status</span>
+          <span class="text-right">Value</span>
+          <span class="text-right">Risk / next</span>
+        </div>
+        {rows.map((r) => (
+          <a
+            href={r.href}
+            class={`${COL} border-b border-[color:var(--ss-color-border-subtle)] px-3.5 py-3.5 transition-colors hover:bg-[rgba(26,21,18,0.025)]`}
+          >
+            <span class="font-semibold text-[color:var(--ss-color-text-primary)]">
+              {r.clientName}
+            </span>
+            <span class="text-sm text-[color:var(--ss-color-text-primary)]">{r.title}</span>
+            <span
+              class:list={[
+                "font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em]",
+                r.kind === 'operator'
+                  ? 'text-[color:var(--ss-color-primary)]'
+                  : 'text-[color:var(--ss-color-text-primary)]',
+              ]}
+            >
+              {r.kind}
+            </span>
+            <span class="inline-flex items-center gap-1.5 border border-[color:var(--ss-color-border)] px-2 py-1 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-text-secondary)] w-fit">
+              <span class:list={['h-[7px] w-[7px] rounded-full', serviceToneDotClass(r.tone)]} />
+              {r.statusLabel}
+            </span>
+            <span class="text-right font-['JetBrains_Mono'] text-[13px] font-medium">
+              {r.value ?? '—'}
+            </span>
+            <span class:list={['text-right text-sm', riskClass[r.riskTone]]}>{r.risk}</span>
+          </a>
+        ))}
+      </div>
+    )
+  }
+</AdminLayout>
