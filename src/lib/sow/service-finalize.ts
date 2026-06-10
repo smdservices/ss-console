@@ -211,7 +211,7 @@ interface SignerSnapshot { contactId: string; name: string; email: string; title
 // prettier-ignore
 interface FinalizeCtx {
   db: D1Database; orgId: string; requestId: string; entityId: string; quoteId: string
-  engagementId: string; invoiceId: string; depositAmount: number; signer: SignerSnapshot
+  engagementId: string; serviceId: string; invoiceId: string; depositAmount: number; signer: SignerSnapshot
   now: string; signedKey: string; revisionId: string; totalHours: number
 }
 
@@ -282,7 +282,7 @@ type CoreStmtIds = { contextEntryId: string; clientUserId: string; stageChangeCo
 
 function buildCoreStmts(ctx: FinalizeCtx, ids: CoreStmtIds): D1PreparedStatement[] {
   // prettier-ignore
-  const { db, orgId, requestId, entityId, quoteId, engagementId, invoiceId, signer, signedKey, revisionId, totalHours, now } = ctx
+  const { db, orgId, requestId, entityId, quoteId, engagementId, serviceId, invoiceId, signer, signedKey, revisionId, totalHours, now } = ctx
   // prettier-ignore
   const { contextEntryId, clientUserId, stageChangeContent, stageChangeMetadata, normalizedEmail } = ids
   return [
@@ -306,11 +306,20 @@ function buildCoreStmts(ctx: FinalizeCtx, ids: CoreStmtIds): D1PreparedStatement
         `UPDATE entities SET stage = 'engaged', stage_changed_at = ?, updated_at = ? WHERE id = ? AND org_id = ?`
       )
       .bind(now, now, entityId, orgId),
+    // ADR 0046: the commercial `service` spine row (parent of the engagement).
+    // Born 'active' — acceptance is the trigger and the revenue line is live at
+    // signature. Inlined here (not via createService) to stay in the atomic
+    // batch. All ids are JS-side constants, so statement order is immaterial.
     db
       .prepare(
-        `INSERT INTO engagements (id, org_id, entity_id, quote_id, status, estimated_hours, created_at, updated_at) VALUES (?, ?, ?, ?, 'scheduled', ?, ?, ?)`
+        `INSERT INTO services (id, org_id, entity_id, quote_id, type, cadence, status, started_at, created_at, updated_at) VALUES (?, ?, ?, ?, 'consulting', 'one_time', 'active', ?, ?, ?)`
       )
-      .bind(engagementId, orgId, entityId, quoteId, totalHours, now, now),
+      .bind(serviceId, orgId, entityId, quoteId, now, now, now),
+    db
+      .prepare(
+        `INSERT INTO engagements (id, org_id, entity_id, quote_id, service_id, status, estimated_hours, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'scheduled', ?, ?, ?)`
+      )
+      .bind(engagementId, orgId, entityId, quoteId, serviceId, totalHours, now, now),
     db
       .prepare(
         `INSERT INTO invoices (id, org_id, engagement_id, entity_id, type, amount, status, created_at, updated_at) VALUES (?, ?, ?, ?, 'deposit', ?, 'draft', ?, ?)`
@@ -460,6 +469,9 @@ async function persistAndFinalizeArtifact(args: {
     entityId: quote.entity_id,
     quoteId: quote.id,
     engagementId: crypto.randomUUID(),
+    // ADR 0046: the commercial `service` parent. 'svc_' prefix is the shared
+    // invariant with the backfill (migrations 0069/0070).
+    serviceId: `svc_${crypto.randomUUID()}`,
     invoiceId: crypto.randomUUID(),
     depositAmount: quote.deposit_amount ?? 0,
     signer: signerSnapshot,
