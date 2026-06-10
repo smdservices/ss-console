@@ -59,7 +59,7 @@ const {
 <AdminLayout
   title={`Engagement - ${entity?.name ?? 'Unknown'} | Admin`}
   breadcrumbs={[
-    { label: 'Dashboard', href: '/admin' },
+    { label: 'Home', href: '/admin' },
     ...(entity ? [{ label: entity.name, href: `/admin/entities/${entity.id}` }] : []),
     { label: 'Engagement' },
   ]}

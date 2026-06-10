@@ -248,7 +248,7 @@ describe('analytics: dashboard page', () => {
   it('has breadcrumb navigation', () => {
     const code = source()
     expect(code).toContain('/admin')
-    expect(code).toContain('Dashboard')
+    expect(code).toContain('Home')
     expect(code).toContain('Analytics')
   })
 
