@@ -20,22 +20,36 @@ const { title, breadcrumbs = [], maxWidth = 'max-w-5xl', mainClass = '' } = Astr
 const session = Astro.locals.session!
 const pathname = Astro.url.pathname
 
+// Top-level IA (ADR 0046): flow-ordered — acquire, serve, deliver, get
+// paid, run, measure. Leads is the lead working view (entities); Clients
+// is the post-acceptance hub. Generators + Follow-ups are demoted to
+// Settings (sub-functions of the funnel, not product lines).
 const navItems = [
-  { label: 'Dashboard', href: '/admin', match: (p: string) => p === '/admin' || p === '/admin/' },
+  { label: 'Home', href: '/admin', match: (p: string) => p === '/admin' || p === '/admin/' },
   {
-    label: 'Entities',
+    label: 'Leads',
     href: '/admin/entities',
     match: (p: string) => p.startsWith('/admin/entities'),
   },
   {
-    label: 'Follow-ups',
-    href: '/admin/follow-ups',
-    match: (p: string) => p.startsWith('/admin/follow-ups'),
+    label: 'Clients',
+    href: '/admin/clients',
+    match: (p: string) => p.startsWith('/admin/clients'),
   },
   {
-    label: 'Generators',
-    href: '/admin/generators',
-    match: (p: string) => p.startsWith('/admin/generators'),
+    label: 'Services',
+    href: '/admin/services',
+    match: (p: string) => p.startsWith('/admin/services'),
+  },
+  {
+    label: 'Billing',
+    href: '/admin/billing',
+    match: (p: string) => p.startsWith('/admin/billing'),
+  },
+  {
+    label: 'Operator',
+    href: '/admin/operator',
+    match: (p: string) => p.startsWith('/admin/operator'),
   },
   {
     label: 'Analytics',
@@ -43,9 +57,9 @@ const navItems = [
     match: (p: string) => p.startsWith('/admin/analytics'),
   },
   {
-    label: 'Operator',
-    href: '/admin/operator',
-    match: (p: string) => p.startsWith('/admin/operator'),
+    label: 'Settings',
+    href: '/admin/settings',
+    match: (p: string) => p.startsWith('/admin/settings'),
   },
 ]
 ---

@@ -1,0 +1,365 @@
+---
+/**
+ * Client hub — the per-business account view (ADR 0046).
+ *
+ * The post-acceptance counterpart to the lead working view
+ * (`entities/[id]`). Composes the client's services view-side from
+ * existing tables: consulting engagements + an operator (customer_config)
+ * if present, billing from invoices/quotes, activity from the timeline.
+ * The `service` spine is deferred — this renders the unified view today.
+ */
+import AdminLayout from '../../../layouts/AdminLayout.astro'
+import EntityTimelineEntry from '../../../components/admin/EntityTimelineEntry.astro'
+import { loadEntityDetailPage, formatDate } from '../../../lib/admin/entity-detail-page'
+import { listFleetRoster, personaSummary, posturePill } from '../../../lib/admin/fleet-roster'
+import {
+  computeBillingRollup,
+  engagementToServiceRow,
+  formatMoney,
+  serviceToneDotClass,
+} from '../../../lib/admin/client-hub'
+import { ENTITY_VERTICALS, ENTITY_STAGES } from '../../../lib/db/entities'
+import { statusBadgeClass } from '../../../lib/ui/status-badge'
+import { env } from 'cloudflare:workers'
+
+const session = Astro.locals.session!
+const entityId = Astro.params.id!
+
+const pageData = await loadEntityDetailPage({
+  db: env.DB,
+  orgId: session.orgId,
+  entityId,
+  url: Astro.url,
+})
+if (!pageData) return Astro.redirect('/admin/clients?error=not_found')
+
+const { entity, engagements, quotes, invoices, contacts, deduplicatedTimeline } = pageData
+
+const roster = await listFleetRoster(env.DB)
+const operator = roster.find((r) => r.entity_id === entityId) ?? null
+
+const rollup = computeBillingRollup(invoices)
+const serviceRows = engagements.map((eng) => engagementToServiceRow(eng, quotes))
+
+const verticalLabel =
+  ENTITY_VERTICALS.find((v) => v.value === entity.vertical)?.label ?? entity.vertical ?? '—'
+const stageLabel = ENTITY_STAGES.find((s) => s.value === entity.stage)?.label ?? entity.stage
+const primaryContact = contacts[0] ?? null
+
+const earliestStart = engagements
+  .map((e) => e.start_date)
+  .filter((d): d is string => Boolean(d))
+  .sort()[0]
+const clientSince = formatDate(earliestStart ?? entity.created_at)
+
+const overdueInvoices = invoices.filter((i) => i.status === 'overdue')
+const sentInvoices = invoices.filter((i) => i.status === 'sent')
+
+const SECTION_LABEL =
+  "font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.16em] text-[color:var(--ss-color-text-primary)]"
+const LINK_ACT =
+  "font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)] underline underline-offset-4"
+---
+
+<AdminLayout
+  title={`${entity.name} | Clients | SMD Services`}
+  breadcrumbs={[{ label: 'Clients', href: '/admin/clients' }, { label: entity.name }]}
+  maxWidth="max-w-6xl"
+>
+  <a
+    href="/admin/clients"
+    class="mb-5 inline-flex items-center gap-1 text-sm text-[color:var(--ss-color-text-secondary)] transition-colors hover:text-[color:var(--ss-color-primary)]"
+  >
+    <span>‹ Clients</span>
+  </a>
+
+  <!-- identity -->
+  <div class="flex items-start justify-between gap-6 pb-5">
+    <div>
+      <h1 class="text-3xl font-bold text-[color:var(--ss-color-text-primary)]">{entity.name}</h1>
+      <p class="mt-1 text-sm text-[color:var(--ss-color-text-secondary)]">
+        {verticalLabel}{entity.area ? ` · ${entity.area}` : ''}
+      </p>
+    </div>
+    <div class="shrink-0 text-right text-sm leading-7 text-[color:var(--ss-color-text-secondary)]">
+      <span
+        class="inline-flex items-center gap-2 border border-[color:var(--ss-color-border)] px-2 py-1 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em]"
+      >
+        <span class="h-[7px] w-[7px] rounded-full bg-[color:var(--ss-color-complete)]"></span>
+        Client · {stageLabel}
+      </span>
+      {primaryContact && <div class="mt-2">Primary: {primaryContact.name}</div>}
+      <div>Client since {clientSince}</div>
+    </div>
+  </div>
+
+  <!-- at a glance -->
+  <div class="mb-7 flex border border-[color:var(--ss-color-text-primary)]">
+    <div class="flex-1 border-r border-[color:var(--ss-color-border)] px-[18px] py-[14px]">
+      <span
+        class="mb-[5px] block font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
+        >Lifetime billed</span
+      >
+      <span class="font-['JetBrains_Mono'] text-lg font-bold">{formatMoney(rollup.invoiced)}</span>
+    </div>
+    <div class="flex-1 border-r border-[color:var(--ss-color-border)] px-[18px] py-[14px]">
+      <span
+        class="mb-[5px] block font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
+        >Paid</span
+      >
+      <span class="font-['JetBrains_Mono'] text-lg font-bold">{formatMoney(rollup.paid)}</span>
+    </div>
+    <div class="flex-1 px-[18px] py-[14px]">
+      <span
+        class="mb-[5px] block font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
+        >Outstanding</span
+      >
+      <span
+        class:list={[
+          "font-['JetBrains_Mono'] text-lg font-bold",
+          rollup.outstanding > 0
+            ? 'text-[color:var(--ss-color-primary)]'
+            : 'text-[color:var(--ss-color-text-muted)]',
+        ]}>{formatMoney(rollup.outstanding)}</span
+      >
+    </div>
+  </div>
+
+  <div class="lg:grid lg:grid-cols-[1fr_20rem] lg:gap-7 lg:items-start">
+    <!-- main column -->
+    <div class="min-w-0">
+      <!-- services -->
+      <section class="border-t border-[color:var(--ss-color-text-primary)] pt-4 pb-6">
+        <h2 class={`${SECTION_LABEL} mb-4`}>Services</h2>
+
+        {
+          operator && (
+            <div class="mb-3.5 border border-[color:var(--ss-color-border)] border-l-[3px] border-l-[color:var(--ss-color-primary)] px-[18px] py-4">
+              <div class="mb-3 flex items-center justify-between">
+                <span class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)]">
+                  Operator
+                </span>
+                <span class="inline-flex items-center gap-1.5 border border-[color:var(--ss-color-border)] px-2 py-1 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
+                  {posturePill(operator.authority).label}
+                </span>
+              </div>
+              <div class="text-base font-bold text-[color:var(--ss-color-text-primary)]">
+                Operator
+              </div>
+              <div class="mt-2 text-sm text-[color:var(--ss-color-text-secondary)]">
+                {personaSummary(operator.personas)}
+                {operator.config_error && ' · config needs attention'}
+              </div>
+              <div class="mt-3 flex items-center justify-end border-t border-[color:var(--ss-color-border-subtle)] pt-3">
+                <a href="/admin/operator" class={LINK_ACT}>
+                  Open cockpit →
+                </a>
+              </div>
+            </div>
+          )
+        }
+
+        {
+          serviceRows.map((svc) => (
+            <div class="mb-3.5 border border-[color:var(--ss-color-border)] border-l-[3px] border-l-[color:var(--ss-color-text-primary)] px-[18px] py-4">
+              <div class="mb-3 flex items-center justify-between">
+                <span class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)]">
+                  Consulting
+                </span>
+                <span class="inline-flex items-center gap-1.5 border border-[color:var(--ss-color-border)] px-2 py-1 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
+                  <span
+                    class:list={['h-[7px] w-[7px] rounded-full', serviceToneDotClass(svc.tone)]}
+                  />
+                  {svc.statusLabel}
+                </span>
+              </div>
+              <div class="flex items-baseline justify-between gap-4">
+                <span class="text-base font-bold text-[color:var(--ss-color-text-primary)]">
+                  {svc.title}
+                </span>
+                {svc.value && (
+                  <span class="font-['JetBrains_Mono'] text-base font-bold whitespace-nowrap">
+                    {svc.value}
+                  </span>
+                )}
+              </div>
+              {svc.keyDateIso && (
+                <div class="mt-3 border-t border-[color:var(--ss-color-border-subtle)] pt-3 text-xs text-[color:var(--ss-color-text-muted)]">
+                  {svc.keyDateKind} {formatDate(svc.keyDateIso)}
+                </div>
+              )}
+            </div>
+          ))
+        }
+
+        {
+          !operator && serviceRows.length === 0 && (
+            <p class="text-[15px] italic leading-6 text-[color:var(--ss-color-text-secondary)]">
+              No services yet.
+            </p>
+          )
+        }
+
+        <a
+          href={`/admin/quotes/new?entity=${entity.id}`}
+          class="mt-3.5 block w-full border border-dashed border-[color:var(--ss-color-border)] px-3.5 py-2.5 text-center font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]"
+          >+ New quote</a
+        >
+      </section>
+
+      <!-- billing -->
+      <section class="border-t border-[color:var(--ss-color-text-primary)] pt-4 pb-6">
+        <div class="mb-4 flex items-baseline justify-between">
+          <h2 class={SECTION_LABEL}>Billing</h2>
+          <a href="/admin/billing" class={LINK_ACT}>View all billing →</a>
+        </div>
+        {
+          quotes.length === 0 && invoices.length === 0 ? (
+            <p class="text-[15px] italic leading-6 text-[color:var(--ss-color-text-secondary)]">
+              No billing yet.
+            </p>
+          ) : (
+            <div class="space-y-2.5 text-sm">
+              {quotes.length > 0 && (
+                <div class="flex gap-3">
+                  <span class="w-20 shrink-0 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
+                    Quotes
+                  </span>
+                  <span class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    {quotes.map((q) => (
+                      <span class="inline-flex items-center gap-1.5">
+                        <span class={statusBadgeClass(q.status)}>{q.status}</span>
+                        {formatMoney(q.total_price)}
+                      </span>
+                    ))}
+                  </span>
+                </div>
+              )}
+              {invoices.length > 0 && (
+                <div class="flex gap-3">
+                  <span class="w-20 shrink-0 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]">
+                    Invoices
+                  </span>
+                  <span class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    {invoices.map((inv) => (
+                      <span class="inline-flex items-center gap-1.5">
+                        <span class={statusBadgeClass(inv.status)}>{inv.status}</span>
+                        {formatMoney(inv.amount)}
+                      </span>
+                    ))}
+                  </span>
+                </div>
+              )}
+            </div>
+          )
+        }
+      </section>
+
+      <!-- activity -->
+      <section class="border-t border-[color:var(--ss-color-text-primary)] pt-4 pb-6">
+        <div class="mb-4 flex items-baseline justify-between">
+          <h2 class={SECTION_LABEL}>Activity</h2>
+          <span class="font-['JetBrains_Mono'] text-[12px] text-[color:var(--ss-color-text-muted)]">
+            {deduplicatedTimeline.length}
+            {deduplicatedTimeline.length === 1 ? 'event' : 'events'}
+          </span>
+        </div>
+        {
+          deduplicatedTimeline.length === 0 ? (
+            <p class="text-[15px] italic leading-6 text-[color:var(--ss-color-text-secondary)]">
+              No activity yet.
+            </p>
+          ) : (
+            <ul class="list-none">
+              {deduplicatedTimeline.slice(0, 8).map((entry, idx) => (
+                <EntityTimelineEntry entry={entry} openByDefault={idx < 3} />
+              ))}
+            </ul>
+          )
+        }
+      </section>
+    </div>
+
+    <!-- right rail -->
+    <div class="mt-8 lg:mt-0">
+      <div class="mb-4 border border-[color:var(--ss-color-border)] p-4">
+        <span class={`${SECTION_LABEL} mb-3 block`}>Open items</span>
+        {
+          overdueInvoices.length === 0 && sentInvoices.length === 0 ? (
+            <p class="text-sm text-[color:var(--ss-color-text-muted)]">Nothing outstanding.</p>
+          ) : (
+            <ul class="list-none text-sm">
+              {overdueInvoices.map((inv) => (
+                <li class="flex items-center gap-2 border-t border-[color:var(--ss-color-border-subtle)] py-1.5 first:border-t-0 first:pt-0 text-[color:var(--ss-color-text-secondary)]">
+                  <span class="h-2 w-2 rounded-full bg-[color:var(--ss-color-error)]" />
+                  Invoice overdue · {formatMoney(inv.amount)}
+                </li>
+              ))}
+              {sentInvoices.map((inv) => (
+                <li class="flex items-center gap-2 border-t border-[color:var(--ss-color-border-subtle)] py-1.5 first:border-t-0 first:pt-0 text-[color:var(--ss-color-text-secondary)]">
+                  <span class="h-2 w-2 rounded-full bg-[color:var(--ss-color-primary)]" />
+                  Invoice sent · {formatMoney(inv.amount)}
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </div>
+
+      <div class="border border-[color:var(--ss-color-border)] p-4">
+        <span class={`${SECTION_LABEL} mb-3 block`}>Contacts</span>
+        {
+          contacts.length === 0 ? (
+            <p class="text-sm text-[color:var(--ss-color-text-muted)]">No contacts yet.</p>
+          ) : (
+            <ul class="list-none space-y-2 text-sm">
+              {contacts.map((c) => (
+                <li>
+                  <span class="font-semibold text-[color:var(--ss-color-text-primary)]">
+                    {c.name}
+                  </span>
+                  {c.title && (
+                    <span class="text-[color:var(--ss-color-text-secondary)]"> · {c.title}</span>
+                  )}
+                  {c.email && (
+                    <div class="font-['JetBrains_Mono'] text-xs text-[color:var(--ss-color-text-muted)]">
+                      {c.email}
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- background (collapsed) -->
+  <details class="mt-9 border border-[color:var(--ss-color-border)]">
+    <summary class="flex cursor-pointer items-baseline justify-between px-[18px] py-3.5">
+      <span class={SECTION_LABEL}>Background</span>
+      <span class="text-xs text-[color:var(--ss-color-text-muted)]"
+        >What we know about this business</span
+      >
+    </summary>
+    <div class="border-t border-[color:var(--ss-color-border)] px-[18px] py-3.5 text-sm">
+      <div class="flex gap-4 py-1.5">
+        <span
+          class="w-24 shrink-0 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]"
+          >Origin</span
+        >
+        <span>{entity.source_pipeline ?? 'unknown source'} · {formatDate(entity.created_at)}</span>
+      </div>
+      <div class="flex gap-4 py-1.5">
+        <span
+          class="w-24 shrink-0 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-secondary)]"
+          >Full record</span
+        >
+        <a href={`/admin/entities/${entity.id}`} class={LINK_ACT}>
+          Enrichment, signals & pain observations →
+        </a>
+      </div>
+    </div>
+  </details>
+</AdminLayout>

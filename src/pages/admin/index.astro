@@ -1,183 +1,279 @@
 ---
-import AdminLayout from '../../layouts/AdminLayout.astro'
-import DashboardTodaysWork from '../../components/admin/DashboardTodaysWork.astro'
-import DashboardPipeline from '../../components/admin/DashboardPipeline.astro'
-import DashboardRevenue from '../../components/admin/DashboardRevenue.astro'
-import DashboardFollowUpHealth from '../../components/admin/DashboardFollowUpHealth.astro'
-import DashboardAutomations from '../../components/admin/DashboardAutomations.astro'
-import { listFollowUps } from '../../lib/db/follow-ups'
-import {
-  getPipelineConversion,
-  getRevenueReport,
-  getEngagementHealth,
-  getFollowUpCompliance,
-} from '../../lib/db/analytics'
-import { listEngagements } from '../../lib/db/engagements'
-import { listAssessments } from '../../lib/db/assessments'
-import { listEntities } from '../../lib/db/entities'
-import { listInvoices } from '../../lib/db/invoices'
-import { getIntegration } from '../../lib/db/integrations'
-import { env } from 'cloudflare:workers'
-
 /**
- * Operator dashboard — single pane of glass.
+ * Home — the admin launchpad (ADR 0046).
  *
- * Five server-rendered cards. No dynamic JS. Fast load.
- * This page orchestrates data fetching and composes the cards;
- * each card lives in its own component under src/components/admin/.
+ * Action-first: "Needs you today" leads, then the two revenue shapes,
+ * then three motion cards (Acquisition / Delivery / Fleet) that each
+ * summarize a surface and jump to it. A launchpad, not a workspace —
+ * every tile composes from the surfaces beneath and deep-links; you
+ * orient here and leave. Composes from the same helpers the Services and
+ * Billing surfaces use.
  */
+import AdminLayout from '../../layouts/AdminLayout.astro'
+import { listFollowUps } from '../../lib/db/follow-ups'
+import { listEngagements } from '../../lib/db/engagements'
+import { listEntities } from '../../lib/db/entities'
+import type { EntityStage } from '../../lib/db/entities'
+import { listInvoices } from '../../lib/db/invoices'
+import { listQuotes } from '../../lib/db/quotes'
+import type { Quote } from '../../lib/db/quotes'
+import { listFleetRoster } from '../../lib/admin/fleet-roster'
+import { listRuntimeSummary } from '../../lib/admin/runtime-summary'
+import {
+  buildServiceList,
+  serviceListStats,
+  type OperatorInput,
+} from '../../lib/admin/services-list'
+import { oneTimeTotals } from '../../lib/admin/billing-view'
+import { buildActionQueue } from '../../lib/admin/home-actions'
+import { formatMoney } from '../../lib/admin/client-hub'
+import { env } from 'cloudflare:workers'
 
 const session = Astro.locals.session!
 const now = new Date()
-const todayStr = now.toISOString().split('T')[0]
 
 const [
   overdueFollowUps,
   upcomingFollowUps,
-  pipeline,
-  revenue,
-  health,
-  compliance,
-  allEngagements,
-  allAssessments,
-  outstandingInvoices,
-  signals,
-  googleIntegration,
-  pipelineFreshness,
-  bookingSyncHealth,
+  invoices,
+  engagements,
+  quotes,
+  entities,
+  roster,
+  runtime,
 ] = await Promise.all([
   listFollowUps(env.DB, session.orgId, { overdue: true }),
   listFollowUps(env.DB, session.orgId, { upcoming: true }),
-  getPipelineConversion(env.DB, session.orgId),
-  getRevenueReport(env.DB, session.orgId),
-  getEngagementHealth(env.DB, session.orgId),
-  getFollowUpCompliance(env.DB, session.orgId),
+  listInvoices(env.DB, session.orgId),
   listEngagements(env.DB, session.orgId),
-  listAssessments(env.DB, session.orgId),
-  listInvoices(env.DB, session.orgId, { status: 'sent' }),
-  listEntities(env.DB, session.orgId, { stage: 'signal' }),
-  getIntegration(env.DB, session.orgId, 'google_calendar', { includeInactive: true }),
-  env.DB.prepare(
-    `SELECT source_pipeline, MAX(created_at) as last_signal
-     FROM entities
-     WHERE org_id = ? AND source_pipeline IS NOT NULL AND source_pipeline != 'system'
-     GROUP BY source_pipeline`
-  )
-    .bind(session.orgId)
-    .all<{ source_pipeline: string; last_signal: string }>(),
-  env.DB.prepare(
-    `SELECT
-       SUM(CASE WHEN google_sync_state = 'error' THEN 1 ELSE 0 END) as sync_errors,
-       SUM(CASE WHEN google_sync_state = 'pending'
-         AND updated_at < datetime('now', '-1 hour') THEN 1 ELSE 0 END) as stuck
-     FROM assessment_schedule
-     WHERE org_id = ? AND cancelled_at IS NULL`
-  )
-    .bind(session.orgId)
-    .first<{ sync_errors: number; stuck: number }>(),
+  listQuotes(env.DB, session.orgId),
+  listEntities(env.DB, session.orgId),
+  listFleetRoster(env.DB),
+  listRuntimeSummary(env.DB),
 ])
 
-const todayAssessments = allAssessments.filter((a) => {
-  return a.status === 'scheduled' && a.scheduled_at?.startsWith(todayStr)
+const nameById = new Map(entities.map((e) => [e.id, e.name]))
+const quotesById = new Map<string, Quote>(quotes.map((q) => [q.id, q]))
+const runtimeByEntity = new Map(runtime.map((r) => [r.entity_id, r]))
+
+const operators: OperatorInput[] = roster.map((r) => ({
+  entityId: r.entity_id,
+  clientName: r.entity_name ?? r.customer_slug,
+  configError: r.config_error,
+  openAlerts: runtimeByEntity.get(r.entity_id)?.open_alerts ?? null,
+  hasRuntime: runtimeByEntity.has(r.entity_id),
+}))
+
+const services = buildServiceList({
+  engagements,
+  entityName: (id) => nameById.get(id) ?? '—',
+  quotesById,
+  operators,
+  now,
 })
-const overdueCount = overdueFollowUps.length
-const signalCount = signals.length
+const deliveryStats = serviceListStats(services)
+const atRiskServices = services.filter((s) => s.riskTone !== 'muted')
 
-const pipelineStages = [
-  { label: 'Signals', count: signalCount, stage: 'signal', tone: 'meta' },
-  { label: 'Prospects', count: pipeline.prospect, stage: 'prospect', tone: 'meta' },
-  { label: 'Meetings', count: pipeline.meetings, stage: 'meetings', tone: 'primary' },
-  { label: 'Proposing', count: pipeline.proposing, stage: 'proposing', tone: 'primary' },
-  { label: 'Engaged', count: pipeline.engaged, stage: 'engaged', tone: 'ink' },
-  { label: 'Delivered', count: pipeline.delivered, stage: 'delivered', tone: 'ink' },
-] as const
-const totalPipeline = pipelineStages.reduce((sum, s) => sum + s.count, 0)
+const totals = oneTimeTotals(invoices)
+const overdueInvoices = invoices.filter((i) => i.status === 'overdue')
 
-const activeEngagements = allEngagements.filter(
-  (e) => e.status === 'active' || e.status === 'scheduled' || e.status === 'handoff'
-)
-const outstandingTotal = outstandingInvoices.reduce((sum, inv) => sum + (inv.amount ?? 0), 0)
-
-const calStatus = googleIntegration?.status ?? null
-const calEmail = googleIntegration?.account_email ?? null
-const calError = googleIntegration?.last_error ?? null
-const syncErrors = bookingSyncHealth?.sync_errors ?? 0
-const syncStuck = bookingSyncHealth?.stuck ?? 0
-
-const PIPELINE_THRESHOLDS: Record<string, { warn: number; critical: number; label: string }> = {
-  job_monitor: { warn: 36, critical: 72, label: 'Job Posting Monitor' },
-  review_mining: { warn: 216, critical: 336, label: 'Review Mining' },
-  new_business: { warn: 36, critical: 72, label: 'New Business Detection' },
-  social_listening: { warn: 168, critical: 336, label: 'Social Listening' },
-  website_scorecard: { warn: 168, critical: 336, label: 'Website Scorecard' },
-  website_booking: { warn: 168, critical: 336, label: 'Website Booking' },
-  website_intake: { warn: 168, critical: 336, label: 'Website Intake' },
-}
-
-function hoursAgo(isoDate: string): number {
-  return (Date.now() - new Date(isoDate).getTime()) / 3_600_000
-}
-
-function relativeTime(isoDate: string): string {
-  const h = hoursAgo(isoDate)
-  if (h < 1) return 'just now'
-  if (h < 24) return `${Math.round(h)}h ago`
-  const d = Math.round(h / 24)
-  return `${d}d ago`
-}
-
-const pipelineRows = (pipelineFreshness?.results ?? []).map((r) => {
-  const thresholds = PIPELINE_THRESHOLDS[r.source_pipeline] ?? {
-    warn: 168,
-    critical: 336,
-    label: r.source_pipeline.replace(/_/g, ' '),
-  }
-  const h = hoursAgo(r.last_signal)
-  const color =
-    h < thresholds.warn
-      ? 'bg-[color:var(--ss-color-text-primary)]'
-      : h < thresholds.critical
-        ? 'bg-[color:var(--ss-color-attention)]'
-        : 'bg-[color:var(--ss-color-error)]'
-  return { id: r.source_pipeline, label: thresholds.label, ago: relativeTime(r.last_signal), color }
+const actions = buildActionQueue({
+  overdueInvoices,
+  atRiskServices,
+  overdueFollowUpCount: overdueFollowUps.length,
+  clientName: (id) => nameById.get(id) ?? '—',
 })
+
+// Acquisition (pre-acceptance pipeline) counts from entities.
+const LEAD_STAGES: EntityStage[] = ['signal', 'prospect', 'meetings', 'proposing']
+const leadsActive = entities.filter((e) => LEAD_STAGES.includes(e.stage)).length
+const triageCount = entities.filter((e) => e.stage === 'signal').length
+const proposingCount = entities.filter((e) => e.stage === 'proposing').length
+
+const fleetAlerting = operators.filter((o) => (o.openAlerts ?? 0) > 0).length
+const fleetHealthy = roster.length - fleetAlerting
+
+const toneDot: Record<string, string> = {
+  alert: 'bg-[color:var(--ss-color-error)]',
+  warn: 'bg-[color:var(--ss-color-primary)]',
+  muted: 'bg-[color:var(--ss-color-text-muted)]',
+}
+const dateLabel = now.toLocaleDateString('en-US', {
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+})
+
+const LAB =
+  "font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
+const SEC =
+  "font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.16em] text-[color:var(--ss-color-text-primary)]"
+const CARD_LINK =
+  "font-['Archivo_Narrow'] text-[10px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-primary)]"
+
+interface MotionCard {
+  label: string
+  href: string
+  jump: string
+  rows: { k: string; n: string | number; tone?: 'alert' | 'good' }[]
+}
+const motion: MotionCard[] = [
+  {
+    label: 'Acquisition',
+    href: '/admin/entities',
+    jump: 'Leads →',
+    rows: [
+      { k: 'Active leads', n: leadsActive },
+      { k: 'In triage', n: triageCount },
+      { k: 'Proposing', n: proposingCount },
+      { k: 'Upcoming follow-ups', n: upcomingFollowUps.length },
+    ],
+  },
+  {
+    label: 'Delivery',
+    href: '/admin/services',
+    jump: 'Services →',
+    rows: [
+      { k: 'In motion', n: deliveryStats.inMotion },
+      { k: 'At risk', n: deliveryStats.atRisk, tone: 'alert' },
+      { k: 'Consulting', n: deliveryStats.consulting },
+    ],
+  },
+  {
+    label: 'Fleet',
+    href: '/admin/operator',
+    jump: 'Operator →',
+    rows: [
+      { k: 'Operators', n: roster.length },
+      { k: 'Healthy', n: fleetHealthy, tone: 'good' },
+      { k: 'Alerting', n: fleetAlerting, tone: 'alert' },
+    ],
+  },
+]
 ---
 
-<AdminLayout title="Dashboard — SMD Services" maxWidth="max-w-6xl">
-  <div class="space-y-card">
-    <DashboardTodaysWork
-      signalCount={signalCount}
-      todayAssessments={todayAssessments}
-      overdueCount={overdueCount}
-    />
+<AdminLayout title="Home | SMD Services" maxWidth="max-w-6xl">
+  <div class="mb-6 flex items-baseline justify-between">
+    <h1 class="text-2xl font-bold text-[color:var(--ss-color-text-primary)]">Home</h1>
+    <span class="font-['JetBrains_Mono'] text-[13px] text-[color:var(--ss-color-text-muted)]"
+      >{dateLabel}</span
+    >
+  </div>
 
-    <DashboardPipeline
-      pipelineStages={pipelineStages}
-      totalPipeline={totalPipeline}
-      pipeline={pipeline}
-    />
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-card">
-      <DashboardRevenue
-        revenue={revenue}
-        outstandingTotal={outstandingTotal}
-        activeEngagementsCount={activeEngagements.length}
-        health={health}
-      />
-
-      <DashboardFollowUpHealth
-        compliance={compliance}
-        upcomingFollowUpsCount={upcomingFollowUps.length}
-      />
+  <!-- needs you today -->
+  <div class="mb-7 border border-[color:var(--ss-color-text-primary)]">
+    <div
+      class="flex items-baseline justify-between border-b border-[color:var(--ss-color-text-primary)] px-[18px] py-3.5"
+    >
+      <span class={SEC}>Needs you today</span>
+      <span class="font-['JetBrains_Mono'] text-[12px] text-[color:var(--ss-color-text-muted)]"
+        >{actions.length} {actions.length === 1 ? 'item' : 'items'}</span
+      >
     </div>
+    {
+      actions.length === 0 ? (
+        <p class="px-[18px] py-6 text-sm text-[color:var(--ss-color-text-muted)]">
+          Nothing needs you right now.
+        </p>
+      ) : (
+        actions.map((a) => (
+          <a
+            href={a.href}
+            class="grid grid-cols-[18px_110px_1fr_auto] items-center gap-3.5 border-t border-[color:var(--ss-color-border-subtle)] px-[18px] py-3 transition-colors first:border-t-0 hover:bg-[rgba(26,21,18,0.025)]"
+          >
+            <span class:list={['h-2 w-2 rounded-full', toneDot[a.tone]]} />
+            <span class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-text-muted)]">
+              {a.type}
+            </span>
+            <span class="text-sm text-[color:var(--ss-color-text-primary)]">{a.text}</span>
+            <span class={CARD_LINK}>View →</span>
+          </a>
+        ))
+      )
+    }
+  </div>
 
-    <DashboardAutomations
-      calStatus={calStatus}
-      calEmail={calEmail}
-      calError={calError}
-      syncErrors={syncErrors}
-      syncStuck={syncStuck}
-      pipelineRows={pipelineRows}
-    />
+  <!-- money: two revenue shapes -->
+  <div class="mb-7 grid grid-cols-2 border border-[color:var(--ss-color-text-primary)]">
+    <div class="border-r border-[color:var(--ss-color-text-primary)] px-[22px] py-4">
+      <div class="mb-3 flex items-baseline justify-between">
+        <span class={SEC}>One-time</span>
+        <a href="/admin/billing" class={CARD_LINK}>View billing →</a>
+      </div>
+      <div class="flex gap-8">
+        <div>
+          <span class={`${LAB} mb-1 block`}>Invoiced</span>
+          <span class="font-['JetBrains_Mono'] text-xl font-bold"
+            >{formatMoney(totals.invoiced)}</span
+          >
+        </div>
+        <div>
+          <span class={`${LAB} mb-1 block`}>Paid</span>
+          <span class="font-['JetBrains_Mono'] text-xl font-bold">{formatMoney(totals.paid)}</span>
+        </div>
+        <div>
+          <span class={`${LAB} mb-1 block`}>Outstanding</span>
+          <span
+            class:list={[
+              "font-['JetBrains_Mono'] text-xl font-bold",
+              totals.outstanding > 0
+                ? 'text-[color:var(--ss-color-primary)]'
+                : 'text-[color:var(--ss-color-text-muted)]',
+            ]}>{formatMoney(totals.outstanding)}</span
+          >
+        </div>
+      </div>
+    </div>
+    <div class="px-[22px] py-4">
+      <div class="mb-3 flex items-baseline justify-between">
+        <span class={SEC}>Recurring</span>
+        <a href="/admin/billing" class={CARD_LINK}>View billing →</a>
+      </div>
+      <div class="flex gap-8">
+        <div>
+          <span class={`${LAB} mb-1 block`}>Active operators</span>
+          <span class="font-['JetBrains_Mono'] text-xl font-bold">{roster.length}</span>
+        </div>
+        <div>
+          <span class={`${LAB} mb-1 block`}>MRR</span>
+          <span class="font-['JetBrains_Mono'] text-base text-[color:var(--ss-color-text-muted)]"
+            >pending pricing</span
+          >
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- three motion cards -->
+  <div class="grid grid-cols-1 gap-[18px] md:grid-cols-3">
+    {
+      motion.map((card) => (
+        <div class="border border-[color:var(--ss-color-border)] px-[18px] py-4">
+          <div class="mb-3 flex items-baseline justify-between border-b border-[color:var(--ss-color-border)] pb-2.5">
+            <span class="font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-primary)]">
+              {card.label}
+            </span>
+            <a href={card.href} class={CARD_LINK}>
+              {card.jump}
+            </a>
+          </div>
+          {card.rows.map((r) => (
+            <div class="flex items-baseline justify-between py-[5px] text-sm">
+              <span class="text-[color:var(--ss-color-text-secondary)]">{r.k}</span>
+              <span
+                class:list={[
+                  "font-['JetBrains_Mono'] font-medium",
+                  r.tone === 'alert' && Number(r.n) > 0 && 'text-[color:var(--ss-color-error)]',
+                  r.tone === 'good' && 'text-[color:var(--ss-color-complete)]',
+                ]}
+              >
+                {r.n}
+              </span>
+            </div>
+          ))}
+        </div>
+      ))
+    }
   </div>
 </AdminLayout>

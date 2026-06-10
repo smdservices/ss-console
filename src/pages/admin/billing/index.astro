@@ -1,0 +1,279 @@
+---
+/**
+ * Billing — the global, bi-modal money surface (ADR 0046).
+ *
+ * One-time totals are derived from invoices. The recurring side is honest
+ * about the schema gap (no recurring-price column yet): it shows a real
+ * count of active operator subscriptions and never a fabricated MRR.
+ * Tabs: Quotes (money-in-waiting) · Invoices (one-time) · Recurring.
+ */
+import AdminLayout from '../../../layouts/AdminLayout.astro'
+import { listInvoices } from '../../../lib/db/invoices'
+import { listQuotes } from '../../../lib/db/quotes'
+import { listEntities } from '../../../lib/db/entities'
+import { listFleetRoster } from '../../../lib/admin/fleet-roster'
+import { listRuntimeSummary } from '../../../lib/admin/runtime-summary'
+import { oneTimeTotals, sortInvoicesForBilling } from '../../../lib/admin/billing-view'
+import { formatMoney } from '../../../lib/admin/client-hub'
+import { formatDate } from '../../../lib/admin/entity-detail-page'
+import { statusBadgeClass } from '../../../lib/ui/status-badge'
+import { env } from 'cloudflare:workers'
+
+const session = Astro.locals.session!
+
+const [invoices, quotes, entities, roster, runtime] = await Promise.all([
+  listInvoices(env.DB, session.orgId),
+  listQuotes(env.DB, session.orgId),
+  listEntities(env.DB, session.orgId),
+  listFleetRoster(env.DB),
+  listRuntimeSummary(env.DB),
+])
+
+const nameById = new Map(entities.map((e) => [e.id, e.name]))
+const runtimeEntities = new Set(runtime.map((r) => r.entity_id))
+const totals = oneTimeTotals(invoices)
+const sortedInvoices = sortInvoicesForBilling(invoices)
+
+function clientName(entityId: string): string {
+  return nameById.get(entityId) ?? '—'
+}
+function invoiceDate(inv: (typeof invoices)[number]): string {
+  const iso = inv.paid_at ?? inv.due_date ?? inv.created_at
+  return formatDate(iso)
+}
+
+const LAB =
+  "font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
+const HEAD = `grid gap-4 items-center px-3.5 pb-2.5 border-b border-[color:var(--ss-color-text-primary)] ${LAB}`
+const ROW =
+  'grid gap-4 items-center px-3.5 py-3 border-b border-[color:var(--ss-color-border-subtle)] text-sm'
+const INV_COLS = 'grid-cols-[1.6fr_1.8fr_0.9fr_0.9fr_0.9fr]'
+const QUO_COLS = 'grid-cols-[1.6fr_1.6fr_0.9fr_0.9fr_0.9fr]'
+const REC_COLS = 'grid-cols-[1.6fr_1.6fr_0.9fr_1fr]'
+---
+
+<AdminLayout
+  title="Billing | SMD Services"
+  breadcrumbs={[{ label: 'Billing' }]}
+  maxWidth="max-w-6xl"
+>
+  <h1 class="mb-5 text-2xl font-bold text-[color:var(--ss-color-text-primary)]">Billing</h1>
+
+  <!-- two-revenue band -->
+  <div class="mb-6 grid grid-cols-2 border border-[color:var(--ss-color-text-primary)]">
+    <div class="border-r border-[color:var(--ss-color-text-primary)] px-[22px] py-4">
+      <div class="mb-3 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.16em]">
+        One-time
+      </div>
+      <div class="flex gap-8">
+        <div>
+          <span class={`${LAB} mb-1 block`}>Invoiced</span>
+          <span class="font-['JetBrains_Mono'] text-xl font-bold"
+            >{formatMoney(totals.invoiced)}</span
+          >
+        </div>
+        <div>
+          <span class={`${LAB} mb-1 block`}>Paid</span>
+          <span class="font-['JetBrains_Mono'] text-xl font-bold">{formatMoney(totals.paid)}</span>
+        </div>
+        <div>
+          <span class={`${LAB} mb-1 block`}>Outstanding</span>
+          <span
+            class:list={[
+              "font-['JetBrains_Mono'] text-xl font-bold",
+              totals.outstanding > 0
+                ? 'text-[color:var(--ss-color-primary)]'
+                : 'text-[color:var(--ss-color-text-muted)]',
+            ]}>{formatMoney(totals.outstanding)}</span
+          >
+          {
+            totals.overdueCount > 0 && (
+              <div class="mt-1 text-[11px] text-[color:var(--ss-color-error)]">
+                {totals.overdueCount} overdue · {formatMoney(totals.overdueAmount)}
+              </div>
+            )
+          }
+        </div>
+      </div>
+    </div>
+    <div class="px-[22px] py-4">
+      <div class="mb-3 font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.16em]">
+        Recurring
+      </div>
+      <div class="flex gap-8">
+        <div>
+          <span class={`${LAB} mb-1 block`}>Active operators</span>
+          <span class="font-['JetBrains_Mono'] text-xl font-bold">{roster.length}</span>
+        </div>
+        <div>
+          <span class={`${LAB} mb-1 block`}>MRR</span>
+          <span class="font-['JetBrains_Mono'] text-base text-[color:var(--ss-color-text-muted)]"
+            >pending pricing</span
+          >
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- subtabs -->
+  <div class="mb-1 flex gap-7 border-b border-[color:var(--ss-color-text-primary)]">
+    <button
+      data-tab="quo"
+      class="bill-tab pb-2.5 font-['Archivo_Narrow'] text-[13px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
+    >
+      Quotes <span class="font-['JetBrains_Mono'] text-[11px]">{quotes.length}</span>
+    </button>
+    <button
+      data-tab="inv"
+      class="bill-tab pb-2.5 font-['Archivo_Narrow'] text-[13px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-primary)]"
+      data-on
+    >
+      Invoices <span class="font-['JetBrains_Mono'] text-[11px]">{invoices.length}</span>
+    </button>
+    <button
+      data-tab="rec"
+      class="bill-tab pb-2.5 font-['Archivo_Narrow'] text-[13px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)]"
+    >
+      Recurring <span class="font-['JetBrains_Mono'] text-[11px]">{roster.length}</span>
+    </button>
+  </div>
+
+  <!-- INVOICES -->
+  <div data-panel="inv" class="bill-panel pt-2">
+    {
+      invoices.length === 0 ? (
+        <p class="px-3.5 py-8 text-[15px] italic text-[color:var(--ss-color-text-secondary)]">
+          No invoices yet.
+        </p>
+      ) : (
+        <div>
+          <div class={`${HEAD} ${INV_COLS}`}>
+            <span>Client</span>
+            <span>For</span>
+            <span class="text-right">Amount</span>
+            <span>Status</span>
+            <span class="text-right">Date</span>
+          </div>
+          {sortedInvoices.map((inv) => (
+            <a
+              href={`/admin/clients/${inv.entity_id}`}
+              class={`${ROW} ${INV_COLS} transition-colors hover:bg-[rgba(26,21,18,0.025)]`}
+            >
+              <span class="font-semibold text-[color:var(--ss-color-text-primary)]">
+                {clientName(inv.entity_id)}
+              </span>
+              <span class="text-[color:var(--ss-color-text-secondary)]">
+                {inv.description ?? inv.type}
+              </span>
+              <span class="text-right font-['JetBrains_Mono'] font-medium">
+                {formatMoney(inv.amount)}
+              </span>
+              <span>
+                <span class={statusBadgeClass(inv.status)}>{inv.status}</span>
+              </span>
+              <span class="text-right font-['JetBrains_Mono'] text-xs text-[color:var(--ss-color-text-muted)]">
+                {invoiceDate(inv)}
+              </span>
+            </a>
+          ))}
+        </div>
+      )
+    }
+  </div>
+
+  <!-- QUOTES -->
+  <div data-panel="quo" class="bill-panel hidden pt-2">
+    {
+      quotes.length === 0 ? (
+        <p class="px-3.5 py-8 text-[15px] italic text-[color:var(--ss-color-text-secondary)]">
+          No quotes yet.
+        </p>
+      ) : (
+        <div>
+          <div class={`${HEAD} ${QUO_COLS}`}>
+            <span>Client</span>
+            <span>Service</span>
+            <span class="text-right">Amount</span>
+            <span>Status</span>
+            <span class="text-right">Updated</span>
+          </div>
+          {quotes.map((q) => (
+            <a
+              href={`/admin/clients/${q.entity_id}`}
+              class={`${ROW} ${QUO_COLS} transition-colors hover:bg-[rgba(26,21,18,0.025)]`}
+            >
+              <span class="font-semibold text-[color:var(--ss-color-text-primary)]">
+                {clientName(q.entity_id)}
+              </span>
+              <span class="text-[color:var(--ss-color-text-secondary)]">Quote v{q.version}</span>
+              <span class="text-right font-['JetBrains_Mono'] font-medium">
+                {formatMoney(q.total_price)}
+              </span>
+              <span>
+                <span class={statusBadgeClass(q.status)}>{q.status}</span>
+              </span>
+              <span class="text-right font-['JetBrains_Mono'] text-xs text-[color:var(--ss-color-text-muted)]">
+                {formatDate(q.created_at)}
+              </span>
+            </a>
+          ))}
+        </div>
+      )
+    }
+  </div>
+
+  <!-- RECURRING -->
+  <div data-panel="rec" class="bill-panel hidden pt-2">
+    {
+      roster.length === 0 ? (
+        <p class="px-3.5 py-8 text-[15px] italic text-[color:var(--ss-color-text-secondary)]">
+          No recurring subscriptions yet.
+        </p>
+      ) : (
+        <div>
+          <div class={`${HEAD} ${REC_COLS}`}>
+            <span>Subscription</span>
+            <span>Client</span>
+            <span>Status</span>
+            <span class="text-right">Amount</span>
+          </div>
+          {roster.map((r) => (
+            <a
+              href="/admin/operator"
+              class={`${ROW} ${REC_COLS} transition-colors hover:bg-[rgba(26,21,18,0.025)]`}
+            >
+              <span class="text-[color:var(--ss-color-text-primary)]">Operator</span>
+              <span class="font-semibold text-[color:var(--ss-color-text-primary)]">
+                {r.entity_name ?? r.customer_slug}
+              </span>
+              <span class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-text-secondary)]">
+                {runtimeEntities.has(r.entity_id) ? 'Active' : 'Provisioning'}
+              </span>
+              <span class="text-right font-['JetBrains_Mono'] text-[color:var(--ss-color-text-muted)]">
+                —
+              </span>
+            </a>
+          ))}
+        </div>
+      )
+    }
+  </div>
+
+  <script is:inline>
+    document.querySelectorAll('.bill-tab').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tab = btn.getAttribute('data-tab')
+        document.querySelectorAll('.bill-panel').forEach((p) => {
+          p.classList.toggle('hidden', p.getAttribute('data-panel') !== tab)
+        })
+        document.querySelectorAll('.bill-tab').forEach((b) => {
+          const on = b === btn
+          b.classList.toggle('text-[color:var(--ss-color-text-primary)]', on)
+          b.classList.toggle('text-[color:var(--ss-color-text-muted)]', !on)
+          b.classList.toggle('border-b-2', on)
+          b.classList.toggle('border-[color:var(--ss-color-primary)]', on)
+        })
+      })
+    })
+  </script>
+</AdminLayout>
