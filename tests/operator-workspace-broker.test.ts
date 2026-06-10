@@ -41,7 +41,11 @@ describe('ADR 0045 Workspace capability broker', () => {
 
   it('runs the gateway with a writable non-root home', () => {
     expect(entrypoint).toContain('export HOME=/opt/data')
+    expect(entrypoint).toContain('export HERMES_HOME_MODE=0750')
     expect(entrypoint.indexOf('export HOME=/opt/data')).toBeLessThan(
+      entrypoint.lastIndexOf('exec setpriv')
+    )
+    expect(entrypoint.indexOf('export HERMES_HOME_MODE=0750')).toBeLessThan(
       entrypoint.lastIndexOf('exec setpriv')
     )
   })
