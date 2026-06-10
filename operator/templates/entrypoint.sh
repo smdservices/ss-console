@@ -26,6 +26,16 @@ export SMD_WORKSPACE_CREDENTIAL_PATH="${BROKER_DIR}/google.json"
 export SMD_CUSTOMER_YAML="/opt/data/customer.yaml"
 export SMD_GATEWAY_PID="$$"
 
+PYTHONPATH="/opt/workspace-broker" \
+  /opt/workspace-broker/.venv/bin/python -c \
+  'import os; from pathlib import Path; from workspace_broker.google_auth import materialize_credential; materialize_credential(Path(os.environ["SMD_WORKSPACE_CREDENTIAL_PATH"]))'
+[ -f "${SMD_WORKSPACE_CREDENTIAL_PATH}" ] || {
+  log "FATAL: Workspace broker credential was not materialized"
+  exit 1
+}
+chown workspace-broker:workspace-broker "${SMD_WORKSPACE_CREDENTIAL_PATH}"
+chmod 0600 "${SMD_WORKSPACE_CREDENTIAL_PATH}"
+
 setpriv \
   --reuid=workspace-broker \
   --regid=workspace-broker \
@@ -40,8 +50,6 @@ setpriv \
   SMD_WORKSPACE_CREDENTIAL_PATH="${SMD_WORKSPACE_CREDENTIAL_PATH}" \
   SMD_CUSTOMER_YAML="${SMD_CUSTOMER_YAML}" \
   SMD_GATEWAY_PID="${SMD_GATEWAY_PID}" \
-  GOOGLE_SERVICE_ACCOUNT_JSON="${GOOGLE_SERVICE_ACCOUNT_JSON:-}" \
-  GOOGLE_TOKEN_JSON="${GOOGLE_TOKEN_JSON:-}" \
   /opt/workspace-broker/.venv/bin/python \
   -m workspace_broker.server &
 BROKER_PID=$!
