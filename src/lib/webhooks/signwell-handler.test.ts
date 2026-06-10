@@ -385,6 +385,70 @@ describe('handleDocumentCompleted — milestone creation', () => {
     }
   })
 
+  it('creates a consulting service spine row linked to the engagement (ADR 0046)', async () => {
+    const r2 = createFakeR2()
+    await handleDocumentCompleted(
+      {
+        db,
+        storage: r2,
+        apiKey: 'fake-api-key',
+        resendApiKey: undefined,
+        stripeApiKey: undefined,
+        appBaseUrl: 'https://test.smd.services',
+      },
+      makePayload()
+    )
+
+    const engagement = await db
+      .prepare('SELECT id, service_id FROM engagements WHERE quote_id = ?')
+      .bind(QUOTE_ID)
+      .first<{ id: string; service_id: string | null }>()
+    expect(engagement?.service_id).toBeTruthy()
+    expect(engagement!.service_id!.startsWith('svc_')).toBe(true)
+
+    const service = await db
+      .prepare('SELECT id, type, cadence, status, quote_id FROM services WHERE id = ?')
+      .bind(engagement!.service_id)
+      .first<{ id: string; type: string; cadence: string; status: string; quote_id: string }>()
+    expect(service).not.toBeNull()
+    expect(service!.type).toBe('consulting')
+    expect(service!.cadence).toBe('one_time')
+    expect(service!.status).toBe('active')
+    expect(service!.quote_id).toBe(QUOTE_ID)
+  })
+
+  it('does not duplicate the service spine row on a repeated webhook (ADR 0046)', async () => {
+    const r2 = createFakeR2()
+    const payload = makePayload()
+    await handleDocumentCompleted(
+      {
+        db,
+        storage: r2,
+        apiKey: 'k',
+        resendApiKey: undefined,
+        stripeApiKey: undefined,
+        appBaseUrl: 'https://test.smd.services',
+      },
+      payload
+    )
+    await handleDocumentCompleted(
+      {
+        db,
+        storage: r2,
+        apiKey: 'k',
+        resendApiKey: undefined,
+        stripeApiKey: undefined,
+        appBaseUrl: 'https://test.smd.services',
+      },
+      payload
+    )
+    const count = await db
+      .prepare("SELECT COUNT(*) AS n FROM services WHERE quote_id = ? AND type = 'consulting'")
+      .bind(QUOTE_ID)
+      .first<{ n: number }>()
+    expect(count?.n).toBe(1)
+  })
+
   it('is idempotent — processing the same webhook twice does not duplicate milestones', async () => {
     const r2 = createFakeR2()
     const payload = makePayload()
