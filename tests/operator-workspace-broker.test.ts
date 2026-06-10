@@ -15,6 +15,7 @@ describe('ADR 0045 Workspace capability broker', () => {
     expect(entrypoint).toContain('--reuid=hermes')
     expect(entrypoint).toContain('--no-new-privs')
     expect(entrypoint).toContain('/usr/bin/env -i')
+    expect(entrypoint).toContain('PYTHONPATH="/opt/workspace-broker"')
     expect(dockerfile).not.toMatch(/\bsudo\b/)
   })
 

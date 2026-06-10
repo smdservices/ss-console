@@ -32,6 +32,7 @@ setpriv \
   --no-new-privs \
   /usr/bin/env -i \
   PATH="/opt/workspace-broker/.venv/bin:/usr/bin:/bin" \
+  PYTHONPATH="/opt/workspace-broker" \
   PYTHONUNBUFFERED=1 \
   CUSTOMER_SLUG="${CUSTOMER_SLUG}" \
   SMD_WORKSPACE_BROKER_SOCKET="${SMD_WORKSPACE_BROKER_SOCKET}" \
