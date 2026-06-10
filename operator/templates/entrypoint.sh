@@ -12,13 +12,15 @@ log() {
   exit 1
 }
 
-BROKER_DIR="/opt/data/workspace-broker"
+BROKER_DIR="/var/lib/smd-workspace-broker"
 BROKER_SOCKET="/run/smd-workspace-broker/broker.sock"
+BROKER_CUSTOMER_PATH="${BROKER_DIR}/customer.yaml"
 chown -R hermes:hermes /opt/data
-chown hermes:workspace-connectors /opt/data
-chmod 0750 /opt/data
+rm -rf /opt/data/workspace-broker
+rm -f /opt/data/oauth/google.json
 mkdir -p "${BROKER_DIR}" "$(dirname "${BROKER_SOCKET}")"
 rm -f "${BROKER_DIR}/google.json"
+cp /opt/data/customer.yaml "${BROKER_CUSTOMER_PATH}"
 chown -R workspace-broker:workspace-broker "${BROKER_DIR}"
 chmod 0700 "${BROKER_DIR}"
 chown workspace-broker:workspace-connectors "$(dirname "${BROKER_SOCKET}")"
@@ -26,7 +28,7 @@ chmod 2750 "$(dirname "${BROKER_SOCKET}")"
 
 export SMD_WORKSPACE_BROKER_SOCKET="${BROKER_SOCKET}"
 export SMD_WORKSPACE_CREDENTIAL_PATH="${BROKER_DIR}/google.json"
-export SMD_CUSTOMER_YAML="/opt/data/customer.yaml"
+export SMD_CUSTOMER_YAML="${BROKER_CUSTOMER_PATH}"
 export SMD_GATEWAY_PID="$$"
 
 PYTHONPATH="/opt/workspace-broker" \
@@ -71,7 +73,6 @@ unset GOOGLE_SERVICE_ACCOUNT_JSON GOOGLE_TOKEN_JSON GOOGLE_CLIENT_SECRET_JSON
 unset GOOGLE_IMPERSONATE_SUBJECT GOOGLE_OAUTH_SCOPES GOOGLE_TOKEN_PATH
 
 export HOME=/opt/data
-export HERMES_HOME_MODE=0750
 log "Workspace broker started as uid $(id -u workspace-broker); dropping gateway to hermes"
 exec setpriv \
   --reuid=hermes \

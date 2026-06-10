@@ -22,9 +22,12 @@ describe('ADR 0045 Workspace capability broker', () => {
   it('keeps broker code root-owned and credentials broker-only', () => {
     expect(dockerfile).toContain('chown -R root:root /opt/workspace-broker')
     expect(entrypoint).toContain('chown -R hermes:hermes /opt/data')
-    expect(entrypoint).toContain('chown hermes:workspace-connectors /opt/data')
-    expect(entrypoint).toContain('chmod 0750 /opt/data')
+    expect(entrypoint).toContain('BROKER_DIR="/var/lib/smd-workspace-broker"')
+    expect(entrypoint).not.toContain('BROKER_DIR="/opt/data/workspace-broker"')
+    expect(entrypoint).toContain('rm -rf /opt/data/workspace-broker')
+    expect(entrypoint).toContain('rm -f /opt/data/oauth/google.json')
     expect(entrypoint).toContain('rm -f "${BROKER_DIR}/google.json"')
+    expect(entrypoint).toContain('cp /opt/data/customer.yaml "${BROKER_CUSTOMER_PATH}"')
     expect(entrypoint).toContain('chmod 0700 "${BROKER_DIR}"')
     expect(entrypoint).toContain('chown -R workspace-broker:workspace-broker "${BROKER_DIR}"')
     expect(entrypoint).toContain(
@@ -41,13 +44,10 @@ describe('ADR 0045 Workspace capability broker', () => {
 
   it('runs the gateway with a writable non-root home', () => {
     expect(entrypoint).toContain('export HOME=/opt/data')
-    expect(entrypoint).toContain('export HERMES_HOME_MODE=0750')
     expect(entrypoint.indexOf('export HOME=/opt/data')).toBeLessThan(
       entrypoint.lastIndexOf('exec setpriv')
     )
-    expect(entrypoint.indexOf('export HERMES_HOME_MODE=0750')).toBeLessThan(
-      entrypoint.lastIndexOf('exec setpriv')
-    )
+    expect(entrypoint).not.toContain('HERMES_HOME_MODE')
   })
 
   it('strips every Google credential from the gateway environment', () => {
