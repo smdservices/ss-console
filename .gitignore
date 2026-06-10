@@ -67,3 +67,6 @@ operator/safety-substrate/logs/
 **/*.egg-info/
 __pycache__/
 *.py[cod]
+
+# Generated projection SQL (scripts/project-customer-config.ts)
+scripts/.generated/
