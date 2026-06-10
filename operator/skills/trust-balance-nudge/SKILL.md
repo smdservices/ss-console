@@ -70,7 +70,7 @@ The agent MUST NOT: move, transfer, refund, or reallocate any trust funds (no su
 2. **Read-only on trust.** Only `lawpay_trust_balance` is read; the balance is reported, never acted on financially.
 3. **No fabrication.** Balance and floor are sourced; an unavailable read is surfaced, never guessed.
 4. **No invented consequences.** Threat/consequence language appears only if the firm authored it.
-5. **Conflict-hold gate + reviewer-as-sender.** No nudge on a held matter; the request is drafted, never sent.
+5. **Conflict-hold gate + external-send draft floor.** No nudge on a held matter; the request is drafted, never sent.
 
 ## Voice Rules
 

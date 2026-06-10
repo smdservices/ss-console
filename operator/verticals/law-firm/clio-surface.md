@@ -35,7 +35,7 @@ So it is **unverified** whether `create_matter` and `create_calendar_entry` are 
 - `new-matter-intake` drafts the matter as an **internal artifact for human creation** (a `create_note` log + a drafted acknowledgment), never `create_matter` autonomously.
 - `consult-scheduler` proposes times and drafts the confirmation; the **calendar write is surfaced for human confirmation**, not auto-written, until the connect step proves `create_calendar_entry` is callable and authored-on.
 
-This aligns with reviewer-as-sender + no-imposed-defaults ([ADR 0035](../../adr/0035-no-imposed-entitlement-defaults.md)): an unverified write capability is fail-closed, not assumed. **Connect-step action:** confirm the real v1 write scope against the Clio sandbox; if `create_matter`/`create_calendar_entry` are callable AND the engagement authors them on, the two skills may graduate from draft-and-surface to autonomous-write.
+This aligns with draft-for-review external send + no-imposed-defaults ([ADR 0035](../../adr/0035-no-imposed-entitlement-defaults.md)): an unverified write capability is fail-closed, not assumed. **Connect-step action:** confirm the real v1 write scope against the Clio sandbox; if `create_matter`/`create_calendar_entry` are callable AND the engagement authors them on, the two skills may graduate from draft-and-surface to autonomous-write.
 
 ## ⚠️ Trust funds are NOT in this surface
 

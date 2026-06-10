@@ -3,8 +3,8 @@
  * drafts.
  *
  * READ access to ledger state. WRITE access is limited to DRAFT
- * invoices and DRAFT expense entries (per ADR 0005 reviewer-as-sender
- * and invariant #3 no commitment execution). The agent does not post
+ * invoices and DRAFT expense entries (per invariant #3 no commitment
+ * execution). The agent does not post
  * to the general ledger; the reviewer reviews and posts.
  *
  * Implemented by adapters for QuickBooks Online, Xero, Wave,

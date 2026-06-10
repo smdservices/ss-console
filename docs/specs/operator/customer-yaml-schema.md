@@ -248,7 +248,7 @@ Allowlisted fields are still scanned for **provider-shaped keys** (the patterns 
 
 ## Multi-user voice profiles
 
-**Added by [#858](https://github.com/venturecrane/ss-console/issues/858).** A customer may have multiple humans on portal access — for example, a principal partner who personally writes the firm's most consequential email and an associate attorney whose drafts go out under the associate's identity. The reviewer-as-sender model ([ADR 0005](../../adr/0005-reviewer-as-sender.md)) attributes every shipped message to the user who approved it; Layer 2 voice transform shapes the draft to match _that reviewer's_ writing voice, not a single firm-wide composite.
+**Added by [#858](https://github.com/venturecrane/ss-console/issues/858).** A customer may have multiple humans on portal access — for example, a principal partner who personally writes the firm's most consequential email and an associate attorney whose drafts go out under the associate's identity. The draft-for-review posture ([ADR 0035](../../adr/0035-no-imposed-entitlement-defaults.md)) attributes every shipped message to the user who approved it; Layer 2 voice transform shapes the draft to match _that reviewer's_ writing voice, not a single firm-wide composite.
 
 The `users[].voice_profile_id` field is the seam:
 

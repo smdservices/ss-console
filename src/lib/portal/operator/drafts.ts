@@ -3,8 +3,7 @@
  *
  * Per PRD §12, the draft queue is the primary user-facing surface for the
  * Operator. Every outbound message the Operator proposes lands in
- * this queue and waits for a human reviewer before it sends
- * (reviewer-as-sender, ADR 0005).
+ * this queue and waits for a human reviewer before it sends.
  *
  * Data source: per-customer Hermes Machine D1 (ADR 0007 + 0009). The
  * portal Worker can NOT bind to a per-customer D1 directly; reads go
@@ -432,9 +431,9 @@ export async function getDraft(
  *   personaDraftedAt — ISO timestamp when the Operator created the
  *                      draft. Reviewer-facing chronology.
  *   reviewerEmail  — The email account the draft is staged into. This
- *                    is the address the message will ship from
- *                    (reviewer-as-sender, ADR 0005). Required — every
- *                    draft is staged into a real reviewer mailbox.
+ *                    is the address the message will ship from.
+ *                    Required — every draft is staged into a real
+ *                    reviewer mailbox.
  *   sendStatus     — Lifecycle of the send pathway. One of:
  *                      pending        — draft is in the queue, awaiting
  *                                       reviewer action

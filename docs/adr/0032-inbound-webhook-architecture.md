@@ -3,7 +3,7 @@ title: Inbound Webhook Architecture — Front-Door Gate, Native-Adapter Routing,
 date: 2026-06-01
 status: accepted
 captain: Scott Durgan
-related-adr: 0005-reviewer-as-sender.md, 0021-leverage-hermes-native-primitives.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0027-inbound-convergence.md, 0031-content-sensitivity-send-floor.md
+related-adr: 0005-external-send-identity.md, 0021-leverage-hermes-native-primitives.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md, 0027-inbound-convergence.md, 0031-content-sensitivity-send-floor.md
 related-interview: operator/customers/smd/onboarding-interview-2026-05-31.md
 related-issue: '#1103, #1165, #1166'
 related-pr: 'hermes-smd-overlay#27, hermes-smd-overlay#29 (v0.4.3); ss-console#1178'

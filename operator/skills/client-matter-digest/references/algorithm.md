@@ -46,6 +46,6 @@ A matter with little recent activity gets an honest short update ("no major deve
 
 `cadence` is firm-authored per matter or practice area (from `customer.yaml` where set). The run selects matters whose last-update age exceeds their cadence. No date math produces client-facing content beyond reflecting authored Clio dates.
 
-## Reviewer-as-sender
+## External-send draft floor
 
 The output is always a draft. A human reviews and sends under their own identity. There is no autonomous-send path for client-bound mail in any phase (ADR 0005 floor, non-raisable).

@@ -2,7 +2,7 @@
  * ESign capability — envelope status monitoring, reminder drafts,
  * completed-document retrieval.
  *
- * Per ADR 0005 (reviewer-as-sender), the agent NEVER initiates a
+ * Per ADR 0005, the agent NEVER initiates a
  * signing flow. The reviewer creates the envelope and sends it; the
  * agent tracks, drafts reminder language for stalled signers, and
  * retrieves completed documents.

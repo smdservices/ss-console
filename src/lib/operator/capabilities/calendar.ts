@@ -3,7 +3,7 @@
  * times.
  *
  * Calendar events with attendees implicitly send invitations when saved.
- * Per ADR 0005 (reviewer-as-sender), the agent does not send invites to
+ * Per ADR 0005, the agent does not send invites to
  * external attendees. v1 split:
  *
  *   - Read methods (list_events, get_event) are unrestricted within the
@@ -166,7 +166,7 @@ export interface Calendar extends AdapterBase {
   // Time suggestion
   suggest_time(input: SuggestTimeInput): Promise<SuggestedSlot[]>
 
-  // Drafts — reviewer-as-sender per ADR 0005
+  // Drafts — draft-for-review per ADR 0005
   create_event_draft(input: CreateEventDraftInput): Promise<EventDraftRef>
   update_event_draft(event_id: string, updates: EventDraftUpdate): Promise<EventDraftRef>
 

@@ -53,7 +53,7 @@ CREATE INDEX idx_audit_actor ON audit_log(actor, ts);
 --   per child). SUBAGENT_INCOMPLETE is emitted by the PARENT skill
 --   before refusing to assemble, when any subagent return fails the
 --   assembly-time schema contract — the Devil's Advocate critique
---   safety constraint that a reviewer-as-sender never sees a quietly
+--   safety constraint that the approver never sees a quietly
 --   incomplete draft).
 -- SUPPRESSED_WAKE (ADR 0021 Stream B — `pre_run.py` decides not to wake
 --   the agent; emit BEFORE printing `wakeAgent: false`; audit-write

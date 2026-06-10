@@ -3,7 +3,7 @@ title: 'Vertical Spec: Law Firm (Operator pack)'
 date: 2026-06-02
 status: draft
 captain: Scott Durgan
-related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0005-reviewer-as-sender.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md
+related-adr: 0022-vertical-pack-architecture.md, 0037-operator-thesis.md, 0005-external-send-identity.md, 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md
 ---
 
 # Vertical Spec: Law Firm
@@ -26,7 +26,7 @@ It is the same chain whether the firm does immigration, estate, family, or small
 
 ## Skill catalog
 
-Twelve law-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send sits at the reviewer-as-sender floor ([ADR 0005](../../adr/0005-reviewer-as-sender.md)) unless the engagement authors otherwise.
+Twelve law-specific skills plus two spine skills reused as-is. Format per skill: **what** | trigger | reads -> writes | connectors | trust posture | guardrail. Trust posture follows [ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md); external send sits at the external-send draft floor unless the engagement authors otherwise.
 
 ### Intake
 
@@ -81,7 +81,7 @@ The pilot rides Clio's MCP, so the system of record needs no BUILD adapter. Paym
 Per [ADR 0037](../../adr/0037-operator-thesis.md) Tenet 3, no imposed defaults; floors are fail-closed until raised.
 
 - **UPL boundary** — connective work only. Never legal advice, never a recommended course, never legal substance. The twelve skills are intake, scheduling, chasing, status, logging, tracking. This scope discipline is what keeps the pack clear of unauthorized practice.
-- **Reviewer-as-sender floor** — external messages ship under a human reviewer's identity ([ADR 0005](../../adr/0005-reviewer-as-sender.md)), one authored exposure option ([ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md)); the law pack pins it non-raisable for client-bound and tribunal-bound mail.
+- **External-send draft floor** — external messages ship under a human reviewer's identity, one authored exposure option ([ADR 0025](../../adr/0025-autonomy-ceilings-configurable-exposure-vs-initiation.md)); the law pack pins it non-raisable for client-bound and tribunal-bound mail.
 - **Privilege and conflicts** — privileged content stays inside the firm's surfaces; conflict capture routes to a human and never auto-clears.
 - **Trust funds read-only** — the Operator reports trust balances; it never moves money.
 - **Supervision** — the posture maps to the supervising-attorney requirement (ABA Model Rule 5.3, ABA Formal Opinion 512) and to state AI-disclosure rules; the audit log records draft, review, edit, send.

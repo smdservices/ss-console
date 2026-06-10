@@ -4,7 +4,7 @@ date: 2026-05-31
 status: accepted
 captain: Scott Durgan
 amends: 0025-autonomy-ceilings-configurable-exposure-vs-initiation.md
-related-adr: 0005-reviewer-as-sender.md, 0028-outbound-integrity-gates-provenance-and-voice.md
+related-adr: 0005-external-send-identity.md, 0028-outbound-integrity-gates-provenance-and-voice.md
 related-interview: operator/customers/smd/onboarding-interview-2026-05-31.md
 related-issue: Operator task #21 (overlay PR venturecrane/hermes-smd-overlay#22, tag v0.4.0)
 ---
@@ -106,7 +106,7 @@ floor can only narrow (send → draft); it never widens.**
 ## References
 
 - [ADR 0025 — Autonomy ceilings are configurable](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) (the action-class ceiling this floors)
-- [ADR 0005 — Reviewer-as-sender](./0005-reviewer-as-sender.md) (the default the floor restores for sensitive content)
+- [ADR 0005 — External-send identity](./0005-external-send-identity.md) (the draft posture the floor restores for sensitive content)
 - [ADR 0028 — Outbound integrity gates](./0028-outbound-integrity-gates-provenance-and-voice.md) (the orthogonal _fabrication_ gate)
 - `operator/customers/smd/onboarding-interview-2026-05-31.md` (the decision source)
 - `hermes-smd-overlay`: `shared/content_floor.py`, `plugins/hermes-smd-trust/enforce.py` (the implementation), PR #22 / tag v0.4.0

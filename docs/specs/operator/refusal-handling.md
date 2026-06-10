@@ -26,7 +26,7 @@ the skill MUST abort.
   dispatch path may wire in for sticky-stop transition decisions)
 - `operator/adapter/audit_log.py` (PR #942): writer +
   `ACCEPTED_ACTION_TYPES`
-- ADR 0005 (reviewer-as-sender): refusal handling never originates an
+- ADR 0005: refusal handling never originates an
   outbound customer-bound message; rows are written for the in-app
   notification surface to poll
 - compliance-evidence-packet.md (#802): downstream consumer
@@ -351,7 +351,7 @@ cd operator && uv run --with pytest python -m pytest \
 - compliance-evidence-packet.md (#802): downstream consumer that
   groups rows by `metadata.trust_ceiling_decision`,
   `metadata.refusal_notification`, and `metadata.refusal_cascade_alert`
-- ADR 0005 (reviewer-as-sender): refusal handling never originates an
+- ADR 0005: refusal handling never originates an
   outbound message
 - PR #942 (audit log persistence): `AuditLogWriter`
 - PR #948 (sticky-stop mechanism): convention source +

@@ -17,7 +17,7 @@ How we take a customer from "yes" to a running Operator on a vertical pack. Gene
 - [ ] **Document storage** — where files live (SharePoint/OneDrive or Drive).
 - [ ] **Voice samples** — a folder of real sent messages so the Operator drafts in the firm's voice (per-reviewer where it matters).
 - [ ] **The seat definition** — which connective tasks this customer wants the Operator to own first (a subset of the pack's `templates[]`).
-- [ ] **Reviewers + exposure** — who reviews drafts, and which message classes may eventually go out autonomously vs. stay reviewer-as-sender (the vertical floor is non-negotiable; everything above it is authored).
+- [ ] **Reviewers + exposure** — who reviews drafts, and which message classes may eventually go out autonomously vs. stay draft-for-review (the vertical floor is non-negotiable; everything above it is authored).
 - [ ] **Escalation contacts** — who gets the red-flag and failure notices.
 - [ ] **Scope blocks** — folders, domains, keywords, or matters the Operator must not touch.
 
@@ -39,7 +39,7 @@ Stand the Operator next to the work with its external exposure at the fail-close
 
 ### 3. Author entitlements
 
-As the team signs off on a class of message, raise that class's exposure in `customer.yaml` (never above the vertical floor; for law, client-bound and tribunal-bound mail stays reviewer-as-sender). The Operator can never raise its own ceiling. Every change is principal-authenticated and audited.
+As the team signs off on a class of message, raise that class's exposure in `customer.yaml` (never above the vertical floor; for law, client-bound and tribunal-bound mail stays draft-for-review). The Operator can never raise its own ceiling. Every change is principal-authenticated and audited.
 
 ### 4. Go
 

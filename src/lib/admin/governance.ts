@@ -7,7 +7,7 @@
  * (non-raisable), the authored ceiling, and the effective ceiling. The one rule
  * that must not bend (ADR 0035, foundations §8): an action class with no
  * authored ceiling renders **unconfigured → fail-closed**, NEVER a presumed
- * "draft_for_review." Reviewer-as-sender is a value authored in `action_ceilings`,
+ * "draft_for_review." Draft-for-review is a value authored in `action_ceilings`,
  * not a fallback. This module encodes exactly that — `authored === null` yields a
  * `fail_closed` cell with no invented value.
  *

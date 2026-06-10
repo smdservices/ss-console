@@ -36,7 +36,7 @@ triage with draft replies for review. **Crane does not send in v1** — see Bloc
 ## Phase 3 — Graduated autonomy (Day 15+)
 
 No promotion candidates in v1. `inbox-triage` stays `draft_for_review` — the principal
-explicitly wants to send replies himself ("never auto-send as Scott"; reviewer-as-sender, ADR 0005).
+explicitly wants to send replies himself ("never auto-send as Scott").
 Promotion is not on the table until a send transport exists (B1) and the principal chooses to raise it.
 
 ## Open items & blockers

@@ -104,7 +104,7 @@ sequencing artifact does not need to ship as a repo doc.
 - **`delegate_task` parent skills MUST enforce an assembly-time schema
   contract** on each subagent's return before assembling the parent draft.
   Missing/empty required keys emit `audit_action="subagent_incomplete"` and
-  the parent refuses to assemble. A reviewer-as-sender never sees a quietly
+  the parent refuses to assemble. An approver never sees a quietly
   incomplete draft. Each Stream-C skill ships a fault-injection test fixture
   forcing one subagent to return `{}` and asserting the parent refuses.
 

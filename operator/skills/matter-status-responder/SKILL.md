@@ -62,7 +62,7 @@ Triggered when `inbox-triage` routes a client status question.
 2. **No fabrication.** Every status fact is sourced to a Clio read; an unknown is stated as unknown, never filled.
 3. **Privilege.** Status is disclosed only to the client/authorized contact on the matter.
 4. **Conflict-hold gate.** No response on a held matter.
-5. **Reviewer-as-sender.** The reply is drafted, never sent.
+5. **External-send draft floor.** The reply is drafted, never sent.
 
 ## Voice Rules
 

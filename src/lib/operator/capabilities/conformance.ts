@@ -71,8 +71,8 @@ export const CONFORMANCE_INVARIANTS = {
    * entitlement: an adapter MAY expose send methods, and whether a send
    * executes autonomously, routes to a reviewer draft, or is refused is
    * decided at runtime by `trust_ceiling.enforce()` per the authored
-   * EXTERNAL_SEND ceiling (fail-closed when unauthored). Reviewer-as-sender
-   * (ADR 0005, amended by ADR 0035) is one authored option, never an imposed
+   * EXTERNAL_SEND ceiling (fail-closed when unauthored). The draft-for-review
+   * external send posture (ADR 0035) is one authored option, never an imposed
    * default — the harness does not ban send method names.
    *
    * (Key name retained for compatibility with existing conformance suites;
