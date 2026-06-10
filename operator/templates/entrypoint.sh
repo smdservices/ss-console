@@ -71,6 +71,7 @@ unset GOOGLE_SERVICE_ACCOUNT_JSON GOOGLE_TOKEN_JSON GOOGLE_CLIENT_SECRET_JSON
 unset GOOGLE_IMPERSONATE_SUBJECT GOOGLE_OAUTH_SCOPES GOOGLE_TOKEN_PATH
 
 export HOME=/opt/data
+export HERMES_HOME_MODE=0750
 log "Workspace broker started as uid $(id -u workspace-broker); dropping gateway to hermes"
 exec setpriv \
   --reuid=hermes \
