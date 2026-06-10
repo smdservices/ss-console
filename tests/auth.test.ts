@@ -180,6 +180,133 @@ describe('auth: unified sign-in pages', () => {
   })
 })
 
+describe('auth: after-sign-in surface selection (host-aware dual-role dispatch)', () => {
+  const ADMIN = 'admin.smd.services'
+  const PORTAL = 'portal.smd.services'
+
+  it('routes a dual-eligible user to the host they signed in from', async () => {
+    const { chooseSignedInSurface } = await import('../src/lib/auth/after-sign-in-target')
+    const base = { adminHost: ADMIN, portalHost: PORTAL, adminEligible: true, portalEligible: true }
+    expect(chooseSignedInSurface({ ...base, host: PORTAL })).toBe('portal')
+    expect(chooseSignedInSurface({ ...base, host: ADMIN })).toBe('admin')
+  })
+
+  it('falls back to admin-first for a dual-eligible user on the apex/unknown host', async () => {
+    const { chooseSignedInSurface } = await import('../src/lib/auth/after-sign-in-target')
+    expect(
+      chooseSignedInSurface({
+        host: 'smd.services',
+        adminHost: ADMIN,
+        portalHost: PORTAL,
+        adminEligible: true,
+        portalEligible: true,
+      })
+    ).toBe('admin')
+  })
+
+  it('keeps single-role behavior: admin-only → admin even on the portal host', async () => {
+    const { chooseSignedInSurface } = await import('../src/lib/auth/after-sign-in-target')
+    expect(
+      chooseSignedInSurface({
+        host: PORTAL,
+        adminHost: ADMIN,
+        portalHost: PORTAL,
+        adminEligible: true,
+        portalEligible: false,
+      })
+    ).toBe('admin')
+  })
+
+  it('keeps single-role behavior: client-only → portal even on the admin host', async () => {
+    const { chooseSignedInSurface } = await import('../src/lib/auth/after-sign-in-target')
+    expect(
+      chooseSignedInSurface({
+        host: ADMIN,
+        adminHost: ADMIN,
+        portalHost: PORTAL,
+        adminEligible: false,
+        portalEligible: true,
+      })
+    ).toBe('portal')
+  })
+
+  it('returns none when the user qualifies for neither surface', async () => {
+    const { chooseSignedInSurface } = await import('../src/lib/auth/after-sign-in-target')
+    expect(
+      chooseSignedInSurface({
+        host: PORTAL,
+        adminHost: ADMIN,
+        portalHost: PORTAL,
+        adminEligible: false,
+        portalEligible: false,
+      })
+    ).toBe('none')
+  })
+
+  it('ignores host preference when base URLs are unconfigured (local dev)', async () => {
+    const { chooseSignedInSurface } = await import('../src/lib/auth/after-sign-in-target')
+    // No admin/portal host known → host can never match → admin-first default.
+    expect(
+      chooseSignedInSurface({
+        host: 'localhost',
+        adminHost: null,
+        portalHost: null,
+        adminEligible: true,
+        portalEligible: true,
+      })
+    ).toBe('admin')
+  })
+
+  it('hostnameOf parses base URLs and tolerates missing/garbage input', async () => {
+    const { hostnameOf } = await import('../src/lib/auth/after-sign-in-target')
+    expect(hostnameOf('https://admin.smd.services')).toBe('admin.smd.services')
+    expect(hostnameOf('https://portal.smd.services/portal')).toBe('portal.smd.services')
+    expect(hostnameOf(null)).toBeNull()
+    expect(hostnameOf(undefined)).toBeNull()
+    expect(hostnameOf('')).toBeNull()
+    expect(hostnameOf('not a url')).toBeNull()
+  })
+
+  it('dispatcher uses host-aware selection and fails safe to the admin-first default', () => {
+    const source = readFileSync(resolve('src/pages/auth/after-sign-in.ts'), 'utf-8')
+    expect(source).toContain('chooseSignedInSurface')
+    // Fail-safe: the sole admin must never be stranded by a dispatcher throw.
+    expect(source).toContain('try {')
+    expect(source).toContain('catch')
+    // Portal eligibility must be binding-based, not gated on users.role —
+    // an admin bound to a customer entity is a legitimate portal seat.
+    expect(source).toContain('userRow.entity_id || auth.orgId')
+  })
+})
+
+describe('auth: cross-surface switch links', () => {
+  it('admin layout links to the portal Operator view via the absolute portal origin', () => {
+    const source = readFileSync(resolve('src/layouts/AdminLayout.astro'), 'utf-8')
+    expect(source).toContain('buildPortalUrl')
+    expect(source).toContain('/portal/products/operator')
+    expect(source).toContain('Operator (client view)')
+  })
+
+  it('portal header gates the admin-console link behind an isAdmin prop and absolute admin origin', () => {
+    const source = readFileSync(resolve('src/components/portal/PortalHeader.astro'), 'utf-8')
+    expect(source).toContain('isAdmin')
+    expect(source).toContain('buildAdminUrl')
+    expect(source).toContain('Admin console')
+    // Default false so ordinary clients never see the link.
+    expect(source).toContain('isAdmin = false')
+  })
+
+  it('portal entry pages pass the viewer admin status into the header', () => {
+    for (const page of [
+      'src/pages/portal/index.astro',
+      'src/pages/portal/products/operator/index.astro',
+    ]) {
+      const source = readFileSync(resolve(page), 'utf-8')
+      expect(source).toContain("isAdmin={portalData.user.role === 'admin'}")
+    }
+  })
+})
+
 describe('auth: admin dashboard', () => {
   it('admin index page exists', () => {
     expect(existsSync(resolve('src/pages/admin/index.astro'))).toBe(true)

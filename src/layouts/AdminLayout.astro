@@ -3,6 +3,8 @@ import '../styles/global.css'
 import SkipToMain from '../components/SkipToMain.astro'
 import SmdLogo from '../components/SmdLogo.astro'
 import { SignOutButton } from '@clerk/astro/components'
+import { buildPortalUrl, getPortalBaseUrl } from '../lib/config/app-url'
+import { env } from 'cloudflare:workers'
 
 interface BreadcrumbItem {
   label: string
@@ -19,6 +21,17 @@ interface Props {
 const { title, breadcrumbs = [], maxWidth = 'max-w-5xl', mainClass = '' } = Astro.props
 const session = Astro.locals.session!
 const pathname = Astro.url.pathname
+
+// Cross-surface switch link to the client portal's Operator view. SMD operates
+// its own dogfooded Operator from the customer seat, so the admin (Scott) needs
+// to jump to the portal without re-authenticating — the Clerk session is shared
+// across subdomains. Must be the ABSOLUTE portal origin: a relative '/portal'
+// would be mangled by the admin-subdomain rewrite in src/middleware.ts. Hidden
+// when PORTAL_BASE_URL is unconfigured (local dev without the var set). An
+// admin who is not yet a provisioned customer is gracefully bounced back here.
+const portalSwitchHref = getPortalBaseUrl(env)
+  ? buildPortalUrl(env, '/portal/products/operator')
+  : null
 
 const navItems = [
   { label: 'Dashboard', href: '/admin', match: (p: string) => p === '/admin' || p === '/admin/' },
@@ -101,6 +114,19 @@ const navItems = [
               })
             }
           </nav>
+          {
+            portalSwitchHref && (
+              <a
+                href={portalSwitchHref}
+                class="inline-flex items-center gap-1.5 min-h-11 px-2 -mx-2 font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-primary)] active:text-[color:var(--ss-color-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+              >
+                <span class="material-symbols-outlined text-base" aria-hidden="true">
+                  swap_horiz
+                </span>
+                Operator (client view)
+              </a>
+            )
+          }
           <span class="text-sm text-[color:var(--ss-color-text-muted)]" aria-hidden="true">|</span>
           <span class="text-sm text-[color:var(--ss-color-text-secondary)]">{session.email}</span>
           <SignOutButton asChild redirectUrl="/auth/sign-in?status=signed_out">
@@ -145,6 +171,19 @@ const navItems = [
                 })
               }
             </nav>
+            {
+              portalSwitchHref && (
+                <a
+                  href={portalSwitchHref}
+                  class="flex items-center gap-1.5 px-3 py-2.5 text-sm rounded text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-border-subtle)] active:bg-[color:var(--ss-color-border-subtle)]"
+                >
+                  <span class="material-symbols-outlined text-base" aria-hidden="true">
+                    swap_horiz
+                  </span>
+                  Operator (client view)
+                </a>
+              )
+            }
             <hr class="my-2 border-[color:var(--ss-color-border)]" />
             <p class="px-3 py-1.5 text-xs text-[color:var(--ss-color-text-secondary)] break-all">
               {session.email}
