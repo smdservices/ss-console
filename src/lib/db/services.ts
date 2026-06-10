@@ -13,6 +13,22 @@
  * INLINES its own `INSERT INTO services` rather than calling `createService` —
  * it must stay inside one atomic `db.batch([...])`. Do NOT "DRY" the two
  * together; that would break the atomic engagement+invoice+service creation.
+ *
+ * READ-MIGRATION STATUS (ADR 0046, as of Stage 1b):
+ * - Consulting services have a real forward writer (SOW finalize + the manual
+ *   `createEngagement` path), so the consulting spine is authoritative. Stage 1b
+ *   makes it READ + self-validating via `findConsultingSpineDrift` below; the
+ *   full render-migration of the admin surfaces (client hub, services list) is
+ *   deferred to Stage 3 so it lands once for BOTH delivery types together.
+ * - Operator services currently have NO forward writer — the Stage 1 backfill
+ *   (migration 0070) sourced them from the legacy `subscriptions` table (no
+ *   `INSERT` in src; pre-Hermes-realignment), while the live operator registry
+ *   is `customer_configs` (src/lib/portal/customer-config-projection.ts). So the
+ *   operator UI still reads `customer_configs`/the fleet roster, NOT this spine.
+ *   Operator-service creation on provisioning is Stage 3 (bounded by ADR 0012);
+ *   only then does the operator UI migrate to the spine. Do not iterate the
+ *   operator spine for display before that — it would silently drop any operator
+ *   provisioned after the backfill.
  */
 
 export interface Service {
@@ -221,4 +237,93 @@ export async function updateServiceStatus(
     .run()
 
   return getService(db, orgId, serviceId)
+}
+
+// ===========================================================================
+// Spine reconciliation (ADR 0046, Stage 1b)
+// ===========================================================================
+
+/** A consulting engagement that has no valid parent service row. */
+export interface OrphanEngagement {
+  id: string
+  status: string
+  /** NULL (never linked) or a dangling id pointing at no service row. */
+  service_id: string | null
+}
+
+/** An active consulting service that has no delivery child. */
+export interface ChildlessService {
+  id: string
+  status: string
+}
+
+/**
+ * The two ways the consulting spine ↔ child invariant can break. Both lists
+ * empty is the healthy state (the normal case).
+ */
+export interface ConsultingSpineDrift {
+  /** In-flight engagements whose `service_id` is NULL or points at no service. */
+  orphanEngagements: OrphanEngagement[]
+  /** Active consulting services with no engagement pointing back at them. */
+  childlessServices: ChildlessService[]
+}
+
+/** In-flight consulting engagement statuses — those expected to have a live parent. */
+const IN_FLIGHT_ENGAGEMENT_STATUSES = ['scheduled', 'active', 'handoff', 'safety_net']
+
+/**
+ * Reconcile the consulting spine against its engagement children (ADR 0046,
+ * Stage 1b). This is the READ that makes the otherwise write-only spine
+ * load-bearing: the services list calls it on every load and surfaces drift,
+ * so any future code path that creates an engagement without a service (or a
+ * service without an engagement) fails loud instead of rotting silently.
+ *
+ * Scoped to consulting only — operator services have no forward writer yet
+ * (see the file header), so reconciling them would flag false positives.
+ */
+export async function findConsultingSpineDrift(
+  db: D1Database,
+  orgId: string
+): Promise<ConsultingSpineDrift> {
+  const placeholders = IN_FLIGHT_ENGAGEMENT_STATUSES.map(() => '?').join(', ')
+
+  const [orphans, childless] = await Promise.all([
+    db
+      .prepare(
+        `SELECT e.id, e.status, e.service_id
+           FROM engagements e
+          WHERE e.org_id = ?
+            AND e.status IN (${placeholders})
+            AND (
+              e.service_id IS NULL
+              OR e.service_id NOT IN (SELECT s.id FROM services s WHERE s.org_id = ?)
+            )`
+      )
+      .bind(orgId, ...IN_FLIGHT_ENGAGEMENT_STATUSES, orgId)
+      .all<OrphanEngagement>(),
+    db
+      .prepare(
+        `SELECT s.id, s.status
+           FROM services s
+          WHERE s.org_id = ?
+            AND s.type = 'consulting'
+            AND s.status = 'active'
+            AND s.id NOT IN (
+              SELECT e.service_id FROM engagements e
+               WHERE e.org_id = ? AND e.service_id IS NOT NULL
+            )`
+      )
+      .bind(orgId, orgId)
+      .all<ChildlessService>(),
+  ])
+
+  return {
+    orphanEngagements: orphans.results,
+    childlessServices: childless.results,
+  }
+}
+
+/** True when either drift class is non-empty. */
+export function hasSpineDrift(drift: ConsultingSpineDrift): boolean {
+  return drift.orphanEngagements.length > 0 || drift.childlessServices.length > 0
 }

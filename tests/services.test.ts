@@ -14,8 +14,12 @@ import {
   updateServiceStatus,
   projectConsultingStatus,
   projectOperatorStatus,
+  findConsultingSpineDrift,
+  hasSpineDrift,
   SERVICE_VALID_TRANSITIONS,
 } from '../src/lib/db/services'
+import { createEngagement } from '../src/lib/db/engagements'
+import { createQuote } from '../src/lib/db/quotes'
 
 const migrationsDir = path.resolve(__dirname, '../migrations')
 const ORG = 'org-test'
@@ -35,6 +39,24 @@ async function seed(db: D1Database) {
       .bind(e, ORG, e, e)
       .run()
   }
+}
+
+/** Real assessment+quote so an engagement can satisfy its FK to quotes(id). */
+async function seedQuote(db: D1Database, entityId: string): Promise<string> {
+  const assessmentId = `mtg-${entityId}`
+  await db
+    .prepare(
+      `INSERT INTO assessments (id, org_id, entity_id, scheduled_at, status, created_at) VALUES (?, ?, ?, ?, 'scheduled', datetime('now'))`
+    )
+    .bind(assessmentId, ORG, entityId, null)
+    .run()
+  const quote = await createQuote(db, ORG, {
+    entityId,
+    assessmentId,
+    lineItems: [],
+    rate: 175,
+  })
+  return quote.id
 }
 
 describe('services DAL', () => {
@@ -171,5 +193,94 @@ describe('status projection (must match the backfill SQL CASE in 0069/0070)', ()
   it('transition graph terminals are empty', () => {
     expect(SERVICE_VALID_TRANSITIONS.completed).toEqual([])
     expect(SERVICE_VALID_TRANSITIONS.churned).toEqual([])
+  })
+})
+
+describe('createEngagement spawns a linked service (ADR 0046 Stage 1b)', () => {
+  let db: D1Database
+  beforeEach(async () => {
+    db = createTestD1()
+    await runMigrations(db, { files: discoverNumericMigrations(migrationsDir) })
+    await seed(db)
+  })
+
+  it('creates a consulting service parent and links the engagement 1:1', async () => {
+    const quoteId = await seedQuote(db, 'ent-1')
+    const eng = await createEngagement(db, ORG, { entity_id: 'ent-1', quote_id: quoteId })
+
+    expect(eng.service_id).toBeTruthy()
+    expect(eng.service_id?.startsWith('svc_')).toBe(true)
+
+    const services = await getServicesForEntity(db, ORG, 'ent-1')
+    expect(services).toHaveLength(1)
+    expect(services[0].id).toBe(eng.service_id)
+    expect(services[0].type).toBe('consulting')
+    expect(services[0].cadence).toBe('one_time')
+    // born active — projectConsultingStatus('scheduled') === 'active'
+    expect(services[0].status).toBe('active')
+    expect(services[0].quote_id).toBe(quoteId)
+  })
+})
+
+describe('findConsultingSpineDrift (ADR 0046 Stage 1b)', () => {
+  let db: D1Database
+  beforeEach(async () => {
+    db = createTestD1()
+    await runMigrations(db, { files: discoverNumericMigrations(migrationsDir) })
+    await seed(db)
+  })
+
+  it('returns empty when every engagement has its service parent', async () => {
+    const quoteId = await seedQuote(db, 'ent-1')
+    await createEngagement(db, ORG, { entity_id: 'ent-1', quote_id: quoteId })
+
+    const drift = await findConsultingSpineDrift(db, ORG)
+    expect(hasSpineDrift(drift)).toBe(false)
+    expect(drift.orphanEngagements).toHaveLength(0)
+    expect(drift.childlessServices).toHaveLength(0)
+  })
+
+  it('flags an in-flight engagement with no service parent and a childless service', async () => {
+    const quoteId = await seedQuote(db, 'ent-1')
+    // orphan engagement: in-flight, service_id NULL (the pre-fix corruption shape)
+    await db
+      .prepare(
+        `INSERT INTO engagements (id, org_id, entity_id, quote_id, status, created_at, updated_at) VALUES ('eng-orphan', ?, 'ent-1', ?, 'active', datetime('now'), datetime('now'))`
+      )
+      .bind(ORG, quoteId)
+      .run()
+    // childless service: active consulting with no engagement pointing back
+    const childless = await createService(db, ORG, {
+      entity_id: 'ent-2',
+      type: 'consulting',
+      cadence: 'one_time',
+      status: 'active',
+    })
+
+    const drift = await findConsultingSpineDrift(db, ORG)
+    expect(hasSpineDrift(drift)).toBe(true)
+    expect(drift.orphanEngagements.map((e) => e.id)).toContain('eng-orphan')
+    expect(drift.childlessServices.map((s) => s.id)).toContain(childless.id)
+  })
+
+  it('does not flag a completed engagement or a completed service', async () => {
+    const quoteId = await seedQuote(db, 'ent-1')
+    // completed engagement with no service_id — terminal, not in-flight, so ignored
+    await db
+      .prepare(
+        `INSERT INTO engagements (id, org_id, entity_id, quote_id, status, created_at, updated_at) VALUES ('eng-done', ?, 'ent-1', ?, 'completed', datetime('now'), datetime('now'))`
+      )
+      .bind(ORG, quoteId)
+      .run()
+    // completed consulting service with no child — only 'active' counts as childless drift
+    await createService(db, ORG, {
+      entity_id: 'ent-2',
+      type: 'consulting',
+      cadence: 'one_time',
+      status: 'completed',
+    })
+
+    const drift = await findConsultingSpineDrift(db, ORG)
+    expect(hasSpineDrift(drift)).toBe(false)
   })
 })
