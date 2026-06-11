@@ -366,12 +366,25 @@ prompt_and_set R2_ENDPOINT_URL      "R2 endpoint URL (Cloudflare account R2 endp
 # agent-authored skill persistence, mint ONE bucket-scoped token (read+write on
 # ${R2_SKILL_BODIES_BUCKET} only) and add it to /ss — no code change. NEVER the
 # account-wide pair.
-stage_secret_from_env R2_SKILL_BODIES_ACCESS_KEY_ID \
-  "${R2_SKILL_BODIES_ACCESS_KEY_ID:-}" \
-  "bucket-scoped R2 access key ID for ${R2_SKILL_BODIES_BUCKET} (optional; never the account-wide pair)"
-stage_secret_from_env R2_SKILL_BODIES_SECRET_ACCESS_KEY \
-  "${R2_SKILL_BODIES_SECRET_ACCESS_KEY:-}" \
-  "bucket-scoped R2 secret access key for ${R2_SKILL_BODIES_BUCKET} (optional; never the account-wide pair)"
+# CONVERGENT (not just "don't stage"): a prior provisioning defaulted these to the
+# account-wide pair and they are already DEPLOYED on existing Machines (verified:
+# R2_SKILL_BODIES_* share the exact secret digest of R2_ACCESS_KEY_ID/SECRET on
+# customer-zero). So when no scoped token is authored we must actively UNSET them,
+# or the account-wide key lingers in the agent env across reprovisions. `fly
+# secrets unset --stage` is a no-op when the secret isn't set.
+if [ -n "${R2_SKILL_BODIES_ACCESS_KEY_ID:-}" ] && [ -n "${R2_SKILL_BODIES_SECRET_ACCESS_KEY:-}" ]; then
+  stage_secret_from_env R2_SKILL_BODIES_ACCESS_KEY_ID \
+    "${R2_SKILL_BODIES_ACCESS_KEY_ID}" \
+    "bucket-scoped R2 access key ID for ${R2_SKILL_BODIES_BUCKET} (never the account-wide pair)"
+  stage_secret_from_env R2_SKILL_BODIES_SECRET_ACCESS_KEY \
+    "${R2_SKILL_BODIES_SECRET_ACCESS_KEY}" \
+    "bucket-scoped R2 secret access key for ${R2_SKILL_BODIES_BUCKET} (never the account-wide pair)"
+else
+  log "R2_SKILL_BODIES_* not authored in /ss — removing any stale value from the Machine so the account-wide key cannot linger in the agent env (agent-authored skill persistence stays off; OP-P0-2)"
+  fly secrets unset --stage -a "${APP_NAME}" \
+    R2_SKILL_BODIES_ACCESS_KEY_ID R2_SKILL_BODIES_SECRET_ACCESS_KEY >/dev/null 2>&1 \
+    || log "R2_SKILL_BODIES_* already absent on the Machine (nothing to unset)"
+fi
 
 # HONCHO_API_KEY — DEFERRED to Phase 2 (ADR 0016 revised). No in-Machine Honcho
 # server is provisioned in Phase 1, so there is no shared secret to generate.
