@@ -53,7 +53,7 @@ One Fly app/Machine/volume/D1/R2-bucket per customer (ADR 0007). The control pla
 
 | Channel                                                        | Attacker control       | Fenced?                                   |
 | -------------------------------------------------------------- | ---------------------- | ----------------------------------------- |
-| Crane's own AgentMail inbox (webhook → `pre_gateway_dispatch`) | High (open)            | **Yes** — nonce-fenced (§4, `OP-SEC-4`)   |
+| Crane's own AgentMail inbox (webhook → `pre_gateway_dispatch`) | High (open)            | **Yes** — nonce-fenced (§4, item 6)       |
 | **Managed mailbox (scheduled Gmail triage of `smdurgan@`)**    | High (open)            | **No** — ordinary tool output (`OP-P0-4`) |
 | Connector / MCP responses (Clio, etc.)                         | Medium–High            | **No** — trusted tool output (`OP-P1-3`)  |
 | Flat-file memory (`MEMORY.md`/`USER.md` on volume)             | Medium (persistence)   | **No** — recalled as trusted (`OP-P1-2`)  |
