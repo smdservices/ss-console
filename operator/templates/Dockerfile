@@ -114,8 +114,13 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # the corresponding overlay release tag is cut.
 # Superset of v0.4.14 (synchronous voice) / v0.4.13 (audit self-check) /
 # v0.4.12 (activation gate) / v0.4.11 (fan-out).
+# f278c23 (#51) adds managed-mailbox targeting to the Gmail tools (optional
+# `mailbox` + `from`), for the Operator's executive-assistant access to the
+# principal's mailbox; pairs with the ss-console broker per-op subject + send-as
+# validation (Wave A — read/draft only). Also carries #50 (retire the
+# external-send identity brand), already on overlay main.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="4d21dc61b0134c4eb6395f837d9577fcd7cd6ec5"
+ARG OVERLAY_REF="f278c23aa3256efe67a55b0b514a659d9eb58567"
 
 ARG CUSTOMER_SLUG=customer-zero
 
