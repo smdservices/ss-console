@@ -24,7 +24,8 @@
 -- status is a COARSE COMMERCIAL ROLLUP, deliberately separate from the rich
 -- delivery lifecycle. engagements.status / subscriptions.status remain the
 -- AUTHORITATIVE lifecycle; services.status is a projection (see
--- src/lib/db/services.ts projectServiceStatus, used by both backfill + runtime).
+-- src/lib/db/services.ts projectConsultingStatus/projectOperatorStatus, used by
+-- both backfill + runtime).
 --   proposed  — quoted, not yet accepted. Unreachable in Stage 1 (services are
 --               created only at acceptance); reachable from Stage 2.
 --   active    — committed/live revenue line (signed or being stood up → in delivery).

@@ -14,8 +14,10 @@ import {
   updateServiceStatus,
   projectConsultingStatus,
   projectOperatorStatus,
-  findConsultingSpineDrift,
+  findSpineDrift,
   hasSpineDrift,
+  setOperatorPrice,
+  getOperatorServiceForEntity,
   SERVICE_VALID_TRANSITIONS,
 } from '../src/lib/db/services'
 import { createEngagement } from '../src/lib/db/engagements'
@@ -222,7 +224,7 @@ describe('createEngagement spawns a linked service (ADR 0046 Stage 1b)', () => {
   })
 })
 
-describe('findConsultingSpineDrift (ADR 0046 Stage 1b)', () => {
+describe('findSpineDrift — consulting classes (ADR 0046)', () => {
   let db: D1Database
   beforeEach(async () => {
     db = createTestD1()
@@ -234,7 +236,7 @@ describe('findConsultingSpineDrift (ADR 0046 Stage 1b)', () => {
     const quoteId = await seedQuote(db, 'ent-1')
     await createEngagement(db, ORG, { entity_id: 'ent-1', quote_id: quoteId })
 
-    const drift = await findConsultingSpineDrift(db, ORG)
+    const drift = await findSpineDrift(db, ORG)
     expect(hasSpineDrift(drift)).toBe(false)
     expect(drift.orphanEngagements).toHaveLength(0)
     expect(drift.childlessServices).toHaveLength(0)
@@ -257,7 +259,7 @@ describe('findConsultingSpineDrift (ADR 0046 Stage 1b)', () => {
       status: 'active',
     })
 
-    const drift = await findConsultingSpineDrift(db, ORG)
+    const drift = await findSpineDrift(db, ORG)
     expect(hasSpineDrift(drift)).toBe(true)
     expect(drift.orphanEngagements.map((e) => e.id)).toContain('eng-orphan')
     expect(drift.childlessServices.map((s) => s.id)).toContain(childless.id)
@@ -280,7 +282,85 @@ describe('findConsultingSpineDrift (ADR 0046 Stage 1b)', () => {
       status: 'completed',
     })
 
-    const drift = await findConsultingSpineDrift(db, ORG)
+    const drift = await findSpineDrift(db, ORG)
     expect(hasSpineDrift(drift)).toBe(false)
+  })
+})
+
+/** Seed a live operator (`customer_configs` row) for an entity. */
+async function seedConfig(db: D1Database, entityId: string, slug: string) {
+  await db
+    .prepare(
+      `INSERT INTO customer_configs (entity_id, org_id, customer_slug, schema_version, personas_json, git_sha, synced_at)
+       VALUES (?, ?, ?, '1', '[]', 'abc', datetime('now'))`
+    )
+    .bind(entityId, ORG, slug)
+    .run()
+}
+
+describe('setOperatorPrice (ADR 0046 operator arc)', () => {
+  let db: D1Database
+  beforeEach(async () => {
+    db = createTestD1()
+    await runMigrations(db, { files: discoverNumericMigrations(migrationsDir) })
+    await seed(db)
+  })
+
+  it('creates an active operator service when none exists', async () => {
+    const svc = await setOperatorPrice(db, ORG, 'ent-1', 1200)
+    expect(svc.type).toBe('operator')
+    expect(svc.cadence).toBe('recurring')
+    expect(svc.status).toBe('active')
+    expect(svc.recurring_price).toBe(1200)
+    expect(svc.id.startsWith('svc_')).toBe(true)
+
+    const fetched = await getOperatorServiceForEntity(db, ORG, 'ent-1')
+    expect(fetched?.id).toBe(svc.id)
+  })
+
+  it('updates the price on an existing operator service (no second row)', async () => {
+    const first = await setOperatorPrice(db, ORG, 'ent-1', 1000)
+    const second = await setOperatorPrice(db, ORG, 'ent-1', 1500)
+    expect(second.id).toBe(first.id) // same row, no duplicate
+    expect(second.recurring_price).toBe(1500)
+    const all = await getServicesForEntity(db, ORG, 'ent-1')
+    expect(all.filter((s) => s.type === 'operator')).toHaveLength(1)
+  })
+
+  it('clears the price to null (unpriced) without deleting the service', async () => {
+    await setOperatorPrice(db, ORG, 'ent-1', 900)
+    const cleared = await setOperatorPrice(db, ORG, 'ent-1', null)
+    expect(cleared.recurring_price).toBeNull()
+    expect(cleared.status).toBe('active')
+  })
+})
+
+describe('findSpineDrift — operator classes (ADR 0046)', () => {
+  let db: D1Database
+  beforeEach(async () => {
+    db = createTestD1()
+    await runMigrations(db, { files: discoverNumericMigrations(migrationsDir) })
+    await seed(db)
+  })
+
+  it('is clean when a live operator has a commercial service', async () => {
+    await seedConfig(db, 'ent-1', 'ent-1')
+    await setOperatorPrice(db, ORG, 'ent-1', 1200)
+    const drift = await findSpineDrift(db, ORG)
+    expect(hasSpineDrift(drift)).toBe(false)
+  })
+
+  it('flags a live operator (config) with no commercial service', async () => {
+    await seedConfig(db, 'ent-1', 'acme')
+    const drift = await findSpineDrift(db, ORG)
+    expect(hasSpineDrift(drift)).toBe(true)
+    expect(drift.configsWithoutService.map((c) => c.customer_slug)).toContain('acme')
+  })
+
+  it('flags an active operator service whose entity has no config', async () => {
+    const svc = await setOperatorPrice(db, ORG, 'ent-1', 1200) // creates service, no config seeded
+    const drift = await findSpineDrift(db, ORG)
+    expect(hasSpineDrift(drift)).toBe(true)
+    expect(drift.operatorServicesWithoutConfig.map((s) => s.id)).toContain(svc.id)
   })
 })

@@ -5,8 +5,10 @@
  * Two data surfaces are involved:
  *
  *   1. Central D1 (`env.DB`) — holds `customer_configs` (the customer
- *      enumeration) and `subscriptions` (the recurring-revenue figure
- *      used by the COGS/MRR ratio).
+ *      enumeration), `subscriptions` (the delivery-status display), and the
+ *      `services` spine (the authoritative recurring-revenue figure,
+ *      `recurring_price`, used by the COGS/MRR ratio — ADR 0046, single
+ *      source of truth, no longer `subscriptions.settings_json`).
  *
  *   2. Per-customer D1 (one per customer, addressed via the Cloudflare
  *      D1 HTTP API) — holds the `cost_telemetry` table per ADR 0009.
@@ -50,7 +52,11 @@ interface CustomerConfigRow {
 interface SubscriptionRow {
   entity_id: string
   status: string
-  settings_json: string | null
+}
+
+interface OperatorServiceRow {
+  entity_id: string
+  recurring_price: number | null
 }
 
 interface EntityRow {
@@ -83,16 +89,33 @@ export async function listCostCustomers(db: D1Database): Promise<CustomerListRow
 
   const subsResult = await db
     .prepare(
-      `SELECT entity_id, status, settings_json
+      `SELECT entity_id, status
          FROM subscriptions
          WHERE product_slug = 'operator'
            AND entity_id IN (${placeholders})`
     )
     .bind(...entityIds)
     .all<SubscriptionRow>()
-  const subsByEntity = new Map<string, SubscriptionRow>()
+  const subStatusByEntity = new Map<string, string>()
   for (const row of subsResult.results ?? []) {
-    subsByEntity.set(row.entity_id, row)
+    subStatusByEntity.set(row.entity_id, row.status)
+  }
+
+  // ADR 0046: recurring revenue is the spine's authoritative figure
+  // (`services.recurring_price`, dollars), not `subscriptions.settings_json`.
+  // One source of truth — the same number that feeds the Billing MRR band.
+  const svcResult = await db
+    .prepare(
+      `SELECT entity_id, recurring_price
+         FROM services
+         WHERE type = 'operator' AND status = 'active'
+           AND entity_id IN (${placeholders})`
+    )
+    .bind(...entityIds)
+    .all<OperatorServiceRow>()
+  const priceByEntity = new Map<string, number | null>()
+  for (const row of svcResult.results ?? []) {
+    priceByEntity.set(row.entity_id, row.recurring_price)
   }
 
   const entitiesResult = await db
@@ -106,14 +129,15 @@ export async function listCostCustomers(db: D1Database): Promise<CustomerListRow
 
   return configs.map((c) => {
     const { perCustomerDbId } = parseConnectors(c.connectors_json)
-    const sub = subsByEntity.get(c.entity_id) ?? null
+    const price = priceByEntity.get(c.entity_id) ?? null
     return {
       customer_slug: c.customer_slug,
       entity_id: c.entity_id,
       entity_name: namesByEntity.get(c.entity_id) ?? null,
       per_customer_d1_database_id: perCustomerDbId,
-      subscription_status: sub?.status ?? null,
-      monthly_revenue_cents: parseMonthlyRevenueCents(sub?.settings_json ?? null),
+      subscription_status: subStatusByEntity.get(c.entity_id) ?? null,
+      // Authoritative recurring revenue from the spine, in cents for the ratio math.
+      monthly_revenue_cents: price == null ? null : Math.round(price * 100),
     }
   })
 }
@@ -136,30 +160,6 @@ function parseConnectors(connectorsJson: string | null): {
   return {
     perCustomerDbId: typeof dbId === 'string' && dbId.length > 0 ? dbId : null,
   }
-}
-
-/**
- * Recurring revenue (MRR) for the customer in integer cents. Read from
- * `subscriptions.settings_json.monthly_price_cents`, the documented
- * per-product configuration field (cost-telemetry-events.md "COGS/MRR
- * ratio computation" — "customer's flat-monthly SKU price in cents").
- *
- * Returns null when the field is absent or unparseable. The caller
- * treats null as "unpriced" and renders the COGS/MRR indicator as
- * "—" rather than fabricating a default.
- */
-function parseMonthlyRevenueCents(settingsJson: string | null): number | null {
-  if (!settingsJson) return null
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(settingsJson)
-  } catch {
-    return null
-  }
-  if (!parsed || typeof parsed !== 'object') return null
-  const value = (parsed as Record<string, unknown>)['monthly_price_cents']
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return null
-  return Math.round(value)
 }
 
 // ---------------------------------------------------------------------------

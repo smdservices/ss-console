@@ -41,8 +41,22 @@ describe('buildServiceList', () => {
 
   it('sorts by risk: alerting operator, then overdue handoff, then safety-net soon', () => {
     const operators: OperatorInput[] = [
-      { entityId: 'op1', clientName: 'Alpha', configError: null, openAlerts: 2, hasRuntime: true },
-      { entityId: 'op2', clientName: 'Bravo', configError: null, openAlerts: 0, hasRuntime: true },
+      {
+        entityId: 'op1',
+        clientName: 'Alpha',
+        configError: null,
+        openAlerts: 2,
+        hasRuntime: true,
+        recurringPrice: null,
+      },
+      {
+        entityId: 'op2',
+        clientName: 'Bravo',
+        configError: null,
+        openAlerts: 0,
+        hasRuntime: true,
+        recurringPrice: null,
+      },
     ]
     const rows = buildServiceList({
       engagements: [
@@ -73,21 +87,48 @@ describe('buildServiceList', () => {
     expect(rows[rows.length - 1].statusLabel).toBe('Healthy')
   })
 
-  it('draws consulting value from the quote; never fabricates operator price', () => {
+  it('draws consulting value from the quote; operator value from the spine price', () => {
     const quote = { id: 'q1', total_price: 8400 } as unknown as Quote
     const rows = buildServiceList({
       engagements: [eng({ id: 'e1', entity_id: 'c1', status: 'active', quote_id: 'q1' })],
       entityName: () => 'Client',
       quotesById: new Map([['q1', quote]]),
       operators: [
-        { entityId: 'op1', clientName: 'Op', configError: null, openAlerts: 0, hasRuntime: true },
+        {
+          entityId: 'op1',
+          clientName: 'Op',
+          configError: null,
+          openAlerts: 0,
+          hasRuntime: true,
+          recurringPrice: 1200,
+        },
       ],
       now: NOW,
     })
     const consulting = rows.find((r) => r.kind === 'consulting')!
     const operator = rows.find((r) => r.kind === 'operator')!
     expect(consulting.value).toBe('$8,400')
-    expect(operator.value).toBeNull()
+    expect(operator.value).toBe('$1,200/mo')
+  })
+
+  it('renders an unpriced operator value as null, never fabricated', () => {
+    const rows = buildServiceList({
+      engagements: [],
+      entityName: () => 'Client',
+      quotesById: new Map(),
+      operators: [
+        {
+          entityId: 'op1',
+          clientName: 'Op',
+          configError: null,
+          openAlerts: 0,
+          hasRuntime: true,
+          recurringPrice: null,
+        },
+      ],
+      now: NOW,
+    })
+    expect(rows.find((r) => r.kind === 'operator')!.value).toBeNull()
   })
 })
 
@@ -101,7 +142,14 @@ describe('serviceListStats', () => {
       entityName: () => 'C',
       quotesById: new Map(),
       operators: [
-        { entityId: 'op1', clientName: 'Op', configError: null, openAlerts: 1, hasRuntime: true },
+        {
+          entityId: 'op1',
+          clientName: 'Op',
+          configError: null,
+          openAlerts: 1,
+          hasRuntime: true,
+          recurringPrice: null,
+        },
       ],
       now: NOW,
     })
