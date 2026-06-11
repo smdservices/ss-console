@@ -1578,6 +1578,20 @@ describe('validate — ADR 0021 cron', () => {
     if (r.ok) return
     expect(codesOf(r.errors)).toContain('InvalidCronWakePolicy')
   })
+
+  it('rejects two cron entries for the same skill on one persona', () => {
+    // Both would materialize to the same Hermes job name and collide.
+    const f = withBundlesAndCron()
+    const persona = (f['personas'] as unknown[])[0] as Record<string, unknown>
+    persona['cron'] = [
+      { skill: 'inbox-triage-and-draft', schedule: '0 9 * * *', wake_policy: 'always' },
+      { skill: 'inbox-triage-and-draft', schedule: '0 17 * * *', wake_policy: 'always' },
+    ]
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(codesOf(r.errors)).toContain('DuplicateCronSkill')
+  })
 })
 
 // -----------------------------------------------------------------------------

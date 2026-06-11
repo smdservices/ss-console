@@ -760,6 +760,7 @@ export type ValidationErrorCode =
   | 'InvalidCronSchedule'
   | 'UnknownCronSkill'
   | 'InvalidCronWakePolicy'
+  | 'DuplicateCronSkill'
   | 'UnknownWebhookSource'
   | 'UnknownWebhookPersona'
   | 'UnknownWebhookSkill'

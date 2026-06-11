@@ -197,8 +197,26 @@ export function checkCron(
     return []
   }
   const out: PersonaCron[] = []
+  const seenSkills = new Set<string>()
   for (let i = 0; i < raw.length; i++) {
-    const cron = checkOneCron(raw[i], `${path}[${i}]`, skills, errors)
+    const entry = raw[i]
+    // Duplicate (persona, skill) detection. Two cron entries for the same skill
+    // materialize to the same Hermes job name (smd-mat-<customer>-<persona>-<skill>)
+    // and would collide. Catch it at author time rather than letting the
+    // materializer reject it at boot.
+    if (isPlainObject(entry) && typeof entry['skill'] === 'string' && entry['skill'].length > 0) {
+      const skillName = entry['skill']
+      if (seenSkills.has(skillName)) {
+        errors.push({
+          code: 'DuplicateCronSkill',
+          path: `${path}[${i}].skill`,
+          message: `duplicate cron entry for skill "${skillName}" on this persona; each skill may be scheduled at most once`,
+        })
+      } else {
+        seenSkills.add(skillName)
+      }
+    }
+    const cron = checkOneCron(entry, `${path}[${i}]`, skills, errors)
     if (cron !== null) out.push(cron)
   }
   return out
