@@ -188,6 +188,42 @@ chmod 0644 "${CUSTOMER_YAML}" \
   || die "customer.yaml must be readable by the separate Workspace broker principal"
 
 # ============================================================================
+# Step 2a: sync the voice vault to the volume (agent holds NO R2 credential)
+# ============================================================================
+# The voice plugin reads the customer's content-free voice samples from R2
+# (vaults/<slug>/voice/). We fetch them HERE at boot — with the same boot-time
+# creds used for the customer.yaml fetch above, which are STRIPPED before the
+# gateway exec (OP-P0-2) — and point the plugin at the local mirror via
+# SMD_VOICE_VAULT_DIR. Net: the agent process holds no R2 credential for voice,
+# yet voice works. Samples change only when an operator re-ingests a corpus (a
+# deliberate out-of-band action), so a boot snapshot is sufficient. This runs as
+# the hermes user (entrypoint already dropped privilege), so synced files are
+# hermes-owned — no extra chown, no race with entrypoint's blanket chown.
+export SMD_VOICE_VAULT_DIR="${HERMES_HOME:-/opt/data}/voice"
+R2_VOICE_PREFIX="s3://${R2_BUCKET_CONFIG}/vaults/${CUSTOMER_SLUG}/voice/"
+# Empty/absent vault is the COMMON case (no corpus ingested yet) and MUST NOT
+# fail the boot under `set -e`: probe first, sync only when non-empty, and never
+# `die`. When empty we leave SMD_VOICE_VAULT_DIR's dir absent so reader_from_env
+# falls through and the plugin reports INACTIVE (accurate), rather than ACTIVE
+# with zero samples.
+if AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}" \
+   AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}" \
+     aws s3 ls --endpoint-url "${R2_ENDPOINT_URL}" "${R2_VOICE_PREFIX}" 2>/dev/null | grep -q .; then
+  mkdir -p "${SMD_VOICE_VAULT_DIR}"
+  if AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}" \
+     AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}" \
+       aws s3 cp --recursive --only-show-errors \
+         --endpoint-url "${R2_ENDPOINT_URL}" \
+         "${R2_VOICE_PREFIX}" "${SMD_VOICE_VAULT_DIR}/"; then
+    log "voice vault synced to ${SMD_VOICE_VAULT_DIR} (agent holds no R2 credential for voice)"
+  else
+    log "WARN: voice vault sync failed; voice INACTIVE this boot (non-fatal)"
+  fi
+else
+  log "no voice vault at ${R2_VOICE_PREFIX} (no corpus ingested) — voice stays inactive"
+fi
+
+# ============================================================================
 # Step 2b: verify mediated Workspace broker readiness
 # ============================================================================
 # entrypoint.sh started the broker as a separate uid and removed every Google
@@ -682,15 +718,18 @@ fi
 
 # Strip the account-wide R2 credential before handing off to the agent (OP-P0-2,
 # docs/security/operator-threat-model.md). R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY
-# are an ACCOUNT-WIDE R2 key (R/W on every bucket in the account); their only
-# in-Machine consumer is the customer.yaml fetch in Step 2 above. The agent's own
-# skill-body writer (skill_capture.py) uses the bucket-SCOPED R2_SKILL_BODIES_*
-# pair plus R2_ENDPOINT_URL — NOT these — so the account-wide key must not remain
-# in the gateway env where an injection could exfiltrate it cross-tenant.
-# ORDERING IS LOAD-BEARING: this unset MUST stay AFTER the R2 fetch (Step 2) and
-# BEFORE the gateway exec; moving it earlier breaks the fetch (R2_ACCESS_KEY_ID is
-# read at the `aws s3 cp` above). R2_ENDPOINT_URL is intentionally KEPT — the
-# scoped skill-body writer reads it, and it is an endpoint URL, not a credential.
+# are an ACCOUNT-WIDE R2 key (R/W on every bucket in the account); their
+# in-Machine consumers are the customer.yaml fetch (Step 2) and the voice-vault
+# sync (Step 2a) above — both BOOT-time and both BEFORE this strip. The agent's
+# own skill-body writer (skill_capture.py) uses the bucket-SCOPED
+# R2_SKILL_BODIES_* pair plus R2_ENDPOINT_URL — NOT these — and voice reads its
+# vault from the local SMD_VOICE_VAULT_DIR mirror, so the account-wide key must
+# not remain in the gateway env where an injection could exfiltrate it
+# cross-tenant. ORDERING IS LOAD-BEARING: this unset MUST stay AFTER the R2 fetch
+# + voice sync (Step 2/2a) and BEFORE the gateway exec; moving it earlier breaks
+# them (R2_ACCESS_KEY_ID is read by the `aws s3 cp`s above). R2_ENDPOINT_URL is
+# intentionally KEPT — the scoped skill-body writer reads it, and it is an
+# endpoint URL, not a credential.
 unset R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY
 
 log "Launching Hermes gateway for profile '${ACTIVE_PROFILE}' (overlay plugins enabled)..."
