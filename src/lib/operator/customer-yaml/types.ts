@@ -447,12 +447,46 @@ export interface Connector {
  * exports `GOOGLE_IMPERSONATE_SUBJECT` (= `subject`) and `GOOGLE_OAUTH_SCOPES`
  * (= space-joined `scopes`) so the connectors' service-account branch runs.
  */
+/**
+ * A second mailbox (beyond `google_auth.subject`) the Operator is authored to
+ * act on, the way a human executive assistant manages a principal's inbox in
+ * addition to their own. The same domain-wide-delegation service account
+ * impersonates this `address` per-operation; `address` MUST be the user's
+ * primary Workspace email (Google rejects impersonation of an alias).
+ *
+ * `send_as` is the Gmail "Send mail as" allowlist — the identities the Operator
+ * may place in the `From` header when drafting/sending from this mailbox (e.g.
+ * the primary plus its account aliases). It is distinct from `PersonaSendAs`,
+ * which is Crane's own AgentMail channel identity.
+ *
+ * The broker is the authorization boundary: it re-validates the requested
+ * impersonation subject against the authored `address` set and the requested
+ * `From` against this `send_as` list before building credentials. Authoring a
+ * managed mailbox is the ONLY thing that lets the Operator reach it; absence is
+ * fail-closed.
+ */
+export interface ManagedMailbox {
+  /** Primary Workspace email to impersonate for this mailbox (never an alias). */
+  address: string
+  /** Gmail "Send mail as" identities permitted in the `From` header for this mailbox. */
+  send_as: string[]
+  /** Optional per-mailbox action-class ceiling overrides; null when unauthored. */
+  action_ceilings: Partial<Record<ActionClass, TrustCeiling>> | null
+}
+
 export interface GoogleAuth {
   mode: GoogleAuthMode
   /** Email to impersonate; required (non-null) for `dwd`, null for `user_oauth`. */
   subject: string | null
   /** OAuth scopes the DWD service account requests; non-empty for `dwd`, [] otherwise. */
   scopes: string[]
+  /**
+   * Additional mailboxes the Operator may act on beyond `subject`
+   * (managed-mailbox capability). Empty for `user_oauth` and when unauthored.
+   * Only valid under `mode: dwd` — the DWD service account can impersonate any
+   * authored address in the Workspace.
+   */
+  managed_mailboxes: ManagedMailbox[]
 }
 
 /**
