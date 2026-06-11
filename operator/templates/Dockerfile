@@ -304,6 +304,11 @@ COPY operator/connectors/ /app/connectors/
 # Safety-substrate tests — bootstrap.sh runs these on container start
 COPY operator/safety-substrate/ /app/safety-substrate/
 
+# Env-consumption contract — the single source of truth the boot-time invariant
+# (safety-substrate/tests/test_invariant_9) reads to enforce that no var the
+# agent consumes is stripped from its env (the voice-class regression guard).
+COPY operator/contracts/ /app/contracts/
+
 # Bootstrap entrypoint
 COPY operator/templates/bootstrap.sh /app/bootstrap.sh
 COPY operator/templates/entrypoint.sh /app/entrypoint.sh
