@@ -199,14 +199,16 @@ chmod 0644 "${CUSTOMER_YAML}" \
 [ -S "${SMD_WORKSPACE_BROKER_SOCKET}" ] \
   || die "Workspace broker socket missing: ${SMD_WORKSPACE_BROKER_SOCKET}"
 if ! /opt/hermes/.venv/bin/python3 - \
-  "${SMD_WORKSPACE_BROKER_SOCKET}" "${CUSTOMER_YAML}" <<'PY'
+  "${SMD_WORKSPACE_BROKER_SOCKET}" "${CUSTOMER_YAML}" \
+  "${SMD_AUDIT_BROKER_SOCKET:-}" "${SMD_D1_AUDIT_BINDING:-}" <<'PY'
 import json
 import socket
+import sqlite3
 import sys
 
 import yaml
 
-socket_path, customer_path = sys.argv[1:]
+socket_path, customer_path, audit_socket, audit_db = sys.argv[1:]
 with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
     client.settimeout(5)
     client.connect(socket_path)
@@ -218,6 +220,17 @@ customer = yaml.safe_load(open(customer_path, encoding="utf-8")) or {}
 google_auth = customer.get("google_auth") or {}
 if google_auth and response.get("credential_ready") is not True:
     raise SystemExit("customer has google_auth but broker has no credential")
+# OP-P1-4: when audit writes route through the broker, refuse to launch an
+# unaudited gateway. Assert the broker opened the ledger AND that the hermes
+# mode=ro read seam can read it while the broker holds the only RW handle.
+if audit_socket:
+    if response.get("audit_ready") is not True:
+        raise SystemExit("broker audit ledger not ready (OP-P1-4)")
+    ro = sqlite3.connect(f"file:{audit_db}?mode=ro", uri=True)
+    try:
+        ro.execute("SELECT COUNT(*) FROM audit_log").fetchone()
+    finally:
+        ro.close()
 PY
 then
   die "Workspace broker health/readiness check failed"
