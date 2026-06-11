@@ -26,6 +26,7 @@ export const ACTION_CLASS_LABEL: Record<ActionClass, string> = {
   external_send: 'External send',
   commitment: 'Commitment',
   destructive: 'Destructive',
+  code_execution: 'Code execution',
 }
 
 export interface GovernanceFloorRow {

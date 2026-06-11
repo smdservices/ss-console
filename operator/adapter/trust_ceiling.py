@@ -47,6 +47,13 @@ class ActionClass(str, enum.Enum):
     EXTERNAL_SEND = "external_send"  # Email, SMS, Slack-to-external, posts — gated
     COMMITMENT = "commitment"  # Sign, accept terms, agree to dates — never autonomous
     DESTRUCTIVE = "destructive"  # Delete, drop, irreversible — explicit per-call approval
+    CODE_EXECUTION = "code_execution"  # Arbitrary code / shell / subagent — authored-only, fail-closed
+
+
+# Inbound trust class for the taint-gate. Kept as a bare string here (the
+# overlay defines the full vocabulary in shared.inbound); the only distinction
+# this core needs is "internal" (clean) vs anything else (tainted).
+_TRUST_CLASS_INTERNAL = "internal"
 
 
 @dataclass(frozen=True)
@@ -124,6 +131,7 @@ def enforce(
     current_turn_approval: bool = False,
     action_ceilings: Mapping[ActionClass, Ceiling] | None = None,
     vertical_floors: Mapping[ActionClass, Ceiling] | None = None,
+    inbound_trust_class: str = _TRUST_CLASS_INTERNAL,
 ) -> EnforcementDecision:
     """Return whether this tool call is allowed under the configured ceilings.
 
@@ -153,6 +161,44 @@ def enforce(
     # READ always allowed regardless of ceiling
     if action == ActionClass.READ:
         return EnforcementDecision(allowed=True, reason="read action", audit_action="allow")
+
+    # TAINT-GATE — a turn that ingested untrusted inbound content cannot fire an
+    # autonomous sensitive action (the injection-ingress → action-egress tie).
+    # READ and INTERNAL_WRITE (drafts) stay allowed. Mirrors the overlay's live
+    # pre_tool_call gate; here for parity (the two cores must agree).
+    if inbound_trust_class != _TRUST_CLASS_INTERNAL and action in (
+        ActionClass.EXTERNAL_SEND,
+        ActionClass.DESTRUCTIVE,
+        ActionClass.COMMITMENT,
+        ActionClass.CODE_EXECUTION,
+    ):
+        return EnforcementDecision(
+            allowed=False,
+            reason=(
+                f"{action.value} refused: turn ingested untrusted inbound content "
+                f"(trust_class={inbound_trust_class}); sensitive action withheld "
+                f"on a tainted turn — read and draft only"
+            ),
+            audit_action="refuse",
+        )
+
+    # CODE_EXECUTION — arbitrary code / shell / subagent. Governed by its own
+    # authored ceiling, fail-closed when unauthored (ADR 0035). No draft concept;
+    # autonomous → allow, else refuse. Not gated by the skill output scalar (a
+    # mechanism, not an output class).
+    if action == ActionClass.CODE_EXECUTION:
+        eff = resolve_ceiling(action, ceiling, action_ceilings, vertical_floors)
+        if eff == Ceiling.AUTONOMOUS:
+            return EnforcementDecision(
+                allowed=True,
+                reason="code_execution permitted: authored code_execution ceiling is autonomous",
+                audit_action="allow",
+            )
+        return EnforcementDecision(
+            allowed=False,
+            reason="code_execution refused: no authored code_execution ceiling (fail-closed, ADR 0035)",
+            audit_action="refuse",
+        )
 
     # COMMITMENT never autonomous (invariant #3)
     # Draft_for_review skills never originate commitments — escalate to autonomous

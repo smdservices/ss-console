@@ -163,6 +163,7 @@ export const ACCEPTED_ACTION_CLASSES = [
   'external_send',
   'commitment',
   'destructive',
+  'code_execution',
 ] as const
 export type ActionClass = (typeof ACCEPTED_ACTION_CLASSES)[number]
 
