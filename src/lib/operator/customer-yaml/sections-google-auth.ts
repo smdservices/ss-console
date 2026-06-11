@@ -17,7 +17,16 @@
  * fallback to user-OAuth — the same fail-closed posture the connector enforces).
  */
 
-import { ACCEPTED_GOOGLE_AUTH_MODES, type GoogleAuth, type ValidationError } from './types'
+import {
+  ACCEPTED_ACTION_CLASSES,
+  ACCEPTED_GOOGLE_AUTH_MODES,
+  ACCEPTED_TRUST_CEILINGS,
+  type ActionClass,
+  type GoogleAuth,
+  type ManagedMailbox,
+  type TrustCeiling,
+  type ValidationError,
+} from './types'
 import { isPlainObject } from './helpers'
 
 export function checkGoogleAuth(
@@ -48,7 +57,7 @@ export function checkGoogleAuth(
   }
   if (mode === 'user_oauth') {
     // user-OAuth needs no authored subject/scopes — the relayed token carries them.
-    return { mode, subject: null, scopes: [] }
+    return { mode, subject: null, scopes: [], managed_mailboxes: [] }
   }
   return checkDwd(raw, errors)
 }
@@ -78,6 +87,129 @@ function checkDwd(raw: Record<string, unknown>, errors: ValidationError[]): Goog
     })
     ok = false
   }
+  const managed = checkManagedMailboxes(raw['managed_mailboxes'], errors)
+  if (managed === null) ok = false
   if (!ok) return null
-  return { mode: 'dwd', subject: subject as string, scopes: scopes as string[] }
+  return {
+    mode: 'dwd',
+    subject: subject as string,
+    scopes: scopes as string[],
+    managed_mailboxes: managed ?? [],
+  }
+}
+
+/**
+ * Validate the optional `google_auth.managed_mailboxes` list (fail-closed):
+ * absent ⇒ `[]`; present-but-malformed ⇒ a hard error (return null) so a partial
+ * managed-mailbox block never silently degrades the authored authority surface.
+ */
+function checkManagedMailboxes(raw: unknown, errors: ValidationError[]): ManagedMailbox[] | null {
+  if (raw === undefined || raw === null) return []
+  if (!Array.isArray(raw)) {
+    errors.push({
+      code: 'TypeMismatch',
+      path: 'google_auth.managed_mailboxes',
+      message: 'google_auth.managed_mailboxes must be a list when present',
+    })
+    return null
+  }
+  const out: ManagedMailbox[] = []
+  let ok = true
+  for (let i = 0; i < raw.length; i++) {
+    const mb = checkOneManagedMailbox(raw[i], `google_auth.managed_mailboxes[${i}]`, errors)
+    if (mb === null) ok = false
+    else out.push(mb)
+  }
+  return ok ? out : null
+}
+
+function checkOneManagedMailbox(
+  raw: unknown,
+  path: string,
+  errors: ValidationError[]
+): ManagedMailbox | null {
+  if (!isPlainObject(raw)) {
+    errors.push({ code: 'TypeMismatch', path, message: `${path} must be an object` })
+    return null
+  }
+  let ok = true
+  const address = raw['address']
+  if (typeof address !== 'string' || !address.includes('@')) {
+    errors.push({
+      code: 'InvalidFormat',
+      path: `${path}.address`,
+      message: `${path}.address must be the primary email address to impersonate (never an alias)`,
+    })
+    ok = false
+  }
+  const sendAs = raw['send_as']
+  if (
+    !Array.isArray(sendAs) ||
+    sendAs.length === 0 ||
+    !sendAs.every((s) => typeof s === 'string' && s.includes('@'))
+  ) {
+    errors.push({
+      code: 'EmptyList',
+      path: `${path}.send_as`,
+      message: `${path}.send_as must be a non-empty list of "Send mail as" email addresses`,
+    })
+    ok = false
+  }
+  const ceilings = checkMailboxActionCeilings(
+    raw['action_ceilings'],
+    `${path}.action_ceilings`,
+    errors
+  )
+  if (ceilings === false) ok = false
+  if (!ok) return null
+  return {
+    address: address as string,
+    send_as: sendAs as string[],
+    action_ceilings: ceilings || null,
+  }
+}
+
+/**
+ * Validate an optional per-mailbox `action_ceilings` map against the shared
+ * action-class and trust-ceiling enums. Returns the validated map, null when
+ * unauthored, or `false` when malformed (so the caller fails closed).
+ */
+function checkMailboxActionCeilings(
+  raw: unknown,
+  path: string,
+  errors: ValidationError[]
+): Partial<Record<ActionClass, TrustCeiling>> | null | false {
+  if (raw === undefined || raw === null) return null
+  if (!isPlainObject(raw)) {
+    errors.push({ code: 'TypeMismatch', path, message: `${path} must be an object` })
+    return false
+  }
+  const out: Partial<Record<ActionClass, TrustCeiling>> = {}
+  let ok = true
+  for (const [key, value] of Object.entries(raw)) {
+    if (!(ACCEPTED_ACTION_CLASSES as readonly string[]).includes(key)) {
+      errors.push({
+        code: 'InvalidActionClass',
+        path: `${path}.${key}`,
+        message: `action_ceilings key must be one of: ${ACCEPTED_ACTION_CLASSES.join(', ')}`,
+      })
+      ok = false
+      continue
+    }
+    if (
+      typeof value !== 'string' ||
+      !(ACCEPTED_TRUST_CEILINGS as readonly string[]).includes(value)
+    ) {
+      errors.push({
+        code: 'InvalidActionCeiling',
+        path: `${path}.${key}`,
+        message: `action_ceilings.${key} must be one of: ${ACCEPTED_TRUST_CEILINGS.join(', ')}`,
+      })
+      ok = false
+      continue
+    }
+    out[key as ActionClass] = value as TrustCeiling
+  }
+  if (!ok) return false
+  return Object.keys(out).length > 0 ? out : null
 }

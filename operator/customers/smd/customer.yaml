@@ -46,6 +46,24 @@ google_auth:
     - https://www.googleapis.com/auth/drive
     - https://www.googleapis.com/auth/documents
     - https://www.googleapis.com/auth/spreadsheets
+  # ---- MANAGED MAILBOX (executive-assistant access) ----
+  # Crane manages the principal/team mailbox IN ADDITION to its own crane@ box,
+  # the way an EA works a principal's inbox alongside their own. The DWD service
+  # account impersonates smdurgan@smdurgan.com — the PRIMARY mailbox, where the
+  # scott@/team@ aliases deliver (Google rejects impersonating an alias). The
+  # broker fail-closes any impersonation subject or From not authored here.
+  #
+  # send_as is the Gmail "Send mail as" allowlist for the From header. Wave A is
+  # DRAFT-ONLY: no Gmail send tool is wired, inbox-triage creates reply drafts
+  # for Captain to send, and the principal-identity SEND ban below still holds
+  # (a draft is not a send). Authoring autonomous send-as-principal is Wave B,
+  # behind its own ADR + the audit/rate-limit/kill-switch controls.
+  managed_mailboxes:
+    - address: smdurgan@smdurgan.com
+      send_as:
+        - scott@smd.services
+        - team@smd.services
+        - smdurgan@smdurgan.com
 
 # ---- HUMANS WITH PORTAL ACCESS ----
 users:
