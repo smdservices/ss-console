@@ -14,21 +14,22 @@
  * it must stay inside one atomic `db.batch([...])`. Do NOT "DRY" the two
  * together; that would break the atomic engagement+invoice+service creation.
  *
- * READ-MIGRATION STATUS (ADR 0046, as of Stage 1b):
+ * READ-MIGRATION STATUS (ADR 0046):
  * - Consulting services have a real forward writer (SOW finalize + the manual
- *   `createEngagement` path), so the consulting spine is authoritative. Stage 1b
- *   makes it READ + self-validating via `findConsultingSpineDrift` below; the
- *   full render-migration of the admin surfaces (client hub, services list) is
- *   deferred to Stage 3 so it lands once for BOTH delivery types together.
- * - Operator services currently have NO forward writer — the Stage 1 backfill
- *   (migration 0070) sourced them from the legacy `subscriptions` table (no
- *   `INSERT` in src; pre-Hermes-realignment), while the live operator registry
- *   is `customer_configs` (src/lib/portal/customer-config-projection.ts). So the
- *   operator UI still reads `customer_configs`/the fleet roster, NOT this spine.
- *   Operator-service creation on provisioning is Stage 3 (bounded by ADR 0012);
- *   only then does the operator UI migrate to the spine. Do not iterate the
- *   operator spine for display before that — it would silently drop any operator
- *   provisioned after the backfill.
+ *   `createEngagement` path), so the consulting spine is authoritative and
+ *   self-validating via `findSpineDrift` below.
+ * - Operator: `setOperatorPrice` is the forward writer for the COMMERCIAL record
+ *   (the service + its `recurring_price`) — NOT the provisioning record
+ *   (`subscriptions`, which gates portal access and is owned by provisioning).
+ *   The authoritative operator REGISTRY is still `customer_configs` (the live CI
+ *   projection): provisioning writes a config, not a service. So the admin
+ *   surfaces ITERATE the roster / `customer_configs` for the operator list and
+ *   only ENRICH each row with spine data (price, commercial status) by entity_id
+ *   — they must NOT iterate the operator spine as the list source, or any
+ *   operator provisioned without a commercial record would silently vanish.
+ *   `findSpineDrift` surfaces exactly that gap (a live config with no service).
+ *   Making provisioning write the spine (so the list can iterate it) is the
+ *   remaining step, on a different axis (CI/projection, ADR 0012).
  */
 
 export interface Service {
@@ -240,6 +241,65 @@ export async function updateServiceStatus(
 }
 
 // ===========================================================================
+// Operator commercial record (ADR 0046, operator arc)
+// ===========================================================================
+
+/**
+ * The single operator service for an entity, or null. The partial unique index
+ * `idx_services_one_operator` guarantees at most one operator service per entity.
+ */
+export async function getOperatorServiceForEntity(
+  db: D1Database,
+  orgId: string,
+  entityId: string
+): Promise<Service | null> {
+  return (
+    (await db
+      .prepare(`SELECT * FROM services WHERE org_id = ? AND entity_id = ? AND type = 'operator'`)
+      .bind(orgId, entityId)
+      .first<Service>()) ?? null
+  )
+}
+
+/**
+ * Author the operator's monthly recurring price (ADR 0046). This is the operator's
+ * forward writer for the COMMERCIAL record (the service) — deliberately NOT the
+ * delivery/provisioning record (`subscriptions`), which gates portal access and is
+ * owned by the provisioning path. Upserts `recurring_price` on the entity's single
+ * operator service: updates it if present, creates an `active` operator service if
+ * not. Pass `price = null` to clear the price (back to unpriced). Idempotent.
+ */
+export async function setOperatorPrice(
+  db: D1Database,
+  orgId: string,
+  entityId: string,
+  price: number | null
+): Promise<Service> {
+  const existing = await getOperatorServiceForEntity(db, orgId, entityId)
+  if (existing) {
+    await db
+      .prepare(
+        `UPDATE services SET recurring_price = ?, updated_at = ? WHERE id = ? AND org_id = ?`
+      )
+      .bind(price, new Date().toISOString(), existing.id, orgId)
+      .run()
+    const updated = await getService(db, orgId, existing.id)
+    if (!updated) throw new Error(`Failed to update operator service ${existing.id}`)
+    return updated
+  }
+  // No operator service yet — create the commercial record, born active (we are
+  // pricing a real operator). started_at stamps the revenue line's start.
+  return createService(db, orgId, {
+    entity_id: entityId,
+    type: 'operator',
+    cadence: 'recurring',
+    status: 'active',
+    recurring_price: price,
+    started_at: new Date().toISOString(),
+  })
+}
+
+// ===========================================================================
 // Spine reconciliation (ADR 0046, Stage 1b)
 // ===========================================================================
 
@@ -257,37 +317,55 @@ export interface ChildlessService {
   status: string
 }
 
+/** An active operator service whose entity has no live `customer_configs` row. */
+export interface OperatorServiceWithoutConfig {
+  id: string
+  entity_id: string
+  status: string
+}
+
+/** A live operator (`customer_configs` row) with no operator service (no commercial record). */
+export interface ConfigWithoutService {
+  entity_id: string
+  customer_slug: string
+}
+
 /**
- * The two ways the consulting spine ↔ child invariant can break. Both lists
- * empty is the healthy state (the normal case).
+ * Every way the spine ↔ child / registry invariant can break, across BOTH
+ * delivery types. All lists empty is the healthy state (the normal case).
  */
-export interface ConsultingSpineDrift {
-  /** In-flight engagements whose `service_id` is NULL or points at no service. */
+export interface SpineDrift {
+  /** In-flight consulting engagements whose `service_id` is NULL or dangles. */
   orphanEngagements: OrphanEngagement[]
-  /** Active consulting services with no engagement pointing back at them. */
+  /** Active consulting services with no engagement pointing back. */
   childlessServices: ChildlessService[]
+  /** Active operator services whose entity has no `customer_configs` row. */
+  operatorServicesWithoutConfig: OperatorServiceWithoutConfig[]
+  /** Live operators (`customer_configs`) with no operator service — uncommercialized. */
+  configsWithoutService: ConfigWithoutService[]
 }
 
 /** In-flight consulting engagement statuses — those expected to have a live parent. */
 const IN_FLIGHT_ENGAGEMENT_STATUSES = ['scheduled', 'active', 'handoff', 'safety_net']
 
 /**
- * Reconcile the consulting spine against its engagement children (ADR 0046,
- * Stage 1b). This is the READ that makes the otherwise write-only spine
- * load-bearing: the services list calls it on every load and surfaces drift,
- * so any future code path that creates an engagement without a service (or a
- * service without an engagement) fails loud instead of rotting silently.
+ * Reconcile the spine against its registries for BOTH delivery types (ADR 0046).
+ * This is the READ that keeps the spine load-bearing: the services list calls it
+ * on every load and surfaces drift, so a path that creates a child without a
+ * service (or a live operator without a commercial record) fails loud instead of
+ * rotting silently.
  *
- * Scoped to consulting only — operator services have no forward writer yet
- * (see the file header), so reconciling them would flag false positives.
+ * Consulting: engagement ↔ service must be 1:1 (the spine is authoritative — every
+ * engagement has a service and vice versa). Operator: the authoritative registry is
+ * `customer_configs`, NOT the spine, so we reconcile the two directions against the
+ * registry — never assume the spine enumerates operators (it does not until
+ * provisioning writes it). A `configWithoutService` is the expected, useful signal
+ * that a live operator has not been given a commercial record yet.
  */
-export async function findConsultingSpineDrift(
-  db: D1Database,
-  orgId: string
-): Promise<ConsultingSpineDrift> {
+export async function findSpineDrift(db: D1Database, orgId: string): Promise<SpineDrift> {
   const placeholders = IN_FLIGHT_ENGAGEMENT_STATUSES.map(() => '?').join(', ')
 
-  const [orphans, childless] = await Promise.all([
+  const [orphans, childless, opNoConfig, configNoService] = await Promise.all([
     db
       .prepare(
         `SELECT e.id, e.status, e.service_id
@@ -315,15 +393,46 @@ export async function findConsultingSpineDrift(
       )
       .bind(orgId, orgId)
       .all<ChildlessService>(),
+    db
+      .prepare(
+        `SELECT s.id, s.entity_id, s.status
+           FROM services s
+          WHERE s.org_id = ?
+            AND s.type = 'operator'
+            AND s.status = 'active'
+            AND s.entity_id NOT IN (
+              SELECT c.entity_id FROM customer_configs c WHERE c.org_id = ?
+            )`
+      )
+      .bind(orgId, orgId)
+      .all<OperatorServiceWithoutConfig>(),
+    db
+      .prepare(
+        `SELECT c.entity_id, c.customer_slug
+           FROM customer_configs c
+          WHERE c.org_id = ?
+            AND c.entity_id NOT IN (
+              SELECT s.entity_id FROM services s WHERE s.org_id = ? AND s.type = 'operator'
+            )`
+      )
+      .bind(orgId, orgId)
+      .all<ConfigWithoutService>(),
   ])
 
   return {
     orphanEngagements: orphans.results,
     childlessServices: childless.results,
+    operatorServicesWithoutConfig: opNoConfig.results,
+    configsWithoutService: configNoService.results,
   }
 }
 
-/** True when either drift class is non-empty. */
-export function hasSpineDrift(drift: ConsultingSpineDrift): boolean {
-  return drift.orphanEngagements.length > 0 || drift.childlessServices.length > 0
+/** True when any drift class is non-empty. */
+export function hasSpineDrift(drift: SpineDrift): boolean {
+  return (
+    drift.orphanEngagements.length > 0 ||
+    drift.childlessServices.length > 0 ||
+    drift.operatorServicesWithoutConfig.length > 0 ||
+    drift.configsWithoutService.length > 0
+  )
 }

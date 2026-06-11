@@ -6,7 +6,7 @@
 -- don't exist until Stage 2) and recurring_price is NULL (authored per-quote in
 -- Stage 2 — never fabricated).
 --
--- Status projection (must match src/lib/db/services.ts projectServiceStatus):
+-- Status projection (must match src/lib/db/services.ts projectOperatorStatus):
 --   cancelled → churned ; provisioning/active/paused → active.
 -- A provisioning operator is a COMMITTED revenue line being stood up, so it
 -- maps to `active` (not `proposed`). `proposed` means "quoted, not yet

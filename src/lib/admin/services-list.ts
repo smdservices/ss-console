@@ -58,6 +58,12 @@ export interface OperatorInput {
   /** From the runtime summary; null when no runtime row has been pushed. */
   openAlerts: number | null
   hasRuntime: boolean
+  /**
+   * Monthly price from the spine (`services.recurring_price`), joined by
+   * entity_id. Null when no operator service exists yet or its price is
+   * unauthored — rendered as "unpriced", never fabricated. (ADR 0046.)
+   */
+  recurringPrice: number | null
 }
 
 export interface BuildServiceListInput {
@@ -165,7 +171,8 @@ function operatorRow(op: OperatorInput): ServiceListRow {
     title: 'Operator',
     statusLabel: s.statusLabel,
     tone: s.tone,
-    value: null, // Operator recurring price has no schema home yet — never fabricated.
+    // Monthly price from the spine; null renders as "—" (unpriced), never fabricated.
+    value: op.recurringPrice == null ? null : `${formatMoney(op.recurringPrice)}/mo`,
     risk: s.risk,
     riskTone: s.riskTone,
     riskRank: s.riskRank,

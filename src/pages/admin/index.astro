@@ -19,12 +19,13 @@ import { listQuotes } from '../../lib/db/quotes'
 import type { Quote } from '../../lib/db/quotes'
 import { listFleetRoster } from '../../lib/admin/fleet-roster'
 import { listRuntimeSummary } from '../../lib/admin/runtime-summary'
+import { listServices } from '../../lib/db/services'
 import {
   buildServiceList,
   serviceListStats,
   type OperatorInput,
 } from '../../lib/admin/services-list'
-import { oneTimeTotals } from '../../lib/admin/billing-view'
+import { oneTimeTotals, operatorRecurring } from '../../lib/admin/billing-view'
 import { buildActionQueue } from '../../lib/admin/home-actions'
 import { formatMoney } from '../../lib/admin/client-hub'
 import { env } from 'cloudflare:workers'
@@ -41,6 +42,7 @@ const [
   entities,
   roster,
   runtime,
+  operatorServices,
 ] = await Promise.all([
   listFollowUps(env.DB, session.orgId, { overdue: true }),
   listFollowUps(env.DB, session.orgId, { upcoming: true }),
@@ -50,11 +52,21 @@ const [
   listEntities(env.DB, session.orgId),
   listFleetRoster(env.DB),
   listRuntimeSummary(env.DB),
+  listServices(env.DB, session.orgId, { type: 'operator', status: 'active' }),
 ])
 
 const nameById = new Map(entities.map((e) => [e.id, e.name]))
 const quotesById = new Map<string, Quote>(quotes.map((q) => [q.id, q]))
 const runtimeByEntity = new Map(runtime.map((r) => [r.entity_id, r]))
+
+// Real MRR: authoritative roster priced from the spine (ADR 0046 operator arc).
+const operatorPriceByEntity = new Map<string, number | null>(
+  operatorServices.map((s) => [s.entity_id, s.recurring_price])
+)
+const recurring = operatorRecurring(
+  roster.map((r) => r.entity_id),
+  operatorPriceByEntity
+)
 
 const operators: OperatorInput[] = roster.map((r) => ({
   entityId: r.entity_id,
@@ -62,6 +74,7 @@ const operators: OperatorInput[] = roster.map((r) => ({
   configError: r.config_error,
   openAlerts: runtimeByEntity.get(r.entity_id)?.open_alerts ?? null,
   hasRuntime: runtimeByEntity.has(r.entity_id),
+  recurringPrice: operatorPriceByEntity.get(r.entity_id) ?? null,
 }))
 
 const services = buildServiceList({
@@ -233,13 +246,19 @@ const motion: MotionCard[] = [
       <div class="flex gap-8">
         <div>
           <span class={`${LAB} mb-1 block`}>Active operators</span>
-          <span class="font-['JetBrains_Mono'] text-xl font-bold">{roster.length}</span>
+          <span class="font-['JetBrains_Mono'] text-xl font-bold">{recurring.activeCount}</span>
         </div>
         <div>
           <span class={`${LAB} mb-1 block`}>MRR</span>
-          <span class="font-['JetBrains_Mono'] text-base text-[color:var(--ss-color-text-muted)]"
-            >pending pricing</span
+          <span class="font-['JetBrains_Mono'] text-xl font-bold">{formatMoney(recurring.mrr)}</span
           >
+          {
+            recurring.unpricedCount > 0 && (
+              <div class="mt-1 text-[11px] text-[color:var(--ss-color-primary)]">
+                {recurring.unpricedCount} unpriced
+              </div>
+            )
+          }
         </div>
       </div>
     </div>
