@@ -121,7 +121,7 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # external-send identity brand) and #53 (security Phase 1: govern code execution,
 # fence the managed-mailbox read, taint-gate autonomy, destructive Gmail ops).
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="50d80f7feea95afc4ce40ed91cd14a11cc55d010"
+ARG OVERLAY_REF="d1990d51ebcca99dc6e9a6a6f163abc5c105b5f2"
 
 ARG CUSTOMER_SLUG=customer-zero
 
