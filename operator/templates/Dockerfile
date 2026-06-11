@@ -118,9 +118,10 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # `mailbox` + `from`), for the Operator's executive-assistant access to the
 # principal's mailbox; pairs with the ss-console broker per-op subject + send-as
 # validation (Wave A — read/draft only). Also carries #50 (retire the
-# external-send identity brand), already on overlay main.
+# external-send identity brand) and #53 (security Phase 1: govern code execution,
+# fence the managed-mailbox read, taint-gate autonomy, destructive Gmail ops).
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="f278c23aa3256efe67a55b0b514a659d9eb58567"
+ARG OVERLAY_REF="50d80f7feea95afc4ce40ed91cd14a11cc55d010"
 
 ARG CUSTOMER_SLUG=customer-zero
 

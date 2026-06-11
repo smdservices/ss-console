@@ -214,4 +214,16 @@ A related blind spot: the fabrication gate is genuinely good, but it guards _inv
 
 ## 9. Closed
 
-_(none yet — first issue)_
+### Phase 1 — govern code execution + fence reads + taint-gate (2026-06-11)
+
+Shipped: overlay PR venturecrane/hermes-smd-overlay#53 + ss-console #1322. Deployed to customer-zero via `OVERLAY_REF` bump to `50d80f7` (boot-smoke passed; runtime gate live; audit emission confirmed emitting post-deploy via the read seam). Enforcement logic proven by 648 tests across both repos. Residual: a granular live code-exec-refusal event has not been directly captured (the turn-level audit view does not surface per-tool decisions) — low risk given this is a fail-closed tightening with the code confirmed live; a directed agent test would capture it.
+
+- **`OP-P0-1` (code execution ungoverned) — CLOSED.** `execute_code`/`terminal`/`process`/`delegate_task`/`computer_use`/`cronjob`/`skill_manage` → new `CODE_EXECUTION` action class, fail-closed unless an engagement authors a `code_execution` ceiling (ADR 0035). Customer-zero authors none → code execution fully shut (the Chrome-install incident is now structurally impossible). The broader unmapped→READ default flip remains a deferred hardening (core-allowlist + staging soak), bounded meanwhile by the WS6 egress allowlist (Phase 3) and the `unmapped_tool=true` audit signal.
+- **`OP-P0-4` (inbound fence covered the wrong door) — CLOSED.** A `transform_tool_result` hook now nonce-fences the results of untrusted READ tools — the scheduled managed-mailbox Gmail read, web, documents, Clio — the path that previously entered context unfenced. `trust_class` is now load-bearing via the taint-gate (below), not a decorative label.
+- **`OP-P0-5` (authorized-but-wrong destructive actions) — CLOSED (Wave-A posture).** `workspace_gmail_modify`/`archive` → `DESTRUCTIVE`: refused under draft_for_review and on tainted turns, approval-gated otherwise. The `workspace` skill is read+draft (suggest, human acts) until Phase 3 directed-action provenance.
+- **`OP-P1-1` (Crane's own AgentMail send was autonomous) — CLOSED for the injection vector.** The taint-gate: a turn that ingested `unknown_external` content cannot fire an autonomous `EXTERNAL_SEND`/`DESTRUCTIVE`/`COMMITMENT`/`CODE_EXECUTION` — it may still READ and DRAFT. The authored autonomous capability is not removed, only withheld on tainted turns. (Sticky per-session taint register — `PENDING` is drained before `pre_tool_call`, so the signal must persist.)
+- **`OP-P1-3` (connector/MCP output trusted) — PARTIAL.** Practice-management (Clio) reads are in the fenced-read set; the full MCP `<server>:<tool>` read surface is extended as connectors land.
+
+Parity: `CODE_EXECUTION` + the taint-gate mirrored into the canonical core `operator/adapter/trust_ceiling.py` and `ACCEPTED_ACTION_CLASSES`, keeping the two policy cores aligned.
+
+_Remaining: Phase 2 (per-customer scoped secrets, secret strip, Anthropic relay, trustworthy mediated audit — `OP-P0-2`, `OP-P1-4`, `OP-P2-1`), Phase 3 (broker intent-gate `OP-P0-3`, provenance, egress allowlist `OP-P2-2/-3`, `OP-DOWN-1`), then the directed send-as-EA mission turn-on._
