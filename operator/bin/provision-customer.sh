@@ -519,17 +519,34 @@ EOF
   && log "Seeded fleet_status (no-op if row already exists or customer_configs is missing)" \
   || log "WARN: fleet_status seed failed — Wave-1 first-heartbeat will create the row on its own"
 
-# Commit staged secrets
-log "Committing staged secrets..."
-fly secrets deploy -a "${APP_NAME}" 2>/dev/null || true
-
-# ---------- Step 7: deploy ----------
-log "Deploying ${APP_NAME}..."
+# ---------- Step 7: deploy (new image + staged secrets, atomically) ----------
+# DEPLOY ORDERING IS LOAD-BEARING — do NOT add a separate `fly secrets deploy`
+# before this. `fly secrets deploy` "redeploys the CURRENT release with the
+# staged secrets" — i.e. it applies staged secret REMOVALS/changes to the OLD,
+# still-running image BEFORE the new image rolls. When a reprovision changes the
+# secret contract (e.g. drops a var the old image marked required), that restarts
+# the old image without it → its own env check fails → crash-loop → max-restart →
+# STOPPED, with no self-heal (the 2026-06-11 ~18-min customer-zero outage).
+# `fly deploy` applies staged secrets as part of the NEW release — even when the
+# image digest is unchanged — so the running code and its secret contract always
+# change together. (Verified against flyctl v0.4.x docs + the staging gate.)
+log "Deploying ${APP_NAME} (new image + staged secrets roll together)..."
 (cd "${REPO_ROOT}" && fly deploy --config "${RENDERED_DIR}/fly.toml" \
   --build-arg HERMES_REF="${HERMES_REF}" \
   --build-arg HERMES_UPSTREAM_TAG="${HERMES_UPSTREAM_TAG}" \
   --build-arg HERMES_UPSTREAM_SHA="${HERMES_UPSTREAM_SHA}" \
   --build-arg CUSTOMER_SLUG="${SLUG}")
+
+# Post-deploy guard: `fly deploy` must have applied EVERY staged secret as part
+# of the new release. If any remain STAGED (the STATUS column in
+# `fly secrets list`), the running image and its secret contract have drifted —
+# fail loudly rather than leave a staged-but-unapplied secret to surprise a
+# later boot/restart. This is the backstop for the "atomic" claim above.
+log "Verifying no secrets remain staged after deploy..."
+if fly secrets list -a "${APP_NAME}" 2>/dev/null | grep -qw Staged; then
+  die "secrets remain STAGED after fly deploy (not applied to the running image). Inspect: fly secrets list -a ${APP_NAME}"
+fi
+log "All staged secrets applied by the deploy."
 
 # ---------- Step 8: boot smoke test ----------
 # The boot-smoke-test.sh script exercises the customer.yaml → profiles → Hermes
