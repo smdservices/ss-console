@@ -101,14 +101,12 @@ REQUIRED_ENV=(
   # (SMD_D1_OBSERVATIONS_BINDING) and HONCHO_API_KEY are optional in Phase 1 —
   # they only matter once Honcho is wired (Phase 2; ADR 0016 revised).
   SMD_D1_AUDIT_BINDING
-  # ADR 0022 Stream 2 — per-customer skill bodies bucket. Bucket name
-  # comes from fly.toml [env] (R2_SKILL_BODIES_BUCKET); the bucket-scoped
-  # access key + secret are Fly secrets set by provision-customer.sh. The
-  # hermes-smd-audit plugin writes SKILL.md bodies here on skill_manage
-  # events (write-ahead pattern; see docs/specs/operator/skill-body-persistence.md).
+  # ADR 0022 Stream 2 — per-customer skill bodies bucket NAME (from fly.toml
+  # [env]; always present). The bucket-scoped access key + secret are now
+  # OPTIONAL (see OPTIONAL_ENV) — agent-authored skill persistence is fail-soft
+  # and OFF by default (OP-P0-2). Requiring the credentials here would brick the
+  # boot once the account-wide fallback is removed and no scoped token is authored.
   R2_SKILL_BODIES_BUCKET
-  R2_SKILL_BODIES_ACCESS_KEY_ID
-  R2_SKILL_BODIES_SECRET_ACCESS_KEY
 )
 
 for var in "${REQUIRED_ENV[@]}"; do
@@ -134,6 +132,13 @@ OPTIONAL_ENV=(
   R2_ENDPOINT_URL
   # Optional for customers that still bind AgentMail as an MCP connector.
   AGENTMAIL_API_KEY
+  # Bucket-scoped R2 token for agent-authored SKILL.md persistence (ADR 0022
+  # Stream 2). OPTIONAL + fail-soft: present only when an engagement deliberately
+  # enables skill persistence with a bucket-scoped token. Absent (the default,
+  # incl. customer-zero) => skill_capture.load_r2_config_from_env() returns None
+  # and the write path no-ops. NEVER the account-wide pair (OP-P0-2).
+  R2_SKILL_BODIES_ACCESS_KEY_ID
+  R2_SKILL_BODIES_SECRET_ACCESS_KEY
 )
 
 for var in "${OPTIONAL_ENV[@]}"; do
@@ -674,6 +679,19 @@ if [ -n "${WEBHOOK_SECRET_AGENTMAIL:-}" ]; then
 else
   log "WEBHOOK_SECRET_AGENTMAIL unset; webhook gate NOT launched (no inbound webhook)"
 fi
+
+# Strip the account-wide R2 credential before handing off to the agent (OP-P0-2,
+# docs/security/operator-threat-model.md). R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY
+# are an ACCOUNT-WIDE R2 key (R/W on every bucket in the account); their only
+# in-Machine consumer is the customer.yaml fetch in Step 2 above. The agent's own
+# skill-body writer (skill_capture.py) uses the bucket-SCOPED R2_SKILL_BODIES_*
+# pair plus R2_ENDPOINT_URL — NOT these — so the account-wide key must not remain
+# in the gateway env where an injection could exfiltrate it cross-tenant.
+# ORDERING IS LOAD-BEARING: this unset MUST stay AFTER the R2 fetch (Step 2) and
+# BEFORE the gateway exec; moving it earlier breaks the fetch (R2_ACCESS_KEY_ID is
+# read at the `aws s3 cp` above). R2_ENDPOINT_URL is intentionally KEPT — the
+# scoped skill-body writer reads it, and it is an endpoint URL, not a credential.
+unset R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY
 
 log "Launching Hermes gateway for profile '${ACTIVE_PROFILE}' (overlay plugins enabled)..."
 
