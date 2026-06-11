@@ -675,6 +675,19 @@ else
   log "WEBHOOK_SECRET_AGENTMAIL unset; webhook gate NOT launched (no inbound webhook)"
 fi
 
+# Strip the account-wide R2 credential before handing off to the agent (OP-P0-2,
+# docs/security/operator-threat-model.md). R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY
+# are an ACCOUNT-WIDE R2 key (R/W on every bucket in the account); their only
+# in-Machine consumer is the customer.yaml fetch in Step 2 above. The agent's own
+# skill-body writer (skill_capture.py) uses the bucket-SCOPED R2_SKILL_BODIES_*
+# pair plus R2_ENDPOINT_URL — NOT these — so the account-wide key must not remain
+# in the gateway env where an injection could exfiltrate it cross-tenant.
+# ORDERING IS LOAD-BEARING: this unset MUST stay AFTER the R2 fetch (Step 2) and
+# BEFORE the gateway exec; moving it earlier breaks the fetch (R2_ACCESS_KEY_ID is
+# read at the `aws s3 cp` above). R2_ENDPOINT_URL is intentionally KEPT — the
+# scoped skill-body writer reads it, and it is an endpoint URL, not a credential.
+unset R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY
+
 log "Launching Hermes gateway for profile '${ACTIVE_PROFILE}' (overlay plugins enabled)..."
 
 exec /opt/hermes/.venv/bin/hermes -p "${ACTIVE_PROFILE}" gateway run

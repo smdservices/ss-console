@@ -17,7 +17,7 @@ It does **not** exercise a real agent turn, a live LLM call, or a connector writ
 - `fly` CLI, authenticated to the target org (`fly auth login`). The script creates the app with `--org personal`; change that in `provision-customer.sh` if booting into a different org.
 - `aws` CLI (for the R2 `customer.yaml` upload), `openssl`, `pbpaste` (macOS).
 
-### R2 credentials — DO NOT hunt for or re-mint these
+### R2 credentials — two kinds (operator-local fetch creds: don't re-mint; skill-bodies token: DO mint, bucket-scoped)
 
 The operator-local R2 creds are stored in **Infisical `/ss` (prod)** and are injected
 automatically by the wrapper. **Use the wrapper** and you never touch them:
@@ -35,9 +35,24 @@ in `/ss`) — Cloudflare R2's S3 API accepts a CF API token directly:
 - `R2_ENDPOINT_URL` = `https://<account_id>.r2.cloudflarestorage.com`
 - `R2_BUCKET_CONFIG` = `smd-customer-config`
 
-The same derived pair has R/W on every bucket in the account, so it also covers the
-`R2_SKILL_BODIES_*` skill-bodies bucket — **no per-bucket token minting is needed.**
-To verify they're present: `crane_secret_check({ path: '/ss', env: 'prod', names: ['R2_ACCESS_KEY_ID','R2_SECRET_ACCESS_KEY','R2_ENDPOINT_URL','R2_BUCKET_CONFIG'] })`.
+The same derived pair has R/W on every bucket in the account. It is now used ONLY
+for the operator-local `customer.yaml` upload/fetch (`R2_BUCKET_CONFIG`) — it is
+**no longer** allowed to back the agent's `R2_SKILL_BODIES_*` bucket. That
+account-wide key would otherwise sit in the agent process env (`skill_capture.py`
+reads it in-process) as a cross-tenant crown jewel; `provision-customer.sh` now
+**fails closed** if the scoped pair is absent (OP-P0-2, see
+[operator-threat-model.md](../../security/operator-threat-model.md)).
+
+`R2_SKILL_BODIES_ACCESS_KEY_ID` / `R2_SKILL_BODIES_SECRET_ACCESS_KEY` MUST be a
+**bucket-scoped** R2 token (read+write on `ss-operator-<slug>-skills` only),
+minted out-of-band and stored in `/ss` (prod). Mint it via the Cloudflare
+dashboard → **R2** → **Manage R2 API Tokens** → **Create API token** →
+Permissions **Object Read & Write** → **Apply to specific buckets only** →
+`ss-operator-<slug>-skills`. The token's **Access Key ID** and **Secret Access
+Key** are the two values to store. There is no account-wide fallback — provisioning
+`die`s if they are missing.
+
+To verify presence: `crane_secret_check({ path: '/ss', env: 'prod', names: ['R2_ACCESS_KEY_ID','R2_SECRET_ACCESS_KEY','R2_ENDPOINT_URL','R2_BUCKET_CONFIG','R2_SKILL_BODIES_ACCESS_KEY_ID','R2_SKILL_BODIES_SECRET_ACCESS_KEY'] })`.
 
 ```
 # Optional (warn-and-skip if unset): CF_API_TOKEN + CF_ACCOUNT_ID (per-customer skill-bodies
