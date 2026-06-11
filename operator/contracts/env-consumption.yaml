@@ -1,0 +1,161 @@
+# ============================================================================
+# Operator env-consumption contract — the SINGLE SOURCE OF TRUTH for what each
+# environment variable is, where it is consumed, and whether it survives into
+# the long-running agent process.
+# ============================================================================
+#
+# WHY THIS EXISTS. Every Operator deploy used to surprise us because one fact —
+# "what reads this var" — lived in someone's head, separate from the tooling
+# that provisions/strips/requires it, and the two drifted. That is how voice
+# broke: Phase 1 security stripped the account-wide R2 key from the agent env,
+# not knowing the voice plugin read it (OP-P0-2). This file makes that fact
+# explicit and machine-checkable, so the drift becomes a failed check instead of
+# a live incident.
+#
+# ENFORCEMENT (all derived from THIS file):
+#   1. Boot-time, fail-closed (operator/safety-substrate/tests/test_invariant_9_*):
+#      the headline guard — NO var marked `stage: agent` may be `agent_env:
+#      stripped`. You cannot strip a credential the agent needs. Runs in the
+#      image (where this contract is COPY'd) at bootstrap Step 8, before the
+#      gateway starts. This is a STATIC consistency check (no live-env probe, no
+#      grep) so it cannot false-positive and brick a healthy Machine.
+#   2. CI, ss-console (tests/operator-env-contract.test.ts): the contract's
+#      `required`/`optional`/`stripped` facts MATCH bootstrap.sh's REQUIRED_ENV /
+#      OPTIONAL_ENV arrays and the actual `unset`/strip sites. Drift = red check.
+#
+# FIELDS (per var):
+#   stage:       where the value is CONSUMED. One of:
+#                  provisioning-host  - the laptop running provision-customer.sh; never reaches the Machine
+#                  image-build        - a Docker ARG/build-time value
+#                  boot               - read by entrypoint.sh / bootstrap.sh before the agent starts
+#                  agent              - read by the long-running gateway or an overlay plugin
+#                  broker             - read by the uid-split Workspace broker process
+#                  mcp-subprocess     - read by an MCP connector subprocess the agent spawns
+#   requirement: required | optional   (required => boot dies if absent)
+#   agent_env:   held | stripped | n/a
+#                  held     - present in the agent process env
+#                  stripped - explicitly unset before the gateway exec (must NOT be stage:agent)
+#                  n/a      - never on the Machine (provisioning-host / image-build)
+#   strip_site:  (only when agent_env: stripped) the file that unsets it
+#   note:        free text
+#
+# Adding a consumer? Add/update the var here FIRST. If a plugin needs a var at
+# `stage: agent`, it must be `agent_env: held` — the boot invariant enforces it.
+
+vars:
+  # ---- Agent-held credentials/config (the long-running gateway + overlay plugins) ----
+  ANTHROPIC_API_KEY:
+    stage: agent
+    requirement: required
+    agent_env: held
+    note: the gateway's model credential
+  SMD_D1_AUDIT_BINDING:
+    stage: agent
+    requirement: required
+    agent_env: held
+    note: hermes-smd-audit D1 binding (path or var-name indirection)
+  R2_SKILL_BODIES_BUCKET:
+    stage: agent
+    requirement: required
+    agent_env: held
+    note: bucket NAME (not a credential) from fly.toml [env]; skill_capture target
+  R2_ENDPOINT_URL:
+    stage: agent
+    requirement: optional
+    agent_env: held
+    note: endpoint URL (NOT a credential) read by skill_capture + the voice reader path; intentionally kept across the R2 strip
+  SMD_VOICE_VAULT_DIR:
+    stage: agent
+    requirement: optional
+    agent_env: held
+    note: local voice-vault dir set by bootstrap Step 2a; the voice plugin reads samples from here so the agent holds NO R2 credential (OP-P0-2)
+  R2_SKILL_BODIES_ACCESS_KEY_ID:
+    stage: agent
+    requirement: optional
+    agent_env: held
+    note: bucket-SCOPED token for agent-authored skill persistence; OFF by default; NEVER the account-wide pair
+  R2_SKILL_BODIES_SECRET_ACCESS_KEY:
+    stage: agent
+    requirement: optional
+    agent_env: held
+    note: paired with R2_SKILL_BODIES_ACCESS_KEY_ID
+
+  # ---- Boot-stage credentials: read before the agent, then STRIPPED ----
+  R2_ACCESS_KEY_ID:
+    stage: boot
+    requirement: required
+    agent_env: stripped
+    strip_site: operator/templates/bootstrap.sh
+    note: ACCOUNT-WIDE R2 key; read by the customer.yaml fetch (Step 2) + voice-vault sync (Step 2a); unset before gateway exec (OP-P0-2)
+  R2_SECRET_ACCESS_KEY:
+    stage: boot
+    requirement: required
+    agent_env: stripped
+    strip_site: operator/templates/bootstrap.sh
+    note: paired with R2_ACCESS_KEY_ID
+  R2_BUCKET_CONFIG:
+    stage: boot
+    requirement: required
+    agent_env: held
+    note: config-bucket NAME (not a credential); fly.toml [env]; used by the boot fetches and is harmless in the agent env
+
+  # ---- Broker-stage credentials: read by the uid-split broker, unset for the agent ----
+  GOOGLE_SERVICE_ACCOUNT_JSON:
+    stage: broker
+    requirement: optional
+    agent_env: stripped
+    strip_site: operator/templates/entrypoint.sh
+    note: DWD service-account key; only the workspace-broker process decodes it; unset for the gateway
+  GOOGLE_TOKEN_JSON:
+    stage: broker
+    requirement: optional
+    agent_env: stripped
+    strip_site: operator/templates/entrypoint.sh
+    note: legacy user-OAuth token; broker-only
+  GOOGLE_CLIENT_SECRET_JSON:
+    stage: broker
+    requirement: optional
+    agent_env: stripped
+    strip_site: operator/templates/entrypoint.sh
+    note: broker-only OAuth client secret
+
+  # ---- MCP-subprocess credentials (passed only into the connector subprocess env) ----
+  CLIO_CLIENT_ID:
+    stage: mcp-subprocess
+    requirement: optional
+    agent_env: held
+    note: Clio MCP connector; materialized into the mcp_servers subprocess env when the customer binds Clio
+  CLIO_CLIENT_SECRET:
+    stage: mcp-subprocess
+    requirement: optional
+    agent_env: held
+    note: paired with CLIO_CLIENT_ID
+
+  # ---- Optional agent observability / Phase-2 forward-compat ----
+  SMD_D1_OBSERVATIONS_BINDING:
+    stage: agent
+    requirement: optional
+    agent_env: held
+    note: Honcho observations mirror; inert in Phase 1 (ADR 0016 revised)
+  HONCHO_API_KEY:
+    stage: agent
+    requirement: optional
+    agent_env: held
+    note: Honcho inferred-memory; inert in Phase 1
+  AGENTMAIL_API_KEY:
+    stage: agent
+    requirement: optional
+    agent_env: held
+    note: deferred Phase 2; no consumer wired today
+
+  # ---- Provisioning-host only (never reach the Machine) ----
+  OPERATOR_RUNTIME_READ_SECRET:
+    stage: provisioning-host
+    requirement: optional
+    agent_env: n/a
+    note: HMAC seed used at provisioning to derive the per-customer OPERATOR_RUNTIME_READ_KEY; never staged to the Machine
+  CF_API_TOKEN:
+    stage: provisioning-host
+    requirement: optional
+    agent_env: n/a
+    note: Cloudflare token for R2 bucket creation at provisioning; never staged
