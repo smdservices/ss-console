@@ -100,6 +100,17 @@ def main(argv: list[str] | None = None) -> int:
 
     target = f"R2 bucket {os.environ.get('R2_BUCKET_CONFIG', '?')}" if args.r2 else args.out_dir
     print(f"ingested {written} content-free samples -> {target} (slug={args.slug} cohort={args.cohort})")
+    if args.r2 and written:
+        # The Machine syncs the voice vault to its volume only at BOOT (bootstrap
+        # Step 2a). A freshly-ingested corpus is therefore INVISIBLE to the
+        # running agent until a restart — make that explicit, not a silent lag.
+        print(
+            "\nNOTE: the running agent only re-reads the voice vault at boot. "
+            "Restart the Machine to activate this corpus:\n"
+            f"  fly machine restart -a hermes-{args.slug}\n"
+            "(or reprovision). Until then the agent uses the previously-synced samples.",
+            file=sys.stderr,
+        )
     return 0
 
 

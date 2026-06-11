@@ -121,7 +121,7 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # external-send identity brand) and #53 (security Phase 1: govern code execution,
 # fence the managed-mailbox read, taint-gate autonomy, destructive Gmail ops).
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="c653a4d999b06bb90bb64d34e542ae6823133fa6"
+ARG OVERLAY_REF="5dd3ebb651b25d63a93846fc858613d20fbb0c39"
 
 ARG CUSTOMER_SLUG=customer-zero
 
@@ -310,6 +310,11 @@ COPY operator/connectors/ /app/connectors/
 
 # Safety-substrate tests — bootstrap.sh runs these on container start
 COPY operator/safety-substrate/ /app/safety-substrate/
+
+# Env-consumption contract — the single source of truth the boot-time invariant
+# (safety-substrate/tests/test_invariant_9) reads to enforce that no var the
+# agent consumes is stripped from its env (the voice-class regression guard).
+COPY operator/contracts/ /app/contracts/
 
 # Bootstrap entrypoint
 COPY operator/templates/bootstrap.sh /app/bootstrap.sh

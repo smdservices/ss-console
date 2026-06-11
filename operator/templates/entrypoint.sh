@@ -16,6 +16,33 @@ BROKER_DIR="/var/lib/smd-workspace-broker"
 BROKER_SOCKET="/run/smd-workspace-broker/broker.sock"
 BROKER_CUSTOMER_PATH="${BROKER_DIR}/customer.yaml"
 
+# Fresh-volume seed (load-bearing). The Workspace broker starts as root BELOW,
+# before the privilege drop to the hermes user and BEFORE bootstrap.sh runs its
+# own R2 fetch (bootstrap.sh Step 2). On a brand-new volume
+# /opt/data/customer.yaml does not exist yet, so the broker `cp` further down
+# fails and the boot crash-loops to max-restarts. Seed it here from R2 (the
+# source of truth) with the boot-time creds, so a FRESH provision boots with no
+# manual volume seed. Idempotent: on a persisted volume the file already exists
+# (skip), and bootstrap still re-fetches the latest on every boot. This is a
+# regression from #1304 (broker-home isolation introduced the root-side cp);
+# the staging gate caught it on first use.
+if [ ! -f /opt/data/customer.yaml ]; then
+  log "customer.yaml absent on fresh volume — seeding from R2 before broker start"
+  : "${R2_BUCKET_CONFIG:?R2_BUCKET_CONFIG required to seed customer.yaml}"
+  : "${CUSTOMER_SLUG:?CUSTOMER_SLUG required to seed customer.yaml}"
+  _seed_endpoint="${R2_ENDPOINT_URL:-https://${R2_ACCOUNT_ID:-}.r2.cloudflarestorage.com}"
+  if ! AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID:?}" \
+       AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY:?}" \
+         aws s3 cp \
+           --endpoint-url "${_seed_endpoint}" \
+           --only-show-errors \
+           "s3://${R2_BUCKET_CONFIG}/vaults/${CUSTOMER_SLUG}/customer.yaml" \
+           /opt/data/customer.yaml; then
+    log "FATAL: failed to seed customer.yaml from R2 on fresh boot"
+    exit 1
+  fi
+fi
+
 # OP-P1-4 audit ledger: owned by the broker uid, readable (not writable) by the
 # agent uid via the audit-readers group. The agent's only write path is the
 # broker's append-only audit_append verb.
@@ -27,9 +54,9 @@ LEGACY_AUDIT_DB="/opt/data/audit.db"
 # 0700/0600 broker paths are unaffected by this.
 umask 027
 
-# Agent owns its data EXCEPT the broker-owned audit subtree (R1). A plain
-# `chown -R hermes:hermes /opt/data` would re-own the ledger back to hermes on
-# every reboot and silently false-close the tamper-resistance.
+# Agent owns its data EXCEPT the broker-owned audit subtree (R1). This REPLACES
+# a plain `chown -R hermes:hermes /opt/data`, which would re-own the ledger back
+# to hermes on every reboot and silently false-close the tamper-resistance.
 find /opt/data -path "${AUDIT_DIR}" -prune -o -print0 | xargs -0 -r chown hermes:hermes
 
 # Convergent (idempotent, every-boot) audit-ledger establishment. Never drops
