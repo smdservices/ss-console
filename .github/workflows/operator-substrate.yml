@@ -42,7 +42,9 @@ jobs:
           python-version: '>=3.11'
 
       - name: Install pytest
-        run: python3 -m pip install --quiet pytest
+        # PyYAML is needed by the workspace-broker tests (the broker reads
+        # authored customer.yaml to validate impersonation subject + send-as).
+        run: python3 -m pip install --quiet pytest pyyaml
 
       - name: Run run()-style safety invariants
         working-directory: operator
@@ -68,4 +70,4 @@ jobs:
         # bin/tests/test_voice_corpus.py is named explicitly: the rest of bin/tests
         # needs substrate deps (pyyaml etc.) not installed in this bare-pytest env,
         # but the voice-corpus tracer lib imports only adapter.voice + stdlib.
-        run: python3 -m pytest adapter/tests adapter/evidence/tests safety-substrate/tests bin/tests/test_voice_corpus.py connectors/google/tests -q
+        run: python3 -m pytest adapter/tests adapter/evidence/tests safety-substrate/tests bin/tests/test_voice_corpus.py connectors/google/tests workspace_broker/tests -q

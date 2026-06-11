@@ -103,6 +103,7 @@ class Broker:
                 "ok": True,
                 "credential_ready": self.credential_path.is_file(),
                 "customer_ready": self.customer_path.is_file(),
+                "supported_ops": self.operations.supported_operations(),
             }
         if peer_pid != self.gateway_pid:
             raise PermissionError("request did not originate from the gateway process")

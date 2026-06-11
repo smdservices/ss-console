@@ -1988,7 +1988,12 @@ describe('validate — google_auth', () => {
     const r = validate(f)
     expect(r.ok).toBe(true)
     if (!r.ok) return
-    expect(r.value.google_auth).toEqual({ mode: 'user_oauth', subject: null, scopes: [] })
+    expect(r.value.google_auth).toEqual({
+      mode: 'user_oauth',
+      subject: null,
+      scopes: [],
+      managed_mailboxes: [],
+    })
   })
 
   it('accepts a complete dwd block', () => {
@@ -2001,6 +2006,7 @@ describe('validate — google_auth', () => {
       mode: 'dwd',
       subject: 'owner@firm.com',
       scopes: DWD_SCOPES,
+      managed_mailboxes: [],
     })
   })
 
@@ -2042,6 +2048,113 @@ describe('validate — google_auth', () => {
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(r.errors.some((e) => e.path === 'google_auth' && e.code === 'TypeMismatch')).toBe(true)
+  })
+
+  it('accepts a dwd block with an authored managed mailbox', () => {
+    const f = validFixture()
+    f['google_auth'] = {
+      mode: 'dwd',
+      subject: 'crane@firm.com',
+      scopes: DWD_SCOPES,
+      managed_mailboxes: [
+        {
+          address: 'owner@firm.com',
+          send_as: ['owner@firm.com', 'team@firm.com'],
+          action_ceilings: { external_send: 'draft_for_review' },
+        },
+      ],
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.google_auth?.managed_mailboxes).toEqual([
+      {
+        address: 'owner@firm.com',
+        send_as: ['owner@firm.com', 'team@firm.com'],
+        action_ceilings: { external_send: 'draft_for_review' },
+      },
+    ])
+  })
+
+  it('defaults managed_mailboxes to [] when absent', () => {
+    const f = validFixture()
+    f['google_auth'] = { mode: 'dwd', subject: 'crane@firm.com', scopes: DWD_SCOPES }
+    const r = validate(f)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.value.google_auth?.managed_mailboxes).toEqual([])
+  })
+
+  it('fails closed: a managed mailbox missing its address', () => {
+    const f = validFixture()
+    f['google_auth'] = {
+      mode: 'dwd',
+      subject: 'crane@firm.com',
+      scopes: DWD_SCOPES,
+      managed_mailboxes: [{ send_as: ['owner@firm.com'] }],
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'google_auth.managed_mailboxes[0].address')).toBe(true)
+  })
+
+  it('fails closed: a managed mailbox with an empty send_as list', () => {
+    const f = validFixture()
+    f['google_auth'] = {
+      mode: 'dwd',
+      subject: 'crane@firm.com',
+      scopes: DWD_SCOPES,
+      managed_mailboxes: [{ address: 'owner@firm.com', send_as: [] }],
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) => e.path === 'google_auth.managed_mailboxes[0].send_as' && e.code === 'EmptyList'
+      )
+    ).toBe(true)
+  })
+
+  it('fails closed: a managed mailbox with a non-email send_as entry', () => {
+    const f = validFixture()
+    f['google_auth'] = {
+      mode: 'dwd',
+      subject: 'crane@firm.com',
+      scopes: DWD_SCOPES,
+      managed_mailboxes: [{ address: 'owner@firm.com', send_as: ['not-an-email'] }],
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'google_auth.managed_mailboxes[0].send_as')).toBe(true)
+  })
+
+  it('fails closed: a managed mailbox with an invalid action_ceilings value', () => {
+    const f = validFixture()
+    f['google_auth'] = {
+      mode: 'dwd',
+      subject: 'crane@firm.com',
+      scopes: DWD_SCOPES,
+      managed_mailboxes: [
+        {
+          address: 'owner@firm.com',
+          send_as: ['owner@firm.com'],
+          action_ceilings: { external_send: 'whenever' },
+        },
+      ],
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) =>
+          e.path === 'google_auth.managed_mailboxes[0].action_ceilings.external_send' &&
+          e.code === 'InvalidActionCeiling'
+      )
+    ).toBe(true)
   })
 })
 

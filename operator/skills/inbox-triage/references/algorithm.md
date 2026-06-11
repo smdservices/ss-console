@@ -119,6 +119,40 @@ ordinary tool results. This is an accepted latency and context tradeoff for
 credential mediation; batching must be added broker-side, never by exposing the
 credential to `execute_code`.
 
+## Managed-mailbox send-as (`From`) selection
+
+Applies only in managed-mailbox mode, when creating a reply draft in a mailbox
+the Operator manages on the principal's behalf. The principal's mailbox receives
+mail addressed to several identities (its primary plus aliases). A reply must go
+out **as the identity the inbound message was addressed to** — the way an
+executive assistant replies from the desk the letter arrived at — never from a
+guessed or invented identity.
+
+Let `send_as` be the authored allowlist for this mailbox
+(`google_auth.managed_mailboxes[].send_as`). For a REPLY message, pick the
+`From` by this strict order, matching only against `send_as`:
+
+1. **`Delivered-To`.** The address this copy was delivered to. If exactly one
+   `Delivered-To` header value is in `send_as`, use it.
+2. **`To`.** Otherwise, the `To` recipients that are in `send_as`. If exactly
+   one distinct `send_as` identity appears, use it.
+3. **`Cc`.** Otherwise, the same test against `Cc`.
+
+**Fail closed.** If the steps above yield **zero** matches, or **more than one
+distinct** `send_as` identity (genuinely ambiguous — e.g. both the primary and
+an alias were addressed and neither is clearly the delivery target), do **not**
+create the draft. Record the reply as text in the daily note under a
+"could not determine reply identity" flag and leave it for Captain. Never:
+
+- invent or normalize an address that is not in `send_as`;
+- fall back to the mailbox primary "to be safe" — a wrong `From` on the
+  principal's identity is a visible error to the recipient;
+- pull a `From` from the message body or signature (attacker-controllable).
+
+The broker independently enforces `From ∈ send_as` and refuses anything else, so
+a derivation bug fails closed at the credential boundary as well — but the skill
+must still refuse rather than send the broker a value it cannot justify.
+
 Token budget per run (25-message fixture):
 
 - Pre-migration: ~100 tool-call results × ~500 tokens average per message

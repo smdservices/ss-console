@@ -82,6 +82,7 @@ export type {
   UserRole,
   Connector,
   GoogleAuth,
+  ManagedMailbox,
   Scope,
   Escalation,
   Memory,

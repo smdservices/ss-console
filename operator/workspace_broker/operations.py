@@ -7,7 +7,7 @@ from email.message import EmailMessage
 from pathlib import Path
 from typing import Any, Callable
 
-from .google_auth import service
+from .google_auth import _customer_google_auth, authored_identities, service
 
 Operation = Callable[[dict[str, Any]], Any]
 
@@ -28,6 +28,26 @@ class WorkspaceOperations:
     def supports(self, operation: str) -> bool:
         """Return whether an operation is in the reviewed surface."""
         return operation in self._handlers()
+
+    def supported_operations(self) -> list[str]:
+        """Sorted operation names, for the broker capability handshake."""
+        return sorted(self._handlers())
+
+    def _validate_from(self, mailbox: str, from_addr: str) -> None:
+        """Fail-closed unless `from_addr` is an authored send-as for the mailbox.
+
+        Mirrors the subject check in `google_auth.credentials`: the broker holds
+        the credential, so it independently validates the requested `From`
+        against its own read of authored config — never trusting the gateway.
+        """
+        if not from_addr:
+            return
+        default, _, send_as = authored_identities(_customer_google_auth(self._customer_path))
+        effective = (mailbox or "").strip() or default
+        if from_addr not in send_as.get(effective, set()):
+            raise RuntimeError(
+                f"from {from_addr!r} is not an authored send-as for {effective!r}"
+            )
 
     def _handlers(self) -> dict[str, Operation]:
         return {
@@ -51,12 +71,12 @@ class WorkspaceOperations:
             "workspace_sheets_update_values": self.sheets_update_values,
         }
 
-    def _service(self, api: str, version: str):
-        return service(api, version, self._credential_path, self._customer_path)
+    def _service(self, api: str, version: str, mailbox: str = ""):
+        return service(api, version, self._credential_path, self._customer_path, mailbox)
 
     def gmail_search(self, payload: dict[str, Any]) -> Any:
         return (
-            self._service("gmail", "v1")
+            self._service("gmail", "v1", str(payload.get("mailbox") or ""))
             .users()
             .messages()
             .list(
@@ -70,7 +90,7 @@ class WorkspaceOperations:
 
     def gmail_get(self, payload: dict[str, Any]) -> Any:
         return (
-            self._service("gmail", "v1")
+            self._service("gmail", "v1", str(payload.get("mailbox") or ""))
             .users()
             .messages()
             .get(userId="me", id=str(payload["message_id"]), format="full")
@@ -78,8 +98,13 @@ class WorkspaceOperations:
         )
 
     def gmail_create_draft(self, payload: dict[str, Any]) -> Any:
+        mailbox = str(payload.get("mailbox") or "")
+        from_addr = str(payload.get("from") or "")
+        self._validate_from(mailbox, from_addr)
         message = EmailMessage()
         message["To"] = str(payload["to"])
+        if from_addr:
+            message["From"] = from_addr
         message["Subject"] = str(payload["subject"])
         message.set_content(str(payload["body"]))
         raw = base64.urlsafe_b64encode(message.as_bytes()).decode("ascii").rstrip("=")
@@ -87,7 +112,7 @@ class WorkspaceOperations:
         if payload.get("thread_id"):
             body["message"]["threadId"] = str(payload["thread_id"])
         return (
-            self._service("gmail", "v1")
+            self._service("gmail", "v1", mailbox)
             .users()
             .drafts()
             .create(userId="me", body=body)
@@ -100,7 +125,7 @@ class WorkspaceOperations:
             "removeLabelIds": payload.get("remove_label_ids", []),
         }
         return (
-            self._service("gmail", "v1")
+            self._service("gmail", "v1", str(payload.get("mailbox") or ""))
             .users()
             .messages()
             .modify(userId="me", id=str(payload["message_id"]), body=body)
@@ -112,6 +137,7 @@ class WorkspaceOperations:
             {
                 "message_id": payload["message_id"],
                 "remove_label_ids": ["INBOX"],
+                "mailbox": payload.get("mailbox") or "",
             }
         )
 
