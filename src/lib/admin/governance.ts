@@ -193,5 +193,7 @@ export function actionClassLabel(actionClass: ActionClass): string {
       return 'Commitment'
     case 'destructive':
       return 'Destructive'
+    case 'code_execution':
+      return 'Code execution'
   }
 }
