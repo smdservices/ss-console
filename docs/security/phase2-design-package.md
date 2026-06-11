@@ -6,22 +6,21 @@
 
 ---
 
-## WS2a — Per-customer scoped R2 token (closes OP-P0-2, crown-jewel leg)
+## WS2a — Close OP-P0-2 by removing the account-wide R2 key from the agent (NO new key)
 
-**Problem:** `operator/bin/provision-customer.sh` (~355-366) defaults `R2_SKILL_BODIES_*` to the **account-wide** R2 key pair. That key sits in the agent env; an exfil reads/writes _every_ customer's bucket.
+**Problem:** `operator/bin/provision-customer.sh` (~355-366) defaulted `R2_SKILL_BODIES_*` to the **account-wide** R2 key pair (R/W on every bucket in the account). That key sat in the agent env; an exfil reads/writes _every_ customer's bucket.
 
-**Decision (doc-verified):** Mint a **bucket-scoped R2 _permanent_ API token** out-of-band, store in Infisical, provisioning reads it and **fails closed** (no account-wide fallback).
+**Decision (REVISED after Captain pushback + code verification 2026-06-11):** Do **not** mint a new key. Close OP-P0-2 by **removing** the over-broad key from the agent, not by adding a narrow one. Verified: `R2_SKILL_BODIES_*` only back the agent persisting **self-authored** skills; `skill_capture.load_r2_config_from_env()` returns `None` and **no-ops** when the vars are absent (graceful, no boot impact); customer-zero (`operator/customers/smd/customer.yaml`) runs fixed repo skills (`inbox-triage`, `workspace`) and authors none → the feature is dormant. So:
 
-- Mint API: `POST /accounts/{acct}/tokens`, `permission_groups: [Workers R2 Storage Bucket Item Write]`, `resources: { "com.cloudflare.edge.r2.bucket.{acct}_default_ss-operator-{slug}-skills": "*" }`.
-- boto3 mapping: response `id` → `aws_access_key_id`, response `value` → `aws_secret_access_key`, **no session token** (permanent, not temp-creds).
-- Minting credential needs **`Account API Tokens Write`** — the provisioning `CF_API_TOKEN` (Workers R2 Storage: Edit) does **not** have it → the **lead** mints out-of-band with a correctly-scoped one-time credential.
-- Infisical path `/ss/operator/{slug}`: `R2_SKILL_BODIES_ACCESS_KEY_ID`, `R2_SKILL_BODIES_SECRET_ACCESS_KEY`.
-- `provision-customer.sh:355-366`: replace fallback-to-account-wide with `require_secret` (fail if missing).
-- Consumer `hermes-smd-audit/skill_capture.py`: **no change** (already reads those exact vars).
+- `provision-customer.sh`: remove the account-wide fallback; stage `R2_SKILL_BODIES_*` **only** if a genuinely bucket-scoped token is present in `/ss` (warn-and-skip if absent — fail-soft, not fail-closed). **No `require`/`die`.**
+- `bootstrap.sh`: `unset R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY` after the boot `customer.yaml` fetch (their only in-Machine consumer), before the gateway exec. `R2_ENDPOINT_URL` KEPT (the scoped skill writer reads it; not a credential).
+- Net: agent env holds **no** R2 write key on customer-zero; OP-P0-2 closed with **zero new keys**. Skill-persistence is fail-soft-off until deliberately enabled.
 
-**Lead-owned remaining steps:** resolve exact permission-group ID; mint a test token; live boto3 `put_object` check before customer-zero.
+**If/when agent-authored skill persistence is turned on (a later, deliberate feature decision):** mint ONE bucket-scoped R2 token (read+write on `ss-operator-<slug>-skills` only) and add `R2_SKILL_BODIES_ACCESS_KEY_ID` / `R2_SKILL_BODIES_SECRET_ACCESS_KEY` to `/ss` — no code change. Cloudflare dashboard → R2 → Manage R2 API Tokens → Object Read & Write → Apply to specific buckets only. NEVER the account-wide pair. (The earlier "mint a permanent token via `POST /accounts/{acct}/tokens`" design is retained in git history if the API path is ever preferred over the dashboard.)
 
-**Flagged risk:** none material at design level; the only unverified item is the live boto3 acceptance of `id`+`value` as S3 creds (lead's live test).
+**Out of scope (separate, lower severity — not the agent env):** the operator-local account-wide key still exists in `/ss` and is used by provisioning + the boot fetch. Scoping _that_ down is the provisioning-credential blast-radius item (OP-P2-5 / WS7), not the crown jewel.
+
+**Flagged risk:** none. The no-op-on-absent path is verified in `skill_capture.py:149-159`; `bash -n` clean; no test asserts the removed fallback.
 
 ---
 

@@ -330,22 +330,6 @@ stage_secret_from_env() {
   log "Staged ${secret_name} (value never logged)"
 }
 
-# require_secret_from_env: like stage_secret_from_env, but FAIL-CLOSED — die when
-# the value is missing instead of warn-and-skip. Use for credentials whose absence
-# (or silent fallback to a broader credential) is a SECURITY defect, not a dev
-# convenience. See docs/security/operator-threat-model.md (OP-P0-2).
-require_secret_from_env() {
-  local secret_name="$1"
-  local env_value="$2"
-  local description="$3"
-  if [ -z "${env_value:-}" ]; then
-    die "${secret_name} is required but not set in operator env (${description}). Mint a bucket-scoped R2 token for ${R2_SKILL_BODIES_BUCKET} and store it in Infisical /ss (env=prod) before provisioning. Never fall back to the account-wide R2 pair — that re-opens the cross-tenant blast radius OP-P0-2 closes."
-  fi
-  printf '%s=%s\n' "${secret_name}" "${env_value}" \
-    | fly secrets import --stage -a "${APP_NAME}" >/dev/null
-  log "Staged ${secret_name} (value never logged)"
-}
-
 # Required secrets per bootstrap.sh.
 # AGENTMAIL_API_KEY removed 2026-05-29: the persona's own outbound mailbox
 # identity (ADR 0005 / ADR 0008) is deferred to Phase 2
@@ -364,25 +348,30 @@ prompt_and_set R2_ACCESS_KEY_ID     "R2 access key ID (Machine-scoped, R/W on s3
 prompt_and_set R2_SECRET_ACCESS_KEY "R2 secret access key (paired with R2_ACCESS_KEY_ID above)"
 prompt_and_set R2_ENDPOINT_URL      "R2 endpoint URL (Cloudflare account R2 endpoint)"
 
-# ADR 0022 Stream 2 — skill-bodies bucket R2 credentials. FAIL-CLOSED per OP-P0-2
-# (docs/security/operator-threat-model.md). These vars REMAIN in the agent
-# process env — skill_capture.py writes agent-authored SKILL bodies in-process —
-# so they MUST be a bucket-SCOPED R2 token that can touch only
-# ${R2_SKILL_BODIES_BUCKET}. The earlier posture defaulted them to the
-# account-wide R2 pair (R/W on EVERY bucket in the account); that put a
-# cross-tenant crown jewel in the agent env, reachable by any injection. The
-# fallback is removed: mint a bucket-scoped R2 token out-of-band and store it in
-# Infisical /ss (env=prod) as R2_SKILL_BODIES_ACCESS_KEY_ID /
-# R2_SKILL_BODIES_SECRET_ACCESS_KEY before provisioning. Absence (or a stale copy
-# of the account-wide pair) is a security defect → die, never silently fall back.
-# NOTE: this helper enforces PRESENCE; only minting a genuinely bucket-scoped
-# token enforces SCOPE. Verify the token's scope at mint time (see PR / runbook).
-require_secret_from_env R2_SKILL_BODIES_ACCESS_KEY_ID \
+# ADR 0022 Stream 2 — skill-bodies bucket R2 credentials. OPTIONAL + FAIL-SOFT,
+# and the account-wide fallback is REMOVED (OP-P0-2,
+# docs/security/operator-threat-model.md). These vars remain in the agent process
+# env (skill_capture.py writes agent-authored SKILL bodies in-process), so they
+# must NEVER be the account-wide R2 pair (R/W on every bucket in the account) —
+# that would put a cross-tenant crown jewel in the agent env, reachable by any
+# injection. The earlier posture silently defaulted them to that account-wide
+# pair; that default is GONE.
+#
+# Staged ONLY when a genuinely bucket-scoped token is present in Infisical /ss
+# (env=prod). When absent (the default — e.g. customer-zero, whose agent runs
+# fixed repo skills and authors none), nothing is staged: skill_capture resolves
+# no R2 config and NO-OPS (load_r2_config_from_env -> None), so the agent simply
+# does not persist agent-authored skills. No new key is created to close OP-P0-2;
+# the over-broad key is removed instead. If an engagement later turns on
+# agent-authored skill persistence, mint ONE bucket-scoped token (read+write on
+# ${R2_SKILL_BODIES_BUCKET} only) and add it to /ss — no code change. NEVER the
+# account-wide pair.
+stage_secret_from_env R2_SKILL_BODIES_ACCESS_KEY_ID \
   "${R2_SKILL_BODIES_ACCESS_KEY_ID:-}" \
-  "bucket-scoped R2 access key ID for ${R2_SKILL_BODIES_BUCKET}"
-require_secret_from_env R2_SKILL_BODIES_SECRET_ACCESS_KEY \
+  "bucket-scoped R2 access key ID for ${R2_SKILL_BODIES_BUCKET} (optional; never the account-wide pair)"
+stage_secret_from_env R2_SKILL_BODIES_SECRET_ACCESS_KEY \
   "${R2_SKILL_BODIES_SECRET_ACCESS_KEY:-}" \
-  "bucket-scoped R2 secret access key for ${R2_SKILL_BODIES_BUCKET}"
+  "bucket-scoped R2 secret access key for ${R2_SKILL_BODIES_BUCKET} (optional; never the account-wide pair)"
 
 # HONCHO_API_KEY — DEFERRED to Phase 2 (ADR 0016 revised). No in-Machine Honcho
 # server is provisioned in Phase 1, so there is no shared secret to generate.
