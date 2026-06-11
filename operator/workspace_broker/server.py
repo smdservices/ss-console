@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from .audit_ledger import LedgerWriter
 from .google_auth import materialize_credential
 from .operations import WorkspaceOperations
 
@@ -86,6 +87,10 @@ class GrantStore:
 class Broker:
     """Authorize and execute reviewed Workspace operations."""
 
+    # Class default so instances built via ``__new__`` (tests) and pre-WS5
+    # images without SMD_AUDIT_DB_PATH have a defined, audit-disabled ledger.
+    ledger: LedgerWriter | None = None
+
     def __init__(self) -> None:
         self.socket_path = Path(os.environ["SMD_WORKSPACE_BROKER_SOCKET"])
         self.customer_path = Path(os.environ["SMD_CUSTOMER_YAML"])
@@ -95,6 +100,13 @@ class Broker:
         materialize_credential(self.credential_path)
         self.operations = WorkspaceOperations(self.credential_path, self.customer_path)
         self.grants = GrantStore()
+        # OP-P1-4: this broker also holds the only RW handle on the per-customer
+        # audit ledger when SMD_AUDIT_DB_PATH is set (the entrypoint owns the
+        # file to this uid; the agent uid can read but not write it). When
+        # unset, the audit ledger is direct-write (legacy / pre-WS5 image) and
+        # this broker does not touch it.
+        audit_db_path = os.environ.get("SMD_AUDIT_DB_PATH")
+        self.ledger = LedgerWriter(audit_db_path) if audit_db_path else None
 
     def handle(self, request: dict[str, Any], peer_pid: int) -> dict[str, Any]:
         action = request.get("action")
@@ -103,10 +115,23 @@ class Broker:
                 "ok": True,
                 "credential_ready": self.credential_path.is_file(),
                 "customer_ready": self.customer_path.is_file(),
+                "audit_ready": self.ledger is not None,
                 "supported_ops": self.operations.supported_operations(),
             }
         if peer_pid != self.gateway_pid:
             raise PermissionError("request did not originate from the gateway process")
+        # OP-P1-4 append-only audit write. PID-gated (above): only the gateway
+        # may write; execute_code/terminal children get a different peer PID and
+        # are rejected. The broker stamps id/ts; there is no update/delete/drop
+        # verb in this IPC surface — that absence is the append-only guarantee.
+        if action == "audit_append":
+            if self.ledger is None:
+                raise ValueError("audit ledger not configured on this broker")
+            row = request.get("row")
+            if not isinstance(row, dict):
+                raise ValueError("audit_append requires a 'row' object")
+            row_id = self.ledger.append(row)
+            return {"ok": True, "id": row_id}
         operation = str(request.get("operation") or "")
         payload = request.get("payload")
         if not operation.startswith("workspace_") or not isinstance(payload, dict):
