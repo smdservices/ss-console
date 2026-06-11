@@ -348,22 +348,43 @@ prompt_and_set R2_ACCESS_KEY_ID     "R2 access key ID (Machine-scoped, R/W on s3
 prompt_and_set R2_SECRET_ACCESS_KEY "R2 secret access key (paired with R2_ACCESS_KEY_ID above)"
 prompt_and_set R2_ENDPOINT_URL      "R2 endpoint URL (Cloudflare account R2 endpoint)"
 
-# ADR 0022 Stream 2 — skill-bodies bucket R2 credentials. Per the first-boot
-# runbook ("R2 credentials — DO NOT hunt for or re-mint these"), the account-wide
-# derived CF-token pair (R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY) has R/W on
-# EVERY bucket in the account, so it already covers the per-customer skill-bodies
-# bucket — no per-bucket token minting is needed. Stage the skill-bodies-specific
-# creds when an engagement explicitly authored a narrower scoped token, else
-# default to the account-wide pair so bootstrap's required-env check passes
-# without a manual paste (and so an agent can provision end-to-end). The bucket
-# is still the per-customer trust boundary (ADR 0007); a scoped token can be
-# layered on later by setting R2_SKILL_BODIES_* in /ss.
-stage_secret_from_env R2_SKILL_BODIES_ACCESS_KEY_ID \
-  "${R2_SKILL_BODIES_ACCESS_KEY_ID:-${R2_ACCESS_KEY_ID:-}}" \
-  "R2 access key ID for bucket ${R2_SKILL_BODIES_BUCKET} (defaults to the account-wide R2 pair)"
-stage_secret_from_env R2_SKILL_BODIES_SECRET_ACCESS_KEY \
-  "${R2_SKILL_BODIES_SECRET_ACCESS_KEY:-${R2_SECRET_ACCESS_KEY:-}}" \
-  "R2 secret access key for bucket ${R2_SKILL_BODIES_BUCKET} (defaults to the account-wide R2 pair)"
+# ADR 0022 Stream 2 — skill-bodies bucket R2 credentials. OPTIONAL + FAIL-SOFT,
+# and the account-wide fallback is REMOVED (OP-P0-2,
+# docs/security/operator-threat-model.md). These vars remain in the agent process
+# env (skill_capture.py writes agent-authored SKILL bodies in-process), so they
+# must NEVER be the account-wide R2 pair (R/W on every bucket in the account) —
+# that would put a cross-tenant crown jewel in the agent env, reachable by any
+# injection. The earlier posture silently defaulted them to that account-wide
+# pair; that default is GONE.
+#
+# Staged ONLY when a genuinely bucket-scoped token is present in Infisical /ss
+# (env=prod). When absent (the default — e.g. customer-zero, whose agent runs
+# fixed repo skills and authors none), nothing is staged: skill_capture resolves
+# no R2 config and NO-OPS (load_r2_config_from_env -> None), so the agent simply
+# does not persist agent-authored skills. No new key is created to close OP-P0-2;
+# the over-broad key is removed instead. If an engagement later turns on
+# agent-authored skill persistence, mint ONE bucket-scoped token (read+write on
+# ${R2_SKILL_BODIES_BUCKET} only) and add it to /ss — no code change. NEVER the
+# account-wide pair.
+# CONVERGENT (not just "don't stage"): a prior provisioning defaulted these to the
+# account-wide pair and they are already DEPLOYED on existing Machines (verified:
+# R2_SKILL_BODIES_* share the exact secret digest of R2_ACCESS_KEY_ID/SECRET on
+# customer-zero). So when no scoped token is authored we must actively UNSET them,
+# or the account-wide key lingers in the agent env across reprovisions. `fly
+# secrets unset --stage` is a no-op when the secret isn't set.
+if [ -n "${R2_SKILL_BODIES_ACCESS_KEY_ID:-}" ] && [ -n "${R2_SKILL_BODIES_SECRET_ACCESS_KEY:-}" ]; then
+  stage_secret_from_env R2_SKILL_BODIES_ACCESS_KEY_ID \
+    "${R2_SKILL_BODIES_ACCESS_KEY_ID}" \
+    "bucket-scoped R2 access key ID for ${R2_SKILL_BODIES_BUCKET} (never the account-wide pair)"
+  stage_secret_from_env R2_SKILL_BODIES_SECRET_ACCESS_KEY \
+    "${R2_SKILL_BODIES_SECRET_ACCESS_KEY}" \
+    "bucket-scoped R2 secret access key for ${R2_SKILL_BODIES_BUCKET} (never the account-wide pair)"
+else
+  log "R2_SKILL_BODIES_* not authored in /ss — removing any stale value from the Machine so the account-wide key cannot linger in the agent env (agent-authored skill persistence stays off; OP-P0-2)"
+  fly secrets unset --stage -a "${APP_NAME}" \
+    R2_SKILL_BODIES_ACCESS_KEY_ID R2_SKILL_BODIES_SECRET_ACCESS_KEY >/dev/null 2>&1 \
+    || log "R2_SKILL_BODIES_* already absent on the Machine (nothing to unset)"
+fi
 
 # HONCHO_API_KEY — DEFERRED to Phase 2 (ADR 0016 revised). No in-Machine Honcho
 # server is provisioned in Phase 1, so there is no shared secret to generate.
