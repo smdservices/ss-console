@@ -2,9 +2,10 @@
 /**
  * Billing — the global, bi-modal money surface (ADR 0046).
  *
- * One-time totals are derived from invoices. The recurring side is honest
- * about the schema gap (no recurring-price column yet): it shows a real
- * count of active operator subscriptions and never a fabricated MRR.
+ * One-time totals are derived from invoices. The recurring side shows REAL
+ * MRR (ADR 0046 operator arc): the active operator roster priced from the
+ * spine (`services.recurring_price`), with any unpriced operator surfaced
+ * explicitly rather than silently summed as zero.
  * Tabs: Quotes (money-in-waiting) · Invoices (one-time) · Recurring.
  */
 import AdminLayout from '../../../layouts/AdminLayout.astro'
@@ -13,7 +14,12 @@ import { listQuotes } from '../../../lib/db/quotes'
 import { listEntities } from '../../../lib/db/entities'
 import { listFleetRoster } from '../../../lib/admin/fleet-roster'
 import { listRuntimeSummary } from '../../../lib/admin/runtime-summary'
-import { oneTimeTotals, sortInvoicesForBilling } from '../../../lib/admin/billing-view'
+import { listServices } from '../../../lib/db/services'
+import {
+  oneTimeTotals,
+  sortInvoicesForBilling,
+  operatorRecurring,
+} from '../../../lib/admin/billing-view'
 import { formatMoney } from '../../../lib/admin/client-hub'
 import { formatDate } from '../../../lib/admin/entity-detail-page'
 import { statusBadgeClass } from '../../../lib/ui/status-badge'
@@ -21,18 +27,31 @@ import { env } from 'cloudflare:workers'
 
 const session = Astro.locals.session!
 
-const [invoices, quotes, entities, roster, runtime] = await Promise.all([
+const [invoices, quotes, entities, roster, runtime, operatorServices] = await Promise.all([
   listInvoices(env.DB, session.orgId),
   listQuotes(env.DB, session.orgId),
   listEntities(env.DB, session.orgId),
   listFleetRoster(env.DB),
   listRuntimeSummary(env.DB),
+  listServices(env.DB, session.orgId, { type: 'operator', status: 'active' }),
 ])
 
 const nameById = new Map(entities.map((e) => [e.id, e.name]))
 const runtimeEntities = new Set(runtime.map((r) => r.entity_id))
 const totals = oneTimeTotals(invoices)
 const sortedInvoices = sortInvoicesForBilling(invoices)
+
+// Recurring revenue: iterate the authoritative roster, price each from the spine.
+const priceByEntity = new Map<string, number | null>(
+  operatorServices.map((s) => [s.entity_id, s.recurring_price])
+)
+const recurring = operatorRecurring(
+  roster.map((r) => r.entity_id),
+  priceByEntity
+)
+function operatorPrice(entityId: string): number | null {
+  return priceByEntity.get(entityId) ?? null
+}
 
 function clientName(entityId: string): string {
   return nameById.get(entityId) ?? '—'
@@ -103,13 +122,19 @@ const REC_COLS = 'grid-cols-[1.6fr_1.6fr_0.9fr_1fr]'
       <div class="flex gap-8">
         <div>
           <span class={`${LAB} mb-1 block`}>Active operators</span>
-          <span class="font-['JetBrains_Mono'] text-xl font-bold">{roster.length}</span>
+          <span class="font-['JetBrains_Mono'] text-xl font-bold">{recurring.activeCount}</span>
         </div>
         <div>
           <span class={`${LAB} mb-1 block`}>MRR</span>
-          <span class="font-['JetBrains_Mono'] text-base text-[color:var(--ss-color-text-muted)]"
-            >pending pricing</span
+          <span class="font-['JetBrains_Mono'] text-xl font-bold">{formatMoney(recurring.mrr)}</span
           >
+          {
+            recurring.unpricedCount > 0 && (
+              <div class="mt-1 text-[11px] text-[color:var(--ss-color-primary)]">
+                {recurring.unpricedCount} unpriced
+              </div>
+            )
+          }
         </div>
       </div>
     </div>
@@ -249,9 +274,15 @@ const REC_COLS = 'grid-cols-[1.6fr_1.6fr_0.9fr_1fr]'
               <span class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--ss-color-text-secondary)]">
                 {runtimeEntities.has(r.entity_id) ? 'Active' : 'Provisioning'}
               </span>
-              <span class="text-right font-['JetBrains_Mono'] text-[color:var(--ss-color-text-muted)]">
-                —
-              </span>
+              {operatorPrice(r.entity_id) == null ? (
+                <span class="text-right font-['JetBrains_Mono'] text-[13px] text-[color:var(--ss-color-primary)]">
+                  unpriced
+                </span>
+              ) : (
+                <span class="text-right font-['JetBrains_Mono'] text-[13px] font-medium">
+                  {formatMoney(operatorPrice(r.entity_id) ?? 0)}/mo
+                </span>
+              )}
             </a>
           ))}
         </div>

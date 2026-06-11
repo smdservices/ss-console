@@ -36,6 +36,36 @@ export interface OneTimeTotals {
   overdueAmount: number
 }
 
+export interface OperatorRecurring {
+  /** Real MRR: sum of authored recurring prices across the active operator roster. */
+  mrr: number
+  /** Authoritative count of active operators (from the roster, never the spine). */
+  activeCount: number
+  /** Active operators with no price authored yet — surfaced, never summed as 0. */
+  unpricedCount: number
+}
+
+/**
+ * Recurring revenue, computed the safe way (ADR 0046): iterate the AUTHORITATIVE
+ * operator roster (every live operator), and price each from the spine via
+ * `priceByEntity` (entity_id → `services.recurring_price` for active operator
+ * services). A roster operator with no priced service is counted `unpriced` —
+ * never dropped, never silently summed as 0. MRR sums only real authored prices.
+ */
+export function operatorRecurring(
+  rosterEntityIds: string[],
+  priceByEntity: Map<string, number | null>
+): OperatorRecurring {
+  let mrr = 0
+  let unpricedCount = 0
+  for (const id of rosterEntityIds) {
+    const price = priceByEntity.get(id) ?? null
+    if (price == null) unpricedCount += 1
+    else mrr += price
+  }
+  return { mrr, activeCount: rosterEntityIds.length, unpricedCount }
+}
+
 export function oneTimeTotals(invoices: Invoice[]): OneTimeTotals {
   const base = computeBillingRollup(invoices)
   let overdueCount = 0

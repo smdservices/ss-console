@@ -12,7 +12,7 @@
 -- service_id IS NULL but an existing 'svc_'||id services row is a CORRUPTION
 -- state requiring manual reconciliation — not auto-re-runnable.
 --
--- Status projection (must match src/lib/db/services.ts projectServiceStatus):
+-- Status projection (must match src/lib/db/services.ts projectConsultingStatus):
 --   completed → completed ; cancelled → churned ;
 --   scheduled/active/handoff/safety_net → active (committed/live revenue line).
 -- ============================================================================

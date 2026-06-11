@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { sortInvoicesForBilling, oneTimeTotals } from '../src/lib/admin/billing-view'
+import {
+  sortInvoicesForBilling,
+  oneTimeTotals,
+  operatorRecurring,
+} from '../src/lib/admin/billing-view'
 import type { Invoice } from '../src/lib/db/invoices'
 
 function inv(
@@ -63,5 +67,24 @@ describe('oneTimeTotals', () => {
     expect(t.outstanding).toBe(4600) // sent + overdue
     expect(t.overdueCount).toBe(2)
     expect(t.overdueAmount).toBe(1600)
+  })
+})
+
+describe('operatorRecurring', () => {
+  it('sums priced operators and counts the unpriced (null and missing), never dropping any', () => {
+    const price = new Map<string, number | null>([
+      ['a', 1000],
+      ['b', 2000],
+      ['c', null], // priced row exists but no price authored
+    ])
+    // 'd' is in the authoritative roster but has no spine entry at all.
+    const r = operatorRecurring(['a', 'b', 'c', 'd'], price)
+    expect(r.mrr).toBe(3000) // only real authored prices
+    expect(r.activeCount).toBe(4) // every roster operator counted
+    expect(r.unpricedCount).toBe(2) // c (null) + d (missing)
+  })
+
+  it('an empty roster yields zeros', () => {
+    expect(operatorRecurring([], new Map())).toEqual({ mrr: 0, activeCount: 0, unpricedCount: 0 })
   })
 })
