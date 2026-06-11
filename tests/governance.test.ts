@@ -82,7 +82,7 @@ describe('resolveCell — the ADR-0035 keystone', () => {
     expect(cell.effective).toBe('draft_for_review')
   })
 
-  it('resolveSkillCells covers all five action classes', () => {
+  it('resolveSkillCells covers all six action classes', () => {
     const cells = resolveSkillCells(skill(), null)
     expect(cells.map((c) => c.actionClass)).toEqual([
       'read',
@@ -90,8 +90,10 @@ describe('resolveCell — the ADR-0035 keystone', () => {
       'external_send',
       'commitment',
       'destructive',
+      'code_execution',
     ])
-    // Only internal_write is authored (via scalar); the rest are fail-closed.
+    // Only internal_write is authored (via scalar); the rest (incl. the new
+    // code_execution class) are fail-closed.
     expect(cells.filter((c) => c.status === 'authored').map((c) => c.actionClass)).toEqual([
       'internal_write',
     ])
