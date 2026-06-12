@@ -452,6 +452,7 @@ function lockedFromCurrent(
   | 'google_auth'
   | 'authority'
   | 'credential_custody_default'
+  | 'demo'
 > {
   return {
     schema_version: current.schema_version,
@@ -484,6 +485,10 @@ function lockedFromCurrent(
     // credential_custody_default (ADR 0042) is set at provisioning / via the
     // connectors authority domain, not the general config editor. Preserve.
     credential_custody_default: current.credential_custody_default,
+    // demo switches are provisioning-time, never client-editable (enabling the
+    // reply relay is an SMD demo decision gated on synthetic-data containment).
+    // Preserve verbatim across portal edits.
+    demo: current.demo,
   }
 }
 

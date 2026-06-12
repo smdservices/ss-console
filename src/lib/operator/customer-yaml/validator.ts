@@ -24,6 +24,7 @@ import { checkHermesRef, checkRequiredString, isPlainObject, secretFindingToErro
 import {
   type AddonSpec,
   type CustomerYaml,
+  type Demo,
   type GoogleAuth,
   type MachineSpec,
   type Memory,
@@ -59,6 +60,7 @@ import { checkVoiceCohorts } from './sections-voice'
 import { checkWebhookTriggers } from './sections-webhook-triggers'
 import { checkExtendsReserved, checkVerticalPinned } from './sections-vertical'
 import { checkAddons } from './sections-addons'
+import { checkDemo } from './sections-demo'
 import { checkGoogleAuth } from './sections-google-auth'
 import { checkAuthority } from './sections-authority'
 import type { AuthorityPosture } from '../authority'
@@ -96,6 +98,7 @@ export type {
   MachineSpec,
   CostEstimate,
   Observability,
+  Demo,
   Vertical,
   TrustCeiling,
   Pronouns,
@@ -226,6 +229,7 @@ interface ParsedSections {
   complianceEnabled: boolean
   authority: AuthorityPosture
   credentialCustodyDefault: CredentialCustody
+  demo: Demo
 }
 
 function validateSections(
@@ -278,6 +282,7 @@ function validateSections(
     complianceEnabled: checkComplianceEnabled(root, errors),
     authority: checkAuthority(root, errors),
     credentialCustodyDefault: checkCredentialCustodyDefault(root, errors),
+    demo: checkDemo(root, errors),
   }
 }
 
@@ -313,5 +318,6 @@ function assembleCustomerYaml(root: Record<string, unknown>, p: ParsedSections):
     compliance_enabled: p.complianceEnabled,
     authority: p.authority,
     credential_custody_default: p.credentialCustodyDefault,
+    demo: p.demo,
   }
 }
