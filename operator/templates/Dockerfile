@@ -147,8 +147,12 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # regression-tested via svix_self_check()) and carries #65 (audit-dark health
 # signal: boot sentinel + audit.writer_wired config-seam fact + rate-limited
 # NO-AUDIT-MODE warnings, closes overlay#64). Superset of v0.4.17.
+# v0.4.19 (68ae16d) — #67 audit_export + memory_export runtime-read seam kinds:
+# the Machine-side half of ss-console#1355 pull-before-destroy. The decommission
+# SeamAuditLogPreserver drains these into the compliance archive BEFORE
+# fly apps destroy. Superset of v0.4.18.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="1ba04f11fdaaa8aa4fbe05f98ac1a18e6b229c50"
+ARG OVERLAY_REF="68ae16d8c41c1b3a088fdadf8585c5a8e8df11bf"
 
 ARG CUSTOMER_SLUG=customer-zero
 
