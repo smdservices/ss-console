@@ -28,14 +28,37 @@ import { env } from 'cloudflare:workers'
 /** Maximum age (in seconds) for a webhook timestamp to be considered fresh. */
 const MAX_WEBHOOK_AGE_SECONDS = 300
 
+/**
+ * Issue #833: the pre-verify path extracts only the three verification
+ * fields; everything past HMAC verification was trusted via the
+ * TypeScript-only `as SignWellWebhookPayload` cast. Runtime-narrow the one
+ * structure the completion handler actually keys on (data.object.id) before
+ * dispatch — an HMAC-valid payload with a mangled document object gets a
+ * 400, not a handler exception.
+ */
+function hasProcessableDocument(payload: SignWellWebhookPayload): boolean {
+  const documentObject = payload.data?.object
+  return (
+    documentObject !== null &&
+    typeof documentObject === 'object' &&
+    typeof documentObject.id === 'string' &&
+    documentObject.id.length > 0
+  )
+}
+
+/** JSON error response shorthand used by every reject branch below. */
+function jsonError(status: number, error: string): Response {
+  return new Response(JSON.stringify({ error }), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
 export const POST: APIRoute = async ({ request }) => {
   const webhookSecret = env.SIGNWELL_WEBHOOK_SECRET
   if (!webhookSecret) {
     console.error('[webhook/signwell] SIGNWELL_WEBHOOK_SECRET not configured')
-    return new Response(JSON.stringify({ error: 'Server misconfigured' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return jsonError(500, 'Server misconfigured')
   }
 
   // --- Parse body (required — SignWell puts the hash inside the JSON) ---
@@ -44,10 +67,7 @@ export const POST: APIRoute = async ({ request }) => {
     const rawBody = await request.text()
     payload = JSON.parse(rawBody) as SignWellWebhookPayload
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return jsonError(400, 'Invalid JSON')
   }
 
   // --- Extract verification fields only (no logging/dispatch yet) ---
@@ -56,41 +76,34 @@ export const POST: APIRoute = async ({ request }) => {
   const eventHash = payload.event?.hash
 
   if (!eventType || eventTime == null || !eventHash) {
-    return new Response(JSON.stringify({ error: 'Missing event fields' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return jsonError(400, 'Missing event fields')
   }
 
   // --- HMAC-SHA256 verification ---
   const isValid = await verifyEventHash(eventType, eventTime, eventHash, webhookSecret)
   if (!isValid) {
     console.error('[webhook/signwell] Invalid event hash')
-    return new Response(JSON.stringify({ error: 'Invalid signature' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return jsonError(401, 'Invalid signature')
   }
 
   // --- Timestamp freshness check (replay protection) ---
   const nowSeconds = Math.floor(Date.now() / 1000)
   if (nowSeconds - eventTime > MAX_WEBHOOK_AGE_SECONDS) {
     console.error(`[webhook/signwell] Stale webhook: event.time ${eventTime}, now ${nowSeconds}`)
-    return new Response(JSON.stringify({ error: 'Stale webhook' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return jsonError(401, 'Stale webhook')
   }
 
   // --- Dispatch by event type ---
   if (payload.event.type === 'document_completed') {
+    if (!hasProcessableDocument(payload)) {
+      console.error('[webhook/signwell] document_completed payload missing data.object.id')
+      return jsonError(400, 'Malformed document payload')
+    }
+
     const apiKey = env.SIGNWELL_API_KEY
     if (!apiKey) {
       console.error('[webhook/signwell] SIGNWELL_API_KEY not configured')
-      return new Response(JSON.stringify({ error: 'Server misconfigured' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return jsonError(500, 'Server misconfigured')
     }
 
     return handleDocumentCompleted(

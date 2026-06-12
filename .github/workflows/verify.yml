@@ -54,6 +54,14 @@ jobs:
       - name: Test
         run: npm test
 
+      # 2026-06-12 code review: this step was missing — 7 worker test suites
+      # ran locally via `npm run verify` but never in CI. Runs before the
+      # per-worker `npm ci` steps below; the vitest binary resolves from the
+      # root node_modules through npm's ancestor .bin PATH walk (the same
+      # mechanism the Typecheck Workers step relies on).
+      - name: Test Workers
+        run: npm run test:workers
+
       # The root build writes `.wrangler/deploy/config.json` pointing at the
       # adapter-generated `dist/server/wrangler.json`. Leaving it in the tree
       # makes sub-worker `wrangler deploy` invocations ambiguous because
@@ -73,3 +81,15 @@ jobs:
 
       - name: Build Social Listening Worker
         run: cd workers/social-listening && npm ci && npx wrangler deploy --dry-run --outdir=dist
+
+      # 2026-06-12 code review: the three workers below had wrangler configs
+      # and live consumers but were absent from CI build verification — a
+      # wrangler-config break would not surface until a manual deploy.
+      - name: Build Cost Anomaly Worker
+        run: cd workers/cost-anomaly && npm ci && npx wrangler deploy --dry-run --outdir=dist
+
+      - name: Build Cost Telemetry Worker
+        run: cd workers/cost-telemetry && npm ci && npx wrangler deploy --dry-run --outdir=dist
+
+      - name: Build Enrichment Workflow Worker
+        run: cd workers/enrichment-workflow && npm ci && npx wrangler deploy --dry-run --outdir=dist
