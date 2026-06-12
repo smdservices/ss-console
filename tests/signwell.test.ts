@@ -118,29 +118,16 @@ describe('signwell: API client', () => {
   })
 })
 
-describe('signwell: webhook handler', () => {
-  const source = () => readFileSync(resolve('src/lib/webhooks/signwell-handler.ts'), 'utf-8')
-
-  it('signwell-handler.ts exists', () => {
-    expect(existsSync(resolve('src/lib/webhooks/signwell-handler.ts'))).toBe(true)
-  })
-
-  it('exports handleDocumentCompleted function', () => {
-    expect(source()).toContain('export async function handleDocumentCompleted')
-  })
-
-  it('delegates completion handling to the SOW finalization service', () => {
-    const code = source()
-    expect(code).toContain('finalizeCompletedSOWSignature')
-    expect(code).toContain('return finalizeCompletedSOWSignature')
-  })
-
-  it('keeps the wrapper free of persistence logic', () => {
-    const code = source()
-    expect(code).not.toContain('await db.batch(')
-    expect(code).not.toContain('INSERT INTO engagements')
-  })
-})
+// NOTE (2026-06-12, code-review Wave 5): the 'signwell: webhook handler'
+// describe block and the finalize-batch mirror assertions that previously
+// lived in 'signwell: sow lifecycle service' (provider_request_id lookup,
+// idempotent claim, pre-batch UUID generation, db.batch usage, quote ->
+// accepted, entity -> engaged, engagement creation, draft deposit invoice)
+// were source-text mirrors. They are superseded by the behavioral suite in
+// src/lib/webhooks/signwell-handler.test.ts, which runs the completed-
+// document webhook end-to-end against a real D1 and asserts those outcomes
+// on actual rows. The assertions kept below cover surfaces that suite does
+// not exercise: error paths, artifact-key/outbox details, and the send flow.
 
 describe('signwell: sow lifecycle service', () => {
   // Finalization logic was extracted to service-finalize.ts (keeping service.ts under 500 lines).
@@ -148,65 +135,10 @@ describe('signwell: sow lifecycle service', () => {
   const source = () => readFileSync(resolve('src/lib/sow/service-finalize.ts'), 'utf-8')
   const serviceSource = () => readFileSync(resolve('src/lib/sow/service.ts'), 'utf-8')
 
-  it('looks up requests by provider_request_id', () => {
-    const code = source()
-    expect(code).toContain('getSignatureRequestByProviderRequestId')
-    expect(code).toContain('providerRequestId')
-  })
-
   it('acknowledges unknown provider request ids as non-retryable', () => {
     const code = source()
     expect(code).toContain('unknownDocumentResponse')
     expect(code).toContain('Unknown SignWell document')
-  })
-
-  it('claims sent requests before artifact persistence to avoid duplicate finalization', () => {
-    const code = source()
-    expect(code).toContain("status = 'completed_pending_artifact'")
-    expect(code).toContain("status = 'sent'")
-    expect(code).toContain('claimResult.meta?.changes')
-  })
-
-  it('generates UUIDs for engagement and invoice BEFORE the batch', () => {
-    const code = source()
-    // UUIDs are generated in the FinalizeCtx object literal before db.batch is called.
-    const engagementIdIdx = code.indexOf('engagementId: crypto.randomUUID()')
-    const invoiceIdIdx = code.indexOf('invoiceId: crypto.randomUUID()')
-    const batchIdx = code.indexOf('await db.batch(', engagementIdIdx)
-    expect(engagementIdIdx).toBeGreaterThan(-1)
-    expect(invoiceIdIdx).toBeGreaterThan(-1)
-    expect(batchIdx).toBeGreaterThan(-1)
-    expect(engagementIdIdx).toBeLessThan(batchIdx)
-    expect(invoiceIdIdx).toBeLessThan(batchIdx)
-  })
-
-  it('uses db.batch() for atomic multi-table writes', () => {
-    expect(source()).toContain('await db.batch(')
-  })
-
-  it('batch updates quote status to accepted', () => {
-    const code = source()
-    expect(code).toContain("status = 'accepted'")
-    expect(code).toContain('accepted_at')
-  })
-
-  it('batch updates entity stage to engaged', () => {
-    const code = source()
-    expect(code).toContain('UPDATE entities')
-    expect(code).toContain("SET stage = 'engaged'")
-  })
-
-  it('batch creates engagement record', () => {
-    const code = source()
-    expect(code).toContain('INSERT INTO engagements')
-    expect(code).toContain('engagementId')
-  })
-
-  it('batch creates deposit invoice with draft status', () => {
-    const code = source()
-    expect(code).toContain('INSERT INTO invoices')
-    expect(code).toContain("'deposit'")
-    expect(code).toContain("'draft'")
   })
 
   it('persists the signed artifact before batch finalization and runs outbox jobs afterward', () => {
