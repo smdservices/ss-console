@@ -899,7 +899,7 @@ class DecommissionPipeline:
     ) -> StepResult:
         """Run one step body wrapped with begin/end audit rows + halt-on-fail."""
         await self._write_audit_row(
-            action_type="DECOMMISSION_INITIATED",
+            action_type="DECOMMISSION_STEP_BEGIN",
             metadata=_audit_metadata(name, self.customer_slug),
         )
         try:
@@ -911,7 +911,7 @@ class DecommissionPipeline:
         skipped = bool(detail.get("skipped"))
         status = StepStatus.SKIPPED if skipped else StepStatus.EXECUTED
         await self._write_audit_row(
-            action_type="DECOMMISSION_DRAIN_COMPLETE",  # closest matching enum value
+            action_type="DECOMMISSION_STEP_COMPLETE",
             metadata=_audit_metadata(name, self.customer_slug, detail=detail),
         )
         return StepResult(name=name, status=status, detail=detail)
@@ -931,7 +931,7 @@ class DecommissionPipeline:
         # Emit a discrete audit row so the decommission report names the
         # carve-out independently of the canonical memory + voice rows.
         await self._write_audit_row(
-            action_type="DECOMMISSION_DRAIN_COMPLETE",
+            action_type="DECOMMISSION_STEP_COMPLETE",
             metadata=_audit_metadata(
                 "02_d1_memory_voice/audit_log_preserved",
                 self.customer_slug,
@@ -1062,7 +1062,7 @@ class DecommissionPipeline:
     async def _write_failure(self, step_name: str, exc: BaseException) -> None:
         try:
             await self._write_audit_row(
-                action_type="DECOMMISSION_INITIATED",
+                action_type="DECOMMISSION_STEP_FAILED",
                 metadata=_audit_metadata(
                     step_name,
                     self.customer_slug,

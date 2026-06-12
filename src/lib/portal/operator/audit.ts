@@ -98,11 +98,33 @@ export const AUDIT_ACTION_TYPES = [
   'VOICE_GATE_FAILED',
   // Fabrication and escalation
   'FABRICATION_FILTER_TRIGGERED',
+  'IDENTIFIER_UNVERIFIED',
   'ESCALATION_FIRED',
   'ESCALATION_ACKNOWLEDGED',
-  // Decommission lifecycle
+  // Inbound quarantine (ADR 0027)
+  'INBOUND_RECEIVED',
+  // Honcho mirror (ADR 0016) + agent-authored skills (ADR 0017)
+  'HONCHO_CONCLUSION_DISMISSED',
+  'AGENT_SKILL_CREATED',
+  'AGENT_SKILL_REMOVED',
+  // customer-sync sidecar (ADR 0019)
+  'CUSTOMER_YAML_SYNCED',
+  'CUSTOMER_YAML_STRUCTURAL_CHANGE_DEFERRED',
+  // Subagent + cron lifecycle (ADR 0021)
+  'SUBAGENT_STOPPED',
+  'SUBAGENT_INCOMPLETE',
+  'SUPPRESSED_WAKE',
+  // Decommission lifecycle. Per-step BEGIN/COMPLETE/FAILED rows added
+  // 2026-06-12 (code review) so the compliance trail distinguishes the
+  // nine teardown steps; mirrors ACCEPTED_ACTION_TYPES in
+  // operator/adapter/audit_log.py and d1-schema.md §1. The parity test in
+  // tests/portal-operator-audit.test.ts asserts set equality with the
+  // python constant — extend both sides together.
   'DECOMMISSION_INITIATED',
   'DECOMMISSION_DRAIN_COMPLETE',
+  'DECOMMISSION_STEP_BEGIN',
+  'DECOMMISSION_STEP_COMPLETE',
+  'DECOMMISSION_STEP_FAILED',
   'DECOMMISSION_FINAL',
 ] as const
 
