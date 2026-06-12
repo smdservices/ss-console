@@ -11,8 +11,13 @@ probing.
 
 What survives in this package is the control-plane substrate —
 modules used by operator-side tools (`bin/lib/decommission.py`,
-`bin/lib/evidence.py`, `bin/lib/export.py`, `bin/cron-retention.py`)
-and by the safety-substrate invariant tests. Specifically:
+`bin/lib/evidence.py`) and by the safety-substrate invariant tests.
+(The ADR-0008 memory/voice ingestion + retention plane — `memory/`,
+`voice/pipeline.py`, `bin/cron-retention.py`, `bin/lib/export.py` —
+was removed by #1355: it read a per-customer control-plane Cloudflare
+D1 that was never provisioned and that the live Machine-local runtime
+never wrote. Preservation now pulls the live stores through the
+ADR-0043 runtime-read seam; see `bin/lib/seam_pull.py`.) Specifically:
 
 * Per-customer namespace isolation primitives (`namespace_assertion.py`,
   `d1_env.py`) — used by control-plane D1 access and the `invariant_7`
@@ -21,9 +26,10 @@ and by the safety-substrate invariant tests. Specifically:
 * The audit-log D1 client (`audit_log.py`) — read/write surface used by
   decommission and evidence-packet generation, both of which run
   outside the customer Machine after pause.
-* Per-customer evidence / memory / voice export modules
-  (`evidence/`, `memory/`, `voice/`) — feed the decommission and
-  data-export flows.
+* The evidence-packet generator (`evidence/`) and the voice corpus
+  toolchain that survives in `voice/` (structural diff, filters,
+  corrections, transform — consumed by `bin/lib/voice_corpus.py` and
+  the voice gate).
 * Cost telemetry (`cost_ingest.py`, `cost_rollup.py`,
   `cost_telemetry/`) — billing rollup against per-customer Machines.
 * Trust-ceiling enforcement primitive (`trust_ceiling.py`) — pure-data
