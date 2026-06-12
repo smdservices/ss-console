@@ -20,11 +20,21 @@ probe-append + read-back gate (bootstrap.sh), not silently in production.
 
 from __future__ import annotations
 
+import logging
+import os
 import secrets
 import sqlite3
-import threading
 import time
 from datetime import UTC, datetime
+
+logger = logging.getLogger(__name__)
+
+
+def _current_umask() -> int:
+    """Read the process umask without permanently changing it."""
+    value = os.umask(0o022)
+    os.umask(value)
+    return value
 
 # Agent-supplied columns: the overlay COLUMNS tuple minus the leading id/ts,
 # which the broker stamps. Order here only governs the INSERT this module
@@ -91,27 +101,49 @@ def _iso_utc() -> str:
 
 
 class LedgerWriter:
-    """Single RW handle on the audit ledger, serialized behind a lock.
+    """Append-only writer over a per-operation sqlite connection.
 
-    Rollback-journal mode (``journal_mode=DELETE``) + ``busy_timeout`` — NOT
-    WAL — so the agent-uid mode=ro readers never need the cross-uid ``-wal``/
-    ``-shm`` shared-memory files. Appends are a single sub-millisecond INSERT,
-    so a concurrent reader at most waits out the lock via its own busy_timeout.
+    Each append/count opens a FRESH connection in the calling thread and closes
+    it. This is deliberate: a single long-lived connection opened at broker
+    startup and written from a ``ThreadingUnixStreamServer`` worker thread ~50s
+    later was observed to fail ``SQLITE_READONLY`` on customer-zero staging even
+    though the file/dir were owner-writable and a fresh connection wrote fine.
+    Opening at write-time, in the writing thread, matches the proven path and
+    sidesteps any stale-pager state. Rollback-journal mode (``journal_mode=
+    DELETE``, NOT WAL) keeps the agent-uid mode=ro read seam off the cross-uid
+    ``-wal``/``-shm`` surface; ``busy_timeout`` serializes concurrent writers.
+    Audit write rate is ~1/turn, so per-op connections cost nothing material.
     """
 
     def __init__(self, db_path: str) -> None:
-        self._lock = threading.Lock()
-        self._conn = sqlite3.connect(db_path, check_same_thread=False)
-        self._conn.execute("PRAGMA journal_mode=DELETE")
-        self._conn.execute("PRAGMA busy_timeout=5000")
+        self._db_path = db_path
+        # Startup diagnostic — the broker's OWN view of ledger writability, so a
+        # future failure is debuggable from `fly logs` without root-SSH.
+        ledger_dir = os.path.dirname(db_path) or "."
+        logger.info(
+            "audit ledger init: path=%s dir_w_ok=%s file_w_ok=%s umask=%03o",
+            db_path,
+            os.access(ledger_dir, os.W_OK),
+            os.access(db_path, os.W_OK) if os.path.exists(db_path) else "absent",
+            _current_umask(),
+        )
         self.ensure_schema()
 
+    def _connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self._db_path, timeout=5.0)
+        conn.execute("PRAGMA journal_mode=DELETE")
+        conn.execute("PRAGMA busy_timeout=5000")
+        return conn
+
     def ensure_schema(self) -> None:
-        with self._lock:
-            self._conn.execute(CREATE_TABLE_SQL)
+        conn = self._connect()
+        try:
+            conn.execute(CREATE_TABLE_SQL)
             for index_sql in CREATE_INDEX_SQL:
-                self._conn.execute(index_sql)
-            self._conn.commit()
+                conn.execute(index_sql)
+            conn.commit()
+        finally:
+            conn.close()
 
     def append(self, row: dict) -> str:
         """Insert one audit row. Returns the broker-stamped ULID.
@@ -131,12 +163,17 @@ class LedgerWriter:
             "INSERT INTO audit_log (" + ", ".join(_ALL_COLUMNS) + ") "
             "VALUES (" + ", ".join("?" for _ in _ALL_COLUMNS) + ")"
         )
-        with self._lock:
-            self._conn.execute(sql, values)
-            self._conn.commit()
+        conn = self._connect()
+        try:
+            conn.execute(sql, values)
+            conn.commit()
+        finally:
+            conn.close()
         return row_id
 
     def count(self) -> int:
-        with self._lock:
-            cur = self._conn.execute("SELECT COUNT(*) FROM audit_log")
-            return int(cur.fetchone()[0])
+        conn = self._connect()
+        try:
+            return int(conn.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0])
+        finally:
+            conn.close()
