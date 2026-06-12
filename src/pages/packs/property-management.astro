@@ -5,13 +5,14 @@ import Base from '../../layouts/Base.astro'
 import Nav from '../../components/Nav.astro'
 import Footer from '../../components/Footer.astro'
 import CtaButton from '../../components/CtaButton.astro'
+import { coldLanderLink, shapeZoneTitles, ctaPricingLine } from '../../lib/operator-packs/shared'
 
 const productSchema = {
   '@context': 'https://schema.org',
   '@type': 'Product',
   name: 'Operator for Property Managers',
   description:
-    'A dedicated Operator that runs resident and owner coordination: it intakes the work order, coordinates the maintenance, runs the lease-renewal cadence, fields routine resident and owner questions, and keeps your management system current. The legal and money calls stay with your people; a real emergency routes to a person.',
+    'The Operator is a worker you hire, not software you buy. The property-management pack is its head start: a starting point shaped around resident and owner coordination, which we configure with you and you customize to your company. The legal and money calls stay with your people; a real emergency routes to a person.',
   brand: { '@type': 'Brand', name: 'SMD Services' },
   offers: {
     '@type': 'Offer',
@@ -19,6 +20,46 @@ const productSchema = {
     seller: { '@type': 'Organization', name: 'SMD Services' },
   },
 }
+
+// Section 03: the starting templates in the pack, grouped in plain language. Sourced
+// from operator/verticals/property-management/vertical.yaml (the leasing, maintenance,
+// residency, and owner skill families). These are templates we configure, not a
+// finished, running product.
+const packTemplates = [
+  {
+    title: 'Leasing',
+    body: 'A leasing inquiry captured under the same criteria for everyone, the tour scheduled, the application status routed to screening for the decision.',
+  },
+  {
+    title: 'Maintenance',
+    body: 'A work order intake, a routine fix dispatched to a vendor, and a habitability emergency routed straight to a person, never handled later.',
+  },
+  {
+    title: 'Residency and owners',
+    body: 'The rent reminder under your authored delinquency process, the lease-renewal outreach with authored terms, the move logistics, the owner report delivery, the resident status reply.',
+  },
+  {
+    title: 'Proactive',
+    body: 'A vendor coordinated for the work, inbound routed to the right desk, the internal digest assembled.',
+  },
+]
+
+// Section 05: the three customization zones. Titles are shared (shapeZoneTitles); the
+// body under each is property-management-specific.
+const zones = [
+  {
+    title: shapeZoneTitles.prebuilt,
+    body: 'The starting templates above, shaped around a leasing and tenant-coordination desk and ready to configure. You are not building from a blank page.',
+  },
+  {
+    title: shapeZoneTitles.connected,
+    body: 'Wired into your own accounts: your property-management system, your email and calendar, your documents. It works inside the tools you already run.',
+  },
+  {
+    title: shapeZoneTitles.yours,
+    body: 'Your voice, your properties and owners, the way you run a renewal, and where the line sits. You decide what runs on its own and what waits for a person. You are the expert in your company; you shape it from there.',
+  },
+]
 
 const roleLenses = [
   {
@@ -38,13 +79,13 @@ const roleLenses = [
 
 <Base
   title="Operator for Property Managers | SMD Services"
-  description="A dedicated Operator that runs resident and owner coordination: intaking the work order, coordinating maintenance, running the lease-renewal cadence, fielding routine resident and owner questions, and keeping your management system current. The legal and money calls stay with your people."
+  description="The property-management pack is the Operator's head start: a starting point shaped around resident and owner coordination, which we configure with you and you customize to your company. The legal and money calls stay with your people. You set the line."
 >
   <Nav />
   <main id="main" role="main">
     <script is:inline type="application/ld+json" set:html={JSON.stringify(productSchema)} />
 
-    <!-- § 01 Hero -->
+    <!-- Section 01: Hero -->
     <section
       class="relative overflow-hidden bg-[color:var(--ss-color-background)] px-6 pt-24 pb-32"
     >
@@ -59,21 +100,26 @@ const roleLenses = [
           The Coordination Desk, Fully Staffed.
         </h1>
         <p
-          class="mx-auto mb-12 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+          class="mx-auto mb-8 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
         >
-          A dedicated worker for your company, in its own office and plugged into the tools you
-          already run. It runs resident and owner coordination the way a sharp property manager
-          would: it intakes the work order, coordinates the maintenance, runs the lease-renewal
-          cadence, fields the routine resident and owner questions, and keeps your management system
-          current. You take on more doors without staffing up for every one.
+          The Operator is a worker you hire, not software you buy. This is its property-management
+          head start: a starting point already shaped around resident and owner coordination, so you
+          are not building from a blank page. You make it yours from there.
         </p>
         <CtaButton href="/book?interest=property-management" data-ev="property-management-hero-cta"
           >Start the conversation</CtaButton
         >
+        <p class="mt-8">
+          <a
+            href={coldLanderLink.href}
+            class="font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] underline underline-offset-4 hover:text-[color:var(--ss-color-primary)]"
+            >{coldLanderLink.text} &rarr;</a
+          >
+        </p>
       </div>
     </section>
 
-    <!-- § 02 The seat the market won't fill -->
+    <!-- Section 02: The seat the market won't fill -->
     <section class="bg-white px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -102,7 +148,7 @@ const roleLenses = [
       </div>
     </section>
 
-    <!-- § 03 A worker, in another office -->
+    <!-- Section 03: What the pack starts you with -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -110,32 +156,49 @@ const roleLenses = [
           >§ 03</span
         >
         <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          A Worker, In Another Office.
+          What The Pack Starts You With.
         </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            Picture a property coordinator from the future, sitting at a desk in your company today.
-            A computer, a phone, and access to the property-management system, the email, and the
-            maintenance queue you already run. You hand it work the way you hand work to anyone on
-            your team. You send the request, it does the job, and it comes back with the result.
-          </p>
-          <p>
-            It works from its own office, the way much of your team already does. The regional
-            coordinator you have never met in person. The vendor you email and dispatch work to.
-            This is one more of those.
-          </p>
-          <p>
-            What it takes on is the work you would want that seat doing, inside the limits you set.
-            The maintenance request that sits unrouted overnight. The lease renewal coming up in
-            forty-five days. We get to the limits below.
-          </p>
+        <p
+          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          You do not start from a blank page. The property-management pack comes shaped around the
+          work a leasing and tenant coordinator runs, as starting templates we configure with you:
+        </p>
+
+        <div
+          class="grid grid-cols-1 md:grid-cols-2 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
+        >
+          {
+            packTemplates.map((t, i) => (
+              <div
+                class:list={[
+                  'flex flex-col gap-3 p-8 min-h-[12rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
+                  i % 2 !== 1 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
+                ]}
+              >
+                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
+                  {t.title}
+                </p>
+                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                  {t.body}
+                </p>
+              </div>
+            ))
+          }
         </div>
+
+        <p
+          class="mt-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          These plug into your property-management system and your email and calendar. The templates
+          are the head start. How they run is yours to shape.
+        </p>
       </div>
     </section>
 
-    <!-- § 04 What it does -->
+    <!-- Section 04: From the start -->
     <section class="bg-white px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -145,30 +208,27 @@ const roleLenses = [
         <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          What It Does.
+          From The Start.
         </h2>
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
-            We build the Operator for your company and connect it to the tools you already run: your
-            property-management system, your email and calendar.
+            Before it starts, we sit down with you and the people who run the coordination, and we
+            shape the templates around how your company actually operates, so it begins ready, not
+            green.
           </p>
           <p>
-            Before it starts, we sit down with you and the people who run the work, and we build it
-            around how you operate, so it shows up ready, not green. From there it keeps getting
-            sharper, learning from your team's corrections.
-          </p>
-          <p>
-            It intakes the work order and coordinates the routine maintenance, runs the
-            lease-renewal cadence, answers the routine resident and owner question in your voice,
-            and keeps the management system current. The after-hours back-and-forth it handles, and
-            anything that sounds like an emergency it routes to a person right away. Every piece of
-            it is logged in your property-management system as it happens.
+            From there the work moves the way it always did. It intakes the work order and
+            coordinates the routine maintenance, runs the lease-renewal cadence, answers the routine
+            resident and owner question in your voice, and keeps the management system current. The
+            after-hours back-and-forth it handles, and anything that sounds like an emergency it
+            routes to a person right away. It is all logged in your property-management system as it
+            happens, and it keeps getting sharper from your team's corrections.
           </p>
         </div>
       </div>
     </section>
 
-    <!-- § 05 You set the line -->
+    <!-- Section 05: Yours to shape -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -176,9 +236,52 @@ const roleLenses = [
           >§ 05</span
         >
         <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Yours To Shape.
+        </h2>
+        <p
+          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          We are not the experts in how your company runs. You are. So the pack is a starting point
+          in three parts, and the third is the biggest.
+        </p>
+
+        <div
+          class="grid grid-cols-1 md:grid-cols-3 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
+        >
+          {
+            zones.map((z, i) => (
+              <div
+                class:list={[
+                  'flex flex-col gap-3 p-8 min-h-[14rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
+                  i % 3 !== 2 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
+                ]}
+              >
+                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
+                  {z.title}
+                </p>
+                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                  {z.body}
+                </p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 06: The line -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 06</span
+        >
+        <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          You Set The Line.
+          The Line.
         </h2>
         <div
           class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)] mb-12"
@@ -191,12 +294,21 @@ const roleLenses = [
             accountable for them.
           </p>
           <p>
-            One line is not a setting anyone can move: a call that sounds like a real emergency, no
-            heat in winter, a gas smell, a flood, a burst pipe, goes straight to a person, right
-            then, never queued behind the routine. The routine work orders, the renewal cadence, and
-            the owner questions do not wait on one. Everywhere else you govern what the Operator
-            runs on its own, every outbound message goes through a reviewer who sends it under their
-            own name, and every action it takes is logged where you can see it.
+            Some lines are not settings anyone can move. Every prospect and resident message applies
+            the same criteria for everyone, with no protected-class inference and no steering. The
+            Operator coordinates and routes the application to screening; it never makes or
+            communicates the screening decision. A call that sounds like a habitability emergency,
+            no heat in winter, a gas smell, a flood, goes straight to a person, right then, never
+            queued behind the routine. It follows your authored delinquency process, gives no
+            eviction advice, and never processes rent or deposits. Every action it takes is logged
+            where you can see it.
+          </p>
+          <p>
+            Beyond those floors, you govern where the line sits, and you can move it as you learn
+            what the Operator is good at. Your records stay private, including from us. The Operator
+            works in your company's own walled-off environment, on your own accounts. We can see
+            that it is running and the record of what it did, but the contents of your properties
+            and messages stay yours, and so do the configuration, the logs, and the off switch.
           </p>
         </div>
         <div class="text-center">
@@ -209,65 +321,12 @@ const roleLenses = [
       </div>
     </section>
 
-    <!-- § 06 One coordinator, your whole company -->
-    <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 06</span
-        >
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          One Coordinator. Your Whole Company.
-        </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            One Operator for the whole company, not a separate tool for each manager or each
-            property. Everyone works with the same one, and it gets sharper from everyone's
-            corrections.
-          </p>
-          <p>
-            What it learns, your properties, your owners, your routines, your voice, is a record you
-            can read and correct. It belongs to the company, not to a person's login. When someone
-            moves on, what the Operator knows about how you run does not leave with them.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- § 07 A team, not a tool -->
+    <!-- Section 07: Where it fits -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
           class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
           >§ 07</span
-        >
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          A Team, Not A Tool.
-        </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            We are the team behind the worker. We build it for your company, and we stay accountable
-            for how it runs.
-          </p>
-          <p>
-            The technology moves, and we move with it, because no one has a decade of experience
-            with it yet. We are the team that keeps your business working, and nobody should take on
-            something this new alone.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- § 08 Where it fits -->
-    <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 08</span
         >
         <h2
           class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
@@ -305,12 +364,12 @@ const roleLenses = [
       </div>
     </section>
 
-    <!-- § 09 Start the conversation -->
+    <!-- Section 08: Start the conversation -->
     <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
       <div class="mx-auto max-w-5xl text-center">
         <span
           class="inline-block bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
-          >§ 09</span
+          >§ 08</span
         >
         <h2
           class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
@@ -319,12 +378,11 @@ const roleLenses = [
         </h2>
         <p class="mx-auto mb-6 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
           It starts with a conversation. We learn how your company runs, find the coordination work
-          that is eating your team's time, and figure out where a dedicated Operator fits. If it is
-          not a fit, we will tell you.
+          that is eating your team's time, and start from the pack, customizing it to your company.
+          If it is not a fit, we will tell you.
         </p>
         <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
-          Pricing is a flat monthly subscription, scoped to the seat we build together, and we walk
-          through it before any setup begins.
+          {ctaPricingLine}
         </p>
         <CtaButton
           variant="outline-white"
