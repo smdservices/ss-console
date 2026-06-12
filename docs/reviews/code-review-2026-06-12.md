@@ -163,3 +163,20 @@ Captain directive: fix rather than file. Ten PRs merged across both repos the sa
 **Awaiting Captain:** connectors-tree disposal (§4.1), overlay deploy to customer-zero (runs pre-#61/#62 enforcement until the next OVERLAY_REF bump + reprovision), Security Summary as required status check (§8.1 — one command, in #1351's body), pack-page consolidation (§2.2), calendar-read fence candidates (recorded in overlay `UNFENCED_READ_BY_DESIGN`).
 
 **Reviewed and declined, with reasons recorded:** parseLineItems consolidation (§4.16 — different parse contracts), `_resolve_vertical` consolidation (different fail-closed contracts), 67 redundant role checks (§4.15 — removal of defense-in-depth needs Captain directive), drafts/audit stub collapse (§2.4 — churn against in-flight #821).
+
+## Completion log (same day, second wave)
+
+Captain directive: complete the program across the three remaining categories. Everything below merged and deployed 2026-06-12 PM.
+
+**Deploy to customer-zero.** Overlay v0.4.17 (the security wave, ss #1358) crash-looped the webhook gate on deploy: the gate's boot self-check signed its Svix probe with a fixed epoch that the new #61 replay window correctly rejects — no ingress, no runtime-read seam while looping. Hotfixed as overlay #66 (`svix_self_check()` signs a current timestamp; extracted + regression-tested), shipped as v0.4.18 (ss #1360). A same-day esbuild advisory pair (GHSA-gv7w-rqvm-qjhr / GHSA-g7r4-m6w7-qqqr) failed the `npm audit` gate repo-wide mid-cycle; fixed by an `overrides: esbuild@0.28.1` pin (ss #1361). v0.4.18 verified live: verify-gate triple green (200/401/401), `audit.writer_wired: true` via broker in the config seam, audit rows landing. Final state: **v0.4.21** deployed (adds the #67 export kinds, #68 sentinel liveness, #69 calendar fences).
+
+**Tracked issues, all closed.**
+| Issue | Fix |
+| --- | --- |
+| ss #1354 | PR #1359 — invoiceitems send the line TOTAL (`amount × quantity`); `quantity`/`unit_amount` deliberately not sent (removed from the API in 2025-03-31.basil; client pins no Stripe-Version). KNOWN-LATENT-BUG test flipped. |
+| overlay #64 | PR #65 — boot sentinel (`$HERMES_HOME/.smd/audit_status.json`) surfaces `audit.writer_wired` in the config seam; staleness by writer-pid liveness (#68 corrected the first-cut pid-equality key after a live false positive); rate-limited NO-AUDIT-MODE warnings at every skip site. |
+| ss #1355 | Overlay #67 (seam `audit_export` full-row + `memory_export` ADR-0016 tables) + ss #1362: `bin/lib/seam_pull.py` pulls the Machine-local ledger + memory into the compliance CSV and a sqlite snapshot (which is the evidence generator's `--read-db` input); the stub preserver now fail-closes `--live`; the ADR-0008 plane is ripped (memory package, voice ingestion plane, `cron-retention.py`, `bin/lib/export.py` — net −9,007 lines); CF-D1 disposition: the per-customer control-plane database was **never provisioned** (no `AIE_D1_DATABASE_ID` exists anywhere), so there is nothing to delete at decommission. |
+
+**Captain decisions, ruled and executed.** Connectors: deleted (ss #1365; `CAPABILITY_NAMES` moved to `connectors/capability_contract.py` for the live google suite). Calendar reads: fenced (overlay #69, deployed in v0.4.21). Pack pages: consolidate with copy inline (refactor PR opened for review). Role checks: kept as defense-in-depth; the dead `/login` redirect fixed (ss #1365). Security Summary required check: command handed to Captain (classifier blocks agent branch-protection changes).
+
+**Grade movement.** The B− stands as the review-day mark. With the same-day waves: Pattern A purged, the money path behaviorally tested, the audit ledger preservation real, the ADR-0008 fiction gone (−16k dead lines across waves), and the fleet pinned at v0.4.21 with three new permanent gates (fence completeness, overlay-pairs drift, audit-vocab parity) plus a live audit-health fact. Re-grade at the next monthly run.
