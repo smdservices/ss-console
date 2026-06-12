@@ -1,11 +1,31 @@
-"""Per-customer decommission sequence (issue #820).
+"""Per-customer decommission sequence (issue #820; data plane fixed by #1355).
 
-Full off-boarding pipeline for a single customer. Composes the existing
-``decommission_source`` hooks in :mod:`adapter.memory.state` and
-:mod:`adapter.voice.pipeline` with the substrate-deletion steps owned by
-ops (R2 bucket, Vectorize indexes, AgentMail identity, Fly Machine),
-then archives the compliance packet and tombstones the customer config
-directory.
+Full off-boarding pipeline for a single customer. Preserves the LIVE
+Machine-local data (audit ledger + ADR-0016 memory) through the ADR-0043
+runtime-read seam, then runs the substrate-deletion steps owned by ops
+(R2 bucket, Vectorize indexes, AgentMail identity, Fly Machine), archives
+the compliance packet, and tombstones the customer config directory.
+
+Data-plane doctrine (#1355)
+---------------------------
+
+The live runtime writes Machine-local sqlite: the broker-owned audit ledger
+(OP-P1-4), the ADR-0016 ``persona_observations`` mirror, and
+``agent_skills_inventory``. ``fly apps destroy`` (step 06) IS the designed
+destruction mechanism for all of it. Two consequences:
+
+* **Preservation is pull-before-destroy.** Step 02 pulls the audit ledger
+  and the memory tables off the Machine through the runtime-read seam
+  (``bin.lib.seam_pull.SeamAuditLogPreserver``) BEFORE any destructive
+  step. A preservation failure halts the pipeline with the Machine intact.
+* **There is no control-plane sweep.** The earlier ADR-0008 memory + voice
+  ``decommission_source`` hooks walked ``memory_ingested_items`` /
+  ``voice_ingestion_items`` on a per-customer control-plane Cloudflare D1
+  that was never provisioned (no ``AIE_D1_DATABASE_ID`` exists anywhere in
+  provisioning) and that the live runtime never wrote. The sweep was a
+  silent no-op against an empty store and was removed with the rest of the
+  ADR-0008 plane. R2 (step 03) and Vectorize (step 04) remain real
+  control-plane substrates and keep their deletion steps.
 
 Design notes
 ------------
@@ -17,16 +37,10 @@ Design notes
   ``failed`` row before raising :class:`DecommissionStepFailed`.
 
 * **External services behind Protocols.** AgentMail and Fly
-  Machine are not wired in this PR. Each is stubbed behind a
+  Machine are not wired yet. Each is stubbed behind a
   ``Protocol`` plus a :class:`NoOpStub` implementation that logs
   "skipped (no client wired)" and returns a manifest with
   ``skipped=True``. Production wiring is a constructor swap.
-
-* **D1 cleanup delegates to the canonical hooks.** Memory and voice are
-  not re-implemented here. The pipeline imports
-  :func:`adapter.memory.state.decommission_source` and
-  :func:`adapter.voice.pipeline.decommission_source` and calls them with
-  the per-customer stores + storage clients constructed by the caller.
 
 * **Dry-run mode is non-destructive.** Each step exposes a ``plan(...)``
   method that returns the manifest of what *would* happen without
@@ -45,22 +59,26 @@ Design notes
   ``smd`` customer-zero fixture is a synthetic directory inside
   ``operator/bin/fixtures/smd/``, not a real customer.
 
-Per the issue, the 9 steps are:
+The steps:
 
   1. Drain in-flight LLM calls (#805 handled separately at the script
      level via the Fly Machine pause; the pipeline records that the
      drain completed before mutating substrate).
-  2. D1: delete customer's memory + voice artifacts via the canonical
-     ``decommission_source`` hooks.
+  2. Preserve Machine-local data: pull the full audit ledger + ADR-0016
+     memory tables through the runtime-read seam to the archive dir
+     (CSV + sqlite snapshot; the snapshot doubles as the evidence
+     generator's ``--read-db`` input).
   3. R2: delete the customer's object namespace (everything under the
      ``{slug}/`` prefix EXCEPT the decommission-archive subtree).
   4. Vectorize: delete the per-customer vault + corrections indexes.
   5. AgentMail: deprovision inbox / forwarding rules (stubbed).
-  6. Fly Machine: stop and destroy ``hermes-{slug}`` (stubbed).
+  6. Fly Machine: stop and destroy ``hermes-{slug}`` (stubbed). This is
+     also the data-destruction step for ALL Machine-local state.
   7. Compliance evidence packet: generate the final packet and archive
      it to per-customer cold storage.
   8. ``operator/customers/{slug}/`` tombstone: rename to
      ``{slug}.decommissioned.{iso-date}`` and write a marker file.
+  9. Observability cleanup (healthchecks.io + fleet_status row).
 """
 
 from __future__ import annotations
@@ -241,22 +259,6 @@ class AuditLogPreserver(Protocol):
         archive_dir: Path,
         audit_log_days: int,
     ) -> dict: ...
-
-
-class MemoryDecommissionRunner(Protocol):
-    """Wraps adapter.memory.state.decommission_source for one source.
-
-    Production constructs this with a real SourceStateStore +
-    StorageRemovalClient. Tests use in-memory fakes.
-    """
-
-    async def run(self, source_kind: str, source_id: str) -> dict: ...
-
-
-class VoiceDecommissionRunner(Protocol):
-    """Wraps adapter.voice.pipeline.decommission_source for one source."""
-
-    async def run(self, source_kind: str, source_id: str) -> dict: ...
 
 
 class R2NamespaceDeleter(Protocol):
@@ -657,8 +659,6 @@ class DecommissionPipeline:
     actor: str = "captain"
 
     drain: object = field(default_factory=DefaultDrainCoordinator)
-    memory_runner: Optional[MemoryDecommissionRunner] = None
-    voice_runner: Optional[VoiceDecommissionRunner] = None
     r2_deleter: Optional[R2NamespaceDeleter] = None
     vectorize_deleter: Optional[VectorizeIndexDeleter] = None
     agentmail: AgentMailProvisioner = field(default_factory=NoOpAgentMailStub)
@@ -674,19 +674,6 @@ class DecommissionPipeline:
     # this directly; the CLI loads it from disk before constructing the
     # pipeline (see decommission_cli.py).
     customer_yaml: Optional[dict] = None
-
-    # Memory + voice sources to decommission. Defaults match the
-    # canonical PracticeManagement + Email source kinds the pipelines
-    # already write to D1.
-    memory_sources: tuple[tuple[str, str], ...] = (
-        ("practice_management", "filevine"),
-        ("practice_management", "clio"),
-        ("practice_management", "none"),
-    )
-    voice_sources: tuple[tuple[str, str], ...] = (
-        ("email", "gmail"),
-        ("email", "ms-graph"),
-    )
 
     def __post_init__(self) -> None:
         if not self.customer_slug:
@@ -712,10 +699,11 @@ class DecommissionPipeline:
         side effects.
         """
         unwired: list[str] = []
-        if self.memory_runner is None:
-            unwired.append("memory_runner")
-        if self.voice_runner is None:
-            unwired.append("voice_runner")
+        # Preservation is a PREREQUISITE to destruction (#1355): a --live run
+        # whose preserver is the stub would archive a header-only CSV and then
+        # destroy the only real copy of the audit ledger with the Machine.
+        if isinstance(self.audit_log_preserver, InMemoryAuditLogPreserver):
+            unwired.append("audit_log_preserver")
         if self.r2_deleter is None:
             unwired.append("r2_deleter")
         if self.vectorize_deleter is None:
@@ -744,11 +732,16 @@ class DecommissionPipeline:
                 detail={"action": "verify drain marker", "customer": self.customer_slug},
             ),
             StepResult(
-                name="02_d1_memory_voice",
+                name="02_preserve_machine_data",
                 status=StepStatus.PLANNED,
                 detail={
-                    "memory_sources": list(self.memory_sources),
-                    "voice_sources": list(self.voice_sources),
+                    "action": (
+                        "pull audit ledger + ADR-0016 memory tables via the "
+                        "runtime-read seam to the archive dir (pull-before-destroy)"
+                    ),
+                    "preserver_wired": not isinstance(
+                        self.audit_log_preserver, InMemoryAuditLogPreserver
+                    ),
                     "audit_log_days": resolve_audit_log_days(self.customer_yaml),
                     "audit_log_preserve_until": (
                         datetime.now(timezone.utc)
@@ -824,10 +817,10 @@ class DecommissionPipeline:
             metadata=_audit_metadata("01_drain", self.customer_slug, detail=drain_detail),
         )
 
-        # Step 2 — D1 memory + voice cleanup
+        # Step 2 — preserve Machine-local data (pull-before-destroy, #1355)
         results.append(await self._run_step(
-            "02_d1_memory_voice",
-            self._step_d1_memory_voice,
+            "02_preserve_machine_data",
+            self._step_preserve_machine_data,
         ))
 
         # Step 3 — R2 namespace delete
@@ -916,76 +909,44 @@ class DecommissionPipeline:
         )
         return StepResult(name=name, status=status, detail=detail)
 
-    async def _step_d1_memory_voice(self) -> dict:
-        # AUDIT-LOG CARVE-OUT (audit-retention.md #893).
-        # The audit_log table is exported to cold storage BEFORE the
-        # canonical memory + voice hooks run. The export must succeed
-        # before any per-customer substrate is touched — that way a
-        # mid-step failure leaves the trail intact and the rerun
-        # re-attempts the preservation against still-present data.
+    async def _step_preserve_machine_data(self) -> dict:
+        # PULL-BEFORE-DESTROY (#1355; audit-retention.md #893 carve-out).
+        # The live audit ledger + ADR-0016 memory are Machine-local; step 06's
+        # app destroy is their designed destruction mechanism. The preserver
+        # (bin.lib.seam_pull.SeamAuditLogPreserver in production) pulls them
+        # through the runtime-read seam to the archive dir FIRST. It must
+        # succeed before any destructive step — a mid-step failure halts the
+        # pipeline with the Machine (and therefore the data) intact, and the
+        # rerun re-attempts preservation against still-present data.
+        #
+        # There is no control-plane memory/voice sweep here anymore: the
+        # ADR-0008 hooks walked tables on a per-customer Cloudflare D1 that
+        # was never provisioned and never written (see module docstring).
         audit_log_days = resolve_audit_log_days(self.customer_yaml)
         archive_dir = self.archive_root / self.customer_slug
         audit_log_manifest = await self.audit_log_preserver.preserve(
             self.customer_slug, archive_dir, audit_log_days
         )
         # Emit a discrete audit row so the decommission report names the
-        # carve-out independently of the canonical memory + voice rows.
+        # carve-out and its manifest explicitly.
         await self._write_audit_row(
             action_type="DECOMMISSION_STEP_COMPLETE",
             metadata=_audit_metadata(
-                "02_d1_memory_voice/audit_log_preserved",
+                "02_preserve_machine_data/audit_log_preserved",
                 self.customer_slug,
                 detail={
                     "audit_log_days": audit_log_days,
                     "preserve_until": audit_log_manifest.get("preserve_until"),
                     "archive_path": audit_log_manifest.get("archive_path"),
                     "rows_preserved": audit_log_manifest.get("rows_preserved", 0),
+                    "memory_rows_preserved": audit_log_manifest.get("memory_rows_preserved"),
                     "skipped": bool(audit_log_manifest.get("skipped")),
                 },
             ),
         )
-
-        memory_results: list[dict] = []
-        for source_kind, source_id in self.memory_sources:
-            if self.memory_runner is None:
-                memory_results.append({
-                    "source_kind": source_kind,
-                    "source_id": source_id,
-                    "skipped": True,
-                    "reason": "no memory_runner wired",
-                })
-                continue
-            manifest = await self.memory_runner.run(source_kind, source_id)
-            memory_results.append({"source_kind": source_kind, "source_id": source_id, **manifest})
-
-        voice_results: list[dict] = []
-        for source_kind, source_id in self.voice_sources:
-            if self.voice_runner is None:
-                voice_results.append({
-                    "source_kind": source_kind,
-                    "source_id": source_id,
-                    "skipped": True,
-                    "reason": "no voice_runner wired",
-                })
-                continue
-            manifest = await self.voice_runner.run(source_kind, source_id)
-            voice_results.append({"source_kind": source_kind, "source_id": source_id, **manifest})
-
-        all_skipped = all(r.get("skipped") for r in memory_results + voice_results) or (
-            not memory_results and not voice_results
-        )
         return {
-            # Step is only "skipped" if every component was skipped: memory
-            # runner, voice runner, AND audit-log preservation. Preserving
-            # audit log counts as work; if it ran, the step ran.
-            "skipped": (
-                all_skipped
-                and (self.memory_runner is None and self.voice_runner is None)
-                and bool(audit_log_manifest.get("skipped"))
-            ),
+            "skipped": bool(audit_log_manifest.get("skipped")),
             "audit_log_preserved": audit_log_manifest,
-            "memory_runs": memory_results,
-            "voice_runs": voice_results,
         }
 
     async def _step_r2_namespace(self) -> dict:
@@ -1086,7 +1047,6 @@ __all__ = [
     "FlyMachineManager",
     "InMemoryAuditLogPreserver",
     "InMemoryComplianceArchiver",
-    "MemoryDecommissionRunner",
     "NoOpAgentMailStub",
     "NoOpFlyStub",
     "NoOpObservabilityCleanupStub",
@@ -1096,6 +1056,5 @@ __all__ = [
     "StepStatus",
     "VectorizeIndexDeleter",
     "VERTICAL_AUDIT_LOG_DAYS_DEFAULTS",
-    "VoiceDecommissionRunner",
     "resolve_audit_log_days",
 ]

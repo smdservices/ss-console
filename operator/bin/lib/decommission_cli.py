@@ -51,6 +51,7 @@ from bin.lib.decommission import (  # noqa: E402
     StepStatus,
     _load_customer_yaml,
 )
+from bin.lib.seam_pull import SeamAuditLogPreserver, seam_client_from_env  # noqa: E402
 
 log = logging.getLogger("aie.bin.decommission_cli")
 
@@ -230,6 +231,17 @@ async def _run(args: argparse.Namespace) -> int:
     # error surfaces here, not mid-step.
     customer_yaml = _load_customer_yaml(customers_root, args.slug)
 
+    # Pull-before-destroy (#1355): wire the seam-based preserver when the
+    # runtime-read env is staged (OPERATOR_RUNTIME_READ_SECRET +
+    # OPERATOR_RUNTIME_READ_URL). When absent, the pipeline keeps its
+    # InMemory stub and unwired_destructive_backends() blocks a --live run —
+    # destroying the Machine without a real preservation pull would burn the
+    # only copy of the audit ledger.
+    seam_client = seam_client_from_env(args.slug)
+    pipeline_kwargs: dict = {}
+    if seam_client is not None:
+        pipeline_kwargs["audit_log_preserver"] = SeamAuditLogPreserver(seam_client)
+
     pipeline = DecommissionPipeline(
         customer_slug=args.slug,
         customers_root=customers_root,
@@ -237,6 +249,7 @@ async def _run(args: argparse.Namespace) -> int:
         audit_writer=audit_writer,
         actor=args.actor,
         customer_yaml=customer_yaml,
+        **pipeline_kwargs,
     )
 
     # Fail closed (#1123): a --live run that cannot actually delete must
