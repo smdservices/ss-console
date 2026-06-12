@@ -90,9 +90,11 @@ def audit_env(slug: str, snapshot: dict[str, Any], env_contract: dict[str, Any])
         present = bool(pres.get("present"))
         empty = bool(pres.get("empty"))
 
+        agent_env = spec.get("agent_env")
+
         # strip_violation (CRITICAL): a var the contract says is stripped from the
         # agent env is actually PRESENT there — the OP-P0-2 disease, in reverse.
-        if spec.get("agent_env") == "stripped" and present:
+        if agent_env == "stripped" and present:
             findings.append(
                 Finding(
                     slug,
@@ -105,7 +107,12 @@ def audit_env(slug: str, snapshot: dict[str, Any], env_contract: dict[str, Any])
                 )
             )
 
-        if spec.get("requirement") == "required" and spec.get("stage") in MACHINE_STAGES:
+        # required_missing/empty applies ONLY to held vars — the ones that are
+        # SUPPOSED to remain in the agent env. A stripped var (R2_*, GOOGLE_*) is
+        # required at boot then intentionally removed, so its absence from the
+        # agent env is the DESIRED state, never "missing" (governed instead by the
+        # strip_violation path above). n/a vars never reach the agent env.
+        if spec.get("requirement") == "required" and agent_env == "held":
             if not present:
                 findings.append(
                     Finding(
@@ -113,8 +120,8 @@ def audit_env(slug: str, snapshot: dict[str, Any], env_contract: dict[str, Any])
                         "required_missing",
                         "warn",
                         name,
-                        f"{name} is required at stage {spec.get('stage')} but absent from the "
-                        "agent environment",
+                        f"{name} is required (agent_env:held, stage {spec.get('stage')}) but "
+                        "absent from the agent environment",
                         "live_flag",
                     )
                 )

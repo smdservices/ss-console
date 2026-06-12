@@ -24,11 +24,13 @@ sys.path.insert(0, str(_BIN / "lib"))
 
 import drift_audit as da  # noqa: E402
 
-# A representative env contract slice.
+# A representative env contract slice — faithful to the real env-consumption.yaml:
+# R2_* are required AT BOOT then stripped from the agent env (OP-P0-2), so their
+# absence from the agent env is the DESIRED state, not "missing".
 ENV_CONTRACT = {
     "vars": {
-        "R2_ACCESS_KEY_ID": {"stage": "agent", "requirement": "optional", "agent_env": "stripped"},
-        "R2_SECRET_ACCESS_KEY": {"stage": "agent", "requirement": "optional", "agent_env": "stripped"},
+        "R2_ACCESS_KEY_ID": {"stage": "boot", "requirement": "required", "agent_env": "stripped"},
+        "R2_SECRET_ACCESS_KEY": {"stage": "boot", "requirement": "required", "agent_env": "stripped"},
         "SMD_D1_AUDIT_BINDING": {"stage": "agent", "requirement": "required", "agent_env": "held"},
         "ANTHROPIC_API_KEY": {"stage": "agent", "requirement": "required", "agent_env": "held"},
     }
@@ -105,6 +107,23 @@ def test_strip_violation_is_critical() -> None:
     assert strip[0].severity == "critical"
     assert strip[0].key == "R2_ACCESS_KEY_ID"
     assert strip[0].corrective == "live_flag"
+
+
+def test_stripped_var_absent_is_not_required_missing() -> None:
+    # Regression (caught on real staging data): R2_* are required-at-boot then
+    # stripped from the agent env. Their absence from env_presence is the DESIRED
+    # state — it must NOT be reported required_missing (only strip_violation when
+    # PRESENT). A stripped var present, plus a clean held var, yields exactly one
+    # critical strip_violation and zero required_missing.
+    snap = _snapshot(
+        env_presence={
+            "R2_ACCESS_KEY_ID": {"present": False, "empty": False},  # correctly stripped
+            "R2_SECRET_ACCESS_KEY": {"present": False, "empty": False},
+            "SMD_D1_AUDIT_BINDING": {"present": True, "empty": False},
+        }
+    )
+    findings = da.audit_env("smd", snap, ENV_CONTRACT)
+    assert findings == [], f"stripped-absent vars should be clean, got {findings}"
 
 
 def test_required_missing_only_within_allowlist() -> None:
