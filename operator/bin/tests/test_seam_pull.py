@@ -53,6 +53,16 @@ def test_derive_key_matches_openssl_vector():
     )
 
 
+def test_seam_client_rejects_non_https_scheme():
+    # urllib follows file:// and ftp://; a poisoned URL must die at
+    # construction, never reach urlopen.
+    from bin.lib.seam_pull import SeamClient
+
+    for bad in ("file:///etc/passwd", "ftp://x", "http://hermes-smd.fly.dev"):
+        with pytest.raises(ValueError, match="https"):
+            SeamClient(base_url=bad, slug="smd", key="k" * 64)
+
+
 def test_seam_client_from_env_requires_both_vars(monkeypatch):
     monkeypatch.delenv("OPERATOR_RUNTIME_READ_SECRET", raising=False)
     monkeypatch.delenv("OPERATOR_RUNTIME_READ_URL", raising=False)

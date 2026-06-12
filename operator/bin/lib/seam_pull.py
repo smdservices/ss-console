@@ -87,6 +87,11 @@ class SeamClient:
     """Minimal authenticated reader for one Machine's runtime-read seam."""
 
     def __init__(self, *, base_url: str, slug: str, key: str, timeout_seconds: float = 30.0):
+        # Scheme is enforced HERE, fail-closed: urllib follows file:// and
+        # ftp:// schemes, so a poisoned OPERATOR_RUNTIME_READ_URL must die at
+        # construction, never reach urlopen.
+        if not base_url.startswith("https://"):
+            raise ValueError("seam base_url must be https:// (got a non-https scheme)")
         self._base = base_url.rstrip("/")
         self._slug = slug
         self._key = key
@@ -107,7 +112,8 @@ class SeamClient:
             },
             method="GET",
         )
-        with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # noqa: S310 — https URL from operator env
+        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected — scheme is constructor-enforced https:// (file:// and ftp:// raise at SeamClient init); the host comes from operator env staged by Infisical, and every path segment is a module constant.
+        with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # noqa: S310 — https enforced at construction
             payload = json.loads(resp.read().decode("utf-8"))
         if not isinstance(payload, dict) or not isinstance(payload.get("entries"), list):
             raise ValueError(f"seam read {kind}: malformed page shape")
