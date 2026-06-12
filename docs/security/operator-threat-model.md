@@ -125,7 +125,9 @@ ADR 0020 makes connectors MCP-first; the agent treats MCP tool output as trusted
 
 - **Type:** structural + supply-chain.
 
-#### `OP-P1-4` · The audit log is writable by the thing it governs — and may not be emitting `[panel + live-check]`
+#### `OP-P1-4` · The audit log is writable by the thing it governs — and may not be emitting `[CLOSED 2026-06-11 — see §9]`
+
+> **CLOSED.** The ledger is now broker-owned and append-only; the agent uid reads but physically cannot write it, and live emission is re-confirmed on the running Machine. Shipped: overlay #55 (`v0.4.16`) + ss-console #1336. Original finding retained below.
 
 The audit log is local SQLite on the agent-writable volume; immutability is enforced only at the Worker layer (`D1Executor`), which is **not** in the Machine write path, so a compromised uid-10000 agent can `UPDATE`/`DELETE` its own ledger. Separately, issue #1285 (audit emission silently not writing rows) is fixed in code (D1Client path-aware + boot self-check) but **live emission has not been re-confirmed on the running Machine.** A governance model whose evidence is writable by the governed process — and unconfirmed to be writing at all — cannot be relied on before an irreversible action.
 
@@ -172,7 +174,7 @@ The audit log is local SQLite on the agent-writable volume; immutability is enfo
 
 ### Chain B — the venture-killer `[the worst business outcome — §7]`
 
-The autonomous hourly triage agent, acting on a poisoned (unfenced) inbound email, **sends from Crane's own voice (`OP-P1-1`) or destructively archives (`OP-P0-5`) real correspondence with one of SMD's first paying clients** — and the audit log either isn't emitting or was rewritten by the same compromised process (`OP-P1-4`). No `execute_code`, no secret, no exotic escape required — just the agent being wrong through its sanctioned tools. For a consulting firm selling operational discipline to its first five clients, this single event is closer to fatal than any data-exfil headline.
+The autonomous hourly triage agent, acting on a poisoned (unfenced) inbound email, **sends from Crane's own voice (`OP-P1-1`) or destructively archives (`OP-P0-5`) real correspondence with one of SMD's first paying clients**. (The audit log can no longer be rewritten by the compromised process to hide it — `OP-P1-4` is now closed, §9 — but a forensic record after the fact is not prevention.) No `execute_code`, no secret, no exotic escape required — just the agent being wrong through its sanctioned tools. For a consulting firm selling operational discipline to its first five clients, this single event is closer to fatal than any data-exfil headline.
 
 ### Chain C — indirect injection, no rule "disobeyed"
 
@@ -186,7 +188,7 @@ Run via the runtime read seam / a deploy-time probe — **never** root-SSH (it r
 
 1. In a live `execute_code`: confirm the six `GOOGLE_*` vars are **absent** and the account-wide R2 key is **present** (the `OP-P0-2` gap, on the real box).
 2. Confirm `execute_code`/`terminal` are reachable by the SMD agent at runtime (the Chrome install says yes — confirm no `customer.yaml` lever narrows it).
-3. Confirm the audit log **emits a real row** on a real turn (`OP-P1-4` / #1285) — and assess whether the agent's own `terminal` can rewrite it.
+3. Confirm the audit log **emits a real row** on a real turn (`OP-P1-4` / #1285 — now closed, §9) and **stays unwritable by the agent uid** (regression check: as uid 10000, an RW-open + `DELETE` on the ledger must both fail; boot-smoke `audit-db-not-agent-writable` asserts this).
 4. Confirm which overlay the plugin loader actually registers (`OP-DOWN-1`).
 5. Confirm Fly 6PN inter-Machine reachability is closed (one Machine can't reach another's internal address).
 6. Confirm the runtime-read master is provably never staged to a Machine.
@@ -226,4 +228,12 @@ Shipped: overlay PR venturecrane/hermes-smd-overlay#53 + ss-console #1322. Deplo
 
 Parity: `CODE_EXECUTION` + the taint-gate mirrored into the canonical core `operator/adapter/trust_ceiling.py` and `ACCEPTED_ACTION_CLASSES`, keeping the two policy cores aligned.
 
-_Remaining: Phase 2 (per-customer scoped secrets, secret strip, Anthropic relay, trustworthy mediated audit — `OP-P0-2`, `OP-P1-4`, `OP-P2-1`), Phase 3 (broker intent-gate `OP-P0-3`, provenance, egress allowlist `OP-P2-2/-3`, `OP-DOWN-1`), then the directed send-as-EA mission turn-on._
+### WS5 — broker-owned, append-only audit ledger (2026-06-11)
+
+Shipped: overlay PR venturecrane/hermes-smd-overlay#55 (released as `v0.4.16`) + ss-console #1336. Deployed to customer-zero via `OVERLAY_REF` bump; boot-smoke passed (`audit-db-not-agent-writable`), 63 real audit rows migrated intact, health passing. Local suite green across both repos; runtime proven on `smd-staging` before customer-zero.
+
+- **`OP-P1-4` (audit log writable by the governed process; emission unconfirmed) — CLOSED.** The immutable ledger (`audit_log`) moved to a broker-owned file the agent uid (`hermes`) can read via the `audit-readers` group but **cannot open for write** — not owner, no group-write. The only writer is the existing Workspace broker (uid 10001) behind its `SO_PEERCRED` PID-gated socket, whose entire mutating surface is one `audit_append` verb: **no `UPDATE`/`DELETE`/`DROP` verb exists** — that absence is the append-only guarantee, and the broker re-stamps `id`/`ts` server-side. Mutable agent state (`agent_skills_inventory`) split onto its own hermes-writable binding so skill capture still works. All 7 audit-write sites route through one `audit_client_from_env` factory + a CI guard; dormant until ss-console sets `SMD_AUDIT_BROKER_SOCKET`. **Emission half also closed** — #1285's path-aware D1Client + boot self-check are confirmed live (the read seam returns the migrated rows on the running Machine).
+  - **Load-bearing runtime gotcha (worth keeping):** the Hermes gateway `chmod`s its home `/opt/data` to **0700** ~19s into boot, stripping a non-hermes process's group-traverse to any subdir of the home — sqlite then fails "attempt to write a readonly database" on an `O_RDWR` fd (a journal-creation failure, not a file-perm one). **Fix: bind-mount the ledger dir to a root-owned path (`/run/smd-audit`) the broker reaches without traversing the home.** Generalizes: never depend on a hermes-home subdir's mode for a non-hermes process; bind-mount out. Local tests caught none of the three runtime bugs here — only the throwaway `smd-staging` gate did.
+  - **Known residual (non-blocking):** the broker has no respawn supervisor (a pre-existing trait shared with the Google broker) — if it dies mid-run, `audit_append` stops fail-open. Tracked as a follow-up.
+
+_Remaining: Phase 2 (per-customer scoped secrets, secret strip, Anthropic relay — `OP-P0-2`, `OP-P2-1`), Phase 3 (broker intent-gate `OP-P0-3`, provenance, egress allowlist `OP-P2-2/-3`, `OP-DOWN-1`), then the directed send-as-EA mission turn-on._
