@@ -67,8 +67,9 @@ jobs:
 
       - name: Run pytest suites (adapter + evidence + pytest-style invariants)
         working-directory: operator
-        # bin/tests/test_voice_corpus.py and test_deploy_ordering.py are named
-        # explicitly: the rest of bin/tests needs substrate deps (pyyaml etc.) not
-        # installed in this bare-pytest env, but these two import only stdlib (and
-        # adapter.voice for the corpus tracer).
-        run: python3 -m pytest adapter/tests adapter/evidence/tests safety-substrate/tests bin/tests/test_voice_corpus.py bin/tests/test_deploy_ordering.py bin/tests/test_env_contract_conformance.py bin/tests/test_env_array_generation.py bin/tests/test_customer_yaml_block_conformance.py connectors/google/tests workspace_broker/tests -q
+        # bin/tests entries are named explicitly: some of bin/tests needs
+        # substrate deps (pyyaml etc.) not installed in this bare-pytest env;
+        # the named files import only stdlib + adapter/bin.lib modules.
+        # test_decommission.py + test_seam_pull.py joined the list with #1355
+        # (the decommission data-plane fix) — they previously ran nowhere in CI.
+        run: python3 -m pytest adapter/tests adapter/evidence/tests adapter/voice/tests safety-substrate/tests bin/tests/test_voice_corpus.py bin/tests/test_deploy_ordering.py bin/tests/test_env_contract_conformance.py bin/tests/test_env_array_generation.py bin/tests/test_customer_yaml_block_conformance.py bin/tests/test_decommission.py bin/tests/test_seam_pull.py connectors/google/tests workspace_broker/tests -q

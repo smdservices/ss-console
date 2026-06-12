@@ -6,12 +6,6 @@
     "sha256": "e8334db4d67fdee9a0d5675ceaa6c6386c5578b13d318c8adfeec9d11d8a2f1a"
   },
   {
-    "adapterPath": "operator/adapter/voice/pipeline.py",
-    "overlayPath": "plugins/hermes-smd-voice/pipeline.py",
-    "syncNote": "2026-06-12 baseline. Known divergence: overlay uses SentMessage/UTC, this side SentItem/timezone — reconcile when the decommission data plane is fixed (#1355).",
-    "sha256": "7036033da7424abc24ad85e5738a9c3d7ae5cde48d56a415c9aca8430cb1c97e"
-  },
-  {
     "adapterPath": "operator/adapter/audit_log.py",
     "overlayPath": "plugins/hermes-smd-audit/emit.py",
     "syncNote": "2026-06-12 baseline, taken AFTER adding the per-step DECOMMISSION_STEP_* action types. Deliberately one-sided: decommission rows are written control-plane only; overlay emit.py does not need them. d1-schema.md section 1 and src/lib/portal/operator/audit.ts updated in the same PR (TS parity is test-enforced).",

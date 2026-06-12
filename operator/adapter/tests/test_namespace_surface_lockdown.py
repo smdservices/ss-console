@@ -11,13 +11,13 @@ Raw classes remain importable by *explicit* name — that is needed by:
 * the writer path itself (`audit_log.writer_from_env` constructs an
   `HttpD1Executor` directly, per the audit-log immutability invariant
   documented in `hermes-smd-overlay/plugins/hermes-smd-audit/immutability.py`),
-* the namespace-bridge adapters (`memory/namespaced.py` and
-  `voice/namespaced.py` import the raw R2/Vectorize Protocols),
+* (historically) the namespace-bridge adapters — removed with the
+  ADR-0008 ingestion plane in #1355,
 * and tests that build sqlite-backed harnesses.
 
 The lockdown is enforced by removing the raw names from `__all__` in
 each of: `adapter/__init__.py`, `adapter/audit_log.py`,
-`adapter/memory/pipeline.py`, `adapter/voice/pipeline.py`. This test
+`adapter/audit_log.py`. This test
 guards each removal so a future PR that re-adds a raw name to `__all__`
 breaks the build.
 
@@ -122,73 +122,3 @@ def test_audit_log_star_import_does_not_pull_raw_executors():
     assert not leaked, (
         f"`from adapter.audit_log import *` leaked raw executors: {leaked}"
     )
-
-
-# ---------------------------------------------------------------------------
-# `adapter.memory.pipeline` submodule surface
-# ---------------------------------------------------------------------------
-
-
-def test_memory_pipeline_all_excludes_raw_storage_protocol():
-    pipeline = importlib.import_module("adapter.memory.pipeline")
-    assert "StorageClient" not in pipeline.__all__, (
-        "adapter.memory.pipeline.__all__ exports the raw StorageClient "
-        "Protocol; TOCTOU hardening routes external consumers through "
-        "adapter.memory.build_namespaced_memory_runner"
-    )
-
-
-def test_memory_pipeline_storage_client_still_importable_for_bridge():
-    """The `namespaced.py` bridge imports `StorageClient` by explicit
-    name; the lockdown must preserve that path."""
-    from adapter.memory.pipeline import StorageClient  # noqa: F401
-
-
-def test_memory_pipeline_star_import_does_not_pull_raw_storage_client():
-    namespace: dict = {}
-    exec("from adapter.memory.pipeline import *", namespace)  # noqa: S102
-    assert "StorageClient" not in namespace
-
-
-# ---------------------------------------------------------------------------
-# `adapter.voice.pipeline` submodule surface
-# ---------------------------------------------------------------------------
-
-
-def test_voice_pipeline_all_excludes_raw_r2_client_protocol():
-    pipeline = importlib.import_module("adapter.voice.pipeline")
-    assert "R2Client" not in pipeline.__all__, (
-        "adapter.voice.pipeline.__all__ exports the raw R2Client "
-        "Protocol; TOCTOU hardening routes external consumers through "
-        "adapter.voice.build_namespaced_voice_runner"
-    )
-
-
-def test_voice_pipeline_r2_client_still_importable_for_bridge():
-    """The `namespaced.py` bridge imports `R2Client` by explicit name."""
-    from adapter.voice.pipeline import R2Client  # noqa: F401
-
-
-def test_voice_pipeline_star_import_does_not_pull_raw_r2_client():
-    namespace: dict = {}
-    exec("from adapter.voice.pipeline import *", namespace)  # noqa: S102
-    assert "R2Client" not in namespace
-
-
-# ---------------------------------------------------------------------------
-# `adapter.memory` and `adapter.voice` package surfaces still expose the
-# factory helpers (regression guard — accidental removal from the package
-# `__init__.py` would silently take the migration entry point offline)
-# ---------------------------------------------------------------------------
-
-
-def test_memory_package_exports_factory():
-    memory = importlib.import_module("adapter.memory")
-    assert "build_namespaced_memory_runner" in memory.__all__
-    assert callable(memory.build_namespaced_memory_runner)
-
-
-def test_voice_package_exports_factory():
-    voice = importlib.import_module("adapter.voice")
-    assert "build_namespaced_voice_runner" in voice.__all__
-    assert callable(voice.build_namespaced_voice_runner)

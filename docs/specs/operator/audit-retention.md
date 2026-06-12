@@ -20,7 +20,7 @@ Sibling to [`memory-retention.md`](./memory-retention.md) (continuous per-data-t
 | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | Retention period documented per vertical (law-firm: 7 years default) | §"Per-vertical defaults" below                                                                                        |
 | customer.yaml supports retention override (longer; not shorter)      | §"Override-up-only enforcement" + `checkMemoryRetention` in `src/lib/operator/customer-yaml/sections-other.ts`        |
-| Decommission preserves audit log per retention                       | §"Decommission carve-out" + `DecommissionPipeline._step_d1_memory_voice` audit-log preservation branch                |
+| Decommission preserves audit log per retention                       | §"Decommission carve-out" + `DecommissionPipeline._step_preserve_machine_data` (seam pull-before-destroy)             |
 | Retention policy documented in customer contract                     | §"Customer contract surface" — the engagement-letter clause that names the retention window for the signed engagement |
 
 ## Per-vertical defaults
@@ -87,17 +87,19 @@ Because the value floors at the vertical default and only ratchets up, there is 
 
 ## Decommission carve-out
 
-`bin/decommission-customer.sh` runs at end-of-engagement and tears down the per-customer substrate. The 9-step sequence ([`decommission-customer.md`](./decommission-customer.md) §"The 9 steps") currently treats memory + voice + R2 + Vectorize as fully removable. Audit-log rows are special: they belong to the customer's compliance record, not the per-engagement working state, and must survive past the per-customer D1's deletion until the retention window has elapsed.
+`bin/decommission-customer.sh` runs at end-of-engagement and tears down the per-customer substrate. Audit-log rows are special: they belong to the customer's compliance record, not the per-engagement working state, and must survive past the Machine's destruction until the retention window has elapsed.
+
+**Data-plane note (#1355, 2026-06-12).** The LIVE audit ledger is Machine-local sqlite (broker-owned per OP-P1-4), not a control-plane Cloudflare D1 — and `fly apps destroy` (step 06) is its designed destruction mechanism. Preservation is therefore **pull-before-destroy**: the pipeline pulls the ledger (and the ADR-0016 memory tables) off the Machine through the ADR-0043 runtime-read seam (`audit_export` / `memory_export` kinds, overlay #67; console side `bin/lib/seam_pull.py`) BEFORE any destructive step.
 
 ### Behavior
 
-Step 2 (`02_d1_memory_voice`) is extended with a pre-cleanup audit-log preservation branch:
+Step 2 (`02_preserve_machine_data`) runs the preservation before any destructive step:
 
 1. **Read the retention policy.** Resolve `audit_log_days` from `customer.yaml.memory.retention.audit_log_days` (falling back to the per-vertical default per §"Per-vertical defaults").
-2. **Export the audit log to cold storage.** Before the per-customer D1 is dropped, export the full `audit_log` table to the compliance-archive directory (`{archive_root}/{slug}/audit-log-{iso-date}.csv` plus a sidecar `audit-log-manifest-{iso-date}.json` recording the retention window and the row count). The export is composed by step 8 (`08_compliance_archive`) under normal flow, but is a separate emission here so the audit trail survives a step-8 failure.
+2. **Pull the audit log off the Machine.** `SeamAuditLogPreserver` drains `GET /runtime/audit_export` (full 12-column rows, ascending-ULID keyset) and writes `{archive_root}/{slug}/audit-log-{iso-date}.csv` plus a sidecar `audit-log-manifest-{iso-date}.json` recording the retention window and the row count, plus `machine-snapshot-{iso-date}.sqlite` carrying `audit_log` + the ADR-0016 memory tables. The snapshot file is the evidence generator's `--read-db` input.
 3. **Compute the preservation deadline.** `preserve_until = decommission_ts + audit_log_days * 86400`. The deadline is recorded in the manifest.
-4. **Stamp the tombstone.** The `09_tombstone` `DECOMMISSIONED.md` marker (see `decommission-customer.md` §FilesystemTombstoner) gains an `audit_log_preserve_until: <iso-date>` line that names the deadline.
-5. **Do NOT delete `audit_log` rows during step 2.** The canonical `decommission_source` hooks for memory + voice continue to soft-delete their own provenance rows; the audit-log table is explicitly skipped at decommission time.
+4. **Stamp the tombstone.** The `08_tombstone` `DECOMMISSIONED.md` marker (see `decommission-customer.md` §FilesystemTombstoner) gains an `audit_log_preserve_until: <iso-date>` line that names the deadline.
+5. **Machine-local deletion = app destroy.** There is no per-table audit/memory delete step; step 06's `fly apps destroy` removes the Machine and its volume. A `--live` run REFUSES (exit 5) while the preserver is the stub — destroying the Machine without a real pull would burn the only copy of the ledger.
 
 Once `preserve_until` has elapsed, a separate Captain-invoked sweep (`bin/audit-log-purge.sh`, filed against this spec as a follow-on) removes the archived CSV from cold storage. Until that sweep ships, the manifest entry serves as the human-readable reminder.
 
@@ -110,7 +112,7 @@ The decommission pipeline writes one additional audit row for the carve-out:
 | `action_type`             | `DECOMMISSION_DRAIN_COMPLETE`                         |
 | `actor`                   | `captain`                                             |
 | `actor_role`              | `captain`                                             |
-| `metadata.step`           | `02_d1_memory_voice/audit_log_preserved`              |
+| `metadata.step`           | `02_preserve_machine_data/audit_log_preserved`        |
 | `metadata.customer_slug`  | The customer slug being decommissioned                |
 | `metadata.audit_log_days` | The resolved retention window                         |
 | `metadata.preserve_until` | ISO 8601 UTC timestamp of the deadline                |
@@ -124,16 +126,16 @@ The `DECOMMISSION_DRAIN_COMPLETE` action type is the closest existing neutral si
 In `--dry-run` mode the decommission script reports the preservation plan without writing anything:
 
 ```
-[ planned] 02_d1_memory_voice: {"audit_log_days":2555,"preserve_until":"2033-05-23T00:00:00Z","rows_to_preserve":4218,"memory_sources":3,"voice_sources":2}
+[ planned] 02_preserve_machine_data: {"action":"pull audit ledger + ADR-0016 memory tables via the runtime-read seam to the archive dir (pull-before-destroy)","preserver_wired":true,"audit_log_days":2555,"audit_log_preserve_until":"2033-05-23T00:00:00Z"}
 ```
 
-Live mode prints `executed` and records the actual export path. The dry-run cell makes the deadline visible before Captain authorizes the live run — a typo in the override is caught here, not after the customer's D1 is gone.
+Live mode prints `executed` and records the actual export path. The dry-run cell makes the deadline visible before Captain authorizes the live run — a typo in the override is caught here, not after the Machine is gone.
 
 ### Failure semantics
 
-If the audit-log export raises (R2 throttle, manifest write fails), step 2 halts with `DecommissionStepFailed("02_d1_memory_voice/audit_log_preserved")`. The canonical memory + voice cleanup HAS NOT yet run, so resumption is safe — the substrate is still intact. The failure is the same shape as any other step-2 failure: re-run `--live` with the same slug, the preservation re-attempts, the memory + voice hooks pick up where they left off.
+If the seam pull raises (Machine unreachable, page shape error, manifest write fails), step 2 halts with `DecommissionStepFailed("02_preserve_machine_data")`. NO destructive step has run, so the Machine — and therefore the data — is intact. Re-run `--live` with the same slug and the preservation re-attempts against still-present data.
 
-If the export succeeds but the subsequent canonical cleanup fails, the manifest is already on cold storage and the rerun's preservation step short-circuits when it sees the existing manifest for the same UTC date (idempotency contract). The rerun proceeds straight to the memory + voice hooks.
+If the pull succeeds but a later step fails, the manifest is already in the archive and the rerun's preservation step short-circuits when it sees the existing manifest for the same UTC date (idempotency contract). The rerun proceeds to the remaining steps.
 
 ## Customer contract surface
 
