@@ -43,9 +43,9 @@ export const PIPELINE_LABELS: Record<PipelineId, string> = {
 // `partner_nurture` was previously listed here but never reached parity with
 // the DB layer (`lead_signals.source_pipeline` CHECK has only the four
 // pipelines above). Build is captured under #714, gated on first paid
-// engagement. The dormant prompt + schema files at
-// `src/lead-gen/prompts/partner-nurture-prompt.ts` and
-// `src/lead-gen/schemas/partner-email-draft.ts` are parked for that rebuild.
+// engagement. The dormant prompt + schema files that were parked for that
+// rebuild were deleted in the 2026-06-12 code-review cleanup (no runtime
+// consumer; carried retired revenue-band anchoring); #714 rebuilds fresh.
 
 // ---------------------------------------------------------------------------
 // Shared scoring types

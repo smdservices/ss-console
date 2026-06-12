@@ -26,7 +26,7 @@ export interface AssessmentExtraction {
   notes: string
 }
 
-const SYSTEM_PROMPT = `You generate quote line items for SMD Services operations cleanup engagements. Each line item represents a discrete deliverable for a Phoenix-based growing business (750K to 5M annual revenue).
+const SYSTEM_PROMPT = `You generate quote line items for SMD Services operations cleanup engagements. Each line item represents a discrete deliverable for a growing, owner-led business. Size the work from the business context provided, not from an assumed revenue band.
 
 ## What you produce
 

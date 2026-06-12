@@ -31,7 +31,7 @@ This is NOT a product codebase. There is no app to build (yet). The primary outp
 Every session must begin with:
 
 1. Call the `crane_preflight` MCP tool (no arguments)
-2. Call the `crane_sod` MCP tool with `venture: "ss"`
+2. Call the `crane_sos` MCP tool with `venture: "ss"`
 
 This creates a session, loads documentation, and establishes handoff context.
 
