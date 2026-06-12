@@ -136,8 +136,13 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # bare data home. This SHA is on overlay main ABOVE v0.4.16 (#55), so it carries
 # the audit broker AND the cron fix. Verified live on staging — a scheduled turn
 # actually fired (last_status=ok) and the broker boots clean on a fresh Machine.
+# v0.4.17 (3b7bb99) — code-review 2026-06-12 security wave. Carries #60 (runtime
+# config seam: operator.runtime.config/v1 facts snapshot), #61 (closes three
+# fail-open seams: trust-ceiling volume-fault fail-open, Svix replay window,
+# tool-name case bypass), #62 (fence-completeness CI gate, 0700 profile dirs on
+# fresh provision, ceiling-comparison dedup), #63 (README). Superset of #59.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="2e310674e0ec0200f87030a33dd0ca10abffabc7"
+ARG OVERLAY_REF="3b7bb99758a79d0e9578948fd6e6bc30361b39c7"
 
 ARG CUSTOMER_SLUG=customer-zero
 
