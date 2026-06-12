@@ -81,6 +81,22 @@ top_level:
       written into the persona config; the Honcho inferred-memory CONSUMER is
       deliberately Phase-2-deferred (ADR 0016 revised), but the block is
       materialized into runtime config, not dropped — distinct from the cron bug.
+  # ---- runtime-consumed from customer.yaml on the volume (overlay reads it directly) ----
+  webhook_triggers:
+    status: implemented
+    materializer: overlay hermes-smd-webhook-router (routes (source,event_type)->persona/skill from customer.yaml at runtime) + webhook_gate source-stamp
+    note: >-
+      ADR 0021 Stream E. The router reads customer.yaml.webhook_triggers directly
+      from the synced volume (not translated into config.yaml); validated
+      console-side by src/lib/operator/customer-yaml/sections-webhook-triggers.ts.
+      demo-law is the first live customer to author it.
+  demo:
+    status: implemented
+    materializer: overlay hermes-smd-demo-relay (reads demo.reply_relay via shared.customer_config; gates the recipient-locked demo reply)
+    note: >-
+      Demo-only switches. Fail-closed (absent => off); validated console-side by
+      src/lib/operator/customer-yaml/sections-demo.ts. Runtime effect lives in the
+      overlay relay, not a Machine config translation.
   # ---- console-side (not a Machine materialization) ----
   users:
     status: implemented
