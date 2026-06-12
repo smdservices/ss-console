@@ -5,13 +5,14 @@ import Base from '../../layouts/Base.astro'
 import Nav from '../../components/Nav.astro'
 import Footer from '../../components/Footer.astro'
 import CtaButton from '../../components/CtaButton.astro'
+import { coldLanderLink, shapeZoneTitles, ctaPricingLine } from '../../lib/operator-packs/shared'
 
 const productSchema = {
   '@context': 'https://schema.org',
   '@type': 'Product',
   name: 'Operator for Mortgage Brokers',
   description:
-    'A dedicated Operator that keeps the pipeline moving: it collects the borrower conditions, keeps every party current, works the condition chain toward clear-to-close, and keeps the loan-origination system current. The loan calls and the money stay with your MLO; one money-and-wire line never moves.',
+    'The Operator is a worker you hire, not software you buy. The mortgage pack is its head start: a starting point shaped around processing and condition coordination, which we configure with you and you customize to your shop. The loan calls and the money stay with your MLO; you set the line.',
   brand: { '@type': 'Brand', name: 'SMD Services' },
   offers: {
     '@type': 'Offer',
@@ -19,6 +20,46 @@ const productSchema = {
     seller: { '@type': 'Organization', name: 'SMD Services' },
   },
 }
+
+// Section 03: the starting templates in the pack, grouped in plain language. Sourced
+// from operator/verticals/mortgage/vertical.yaml (the application-and-conditions,
+// services-and-verifications, status-and-closing, and wire-safety skill families).
+// These are templates we configure, not a finished, running product.
+const packTemplates = [
+  {
+    title: 'Application and conditions',
+    body: 'A new application routed to a licensed loan officer, the underwriting conditions chased, the borrower documents collected and tracked as they arrive.',
+  },
+  {
+    title: 'Services and verifications',
+    body: 'The appraisal order tracked, the title order coordinated, the verifications of employment and deposit requested and logged.',
+  },
+  {
+    title: 'Status, dates, and closing',
+    body: 'The borrower kept current, the agent and loan officer kept current, the file dates surfaced, the closing logistics coordinated, the post-closing follow-up sent.',
+  },
+  {
+    title: 'Wire safety and the pipeline',
+    body: 'Any wire or banking message routed to a verified person, the internal pipeline digest assembled, your loan-origination system kept in sync.',
+  },
+]
+
+// Section 05: the three customization zones. Titles are shared (shapeZoneTitles); the
+// body under each is mortgage-specific.
+const zones = [
+  {
+    title: shapeZoneTitles.prebuilt,
+    body: 'The starting templates above, shaped around a processing desk and ready to configure. You are not building from a blank page.',
+  },
+  {
+    title: shapeZoneTitles.connected,
+    body: 'Wired into your own accounts: your loan-origination system, your email and calendar, your documents. It works inside the tools you already run.',
+  },
+  {
+    title: shapeZoneTitles.yours,
+    body: 'Your voice, your investors and your conditions, and where the line sits. You decide what runs on its own and what waits for a person. You are the expert in your shop; you shape it from there.',
+  },
+]
 
 const roleLenses = [
   {
@@ -38,7 +79,7 @@ const roleLenses = [
 
 <Base
   title="Operator for Mortgage Brokers | SMD Services"
-  description="A dedicated Operator that keeps the pipeline moving: collecting borrower conditions, keeping every party current, working the condition chain toward clear-to-close, and keeping the loan-origination system current. The loan calls and the money stay with your MLO."
+  description="The mortgage pack is the Operator's head start: a starting point shaped around processing and condition coordination, which we configure with you and you customize to your shop. The loan calls and the money stay with your MLO. You set the line."
 >
   <Nav />
   <main id="main" role="main">
@@ -59,17 +100,22 @@ const roleLenses = [
           The Processing Desk, Fully Staffed.
         </h1>
         <p
-          class="mx-auto mb-12 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+          class="mx-auto mb-8 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
         >
-          A dedicated worker for your shop, in its own office and plugged into the tools you already
-          run. It keeps the pipeline moving, the way a sharp loan-officer assistant would: it
-          collects the borrower conditions, keeps every party current, works the condition chain
-          toward clear-to-close, and keeps your loan-origination system current. You add capacity
-          without the hire-fast, fire-fast cycle.
+          The Operator is a worker you hire, not software you buy. This is its mortgage head start:
+          a starting point already shaped around processing and condition coordination, so you are
+          not building from a blank page. You make it yours from there.
         </p>
         <CtaButton href="/book?interest=mortgage" data-ev="mortgage-hero-cta"
           >Start the conversation</CtaButton
         >
+        <p class="mt-8">
+          <a
+            href={coldLanderLink.href}
+            class="font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] underline underline-offset-4 hover:text-[color:var(--ss-color-primary)]"
+            >{coldLanderLink.text} &rarr;</a
+          >
+        </p>
       </div>
     </section>
 
@@ -102,7 +148,7 @@ const roleLenses = [
       </div>
     </section>
 
-    <!-- § 03 A worker, in another office -->
+    <!-- § 03 What the pack starts you with -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -110,32 +156,49 @@ const roleLenses = [
           >§ 03</span
         >
         <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          A Worker, In Another Office.
+          What The Pack Starts You With.
         </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            Picture a loan processor from the future, sitting at a desk in your shop today. A
-            computer, a phone, and access to the loan-origination system, the email, and the
-            document portal you already run. You hand it work the way you hand work to anyone on
-            your team. You send the request, it does the job, and it comes back with the result.
-          </p>
-          <p>
-            It works from its own office, the way much of your team already does. The processor you
-            have never met in person. The title rep you email and trade files with. This is one more
-            of those.
-          </p>
-          <p>
-            What it takes on is the work you would want that seat doing, inside the limits you set.
-            The condition that is holding up the file. The borrower document that has not come back
-            before the rate lock expires. We get to the limits below.
-          </p>
+        <p
+          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          You do not start from a blank page. The mortgage pack comes shaped around the work a
+          processing desk runs, as starting templates we configure with you:
+        </p>
+
+        <div
+          class="grid grid-cols-1 md:grid-cols-2 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
+        >
+          {
+            packTemplates.map((t, i) => (
+              <div
+                class:list={[
+                  'flex flex-col gap-3 p-8 min-h-[12rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
+                  i % 2 !== 1 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
+                ]}
+              >
+                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
+                  {t.title}
+                </p>
+                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                  {t.body}
+                </p>
+              </div>
+            ))
+          }
         </div>
+
+        <p
+          class="mt-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          These plug into your loan-origination system and your email and calendar. The templates
+          are the head start. How they run is yours to shape.
+        </p>
       </div>
     </section>
 
-    <!-- § 04 What it does -->
+    <!-- § 04 From the start -->
     <section class="bg-white px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -145,30 +208,26 @@ const roleLenses = [
         <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          What It Does.
+          From The Start.
         </h2>
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
-            We build the Operator for your shop and connect it to the tools you already run: your
-            loan-origination system, your email, your document storage.
+            Before it starts, we sit down with you and the people who run the files, and we shape
+            the templates around how your shop actually operates, so it begins ready, not green.
           </p>
           <p>
-            Before it starts, we sit down with you and the people who run the work, and we build it
-            around how you operate, so it shows up ready, not green. From there it keeps getting
-            sharper, learning from your team's corrections.
-          </p>
-          <p>
-            A file comes in. It collects the borrower conditions, chases the documents the file
-            needs, and works the condition chain so the file keeps moving toward clear-to-close. It
-            keeps the borrower, the agent, and title current at every step, and keeps the
-            loan-origination system current as it goes. Every piece of it is logged there as it
-            happens.
+            From there the work moves the way it always did. A file comes in and gets routed to a
+            licensed loan officer. The conditions get chased, the borrower documents get collected,
+            the appraisal and title orders get tracked. The borrower, the agent, and title get kept
+            current at every step, the file dates get surfaced, and any message that touches a wire
+            goes to a verified person. It is all logged in your loan-origination system as it
+            happens, and it keeps getting sharper from your team's corrections.
           </p>
         </div>
       </div>
     </section>
 
-    <!-- § 05 You set the line -->
+    <!-- § 05 Yours to shape -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -176,9 +235,52 @@ const roleLenses = [
           >§ 05</span
         >
         <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Yours To Shape.
+        </h2>
+        <p
+          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          We are not the experts in how your shop runs. You are. So the pack is a starting point in
+          three parts, and the third is the biggest.
+        </p>
+
+        <div
+          class="grid grid-cols-1 md:grid-cols-3 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
+        >
+          {
+            zones.map((z, i) => (
+              <div
+                class:list={[
+                  'flex flex-col gap-3 p-8 min-h-[14rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
+                  i % 3 !== 2 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
+                ]}
+              >
+                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
+                  {z.title}
+                </p>
+                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                  {z.body}
+                </p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- § 06 The line -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 06</span
+        >
+        <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          You Set The Line.
+          The Line.
         </h2>
         <div
           class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)] mb-12"
@@ -187,16 +289,23 @@ const roleLenses = [
             The Operator works the file and brings the loan calls and the money to a person. The
             advice, the rate-lock decision, anything that carries an originator's license, those
             stay with your MLO. Not because the software could not fill a field, but because the
-            loan advice carries a license and a duty to the borrower, and an unlicensed assistant
-            could not give it either.
+            license is the point: the loan advice carries a license and a duty to the borrower, and
+            an unlicensed assistant could not give it either.
           </p>
           <p>
-            One line is not a setting anyone can move: the Operator never moves money and never
-            transmits or changes wiring or closing-fund instructions. Any message that touches funds
-            or wire details goes to a verified person through your process. Everywhere else you
-            govern what the Operator runs on its own, every outbound message goes through a reviewer
-            who sends it under their own name, and every action it takes is logged where you can see
-            it.
+            Some lines are not settings anyone can move. It never advises on products, rates, lock,
+            or eligibility, and it never approves, denies, or conditions a loan. It never transmits,
+            confirms, or changes wire instructions; any message that touches funds or wire details
+            goes to a verified person through your process. Non-public borrower information stays
+            inside your shop's surfaces. Anything that leaves the shop goes to a reviewer on your
+            team until you decide otherwise. Every action it takes is logged where you can see it.
+          </p>
+          <p>
+            Beyond those floors, you govern where the line sits, and you can move it as you learn
+            what the Operator is good at. Your borrower files stay private, including from us. The
+            Operator works in your shop's own walled-off environment, on your own accounts. We can
+            see that it is running and the record of what it did, but the contents of your files and
+            messages stay yours, and so do the configuration, the logs, and the off switch.
           </p>
         </div>
         <div class="text-center">
@@ -209,64 +318,12 @@ const roleLenses = [
       </div>
     </section>
 
-    <!-- § 06 One coordinator, your whole shop -->
-    <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 06</span
-        >
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          One Coordinator. Your Whole Shop.
-        </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            One Operator for the whole shop, not a separate tool for each loan officer. Everyone
-            works with the same one, and it gets sharper from everyone's corrections.
-          </p>
-          <p>
-            What it learns, your investors, your conditions, the way you run a file, your voice, is
-            a record you can read and correct. It belongs to the shop, not to a person's login. When
-            someone moves on, what the Operator knows about how you run does not leave with them.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- § 07 A team, not a tool -->
+    <!-- § 07 Where it fits -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
           class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
           >§ 07</span
-        >
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          A Team, Not A Tool.
-        </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            We are the team behind the worker. We build it for your shop, and we stay accountable
-            for how it runs.
-          </p>
-          <p>
-            The technology moves, and we move with it, because no one has a decade of experience
-            with it yet. We are the team that keeps your business working, and nobody should take on
-            something this new alone.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- § 08 Where it fits -->
-    <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 08</span
         >
         <h2
           class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
@@ -304,12 +361,12 @@ const roleLenses = [
       </div>
     </section>
 
-    <!-- § 09 Start the conversation -->
+    <!-- § 08 Start the conversation -->
     <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
       <div class="mx-auto max-w-5xl text-center">
         <span
           class="inline-block bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
-          >§ 09</span
+          >§ 08</span
         >
         <h2
           class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
@@ -318,12 +375,11 @@ const roleLenses = [
         </h2>
         <p class="mx-auto mb-6 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
           It starts with a conversation. We learn how your shop runs, find the processing and
-          coordination work that is eating your team's time, and figure out where a dedicated
-          Operator fits. If it is not a fit, we will tell you.
+          coordination work that is eating your team's time, and start from the pack, customizing it
+          to your shop. If it is not a fit, we will tell you.
         </p>
         <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
-          Pricing is a flat monthly subscription, scoped to the seat we build together, and we walk
-          through it before any setup begins.
+          {ctaPricingLine}
         </p>
         <CtaButton
           variant="outline-white"
