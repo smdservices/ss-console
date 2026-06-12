@@ -114,6 +114,9 @@ ssh_exec "agent-state-owner-is-hermes" "[ \"\$(stat -c %U /opt/data/agent-state.
 # broker's parent is the root subshell loop; without it the broker is a direct
 # child of PID 1 (the hermes gateway after the exec-drop). So "broker's parent
 # proc dir is root-owned" is a non-destructive proof the supervisor is in place.
-ssh_exec "broker-respawn-supervised" "pid=\$(pgrep -f workspace_broker.server | head -1); [ -n \"\$pid\" ] && ppid=\$(awk '{print \$4}' /proc/\$pid/stat) && [ \"\$(stat -c %U /proc/\$ppid)\" = root ]"
+# NB: read PPid from /proc/<pid>/status with grep+tr (NO single quotes) — ssh_exec
+# wraps this whole string in `sh -c '...'`, so a single-quoted `awk '{print $4}'`
+# would collide with the outer quote and mangle the command.
+ssh_exec "broker-respawn-supervised" "pid=\$(pgrep -f workspace_broker.server | head -1); [ -n \"\$pid\" ] && ppid=\$(grep -m1 PPid /proc/\$pid/status | tr -dc 0-9) && [ \"\$(stat -c %U /proc/\$ppid)\" = root ]"
 
 log "All boot smoke checks passed for ${APP_NAME}"
