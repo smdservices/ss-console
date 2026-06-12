@@ -16,6 +16,8 @@
  */
 
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'fs'
+import { resolve } from 'path'
 import {
   AUDIT_ACTION_TYPES,
   AUDIT_DECISIONS,
@@ -70,15 +72,21 @@ const baseParams: AuditListParams = {
 }
 
 describe('AUDIT_ACTION_TYPES vocabulary', () => {
-  it('contains the writer-side core action classes', () => {
-    // Sanity check against the audit_log.py constant. If new action
-    // types ship on the writer side, this list must update in lockstep
-    // (see ACCEPTED_ACTION_TYPES in operator/adapter/audit_log.py).
-    expect(AUDIT_ACTION_TYPES).toContain('DRAFT_CREATED')
-    expect(AUDIT_ACTION_TYPES).toContain('DRAFT_APPROVED')
-    expect(AUDIT_ACTION_TYPES).toContain('TRUST_PROMOTED')
-    expect(AUDIT_ACTION_TYPES).toContain('INVARIANT_VIOLATION')
-    expect(AUDIT_ACTION_TYPES).toContain('FABRICATION_FILTER_TRIGGERED')
+  it('matches the writer-side ACCEPTED_ACTION_TYPES exactly (full parity)', () => {
+    // 2026-06-12 code review: this was a sampled `toContain` check, which
+    // let the two vocabularies drift silently (the per-step decommission
+    // types shipped on the writer side first). Parse the python constant
+    // from source and assert set equality — adding a type on either side
+    // without the other now fails CI.
+    const pySource = readFileSync(resolve('operator/adapter/audit_log.py'), 'utf-8')
+    const start = pySource.indexOf('ACCEPTED_ACTION_TYPES = frozenset(')
+    expect(start).toBeGreaterThan(-1)
+    const end = pySource.indexOf('\n)', start)
+    expect(end).toBeGreaterThan(start)
+    const block = pySource.slice(start, end)
+    const pyTypes = [...new Set([...block.matchAll(/"([A-Z0-9_]+)"/g)].map((m) => m[1]))]
+    expect(pyTypes.length).toBeGreaterThan(0)
+    expect([...AUDIT_ACTION_TYPES].sort()).toEqual(pyTypes.sort())
   })
 
   it('has no duplicate entries', () => {
