@@ -94,4 +94,29 @@ ssh_exec "hermes-plugins-installed" "/opt/hermes/.venv/bin/hermes plugins list |
 # curator.enabled:false in every profile config; --check re-verifies it held.
 ssh_exec "curator-disabled" "/opt/hermes/.venv/bin/python3 /app/ensure-curator-disabled.py --check /opt/data"
 
+# ---------- Step 9: audit ledger is broker-owned and NOT agent-writable (OP-P1-4) ----------
+# The immutable ledger must be owned by the broker uid (workspace-broker), the
+# dir setgid 2750, and the agent uid (hermes) must be physically unable to write
+# it. The probe (run as hermes) exits 0 only when both DELETE and INSERT are
+# refused — the affirmative tamper-resistance proof.
+ssh_exec "audit-db-owner-is-broker" "[ \"\$(stat -c %U /opt/data/audit/audit.db)\" = workspace-broker ]"
+ssh_exec "audit-dir-setgid-2750" "[ \"\$(stat -c %a /opt/data/audit)\" = 2750 ]"
+ssh_exec "audit-db-not-agent-writable" "setpriv --reuid=hermes --regid=hermes --init-groups /opt/hermes/.venv/bin/python3 /app/audit-write-fail-probe.py /opt/data/audit/audit.db"
+
+# ---------- Step 10: mutable agent state stayed hermes-writable (regression for the split) ----------
+# agent_skills_inventory moved off the ledger onto a hermes-owned file so locking
+# the ledger does not break skill capture. The overlay's register() creates it.
+ssh_exec "agent-state-owner-is-hermes" "[ \"\$(stat -c %U /opt/data/agent-state.db)\" = hermes ]"
+
+# ---------- Step 11: the broker is supervised by a ROOT respawner (OP-P1-4 follow-up) ----------
+# The broker must be respawnable on mid-run death, which requires a root parent
+# (only root can re-setpriv to uid workspace-broker). With the supervisor, the
+# broker's parent is the root subshell loop; without it the broker is a direct
+# child of PID 1 (the hermes gateway after the exec-drop). So "broker's parent
+# proc dir is root-owned" is a non-destructive proof the supervisor is in place.
+# NB: read PPid from /proc/<pid>/status with grep+tr (NO single quotes) — ssh_exec
+# wraps this whole string in `sh -c '...'`, so a single-quoted `awk '{print $4}'`
+# would collide with the outer quote and mangle the command.
+ssh_exec "broker-respawn-supervised" "pid=\$(pgrep -f workspace_broker.server | head -1); [ -n \"\$pid\" ] && ppid=\$(grep -m1 PPid /proc/\$pid/status | tr -dc 0-9) && [ \"\$(stat -c %U /proc/\$ppid)\" = root ]"
+
 log "All boot smoke checks passed for ${APP_NAME}"

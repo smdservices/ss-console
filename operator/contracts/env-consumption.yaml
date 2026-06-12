@@ -54,6 +54,16 @@ vars:
     requirement: required
     agent_env: held
     note: hermes-smd-audit D1 binding (path or var-name indirection)
+  SMD_D1_AGENT_STATE_BINDING:
+    stage: agent
+    requirement: optional
+    agent_env: held
+    note: mutable agent-state binding (agent_skills_inventory) from fly.toml [env]; falls back to SMD_D1_AUDIT_BINDING when unset (OP-P1-4 ledger/state split)
+  SMD_AUDIT_BROKER_SOCKET:
+    stage: agent
+    requirement: optional
+    agent_env: held
+    note: from fly.toml [env]; set => overlay routes audit writes through the broker's append-only audit_append (OP-P1-4); the broker-side ledger path (SMD_AUDIT_DB_PATH) is entrypoint-computed and broker-only, like SMD_WORKSPACE_BROKER_SOCKET
   R2_SKILL_BODIES_BUCKET:
     stage: agent
     requirement: required

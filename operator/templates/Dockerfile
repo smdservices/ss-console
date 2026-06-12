@@ -128,10 +128,14 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # Hermes-native cron jobs at bootstrap — closing the silent-drop that left
 # customer-zero's hourly inbox-triage never firing. Declarative + idempotent,
 # fail-closed on a bad/unsupported entry.
+# v0.4.16 (#55) routes audit_log writes through the append-only workspace broker
+# (OP-P1-4): the agent uid reads the ledger via the audit-readers group but cannot
+# write it. Proven green on customer-zero.
 # 2e31067 (#59) FIXES C1 firing: registers cron in each persona's PROFILE home
 # (/opt/data/profiles/<slug>/cron) where `hermes -p <slug>` reads it, not the
-# bare data home. Verified live on staging — a scheduled turn actually fired
-# (last_status=ok). Also carries #55 (OP-P1-4 append-only audit broker).
+# bare data home. This SHA is on overlay main ABOVE v0.4.16 (#55), so it carries
+# the audit broker AND the cron fix. Verified live on staging — a scheduled turn
+# actually fired (last_status=ok) and the broker boots clean on a fresh Machine.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 ARG OVERLAY_REF="2e310674e0ec0200f87030a33dd0ca10abffabc7"
 
@@ -186,11 +190,18 @@ RUN apt-get update \
 # ---------- runtime principals ----------
 # The gateway and credential broker are distinct non-root principals. The
 # shared group grants socket access only; it grants no credential-file access.
+# audit-readers (OP-P1-4): the broker (workspace-broker) OWNS the audit ledger
+# file; hermes joins audit-readers to READ it via group but, lacking ownership
+# and group-write, cannot open it for write. The agent's only write path is the
+# broker's append-only audit_append verb.
 RUN groupadd -r workspace-connectors \
+ && groupadd -r audit-readers \
  && useradd -u 10000 -m -d /opt/data hermes \
  && useradd -u 10001 -r -m -d /opt/workspace-broker workspace-broker \
  && usermod -a -G workspace-connectors hermes \
- && usermod -a -G workspace-connectors workspace-broker
+ && usermod -a -G workspace-connectors workspace-broker \
+ && usermod -a -G audit-readers hermes \
+ && usermod -a -G audit-readers workspace-broker
 COPY --chmod=0755 --from=uv_source /usr/local/bin/uv /usr/local/bin/uvx /usr/local/bin/
 
 WORKDIR /opt/hermes
@@ -336,6 +347,9 @@ COPY operator/templates/ensure-curator-disabled.py /app/ensure-curator-disabled.
 COPY operator/templates/ensure-disabled-skills.py /app/ensure-disabled-skills.py
 COPY operator/templates/ensure-operator-identity.py /app/ensure-operator-identity.py
 COPY operator/templates/ensure-telegram-allowlist.py /app/ensure-telegram-allowlist.py
+# OP-P1-4 affirmative proof: boot-smoke runs this as the agent uid to confirm
+# the ledger is not agent-writable.
+COPY operator/templates/audit-write-fail-probe.py /app/audit-write-fail-probe.py
 
 # NOTE: customer.yaml is NOT copied into the image. It lives on the Fly
 # volume at /opt/data/customer.yaml; bootstrap.sh fetches it from R2 on

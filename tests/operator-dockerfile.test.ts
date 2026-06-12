@@ -56,6 +56,10 @@ describe('Operator customer Machine Dockerfile', () => {
   })
 
   it('pins the broker-capable overlay revision', () => {
+    // 2e310674 is overlay main ABOVE v0.4.16 (#55, audit broker): it carries the
+    // OP-P1-4 audit broker AND the Phase B Cut C1 cron firing fix (#59). Verified
+    // live on staging — a scheduled turn fired (last_status=ok) and the broker
+    // boots clean on a fresh Machine.
     expect(DOCKERFILE).toContain('ARG OVERLAY_REF="2e310674e0ec0200f87030a33dd0ca10abffabc7"')
   })
 
