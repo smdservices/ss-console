@@ -141,8 +141,14 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # fail-open seams: trust-ceiling volume-fault fail-open, Svix replay window,
 # tool-name case bypass), #62 (fence-completeness CI gate, 0700 profile dirs on
 # fresh provision, ceiling-comparison dedup), #63 (README). Superset of #59.
+# DO NOT PIN v0.4.17: its gate boot self-check signs a fixed epoch that the
+# #61 replay window rejects — the gate crash-loops (no ingress/seam).
+# v0.4.18 (1ba04f1) — #66 fixes that self-check (signs a current timestamp,
+# regression-tested via svix_self_check()) and carries #65 (audit-dark health
+# signal: boot sentinel + audit.writer_wired config-seam fact + rate-limited
+# NO-AUDIT-MODE warnings, closes overlay#64). Superset of v0.4.17.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="3b7bb99758a79d0e9578948fd6e6bc30361b39c7"
+ARG OVERLAY_REF="1ba04f11fdaaa8aa4fbe05f98ac1a18e6b229c50"
 
 ARG CUSTOMER_SLUG=customer-zero
 
