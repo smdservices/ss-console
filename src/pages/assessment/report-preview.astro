@@ -1,9 +1,23 @@
 ---
+/**
+ * /assessment/report-preview — internal preview of the dogfood VOICE
+ * assessment report. Gated behind ENABLE_ASSESSMENT_PREVIEW (same idiom
+ * as /patterns): 404 unless the flag is set. 2026-06-12 code review found
+ * this page publicly reachable with internal assessment content.
+ */
 export const prerender = false
 
+import { env } from 'cloudflare:workers'
 import '../../styles/global.css'
 import AssessmentReport from '../../components/portal/AssessmentReport.astro'
 import type { Domain } from '../../components/portal/AssessmentReport.astro'
+
+const flagValue = (env as { ENABLE_ASSESSMENT_PREVIEW?: string }).ENABLE_ASSESSMENT_PREVIEW
+const enabled = flagValue === '1' || flagValue === 'true'
+
+if (!enabled) {
+  return new Response(null, { status: 404 })
+}
 
 // Real findings from the 2026-06-05 dogfood VOICE assessment, rendered through
 // the portal-native report. Structured data → template (no invention possible).

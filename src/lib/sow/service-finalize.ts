@@ -42,7 +42,6 @@ function signatureConfirmationEmailHtml(businessName: string): string {
 <p style="font-size:14px;color:#64748b;margin:0 0 24px;">Client Portal</p>
 <p style="font-size:15px;color:#334155;margin:0 0 8px;">Hi ${businessName},</p>
 <p style="font-size:15px;color:#334155;margin:0 0 24px;">Your Statement of Work has been signed successfully. We're excited to get started working together.</p>
-<p style="font-size:15px;color:#334155;margin:0 0 24px;">Our team will be in touch shortly with next steps, including the deposit invoice and scheduling details.</p>
 </div></div></body></html>`
 }
 

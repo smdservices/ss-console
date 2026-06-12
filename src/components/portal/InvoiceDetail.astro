@@ -17,7 +17,7 @@
  *   isDeclined       → attention card + Try again CTA
  *   isCardExpired    → attention card + Update payment method CTA
  *   default/overdue  → dominant Pay invoice CTA
- *   !isPayable       → "Payment link pending" caption in place of CTA
+ *   !isPayable       → "Payment link is being prepared" caption in place of CTA
  */
 
 import SkipToMain from '../SkipToMain.astro'
@@ -88,7 +88,7 @@ const errorBody = isDeclined
   ? 'Your payment was not processed. Please try again or use a different card.'
   : isCardExpired
     ? 'The card on file has expired. Update your payment method to complete this invoice.'
-    : 'This payment link is no longer active. We will send a new one.'
+    : 'This payment link is no longer active.'
 
 // Contact-consultant fallback href for link-expired state
 const consultantContactHref = consultant?.phone
@@ -238,7 +238,7 @@ const pathname = `/portal/invoices/${invoice.id}`
                   </>
                 ) : (
                   <p class="text-body text-[color:var(--ss-color-text-secondary)]">
-                    Payment link pending. We will send it shortly.
+                    Payment link is being prepared.
                   </p>
                 )}
               </div>
@@ -498,7 +498,7 @@ const pathname = `/portal/invoices/${invoice.id}`
               <MoneyDisplay amountCents={invoice.amountCents} size="display" />
             </div>
             <p class="mt-4 text-body text-[color:var(--ss-color-text-secondary)]">
-              Payment link pending. We will send it shortly.
+              Payment link is being prepared.
             </p>
           </section>
         )
