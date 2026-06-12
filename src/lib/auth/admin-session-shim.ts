@@ -33,6 +33,32 @@ interface AdminUserRow {
 }
 
 /**
+ * Parse a KV-cached admin session into SessionData, or null when corrupt
+ * (unparseable or wrong shape). The shim only ever caches role 'admin';
+ * anything else in the cache is treated as corrupt.
+ */
+function parseCachedAdminSession(cached: string): SessionData | null {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(cached)
+  } catch {
+    return null
+  }
+  if (parsed === null || typeof parsed !== 'object') return null
+  const candidate = parsed as Record<string, unknown>
+  if (
+    typeof candidate.userId !== 'string' ||
+    typeof candidate.orgId !== 'string' ||
+    typeof candidate.email !== 'string' ||
+    typeof candidate.expiresAt !== 'string' ||
+    candidate.role !== 'admin'
+  ) {
+    return null
+  }
+  return candidate as unknown as SessionData
+}
+
+/**
  * Resolve a Clerk user_id to the legacy SessionData shape, gated to
  * `role === 'admin'`. Reads from KV first; falls back to D1; repopulates KV.
  */
@@ -45,7 +71,11 @@ export async function resolveAdminSessionFromClerk(
 
   const cached = await kv.get(cacheKey)
   if (cached) {
-    return JSON.parse(cached) as SessionData
+    // Issue #834: a corrupt KV entry must fall through to the D1 path
+    // (which repopulates the cache), never 500 an authenticated request.
+    const parsed = parseCachedAdminSession(cached)
+    if (parsed) return parsed
+    await kv.delete(cacheKey)
   }
 
   const row = await db
