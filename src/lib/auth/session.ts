@@ -25,9 +25,6 @@ export const SESSION_COOKIE_NAME = 'session_token'
 export const ADMIN_SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
 export const CLIENT_SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
 
-/** @deprecated Use getSessionDurationMs(role) instead. Kept for backward compat. */
-export const SESSION_DURATION_MS = ADMIN_SESSION_DURATION_MS
-
 /**
  * Closed set of user roles, mirroring the `users.role` CHECK constraint
  * restored in migration 0035. Defense-in-depth pairing: DB enforces at
@@ -116,10 +113,38 @@ export async function createSession(
 }
 
 /**
+ * Parse a KV-cached session value into SessionData, or null when the entry
+ * is corrupt (unparseable JSON or wrong shape). Issue #834: a corrupt KV
+ * value used to throw out of validateSession and 500 an otherwise-valid
+ * request; corrupt entries now fall through to the authoritative D1 path.
+ */
+function parseCachedSession(cached: string): SessionData | null {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(cached)
+  } catch {
+    return null
+  }
+  if (parsed === null || typeof parsed !== 'object') return null
+  const candidate = parsed as Record<string, unknown>
+  if (
+    typeof candidate.userId !== 'string' ||
+    typeof candidate.orgId !== 'string' ||
+    typeof candidate.email !== 'string' ||
+    typeof candidate.expiresAt !== 'string' ||
+    (candidate.role !== 'admin' && candidate.role !== 'client')
+  ) {
+    return null
+  }
+  return candidate as unknown as SessionData
+}
+
+/**
  * Validate a session token. Returns session data if valid, null otherwise.
  *
  * Fast path: check KV cache first.
- * Fallback: check D1 if KV miss (repopulates KV on success).
+ * Fallback: check D1 if KV miss OR corrupt cache entry (repopulates KV on
+ * success).
  */
 export async function validateSession(
   db: D1Database,
@@ -129,13 +154,17 @@ export async function validateSession(
   // Fast path: KV lookup
   const cached = await kv.get(`session:${token}`)
   if (cached) {
-    const data: SessionData = JSON.parse(cached)
-    if (new Date(data.expiresAt) > new Date()) {
+    const data = parseCachedSession(cached)
+    if (data === null) {
+      // Corrupt cache entry — drop it and fall through to D1 (#834).
+      await kv.delete(`session:${token}`)
+    } else if (new Date(data.expiresAt) > new Date()) {
       return data
+    } else {
+      // Expired in cache — clean up
+      await kv.delete(`session:${token}`)
+      return null
     }
-    // Expired in cache — clean up
-    await kv.delete(`session:${token}`)
-    return null
   }
 
   // Fallback: D1 lookup

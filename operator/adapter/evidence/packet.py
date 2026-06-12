@@ -385,9 +385,19 @@ async def _fetch_memory_snapshot(reader: ReadExecutor) -> dict:
         "ORDER BY created_at ASC, id ASC",
     )
 
+    # ADR-0016 live memory (#1355): the Machine-local persona_observations
+    # mirror, pulled into the snapshot DB by the seam preserver
+    # (bin/lib/seam_pull.py) before decommission. SELECT * because the table
+    # schema is owned by the overlay's memory-mirror plugin; absent table →
+    # honest empty via _fetch_safe.
+    observations = await _fetch_safe(
+        reader, "SELECT * FROM persona_observations ORDER BY rowid ASC"
+    )
+
     return {
         "memory_rules": rules,
         "person_mappings": persons,
+        "persona_observations": observations,
         "voice_samples_metadata": voice_meta,
         "voice_sample_bodies_included": False,
         "voice_sample_body_export_note": (

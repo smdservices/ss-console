@@ -5,7 +5,7 @@ Coverage:
 * dry-run prints per-step plan, performs no destructive operations,
   writes no audit rows, exits 0;
 * live mode runs the full sequence to completion against fake
-  external services (memory, voice, R2, Vectorize) + NoOpStubs
+  external services (R2, Vectorize, the seam preserver) + NoOpStubs
   (AgentMail, Fly);
 * idempotency: dry-run x2 -> live -> live again all succeed cleanly
   (the second live run is a full no-op because every step is already
@@ -99,39 +99,11 @@ def _copy_fixture(tmp_path: Path) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# Fake runners (memory + voice + R2 + Vectorize)
+# Fake runners (R2 + Vectorize)
 #
 # Tracks calls so the idempotency assertion can check that re-runs are
 # no-ops the second time around.
 # ---------------------------------------------------------------------------
-
-
-class _RecordingMemoryRunner:
-    def __init__(self) -> None:
-        self.calls: list[tuple[str, str]] = []
-        self._depleted: set[tuple[str, str]] = set()
-
-    async def run(self, source_kind: str, source_id: str) -> dict:
-        self.calls.append((source_kind, source_id))
-        if (source_kind, source_id) in self._depleted:
-            return {"items_removed": 0, "r2_objects_removed": 0,
-                    "vectorize_vectors_removed": 0, "skipped": False}
-        self._depleted.add((source_kind, source_id))
-        return {"items_removed": 4, "r2_objects_removed": 4,
-                "vectorize_vectors_removed": 2, "skipped": False}
-
-
-class _RecordingVoiceRunner:
-    def __init__(self) -> None:
-        self.calls: list[tuple[str, str]] = []
-        self._depleted: set[tuple[str, str]] = set()
-
-    async def run(self, source_kind: str, source_id: str) -> dict:
-        self.calls.append((source_kind, source_id))
-        if (source_kind, source_id) in self._depleted:
-            return {"removed": 0, "errors": 0, "skipped": False}
-        self._depleted.add((source_kind, source_id))
-        return {"removed": 3, "errors": 0, "skipped": False}
 
 
 class _RecordingR2Deleter:
@@ -158,6 +130,26 @@ class _RecordingVectorizeDeleter:
             return {"indexes_deleted": 0, "skipped": True, "reason": "indexes_already_absent"}
         self._depleted.add(customer_slug)
         return {"indexes_deleted": 2}
+
+
+class _RecordingPreserver:
+    """Wired (non-stub) preserver fake — counts as real for the #1123 gate."""
+
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    async def preserve(self, customer_slug: str, archive_dir, audit_log_days: int) -> dict:
+        self.calls.append(customer_slug)
+        archive_dir.mkdir(parents=True, exist_ok=True)
+        return {
+            "skipped": False,
+            "audit_log_days": audit_log_days,
+            "preserve_until": "2033-01-01T00:00:00+00:00",
+            "archive_path": str(archive_dir / "audit-log-manifest-test.json"),
+            "rows_preserved": 3,
+            "memory_rows_preserved": {"persona_observations": 2},
+            "stub": False,
+        }
 
 
 class _FailingRunner:
@@ -188,15 +180,13 @@ def test_dry_run_returns_planned_steps_and_does_nothing(tmp_path):
         customers_root=customers_root,
         archive_root=tmp_path / "archive",
         audit_writer=writer,
-        memory_runner=_RecordingMemoryRunner(),
-        voice_runner=_RecordingVoiceRunner(),
         r2_deleter=_RecordingR2Deleter(),
         vectorize_deleter=_RecordingVectorizeDeleter(),
     )
     plan = _run(pipeline.plan())
 
     assert [r.name for r in plan] == [
-        "01_drain", "02_d1_memory_voice", "03_r2_namespace",
+        "01_drain", "02_preserve_machine_data", "03_r2_namespace",
         "04_vectorize_indexes", "05_agentmail", "06_fly_machine",
         "07_compliance_archive", "08_tombstone",
         "09_observability_cleanup",
@@ -218,8 +208,6 @@ def test_dry_run_returns_planned_steps_and_does_nothing(tmp_path):
 def test_live_runs_full_sequence_and_writes_audit_trail(tmp_path):
     customers_root = _copy_fixture(tmp_path)
     writer, conn = _make_audit(tmp_path)
-    mem = _RecordingMemoryRunner()
-    voi = _RecordingVoiceRunner()
     r2 = _RecordingR2Deleter()
     vec = _RecordingVectorizeDeleter()
     pipeline = DecommissionPipeline(
@@ -227,8 +215,6 @@ def test_live_runs_full_sequence_and_writes_audit_trail(tmp_path):
         customers_root=customers_root,
         archive_root=tmp_path / "archive",
         audit_writer=writer,
-        memory_runner=mem,
-        voice_runner=voi,
         r2_deleter=r2,
         vectorize_deleter=vec,
     )
@@ -236,8 +222,6 @@ def test_live_runs_full_sequence_and_writes_audit_trail(tmp_path):
     results = _run(pipeline.run())
 
     assert len(results) == 9
-    assert mem.calls, "memory runner should have been called for each configured source"
-    assert voi.calls
     assert r2.calls == ["smd"]
     assert vec.calls == ["smd"]
     # Customer dir tombstoned.
@@ -254,10 +238,15 @@ def test_live_runs_full_sequence_and_writes_audit_trail(tmp_path):
         "SELECT action_type FROM audit_log ORDER BY id"
     ).fetchall()
     action_types = [r[0] for r in rows]
-    # At least one row per step plus DECOMMISSION_FINAL.
+    # Pipeline boundaries + per-step lifecycle rows (2026-06-12 review:
+    # steps no longer reuse INITIATED/DRAIN_COMPLETE).
     assert "DECOMMISSION_INITIATED" in action_types
     assert "DECOMMISSION_DRAIN_COMPLETE" in action_types
+    assert "DECOMMISSION_STEP_BEGIN" in action_types
+    assert "DECOMMISSION_STEP_COMPLETE" in action_types
     assert "DECOMMISSION_FINAL" in action_types
+    # Steps 02..09 each get a begin row; the trail distinguishes them.
+    assert action_types.count("DECOMMISSION_STEP_BEGIN") >= 8
     # Every action_type written is in the spec's accepted set.
     for at in action_types:
         assert at in ACCEPTED_ACTION_TYPES
@@ -271,8 +260,6 @@ def test_live_runs_full_sequence_and_writes_audit_trail(tmp_path):
 def test_idempotent_repeated_runs(tmp_path):
     customers_root = _copy_fixture(tmp_path)
     writer, _conn = _make_audit(tmp_path)
-    mem = _RecordingMemoryRunner()
-    voi = _RecordingVoiceRunner()
     r2 = _RecordingR2Deleter()
     vec = _RecordingVectorizeDeleter()
     pipeline = DecommissionPipeline(
@@ -280,8 +267,6 @@ def test_idempotent_repeated_runs(tmp_path):
         customers_root=customers_root,
         archive_root=tmp_path / "archive",
         audit_writer=writer,
-        memory_runner=mem,
-        voice_runner=voi,
         r2_deleter=r2,
         vectorize_deleter=vec,
     )
@@ -341,8 +326,6 @@ def test_plan_includes_observability_cleanup_with_client_wired_flag(tmp_path):
         customers_root=customers_root,
         archive_root=tmp_path / "archive",
         audit_writer=writer,
-        memory_runner=_RecordingMemoryRunner(),
-        voice_runner=_RecordingVoiceRunner(),
         r2_deleter=_RecordingR2Deleter(),
         vectorize_deleter=_RecordingVectorizeDeleter(),
     )
@@ -357,8 +340,6 @@ def test_plan_includes_observability_cleanup_with_client_wired_flag(tmp_path):
         customers_root=customers_root,
         archive_root=tmp_path / "archive",
         audit_writer=writer,
-        memory_runner=_RecordingMemoryRunner(),
-        voice_runner=_RecordingVoiceRunner(),
         r2_deleter=_RecordingR2Deleter(),
         vectorize_deleter=_RecordingVectorizeDeleter(),
         observability=_RecordingObservabilityCleanup(),
@@ -377,8 +358,6 @@ def test_run_invokes_observability_cleanup_with_customer_slug(tmp_path):
         customers_root=customers_root,
         archive_root=tmp_path / "archive",
         audit_writer=writer,
-        memory_runner=_RecordingMemoryRunner(),
-        voice_runner=_RecordingVoiceRunner(),
         r2_deleter=_RecordingR2Deleter(),
         vectorize_deleter=_RecordingVectorizeDeleter(),
         observability=obs,
@@ -405,8 +384,6 @@ def test_failure_halts_with_step_failed(tmp_path):
         customers_root=customers_root,
         archive_root=tmp_path / "archive",
         audit_writer=writer,
-        memory_runner=_RecordingMemoryRunner(),
-        voice_runner=_RecordingVoiceRunner(),
         r2_deleter=failing_r2,
         vectorize_deleter=_RecordingVectorizeDeleter(),
     )
@@ -420,7 +397,7 @@ def test_failure_halts_with_step_failed(tmp_path):
     assert (customers_root / "smd").exists()
     # Audit log contains the failure metadata for that step.
     failure_rows = conn.execute(
-        "SELECT metadata FROM audit_log WHERE action_type = 'DECOMMISSION_INITIATED'"
+        "SELECT metadata FROM audit_log WHERE action_type = 'DECOMMISSION_STEP_FAILED'"
     ).fetchall()
     failure_text = " ".join(r[0] or "" for r in failure_rows)
     assert "failed" in failure_text
@@ -459,8 +436,7 @@ def test_unwired_backends_lists_all_stubs_by_default(tmp_path):
         audit_writer=writer,
     )
     assert pipeline.unwired_destructive_backends() == [
-        "memory_runner",
-        "voice_runner",
+        "audit_log_preserver",
         "r2_deleter",
         "vectorize_deleter",
         "agentmail",
@@ -477,13 +453,12 @@ def test_unwired_backends_empty_when_all_wired(tmp_path):
         customers_root=customers_root,
         archive_root=tmp_path / "archive",
         audit_writer=writer,
-        memory_runner=_RecordingMemoryRunner(),
-        voice_runner=_RecordingVoiceRunner(),
         r2_deleter=_RecordingR2Deleter(),
         vectorize_deleter=_RecordingVectorizeDeleter(),
         agentmail=_FakeAgentMail(),
         fly=_FakeFly(),
         observability=_RecordingObservabilityCleanup(),
+        audit_log_preserver=_RecordingPreserver(),
     )
     assert pipeline.unwired_destructive_backends() == []
 
@@ -593,8 +568,8 @@ def test_compliance_archiver_writes_manifest(tmp_path):
 # ---------------------------------------------------------------------------
 # Tests: audit-log retention carve-out (audit-retention.md, #893)
 #
-# The step 2 "02_d1_memory_voice" pipeline runs an audit-log preservation
-# branch BEFORE the canonical memory + voice cleanup hooks. The preserver
+# Step 2 "02_preserve_machine_data" runs the audit-log + memory preservation
+# BEFORE any destructive step (pull-before-destroy, #1355). The preserver
 # writes a CSV + manifest under the archive dir, and the pipeline emits a
 # dedicated audit row naming the preservation deadline.
 # ---------------------------------------------------------------------------
@@ -691,8 +666,6 @@ def test_step_2_runs_audit_log_preservation_before_memory_voice(tmp_path):
         customers_root=customers_root,
         archive_root=tmp_path / "archive",
         audit_writer=writer,
-        memory_runner=_RecordingMemoryRunner(),
-        voice_runner=_RecordingVoiceRunner(),
         r2_deleter=_RecordingR2Deleter(),
         vectorize_deleter=_RecordingVectorizeDeleter(),
         # smd fixture is marketing-agency → 1095-day default. Override
@@ -703,7 +676,7 @@ def test_step_2_runs_audit_log_preservation_before_memory_voice(tmp_path):
         },
     )
     results = _run(pipeline.run())
-    step2 = next(r for r in results if r.name == "02_d1_memory_voice")
+    step2 = next(r for r in results if r.name == "02_preserve_machine_data")
     preserved = step2.detail["audit_log_preserved"]
     assert preserved["audit_log_days"] == 1825
     assert Path(preserved["archive_path"]).exists()
@@ -711,7 +684,7 @@ def test_step_2_runs_audit_log_preservation_before_memory_voice(tmp_path):
     # memory + voice cleanup row.
     rows = conn.execute(
         "SELECT metadata FROM audit_log "
-        "WHERE action_type = 'DECOMMISSION_DRAIN_COMPLETE'"
+        "WHERE action_type = 'DECOMMISSION_STEP_COMPLETE'"
     ).fetchall()
     carve_out = [r[0] for r in rows if "audit_log_preserved" in (r[0] or "")]
     assert carve_out, "expected at least one audit row tagged with audit_log_preserved"
@@ -729,15 +702,13 @@ def test_step_2_falls_back_to_vertical_default_when_no_override(tmp_path):
         customers_root=customers_root,
         archive_root=tmp_path / "archive",
         audit_writer=writer,
-        memory_runner=_RecordingMemoryRunner(),
-        voice_runner=_RecordingVoiceRunner(),
         r2_deleter=_RecordingR2Deleter(),
         vectorize_deleter=_RecordingVectorizeDeleter(),
         # marketing-agency vertical without override → 1095-day default.
         customer_yaml={"vertical": "marketing-agency"},
     )
     results = _run(pipeline.run())
-    step2 = next(r for r in results if r.name == "02_d1_memory_voice")
+    step2 = next(r for r in results if r.name == "02_preserve_machine_data")
     assert step2.detail["audit_log_preserved"]["audit_log_days"] == 1095
 
 
@@ -749,14 +720,12 @@ def test_step_2_uses_2555_fallback_when_customer_yaml_missing(tmp_path):
         customers_root=customers_root,
         archive_root=tmp_path / "archive",
         audit_writer=writer,
-        memory_runner=_RecordingMemoryRunner(),
-        voice_runner=_RecordingVoiceRunner(),
         r2_deleter=_RecordingR2Deleter(),
         vectorize_deleter=_RecordingVectorizeDeleter(),
         # No customer_yaml at all.
     )
     results = _run(pipeline.run())
-    step2 = next(r for r in results if r.name == "02_d1_memory_voice")
+    step2 = next(r for r in results if r.name == "02_preserve_machine_data")
     assert step2.detail["audit_log_preserved"]["audit_log_days"] == 2555
 
 
@@ -768,8 +737,6 @@ def test_tombstone_marker_records_audit_log_preserve_until(tmp_path):
         customers_root=customers_root,
         archive_root=tmp_path / "archive",
         audit_writer=writer,
-        memory_runner=_RecordingMemoryRunner(),
-        voice_runner=_RecordingVoiceRunner(),
         r2_deleter=_RecordingR2Deleter(),
         vectorize_deleter=_RecordingVectorizeDeleter(),
         customer_yaml={"vertical": "law-firm"},
@@ -792,8 +759,6 @@ def test_decommission_does_not_delete_audit_log_rows(tmp_path):
         customers_root=customers_root,
         archive_root=tmp_path / "archive",
         audit_writer=writer,
-        memory_runner=_RecordingMemoryRunner(),
-        voice_runner=_RecordingVoiceRunner(),
         r2_deleter=_RecordingR2Deleter(),
         vectorize_deleter=_RecordingVectorizeDeleter(),
         customer_yaml={"vertical": "law-firm"},
@@ -817,12 +782,10 @@ def test_plan_step_2_surfaces_resolved_retention_window(tmp_path):
         customers_root=customers_root,
         archive_root=tmp_path / "archive",
         audit_writer=writer,
-        memory_runner=_RecordingMemoryRunner(),
-        voice_runner=_RecordingVoiceRunner(),
         customer_yaml={"vertical": "law-firm"},
     )
     plan = _run(pipeline.plan())
-    step2 = next(r for r in plan if r.name == "02_d1_memory_voice")
+    step2 = next(r for r in plan if r.name == "02_preserve_machine_data")
     assert step2.detail["audit_log_days"] == 2555
     assert "audit_log_preserve_until" in step2.detail
 
@@ -859,8 +822,6 @@ def test_audit_log_preservation_runs_before_substrate_deletion(tmp_path):
         customers_root=customers_root,
         archive_root=archive_root,
         audit_writer=writer,
-        memory_runner=_OrderAssertingMemoryRunner(),
-        voice_runner=_RecordingVoiceRunner(),
         r2_deleter=_RecordingR2Deleter(),
         vectorize_deleter=_RecordingVectorizeDeleter(),
         customer_yaml={"vertical": "law-firm"},

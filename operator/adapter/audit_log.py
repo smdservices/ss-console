@@ -134,9 +134,16 @@ ACCEPTED_ACTION_TYPES = frozenset(
         "IDENTIFIER_UNVERIFIED",  # A1 report-only identifier gate (tier3, non-blocking)
         "ESCALATION_FIRED",
         "ESCALATION_ACKNOWLEDGED",
-        # Decommission lifecycle
+        # Decommission lifecycle. INITIATED / DRAIN_COMPLETE / FINAL mark the
+        # pipeline boundaries; STEP_BEGIN / STEP_COMPLETE / STEP_FAILED mark
+        # each numbered step. Before the 2026-06-12 code review every step
+        # reused INITIATED + DRAIN_COMPLETE (and failures wrote INITIATED),
+        # collapsing the compliance trail into indistinguishable rows.
         "DECOMMISSION_INITIATED",
         "DECOMMISSION_DRAIN_COMPLETE",
+        "DECOMMISSION_STEP_BEGIN",
+        "DECOMMISSION_STEP_COMPLETE",
+        "DECOMMISSION_STEP_FAILED",
         "DECOMMISSION_FINAL",
         # Honcho overlay (ADR 0016 rewrite, 2026-05-24) — mirror, don't gate.
         # The hermes-smd-memory-mirror plugin emits this on Captain dismissal

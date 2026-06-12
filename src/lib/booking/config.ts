@@ -79,3 +79,29 @@ export const BOOKING_CONFIG: BookingConfig = {
   manage_token_ttl_hours_after_slot: 48,
   meeting_url: 'https://zoom.us/j/4284801619',
 }
+
+/**
+ * Productized SKU codes that may be carried through /book?interest=<sku>
+ * from a marketing CTA. Strict allow-list, enforced in two places —
+ * /book (page prefill) and /api/intake/send (API boundary) — which
+ * previously each carried their own copy that had to be hand-synced
+ * (2026-06-12 code review dedup). Unknown values are silently dropped
+ * to null rather than rejected, so a stale URL or cached link cannot
+ * break a legitimate submission. Extending this list requires an
+ * explicit code change.
+ */
+export const ALLOWED_INTERESTS: ReadonlySet<string> = new Set<string>([
+  'operator',
+  'law-firm',
+  'insurance',
+  'veterinary',
+  'title',
+  'accounting',
+  'ria',
+  'mortgage',
+  'dental',
+  'med-spa',
+  'marketing-agency',
+  'property-management',
+  'home-services',
+])

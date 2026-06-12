@@ -1,5 +1,16 @@
 # Memory retention policy
 
+> **SUPERSEDED (2026-06-12, #1355).** This spec described the ADR-0008
+> control-plane retention runner (`adapter/memory/retention.py` +
+> `bin/cron-retention.py`), which was removed: nothing ever scheduled it, and
+> the per-customer control-plane Cloudflare D1 it swept was never provisioned
+> or written. Live memory is Machine-local (Hermes flat-file + the ADR-0016
+> `persona_observations` mirror, TTL-archived by the overlay per ADR 0016);
+> the live audit-retention carve-out lives in
+> [`audit-retention.md`](./audit-retention.md) (`customer.yaml
+memory.retention.audit_log_days` is still read by the decommission
+> pipeline). Retained for historical reference.
+
 **Spec for issue [#863](https://github.com/venturecrane/ss-console/issues/863).** Per-customer retention runner that ages out memory, voice, audit, and draft artifacts in line with the per-data-type windows declared on `customer.yaml`. Sibling to the canonical ingestion pipelines (`adapter/memory/pipeline.py`, `adapter/voice/pipeline.py`) and the decommission script (`bin/decommission-customer.sh`).
 
 ## Source

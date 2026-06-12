@@ -156,7 +156,29 @@ async function extractWithHaiku(
     jsonText = jsonText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
   }
 
-  const parsed = JSON.parse(jsonText)
+  return parseExtractionJson(jsonText)
+}
+
+/**
+ * Parse + coerce the LLM's JSON into the extraction shape, or null when
+ * malformed. Issue #835: malformed LLM JSON skips the module (null)
+ * instead of throwing into the Workflow step's retry loop.
+ */
+function parseExtractionJson(
+  jsonText: string
+): Omit<WebsiteEnrichment, 'tech_stack' | 'pages_analyzed'> | null {
+  let parsedRaw: unknown
+  try {
+    parsedRaw = JSON.parse(jsonText)
+  } catch {
+    console.warn('[website-analyzer] LLM returned unparseable JSON; skipping')
+    return null
+  }
+  if (parsedRaw === null || typeof parsedRaw !== 'object' || Array.isArray(parsedRaw)) {
+    console.warn('[website-analyzer] LLM returned non-object JSON; skipping')
+    return null
+  }
+  const parsed = parsedRaw as Record<string, unknown>
   return {
     owner_name: typeof parsed.owner_name === 'string' ? parsed.owner_name : null,
     team_size: typeof parsed.team_size === 'number' ? parsed.team_size : null,

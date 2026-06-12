@@ -60,51 +60,6 @@ export function magicLinkEmailHtml(clientName: string, magicLinkUrl: string): st
 }
 
 /**
- * Email sent when a quote/proposal is sent to a client via the portal.
- * Links them to the portal to review their proposal.
- */
-export function quoteSentEmailHtml(clientName: string, portalUrl: string): string {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Inter',Arial,sans-serif;">
-  <div style="max-width:480px;margin:40px auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;overflow:hidden;">
-    <div style="padding:32px 24px;text-align:center;">
-      <h1 style="font-size:20px;font-weight:700;color:#0f172a;margin:0 0 8px;">${BRAND_NAME}</h1>
-      <p style="font-size:14px;color:#64748b;margin:0 0 24px;">Client Portal</p>
-
-      <p style="font-size:15px;color:#334155;margin:0 0 8px;">
-        Hi${clientName ? ` ${clientName}` : ''},
-      </p>
-      <p style="font-size:15px;color:#334155;margin:0 0 24px;">
-        Your proposal from ${BRAND_NAME} is ready for review. Sign in to your portal to view the details.
-      </p>
-
-      <a href="${portalUrl}"
-         style="display:inline-block;background-color:#1e40af;color:#ffffff;
-                font-size:14px;font-weight:600;text-decoration:none;
-                padding:12px 32px;border-radius:6px;">
-        View Your Proposal
-      </a>
-
-      <p style="font-size:12px;color:#94a3b8;margin:24px 0 0;">
-        If you have any questions, reply directly to this email.
-      </p>
-    </div>
-    <div style="background-color:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0;">
-      <p style="font-size:11px;color:#94a3b8;margin:0;">
-        &copy; ${new Date().getFullYear()} ${BRAND_NAME} &middot; Phoenix, AZ
-      </p>
-    </div>
-  </div>
-</body>
-</html>`
-}
-
-/**
- * Email sent when an admin first sends a quote to a client (portal invitation).
- */
-/**
  * Email sent when an invoice is sent to a client via the portal.
  * Links them to the portal to view and pay the invoice.
  */
@@ -175,57 +130,6 @@ export function paymentConfirmationEmailHtml(clientName: string, amount: string)
 
       <p style="font-size:12px;color:#94a3b8;margin:24px 0 0;">
         If you have any questions, reply directly to this email.
-      </p>
-    </div>
-    <div style="background-color:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0;">
-      <p style="font-size:11px;color:#94a3b8;margin:0;">
-        &copy; ${new Date().getFullYear()} ${BRAND_NAME} &middot; Phoenix, AZ
-      </p>
-    </div>
-  </div>
-</body>
-</html>`
-}
-
-/**
- * Email sent when an admin first sends a quote to a client (portal invitation).
- */
-/**
- * Email sent with the scorecard PDF report after assessment completion.
- */
-export function scorecardReportEmailHtml(
-  firstName: string,
-  overallScore: number,
-  overallDisplayLabel: string
-): string {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Inter',Arial,sans-serif;">
-  <div style="max-width:480px;margin:40px auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;overflow:hidden;">
-    <div style="padding:32px 24px;text-align:center;">
-      <h1 style="font-size:20px;font-weight:700;color:#0f172a;margin:0 0 8px;">${BRAND_NAME}</h1>
-      <p style="font-size:14px;color:#64748b;margin:0 0 24px;">Operations Health Scorecard</p>
-
-      <p style="font-size:15px;color:#334155;margin:0 0 8px;">
-        Hi${firstName ? ` ${firstName}` : ''},
-      </p>
-      <p style="font-size:15px;color:#334155;margin:0 0 24px;">
-        Your Operations Health Report is attached. You scored <strong>${overallScore}</strong> out of 100 (${overallDisplayLabel}).
-      </p>
-      <p style="font-size:15px;color:#334155;margin:0 0 24px;">
-        The report breaks down how you scored across 6 areas of your operations, with specific observations based on your answers. Take a look and see what stands out.
-      </p>
-
-      <a href="https://smd.services/book"
-         style="display:inline-block;background-color:#1e40af;color:#ffffff;
-                font-size:14px;font-weight:600;text-decoration:none;
-                padding:12px 32px;border-radius:6px;">
-        Book an Assessment Call
-      </a>
-
-      <p style="font-size:12px;color:#94a3b8;margin:24px 0 0;">
-        The real value comes from a conversation. We walk through your day together and figure out exactly what to focus on first.
       </p>
     </div>
     <div style="background-color:#f8fafc;padding:16px 24px;text-align:center;border-top:1px solid #e2e8f0;">

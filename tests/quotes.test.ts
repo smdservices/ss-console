@@ -369,21 +369,6 @@ describe('quotes: repeat-quote flow (#472)', () => {
   })
 })
 
-describe('quotes: email template', () => {
-  const source = () => readFileSync(resolve('src/lib/email/templates.ts'), 'utf-8')
-
-  it('exports quoteSentEmailHtml function', () => {
-    expect(source()).toContain('export function quoteSentEmailHtml')
-  })
-
-  it('quote sent email includes proposal language', () => {
-    const code = source()
-    expect(code).toContain('Your proposal from ${BRAND_NAME} is ready for review')
-  })
-
-  it('quote sent email includes portal link', () => {
-    const code = source()
-    expect(code).toContain('View Your Proposal')
-    expect(code).toContain('portalUrl')
-  })
-})
+// 'quotes: email template' describe removed 2026-06-12: it asserted source
+// strings of quoteSentEmailHtml, a template with zero production callers
+// (test-only zombie — code review finding). The function was deleted.

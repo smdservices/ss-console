@@ -10,6 +10,7 @@ import IntakeClosed from '../components/booking/IntakeClosed.astro'
 import { getEntity } from '../lib/db/entities'
 import { getContact } from '../lib/db/contacts'
 import { verifyBookingLink } from '../lib/booking/signed-link'
+import { ALLOWED_INTERESTS } from '../lib/booking/config'
 import { ORG_ID } from '../lib/constants'
 import { env } from 'cloudflare:workers'
 
@@ -26,25 +27,9 @@ let prefillTokenValid = false
 let prefillTokenError: 'expired' | 'invalid' | null = null
 
 // Productized SKU interest carried from a marketing CTA (e.g.
-// /operator → /book?interest=operator). Strict allow-list: unknown
-// values are silently dropped so a stale URL or cached link does not
-// pollute the form. The same allow-list is enforced again at the API
+// /operator → /book?interest=operator). The shared allow-list lives in
+// lib/booking/config; the same list is enforced again at the API
 // boundary in /api/intake/send.ts.
-const ALLOWED_INTERESTS = new Set<string>([
-  'operator',
-  'law-firm',
-  'insurance',
-  'veterinary',
-  'title',
-  'accounting',
-  'ria',
-  'mortgage',
-  'dental',
-  'med-spa',
-  'marketing-agency',
-  'property-management',
-  'home-services',
-])
 const interestParam = Astro.url.searchParams.get('interest')
 const interest = interestParam && ALLOWED_INTERESTS.has(interestParam) ? interestParam : undefined
 
