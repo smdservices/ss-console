@@ -141,3 +141,25 @@ ss-console: 215,453 code lines (src 110K / operator 52K / tests 41K / workers 7K
 ## Raw Agent Outputs
 
 Six agent reports (core-libs, surfaces, operator-tree, overlay, security, platform) are preserved in the session transcript (sess_01KTYD98M5T8E0WS9XX2VJG9AC, 2026-06-12). Key counts: core-libs — 3 dead exports, 2 dead modules, ~16 cast violations, 2 workers absent from CI; surfaces — 2 dead components, 1 orphan API route, 4 duplication clusters, 3 Pattern A violations; operator — ~42 zero-reachability files, 5 cross-repo duplicate pairs, 14 slop instances; overlay — 1 high fail-open candidate, 3 duplicate clusters, 6 swallowed-exception sites; security — 0 critical, replay + fail-open highs; platform — money-path mirror tests, 2 CI gaps.
+
+## Remediation Log (same-day, 2026-06-12)
+
+Captain directive: fix rather than file. Ten PRs merged across both repos the same day; the orchestrator re-verified each finding before fixing.
+
+| PR | Repo | Findings closed |
+| --- | --- | --- |
+| #1348 | ss-console | All 4 Pattern A violations (§1.1–1.4); forbidden-strings guards broadened to structural patterns; `/assessment` + `/assessment/report-preview` gated behind `ENABLE_ASSESSMENT_PREVIEW` (§1.5) |
+| #1350 | ss-console | Dead-code rip: scorecard surface (route/script/lib/email/PDF template), parked partner-nurture modules, dead portal components, dead exports, orphaned JSDoc (§4.5–4.8); helper-quartet + ALLOWED_INTERESTS dedup (§4.12–4.13); bonus: live revenue-band anchoring purged from the assessment-to-quote system prompt; CLAUDE.md `crane_sod` typo (§7.1) |
+| #1351 | ss-console | Worker tests into CI; 3 missing workers build-verified + deployed by CI (§5.3, §8.2, §2.5); a missing enrichment-workflow lockfile surfaced and fixed by the new step |
+| #1352 | ss-console | 72 behavioral D1 tests on the money path; superseded mirror blocks pruned (§5.1); found latent Stripe quantity bug → issue #1354 |
+| #1353 | ss-console | Open issues #833/#834/#835 closed: parse-don't-cast on session KV, enrichment LLM JSON, SignWell post-verify (§3.1–3.3) |
+| #1356 | ss-console | Per-step `DECOMMISSION_STEP_BEGIN/COMPLETE/FAILED` audit vocabulary (§4.4 part 2); python↔TS audit-vocab parity test (caught a real 10-type TS drift); adapter↔overlay drift-gate manifest (§2.1) |
+| #61 | overlay | Trust-ceiling volume-fault fail-open (§3.7, + the missing test), Svix replay window (§3.8), tool-name case bypass (§3.10) |
+| #62 | overlay | `_FENCED_READ_TOOLS` completeness gate (§3.12), 0700 profile dirs (§3.13), `_min_ceiling` dedup (§4.9) |
+| #63 | overlay | README workspace-plugin row (§2.6) |
+
+**Filed as issues:** ss #1354 (latent Stripe line-item quantity underbilling, pinned by test), ss #1355 (decommission data-plane mismatch — preservation/sweep read control-plane CF D1 while live ledger + ADR-0016 memory are Machine-local; supersedes §4.2's framing and is the report's most serious follow-on), overlay #64 (audit-goes-dark health signal, §3.11).
+
+**Awaiting Captain:** connectors-tree disposal (§4.1), overlay deploy to customer-zero (runs pre-#61/#62 enforcement until the next OVERLAY_REF bump + reprovision), Security Summary as required status check (§8.1 — one command, in #1351's body), pack-page consolidation (§2.2), calendar-read fence candidates (recorded in overlay `UNFENCED_READ_BY_DESIGN`).
+
+**Reviewed and declined, with reasons recorded:** parseLineItems consolidation (§4.16 — different parse contracts), `_resolve_vertical` consolidation (different fail-closed contracts), 67 redundant role checks (§4.15 — removal of defense-in-depth needs Captain directive), drafts/audit stub collapse (§2.4 — churn against in-flight #821).
