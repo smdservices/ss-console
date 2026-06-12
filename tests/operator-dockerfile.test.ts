@@ -56,11 +56,11 @@ describe('Operator customer Machine Dockerfile', () => {
   })
 
   it('pins the broker-capable overlay revision', () => {
-    // v0.4.16 is the release tag cut at overlay #55 (audit_log → append-only
-    // broker, OP-P1-4), tree-identical to the first-boot SHA 42baca1 that was
-    // proven green on customer-zero. Repointed SHA → tag per the "tag last"
-    // convention above once the broker boot was verified.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="v0.4.16"')
+    // 2e310674 is overlay main ABOVE v0.4.16 (#55, audit broker): it carries the
+    // OP-P1-4 audit broker AND the Phase B Cut C1 cron firing fix (#59). Verified
+    // live on staging — a scheduled turn fired (last_status=ok) and the broker
+    // boots clean on a fresh Machine.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="2e310674e0ec0200f87030a33dd0ca10abffabc7"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

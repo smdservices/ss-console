@@ -71,4 +71,4 @@ jobs:
         # explicitly: the rest of bin/tests needs substrate deps (pyyaml etc.) not
         # installed in this bare-pytest env, but these two import only stdlib (and
         # adapter.voice for the corpus tracer).
-        run: python3 -m pytest adapter/tests adapter/evidence/tests safety-substrate/tests bin/tests/test_voice_corpus.py bin/tests/test_deploy_ordering.py bin/tests/test_env_contract_conformance.py bin/tests/test_env_array_generation.py connectors/google/tests workspace_broker/tests -q
+        run: python3 -m pytest adapter/tests adapter/evidence/tests safety-substrate/tests bin/tests/test_voice_corpus.py bin/tests/test_deploy_ordering.py bin/tests/test_env_contract_conformance.py bin/tests/test_env_array_generation.py bin/tests/test_customer_yaml_block_conformance.py connectors/google/tests workspace_broker/tests -q
