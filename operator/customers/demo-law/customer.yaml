@@ -1,0 +1,155 @@
+schema_version: 1
+
+# Demo law Operator — the tangible email-in / email-back law demo.
+#
+# PURPOSE: a prospect emails an intake to the demo AgentMail address; the demo
+# Operator runs the real `new-matter-intake` skill against the SEEDED Clio dev
+# tenant (Greg Whitfield = existing client → CONFLICT-HOLD; otherwise an intake
+# acknowledgment); the prospect gets the result back by email. This is NOT a
+# real client and holds NO real client data — it runs on synthetic/seeded data
+# only, which is the load-bearing precondition for `demo.reply_relay` below.
+#
+# HARD DEPENDENCY (Captain / live-ops only, not provisionable from the console):
+#   1. demo-law's own AgentMail inbox (the address prospects email) with its
+#      Svix webhook wired to https://hermes-demo-law.fly.dev/webhooks/email.
+#   2. The AgentMail webhook ingress must present the dispatched payload with a
+#      top-level/`metadata` `source: agentmail` marker (the webhook router keys
+#      routing on (source,event_type); AgentMail's native payload carries
+#      event_type but not source) AND preserve the `message{from,message_id,
+#      inbox_id}` block (the relay's recipient-lock anchor).
+#   3. AGENTMAIL_API_KEY + SMD_WEBHOOK_SIGNING_SECRET provisioned as Fly secrets.
+#
+# Write posture is FAIL-CLOSED / draft-and-surface, same as pilot-law: the law
+# external-send-draft floor pins external_send to draft_for_review (non-raisable,
+# ADR 0005). The agent DRAFTS; the demo-scoped, recipient-locked reply relay
+# (hermes-smd-demo-relay) sends that governed draft back to the verified inbound
+# sender WITHOUT weakening any floor (design: docs/security/demo-reply-relay-design.md).
+
+# ---- IDENTITY ----
+customer_id: demo-law
+customer_name: 'Demo Law (Clio Sandbox)'
+vertical: law-firm
+practice_areas:
+  - general-practice
+fly_region: lax # Phoenix-adjacent, consistent with pilot-law / customer-zero
+
+# ---- RUNTIME ----
+model: claude-opus-4-8
+hermes_ref: v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
+
+machine:
+  size: shared-cpu-1x
+  memory_mb: 1024
+
+# ---- HUMANS WITH PORTAL ACCESS ----
+users:
+  - email: scott@smd.services
+    role: principal
+    full_name: Scott Durgan
+
+# ---- PERSONAS ----
+# One coordinator persona running the demo skill. The webhook routes an inbound
+# prospect email straight to `new-matter-intake`; the spine router is included
+# so the persona can also be exercised conversationally. Both draft_for_review —
+# the law floor is non-raisable and the relay (not the agent) does the send.
+personas:
+  - slug: avery
+    status: active
+    name: Avery
+    title: AI Associate
+    tone:
+      - plainspoken
+      - warm-but-professional
+      - concise
+    skills:
+      # The named job for the demo: move a new inquiry to an active matter,
+      # holding the conflict + UPL lines. Validated against the seeded Clio dev
+      # tenant 2026-06-11 (correct CONFLICT-HOLD on the Greg Whitfield seed).
+      - name: new-matter-intake
+        version: pending
+        trust_ceiling: draft_for_review
+        enabled: true
+      # Spine — routes inbound to the wedge skills (conversational exercise).
+      - name: matter-inbox-router
+        version: pending
+        trust_ceiling: draft_for_review
+        enabled: true
+    # Native Google/Himalaya skills disabled — the demo's mail is AgentMail.
+    skills_disabled:
+      - google-workspace
+      - himalaya
+
+# ---- CONNECTORS ----
+connectors:
+  # Mail on the persona's OWN AgentMail inbox (the demo address). The inbound
+  # webhook drives the skill; the relay sends the governed draft reply via the
+  # AgentMail REST reply API. The webhook_url path segment MUST be the adapter
+  # slug (`agentmail`): the gate (webhook_gate.py) routes by /webhooks/<adapter>
+  # and resolves the per-vendor secret as WEBHOOK_SECRET_<ROUTE> →
+  # WEBHOOK_SECRET_AGENTMAIL, and webhook_triggers.source: agentmail matches the
+  # same adapter slug. AGENTMAIL_API_KEY is provisioned as a Fly secret.
+  Email:
+    adapter: agentmail
+    backend: mcp:agentmail
+    enabled: true
+    webhook_url: 'https://hermes-demo-law.fly.dev/webhooks/agentmail'
+
+  # The connect target: the SEEDED Clio developer tenant (oktopeak/clio-mcp
+  # v2.0.0, MIT, ADR 0020) — the same dev tenant pilot-law uses, seeded with the
+  # Greg Whitfield conflict fixture. Reuse pilot-law's OAuth token_ref so the
+  # demo reads the same seeded data (the Clio dev app is shared; refresh tokens
+  # are reusable/not rotated). Write scope stays fail-closed (draft-and-surface).
+  PracticeManagement:
+    adapter: clio
+    backend: mcp:clio-oktopeak
+    enabled: true
+    token_ref: 'infisical:/operator/pilot-law/practice-management/clio-oauth'
+
+# ---- WEBHOOK TRIGGERS ----
+# An inbound prospect email (AgentMail message.received) drives the demo skill.
+# source must match a connector adapter with webhook_url (Email/agentmail above).
+webhook_triggers:
+  - source: agentmail
+    event_type: message.received
+    skill: new-matter-intake
+    persona: avery
+
+# ---- DEMO SWITCHES ----
+# Enable the autonomous reply relay. ONLY safe here because demo-law holds no
+# real client data — the relay sends the agent's governed, recipient-locked
+# draft back to the verified inbound sender (fail-closed everywhere else).
+demo:
+  reply_relay: enabled
+
+# ---- SCOPE ----
+scope:
+  email_folders_visible:
+    - Inbox
+    - Sent
+  email_folders_blind: []
+  email_keyword_blocks: []
+  domain_blocks: []
+  # No autonomous external_send: the wedge is draft-and-surface. The law floor
+  # pins external_send to draft_for_review (non-raisable); the relay does the
+  # demo send, outside the agent's governed tool path.
+  action_ceilings:
+    external_send: draft_for_review
+
+# ---- ESCALATION ----
+escalation:
+  red_flag_recipients:
+    - scott@smd.services
+  failure_recipients:
+    - scott@smd.services
+
+# ---- VOICE LIBRARY ----
+# No samples — the demo uses the general voice (Voice-Layer-2 is #855, not a
+# demo blocker).
+voice_library:
+  samples_path: 'r2://vaults/demo-law/voice/samples/'
+
+# ---- MEMORY (per-customer isolation invariants; must match customer_id) ----
+memory:
+  d1_namespace: demo-law
+  r2_vault_path: 'vaults/demo-law/'
+  vectorize_index: 'hermes-demo-law-vault'

@@ -77,6 +77,7 @@ export {
   type Pause,
   type MachineSpec,
   type CostEstimate,
+  type Demo,
   type Vertical,
   type TrustCeiling,
   type Pronouns,
