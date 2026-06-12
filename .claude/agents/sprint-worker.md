@@ -1,5 +1,6 @@
 ---
 name: sprint-worker
+description: Implements a single GitHub issue end-to-end in an isolated git worktree — reads the codebase, makes minimal focused changes, runs verification, commits, pushes, and opens a PR. Used by the fleet sprint orchestrator to parallelize issue work across sibling worktrees.
 model: sonnet
 tools:
   - Bash
