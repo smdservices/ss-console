@@ -60,6 +60,7 @@
   "overrides": {
     "defu": "^6.1.7",
     "undici": "^7.24.4",
-    "js-cookie": "^3.0.7"
+    "js-cookie": "^3.0.7",
+    "esbuild": "0.28.1"
   }
 }
