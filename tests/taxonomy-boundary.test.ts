@@ -32,10 +32,6 @@ function readPromptFiles(): { path: string; content: string }[] {
       content: readFileSync(resolve('src/lead-gen/prompts/new-business-prompt.ts'), 'utf-8'),
     },
     {
-      path: 'src/lead-gen/prompts/partner-nurture-prompt.ts',
-      content: readFileSync(resolve('src/lead-gen/prompts/partner-nurture-prompt.ts'), 'utf-8'),
-    },
-    {
       path: 'src/lead-gen/prompts/review-scoring-prompt.ts',
       content: readFileSync(resolve('src/lead-gen/prompts/review-scoring-prompt.ts'), 'utf-8'),
     },

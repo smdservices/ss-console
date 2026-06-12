@@ -92,9 +92,10 @@ export function formatSlotLabelLong(slotStartUtc: string, tz: string): string {
   return formatInTimeZone(new Date(slotStartUtc), tz, "EEEE, MMMM d 'at' h:mm a (zzz)")
 }
 
-export function trimString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() ? value.trim() : null
-}
+// trimString / isValidEmail / jsonResponse moved to the shared
+// lib/api/helpers module (2026-06-12 code review dedup); re-exported here
+// so the existing reserve.ts import surface keeps working.
+export { trimString, isValidEmail, jsonResponse } from '../../../lib/api/helpers'
 
 export function parseOptionalInt(value: unknown): number | null {
   if (typeof value === 'number') return Math.floor(value)
@@ -103,21 +104,4 @@ export function parseOptionalInt(value: unknown): number | null {
     return isNaN(parsed) ? null : parsed
   }
   return null
-}
-
-export function isValidEmail(email: string): boolean {
-  if (email.length > 254) return false
-  const parts = email.split('@')
-  if (parts.length !== 2) return false
-  const [local, domain] = parts
-  if (!local || !domain) return false
-  if (domain.indexOf('.') === -1) return false
-  return true
-}
-
-export function jsonResponse(status: number, data: unknown): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
 }
