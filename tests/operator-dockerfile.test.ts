@@ -56,13 +56,13 @@ describe('Operator customer Machine Dockerfile', () => {
   })
 
   it('pins the broker-capable overlay revision', () => {
-    // 83cc1bdd is overlay v0.4.20: v0.4.18 (gate self-check hotfix #66 +
+    // e0bc5039 is overlay v0.4.21 (v0.4.20 + #69 calendar-read fences): v0.4.18 (gate self-check hotfix #66 +
     // audit-dark signal #65, atop the #60–#63 security wave) plus #67
     // (audit_export/memory_export seam kinds, the Machine-side half of the
     // #1355 pull-before-destroy decommission fix) and #68 (sentinel
     // staleness = writer-pid liveness). v0.4.17 must never be re-pinned
     // (fixed-epoch probe crash-loops the gate).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="83cc1bdd907830aa4b002994e7072f4cfc968585"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="e0bc503981fdb0f4c1cf2588117bcaa1b21e5f05"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
