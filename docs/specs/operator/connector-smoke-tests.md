@@ -1,5 +1,12 @@
 # Connector Smoke-Test Framework
 
+> **SUPERSEDED (2026-06-12, Captain decision).** The filevine / no_pm /
+> lawpay adapter packages this harness covered were deleted (ADR 0020 went
+> MCP-first; the adapters had zero runtime wiring, and
+> `run-connector-smoke-tests.sh` invoked `operator/adapter/run_prod_smoke_test.py`,
+> which never existed). The live google connector suite runs in CI via
+> `operator-substrate.yml`. Retained for historical reference.
+
 **Spec for issue [#852](https://github.com/venturecrane/ss-console/issues/852).** Operationalizes the Phase A stub at [`operator/adapter/run_prod_smoke_test.py`](../../../operator/adapter/run_prod_smoke_test.py) (originally landed in PR #812) into a real connector regression surface. For every enabled BUILD or Composio connector declared in [`customer.yaml`](customer-yaml-schema.md), one read-only call against the customer's tenant runs before any skill exercises a write capability. Auth, scope, and shape issues surface day-1.
 
 ## Source
