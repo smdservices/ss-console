@@ -108,4 +108,15 @@ ssh_exec "audit-db-not-agent-writable" "setpriv --reuid=hermes --regid=hermes --
 # the ledger does not break skill capture. The overlay's register() creates it.
 ssh_exec "agent-state-owner-is-hermes" "[ \"\$(stat -c %U /opt/data/agent-state.db)\" = hermes ]"
 
+# ---------- Step 11: the broker is supervised by a ROOT respawner (OP-P1-4 follow-up) ----------
+# The broker must be respawnable on mid-run death, which requires a root parent
+# (only root can re-setpriv to uid workspace-broker). With the supervisor, the
+# broker's parent is the root subshell loop; without it the broker is a direct
+# child of PID 1 (the hermes gateway after the exec-drop). So "broker's parent
+# proc dir is root-owned" is a non-destructive proof the supervisor is in place.
+# NB: read PPid from /proc/<pid>/status with grep+tr (NO single quotes) — ssh_exec
+# wraps this whole string in `sh -c '...'`, so a single-quoted `awk '{print $4}'`
+# would collide with the outer quote and mangle the command.
+ssh_exec "broker-respawn-supervised" "pid=\$(pgrep -f workspace_broker.server | head -1); [ -n \"\$pid\" ] && ppid=\$(grep -m1 PPid /proc/\$pid/status | tr -dc 0-9) && [ \"\$(stat -c %U /proc/\$ppid)\" = root ]"
+
 log "All boot smoke checks passed for ${APP_NAME}"
