@@ -1,7 +1,23 @@
 ---
+/**
+ * /assessment — internal dogfood surface for the VOICE assessment flow.
+ *
+ * Gated behind ENABLE_ASSESSMENT_PREVIEW (same idiom as /patterns):
+ * 404 unless the flag is set. 2026-06-12 code review found this page
+ * publicly reachable while self-describing as "internal dogfood, not yet
+ * public". Set the flag in the environment(s) where dogfooding happens.
+ */
 export const prerender = false
 
+import { env } from 'cloudflare:workers'
 import Base from '../layouts/Base.astro'
+
+const flagValue = (env as { ENABLE_ASSESSMENT_PREVIEW?: string }).ENABLE_ASSESSMENT_PREVIEW
+const enabled = flagValue === '1' || flagValue === 'true'
+
+if (!enabled) {
+  return new Response(null, { status: 404 })
+}
 ---
 
 <Base title="Assessment preview | SMD Services" disableAnalytics={true}>
