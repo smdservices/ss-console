@@ -56,7 +56,11 @@ describe('Operator customer Machine Dockerfile', () => {
   })
 
   it('pins the broker-capable overlay revision', () => {
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="42baca1cae5f9cb0e09e7406596b984bce1a2fff"')
+    // v0.4.16 is the release tag cut at overlay #55 (audit_log → append-only
+    // broker, OP-P1-4), tree-identical to the first-boot SHA 42baca1 that was
+    // proven green on customer-zero. Repointed SHA → tag per the "tag last"
+    // convention above once the broker boot was verified.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="v0.4.16"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
