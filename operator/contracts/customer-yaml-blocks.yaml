@@ -1,0 +1,133 @@
+# ============================================================================
+# customer.yaml block-materialization registry — the single declaration of, for
+# every block a customer.yaml may author, WHAT turns it into a runtime effect
+# (and whether anything does at all).
+#
+# WHY THIS EXISTS. cron was authored in customer.yaml, validated, and then
+# SILENTLY DROPPED — translate.py had no _materialize_cron, so no scheduled turn
+# ever fired ("validation passing ≠ materialized"). The validator proves a block
+# is well-SHAPED; nothing proved a block is CONNECTED. This registry is that
+# second proof: every block authored in any operator/customers/*/customer.yaml
+# must appear here as either `implemented` (a named materializer produces a
+# runtime effect) or `inert` (deliberately not wired, with a reason). A NEW
+# block that nobody classified fails CI — the gate that would have caught cron.
+#
+# ENFORCEMENT: operator/bin/tests/test_customer_yaml_block_conformance.py asserts
+#   authored-blocks ⊆ registry, every entry is implemented|inert, and every
+#   inert entry carries a reason. Cut D's drift audit is the RUNTIME backstop:
+#   it checks the live Machine actually reflects what `implemented` here claims.
+#
+# status:      implemented | inert
+# materializer: where the runtime effect is produced (file/function), or — for
+#              inert, where it is validated.
+# note:        for inert, WHY it is not wired (deliberate vs not-yet); free text.
+#
+# Two scopes: customer.yaml TOP-LEVEL keys, and persona-level keys (entries of
+# personas[]).
+
+top_level:
+  # ---- identity / provisioning-consumed ----
+  schema_version:
+    status: implemented
+    materializer: src/lib/operator/customer-yaml (validation gate)
+    note: schema-version guard at validation time
+  customer_id:
+    status: implemented
+    materializer: provision-customer.sh (app/R2 naming) + translate _persona_config (config.yaml)
+  customer_name:
+    status: implemented
+    materializer: translate _persona_config (config.yaml) + SOUL.md
+  fly_region:
+    status: implemented
+    materializer: provision-customer.sh (Fly app region)
+  machine:
+    status: implemented
+    materializer: provision-customer.sh (Machine size/region)
+  hermes_ref:
+    status: implemented
+    materializer: provision-customer.sh (Docker build args + pinned-SHA assertion)
+  vertical:
+    status: implemented
+    materializer: translate _persona_config (config.yaml) + SOUL.md + SMD_VERTICAL (trust)
+  model:
+    status: implemented
+    materializer: translate _persona_config (config.yaml model override)
+  # ---- materialized into the persona config.yaml / runtime ----
+  personas:
+    status: implemented
+    materializer: translate_customer_yaml (per-persona profile dir)
+  connectors:
+    status: implemented
+    materializer: translate _materialize_mcp_servers (config.yaml mcp_servers)
+  google_auth:
+    status: implemented
+    materializer: entrypoint.sh (broker DWD credential) + bootstrap broker health check
+  scope:
+    status: implemented
+    materializer: translate _persona_config (config.yaml scope)
+  escalation:
+    status: implemented
+    materializer: translate _persona_config (config.yaml escalation)
+  voice_library:
+    status: implemented
+    materializer: bootstrap Step 2a (R2 voice-vault sync) + translate _persona_config (config.yaml)
+  telegram:
+    status: implemented
+    materializer: translate _materialize_telegram_platform (config.yaml platforms)
+  memory:
+    status: implemented
+    materializer: translate _persona_config (config.yaml memory block)
+    note: >-
+      written into the persona config; the Honcho inferred-memory CONSUMER is
+      deliberately Phase-2-deferred (ADR 0016 revised), but the block is
+      materialized into runtime config, not dropped — distinct from the cron bug.
+  # ---- console-side (not a Machine materialization) ----
+  users:
+    status: implemented
+    materializer: ss-console portal (console-side access control); not staged to the Machine
+  # ---- deliberately not wired (validated authoring affordances) ----
+  addons:
+    status: inert
+    materializer: src/lib/operator/customer-yaml/sections-addons.ts (validation only)
+    note: >-
+      pack-addon constraints validated as an authoring affordance; no runtime
+      materializer yet and no live customer authors addons (only _template).
+      Not-yet-wired, surfaced for Captain/the drift audit to revisit — not a
+      silent drop.
+  practice_areas:
+    status: inert
+    materializer: src/lib/operator/customer-yaml/sections-identity.ts (validation only)
+    note: >-
+      law-vertical metadata used for human authoring + validation; SOUL.md
+      currently renders `vertical`, not practice_areas. Not-yet-wired into
+      runtime config/SOUL; surfaced for review rather than claimed materialized.
+
+persona:
+  slug:
+    status: implemented
+    materializer: translate_customer_yaml (profile dir name) + _persona_config
+  name:
+    status: implemented
+    materializer: translate _persona_config (config persona.name) + SOUL.md
+  title:
+    status: implemented
+    materializer: translate _persona_config (config persona.title) + SOUL.md
+  status:
+    status: implemented
+    materializer: translate _persona_config (config persona.status)
+  tone:
+    status: implemented
+    materializer: translate _persona_config (config persona.tone) + SOUL.md
+  skills:
+    status: implemented
+    materializer: translate _persona_config (config skills) + _install_persona_skills (bodies)
+  skills_disabled:
+    status: implemented
+    materializer: ensure-disabled-skills.py (boot gate + reconciler)
+  bundles:
+    status: implemented
+    materializer: translate _write_persona_bundles (skill-bundles/<slug>.yaml; ADR 0021 Stream D)
+  cron:
+    status: implemented
+    materializer: translate -> cron_materialize.materialize_cron (Hermes-native cron; ADR 0047)
+    note: closed the silent-drop in Phase B Cut C1 — the original reason this registry exists.
