@@ -1,0 +1,18 @@
+---
+// Running-paragraph body for the prose sections. Paragraphs flow through the
+// slot. `spaced` adds the bottom margin used when a CTA row follows (§ 06).
+interface Props {
+  spaced?: boolean
+}
+
+const { spaced = false } = Astro.props
+---
+
+<div
+  class:list={[
+    'space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]',
+    spaced && 'mb-12',
+  ]}
+>
+  <slot />
+</div>

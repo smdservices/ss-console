@@ -1,0 +1,18 @@
+---
+// The narrow intro/outro line around a card grid. Text flows through the slot.
+// Default sits above the grid (mb-12); `after` is the closing line below the
+// § 03 grid (mt-12).
+interface Props {
+  after?: boolean
+}
+
+const { after = false } = Astro.props
+
+const introClass = after
+  ? 'mt-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]'
+  : 'mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]'
+---
+
+<p class={introClass}>
+  <slot />
+</p>
