@@ -22,6 +22,9 @@ _OP = Path(__file__).resolve().parents[2]
 _CONTRACT = _OP / "contracts" / "env-consumption.yaml"
 _BOOTSTRAP = _OP / "templates" / "bootstrap.sh"
 _ENTRYPOINT = _OP / "templates" / "entrypoint.sh"
+# Phase B Cut B: REQUIRED_ENV / OPTIONAL_ENV are generated from the contract and
+# live here (bootstrap.sh sources this file), not inline in bootstrap.sh.
+_ENV_ARRAYS = _OP / "templates" / "_env-arrays.generated.sh"
 
 
 def _contract() -> dict:
@@ -30,7 +33,7 @@ def _contract() -> dict:
 
 def _bash_array(text: str, name: str) -> set[str]:
     m = re.search(rf"{name}=\((.*?)\)", text, re.DOTALL)
-    assert m, f"{name} array not found in bootstrap.sh"
+    assert m, f"{name} array not found"
     out: set[str] = set()
     for line in m.group(1).splitlines():
         line = line.split("#", 1)[0].strip()
@@ -50,8 +53,8 @@ def _unset_vars(text: str) -> set[str]:
 
 def test_required_env_is_declared_required() -> None:
     contract = _contract()
-    for var in _bash_array(_BOOTSTRAP.read_text(encoding="utf-8"), "REQUIRED_ENV"):
-        assert var in contract, f"bootstrap REQUIRED_ENV {var} missing from the contract"
+    for var in _bash_array(_ENV_ARRAYS.read_text(encoding="utf-8"), "REQUIRED_ENV"):
+        assert var in contract, f"generated REQUIRED_ENV {var} missing from the contract"
         assert (
             contract[var].get("requirement") == "required"
         ), f"{var} is in REQUIRED_ENV but the contract marks it {contract[var].get('requirement')!r}"
@@ -59,7 +62,7 @@ def test_required_env_is_declared_required() -> None:
 
 def test_optional_env_not_marked_required() -> None:
     contract = _contract()
-    for var in _bash_array(_BOOTSTRAP.read_text(encoding="utf-8"), "OPTIONAL_ENV"):
+    for var in _bash_array(_ENV_ARRAYS.read_text(encoding="utf-8"), "OPTIONAL_ENV"):
         if var in contract:
             assert (
                 contract[var].get("requirement") == "optional"

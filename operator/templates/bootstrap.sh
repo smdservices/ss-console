@@ -91,23 +91,20 @@ log "Hermes SHA: $(cat /opt/hermes/HERMES_SHA 2>/dev/null || echo unknown)"
 # ============================================================================
 # Secrets are set via `fly secrets set` from provision-customer.sh. Never echo
 # values; only check presence.
-REQUIRED_ENV=(
-  ANTHROPIC_API_KEY
-  # R2 access for customer.yaml fetch (vaults/<slug>/customer.yaml).
-  R2_BUCKET_CONFIG
-  R2_ACCESS_KEY_ID
-  R2_SECRET_ACCESS_KEY
-  # D1 binding for the audit log (ADR 0017). The observations-mirror binding
-  # (SMD_D1_OBSERVATIONS_BINDING) and HONCHO_API_KEY are optional in Phase 1 —
-  # they only matter once Honcho is wired (Phase 2; ADR 0016 revised).
-  SMD_D1_AUDIT_BINDING
-  # ADR 0022 Stream 2 — per-customer skill bodies bucket NAME (from fly.toml
-  # [env]; always present). The bucket-scoped access key + secret are now
-  # OPTIONAL (see OPTIONAL_ENV) — agent-authored skill persistence is fail-soft
-  # and OFF by default (OP-P0-2). Requiring the credentials here would brick the
-  # boot once the account-wide fallback is removed and no scoped token is authored.
-  R2_SKILL_BODIES_BUCKET
-)
+#
+# REQUIRED_ENV / OPTIONAL_ENV are GENERATED from operator/contracts/env-consumption.yaml
+# (the single source of truth) by operator/bin/gen-env-arrays.py and COPY'd next to this
+# script in the image. Sourcing — not hand-maintaining — kills the drift #1324 was: the
+# arrays used to be a second copy of the contract's required/optional facts. Per-var
+# rationale (why R2_SKILL_BODIES_* are optional + fail-soft, OP-P0-2, the Phase-2 Honcho
+# forward-compat) now lives in the contract's `note:` fields. A malformed contract fails
+# the generator in CI, never this live boot (the file is a baked, validated build artifact).
+_env_arrays="$(dirname "${BASH_SOURCE[0]}")/_env-arrays.generated.sh"
+if [ ! -f "${_env_arrays}" ]; then
+  die "env-arrays file missing (${_env_arrays}) — image build defect; REQUIRED_ENV/OPTIONAL_ENV are generated from operator/contracts/env-consumption.yaml"
+fi
+# shellcheck source=/dev/null
+source "${_env_arrays}"
 
 for var in "${REQUIRED_ENV[@]}"; do
   if [ -z "${!var:-}" ]; then
@@ -119,28 +116,6 @@ done
 # Per-customer optional env. DWD customers set GOOGLE_SERVICE_ACCOUNT_JSON;
 # legacy user-OAuth customers set GOOGLE_TOKEN_JSON. Specific connector skills
 # check for the credential they need.
-OPTIONAL_ENV=(
-  GOOGLE_TOKEN_JSON
-  GOOGLE_SERVICE_ACCOUNT_JSON
-  GOOGLE_CLIENT_SECRET_JSON
-  # Honcho (inferred memory) is deferred to Phase 2 (ADR 0016 revised). These
-  # are unused at boot in Phase 1; kept optional for forward-compat so the
-  # Phase-2 vendor can stage them without a bootstrap change.
-  SMD_D1_OBSERVATIONS_BINDING
-  HONCHO_API_KEY
-  # R2 endpoint URL override (defaults to the Cloudflare R2 S3 endpoint).
-  R2_ENDPOINT_URL
-  # Optional for customers that still bind AgentMail as an MCP connector.
-  AGENTMAIL_API_KEY
-  # Bucket-scoped R2 token for agent-authored SKILL.md persistence (ADR 0022
-  # Stream 2). OPTIONAL + fail-soft: present only when an engagement deliberately
-  # enables skill persistence with a bucket-scoped token. Absent (the default,
-  # incl. customer-zero) => skill_capture.load_r2_config_from_env() returns None
-  # and the write path no-ops. NEVER the account-wide pair (OP-P0-2).
-  R2_SKILL_BODIES_ACCESS_KEY_ID
-  R2_SKILL_BODIES_SECRET_ACCESS_KEY
-)
-
 for var in "${OPTIONAL_ENV[@]}"; do
   if [ -n "${!var:-}" ]; then
     log "env check OK: ${var} present (optional)"
