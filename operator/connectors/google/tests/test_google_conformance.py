@@ -28,7 +28,7 @@ from pathlib import Path
 import crane_calendar  # type: ignore[import-not-found]
 import crane_drive  # type: ignore[import-not-found]
 import crane_gmail  # type: ignore[import-not-found]
-from connectors.filevine.errors import CAPABILITY_NAMES  # type: ignore[import-not-found]
+from connectors.capability_contract import CAPABILITY_NAMES  # type: ignore[import-not-found]
 
 ADAPTERS = [crane_gmail, crane_calendar, crane_drive]
 
