@@ -92,6 +92,7 @@ def fetch_snapshot_seam(slug: str, master: str, *, timeout: int = 30) -> dict:
         headers={"Authorization": f"Bearer {bearer}", "X-Tenant-Slug": slug},
         method="GET",
     )
+    # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected - URL is a fixed https scheme + a Fly app host derived from a repo-sourced slug (operator/customers/), never external input; this is a read-only operator tool, not a request handler.
     with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
         return json.load(resp)
 
@@ -103,6 +104,7 @@ def fetch_snapshot_console_route(slug: str, base_url: str, token: str, *, timeou
     req = urllib.request.Request(  # noqa: S310 (https console base)
         url, headers={"Authorization": f"Bearer {token}"}, method="GET"
     )
+    # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected - URL is the operator-configured console base ($DRIFT_AUDIT_CONSOLE_URL) + a repo-sourced slug, never external input; read-only operator tool.
     with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
         return json.load(resp)
 
