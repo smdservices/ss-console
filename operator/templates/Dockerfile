@@ -124,8 +124,16 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # self-declares every env var it reads — plus an AST conformance test (CI
 # fail-closed) and a WARN-only boot reconciliation. The consumer-side twin of
 # this repo's env-consumption.yaml; closes the OP-P0-2 voice-break drift class.
+# 75cb2de (#58, Phase B Cut C1, ADR 0047) materializes personas[].cron[] into
+# Hermes-native cron jobs at bootstrap — closing the silent-drop that left
+# customer-zero's hourly inbox-triage never firing. Declarative + idempotent,
+# fail-closed on a bad/unsupported entry.
+# 2e31067 (#59) FIXES C1 firing: registers cron in each persona's PROFILE home
+# (/opt/data/profiles/<slug>/cron) where `hermes -p <slug>` reads it, not the
+# bare data home. Verified live on staging — a scheduled turn actually fired
+# (last_status=ok). Also carries #55 (OP-P1-4 append-only audit broker).
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="10cd659960065663b2627bf69d0f5c3358e73783"
+ARG OVERLAY_REF="2e310674e0ec0200f87030a33dd0ca10abffabc7"
 
 ARG CUSTOMER_SLUG=customer-zero
 
