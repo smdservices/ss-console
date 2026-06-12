@@ -72,7 +72,17 @@ primary_region = "{{FLY_REGION}}"
   # binding to an absolute file path under the mounted volume. The observations
   # binding (hermes-smd-memory-mirror) is set only when Honcho is wired in
   # Phase 2 (ADR 0016 revised); Phase 1 boots without it.
-  SMD_D1_AUDIT_BINDING = "/opt/data/audit.db"
+  #
+  # OP-P1-4: the immutable ledger is /opt/data/audit/audit.db, owned by the
+  # broker uid (the agent reads it via the audit-readers group but cannot write
+  # it; the runtime read seam opens this path mode=ro). SMD_AUDIT_BROKER_SOCKET
+  # routes the overlay's audit writes through the broker's append-only
+  # audit_append verb (the existing Workspace broker socket). SMD_D1_AGENT_STATE_BINDING
+  # is a SEPARATE hermes-WRITABLE file for mutable agent state
+  # (agent_skills_inventory), which must not sit on the now-read-only ledger.
+  SMD_D1_AUDIT_BINDING = "/opt/data/audit/audit.db"
+  SMD_D1_AGENT_STATE_BINDING = "/opt/data/agent-state.db"
+  SMD_AUDIT_BROKER_SOCKET = "/run/smd-workspace-broker/broker.sock"
 
   # Honcho (inferred memory) is deferred to Phase 2 (ADR 0016 revised). No
   # HONCHO_BASE_URL / HONCHO_DATABASE_URL env in Phase 1 — there is no

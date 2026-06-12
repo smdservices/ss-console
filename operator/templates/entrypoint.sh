@@ -42,7 +42,74 @@ if [ ! -f /opt/data/customer.yaml ]; then
     exit 1
   fi
 fi
-chown -R hermes:hermes /opt/data
+
+# OP-P1-4 audit ledger: owned by the broker uid, readable (not writable) by the
+# agent uid via the audit-readers group. The agent's only write path is the
+# broker's append-only audit_append verb.
+AUDIT_DIR="/opt/data/audit"
+AUDIT_DB="${AUDIT_DIR}/audit.db"
+LEGACY_AUDIT_DB="/opt/data/audit.db"
+# Group-readable default so the broker's rollback journal is readable by the
+# hermes mode=ro read seam during a write window. Explicit chmods below for the
+# 0700/0600 broker paths are unaffected by this.
+umask 027
+
+# Agent owns its data EXCEPT the broker-owned audit subtree (R1). This REPLACES
+# a plain `chown -R hermes:hermes /opt/data`, which would re-own the ledger back
+# to hermes on every reboot and silently false-close the tamper-resistance.
+find /opt/data -path "${AUDIT_DIR}" -prune -o -print0 | xargs -0 -r chown hermes:hermes
+
+# NOTE: the broker reaches the ledger via the bind mount established below, NOT
+# by traversing /opt/data. The Hermes gateway chmods its home (/opt/data) to
+# 0700 mid-boot, which strips any group-traverse we could grant here — so the
+# write path must not depend on the home dir's mode.
+
+# Convergent (idempotent, every-boot) audit-ledger establishment. Never drops
+# rows. Fails loud rather than silently diverging two ledgers (R5 / DA #5).
+mkdir -p "${AUDIT_DIR}"
+if [ -f "${LEGACY_AUDIT_DB}" ] && [ -f "${AUDIT_DB}" ]; then
+  log "FATAL: both ${LEGACY_AUDIT_DB} and ${AUDIT_DB} exist; refusing to diverge the audit ledger (manual merge required)"
+  exit 1
+fi
+if [ -f "${LEGACY_AUDIT_DB}" ]; then
+  mv "${LEGACY_AUDIT_DB}" "${AUDIT_DB}"
+  for _s in -journal -wal -shm; do
+    if [ -f "${LEGACY_AUDIT_DB}${_s}" ]; then mv "${LEGACY_AUDIT_DB}${_s}" "${AUDIT_DB}${_s}"; fi
+  done
+fi
+# Pre-create with the correct owner/mode so the broker opens an existing 0640
+# file (sqlite preserves a file's mode/owner; a broker-created file would
+# inherit umask and risk a 0600 the read seam cannot read).
+if [ ! -f "${AUDIT_DB}" ]; then
+  install -o workspace-broker -g audit-readers -m 0640 /dev/null "${AUDIT_DB}"
+fi
+# Re-assert owner/mode every boot (convergent, never conditional-on-legacy).
+chown workspace-broker:audit-readers "${AUDIT_DIR}"
+chmod 2750 "${AUDIT_DIR}"
+chown workspace-broker:audit-readers "${AUDIT_DB}"
+chmod 0640 "${AUDIT_DB}"
+for _s in -journal -wal -shm; do
+  if [ -f "${AUDIT_DB}${_s}" ]; then
+    chown workspace-broker:audit-readers "${AUDIT_DB}${_s}"
+    chmod 0640 "${AUDIT_DB}${_s}"
+  fi
+done
+# Fail-closed: the hermes read seam must be able to read the ledger.
+setpriv --reuid=hermes --regid=hermes --init-groups test -r "${AUDIT_DB}" \
+  || { log "FATAL: ${AUDIT_DB} not hermes-readable after perm convergence"; exit 1; }
+
+# Bind-mount the ledger dir to a root-owned path the broker can always traverse,
+# independent of /opt/data's mode (the gateway flips the home to 0700 mid-boot).
+# Same underlying volume inodes as ${AUDIT_DIR}; the broker writes via this path,
+# the hermes read seam reads via ${AUDIT_DB} (hermes owns its home). /run is a
+# fresh tmpfs each boot, so re-create the mountpoint and bind idempotently.
+AUDIT_BIND_DIR="/run/smd-audit"
+AUDIT_BIND_DB="${AUDIT_BIND_DIR}/audit.db"
+mkdir -p "${AUDIT_BIND_DIR}"
+mountpoint -q "${AUDIT_BIND_DIR}" \
+  || mount --bind "${AUDIT_DIR}" "${AUDIT_BIND_DIR}" \
+  || { log "FATAL: could not bind-mount ${AUDIT_DIR} -> ${AUDIT_BIND_DIR}"; exit 1; }
+
 rm -rf /opt/data/workspace-broker
 rm -f /opt/data/oauth/google.json
 mkdir -p "${BROKER_DIR}" "$(dirname "${BROKER_SOCKET}")"
@@ -82,6 +149,7 @@ setpriv \
   SMD_WORKSPACE_CREDENTIAL_PATH="${SMD_WORKSPACE_CREDENTIAL_PATH}" \
   SMD_CUSTOMER_YAML="${SMD_CUSTOMER_YAML}" \
   SMD_GATEWAY_PID="${SMD_GATEWAY_PID}" \
+  SMD_AUDIT_DB_PATH="${AUDIT_BIND_DB}" \
   /opt/workspace-broker/.venv/bin/python \
   -m workspace_broker.server &
 BROKER_PID=$!
