@@ -88,7 +88,12 @@ async function addStripeLineItems(
     const body = new URLSearchParams()
     body.append('customer', customerId)
     body.append('invoice', invoiceId)
-    body.append('amount', String(item.amount))
+    // `amount` is the LINE TOTAL in Stripe's model (amount = unit_amount ×
+    // quantity). Our StripeInvoiceLineItem.amount is per-unit, so multiply
+    // here. Don't send `quantity`/`unit_amount` instead: unit_amount was
+    // removed from invoiceitems create in API version 2025-03-31.basil and
+    // this client pins no Stripe-Version header.
+    body.append('amount', String(item.amount * item.quantity))
     body.append('currency', item.currency)
     body.append('description', item.description)
     const res = await fetch(`${STRIPE_API_BASE}/invoiceitems`, {
