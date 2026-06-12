@@ -1,0 +1,22 @@
+---
+// Section h2 for the pack pages. Heading text flows through the slot.
+//
+// variant maps to the two spacing treatments in the original pages:
+//   prose - sections whose body is running paragraphs (mb-10)
+//   grid  - sections that lead into an intro line + card grid (mb-6)
+interface Props {
+  variant: 'prose' | 'grid'
+}
+
+const { variant } = Astro.props
+
+const headingClass = {
+  prose:
+    "mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]",
+  grid: "mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]",
+}[variant]
+---
+
+<h2 class={headingClass}>
+  <slot />
+</h2>

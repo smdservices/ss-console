@@ -1,0 +1,16 @@
+---
+// The centered mid-page CTA row at the end of § 06.
+import CtaButton from '../CtaButton.astro'
+
+interface Props {
+  slug: string
+}
+
+const { slug } = Astro.props
+---
+
+<div class="text-center">
+  <CtaButton variant="secondary" href={`/book?interest=${slug}`} data-ev={`${slug}-section-cta`}
+    >Talk through the fit</CtaButton
+  >
+</div>

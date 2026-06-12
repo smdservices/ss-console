@@ -1,11 +1,17 @@
 ---
 export const prerender = false
 
-import Base from '../../layouts/Base.astro'
-import Nav from '../../components/Nav.astro'
-import Footer from '../../components/Footer.astro'
-import CtaButton from '../../components/CtaButton.astro'
-import { coldLanderLink, shapeZoneTitles, ctaPricingLine } from '../../lib/operator-packs/shared'
+import PackCardGrid from '../../components/packs/PackCardGrid.astro'
+import PackClosing from '../../components/packs/PackClosing.astro'
+import PackEyebrow from '../../components/packs/PackEyebrow.astro'
+import PackHeading from '../../components/packs/PackHeading.astro'
+import PackHero from '../../components/packs/PackHero.astro'
+import PackIntro from '../../components/packs/PackIntro.astro'
+import PackLayout from '../../components/packs/PackLayout.astro'
+import PackProse from '../../components/packs/PackProse.astro'
+import PackSection from '../../components/packs/PackSection.astro'
+import PackSectionCta from '../../components/packs/PackSectionCta.astro'
+import { shapeZoneTitles } from '../../lib/operator-packs/shared'
 
 const productSchema = {
   '@context': 'https://schema.org',
@@ -77,316 +83,135 @@ const roleLenses = [
 ]
 ---
 
-<Base
+<PackLayout
   title="Operator for Dental Practices | SMD Services"
   description="The dental pack is the Operator's head start: a starting point shaped around the front office, which we configure with you and you customize to your practice. The clinical decisions stay with your dentists. You set the line."
+  schema={productSchema}
 >
-  <Nav />
-  <main id="main" role="main">
-    <script is:inline type="application/ld+json" set:html={JSON.stringify(productSchema)} />
+  <!-- § 01 Hero -->
+  <PackHero slug="dental">
+    <Fragment slot="heading">The Front Office, Fully Staffed.</Fragment>
+    <Fragment slot="lede">
+      The Operator is a worker you hire, not software you buy. This is its dental head start: a
+      starting point already shaped around the front office, so you are not building from a blank
+      page. You make it yours from there.
+    </Fragment>
+  </PackHero>
 
-    <!-- Section 01: Hero -->
-    <section
-      class="relative overflow-hidden bg-[color:var(--ss-color-background)] px-6 pt-24 pb-32"
-    >
-      <div class="mx-auto max-w-5xl text-center">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
-          >§ 01</span
-        >
-        <h1
-          class="mb-8 font-['Archivo'] text-5xl md:text-7xl font-black uppercase leading-[1.05] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
-        >
-          The Front Office, Fully Staffed.
-        </h1>
-        <p
-          class="mx-auto mb-8 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
-        >
-          The Operator is a worker you hire, not software you buy. This is its dental head start: a
-          starting point already shaped around the front office, so you are not building from a
-          blank page. You make it yours from there.
-        </p>
-        <CtaButton href="/book?interest=dental" data-ev="dental-hero-cta"
-          >Start the conversation</CtaButton
-        >
-        <p class="mt-8">
-          <a
-            href={coldLanderLink.href}
-            class="font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] underline underline-offset-4 hover:text-[color:var(--ss-color-primary)]"
-            >{coldLanderLink.text} &rarr;</a
-          >
-        </p>
-      </div>
-    </section>
+  <!-- § 02 The seat the market won't fill -->
+  <PackSection bg="white">
+    <PackEyebrow>§ 02</PackEyebrow>
+    <PackHeading variant="prose">The Seat The Market Won't Fill.</PackHeading>
+    <PackProse>
+      <p>
+        The front office is one of the hardest seats to keep filled, and the clinical chairs behind
+        it are no easier. Practices report it is very or extremely challenging to staff, the person
+        you train answers the phones and absorbs the pressure all day, and replacing them costs you
+        in lost production while you hire. The work does not wait: recall still has to go out, the
+        schedule still has to be confirmed, and an empty chair is production you do not get back.
+      </p>
+      <p>
+        An Operator fills that seat now. It runs the front office at full speed, all the time, and
+        what it learns about how your practice runs, your schedule, your recall protocol, your
+        voice, stays with the practice instead of leaving with the person who had it.
+      </p>
+    </PackProse>
+  </PackSection>
 
-    <!-- Section 02: The seat the market won't fill -->
-    <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 02</span
-        >
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          The Seat The Market Won't Fill.
-        </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            The front office is one of the hardest seats to keep filled, and the clinical chairs
-            behind it are no easier. Practices report it is very or extremely challenging to staff,
-            the person you train answers the phones and absorbs the pressure all day, and replacing
-            them costs you in lost production while you hire. The work does not wait: recall still
-            has to go out, the schedule still has to be confirmed, and an empty chair is production
-            you do not get back.
-          </p>
-          <p>
-            An Operator fills that seat now. It runs the front office at full speed, all the time,
-            and what it learns about how your practice runs, your schedule, your recall protocol,
-            your voice, stays with the practice instead of leaving with the person who had it.
-          </p>
-        </div>
-      </div>
-    </section>
+  <!-- § 03 What the pack starts you with -->
+  <PackSection bg="background">
+    <PackEyebrow>§ 03</PackEyebrow>
+    <PackHeading variant="grid">What The Pack Starts You With.</PackHeading>
+    <PackIntro>
+      You do not start from a blank page. The dental pack comes shaped around the work a
+      front-office coordinator runs, as starting templates we configure with you:
+    </PackIntro>
+    <PackCardGrid items={packTemplates} cols={2} card="templates" />
+    <PackIntro after>
+      These plug into your practice-management system and your email and calendar. The templates are
+      the head start. How they run is yours to shape.
+    </PackIntro>
+  </PackSection>
 
-    <!-- Section 03: What the pack starts you with -->
-    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 03</span
-        >
-        <h2
-          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          What The Pack Starts You With.
-        </h2>
-        <p
-          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
-        >
-          You do not start from a blank page. The dental pack comes shaped around the work a
-          front-office coordinator runs, as starting templates we configure with you:
-        </p>
+  <!-- § 04 From the start -->
+  <PackSection bg="white">
+    <PackEyebrow>§ 04</PackEyebrow>
+    <PackHeading variant="prose">From The Start.</PackHeading>
+    <PackProse>
+      <p>
+        Before it starts, we sit down with you and the people who run the front office, and we shape
+        the templates around how your practice actually operates, so it begins ready, not green.
+      </p>
+      <p>
+        From there the work moves the way it always did. It confirms the schedule and rebooks the
+        no-show, works the recall and recare list so patients do not get lost, handles the
+        insurance-verification and claim-status logistics, and fills the openings a cancellation
+        leaves. A message that might be an emergency it hands to a person right away. It is all
+        logged in your practice-management system as it happens, and it keeps getting sharper from
+        your team's corrections.
+      </p>
+    </PackProse>
+  </PackSection>
 
-        <div
-          class="grid grid-cols-1 md:grid-cols-2 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
-        >
-          {
-            packTemplates.map((t, i) => (
-              <div
-                class:list={[
-                  'flex flex-col gap-3 p-8 min-h-[12rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
-                  i % 2 !== 1 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
-                ]}
-              >
-                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
-                  {t.title}
-                </p>
-                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-                  {t.body}
-                </p>
-              </div>
-            ))
-          }
-        </div>
+  <!-- § 05 Yours to shape -->
+  <PackSection bg="background">
+    <PackEyebrow>§ 05</PackEyebrow>
+    <PackHeading variant="grid">Yours To Shape.</PackHeading>
+    <PackIntro>
+      We are not the experts in how your practice runs. You are. So the pack is a starting point in
+      three parts, and the third is the biggest.
+    </PackIntro>
+    <PackCardGrid items={zones} cols={3} card="zones" />
+  </PackSection>
 
-        <p
-          class="mt-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
-        >
-          These plug into your practice-management system and your email and calendar. The templates
-          are the head start. How they run is yours to shape.
-        </p>
-      </div>
-    </section>
+  <!-- § 06 The line -->
+  <PackSection bg="white">
+    <PackEyebrow>§ 06</PackEyebrow>
+    <PackHeading variant="prose">The Line.</PackHeading>
+    <PackProse spaced>
+      <p>
+        The Operator runs the front office. The diagnosis, the treatment plan, what a patient needs
+        in the chair, those stay with your dentists and hygienists. Not because the software could
+        not write a clear message, but because dentistry on a patient takes a licensed clinician who
+        has examined them, and a trained but unlicensed front-office person could not make those
+        calls either.
+      </p>
+      <p>
+        Some lines are not settings anyone can move. The Operator does connective work only; it
+        never offers a diagnosis, a treatment recommendation, or a judgment about urgency. A message
+        that might be a dental emergency goes straight to a person at your practice, right then,
+        never handled later. Benefits are relayed as the payer returns them, never a guarantee of
+        coverage or out-of-pocket. Patient health information stays inside your practice surfaces.
+        Every action it takes is logged where you can see it.
+      </p>
+      <p>
+        Beyond those floors, you govern where the line sits, and you can move it as you learn what
+        the Operator is good at. Your patient files stay private, including from us. The Operator
+        works in your practice's own walled-off environment, on your own accounts. We can see that
+        it is running and the record of what it did, but the contents of your patient records and
+        messages stay yours, and so do the configuration, the logs, and the off switch.
+      </p>
+    </PackProse>
+    <PackSectionCta slug="dental" />
+  </PackSection>
 
-    <!-- Section 04: From the start -->
-    <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 04</span
-        >
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          From The Start.
-        </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            Before it starts, we sit down with you and the people who run the front office, and we
-            shape the templates around how your practice actually operates, so it begins ready, not
-            green.
-          </p>
-          <p>
-            From there the work moves the way it always did. It confirms the schedule and rebooks
-            the no-show, works the recall and recare list so patients do not get lost, handles the
-            insurance-verification and claim-status logistics, and fills the openings a cancellation
-            leaves. A message that might be an emergency it hands to a person right away. It is all
-            logged in your practice-management system as it happens, and it keeps getting sharper
-            from your team's corrections.
-          </p>
-        </div>
-      </div>
-    </section>
+  <!-- § 07 Where it fits -->
+  <PackSection bg="background">
+    <PackEyebrow>§ 07</PackEyebrow>
+    <PackHeading variant="grid">Where It Fits.</PackHeading>
+    <PackIntro>
+      A few shapes the seat can take. We build it around how your practice runs, so these are
+      starting points, not a menu.
+    </PackIntro>
+    <PackCardGrid items={roleLenses} cols={3} card="lenses" />
+  </PackSection>
 
-    <!-- Section 05: Yours to shape -->
-    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 05</span
-        >
-        <h2
-          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          Yours To Shape.
-        </h2>
-        <p
-          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
-        >
-          We are not the experts in how your practice runs. You are. So the pack is a starting point
-          in three parts, and the third is the biggest.
-        </p>
-
-        <div
-          class="grid grid-cols-1 md:grid-cols-3 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
-        >
-          {
-            zones.map((z, i) => (
-              <div
-                class:list={[
-                  'flex flex-col gap-3 p-8 min-h-[14rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
-                  i % 3 !== 2 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
-                ]}
-              >
-                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
-                  {z.title}
-                </p>
-                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-                  {z.body}
-                </p>
-              </div>
-            ))
-          }
-        </div>
-      </div>
-    </section>
-
-    <!-- Section 06: The line -->
-    <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 06</span
-        >
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          The Line.
-        </h2>
-        <div
-          class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)] mb-12"
-        >
-          <p>
-            The Operator runs the front office. The diagnosis, the treatment plan, what a patient
-            needs in the chair, those stay with your dentists and hygienists. Not because the
-            software could not write a clear message, but because dentistry on a patient takes a
-            licensed clinician who has examined them, and a trained but unlicensed front-office
-            person could not make those calls either.
-          </p>
-          <p>
-            Some lines are not settings anyone can move. The Operator does connective work only; it
-            never offers a diagnosis, a treatment recommendation, or a judgment about urgency. A
-            message that might be a dental emergency goes straight to a person at your practice,
-            right then, never handled later. Benefits are relayed as the payer returns them, never a
-            guarantee of coverage or out-of-pocket. Patient health information stays inside your
-            practice surfaces. Every action it takes is logged where you can see it.
-          </p>
-          <p>
-            Beyond those floors, you govern where the line sits, and you can move it as you learn
-            what the Operator is good at. Your patient files stay private, including from us. The
-            Operator works in your practice's own walled-off environment, on your own accounts. We
-            can see that it is running and the record of what it did, but the contents of your
-            patient records and messages stay yours, and so do the configuration, the logs, and the
-            off switch.
-          </p>
-        </div>
-        <div class="text-center">
-          <CtaButton variant="secondary" href="/book?interest=dental" data-ev="dental-section-cta"
-            >Talk through the fit</CtaButton
-          >
-        </div>
-      </div>
-    </section>
-
-    <!-- Section 07: Where it fits -->
-    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 07</span
-        >
-        <h2
-          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          Where It Fits.
-        </h2>
-        <p
-          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
-        >
-          A few shapes the seat can take. We build it around how your practice runs, so these are
-          starting points, not a menu.
-        </p>
-
-        <div
-          class="grid grid-cols-1 md:grid-cols-3 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
-        >
-          {
-            roleLenses.map((lens, i) => (
-              <div
-                class:list={[
-                  'flex flex-col gap-4 p-8 min-h-[16rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
-                  i % 3 !== 2 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
-                ]}
-              >
-                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
-                  {lens.title}
-                </p>
-                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-                  {lens.body}
-                </p>
-              </div>
-            ))
-          }
-        </div>
-      </div>
-    </section>
-
-    <!-- Section 08: Start the conversation -->
-    <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
-      <div class="mx-auto max-w-5xl text-center">
-        <span
-          class="inline-block bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
-          >§ 08</span
-        >
-        <h2
-          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
-        >
-          Start The Conversation.
-        </h2>
-        <p class="mx-auto mb-6 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
-          It starts with a conversation. We learn how your practice runs, find the front-office work
-          that is eating your team's day, and start from the pack, customizing it to your practice.
-          If it is not a fit, we will tell you.
-        </p>
-        <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
-          {ctaPricingLine}
-        </p>
-        <CtaButton variant="outline-white" href="/book?interest=dental" data-ev="dental-final-cta"
-          >Start the conversation</CtaButton
-        >
-      </div>
-    </section>
-  </main>
-  <Footer />
-</Base>
+  <!-- § 08 Start the conversation -->
+  <PackClosing slug="dental">
+    <Fragment slot="pitch">
+      It starts with a conversation. We learn how your practice runs, find the front-office work
+      that is eating your team's day, and start from the pack, customizing it to your practice. If
+      it is not a fit, we will tell you.
+    </Fragment>
+  </PackClosing>
+</PackLayout>

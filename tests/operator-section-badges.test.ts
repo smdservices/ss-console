@@ -13,11 +13,33 @@ import { resolve, join } from 'path'
 
 const operatorPage = resolve('src/pages/operator.astro')
 const packsDir = resolve('src/pages/packs')
+const packComponentsDir = resolve('src/components/packs')
+
+// The pack pages render their badges through the shared chrome in
+// src/components/packs: PackHero and PackClosing carry fixed badges (§ 01 and
+// § 08), and the sections between use <PackEyebrow>§ NN</PackEyebrow>. Resolve
+// a component-emitted badge by reading the component source, so a page whose
+// section set drifts out of step with the fixed hero/closing numbering still
+// fails this guard.
+function componentBadge(name: string): number {
+  const src = readFileSync(join(packComponentsDir, name), 'utf-8')
+  const match = src.match(/>§\s*(\d+)<\/span/)
+  if (!match) throw new Error(`${name}: no § badge span found`)
+  return Number(match[1])
+}
 
 function badgeNumbers(file: string): number[] {
   const src = readFileSync(file, 'utf-8')
-  // Matches the rendered span content, e.g. `>§ 03</span`
-  return [...src.matchAll(/>§\s*(\d+)<\/span/g)].map((m) => Number(m[1]))
+  // Matches, in document order: rendered span content (`>§ 03</span`), the
+  // PackEyebrow slot form, and PackHero/PackClosing component usages.
+  const tokens = src.matchAll(
+    />§\s*(\d+)<\/span|<PackEyebrow>\s*§\s*(\d+)\s*<\/PackEyebrow>|<(PackHero|PackClosing)[\s>]/g
+  )
+  return [...tokens].map((m) => {
+    if (m[1] !== undefined) return Number(m[1])
+    if (m[2] !== undefined) return Number(m[2])
+    return componentBadge(`${m[3]}.astro`)
+  })
 }
 
 function pages(): string[] {
