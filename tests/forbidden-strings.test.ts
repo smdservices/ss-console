@@ -106,19 +106,45 @@ const FORBIDDEN_PATTERNS: Array<{ label: string; pattern: RegExp | string }> = [
     pattern: 'within one business day',
   },
   {
-    label: 'Pattern A: hardcoded "will reach out" consultant outreach promise',
+    label: 'Pattern A: hardcoded "will / we\'ll reach out" outreach promise (structural)',
     // 2026-04-17 audit finding: dashboard fallback rendered
     // `${consultantFirst} will reach out to schedule the next check-in.` as
     // fabricated next-step copy when no authored touchpoint existed.
-    pattern: /will reach out/i,
+    // 2026-06-12 code review: "We'll reach out once it's ready to review."
+    // on the portal operator provisioning card slipped past the literal
+    // /will reach out/ form. Broadened to catch the contraction. The
+    // first-person prospect voice ("I'll reach out") is deliberately not
+    // matched — that is the client speaking, not SMD promising.
+    pattern: /(?:we['’]ll|will)\s+reach out/i,
   },
   {
-    label: 'Pattern A: hardcoded "we\'ll be in touch" outbound-contact promise',
+    label: 'Pattern A: hardcoded "will / we\'ll be in touch" outbound-contact promise (structural)',
     // 2026-05-04 /book intake architecture review caught this same class
     // creeping back in as a Send-acknowledgement copy ("Got it. We'll be
     // in touch.") before merge. Same false-promise shape as `will reach
     // out` — commits SMD to an outbound action that no system guarantees.
-    pattern: /we'll be in touch/i,
+    // 2026-06-12 code review: the signature-confirmation email shipped
+    // "Our team will be in touch shortly" — the uncontracted tense variant
+    // the literal /we'll be in touch/ form missed. Broadened.
+    pattern: /(?:['’]ll|will)\s+be in touch/i,
+  },
+  {
+    label: 'Pattern A: hardcoded "we will send it/a new" outbound delivery promise',
+    // 2026-06-12 code review: InvoiceDetail rendered "We will send a new
+    // one." / "We will send it shortly." — promises of a manual outbound
+    // action no system guarantees. Scoped to the it/a-new objects so that
+    // system-guaranteed mechanics ("we will send a calendar invite", which
+    // booking reserve actually sends automatically) stay legal.
+    pattern: /we will send (?:it|a new)\b/i,
+  },
+  {
+    label: 'Pattern A: hardcoded work-start framing "work begins at/once/when"',
+    // 2026-06-12 code review: EngagementProgress empty state rendered
+    // "The work begins at the first scheduled check-in." — a schedule
+    // commitment not authored per engagement. The literal "Work begins
+    // within two weeks" guard above covers the duration variant; this
+    // covers the event-anchored variants.
+    pattern: /work begins (?:at|once|when)\b/i,
   },
   {
     label: 'Pattern B: synthesized "Kickoff next:" next-step copy',

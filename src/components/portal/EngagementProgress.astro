@@ -134,9 +134,7 @@ const { client, engagement, timeline } = Astro.props
     </h2>
     {
       timeline.length === 0 ? (
-        <p class="text-caption text-[color:var(--ss-color-text-muted)]">
-          The work begins at the first scheduled check-in.
-        </p>
+        <p class="text-caption text-[color:var(--ss-color-text-muted)]">No activity yet.</p>
       ) : (
         <ol class="flex flex-col gap-stack" role="list">
           {timeline.map((entry) => (
