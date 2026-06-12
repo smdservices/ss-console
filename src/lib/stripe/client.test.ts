@@ -213,15 +213,13 @@ describe('createStripeInvoice', () => {
     expect(second.get('description')).toBe('Phase two')
   })
 
-  it('KNOWN LATENT BUG: line item quantity is never transmitted to Stripe', async () => {
-    // StripeInvoiceLineItem carries `quantity` and createStripeInvoice uses it
-    // when computing the dev-mode total (amount * quantity), but
-    // addStripeLineItems only sends `amount` — so Stripe bills the amount
-    // ONCE regardless of quantity. A line item with quantity 2 would
-    // underbill by half. All current callers pass quantity: 1, so this is
-    // latent, not live. This test documents the current behavior; if the
-    // encoding is fixed to include quantity (or amount * quantity), update
-    // this test alongside the fix.
+  it('transmits the line TOTAL (amount × quantity) on each invoiceitem', async () => {
+    // Fixes the latent underbilling bug (#1354): StripeInvoiceLineItem.amount
+    // is per-unit, but Stripe's invoiceitem `amount` is the line total
+    // (amount = unit_amount × quantity). The encoding multiplies; it does NOT
+    // send `quantity`/`unit_amount`, because unit_amount was removed from
+    // invoiceitems create in API version 2025-03-31.basil and this client
+    // pins no Stripe-Version header.
     queue(
       json({ data: [{ id: 'cus_1' }] }),
       json({ id: 'in_7', hosted_invoice_url: null, status: 'draft' }),
@@ -236,7 +234,7 @@ describe('createStripeInvoice', () => {
     )
 
     const itemBody = bodyParams(calls[2])
-    expect(itemBody.get('amount')).toBe('100000')
+    expect(itemBody.get('amount')).toBe('200000')
     expect(itemBody.get('quantity')).toBeNull()
   })
 
