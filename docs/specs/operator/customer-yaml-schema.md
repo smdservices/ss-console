@@ -158,7 +158,7 @@ compliance_enabled: <boolean> # OPTIONAL; default false
 
 ## Memory retention
 
-**Added by [#863](https://github.com/venturecrane/ss-console/issues/863).** Per-data-type retention windows for the periodic cleanup runner (`adapter/memory/retention.py` + `bin/cron-retention.py`). The entire `memory.retention:` block is OPTIONAL; missing fields fall back to the documented defaults below. See [`memory-retention.md`](./memory-retention.md) for the full spec.
+**Added by [#863](https://github.com/venturecrane/ss-console/issues/863); runner removed by #1355.** The ADR-0008 periodic cleanup runner this block once configured is gone (never scheduled, swept a store that was never provisioned). The block remains OPTIONAL and `audit_log_days` remains LIVE — the decommission pipeline's `resolve_audit_log_days` reads it for the audit-retention carve-out ([`audit-retention.md`](./audit-retention.md)). The other windows are inert pending the ADR-0016 Machine-side retention story.
 
 ```yaml
 memory:

@@ -1,30 +1,26 @@
-"""Voice sample ingestion pipeline (issue #856).
+"""Voice corpus toolchain (structural diff, partner filter, transform).
 
-Consumes the Email capability's sent folder, filters AI-drafted
-messages out, extracts structural-diff representations (never raw
-bodies), and writes them to the per-customer R2 vault at
-``{customer-slug}/voice/cohort/{cohort-id}/{sample-id}.json``.
+What survives here after the #1355 data-plane rip is the console-side voice
+TOOLCHAIN: the structural-diff privacy primitive, the partner-authored
+filter, corrections, and the draft transformer — consumed by
+``bin/lib/voice_corpus.py`` (corpus seeding), ``bin/voice-ingest-corpus.py``,
+and the voice gate.
 
-Sibling to the memory ingestion pipeline (PR #944) — same shape,
-distinct concern. Voice anchors Layer 2 of the voice gate; memory
-holds matter and document context.
+The ADR-0008 voice INGESTION plane (``pipeline.py`` — VoiceIngestionRunner,
+``enforce_retention``, ``decommission_source`` — plus ``namespaced.py``,
+``state.py``, ``export.py``) was removed by #1355: it wrote/read
+``voice_ingestion_items`` / ``voice_source_state`` on a per-customer
+control-plane Cloudflare D1 that was never provisioned, and nothing ever
+scheduled it. The live voice path is the overlay's ``hermes-smd-voice``
+plugin reading the R2 corpus that ``voice_corpus.py`` seeds.
 
 Public surface:
 
-* :class:`VoiceIngestionRunner` — the orchestrator. Construct with
-  the Email source, cohort resolver, R2 client, state store, cursor
-  store, and audit-log lookup; call
-  :meth:`VoiceIngestionRunner.run_ingestion` with a mode.
-* :func:`enforce_retention` — deletes samples older than the
-  ``voice_retention_days`` window from customer.yaml.
-* :func:`decommission_source` — removes every voice artifact the
-  pipeline persisted for one source. Called by
-  ``bin/decommission-customer.sh``.
-* :class:`PartnerAuthoredFilter` — three-pass AI-vs-partner detector.
 * :func:`extract_structural_diff` — the privacy primitive.
+* :class:`PartnerAuthoredFilter` — three-pass AI-vs-partner detector.
+* :class:`DraftTransformer` / :func:`transform_draft` — voice application.
 
-See ADR 0005, 0006, 0008, 0009 and
-``docs/specs/operator/voice-ingestion.md``.
+See ADR 0005, 0006, 0009 and ``docs/specs/operator/voice-ingestion.md``.
 """
 
 from __future__ import annotations
@@ -51,40 +47,6 @@ from .filter import (
     REASON_TOO_SHORT,
     compute_body_digest,
 )
-from .namespaced import (
-    RawR2Client as NamespacedRawR2Client,
-    build_namespaced_voice_runner,
-)
-from .pipeline import (
-    CohortResolver,
-    CursorStore,
-    EmailSource,
-    IngestionMode,
-    IngestionResult,
-    NoEmailSource,
-    R2Client,
-    SentMessage,
-    StaticCohortResolver,
-    StorageError,
-    VoiceIngestionRunner,
-    decommission_source,
-    enforce_retention,
-)
-from .state import (
-    COHORT_UNASSIGNED,
-    INGEST_STATUS_ERROR,
-    INGEST_STATUS_NEVER_RUN,
-    INGEST_STATUS_OK,
-    INGEST_STATUS_STALE,
-    IngestionItemRecord,
-    IngestionStateUpdate,
-    QueryExecutor,
-    VALID_STATUSES,
-    VoiceIngestionItem,
-    VoiceSourceState,
-    VoiceSourceStateStore,
-    WriteExecutor,
-)
 from .transform import (
     DraftTransformer,
     GENERAL_VOICE_COHORT,
@@ -102,59 +64,30 @@ from .transform import (
 __all__ = [
     "ACCEPT_REASON",
     "AuditDigestLookup",
-    "COHORT_UNASSIGNED",
     "CandidateMessage",
-    "CohortResolver",
-    "CursorStore",
     "DraftTransformer",
-    "EmailSource",
+    "FilterResult",
     "GENERAL_VOICE_COHORT",
     "GENERAL_VOICE_USER_ID",
-    "FilterResult",
     "GreetingStyle",
-    "INGEST_STATUS_ERROR",
-    "INGEST_STATUS_NEVER_RUN",
-    "INGEST_STATUS_OK",
-    "INGEST_STATUS_STALE",
-    "IngestionItemRecord",
-    "IngestionMode",
-    "IngestionResult",
-    "IngestionStateUpdate",
     "MAX_TRANSFORM_PASSES",
     "MIN_PROFILE_SAMPLE_COUNT",
     "MIN_WORD_COUNT_FOR_SAMPLE",
-    "NamespacedRawR2Client",
-    "NoEmailSource",
     "PartnerAuthoredFilter",
-    "QueryExecutor",
-    "R2Client",
     "REASON_ADAPTER_AGENT_DRAFTED",
     "REASON_AUDIT_LOG_DIGEST_MATCH",
     "REASON_EMPTY_BODY",
     "REASON_SHAPE_HEURISTIC",
     "REASON_TOO_SHORT",
     "STRUCTURAL_DIFF_SCHEMA_VERSION",
-    "SentMessage",
     "SignoffStyle",
-    "StaticCohortResolver",
-    "StorageError",
-    "StorageError",
     "StructuralDiff",
     "TransformResult",
     "TransformStatus",
-    "VALID_STATUSES",
-    "VoiceIngestionItem",
-    "VoiceIngestionRunner",
     "VoiceProfile",
     "VoiceProfileBundle",
-    "VoiceSourceState",
-    "VoiceSourceStateStore",
-    "WriteExecutor",
-    "build_namespaced_voice_runner",
     "build_voice_profile",
     "compute_body_digest",
-    "decommission_source",
-    "enforce_retention",
     "extract_structural_diff",
     "structural_diff_digest",
     "transform_draft",
