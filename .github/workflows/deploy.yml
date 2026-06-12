@@ -116,3 +116,41 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: workers/social-listening
           command: deploy
+
+      # 2026-06-12 code review: the three workers below were absent from the
+      # deploy pipeline — code changes shipped to neither CI verification nor
+      # production without a manual deploy. enrichment-workflow is service-
+      # bound from the main Worker (live intake path); the cost workers feed
+      # the admin cost views.
+      - name: Install Cost Anomaly Worker deps
+        run: cd workers/cost-anomaly && npm ci
+
+      - name: Deploy Cost Anomaly Worker
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: workers/cost-anomaly
+          command: deploy
+
+      - name: Install Cost Telemetry Worker deps
+        run: cd workers/cost-telemetry && npm ci
+
+      - name: Deploy Cost Telemetry Worker
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: workers/cost-telemetry
+          command: deploy
+
+      - name: Install Enrichment Workflow Worker deps
+        run: cd workers/enrichment-workflow && npm ci
+
+      - name: Deploy Enrichment Workflow Worker
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: workers/enrichment-workflow
+          command: deploy
