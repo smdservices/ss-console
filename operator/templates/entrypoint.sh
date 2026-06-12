@@ -59,6 +59,14 @@ umask 027
 # to hermes on every reboot and silently false-close the tamper-resistance.
 find /opt/data -path "${AUDIT_DIR}" -prune -o -print0 | xargs -0 -r chown hermes:hermes
 
+# The broker uid must TRAVERSE /opt/data (hermes's home) to reach the ledger
+# subdir; without this it gets sqlite "unable to open database file" and the
+# boot crash-loops. Grant traverse via the audit-readers group the broker is
+# already in — hermes keeps ownership, no access for others. Must run AFTER the
+# find-chown above (which reset the group back to hermes).
+chgrp audit-readers /opt/data
+chmod 0750 /opt/data
+
 # Convergent (idempotent, every-boot) audit-ledger establishment. Never drops
 # rows. Fails loud rather than silently diverging two ledgers (R5 / DA #5).
 mkdir -p "${AUDIT_DIR}"
