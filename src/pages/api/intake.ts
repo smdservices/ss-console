@@ -1,5 +1,6 @@
 import type { APIContext, APIRoute } from 'astro'
 import { processIntakeSubmission } from '../../lib/booking/intake-core'
+import { trimString, isValidEmail, escapeHtml, jsonResponse } from '../../lib/api/helpers'
 import { rateLimitByIp } from '../../lib/booking/rate-limit'
 import { sendEmail } from '../../lib/email/resend'
 import { ORG_ID } from '../../lib/constants'
@@ -132,31 +133,5 @@ async function handlePost({ request, clientAddress }: APIContext): Promise<Respo
 
 export const POST: APIRoute = (ctx) => handlePost(ctx)
 
-function isValidEmail(email: string): boolean {
-  if (email.length > 254) return false
-  const parts = email.split('@')
-  if (parts.length !== 2) return false
-  const [local, domain] = parts
-  if (!local || !domain) return false
-  if (domain.indexOf('.') === -1) return false
-  return true
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-function trimString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() ? value.trim() : null
-}
-
-function jsonResponse(status: number, data: unknown): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
+// trimString / isValidEmail / escapeHtml / jsonResponse come from the
+// shared lib/api/helpers module (2026-06-12 code review dedup).

@@ -3,6 +3,8 @@ import { env } from 'cloudflare:workers'
 import { ORG_ID } from '../../../lib/constants'
 import { rateLimitByIp } from '../../../lib/booking/rate-limit'
 import { processIntakeSubmission } from '../../../lib/booking/intake-core'
+import { ALLOWED_INTERESTS } from '../../../lib/booking/config'
+import { trimString, isValidEmail, escapeHtml, jsonResponse } from '../../../lib/api/helpers'
 import { dispatchEnrichmentWorkflow } from '../../../lib/enrichment/dispatch'
 import { sendEmail } from '../../../lib/email/resend'
 import { buildAdminUrl } from '../../../lib/config/app-url'
@@ -34,28 +36,8 @@ const MAX_MESSAGE_CHARS = 5000
  */
 const MIN_FORM_FILL_MS = 2000
 
-/**
- * Productized SKU codes that may be carried through /book?interest=<sku>
- * from a marketing CTA. Strict allow-list: values not in this set are
- * silently dropped to null rather than rejected, so a stale URL or
- * cached link cannot break a legitimate submission. Extending this list
- * requires an explicit code change.
- */
-const ALLOWED_INTERESTS = new Set<string>([
-  'operator',
-  'law-firm',
-  'insurance',
-  'veterinary',
-  'title',
-  'accounting',
-  'ria',
-  'mortgage',
-  'dental',
-  'med-spa',
-  'marketing-agency',
-  'property-management',
-  'home-services',
-])
+// ALLOWED_INTERESTS (the /book?interest=<sku> allow-list) is shared with
+// the /book page via lib/booking/config — one list, two enforcement points.
 const INTEREST_LABELS: Record<string, string> = {
   operator: 'Operator',
   'law-firm': 'Operator for Law Firms',
@@ -253,31 +235,5 @@ async function sendAdminNotification(
   })
 }
 
-function trimString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() ? value.trim() : null
-}
-
-function isValidEmail(email: string): boolean {
-  if (email.length > 254) return false
-  const parts = email.split('@')
-  if (parts.length !== 2) return false
-  const [local, domain] = parts
-  if (!local || !domain) return false
-  if (domain.indexOf('.') === -1) return false
-  return true
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-function jsonResponse(status: number, data: unknown): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
+// trimString / isValidEmail / escapeHtml / jsonResponse come from the
+// shared lib/api/helpers module (2026-06-12 code review dedup).
