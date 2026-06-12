@@ -1,0 +1,99 @@
+# Operator drift audit (Phase B Cut D-act) — the self-improving loop.
+#
+# Weekly (and on-demand) it reads each Operator Machine's materialized state via
+# the scoped console route, diffs it against the repo's declared desired-state,
+# and drafts corrective issues/PRs for Captain approval. It NEVER writes to a
+# live Machine; the only code it authors is a one-line OVERLAY_REF pin sync.
+#
+# Trigger surface is deliberately schedule + manual ONLY — never pull_request or
+# a fork-reachable event — so a PR workflow can never reach the scoped token.
+#
+# ACTIVATION (Captain — the audit is inert until these exist):
+#   1. Cloudflare ss-web secret  OPERATOR_DRIFT_AUDIT_TOKEN  (a fresh random
+#      token) — the route at /api/internal/operator/:slug/runtime-config checks it.
+#   2. GitHub Environment "operator-drift-audit" (protection rule optional) with:
+#        - secret  OPERATOR_DRIFT_AUDIT_TOKEN   (same value as #1)
+#        - variable DRIFT_AUDIT_CONSOLE_URL     (e.g. https://admin.smd.services)
+#   Until then the audit step reports a fetch error and opens nothing.
+
+name: operator-drift-audit
+
+on:
+  schedule:
+    # Off-:00 to avoid the top-of-hour stampede; Mondays 06:23 UTC.
+    - cron: '23 6 * * 1'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write # create the pin-sync branch
+  pull-requests: write # draft PRs
+  issues: write # file drift issues
+
+concurrency:
+  group: operator-drift-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    environment: operator-drift-audit # binds the env-scoped token/URL
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so the pin-sync branch can push
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: python3 -m pip install --quiet pyyaml
+
+      # Rolling two-run state: restore the most recent seen-set, save a fresh
+      # immutable entry each run (keys are immutable; restore-keys prefix-matches
+      # the latest). A flapping/degraded read carries findings forward (see
+      # drift_audit.plan_actions), so this never buries a real drift.
+      - name: Restore drift seen-state
+        uses: actions/cache/restore@v4
+        with:
+          path: .drift-state
+          key: drift-seen-${{ github.run_id }}
+          restore-keys: |
+            drift-seen-
+
+      - name: Run drift audit (read-only, via scoped console route)
+        working-directory: operator
+        env:
+          OPERATOR_DRIFT_AUDIT_TOKEN: ${{ secrets.OPERATOR_DRIFT_AUDIT_TOKEN }}
+          DRIFT_AUDIT_CONSOLE_URL: ${{ vars.DRIFT_AUDIT_CONSOLE_URL }}
+        run: |
+          python3 bin/operator-drift-audit.py --source console-route --out-dir "$GITHUB_WORKSPACE/audit"
+
+      - name: Act on findings (issues + draft PRs; gate red on critical)
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p .drift-state
+          git config user.name "operator-drift-audit[bot]"
+          git config user.email "noreply@venturecrane.com"
+          python3 operator/bin/drift-audit-act.py \
+            --audit-json audit/audit.json \
+            --prev-seen .drift-state/seen.json \
+            --state-out .drift-state/seen.json \
+            --apply
+
+      - name: Save drift seen-state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .drift-state
+          key: drift-seen-${{ github.run_id }}
+
+      - name: Upload drift report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drift-report
+          path: audit/
+          if-no-files-found: ignore

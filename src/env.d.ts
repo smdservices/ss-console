@@ -251,6 +251,14 @@ declare namespace Cloudflare {
      */
     OPERATOR_RUNTIME_READ_SECRET?: string
     /**
+     * Scoped, read-config-only token for the operator drift audit (Phase B
+     * Cut D-act). The scheduled GitHub Action holds ONLY this token and calls
+     * `GET /api/internal/operator/:slug/runtime-config`; that route derives the
+     * per-customer read key from OPERATOR_RUNTIME_READ_SECRET server-side, so the
+     * master never enters CI. Unset → the route is 503 (fail-closed).
+     */
+    OPERATOR_DRIFT_AUDIT_TOKEN?: string
+    /**
      * Sentry Internal Integration Client Secret used to verify
      * `Sentry-Hook-Signature` headers on inbound alert-rule webhook
      * deliveries to `/api/webhooks/sentry`. Pulled from the SMD-owned

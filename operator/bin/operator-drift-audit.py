@@ -17,6 +17,12 @@ Fetch source:
                            run` for a manual observation) and call the Machine's
                            /runtime/config directly. The master never leaves the
                            process; nothing is written.
+  --source console-route   Call the console's scoped read route
+                           (GET $DRIFT_AUDIT_CONSOLE_URL/api/internal/operator/
+                           <slug>/runtime-config) with OPERATOR_DRIFT_AUDIT_TOKEN.
+                           The console derives the key server-side, so the master
+                           NEVER enters CI. This is the mode the scheduled Action
+                           uses.
 
 Usage::
 
@@ -90,7 +96,33 @@ def fetch_snapshot_seam(slug: str, master: str, *, timeout: int = 30) -> dict:
         return json.load(resp)
 
 
-def run_audit(slugs: list[str], *, master: str | None) -> tuple[list, dict[str, list], list[str]]:
+def fetch_snapshot_console_route(slug: str, base_url: str, token: str, *, timeout: int = 30) -> dict:
+    """Fetch via the console's scoped read route. The master never enters CI —
+    the console derives the per-customer key server-side."""
+    url = f"{base_url.rstrip('/')}/api/internal/operator/{slug}/runtime-config"
+    req = urllib.request.Request(  # noqa: S310 (https console base)
+        url, headers={"Authorization": f"Bearer {token}"}, method="GET"
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
+        return json.load(resp)
+
+
+def _make_fetcher(source: str):
+    """Return a (slug -> snapshot) fetcher for the chosen source, or an error str."""
+    if source == "seam":
+        master = os.environ.get("OPERATOR_RUNTIME_READ_SECRET")
+        if not master:
+            return None, "OPERATOR_RUNTIME_READ_SECRET unset; cannot fetch via seam"
+        return (lambda slug: fetch_snapshot_seam(slug, master)), None
+    # console-route
+    token = os.environ.get("OPERATOR_DRIFT_AUDIT_TOKEN")
+    base = os.environ.get("DRIFT_AUDIT_CONSOLE_URL")
+    if not token or not base:
+        return None, "OPERATOR_DRIFT_AUDIT_TOKEN / DRIFT_AUDIT_CONSOLE_URL unset; cannot fetch"
+    return (lambda slug: fetch_snapshot_console_route(slug, base, token)), None
+
+
+def run_audit(slugs: list[str], *, source: str) -> tuple[list, dict[str, list], list[str]]:
     """Returns (findings, degraded_by_slug, errors)."""
     env_contract = _load_yaml(_ENV_CONTRACT)
     block_registry = _load_yaml(_BLOCK_REGISTRY)
@@ -101,13 +133,15 @@ def run_audit(slugs: list[str], *, master: str | None) -> tuple[list, dict[str, 
     degraded_by_slug: dict[str, list] = {}
     errors: list[str] = []
 
+    fetcher, fetch_err = _make_fetcher(source)
+
     for slug in slugs:
         customer_yaml = _load_yaml(_CUSTOMERS_DIR / slug / "customer.yaml")
-        if not master:
-            errors.append(f"{slug}: OPERATOR_RUNTIME_READ_SECRET unset; cannot fetch snapshot")
+        if fetcher is None:
+            errors.append(f"{slug}: {fetch_err}")
             continue
         try:
-            snapshot = fetch_snapshot_seam(slug, master)
+            snapshot = fetcher(slug)
         except (urllib.error.URLError, TimeoutError, ValueError) as exc:
             errors.append(f"{slug}: snapshot fetch failed: {exc}")
             continue
@@ -126,7 +160,7 @@ def run_audit(slugs: list[str], *, master: str | None) -> tuple[list, dict[str, 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Operator drift audit (read-only).")
     ap.add_argument("--slug", action="append", help="customer slug (repeatable); default: all")
-    ap.add_argument("--source", choices=["seam"], default="seam")
+    ap.add_argument("--source", choices=["seam", "console-route"], default="seam")
     ap.add_argument("--out-dir", default=None, help="write audit.json + drift-report.md here")
     ap.add_argument("--fail-on-critical", action="store_true")
     args = ap.parse_args()
@@ -136,8 +170,7 @@ def main() -> int:
         print("no customers to audit", file=sys.stderr)
         return 0
 
-    master = os.environ.get("OPERATOR_RUNTIME_READ_SECRET")
-    findings, degraded_by_slug, errors = run_audit(slugs, master=master)
+    findings, degraded_by_slug, errors = run_audit(slugs, source=args.source)
 
     report = da.render_markdown(findings, degraded_by_slug=degraded_by_slug)
     audit_obj = {
