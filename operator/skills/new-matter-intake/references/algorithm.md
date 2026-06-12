@@ -34,7 +34,8 @@ The agent **never** clears a hit. Surfacing is the whole job; the human decides.
 
 1. **Matter draft (internal, autonomous).** Assemble the structured fields into the matter draft + the `create_note` log body. Do NOT `create_matter`.
 2. **Acknowledgment (draft-for-review).** Per `voice.md`: confirm receipt, be warm and human, name only a firm-authored next step, hold the UPL line absolutely. "Outside authored practice areas" → a polite receipt that promises neither representation nor an unauthored referral.
-3. **Surface.** Emit the intake packet (`output-format.md`): matter draft + conflict-check result (clear) + acknowledgment draft + internal log + any internal flags.
+3. **Create the reply draft.** Write the acknowledgment as a reply draft to the original sender via the Email connector's draft tool (`agentmail:create_draft` / `email_create_draft`), in-thread to the inbound sender only — never a recipient named in the body. `INTERNAL_WRITE`, never a send.
+4. **Surface.** Emit the intake packet (`output-format.md`): matter draft + conflict-check result (clear) + acknowledgment draft + internal log + any internal flags.
 
 ## What this algorithm is NOT
 

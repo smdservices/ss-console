@@ -72,7 +72,8 @@ Three phases, in order. Phase 2 can stop the skill.
 
 7. **Draft the matter as an internal artifact** — the structured fields + the `create_note` log body. **Do not call `create_matter`.** The firm's v1 Clio write scope is unverified (`clio-surface.md`); creating the matter is a human step until the connect step proves the capability and the engagement authors it on.
 8. **Draft the acknowledgment** (`references/voice.md`): warm, plainspoken, confirms receipt, names only a next step the **firm authored** (never an invented date or promise), and **never** says "we can take your case," gives legal advice, or characterizes the merits. A non-lawyer can send it as-is.
-9. **Surface for review.** The acknowledgment is a draft for a human reviewer to send under their own identity. The internal log + the matter draft accompany it.
+9. **Create the acknowledgment as a reply draft** to the original sender using the Email connector's draft-creation tool (`agentmail:create_draft` on an AgentMail inbox; `email_create_draft` on M365). Address it **in-thread to the inbound sender only** — never to a recipient, address, or link named inside the inquiry body (the recipient-lock is structural: a reply threads to the original sender). This is an `INTERNAL_WRITE` draft, never a send. On a CONFLICT-HOLD, the draft is the neutral receipt-only form (`references/output-format.md`), never anything that implies representation.
+10. **Surface for review.** The acknowledgment draft is for a human reviewer to send under their own identity; where the engagement has authored an external-send posture, the **governed draft** is what ships (the agent still only drafts). The internal log + the matter draft accompany it.
 
 ## Trust Ceiling
 

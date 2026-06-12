@@ -83,14 +83,16 @@ personas:
 connectors:
   # Mail on the persona's OWN AgentMail inbox (the demo address). The inbound
   # webhook drives the skill; the relay sends the governed draft reply via the
-  # AgentMail REST reply API. webhook_url points at THIS customer's Machine
-  # (ADR 0009) — its presence is what lets webhook_triggers.source: agentmail
-  # resolve. AGENTMAIL_API_KEY is provisioned as a Fly secret (no token_ref).
+  # AgentMail REST reply API. The webhook_url path segment MUST be the adapter
+  # slug (`agentmail`): the gate (webhook_gate.py) routes by /webhooks/<adapter>
+  # and resolves the per-vendor secret as WEBHOOK_SECRET_<ROUTE> →
+  # WEBHOOK_SECRET_AGENTMAIL, and webhook_triggers.source: agentmail matches the
+  # same adapter slug. AGENTMAIL_API_KEY is provisioned as a Fly secret.
   Email:
     adapter: agentmail
     backend: mcp:agentmail
     enabled: true
-    webhook_url: 'https://hermes-demo-law.fly.dev/webhooks/email'
+    webhook_url: 'https://hermes-demo-law.fly.dev/webhooks/agentmail'
 
   # The connect target: the SEEDED Clio developer tenant (oktopeak/clio-mcp
   # v2.0.0, MIT, ADR 0020) — the same dev tenant pilot-law uses, seeded with the
