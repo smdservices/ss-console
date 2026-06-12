@@ -25,9 +25,6 @@ export const SESSION_COOKIE_NAME = 'session_token'
 export const ADMIN_SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
 export const CLIENT_SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
 
-/** @deprecated Use getSessionDurationMs(role) instead. Kept for backward compat. */
-export const SESSION_DURATION_MS = ADMIN_SESSION_DURATION_MS
-
 /**
  * Closed set of user roles, mirroring the `users.role` CHECK constraint
  * restored in migration 0035. Defense-in-depth pairing: DB enforces at

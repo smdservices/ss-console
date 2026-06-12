@@ -4,7 +4,6 @@ import PortalHeader from '../../components/portal/PortalHeader.astro'
 import TimelineEntry from '../../components/portal/TimelineEntry.astro'
 import ArtifactChip from '../../components/portal/ArtifactChip.astro'
 import MoneyDisplay from '../../components/portal/MoneyDisplay.astro'
-import ActionCard from '../../components/portal/ActionCard.astro'
 import PortalListItem from '../../components/portal/PortalListItem.astro'
 import StatusPill from '../../components/portal/StatusPill.astro'
 import PortalPageHead from '../../components/portal/PortalPageHead.astro'
@@ -42,20 +41,6 @@ if (import.meta.env.PROD) {
     </PortalHeader>
 
     <main class="max-w-3xl mx-auto px-4 sm:px-6 py-10 space-y-10">
-      <section>
-        <h2 class="text-lg font-bold text-[color:var(--ss-color-text-primary)] mb-4">
-          ActionCard — invoice
-        </h2>
-        <ActionCard
-          pillLabel="Invoice due Apr 18"
-          amountCents={425000}
-          amountLabel="For April work. Invoice #1023"
-          ctaLabel="Pay invoice"
-          ctaHref="#"
-          ctaSubtext="Secure payment via Stripe."
-        />
-      </section>
-
       <section>
         <h2 class="text-lg font-bold text-[color:var(--ss-color-text-primary)] mb-4">Timeline</h2>
         <div
