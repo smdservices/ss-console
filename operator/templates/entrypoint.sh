@@ -59,13 +59,10 @@ umask 027
 # to hermes on every reboot and silently false-close the tamper-resistance.
 find /opt/data -path "${AUDIT_DIR}" -prune -o -print0 | xargs -0 -r chown hermes:hermes
 
-# The broker uid must TRAVERSE /opt/data (hermes's home) to reach the ledger
-# subdir; without this it gets sqlite "unable to open database file" and the
-# boot crash-loops. Grant traverse via the audit-readers group the broker is
-# already in — hermes keeps ownership, no access for others. Must run AFTER the
-# find-chown above (which reset the group back to hermes).
-chgrp audit-readers /opt/data
-chmod 0750 /opt/data
+# NOTE: the broker reaches the ledger via the bind mount established below, NOT
+# by traversing /opt/data. The Hermes gateway chmods its home (/opt/data) to
+# 0700 mid-boot, which strips any group-traverse we could grant here — so the
+# write path must not depend on the home dir's mode.
 
 # Convergent (idempotent, every-boot) audit-ledger establishment. Never drops
 # rows. Fails loud rather than silently diverging two ledgers (R5 / DA #5).
@@ -100,6 +97,18 @@ done
 # Fail-closed: the hermes read seam must be able to read the ledger.
 setpriv --reuid=hermes --regid=hermes --init-groups test -r "${AUDIT_DB}" \
   || { log "FATAL: ${AUDIT_DB} not hermes-readable after perm convergence"; exit 1; }
+
+# Bind-mount the ledger dir to a root-owned path the broker can always traverse,
+# independent of /opt/data's mode (the gateway flips the home to 0700 mid-boot).
+# Same underlying volume inodes as ${AUDIT_DIR}; the broker writes via this path,
+# the hermes read seam reads via ${AUDIT_DB} (hermes owns its home). /run is a
+# fresh tmpfs each boot, so re-create the mountpoint and bind idempotently.
+AUDIT_BIND_DIR="/run/smd-audit"
+AUDIT_BIND_DB="${AUDIT_BIND_DIR}/audit.db"
+mkdir -p "${AUDIT_BIND_DIR}"
+mountpoint -q "${AUDIT_BIND_DIR}" \
+  || mount --bind "${AUDIT_DIR}" "${AUDIT_BIND_DIR}" \
+  || { log "FATAL: could not bind-mount ${AUDIT_DIR} -> ${AUDIT_BIND_DIR}"; exit 1; }
 
 rm -rf /opt/data/workspace-broker
 rm -f /opt/data/oauth/google.json
@@ -140,7 +149,7 @@ setpriv \
   SMD_WORKSPACE_CREDENTIAL_PATH="${SMD_WORKSPACE_CREDENTIAL_PATH}" \
   SMD_CUSTOMER_YAML="${SMD_CUSTOMER_YAML}" \
   SMD_GATEWAY_PID="${SMD_GATEWAY_PID}" \
-  SMD_AUDIT_DB_PATH="${AUDIT_DB}" \
+  SMD_AUDIT_DB_PATH="${AUDIT_BIND_DB}" \
   /opt/workspace-broker/.venv/bin/python \
   -m workspace_broker.server &
 BROKER_PID=$!
