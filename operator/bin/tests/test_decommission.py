@@ -254,10 +254,15 @@ def test_live_runs_full_sequence_and_writes_audit_trail(tmp_path):
         "SELECT action_type FROM audit_log ORDER BY id"
     ).fetchall()
     action_types = [r[0] for r in rows]
-    # At least one row per step plus DECOMMISSION_FINAL.
+    # Pipeline boundaries + per-step lifecycle rows (2026-06-12 review:
+    # steps no longer reuse INITIATED/DRAIN_COMPLETE).
     assert "DECOMMISSION_INITIATED" in action_types
     assert "DECOMMISSION_DRAIN_COMPLETE" in action_types
+    assert "DECOMMISSION_STEP_BEGIN" in action_types
+    assert "DECOMMISSION_STEP_COMPLETE" in action_types
     assert "DECOMMISSION_FINAL" in action_types
+    # Steps 02..09 each get a begin row; the trail distinguishes them.
+    assert action_types.count("DECOMMISSION_STEP_BEGIN") >= 8
     # Every action_type written is in the spec's accepted set.
     for at in action_types:
         assert at in ACCEPTED_ACTION_TYPES
@@ -420,7 +425,7 @@ def test_failure_halts_with_step_failed(tmp_path):
     assert (customers_root / "smd").exists()
     # Audit log contains the failure metadata for that step.
     failure_rows = conn.execute(
-        "SELECT metadata FROM audit_log WHERE action_type = 'DECOMMISSION_INITIATED'"
+        "SELECT metadata FROM audit_log WHERE action_type = 'DECOMMISSION_STEP_FAILED'"
     ).fetchall()
     failure_text = " ".join(r[0] or "" for r in failure_rows)
     assert "failed" in failure_text
@@ -711,7 +716,7 @@ def test_step_2_runs_audit_log_preservation_before_memory_voice(tmp_path):
     # memory + voice cleanup row.
     rows = conn.execute(
         "SELECT metadata FROM audit_log "
-        "WHERE action_type = 'DECOMMISSION_DRAIN_COMPLETE'"
+        "WHERE action_type = 'DECOMMISSION_STEP_COMPLETE'"
     ).fetchall()
     carve_out = [r[0] for r in rows if "audit_log_preserved" in (r[0] or "")]
     assert carve_out, "expected at least one audit row tagged with audit_log_preserved"

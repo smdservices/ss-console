@@ -1,0 +1,32 @@
+[
+  {
+    "adapterPath": "operator/adapter/voice/transform.py",
+    "overlayPath": "plugins/hermes-smd-voice/transform.py",
+    "syncNote": "2026-06-12 baseline (code-review drift gate). Pair was ~97% similar at baseline; overlay copy is the runtime, this copy feeds bin/ voice corpus + export + decommission.",
+    "sha256": "e8334db4d67fdee9a0d5675ceaa6c6386c5578b13d318c8adfeec9d11d8a2f1a"
+  },
+  {
+    "adapterPath": "operator/adapter/voice/pipeline.py",
+    "overlayPath": "plugins/hermes-smd-voice/pipeline.py",
+    "syncNote": "2026-06-12 baseline. Known divergence: overlay uses SentMessage/UTC, this side SentItem/timezone — reconcile when the decommission data plane is fixed (#1355).",
+    "sha256": "7036033da7424abc24ad85e5738a9c3d7ae5cde48d56a415c9aca8430cb1c97e"
+  },
+  {
+    "adapterPath": "operator/adapter/audit_log.py",
+    "overlayPath": "plugins/hermes-smd-audit/emit.py",
+    "syncNote": "2026-06-12 baseline, taken AFTER adding the per-step DECOMMISSION_STEP_* action types. Deliberately one-sided: decommission rows are written control-plane only; overlay emit.py does not need them. d1-schema.md section 1 and src/lib/portal/operator/audit.ts updated in the same PR (TS parity is test-enforced).",
+    "sha256": "941ac693ab4dff002761438a51dd6bcd63399f68cd3eaad71aca0b1d0a759725"
+  },
+  {
+    "adapterPath": "operator/adapter/namespace_assertion.py",
+    "overlayPath": "shared/d1_client.py",
+    "syncNote": "2026-06-12 baseline. Overlay ported only the NamespacedD1Executor analog; its voice plugin still carries an inline R2 wrapper mirror.",
+    "sha256": "768fea397cf700befcd3baf0b92f7986159f440909a2302474284602357eedef"
+  },
+  {
+    "adapterPath": "operator/adapter/d1_env.py",
+    "overlayPath": "shared/d1_env.py",
+    "syncNote": "2026-06-12 baseline. Different return contracts by design (NamespacedD1Executor vs D1Client) — control-plane HTTP API vs Machine-local sqlite; see #1355.",
+    "sha256": "a961b362e43a7d6d74945213b471344afad711ff01f7fe39f808df09ba29478e"
+  }
+]
