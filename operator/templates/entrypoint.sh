@@ -135,24 +135,54 @@ PYTHONPATH="/opt/workspace-broker" \
 chown workspace-broker:workspace-broker "${SMD_WORKSPACE_CREDENTIAL_PATH}"
 chmod 0600 "${SMD_WORKSPACE_CREDENTIAL_PATH}"
 
-setpriv \
-  --reuid=workspace-broker \
-  --regid=workspace-broker \
-  --init-groups \
-  --no-new-privs \
-  /usr/bin/env -i \
-  PATH="/opt/workspace-broker/.venv/bin:/usr/bin:/bin" \
-  PYTHONPATH="/opt/workspace-broker" \
-  PYTHONUNBUFFERED=1 \
-  CUSTOMER_SLUG="${CUSTOMER_SLUG}" \
-  SMD_WORKSPACE_BROKER_SOCKET="${SMD_WORKSPACE_BROKER_SOCKET}" \
-  SMD_WORKSPACE_CREDENTIAL_PATH="${SMD_WORKSPACE_CREDENTIAL_PATH}" \
-  SMD_CUSTOMER_YAML="${SMD_CUSTOMER_YAML}" \
-  SMD_GATEWAY_PID="${SMD_GATEWAY_PID}" \
-  SMD_AUDIT_DB_PATH="${AUDIT_BIND_DB}" \
-  /opt/workspace-broker/.venv/bin/python \
-  -m workspace_broker.server &
-BROKER_PID=$!
+# The broker is the SECOND principal that BOTH the Google capability path AND the
+# OP-P1-4 audit_append path depend on. Define its launch ONCE; the supervisor
+# below uses it for the first start and every respawn. env -i with a fixed
+# allowlist — the broker reads its Google credential from the materialized file
+# (SMD_WORKSPACE_CREDENTIAL_PATH), never from env, so a respawn needs nothing the
+# parent later unsets.
+launch_broker() {
+  setpriv \
+    --reuid=workspace-broker \
+    --regid=workspace-broker \
+    --init-groups \
+    --no-new-privs \
+    /usr/bin/env -i \
+    PATH="/opt/workspace-broker/.venv/bin:/usr/bin:/bin" \
+    PYTHONPATH="/opt/workspace-broker" \
+    PYTHONUNBUFFERED=1 \
+    CUSTOMER_SLUG="${CUSTOMER_SLUG}" \
+    SMD_WORKSPACE_BROKER_SOCKET="${SMD_WORKSPACE_BROKER_SOCKET}" \
+    SMD_WORKSPACE_CREDENTIAL_PATH="${SMD_WORKSPACE_CREDENTIAL_PATH}" \
+    SMD_CUSTOMER_YAML="${SMD_CUSTOMER_YAML}" \
+    SMD_GATEWAY_PID="${SMD_GATEWAY_PID}" \
+    SMD_AUDIT_DB_PATH="${AUDIT_BIND_DB}" \
+    /opt/workspace-broker/.venv/bin/python \
+    -m workspace_broker.server
+}
+
+# Root-side respawn supervisor (OP-P1-4 follow-up). WITHOUT it, a broker that dies
+# mid-run is never restarted: audit_append then fails OPEN (rows silently dropped,
+# the exact gap OP-P1-4 closes) and Google capability stops, with no signal. We
+# fork the supervisor while STILL ROOT — before the exec-drop to hermes at the
+# bottom — so each respawn can re-setpriv a fresh broker to uid workspace-broker
+# (a hermes process could not re-acquire that uid). The server unlinks its stale
+# socket on bind (server.py), so respawns rebind cleanly. SMD_GATEWAY_PID is the
+# entrypoint PID, preserved across the exec, so the SO_PEERCRED gate still admits
+# the gateway after a respawn. A broker that is broken from the FIRST boot is NOT
+# masked: the parent's socket-wait below still FATALs the whole Machine (Fly
+# restarts it); the supervisor only covers death AFTER a healthy first start. The
+# `if` guard keeps the inherited `set -e` from killing the loop on a non-zero
+# broker exit. (Fail-open-with-respawn is intentional for this PR; the stronger
+# fail-closed ack-before-dispatch is deferred to the autonomous-send workstream.)
+(
+  while true; do
+    if launch_broker; then _brk_rc=0; else _brk_rc=$?; fi
+    log "Workspace broker exited (rc=${_brk_rc}); respawning in 2s"
+    sleep 2
+  done
+) &
+SUPERVISOR_PID=$!
 
 for _ in 1 2 3 4 5; do
   [ -S "${BROKER_SOCKET}" ] && break
@@ -160,7 +190,7 @@ for _ in 1 2 3 4 5; do
 done
 [ -S "${BROKER_SOCKET}" ] || {
   log "FATAL: Workspace broker socket was not created"
-  kill "${BROKER_PID}" 2>/dev/null || true
+  kill "${SUPERVISOR_PID}" 2>/dev/null || true
   exit 1
 }
 
