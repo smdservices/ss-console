@@ -5,13 +5,14 @@ import Base from '../../layouts/Base.astro'
 import Nav from '../../components/Nav.astro'
 import Footer from '../../components/Footer.astro'
 import CtaButton from '../../components/CtaButton.astro'
+import { coldLanderLink, shapeZoneTitles, ctaPricingLine } from '../../lib/operator-packs/shared'
 
 const productSchema = {
   '@context': 'https://schema.org',
   '@type': 'Product',
   name: 'Operator for Title & Escrow',
   description:
-    'A dedicated Operator that runs the file from open to recorded: it opens the order, chases payoffs and HOA and survey, keeps every party current at each milestone, coordinates the clear-to-close, and confirms the signing. It never touches funds or wire instructions.',
+    'The Operator is a worker you hire, not software you buy. The title pack is its head start: a starting point shaped around running the file from open to recorded, which we configure with you and you customize to your company. It never touches funds or wire instructions; the legal calls stay with your people.',
   brand: { '@type': 'Brand', name: 'SMD Services' },
   offers: {
     '@type': 'Offer',
@@ -19,6 +20,46 @@ const productSchema = {
     seller: { '@type': 'Organization', name: 'SMD Services' },
   },
 }
+
+// Section 03: the starting templates in the pack, grouped in plain language. Sourced
+// from operator/verticals/title/vertical.yaml (the opening-and-documents, party-loop,
+// closing-and-after, and wire-safety skill families). These are templates we configure,
+// not a finished, running product.
+const packTemplates = [
+  {
+    title: 'Opening and documents',
+    body: "The order captured from the contract, the acknowledgment to the opening party drafted, the file's open items chased: payoffs, HOA estoppel, survey, tax certificates, lender instructions.",
+  },
+  {
+    title: 'The party loop',
+    body: 'Every party kept current at each milestone, the issued commitment delivered with a cover note, the clear-to-close handoff coordinated with the lender, the realtors and the lender looped in.',
+  },
+  {
+    title: 'Closing and after',
+    body: 'The signing scheduled and confirmed with your authored bring-list, the earnest-money receipt logged as the file records it, recording and final-policy issuance tracked and the parties notified.',
+  },
+  {
+    title: 'The wire-safety gate',
+    body: 'Any message that touches wire or banking details recognized and routed to your verified process, with the party told that wire details are confirmed only through your secure channel.',
+  },
+]
+
+// Section 05: the three customization zones. Titles are shared (shapeZoneTitles); the
+// body under each is title-specific.
+const zones = [
+  {
+    title: shapeZoneTitles.prebuilt,
+    body: 'The starting templates above, shaped around a closing-coordination desk and ready to configure. You are not building from a blank page.',
+  },
+  {
+    title: shapeZoneTitles.connected,
+    body: 'Wired into your own accounts: your title-production system, your email and calendar, your documents. It works inside the tools you already run.',
+  },
+  {
+    title: shapeZoneTitles.yours,
+    body: 'Your voice, your parties and workflow and milestones, and where the line sits. You decide what runs on its own and what waits for a person. You are the expert in your company; you shape it from there.',
+  },
+]
 
 const roleLenses = [
   {
@@ -38,7 +79,7 @@ const roleLenses = [
 
 <Base
   title="Operator for Title & Escrow | SMD Services"
-  description="A dedicated Operator that runs the file from open to recorded: opening the order, chasing payoffs and HOA and survey, keeping every party current, coordinating the clear-to-close, and confirming the signing. It never touches funds or wire instructions."
+  description="The title pack is the Operator's head start: a starting point shaped around running the file from open to recorded, which we configure with you and you customize to your company. It never touches funds or wire instructions. You set the line."
 >
   <Nav />
   <main id="main" role="main">
@@ -59,18 +100,23 @@ const roleLenses = [
           The Closing Desk, Fully Staffed.
         </h1>
         <p
-          class="mx-auto mb-12 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+          class="mx-auto mb-8 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
         >
-          A dedicated worker for your company, in its own office and plugged into the tools you
-          already run. It runs the file the way a sharp closing coordinator would: it opens the
-          order, chases the payoffs and the HOA and the survey, keeps every party current at each
-          milestone, coordinates the clear-to-close, and confirms the signing. It never touches
-          funds or wire instructions. You add capacity to the closing desk without adding to
-          payroll.
+          The Operator is a worker you hire, not software you buy. This is its title head start: a
+          starting point already shaped around opening the order, chasing the documents, and keeping
+          every party current to close, so you are not building from a blank page. You make it yours
+          from there.
         </p>
         <CtaButton href="/book?interest=title" data-ev="title-hero-cta"
           >Start the conversation</CtaButton
         >
+        <p class="mt-8">
+          <a
+            href={coldLanderLink.href}
+            class="font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] underline underline-offset-4 hover:text-[color:var(--ss-color-primary)]"
+            >{coldLanderLink.text} &rarr;</a
+          >
+        </p>
       </div>
     </section>
 
@@ -101,7 +147,7 @@ const roleLenses = [
       </div>
     </section>
 
-    <!-- § 03 A worker, in another office -->
+    <!-- § 03 What the pack starts you with -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -109,32 +155,49 @@ const roleLenses = [
           >§ 03</span
         >
         <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          A Worker, In Another Office.
+          What The Pack Starts You With.
         </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            Picture a closing coordinator from the future, sitting at a desk in your company today.
-            A computer, a phone, and access to the title-production system, the email, and the
-            document portal you already run. You hand it work the way you hand work to anyone on
-            your team. You send the request, it does the job, and it comes back with the result.
-          </p>
-          <p>
-            It works from its own office, the way much of your team already does. The closer you
-            have never met in person. The lender contact you email and trade files with. This is one
-            more of those.
-          </p>
-          <p>
-            What it takes on is the work you would want that seat doing, inside the limits you set.
-            The commitment that is waiting on a cleared exception. The closing package that needs
-            assembling before the signing. We get to the limits below.
-          </p>
+        <p
+          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          You do not start from a blank page. The title pack comes shaped around the work a
+          closing-coordination desk runs, as starting templates we configure with you:
+        </p>
+
+        <div
+          class="grid grid-cols-1 md:grid-cols-2 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
+        >
+          {
+            packTemplates.map((t, i) => (
+              <div
+                class:list={[
+                  'flex flex-col gap-3 p-8 min-h-[12rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
+                  i % 2 !== 1 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
+                ]}
+              >
+                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
+                  {t.title}
+                </p>
+                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                  {t.body}
+                </p>
+              </div>
+            ))
+          }
         </div>
+
+        <p
+          class="mt-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          These plug into your title-production system and your email and calendar. The templates
+          are the head start. How they run is yours to shape.
+        </p>
       </div>
     </section>
 
-    <!-- § 04 What it does -->
+    <!-- § 04 From the start -->
     <section class="bg-white px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -144,31 +207,27 @@ const roleLenses = [
         <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          What It Does.
+          From The Start.
         </h2>
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
-            We build the Operator for your company and connect it to the systems you already run:
-            your title production system, your email and calendar, your document storage. No escrow
-            or banking system is connected, by design: the Operator never touches funds.
+            Before it starts, we sit down with you and the people who run the file, and we shape the
+            templates around how your company actually operates, so it begins ready, not green.
           </p>
           <p>
-            Before it starts, we sit down with you and the people who run the work, and we build it
-            around how you operate, so it shows up ready, not green. From there it keeps getting
-            sharper, learning from your team's corrections.
-          </p>
-          <p>
-            An order comes in from an agent or a lender. It opens the file, chases the documents the
-            file needs, payoffs, HOA estoppel, survey, tax certificates, lender instructions, and
-            keeps every party current at each milestone. It coordinates the clear-to-close with the
-            lender, schedules and confirms the signing, and tracks recording and the final policy
-            after close. Every piece of it is logged in your title production system as it happens.
+            From there the work moves the way it always did. An order comes in from an agent or a
+            lender. It opens the file, chases the documents the file needs, payoffs, HOA estoppel,
+            survey, tax certificates, lender instructions, and keeps every party current at each
+            milestone. It coordinates the clear-to-close with the lender, schedules and confirms the
+            signing, and tracks recording and the final policy after close. It is all logged in your
+            title-production system as it happens, and it kept getting sharper from your team's
+            corrections.
           </p>
         </div>
       </div>
     </section>
 
-    <!-- § 05 You set the line -->
+    <!-- § 05 Yours to shape -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -176,9 +235,52 @@ const roleLenses = [
           >§ 05</span
         >
         <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Yours To Shape.
+        </h2>
+        <p
+          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          We are not the experts in how your company runs. You are. So the pack is a starting point
+          in three parts, and the third is the biggest.
+        </p>
+
+        <div
+          class="grid grid-cols-1 md:grid-cols-3 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
+        >
+          {
+            zones.map((z, i) => (
+              <div
+                class:list={[
+                  'flex flex-col gap-3 p-8 min-h-[14rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
+                  i % 3 !== 2 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
+                ]}
+              >
+                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
+                  {z.title}
+                </p>
+                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                  {z.body}
+                </p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- § 06 The line -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 06</span
+        >
+        <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          You Set The Line.
+          The Line.
         </h2>
         <div
           class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)] mb-12"
@@ -191,14 +293,21 @@ const roleLenses = [
             owns them.
           </p>
           <p>
-            One line is not a setting anyone can move: the Operator never transmits, confirms, or
-            changes a wire instruction, ever. Any message that touches wire or banking details goes
+            Some lines are not settings anyone can move. The Operator never transmits, confirms, or
+            changes a wire instruction, ever; any message that touches wire or banking details goes
             straight to your verified process, and the party is told that wire details are confirmed
-            only through your secure channel. Seller impersonation and wire fraud are where the
-            money is lost, and a coordinator that provably never touches funds is safer there than a
-            person working under a deadline. Everywhere else you govern what the Operator runs on
-            its own, every outbound message goes through a reviewer who sends it under their own
-            name, and every action it takes is logged where you can see it.
+            only through your secure channel. It never moves, directs, or confirms disbursement of
+            escrow funds. It gives no opinion on title or the contract. Nonpublic personal
+            information stays inside your company's surfaces, per GLBA and ALTA Best Practices.
+            Anything that leaves the company goes to a reviewer on your team until you decide
+            otherwise. Every action it takes is logged where you can see it.
+          </p>
+          <p>
+            Beyond those floors, you govern where the line sits, and you can move it as you learn
+            what the Operator is good at. Your files stay private, including from us. The Operator
+            works in your company's own walled-off environment, on your own accounts. We can see
+            that it is running and the record of what it did, but the contents of your files and
+            messages stay yours, and so do the configuration, the logs, and the off switch.
           </p>
         </div>
         <div class="text-center">
@@ -209,64 +318,12 @@ const roleLenses = [
       </div>
     </section>
 
-    <!-- § 06 One coordinator, your whole company -->
-    <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 06</span
-        >
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          One Coordinator. Your Whole Company.
-        </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            One Operator for the whole company, not a separate tool for each closer. Everyone works
-            with the same one, and it gets sharper from everyone's corrections.
-          </p>
-          <p>
-            What it learns, your parties, your workflow, your milestones, your voice, is a record
-            you can read and correct. It belongs to the company, not to a person's login. When
-            someone moves on, what the Operator knows about how you close does not leave with them.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- § 07 A team, not a tool -->
+    <!-- § 07 Where it fits -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
           class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
           >§ 07</span
-        >
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          A Team, Not A Tool.
-        </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            We are the team behind the worker. We build it for your company, and we stay accountable
-            for how it runs.
-          </p>
-          <p>
-            The technology moves, and we move with it, because no one has a decade of experience
-            with it yet. We are the team that keeps your business working, and nobody should take on
-            something this new alone.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- § 08 Where it fits -->
-    <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 08</span
         >
         <h2
           class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
@@ -304,12 +361,12 @@ const roleLenses = [
       </div>
     </section>
 
-    <!-- § 09 Start the conversation -->
+    <!-- § 08 Start the conversation -->
     <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
       <div class="mx-auto max-w-5xl text-center">
         <span
           class="inline-block bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
-          >§ 09</span
+          >§ 08</span
         >
         <h2
           class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
@@ -318,12 +375,11 @@ const roleLenses = [
         </h2>
         <p class="mx-auto mb-6 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
           It starts with a conversation. We learn how your company closes, find the coordination
-          work that is eating your desk's time, and figure out where a dedicated Operator fits. If
-          it is not a fit, we will tell you.
+          work that is eating your desk's time, and start from the pack, customizing it to your
+          company. If it is not a fit, we will tell you.
         </p>
         <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
-          Pricing is a flat monthly subscription, scoped to the seat we build together, and we walk
-          through it before any setup begins.
+          {ctaPricingLine}
         </p>
         <CtaButton variant="outline-white" href="/book?interest=title" data-ev="title-final-cta"
           >Start the conversation</CtaButton

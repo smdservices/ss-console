@@ -5,13 +5,14 @@ import Base from '../../layouts/Base.astro'
 import Nav from '../../components/Nav.astro'
 import Footer from '../../components/Footer.astro'
 import CtaButton from '../../components/CtaButton.astro'
+import { coldLanderLink, shapeZoneTitles, ctaPricingLine } from '../../lib/operator-packs/shared'
 
 const productSchema = {
   '@context': 'https://schema.org',
   '@type': 'Product',
   name: 'Operator for Veterinary Clinics',
   description:
-    'A dedicated Operator that runs the front of house: it books and confirms appointments, works the recall list, relays refill requests to the doctor, gets released results to clients, and routes a possible emergency straight to a person. The medicine stays with your doctors; one emergency line never moves.',
+    'The Operator is a worker you hire, not software you buy. The veterinary pack is its head start: a starting point shaped around front-of-house scheduling, recall, and the service desk, which we configure with you and you customize to your practice. The medicine stays with your doctors; one emergency line never moves.',
   brand: { '@type': 'Brand', name: 'SMD Services' },
   offers: {
     '@type': 'Offer',
@@ -19,6 +20,46 @@ const productSchema = {
     seller: { '@type': 'Organization', name: 'SMD Services' },
   },
 }
+
+// Section 03: the starting templates in the pack, grouped in plain language. Sourced
+// from operator/verticals/veterinary/vertical.yaml (the scheduling, recall, service-desk,
+// and safety skill families). These are templates we configure, not a finished, running
+// product.
+const packTemplates = [
+  {
+    title: 'New client and scheduling',
+    body: 'A new client and patient captured, the appointment booked, the reminder and confirmation sent, the no-show rebooked.',
+  },
+  {
+    title: 'The recall engine',
+    body: 'The patients your clinic protocol marks due for wellness care or vaccines surfaced, the recall drafted in your voice, the client who has not been seen in a while reconnected.',
+  },
+  {
+    title: 'The service desk',
+    body: "The refill request routed to the doctor, the doctor's released result conveyed exactly as written, the estimate followed up, boarding booked against recorded vaccine status, the post-visit follow-up carried.",
+  },
+  {
+    title: 'The safety gate',
+    body: 'A message that might be an emergency recognized and routed straight to a person at the clinic, never handled later and never answered with medical content.',
+  },
+]
+
+// Section 05: the three customization zones. Titles are shared (shapeZoneTitles); the
+// body under each is veterinary-specific.
+const zones = [
+  {
+    title: shapeZoneTitles.prebuilt,
+    body: 'The starting templates above, shaped around a front-of-house coordination desk and ready to configure. You are not building from a blank page.',
+  },
+  {
+    title: shapeZoneTitles.connected,
+    body: 'Wired into your own accounts: your practice-management system, your email and calendar, your documents. It works inside the tools you already run.',
+  },
+  {
+    title: shapeZoneTitles.yours,
+    body: 'Your voice, your protocols and schedule, your services, and where the line sits. You decide what runs on its own and what waits for a person. You are the expert in your practice; you shape it from there.',
+  },
+]
 
 const roleLenses = [
   {
@@ -38,7 +79,7 @@ const roleLenses = [
 
 <Base
   title="Operator for Veterinary Clinics | SMD Services"
-  description="A dedicated Operator that runs your front of house: appointments, the recall list, refill requests relayed to the doctor, released results, and a possible emergency routed straight to a person. The medicine stays with your doctors."
+  description="The veterinary pack is the Operator's head start: a starting point shaped around front-of-house scheduling, recall, and the service desk, which we configure with you and you customize to your practice. The medicine stays with your doctors. You set the line."
 >
   <Nav />
   <main id="main" role="main">
@@ -59,17 +100,23 @@ const roleLenses = [
           The Front Desk, Fully Staffed.
         </h1>
         <p
-          class="mx-auto mb-12 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+          class="mx-auto mb-8 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
         >
-          A dedicated worker for your practice, in its own office and plugged into the tools you
-          already run. It runs your front of house the way your best CSR would: it books and
-          confirms appointments, works your recall list, relays refill requests to the doctor, gets
-          released results to clients, and routes a possible emergency straight to a person. You add
-          capacity to the front desk without adding to payroll.
+          The Operator is a worker you hire, not software you buy. This is its veterinary head
+          start: a starting point already shaped around booking the appointment, working the recall
+          list, and relaying the service desk, so you are not building from a blank page. You make
+          it yours from there.
         </p>
         <CtaButton href="/book?interest=veterinary" data-ev="veterinary-hero-cta"
           >Start the conversation</CtaButton
         >
+        <p class="mt-8">
+          <a
+            href={coldLanderLink.href}
+            class="font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] underline underline-offset-4 hover:text-[color:var(--ss-color-primary)]"
+            >{coldLanderLink.text} &rarr;</a
+          >
+        </p>
       </div>
     </section>
 
@@ -100,7 +147,7 @@ const roleLenses = [
       </div>
     </section>
 
-    <!-- § 03 A worker, in another office -->
+    <!-- § 03 What the pack starts you with -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -108,32 +155,49 @@ const roleLenses = [
           >§ 03</span
         >
         <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          A Worker, In Another Office.
+          What The Pack Starts You With.
         </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            Picture a front-desk coordinator from the future, sitting at a desk in your practice
-            today. A computer, a phone, and access to the practice-management system, the schedule,
-            and the phones you already run. You hand it work the way you hand work to anyone on your
-            team. You send the request, it does the job, and it comes back with the result.
-          </p>
-          <p>
-            It works from its own office, the way much of your team already does. The practice
-            coordinator you have never met in person. The lab or pharmacy you email every week. This
-            is one more of those.
-          </p>
-          <p>
-            What it takes on is the work you would want that seat doing, inside the limits you set.
-            The client who needs to reschedule a surgery. The vaccine reminder that never goes out.
-            We get to the limits below.
-          </p>
+        <p
+          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          You do not start from a blank page. The veterinary pack comes shaped around the work a
+          front-of-house coordination desk runs, as starting templates we configure with you:
+        </p>
+
+        <div
+          class="grid grid-cols-1 md:grid-cols-2 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
+        >
+          {
+            packTemplates.map((t, i) => (
+              <div
+                class:list={[
+                  'flex flex-col gap-3 p-8 min-h-[12rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
+                  i % 2 !== 1 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
+                ]}
+              >
+                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
+                  {t.title}
+                </p>
+                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                  {t.body}
+                </p>
+              </div>
+            ))
+          }
         </div>
+
+        <p
+          class="mt-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          These plug into your practice-management system and your email and calendar. The templates
+          are the head start. How they run is yours to shape.
+        </p>
       </div>
     </section>
 
-    <!-- § 04 What it does -->
+    <!-- § 04 From the start -->
     <section class="bg-white px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -143,33 +207,28 @@ const roleLenses = [
         <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          What It Does.
+          From The Start.
         </h2>
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
-            We build the Operator for your clinic and connect it to the systems you already run:
-            your practice-management system, your email and calendar, your document storage. It
-            reads the record as results, reminders, and due dates land, so the front desk is working
-            from what is actually in the file.
+            Before it starts, we sit down with you and the people who run the front of house, and we
+            shape the templates around how your practice actually operates, so it begins ready, not
+            green.
           </p>
           <p>
-            Before it starts, we sit down with you and the people who run the work, and we build it
-            around how you operate, so it shows up ready, not green. From there it keeps getting
-            sharper, learning from your team's corrections.
-          </p>
-          <p>
-            A new client reaches out. It captures the client and patient, drafts the reply in your
-            voice, and offers a time. It confirms and rebooks appointments, works your recall list
-            so wellness care does not slip, relays refill requests to the doctor, gets the doctor's
-            released result to the client exactly as written, follows the estimate, and books
-            boarding. A message that might be an emergency it hands to a person immediately. Every
-            piece of it is logged in your practice-management system as it happens.
+            From there the work moves the way it always did. A new client reaches out. It captures
+            the client and patient, drafts the reply in your voice, and offers a time. It confirms
+            and rebooks appointments, works your recall list so wellness care does not slip, relays
+            refill requests to the doctor, gets the doctor's released result to the client exactly
+            as written, follows the estimate, and books boarding. A message that might be an
+            emergency it hands to a person immediately. It is all logged in your practice-management
+            system as it happens, and it kept getting sharper from your team's corrections.
           </p>
         </div>
       </div>
     </section>
 
-    <!-- § 05 You set the line -->
+    <!-- § 05 Yours to shape -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -177,9 +236,52 @@ const roleLenses = [
           >§ 05</span
         >
         <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Yours To Shape.
+        </h2>
+        <p
+          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          We are not the experts in how your practice runs. You are. So the pack is a starting point
+          in three parts, and the third is the biggest.
+        </p>
+
+        <div
+          class="grid grid-cols-1 md:grid-cols-3 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
+        >
+          {
+            zones.map((z, i) => (
+              <div
+                class:list={[
+                  'flex flex-col gap-3 p-8 min-h-[14rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
+                  i % 3 !== 2 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
+                ]}
+              >
+                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
+                  {z.title}
+                </p>
+                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                  {z.body}
+                </p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- § 06 The line -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 06</span
+        >
+        <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          You Set The Line.
+          The Line.
         </h2>
         <div
           class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)] mb-12"
@@ -192,12 +294,21 @@ const roleLenses = [
             examined it, and a trained but unlicensed assistant could not make those calls either.
           </p>
           <p>
-            One line is not a setting anyone can move: a message that might be an emergency goes
-            straight to a person at your clinic, right then, never handled later and never answered
-            with medical content. Everywhere else, you govern what the Operator runs on its own. Out
-            of the box the clinical calls wait for a doctor, and every outbound message goes through
-            a reviewer on your team who sends it under their own name. It never grants itself more
-            authority, and every action it takes is logged where you can see it.
+            Some lines are not settings anyone can move. A message that might be an emergency goes
+            straight to a person at your clinic right then, never handled later and never answered
+            with medical content. It gives no medical advice, no diagnosis, no triage, no
+            interpretation of a result. A refill routes to the doctor; it never authorizes or
+            advises on dosing. Client and patient records stay inside your clinic's own surfaces.
+            Anything that leaves the clinic goes to a reviewer on your team until you decide
+            otherwise. Every action it takes is logged where you can see it.
+          </p>
+          <p>
+            Beyond those floors, you govern where the line sits, and you can move it as you learn
+            what the Operator is good at. Your client and patient files stay private, including from
+            us. The Operator works in your clinic's own walled-off environment, on your own
+            accounts. We can see that it is running and the record of what it did, but the contents
+            of your records and messages stay yours, and so do the configuration, the logs, and the
+            off switch.
           </p>
         </div>
         <div class="text-center">
@@ -210,64 +321,12 @@ const roleLenses = [
       </div>
     </section>
 
-    <!-- § 06 One coordinator, your whole clinic -->
-    <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 06</span
-        >
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          One Coordinator. Your Whole Clinic.
-        </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            One Operator for the whole clinic, not a separate tool for each doctor or each station.
-            Everyone works with the same one, and it gets sharper from everyone's corrections.
-          </p>
-          <p>
-            What it learns, your protocols, your schedule, your services, your voice, is a record
-            you can read and correct. It belongs to the clinic, not to a person's login. When
-            someone moves on, what the Operator knows about how you run does not leave with them.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- § 07 A team, not a tool -->
+    <!-- § 07 Where it fits -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
           class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
           >§ 07</span
-        >
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          A Team, Not A Tool.
-        </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            We are the team behind the worker. We build it for your practice, and we stay
-            accountable for how it runs.
-          </p>
-          <p>
-            The technology moves, and we move with it, because no one has a decade of experience
-            with it yet. We are the team that keeps your business working, and nobody should take on
-            something this new alone.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- § 08 Where it fits -->
-    <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 08</span
         >
         <h2
           class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
@@ -305,12 +364,12 @@ const roleLenses = [
       </div>
     </section>
 
-    <!-- § 09 Start the conversation -->
+    <!-- § 08 Start the conversation -->
     <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
       <div class="mx-auto max-w-5xl text-center">
         <span
           class="inline-block bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
-          >§ 09</span
+          >§ 08</span
         >
         <h2
           class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
@@ -319,12 +378,11 @@ const roleLenses = [
         </h2>
         <p class="mx-auto mb-6 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
           It starts with a conversation. We learn how your clinic runs, find the front-desk work
-          that is eating your team's day, and figure out where a dedicated Operator fits. If it is
-          not a fit, we will tell you.
+          that is eating your team's day, and start from the pack, customizing it to your practice.
+          If it is not a fit, we will tell you.
         </p>
         <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
-          Pricing is a flat monthly subscription, scoped to the seat we build together, and we walk
-          through it before any setup begins.
+          {ctaPricingLine}
         </p>
         <CtaButton
           variant="outline-white"

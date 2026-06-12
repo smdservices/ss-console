@@ -5,13 +5,14 @@ import Base from '../../layouts/Base.astro'
 import Nav from '../../components/Nav.astro'
 import Footer from '../../components/Footer.astro'
 import CtaButton from '../../components/CtaButton.astro'
+import { coldLanderLink, shapeZoneTitles, ctaPricingLine } from '../../lib/operator-packs/shared'
 
 const productSchema = {
   '@context': 'https://schema.org',
   '@type': 'Product',
   name: 'Operator for Advisory Firms',
   description:
-    'A dedicated Operator that runs client service and operations at an RIA: it schedules the review, preps the meeting, chases the paperwork, runs the RMD and review cadence, and keeps the CRM current. The advice and the money stay with you; one money-movement line never moves.',
+    'The Operator is a worker you hire, not software you buy. The advisory pack is its head start: a starting point shaped around client service and operations, which we configure with you and you customize to your firm. The advice and the money stay with you; one money-movement line never moves.',
   brand: { '@type': 'Brand', name: 'SMD Services' },
   offers: {
     '@type': 'Offer',
@@ -19,6 +20,46 @@ const productSchema = {
     seller: { '@type': 'Organization', name: 'SMD Services' },
   },
 }
+
+// Section 03: the starting templates in the pack, grouped in plain language. Sourced
+// from operator/verticals/ria/vertical.yaml (the onboarding, money-line, review, and
+// status skill families). These are templates we configure, not a finished, running
+// product.
+const packTemplates = [
+  {
+    title: 'Onboarding and accounts',
+    body: 'The new-client paperwork relayed, the not-in-good-order item chased, the account-maintenance paperwork routed for the change a household needs.',
+  },
+  {
+    title: 'The money line',
+    body: 'A money-movement request gathered and routed to a verified person, and any banking or transfer instruction caught and held for that person to act on.',
+  },
+  {
+    title: 'Reviews and reminders',
+    body: 'The annual review scheduled, the meeting prep assembled from authored materials, the firm-tracked action surfaced, the documents a household owes chased.',
+  },
+  {
+    title: 'Status and proactive',
+    body: 'The routine client status question answered, the billing-fee follow-up drafted, inbound routed to the right desk, the internal digest assembled.',
+  },
+]
+
+// Section 05: the three customization zones. Titles are shared (shapeZoneTitles); the
+// body under each is RIA-specific.
+const zones = [
+  {
+    title: shapeZoneTitles.prebuilt,
+    body: 'The starting templates above, shaped around a client-service and operations desk and ready to configure. You are not building from a blank page.',
+  },
+  {
+    title: shapeZoneTitles.connected,
+    body: 'Wired into your own accounts: your CRM, your email and calendar, your documents. It works inside the tools you already run.',
+  },
+  {
+    title: shapeZoneTitles.yours,
+    body: 'Your voice, your households and cadence, the way you run a review, and where the line sits. You decide what runs on its own and what waits for a person. You are the expert in your firm; you shape it from there.',
+  },
+]
 
 const roleLenses = [
   {
@@ -38,13 +79,13 @@ const roleLenses = [
 
 <Base
   title="Operator for Advisory Firms | SMD Services"
-  description="A dedicated Operator that runs client service and operations at an RIA: scheduling the review, prepping the meeting, chasing paperwork, running the RMD and review cadence, and keeping the CRM current. The advice and the money stay with you."
+  description="The advisory pack is the Operator's head start: a starting point shaped around client service and operations, which we configure with you and you customize to your firm. The advice and the money stay with you. You set the line."
 >
   <Nav />
   <main id="main" role="main">
     <script is:inline type="application/ld+json" set:html={JSON.stringify(productSchema)} />
 
-    <!-- § 01 Hero -->
+    <!-- Section 01: Hero -->
     <section
       class="relative overflow-hidden bg-[color:var(--ss-color-background)] px-6 pt-24 pb-32"
     >
@@ -59,21 +100,26 @@ const roleLenses = [
           The Back Office, Fully Staffed.
         </h1>
         <p
-          class="mx-auto mb-12 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+          class="mx-auto mb-8 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
         >
-          A dedicated worker for your firm, in its own office and plugged into the tools you already
-          run. It runs client service and operations the way a sharp client service associate would:
-          it schedules the review, preps the meeting, chases the paperwork, runs the RMD and review
-          cadence, and keeps the CRM current. You add capacity without adding the paraplanner your
-          margins cannot carry yet.
+          The Operator is a worker you hire, not software you buy. This is its advisory head start:
+          a starting point already shaped around client service and operations, so you are not
+          building from a blank page. You make it yours from there.
         </p>
         <CtaButton href="/book?interest=ria" data-ev="ria-hero-cta"
           >Start the conversation</CtaButton
         >
+        <p class="mt-8">
+          <a
+            href={coldLanderLink.href}
+            class="font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] underline underline-offset-4 hover:text-[color:var(--ss-color-primary)]"
+            >{coldLanderLink.text} &rarr;</a
+          >
+        </p>
       </div>
     </section>
 
-    <!-- § 02 The seat the market won't fill -->
+    <!-- Section 02: The seat the market won't fill -->
     <section class="bg-white px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -102,7 +148,7 @@ const roleLenses = [
       </div>
     </section>
 
-    <!-- § 03 A worker, in another office -->
+    <!-- Section 03: What the pack starts you with -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -110,32 +156,49 @@ const roleLenses = [
           >§ 03</span
         >
         <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          A Worker, In Another Office.
+          What The Pack Starts You With.
         </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            Picture a client-service associate from the future, sitting at a desk in your firm
-            today. A computer, a phone, and access to the CRM, the custodian portals, and the
-            calendar you already run. You hand it work the way you hand work to anyone on your team.
-            You send the request, it does the job, and it comes back with the result.
-          </p>
-          <p>
-            It works from its own office, the way much of your team already does. The operations
-            associate you have never met in person. The custodian rep you email and trade paperwork
-            with. This is one more of those.
-          </p>
-          <p>
-            What it takes on is the work you would want that seat doing, inside the limits you set.
-            The new-account paperwork waiting on a signature. The client email that came in this
-            morning and needs a same-day reply. We get to the limits below.
-          </p>
+        <p
+          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          You do not start from a blank page. The advisory pack comes shaped around the work a
+          client-service associate runs, as starting templates we configure with you:
+        </p>
+
+        <div
+          class="grid grid-cols-1 md:grid-cols-2 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
+        >
+          {
+            packTemplates.map((t, i) => (
+              <div
+                class:list={[
+                  'flex flex-col gap-3 p-8 min-h-[12rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
+                  i % 2 !== 1 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
+                ]}
+              >
+                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
+                  {t.title}
+                </p>
+                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                  {t.body}
+                </p>
+              </div>
+            ))
+          }
         </div>
+
+        <p
+          class="mt-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          These plug into your CRM and your email and calendar. The templates are the head start.
+          How they run is yours to shape.
+        </p>
       </div>
     </section>
 
-    <!-- § 04 What it does -->
+    <!-- Section 04: From the start -->
     <section class="bg-white px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -145,29 +208,26 @@ const roleLenses = [
         <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          What It Does.
+          From The Start.
         </h2>
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
-            We build the Operator for your firm and connect it to the tools you already run: your
-            CRM, your email and calendar, your document storage.
+            Before it starts, we sit down with you and the people who run client service, and we
+            shape the templates around how your firm actually operates, so it begins ready, not
+            green.
           </p>
           <p>
-            Before it starts, we sit down with you and the people who run the work, and we build it
-            around how you operate, so it shows up ready, not green. From there it keeps getting
-            sharper, learning from your team's corrections.
-          </p>
-          <p>
-            It schedules the client review and preps the meeting, chases the paperwork a household
-            owes, runs the RMD and annual-review cadence so nothing is late, and keeps the CRM
-            current instead of living on sticky notes. The routine client back-and-forth it handles
-            in your voice. Every piece of it is logged in your CRM as it happens.
+            From there the work moves the way it always did. It schedules the client review and
+            preps the meeting, chases the paperwork a household owes, runs the RMD and annual-review
+            cadence so nothing is late, and keeps the CRM current instead of living on sticky notes.
+            The routine client back-and-forth it handles in your voice. It is all logged in your CRM
+            as it happens, and it keeps getting sharper from your team's corrections.
           </p>
         </div>
       </div>
     </section>
 
-    <!-- § 05 You set the line -->
+    <!-- Section 05: Yours to shape -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -175,9 +235,52 @@ const roleLenses = [
           >§ 05</span
         >
         <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Yours To Shape.
+        </h2>
+        <p
+          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          We are not the experts in how your firm runs. You are. So the pack is a starting point in
+          three parts, and the third is the biggest.
+        </p>
+
+        <div
+          class="grid grid-cols-1 md:grid-cols-3 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
+        >
+          {
+            zones.map((z, i) => (
+              <div
+                class:list={[
+                  'flex flex-col gap-3 p-8 min-h-[14rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
+                  i % 3 !== 2 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
+                ]}
+              >
+                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
+                  {z.title}
+                </p>
+                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                  {z.body}
+                </p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 06: The line -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 06</span
+        >
+        <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          You Set The Line.
+          The Line.
         </h2>
         <div
           class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)] mb-12"
@@ -189,12 +292,21 @@ const roleLenses = [
             client, and an unlicensed associate could not give it either.
           </p>
           <p>
-            One line is not a setting anyone can move: the Operator never moves money. It places no
-            trades, initiates no transfers, and changes no account. Any request that touches money
-            or an account change goes to a verified person through your process. Everywhere else you
-            govern what the Operator runs on its own, every outbound message goes through a reviewer
-            who sends it under their own name, and every action it takes is logged where you can see
-            it.
+            Some lines are not settings anyone can move. The Operator does connective work only; it
+            never makes a recommendation or gives an opinion on a holding, an allocation, or a
+            product. It never moves money: it gathers a money-movement request and routes it to a
+            verified person, and any banking or transfer instruction is caught and held for that
+            person to act on. Client non-public information stays inside your firm surfaces, every
+            communication is retained where it can be archived, and review and testimonial asks
+            follow the marketing rule. Every action it takes is logged where you can see it.
+          </p>
+          <p>
+            Beyond those floors, you govern where the line sits, and you can move it as you learn
+            what the Operator is good at. Your client files stay private, including from us. The
+            Operator works in your firm's own walled-off environment, on your own accounts. We can
+            see that it is running and the record of what it did, but the contents of your
+            households and messages stay yours, and so do the configuration, the logs, and the off
+            switch.
           </p>
         </div>
         <div class="text-center">
@@ -205,64 +317,12 @@ const roleLenses = [
       </div>
     </section>
 
-    <!-- § 06 One coordinator, your whole firm -->
-    <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 06</span
-        >
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          One Coordinator. Your Whole Firm.
-        </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            One Operator for the whole firm, not a separate tool for each advisor. Everyone works
-            with the same one, and it gets sharper from everyone's corrections.
-          </p>
-          <p>
-            What it learns, your households, your cadence, the way you run a review, your voice, is
-            a record you can read and correct. It belongs to the firm, not to a person's login. When
-            someone moves on, what the Operator knows about how you run does not leave with them.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- § 07 A team, not a tool -->
+    <!-- Section 07: Where it fits -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
           class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
           >§ 07</span
-        >
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          A Team, Not A Tool.
-        </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            We are the team behind the worker. We build it for your firm, and we stay accountable
-            for how it runs.
-          </p>
-          <p>
-            The technology moves, and we move with it, because no one has a decade of experience
-            with it yet. We are the team that keeps your business working, and nobody should take on
-            something this new alone.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- § 08 Where it fits -->
-    <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 08</span
         >
         <h2
           class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
@@ -300,12 +360,12 @@ const roleLenses = [
       </div>
     </section>
 
-    <!-- § 09 Start the conversation -->
+    <!-- Section 08: Start the conversation -->
     <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
       <div class="mx-auto max-w-5xl text-center">
         <span
           class="inline-block bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
-          >§ 09</span
+          >§ 08</span
         >
         <h2
           class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
@@ -314,12 +374,11 @@ const roleLenses = [
         </h2>
         <p class="mx-auto mb-6 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
           It starts with a conversation. We learn how your firm runs, find the client-service and
-          operations work that is eating your team's time, and figure out where a dedicated Operator
-          fits. If it is not a fit, we will tell you.
+          operations work that is eating your team's time, and start from the pack, customizing it
+          to your firm. If it is not a fit, we will tell you.
         </p>
         <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
-          Pricing is a flat monthly subscription, scoped to the seat we build together, and we walk
-          through it before any setup begins.
+          {ctaPricingLine}
         </p>
         <CtaButton variant="outline-white" href="/book?interest=ria" data-ev="ria-final-cta"
           >Start the conversation</CtaButton
