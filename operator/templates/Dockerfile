@@ -120,8 +120,12 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # validation (Wave A — read/draft only). Also carries #50 (retire the
 # external-send identity brand) and #53 (security Phase 1: govern code execution,
 # fence the managed-mailbox read, taint-gate autonomy, destructive Gmail ops).
+# 10cd6599 (#56, Phase B Cut A) adds contracts/consumes.yaml — the overlay
+# self-declares every env var it reads — plus an AST conformance test (CI
+# fail-closed) and a WARN-only boot reconciliation. The consumer-side twin of
+# this repo's env-consumption.yaml; closes the OP-P0-2 voice-break drift class.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="d1990d51ebcca99dc6e9a6a6f163abc5c105b5f2"
+ARG OVERLAY_REF="10cd659960065663b2627bf69d0f5c3358e73783"
 
 ARG CUSTOMER_SLUG=customer-zero
 
@@ -312,6 +316,9 @@ COPY operator/contracts/ /app/contracts/
 # Bootstrap entrypoint
 COPY operator/templates/bootstrap.sh /app/bootstrap.sh
 COPY operator/templates/entrypoint.sh /app/entrypoint.sh
+# REQUIRED_ENV / OPTIONAL_ENV, generated from operator/contracts/env-consumption.yaml
+# (operator/bin/gen-env-arrays.py); bootstrap.sh sources this instead of hardcoding them.
+COPY operator/templates/_env-arrays.generated.sh /app/_env-arrays.generated.sh
 RUN chmod +x /app/bootstrap.sh /app/entrypoint.sh
 
 # Curator disable guard (ADR 0017). bootstrap.sh step 7b runs this after the
