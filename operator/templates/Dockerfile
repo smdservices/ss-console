@@ -153,8 +153,10 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # BEFORE fly apps destroy) + #68 (audit sentinel staleness = writer-pid
 # liveness; kills the spurious pid-mismatch degradation live-verified on
 # customer-zero). Superset of v0.4.18/v0.4.19.
+# v0.4.21 (e0bc503) — #69 fences workspace_calendar_list/get (external invites
+# carry third-party content; Captain call 2026-06-12). Superset of v0.4.20.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="83cc1bdd907830aa4b002994e7072f4cfc968585"
+ARG OVERLAY_REF="e0bc503981fdb0f4c1cf2588117bcaa1b21e5f05"
 
 ARG CUSTOMER_SLUG=customer-zero
 

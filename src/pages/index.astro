@@ -3,34 +3,223 @@
 // and rewrite them to /portal. The prerendered static file would bypass the Worker entirely.
 export const prerender = false
 
+// Operator-forward home. Leads with the Operator as a named category: the cost
+// of filling the role with a person (the villain), the new way named, the
+// Operator made concrete, the leash, a secondary consulting path, the founder,
+// one CTA. Scope-based consulting moved to /consulting (a clear secondary door),
+// not removed. No proof beat here: a pre-launch firm has no honest external
+// proof, so the home converts on argument; proof lives in the live demo and in
+// real customer references, never a homepage claim or an audit-ledger display.
+//
+// DRAFT COPY in the inline sections is directional, for the Captain's voice pass.
+// Structure, IA, and CTA wiring are final.
 import Base from '../layouts/Base.astro'
 import Nav from '../components/Nav.astro'
-import Hero from '../components/Hero.astro'
-import ProblemCards from '../components/ProblemCards.astro'
-import RoiMath from '../components/RoiMath.astro'
-import HowWeEngage from '../components/HowWeEngage.astro'
-import HowWePrice from '../components/HowWePrice.astro'
-import WhatYouGet from '../components/WhatYouGet.astro'
-import OperatorIntro from '../components/OperatorIntro.astro'
-import CaseStudies from '../components/CaseStudies.astro'
+import OperatorHero from '../components/OperatorHero.astro'
+import ConsultingPath from '../components/ConsultingPath.astro'
 import About from '../components/About.astro'
-import FinalCta from '../components/FinalCta.astro'
 import Footer from '../components/Footer.astro'
+import CtaButton from '../components/CtaButton.astro'
+import { CATEGORY_NAME, CATEGORY_ARTICLE } from '../lib/category'
+
+const categorySchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: 'Operator',
+  category: CATEGORY_NAME,
+  description:
+    'A dedicated Operator, built for your business and given a real role. It takes on the recurring connective work a business would otherwise hire a person to do, on its own isolated infrastructure, with the operating memory it builds belonging to you. Run for you as a flat monthly service.',
+  brand: { '@type': 'Brand', name: 'SMD Services' },
+  offers: {
+    '@type': 'Offer',
+    availability: 'https://schema.org/InStock',
+    seller: { '@type': 'Organization', name: 'SMD Services' },
+  },
+}
 ---
 
-<Base title="SMD Services | Solutions Consulting for Growing Businesses">
+<Base
+  title="SMD Services | Hire the Operator, Not Another Tool"
+  description="The work a coordinator does, the follow-ups, handoffs, and intake that hold a business together, without the cost of hiring, training, and keeping someone in the seat. The Operator is a worker we build and run for you."
+>
   <Nav />
   <main id="main" role="main">
-    <Hero />
-    <ProblemCards />
-    <RoiMath />
-    <HowWeEngage />
-    <HowWePrice />
-    <WhatYouGet />
-    <OperatorIntro />
-    <CaseStudies />
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(categorySchema)} />
+
+    <OperatorHero />
+
+    <!-- § 02 The old way (the villain: what filling the seat with a person costs) -->
+    <section id="how" class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 02</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          What Filling It Really Costs.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            Work like this usually gets solved by hiring someone to own it. A coordinator, a
+            dispatcher, an intake lead. The role you keep meaning to fill.
+          </p>
+          <p>
+            That hire takes months to get up to speed, and you pay full salary for partial value the
+            whole time. The day they leave, everything they learned about how you run walks out with
+            them, and you start the search over.
+          </p>
+          <p>
+            The salary is only part of it. The hiring, the training, the turnover, the hours spent
+            managing it, the cost is fixed and rising whether the work is full or slow. None of this
+            is a failure of effort. It is what the seat costs.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 03 The new way, named (coin the category + move the budget line) -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 03</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          There Is A New Way To Fill The Seat.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            You have been buying software for tasks and asking your people to be the glue between it
+            all. There is now a different thing to hire: a worker for the role, not a tool for a
+            task.
+          </p>
+          <p>
+            It is built around how you actually operate. It is up to speed in a fraction of the time
+            a hire takes, it does not quit, and the understanding it builds stays with the business.
+            The technology underneath keeps improving, and the worker rides on top of it, so you are
+            hiring the role, not a tool you have to keep replacing.
+          </p>
+          <p
+            class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.01em] leading-tight text-[color:var(--ss-color-text-primary)]"
+          >
+            We call it {CATEGORY_ARTICLE}
+            {CATEGORY_NAME}.
+          </p>
+          <p>
+            <a
+              href="/why"
+              data-ev="home-why-link"
+              class="inline-flex items-center gap-2 font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)] hover:text-[color:var(--ss-color-primary-hover)]"
+            >
+              <span>Read the full argument for it</span>
+              <span aria-hidden="true">→</span>
+            </a>
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- § 04 The Operator (our build of the category, made concrete) -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 04</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Meet The Operator.
+        </h2>
+        <div
+          class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)] mb-12"
+        >
+          <p>
+            The Operator is ours. Picture a remote worker sitting at a desk in your business, with
+            access to the systems and processes you already run. You hand it work the way you hand
+            work to anyone on your team, and it comes back with the result.
+          </p>
+          <p>
+            Say you give it intake. It reads a new inquiry, pulls the details that matter, drafts
+            the first reply in your voice, books the call, and logs it where your team can see. The
+            work moves the way it always did. The person doing it changed.
+          </p>
+        </div>
+        <CtaButton variant="secondary" href="/operator" data-ev="home-operator-learn"
+          >See how the Operator works</CtaButton
+        >
+      </div>
+    </section>
+
+    <!-- § 05 The leash (control + trust; the team behind the worker is the product) -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <span
+          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+          >§ 05</span
+        >
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          You Set The Limits. We Keep It Running.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            You decide what the Operator can do on its own and what waits for a person to approve.
+            That decision is in writing, it is part of the service agreement, and you can change it
+            whenever you want.
+          </p>
+          <p>
+            It starts by watching. When you sign off on a kind of work, it takes that over. Until
+            then, its drafts go to a reviewer on your team, who sends them. The Operator cannot give
+            itself more authority. Only you can. Every action it takes is recorded where you can see
+            it: what it did, when, and why.
+          </p>
+          <p>
+            And keeping it running is our job, not yours. We are the team behind the worker. We
+            build it for your business, we wire it into your tools, and we stay accountable for how
+            it runs. This is a service, not a download. You are giving feedback to an Operator, not
+            taking on a second job managing one.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <ConsultingPath />
+
     <About />
-    <FinalCta />
+
+    <!-- § 06 Start the conversation (single primary CTA) -->
+    <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
+      <div class="mx-auto max-w-5xl text-center">
+        <span
+          class="inline-block bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
+          >§ 06</span
+        >
+        <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
+        >
+          Start The Conversation.
+        </h2>
+        <p class="mx-auto mb-6 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
+          It starts with a conversation. We learn how your operation runs, find the work that is
+          eating your team's time, and figure out where a dedicated Operator fits. If the fit is not
+          right, we say so.
+        </p>
+        <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
+          Pricing is a flat monthly subscription, scoped to the role we build together, and we walk
+          through it before any setup begins. No hourly billing, no usage meter, no surprise line
+          items.
+        </p>
+        <CtaButton variant="outline-white" href="/book?interest=operator" data-ev="home-final-cta"
+          >Start the conversation</CtaButton
+        >
+      </div>
+    </section>
   </main>
   <Footer />
 </Base>

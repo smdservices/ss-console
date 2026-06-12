@@ -1,0 +1,50 @@
+---
+// Home secondary path: keeps solutions consulting as a real second door without
+// competing with the primary Operator CTA. The inverse of OperatorIntro (which
+// now lives on /consulting and points the other direction). One paragraph, one
+// secondary link. The consulting argument itself is not re-run here; it lives
+// on /consulting.
+//
+// DRAFT COPY — directional placeholder for the Captain's voice pass.
+import CtaButton from './CtaButton.astro'
+---
+
+<section class="bg-white px-6 py-24 border-t-[3px] border-[color:var(--ss-color-text-primary)]">
+  <div class="mx-auto max-w-5xl">
+    <div class="mb-10">
+      <span
+        class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
+        >Another Way</span
+      >
+      <h2
+        class="font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+      >
+        Not Everything Is A Seat.
+      </h2>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
+      <div class="md:col-span-8 space-y-6">
+        <p
+          class="font-['Archivo'] text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          SMD is a solutions consulting firm. The Operator is what we built for the work that never
+          ends. When the work is a bounded project instead, a process to design, a tool to build,
+          systems to connect, we do that too. Scoped, built with you, and finished.
+        </p>
+        <p
+          class="font-['Archivo'] text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          Same team, same way of working. We start by understanding where you are trying to go, then
+          figure out what needs to change to get there.
+        </p>
+      </div>
+    </div>
+
+    <div class="mt-12">
+      <CtaButton variant="secondary" href="/consulting" data-ev="home-consulting-path"
+        >See how we consult</CtaButton
+      >
+    </div>
+  </div>
+</section>

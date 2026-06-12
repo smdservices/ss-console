@@ -35,6 +35,9 @@ function readMarketingFiles(): string[] {
   return [
     resolve('src/pages/index.astro'),
     resolve('src/pages/operator.astro'),
+    resolve('src/pages/consulting.astro'),
+    resolve('src/pages/why.astro'),
+    resolve('src/pages/ai.astro'),
     resolve('src/pages/packs/law-firm.astro'),
     resolve('src/pages/packs/insurance.astro'),
     resolve('src/pages/packs/veterinary.astro'),
@@ -47,6 +50,8 @@ function readMarketingFiles(): string[] {
     resolve('src/pages/packs/marketing-agency.astro'),
     resolve('src/pages/packs/property-management.astro'),
     resolve('src/pages/packs/home-services.astro'),
+    join(componentsDir, 'OperatorHero.astro'),
+    join(componentsDir, 'ConsultingPath.astro'),
     join(componentsDir, 'Hero.astro'),
     join(componentsDir, 'ProblemCards.astro'),
     join(componentsDir, 'RoiMath.astro'),
@@ -101,6 +106,8 @@ describe('voice standard', () => {
   // in firm-level "we" voice. See CLAUDE.md "Voice standard" practitioner-firm
   // exception.
   const marketingComponents = [
+    'OperatorHero.astro',
+    'ConsultingPath.astro',
     'Hero.astro',
     'ProblemCards.astro',
     'RoiMath.astro',
@@ -110,20 +117,57 @@ describe('voice standard', () => {
     'FinalCta.astro',
   ]
 
-  it.each(marketingComponents)('%s does not use first-person singular "I "', (component) => {
-    const content = readComponent(component)
-    // Check for "I " as a standalone word (not inside owner quotes like "I can't take a day off")
-    // Exclude lines that are clearly customer quotes
+  // Operator-forward home and the /why manifesto carry the lead argument as
+  // long-form page prose, not components. They must hold the same firm-level
+  // "we" voice. Decision (Operator-forward redesign): keep the strict component
+  // regex and constrain page copy to pass it, rather than loosen the guardrail
+  // for pages. First-person "I" stays confined to the test-excluded About.astro
+  // component; it is never inlined into these page files.
+  const marketingPages = ['src/pages/index.astro', 'src/pages/why.astro']
+
+  // Shared scan: flag standalone first-person "I " in the author's voice, after
+  // stripping quoted spans (owner quotes such as "I can't take a day off" are
+  // allowed). Identical heuristic for components and pages.
+  function scanFirstPerson(content: string, label: string) {
     const lines = content.split('\n')
     for (const line of lines) {
-      // Skip lines that are clearly customer/problem quotes
       if (line.includes('quote:') || line.includes('"I ') || line.includes("'I ")) continue
-      // Check for standalone "I " as the author's voice (beginning of sentence)
       const stripped = line.replace(/['"][^'"]*['"]/g, '')
-      expect(stripped, `First-person "I " found in ${component}: ${line.trim()}`).not.toMatch(
+      expect(stripped, `First-person "I " found in ${label}: ${line.trim()}`).not.toMatch(
         /\bI\s(?!can't|don't|have|personally|text)/
       )
     }
+  }
+
+  it.each(marketingComponents)('%s does not use first-person singular "I "', (component) => {
+    scanFirstPerson(readComponent(component), component)
+  })
+
+  it.each(marketingPages)('%s does not use first-person singular "I "', (page) => {
+    scanFirstPerson(readFileSync(resolve(page), 'utf-8'), page)
+  })
+})
+
+describe('operator-forward home integrity', () => {
+  // Encodes the new IA: the apex home leads with the Operator and keeps the
+  // secondary consulting path and the manifesto reachable. Replaces the implicit
+  // "home is consulting" contract that demoting the consulting components removed.
+  const home = readFileSync(resolve('src/pages/index.astro'), 'utf-8')
+
+  it('home composes the Operator-forward lead hero', () => {
+    expect(home).toContain('OperatorHero')
+  })
+
+  it('home routes the primary CTA to the Operator intake', () => {
+    expect(home).toContain('/book?interest=operator')
+  })
+
+  it('home keeps the secondary consulting path reachable', () => {
+    expect(home).toContain('ConsultingPath')
+  })
+
+  it('home links to the category manifesto', () => {
+    expect(home).toContain('/why')
   })
 })
 
