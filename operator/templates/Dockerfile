@@ -124,8 +124,12 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # self-declares every env var it reads — plus an AST conformance test (CI
 # fail-closed) and a WARN-only boot reconciliation. The consumer-side twin of
 # this repo's env-consumption.yaml; closes the OP-P0-2 voice-break drift class.
+# v0.4.16 (#55) routes audit_log writes through the append-only workspace broker
+# (OP-P1-4): the agent uid reads the ledger via the audit-readers group but cannot
+# write it. Repointed from the first-boot SHA 42baca1 to the release tag after the
+# broker boot was proven green on customer-zero (tree-identical to 42baca1).
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="42baca1cae5f9cb0e09e7406596b984bce1a2fff"
+ARG OVERLAY_REF="v0.4.16"
 
 ARG CUSTOMER_SLUG=customer-zero
 
