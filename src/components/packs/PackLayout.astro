@@ -1,0 +1,30 @@
+---
+// Shared page shell for the Operator vertical pack pages.
+//
+// Wraps Base + Nav + main + Footer and emits the JSON-LD product schema. The
+// per-vertical sections flow through the default slot. Per-vertical prose lives
+// in each page under src/pages/packs/; this component (and its siblings in
+// src/components/packs/) carries only structural chrome and the shared frame
+// copy that is identical-by-design across all 12 packs (see
+// src/lib/operator-packs/shared.ts).
+import Base from '../../layouts/Base.astro'
+import Nav from '../Nav.astro'
+import Footer from '../Footer.astro'
+
+interface Props {
+  title: string
+  description: string
+  schema: Record<string, unknown>
+}
+
+const { title, description, schema } = Astro.props
+---
+
+<Base title={title} description={description}>
+  <Nav />
+  <main id="main" role="main">
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(schema)} />
+    <slot />
+  </main>
+  <Footer />
+</Base>

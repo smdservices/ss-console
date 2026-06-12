@@ -1,0 +1,37 @@
+---
+// § 08 closing band. The chip, heading, pricing line, and CTA are shared frame
+// (identical-by-design across all 12 packs, like the strings in
+// src/lib/operator-packs/shared.ts); the per-vertical pitch paragraph flows
+// through the named slot.
+import CtaButton from '../CtaButton.astro'
+import { ctaPricingLine } from '../../lib/operator-packs/shared'
+
+interface Props {
+  slug: string
+}
+
+const { slug } = Astro.props
+---
+
+<section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
+  <div class="mx-auto max-w-5xl text-center">
+    <span
+      class="inline-block bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
+      >§ 08</span
+    >
+    <h2
+      class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
+    >
+      Start The Conversation.
+    </h2>
+    <p class="mx-auto mb-6 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
+      <slot name="pitch" />
+    </p>
+    <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
+      {ctaPricingLine}
+    </p>
+    <CtaButton variant="outline-white" href={`/book?interest=${slug}`} data-ev={`${slug}-final-cta`}
+      >Start the conversation</CtaButton
+    >
+  </div>
+</section>

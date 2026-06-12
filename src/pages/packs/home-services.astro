@@ -1,11 +1,17 @@
 ---
 export const prerender = false
 
-import Base from '../../layouts/Base.astro'
-import Nav from '../../components/Nav.astro'
-import Footer from '../../components/Footer.astro'
-import CtaButton from '../../components/CtaButton.astro'
-import { coldLanderLink, shapeZoneTitles, ctaPricingLine } from '../../lib/operator-packs/shared'
+import PackCardGrid from '../../components/packs/PackCardGrid.astro'
+import PackClosing from '../../components/packs/PackClosing.astro'
+import PackEyebrow from '../../components/packs/PackEyebrow.astro'
+import PackHeading from '../../components/packs/PackHeading.astro'
+import PackHero from '../../components/packs/PackHero.astro'
+import PackIntro from '../../components/packs/PackIntro.astro'
+import PackLayout from '../../components/packs/PackLayout.astro'
+import PackProse from '../../components/packs/PackProse.astro'
+import PackSection from '../../components/packs/PackSection.astro'
+import PackSectionCta from '../../components/packs/PackSectionCta.astro'
+import { shapeZoneTitles } from '../../lib/operator-packs/shared'
 
 const productSchema = {
   '@context': 'https://schema.org',
@@ -77,320 +83,134 @@ const roleLenses = [
 ]
 ---
 
-<Base
+<PackLayout
   title="Operator for Home Services | SMD Services"
   description="The home-services pack is the Operator's head start: a starting point shaped around front-office call handling and job coordination, which we configure with you and you customize to your shop. The diagnosis and the price stay with your techs. You set the line."
+  schema={productSchema}
 >
-  <Nav />
-  <main id="main" role="main">
-    <script is:inline type="application/ld+json" set:html={JSON.stringify(productSchema)} />
+  <!-- § 01 Hero -->
+  <PackHero slug="home-services">
+    <Fragment slot="heading">Every Call, Answered.</Fragment>
+    <Fragment slot="lede">
+      The Operator is a worker you hire, not software you buy. This is its home-services head start:
+      a starting point already shaped around answering the call, booking the job, and chasing the
+      follow-up, so you are not building from a blank page. You make it yours from there.
+    </Fragment>
+  </PackHero>
 
-    <!-- § 01 Hero -->
-    <section
-      class="relative overflow-hidden bg-[color:var(--ss-color-background)] px-6 pt-24 pb-32"
-    >
-      <div class="mx-auto max-w-5xl text-center">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
-          >§ 01</span
-        >
-        <h1
-          class="mb-8 font-['Archivo'] text-5xl md:text-7xl font-black uppercase leading-[1.05] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
-        >
-          Every Call, Answered.
-        </h1>
-        <p
-          class="mx-auto mb-8 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
-        >
-          The Operator is a worker you hire, not software you buy. This is its home-services head
-          start: a starting point already shaped around answering the call, booking the job, and
-          chasing the follow-up, so you are not building from a blank page. You make it yours from
-          there.
-        </p>
-        <CtaButton href="/book?interest=home-services" data-ev="home-services-hero-cta"
-          >Start the conversation</CtaButton
-        >
-        <p class="mt-8">
-          <a
-            href={coldLanderLink.href}
-            class="font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] underline underline-offset-4 hover:text-[color:var(--ss-color-primary)]"
-            >{coldLanderLink.text} &rarr;</a
-          >
-        </p>
-      </div>
-    </section>
+  <!-- § 02 The seat the market won't fill -->
+  <PackSection bg="white">
+    <PackEyebrow>§ 02</PackEyebrow>
+    <PackHeading variant="prose">The Seat The Market Won't Fill.</PackHeading>
+    <PackProse>
+      <p>
+        This is one of the worst hiring markets the trades have seen. A good CSR or dispatcher is
+        hard to find and harder to keep, the techs are aging out faster than they are replaced, and
+        when the phone rings while everyone is on a job, the call rolls to voicemail and the
+        customer dials a competitor. Peak season only makes it worse: you cannot staff for the
+        surge, so calls get missed exactly when the most calls are coming in.
+      </p>
+      <p>
+        An Operator fills that seat now. It answers every call at full speed, all the time, and what
+        it learns about how your shop runs, your services, your pricing rules, your voice, stays
+        with the shop instead of leaving with the person who had it.
+      </p>
+    </PackProse>
+  </PackSection>
 
-    <!-- § 02 The seat the market won't fill -->
-    <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 02</span
-        >
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          The Seat The Market Won't Fill.
-        </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            This is one of the worst hiring markets the trades have seen. A good CSR or dispatcher
-            is hard to find and harder to keep, the techs are aging out faster than they are
-            replaced, and when the phone rings while everyone is on a job, the call rolls to
-            voicemail and the customer dials a competitor. Peak season only makes it worse: you
-            cannot staff for the surge, so calls get missed exactly when the most calls are coming
-            in.
-          </p>
-          <p>
-            An Operator fills that seat now. It answers every call at full speed, all the time, and
-            what it learns about how your shop runs, your services, your pricing rules, your voice,
-            stays with the shop instead of leaving with the person who had it.
-          </p>
-        </div>
-      </div>
-    </section>
+  <!-- § 03 What the pack starts you with -->
+  <PackSection bg="background">
+    <PackEyebrow>§ 03</PackEyebrow>
+    <PackHeading variant="grid">What The Pack Starts You With.</PackHeading>
+    <PackIntro>
+      You do not start from a blank page. The home-services pack comes shaped around the work a
+      front-office call-and-coordination desk runs, as starting templates we configure with you:
+    </PackIntro>
+    <PackCardGrid items={packTemplates} cols={2} card="templates" />
+    <PackIntro after>
+      These plug into your field-service software and your email and calendar. The templates are the
+      head start. How they run is yours to shape.
+    </PackIntro>
+  </PackSection>
 
-    <!-- § 03 What the pack starts you with -->
-    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 03</span
-        >
-        <h2
-          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          What The Pack Starts You With.
-        </h2>
-        <p
-          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
-        >
-          You do not start from a blank page. The home-services pack comes shaped around the work a
-          front-office call-and-coordination desk runs, as starting templates we configure with you:
-        </p>
+  <!-- § 04 From the start -->
+  <PackSection bg="white">
+    <PackEyebrow>§ 04</PackEyebrow>
+    <PackHeading variant="prose">From The Start.</PackHeading>
+    <PackProse>
+      <p>
+        Before it starts, we sit down with you and the people who run the front office, and we shape
+        the templates around how your shop actually operates, so it begins ready, not green.
+      </p>
+      <p>
+        From there the work moves the way it always did. The phone rings, after hours or in the
+        middle of peak season, and it answers, captures the job, and books the appointment instead
+        of letting it roll to voicemail. It confirms appointments, follows up on the estimate,
+        chases the callback. Anything that sounds like a safety emergency goes straight to your
+        on-call person right away. It is all logged in your field-service software as it happens,
+        and it keeps getting sharper from your team's corrections.
+      </p>
+    </PackProse>
+  </PackSection>
 
-        <div
-          class="grid grid-cols-1 md:grid-cols-2 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
-        >
-          {
-            packTemplates.map((t, i) => (
-              <div
-                class:list={[
-                  'flex flex-col gap-3 p-8 min-h-[12rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
-                  i % 2 !== 1 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
-                ]}
-              >
-                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
-                  {t.title}
-                </p>
-                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-                  {t.body}
-                </p>
-              </div>
-            ))
-          }
-        </div>
+  <!-- § 05 Yours to shape -->
+  <PackSection bg="background">
+    <PackEyebrow>§ 05</PackEyebrow>
+    <PackHeading variant="grid">Yours To Shape.</PackHeading>
+    <PackIntro>
+      We are not the experts in how your shop runs. You are. So the pack is a starting point in
+      three parts, and the third is the biggest.
+    </PackIntro>
+    <PackCardGrid items={zones} cols={3} card="zones" />
+  </PackSection>
 
-        <p
-          class="mt-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
-        >
-          These plug into your field-service software and your email and calendar. The templates are
-          the head start. How they run is yours to shape.
-        </p>
-      </div>
-    </section>
+  <!-- § 06 The line -->
+  <PackSection bg="white">
+    <PackEyebrow>§ 06</PackEyebrow>
+    <PackHeading variant="prose">The Line.</PackHeading>
+    <PackProse spaced>
+      <p>
+        The Operator runs the front office. What the job needs and what it costs, the diagnosis and
+        the price, those stay with your techs and your owner, who see the work. The Operator books
+        the call and captures the details; it does not quote the job or decide what is wrong.
+      </p>
+      <p>
+        Some lines are not settings anyone can move. A call that sounds like a safety emergency, a
+        gas leak, a fire, water coming in, no heat in a hard freeze, or a live electrical hazard,
+        goes straight to a person right then, and anything that sounds like a threat to life goes to
+        911, never queued behind a routine booking. It never commits a diagnosis or a price; that
+        stays with your techs. It follows up on invoices, but it never processes a payment. Anything
+        that leaves the shop goes to a reviewer on your team until you decide otherwise. Every
+        action it takes is logged where you can see it.
+      </p>
+      <p>
+        Beyond those floors, you govern where the line sits, and you can move it as you learn what
+        the Operator is good at. Your customer files stay private, including from us. The Operator
+        works in your shop's own walled-off environment, on your own accounts. We can see that it is
+        running and the record of what it did, but the contents of your jobs and messages stay
+        yours, and so do the configuration, the logs, and the off switch.
+      </p>
+    </PackProse>
+    <PackSectionCta slug="home-services" />
+  </PackSection>
 
-    <!-- § 04 From the start -->
-    <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 04</span
-        >
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          From The Start.
-        </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            Before it starts, we sit down with you and the people who run the front office, and we
-            shape the templates around how your shop actually operates, so it begins ready, not
-            green.
-          </p>
-          <p>
-            From there the work moves the way it always did. The phone rings, after hours or in the
-            middle of peak season, and it answers, captures the job, and books the appointment
-            instead of letting it roll to voicemail. It confirms appointments, follows up on the
-            estimate, chases the callback. Anything that sounds like a safety emergency goes
-            straight to your on-call person right away. It is all logged in your field-service
-            software as it happens, and it keeps getting sharper from your team's corrections.
-          </p>
-        </div>
-      </div>
-    </section>
+  <!-- § 07 Where it fits -->
+  <PackSection bg="background">
+    <PackEyebrow>§ 07</PackEyebrow>
+    <PackHeading variant="grid">Where It Fits.</PackHeading>
+    <PackIntro>
+      A few shapes the seat can take. We build it around how your shop runs, so these are starting
+      points, not a menu.
+    </PackIntro>
+    <PackCardGrid items={roleLenses} cols={3} card="lenses" />
+  </PackSection>
 
-    <!-- § 05 Yours to shape -->
-    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 05</span
-        >
-        <h2
-          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          Yours To Shape.
-        </h2>
-        <p
-          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
-        >
-          We are not the experts in how your shop runs. You are. So the pack is a starting point in
-          three parts, and the third is the biggest.
-        </p>
-
-        <div
-          class="grid grid-cols-1 md:grid-cols-3 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
-        >
-          {
-            zones.map((z, i) => (
-              <div
-                class:list={[
-                  'flex flex-col gap-3 p-8 min-h-[14rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
-                  i % 3 !== 2 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
-                ]}
-              >
-                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
-                  {z.title}
-                </p>
-                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-                  {z.body}
-                </p>
-              </div>
-            ))
-          }
-        </div>
-      </div>
-    </section>
-
-    <!-- § 06 The line -->
-    <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 06</span
-        >
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          The Line.
-        </h2>
-        <div
-          class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)] mb-12"
-        >
-          <p>
-            The Operator runs the front office. What the job needs and what it costs, the diagnosis
-            and the price, those stay with your techs and your owner, who see the work. The Operator
-            books the call and captures the details; it does not quote the job or decide what is
-            wrong.
-          </p>
-          <p>
-            Some lines are not settings anyone can move. A call that sounds like a safety emergency,
-            a gas leak, a fire, water coming in, no heat in a hard freeze, or a live electrical
-            hazard, goes straight to a person right then, and anything that sounds like a threat to
-            life goes to 911, never queued behind a routine booking. It never commits a diagnosis or
-            a price; that stays with your techs. It follows up on invoices, but it never processes a
-            payment. Anything that leaves the shop goes to a reviewer on your team until you decide
-            otherwise. Every action it takes is logged where you can see it.
-          </p>
-          <p>
-            Beyond those floors, you govern where the line sits, and you can move it as you learn
-            what the Operator is good at. Your customer files stay private, including from us. The
-            Operator works in your shop's own walled-off environment, on your own accounts. We can
-            see that it is running and the record of what it did, but the contents of your jobs and
-            messages stay yours, and so do the configuration, the logs, and the off switch.
-          </p>
-        </div>
-        <div class="text-center">
-          <CtaButton
-            variant="secondary"
-            href="/book?interest=home-services"
-            data-ev="home-services-section-cta">Talk through the fit</CtaButton
-          >
-        </div>
-      </div>
-    </section>
-
-    <!-- § 07 Where it fits -->
-    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <span
-          class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"
-          >§ 07</span
-        >
-        <h2
-          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          Where It Fits.
-        </h2>
-        <p
-          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
-        >
-          A few shapes the seat can take. We build it around how your shop runs, so these are
-          starting points, not a menu.
-        </p>
-
-        <div
-          class="grid grid-cols-1 md:grid-cols-3 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
-        >
-          {
-            roleLenses.map((lens, i) => (
-              <div
-                class:list={[
-                  'flex flex-col gap-4 p-8 min-h-[16rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
-                  i % 3 !== 2 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
-                ]}
-              >
-                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
-                  {lens.title}
-                </p>
-                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-                  {lens.body}
-                </p>
-              </div>
-            ))
-          }
-        </div>
-      </div>
-    </section>
-
-    <!-- § 08 Start the conversation -->
-    <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
-      <div class="mx-auto max-w-5xl text-center">
-        <span
-          class="inline-block bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-8"
-          >§ 08</span
-        >
-        <h2
-          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
-        >
-          Start The Conversation.
-        </h2>
-        <p class="mx-auto mb-6 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
-          It starts with a conversation. We learn how your shop runs, find the call-handling and
-          coordination work that is eating your team's time, and start from the pack, customizing it
-          to your shop. If it is not a fit, we will tell you.
-        </p>
-        <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
-          {ctaPricingLine}
-        </p>
-        <CtaButton
-          variant="outline-white"
-          href="/book?interest=home-services"
-          data-ev="home-services-final-cta">Start the conversation</CtaButton
-        >
-      </div>
-    </section>
-  </main>
-  <Footer />
-</Base>
+  <!-- § 08 Start the conversation -->
+  <PackClosing slug="home-services">
+    <Fragment slot="pitch">
+      It starts with a conversation. We learn how your shop runs, find the call-handling and
+      coordination work that is eating your team's time, and start from the pack, customizing it to
+      your shop. If it is not a fit, we will tell you.
+    </Fragment>
+  </PackClosing>
+</PackLayout>
