@@ -24,6 +24,36 @@ export interface ReviewAnalysis {
   evidence_summary: string
 }
 
+/**
+ * Parse + coerce the LLM's JSON into a ReviewAnalysis, or null when
+ * malformed (issue #835: LLM output is external input — a response that
+ * fails to parse must skip the module, not throw into the Workflow
+ * step's retry loop).
+ */
+function parseAnalysisJson(jsonText: string): ReviewAnalysis | null {
+  let parsed: Record<string, unknown>
+  try {
+    const raw: unknown = JSON.parse(jsonText)
+    if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+      console.warn('[review-analysis] LLM returned non-object JSON; skipping')
+      return null
+    }
+    parsed = raw as Record<string, unknown>
+  } catch {
+    console.warn('[review-analysis] LLM returned unparseable JSON; skipping')
+    return null
+  }
+  return {
+    response_pattern:
+      typeof parsed.response_pattern === 'string' ? parsed.response_pattern : 'unknown',
+    engagement_level:
+      typeof parsed.engagement_level === 'string' ? parsed.engagement_level : 'unknown',
+    owner_accessible:
+      typeof parsed.owner_accessible === 'boolean' ? parsed.owner_accessible : false,
+    evidence_summary: typeof parsed.evidence_summary === 'string' ? parsed.evidence_summary : '',
+  }
+}
+
 export async function analyzeReviewPatterns(
   signalContent: string,
   anthropicKey: string
@@ -61,11 +91,5 @@ export async function analyzeReviewPatterns(
     jsonText = jsonText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
   }
 
-  const parsed = JSON.parse(jsonText)
-  return {
-    response_pattern: parsed.response_pattern ?? 'unknown',
-    engagement_level: parsed.engagement_level ?? 'unknown',
-    owner_accessible: parsed.owner_accessible ?? false,
-    evidence_summary: parsed.evidence_summary ?? '',
-  }
+  return parseAnalysisJson(jsonText)
 }

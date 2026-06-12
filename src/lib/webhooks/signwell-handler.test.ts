@@ -520,8 +520,22 @@ describe('handleDocumentCompleted — milestone creation', () => {
       .all()
     expect(engagements.results).toHaveLength(1)
 
-    const invoices = await db.prepare("SELECT * FROM invoices WHERE type = 'deposit'").all()
+    const invoices = await db
+      .prepare("SELECT * FROM invoices WHERE type = 'deposit'")
+      .all<{ status: string; engagement_id: string; amount: number }>()
     expect(invoices.results).toHaveLength(1)
+    // The deposit invoice is born as a draft (admin authors line items and
+    // sends it explicitly) and is linked to the engagement created in the
+    // same batch at 50% of the quoted price.
+    expect(invoices.results[0].status).toBe('draft')
+    expect(invoices.results[0].amount).toBe(
+      LINE_ITEMS.reduce((s, li) => s + li.estimated_hours, 0) * 150 * 0.5
+    )
+    const batchEngagement = await db
+      .prepare('SELECT id FROM engagements WHERE quote_id = ?')
+      .bind(QUOTE_ID)
+      .first<{ id: string }>()
+    expect(invoices.results[0].engagement_id).toBe(batchEngagement!.id)
 
     const milestones = await db.prepare('SELECT * FROM milestones').all()
     expect(milestones.results).toHaveLength(4)
