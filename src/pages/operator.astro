@@ -5,6 +5,7 @@ import Base from '../layouts/Base.astro'
 import Nav from '../components/Nav.astro'
 import Footer from '../components/Footer.astro'
 import CtaButton from '../components/CtaButton.astro'
+import { CATEGORY_NAME, CATEGORY_ARTICLE } from '../lib/category'
 
 const productSchema = {
   '@context': 'https://schema.org',
@@ -86,6 +87,16 @@ const industries = [
         <CtaButton href="/book?interest=operator" data-ev="operator-hero-cta"
           >Start the conversation</CtaButton
         >
+        <p class="mt-8">
+          <a
+            href="/why"
+            data-ev="operator-hero-why"
+            class="inline-flex items-center gap-2 font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)]"
+          >
+            <span>New here? Read the case for {CATEGORY_ARTICLE} {CATEGORY_NAME}</span>
+            <span aria-hidden="true">→</span>
+          </a>
+        </p>
       </div>
     </section>
 
@@ -341,7 +352,7 @@ const industries = [
     </section>
 
     <!-- § 09 Built for your industry -->
-    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+    <section id="industries" class="bg-[color:var(--ss-color-background)] px-6 py-24 scroll-mt-20">
       <div class="mx-auto max-w-5xl">
         <span
           class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mb-4"

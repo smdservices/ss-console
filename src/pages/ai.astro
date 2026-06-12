@@ -6,6 +6,7 @@ import Nav from '../components/Nav.astro'
 import FinalCta from '../components/FinalCta.astro'
 import Footer from '../components/Footer.astro'
 import CtaButton from '../components/CtaButton.astro'
+import { CATEGORY_NAME, CATEGORY_ARTICLE } from '../lib/category'
 
 // FAQPage JSON-LD schema. Question H2s match the ones rendered below so
 // retrieval engines (Perplexity, ChatGPT Search, Google AI Overviews) can
@@ -53,12 +54,12 @@ const faqSchema = {
     <section class="relative overflow-hidden px-6 pb-32 pt-24">
       <div class="mx-auto max-w-4xl text-center">
         <a
-          href="/#capabilities"
+          href="/consulting"
           data-ev="ai-eyebrow-capabilities"
           class="inline-flex items-center gap-2 mb-8 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)] hover:text-[color:var(--ss-color-primary-hover)]"
         >
           <span aria-hidden="true">←</span>
-          <span>One of six capabilities</span>
+          <span>One of six consulting capabilities</span>
         </a>
         <h1
           class="mb-8 text-5xl font-extrabold leading-[1.1] tracking-tight text-[color:var(--ss-color-text-primary)] md:text-7xl"
@@ -141,8 +142,9 @@ const faqSchema = {
         <p
           class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
         >
-          Not every AI engagement needs to be a project. Some businesses want an AI worker that
-          learns their operations and stays.
+          Not every engagement is a project with an end. Some businesses want a worker that learns
+          their operations and stays, and that we run for them. We call that {CATEGORY_ARTICLE}
+          {CATEGORY_NAME}.
         </p>
         <div class="space-y-10 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
