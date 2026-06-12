@@ -136,8 +136,12 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # bare data home. This SHA is on overlay main ABOVE v0.4.16 (#55), so it carries
 # the audit broker AND the cron fix. Verified live on staging — a scheduled turn
 # actually fired (last_status=ok) and the broker boots clean on a fresh Machine.
+# aac8f0f (#60) adds the `config` read-seam kind (Phase B Cut D-report): the
+# operator.runtime.config/v1 facts snapshot the drift audit reads. Read-only,
+# presence-only, additive to the seam; also ships consumes.yaml in the wheel so
+# Cut A's boot-time WARN resolves it post-install. Verified clean on staging.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="2e310674e0ec0200f87030a33dd0ca10abffabc7"
+ARG OVERLAY_REF="aac8f0f3d4d6e5a7689603bb5d2368537a7a1743"
 
 ARG CUSTOMER_SLUG=customer-zero
 

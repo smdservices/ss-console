@@ -26,8 +26,13 @@
  */
 
 /** The classes of runtime detail a drill-in can request. Each maps to a
- * read-only endpoint on the Machine. Extend as drill-in surfaces are added. */
-export const RUNTIME_READ_KINDS = ['audit_log', 'draft', 'matter', 'activity'] as const
+ * read-only endpoint on the Machine. Extend as drill-in surfaces are added.
+ *
+ * `config` is the operator-drift-audit facts snapshot (operator.runtime.config/v1):
+ * a single materialized-state read (no pagination), presence-only — never a
+ * secret value. It is the only non-paginated kind; see the Machine-side
+ * read_config in the overlay's shared/runtime_read.py. */
+export const RUNTIME_READ_KINDS = ['audit_log', 'draft', 'matter', 'activity', 'config'] as const
 export type RuntimeReadKind = (typeof RUNTIME_READ_KINDS)[number]
 
 export interface RuntimeReadQuery {
