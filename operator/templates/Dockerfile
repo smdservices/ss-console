@@ -164,8 +164,13 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # runtime, so sends defaulted to READ and slipped the trust ceiling + taint-gate
 # (demo-law live test sent a reply autonomously on a tainted turn). P0 security;
 # closes the bypass for ALL customers. Superset of v0.4.22.
+# v0.4.24 (11bcdc5) — #73 recover the demo-relay recipient-lock origin when the
+# dispatch session_id differs from the agent-loop session_id (the router records
+# under an empty dispatch session_id, which record() dropped → relay found no
+# origin → governed draft created but never sent). Address-keyed recovery index,
+# injection-safe. Fixes the demo-law email-back loop. Superset of v0.4.23.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="90dd7f7dddf32436813bc4363499183c5712ad34"
+ARG OVERLAY_REF="11bcdc502cc34512b6a75ffba8e39bdb449f3339"
 
 ARG CUSTOMER_SLUG=customer-zero
 
