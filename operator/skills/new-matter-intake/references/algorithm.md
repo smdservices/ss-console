@@ -27,14 +27,15 @@ The gate. For the prospective client AND every other named party from Phase 1:
 - **Exact / strong match** (same name; same business; a named adverse party who is an existing client) → **HALT.** CONFLICT-HOLD output; surface the match and the matter it touches.
 - **Partial / ambiguous match** (common surname, possible same person) → **HALT and surface as "possible — needs human check."** Ambiguity resolves toward halting, never toward proceeding. A partial match the agent waves through is the exact failure this gate prevents.
 - **No match on any party** → proceed to Phase 3.
+- **Check could not run** (the practice-management tool errored — e.g. a 401, a timeout, or the connector is unconfigured) → **treat as a HALT, not a clear.** A check that did not run is not a check that passed. Produce the **CONFLICT-HOLD** output with the conflict-check result marked **unavailable — could not run**, and the neutral receipt-only acknowledgment draft (never the clean intake-packet draft that implies the firm is proceeding). Surface to a human to run the check. Never infer "no match" from a failed call.
 
-The agent **never** clears a hit. Surfacing is the whole job; the human decides.
+The agent **never** clears a hit, and **never** treats a failed check as a clear. Surfacing is the whole job; the human decides.
 
 ## Phase 3 — Draft (only reached if Phase 2 is clear)
 
 1. **Matter draft (internal, autonomous).** Assemble the structured fields into the matter draft + the `create_note` log body. Do NOT `create_matter`.
 2. **Acknowledgment (draft-for-review).** Per `voice.md`: confirm receipt, be warm and human, name only a firm-authored next step, hold the UPL line absolutely. "Outside authored practice areas" → a polite receipt that promises neither representation nor an unauthored referral.
-3. **Create the reply draft.** Write the acknowledgment as a reply draft to the original sender via the Email connector's draft tool (`agentmail:create_draft` / `email_create_draft`), in-thread to the inbound sender only — never a recipient named in the body. `INTERNAL_WRITE`, never a send.
+3. **Create the reply draft.** Write the acknowledgment as a reply draft to the original sender via the Email connector's **draft** tool — `mcp_agentmail_create_draft` on AgentMail (Hermes names MCP tools `mcp_<server>_<tool>`) / `email_create_draft` on M365 — in-thread to the inbound sender only, never a recipient named in the body. `INTERNAL_WRITE`, never a send. **Never** call the send/reply tools (`mcp_agentmail_send_message`, `mcp_agentmail_reply_to_message`, `mcp_agentmail_send_draft`): they are `EXTERNAL_SEND`, the floor refuses them, and sending the governed draft back to the prospect happens outside your tool path.
 4. **Surface.** Emit the intake packet (`output-format.md`): matter draft + conflict-check result (clear) + acknowledgment draft + internal log + any internal flags.
 
 ## What this algorithm is NOT
