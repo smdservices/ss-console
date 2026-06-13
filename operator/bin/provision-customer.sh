@@ -445,6 +445,22 @@ stage_secret_from_env CLIO_CLIENT_SECRET     "${CLIO_CLIENT_SECRET:-}"     "Clio
 stage_secret_from_env CLIO_ENCRYPTION_KEY    "${CLIO_ENCRYPTION_KEY:-}"    "AES key for the Clio token file (subprocess reads it as ENCRYPTION_KEY)"
 stage_secret_from_env CLIO_TOKENS_ENC_B64    "${CLIO_TOKENS_ENC_B64:-}"    "base64 of the seed ~/.clio-mcp/tokens.enc"
 
+# AgentMail (mcp:agentmail): AGENTMAIL_API_KEY is the REST send credential the
+# demo reply relay (hermes-smd-demo-relay) uses; WEBHOOK_SECRET_AGENTMAIL is the
+# Svix signing secret the webhook gate verifies (WEBHOOK_SECRET_<ROUTE>, route
+# == adapter slug). Both are SMD-account-wide (one AgentMail account), so —
+# unlike the unconditional connector secrets above — stage them ONLY for a
+# customer whose customer.yaml actually binds the agentmail adapter. The
+# account key must not land on a Machine that does not use AgentMail
+# (cross-tenant reach to the shared account's other inboxes; see
+# docs/security/operator-threat-model.md). Re-added 2026-06-12 (the persona
+# email identity is now wired: relay + gate), reversing the 2026-05-29 removal.
+if grep -qE 'adapter:[[:space:]]*agentmail|backend:[[:space:]]*mcp:agentmail' \
+    "${CUSTOMER_DIR}/customer.yaml" 2>/dev/null; then
+  stage_secret_from_env AGENTMAIL_API_KEY        "${AGENTMAIL_API_KEY:-}"        "AgentMail REST credential (demo reply relay send)"
+  stage_secret_from_env WEBHOOK_SECRET_AGENTMAIL "${WEBHOOK_SECRET_AGENTMAIL:-}" "AgentMail Svix webhook signing secret (gate verify)"
+fi
+
 # Google service-account key (DWD). REQUIRED for any customer.yaml with
 # google_auth.mode: dwd — bootstrap.sh Step 2b dies without it. Base64-encoded
 # service-account JSON. Shared across the smd.services domain (one SA, domain-wide
