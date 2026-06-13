@@ -56,13 +56,14 @@ describe('Operator customer Machine Dockerfile', () => {
   })
 
   it('pins the broker-capable overlay revision', () => {
-    // e0bc5039 is overlay v0.4.21 (v0.4.20 + #69 calendar-read fences): v0.4.18 (gate self-check hotfix #66 +
-    // audit-dark signal #65, atop the #60–#63 security wave) plus #67
-    // (audit_export/memory_export seam kinds, the Machine-side half of the
-    // #1355 pull-before-destroy decommission fix) and #68 (sentinel
-    // staleness = writer-pid liveness). v0.4.17 must never be re-pinned
-    // (fixed-epoch probe crash-loops the gate).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="e0bc503981fdb0f4c1cf2588117bcaa1b21e5f05"')
+    // 8706af4 is overlay v0.4.22 (v0.4.21 + #71 gate source-stamp + #57 demo
+    // reply relay): both additive — the relay is fail-closed (no-ops unless
+    // demo.reply_relay is authored), the gate source-stamp only adds routing
+    // provenance so the webhook router can route AgentMail webhook_triggers.
+    // Atop v0.4.21 (e0bc503, #69 calendar-read fences) and the #60–#68 security
+    // wave. v0.4.17 must never be re-pinned (fixed-epoch probe crash-loops the
+    // gate).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="8706af4df49b6c03d39973f6bcee4de0329d2fc6"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
