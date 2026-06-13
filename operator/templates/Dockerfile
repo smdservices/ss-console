@@ -159,8 +159,13 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # webhook_triggers) + #57 demo reply relay (fail-closed off unless demo.reply_relay
 # authored; enables the law demo's email-in/email-back loop). Both additive;
 # safe for all customers (relay no-ops without the flag). Superset of v0.4.21.
+# v0.4.23 (90dd7f7) — #72 classify AgentMail MCP runtime tool names
+# (mcp_agentmail_*): the prior map keyed the colon spelling that never occurs at
+# runtime, so sends defaulted to READ and slipped the trust ceiling + taint-gate
+# (demo-law live test sent a reply autonomously on a tainted turn). P0 security;
+# closes the bypass for ALL customers. Superset of v0.4.22.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="8706af4df49b6c03d39973f6bcee4de0329d2fc6"
+ARG OVERLAY_REF="90dd7f7dddf32436813bc4363499183c5712ad34"
 
 ARG CUSTOMER_SLUG=customer-zero
 

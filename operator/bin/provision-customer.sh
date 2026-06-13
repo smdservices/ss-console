@@ -459,6 +459,16 @@ if grep -qE 'adapter:[[:space:]]*agentmail|backend:[[:space:]]*mcp:agentmail' \
     "${CUSTOMER_DIR}/customer.yaml" 2>/dev/null; then
   stage_secret_from_env AGENTMAIL_API_KEY        "${AGENTMAIL_API_KEY:-}"        "AgentMail REST credential (demo reply relay send)"
   stage_secret_from_env WEBHOOK_SECRET_AGENTMAIL "${WEBHOOK_SECRET_AGENTMAIL:-}" "AgentMail Svix webhook signing secret (gate verify)"
+  # SMD_WEBHOOK_SIGNING_SECRET is the secret the Hermes-side router
+  # (hermes-smd-webhook-router) verifies the forwarded X-Webhook-Signature with.
+  # The webhook gate re-signs its forward hop with the ROUTE secret
+  # (webhook_gate.py: "same secret"), so for an agentmail-routed customer the
+  # router's signing secret IS the agentmail route secret. Stage them equal, or
+  # the gate's forward verifies-fail and inbound email never routes to a skill
+  # (the manual `fly secrets set` we had to do on demo-law 2026-06-12, now
+  # durable). FOLLOW-UP: a multi-route machine needs a dedicated internal
+  # gate→router secret distinct from any one vendor secret — filed separately.
+  stage_secret_from_env SMD_WEBHOOK_SIGNING_SECRET "${WEBHOOK_SECRET_AGENTMAIL:-}" "router forward-verify secret (== agentmail route secret; see note)"
 fi
 
 # Google service-account key (DWD). REQUIRED for any customer.yaml with
