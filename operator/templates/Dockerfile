@@ -155,8 +155,12 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # customer-zero). Superset of v0.4.18/v0.4.19.
 # v0.4.21 (e0bc503) — #69 fences workspace_calendar_list/get (external invites
 # carry third-party content; Captain call 2026-06-12). Superset of v0.4.20.
+# v0.4.22 (8706af4) — #71 gate source-stamp (router can route AgentMail
+# webhook_triggers) + #57 demo reply relay (fail-closed off unless demo.reply_relay
+# authored; enables the law demo's email-in/email-back loop). Both additive;
+# safe for all customers (relay no-ops without the flag). Superset of v0.4.21.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="e0bc503981fdb0f4c1cf2588117bcaa1b21e5f05"
+ARG OVERLAY_REF="8706af4df49b6c03d39973f6bcee4de0329d2fc6"
 
 ARG CUSTOMER_SLUG=customer-zero
 
