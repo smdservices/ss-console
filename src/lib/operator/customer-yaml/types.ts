@@ -170,6 +170,25 @@ export type ActionClass = (typeof ACCEPTED_ACTION_CLASSES)[number]
 export const ACCEPTED_USER_ROLES = ['principal', 'staff', 'compliance'] as const
 export type UserRole = (typeof ACCEPTED_USER_ROLES)[number]
 
+/**
+ * Data-handling posture for the Operator ⇄ Claude MCP connector (`mcp_connector`
+ * block). Governs which Claude surface entitled data may land in — NOT what a
+ * user is entitled to see (that stays fail-closed and inherited; see ADR 0035
+ * and docs/design/operator/03-mcp-server-exposure.md §4/§7).
+ *
+ * - `open` (default): entitled data may flow to the user's authenticated Claude,
+ *   personal or firm-controlled. Honors the flexibility posture for orgs
+ *   mid-adoption with a mix of personal and firm instances.
+ * - `firm_only`: entitled data flows only to an enterprise/team Claude under the
+ *   org's terms; personal-account tokens get a reduced surface.
+ *
+ * Note: privileged-class content (matter documents, work product) crossing into
+ * a personal account requires an explicit recorded firm consent even under
+ * `open` — enforced where the document-surfacing tools land, not here.
+ */
+export const ACCEPTED_DATA_POSTURES = ['open', 'firm_only'] as const
+export type DataPosture = (typeof ACCEPTED_DATA_POSTURES)[number]
+
 export const ACCEPTED_PERSONA_STATUSES = ['active', 'archived'] as const
 export type PersonaStatus = (typeof ACCEPTED_PERSONA_STATUSES)[number]
 
@@ -662,6 +681,38 @@ export interface Demo {
   reply_relay: boolean
 }
 
+/**
+ * One authored user → profile binding for the Operator ⇄ Claude MCP connector.
+ * `email` MUST match a `users[]` entry; `profile` MUST match an active persona
+ * slug. This is the per-user seam: the pilot authors exactly one, multi-user
+ * orgs author more (and walled principals get distinct profiles per the
+ * memory-wall rule — see docs/design/operator/03-mcp-server-exposure.md §4.3).
+ */
+export interface McpConnectorAccess {
+  email: string
+  profile: string
+}
+
+/**
+ * Operator ⇄ Claude MCP connector (`mcp_connector:` block) — lets authored org
+ * users reach this Operator from inside their own Claude (claude.ai / Claude
+ * Desktop) over a remote MCP server. Phase 1 is hosted console-side; see
+ * docs/design/operator/03-mcp-server-exposure.md.
+ *
+ * Fail-closed: an absent block (or `enabled: false`) means the connector is off
+ * and no user can reach the Operator through Claude. `access` with no entry for
+ * a given user means that user reaches nothing.
+ *
+ * Deliberately minimal for Phase 1: `authority_mode`, `access_map`, and group
+ * modes are seated in the design but NOT authored here until a second principal
+ * exists. `port` is a deployment constant, not per-customer config.
+ */
+export interface McpConnector {
+  enabled: boolean
+  data_posture: DataPosture
+  access: McpConnectorAccess[]
+}
+
 export interface CustomerYaml {
   schema_version: SchemaVersion
   customer_id: string
@@ -760,6 +811,13 @@ export interface CustomerYaml {
    * via `checkDemo`. Fail-closed — see {@link Demo}.
    */
   demo: Demo
+  /**
+   * Operator ⇄ Claude MCP connector (Phase 1). Always non-null on a validated
+   * CustomerYaml: an absent `mcp_connector:` block resolves to
+   * `{ enabled: false, data_posture: 'open', access: [] }` via
+   * `checkMcpConnector`. Fail-closed — see {@link McpConnector}.
+   */
+  mcp_connector: McpConnector
 }
 
 export type ValidationErrorCode =

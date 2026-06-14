@@ -61,6 +61,7 @@ import { checkWebhookTriggers } from './sections-webhook-triggers'
 import { checkExtendsReserved, checkVerticalPinned } from './sections-vertical'
 import { checkAddons } from './sections-addons'
 import { checkDemo } from './sections-demo'
+import { checkMcpConnector } from './sections-mcp-connector'
 import { checkGoogleAuth } from './sections-google-auth'
 import { checkAuthority } from './sections-authority'
 import type { AuthorityPosture } from '../authority'
@@ -99,6 +100,9 @@ export type {
   CostEstimate,
   Observability,
   Demo,
+  McpConnector,
+  McpConnectorAccess,
+  DataPosture,
   Vertical,
   TrustCeiling,
   Pronouns,
@@ -111,6 +115,7 @@ export {
   ACCEPTED_ADDONS,
   ACCEPTED_TRUST_CEILINGS,
   ACCEPTED_USER_ROLES,
+  ACCEPTED_DATA_POSTURES,
   ACCEPTED_PERSONA_STATUSES,
   ACCEPTED_PRONOUNS,
   ACCEPTED_LOG_LEVELS,
@@ -230,6 +235,7 @@ interface ParsedSections {
   authority: AuthorityPosture
   credentialCustodyDefault: CredentialCustody
   demo: Demo
+  mcpConnector: ReturnType<typeof checkMcpConnector>
 }
 
 function validateSections(
@@ -283,6 +289,7 @@ function validateSections(
     authority: checkAuthority(root, errors),
     credentialCustodyDefault: checkCredentialCustodyDefault(root, errors),
     demo: checkDemo(root, errors),
+    mcpConnector: checkMcpConnector(root, users, personas, errors),
   }
 }
 
@@ -319,5 +326,6 @@ function assembleCustomerYaml(root: Record<string, unknown>, p: ParsedSections):
     authority: p.authority,
     credential_custody_default: p.credentialCustodyDefault,
     demo: p.demo,
+    mcp_connector: p.mcpConnector,
   }
 }
