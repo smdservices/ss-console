@@ -67,7 +67,11 @@ describe('Operator customer Machine Dockerfile', () => {
     // gate source-stamp + #57 demo reply relay (fail-closed). Atop v0.4.21
     // (e0bc503, #69 calendar-read fences) and the #60–#68 security wave. v0.4.17
     // must never be re-pinned (fixed-epoch probe crash-loops the gate).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="ed96cebee8a114efde25baf456cfbd3f8ad01cc9"')
+    // c410c52 (#78) carves standard not-legal-advice / attorney-client
+    // disclaimer boilerplate out of the content-floor LEGAL category (clause-
+    // local; genuinely sensitive content elsewhere still forces draft) — fixes
+    // demo-law DEMO_RELAY_BLOCKED on a benign disclaimer. Atop ed96cebe.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="c410c523264fd206badbe8282f171280986ae5e1"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

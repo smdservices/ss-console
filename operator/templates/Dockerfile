@@ -175,8 +175,16 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # the recipient-lock origin → relay never sent (agent ran intake autonomously,
 # masking it). Gate now stamps event_type from Svix `type`; origin extraction
 # reads the Svix `data` envelope. Superset of v0.4.24.
+# c410c52 — #78 content-floor disclaimer carve-out: standard UPL boilerplate
+# ("Nothing in this note should be read as legal advice", "no attorney-client
+# relationship is formed") no longer trips the LEGAL category. Removes a false
+# positive, not a real signal — the carve-out is clause-local, so genuinely
+# sensitive content elsewhere in the same message (money/contract/scope/real
+# legal commitment) still forces draft, and the empty-body fail-toward-draft
+# check is unchanged. Fixes demo-law DEMO_RELAY_BLOCKED reason=content_sensitive
+# on a benign disclaimer (2026-06-14 live test). Superset of ed96cebe.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="ed96cebee8a114efde25baf456cfbd3f8ad01cc9"
+ARG OVERLAY_REF="c410c523264fd206badbe8282f171280986ae5e1"
 
 ARG CUSTOMER_SLUG=customer-zero
 
