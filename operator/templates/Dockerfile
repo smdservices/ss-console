@@ -169,8 +169,14 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # under an empty dispatch session_id, which record() dropped → relay found no
 # origin → governed draft created but never sent). Address-keyed recovery index,
 # injection-safe. Fixes the demo-law email-back loop. Superset of v0.4.23.
+# v0.4.25 (c6ef10d) — #74 THE demo-law fix: AgentMail delivers over Svix, which
+# carries the event under `type` not the `event_type` the gate assumed, so the
+# webhook route never matched → router silently early-returned before recording
+# the recipient-lock origin → relay never sent (agent ran intake autonomously,
+# masking it). Gate now stamps event_type from Svix `type`; origin extraction
+# reads the Svix `data` envelope. Superset of v0.4.24.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="11bcdc502cc34512b6a75ffba8e39bdb449f3339"
+ARG OVERLAY_REF="c6ef10d3689bd541b2dc82ad87edd726b583b949"
 
 ARG CUSTOMER_SLUG=customer-zero
 
