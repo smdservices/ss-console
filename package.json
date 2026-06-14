@@ -25,6 +25,7 @@
     "@astrojs/cloudflare": "^13.1.10",
     "@astrojs/sitemap": "^3.7.2",
     "@clerk/astro": "^3.2.6",
+    "@clerk/backend": "^3.4.11",
     "@elevenlabs/client": "^1.9.0",
     "@formepdf/core": "^0.8.2",
     "@formepdf/react": "^0.8.2",

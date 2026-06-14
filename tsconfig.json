@@ -3,5 +3,14 @@
   "compilerOptions": {
     "types": ["@cloudflare/workers-types/2023-07-01"]
   },
+  "include": [
+    "${configDir}/.astro/types.d.ts",
+    "${configDir}/**/*",
+    // TypeScript's default include glob (`**/*`) skips dot-prefixed
+    // directories. The OAuth/MCP discovery routes must live under the literal
+    // `src/pages/.well-known/` path (RFC 9728), so include it explicitly or
+    // eslint's projectService cannot resolve those route files.
+    "${configDir}/src/pages/.well-known/**/*"
+  ],
   "exclude": ["workers", "dist", ".astro", "coverage", ".claude/worktrees"]
 }
