@@ -280,16 +280,40 @@ PY
 if [ "${CLIO_ENABLED}" = "yes" ]; then
   CLIO_TOKEN_DIR="/opt/data/.clio-mcp"
   CLIO_TOKEN_FILE="${CLIO_TOKEN_DIR}/tokens.enc"
-  if [ -f "${CLIO_TOKEN_FILE}" ]; then
-    log "Clio token already on volume (${CLIO_TOKEN_FILE}); leaving in place (connector refreshes it)"
-  elif [ -n "${CLIO_TOKENS_ENC_B64:-}" ]; then
+  # Marker recording the seed that produced the current on-volume token. The
+  # connector refreshes (and rewrites) tokens.enc in place, so we must NEVER
+  # clobber a refreshed token while the SEED is unchanged. But when the seed in
+  # Infisical CHANGES (an operator re-vaults CLIO_TOKENS_ENC_B64 after the
+  # on-volume refresh token has gone stale), the old "seed only when absent"
+  # rule stranded the dead token forever — every Clio call 401'd and the only
+  # recovery was an SSH delete. Compare a hash of the seed against this marker:
+  # re-seed iff the seed differs (or the marker/token is missing). Steady state
+  # (seed unchanged) leaves the connector-refreshed token untouched. Updating
+  # the Infisical seed + reprovisioning now self-heals — no SSH, no recreation.
+  CLIO_SEED_MARKER="${CLIO_TOKEN_DIR}/.seed_sha256"
+  if [ -n "${CLIO_TOKENS_ENC_B64:-}" ]; then
     [ -n "${CLIO_ENCRYPTION_KEY:-}" ] \
       || die "mcp:clio-oktopeak enabled with a seed token but CLIO_ENCRYPTION_KEY is unset (token could not be decrypted at runtime)"
-    mkdir -p "${CLIO_TOKEN_DIR}"
-    ( umask 077; printf '%s' "${CLIO_TOKENS_ENC_B64}" | base64 -d > "${CLIO_TOKEN_FILE}" ) \
-      || die "CLIO_TOKENS_ENC_B64 is not valid base64 (expected base64 of ~/.clio-mcp/tokens.enc)"
-    chmod 600 "${CLIO_TOKEN_FILE}"
-    log "Clio OAuth token seeded to ${CLIO_TOKEN_FILE} (0600)"
+    CLIO_SEED_HASH="$(printf '%s' "${CLIO_TOKENS_ENC_B64}" | sha256sum | awk '{print $1}')"
+    CLIO_PRIOR_HASH=""
+    [ -f "${CLIO_SEED_MARKER}" ] && CLIO_PRIOR_HASH="$(cat "${CLIO_SEED_MARKER}" 2>/dev/null || true)"
+    if [ -f "${CLIO_TOKEN_FILE}" ] && [ "${CLIO_SEED_HASH}" = "${CLIO_PRIOR_HASH}" ]; then
+      log "Clio token on volume matches the current seed; leaving in place (connector refreshes it)"
+    else
+      mkdir -p "${CLIO_TOKEN_DIR}"
+      ( umask 077; printf '%s' "${CLIO_TOKENS_ENC_B64}" | base64 -d > "${CLIO_TOKEN_FILE}" ) \
+        || die "CLIO_TOKENS_ENC_B64 is not valid base64 (expected base64 of ~/.clio-mcp/tokens.enc)"
+      chmod 600 "${CLIO_TOKEN_FILE}"
+      ( umask 077; printf '%s' "${CLIO_SEED_HASH}" > "${CLIO_SEED_MARKER}" )
+      chmod 600 "${CLIO_SEED_MARKER}"
+      if [ -n "${CLIO_PRIOR_HASH}" ]; then
+        log "Clio seed token changed since last boot; re-seeded ${CLIO_TOKEN_FILE} (0600)"
+      else
+        log "Clio OAuth token seeded to ${CLIO_TOKEN_FILE} (0600)"
+      fi
+    fi
+  elif [ -f "${CLIO_TOKEN_FILE}" ]; then
+    log "Clio token on volume; no CLIO_TOKENS_ENC_B64 seed provided; leaving in place (connector refreshes it)"
   else
     log "mcp:clio-oktopeak enabled but no CLIO_TOKENS_ENC_B64 seed; connector unauthenticated until a token is provided"
   fi
