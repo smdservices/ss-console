@@ -176,7 +176,7 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # masking it). Gate now stamps event_type from Svix `type`; origin extraction
 # reads the Svix `data` envelope. Superset of v0.4.24.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="c7f87ba68adf69012af5ebd187f2b3e34c21df13"
+ARG OVERLAY_REF="ed96cebee8a114efde25baf456cfbd3f8ad01cc9"
 
 ARG CUSTOMER_SLUG=customer-zero
 
