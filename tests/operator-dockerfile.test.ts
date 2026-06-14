@@ -67,7 +67,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // gate source-stamp + #57 demo reply relay (fail-closed). Atop v0.4.21
     // (e0bc503, #69 calendar-read fences) and the #60–#68 security wave. v0.4.17
     // must never be re-pinned (fixed-epoch probe crash-loops the gate).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="c6ef10d3689bd541b2dc82ad87edd726b583b949"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="33ddc0b40444e2c4519eb8183166bbeb5cfdcc44"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
