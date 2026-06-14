@@ -1,9 +1,9 @@
 # 03 — Operator ⇄ Claude MCP Connector (Operator-as-MCP-Server)
 
-**Status:** Draft for Captain review (rev 2, 2026-06-14)
+**Status:** Draft for Captain review (rev 3, 2026-06-14). Phase-1 hosting is now console-mediated: the MCP server runs in the ss-console Worker, and the on-Machine sidecar becomes the documented durable alternative rather than the Phase-1 default. Auth Server is Clerk.
 **Author:** design pass, no implementation
 **Companion docs:** [00-foundations.md](00-foundations.md), [01-admin-portal.md](01-admin-portal.md), [02-client-portal.md](02-client-portal.md)
-**Primary ADRs:** [0007](../../adr/0007-per-customer-machine-isolation.md) · [0010](../../adr/0010-per-customer-oauth-token-storage.md) · [0011](../../adr/0011-multi-persona-per-customer.md) · [0015](../../adr/0015-hermes-fork-posture.md) · [0020](../../adr/0020-connector-strategy.md) · [0035](../../adr/0035-no-imposed-entitlement-defaults.md) · [0043](../../adr/0043-operator-runtime-read-path.md) · [0045](../../adr/0045-mediated-connector-capability-broker.md) · [0005](../../adr/0005-external-send-identity.md) · [0037](../../adr/0037-operator-thesis.md)
+**Primary ADRs:** [0007](../../adr/0007-per-customer-machine-isolation.md) · [0010](../../adr/0010-per-customer-oauth-token-storage.md) · [0011](../../adr/0011-multi-persona-per-customer.md) · [0015](../../adr/0015-hermes-fork-vs-upstream.md) · [0020](../../adr/0020-connector-strategy.md) · [0035](../../adr/0035-no-imposed-entitlement-defaults.md) · [0043](../../adr/0043-operator-runtime-read-path.md) · [0045](../../adr/0045-mediated-connector-capability-broker.md) · [0005](../../adr/0005-external-send-identity.md) · [0037](../../adr/0037-operator-thesis.md)
 
 ---
 
@@ -33,55 +33,76 @@ Three reasons this matters beyond the one deal:
 
 ## 2. Where the connector sits
 
-### 2.1 The decision: gateway-adjacent sidecar, not a Hermes plugin, never core
+The connector contract — the tool surface (§6), the two-axis authz model (§4), the authority modes (§4.2), the audit shape (§8), and the memory-wall rule (§4.3) — is **hosting-agnostic**. Phase 1 and the durable alternative differ only in where the MCP server process runs; everything the rest of this doc specifies holds either way. Only the hosting moves.
 
-The Machine already runs a public HTTP front door: `webhook_gate.py`, a stdlib `ThreadingHTTPServer` bound to `0.0.0.0:8643` that (a) verifies inbound webhook signatures and forwards to the loopback Hermes adapter on `8644`, and (b) hosts the runtime-read seam `GET /runtime/<kind>` ([ADR 0043](../../adr/0043-operator-runtime-read-path.md)). That process family is the natural home for an MCP surface. The connector is a **sibling HTTP surface in the gate process family** (extend the existing gate, or a parallel `mcp_gate.py` started by `bootstrap.sh` and supervised by tini in the same container).
+### 2.1 The decision: console-mediated MCP, not a Hermes plugin, never core
+
+The Phase-1 host is the **ss-console Worker**. The console is already public, already the Clerk relying party for every customer, and already holds the runtime-read seam into every Machine ([ADR 0043](../../adr/0043-operator-runtime-read-path.md)) via per-customer `HMAC(master, slug)` keys. So the cheapest place to stand up an authenticated, audited, per-customer MCP surface is the console: it terminates TLS, validates the user's Clerk JWT, resolves the customer + profile, and reaches the Machine over the seam it already operates. Reads are served by pulling per-customer state (audit, memory, assembled context) through the runtime-read seam; a handoff is delivered to the Machine over a signed webhook (the same `0.0.0.0:8643` gate the Machine already exposes).
+
+```
+   claude.ai / Claude Desktop (the user's own Claude, MCP client)
+            │  POST /mcp  (Streamable HTTP, OAuth 2.1 bearer)
+            ▼
+  ┌────────────────────────────────────────────────────────────────┐
+  │  ss-console Worker  (public, Clerk relying party)                │
+  │  ┌──────────────────────────────────────────────────────────┐  │
+  │  │  POST /mcp                  (NEW: MCP Streamable HTTP)     │  │
+  │  │  GET  /.well-known/oauth-protected-resource (NEW)         │  │
+  │  └───────────────┬──────────────────────────────────────────┘  │
+  │                  │ (1) validate Clerk JWT → resolve customer +  │
+  │                  │     org user → profile                       │
+  │                  │ (2) REACH gate (inherit/delegate, §4) +      │
+  │                  │     CONSEQUENCE gate (authored ceiling, §4)  │
+  │                  │ (3) emit audit: who asked + authority it ran │
+  │     ┌────────────┴───────────────┬──────────────────────────┐  │
+  │     │ READ / surface tools       │ HANDOFF tool             │  │
+  │     │ pull per-customer state    │ POST signed webhook to   │  │
+  │     │ via runtime-read seam      │ the Machine's gate       │  │
+  │     │ (HMAC per slug, no wake)   │ (surface="mcp")          │  │
+  │     └────────────┬───────────────┴────────────┬─────────────┘  │
+  └──────────────────┼────────────────────────────┼───────────────┘
+                     │ GET /runtime/<kind>         │ POST /webhooks/<route>
+                     │ (ADR 0043 seam, HMAC)       │ (Svix-signed)
+                     ▼                             ▼
+  ┌────────────────────────────────────────────────────────────────┐
+  │  per-customer Fly Machine (one client org)                      │
+  │   :8643 gate → audit ledger, memory mirror, assembled context;  │
+  │   handoff → InboundEnvelope(surface="mcp") → :8644 Hermes agent │
+  │   → agent works async; reply goes out over email / Telegram,    │
+  │   NOT over /mcp                                                  │
+  └────────────────────────────────────────────────────────────────┘
+```
 
 Why not the other two options:
 
-- **Not a Hermes plugin.** A plugin runs inside the agent loop. It cannot reliably serve HTTP while the agent is mid-turn, and it cannot enforce authentication and authorization _before_ Hermes is involved. The gate layer is precisely the "outside the agent loop" boundary. ([ADR 0015](../../adr/0015-hermes-fork-posture.md): plugins never touch core; the gate is already overlay-owned infrastructure, not a core patch.)
-- **Not core Hermes.** [ADR 0015](../../adr/0015-hermes-fork-posture.md) is absolute: pin-only fork, plugin-only overlay, no core modification. The connector introduces no Hermes-core change.
+- **Not a Hermes plugin.** A plugin runs inside the agent loop. It cannot reliably serve HTTP while the agent is mid-turn, and it cannot enforce authentication and authorization _before_ Hermes is involved. Whether hosted in the console or on the Machine, the MCP surface must sit **outside the agent loop**. ([ADR 0015](../../adr/0015-hermes-fork-vs-upstream.md): plugins never touch core.)
+- **Not core Hermes.** [ADR 0015](../../adr/0015-hermes-fork-vs-upstream.md) is absolute: pin-only fork, plugin-only overlay, no core modification. The connector introduces no Hermes-core change in either hosting.
 
-```
-                         per-customer Fly Machine (one client org)
-  ┌──────────────────────────────────────────────────────────────────┐
-  │                                                                    │
-  │   :8643  gate process family (0.0.0.0, public via Fly proxy/TLS)   │
-  │   ┌──────────────────────────────────────────────────────────┐    │
-  │   │  POST /webhooks/<route>     (existing, Svix-verified)     │    │
-  │   │  GET  /runtime/<kind>       (existing, ADR 0043 seam)     │    │
-  │   │  POST /mcp                  (NEW: MCP Streamable HTTP)    │    │
-  │   │  GET  /.well-known/oauth-protected-resource (NEW)        │    │
-  │   └───────────────┬──────────────────────────────────────────┘    │
-  │                   │ (1) authenticate the human → resolve profile   │
-  │                   │ (2) REACH gate (inherit/delegate, §4) +        │
-  │                   │     CONSEQUENCE gate (authored ceiling, §4)    │
-  │                   │ (3) emit audit: who asked + authority it ran   │
-  │      ┌────────────┴───────────────┬───────────────────────────┐   │
-  │      │ READ / surface tools       │ HANDOFF tool               │   │
-  │      │ answer directly from       │ enqueue provenance-stamped │   │
-  │      │ per-customer stores +      │ InboundEnvelope(surface=   │   │
-  │      │ broker-mediated reads      │ "mcp") → loopback :8644    │   │
-  │      │ (no agent wake)            │ → agent works async        │   │
-  │      └────────────┬───────────────┴─────────────┬─────────────┘   │
-  │                   │                              │                 │
-  │   /opt/data: audit ledger, memory mirror,        │  Hermes agent   │
-  │   mcp-client tokens, authored access fallback    │  loop (:8644)   │
-  │                                                  ▼                 │
-  │                         Operator → user reply goes out over        │
-  │                         email / Telegram, NOT over /mcp            │
-  └──────────────────────────────────────────────────────────────────┘
-```
+### 2.2 The tradeoff: console hosting vs. physical single-tenancy
 
-### 2.2 Transport
+Console hosting moves cross-customer isolation **from physical single-tenancy into console code**. On a per-Machine sidecar, the endpoint physically cannot see another customer's state because it runs on a single-tenant Machine. In the console, that boundary is enforced in code instead. Three things make this acceptable rather than a new risk:
 
-MCP **Streamable HTTP** on `POST /mcp` (the current remote-server transport that claude.ai custom connectors and Claude Desktop speak; SSE is superseded). The connector is a JSON-RPC MCP server exposing `tools/list`, `tools/call`, and `resources/*`. TLS is terminated at the Fly edge; the gate already binds `0.0.0.0` and is reachable through the Fly proxy.
+- **It reuses the EXISTING fleet boundary, not a new one.** The console already reads every Machine via per-customer HMAC keys ([ADR 0043](../../adr/0043-operator-runtime-read-path.md)); the per-customer isolation discipline the seam enforces is the same discipline the MCP surface inherits. We are not inventing a cross-customer code path; we are exposing one that already runs.
+- **Per-customer Clerk apps + audience-bound tokens.** Each customer gets its own Clerk OAuth application (or RFC 8707 audience binding), so a token minted for one customer is structurally unusable against another's surface (§5).
+- **No net-new data path.** Privileged read content transits the Worker, but the runtime-read seam **already** pulls audit and memory to the console today for the admin portal. The MCP surface widens what flows over an existing path; it does not open a new one.
 
-### 2.3 Reconciliation with isolation ADRs
+### 2.3 Durable alternative: on-Machine sidecar
 
-- **[ADR 0007](../../adr/0007-per-customer-machine-isolation.md) (per-customer Machine).** One MCP server = one client-org Machine, bound only to that customer's D1/R2/volume. No multi-tenant routing, no shared registry, no cross-customer join. The endpoint physically cannot see another customer's state because it runs on a single-tenant Machine.
-- **[ADR 0010](../../adr/0010-per-customer-oauth-token-storage.md) (OAuth tokens on volume).** The inbound user→Operator credentials are a **separate token store** at `/opt/data/mcp-clients/` from the Operator→vendor tokens at `/opt/data/oauth/`. The connector is an OAuth Resource Server for inbound users; it never exposes the Operator's own vendor tokens. `0600`, `hermes`-owned, never logged.
-- **[ADR 0043](../../adr/0043-operator-runtime-read-path.md) (runtime-read).** The connector follows the posture the runtime seam established: thin, authenticated, scoped to one customer, audited. The seam's per-customer `HMAC(master, slug)` pattern is the model for token validation (§5).
+When true single-tenant **physical** isolation is worth the per-Machine operational cost — a regulated client who wants the MCP surface to physically never run alongside another customer's state, or a deployment where privileged content must not transit the shared Worker at all — the same connector contract is hosted as a sidecar on the Machine instead. This is the durable/future option, not the Phase-1 default; it costs a public surface, a token store, and a supervised process on every Machine, which is why it is reserved for when the physical boundary earns its keep.
+
+The Machine already runs a public HTTP front door: `webhook_gate.py`, a stdlib `ThreadingHTTPServer` bound to `0.0.0.0:8643` that (a) verifies inbound webhook signatures and forwards to the loopback Hermes adapter on `8644`, and (b) hosts the runtime-read seam `GET /runtime/<kind>` ([ADR 0043](../../adr/0043-operator-runtime-read-path.md)). That process family is the natural home for an on-Machine MCP surface. The sidecar is a **sibling HTTP surface in the gate process family** (extend the existing gate, or a parallel `mcp_gate.py` started by `bootstrap.sh` and supervised by tini in the same container), serving `POST /mcp` and `GET /.well-known/oauth-protected-resource` directly. In this hosting the endpoint physically cannot see another customer's state because it runs on a single-tenant Machine; reads come from the Machine's own stores rather than over the runtime-read seam, and handoffs are a loopback enqueue to `:8644` rather than a signed webhook from the console.
+
+Because the contract is hosting-agnostic, moving from console-mediated to sidecar is a deployment change, not a redesign: the tool surface, both authz axes, the authority modes, the audit shape, and the memory-wall rule are identical.
+
+### 2.4 Transport
+
+MCP **Streamable HTTP** on `POST /mcp` (the current remote-server transport that claude.ai custom connectors and Claude Desktop speak; SSE is superseded). The connector is a JSON-RPC MCP server exposing `tools/list`, `tools/call`, and `resources/*`. In Phase-1 console hosting, TLS is terminated at the Worker edge and the surface is served from the public ss-console origin; in the on-Machine sidecar, TLS is terminated at the Fly edge and the gate binds `0.0.0.0`, reachable through the Fly proxy.
+
+### 2.5 Reconciliation with isolation ADRs
+
+- **[ADR 0007](../../adr/0007-per-customer-machine-isolation.md) (per-customer Machine).** One MCP surface serves exactly one client org, scoped to that customer's state. In the on-Machine sidecar the boundary is physical (single-tenant Machine, bound only to that customer's D1/R2/volume). In Phase-1 console hosting the boundary is the existing fleet boundary the runtime-read seam already enforces (per-customer HMAC keys) plus audience-bound tokens (§2.2); there is no multi-tenant routing, shared registry, or cross-customer join in either case.
+- **[ADR 0010](../../adr/0010-per-customer-oauth-token-storage.md) (OAuth tokens on volume).** The inbound user→Operator credentials live separately from the Operator→vendor tokens at `/opt/data/oauth/`. In console hosting the inbound credential is the user's Clerk session and the audience-bound access token, managed by the console; in the on-Machine sidecar the inbound token store lives at `/opt/data/mcp-clients/` (`0600`, `hermes`-owned, never logged). The connector is an OAuth Resource Server for inbound users in either case; it never exposes the Operator's own vendor tokens.
+- **[ADR 0043](../../adr/0043-operator-runtime-read-path.md) (runtime-read).** The connector follows the posture the runtime seam established: thin, authenticated, scoped to one customer, audited. Phase-1 console hosting reuses the seam directly to serve reads; the sidecar follows the same posture against the Machine's own stores.
 
 ---
 
@@ -157,20 +178,23 @@ So we guide rather than guess in the room:
 
 ### 5.1 Roles (per MCP authorization spec, 2025-11-25)
 
-A protected MCP server is an **OAuth 2.1 Resource Server**. The MCP client (the user's Claude) is the OAuth client. The authorization server issues tokens and is out of the MCP server's scope. MCP servers **must** implement OAuth 2.0 Protected Resource Metadata (`/.well-known/oauth-protected-resource`) whose `authorization_servers` field names the AS. We use that delegation rather than running a full OAuth Authorization Server on every Machine:
+A protected MCP server is an **OAuth 2.1 Resource Server**. The MCP client (the user's Claude) is the OAuth client. The authorization server issues tokens and is out of the MCP server's scope. MCP servers **must** implement OAuth 2.0 Protected Resource Metadata (`/.well-known/oauth-protected-resource`) whose `authorization_servers` field names the AS. We delegate the AS role to **Clerk** rather than building or maintaining one: the console manages the per-customer Clerk OAuth application and the `users[]` allowlist, but it does **not** implement `authorize` / `token` / JWKS endpoints. Clerk does. Tokens are validated against **Clerk's JWKS**.
 
-| Role                 | Who                                                  | Responsibility                                                                                        |
-| -------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Authorization Server | **SMD console** (`admin.smd.services`, Clerk-backed) | User login, consent, mint access tokens audience-bound to a specific Machine + profile + user         |
-| Resource Server      | **the Machine's `/mcp` endpoint**                    | Validate token, resolve subject → org user + profile + authority mode, enforce both axes, serve tools |
-| Client               | the user's **Claude** (claude.ai / Desktop)          | OAuth 2.1 Authorization Code + PKCE against the console AS                                            |
+| Role                 | Who                                                 | Responsibility                                                                                                                                 |
+| -------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Authorization Server | **Clerk** (per-customer OAuth application)          | Hosts `authorize` / `token` / JWKS; authenticates the user, issues access tokens. We do not build or run an AS.                                |
+| Console              | **SMD console** (`admin.smd.services`, Clerk RP)    | Manages the per-customer Clerk OAuth application and the `customer.yaml.users[]` allowlist; resolves user → profile + authority mode + posture |
+| Resource Server      | **the `/mcp` endpoint** (console-hosted in Phase 1) | Validate token against Clerk's JWKS, resolve subject → org user + profile + authority mode, enforce both axes, serve tools                     |
+| Client               | the user's **Claude** (claude.ai / Desktop)         | OAuth 2.1 Authorization Code + PKCE against the Clerk AS                                                                                       |
+
+Per-customer isolation at the token layer is the **per-customer Clerk OAuth application** (or RFC 8707 audience binding): a token minted for one customer is structurally unusable against another customer's MCP surface.
 
 ### 5.2 Flow
 
-1. User adds the Operator as a custom connector in their Claude, pointing at `https://<machine-host>/mcp`.
-2. Claude fetches `/.well-known/oauth-protected-resource`; it names the console as `authorization_servers[0]`.
-3. Claude runs OAuth 2.1 Authorization Code + PKCE against the console. The console authenticates the user (Clerk identity per the shared-identity model in [00-foundations.md](00-foundations.md)), confirms the user is in this customer's `customer.yaml.users[]`, and mints a token whose claims include: `sub` = user email, `aud` = this Machine's resource id, `profile` = the profile that serves them, `authority_mode` (§4.2), and a `data_posture` claim (§7).
-4. Claude presents the token on every `POST /mcp` call. The Machine validates it (signature against the console JWKS, or introspection) and rejects any token whose `aud` is not this Machine. Short TTL (for example 1 hour) with refresh; tokens are bound to one customer by audience.
+1. User adds the Operator as a custom connector in their Claude, pointing at the customer's `/mcp` endpoint (the console origin in Phase 1, e.g. `https://<console-host>/mcp/<customer>`; the Machine host in the sidecar).
+2. Claude fetches `/.well-known/oauth-protected-resource`; it names the customer's **Clerk** OAuth application as `authorization_servers[0]`.
+3. Claude runs OAuth 2.1 Authorization Code + PKCE against **Clerk**. Clerk authenticates the user (the shared-identity model in [00-foundations.md](00-foundations.md)) and issues an access token whose `aud` is bound to this customer's resource id. The console confirms the user is in this customer's `customer.yaml.users[]` and resolves the `profile`, `authority_mode` (§4.2), and `data_posture` (§7) that serve them.
+4. Claude presents the token on every `POST /mcp` call. The Resource Server validates it against **Clerk's JWKS** and rejects any token whose `aud` is not this customer. Short TTL (for example 1 hour) with refresh; tokens are bound to one customer by audience (per-customer Clerk app or RFC 8707).
 
 ### 5.3 The principal for the reach gate
 
@@ -227,10 +251,12 @@ On that second knob the onus is on us to be **flexible**. Organizations are mid-
 
 This does not contradict [ADR 0035](../../adr/0035-no-imposed-entitlement-defaults.md): fail-closed governs entitled _access and consequential actions_; the surface-destination knob is a data-handling preference, where defaulting open and letting the client tighten is the flexible, correct posture.
 
-| `data_posture`                | Effect                                                                                                                                                             |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `open` (default)              | Entitled data may flow to the user's authenticated Claude, personal or firm-controlled.                                                                            |
-| `firm_only` (client-authored) | Entitled data flows only to an enterprise/team Claude under the org's terms; personal-account tokens get a reduced surface (own handoffs + non-privileged status). |
+| `data_posture`                | Effect                                                                                                                                                                                                                                                                      |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `open` (default)              | Entitled data may flow to the user's authenticated Claude, personal or firm-controlled. **Privileged-class content** (matter documents, work product) crossing into a **personal** Claude account requires an explicit recorded firm consent even under `open` (see below). |
+| `firm_only` (client-authored) | Entitled data flows only to an enterprise/team Claude under the org's terms; personal-account tokens get a reduced surface (own handoffs + non-privileged status).                                                                                                          |
+
+**The privileged-into-personal carve-out.** Even under `open`, releasing **privileged-class** content (matter documents, work product) into a **personal** Claude account is a firm professional-responsibility decision, not a default the engineering layer should make silently. So `open` permits non-privileged entitled data to flow freely, but privileged-class content crossing into a personal account requires an **explicit recorded firm consent** on file. This is enforced **where document-surfacing tools land** (`operator_list_documents` / `operator_surface_document`, §6); since no document tools ship in Phase 1, the enforcement point is **deferred** to when those tools land, and the carve-out is recorded here so it is built in, not retrofitted. The distinction is content **class** (privileged vs. not) crossed with account **type** (personal vs. firm-controlled), independent of the broader `open`/`firm_only` knob.
 
 **The conversation we surface, not force.** For regulated clients (the legal pilot included) we _offer_ the `firm_only` posture and name the privilege/retention trade-off: releasing privileged work product into a personal AI account, outside the firm's control and retention terms, can carry waiver and confidentiality risk. The connector itself logs **digests only**, never content (§8); content that crosses into the user's Claude is governed by that account's terms, which is exactly why the knob exists. The client decides; the design enforces whatever they choose.
 
@@ -285,22 +311,23 @@ The pilot exercises none of the multi-user machinery, but the design is **settle
 
 ### 9.3 Risks
 
-| Risk                                                                           | Mitigation                                                                                                                                                                      |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Confused deputy** (authorizing on the agent, not the human/authority)        | Reach gate authorizes against the authority the profile's mode names; both identities audited (§5.3, §8).                                                                       |
-| **Cross-principal memory leak** (systems gate data, not the Operator's memory) | The wall sets the profile boundary: walled principals get separate profiles/brains (§4.3).                                                                                      |
-| **Reach over-grant**                                                           | Default is delegate-to-system; authored map is fail-closed and human-reviewed; never widened by the connector (§4.2).                                                           |
-| **Privilege/retention exposure via personal account**                          | Client-authored `firm_only` posture offered and explained; connector logs digests only (§7.2, §8).                                                                              |
-| **Token theft / replay**                                                       | Audience-bound to one Machine, short TTL + refresh, validated against console JWKS, refusals audited (§5).                                                                      |
-| **Untrusted MCP client** (the user's Claude is a client we do not control)     | Inbound stamped `known_external`; handoff payload quarantine-wrapped and taints the session; taint-gate blocks autonomous sensitive actions (§6.1).                             |
-| **Delegation not supported by a system**                                       | Named upfront (§4.5): fall back to authored map, or decline multi-walled-principal service through that system.                                                                 |
-| **Availability**                                                               | Machine down = endpoint down, no cross-customer fallback (correct per [ADR 0007](../../adr/0007-per-customer-machine-isolation.md)). Co-located with the gate, tini-supervised. |
+| Risk                                                                           | Mitigation                                                                                                                                                                                                                                                                                                                |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Confused deputy** (authorizing on the agent, not the human/authority)        | Reach gate authorizes against the authority the profile's mode names; both identities audited (§5.3, §8).                                                                                                                                                                                                                 |
+| **Cross-principal memory leak** (systems gate data, not the Operator's memory) | The wall sets the profile boundary: walled principals get separate profiles/brains (§4.3).                                                                                                                                                                                                                                |
+| **Reach over-grant**                                                           | Default is delegate-to-system; authored map is fail-closed and human-reviewed; never widened by the connector (§4.2).                                                                                                                                                                                                     |
+| **Privilege/retention exposure via personal account**                          | Client-authored `firm_only` posture offered and explained; connector logs digests only (§7.2, §8).                                                                                                                                                                                                                        |
+| **Token theft / replay**                                                       | Audience-bound to one customer (per-customer Clerk app / RFC 8707), short TTL + refresh, validated against Clerk's JWKS, refusals audited (§5).                                                                                                                                                                           |
+| **Cross-customer isolation in shared host** (Phase-1 console hosting)          | Isolation enforced in console code over the existing fleet boundary (per-customer HMAC seam), not a new data path; per-customer Clerk apps + audience-bound tokens; durable sidecar restores physical single-tenancy when warranted (§2.3).                                                                               |
+| **Untrusted MCP client** (the user's Claude is a client we do not control)     | Inbound stamped `known_external`; handoff payload quarantine-wrapped and taints the session; taint-gate blocks autonomous sensitive actions (§6.1).                                                                                                                                                                       |
+| **Delegation not supported by a system**                                       | Named upfront (§4.5): fall back to authored map, or decline multi-walled-principal service through that system.                                                                                                                                                                                                           |
+| **Availability**                                                               | Console hosting: the surface rides the already-public console; a Machine being down degrades reads, not the endpoint. Sidecar hosting: Machine down = endpoint down, no cross-customer fallback (correct per [ADR 0007](../../adr/0007-per-customer-machine-isolation.md)), co-located with the gate and tini-supervised. |
 
 ---
 
 ## 10. Open questions for Captain
 
-1. **Authorization Server placement.** Design puts the AS at the SMD console (reuse Clerk). Confirm, versus a minimal AS per Machine (more isolation, more surface).
+1. **Authorization Server placement. Resolved: Clerk.** We do not build or maintain an AS. The AS is **Clerk** (per-customer OAuth application); the console manages the Clerk app and the `users[]` allowlist but never implements `authorize` / `token` / JWKS (§5). Phase-1 hosting of the Resource Server is the ss-console Worker, with the on-Machine sidecar as the durable alternative (§2).
 2. **Maintained context bundles (§3).** Confirm the build order: ship retrieval-by-scope (mirror) for the pilot, treat Operator-maintained/proposed bundles as a later opt-in upgrade.
 3. **MVP write boundary.** Recommendation is Phase 1 = pure read/surface, handoff in Phase 2. Confirm, or fold handoff into MVP since "accept hand-offs" is in the objective.
 4. **New `customer.yaml` blocks.** This introduces at least `mcp_connector` (enable/port/profile binding), an `authority_mode` per profile, an authored `access_map` fallback, and `data_posture`. All must be registered in `operator/contracts/customer-yaml-blocks.yaml` (CI fails on an unclassified block) and given materializers in `translate.py` before authoring. Flagged for the implementation track, not built here.
@@ -309,4 +336,4 @@ The pilot exercises none of the multi-user machinery, but the design is **settle
 
 ## 11. Out of scope
 
-Implementation; the system-of-record connector track (`mcp:clio` / `mcp:smokeball` / etc.); any drafting or send capability beyond surfacing; the console-side Authorization Server build; the per-profile multi-user access materializers (seated here, built when a multi-user client lands); the admin/client portal surface for issuing and revoking connector access (a natural follow-on to [01-admin-portal.md](01-admin-portal.md) / [02-client-portal.md](02-client-portal.md)).
+Implementation; the system-of-record connector track (`mcp:clio` / `mcp:smokeball` / etc.); any drafting or send capability beyond surfacing; the Clerk OAuth-application setup and console-side allowlist wiring (configuration, not an Authorization Server build — we do not build an AS, §5); the on-Machine sidecar hosting build (durable alternative, §2.3); the per-profile multi-user access materializers (seated here, built when a multi-user client lands); the admin/client portal surface for issuing and revoking connector access (a natural follow-on to [01-admin-portal.md](01-admin-portal.md) / [02-client-portal.md](02-client-portal.md)).
