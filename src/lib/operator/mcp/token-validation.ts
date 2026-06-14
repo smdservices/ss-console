@@ -7,34 +7,48 @@
  * from Astro-on-Cloudflare-Workers. BUT the underlying verification primitive,
  * `verifyToken` from `@clerk/backend`, is runtime-agnostic (web-crypto, no Node
  * APIs — it is the same primitive `@clerk/astro` uses) and runs natively on CF
- * Workers. It fetches + caches the instance JWKS, checks the RS256 signature,
- * and validates `iss` / `aud` / `azp` for us. So we ADAPT (`verifyToken`) for
- * the JWT layer rather than hand-rolling JWKS + web-crypto.
+ * Workers. It fetches + caches the JWKS from the token issuer and checks the
+ * RS256 signature for us. So we ADAPT (`verifyToken`) for the JWT layer rather
+ * than hand-rolling JWKS + web-crypto.
  *
- * What this module adds on top of `verifyToken`:
- *   1. Per-customer issuer pin (`iss` MUST equal the customer's Clerk issuer).
- *   2. Per-customer audience/authorized-party binding (cross-tenant isolation:
- *      customer B's token must NOT validate against customer A — build-plan A1
- *      negative test).
- *   3. Identity → `access[]` mapping (the authored email → profile seam from
- *      C1). A Clerk-valid token whose identity is not an authored access entry
- *      is REJECTED (fail-closed).
+ * SECURITY ORDERING (from the console-hosting review — one console validates
+ * tokens for ALL customers, so cross-tenant isolation is enforced HERE):
  *
- * Fail-closed everywhere: any throw, any missing claim, any unmatched identity
- * resolves to a typed failure, never a silent pass.
+ *   1. Verify the SIGNATURE first (against the token's own issuer JWKS). This
+ *      yields trusted claims; nothing downstream trusts an unverified field.
+ *   2. DERIVE THE CUSTOMER FROM THE VERIFIED `aud` (RFC 8707), else the
+ *      per-customer `iss`. A valid-but-wrong-`aud` token matches NO customer and
+ *      401s HERE — before any per-user authorization or data access. The customer
+ *      is NEVER taken from a URL path or request body (invariant 1); the caller
+ *      passes only the verified claims, and resolution happens off them. This is
+ *      the single highest-leverage gate: cross-customer isolation rests on it.
+ *   3. Enforce the customer's binding on the verified claims: `iss` pin, `azp`
+ *      (authorized-party) pin, connector enabled.
+ *   4. Map the identity (`email`) → the customer's authored `access[]` (the
+ *      per-user authorization WITHIN the resolved customer). Unauthored ⇒ reject.
+ *
+ * Fail-closed everywhere: any throw, any missing claim, any unmatched customer or
+ * identity resolves to a typed failure, never a silent pass.
  */
 
 import { verifyToken } from '@clerk/backend'
 import type { McpConnectorAccess } from '../customer-yaml/types'
-import type { ResolvedMcpCustomer } from './customer-resolution'
+import {
+  resolveCustomerFromClaims,
+  type CustomerIdentityClaims,
+  type ResolvedMcpCustomer,
+} from './customer-resolution'
 
 /**
- * Outcome of validating one bearer token against one customer. A discriminated
- * union so callers cannot accidentally treat a failure as a success.
+ * Outcome of validating one bearer token. A discriminated union so callers
+ * cannot accidentally treat a failure as a success. On success it carries the
+ * token-DERIVED customer (never path-derived) so the caller never re-resolves.
  */
 export type McpAuthResult =
   | {
       ok: true
+      /** The customer this token was issued for, derived from verified claims. */
+      customer: ResolvedMcpCustomer
       /** Clerk user id (`sub`) — the stable subject for audit rows. */
       subject: string
       /** Authored email this token mapped to (from `access[]`). */
@@ -47,9 +61,10 @@ export type McpAuthResult =
       /** Machine-readable reason; surfaced as `MCP_AUTH` audit decision. */
       reason:
         | 'missing_token'
-        | 'customer_not_configured'
+        | 'signature_invalid'
+        | 'wrong_audience'
+        | 'binding_mismatch'
         | 'connector_disabled'
-        | 'signature_or_claims_invalid'
         | 'identity_not_authored'
       /** Human-readable detail for logs (never returned to the client verbatim). */
       detail: string
@@ -71,13 +86,27 @@ export function extractBearerToken(authorizationHeader: string | null): string |
 /**
  * The subset of the verified Clerk JWT payload we read. Kept local + permissive
  * because the OAuth access-token claim set depends on granted scopes; we read
- * `sub` (always present) and `email` (present when the `email` scope is granted,
- * which the setup guide requires).
+ * `sub` (always present), `email` (present when the `email` scope is granted —
+ * the setup guide requires it), and the identity claims `aud`/`iss`/`azp`.
  */
 interface VerifiedClaims {
   sub?: unknown
   email?: unknown
   iss?: unknown
+  aud?: unknown
+  azp?: unknown
+}
+
+/** Narrow the permissive verified payload to the customer-identity claim shape. */
+function toIdentityClaims(claims: VerifiedClaims): CustomerIdentityClaims {
+  const aud =
+    typeof claims.aud === 'string'
+      ? claims.aud
+      : Array.isArray(claims.aud) && claims.aud.every((a) => typeof a === 'string')
+        ? claims.aud
+        : undefined
+  const iss = typeof claims.iss === 'string' ? claims.iss : undefined
+  return { aud, iss }
 }
 
 /**
@@ -105,107 +134,106 @@ function matchAuthoredAccess(
 }
 
 /**
- * The pre-flight gates that don't require the token signature: token present,
- * customer configured + enabled, issuer provisioned. Returns a failure result
- * to short-circuit, or `null` to proceed to signature verification.
+ * Verify ONLY the token signature (and standard exp/nbf) against the token's own
+ * issuer JWKS. We do NOT pass `audience`/`authorizedParties` here: the customer —
+ * and therefore the expected aud/azp — is not known until AFTER we have trusted
+ * claims to derive it from. The per-customer aud/iss/azp checks run explicitly in
+ * `validateMcpToken` once the customer is resolved. Returns verified claims or a
+ * failure.
  */
-function preflightFailure(
-  token: string | null,
-  customer: ResolvedMcpCustomer | null
-): Extract<McpAuthResult, { ok: false }> | null {
-  if (!token) return { ok: false, reason: 'missing_token', detail: 'no bearer token' }
-  if (!customer) {
-    return { ok: false, reason: 'customer_not_configured', detail: 'unknown resource' }
-  }
-  if (!customer.connector.enabled) {
-    return { ok: false, reason: 'connector_disabled', detail: 'mcp_connector disabled' }
-  }
-  if (!customer.clerk.issuer) {
-    // Spike stub ships with an empty issuer until the Captain provisions the
-    // Clerk app. No issuer ⇒ we cannot pin `iss` ⇒ refuse rather than trust.
-    return { ok: false, reason: 'customer_not_configured', detail: 'clerk issuer not provisioned' }
-  }
-  return null
-}
-
-/**
- * Verify the token signature + claims against the customer's Clerk binding.
- * `verifyToken` fetches + caches the JWKS from the issuer, verifies the RS256
- * signature, and enforces audience / authorizedParties when supplied. Returns
- * the verified claims, or a failure result.
- */
-async function verifyClaims(
-  token: string,
-  customer: ResolvedMcpCustomer
+async function verifySignature(
+  token: string
 ): Promise<VerifiedClaims | Extract<McpAuthResult, { ok: false }>> {
   try {
-    // No `secretKey`: signature verification is JWKS-based (public-key), which is
-    // all an OAuth resource server needs. The JWKS is discovered from the token
-    // issuer. (The live slice may pass the per-customer `secretKey` if a
-    // Backend-API `sub`→email lookup is wired; not needed for the spike.)
-    return await verifyToken(token, {
-      authorizedParties:
-        customer.clerk.authorizedParties.length > 0 ? customer.clerk.authorizedParties : undefined,
-      audience: customer.clerk.audience ?? undefined,
-    })
+    // No `secretKey`: JWKS (public-key) verification is all an OAuth resource
+    // server needs; the JWKS is discovered + cached from the token's `iss`.
+    return await verifyToken(token, {})
   } catch (err) {
     return {
       ok: false,
-      reason: 'signature_or_claims_invalid',
+      reason: 'signature_invalid',
       detail: err instanceof Error ? err.message : 'verifyToken threw',
     }
   }
 }
 
 /**
- * Validate one bearer token against one resolved customer. Fail-closed.
- *
- * Order of checks (each fails closed):
- *   1. token present
- *   2. customer configured + connector enabled
- *   3. Clerk issuer pinned (no issuer ⇒ refuse; the spike stub ships empty)
- *   4. signature + `aud`/`azp` via `verifyToken`, then `iss` pinned per-customer
- *   5. identity (email) matches an authored `access[]` entry
+ * Enforce the resolved customer's Clerk binding on the verified claims:
+ *   - `iss` MUST equal the customer's issuer (defense in depth — the customer was
+ *     already derived from a verified claim, but we re-pin so a future multi-issuer
+ *     registry cannot drift).
+ *   - `azp` (authorized party) MUST be in the customer's allowlist when one is set.
+ *   - the connector MUST be enabled.
+ * Returns a failure, or null to proceed.
  */
-export async function validateMcpToken(
-  token: string | null,
-  customer: ResolvedMcpCustomer | null
-): Promise<McpAuthResult> {
-  const preflight = preflightFailure(token, customer)
-  if (preflight) return preflight
-  // Both non-null after preflight.
-  const safeCustomer = customer as ResolvedMcpCustomer
-  const safeToken = token as string
-
-  const claimsOrFail = await verifyClaims(safeToken, safeCustomer)
-  if ('ok' in claimsOrFail) return claimsOrFail
-  const claims = claimsOrFail
-
-  // Pin the issuer per-customer (cross-tenant isolation). `verifyToken` checks
-  // the signature against the discovered JWKS; we additionally require the
-  // issuer to be exactly this customer's.
+function enforceBinding(
+  claims: VerifiedClaims,
+  customer: ResolvedMcpCustomer
+): Extract<McpAuthResult, { ok: false }> | null {
   const iss = typeof claims.iss === 'string' ? claims.iss : null
-  if (!iss || iss !== safeCustomer.clerk.issuer) {
+  if (!iss || iss !== customer.clerk.issuer) {
+    return { ok: false, reason: 'binding_mismatch', detail: `iss mismatch (got ${iss ?? 'none'})` }
+  }
+  const allowed = customer.clerk.authorizedParties
+  if (allowed.length > 0) {
+    const azp = typeof claims.azp === 'string' ? claims.azp : null
+    if (!azp || !allowed.includes(azp)) {
+      return {
+        ok: false,
+        reason: 'binding_mismatch',
+        detail: `azp not authorized (got ${azp ?? 'none'})`,
+      }
+    }
+  }
+  if (!customer.connector.enabled) {
+    return { ok: false, reason: 'connector_disabled', detail: 'mcp_connector disabled' }
+  }
+  return null
+}
+
+/**
+ * Validate one bearer token. Fail-closed, security-ordered (see module header):
+ * signature → customer-from-`aud` → binding pin → per-user `access[]`.
+ *
+ * The customer is the RESULT of validation, not an input — it is derived from the
+ * verified token, never from the request path/body (invariant 1). A token whose
+ * `aud` matches no customer here is rejected (`wrong_audience`) before any data
+ * access (invariant 2).
+ */
+export async function validateMcpToken(token: string | null): Promise<McpAuthResult> {
+  if (!token) return { ok: false, reason: 'missing_token', detail: 'no bearer token' }
+
+  // 1. Signature first — establishes trusted claims.
+  const verified = await verifySignature(token)
+  if ('ok' in verified) return verified
+  const claims = verified
+
+  // 2. Derive the customer FROM the verified claims (aud-first; iss fallback).
+  //    This is the cross-tenant gate: a valid-but-wrong-aud token matches no
+  //    customer and is rejected here, before any per-user authz or data access.
+  const customer = resolveCustomerFromClaims(toIdentityClaims(claims))
+  if (!customer) {
     return {
       ok: false,
-      reason: 'signature_or_claims_invalid',
-      detail: `iss mismatch (got ${iss ?? 'none'})`,
+      reason: 'wrong_audience',
+      detail: 'token aud/iss matches no configured customer',
     }
   }
 
+  // 3. Enforce the resolved customer's binding on the verified claims.
+  const bindingFailure = enforceBinding(claims, customer)
+  if (bindingFailure) return bindingFailure
+
+  // 4. Per-user authorization WITHIN the resolved customer.
   const subject = typeof claims.sub === 'string' ? claims.sub : null
   if (!subject) {
-    return { ok: false, reason: 'signature_or_claims_invalid', detail: 'no sub claim' }
+    return { ok: false, reason: 'signature_invalid', detail: 'no sub claim' }
   }
   const email = typeof claims.email === 'string' ? claims.email : null
-
-  const authored = matchAuthoredAccess(email, safeCustomer.connector.access)
+  const authored = matchAuthoredAccess(email, customer.connector.access)
   if (!authored) {
-    // Clerk-valid but not an authored user (or no email in token). Fail-closed:
-    // a valid token is necessary but NOT sufficient — the email must be authored
-    // in `access[]`. This is also where customer B's valid token (wrong customer
-    // entirely) lands if it somehow reached customer A's resource: its email is
-    // not in A's `access[]`.
+    // Clerk-valid, right customer, but not an authored user (or no email claim).
+    // Fail-closed: a valid token is necessary but NOT sufficient.
     return {
       ok: false,
       reason: 'identity_not_authored',
@@ -213,5 +241,5 @@ export async function validateMcpToken(
     }
   }
 
-  return { ok: true, subject, email: authored.email, profile: authored.profile }
+  return { ok: true, customer, subject, email: authored.email, profile: authored.profile }
 }

@@ -12,7 +12,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { extractBearerToken, validateMcpToken } from '../src/lib/operator/mcp/token-validation'
-import type { ResolvedMcpCustomer } from '../src/lib/operator/mcp/customer-resolution'
+import { resolveCustomerFromClaims } from '../src/lib/operator/mcp/customer-resolution'
 import { dispatchMcpRequest, parseMcpBody } from '../src/lib/operator/mcp/mcp-handler'
 import type { McpToolContext } from '../src/lib/operator/mcp/tools'
 
@@ -21,15 +21,6 @@ const CTX: McpToolContext = {
   subject: 'user_123',
   email: 'pilot@example.com',
   profile: 'marcus',
-}
-
-function customer(overrides: Partial<ResolvedMcpCustomer> = {}): ResolvedMcpCustomer {
-  return {
-    customerId: 'smd',
-    connector: { enabled: true, data_posture: 'open', access: [] },
-    clerk: { issuer: 'https://clerk.example.com', audience: null, authorizedParties: [] },
-    ...overrides,
-  }
 }
 
 describe('extractBearerToken', () => {
@@ -47,43 +38,53 @@ describe('extractBearerToken', () => {
   })
 })
 
-describe('validateMcpToken — fail-closed pre-signature gates', () => {
+describe('validateMcpToken — token gates (no live Clerk app)', () => {
   it('rejects when no token is present', async () => {
-    const r = await validateMcpToken(null, customer())
+    const r = await validateMcpToken(null)
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.reason).toBe('missing_token')
   })
 
-  it('rejects when the customer is unknown', async () => {
-    const r = await validateMcpToken('tok', null)
+  it('rejects an unverifiable token at the signature gate (FIRST gate)', async () => {
+    // A garbage token cannot pass @clerk/backend verifyToken (no real JWKS).
+    // Signature is verified BEFORE any customer resolution or data access, so a
+    // forged token never reaches the aud/customer logic. Exercises the
+    // security-ordered fail-closed branch end to end.
+    const r = await validateMcpToken('not.a.real.jwt')
     expect(r.ok).toBe(false)
-    if (!r.ok) expect(r.reason).toBe('customer_not_configured')
+    if (!r.ok) expect(r.reason).toBe('signature_invalid')
+  })
+})
+
+/**
+ * SECURITY INVARIANTS (console-hosting review). The customer is DERIVED from the
+ * verified token's aud/iss — never a path/body. resolveCustomerFromClaims is the
+ * cross-tenant gate; these test it directly with already-"verified" claim shapes
+ * (the function is only ever called post-signature-verification in production).
+ */
+describe('resolveCustomerFromClaims — customer derives from verified claims', () => {
+  it('returns null when claims match no registered customer (wrong-aud rejection)', () => {
+    // The spike pilot ships with empty issuer/audience, so NOTHING resolves —
+    // the fail-closed posture until the Captain provisions the Clerk binding.
+    expect(resolveCustomerFromClaims({ aud: 'https://evil.example/api/mcp' })).toBeNull()
+    expect(resolveCustomerFromClaims({ iss: 'https://attacker.clerk.dev' })).toBeNull()
+    expect(resolveCustomerFromClaims({})).toBeNull()
   })
 
-  it('rejects when the connector is disabled (fail-closed default)', async () => {
-    const r = await validateMcpToken(
-      'tok',
-      customer({ connector: { enabled: false, data_posture: 'open', access: [] } })
-    )
-    expect(r.ok).toBe(false)
-    if (!r.ok) expect(r.reason).toBe('connector_disabled')
+  it('does not resolve a customer from an empty/unprovisioned issuer', () => {
+    // Guards against an empty-string issuer matching an empty claim.
+    expect(resolveCustomerFromClaims({ iss: '' })).toBeNull()
   })
+})
 
-  it('rejects when the Clerk issuer is not provisioned (spike stub posture)', async () => {
-    const r = await validateMcpToken(
-      'tok',
-      customer({ clerk: { issuer: '', audience: null, authorizedParties: [] } })
-    )
+describe('validateMcpToken — wrong-aud rejection ordering', () => {
+  it('a syntactically-valid but unverifiable token never selects a customer', async () => {
+    // Even if an attacker crafts a token whose aud names our resource, it fails
+    // at the signature gate first (no valid JWKS signature). The customer is only
+    // derived AFTER verification, so a wrong/forged aud can never reach data.
+    const r = await validateMcpToken('eyJ.forged.aud')
     expect(r.ok).toBe(false)
-    if (!r.ok) expect(r.reason).toBe('customer_not_configured')
-  })
-
-  it('rejects an invalid token signature once the issuer is set', async () => {
-    // A garbage token cannot pass @clerk/backend verifyToken (no real JWKS) —
-    // exercises the signature_or_claims_invalid fail-closed branch end to end.
-    const r = await validateMcpToken('not.a.real.jwt', customer())
-    expect(r.ok).toBe(false)
-    if (!r.ok) expect(r.reason).toBe('signature_or_claims_invalid')
+    if (!r.ok) expect(r.reason).toBe('signature_invalid')
   })
 })
 

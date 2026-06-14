@@ -31,7 +31,7 @@
  */
 
 import type { APIRoute } from 'astro'
-import { resolveMcpCustomer } from '../../lib/operator/mcp/customer-resolution'
+import { isMcpResourcePath, MCP_RESOURCE_PATH } from '../../lib/operator/mcp/customer-resolution'
 import { buildWwwAuthenticate } from '../../lib/operator/mcp/oauth-metadata'
 import {
   extractBearerToken,
@@ -41,7 +41,7 @@ import {
 import { dispatchMcpRequest, parseMcpBody } from '../../lib/operator/mcp/mcp-handler'
 import type { McpToolContext } from '../../lib/operator/mcp/tools'
 
-const RESOURCE_PATH = '/api/mcp'
+const RESOURCE_PATH = MCP_RESOURCE_PATH
 
 const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -81,17 +81,26 @@ function denyFor(originUrl: URL, auth: Extract<McpAuthResult, { ok: false }>): R
 }
 
 export const POST: APIRoute = async ({ request, url }) => {
-  const customer = resolveMcpCustomer(RESOURCE_PATH)
+  // The endpoint serves ONE fixed resource path. This is an UNTRUSTED existence
+  // check only — it does NOT select the customer (invariant 1). The customer is
+  // derived from the verified token inside validateMcpToken. If a future routing
+  // shape carries a slug, compare it to `auth.customer.customerId` and reject a
+  // mismatch; never let the path choose the customer.
+  if (!isMcpResourcePath(url.pathname)) {
+    return jsonWithCors({ error: 'not_found' }, 404)
+  }
 
-  // --- Auth (fail-closed) ---
+  // --- Auth (fail-closed, security-ordered) ---
+  // validateMcpToken: verify signature → derive customer from verified aud/iss →
+  // enforce binding → per-user access[]. A wrong-aud token 401s before any data
+  // access (invariant 2). The customer comes OUT of validation, not in.
   const token = extractBearerToken(request.headers.get('authorization'))
-  const auth = await validateMcpToken(token, customer)
+  const auth = await validateMcpToken(token)
   if (!auth.ok) {
     return denyFor(url, auth)
   }
-  // `customer` is non-null here: a null customer fails validation above.
   const ctx: McpToolContext = {
-    customerId: customer!.customerId,
+    customerId: auth.customer.customerId,
     subject: auth.subject,
     email: auth.email,
     profile: auth.profile,

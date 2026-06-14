@@ -15,7 +15,10 @@
  */
 
 import type { APIRoute } from 'astro'
-import { resolveMcpCustomer } from '../../../lib/operator/mcp/customer-resolution'
+import {
+  discoveryAuthorizationServers,
+  isMcpResourcePath,
+} from '../../../lib/operator/mcp/customer-resolution'
 import { buildProtectedResourceMetadata } from '../../../lib/operator/mcp/oauth-metadata'
 
 const CORS_HEADERS: Record<string, string> = {
@@ -34,7 +37,7 @@ function json(body: unknown, status: number): Response {
 /**
  * Reconstruct the resource path the metadata describes from the rest param.
  * Astro gives `resource` as the captured tail (e.g. `api/mcp`); we re-prefix a
- * leading slash to match the canonical endpoint path used by `resolveMcpCustomer`.
+ * leading slash to match the canonical MCP resource path.
  */
 function resourcePathFromParam(resource: string | undefined): string {
   const tail = (resource ?? '').replace(/^\/+/, '')
@@ -43,15 +46,17 @@ function resourcePathFromParam(resource: string | undefined): string {
 
 export const GET: APIRoute = ({ params, url }) => {
   const resourcePath = resourcePathFromParam(params.resource)
-  const customer = resolveMcpCustomer(resourcePath)
-  if (!customer) {
+  // Public discovery: only confirm the path is the MCP resource. This does NOT
+  // select a customer (that happens at token validation from the verified aud);
+  // the doc just advertises where to authenticate.
+  if (!isMcpResourcePath(resourcePath)) {
     return json({ error: 'unknown_resource' }, 404)
   }
 
   // The canonical resource URL is this origin + the resource path. Must match
   // what the client used for discovery and (when bound) Clerk's `aud`.
   const resourceUrl = new URL(resourcePath, url.origin).toString()
-  const metadata = buildProtectedResourceMetadata(resourceUrl, customer)
+  const metadata = buildProtectedResourceMetadata(resourceUrl, discoveryAuthorizationServers())
   return json(metadata, 200)
 }
 

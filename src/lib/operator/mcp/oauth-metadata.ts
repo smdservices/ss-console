@@ -12,13 +12,14 @@
  * `protectedResourceHandlerClerk` (Next.js/Express-only). The shape is a stable
  * RFC, so the build cost is trivial and keeps us off the Node-bound helpers.
  *
- * Per-customer: `authorization_servers` is the customer's Clerk issuer. With one
- * Clerk OAuth app per customer (the spike's isolation mechanism), each customer’s
- * resource advertises its own AS — so a token minted by customer B’s AS is
- * issued by a different `iss` and fails customer A’s issuer pin.
+ * Per-customer: `authorization_servers` lists the Clerk issuer(s) registered for
+ * this resource. With one Clerk OAuth app per customer (the isolation mechanism),
+ * a token minted by customer B's AS is issued by a different `iss` and is
+ * rejected when validating against customer A — the discovery doc only tells a
+ * client WHERE to authenticate; isolation is enforced at token validation, not
+ * here. This document is PUBLIC and unauthenticated, so it carries no
+ * customer-selecting power.
  */
-
-import type { ResolvedMcpCustomer } from './customer-resolution'
 
 /** RFC 9728 §2 protected-resource-metadata document (subset we emit). */
 export interface ProtectedResourceMetadata {
@@ -33,20 +34,20 @@ export interface ProtectedResourceMetadata {
 }
 
 /**
- * Build the protected-resource metadata for a resolved customer.
- * `resourceUrl` is the absolute URL of the MCP endpoint (e.g.
- * `https://smd.services/api/mcp`) — it MUST match the `resource` the client used
- * for discovery and the `aud` Clerk binds (when it does).
+ * Build the protected-resource metadata for the MCP resource. `resourceUrl` is
+ * the absolute URL of the MCP endpoint (e.g. `https://smd.services/api/mcp`) — it
+ * MUST match the `resource` the client used for discovery and the `aud` Clerk
+ * binds (when it does). `authorizationServers` is the list of issuer URLs
+ * registered for this resource (empty when none provisioned — an honest "no AS
+ * configured" rather than a fabricated one).
  */
 export function buildProtectedResourceMetadata(
   resourceUrl: string,
-  customer: ResolvedMcpCustomer
+  authorizationServers: readonly string[]
 ): ProtectedResourceMetadata {
   return {
     resource: resourceUrl,
-    // When the issuer is not yet provisioned (spike stub), advertise an empty
-    // list — an honest "no AS configured" rather than a fabricated one.
-    authorization_servers: customer.clerk.issuer ? [customer.clerk.issuer] : [],
+    authorization_servers: [...authorizationServers],
     scopes_supported: ['openid', 'profile', 'email'],
     bearer_methods_supported: ['header'],
   }
