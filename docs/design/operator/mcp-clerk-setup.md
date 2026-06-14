@@ -24,9 +24,13 @@ Server (AS)**. The flow:
 3. Claude runs OAuth 2.1 + PKCE against Clerk. The user signs in with their Clerk
    identity. Clerk issues an **OAuth access token** (a signed RS256 JWT).
 4. Claude calls `POST /api/mcp` with `Authorization: Bearer <token>`.
-5. The console verifies the token (signature via Clerk's JWKS, `iss`, `aud`/`azp`)
-   and maps the identity (`email`) to the customer's authored
-   `mcp_connector.access[]` block. No authored entry ⇒ 401 (fail-closed).
+5. The console validates the token, security-ordered: verify signature (Clerk's
+   JWKS) → **derive which customer the token is for from its verified `aud`**
+   (else the per-customer `iss`) → enforce that customer's binding (`iss`/`azp`) →
+   map the identity (`email`) to the customer's authored `mcp_connector.access[]`.
+   The customer is taken from the **token**, never from the URL or body; a token
+   whose `aud` matches no customer 401s before any data access. No authored
+   access entry ⇒ 401 (fail-closed).
 
 **One Clerk OAuth application per customer** is the isolation mechanism for the
 pilot (see §6, the audience open question). Customer B's token is issued by a

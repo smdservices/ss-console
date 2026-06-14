@@ -7,9 +7,12 @@
  *   1. Client discovers the AS via `/.well-known/oauth-protected-resource/api/mcp`.
  *   2. Client runs OAuth 2.1 + PKCE against the customer's Clerk app, returns
  *      with a bearer token.
- *   3. Every POST here carries `Authorization: Bearer <token>`. We validate it
- *      fail-closed (signature + iss + aud/azp via @clerk/backend, then map the
- *      identity to the customer's authored `mcp_connector.access[]`).
+ *   3. Every POST carries `Authorization: Bearer <token>`. validateMcpToken is
+ *      fail-closed and SECURITY-ORDERED: verify signature → DERIVE the customer
+ *      from the verified `aud` (else per-customer `iss`) → enforce the customer's
+ *      binding → map identity to that customer's `mcp_connector.access[]`. The
+ *      customer is NEVER read from the URL path or body; a wrong-`aud` token 401s
+ *      before any data access. (Console-hosting security invariants 1 & 2.)
  *   4. Authenticated → dispatch the JSON-RPC method (initialize/tools.list/
  *      tools.call) and answer with a single application/json response.
  *
