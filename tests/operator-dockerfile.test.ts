@@ -56,17 +56,18 @@ describe('Operator customer Machine Dockerfile', () => {
   })
 
   it('pins the broker-capable overlay revision', () => {
-    // 11bcdc5 is overlay v0.4.24 (v0.4.23 + #73 demo-relay origin recovery): the
-    // router records the recipient-lock origin under the empty dispatch
-    // session_id, which record() dropped, so the relay found no origin and the
-    // governed draft was never sent — #73 adds an address-keyed, injection-safe
-    // recovery path. v0.4.23 (90dd7f7, #72) classifies AgentMail MCP runtime
-    // tool names (P0 — mcp_agentmail_* sends had defaulted to READ). v0.4.22
-    // (8706af4) added #71 gate source-stamp + #57 demo reply relay (fail-closed).
-    // Atop v0.4.21 (e0bc503, #69 calendar-read fences) and the #60–#68 security
-    // wave. v0.4.17 must never be re-pinned (fixed-epoch probe crash-loops the
-    // gate).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="11bcdc502cc34512b6a75ffba8e39bdb449f3339"')
+    // c6ef10d is overlay v0.4.25 (v0.4.24 + #74): THE demo-law fix — AgentMail
+    // delivers over Svix, which carries the event under `type` not the
+    // `event_type` the gate assumed, so the webhook route never matched and the
+    // recipient-lock origin was never recorded → relay never sent. Gate now
+    // stamps event_type from Svix `type`; origin extraction reads the `data`
+    // envelope. v0.4.24 (11bcdc5, #73) added address-keyed origin recovery.
+    // v0.4.23 (90dd7f7, #72) classifies AgentMail MCP runtime tool names (P0 —
+    // mcp_agentmail_* sends had defaulted to READ). v0.4.22 (8706af4) added #71
+    // gate source-stamp + #57 demo reply relay (fail-closed). Atop v0.4.21
+    // (e0bc503, #69 calendar-read fences) and the #60–#68 security wave. v0.4.17
+    // must never be re-pinned (fixed-epoch probe crash-loops the gate).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="c6ef10d3689bd541b2dc82ad87edd726b583b949"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
