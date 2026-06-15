@@ -75,16 +75,18 @@ function resolvePrincipals(
   const usersByEmail = new Map(userRows.map((user) => [user.email.toLowerCase(), user]))
   return connector.access.flatMap((entry) => {
     const user = usersByEmail.get(entry.email.toLowerCase())
-    const clerkUserId = entry.clerk_subject ?? user?.clerk_user_id
-    if (!user || !clerkUserId) return []
-    return [
-      {
-        localUserId: user.id,
-        clerkUserId,
-        email: user.email,
-        profile: entry.profile,
-      },
-    ]
+    if (!user) return []
+    const clerkUserIds = [
+      ...(entry.clerk_subjects ?? []),
+      ...(entry.clerk_subject ? [entry.clerk_subject] : []),
+      ...(entry.clerk_subject || entry.clerk_subjects ? [] : [user.clerk_user_id]),
+    ].filter((subject): subject is string => subject !== null)
+    return [...new Set(clerkUserIds)].map((clerkUserId) => ({
+      localUserId: user.id,
+      clerkUserId,
+      email: user.email,
+      profile: entry.profile,
+    }))
   })
 }
 
