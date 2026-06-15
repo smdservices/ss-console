@@ -54,6 +54,8 @@ async function recordAuth(
     decision,
     reason: auth.ok ? 'authenticated' : auth.reason,
     clerkSubject: auth.ok ? auth.subject : (auth.subject ?? null),
+    tokenAudience:
+      'tokenAudience' in auth && auth.tokenAudience ? JSON.stringify(auth.tokenAudience) : null,
     localUserId: auth.ok ? auth.localUserId : null,
     profile: auth.ok ? auth.profile : null,
     tool: null,
@@ -102,6 +104,7 @@ export async function handleMcpPost(
       decision: 'allow',
       reason: 'dispatched',
       clerkSubject: auth.subject,
+      tokenAudience: JSON.stringify(auth.tokenAudience),
       localUserId: auth.localUserId,
       profile: auth.profile,
       tool,

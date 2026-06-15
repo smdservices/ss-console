@@ -26,6 +26,7 @@ export type McpAuthResult =
       ok: true
       customer: ResolvedMcpCustomer
       subject: string
+      tokenAudience: string[]
       localUserId: string
       email: string
       profile: string
@@ -35,6 +36,7 @@ export type McpAuthResult =
       reason: McpAuthFailureReason
       detail: string
       subject?: string
+      tokenAudience?: string[]
     }
 
 export type McpTokenVerifier = (token: string, customer: ResolvedMcpCustomer) => Promise<unknown>
@@ -63,6 +65,11 @@ function audIncludes(aud: string | string[] | undefined, expected: string): bool
   return Array.isArray(aud) ? aud.includes(expected) : aud === expected
 }
 
+function normalizeAudience(aud: string | string[] | undefined): string[] {
+  if (!aud) return []
+  return Array.isArray(aud) ? aud : [aud]
+}
+
 function validateClaims(
   rawClaims: unknown,
   customer: ResolvedMcpCustomer
@@ -81,6 +88,7 @@ function validateClaims(
       reason: 'wrong_audience',
       detail: claims.aud ? 'token is bound to another resource' : 'token has no audience claim',
       subject: claims.sub,
+      tokenAudience: normalizeAudience(claims.aud),
     }
   }
   if (customer.clerkOrgId && claims.org_id !== customer.clerkOrgId) {
@@ -89,6 +97,7 @@ function validateClaims(
       reason: 'organization_mismatch',
       detail: 'token organization does not match customer',
       subject: claims.sub,
+      tokenAudience: normalizeAudience(claims.aud),
     }
   }
   return claims
@@ -123,6 +132,7 @@ export async function validateMcpToken(
       reason: 'connector_disabled',
       detail: 'mcp_connector is disabled',
       subject: claims.sub,
+      tokenAudience: normalizeAudience(claims.aud),
     }
   }
 
@@ -133,6 +143,7 @@ export async function validateMcpToken(
       reason: 'identity_not_authored',
       detail: 'Clerk subject is not authorized for this Operator',
       subject: claims.sub,
+      tokenAudience: normalizeAudience(claims.aud),
     }
   }
 
@@ -140,6 +151,7 @@ export async function validateMcpToken(
     ok: true,
     customer,
     subject: claims.sub,
+    tokenAudience: normalizeAudience(claims.aud),
     localUserId: principal.localUserId,
     email: principal.email,
     profile: principal.profile,

@@ -10,6 +10,7 @@ export interface McpAuditEvent {
   decision: McpAuditDecision
   reason: string
   clerkSubject: string | null
+  tokenAudience: string | null
   localUserId: string | null
   profile: string | null
   tool: string | null
@@ -20,7 +21,7 @@ export async function recordMcpAudit(db: D1Database, event: McpAuditEvent): Prom
     .prepare(
       'INSERT INTO operator_mcp_audit ' +
         '(entity_id, customer_slug, event_type, decision, reason, clerk_subject, ' +
-        'local_user_id, profile, tool) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        'token_audience, local_user_id, profile, tool) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )
     .bind(
       event.entityId,
@@ -29,6 +30,7 @@ export async function recordMcpAudit(db: D1Database, event: McpAuditEvent): Prom
       event.decision,
       event.reason,
       event.clerkSubject,
+      event.tokenAudience,
       event.localUserId,
       event.profile,
       event.tool

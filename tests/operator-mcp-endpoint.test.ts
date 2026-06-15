@@ -207,6 +207,7 @@ describe('validateMcpToken', () => {
     expect(result).toMatchObject({
       ok: true,
       subject: CLERK_USER_ID,
+      tokenAudience: [RESOURCE_URI],
       localUserId: LOCAL_USER_ID,
       profile: 'crane',
     })
@@ -221,6 +222,19 @@ describe('validateMcpToken', () => {
   ])('rejects %s', async (reason, payload) => {
     const result = await validateMcpToken('token', customerFixture(), claimsVerifier(payload))
     expect(result).toMatchObject({ ok: false, reason })
+  })
+
+  it('returns the verified audience when the resource audience is wrong', async () => {
+    const result = await validateMcpToken(
+      'token',
+      customerFixture(),
+      claimsVerifier(claims({ aud: ['dynamic-client-id', 'secondary-audience'] }))
+    )
+    expect(result).toMatchObject({
+      ok: false,
+      reason: 'wrong_audience',
+      tokenAudience: ['dynamic-client-id', 'secondary-audience'],
+    })
   })
 
   it('requires the exact Clerk organization when the entity is organization-bound', async () => {
@@ -342,7 +356,10 @@ describe('loadMcpCustomer and migration 0072', () => {
     const isolated = createTestD1()
     const migrations = discoverNumericMigrations(migrationsDir)
     await runMigrations(isolated, {
-      files: migrations.filter((file) => !migrationBasename(file).startsWith('0072_')),
+      files: migrations.filter((file) => {
+        const name = migrationBasename(file)
+        return !name.startsWith('0072_') && !name.startsWith('0073_')
+      }),
     })
     await isolated
       .prepare('INSERT INTO entities (id, org_id, name, slug) VALUES (?, ?, ?, ?)')
@@ -354,7 +371,10 @@ describe('loadMcpCustomer and migration 0072', () => {
       .run()
 
     await runMigrations(isolated, {
-      files: migrations.filter((file) => migrationBasename(file).startsWith('0072_')),
+      files: migrations.filter((file) => {
+        const name = migrationBasename(file)
+        return name.startsWith('0072_') || name.startsWith('0073_')
+      }),
     })
 
     const backfilled = await isolated
@@ -412,9 +432,19 @@ describe('MCP route authorization and audit', () => {
     expect(response.status).toBe(401)
     expect(reads).toBe(0)
     const audit = await db
-      .prepare('SELECT decision, reason, tool FROM operator_mcp_audit')
-      .first<{ decision: string; reason: string; tool: string | null }>()
-    expect(audit).toEqual({ decision: 'deny', reason: 'wrong_audience', tool: null })
+      .prepare('SELECT decision, reason, token_audience, tool FROM operator_mcp_audit')
+      .first<{
+        decision: string
+        reason: string
+        token_audience: string | null
+        tool: string | null
+      }>()
+    expect(audit).toEqual({
+      decision: 'deny',
+      reason: 'wrong_audience',
+      token_audience: '["https://wrong.example/mcp"]',
+      tool: null,
+    })
   })
 
   it('serves an authenticated tool call and records auth plus tool audit rows', async () => {
@@ -436,7 +466,7 @@ describe('MCP route authorization and audit', () => {
     expect(response.status).toBe(200)
     const rows = await db
       .prepare(
-        'SELECT event_type, decision, clerk_subject, local_user_id, profile, tool ' +
+        'SELECT event_type, decision, clerk_subject, token_audience, local_user_id, profile, tool ' +
           'FROM operator_mcp_audit ORDER BY id'
       )
       .all<Record<string, unknown>>()
@@ -445,6 +475,7 @@ describe('MCP route authorization and audit', () => {
         event_type: 'auth',
         decision: 'allow',
         clerk_subject: CLERK_USER_ID,
+        token_audience: `["${RESOURCE_URI}"]`,
         local_user_id: LOCAL_USER_ID,
         profile: 'crane',
         tool: null,
@@ -453,6 +484,7 @@ describe('MCP route authorization and audit', () => {
         event_type: 'tool_call',
         decision: 'allow',
         clerk_subject: CLERK_USER_ID,
+        token_audience: `["${RESOURCE_URI}"]`,
         local_user_id: LOCAL_USER_ID,
         profile: 'crane',
         tool: 'operator_status',
