@@ -48,6 +48,11 @@ import {
 } from '../../lib/operator/mcp/token-validation'
 import { dispatchMcpRequest, parseMcpBody } from '../../lib/operator/mcp/mcp-handler'
 import type { McpToolContext } from '../../lib/operator/mcp/tools'
+import { readMachineRuntime } from '../../lib/operator/runtime-read'
+import {
+  createMachineRuntimeTransport,
+  createRuntimeReadAudit,
+} from '../../lib/operator/runtime-read-transport'
 
 const RESOURCE_PATH = MCP_RESOURCE_PATH
 
@@ -110,11 +115,23 @@ export const POST: APIRoute = async ({ request, url }) => {
   if (!auth.ok) {
     return denyFor(url, auth)
   }
+  // Build a runtime-read capability already scoped to THIS customer + actor:
+  // one customer per call (the isolation guarantee), read-only, and audited
+  // (operator_runtime_read_audit). readMachineRuntime is fail-closed — an
+  // unreachable/unconfigured Machine yields an empty result with a reason, never
+  // a throw. Tool handlers get this capability and cannot widen its scope.
+  const transport = createMachineRuntimeTransport(env)
+  const readAudit = createRuntimeReadAudit(env.DB, { actorUserId: auth.subject })
   const ctx: McpToolContext = {
     customerId: auth.customer.customerId,
     subject: auth.subject,
     email: auth.email,
     profile: auth.profile,
+    readRuntime: (query) =>
+      readMachineRuntime({ transport, audit: readAudit }, auth.customer.customerId, query, {
+        actor: auth.subject,
+        actorRole: 'mcp_client',
+      }),
   }
 
   // --- Parse JSON-RPC body ---
