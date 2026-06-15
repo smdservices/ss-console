@@ -49,6 +49,15 @@ declare namespace Cloudflare {
      * portal via a Cloudflare-managed public URL). See wrangler.toml.
      */
     CONSULTANT_PHOTOS: R2Bucket
+    /**
+     * R2 bucket holding per-customer Operator config (customer.yaml) + voice
+     * vaults. Source of truth for live reconfiguration: the console apply path
+     * writes the live config to `vaults/<slug>/customer.yaml` and a byte
+     * snapshot to `customers/<slug>/history/<digest>.yaml`; the on-Machine root
+     * applier pulls the live key. Same bucket the provisioning scripts use
+     * (R2_BUCKET_CONFIG, default `smd-customer-config`). See wrangler.toml.
+     */
+    CUSTOMER_CONFIG: R2Bucket
     SESSIONS: KVNamespace
     BOOKING_CACHE: KVNamespace
     /**
