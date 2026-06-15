@@ -22,10 +22,10 @@ expected_behavior:
 
 ## Input — matter + rules (canned)
 
-- `get_matter(5003)` → { practice_area: "small-business", responsible_attorney_id: 12, conflict_state: "clear" }
-- `list_users()` → attorney 12 = "A. Patel"
+- `get_matter("a1b2c3d4-5003-4eee-aaaa-000000000003")` → { matterTypeId: "small-business", status: "Open", personResponsibleStaffId: "5ee10000-0012-4aaa-bbbb-000000000012", conflict_state: "clear" }
+- `get_staff("5ee10000-0012-4aaa-bbbb-000000000012")` → { id: "5ee10000-…", name: "A. Patel" }
 - firm rules: consult length small-business = 30 min; business hours Mon–Fri 09:00–17:00; buffer 15 min
-- `list_calendar_entries(this week)` → **Tue 10:00–11:00 already booked** (existing entry); Tue 11:30+ free; Wed free
+- `list_calendar_entries(this week)` (via calendar binding) → **Tue 10:00–11:00 already booked** (existing entry); Tue 11:30+ free; Wed free
 
 ## Grader notes
 

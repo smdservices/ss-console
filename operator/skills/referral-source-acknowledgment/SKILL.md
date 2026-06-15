@@ -17,7 +17,7 @@ metadata:
     trust_ceiling: draft_for_review
     action_class: read + external_send
     connectors:
-      - clio # PracticeManagement — matter → referral source contact (read)
+      - smokeball # PracticeManagement — matter → referral source contact (read)
       - email # customer-bound — the drafted thank-you (send is draft-for-review)
 ---
 
@@ -35,7 +35,7 @@ Runs event-driven (a new matter is opened with a referral source recorded) and s
 
 ## Prerequisites
 
-Reads Clio (`get_matter` / `get_contact`) to identify the referral source on a new matter, and the customer-bound **Email** connector to draft the thank-you. Requires `python3` for the fetch block. The draft is **never sent autonomously**.
+Reads Smokeball (`get_matter` / `get_contact`) to identify the referral source on a new matter, and the customer-bound **Email** connector to draft the thank-you. Requires `python3` for the fetch block. The draft is **never sent autonomously**.
 
 ## How to Run
 
@@ -56,7 +56,7 @@ Enumerate recent matters carrying a recorded referral source. For each, resolve 
 
 Per `references/algorithm.md` and `references/voice.md`:
 
-1. **Confirm the referral source** — a real, resolved Clio contact marked as the matter's referral source. An unrecorded or unresolved source is surfaced for a human, never guessed.
+1. **Confirm the referral source** — a real, resolved Smokeball contact marked as the matter's referral source. An unrecorded or unresolved source is surfaced for a human, never guessed.
 2. **Apply the confidentiality gate.** Default: acknowledge the referral generally ("thank you for thinking of us / sending someone our way") **without** naming the client or describing the matter. Only if the firm has authored explicit permission to share detail with this source does the draft reference specifics.
 3. **Draft in the firm's voice** (`voice.md`) — brief, warm, genuine; a real thank-you, not a templated form-letter.
 4. **Surface for review.** The draft is surfaced; a human reviews and sends under their own identity. No autonomous send.
@@ -65,15 +65,15 @@ Per `references/algorithm.md` and `references/voice.md`:
 
 **Read + draft autonomous; send is draft-for-review (`draft_for_review`, non-raisable).**
 
-The agent MAY: read the matter's referral source from Clio; draft a confidentiality-respecting thank-you; surface it for review.
+The agent MAY: read the matter's referral source from Smokeball; draft a confidentiality-respecting thank-you; surface it for review.
 
-The agent MUST NOT: send autonomously; disclose the client's identity or matter detail to the referral source without authored permission; invent a referral link that isn't recorded in Clio; thank the wrong person.
+The agent MUST NOT: send autonomously; disclose the client's identity or matter detail to the referral source without authored permission; invent a referral link that isn't recorded in Smokeball; thank the wrong person.
 
 ## Safety invariants (any violation → `fails`, no recovery)
 
 1. **Confidentiality first.** No client identity or matter detail goes to a referral source absent the firm's authored permission. When in doubt, acknowledge generally.
 2. **External-send draft floor.** No autonomous send; the thank-you ships under a human's identity.
-3. **No fabricated referral.** The source is acknowledged only when Clio records the referral link; an unresolved source is surfaced, not assumed.
+3. **No fabricated referral.** The source is acknowledged only when Smokeball records the referral link; an unresolved source is surfaced, not assumed.
 4. **Right recipient.** The thank-you goes to the resolved referral source, never to the client or another party.
 5. **Privilege.** The matter detail used to identify the source stays internal and out of the outbound text by default.
 
@@ -83,7 +83,7 @@ Naming the client or the matter to the referrer out of friendliness (the central
 
 ## Verification
 
-1. The referral source is a resolved Clio contact marked as the matter's referrer; unresolved sources are surfaced, not guessed.
+1. The referral source is a resolved Smokeball contact marked as the matter's referrer; unresolved sources are surfaced, not guessed.
 2. No client identity or matter detail appears in the draft unless the firm authored permission to share it.
 3. The recipient is the referral source, not the client or another party.
 4. The draft is surfaced for review; no autonomous send.

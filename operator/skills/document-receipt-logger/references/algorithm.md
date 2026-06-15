@@ -9,8 +9,8 @@ The skill touches attachment **metadata** (filename, MIME type, size) and never 
 ## Sender → matter resolution
 
 ```
-candidates = list_matters( contact_id from search_contacts(sender) )
-+ any matter reference parsed from the subject line (display_number)
+candidates = list_matters( contactId from get_contacts(sender) )
++ any matter reference parsed from the subject line (number)
 resolve:
   exactly one confident match  -> proceed
   multiple / weak / none       -> surface for human assignment (do NOT guess)
@@ -29,11 +29,11 @@ The category names _where it goes_, not _what it legally is_. "Signed-docs" is a
 
 ## Receipt entry (the draft)
 
-A Clio note containing receipt facts only:
+A Smokeball memo (`create_memo`) containing receipt facts only:
 
 ```
 Received: <filename> (<type>) on <date> from <sender name / address>
-Matter: <display_number>
+Matter: <number or title>
 Filed to: <proposed location>
 ```
 
@@ -41,7 +41,7 @@ No summary, no terms, no "this appears to be …". If the human wants the docume
 
 ## Fail-closed this phase
 
-Resolution, proposal, and the receipt draft are autonomous. The **file move** (DocumentStorage write) and the **receipt note commit** (Clio write) are gated behind human review in the current phase per `operator/verticals/law-firm/wedge.md` write posture. Nothing is filed or committed without a person confirming the matter and location.
+Resolution, proposal, and the receipt draft are autonomous. The **file move** (DocumentStorage write) and the **receipt memo commit** (Smokeball `create_memo` write) are gated behind human review in the current phase per `operator/verticals/law-firm/wedge.md` write posture. Nothing is filed or committed without a person confirming the matter and location.
 
 ## Never destructive
 

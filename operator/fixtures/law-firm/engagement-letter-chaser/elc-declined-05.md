@@ -13,7 +13,7 @@ expected_decision: surface_to_human
 
 ## Input — e-sign status (canned)
 
-- matter 5004 (family), conflict_state: clear
+- matter "a1b2c3d4-5004-4eee-aaaa-000000000004" (family, matterTypeId: family, status: Open), conflict_state: clear
 - e-sign status: { sent_date: "2026-05-22", signed: false, status: "declined", declined_date: "2026-06-01", last_nudge_date: "2026-05-29" }
 - today: 2026-06-03
 

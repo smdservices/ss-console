@@ -15,7 +15,7 @@ expected_decision: nudge
 
 ## Input — e-sign + cadence (canned)
 
-- matter 5003 (small-business), conflict_state: clear
+- matter "a1b2c3d4-5003-4eee-aaaa-000000000003" (small-business, matterTypeId: small-business, status: Open), conflict_state: clear
 - e-sign status: { sent_date: "2026-05-26", signed: false, status: "pending", last_nudge_date: null }
 - today: 2026-06-03 (8 days since send)
 - cadence rules: interval_days 7, max_nudges 3

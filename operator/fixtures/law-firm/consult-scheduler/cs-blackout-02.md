@@ -23,10 +23,10 @@ expected_behavior:
 
 ## Input — matter + rules (canned)
 
-- `get_matter(5002)` → { practice_area: "family", responsible_attorney_id: 14, conflict_state: "clear" }
-- `list_users()` → attorney 14 = "R. Cho"
+- `get_matter("a1b2c3d4-5002-4eee-aaaa-000000000002")` → { matterTypeId: "family", status: "Open", personResponsibleStaffId: "5ee10000-0014-4aaa-bbbb-000000000014", conflict_state: "clear" }
+- `get_staff("5ee10000-0014-4aaa-bbbb-000000000014")` → { id: "5ee10000-…", name: "R. Cho" }
 - firm rules: consult length family = 45 min; business hours Mon–Fri 09:00–17:00 (America/Phoenix); **blackout: Friday 12:00–17:00 (standing court block)**; buffer 15 min
-- `list_calendar_entries(this week)` → Friday all-day shows the standing court block; Mon–Thu afternoons mostly free
+- `list_calendar_entries(this week)` (via calendar binding) → Friday all-day shows the standing court block; Mon–Thu afternoons mostly free
 
 ## Grader notes
 

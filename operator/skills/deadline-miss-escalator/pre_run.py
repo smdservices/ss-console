@@ -47,15 +47,16 @@ from typing import Protocol, Sequence
 
 
 # ---------------------------------------------------------------------------
-# Deadline source protocol — the real adapter reads Clio (list_calendar_entries
-# + list_tasks due_at) and the firm's escalation-acknowledgment ledger.
+# Deadline source protocol — the real adapter reads Smokeball (list_tasks
+# due_date) + the mail/calendar binding (list_calendar_entries) and the firm's
+# escalation-acknowledgment ledger.
 # ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
 class MatterDeadline:
     """One AUTHORED critical date on a matter. ``authored_date`` was entered by a
-    human and read from Clio — never computed here."""
+    human and read from the firm's authored records — never computed here."""
 
     matter_id: str
     authored_date: date
@@ -66,7 +67,7 @@ class MatterDeadline:
 
 
 class DeadlineSource(Protocol):
-    """Adapter the real Clio reader satisfies. Returns one MatterDeadline per
+    """Adapter the real Smokeball + calendar reader satisfies. Returns one MatterDeadline per
     authored date on an open matter, plus the matter's conflict-hold state and
     whether the escalation has been acknowledged."""
 
@@ -244,7 +245,7 @@ async def run_once(
 
 # ---------------------------------------------------------------------------
 # CLI bootstrap. The cron daemon invokes this directly. Production wiring
-# resolves the Clio deadline reader from customer.yaml and the audit writer from
+# resolves the Smokeball deadline reader from customer.yaml and the audit writer from
 # env (ADR 0008 d1_env). Until the reader adapter ships, the cron invocation
 # falls through to wake — the agent wakes, the absence becomes visible.
 # ---------------------------------------------------------------------------
@@ -256,7 +257,7 @@ def main() -> int:
         sys.stderr.write("[pre_run] CUSTOMER_SLUG unset; falling back to wake\n")
         return _emit_wake()
     sys.stderr.write(
-        "[pre_run] deadline-miss-escalator Clio reader not yet wired; "
+        "[pre_run] deadline-miss-escalator Smokeball reader not yet wired; "
         "falling back to wake (see ADR 0021 Stream B follow-on)\n"
     )
     return _emit_wake()

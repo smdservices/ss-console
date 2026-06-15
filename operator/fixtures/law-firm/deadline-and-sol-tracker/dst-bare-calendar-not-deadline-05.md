@@ -16,9 +16,9 @@ expected_output_classification: plain-calendar
 
 Firm windows: near_window 7 days, scan_window 30 days.
 
-- `list_matters()` → [{ id: 7040, client: "The Okonkwo Trust", practice_area: "estate-planning", conflict_state: "clear" }]
+- `list_matters()` → [{ id: "7c040000-7040-4740-9d40-estateplan007040", number: "7040", status: "Open", client: "The Okonkwo Trust", practice_area: "estate-planning", conflict_state: "clear" }]
 - matter 7040 dates:
-  - `list_calendar_entries(7040)` → [
+  - `list_calendar_entries("7c040000-7040-4740-9d40-estateplan007040")` (calendar binding) → [
     { title: "Deadline to file objection", date: "2026-06-11", authored_label: "filing-deadline" },
     { title: "Internal file review", date: "2026-06-13", authored_label: null } ]
 

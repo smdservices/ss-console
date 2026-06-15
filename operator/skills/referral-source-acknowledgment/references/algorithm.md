@@ -5,7 +5,7 @@ Source of truth for thanking the referrer without breaching client confidentiali
 ## Referral-source resolution
 
 ```
-src = matter.referral_source (a Clio contact reference)
+src = matter.referral_source (a Smokeball contact reference)
 if not src or not resolvable:
     surface "referral source not recorded — human to confirm"   # never guess a referrer
 contact = get_contact(src.id)   # name + contact channel

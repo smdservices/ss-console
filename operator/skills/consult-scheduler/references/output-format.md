@@ -29,7 +29,7 @@ _Client preference:_ <stated preference> — <honored / nearest valid alternativ
 
 > <plain-text confirmation, per voice.md — scheduling only>
 
-## Internal log (create_note body)
+## Internal log (create_memo body)
 
 > Consult proposed for matter <id>; <N> rule-valid times offered; confirmation drafted; calendar write surfaced for confirm.
 ```

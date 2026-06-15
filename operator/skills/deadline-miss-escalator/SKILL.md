@@ -18,7 +18,7 @@ metadata:
     action_class: read + internal_write
     cron: true
     connectors:
-      - clio # PracticeManagement — list_calendar_entries / list_tasks (read) for authored dates
+      - smokeball # PracticeManagement — list_tasks (read, due_date) for authored task deadlines; appointment dates via the mail/calendar binding
 ---
 
 # Deadline Miss Escalator
@@ -36,14 +36,14 @@ Runs **scheduled** (Hermes no-agent cron, ADR 0021 Stream B). A `pre_run.py` pol
 Three rungs, chosen by proximity (arithmetic on authored dates only). All rungs are **internal** — nothing client- or tribunal-bound is ever sent.
 
 1. **Re-surface** (outer window) — refresh the date on the firm-internal surface with an elevated flag, so it stands out from the standing tracker view.
-2. **Re-route** (near window) — flag the matter to the responsible humans on the internal surface. v1 routes to the firm's authored `escalation.red_flag_recipients`; per-matter responsible-attorney routing is a connector follow-on (Clio `get_matter` does not return the responsible attorney — `clio-surface.md` finding 2).
+2. **Re-route** (near window) — flag the matter to the responsible humans on the internal surface. Smokeball returns the responsible attorney directly (`personResponsibleStaffId`, resolved via `get_staff`), so re-route can target the matter's responsible attorney; it falls back to the firm's authored `escalation.red_flag_recipients` when no responsible attorney is set.
 3. **Notify** (within the notify window, or overdue) — deliver an alert to the named human via the firm's existing `escalation.red_flag_recipients` channel, emitting an `ESCALATION_FIRED` audit row. The human acknowledges with `ESCALATION_ACKNOWLEDGED`, which closes the ladder for that deadline (it stops re-firing). This is an **internal alert to a person inside the firm**, not a client message — there is no external send.
 
 **Held matters** route to **clearance**, not the ladder: a matter on CONFLICT-HOLD with an approaching date is surfaced for human clearance and never gets a client-facing step.
 
 ## Prerequisites
 
-Reads Clio (`list_calendar_entries`, `list_tasks` `due_at`) for authored dates and the firm's escalation-acknowledgment state. `python3` for the `pre_run.py` and fetch block. Internal output + the existing red-flag alert channel only. No write to funds, matters, or dates; no external send.
+Reads Smokeball (`list_tasks` `due_date`) for authored task deadlines and the mail/calendar binding (`list_calendar_entries`) for appointment-style court/hearing dates, plus the firm's escalation-acknowledgment state. `python3` for the `pre_run.py` and fetch block. Internal output + the existing red-flag alert channel only. No write to funds, matters, or dates; no external send.
 
 ## Procedure
 

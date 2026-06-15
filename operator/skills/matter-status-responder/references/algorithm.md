@@ -9,7 +9,7 @@ Source of truth for a safe, factual status reply.
 
 ## Read
 
-`get_matter` (stage, responsible attorney); `list_tasks` (open/next tasks + due dates); `list_calendar_entries` (upcoming events); recent notes via the matter. Build a factual picture: **current stage, most recent activity, next step on file.**
+`get_matter` (stage, plus the responsible attorney from **`personResponsibleStaffId`**, resolved via `get_staff`); `list_tasks` (open/next tasks + `due_date`) from Smokeball; `list_calendar_entries` (upcoming appointments) via the **mail/calendar binding** (Google/M365), not the Smokeball PM connector; recent notes/memos via the matter. Build a factual picture: **current stage, most recent activity, next step on file.**
 
 ## Compose
 

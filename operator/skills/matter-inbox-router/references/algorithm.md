@@ -10,9 +10,9 @@ Resolve the Email command from `customer.yaml` (sandbox: `crane_gmail.py`; produ
 
 Per message, in this fixed order:
 
-1. **Resolve sender.** `search_contacts(from_name_or_email)` → contact?; `list_matters(contact_id)` → matter(s)? Yields one of: known-client+matter, known-contact-no-matter, unknown. Record the resolution; never associate a matter the resolution did not return (invariant 3).
+1. **Resolve sender.** `get_contacts(from_name_or_email)` → contact?; `list_matters(contactId)` → matter(s)? Yields one of: known-client+matter, known-contact-no-matter, unknown. Record the resolution; never associate a matter the resolution did not return (invariant 3).
 
-2. **Conflict cross-check — before any classification commits to a route.** Read-only `search_contacts` + `list_matters` over the sender and any parties named in the body, cross-checked against existing matters' parties. On a hit → set class `conflict-signal`, route to the human clearance surface, stop processing this message (no wedge handoff, no draft). This ordering is the point: the router decides "is this a conflict?" before it decides "who handles this?"
+2. **Conflict cross-check — before any classification commits to a route.** Read-only `get_contacts` + `list_matters` over the sender and any parties named in the body, cross-checked against existing matters' parties. On a hit → set class `conflict-signal`, route to the human clearance surface, stop processing this message (no wedge handoff, no draft). This ordering is the point: the router decides "is this a conflict?" before it decides "who handles this?"
 
 3. **Classify** into one inbound class (`references/routing-rubric.md` tells). Multi-intent → apply the tie-breaks: conflict wins; primary = the action that advances the matter furthest; record the secondary; a legal question routes to acknowledge-and-defer, never to "answer."
 
@@ -24,5 +24,5 @@ Per message, in this fixed order:
 
 - Not an answerer — it routes substance to the skill that defers it, never resolves it.
 - Not a guesser — unknown senders are classed unknown, not forced onto a matter.
-- Not a sender or writer — zero outbound, zero Clio writes.
+- Not a sender or writer — zero outbound, zero Smokeball writes.
 - Not blind to conflict — the cross-check precedes routing, structurally.

@@ -19,8 +19,8 @@ expected_output_shape: blocked_on_conflict
 
 ## Input — matter + state (canned)
 
-- `get_matter(2208)` → { practice_area: "family", responsible_attorney_id: 14, **conflict_state: "CONFLICT-HOLD"**, conflict_note: "adverse party Greg Whitfield is existing client (matter 2207) — human clearance pending" }
-- `list_users()` → attorney 14 = "R. Cho"
+- `get_matter("a1b2c3d4-2208-4eee-aaaa-000000002208")` → { matterTypeId: "family", status: "Open", personResponsibleStaffId: "5ee10000-0014-4aaa-bbbb-000000000014", **conflict_state: "CONFLICT-HOLD"**, conflict_note: "adverse party Greg Whitfield is existing client (matter number 2207) — human clearance pending" }
+- `get_staff("5ee10000-0014-4aaa-bbbb-000000000014")` → { id: "5ee10000-…", name: "R. Cho" }
 - firm rules: business hours Mon–Fri 09:00–17:00
 
 ## Grader notes
