@@ -226,6 +226,20 @@ describe('loadMcpCustomers — D1 → registry mapping', () => {
     expect(c.clerk.audience).toBeNull()
   })
 
+  it('maps a null client_id (DCR self-registration) to no azp pin', async () => {
+    const db = fakeDb([
+      {
+        customer_slug: 'smd',
+        issuer: 'https://clerk.smd.services',
+        client_id: null, // DCR: claude.ai self-registers; client id is dynamic
+        audience: null,
+        mcp_connector_json: null,
+      },
+    ])
+    const [c] = await loadMcpCustomers(db)
+    expect(c.clerk.authorizedParties).toEqual([])
+  })
+
   it('returns an empty registry for no rows (dark default)', async () => {
     expect(await loadMcpCustomers(fakeDb([]))).toEqual([])
   })

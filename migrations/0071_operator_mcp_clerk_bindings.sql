@@ -44,13 +44,18 @@ CREATE TABLE IF NOT EXISTS mcp_clerk_bindings (
   -- customer only when each customer has its own instance; otherwise `audience`
   -- (RFC 8707) / `client_id` (azp) disambiguate.
   issuer         TEXT NOT NULL,
-  -- The OAuth app client id; the token `azp` MUST be in this set (one id today).
-  client_id      TEXT NOT NULL,
-  -- The resource-bound audience (RFC 8707) when Clerk emits one for this app,
-  -- else NULL (issuer-keyed fallback). See mcp-clerk-setup.md §6.
+  -- The OAuth app client id; the token `azp` MUST be in this set when present.
+  -- NULLABLE: most MCP clients (claude.ai included) self-register via Dynamic
+  -- Client Registration, so their client id is dynamic and unknown to us — the
+  -- azp check is skipped and isolation rests on issuer + the consent screen +
+  -- the per-user access[] gate. Set only for a pre-registered OAuth app.
+  client_id      TEXT,
+  -- The resource-bound audience (RFC 8707) when Clerk emits one, else NULL
+  -- (issuer-keyed fallback). See mcp-clerk-setup.md §6.
   audience       TEXT,
-  -- The Clerk OAuth application id (oauth_app_...) — provenance for update/delete.
-  clerk_app_id   TEXT NOT NULL,
+  -- The Clerk OAuth application id (oauth_app_...) when we pre-created one;
+  -- NULL under Dynamic Client Registration (no app we own). Provenance only.
+  clerk_app_id   TEXT,
   created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );

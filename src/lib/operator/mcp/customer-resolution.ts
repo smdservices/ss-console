@@ -90,7 +90,8 @@ export interface CustomerIdentityClaims {
 interface McpBindingRow {
   customer_slug: string
   issuer: string
-  client_id: string
+  /** Null under Dynamic Client Registration (dynamic client id) ⇒ azp skipped. */
+  client_id: string | null
   audience: string | null
   mcp_connector_json: string | null
 }
