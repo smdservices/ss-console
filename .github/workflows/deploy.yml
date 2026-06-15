@@ -44,6 +44,15 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy --dry-run
 
+      # Migrations must be backward-compatible with the currently deployed
+      # application. Apply them before publishing code that depends on them.
+      - name: Run D1 migrations
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 migrations apply ss-console-db --remote
+
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v4
         with:
@@ -56,14 +65,6 @@ jobs:
       #   infisical export --env=prod --path=/ss --format=dotenv \
       #     | grep -vE '^(APP_|ADMIN_|PORTAL_|MEETING_|NEW_BUSINESS_|JOB_MONITOR_|REVIEW_MINING_|PUBLIC_)' \
       #     | npx wrangler secret bulk
-
-      - name: Run D1 migrations
-        if: ${{ vars.D1_MIGRATIONS_ENABLED == 'true' }}
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: d1 migrations apply ss-console-db --remote
 
       # The root `wrangler deploy` writes `.wrangler/deploy/config.json`
       # pointing at the adapter-generated `dist/server/wrangler.json`.

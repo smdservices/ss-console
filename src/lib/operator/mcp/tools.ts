@@ -8,7 +8,7 @@
  * `reachable: false` with a reason, never fabricated activity.
  *
  * The read capability is injected via {@link McpToolContext.readRuntime}: the
- * route layer (src/pages/api/mcp.ts) builds a capability already scoped to THIS
+ * route layer builds a capability already scoped to THIS
  * customer + actor (one customer per call, audited), so a tool handler cannot
  * express a cross-customer read. Tools stay free of env/db wiring.
  *

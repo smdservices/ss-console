@@ -1,183 +1,141 @@
-# Clerk setup for the Operator ⇄ Claude MCP connector (Captain runbook)
+# Clerk setup for the Operator MCP connector
 
-**Status:** live (DCR model). This guide is what stands up the connector for a
-customer end-to-end: a real `claude.ai` connector add → OAuth → authed
-`tools/call`. The console code (`src/lib/operator/mcp/`) is DB-backed and the
-data plane (migration 0071) is deployed; what remains is a Clerk instance
-setting (one toggle) plus recording the customer's issuer, both covered below.
+**Status:** activation-gated. The console is deployed as a strict OAuth Resource
+Server, but a customer remains dark until Clerk issues an access token bound to
+that customer's canonical MCP resource.
 
-Audience: the Captain (Scott). Mechanical. Where a value must be copied into
-config, the field name is in **bold** and the destination is named.
+## Responsibility split
 
-> **Why DCR, not a pre-created OAuth app.** Clerk's own docs: _"For most client
-> implementations of MCP, dynamic client registration is required."_ claude.ai
-> self-registers its OAuth client during the flow — so we do **not** pre-create a
-> per-customer OAuth app or manage a client id / secret. We enable **Dynamic
-> Client Registration (DCR)** on the customer's Clerk instance and record only
-> the instance **issuer**. Isolation rests on the per-customer issuer pin +
-> Clerk's auto-enforced consent screen + the authored `mcp_connector.access[]`
-> per-user gate.
+- **Clerk authenticates.** It runs OAuth Authorization Code + PKCE, obtains user
+  consent, and issues the access token.
+- **Operator authorizes.** The console validates the exact issuer and resource,
+  maps the Clerk `sub` to `users.clerk_user_id`, applies the authored
+  `mcp_connector.access[]` profile binding, and then applies Operator tool and
+  action-class policy.
+- **No fallback exists.** An issuer-valid token without the exact resource
+  audience is rejected. Email is authoring and display metadata, not the runtime
+  principal.
 
----
+For SMD, the canonical resource is:
 
-## 0. Background: what Clerk is doing here
-
-The console is an **OAuth 2.1 Resource Server**. Clerk is the **Authorization
-Server (AS)**. The flow:
-
-1. A client org's Claude (claude.ai custom connector / Claude Desktop) is pointed
-   at our MCP endpoint: `https://smd.services/api/mcp`.
-2. Claude fetches `https://smd.services/.well-known/oauth-protected-resource/api/mcp`
-   (RFC 9728). That document names the customer's Clerk instance as the AS.
-3. Claude **dynamically registers** itself with Clerk (RFC 7591 DCR), then runs
-   OAuth 2.1 + PKCE. The user signs in with their Clerk identity and approves the
-   **consent screen** (auto-enforced whenever DCR is on). Clerk issues an **OAuth
-   access token** (a signed RS256 JWT).
-4. Claude calls `POST /api/mcp` with `Authorization: Bearer <token>`.
-5. The console validates the token, security-ordered: verify signature (Clerk's
-   JWKS) → **derive which customer the token is for from its verified `aud`**
-   (else the per-customer `iss`) → enforce that customer's binding (issuer pin) →
-   map the identity (`email`) to the customer's authored `mcp_connector.access[]`.
-   The customer is taken from the **token**, never from the URL or body; a token
-   whose claims match no customer 401s before any data access. No authored access
-   entry ⇒ 401 (fail-closed).
-
-**Isolation under DCR.** With DCR, the OAuth client id (`azp`) is dynamic and
-unknown to us, so it is **not** pinned. The cross-tenant wall is: (a) the
-per-customer **issuer** — a token from customer B's Clerk instance has a
-different `iss` and resolves to a different (or no) customer; (b) Clerk's
-**consent screen**; and (c) the authored **`access[]`** email gate — only
-authored emails with a valid identity in that instance pass.
-
----
-
-## 1. Pick the Clerk instance
-
-For the SMD dogfood (customer-zero, `smd`), the connector uses **SMD's existing
-Clerk instance** — `https://clerk.smd.services` — the same instance that backs
-admin/portal login. Scott already has an identity there.
-
-- For a real external client later, the recommended pattern is a **separate Clerk
-  instance per client org** (clean issuer isolation, and the DCR registration
-  surface is scoped away from any production auth instance). The dogfood reuses
-  SMD's instance deliberately, accepting that DCR opens a public client-
-  registration endpoint on it (mitigated by the consent screen + `access[]`).
-
-Dashboard home: **https://dashboard.clerk.com**
-
----
-
-## 2. Enable Dynamic Client Registration (the one toggle)
-
-This is the single manual Clerk-side setup step.
-
-1. In the Clerk Dashboard, open the OAuth applications page:
-   **https://dashboard.clerk.com/~/oauth-applications**
-   (Or: left sidebar → **Configure** → **OAuth applications**.)
-2. Enable **Dynamic client registration**.
-3. Note: enabling DCR **auto-enforces the OAuth consent screen** (Clerk does this
-   to prevent CSRF; it cannot be disabled while DCR is on). That is the desired
-   posture.
-
-**Verify it took.** Re-fetch the instance's discovery document and confirm a
-`registration_endpoint` now appears (it is absent when DCR is off):
-
-```bash
-curl -s https://clerk.smd.services/.well-known/openid-configuration \
-  | python3 -c "import sys,json;print(json.load(sys.stdin).get('registration_endpoint','(none — DCR still off)'))"
+```text
+https://smd.services/api/operator/smd/mcp
 ```
 
-> Confirm the token's scopes include `email`. SMD's instance already advertises
-> `email` in `scopes_supported`; the console maps the token's `email` claim to
-> `mcp_connector.access[]`, so without it every call 401s.
+Its protected-resource metadata is:
 
----
+```text
+https://smd.services/.well-known/oauth-protected-resource/api/operator/smd/mcp
+```
 
-## 3. Record the customer's issuer in the binding (agent-run)
+## 1. Clerk instance and client registration
 
-No OAuth app to create, no client id/secret to copy. The only per-customer Clerk
-fact the console needs is the **issuer**, written to the `mcp_clerk_bindings`
-table (migration 0071) keyed on the customer's `entity_id`:
+SMD customer-zero uses `https://clerk.smd.services`.
 
-| Field           | Value (SMD)                                            |
-| --------------- | ------------------------------------------------------ |
-| `entity_id`     | `f03ffe58-db0d-47bb-a409-922a7ee62ea7`                 |
-| `customer_slug` | `smd`                                                  |
-| `issuer`        | `https://clerk.smd.services` (from §2's discovery doc) |
-| `client_id`     | `NULL` (DCR — dynamic)                                 |
-| `audience`      | `NULL` (until §5 confirms RFC 8707; see below)         |
-| `clerk_app_id`  | `NULL` (no app we own)                                 |
+Claude clients commonly require Dynamic Client Registration (DCR). Enable DCR
+only if the target Claude client cannot use a pre-registered public client.
+Clerk warns that DCR exposes an unauthenticated client-registration endpoint, so
+the consent screen must remain enabled and registrations must be monitored.
 
-The agent writes this row with a `wrangler d1 execute --remote` UPSERT (see
-`docs/design/operator/03-mcp-server-exposure.md` and the provisioning notes).
-Once the row exists, the public discovery doc the console serves advertises
-`authorization_servers: ["https://clerk.smd.services"]`.
+Verify Clerk metadata before testing:
 
----
+```bash
+curl -s https://clerk.smd.services/.well-known/oauth-authorization-server
+```
 
-## 4. Author the `mcp_connector` block (agent-run)
+Required capabilities:
 
-In `operator/customers/<slug>/customer.yaml`, author the connector + the per-user
-`access[]`. For SMD:
+- Authorization Code and refresh-token grants
+- Public-client token authentication (`none`)
+- PKCE `S256`
+- A client-registration mechanism Claude supports
+- JWT access tokens signed by the advertised JWKS
+
+Request `openid profile email user:org:read` when Organizations are enabled.
+`user:org:read` lets the user select an Organization and causes Clerk to include
+`org_id` in the token.
+
+## 2. Provision the customer binding
+
+Migration 0072 requires one canonical resource URI per customer:
+
+| Field           | SMD value                                       |
+| --------------- | ----------------------------------------------- |
+| `entity_id`     | `f03ffe58-db0d-47bb-a409-922a7ee62ea7`          |
+| `customer_slug` | `smd`                                           |
+| `issuer`        | `https://clerk.smd.services`                    |
+| `resource_uri`  | `https://smd.services/api/operator/smd/mcp`     |
+| `client_id`     | Optional provenance for a pre-registered client |
+| `clerk_app_id`  | Optional provenance for a Clerk-managed app     |
+
+`resource_uri` is mandatory. `client_id` does not replace audience validation.
+
+## 3. Provision the stable principal
+
+The authored connector remains readable:
 
 ```yaml
 mcp_connector:
   enabled: true
   data_posture: open
   access:
-    - email: scott@smd.services # MUST match a users[] email AND the Clerk identity email
+    - email: scott@smd.services
       profile: crane
 ```
 
-Then the projection (`scripts/project-customer-config.ts` →
-`wrangler d1 execute --remote`) writes `customer_configs.mcp_connector_json`.
-Until both the binding row (§3) and this projection exist, the endpoint stays
-**dark** — every token 401s.
+The email must resolve to a local `users` row for the same customer. That row
+must have `users.clerk_user_id` populated with the exact Clerk user ID expected
+in the token `sub`. If it is null, the connector fails closed.
 
-> **Email match is the one gotcha.** `access[].email` must equal the email on the
-> user's Clerk identity (the OAuth token's `email` claim), case-insensitive. If
-> Scott's `clerk.smd.services` login uses a different email than
-> `scott@smd.services`, add that email to BOTH `users[]` and `access[]` and
-> re-project — otherwise the per-user check fail-closes with `identity_not_authored`.
+When `entities.clerk_org_id` is populated, the token must also carry that exact
+`org_id`. When the entity has no Clerk Organization, issuer + audience + subject
+remain mandatory.
 
----
+## 4. Deploy and activate
 
-## 5. Add the connector in Claude + answer the audience question
+Migration 0072 is an expand migration. It backfills `resource_uri`, enforces it
+for future writes, and preserves the legacy columns until a later contract
+migration. The production workflow applies D1 migrations before publishing the
+application that depends on them.
 
-The irreducible Captain step (your account, your consent — cannot be automated):
+Keep the connector dark until the Clerk token contract passes the checks below.
 
-1. In claude.ai, add a custom connector pointed at `https://smd.services/api/mcp`.
-2. Claude discovers the AS, dynamically registers, and shows Clerk's sign-in +
-   consent screen. Sign in as Scott and approve.
-3. Confirm one authed `tools/list` and one `operator_status` `tools/call` return
-   real data (the Operator's recent activity).
+Add the custom connector in Claude using:
 
-**Then answer the RFC 8707 audience question** (the one thing only a real token
-can settle). Decode the issued access token (paste into https://jwt.io or read it
-from the console logs) and look at `aud`:
+```text
+https://smd.services/api/operator/smd/mcp
+```
 
-- **If `aud` equals `https://smd.services/api/mcp`** (our resource URL): Clerk
-  binds a per-resource audience. Set `mcp_clerk_bindings.audience` to that exact
-  string for the customer — best-in-class, spec-compliant mis-redemption
-  protection layered on top of the issuer pin.
-- **If `aud` is absent or generic**: leave `audience = NULL` and rely on the
-  issuer pin + consent screen + `access[]` (already enforced unconditionally).
+Complete Clerk sign-in and consent, then verify:
 
-> **Audience binding status:** _TBD — confirm against a real token on first connect._
+1. The token `iss` is exactly `https://clerk.smd.services`.
+2. The token `aud` contains
+   `https://smd.services/api/operator/smd/mcp`.
+3. The token `sub` equals Scott's provisioned `users.clerk_user_id`.
+4. If SMD has `entities.clerk_org_id`, the token `org_id` matches it.
+5. `tools/list` succeeds.
+6. `operator_status` returns live customer-zero data.
+7. A token for another resource returns 401 before any runtime read.
 
-Either way the console is safe: the issuer pin + `access[]` gate are enforced
-unconditionally, and the audience check layers on top when available.
+If Clerk does not issue the exact resource audience, stop. File the OAuth trace
+and event IDs with Clerk support. Do not set a null audience, accept issuer-only
+tokens, or build a local Authorization Server.
 
----
+## Cleanup
 
-## Reference
+- Remove the localhost test redirect URI after controlled testing.
+- Delete the incorrectly named `CLERK_SECRET_KEY` OAuth-client secret from
+  Infisical. The MCP Resource Server needs no OAuth client secret.
+- Keep the legacy `https://smd.services/api/mcp` connector removed. It returns
+  410 and is not an alias for customer-zero.
 
-- Clerk — how Clerk implements OAuth (DCR):
-  https://clerk.com/docs/guides/configure/auth-strategies/oauth/how-clerk-implements-oauth
-- Clerk — connect an MCP client (DCR requirement):
+## References
+
+- Clerk MCP client guide:
   https://clerk.com/docs/guides/ai/mcp/connect-mcp-client
-- RFC 9728 (Protected Resource Metadata): https://datatracker.ietf.org/doc/html/rfc9728
-- RFC 7591 (Dynamic Client Registration): https://www.rfc-editor.org/rfc/rfc7591
-- RFC 8707 (Resource Indicators): https://www.rfc-editor.org/rfc/rfc8707.html
-- MCP authorization spec:
+- Clerk OAuth implementation:
+  https://clerk.com/docs/guides/configure/auth-strategies/oauth/how-clerk-implements-oauth
+- MCP authorization specification:
   https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization
+- RFC 9728: https://datatracker.ietf.org/doc/html/rfc9728
+- RFC 8707: https://www.rfc-editor.org/rfc/rfc8707.html

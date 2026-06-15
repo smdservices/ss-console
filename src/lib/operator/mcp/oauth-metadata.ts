@@ -35,7 +35,8 @@ export interface ProtectedResourceMetadata {
 
 /**
  * Build the protected-resource metadata for the MCP resource. `resourceUrl` is
- * the absolute URL of the MCP endpoint (e.g. `https://smd.services/api/mcp`) — it
+ * the absolute customer resource URL (for example,
+ * `https://smd.services/api/operator/smd/mcp`) — it
  * MUST match the `resource` the client used for discovery and the `aud` Clerk
  * binds (when it does). `authorizationServers` is the list of issuer URLs
  * registered for this resource (empty when none provisioned — an honest "no AS
@@ -43,12 +44,13 @@ export interface ProtectedResourceMetadata {
  */
 export function buildProtectedResourceMetadata(
   resourceUrl: string,
-  authorizationServers: readonly string[]
+  authorizationServers: readonly string[],
+  requireOrganization = false
 ): ProtectedResourceMetadata {
   return {
     resource: resourceUrl,
     authorization_servers: [...authorizationServers],
-    scopes_supported: ['openid', 'profile', 'email'],
+    scopes_supported: buildMcpScopes(requireOrganization),
     bearer_methods_supported: ['header'],
   }
 }
@@ -59,6 +61,16 @@ export function buildProtectedResourceMetadata(
  * (re)discover the AS. `resourceMetadataUrl` is the absolute
  * `/.well-known/oauth-protected-resource/...` URL for this resource.
  */
-export function buildWwwAuthenticate(resourceMetadataUrl: string): string {
-  return `Bearer resource_metadata="${resourceMetadataUrl}"`
+export function buildWwwAuthenticate(
+  resourceMetadataUrl: string,
+  requireOrganization = false
+): string {
+  const scope = buildMcpScopes(requireOrganization).join(' ')
+  return `Bearer resource_metadata="${resourceMetadataUrl}", scope="${scope}"`
+}
+
+function buildMcpScopes(requireOrganization: boolean): string[] {
+  const scopes = ['openid', 'profile', 'email']
+  if (requireOrganization) scopes.push('user:org:read')
+  return scopes
 }
