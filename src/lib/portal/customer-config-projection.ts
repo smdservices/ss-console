@@ -92,6 +92,10 @@ export function projectCustomerYamlToConfigRow(
     // authority is always non-null on a validated CustomerYaml; guard anyway.
     authority_json: yaml.authority ? JSON.stringify(yaml.authority) : null,
     credential_custody_default: yaml.credential_custody_default ?? null,
+    // mcp_connector is always present on a validated CustomerYaml (the validator
+    // defaults it to disabled); guard for null anyway, which the read side
+    // resolves to the same fail-closed default via parseMcpConnector.
+    mcp_connector_json: yaml.mcp_connector ? JSON.stringify(yaml.mcp_connector) : null,
     git_sha: ctx.gitSha,
     synced_at: ctx.syncedAt,
   }
@@ -125,6 +129,7 @@ const CONFIG_COLUMNS = [
   'vertical',
   'authority_json',
   'credential_custody_default',
+  'mcp_connector_json',
   'git_sha',
   'synced_at',
 ] as const
@@ -154,6 +159,7 @@ export function buildProjectionSql(row: CustomerConfigDbRow, actor: string): str
     e(row.vertical),
     e(row.authority_json),
     e(row.credential_custody_default),
+    e(row.mcp_connector_json),
     e(row.git_sha),
     e(row.synced_at),
   ]

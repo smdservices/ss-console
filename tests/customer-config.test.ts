@@ -26,6 +26,7 @@ import {
   getActivePersona,
   getLatestSyncMeta,
   listCustomerConfigHistory,
+  parseMcpConnector,
   recordCustomerConfigSync,
   shouldRecordSync,
   type PersonaConfig,
@@ -59,6 +60,8 @@ interface SeedOptions {
   business_hours?: unknown
   connectors?: unknown
   scope?: unknown
+  /** Raw mcp_connector_json column value; undefined ⇒ NULL (fail-closed default). */
+  mcp_connector_json?: string | null
   git_sha?: string
   synced_at?: string
 }
@@ -70,8 +73,8 @@ async function seedConfig(db: D1Database, opts: SeedOptions = {}): Promise<void>
       `INSERT INTO customer_configs
         (entity_id, org_id, customer_slug, schema_version,
          personas_json, voice_library_json, escalation_json, business_hours_json,
-         connectors_json, scope_json, git_sha, synced_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         connectors_json, scope_json, mcp_connector_json, git_sha, synced_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       opts.entity_id ?? ENTITY_ID,
@@ -84,6 +87,7 @@ async function seedConfig(db: D1Database, opts: SeedOptions = {}): Promise<void>
       opts.business_hours === undefined ? null : JSON.stringify(opts.business_hours),
       opts.connectors === undefined ? null : JSON.stringify(opts.connectors),
       opts.scope === undefined ? null : JSON.stringify(opts.scope),
+      opts.mcp_connector_json === undefined ? null : opts.mcp_connector_json,
       opts.git_sha ?? 'a1b2c3d4e5f6',
       opts.synced_at ?? '2026-05-21T12:00:00Z'
     )
@@ -266,6 +270,90 @@ describe('customer_configs schema integrity', () => {
     await expect(
       seedConfig(db, { entity_id: 'entity-other', customer_slug: 'same-slug' })
     ).rejects.toThrow()
+  })
+})
+
+describe('mcp_connector projection column (migration 0071)', () => {
+  let db: D1Database
+
+  beforeEach(async () => {
+    db = await freshDb()
+    await seedEntity(db)
+  })
+
+  it('a NULL mcp_connector_json column reads back as the fail-closed default', async () => {
+    // A row that predates the column, or a customer.yaml with no block.
+    await seedConfig(db) // mcp_connector_json omitted ⇒ NULL
+    const config = await getCustomerConfig(db, ENTITY_ID)
+    expect(config?.mcp_connector.enabled).toBe(false)
+    expect(config?.mcp_connector.access).toEqual([])
+  })
+
+  it('an authored, enabled mcp_connector reads back intact', async () => {
+    await seedConfig(db, {
+      mcp_connector_json: JSON.stringify({
+        enabled: true,
+        data_posture: 'firm_only',
+        access: [{ email: 'owner@firm.com', profile: 'crane' }],
+      }),
+    })
+    const config = await getCustomerConfig(db, ENTITY_ID)
+    expect(config?.mcp_connector.enabled).toBe(true)
+    expect(config?.mcp_connector.data_posture).toBe('firm_only')
+    expect(config?.mcp_connector.access).toEqual([{ email: 'owner@firm.com', profile: 'crane' }])
+  })
+})
+
+describe('parseMcpConnector (fail-closed, defensive)', () => {
+  it('null / undefined ⇒ disabled, empty access', () => {
+    expect(parseMcpConnector(null)).toEqual({ enabled: false, data_posture: 'open', access: [] })
+    expect(parseMcpConnector(undefined)).toEqual({
+      enabled: false,
+      data_posture: 'open',
+      access: [],
+    })
+  })
+
+  it('malformed JSON ⇒ fail-closed (never throws)', () => {
+    expect(parseMcpConnector('{not json')).toEqual({
+      enabled: false,
+      data_posture: 'open',
+      access: [],
+    })
+  })
+
+  it('a non-object value ⇒ fail-closed', () => {
+    expect(parseMcpConnector('"a string"')).toEqual({
+      enabled: false,
+      data_posture: 'open',
+      access: [],
+    })
+    expect(parseMcpConnector('42')).toEqual({ enabled: false, data_posture: 'open', access: [] })
+  })
+
+  it('an unknown data_posture falls back to open; enabled requires literal true', () => {
+    const c = parseMcpConnector(
+      JSON.stringify({ enabled: 'yes', data_posture: 'bogus', access: [] })
+    )
+    expect(c.enabled).toBe(false) // only literal true enables
+    expect(c.data_posture).toBe('open')
+  })
+
+  it('drops malformed access entries, keeps well-formed ones', () => {
+    const c = parseMcpConnector(
+      JSON.stringify({
+        enabled: true,
+        data_posture: 'open',
+        access: [
+          { email: 'good@firm.com', profile: 'crane' },
+          { email: 'no-profile@firm.com' },
+          { profile: 'orphan' },
+          'not-an-object',
+          null,
+        ],
+      })
+    )
+    expect(c.access).toEqual([{ email: 'good@firm.com', profile: 'crane' }])
   })
 })
 
