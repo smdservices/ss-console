@@ -19,18 +19,14 @@
  * an optional selector parameter; v1 callers continue to work).
  */
 
+import { z } from 'zod'
 import { parseAuthorityPosture, type AuthorityPosture } from '../operator/authority'
 import {
   DEFAULT_CREDENTIAL_CUSTODY,
   parseCredentialCustody,
   type CredentialCustody,
 } from '../operator/credential-custody'
-import {
-  ACCEPTED_DATA_POSTURES,
-  type DataPosture,
-  type McpConnector,
-  type McpConnectorAccess,
-} from '../operator/customer-yaml/types'
+import { ACCEPTED_DATA_POSTURES, type McpConnector } from '../operator/customer-yaml/types'
 
 export type PersonaStatus = 'active' | 'archived'
 
@@ -176,6 +172,17 @@ const MCP_CONNECTOR_FAIL_CLOSED: McpConnector = {
   access: [],
 }
 
+const mcpConnectorProjectionSchema = z.object({
+  enabled: z.unknown().optional(),
+  data_posture: z.unknown().optional(),
+  access: z.unknown().optional(),
+})
+
+const mcpConnectorAccessSchema = z.object({
+  email: z.email(),
+  profile: z.string().min(1),
+})
+
 /**
  * Parse the projected `mcp_connector_json` column into a runtime `McpConnector`.
  *
@@ -195,20 +202,20 @@ export function parseMcpConnector(json: string | null | undefined): McpConnector
   } catch {
     return { ...MCP_CONNECTOR_FAIL_CLOSED, access: [] }
   }
-  if (raw === null || typeof raw !== 'object') return { ...MCP_CONNECTOR_FAIL_CLOSED, access: [] }
-  const o = raw as Record<string, unknown>
-  const data_posture: DataPosture = ACCEPTED_DATA_POSTURES.includes(o.data_posture as DataPosture)
-    ? (o.data_posture as DataPosture)
-    : 'open'
-  const access: McpConnectorAccess[] = Array.isArray(o.access)
-    ? o.access.flatMap((e) => {
-        if (e === null || typeof e !== 'object') return []
-        const entry = e as Record<string, unknown>
-        if (typeof entry.email !== 'string' || typeof entry.profile !== 'string') return []
-        return [{ email: entry.email, profile: entry.profile }]
+  const parsed = mcpConnectorProjectionSchema.safeParse(raw)
+  if (!parsed.success) return { ...MCP_CONNECTOR_FAIL_CLOSED, access: [] }
+  const posture = z.enum(ACCEPTED_DATA_POSTURES).safeParse(parsed.data.data_posture)
+  const access = Array.isArray(parsed.data.access)
+    ? parsed.data.access.flatMap((entry) => {
+        const result = mcpConnectorAccessSchema.safeParse(entry)
+        return result.success ? [result.data] : []
       })
     : []
-  return { enabled: o.enabled === true, data_posture, access }
+  return {
+    enabled: parsed.data.enabled === true,
+    data_posture: posture.success ? posture.data : 'open',
+    access,
+  }
 }
 
 export function projectRow(row: CustomerConfigDbRow): CustomerConfigRow {

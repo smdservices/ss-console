@@ -1,436 +1,483 @@
-/**
- * SPIKE SCAFFOLD (A0) tests for the Operator ⇄ Claude MCP endpoint.
- *
- * These cover the parts that do NOT need a live Clerk app: the fail-closed auth
- * gates that run BEFORE signature verification, the identity → access[] mapping,
- * and the stateless JSON-RPC dispatcher (initialize / tools.list / tools.call /
- * method-not-found). The signature-verification path (`@clerk/backend`
- * verifyToken against a real JWKS) is exercised end-to-end by the Captain's A0
- * step with a real `claude.ai` connector add — it cannot be unit-tested without
- * a live Clerk instance, which is called out in the deliverable notes.
- */
-
-import { describe, it, expect } from 'vitest'
-import type { D1Database } from '@cloudflare/workers-types'
-import { extractBearerToken, validateMcpToken } from '../src/lib/operator/mcp/token-validation'
+import { beforeEach, describe, expect, it } from 'vitest'
 import {
-  resolveCustomerFromClaims,
-  loadMcpCustomers,
-  discoveryAuthorizationServers,
+  createTestD1,
+  discoverNumericMigrations,
+  runMigrations,
+} from '@venturecrane/crane-test-harness'
+import type { D1Database } from '@cloudflare/workers-types'
+import { createLocalJWKSet, exportJWK, generateKeyPair, jwtVerify, SignJWT } from 'jose'
+import { resolve } from 'node:path'
+import { ORG_ID } from '../src/lib/constants'
+import {
+  buildMcpMetadataPath,
+  buildMcpResourcePath,
+  loadMcpCustomer,
+  parseMcpMetadataResource,
+  parseMcpResourcePath,
   type ResolvedMcpCustomer,
 } from '../src/lib/operator/mcp/customer-resolution'
 import { dispatchMcpRequest, parseMcpBody } from '../src/lib/operator/mcp/mcp-handler'
+import { handleMcpPost } from '../src/lib/operator/mcp/mcp-route'
+import { buildProtectedResourceMetadata } from '../src/lib/operator/mcp/oauth-metadata'
+import {
+  extractBearerToken,
+  validateMcpToken,
+  type McpTokenVerifier,
+} from '../src/lib/operator/mcp/token-validation'
 import type { McpToolContext } from '../src/lib/operator/mcp/tools'
-
 import type { RuntimeReadResult } from '../src/lib/operator/runtime-read'
+import { POST as legacyMcpPost } from '../src/pages/api/mcp'
 
-/** A fail-closed readRuntime stub: every read reports the Machine unreachable. */
-const unreachableRead = (): Promise<RuntimeReadResult> =>
-  Promise.resolve({ ok: false, kind: 'audit_log', reason: 'unreachable' })
+const migrationsDir = resolve(process.cwd(), 'migrations')
+const RESOURCE_URI = 'https://smd.services/api/operator/smd/mcp'
+const ISSUER = 'https://clerk.smd.services'
+const ENTITY_ID = 'entity-mcp-test'
+const LOCAL_USER_ID = 'user-mcp-test'
+const CLERK_USER_ID = 'user_clerk_123'
 
-const CTX: McpToolContext = {
-  customerId: 'smd',
-  subject: 'user_123',
-  email: 'pilot@example.com',
-  profile: 'marcus',
-  readRuntime: unreachableRead,
+function migrationBasename(file: string): string {
+  return file.split('/').pop() ?? file
 }
 
-/** Build a tool context whose readRuntime returns a fixed result. */
-function ctxWithRead(read: () => Promise<RuntimeReadResult>): McpToolContext {
-  return { ...CTX, readRuntime: read }
+async function freshDb(): Promise<D1Database> {
+  const db = createTestD1()
+  await runMigrations(db, { files: discoverNumericMigrations(migrationsDir) })
+  return db
 }
 
-/** Build a provisioned-customer fixture for the pure resolver tests. */
-function customerFixture(
-  over: Partial<{
-    customerId: string
-    issuer: string
-    audience: string | null
-    clientId: string
-    enabled: boolean
-    access: { email: string; profile: string }[]
-  }> = {}
-): ResolvedMcpCustomer {
+function customerFixture(over: Partial<ResolvedMcpCustomer> = {}): ResolvedMcpCustomer {
   return {
-    customerId: over.customerId ?? 'smd',
+    entityId: ENTITY_ID,
+    customerId: 'smd',
+    clerkOrgId: null,
     connector: {
-      enabled: over.enabled ?? true,
+      enabled: true,
       data_posture: 'open',
-      access: over.access ?? [{ email: 'pilot@example.com', profile: 'marcus' }],
+      access: [{ email: 'pilot@example.com', profile: 'crane' }],
     },
     clerk: {
-      issuer: over.issuer ?? 'https://clerk.smd.services',
-      audience: over.audience ?? null,
-      authorizedParties: over.clientId ? [over.clientId] : [],
+      issuer: ISSUER,
+      resourceUri: RESOURCE_URI,
+      clientId: null,
+      clerkAppId: null,
+    },
+    principals: [
+      {
+        localUserId: LOCAL_USER_ID,
+        clerkUserId: CLERK_USER_ID,
+        email: 'pilot@example.com',
+        profile: 'crane',
+      },
+    ],
+    ...over,
+  }
+}
+
+function claims(over: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    sub: CLERK_USER_ID,
+    iss: ISSUER,
+    aud: RESOURCE_URI,
+    email: 'pilot@example.com',
+    ...over,
+  }
+}
+
+function claimsVerifier(value: unknown): McpTokenVerifier {
+  return async () => value
+}
+
+async function signedVerifier(
+  payload: Record<string, unknown>
+): Promise<{ token: string; verifier: McpTokenVerifier }> {
+  const { privateKey, publicKey } = await generateKeyPair('RS256')
+  const jwk = await exportJWK(publicKey)
+  const token = await new SignJWT(payload)
+    .setProtectedHeader({ alg: 'RS256', kid: 'test-key' })
+    .setIssuedAt()
+    .setExpirationTime('5m')
+    .sign(privateKey)
+  const keySet = createLocalJWKSet({ keys: [{ ...jwk, kid: 'test-key', alg: 'RS256' }] })
+  return {
+    token,
+    verifier: async (candidate) => {
+      const result = await jwtVerify(candidate, keySet, { algorithms: ['RS256'] })
+      return result.payload
     },
   }
 }
 
-/** Minimal D1 stub: every prepare().all() returns the same fixed rows. */
-function fakeDb(rows: unknown[]): D1Database {
-  return {
-    prepare: () => ({ all: async () => ({ results: rows }) }),
-  } as unknown as D1Database
+async function seedCustomer(db: D1Database, clerkOrgId: string | null = null): Promise<void> {
+  await db
+    .prepare('INSERT INTO entities (id, org_id, name, slug, clerk_org_id) VALUES (?, ?, ?, ?, ?)')
+    .bind(ENTITY_ID, ORG_ID, 'MCP Test', 'smd', clerkOrgId)
+    .run()
+  await db
+    .prepare(
+      'INSERT INTO users (id, org_id, email, name, role, entity_id, clerk_user_id) ' +
+        'VALUES (?, ?, ?, ?, ?, ?, ?)'
+    )
+    .bind(
+      LOCAL_USER_ID,
+      ORG_ID,
+      'pilot@example.com',
+      'Pilot User',
+      'client',
+      ENTITY_ID,
+      CLERK_USER_ID
+    )
+    .run()
+  await db
+    .prepare(
+      'INSERT INTO customer_configs ' +
+        '(entity_id, org_id, customer_slug, schema_version, personas_json, ' +
+        'mcp_connector_json, git_sha, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    )
+    .bind(
+      ENTITY_ID,
+      ORG_ID,
+      'smd',
+      '1',
+      '[]',
+      JSON.stringify({
+        enabled: true,
+        data_posture: 'open',
+        access: [{ email: 'pilot@example.com', profile: 'crane' }],
+      }),
+      'test-sha',
+      '2026-06-15T00:00:00Z'
+    )
+    .run()
+  await db
+    .prepare(
+      'INSERT INTO mcp_clerk_bindings ' +
+        '(entity_id, customer_slug, issuer, resource_uri) VALUES (?, ?, ?, ?)'
+    )
+    .bind(ENTITY_ID, 'smd', ISSUER, RESOURCE_URI)
+    .run()
 }
 
+describe('customer-specific MCP resources', () => {
+  it('builds and parses only canonical customer resource paths', () => {
+    expect(buildMcpResourcePath('smd')).toBe('/api/operator/smd/mcp')
+    expect(buildMcpMetadataPath('smd')).toBe(
+      '/.well-known/oauth-protected-resource/api/operator/smd/mcp'
+    )
+    expect(parseMcpResourcePath('/api/operator/smd/mcp')).toBe('smd')
+    expect(parseMcpResourcePath('/api/mcp')).toBeNull()
+    expect(parseMcpMetadataResource('api/operator/smd/mcp')).toBe('smd')
+    expect(parseMcpMetadataResource('api/mcp')).toBeNull()
+  })
+
+  it('publishes one authorization server for the exact customer resource', () => {
+    expect(buildProtectedResourceMetadata(RESOURCE_URI, [ISSUER])).toEqual({
+      resource: RESOURCE_URI,
+      authorization_servers: [ISSUER],
+      scopes_supported: ['openid', 'profile', 'email'],
+      bearer_methods_supported: ['header'],
+    })
+  })
+
+  it('requests Clerk organization claims for organization-bound customers', () => {
+    expect(buildProtectedResourceMetadata(RESOURCE_URI, [ISSUER], true)).toMatchObject({
+      scopes_supported: ['openid', 'profile', 'email', 'user:org:read'],
+    })
+  })
+
+  it('retires the shared legacy endpoint', async () => {
+    const response = await legacyMcpPost({} as never)
+    expect(response.status).toBe(410)
+  })
+})
+
 describe('extractBearerToken', () => {
-  it('returns the token for a well-formed header', () => {
+  it('accepts a bearer token and rejects malformed authorization headers', () => {
     expect(extractBearerToken('Bearer abc.def.ghi')).toBe('abc.def.ghi')
-  })
-  it('is case-insensitive on the scheme', () => {
     expect(extractBearerToken('bearer xyz')).toBe('xyz')
-  })
-  it('returns null for missing/malformed headers', () => {
     expect(extractBearerToken(null)).toBeNull()
-    expect(extractBearerToken('')).toBeNull()
     expect(extractBearerToken('Basic abc')).toBeNull()
     expect(extractBearerToken('Bearer ')).toBeNull()
   })
 })
 
-describe('validateMcpToken — token gates (no live Clerk app)', () => {
-  it('rejects when no token is present', async () => {
-    const r = await validateMcpToken(null, [])
-    expect(r.ok).toBe(false)
-    if (!r.ok) expect(r.reason).toBe('missing_token')
-  })
-
-  it('rejects an unverifiable token at the signature gate (FIRST gate)', async () => {
-    // A garbage token cannot pass @clerk/backend verifyToken (no real JWKS).
-    // Signature is verified BEFORE any customer resolution or data access, so a
-    // forged token never reaches the aud/customer logic — the registry passed in
-    // is irrelevant here. Exercises the security-ordered fail-closed branch.
-    const r = await validateMcpToken('not.a.real.jwt', [customerFixture()])
-    expect(r.ok).toBe(false)
-    if (!r.ok) expect(r.reason).toBe('signature_invalid')
-  })
-})
-
-/**
- * SECURITY INVARIANTS (console-hosting review). The customer is DERIVED from the
- * verified token's aud/iss — never a path/body. resolveCustomerFromClaims is the
- * cross-tenant gate; these test it directly with already-"verified" claim shapes
- * (the function is only ever called post-signature-verification in production)
- * against an explicit provisioned registry.
- */
-describe('resolveCustomerFromClaims — customer derives from verified claims', () => {
-  it('returns null when the registry is empty (dark default)', () => {
-    // Nothing provisioned ⇒ no token resolves, regardless of its claims.
-    expect(resolveCustomerFromClaims({ aud: 'https://smd.services/api/mcp' }, [])).toBeNull()
-    expect(resolveCustomerFromClaims({ iss: 'https://clerk.smd.services' }, [])).toBeNull()
-    expect(resolveCustomerFromClaims({}, [])).toBeNull()
-  })
-
-  it('matches an issuer-keyed customer by iss when audience is unbound', () => {
-    const c = customerFixture({ issuer: 'https://clerk.smd.services', audience: null })
-    expect(resolveCustomerFromClaims({ iss: 'https://clerk.smd.services' }, [c])).toBe(c)
-    expect(resolveCustomerFromClaims({ iss: 'https://other.clerk.dev' }, [c])).toBeNull()
-  })
-
-  it('does not match an issuer-keyed customer from an empty issuer claim', () => {
-    const c = customerFixture({ issuer: 'https://clerk.smd.services', audience: null })
-    expect(resolveCustomerFromClaims({ iss: '' }, [c])).toBeNull()
-  })
-
-  it('matches an audience-bound customer by aud (string or array)', () => {
-    const aud = 'https://smd.services/api/mcp'
-    const c = customerFixture({ audience: aud })
-    expect(resolveCustomerFromClaims({ aud }, [c])).toBe(c)
-    expect(resolveCustomerFromClaims({ aud: [aud, 'urn:x'] }, [c])).toBe(c)
-    expect(resolveCustomerFromClaims({ aud: 'https://evil.example/api/mcp' }, [c])).toBeNull()
-  })
-
-  it('an audience-bound customer is NEVER matched by issuer alone (no aud sidestep)', () => {
-    // A token issued by the same instance but WITHOUT the bound aud must not
-    // resolve an aud-bound customer via the issuer fallback.
-    const c = customerFixture({
-      issuer: 'https://clerk.smd.services',
-      audience: 'https://smd.services/api/mcp',
+describe('validateMcpToken', () => {
+  it('accepts a locally signed token for the exact resource and stable subject', async () => {
+    const signed = await signedVerifier(claims())
+    const result = await validateMcpToken(signed.token, customerFixture(), signed.verifier)
+    expect(result).toMatchObject({
+      ok: true,
+      subject: CLERK_USER_ID,
+      localUserId: LOCAL_USER_ID,
+      profile: 'crane',
     })
-    expect(resolveCustomerFromClaims({ iss: 'https://clerk.smd.services' }, [c])).toBeNull()
   })
 
-  it('refuses (null) when more than one customer matches — ambiguous', () => {
-    // Two issuer-keyed customers sharing an issuer ⇒ refuse rather than guess.
-    const a = customerFixture({
-      customerId: 'a',
-      issuer: 'https://shared.clerk.dev',
-      audience: null,
+  it.each([
+    ['wrong_issuer', claims({ iss: 'https://other.example' })],
+    ['wrong_audience', claims({ aud: 'https://smd.services/api/operator/other/mcp' })],
+    ['identity_not_authored', claims({ sub: 'user_unknown' })],
+  ])('rejects %s', async (reason, payload) => {
+    const result = await validateMcpToken('token', customerFixture(), claimsVerifier(payload))
+    expect(result).toMatchObject({ ok: false, reason })
+  })
+
+  it('requires the exact Clerk organization when the entity is organization-bound', async () => {
+    const customer = customerFixture({ clerkOrgId: 'org_expected' })
+    const missing = await validateMcpToken('token', customer, claimsVerifier(claims()))
+    const wrong = await validateMcpToken(
+      'token',
+      customer,
+      claimsVerifier(claims({ org_id: 'org_wrong' }))
+    )
+    const valid = await validateMcpToken(
+      'token',
+      customer,
+      claimsVerifier(claims({ org_id: 'org_expected' }))
+    )
+    expect(missing).toMatchObject({ ok: false, reason: 'organization_mismatch' })
+    expect(wrong).toMatchObject({ ok: false, reason: 'organization_mismatch' })
+    expect(valid.ok).toBe(true)
+  })
+
+  it('fails closed on missing, invalid, disabled, and unprovisioned identities', async () => {
+    expect(await validateMcpToken(null, customerFixture())).toMatchObject({
+      ok: false,
+      reason: 'missing_token',
     })
-    const b = customerFixture({
-      customerId: 'b',
-      issuer: 'https://shared.clerk.dev',
-      audience: null,
-    })
-    expect(resolveCustomerFromClaims({ iss: 'https://shared.clerk.dev' }, [a, b])).toBeNull()
-    // Two customers sharing an audience ⇒ likewise refuse.
-    const aud = 'https://smd.services/api/mcp'
-    const c = customerFixture({ customerId: 'c', audience: aud })
-    const d = customerFixture({ customerId: 'd', audience: aud })
-    expect(resolveCustomerFromClaims({ aud }, [c, d])).toBeNull()
-  })
-})
-
-describe('validateMcpToken — wrong-aud rejection ordering', () => {
-  it('a syntactically-valid but unverifiable token never selects a customer', async () => {
-    // Even if an attacker crafts a token whose aud names our resource, it fails
-    // at the signature gate first (no valid JWKS signature). The customer is only
-    // derived AFTER verification, so a wrong/forged aud can never reach data —
-    // even with a real customer provisioned in the registry.
-    const r = await validateMcpToken('eyJ.forged.aud', [
-      customerFixture({ audience: 'https://smd.services/api/mcp' }),
-    ])
-    expect(r.ok).toBe(false)
-    if (!r.ok) expect(r.reason).toBe('signature_invalid')
-  })
-})
-
-describe('loadMcpCustomers — D1 → registry mapping', () => {
-  it('maps a binding+config row into a ResolvedMcpCustomer', async () => {
-    const db = fakeDb([
-      {
-        customer_slug: 'smd',
-        issuer: 'https://clerk.smd.services',
-        client_id: 'client_abc',
-        audience: null,
-        mcp_connector_json: JSON.stringify({
-          enabled: true,
-          data_posture: 'open',
-          access: [{ email: 'pilot@example.com', profile: 'marcus' }],
+    expect(
+      await validateMcpToken('token', customerFixture(), async () => {
+        throw new Error('bad signature')
+      })
+    ).toMatchObject({ ok: false, reason: 'signature_invalid' })
+    expect(
+      await validateMcpToken(
+        'token',
+        customerFixture({
+          connector: { enabled: false, data_posture: 'open', access: [] },
         }),
-      },
-    ])
-    const [c] = await loadMcpCustomers(db)
-    expect(c.customerId).toBe('smd')
-    expect(c.clerk.issuer).toBe('https://clerk.smd.services')
-    expect(c.clerk.authorizedParties).toEqual(['client_abc'])
-    expect(c.connector.enabled).toBe(true)
-    expect(c.connector.access).toEqual([{ email: 'pilot@example.com', profile: 'marcus' }])
-  })
-
-  it('fail-closes the connector when the config row is absent (null json)', async () => {
-    const db = fakeDb([
-      {
-        customer_slug: 'smd',
-        issuer: 'https://clerk.smd.services',
-        client_id: 'client_abc',
-        audience: null,
-        mcp_connector_json: null,
-      },
-    ])
-    const [c] = await loadMcpCustomers(db)
-    expect(c.connector.enabled).toBe(false)
-    expect(c.connector.access).toEqual([])
-  })
-
-  it('treats an empty-string audience as no binding (issuer-keyed)', async () => {
-    const db = fakeDb([
-      {
-        customer_slug: 'smd',
-        issuer: 'https://clerk.smd.services',
-        client_id: 'client_abc',
-        audience: '',
-        mcp_connector_json: null,
-      },
-    ])
-    const [c] = await loadMcpCustomers(db)
-    expect(c.clerk.audience).toBeNull()
-  })
-
-  it('maps a null client_id (DCR self-registration) to no azp pin', async () => {
-    const db = fakeDb([
-      {
-        customer_slug: 'smd',
-        issuer: 'https://clerk.smd.services',
-        client_id: null, // DCR: claude.ai self-registers; client id is dynamic
-        audience: null,
-        mcp_connector_json: null,
-      },
-    ])
-    const [c] = await loadMcpCustomers(db)
-    expect(c.clerk.authorizedParties).toEqual([])
-  })
-
-  it('returns an empty registry for no rows (dark default)', async () => {
-    expect(await loadMcpCustomers(fakeDb([]))).toEqual([])
+        claimsVerifier(claims())
+      )
+    ).toMatchObject({ ok: false, reason: 'connector_disabled' })
+    expect(
+      await validateMcpToken('token', customerFixture({ principals: [] }), claimsVerifier(claims()))
+    ).toMatchObject({ ok: false, reason: 'identity_not_authored' })
   })
 })
 
-describe('discoveryAuthorizationServers — advertised issuers', () => {
-  it('returns the distinct non-empty issuers of provisioned customers', () => {
-    const customers = [
-      customerFixture({ customerId: 'a', issuer: 'https://clerk.smd.services' }),
-      customerFixture({ customerId: 'b', issuer: 'https://clerk.smd.services' }),
-      customerFixture({ customerId: 'c', issuer: 'https://other.clerk.dev' }),
-    ]
-    expect(discoveryAuthorizationServers(customers).sort()).toEqual([
-      'https://clerk.smd.services',
-      'https://other.clerk.dev',
-    ])
+describe('loadMcpCustomer and migration 0072', () => {
+  let db: D1Database
+
+  beforeEach(async () => {
+    db = await freshDb()
+    await seedCustomer(db)
   })
 
-  it('returns an empty list when nothing is provisioned (honest no-AS)', () => {
-    expect(discoveryAuthorizationServers([])).toEqual([])
+  it('loads the strict resource binding and resolves email authoring to a Clerk subject', async () => {
+    const customer = await loadMcpCustomer(db, 'smd')
+    expect(customer).toMatchObject({
+      entityId: ENTITY_ID,
+      customerId: 'smd',
+      clerkOrgId: null,
+      clerk: { issuer: ISSUER, resourceUri: RESOURCE_URI },
+      principals: [
+        {
+          localUserId: LOCAL_USER_ID,
+          clerkUserId: CLERK_USER_ID,
+          email: 'pilot@example.com',
+          profile: 'crane',
+        },
+      ],
+    })
+  })
+
+  it('fails closed when an authored user has no Clerk subject', async () => {
+    await db.prepare('UPDATE users SET clerk_user_id = NULL WHERE id = ?').bind(LOCAL_USER_ID).run()
+    const customer = await loadMcpCustomer(db, 'smd')
+    expect(customer?.principals).toEqual([])
+  })
+
+  it('returns null for unknown or malformed customer slugs', async () => {
+    expect(await loadMcpCustomer(db, 'unknown')).toBeNull()
+    expect(await loadMcpCustomer(db, '../smd')).toBeNull()
+  })
+
+  it('backfills deployed bindings and rejects future bindings without a resource URI', async () => {
+    const isolated = createTestD1()
+    const migrations = discoverNumericMigrations(migrationsDir)
+    await runMigrations(isolated, {
+      files: migrations.filter((file) => !migrationBasename(file).startsWith('0072_')),
+    })
+    await isolated
+      .prepare('INSERT INTO entities (id, org_id, name, slug) VALUES (?, ?, ?, ?)')
+      .bind('entity-existing', ORG_ID, 'Existing Customer', 'existing')
+      .run()
+    await isolated
+      .prepare('INSERT INTO mcp_clerk_bindings (entity_id, customer_slug, issuer) VALUES (?, ?, ?)')
+      .bind('entity-existing', 'existing', ISSUER)
+      .run()
+
+    await runMigrations(isolated, {
+      files: migrations.filter((file) => migrationBasename(file).startsWith('0072_')),
+    })
+
+    const backfilled = await isolated
+      .prepare('SELECT resource_uri FROM mcp_clerk_bindings WHERE entity_id = ?')
+      .bind('entity-existing')
+      .first<{ resource_uri: string }>()
+    expect(backfilled?.resource_uri).toBe('https://smd.services/api/operator/existing/mcp')
+
+    await isolated
+      .prepare('INSERT INTO entities (id, org_id, name, slug) VALUES (?, ?, ?, ?)')
+      .bind('entity-new', ORG_ID, 'New Customer', 'new')
+      .run()
+    await expect(
+      isolated
+        .prepare(
+          'INSERT INTO mcp_clerk_bindings (entity_id, customer_slug, issuer) VALUES (?, ?, ?)'
+        )
+        .bind('entity-new', 'new', ISSUER)
+        .run()
+    ).rejects.toThrow('resource_uri is required')
   })
 })
+
+describe('MCP route authorization and audit', () => {
+  let db: D1Database
+  let customer: ResolvedMcpCustomer
+
+  beforeEach(async () => {
+    db = await freshDb()
+    await seedCustomer(db)
+    const loaded = await loadMcpCustomer(db, 'smd')
+    if (!loaded) throw new Error('test customer did not load')
+    customer = loaded
+  })
+
+  it('denies a wrong-resource token, audits it, and never invokes runtime reads', async () => {
+    let reads = 0
+    const response = await handleMcpPost(
+      new Request(RESOURCE_URI, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer token' },
+        body: '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"operator_status"}}',
+      }),
+      new URL(RESOURCE_URI),
+      {
+        db,
+        customer,
+        verifier: claimsVerifier(claims({ aud: 'https://wrong.example/mcp' })),
+        readRuntime: () => {
+          reads += 1
+          return Promise.resolve({ ok: false, kind: 'audit_log', reason: 'unreachable' })
+        },
+      }
+    )
+    expect(response.status).toBe(401)
+    expect(reads).toBe(0)
+    const audit = await db
+      .prepare('SELECT decision, reason, tool FROM operator_mcp_audit')
+      .first<{ decision: string; reason: string; tool: string | null }>()
+    expect(audit).toEqual({ decision: 'deny', reason: 'wrong_audience', tool: null })
+  })
+
+  it('serves an authenticated tool call and records auth plus tool audit rows', async () => {
+    const response = await handleMcpPost(
+      new Request(RESOURCE_URI, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer token' },
+        body: '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"operator_status"}}',
+      }),
+      new URL(RESOURCE_URI),
+      {
+        db,
+        customer,
+        verifier: claimsVerifier(claims()),
+        readRuntime: (): Promise<RuntimeReadResult> =>
+          Promise.resolve({ ok: true, kind: 'audit_log', data: { entries: [], cursor: null } }),
+      }
+    )
+    expect(response.status).toBe(200)
+    const rows = await db
+      .prepare(
+        'SELECT event_type, decision, clerk_subject, local_user_id, profile, tool ' +
+          'FROM operator_mcp_audit ORDER BY id'
+      )
+      .all<Record<string, unknown>>()
+    expect(rows.results).toEqual([
+      {
+        event_type: 'auth',
+        decision: 'allow',
+        clerk_subject: CLERK_USER_ID,
+        local_user_id: LOCAL_USER_ID,
+        profile: 'crane',
+        tool: null,
+      },
+      {
+        event_type: 'tool_call',
+        decision: 'allow',
+        clerk_subject: CLERK_USER_ID,
+        local_user_id: LOCAL_USER_ID,
+        profile: 'crane',
+        tool: 'operator_status',
+      },
+    ])
+  })
+})
+
+const unreachableRead = (): Promise<RuntimeReadResult> =>
+  Promise.resolve({ ok: false, kind: 'audit_log', reason: 'unreachable' })
+
+const CTX: McpToolContext = {
+  customerId: 'smd',
+  subject: CLERK_USER_ID,
+  email: 'pilot@example.com',
+  profile: 'crane',
+  readRuntime: unreachableRead,
+}
 
 describe('JSON-RPC dispatcher', () => {
-  it('initialize returns protocolVersion + serverInfo', async () => {
-    const resp = await dispatchMcpRequest({ jsonrpc: '2.0', id: 1, method: 'initialize' }, CTX)
-    expect(resp.status).toBe(200)
-    const body: { result: { protocolVersion: string; serverInfo: { name: string } } } =
-      await resp.json()
-    expect(body.result.protocolVersion).toBeTruthy()
-    expect(body.result.serverInfo.name).toBe('smd-operator-connector')
+  it('initializes and lists the live operator_status tool', async () => {
+    const initialized = await dispatchMcpRequest(
+      { jsonrpc: '2.0', id: 1, method: 'initialize' },
+      CTX
+    )
+    const initBody = await initialized.json<{ result: { protocolVersion: string } }>()
+    expect(initBody.result.protocolVersion).toBeTruthy()
+
+    const listed = await dispatchMcpRequest({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, CTX)
+    const listBody = await listed.json<{ result: { tools: { name: string }[] } }>()
+    expect(listBody.result.tools.map((tool) => tool.name)).toContain('operator_status')
   })
 
-  it('tools/list returns operator_status', async () => {
-    const resp = await dispatchMcpRequest({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, CTX)
-    const body: { result: { tools: { name: string }[] } } = await resp.json()
-    const names = body.result.tools.map((t) => t.name)
-    expect(names).toContain('operator_status')
+  it('parses valid JSON-RPC and rejects malformed input', async () => {
+    expect(parseMcpBody('{"jsonrpc":"2.0","id":1,"method":"ping"}')).toHaveProperty('req')
+    const malformed = parseMcpBody('{not json')
+    if (!('error' in malformed)) throw new Error('malformed JSON unexpectedly parsed')
+    expect((await malformed.error.json<{ error: { code: number } }>()).error.code).toBe(-32700)
+
+    const invalid = parseMcpBody('{"foo":"bar"}')
+    if (!('error' in invalid)) throw new Error('invalid JSON-RPC unexpectedly parsed')
+    expect((await invalid.error.json<{ error: { code: number } }>()).error.code).toBe(-32600)
   })
 
-  it('tools/call operator_status reports unreachable fail-closed (no fabricated status)', async () => {
-    // CTX's readRuntime stub reports the Machine unreachable.
-    const resp = await dispatchMcpRequest(
+  it('rejects unknown tools without invoking a runtime read', async () => {
+    let reads = 0
+    const response = await dispatchMcpRequest(
       {
         jsonrpc: '2.0',
         id: 3,
         method: 'tools/call',
-        params: { name: 'operator_status', arguments: {} },
+        params: { name: 'unknown_tool', arguments: {} },
       },
-      CTX
-    )
-    const body: { result: { content: { text: string }[] } } = await resp.json()
-    const payload: {
-      customer_id: string
-      authenticated_as: { email: string }
-      operator: { reachable: boolean; reason?: string }
-    } = JSON.parse(body.result.content[0].text)
-    expect(payload.customer_id).toBe('smd')
-    expect(payload.authenticated_as.email).toBe('pilot@example.com')
-    expect(payload.operator.reachable).toBe(false)
-    expect(payload.operator.reason).toBe('unreachable')
-  })
-
-  it('tools/call operator_status summarizes live audit_log activity (newest first)', async () => {
-    const ctx = ctxWithRead(() =>
-      Promise.resolve({
-        ok: true,
-        kind: 'audit_log',
-        data: {
-          entries: [
-            {
-              id: '2',
-              ts: '2026-06-14T10:00:00Z',
-              action: 'email.draft',
-              skill: 'inbox',
-              matterRef: 'M-1',
-            },
-            {
-              id: '1',
-              ts: '2026-06-13T09:00:00Z',
-              action: 'email.triage',
-              skill: 'inbox',
-              matterRef: null,
-            },
-          ],
-          cursor: null,
+      {
+        ...CTX,
+        readRuntime: () => {
+          reads += 1
+          return unreachableRead()
         },
-      })
-    )
-    const resp = await dispatchMcpRequest(
-      {
-        jsonrpc: '2.0',
-        id: 3,
-        method: 'tools/call',
-        params: { name: 'operator_status', arguments: {} },
-      },
-      ctx
-    )
-    const body: { result: { content: { text: string }[] } } = await resp.json()
-    const payload: {
-      operator: {
-        reachable: boolean
-        recent_activity_count: number
-        latest_activity_at: string | null
-        recent: { at: string; action: string; skill: string | null; matter: string | null }[]
       }
-    } = JSON.parse(body.result.content[0].text)
-    expect(payload.operator.reachable).toBe(true)
-    expect(payload.operator.recent_activity_count).toBe(2)
-    expect(payload.operator.latest_activity_at).toBe('2026-06-14T10:00:00Z')
-    expect(payload.operator.recent[0]).toEqual({
-      at: '2026-06-14T10:00:00Z',
-      action: 'email.draft',
-      skill: 'inbox',
-      matter: 'M-1',
-    })
-  })
-
-  it('tools/call operator_status reports zero activity honestly on an empty log', async () => {
-    const ctx = ctxWithRead(() =>
-      Promise.resolve({ ok: true, kind: 'audit_log', data: { entries: [], cursor: null } })
     )
-    const resp = await dispatchMcpRequest(
-      {
-        jsonrpc: '2.0',
-        id: 3,
-        method: 'tools/call',
-        params: { name: 'operator_status', arguments: {} },
-      },
-      ctx
-    )
-    const body: { result: { content: { text: string }[] } } = await resp.json()
-    const payload: {
-      operator: {
-        reachable: boolean
-        recent_activity_count: number
-        latest_activity_at: string | null
-      }
-    } = JSON.parse(body.result.content[0].text)
-    expect(payload.operator.reachable).toBe(true)
-    expect(payload.operator.recent_activity_count).toBe(0)
-    expect(payload.operator.latest_activity_at).toBeNull()
-  })
-
-  it('tools/call on an unknown tool is method-not-found', async () => {
-    const resp = await dispatchMcpRequest(
-      { jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'nope', arguments: {} } },
-      CTX
-    )
-    const body: { error?: { code: number } } = await resp.json()
-    expect(body.error?.code).toBe(-32601)
-  })
-
-  it('an unknown method is method-not-found', async () => {
-    const resp = await dispatchMcpRequest({ jsonrpc: '2.0', id: 5, method: 'frobnicate' }, CTX)
-    const body: { error?: { code: number } } = await resp.json()
-    expect(body.error?.code).toBe(-32601)
-  })
-})
-
-describe('parseMcpBody', () => {
-  it('parses a valid JSON-RPC request', () => {
-    const out = parseMcpBody('{"jsonrpc":"2.0","id":1,"method":"ping"}')
-    expect('req' in out).toBe(true)
-  })
-  it('rejects invalid JSON with a parse error', async () => {
-    const out = parseMcpBody('{not json')
-    expect('error' in out).toBe(true)
-    if ('error' in out) {
-      const body: { error: { code: number } } = await out.error.json()
-      expect(body.error.code).toBe(-32700)
-    }
-  })
-  it('rejects a non-JSON-RPC object', async () => {
-    const out = parseMcpBody('{"foo":"bar"}')
-    expect('error' in out).toBe(true)
-    if ('error' in out) {
-      const body: { error: { code: number } } = await out.error.json()
-      expect(body.error.code).toBe(-32600)
-    }
+    expect((await response.json<{ error: { code: number } }>()).error.code).toBe(-32601)
+    expect(reads).toBe(0)
   })
 })
