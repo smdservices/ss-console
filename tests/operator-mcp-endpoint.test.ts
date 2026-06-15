@@ -215,6 +215,8 @@ describe('validateMcpToken', () => {
   it.each([
     ['wrong_issuer', claims({ iss: 'https://other.example' })],
     ['wrong_audience', claims({ aud: 'https://smd.services/api/operator/other/mcp' })],
+    ['wrong_audience', claims({ aud: undefined })],
+    ['claims_invalid', claims({ sub: undefined })],
     ['identity_not_authored', claims({ sub: 'user_unknown' })],
   ])('rejects %s', async (reason, payload) => {
     const result = await validateMcpToken('token', customerFixture(), claimsVerifier(payload))
@@ -246,6 +248,15 @@ describe('validateMcpToken', () => {
     })
     expect(
       await validateMcpToken('token', customerFixture(), async () => {
+        throw new Error('bad signature')
+      })
+    ).toMatchObject({ ok: false, reason: 'signature_invalid' })
+    expect(await validateMcpToken('token', customerFixture())).toMatchObject({
+      ok: false,
+      reason: 'token_not_jwt',
+    })
+    expect(
+      await validateMcpToken('one.two.three', customerFixture(), async () => {
         throw new Error('bad signature')
       })
     ).toMatchObject({ ok: false, reason: 'signature_invalid' })
@@ -294,6 +305,32 @@ describe('loadMcpCustomer and migration 0072', () => {
     await db.prepare('UPDATE users SET clerk_user_id = NULL WHERE id = ?').bind(LOCAL_USER_ID).run()
     const customer = await loadMcpCustomer(db, 'smd')
     expect(customer?.principals).toEqual([])
+  })
+
+  it('uses an explicit customer-scoped Clerk subject over the local user identity', async () => {
+    await db
+      .prepare('UPDATE customer_configs SET mcp_connector_json = ? WHERE entity_id = ?')
+      .bind(
+        JSON.stringify({
+          enabled: true,
+          data_posture: 'open',
+          access: [
+            {
+              email: 'pilot@example.com',
+              profile: 'crane',
+              clerk_subject: 'user_externalaccount',
+            },
+          ],
+        }),
+        ENTITY_ID
+      )
+      .run()
+    const customer = await loadMcpCustomer(db, 'smd')
+    expect(customer?.principals[0]).toMatchObject({
+      localUserId: LOCAL_USER_ID,
+      clerkUserId: 'user_externalaccount',
+      email: 'pilot@example.com',
+    })
   })
 
   it('returns null for unknown or malformed customer slugs', async () => {

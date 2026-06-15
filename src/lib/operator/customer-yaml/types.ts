@@ -682,6 +682,53 @@ export interface Demo {
 }
 
 /**
+ * One person the Operator works with, as authored in the `relationship:` block
+ * (ADR 0048). This is the **authored behavioral lane** of the relationship
+ * model — standing, human-reviewed preferences for HOW to work with a specific
+ * person. It is deliberately constrained:
+ *
+ *   - **Informational only (ADR 0048 §2c).** Preferences shape how the Operator
+ *     drafts and helps; they NEVER grant capability or autonomy. Entitlements
+ *     stay authored in `scope:`/`escalation:` and enforced in code
+ *     (`trust_ceiling.enforce()`). A `prefers:` line that reads like an
+ *     entitlement grant ("auto-send routine confirmations") changes nothing the
+ *     agent is permitted to do — `enforce()` remains the only gate.
+ *   - **Not the style lane (ADR 0048 §2d).** Greeting/sign-off/honorific/lexical
+ *     STYLE corrections live in `voice_corrections` (migration 0010), read at
+ *     transform time. This block must NOT duplicate them — keep it to behavioral
+ *     working preferences (how someone likes to receive information, what they
+ *     care about), not how a draft is phrased.
+ */
+export interface RelationshipPerson {
+  /** Stable per-person key (kebab-case). Ideally matches the person's
+   * `voice_corrections.reviewer_user_id` so the style and authored lanes compose
+   * per-person on the relationship surface. */
+  id: string
+  /** Display name shown to the Operator and on the relationship surface. */
+  name: string
+  /** The person's role/title for context (e.g. "Managing partner"). `null`
+   * when unauthored. */
+  role: string | null
+  /** Free-text working preferences — how this person likes to be worked with.
+   * Authored, human-reviewed (so not subject to the runtime-fabrication ban —
+   * this is engagement-authored config, the sanctioned source). */
+  prefers: string[]
+  /** Free-text things to avoid when working with this person. */
+  avoid: string[]
+}
+
+/**
+ * Authored behavioral lane of the relationship model (`relationship:` block,
+ * ADR 0048). Per-person standing preferences, materialized by the overlay into
+ * each persona's `SOUL.md` (so the Operator actually works the authored way) and
+ * surfaced read-only on the admin relationship view. Absent block ⇒
+ * `{ people: [] }`. See {@link RelationshipPerson} for the binding policies.
+ */
+export interface Relationship {
+  people: RelationshipPerson[]
+}
+
+/**
  * One authored user → profile binding for the Operator ⇄ Claude MCP connector.
  * `email` MUST match a `users[]` entry; `profile` MUST match an active persona
  * slug. This is the per-user seam: the pilot authors exactly one, multi-user
@@ -691,6 +738,7 @@ export interface Demo {
 export interface McpConnectorAccess {
   email: string
   profile: string
+  clerk_subject?: string
 }
 
 /**
@@ -818,6 +866,14 @@ export interface CustomerYaml {
    * `checkMcpConnector`. Fail-closed — see {@link McpConnector}.
    */
   mcp_connector: McpConnector
+  /**
+   * Authored behavioral lane of the relationship model (ADR 0048). Always
+   * non-null on a validated CustomerYaml: an absent `relationship:` block
+   * resolves to `{ people: [] }` via `checkRelationship`. Materialized by the
+   * overlay into each persona's `SOUL.md`; surfaced read-only on the admin
+   * relationship view via the `config_export` seam. See {@link Relationship}.
+   */
+  relationship: Relationship
 }
 
 export type ValidationErrorCode =
@@ -858,6 +914,7 @@ export type ValidationErrorCode =
   | 'InvalidActionClass'
   | 'InvalidActionCeiling'
   | 'UnknownAuthorityDomain'
+  | 'DuplicateRelationshipPersonId'
 
 export interface ValidationError {
   code: ValidationErrorCode
