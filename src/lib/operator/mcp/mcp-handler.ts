@@ -17,6 +17,7 @@
  * for stateless servers).
  */
 
+import { z } from 'zod'
 import { getTool, listToolDescriptors, type McpToolContext, type McpToolResult } from './tools'
 
 /** Protocol version we advertise. Mirrors the negotiated value back to clients. */
@@ -29,12 +30,14 @@ const SERVER_INFO = {
 } as const
 
 /** JSON-RPC 2.0 request shape (params optional). */
-interface JsonRpcRequest {
-  jsonrpc: '2.0'
-  id?: string | number | null
-  method: string
-  params?: unknown
-}
+const jsonRpcRequestSchema = z.object({
+  jsonrpc: z.literal('2.0'),
+  id: z.union([z.string(), z.number(), z.null()]).optional(),
+  method: z.string().min(1),
+  params: z.unknown().optional(),
+})
+
+export type JsonRpcRequest = z.infer<typeof jsonRpcRequestSchema>
 
 /** Standard JSON-RPC error codes we use. */
 const JSON_RPC = {
@@ -60,15 +63,9 @@ function jsonResponse(body: unknown, status: number): Response {
   })
 }
 
-function isJsonRpcRequest(v: unknown): v is JsonRpcRequest {
-  if (v === null || typeof v !== 'object') return false
-  const o = v as Record<string, unknown>
-  return o.jsonrpc === '2.0' && typeof o.method === 'string'
-}
-
 /**
  * Dispatch one already-authenticated JSON-RPC request. The route layer
- * (src/pages/api/mcp.ts) owns auth + audit and only calls this once the caller
+ * route layer owns auth + audit and only calls this once the caller
  * is a validated, authored identity.
  */
 export async function dispatchMcpRequest(
@@ -104,20 +101,19 @@ export async function dispatchMcpRequest(
 }
 
 async function handleToolsCall(req: JsonRpcRequest, ctx: McpToolContext): Promise<Response> {
-  const params = req.params
-  if (params === null || typeof params !== 'object') {
+  const paramsSchema = z.object({
+    name: z.string().min(1),
+    arguments: z.record(z.string(), z.unknown()).optional(),
+  })
+  const parsed = paramsSchema.safeParse(req.params)
+  if (!parsed.success) {
     return rpcError(req.id, JSON_RPC.INVALID_PARAMS, 'tools/call requires params')
   }
-  const { name, arguments: rawArgs } = params as { name?: unknown; arguments?: unknown }
-  if (typeof name !== 'string') {
-    return rpcError(req.id, JSON_RPC.INVALID_PARAMS, 'tools/call requires a string name')
-  }
+  const { name, arguments: args = {} } = parsed.data
   const tool = getTool(name)
   if (!tool) {
     return rpcError(req.id, JSON_RPC.METHOD_NOT_FOUND, `unknown tool: ${name}`)
   }
-  const args: Record<string, unknown> =
-    rawArgs !== null && typeof rawArgs === 'object' ? (rawArgs as Record<string, unknown>) : {}
 
   let result: McpToolResult
   try {
@@ -143,8 +139,15 @@ export function parseMcpBody(raw: string): { req: JsonRpcRequest } | { error: Re
   } catch {
     return { error: rpcError(null, JSON_RPC.PARSE_ERROR, 'invalid JSON') }
   }
-  if (!isJsonRpcRequest(parsed)) {
+  const request = jsonRpcRequestSchema.safeParse(parsed)
+  if (!request.success) {
     return { error: rpcError(null, JSON_RPC.INVALID_REQUEST, 'not a JSON-RPC 2.0 request') }
   }
-  return { req: parsed }
+  return { req: request.data }
+}
+
+export function getMcpToolName(req: JsonRpcRequest): string | null {
+  if (req.method !== 'tools/call') return null
+  const parsed = z.object({ name: z.string().min(1) }).safeParse(req.params)
+  return parsed.success ? parsed.data.name : null
 }
