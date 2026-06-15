@@ -711,6 +711,28 @@ Inspect /app/safety-substrate/logs/$(date -u +%Y%m%d).log for which invariant fa
 fi
 log "Safety substrate invariants PASSED"
 
+# Strip the account-wide R2 credential NOW — before launching ANY persistent
+# same-uid background child OR the gateway (OP-P0-2 + OP-P2-1,
+# docs/security/operator-threat-model.md). R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY
+# are an ACCOUNT-WIDE R2 key (R/W on every bucket); their only in-Machine
+# consumers are the customer.yaml fetch (Step 2) and the voice-vault sync
+# (Step 2a) above — both BOOT-time and BOTH BEFORE this point. The agent's
+# skill-body writer uses the bucket-SCOPED R2_SKILL_BODIES_* pair plus
+# R2_ENDPOINT_URL (KEPT — an endpoint URL, not a credential); voice reads its
+# local SMD_VOICE_VAULT_DIR mirror.
+#
+# ORDERING IS LOAD-BEARING: this MUST stay AFTER Step 2/2a (which read the key)
+# and BEFORE the webhook-gate launch + the gateway exec. It previously sat just
+# before the exec — but the webhook gate is launched as a same-uid (hermes)
+# background child a few lines below, and a child forked BEFORE the unset KEEPS
+# the key in its own env. A code-executing agent can read that sibling's
+# /proc/<pid>/environ (same uid; verified on staging:
+# hermes_can_read_sibling_account_key=1) and use the account-wide key to write
+# the R2 config object — re-opening the self-loopback ceiling-raise one layer up
+# (ADR 0044 Decision 8). Stripping here, before any child is forked, closes the
+# leak: no hermes-owned process ever holds the account-wide key.
+unset R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY
+
 # Inbound webhook front-door gate (overlay `hermes-smd-webhook-gate`). It binds
 # the public port (8643), verifies the vendor signature (AgentMail), and forwards
 # to the gateway's machine-local :8644 with the Generic header. FAIL-CLOSED: only
@@ -728,22 +750,8 @@ else
   log "WEBHOOK_SECRET_AGENTMAIL unset; webhook gate NOT launched (no inbound webhook)"
 fi
 
-# Strip the account-wide R2 credential before handing off to the agent (OP-P0-2,
-# docs/security/operator-threat-model.md). R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY
-# are an ACCOUNT-WIDE R2 key (R/W on every bucket in the account); their
-# in-Machine consumers are the customer.yaml fetch (Step 2) and the voice-vault
-# sync (Step 2a) above — both BOOT-time and both BEFORE this strip. The agent's
-# own skill-body writer (skill_capture.py) uses the bucket-SCOPED
-# R2_SKILL_BODIES_* pair plus R2_ENDPOINT_URL — NOT these — and voice reads its
-# vault from the local SMD_VOICE_VAULT_DIR mirror, so the account-wide key must
-# not remain in the gateway env where an injection could exfiltrate it
-# cross-tenant. ORDERING IS LOAD-BEARING: this unset MUST stay AFTER the R2 fetch
-# + voice sync (Step 2/2a) and BEFORE the gateway exec; moving it earlier breaks
-# them (R2_ACCESS_KEY_ID is read by the `aws s3 cp`s above). R2_ENDPOINT_URL is
-# intentionally KEPT — the scoped skill-body writer reads it, and it is an
-# endpoint URL, not a credential.
-unset R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY
-
+# (R2 account-wide key already stripped above, before the webhook-gate launch —
+# OP-P2-1. No same-uid child holds it.)
 log "Launching Hermes gateway for profile '${ACTIVE_PROFILE}' (overlay plugins enabled)..."
 
 exec /opt/hermes/.venv/bin/hermes -p "${ACTIVE_PROFILE}" gateway run
