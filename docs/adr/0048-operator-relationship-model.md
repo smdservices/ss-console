@@ -114,13 +114,16 @@ they remain calibration-session-authored.
    fully unit-tested. Ships now as the canonical primitive (the repo's established
    "primitive now, runtime call site later" pattern, per `corrections.py`).
 2. **The legible surface** — add `memory_export` to the console `RUNTIME_READ_KINDS`,
-   expose `voice_corrections` through the seam allow-list, and an admin view composing
-   `voice_corrections` (taught style rules) + authored `customer.yaml` preferences.
-   Read-only, honest confidence rendering.
-3. **The authored-preference channel** — a `relationship:` block in `customer.yaml`
-   (authored behavioral preferences + capture knobs), registered in
-   `operator/contracts/customer-yaml-blocks.yaml`.
-4. **This ADR.**
+   expose `voice_corrections` through the seam allow-list, and the admin
+   `.../[customer]/memory` view rendering the style lane (`voice_corrections`) live,
+   with the authored and inferred lanes shown honestly. Read-only.
+3. **This ADR.**
+
+The **authored-preference channel** (a `relationship:` block in `customer.yaml`) is
+**deferred to Phase 2** so it ships WITH its materializer rather than as an inert block
+that materializes nothing — consistent with the anti-silent-drop discipline that
+`operator/contracts/customer-yaml-blocks.yaml` exists to enforce (the cron lesson). The
+surface's "Standing preferences" lane renders honestly until then.
 
 The live-edit **runtime trigger** (invoking the primitive when a draft is approved with
 a captured sent version) depends on the unbuilt sent-capture pipeline (Context 4) and
