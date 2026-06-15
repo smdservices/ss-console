@@ -1,33 +1,39 @@
 /**
- * SPIKE SCAFFOLD (A0) — customer-resolution seam for the Operator ⇄ Claude MCP
- * connector. See docs/design/operator/03-mcp-server-exposure.md and the build
- * plan (Workstream A). This is the one seam the spike deliberately stubs: it
- * answers "which customer does this MCP request serve, and what is that
- * customer's authored `mcp_connector` block + Clerk binding?"
+ * Customer-resolution seam for the Operator ⇄ Claude MCP connector. See
+ * docs/design/operator/03-mcp-server-exposure.md. This answers "which customer
+ * does this MCP request serve, and what is that customer's authored
+ * `mcp_connector` block + Clerk binding?" — now backed by D1, not a stub.
  *
  * SECURITY CONTRACT (from the console-hosting security review — these are app-code
  * authz invariants because one console validates tokens for ALL customers):
  *
  *   1. The customer is DERIVED FROM THE VERIFIED TOKEN — its `aud` when Clerk
- *      binds a per-resource audience (RFC 8707), else the per-customer `iss`
- *      (one Clerk app per customer ⇒ unique issuer). It is NEVER read from a URL
- *      path segment or request body. A path/body slug, if present, is UNTRUSTED
- *      and may only be used to CHECK-MATCH the token-derived customer, never to
- *      select it. A `/mcp/<customer>` routing shape would be a confused-deputy
- *      bug one layer up — so the endpoint serves ONE fixed path and the customer
- *      falls out of the token. See `resolveCustomerFromClaims`.
+ *      binds a per-resource audience (RFC 8707), else the per-customer `iss`. It
+ *      is NEVER read from a URL path segment or request body. A path/body slug,
+ *      if present, is UNTRUSTED and may only CHECK-MATCH the token-derived
+ *      customer, never select it. The endpoint serves ONE fixed path and the
+ *      customer falls out of the token. See `resolveCustomerFromClaims`.
  *
  *   2. Cross-customer isolation rests entirely on `aud` (or the `iss` fallback)
  *      enforcement. `resolveCustomerFromClaims` returning the wrong/none customer
  *      for a token IS the cross-tenant wall; the validator gates on it before any
  *      per-user authorization or data access.
  *
- * Fail-closed: claims that match no registered customer resolve to `null` → the
- * endpoint refuses. This mirrors `resolveCustomerFlyApp` in fly-app-registry.ts,
- * which the live implementation will extend rather than duplicate.
+ * Data sources (the two-table data plane, migration 0071):
+ *   - mcp_clerk_bindings — per-customer Clerk binding (issuer / client_id /
+ *     audience). Provisioning OUTPUT; written when the Clerk OAuth app is created.
+ *   - customer_configs.mcp_connector_json — the authored `mcp_connector` block
+ *     (enabled / access[]), projected from customer.yaml (ADR 0012).
+ *
+ * Fail-closed: `loadMcpCustomers` returns `[]` when nothing is provisioned;
+ * claims that match no customer resolve to `null` → the endpoint refuses. A
+ * binding with no customer_configs row resolves its connector to the disabled
+ * default (parseMcpConnector), so a token still 401s on the per-user check.
  */
 
+import type { D1Database } from '@cloudflare/workers-types'
 import type { McpConnector } from '../customer-yaml/types'
+import { parseMcpConnector } from '../../portal/customer-config'
 
 /**
  * The per-customer Clerk OAuth binding the token validator needs. One Clerk
@@ -38,12 +44,10 @@ import type { McpConnector } from '../customer-yaml/types'
  */
 export interface ClerkCustomerBinding {
   /**
-   * The customer's Clerk instance issuer, e.g.
-   * `https://clerk.smd.services` (prod) or `https://<slug>.clerk.accounts.dev`
-   * (dev). Copied from the Clerk dashboard per the setup guide. The token's
-   * `iss` claim MUST equal this exactly. When `audience` is null this `iss` is
-   * ALSO the customer-identity key (the token-derived customer is whichever
-   * registered binding owns this issuer).
+   * The customer's Clerk instance issuer, e.g. `https://clerk.smd.services`
+   * (prod) or `https://<slug>.clerk.accounts.dev` (dev). The token's `iss` claim
+   * MUST equal this exactly. When `audience` is null this `iss` is ALSO the
+   * customer-identity key.
    */
   issuer: string
   /**
@@ -64,9 +68,9 @@ export interface ClerkCustomerBinding {
 
 /**
  * Everything the MCP endpoint needs to serve one authenticated request for one
- * customer: the customer id (→ Fly app via the registry), the authored
- * connector block (enabled flag + `access[]` email→profile bindings + posture),
- * and the Clerk binding for token validation.
+ * customer: the customer id (→ Fly app via the registry), the authored connector
+ * block (enabled flag + `access[]` email→profile bindings + posture), and the
+ * Clerk binding for token validation.
  */
 export interface ResolvedMcpCustomer {
   customerId: string
@@ -82,37 +86,45 @@ export interface CustomerIdentityClaims {
   iss?: string
 }
 
-/**
- * SPIKE STUB. The pilot customer descriptor. Replaced in the live slice by a
- * read of the materialized `customer.yaml` (the `mcp_connector` block authored
- * in C1) plus the provisioned Clerk binding, indexed for claim-based lookup.
- *
- * The `access` list here is intentionally empty: with no authored access entry,
- * EVERY email fails the per-user check and the endpoint fail-closes. That is the
- * correct spike posture — the endpoint cannot grant access to anyone until a real
- * `customer.yaml` with a real `access[]` is wired in. The Captain populates
- * `issuer` (and, per the §6 finding, `audience`) from the Clerk dashboard to
- * exercise discovery + OAuth; identity mapping then 401s until `access[]` is
- * sourced from the real config (the documented next slice).
- */
-const PILOT_STUB: ResolvedMcpCustomer = {
-  customerId: 'smd',
-  connector: {
-    enabled: false,
-    data_posture: 'open',
-    access: [],
-  },
-  clerk: {
-    // Captain fills these from the Clerk dashboard per mcp-clerk-setup.md.
-    // Empty issuer ⇒ no token can resolve to this customer (fail-closed).
-    issuer: '',
-    audience: null,
-    authorizedParties: [],
-  },
+/** The mcp_clerk_bindings ⋈ customer_configs row shape `loadMcpCustomers` reads. */
+interface McpBindingRow {
+  customer_slug: string
+  issuer: string
+  client_id: string
+  audience: string | null
+  mcp_connector_json: string | null
 }
 
-/** The registry of all customers this console serves. SPIKE: just the pilot. */
-const CUSTOMERS: readonly ResolvedMcpCustomer[] = [PILOT_STUB]
+/**
+ * Load every provisioned MCP customer from D1 — the registry the pure resolver
+ * matches a token against. Reads the Clerk binding (mcp_clerk_bindings) joined to
+ * the projected connector block (customer_configs.mcp_connector_json). A binding
+ * with no config row LEFT-JOINs to a null connector_json, which parseMcpConnector
+ * resolves to the fail-closed default (disabled) — so the customer is known for
+ * resolution but grants no access until its config projects.
+ *
+ * Fail-closed: returns `[]` when nothing is provisioned (the dark default). The
+ * read is small (one row per provisioned customer); Phase 1 has a handful.
+ */
+export async function loadMcpCustomers(db: D1Database): Promise<ResolvedMcpCustomer[]> {
+  const { results } = await db
+    .prepare(
+      'SELECT b.customer_slug, b.issuer, b.client_id, b.audience, c.mcp_connector_json ' +
+        'FROM mcp_clerk_bindings b ' +
+        'LEFT JOIN customer_configs c ON c.entity_id = b.entity_id'
+    )
+    .all<McpBindingRow>()
+  return (results ?? []).map((row) => ({
+    customerId: row.customer_slug,
+    connector: parseMcpConnector(row.mcp_connector_json),
+    clerk: {
+      issuer: row.issuer,
+      // Treat empty-string audience as "no binding" (issuer-keyed fallback).
+      audience: row.audience && row.audience.length > 0 ? row.audience : null,
+      authorizedParties: row.client_id ? [row.client_id] : [],
+    },
+  }))
+}
 
 /** Does the token's `aud` (string or array) include the customer's bound audience? */
 function audMatches(aud: string | string[] | undefined, expected: string): boolean {
@@ -124,27 +136,28 @@ function audMatches(aud: string | string[] | undefined, expected: string): boole
  * SECURITY-CRITICAL (invariant 1 + 2): derive the customer from VERIFIED token
  * claims — never from a path or body. Call this ONLY with claims that came out of
  * a successful signature verification; passing unverified claims would let a
- * forged `aud`/`iss` select a customer.
+ * forged `aud`/`iss` select a customer. `customers` is the provisioned registry
+ * from {@link loadMcpCustomers}.
  *
  * Resolution order, per the §6 audience finding:
  *   - If a registered customer binds an `audience` and the token's `aud` matches
  *     it → that customer. This is the RFC 8707 mis-redemption gate: a token whose
  *     `aud` is another resource matches no customer here and the validator 401s
  *     BEFORE any data access.
- *   - Else (no audience-bound match) fall back to the per-customer `iss`: the
- *     token's issuer uniquely identifies the customer's Clerk app (one app per
- *     customer). A customer whose binding has `audience: null` is matched by
- *     issuer; a customer WITH an audience is matched ONLY by audience (so an
- *     issuer-only match never bypasses a resource-bound customer).
+ *   - Else fall back to the per-customer `iss`: the token's issuer identifies the
+ *     customer's Clerk app. A customer whose binding has `audience: null` is
+ *     matched by issuer; a customer WITH an audience is matched ONLY by audience
+ *     (so an issuer-only match never bypasses a resource-bound customer).
  *
  * Returns the single matching customer, or `null` when none matches (fail-closed)
  * or when more than one matches (ambiguous ⇒ refuse rather than guess).
  */
 export function resolveCustomerFromClaims(
-  claims: CustomerIdentityClaims
+  claims: CustomerIdentityClaims,
+  customers: readonly ResolvedMcpCustomer[]
 ): ResolvedMcpCustomer | null {
   // Pass 1: audience-bound customers (the strong, spec-compliant key).
-  const audMatched = CUSTOMERS.filter(
+  const audMatched = customers.filter(
     (c) => c.clerk.audience !== null && audMatches(claims.aud, c.clerk.audience)
   )
   if (audMatched.length === 1) return audMatched[0]
@@ -155,7 +168,7 @@ export function resolveCustomerFromClaims(
   // failed the audience match above cannot sidestep into an issuer match against a
   // resource-bound customer.
   if (typeof claims.iss !== 'string' || claims.iss.length === 0) return null
-  const issMatched = CUSTOMERS.filter(
+  const issMatched = customers.filter(
     (c) => c.clerk.audience === null && c.clerk.issuer.length > 0 && c.clerk.issuer === claims.iss
   )
   return issMatched.length === 1 ? issMatched[0] : null
@@ -180,10 +193,10 @@ export function isMcpResourcePath(resourcePath: string): boolean {
  * for the MCP resource. This is discovery only — it tells a client WHERE to
  * authenticate and carries no customer-selecting power (isolation is enforced at
  * token validation via {@link resolveCustomerFromClaims}). Returns the distinct
- * non-empty issuers of every registered customer; empty when none provisioned
+ * non-empty issuers of the provisioned customers; empty when none provisioned
  * (honest "no AS configured", never fabricated).
  */
-export function discoveryAuthorizationServers(): string[] {
-  const issuers = CUSTOMERS.map((c) => c.clerk.issuer).filter((i) => i.length > 0)
+export function discoveryAuthorizationServers(customers: readonly ResolvedMcpCustomer[]): string[] {
+  const issuers = customers.map((c) => c.clerk.issuer).filter((i) => i.length > 0)
   return [...new Set(issuers)]
 }

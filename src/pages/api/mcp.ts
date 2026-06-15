@@ -34,7 +34,12 @@
  */
 
 import type { APIRoute } from 'astro'
-import { isMcpResourcePath, MCP_RESOURCE_PATH } from '../../lib/operator/mcp/customer-resolution'
+import { env } from 'cloudflare:workers'
+import {
+  isMcpResourcePath,
+  loadMcpCustomers,
+  MCP_RESOURCE_PATH,
+} from '../../lib/operator/mcp/customer-resolution'
 import { buildWwwAuthenticate } from '../../lib/operator/mcp/oauth-metadata'
 import {
   extractBearerToken,
@@ -96,9 +101,12 @@ export const POST: APIRoute = async ({ request, url }) => {
   // --- Auth (fail-closed, security-ordered) ---
   // validateMcpToken: verify signature → derive customer from verified aud/iss →
   // enforce binding → per-user access[]. A wrong-aud token 401s before any data
-  // access (invariant 2). The customer comes OUT of validation, not in.
+  // access (invariant 2). The customer comes OUT of validation, not in. The
+  // provisioned registry is loaded from D1 here and passed in (keeping the
+  // validator pure); an empty registry ⇒ every token 401s (dark default).
   const token = extractBearerToken(request.headers.get('authorization'))
-  const auth = await validateMcpToken(token)
+  const customers = await loadMcpCustomers(env.DB)
+  const auth = await validateMcpToken(token, customers)
   if (!auth.ok) {
     return denyFor(url, auth)
   }

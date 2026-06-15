@@ -15,9 +15,11 @@
  */
 
 import type { APIRoute } from 'astro'
+import { env } from 'cloudflare:workers'
 import {
   discoveryAuthorizationServers,
   isMcpResourcePath,
+  loadMcpCustomers,
 } from '../../../lib/operator/mcp/customer-resolution'
 import { buildProtectedResourceMetadata } from '../../../lib/operator/mcp/oauth-metadata'
 
@@ -44,7 +46,7 @@ function resourcePathFromParam(resource: string | undefined): string {
   return `/${tail}`
 }
 
-export const GET: APIRoute = ({ params, url }) => {
+export const GET: APIRoute = async ({ params, url }) => {
   const resourcePath = resourcePathFromParam(params.resource)
   // Public discovery: only confirm the path is the MCP resource. This does NOT
   // select a customer (that happens at token validation from the verified aud);
@@ -54,9 +56,15 @@ export const GET: APIRoute = ({ params, url }) => {
   }
 
   // The canonical resource URL is this origin + the resource path. Must match
-  // what the client used for discovery and (when bound) Clerk's `aud`.
+  // what the client used for discovery and (when bound) Clerk's `aud`. The
+  // advertised AS issuers are the distinct issuers of provisioned customers —
+  // an honest empty list when none are provisioned (the dark default).
   const resourceUrl = new URL(resourcePath, url.origin).toString()
-  const metadata = buildProtectedResourceMetadata(resourceUrl, discoveryAuthorizationServers())
+  const customers = await loadMcpCustomers(env.DB)
+  const metadata = buildProtectedResourceMetadata(
+    resourceUrl,
+    discoveryAuthorizationServers(customers)
+  )
   return json(metadata, 200)
 }
 
