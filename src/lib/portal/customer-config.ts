@@ -185,6 +185,10 @@ const mcpConnectorAccessSchema = z.object({
     .string()
     .regex(/^user_[A-Za-z0-9]+$/)
     .optional(),
+  clerk_subjects: z
+    .array(z.string().regex(/^user_[A-Za-z0-9]+$/))
+    .min(1)
+    .optional(),
 })
 
 /**

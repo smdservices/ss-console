@@ -1522,6 +1522,47 @@ describe('validate — mcp_connector', () => {
     })
   })
 
+  it('accepts multiple customer-scoped Clerk subjects', () => {
+    const f = validFixture()
+    f['mcp_connector'] = {
+      enabled: true,
+      access: [
+        {
+          email: 'partner@firm.com',
+          profile: 'marcus',
+          clerk_subjects: ['user_primary', 'user_secondary'],
+        },
+      ],
+    }
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.mcp_connector.access[0]).toMatchObject({
+      clerk_subjects: ['user_primary', 'user_secondary'],
+    })
+  })
+
+  it('rejects duplicate Clerk subjects', () => {
+    const f = validFixture()
+    f['mcp_connector'] = {
+      enabled: true,
+      access: [
+        {
+          email: 'partner@firm.com',
+          profile: 'marcus',
+          clerk_subjects: ['user_duplicate', 'user_duplicate'],
+        },
+      ],
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) => e.path === 'mcp_connector.access[0].clerk_subjects' && e.code === 'TypeMismatch'
+      )
+    ).toBe(true)
+  })
+
   it('rejects a malformed Clerk subject', () => {
     const f = validFixture()
     f['mcp_connector'] = {

@@ -81,7 +81,7 @@ describe('customer-config projection: real smd yaml', () => {
       {
         email: 'scott@smd.services',
         profile: 'crane',
-        clerk_subject: 'user_3E1RPGrTMxkSqciXMTyybUNSJWu',
+        clerk_subjects: ['user_3EEs0aMBRgu6PRxBa4g5YhHjggD', 'user_3E1RPGrTMxkSqciXMTyybUNSJWu'],
       },
     ])
   })
