@@ -1480,6 +1480,106 @@ describe('validate — demo.reply_relay', () => {
 })
 
 // -----------------------------------------------------------------------------
+// mcp_connector block — Operator <-> Claude MCP connector (Phase 1, fail-closed)
+// -----------------------------------------------------------------------------
+
+describe('validate — mcp_connector', () => {
+  it('defaults to disabled/open/empty when the block is omitted', () => {
+    const r = validate(validFixture())
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.mcp_connector).toEqual({ enabled: false, data_posture: 'open', access: [] })
+  })
+
+  it('accepts an enabled connector binding an authored user to an active persona', () => {
+    const f = validFixture()
+    f['mcp_connector'] = {
+      enabled: true,
+      data_posture: 'open',
+      access: [{ email: 'partner@firm.com', profile: 'marcus' }],
+    }
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.mcp_connector.enabled).toBe(true)
+    expect(r.value.mcp_connector.access).toEqual([{ email: 'partner@firm.com', profile: 'marcus' }])
+  })
+
+  it('accepts data_posture: firm_only', () => {
+    const f = validFixture()
+    f['mcp_connector'] = { enabled: true, data_posture: 'firm_only', access: [] }
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.mcp_connector.data_posture).toBe('firm_only')
+  })
+
+  it('rejects an unknown data_posture', () => {
+    const f = validFixture()
+    f['mcp_connector'] = { enabled: true, data_posture: 'public' }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'mcp_connector.data_posture' && e.code === 'EnumViolation')
+    ).toBe(true)
+  })
+
+  it('rejects an access email that is not an authored user (fail-closed reach)', () => {
+    const f = validFixture()
+    f['mcp_connector'] = {
+      enabled: true,
+      access: [{ email: 'outsider@elsewhere.com', profile: 'marcus' }],
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'mcp_connector.access[0].email' && e.code === 'EnumViolation')
+    ).toBe(true)
+  })
+
+  it('rejects an access profile that is not an active persona slug', () => {
+    const f = validFixture()
+    f['mcp_connector'] = {
+      enabled: true,
+      access: [{ email: 'partner@firm.com', profile: 'ghost' }],
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) => e.path === 'mcp_connector.access[0].profile' && e.code === 'EnumViolation'
+      )
+    ).toBe(true)
+  })
+
+  it('rejects binding the same email twice', () => {
+    const f = validFixture()
+    f['mcp_connector'] = {
+      enabled: true,
+      access: [
+        { email: 'partner@firm.com', profile: 'marcus' },
+        { email: 'partner@firm.com', profile: 'marcus' },
+      ],
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'mcp_connector.access[1].email' && e.code === 'EnumViolation')
+    ).toBe(true)
+  })
+
+  it('rejects a non-mapping mcp_connector block', () => {
+    const f = validFixture()
+    f['mcp_connector'] = 'on'
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'mcp_connector' && e.code === 'TypeMismatch')).toBe(true)
+  })
+})
+
+// -----------------------------------------------------------------------------
 // ADR 0021 — Stream D bundles + Stream B cron (per-persona)
 // -----------------------------------------------------------------------------
 
