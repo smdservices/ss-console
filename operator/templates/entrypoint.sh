@@ -199,6 +199,39 @@ unset GOOGLE_IMPERSONATE_SUBJECT GOOGLE_OAUTH_SCOPES GOOGLE_TOKEN_PATH
 
 export HOME=/opt/data
 log "Workspace broker started as uid $(id -u workspace-broker); dropping gateway to hermes"
+
+# Root-side config applier (ADR 0044 live reconfiguration). Forked here as a
+# ROOT background child — BEFORE the exec-drop to hermes below — so it survives
+# the exec and keeps uid 0. It polls R2 for an updated customer.yaml, validates +
+# safety-checks it (config_applier + the parity validator), and atomically writes
+# it to /opt/data/customer.yaml so the agent picks up entitlement / scope / skill
+# / webhook / demo changes on its NEXT action — no reboot.
+#
+# WHY ROOT (ADR 0044 Decision 5, confirmed on-box hermes-smd-staging 2026-06-15):
+# only root can write the hermes-owned /opt/data/customer.yaml. The R2 pull
+# credential lives in THIS root process's env, which the hermes agent cannot read
+# from /proc (different uid) — so the control-plane apply credential never reaches
+# the data plane (ADR 0026 + OP-P2-1). The agent holds no config-write credential
+# and no inbound verb that can trigger an apply.
+#
+# Forked AFTER the GOOGLE_* unset above so it never carries Google creds. Respawn
+# loop self-heals; a dead applier never blocks the gateway (config changes simply
+# stop applying until it restarts — fail-static, not fail-open: the running config
+# and its enforced ceilings are untouched). v1 is instant-tier only (the
+# live-writable fields are read fresh per action; no gateway reload). Launched
+# only when the R2 config credentials are present.
+if [ -n "${R2_ACCESS_KEY_ID:-}" ] && [ -n "${R2_BUCKET_CONFIG:-}" ] \
+   && /opt/hermes/.venv/bin/python -c "import config_applier" 2>/dev/null; then
+  ( while true; do
+      /opt/hermes/.venv/bin/python -m config_applier || true
+      log "config applier exited; restarting in 5s"
+      sleep 5
+    done ) &
+  log "Root config applier launched (uid 0; polls R2 for live customer.yaml changes)"
+else
+  log "Root config applier NOT launched (R2 config creds absent, or config_applier not in this overlay)"
+fi
+
 exec setpriv \
   --reuid=hermes \
   --regid=hermes \

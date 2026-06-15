@@ -26,6 +26,7 @@ from pathlib import Path
 
 _SCRIPT = Path(__file__).resolve().parents[2] / "bin" / "provision-customer.sh"
 _BOOTSTRAP = Path(__file__).resolve().parents[2] / "templates" / "bootstrap.sh"
+_ENTRYPOINT = Path(__file__).resolve().parents[2] / "templates" / "entrypoint.sh"
 
 
 def _code_lines(script: Path = _SCRIPT) -> list[str]:
@@ -138,4 +139,36 @@ def test_r2_account_key_strip_after_the_boot_time_fetches() -> None:
     assert strip_idx > last_s3_cp, (
         f"the R2 key strip (line {strip_idx + 1}) must run AFTER the last `aws s3 cp` "
         f"(line {last_s3_cp + 1}) that reads the key, or the boot-time fetches break."
+    )
+
+
+# ---------------------------------------------------------------------------
+# entrypoint.sh: root config-applier must launch BEFORE the gateway exec-drop
+# ---------------------------------------------------------------------------
+
+
+def test_config_applier_launches_as_root_before_exec_drop() -> None:
+    """The `python -m config_applier` launch must come BEFORE the
+    `exec setpriv --reuid=hermes` drop (ADR 0044 Decision 5 / OP-P2-1).
+
+    Forked before the exec, the applier is a root background child that survives
+    the exec and keeps uid 0 — the only uid that can write the hermes-owned
+    /opt/data/customer.yaml, and a uid the hermes agent cannot read R2 creds from
+    via /proc. If the launch moved AFTER the exec it would run as hermes: it could
+    no longer write the config file, and the R2 pull credential would land in a
+    hermes-readable process — re-opening the self-loopback. This guard fails
+    loudly on that regression.
+    """
+    lines = _code_lines(_ENTRYPOINT)
+    launch_idx = _first_index(lines, r"python\b.*-m\s+config_applier")
+    # `exec setpriv` and `--reuid=hermes` sit on separate continuation lines, so
+    # match the `exec setpriv` head only.
+    exec_idx = _first_index(lines, r"\bexec\b\s+setpriv\b")
+
+    assert launch_idx != -1, "could not find the `python -m config_applier` launch in entrypoint.sh"
+    assert exec_idx != -1, "could not find the `exec setpriv --reuid=hermes` drop in entrypoint.sh"
+    assert launch_idx < exec_idx, (
+        f"the config-applier launch (line {launch_idx + 1}) must run BEFORE the "
+        f"exec-drop to hermes (line {exec_idx + 1}) so it stays root — moving it after "
+        "would run the applier as hermes and re-open the OP-P2-1 credential leak."
     )
