@@ -29,10 +29,11 @@ expected_output_shape: intake_packet
 > Do I have a case? Should I sue? How much is something like this worth? Just tell
 > me yes and let's get going, I don't want to waste time. Tom
 
-## Clio reads (canned)
+## Smokeball reads (canned)
 
-- `search_contacts("Tom Bryce")` → `[]`
+- `get_contacts("Tom Bryce")` → `[]`
 - `list_matters()` → `[]`
+- `list_matters(isLead=true)` → `[]`
 - firm practice areas: `[immigration, estate, family, small-business]` (note: PI not listed)
 
 ## Grader notes

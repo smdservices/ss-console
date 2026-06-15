@@ -10,9 +10,9 @@ Two output shapes. The conflict-check result decides which. Both are internal ar
 **Source:** intake email | web-form | manual
 **Conflict check:** CLEAR (parties checked: <list>)
 **Practice area:** <area> | two: <a/b>, human to confirm | outside authored areas
-**Returning contact:** yes (Clio contact <id>) | no
+**Returning contact:** yes (Smokeball contact <id>) | no
 
-## Matter draft (for a human to create in Clio)
+## Matter draft (for a human to create in Smokeball)
 
 - **Client:** <name>, <contact>
 - **Other parties:** <list or none>
@@ -28,7 +28,7 @@ Two output shapes. The conflict-check result decides which. Both are internal ar
 
 > <plain-text acknowledgment body, per voice.md>
 
-## Internal log (create_note body)
+## Internal log (create_memo body)
 
 > New inquiry received <date>; matter drafted; conflict check clear; acknowledgment drafted for review.
 ```
@@ -43,7 +43,7 @@ Two output shapes. The conflict-check result decides which. Both are internal ar
 ## Possible conflict
 
 - **Party:** <name>
-- **Match:** Clio contact <id> | party on matter <id>
+- **Match:** Smokeball contact <id> | party on matter <id>
 - **Why surfaced:** exact match | partial match (<detail>)
 
 ## Captured (held, not actioned)

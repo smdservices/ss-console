@@ -12,7 +12,7 @@ Inputs: `sent_date`, `signed` (+ `signed_date`), `status` (pending | declined | 
 
 | State                                                                        | Action                                                                                              |
 | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `signed`                                                                     | Log the signature (`create_note`), stop the cadence, draft **no** nudge. Matter advances to active. |
+| `signed`                                                                     | Log the signature (`create_memo`), stop the cadence, draft **no** nudge. Matter advances to active. |
 | `declined` or `expired`                                                      | **Surface to a human** — a decision/relationship event, not a nudge. Draft no nudge.                |
 | pending, never nudged, `today − sent_date ≥ interval`                        | Draft a nudge (nudge #1).                                                                           |
 | pending, nudged, `today − last_nudge_date ≥ interval`, nudges-so-far `< max` | Draft a nudge (next #).                                                                             |

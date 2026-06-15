@@ -7,8 +7,8 @@ Source of truth for catching a conflict without ever clearing one.
 ```
 parties        = capture_party_graph(matter)        # capture-rubric.md — wide
 for each party:
-    contacts   = search_contacts(party.name)        # Clio, read-only
-    matters    = list_matters(contact_id)           # Clio, read-only
+    contacts   = get_contacts(party.name)           # Smokeball, read-only
+    matters    = list_matters(contactId)            # Smokeball, read-only (incl. isLead for open leads)
 hits           = [p for p in parties if adverse(p, existing book)]   # adversity tests
 if hits:
     for h in hits:
@@ -23,7 +23,7 @@ The cross-check is **read-only and runs before any routing or surfacing**. There
 
 ## Resolving the responsible attorney
 
-The packet routes to the owner of the _conflicting existing matter_ so the right person decides. Per `operator/verticals/law-firm/clio-surface.md` findings 2–3, the responsible attorney is not in the default matter field set; recover it via the connector field-widening or a `list_users` association. If it cannot be resolved, route to the firm's named conflict-clearance human — **never** drop to a generic queue and never to a wedge skill.
+The packet routes to the owner of the _conflicting existing matter_ so the right person decides. Per `operator/verticals/law-firm/smokeball-surface.md`, the responsible attorney is returned directly on the matter as `personResponsibleStaffId` (no field-widening needed); resolve it to a name via `get_staff`. If it is absent or cannot be resolved, route to the firm's named conflict-clearance human — **never** drop to a generic queue and never to a wedge skill.
 
 ## Cadence re-scan (delta logic)
 
@@ -38,5 +38,5 @@ Dedup against the **already-surfaced/cleared** set, not against confirmed-confli
 
 ## Honest limits
 
-- The check is name/entity matching over Clio contacts and matters. It will miss a conflict whose party is recorded under a different name/spelling, or not recorded at all — capture width (capture-rubric.md) is the main defense, and even then this is a surfacing aid, not a guarantee.
+- The check is name/entity matching over Smokeball contacts and matters. It will miss a conflict whose party is recorded under a different name/spelling, or not recorded at all — capture width (capture-rubric.md) is the main defense, and even then this is a surfacing aid, not a guarantee.
 - It cannot judge waivability, materiality, or distance of a relationship. Those are clearance judgments; the skill stops at "possible conflict — route to human."

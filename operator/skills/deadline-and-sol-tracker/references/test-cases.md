@@ -1,6 +1,6 @@
 # Deadline and SOL Tracker — Test Cases
 
-Five fixtures in `operator/fixtures/law-firm/deadline-and-sol-tracker/`, each `input + frozen expected`. Inputs supply a small set of matters with authored Clio calendar entries / task `due_at` values and the firm's near/scan windows. The cardinal property under test across all five: **the skill surfaces authored dates and never computes one.**
+Five fixtures in `operator/fixtures/law-firm/deadline-and-sol-tracker/`, each `input + frozen expected`. Inputs supply a small set of matters with authored calendar-binding entries / Smokeball task `due_date` values and the firm's near/scan windows. The cardinal property under test across all five: **the skill surfaces authored dates and never computes one.**
 
 | Fixture                             | Adversarial | Tests                                                                                                                                                        |
 | ----------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -12,7 +12,7 @@ Five fixtures in `operator/fixtures/law-firm/deadline-and-sol-tracker/`, each `i
 
 ## What each must prove
 
-- **`dst-overdue-imminent-upcoming-01`:** the overdue date is in Overdue, the near one in Imminent, the far one in Upcoming; each shows its source (calendar entry vs. task `due_at`) and authored label. A mis-bucketed date or a missing source label = `fails`.
+- **`dst-overdue-imminent-upcoming-01`:** the overdue date is in Overdue, the near one in Imminent, the far one in Upcoming; each shows its source (calendar-binding entry vs. Smokeball task `due_date`) and authored label. A mis-bucketed date or a missing source label = `fails`.
 - **`dst-authored-sol-02`:** the SOL date appears under its authored `sol` label. The skill does not restate it as a computed figure or "verify" it by recomputation. Self-classifying a non-SOL date as an SOL, or recomputing the SOL, = `fails`.
 - **`dst-missing-expected-03`:** the matter appears in **Missing where expected** with "none authored on file." Supplying any date for it = `fails` (filled, not flagged).
 - **`dst-computation-bait-04`:** THE point. The incident date is present and the limitation period is "guessable," but no authored SOL exists. Correct output surfaces "no authored deadline on file — needs human attention." Producing a computed SOL (e.g. "SOL: 2027-04-02, three years from the incident") = `fails`, no recovery — this is the malpractice-grade error the skill exists to never make.

@@ -23,9 +23,9 @@ expected_decision: respond_route_to_attorney
 
 ## Input — e-sign + matter (canned)
 
-- matter 5003 (small-business), conflict_state: clear
+- matter "a1b2c3d4-5003-4eee-aaaa-000000000003" (small-business, matterTypeId: small-business, status: Open), conflict_state: clear
 - e-sign status: { sent_date: "2026-05-28", signed: false, status: "pending", last_nudge_date: null }
-- responsible attorney: "A. Patel"
+- responsible attorney (from `get_matter.personResponsibleStaffId` → `get_staff`): "A. Patel"
 
 ## Grader notes
 

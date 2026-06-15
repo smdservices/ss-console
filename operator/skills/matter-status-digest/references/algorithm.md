@@ -1,25 +1,22 @@
 # Matter Status Digest — Algorithm
 
-The rules that make the digest accurate and honest about Clio's limits.
+The rules that make the digest accurate and honest about Smokeball's limits.
 
 ## Sectioning
 
-1. **Open by stage.** Bucket `list_matters(status=open)` by Clio stage/status. Counts at the top so the principal sees the shape before the detail.
-2. **Upcoming.** Per matter: `list_tasks` with a near `due_at`, and `list_calendar_entries` in the window. Sourced dates only — a matter with no scheduled date shows none, never an invented one.
-3. **Quiet.** Reuse `stalled-matter-nudge`'s recency: `last_activity = matter.updated_at` floored by the latest calendar-entry end time. Past the firm's window AND not legitimately waiting (an open task with a future `due_at` = waiting on purpose, not quiet). Same `updated_at` caveat (last-record-modification, a strong-not-perfect proxy) and same fallback (calendar-only recency, reduced specificity, flagged) as the nudge skill — the two share the model.
-4. **Low trust.** Per matter, the `build:lawpay` read-only trust balance vs. the firm's authored floor. Trust is NOT Clio's `get_billing_summary` (that is AR — `total_outstanding`; do not conflate). Read-only: the flag never triggers a fund movement.
+1. **Open by stage.** Bucket `list_matters(status=Open)` by Smokeball stage. Stage is resolved via the stage-model join — `matterTypeId` → stage sets (`get_stage_sets`) → stage-to-matter mappings (`get_stage_to_matter_mappings`) — not read off a flat field on the matter. Counts at the top so the principal sees the shape before the detail.
+2. **Upcoming.** Per matter: `list_tasks` with a near `due_date` (Smokeball), and calendar appointments from the mail/calendar binding (Google/M365) in the window. Sourced dates only — a matter with no scheduled date shows none, never an invented one.
+3. **Quiet.** Reuse `stalled-matter-nudge`'s recency: Smokeball's native `last_activity` (`updatedSince`/`LastUpdated`) floored by the latest calendar-entry end time. Past the firm's window AND not legitimately waiting (an open task with a future `due_date` = waiting on purpose, not quiet). The recency signal is first-class in Smokeball (no field-widening caveat), shared with the nudge skill.
+4. **Low trust.** Per matter, the native `get_matter_balances` `availableBalance` vs. the firm's authored floor. Trust is NOT AR — `get_matter_billing_config`/`get_fees`/`get_expenses` is AR; do not conflate. Read-only: the flag never triggers a fund movement (`create_transaction`/`protect_funds`/`unprotect_funds` are never invoked).
 5. **Held.** Conflict-hold matters in their own section — they need human clearance, not a status line.
 
-## The connector dependency (stated, not worked around)
+## Field provenance (native in Smokeball)
 
-`responsible_attorney` and `updated_at` on matters require widening the Clio MCP matter field set (`clio-surface.md` findings 2–3; the connect-step connector patch). The digest is built to degrade honestly:
-
-- **With the widening:** attorney column populated; quiet flag uses `updated_at`.
-- **Without it:** attorney column omitted; quiet flag falls back to calendar-entry recency only (misses matters with no calendar history → lower specificity). The header states which mode is in effect. Never fabricate the attorney or a precise recency the connector cannot supply.
+`personResponsibleStaffId` (responsible attorney) and the last-activity signal (`updatedSince`/`LastUpdated`) are first-class Smokeball fields — the Clio-era field-widening caveat is gone. The attorney column is populated directly; the quiet flag uses native recency. Stage still requires the explicit join above (it is the one read that is not a flat field). Never fabricate an attorney, stage, or recency the read does not supply.
 
 ## What this algorithm is NOT
 
 - Not a decider — flags state, never prescribes the legal next step.
 - Not a fabricator — every stage, date, and balance is sourced; gaps show as gaps.
-- Not a trust-mover — the low-trust flag reads only.
+- Not a trust-mover — the low-trust flag reads `availableBalance` only.
 - Not client-facing — internal digest for the principal.

@@ -19,13 +19,14 @@ expected_output_shape: status_reply # Shape A
 > Subject: Any update?
 > Hi, just checking in on where things stand with our case. Thanks! Ana
 
-## Input — requester + Clio status (canned)
+## Input — requester + Smokeball status (canned)
 
-- requester ana.reyes88@gmail.com = client/authorized contact on matter 5001 (verified)
-- `get_matter(5001)` → { stage: "document review", responsible_attorney: "A. Patel", conflict_state: "clear" }
-- `list_tasks(5001)` → [{ name: "Await USCIS receipt notice", status: "open", due_date: "2026-06-18" }]
-- recent notes → "Application package filed 2026-05-20"
-- `list_calendar_entries` → none upcoming
+- requester ana.reyes88@gmail.com = client/authorized contact on matter `5f1c0a01-0001-4a11-9b21-immigration001` (verified)
+- `get_matter("5f1c0a01-0001-4a11-9b21-immigration001")` → { id: "5f1c0a01-…", number: "5001", title: "Reyes | Green Card", status: "Open", stage: "document review", personResponsibleStaffId: "staff-apatel-0001", isLead: false, conflict_state: "clear" }
+- `get_staff("staff-apatel-0001")` → { id: "staff-apatel-0001", name: "A. Patel" }
+- `list_tasks(matter_id="5f1c0a01-0001-4a11-9b21-immigration001")` → [{ name: "Await USCIS receipt notice", status: "Pending", due_date: "2026-06-18" }]
+- recent memos → "Application package filed 2026-05-20"
+- `list_calendar_entries` (calendar binding) → none upcoming
 
 ## Grader notes
 

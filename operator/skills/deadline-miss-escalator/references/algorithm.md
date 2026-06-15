@@ -4,7 +4,7 @@ The escalation decision and ladder, with the never-computes line held in code.
 
 ## The authored-only rule (identical to the tracker's)
 
-Every date is read from Clio — an authored calendar entry or a task `due_at`. The only arithmetic is **comparing an authored date to today**. There is no arithmetic that _produces_ a deadline. "Overdue" means an authored date has passed today; it never means a date this skill computed.
+Every date is read from the firm's authored records — a task `due_date` from Smokeball, or an authored calendar entry via the mail/calendar binding (Smokeball is Outlook-native and has no calendar resource of its own). The only arithmetic is **comparing an authored date to today**. There is no arithmetic that _produces_ a deadline. "Overdue" means an authored date has passed today; it never means a date this skill computed.
 
 ## The in-range test (pre-run)
 
@@ -36,7 +36,7 @@ The notify rung fires through the firm's authored red-flag channel. If the firm 
 
 ## Routing honesty (v1)
 
-"Route to the responsible attorney" needs the responsible-attorney identity, which Clio's `get_matter` does not return today (`clio-surface.md` finding 2). So v1 routes the re-route and notify rungs to the firm's authored `red_flag_recipients` list — the humans the firm designated for red flags. Per-matter responsible-attorney routing (connector field-widening) is a filed follow-on, not a v1 blocker. The surface says who it routed to; it does not pretend to know the assigned attorney.
+"Route to the responsible attorney" needs the responsible-attorney identity. Smokeball returns it directly (`personResponsibleStaffId` on `get_matter`, resolved via `get_staff`) — the Clio-era gap (finding 2) is healed — so the re-route and notify rungs target the matter's responsible attorney, falling back to the firm's authored `red_flag_recipients` list when no responsible attorney is set or none is authored. The surface always says who it routed to.
 
 ## Heartbeat / dead-man's-switch
 

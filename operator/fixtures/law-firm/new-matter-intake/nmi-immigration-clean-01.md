@@ -30,11 +30,12 @@ expected_output_shape: intake_packet
 > permit expires August 30 and I'm worried about timing. Can someone help us
 > figure out what to do? Thank you.
 
-## Clio reads (canned — what the read tools return for this fixture)
+## Smokeball reads (canned — what the read tools return for this fixture)
 
-- `search_contacts("Ana Reyes")` → `[]`
-- `search_contacts("Miguel Reyes")` → `[]`
+- `get_contacts("Ana Reyes")` → `[]`
+- `get_contacts("Miguel Reyes")` → `[]`
 - `list_matters()` → `[]` (no existing matters touching either name)
+- `list_matters(isLead=true)` → `[]` (no existing leads touching either name)
 - firm practice areas (`customer.yaml`): `[immigration, estate, family, small-business]`
 
 ## Grader notes
