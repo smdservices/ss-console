@@ -199,8 +199,16 @@ function enforceBinding(
  * verified token, never from the request path/body (invariant 1). A token whose
  * `aud` matches no customer here is rejected (`wrong_audience`) before any data
  * access (invariant 2).
+ *
+ * `customers` is the provisioned registry loaded from D1 by the route layer
+ * (`loadMcpCustomers`). Passing it in (rather than reading D1 here) keeps this
+ * validator pure and unit-testable. An empty registry ⇒ every token 401s
+ * (`wrong_audience`) — the fail-closed dark default.
  */
-export async function validateMcpToken(token: string | null): Promise<McpAuthResult> {
+export async function validateMcpToken(
+  token: string | null,
+  customers: readonly ResolvedMcpCustomer[]
+): Promise<McpAuthResult> {
   if (!token) return { ok: false, reason: 'missing_token', detail: 'no bearer token' }
 
   // 1. Signature first — establishes trusted claims.
@@ -211,7 +219,7 @@ export async function validateMcpToken(token: string | null): Promise<McpAuthRes
   // 2. Derive the customer FROM the verified claims (aud-first; iss fallback).
   //    This is the cross-tenant gate: a valid-but-wrong-aud token matches no
   //    customer and is rejected here, before any per-user authz or data access.
-  const customer = resolveCustomerFromClaims(toIdentityClaims(claims))
+  const customer = resolveCustomerFromClaims(toIdentityClaims(claims), customers)
   if (!customer) {
     return {
       ok: false,

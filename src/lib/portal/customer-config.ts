@@ -25,6 +25,12 @@ import {
   parseCredentialCustody,
   type CredentialCustody,
 } from '../operator/credential-custody'
+import {
+  ACCEPTED_DATA_POSTURES,
+  type DataPosture,
+  type McpConnector,
+  type McpConnectorAccess,
+} from '../operator/customer-yaml/types'
 
 export type PersonaStatus = 'active' | 'archived'
 
@@ -99,6 +105,15 @@ export interface CustomerConfigRow {
    * src/lib/operator/credential-custody.ts.
    */
   credential_custody_default: CredentialCustody
+  /**
+   * Resolved `mcp_connector` block (Operator ⇄ Claude connector, Phase 1) —
+   * projected from `customer.yaml.mcp_connector`. Always present: a null
+   * `mcp_connector_json` column (a row predating the column, or a customer.yaml
+   * with no block) resolves to the fail-closed default (disabled, empty access)
+   * via {@link parseMcpConnector}. The MCP endpoint reads this for the per-user
+   * `access[]` mapping; the Clerk binding lives separately in mcp_clerk_bindings.
+   */
+  mcp_connector: McpConnector
   git_sha: string
   synced_at: string
 }
@@ -118,6 +133,7 @@ export interface CustomerConfigDbRow {
   vertical: string | null
   authority_json: string | null
   credential_custody_default: string | null
+  mcp_connector_json: string | null
   git_sha: string
   synced_at: string
 }
@@ -153,6 +169,48 @@ function parseJsonRequired<T>(value: string, column: string, entityId: string): 
   }
 }
 
+/** Fail-closed `mcp_connector`: no user reaches the Operator through Claude. */
+const MCP_CONNECTOR_FAIL_CLOSED: McpConnector = {
+  enabled: false,
+  data_posture: 'open',
+  access: [],
+}
+
+/**
+ * Parse the projected `mcp_connector_json` column into a runtime `McpConnector`.
+ *
+ * DEFENSIVE / FAIL-CLOSED, unlike `parseJsonRequired`: a null column, malformed
+ * JSON, or a shape-wrong value all resolve to the disabled default rather than
+ * throwing. Two reasons: (1) this column is read on the live client portal, and
+ * a corrupt value must not 500 the page the way a corrupt `personas_json` does;
+ * (2) for the MCP endpoint, "config we can't trust" must mean "grant nothing",
+ * never "open up". A well-formed enabled block with valid `access[]` entries is
+ * honored exactly; anything else collapses to disabled + empty access.
+ */
+export function parseMcpConnector(json: string | null | undefined): McpConnector {
+  if (json === null || json === undefined) return { ...MCP_CONNECTOR_FAIL_CLOSED, access: [] }
+  let raw: unknown
+  try {
+    raw = JSON.parse(json)
+  } catch {
+    return { ...MCP_CONNECTOR_FAIL_CLOSED, access: [] }
+  }
+  if (raw === null || typeof raw !== 'object') return { ...MCP_CONNECTOR_FAIL_CLOSED, access: [] }
+  const o = raw as Record<string, unknown>
+  const data_posture: DataPosture = ACCEPTED_DATA_POSTURES.includes(o.data_posture as DataPosture)
+    ? (o.data_posture as DataPosture)
+    : 'open'
+  const access: McpConnectorAccess[] = Array.isArray(o.access)
+    ? o.access.flatMap((e) => {
+        if (e === null || typeof e !== 'object') return []
+        const entry = e as Record<string, unknown>
+        if (typeof entry.email !== 'string' || typeof entry.profile !== 'string') return []
+        return [{ email: entry.email, profile: entry.profile }]
+      })
+    : []
+  return { enabled: o.enabled === true, data_posture, access }
+}
+
 export function projectRow(row: CustomerConfigDbRow): CustomerConfigRow {
   return {
     entity_id: row.entity_id,
@@ -173,6 +231,7 @@ export function projectRow(row: CustomerConfigDbRow): CustomerConfigRow {
     authority: parseAuthorityPosture(parseJsonNullable(row.authority_json)),
     credential_custody_default:
       parseCredentialCustody(row.credential_custody_default) ?? DEFAULT_CREDENTIAL_CUSTODY,
+    mcp_connector: parseMcpConnector(row.mcp_connector_json),
     git_sha: row.git_sha,
     synced_at: row.synced_at,
   }
