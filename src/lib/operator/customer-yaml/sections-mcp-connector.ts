@@ -55,6 +55,87 @@ function parseDataPosture(raw: unknown, errors: ValidationError[]): DataPosture 
   return raw as DataPosture
 }
 
+interface AccessValidationContext {
+  authoredEmails: Set<string>
+  activeProfiles: Set<string>
+  seenEmails: Set<string>
+  errors: ValidationError[]
+}
+
+function parseAccessEntry(
+  entry: unknown,
+  index: number,
+  context: AccessValidationContext
+): McpConnectorAccess | null {
+  const path = `mcp_connector.access[${index}]`
+  if (!isPlainObject(entry)) {
+    context.errors.push({ code: 'TypeMismatch', path, message: `${path} must be a mapping` })
+    return null
+  }
+
+  const email = entry['email']
+  const profile = entry['profile']
+  const clerkSubject = entry['clerk_subject']
+  if (typeof email !== 'string' || email.trim() === '') {
+    context.errors.push({
+      code: 'MissingField',
+      path: `${path}.email`,
+      message: `${path}.email is required`,
+    })
+    return null
+  }
+  if (typeof profile !== 'string' || profile.trim() === '') {
+    context.errors.push({
+      code: 'MissingField',
+      path: `${path}.profile`,
+      message: `${path}.profile is required`,
+    })
+    return null
+  }
+  if (
+    clerkSubject !== undefined &&
+    (typeof clerkSubject !== 'string' || !/^user_[A-Za-z0-9]+$/.test(clerkSubject))
+  ) {
+    context.errors.push({
+      code: 'TypeMismatch',
+      path: `${path}.clerk_subject`,
+      message: `${path}.clerk_subject must be a Clerk user ID`,
+    })
+    return null
+  }
+  if (!context.authoredEmails.has(email)) {
+    context.errors.push({
+      code: 'EnumViolation',
+      path: `${path}.email`,
+      message: `${path}.email "${email}" does not match any declared users[] email`,
+    })
+    return null
+  }
+  if (!context.activeProfiles.has(profile)) {
+    context.errors.push({
+      code: 'EnumViolation',
+      path: `${path}.profile`,
+      message: `${path}.profile "${profile}" does not match any active persona slug`,
+    })
+    return null
+  }
+  if (context.seenEmails.has(email)) {
+    context.errors.push({
+      code: 'EnumViolation',
+      path: `${path}.email`,
+      message: `${path}.email "${email}" is bound more than once`,
+    })
+    return null
+  }
+
+  context.seenEmails.add(email)
+  return {
+    email,
+    profile,
+    ...(typeof clerkSubject === 'string' ? { clerk_subject: clerkSubject } : {}),
+  }
+}
+
 function parseAccess(
   raw: unknown,
   authoredEmails: Set<string>,
@@ -72,57 +153,15 @@ function parseAccess(
   }
 
   const out: McpConnectorAccess[] = []
-  const seenEmails = new Set<string>()
+  const context: AccessValidationContext = {
+    authoredEmails,
+    activeProfiles,
+    seenEmails: new Set<string>(),
+    errors,
+  }
   raw.forEach((entry, i) => {
-    const path = `mcp_connector.access[${i}]`
-    if (!isPlainObject(entry)) {
-      errors.push({ code: 'TypeMismatch', path, message: `${path} must be a mapping` })
-      return
-    }
-    const email = entry['email']
-    const profile = entry['profile']
-    if (typeof email !== 'string' || email.trim() === '') {
-      errors.push({
-        code: 'MissingField',
-        path: `${path}.email`,
-        message: `${path}.email is required`,
-      })
-      return
-    }
-    if (typeof profile !== 'string' || profile.trim() === '') {
-      errors.push({
-        code: 'MissingField',
-        path: `${path}.profile`,
-        message: `${path}.profile is required`,
-      })
-      return
-    }
-    if (!authoredEmails.has(email)) {
-      errors.push({
-        code: 'EnumViolation',
-        path: `${path}.email`,
-        message: `${path}.email "${email}" does not match any declared users[] email`,
-      })
-      return
-    }
-    if (!activeProfiles.has(profile)) {
-      errors.push({
-        code: 'EnumViolation',
-        path: `${path}.profile`,
-        message: `${path}.profile "${profile}" does not match any active persona slug`,
-      })
-      return
-    }
-    if (seenEmails.has(email)) {
-      errors.push({
-        code: 'EnumViolation',
-        path: `${path}.email`,
-        message: `${path}.email "${email}" is bound more than once`,
-      })
-      return
-    }
-    seenEmails.add(email)
-    out.push({ email, profile })
+    const parsed = parseAccessEntry(entry, i, context)
+    if (parsed) out.push(parsed)
   })
   return out
 }

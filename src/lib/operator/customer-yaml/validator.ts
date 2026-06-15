@@ -64,6 +64,7 @@ import { checkDemo } from './sections-demo'
 import { checkMcpConnector } from './sections-mcp-connector'
 import { checkGoogleAuth } from './sections-google-auth'
 import { checkAuthority } from './sections-authority'
+import { checkRelationship } from './sections-relationship'
 import type { AuthorityPosture } from '../authority'
 import type { CredentialCustody } from '../credential-custody'
 
@@ -102,6 +103,8 @@ export type {
   Demo,
   McpConnector,
   McpConnectorAccess,
+  Relationship,
+  RelationshipPerson,
   DataPosture,
   Vertical,
   TrustCeiling,
@@ -236,6 +239,7 @@ interface ParsedSections {
   credentialCustodyDefault: CredentialCustody
   demo: Demo
   mcpConnector: ReturnType<typeof checkMcpConnector>
+  relationship: ReturnType<typeof checkRelationship>
 }
 
 function validateSections(
@@ -290,6 +294,7 @@ function validateSections(
     credentialCustodyDefault: checkCredentialCustodyDefault(root, errors),
     demo: checkDemo(root, errors),
     mcpConnector: checkMcpConnector(root, users, personas, errors),
+    relationship: checkRelationship(root, errors),
   }
 }
 
@@ -327,5 +332,6 @@ function assembleCustomerYaml(root: Record<string, unknown>, p: ParsedSections):
     credential_custody_default: p.credentialCustodyDefault,
     demo: p.demo,
     mcp_connector: p.mcpConnector,
+    relationship: p.relationship,
   }
 }

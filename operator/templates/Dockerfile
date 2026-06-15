@@ -184,9 +184,11 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # check is unchanged. Fixes demo-law DEMO_RELAY_BLOCKED reason=content_sensitive
 # on a benign disclaimer (2026-06-14 live test). Superset of ed96cebe.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-# 37a27aa — #79 expose voice_corrections via memory_export (ADR 0048): the legible
-# relationship surface ("what I've learned about working with you") reads the
-# operator's taught style rules through the runtime-read seam. Superset of c410c52.
+# b3294de — #81 live-reconfiguration overlay (ADR 0044): WS2 live reads (demo/webhook
+# re-read per action), validator parity + on-box secret scan, and the root-owned
+# config_applier (pull → validate → safety → atomic write of /opt/data/customer.yaml).
+# Verified end-to-end on hermes-smd-staging. Superset of e4d1f23 (#82 relationship
+# authored lane, ADR 0048 Phase 2), which it merges and carries forward.
 ARG OVERLAY_REF="b3294de00bbd3e78c51fc537343830d820100929"
 
 ARG CUSTOMER_SLUG=customer-zero

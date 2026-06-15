@@ -1503,6 +1503,47 @@ describe('validate — mcp_connector', () => {
     expect(r.value.mcp_connector.access).toEqual([{ email: 'partner@firm.com', profile: 'marcus' }])
   })
 
+  it('accepts an explicit customer-scoped Clerk subject', () => {
+    const f = validFixture()
+    f['mcp_connector'] = {
+      enabled: true,
+      access: [
+        {
+          email: 'partner@firm.com',
+          profile: 'marcus',
+          clerk_subject: 'user_3E1RPGrTMxkSqciXMTyybUNSJWu',
+        },
+      ],
+    }
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.mcp_connector.access[0]).toMatchObject({
+      clerk_subject: 'user_3E1RPGrTMxkSqciXMTyybUNSJWu',
+    })
+  })
+
+  it('rejects a malformed Clerk subject', () => {
+    const f = validFixture()
+    f['mcp_connector'] = {
+      enabled: true,
+      access: [
+        {
+          email: 'partner@firm.com',
+          profile: 'marcus',
+          clerk_subject: 'not-a-clerk-user',
+        },
+      ],
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) => e.path === 'mcp_connector.access[0].clerk_subject' && e.code === 'TypeMismatch'
+      )
+    ).toBe(true)
+  })
+
   it('accepts data_posture: firm_only', () => {
     const f = validFixture()
     f['mcp_connector'] = { enabled: true, data_posture: 'firm_only', access: [] }
@@ -2475,6 +2516,118 @@ describe('validate — credential custody', () => {
     expect(
       r.errors.some(
         (e) => e.path === 'connectors.Email.credential_custody' && e.code === 'EnumViolation'
+      )
+    ).toBe(true)
+  })
+})
+
+// -----------------------------------------------------------------------------
+// relationship: block — authored behavioral lane (ADR 0048)
+// -----------------------------------------------------------------------------
+
+describe('validate — relationship block (ADR 0048)', () => {
+  it('defaults to { people: [] } when the block is absent', () => {
+    const r = validate(validFixture())
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.relationship).toEqual({ people: [] })
+  })
+
+  it('accepts a well-formed people list and normalizes optional fields', () => {
+    const f = validFixture()
+    f['relationship'] = {
+      people: [
+        {
+          id: 'scott-durgan',
+          name: 'Scott Durgan',
+          role: 'Principal',
+          prefers: ['Lead with the material change and its consequence'],
+          avoid: ['Inventing time/effort estimates for unscoped work'],
+        },
+        { id: 'office-manager', name: 'Office Manager' },
+      ],
+    }
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.relationship.people).toHaveLength(2)
+    expect(r.value.relationship.people[0]).toEqual({
+      id: 'scott-durgan',
+      name: 'Scott Durgan',
+      role: 'Principal',
+      prefers: ['Lead with the material change and its consequence'],
+      avoid: ['Inventing time/effort estimates for unscoped work'],
+    })
+    // Optional fields normalize: absent role → null, absent lists → [].
+    expect(r.value.relationship.people[1]).toEqual({
+      id: 'office-manager',
+      name: 'Office Manager',
+      role: null,
+      prefers: [],
+      avoid: [],
+    })
+  })
+
+  it('rejects a non-mapping relationship block', () => {
+    const f = validFixture()
+    f['relationship'] = ['not', 'a', 'map']
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.path === 'relationship' && e.code === 'TypeMismatch')).toBe(true)
+  })
+
+  it('requires id and name on each person', () => {
+    const f = validFixture()
+    f['relationship'] = { people: [{ role: 'Partner' }] }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'relationship.people[0].id' && e.code === 'MissingField')
+    ).toBe(true)
+    expect(
+      r.errors.some((e) => e.path === 'relationship.people[0].name' && e.code === 'MissingField')
+    ).toBe(true)
+  })
+
+  it('rejects a non-kebab-case id (InvalidSlug)', () => {
+    const f = validFixture()
+    f['relationship'] = { people: [{ id: 'Scott Durgan', name: 'Scott' }] }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'relationship.people[0].id' && e.code === 'InvalidSlug')
+    ).toBe(true)
+  })
+
+  it('rejects duplicate person ids', () => {
+    const f = validFixture()
+    f['relationship'] = {
+      people: [
+        { id: 'chris', name: 'Chris A' },
+        { id: 'chris', name: 'Chris B' },
+      ],
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => e.code === 'DuplicateRelationshipPersonId')).toBe(true)
+  })
+
+  it('rejects non-string / empty preference items', () => {
+    const f = validFixture()
+    f['relationship'] = { people: [{ id: 'p1', name: 'P', prefers: ['', 42] }] }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) => e.path === 'relationship.people[0].prefers[0]' && e.code === 'EmptyField'
+      )
+    ).toBe(true)
+    expect(
+      r.errors.some(
+        (e) => e.path === 'relationship.people[0].prefers[1]' && e.code === 'TypeMismatch'
       )
     ).toBe(true)
   })

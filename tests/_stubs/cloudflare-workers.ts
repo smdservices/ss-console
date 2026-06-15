@@ -45,6 +45,7 @@ export type WorkflowEvent<P = unknown> = {
   payload: P
   timestamp: Date
   instanceId: string
+  workflowName: string
 }
 export type WorkflowStep = {
   do<T>(name: string, fn: () => Promise<T>): Promise<T>

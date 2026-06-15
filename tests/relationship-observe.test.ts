@@ -11,7 +11,12 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { parseStyleCorrections, loadStyleLane } from '../src/lib/admin/relationship-observe'
+import {
+  parseStyleCorrections,
+  loadStyleLane,
+  parseStandingPreferences,
+  loadStandingPreferences,
+} from '../src/lib/admin/relationship-observe'
 import type {
   MachineRuntimeTransport,
   RuntimeReadAudit,
@@ -127,6 +132,99 @@ describe('loadStyleLane', () => {
       },
     }
     const res = await loadStyleLane({ transport, audit }, 'smd', actor, true)
+    expect(res.status).toBe('unreachable')
+  })
+})
+
+const aPerson = (over: Record<string, unknown> = {}) => ({
+  id: 'scott-durgan',
+  name: 'Scott Durgan',
+  role: 'Principal',
+  prefers: ['Lead with the material change'],
+  avoid: ['Inventing estimates'],
+  ...over,
+})
+
+describe('parseStandingPreferences', () => {
+  it('parses a valid person', () => {
+    const out = parseStandingPreferences({ entries: [aPerson()] })
+    expect(out).toEqual([
+      {
+        id: 'scott-durgan',
+        name: 'Scott Durgan',
+        role: 'Principal',
+        prefers: ['Lead with the material change'],
+        avoid: ['Inventing estimates'],
+      },
+    ])
+  })
+
+  it('normalizes optional fields (absent role → null, lists → [])', () => {
+    const out = parseStandingPreferences({ entries: [{ id: 'p1', name: 'P' }] })
+    expect(out[0]).toEqual({ id: 'p1', name: 'P', role: null, prefers: [], avoid: [] })
+  })
+
+  it('drops non-string list items', () => {
+    const out = parseStandingPreferences({ entries: [aPerson({ prefers: ['ok', 42, ''] })] })
+    expect(out[0].prefers).toEqual(['ok'])
+  })
+
+  it('skips rows missing id or name', () => {
+    expect(parseStandingPreferences({ entries: [{ name: 'no id' }] })).toEqual([])
+    expect(parseStandingPreferences({ entries: [{ id: 'no-name' }] })).toEqual([])
+  })
+
+  it('is total on malformed payloads', () => {
+    expect(parseStandingPreferences(null)).toEqual([])
+    expect(parseStandingPreferences({ entries: 'nope' })).toEqual([])
+    expect(parseStandingPreferences({ entries: [null, 7] })).toEqual([])
+  })
+})
+
+describe('loadStandingPreferences', () => {
+  it('returns not_enabled WITHOUT a read when unconfigured', async () => {
+    const { audit, getCalls } = countingAudit()
+    const res = await loadStandingPreferences(
+      { transport: transportReturning({ entries: [aPerson()] }), audit },
+      'smd',
+      actor,
+      false
+    )
+    expect(res).toEqual({ status: 'not_enabled' })
+    expect(getCalls()).toBe(0)
+  })
+
+  it('classifies people as items', async () => {
+    const { audit } = countingAudit()
+    const res = await loadStandingPreferences(
+      { transport: transportReturning({ entries: [aPerson()] }), audit },
+      'smd',
+      actor,
+      true
+    )
+    expect(res.status).toBe('items')
+    if (res.status === 'items') expect(res.people).toHaveLength(1)
+  })
+
+  it('classifies no people as empty', async () => {
+    const { audit } = countingAudit()
+    const res = await loadStandingPreferences(
+      { transport: transportReturning({ entries: [] }), audit },
+      'smd',
+      actor,
+      true
+    )
+    expect(res).toEqual({ status: 'empty' })
+  })
+
+  it('fails closed to unreachable on a read error', async () => {
+    const { audit } = countingAudit()
+    const transport: MachineRuntimeTransport = {
+      read: async () => {
+        throw new Error('boom')
+      },
+    }
+    const res = await loadStandingPreferences({ transport, audit }, 'smd', actor, true)
     expect(res.status).toBe('unreachable')
   })
 })
