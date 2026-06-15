@@ -26,8 +26,27 @@
  */
 
 /** The classes of runtime detail a drill-in can request. Each maps to a
- * read-only endpoint on the Machine. Extend as drill-in surfaces are added. */
-export const RUNTIME_READ_KINDS = ['audit_log', 'draft', 'matter', 'activity'] as const
+ * read-only endpoint on the Machine. Extend as drill-in surfaces are added.
+ *
+ * `memory_export` serves an allow-listed Machine-local memory table one at a
+ * time via the `table` query field (ADR 0016 mirror tables + `voice_corrections`,
+ * the relationship model's style lane per ADR 0048). The Machine refuses any
+ * table outside its allow-list.
+ *
+ * `config_export` serves an allow-listed authored CONTENT block from the live
+ * `customer.yaml` via the `section` query field — `relationship` (the model's
+ * authored behavioral lane, ADR 0048) is the only section today. Unlike a whole
+ * config read, it is allow-listed to non-secret sections so the connector
+ * secrets in `customer.yaml` can never cross the seam. The Machine refuses any
+ * section outside its allow-list. */
+export const RUNTIME_READ_KINDS = [
+  'audit_log',
+  'draft',
+  'matter',
+  'activity',
+  'memory_export',
+  'config_export',
+] as const
 export type RuntimeReadKind = (typeof RUNTIME_READ_KINDS)[number]
 
 export interface RuntimeReadQuery {
@@ -38,6 +57,14 @@ export interface RuntimeReadQuery {
   id?: string | null
   /** Page size hint for list kinds; the Machine clamps it. */
   limit?: number | null
+  /** Allow-listed table name for the `memory_export` kind (e.g.
+   * `voice_corrections`); ignored by other kinds. The Machine refuses any
+   * table outside its allow-list. */
+  table?: string | null
+  /** Allow-listed section name for the `config_export` kind (e.g.
+   * `relationship`); ignored by other kinds. The Machine refuses any section
+   * outside its allow-list. */
+  section?: string | null
 }
 
 export interface RuntimeReadActor {

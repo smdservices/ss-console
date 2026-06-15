@@ -19,12 +19,14 @@
  * an optional selector parameter; v1 callers continue to work).
  */
 
+import { z } from 'zod'
 import { parseAuthorityPosture, type AuthorityPosture } from '../operator/authority'
 import {
   DEFAULT_CREDENTIAL_CUSTODY,
   parseCredentialCustody,
   type CredentialCustody,
 } from '../operator/credential-custody'
+import { ACCEPTED_DATA_POSTURES, type McpConnector } from '../operator/customer-yaml/types'
 
 export type PersonaStatus = 'active' | 'archived'
 
@@ -99,6 +101,15 @@ export interface CustomerConfigRow {
    * src/lib/operator/credential-custody.ts.
    */
   credential_custody_default: CredentialCustody
+  /**
+   * Resolved `mcp_connector` block (Operator ⇄ Claude connector, Phase 1) —
+   * projected from `customer.yaml.mcp_connector`. Always present: a null
+   * `mcp_connector_json` column (a row predating the column, or a customer.yaml
+   * with no block) resolves to the fail-closed default (disabled, empty access)
+   * via {@link parseMcpConnector}. The MCP endpoint reads this for the per-user
+   * `access[]` mapping; the Clerk binding lives separately in mcp_clerk_bindings.
+   */
+  mcp_connector: McpConnector
   git_sha: string
   synced_at: string
 }
@@ -118,6 +129,7 @@ export interface CustomerConfigDbRow {
   vertical: string | null
   authority_json: string | null
   credential_custody_default: string | null
+  mcp_connector_json: string | null
   git_sha: string
   synced_at: string
 }
@@ -153,6 +165,63 @@ function parseJsonRequired<T>(value: string, column: string, entityId: string): 
   }
 }
 
+/** Fail-closed `mcp_connector`: no user reaches the Operator through Claude. */
+const MCP_CONNECTOR_FAIL_CLOSED: McpConnector = {
+  enabled: false,
+  data_posture: 'open',
+  access: [],
+}
+
+const mcpConnectorProjectionSchema = z.object({
+  enabled: z.unknown().optional(),
+  data_posture: z.unknown().optional(),
+  access: z.unknown().optional(),
+})
+
+const mcpConnectorAccessSchema = z.object({
+  email: z.email(),
+  profile: z.string().min(1),
+  clerk_subject: z
+    .string()
+    .regex(/^user_[A-Za-z0-9]+$/)
+    .optional(),
+})
+
+/**
+ * Parse the projected `mcp_connector_json` column into a runtime `McpConnector`.
+ *
+ * DEFENSIVE / FAIL-CLOSED, unlike `parseJsonRequired`: a null column, malformed
+ * JSON, or a shape-wrong value all resolve to the disabled default rather than
+ * throwing. Two reasons: (1) this column is read on the live client portal, and
+ * a corrupt value must not 500 the page the way a corrupt `personas_json` does;
+ * (2) for the MCP endpoint, "config we can't trust" must mean "grant nothing",
+ * never "open up". A well-formed enabled block with valid `access[]` entries is
+ * honored exactly; anything else collapses to disabled + empty access.
+ */
+export function parseMcpConnector(json: string | null | undefined): McpConnector {
+  if (json === null || json === undefined) return { ...MCP_CONNECTOR_FAIL_CLOSED, access: [] }
+  let raw: unknown
+  try {
+    raw = JSON.parse(json)
+  } catch {
+    return { ...MCP_CONNECTOR_FAIL_CLOSED, access: [] }
+  }
+  const parsed = mcpConnectorProjectionSchema.safeParse(raw)
+  if (!parsed.success) return { ...MCP_CONNECTOR_FAIL_CLOSED, access: [] }
+  const posture = z.enum(ACCEPTED_DATA_POSTURES).safeParse(parsed.data.data_posture)
+  const access = Array.isArray(parsed.data.access)
+    ? parsed.data.access.flatMap((entry) => {
+        const result = mcpConnectorAccessSchema.safeParse(entry)
+        return result.success ? [result.data] : []
+      })
+    : []
+  return {
+    enabled: parsed.data.enabled === true,
+    data_posture: posture.success ? posture.data : 'open',
+    access,
+  }
+}
+
 export function projectRow(row: CustomerConfigDbRow): CustomerConfigRow {
   return {
     entity_id: row.entity_id,
@@ -173,6 +242,7 @@ export function projectRow(row: CustomerConfigDbRow): CustomerConfigRow {
     authority: parseAuthorityPosture(parseJsonNullable(row.authority_json)),
     credential_custody_default:
       parseCredentialCustody(row.credential_custody_default) ?? DEFAULT_CREDENTIAL_CUSTODY,
+    mcp_connector: parseMcpConnector(row.mcp_connector_json),
     git_sha: row.git_sha,
     synced_at: row.synced_at,
   }

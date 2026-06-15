@@ -92,6 +92,10 @@ function appendQuery(url: URL, query: RuntimeReadQuery): void {
   if (query.cursor) url.searchParams.set('cursor', query.cursor)
   if (typeof query.limit === 'number') url.searchParams.set('limit', String(query.limit))
   if (query.id) url.searchParams.set('id', query.id)
+  // memory_export requires a table; the Machine refuses one outside its allow-list.
+  if (query.table) url.searchParams.set('table', query.table)
+  // config_export requires a section; the Machine refuses one outside its allow-list.
+  if (query.section) url.searchParams.set('section', query.section)
 }
 
 /**

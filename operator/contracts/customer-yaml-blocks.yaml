@@ -101,6 +101,31 @@ top_level:
   users:
     status: implemented
     materializer: ss-console portal (console-side access control); not staged to the Machine
+  mcp_connector:
+    status: implemented
+    materializer: ss-console MCP endpoint (console-hosted Operator<->Claude connector; reads enabled/data_posture/access to authorize MCP tool calls) + WEBHOOK_SECRET_MCP staged by provision-customer.sh for the handoff route
+    note: >-
+      Operator <-> Claude MCP connector (Phase 1, console-mediated). Consumed
+      console-side, not translated into Machine config.yaml — validated by
+      src/lib/operator/customer-yaml/sections-mcp-connector.ts. The only Machine
+      touch is the per-customer WEBHOOK_SECRET_MCP (handoff route) + the
+      webhook-router recognizing source="mcp". Fail-closed: absent/enabled:false
+      => no user reaches the Operator through Claude. See
+      docs/design/operator/03-mcp-server-exposure.md.
+  relationship:
+    status: implemented
+    materializer: translate _persona_config (config.yaml relationship) + _soul_body ("Working relationships" section) + overlay runtime_read config_export
+    note: >-
+      ADR 0048 authored behavioral lane. Per-person standing working
+      preferences, validated console-side by
+      src/lib/operator/customer-yaml/sections-relationship.ts. Materialized into
+      each persona SOUL.md so the Operator works the authored way, and surfaced
+      read-only on the admin relationship view via the secret-safe
+      `config_export?section=relationship` seam (allow-listed — never returns the
+      whole config.yaml). Informational only (ADR 0048 §2c): preferences never
+      grant capability; entitlements stay in scope/escalation, enforced by
+      trust_ceiling.enforce(). Distinct from voice_corrections (§2d): style
+      corrections, not behavioral preferences.
   # ---- deliberately not wired (validated authoring affordances) ----
   addons:
     status: inert

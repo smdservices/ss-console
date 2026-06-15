@@ -71,7 +71,17 @@ describe('Operator customer Machine Dockerfile', () => {
     // disclaimer boilerplate out of the content-floor LEGAL category (clause-
     // local; genuinely sensitive content elsewhere still forces draft) — fixes
     // demo-law DEMO_RELAY_BLOCKED on a benign disclaimer. Atop ed96cebe.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="c410c523264fd206badbe8282f171280986ae5e1"')
+    // 37a27aa (#79) exposes voice_corrections via memory_export (ADR 0048) — the
+    // legible relationship surface reads the operator's taught style rules through
+    // the runtime-read seam. Superset of c410c52.
+    // e4d1f23 (#82) adds the relationship authored behavioral lane (ADR 0048 Phase 2):
+    // translate.py materializes the customer.yaml `relationship:` block into SOUL.md +
+    // config.yaml, and the config_export seam serves it to the admin surface. Atop 37a27aa.
+    // b3294de (#81) adds live reconfiguration (ADR 0044): WS2 live reads, validator parity
+    // + on-box secret scan, and the root-owned config_applier (pull → validate → safety →
+    // atomic write of /opt/data/customer.yaml). Verified end-to-end on hermes-smd-staging.
+    // Superset of e4d1f23 — merges and carries the relationship lane forward.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="b3294de00bbd3e78c51fc537343830d820100929"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

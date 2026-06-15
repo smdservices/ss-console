@@ -1,0 +1,520 @@
+import { beforeEach, describe, expect, it } from 'vitest'
+import {
+  createTestD1,
+  discoverNumericMigrations,
+  runMigrations,
+} from '@venturecrane/crane-test-harness'
+import type { D1Database } from '@cloudflare/workers-types'
+import { createLocalJWKSet, exportJWK, generateKeyPair, jwtVerify, SignJWT } from 'jose'
+import { resolve } from 'node:path'
+import { ORG_ID } from '../src/lib/constants'
+import {
+  buildMcpMetadataPath,
+  buildMcpResourcePath,
+  loadMcpCustomer,
+  parseMcpMetadataResource,
+  parseMcpResourcePath,
+  type ResolvedMcpCustomer,
+} from '../src/lib/operator/mcp/customer-resolution'
+import { dispatchMcpRequest, parseMcpBody } from '../src/lib/operator/mcp/mcp-handler'
+import { handleMcpPost } from '../src/lib/operator/mcp/mcp-route'
+import { buildProtectedResourceMetadata } from '../src/lib/operator/mcp/oauth-metadata'
+import {
+  extractBearerToken,
+  validateMcpToken,
+  type McpTokenVerifier,
+} from '../src/lib/operator/mcp/token-validation'
+import type { McpToolContext } from '../src/lib/operator/mcp/tools'
+import type { RuntimeReadResult } from '../src/lib/operator/runtime-read'
+import { POST as legacyMcpPost } from '../src/pages/api/mcp'
+
+const migrationsDir = resolve(process.cwd(), 'migrations')
+const RESOURCE_URI = 'https://smd.services/api/operator/smd/mcp'
+const ISSUER = 'https://clerk.smd.services'
+const ENTITY_ID = 'entity-mcp-test'
+const LOCAL_USER_ID = 'user-mcp-test'
+const CLERK_USER_ID = 'user_clerk_123'
+
+function migrationBasename(file: string): string {
+  return file.split('/').pop() ?? file
+}
+
+async function freshDb(): Promise<D1Database> {
+  const db = createTestD1()
+  await runMigrations(db, { files: discoverNumericMigrations(migrationsDir) })
+  return db
+}
+
+function customerFixture(over: Partial<ResolvedMcpCustomer> = {}): ResolvedMcpCustomer {
+  return {
+    entityId: ENTITY_ID,
+    customerId: 'smd',
+    clerkOrgId: null,
+    connector: {
+      enabled: true,
+      data_posture: 'open',
+      access: [{ email: 'pilot@example.com', profile: 'crane' }],
+    },
+    clerk: {
+      issuer: ISSUER,
+      resourceUri: RESOURCE_URI,
+      clientId: null,
+      clerkAppId: null,
+    },
+    principals: [
+      {
+        localUserId: LOCAL_USER_ID,
+        clerkUserId: CLERK_USER_ID,
+        email: 'pilot@example.com',
+        profile: 'crane',
+      },
+    ],
+    ...over,
+  }
+}
+
+function claims(over: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    sub: CLERK_USER_ID,
+    iss: ISSUER,
+    aud: RESOURCE_URI,
+    email: 'pilot@example.com',
+    ...over,
+  }
+}
+
+function claimsVerifier(value: unknown): McpTokenVerifier {
+  return async () => value
+}
+
+async function signedVerifier(
+  payload: Record<string, unknown>
+): Promise<{ token: string; verifier: McpTokenVerifier }> {
+  const { privateKey, publicKey } = await generateKeyPair('RS256')
+  const jwk = await exportJWK(publicKey)
+  const token = await new SignJWT(payload)
+    .setProtectedHeader({ alg: 'RS256', kid: 'test-key' })
+    .setIssuedAt()
+    .setExpirationTime('5m')
+    .sign(privateKey)
+  const keySet = createLocalJWKSet({ keys: [{ ...jwk, kid: 'test-key', alg: 'RS256' }] })
+  return {
+    token,
+    verifier: async (candidate) => {
+      const result = await jwtVerify(candidate, keySet, { algorithms: ['RS256'] })
+      return result.payload
+    },
+  }
+}
+
+async function seedCustomer(db: D1Database, clerkOrgId: string | null = null): Promise<void> {
+  await db
+    .prepare('INSERT INTO entities (id, org_id, name, slug, clerk_org_id) VALUES (?, ?, ?, ?, ?)')
+    .bind(ENTITY_ID, ORG_ID, 'MCP Test', 'smd', clerkOrgId)
+    .run()
+  await db
+    .prepare(
+      'INSERT INTO users (id, org_id, email, name, role, entity_id, clerk_user_id) ' +
+        'VALUES (?, ?, ?, ?, ?, ?, ?)'
+    )
+    .bind(
+      LOCAL_USER_ID,
+      ORG_ID,
+      'pilot@example.com',
+      'Pilot User',
+      'client',
+      ENTITY_ID,
+      CLERK_USER_ID
+    )
+    .run()
+  await db
+    .prepare(
+      'INSERT INTO customer_configs ' +
+        '(entity_id, org_id, customer_slug, schema_version, personas_json, ' +
+        'mcp_connector_json, git_sha, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    )
+    .bind(
+      ENTITY_ID,
+      ORG_ID,
+      'smd',
+      '1',
+      '[]',
+      JSON.stringify({
+        enabled: true,
+        data_posture: 'open',
+        access: [{ email: 'pilot@example.com', profile: 'crane' }],
+      }),
+      'test-sha',
+      '2026-06-15T00:00:00Z'
+    )
+    .run()
+  await db
+    .prepare(
+      'INSERT INTO mcp_clerk_bindings ' +
+        '(entity_id, customer_slug, issuer, resource_uri) VALUES (?, ?, ?, ?)'
+    )
+    .bind(ENTITY_ID, 'smd', ISSUER, RESOURCE_URI)
+    .run()
+}
+
+describe('customer-specific MCP resources', () => {
+  it('builds and parses only canonical customer resource paths', () => {
+    expect(buildMcpResourcePath('smd')).toBe('/api/operator/smd/mcp')
+    expect(buildMcpMetadataPath('smd')).toBe(
+      '/.well-known/oauth-protected-resource/api/operator/smd/mcp'
+    )
+    expect(parseMcpResourcePath('/api/operator/smd/mcp')).toBe('smd')
+    expect(parseMcpResourcePath('/api/mcp')).toBeNull()
+    expect(parseMcpMetadataResource('api/operator/smd/mcp')).toBe('smd')
+    expect(parseMcpMetadataResource('api/mcp')).toBeNull()
+  })
+
+  it('publishes one authorization server for the exact customer resource', () => {
+    expect(buildProtectedResourceMetadata(RESOURCE_URI, [ISSUER])).toEqual({
+      resource: RESOURCE_URI,
+      authorization_servers: [ISSUER],
+      scopes_supported: ['openid', 'profile', 'email'],
+      bearer_methods_supported: ['header'],
+    })
+  })
+
+  it('requests Clerk organization claims for organization-bound customers', () => {
+    expect(buildProtectedResourceMetadata(RESOURCE_URI, [ISSUER], true)).toMatchObject({
+      scopes_supported: ['openid', 'profile', 'email', 'user:org:read'],
+    })
+  })
+
+  it('retires the shared legacy endpoint', async () => {
+    const response = await legacyMcpPost({} as never)
+    expect(response.status).toBe(410)
+  })
+})
+
+describe('extractBearerToken', () => {
+  it('accepts a bearer token and rejects malformed authorization headers', () => {
+    expect(extractBearerToken('Bearer abc.def.ghi')).toBe('abc.def.ghi')
+    expect(extractBearerToken('bearer xyz')).toBe('xyz')
+    expect(extractBearerToken(null)).toBeNull()
+    expect(extractBearerToken('Basic abc')).toBeNull()
+    expect(extractBearerToken('Bearer ')).toBeNull()
+  })
+})
+
+describe('validateMcpToken', () => {
+  it('accepts a locally signed token for the exact resource and stable subject', async () => {
+    const signed = await signedVerifier(claims())
+    const result = await validateMcpToken(signed.token, customerFixture(), signed.verifier)
+    expect(result).toMatchObject({
+      ok: true,
+      subject: CLERK_USER_ID,
+      localUserId: LOCAL_USER_ID,
+      profile: 'crane',
+    })
+  })
+
+  it.each([
+    ['wrong_issuer', claims({ iss: 'https://other.example' })],
+    ['wrong_audience', claims({ aud: 'https://smd.services/api/operator/other/mcp' })],
+    ['wrong_audience', claims({ aud: undefined })],
+    ['claims_invalid', claims({ sub: undefined })],
+    ['identity_not_authored', claims({ sub: 'user_unknown' })],
+  ])('rejects %s', async (reason, payload) => {
+    const result = await validateMcpToken('token', customerFixture(), claimsVerifier(payload))
+    expect(result).toMatchObject({ ok: false, reason })
+  })
+
+  it('requires the exact Clerk organization when the entity is organization-bound', async () => {
+    const customer = customerFixture({ clerkOrgId: 'org_expected' })
+    const missing = await validateMcpToken('token', customer, claimsVerifier(claims()))
+    const wrong = await validateMcpToken(
+      'token',
+      customer,
+      claimsVerifier(claims({ org_id: 'org_wrong' }))
+    )
+    const valid = await validateMcpToken(
+      'token',
+      customer,
+      claimsVerifier(claims({ org_id: 'org_expected' }))
+    )
+    expect(missing).toMatchObject({ ok: false, reason: 'organization_mismatch' })
+    expect(wrong).toMatchObject({ ok: false, reason: 'organization_mismatch' })
+    expect(valid.ok).toBe(true)
+  })
+
+  it('fails closed on missing, invalid, disabled, and unprovisioned identities', async () => {
+    expect(await validateMcpToken(null, customerFixture())).toMatchObject({
+      ok: false,
+      reason: 'missing_token',
+    })
+    expect(
+      await validateMcpToken('token', customerFixture(), async () => {
+        throw new Error('bad signature')
+      })
+    ).toMatchObject({ ok: false, reason: 'signature_invalid' })
+    expect(await validateMcpToken('token', customerFixture())).toMatchObject({
+      ok: false,
+      reason: 'token_not_jwt',
+    })
+    expect(
+      await validateMcpToken('one.two.three', customerFixture(), async () => {
+        throw new Error('bad signature')
+      })
+    ).toMatchObject({ ok: false, reason: 'signature_invalid' })
+    expect(
+      await validateMcpToken(
+        'token',
+        customerFixture({
+          connector: { enabled: false, data_posture: 'open', access: [] },
+        }),
+        claimsVerifier(claims())
+      )
+    ).toMatchObject({ ok: false, reason: 'connector_disabled' })
+    expect(
+      await validateMcpToken('token', customerFixture({ principals: [] }), claimsVerifier(claims()))
+    ).toMatchObject({ ok: false, reason: 'identity_not_authored' })
+  })
+})
+
+describe('loadMcpCustomer and migration 0072', () => {
+  let db: D1Database
+
+  beforeEach(async () => {
+    db = await freshDb()
+    await seedCustomer(db)
+  })
+
+  it('loads the strict resource binding and resolves email authoring to a Clerk subject', async () => {
+    const customer = await loadMcpCustomer(db, 'smd')
+    expect(customer).toMatchObject({
+      entityId: ENTITY_ID,
+      customerId: 'smd',
+      clerkOrgId: null,
+      clerk: { issuer: ISSUER, resourceUri: RESOURCE_URI },
+      principals: [
+        {
+          localUserId: LOCAL_USER_ID,
+          clerkUserId: CLERK_USER_ID,
+          email: 'pilot@example.com',
+          profile: 'crane',
+        },
+      ],
+    })
+  })
+
+  it('fails closed when an authored user has no Clerk subject', async () => {
+    await db.prepare('UPDATE users SET clerk_user_id = NULL WHERE id = ?').bind(LOCAL_USER_ID).run()
+    const customer = await loadMcpCustomer(db, 'smd')
+    expect(customer?.principals).toEqual([])
+  })
+
+  it('uses an explicit customer-scoped Clerk subject over the local user identity', async () => {
+    await db
+      .prepare('UPDATE customer_configs SET mcp_connector_json = ? WHERE entity_id = ?')
+      .bind(
+        JSON.stringify({
+          enabled: true,
+          data_posture: 'open',
+          access: [
+            {
+              email: 'pilot@example.com',
+              profile: 'crane',
+              clerk_subject: 'user_externalaccount',
+            },
+          ],
+        }),
+        ENTITY_ID
+      )
+      .run()
+    const customer = await loadMcpCustomer(db, 'smd')
+    expect(customer?.principals[0]).toMatchObject({
+      localUserId: LOCAL_USER_ID,
+      clerkUserId: 'user_externalaccount',
+      email: 'pilot@example.com',
+    })
+  })
+
+  it('returns null for unknown or malformed customer slugs', async () => {
+    expect(await loadMcpCustomer(db, 'unknown')).toBeNull()
+    expect(await loadMcpCustomer(db, '../smd')).toBeNull()
+  })
+
+  it('backfills deployed bindings and rejects future bindings without a resource URI', async () => {
+    const isolated = createTestD1()
+    const migrations = discoverNumericMigrations(migrationsDir)
+    await runMigrations(isolated, {
+      files: migrations.filter((file) => !migrationBasename(file).startsWith('0072_')),
+    })
+    await isolated
+      .prepare('INSERT INTO entities (id, org_id, name, slug) VALUES (?, ?, ?, ?)')
+      .bind('entity-existing', ORG_ID, 'Existing Customer', 'existing')
+      .run()
+    await isolated
+      .prepare('INSERT INTO mcp_clerk_bindings (entity_id, customer_slug, issuer) VALUES (?, ?, ?)')
+      .bind('entity-existing', 'existing', ISSUER)
+      .run()
+
+    await runMigrations(isolated, {
+      files: migrations.filter((file) => migrationBasename(file).startsWith('0072_')),
+    })
+
+    const backfilled = await isolated
+      .prepare('SELECT resource_uri FROM mcp_clerk_bindings WHERE entity_id = ?')
+      .bind('entity-existing')
+      .first<{ resource_uri: string }>()
+    expect(backfilled?.resource_uri).toBe('https://smd.services/api/operator/existing/mcp')
+
+    await isolated
+      .prepare('INSERT INTO entities (id, org_id, name, slug) VALUES (?, ?, ?, ?)')
+      .bind('entity-new', ORG_ID, 'New Customer', 'new')
+      .run()
+    await expect(
+      isolated
+        .prepare(
+          'INSERT INTO mcp_clerk_bindings (entity_id, customer_slug, issuer) VALUES (?, ?, ?)'
+        )
+        .bind('entity-new', 'new', ISSUER)
+        .run()
+    ).rejects.toThrow('resource_uri is required')
+  })
+})
+
+describe('MCP route authorization and audit', () => {
+  let db: D1Database
+  let customer: ResolvedMcpCustomer
+
+  beforeEach(async () => {
+    db = await freshDb()
+    await seedCustomer(db)
+    const loaded = await loadMcpCustomer(db, 'smd')
+    if (!loaded) throw new Error('test customer did not load')
+    customer = loaded
+  })
+
+  it('denies a wrong-resource token, audits it, and never invokes runtime reads', async () => {
+    let reads = 0
+    const response = await handleMcpPost(
+      new Request(RESOURCE_URI, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer token' },
+        body: '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"operator_status"}}',
+      }),
+      new URL(RESOURCE_URI),
+      {
+        db,
+        customer,
+        verifier: claimsVerifier(claims({ aud: 'https://wrong.example/mcp' })),
+        readRuntime: () => {
+          reads += 1
+          return Promise.resolve({ ok: false, kind: 'audit_log', reason: 'unreachable' })
+        },
+      }
+    )
+    expect(response.status).toBe(401)
+    expect(reads).toBe(0)
+    const audit = await db
+      .prepare('SELECT decision, reason, tool FROM operator_mcp_audit')
+      .first<{ decision: string; reason: string; tool: string | null }>()
+    expect(audit).toEqual({ decision: 'deny', reason: 'wrong_audience', tool: null })
+  })
+
+  it('serves an authenticated tool call and records auth plus tool audit rows', async () => {
+    const response = await handleMcpPost(
+      new Request(RESOURCE_URI, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer token' },
+        body: '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"operator_status"}}',
+      }),
+      new URL(RESOURCE_URI),
+      {
+        db,
+        customer,
+        verifier: claimsVerifier(claims()),
+        readRuntime: (): Promise<RuntimeReadResult> =>
+          Promise.resolve({ ok: true, kind: 'audit_log', data: { entries: [], cursor: null } }),
+      }
+    )
+    expect(response.status).toBe(200)
+    const rows = await db
+      .prepare(
+        'SELECT event_type, decision, clerk_subject, local_user_id, profile, tool ' +
+          'FROM operator_mcp_audit ORDER BY id'
+      )
+      .all<Record<string, unknown>>()
+    expect(rows.results).toEqual([
+      {
+        event_type: 'auth',
+        decision: 'allow',
+        clerk_subject: CLERK_USER_ID,
+        local_user_id: LOCAL_USER_ID,
+        profile: 'crane',
+        tool: null,
+      },
+      {
+        event_type: 'tool_call',
+        decision: 'allow',
+        clerk_subject: CLERK_USER_ID,
+        local_user_id: LOCAL_USER_ID,
+        profile: 'crane',
+        tool: 'operator_status',
+      },
+    ])
+  })
+})
+
+const unreachableRead = (): Promise<RuntimeReadResult> =>
+  Promise.resolve({ ok: false, kind: 'audit_log', reason: 'unreachable' })
+
+const CTX: McpToolContext = {
+  customerId: 'smd',
+  subject: CLERK_USER_ID,
+  email: 'pilot@example.com',
+  profile: 'crane',
+  readRuntime: unreachableRead,
+}
+
+describe('JSON-RPC dispatcher', () => {
+  it('initializes and lists the live operator_status tool', async () => {
+    const initialized = await dispatchMcpRequest(
+      { jsonrpc: '2.0', id: 1, method: 'initialize' },
+      CTX
+    )
+    const initBody = await initialized.json<{ result: { protocolVersion: string } }>()
+    expect(initBody.result.protocolVersion).toBeTruthy()
+
+    const listed = await dispatchMcpRequest({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, CTX)
+    const listBody = await listed.json<{ result: { tools: { name: string }[] } }>()
+    expect(listBody.result.tools.map((tool) => tool.name)).toContain('operator_status')
+  })
+
+  it('parses valid JSON-RPC and rejects malformed input', async () => {
+    expect(parseMcpBody('{"jsonrpc":"2.0","id":1,"method":"ping"}')).toHaveProperty('req')
+    const malformed = parseMcpBody('{not json')
+    if (!('error' in malformed)) throw new Error('malformed JSON unexpectedly parsed')
+    expect((await malformed.error.json<{ error: { code: number } }>()).error.code).toBe(-32700)
+
+    const invalid = parseMcpBody('{"foo":"bar"}')
+    if (!('error' in invalid)) throw new Error('invalid JSON-RPC unexpectedly parsed')
+    expect((await invalid.error.json<{ error: { code: number } }>()).error.code).toBe(-32600)
+  })
+
+  it('rejects unknown tools without invoking a runtime read', async () => {
+    let reads = 0
+    const response = await dispatchMcpRequest(
+      {
+        jsonrpc: '2.0',
+        id: 3,
+        method: 'tools/call',
+        params: { name: 'unknown_tool', arguments: {} },
+      },
+      {
+        ...CTX,
+        readRuntime: () => {
+          reads += 1
+          return unreachableRead()
+        },
+      }
+    )
+    expect((await response.json<{ error: { code: number } }>()).error.code).toBe(-32601)
+    expect(reads).toBe(0)
+  })
+})

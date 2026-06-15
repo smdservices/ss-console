@@ -143,6 +143,8 @@ const SHAPE_HEURISTIC_ALLOWLIST_PATHS: ReadonlyArray<string> = [
   'personas[*].send_as.agentmail_identity',
   'users[*].email',
   'users[*].full_name',
+  // Clerk user IDs are public stable identifiers, not credentials.
+  'mcp_connector.access[*].clerk_subject',
   'escalation.red_flag_recipients',
   'escalation.failure_recipients',
   // token_ref is the ONE permitted secret-reference channel. The value is an

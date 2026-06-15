@@ -453,6 +453,8 @@ function lockedFromCurrent(
   | 'authority'
   | 'credential_custody_default'
   | 'demo'
+  | 'mcp_connector'
+  | 'relationship'
 > {
   return {
     schema_version: current.schema_version,
@@ -489,6 +491,13 @@ function lockedFromCurrent(
     // reply relay is an SMD demo decision gated on synthetic-data containment).
     // Preserve verbatim across portal edits.
     demo: current.demo,
+    // mcp_connector (Operator <-> Claude) is provisioning/admin-set, not
+    // client-editable in this portal flow yet. Preserve verbatim.
+    mcp_connector: current.mcp_connector,
+    // relationship (ADR 0048 authored behavioral lane) is SMD/provisioning-set —
+    // per-person working preferences are not a client self-serve config. Preserve
+    // verbatim across portal edits.
+    relationship: current.relationship,
   }
 }
 
