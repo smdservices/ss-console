@@ -78,6 +78,8 @@ export {
   type MachineSpec,
   type CostEstimate,
   type Demo,
+  type Relationship,
+  type RelationshipPerson,
   type Vertical,
   type TrustCeiling,
   type Pronouns,

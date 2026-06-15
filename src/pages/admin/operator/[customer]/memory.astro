@@ -1,7 +1,12 @@
 ---
 import AdminLayout from '../../../../layouts/AdminLayout.astro'
 import { resolveEntityIdBySlug } from '../../../../lib/admin/operator-overview'
-import { loadStyleLane, type StyleLaneResult } from '../../../../lib/admin/relationship-observe'
+import {
+  loadStyleLane,
+  loadStandingPreferences,
+  type StyleLaneResult,
+  type StandingPreferencesResult,
+} from '../../../../lib/admin/relationship-observe'
 import {
   isRuntimeReadConfigured,
   createMachineRuntimeTransport,
@@ -38,16 +43,19 @@ const notFound = entityId === null
 
 const configured = isRuntimeReadConfigured(env)
 let style: StyleLaneResult = { status: 'not_enabled' }
+let standing: StandingPreferencesResult = { status: 'not_enabled' }
 if (!notFound) {
-  style = await loadStyleLane(
-    {
-      transport: createMachineRuntimeTransport(env),
-      audit: createRuntimeReadAudit(env.DB, { actorUserId: session.userId }),
-    },
-    slug,
-    { actor: session.email, actorRole: session.role },
-    configured
-  )
+  const deps = {
+    transport: createMachineRuntimeTransport(env),
+    audit: createRuntimeReadAudit(env.DB, { actorUserId: session.userId }),
+  }
+  const who = { actor: session.email, actorRole: session.role }
+  // Style lane (voice_corrections) and standing-preferences lane (authored
+  // relationship: block) are independent seam reads — fetch concurrently.
+  ;[style, standing] = await Promise.all([
+    loadStyleLane(deps, slug, who, configured),
+    loadStandingPreferences(deps, slug, who, configured),
+  ])
 }
 
 function sourceLabel(source: string): string {
@@ -149,15 +157,74 @@ function scopeLabel(reviewer: string | null, cohort: string | null): string {
           </section>
 
           {/* Lane 2 — Authored preferences (customer.yaml relationship block) */}
-          <section class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
-            <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)]">
-              Standing preferences
-            </h3>
-            <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
-              Behavioral preferences authored for this engagement (the <code>relationship:</code>{' '}
-              block in <code>customer.yaml</code>) appear here once that block is materialized into
-              the operator's config.
-            </p>
+          <section class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card space-y-stack">
+            <div>
+              <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)]">
+                Standing preferences
+              </h3>
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+                Behavioral preferences authored for this engagement (the <code>relationship:</code>{' '}
+                block in <code>customer.yaml</code>) — how each person here likes to be worked with.
+                Read live from the operator's running config.
+              </p>
+            </div>
+
+            {standing.status === 'not_enabled' ? (
+              <p class="text-xs text-[color:var(--ss-color-text-muted)]">
+                The live read path is not enabled yet (<code>OPERATOR_RUNTIME_READ_URL</code>, ADR
+                0043). Authored preferences appear here the moment it is wired.
+              </p>
+            ) : standing.status === 'unreachable' ? (
+              <p class="text-xs text-[color:var(--ss-color-text-muted)]">
+                This operator's runtime is unreachable right now ({standing.reason}). The read fails
+                closed; try again shortly.
+              </p>
+            ) : standing.status === 'empty' ? (
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                No standing preferences authored yet. Add a <code>relationship:</code> block to this
+                operator's <code>customer.yaml</code> to capture how each person likes to work.
+              </p>
+            ) : (
+              <ul class="space-y-stack">
+                {standing.people.map((person) => (
+                  <li class="border-t border-[color:var(--ss-color-border)] pt-3 first:border-t-0 first:pt-0">
+                    <p class="text-sm font-medium text-[color:var(--ss-color-text-primary)]">
+                      {person.name}
+                      {person.role && (
+                        <span class="font-normal text-[color:var(--ss-color-text-secondary)]">
+                          {' '}
+                          — {person.role}
+                        </span>
+                      )}
+                    </p>
+                    {person.prefers.length > 0 && (
+                      <div class="mt-1">
+                        <p class="text-xs uppercase tracking-wide text-[color:var(--ss-color-text-muted)]">
+                          Prefers
+                        </p>
+                        <ul class="list-disc list-inside text-sm text-[color:var(--ss-color-text-secondary)]">
+                          {person.prefers.map((p) => (
+                            <li>{p}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {person.avoid.length > 0 && (
+                      <div class="mt-1">
+                        <p class="text-xs uppercase tracking-wide text-[color:var(--ss-color-text-muted)]">
+                          Avoid
+                        </p>
+                        <ul class="list-disc list-inside text-sm text-[color:var(--ss-color-text-secondary)]">
+                          {person.avoid.map((a) => (
+                            <li>{a}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
 
           {/* Lane 3 — Inferred observations (Honcho, deferred) */}
