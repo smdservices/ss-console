@@ -122,10 +122,11 @@ mcp_connector:
   data_posture: open
   access:
     # Scott reaches Crane from his own Claude. This email MUST match both a
-    # users[] entry above. Runtime authorization uses that local user's stable
-    # clerk_user_id, not the mutable email claim.
+    # users[] entry above. clerk_subject is the stable identity from the Clerk
+    # account Scott actually uses for Claude; it may carry a different email.
     - email: scott@smd.services
       profile: crane
+      clerk_subject: user_3E1RPGrTMxkSqciXMTyybUNSJWu
 
 # ---- CONNECTORS ----
 # Google Workspace rides first-class tools mediated by the ADR 0045 broker.

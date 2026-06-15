@@ -181,6 +181,10 @@ const mcpConnectorProjectionSchema = z.object({
 const mcpConnectorAccessSchema = z.object({
   email: z.email(),
   profile: z.string().min(1),
+  clerk_subject: z
+    .string()
+    .regex(/^user_[A-Za-z0-9]+$/)
+    .optional(),
 })
 
 /**
