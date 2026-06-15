@@ -15,10 +15,11 @@ amends: docs/adr/0012-customer-yaml-storage.md
 
 A running Operator enforces entitlement ceilings by reading `/opt/data/customer.yaml` **fresh on every action** (`shared/customer_config.py` `from_volume()` is uncached; `plugins/hermes-smd-trust/enforce.py` re-resolves per `pre_tool_call`). So a ceiling/scope change applies the instant that file is replaced — no reboot. Today the only thing that delivers a changed file to a running Machine is a reboot (bootstrap re-fetches from R2 on boot) or a full reprovision. We have been rebooting Machines to deliver a file the agent would re-read on its own.
 
-[ADR 0012](./0012-customer-yaml-storage.md) §1 declares **git the source of truth**, with R2 and the volume as projections, and bootstrap fetching customer.yaml from R2 at boot. Two facts make a naive "just write the live volume" approach unsafe:
+[ADR 0012](./0012-customer-yaml-storage.md) §1 declares **git the source of truth**, with R2 and the volume as projections, and bootstrap fetching customer.yaml from R2 at boot. Three facts make a naive "just write the live volume" approach unsafe:
 
 1. **Silent revert.** `reprovision.sh` reads `operator/customers/<slug>/customer.yaml` from git. Any live change not also in git is silently reverted on the next reprovision.
 2. **Self-loopback ceiling-raise.** A push write-endpoint on the Machine authenticated by a key already present in the agent's process environment would let a prompt-injected agent rewrite its own ceiling file via a `127.0.0.1` self-call — defeating [ADR 0026](./0026-control-plane-data-plane.md) (the agent cannot raise its own ceiling).
+3. **On-box privilege reality (confirmed live on `hermes-smd-staging`, 2026-06-15).** The boot script (`operator/templates/entrypoint.sh`) establishes three principals: **root** (the lifetime respawn supervisor), **`workspace-broker`** (the audit broker), and **`hermes`** (the agent/gateway). `/opt/data/customer.yaml` is `hermes:hermes` — only root or the agent can write it; the broker uid **cannot**. The broker also cannot signal the gateway (cross-uid). And the agent's env holds the full R2 write credentials (`R2_ACCESS_KEY_ID/SECRET/BUCKET_CONFIG`), so the agent can write `vaults/<slug>/customer.yaml` in R2 itself. These three facts force the applier to be **root-owned**, not broker-owned, and make stripping the agent's R2 write credential a hard prerequisite (Decision 8).
 
 ## Decision
 
@@ -38,31 +39,37 @@ Each apply writes `customers/<slug>/history/<digest>.yaml` and records the key i
 
 A scheduled job (CI or queue-triggered Worker) commits reconciled R2 versions back to the customer.yaml repo as the reviewed record. The reconciler is owned and runs on a schedule — git divergence is bounded, not "someone remembers to."
 
-### 5. Apply is pull-based and broker-owned (not a push write-endpoint)
+### 5. Apply is pull-based and root-owned (not a push write-endpoint, not broker-owned)
 
-The runtime seam ([ADR 0043](./0043-operator-runtime-read-path.md)) stays **read-only**. Config application is performed by a **control-plane applier running as the broker uid** (the OP-P1-4 audit-broker privilege domain — not the agent uid, with no agent-readable credential):
+The runtime seam ([ADR 0043](./0043-operator-runtime-read-path.md)) stays **read-only**. Config application is performed by a **control-plane applier running as root** — hosted in the existing lifetime respawn supervisor in `entrypoint.sh` (the only principal that can both write the `hermes`-owned `/opt/data/customer.yaml` and signal the gateway; Context fact 3). It runs with **no agent-readable credential**:
 
 - The console writes the validated new `customer.yaml` (+ snapshot) to R2.
-- The broker pulls from R2, validates in-process, runs floor/allow-list/monotonicity checks, applies via atomic temp-write+`fsync`+`rename` to `/opt/data/customer.yaml`, and writes the `CONFIG_WRITE` audit row — **apply and audit as one broker-owned unit** (the writer cannot suppress its own log).
-- The agent holds no credential and has no inbound verb that can trigger a config change. The self-loopback ceiling-raise primitive (Context fact 2) does not exist.
+- The root applier pulls from R2 with a credential present only in root's env (never in the broker `env -i` allowlist, never in the agent's `hermes` drop), validates in-process (`bootstrap/validate.py`, parity-hardened), runs floor/allow-list/monotonicity checks, applies via atomic temp-write+`fsync`+`rename` to `/opt/data/customer.yaml`, signals the gateway for reload-class fields, and writes the `CONFIG_WRITE` audit row through the broker's append-only ledger — **apply and audit as one unit** (the writer cannot suppress its own log).
+- The agent holds no inbound verb that can trigger a config change, and — once Decision 8 lands — no credential that can write the R2 config object either. The self-loopback ceiling-raise primitive (Context fact 2) does not exist.
 
-This preserves [ADR 0026]: control-plane authority (changing ceilings) stays off the data plane (the agent). It is the correctly-scoped revival of the buried `customer-sync` sidecar — a broker-owned R2 pull-applier, **not** the agent-triggered SIGHUP mechanism (which stays retired).
+This preserves [ADR 0026]: control-plane authority (changing ceilings) stays off the data plane (the agent). It is the correctly-scoped revival of the buried `customer-sync` sidecar — a **root-owned** R2 pull-applier, **not** the agent-triggered SIGHUP mechanism (which stays retired). _(Originally specified as broker-owned; recast to root-owned on 2026-06-15 after the on-box privilege confirmation in Context fact 3 — the `workspace-broker` uid can neither write the agent's config file nor signal the gateway.)_
 
 ### 6. Graceful reload via SIGUSR1
 
-For changes that require Hermes to reload (voice tone, connector enable — fields read at gateway start), the broker triggers Hermes' **native** graceful restart by sending `SIGUSR1` to the gateway PID (`gateway/run.py` installs `restart_signal_handler` → `request_restart(via_service=True)` → drain → exit-75 → service-manager restart). No Hermes-core change; no data-plane injection. The broker runs privileged enough to signal the gateway, which credential-isolation already requires.
+For changes that require Hermes to reload (voice tone, connector enable — fields read at gateway start), the **root applier** triggers Hermes' **native** graceful restart by sending `SIGUSR1` to the gateway PID (`gateway/run.py` installs `restart_signal_handler` → `request_restart(via_service=True)` → drain → exit-75 → service-manager restart). No Hermes-core change; no data-plane injection. Root can signal the `hermes`-owned gateway; the broker uid cannot (Context fact 3), which is the second reason the applier is root-owned.
 
 ### 7. Safety semantics on the apply path
 
-- **Floor-preserving + allow-list.** The broker refuses any diff that would bypass a vertical/content floor, and refuses changes to fields outside an explicit live-writable allow-list (`vertical`, `model`, persona OAuth, connector backends, memory namespace are never live-writable — they are rebuild-class).
+- **Floor-preserving + allow-list.** The root applier refuses any diff that would bypass a vertical/content floor, and refuses changes to fields outside an explicit live-writable allow-list (`vertical`, `model`, persona OAuth, connector backends, memory namespace are never live-writable — they are rebuild-class).
 - **Tightening vs widening.** A ceiling _tightening_ (toward `refused`) is confirmed-applied-or-failed-loudly; a _widening_ may defer to next boot. Direction is computed against the order `refused < draft_for_review < autonomous`.
 - **Config-epoch.** Each applied config carries a monotonic epoch; a _loosening_ change does not retroactively apply to sessions started before the epoch (it must not bless an in-flight, possibly-tainted turn). The `CONFIG_WRITE` row records the active session set at write time.
 
+### 8. Prerequisite (blocking): strip the agent's R2 write credential (OP-P2-1)
+
+With R2 as the operational source of truth (Decision 1), the agent's current R2 write credential is a control-plane bypass: a prompt-injected agent could write a ceiling-raised `customer.yaml` to `vaults/<slug>/customer.yaml` in R2, which the root applier would then pull and apply — re-opening the self-loopback ceiling-raise (Context fact 2) one layer up, at R2 instead of at a localhost endpoint. Confirmed live: the agent's `hermes` env holds `R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`/`R2_BUCKET_CONFIG` (Context fact 3).
+
+Therefore, **before the R2-authoritative apply path may ship**, the agent's write access to the config bucket must be removed. The R2 pull credential moves to root's env only (never the broker `env -i` allowlist, never the `hermes` drop). The agent retains read access to what it needs through the existing read seam ([ADR 0043](./0043-operator-runtime-read-path.md), `OPERATOR_RUNTIME_READ_KEY`); any remaining agent R2 need (e.g. the skill-bodies bucket) is served by a separate, scoped, read-only credential. This is the OP-P2-1 scoped-R2 workstream, promoted here from follow-on to **hard dependency**.
+
 ## Consequences
 
-- Live entitlement/scope/escalation/webhook/demo changes apply instantly, durably (survive reboot + reprovision), reversibly (R2 snapshot), and audited (broker-owned ledger).
+- Live entitlement/scope/escalation/webhook/demo changes apply instantly, durably (survive reboot + reprovision), reversibly (R2 snapshot), and audited (the root applier writes through the broker's append-only ledger).
 - ADR 0012's git-first invariant is relaxed to git-reviewed; the reconciler and the reprovision-reads-R2 change are load-bearing and ship in the same wave.
-- The control/data-plane separation of ADR 0026 is preserved by construction, not by added checks.
+- The control/data-plane separation of ADR 0026 is preserved by construction (root applier + no agent-writable config credential), not by added checks — **contingent on Decision 8 (OP-P2-1) landing first**. The R2-authoritative apply path must not ship while the agent can still write the R2 config object.
 
 ## Out of scope
 
