@@ -74,7 +74,10 @@ describe('Operator customer Machine Dockerfile', () => {
     // 37a27aa (#79) exposes voice_corrections via memory_export (ADR 0048) — the
     // legible relationship surface reads the operator's taught style rules through
     // the runtime-read seam. Superset of c410c52.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="37a27aa39d5c033b56d750d50ef99b40a9dd1b22"')
+    // e4d1f23 (#82) adds the relationship authored behavioral lane (ADR 0048 Phase 2):
+    // translate.py materializes the customer.yaml `relationship:` block into SOUL.md +
+    // config.yaml, and the config_export seam serves it to the admin surface. Atop 37a27aa.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="e4d1f23a7fcba4ce8c0e8e4b90abc5aab98e6ec5"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
