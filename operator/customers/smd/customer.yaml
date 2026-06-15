@@ -108,6 +108,25 @@ personas:
         schedule: '0 7-19 * * *' # hourly 0700–1900 (fly_region: lax tz)
         wake_policy: always
 
+# ---- MCP CONNECTOR (Operator ⇄ Claude, Phase 1) ----
+# Lets authored users reach this Operator from inside their own Claude
+# (claude.ai / Claude Desktop) via the console-hosted MCP endpoint at
+# https://smd.services/api/mcp. Console-side only — no Machine surface.
+# Fail-closed: enabled:false (or an absent block) means no one connects; each
+# access[] entry binds a users[] email to an active persona slug.
+# See docs/design/operator/03-mcp-server-exposure.md.
+mcp_connector:
+  enabled: true
+  # 'open' = the authored user reaches the Operator with no extra data fence
+  # beyond the entitlement ceilings already in this config (Phase 1 posture).
+  data_posture: open
+  access:
+    # Scott reaches Crane from his own Claude. This email MUST match both a
+    # users[] entry (above) AND the email on his clerk.smd.services identity
+    # (the OAuth token's `email` claim) — else the per-user check fail-closes.
+    - email: scott@smd.services
+      profile: crane
+
 # ---- CONNECTORS ----
 # Google Workspace rides first-class tools mediated by the ADR 0045 broker.
 connectors:
