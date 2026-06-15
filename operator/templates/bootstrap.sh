@@ -740,11 +740,23 @@ unset R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY
 # without a verifying secret. Runs as a supervised background child under tini; a
 # restart loop keeps it up, while the gateway exec below stays PID-1's foreground.
 if [ -n "${WEBHOOK_SECRET_AGENTMAIL:-}" ]; then
-  ( while true; do
+  # Run the respawn loop in an EXEC'd shell with the account-wide R2 key scrubbed
+  # from its environment (OP-P2-1). The `unset` above removed the key from THIS
+  # bash's variables, but a forked `( ) &` subshell is NOT exec'd — its
+  # /proc/<pid>/environ still exposes the exec-time snapshot of the key, readable
+  # by a same-uid code-executing agent (verified on staging: the wrapper subshell
+  # held R2_ACCESS_KEY_ID in /proc/environ even though its children were clean).
+  # `env -u … bash -c` EXECs, rebuilding a fresh environ WITHOUT the key, so
+  # neither this persistent wrapper nor the webhook-gate it runs carries the key
+  # in /proc. (env -u is belt-and-suspenders over the unset; the exec is what
+  # actually scrubs the wrapper's /proc/environ.)
+  env -u R2_ACCESS_KEY_ID -u R2_SECRET_ACCESS_KEY bash -c '
+    while true; do
       /opt/hermes/.venv/bin/hermes-smd-webhook-gate || true
       echo "[bootstrap] webhook-gate exited non-zero; restarting in 2s" >&2
       sleep 2
-    done ) &
+    done
+  ' &
   log "Inbound webhook gate launched (public :8643 -> gateway :8644)"
 else
   log "WEBHOOK_SECRET_AGENTMAIL unset; webhook gate NOT launched (no inbound webhook)"

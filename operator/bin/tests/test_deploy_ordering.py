@@ -142,6 +142,30 @@ def test_r2_account_key_strip_after_the_boot_time_fetches() -> None:
     )
 
 
+def test_webhook_gate_launched_with_r2_key_scrubbed() -> None:
+    """The webhook-gate respawn wrapper must be EXEC'd with the account-wide R2
+    key scrubbed (``env -u R2_ACCESS_KEY_ID -u R2_SECRET_ACCESS_KEY``), not a
+    forked ``( ) &`` subshell.
+
+    A forked subshell is not exec'd, so even after the ``unset`` its
+    /proc/<pid>/environ still exposes the exec-time snapshot of the key to a
+    same-uid code-executing agent (OP-P2-1; verified on staging — the wrapper held
+    the key while its children were clean). The ``env -u … bash -c`` exec rebuilds
+    a fresh environ without the key. This guard fails if the launch reverts to a
+    bare subshell.
+    """
+    lines = _code_lines(_BOOTSTRAP)
+    gate_idx = _first_index(lines, r"hermes-smd-webhook-gate")
+    assert gate_idx != -1, "could not find the webhook-gate launch in bootstrap.sh"
+    window = "\n".join(lines[max(0, gate_idx - 8) : gate_idx + 1])
+    assert "env -u R2_ACCESS_KEY_ID" in window and "R2_SECRET_ACCESS_KEY" in window, (
+        "the webhook-gate respawn loop must be launched via "
+        "`env -u R2_ACCESS_KEY_ID -u R2_SECRET_ACCESS_KEY bash -c …` so the "
+        "persistent wrapper's /proc/environ does not expose the account-wide R2 "
+        "key (OP-P2-1) — a forked `( ) &` subshell leaks it."
+    )
+
+
 # ---------------------------------------------------------------------------
 # entrypoint.sh: root config-applier must launch BEFORE the gateway exec-drop
 # ---------------------------------------------------------------------------
