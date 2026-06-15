@@ -70,3 +70,4 @@ __pycache__/
 
 # Generated projection SQL (scripts/project-customer-config.ts)
 scripts/.generated/
+node_modules
