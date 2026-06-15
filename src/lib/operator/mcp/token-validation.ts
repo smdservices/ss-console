@@ -5,14 +5,16 @@ import type { ResolvedMcpCustomer } from './customer-resolution'
 const verifiedClaimsSchema = z.object({
   sub: z.string().min(1),
   iss: z.url(),
-  aud: z.union([z.string().min(1), z.array(z.string().min(1)).min(1)]),
+  aud: z.union([z.string().min(1), z.array(z.string().min(1)).min(1)]).optional(),
   org_id: z.string().min(1).optional(),
   email: z.email().optional(),
 })
 
 export type McpAuthFailureReason =
   | 'missing_token'
+  | 'token_not_jwt'
   | 'signature_invalid'
+  | 'claims_invalid'
   | 'wrong_issuer'
   | 'wrong_audience'
   | 'connector_disabled'
@@ -56,7 +58,8 @@ async function verifyPinnedClerkToken(
   return result.payload
 }
 
-function audIncludes(aud: string | string[], expected: string): boolean {
+function audIncludes(aud: string | string[] | undefined, expected: string): boolean {
+  if (!aud) return false
   return Array.isArray(aud) ? aud.includes(expected) : aud === expected
 }
 
@@ -66,14 +69,19 @@ function validateClaims(
 ): McpAuthResult | z.infer<typeof verifiedClaimsSchema> {
   const parsed = verifiedClaimsSchema.safeParse(rawClaims)
   if (!parsed.success) {
-    return { ok: false, reason: 'signature_invalid', detail: 'required token claims are invalid' }
+    return { ok: false, reason: 'claims_invalid', detail: 'required token claims are invalid' }
   }
   const claims = parsed.data
   if (claims.iss !== customer.clerk.issuer) {
     return { ok: false, reason: 'wrong_issuer', detail: 'token issuer does not match resource' }
   }
   if (!audIncludes(claims.aud, customer.clerk.resourceUri)) {
-    return { ok: false, reason: 'wrong_audience', detail: 'token is not bound to this resource' }
+    return {
+      ok: false,
+      reason: 'wrong_audience',
+      detail: claims.aud ? 'token is bound to another resource' : 'token has no audience claim',
+      subject: claims.sub,
+    }
   }
   if (customer.clerkOrgId && claims.org_id !== customer.clerkOrgId) {
     return {
@@ -89,13 +97,16 @@ function validateClaims(
 export async function validateMcpToken(
   token: string | null,
   customer: ResolvedMcpCustomer,
-  verifier: McpTokenVerifier = verifyPinnedClerkToken
+  verifier?: McpTokenVerifier
 ): Promise<McpAuthResult> {
   if (!token) return { ok: false, reason: 'missing_token', detail: 'no bearer token' }
+  if (!verifier && token.split('.').length !== 3) {
+    return { ok: false, reason: 'token_not_jwt', detail: 'bearer token is not a compact JWT' }
+  }
 
   let rawClaims: unknown
   try {
-    rawClaims = await verifier(token, customer)
+    rawClaims = await (verifier ?? verifyPinnedClerkToken)(token, customer)
   } catch (err) {
     return {
       ok: false,

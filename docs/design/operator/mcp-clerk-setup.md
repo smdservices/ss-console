@@ -81,11 +81,13 @@ mcp_connector:
   access:
     - email: scott@smd.services
       profile: crane
+      clerk_subject: user_3E1RPGrTMxkSqciXMTyybUNSJWu
 ```
 
-The email must resolve to a local `users` row for the same customer. That row
-must have `users.clerk_user_id` populated with the exact Clerk user ID expected
-in the token `sub`. If it is null, the connector fails closed.
+The email resolves the local customer user. `clerk_subject`, when present,
+authorizes the exact Clerk account the user employs for Claude even when that
+account carries a different email. When omitted, the connector falls back to
+that local user's `users.clerk_user_id`. If neither is present, it fails closed.
 
 When `entities.clerk_org_id` is populated, the token must also carry that exact
 `org_id`. When the entity has no Clerk Organization, issuer + audience + subject

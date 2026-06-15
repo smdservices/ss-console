@@ -77,7 +77,13 @@ describe('customer-config projection: real smd yaml', () => {
     expect(row.mcp_connector_json).not.toBeNull()
     const config = projectRow(row)
     expect(config.mcp_connector.enabled).toBe(true)
-    expect(config.mcp_connector.access).toEqual([{ email: 'scott@smd.services', profile: 'crane' }])
+    expect(config.mcp_connector.access).toEqual([
+      {
+        email: 'scott@smd.services',
+        profile: 'crane',
+        clerk_subject: 'user_3E1RPGrTMxkSqciXMTyybUNSJWu',
+      },
+    ])
   })
 })
 

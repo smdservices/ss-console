@@ -1503,6 +1503,47 @@ describe('validate — mcp_connector', () => {
     expect(r.value.mcp_connector.access).toEqual([{ email: 'partner@firm.com', profile: 'marcus' }])
   })
 
+  it('accepts an explicit customer-scoped Clerk subject', () => {
+    const f = validFixture()
+    f['mcp_connector'] = {
+      enabled: true,
+      access: [
+        {
+          email: 'partner@firm.com',
+          profile: 'marcus',
+          clerk_subject: 'user_3E1RPGrTMxkSqciXMTyybUNSJWu',
+        },
+      ],
+    }
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.mcp_connector.access[0]).toMatchObject({
+      clerk_subject: 'user_3E1RPGrTMxkSqciXMTyybUNSJWu',
+    })
+  })
+
+  it('rejects a malformed Clerk subject', () => {
+    const f = validFixture()
+    f['mcp_connector'] = {
+      enabled: true,
+      access: [
+        {
+          email: 'partner@firm.com',
+          profile: 'marcus',
+          clerk_subject: 'not-a-clerk-user',
+        },
+      ],
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) => e.path === 'mcp_connector.access[0].clerk_subject' && e.code === 'TypeMismatch'
+      )
+    ).toBe(true)
+  })
+
   it('accepts data_posture: firm_only', () => {
     const f = validFixture()
     f['mcp_connector'] = { enabled: true, data_posture: 'firm_only', access: [] }

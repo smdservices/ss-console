@@ -691,6 +691,7 @@ export interface Demo {
 export interface McpConnectorAccess {
   email: string
   profile: string
+  clerk_subject?: string
 }
 
 /**
