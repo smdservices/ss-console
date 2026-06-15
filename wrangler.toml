@@ -78,6 +78,18 @@ bucket_name = "ss-console-storage"
 binding = "CONSULTANT_PHOTOS"
 bucket_name = "smd-consultant-photos"
 
+# ---------- R2 (operator customer-config, authoritative live config) ----------
+# Per-customer Operator config + voice vaults. This is the same bucket the
+# provisioning scripts use (R2_BUCKET_CONFIG, default `smd-customer-config` —
+# see operator/bin/provision-customer.sh and docs/runbooks/operator/first-boot.md).
+# The console apply path (src/lib/operator/apply-config.ts) writes the live
+# config at `vaults/<slug>/customer.yaml` and a byte-snapshot at
+# `customers/<slug>/history/<digest>.yaml`. The on-Machine root applier pulls
+# the live key from R2 — R2 is the source of truth for live reconfig.
+[[r2_buckets]]
+binding = "CUSTOMER_CONFIG"
+bucket_name = "smd-customer-config"
+
 # ---------- Service binding to enrichment-workflow Worker ----------
 # Cloudflare Workflows orchestration for entity enrichment lives on its
 # own Worker (`ss-enrichment-workflow`, see `workers/enrichment-workflow/`).
