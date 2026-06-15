@@ -77,7 +77,11 @@ describe('Operator customer Machine Dockerfile', () => {
     // e4d1f23 (#82) adds the relationship authored behavioral lane (ADR 0048 Phase 2):
     // translate.py materializes the customer.yaml `relationship:` block into SOUL.md +
     // config.yaml, and the config_export seam serves it to the admin surface. Atop 37a27aa.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="e4d1f23a7fcba4ce8c0e8e4b90abc5aab98e6ec5"')
+    // b3294de (#81) adds live reconfiguration (ADR 0044): WS2 live reads, validator parity
+    // + on-box secret scan, and the root-owned config_applier (pull → validate → safety →
+    // atomic write of /opt/data/customer.yaml). Verified end-to-end on hermes-smd-staging.
+    // Superset of e4d1f23 — merges and carries the relationship lane forward.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="b3294de00bbd3e78c51fc537343830d820100929"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
