@@ -68,6 +68,17 @@ describe('customer-config projection: real smd yaml', () => {
     expect(config.authority).toBeDefined()
     expect(config.credential_custody_default).toBeTruthy()
   })
+
+  it('mcp_connector survives the round-trip (smd authors an enabled connector)', () => {
+    // smd's customer.yaml authors the Phase-1 MCP connector: enabled, with Scott
+    // (scott@smd.services) bound to the crane persona. The projection must carry
+    // the authored values through the write → read round-trip intact.
+    const row = projectCustomerYamlToConfigRow(smdYaml(), CTX)
+    expect(row.mcp_connector_json).not.toBeNull()
+    const config = projectRow(row)
+    expect(config.mcp_connector.enabled).toBe(true)
+    expect(config.mcp_connector.access).toEqual([{ email: 'scott@smd.services', profile: 'crane' }])
+  })
 })
 
 describe('customer-config projection: null normalization', () => {
