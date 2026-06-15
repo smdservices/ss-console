@@ -184,10 +184,11 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # check is unchanged. Fixes demo-law DEMO_RELAY_BLOCKED reason=content_sensitive
 # on a benign disclaimer (2026-06-14 live test). Superset of ed96cebe.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-# 37a27aa — #79 expose voice_corrections via memory_export (ADR 0048): the legible
-# relationship surface ("what I've learned about working with you") reads the
-# operator's taught style rules through the runtime-read seam. Superset of c410c52.
-ARG OVERLAY_REF="37a27aa39d5c033b56d750d50ef99b40a9dd1b22"
+# e4d1f23 — #82 relationship authored behavioral lane (ADR 0048 Phase 2): translate.py
+# materializes the customer.yaml `relationship:` block into each persona's SOUL.md
+# ("## Working relationships") + config.yaml, and the config_export seam serves the
+# allow-listed block to the admin Standing-preferences surface. Superset of 37a27aa.
+ARG OVERLAY_REF="e4d1f23a7fcba4ce8c0e8e4b90abc5aab98e6ec5"
 
 ARG CUSTOMER_SLUG=customer-zero
 
