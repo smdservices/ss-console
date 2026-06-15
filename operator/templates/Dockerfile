@@ -184,11 +184,12 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # check is unchanged. Fixes demo-law DEMO_RELAY_BLOCKED reason=content_sensitive
 # on a benign disclaimer (2026-06-14 live test). Superset of ed96cebe.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-# e4d1f23 — #82 relationship authored behavioral lane (ADR 0048 Phase 2): translate.py
-# materializes the customer.yaml `relationship:` block into each persona's SOUL.md
-# ("## Working relationships") + config.yaml, and the config_export seam serves the
-# allow-listed block to the admin Standing-preferences surface. Superset of 37a27aa.
-ARG OVERLAY_REF="e4d1f23a7fcba4ce8c0e8e4b90abc5aab98e6ec5"
+# b3294de — #81 live-reconfiguration overlay (ADR 0044): WS2 live reads (demo/webhook
+# re-read per action), validator parity + on-box secret scan, and the root-owned
+# config_applier (pull → validate → safety → atomic write of /opt/data/customer.yaml).
+# Verified end-to-end on hermes-smd-staging. Superset of e4d1f23 (#82 relationship
+# authored lane, ADR 0048 Phase 2), which it merges and carries forward.
+ARG OVERLAY_REF="b3294de00bbd3e78c51fc537343830d820100929"
 
 ARG CUSTOMER_SLUG=customer-zero
 
