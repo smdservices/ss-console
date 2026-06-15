@@ -71,7 +71,10 @@ describe('Operator customer Machine Dockerfile', () => {
     // disclaimer boilerplate out of the content-floor LEGAL category (clause-
     // local; genuinely sensitive content elsewhere still forces draft) — fixes
     // demo-law DEMO_RELAY_BLOCKED on a benign disclaimer. Atop ed96cebe.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="c410c523264fd206badbe8282f171280986ae5e1"')
+    // 37a27aa (#79) exposes voice_corrections via memory_export (ADR 0048) — the
+    // legible relationship surface reads the operator's taught style rules through
+    // the runtime-read seam. Superset of c410c52.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="37a27aa39d5c033b56d750d50ef99b40a9dd1b22"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

@@ -184,7 +184,10 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # check is unchanged. Fixes demo-law DEMO_RELAY_BLOCKED reason=content_sensitive
 # on a benign disclaimer (2026-06-14 live test). Superset of ed96cebe.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-ARG OVERLAY_REF="c410c523264fd206badbe8282f171280986ae5e1"
+# 37a27aa — #79 expose voice_corrections via memory_export (ADR 0048): the legible
+# relationship surface ("what I've learned about working with you") reads the
+# operator's taught style rules through the runtime-read seam. Superset of c410c52.
+ARG OVERLAY_REF="37a27aa39d5c033b56d750d50ef99b40a9dd1b22"
 
 ARG CUSTOMER_SLUG=customer-zero
 
