@@ -187,7 +187,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # 37a27aa — #79 expose voice_corrections via memory_export (ADR 0048): the legible
 # relationship surface ("what I've learned about working with you") reads the
 # operator's taught style rules through the runtime-read seam. Superset of c410c52.
-ARG OVERLAY_REF="b0cfd1594caccd0f1204de0067cd591554fcde6c"
+ARG OVERLAY_REF="b3294de00bbd3e78c51fc537343830d820100929"
 
 ARG CUSTOMER_SLUG=customer-zero
 
