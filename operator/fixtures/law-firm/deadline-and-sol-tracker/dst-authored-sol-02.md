@@ -16,9 +16,9 @@ expected_output_classification: sol-surfaced # authored sol label preserved
 
 Firm windows: near_window 7 days, scan_window 30 days.
 
-- `list_matters()` → [{ id: 7010, client: "A. Demir", practice_area: "immigration", conflict_state: "clear" }]
+- `list_matters()` → [{ id: "7c010000-7010-4710-9d10-immigration7010", number: "7010", status: "Open", client: "A. Demir", practice_area: "immigration", conflict_state: "clear" }]
 - matter 7010 dates:
-  - `list_calendar_entries(7010)` → [{ title: "SOL — last day to file petition", date: "2026-06-20", authored_label: "sol" }]
+  - `list_calendar_entries("7c010000-7010-4710-9d10-immigration7010")` (calendar binding) → [{ title: "SOL — last day to file petition", date: "2026-06-20", authored_label: "sol" }]
 
 ## Grader notes
 

@@ -8,9 +8,9 @@ Before anything else: check the matter's conflict state. If it is on CONFLICT-HO
 
 ## Phase 1 — Find times (read-only)
 
-1. **Load the matter + attorney.** `get_matter(matter_id)` for the practice area and responsible attorney; `list_users` to resolve the attorney.
+1. **Load the matter + attorney.** `get_matter(matter_id)` for the practice area and the responsible attorney (`personResponsibleStaffId`, a direct field); `get_staff` to resolve that id to the attorney's name.
 2. **Load the rules** from `customer.yaml`: consult length for the matter's practice area, business hours, blackout windows (holidays, court days, recurring blocks), buffer minutes between events.
-3. **Load availability.** `list_calendar_entries(from, to)` for the attorney over the candidate window.
+3. **Load availability.** `list_calendar_entries(from, to)` for the attorney over the candidate window — via the mail/calendar binding (Google/M365), not the Smokeball PM connector (Smokeball has no calendar resource).
 4. **Compute candidate slots.** A slot is valid only if it: is inside business hours; is outside every blackout window; does not overlap any existing entry; honors the buffer on both sides; is exactly the consult length for the practice area. Produce 2–3 valid slots.
 5. **Apply client preference within the rules.** If the client stated a preference, prefer slots near it — but a preference never promotes an invalid slot. If no valid slot is near the preference, propose the nearest valid alternatives and say so plainly.
 
@@ -18,7 +18,7 @@ Before anything else: check the matter's conflict state. If it is on CONFLICT-HO
 
 1. **Draft the confirmation** per `voice.md`: the proposed time(s), the consult length, logistics (video link / office address from `customer.yaml`). Scheduling only.
 2. **Surface the calendar booking.** Emit the `create_calendar_entry` payload as a **proposal** for a human to confirm — do not execute it. (Connect step: once the write capability is verified and the engagement authors it on, this becomes an autonomous write; not this phase.)
-3. **Log** internally with `create_note`.
+3. **Log** internally with `create_memo`.
 
 ## A legal question in the scheduling thread
 

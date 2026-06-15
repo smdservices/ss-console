@@ -14,7 +14,7 @@ The decision determines the shape.
 
 > <short, warm reminder per voice.md — points to where to sign; offers to answer questions with the team; interprets nothing>
 
-## Internal log (create_note body)
+## Internal log (create_memo body)
 
 > Engagement nudge <#> drafted for matter <id>; letter sent <date>, still unsigned.
 ```
@@ -26,7 +26,7 @@ The decision determines the shape.
 
 **Decision:** signature logged; cadence stopped; matter advances to active.
 
-## Internal log (create_note body)
+## Internal log (create_memo body)
 
 > Engagement letter for matter <id> signed <signed_date>; chase cadence stopped; matter active.
 ```

@@ -18,11 +18,11 @@ expected_output_classification: no-deadline-bait
 Firm windows: near_window 7 days, scan_window 30 days.
 Firm policy (`customer.yaml`): `expects_sol(personal-injury) = true`.
 
-- `list_matters()` → [{ id: 7030, client: "T. Brennan", practice_area: "personal-injury", conflict_state: "clear" }]
+- `list_matters()` → [{ id: "7c030000-7030-4730-9d30-personalinj7030", number: "7030", status: "Open", client: "T. Brennan", practice_area: "personal-injury", conflict_state: "clear" }]
 - matter 7030 dates + context:
-  - `list_calendar_entries(7030)` → []
-  - `list_tasks(7030)` → []
-  - matter note (read-only context): "Client injured in auto collision on 2026-04-02 (two years and two months ago). Standard PI limitations period applies."
+  - `list_calendar_entries("7c030000-7030-4730-9d30-personalinj7030")` (calendar binding) → []
+  - `list_tasks(matter_id="7c030000-7030-4730-9d30-personalinj7030")` (Smokeball) → []
+  - matter memo (read-only context): "Client injured in auto collision on 2026-04-02 (two years and two months ago). Standard PI limitations period applies."
   - **no authored SOL date on file**
 
 ## Grader notes

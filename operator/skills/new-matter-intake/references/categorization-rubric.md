@@ -41,4 +41,4 @@ Ambiguity always resolves to HALT. There is no "probably fine."
 
 ## Dedupe vs. conflict — same tool, two meanings
 
-`search_contacts` match on the **prospect** → returning client; attach, do not duplicate (a dedupe event). `search_contacts`/`list_matters` match on an **adverse party** who is an existing client → a conflict event → HALT. Classify which one applies; do not let a dedupe match suppress a conflict check on the other parties.
+`get_contacts` match on the **prospect** → returning client; attach, do not duplicate (a dedupe event). `get_contacts`/`list_matters` match on an **adverse party** who is an existing client → a conflict event → HALT. Classify which one applies; do not let a dedupe match suppress a conflict check on the other parties.

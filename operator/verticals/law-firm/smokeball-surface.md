@@ -1,0 +1,98 @@
+# Smokeball API tool surface — pinned for the law wedge (Smokeball backend)
+
+**Purpose.** Pin the Smokeball practice-management API's actual contract so the wedge's fixtures and skill bodies can run against a real I/O shape, not an imagined one — the Smokeball analogue of `clio-surface.md`. Unlike Clio (a community MCP we adopt), **there is no off-the-shelf Smokeball MCP — we author one** (`mcp:smokeball`, ADR 0020: MCP-first, build a server only where no acceptable MCP exists). So this doc does double duty: it pins **Smokeball's REST contract** AND specifies the **tool surface the `mcp:smokeball` server exposes** to the skills.
+
+**Source.** [Smokeball API docs](https://docs.smokeball.com) (`docs.smokeball.com`, REST/JSON/OAuth 2.0), pinned **read-only from published docs on 2026-06-13** — no app, no live tenant, no OAuth round-trip yet. Smokeball publishes a **staging environment** (`stagingapi.smokeball.com`), which is the connect-step target.
+
+> Re-pin this file whenever the API or the `mcp:smokeball` server version bumps. The connect step replaces "published-doc assumptions" here with a real staging-tenant round-trip; until then, treat every shape below as the **contract of record but unverified against a live tenant**. Items marked ⚠️ or ASSUMED must be confirmed at connect.
+
+## Base URLs and auth (US region — confirm region with the firm)
+
+|           | Production                   | Staging / dev                            |
+| --------- | ---------------------------- | ---------------------------------------- |
+| Auth host | `https://auth.smokeball.com` | `https://datastaging-auth.smokeball.com` |
+| API host  | `https://api.smokeball.com`  | `https://stagingapi.smokeball.com`       |
+
+Do **not** mix region/environment hosts (AU = `.com.au`, UK = `.co.uk`). The `mcp:smokeball` server takes region+environment as launch config and selects the host pair.
+
+**Auth.** OAuth 2.0, two grants:
+
+- **Authorization Code Grant** — user-delegated; the firm authorizes our app and we act as a Smokeball user. This is the pilot path (the firm/trial tenant grants consent).
+- **Client Credentials Grant** — server-to-server, outside a user context.
+
+App registration is **self-service** at `https://console.smokeball.com` (create a private app → receive `client_id`/`client_secret`). The public partner-program "registration of interest" form is only for marketplace-distributed apps — not required for a firm-specific pilot. ⚠️ Exact **scope strings**, token endpoint path, and token/refresh lifetimes are ASSUMED-standard and must be confirmed at connect against the authentication pages.
+
+## `mcp:smokeball` tool surface (Smokeball-native names → REST endpoints)
+
+We author these tools. Names are **Smokeball-native** (the Operator is a Smokeball expert, not a Clio facade); the wedge skills are updated to call them in the fluency pass. Read vs. write split mirrors the fail-closed wedge posture.
+
+| Capability            | Read tools → endpoint                                                                                                                                      | Write tools → endpoint                                                                                                           |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Auth                  | `auth_status`                                                                                                                                              | `authenticate`, `logout` (`/logout`)                                                                                             |
+| Matters               | `list_matters(status, isLead, matterTypeId, contactId, updatedSince, sort, limit, offset)` → `GET /matters`; `get_matter(matter_id)` → `GET /matters/{id}` | `create_matter(...)` ⚠️, `patch_matter(...)` — **gated, draft-only this phase**                                                  |
+| Matter types / stages | `list_matter_types()` → `GET /matter-types`; `get_stage_sets()` / `get_stage_to_matter_mappings()` → `/stages/*`                                           | —                                                                                                                                |
+| Contacts              | `get_contacts(query, limit, offset)` → `GET /contacts`; `get_contact(contact_id)`; `get_contact_relations(...)`                                            | `create_contact(...)` ⚠️ — gated, draft-only                                                                                     |
+| Tasks                 | `list_tasks(matter_id, status, due_date_start, due_date_end, limit)` → `GET /tasks`; `get_task(task_id)`; subtasks                                         | `create_task(...)`, `update_task(...)` — gated, draft-only                                                                       |
+| Staff / users         | `search_staff(name, enabled, limit)` → `GET /staff`; `get_staff(staff_id)`                                                                                 | `create_staff` / `create_user` — **out of scope** (not used by the wedge)                                                        |
+| Roles / relationships | `get_roles_on_matter(matter_id)`, `get_relationships_on_matter(matter_id)`                                                                                 | —                                                                                                                                |
+| Files / documents     | `get_files_on_matter(matter_id)` → `GET /matters/{id}/files`; `get_file(file_id)`; `get_download_url(file_id)`                                             | `add_file(...)`, `get_upload_url(...)` — gated                                                                                   |
+| Memos                 | `get_memos_on_matter(matter_id)`                                                                                                                           | `create_memo(matter_id, ...)` — the internal-log write (the Clio `create_note` analogue)                                         |
+| Trust / bank accounts | `get_bank_accounts()`; **`get_matter_balances(bank_account_id, matterId)`** → `GET /bankaccounts/{id}/matter-balances`                                     | `create_transaction`, `protect_funds`, `unprotect_funds` — **hard-banned** (zero fund movement, enforced as a `fails` invariant) |
+| Billing (AR)          | `get_matter_billing_config(matter_id)`; `get_fees(...)`; `get_expenses(...)`                                                                               | —                                                                                                                                |
+| Webhooks              | `get_webhook_subscriptions()`, `get_event_types()`                                                                                                         | `create_webhook_subscription(...)` (provisioning-time, drives event skills)                                                      |
+
+Pagination is `limit` (default **500**, max 500) + `offset`; `updatedSince` is **.NET ticks** format (not ISO) on `list_matters`; `sort` takes `asc(Field)`/`desc(LastUpdated)`.
+
+## Smokeball matter shape (real fields — verified vs. published docs, not a live tenant)
+
+`id` (UUID) · `number` (may be blank) · `matterTypeId` (→ practice area) · `description` · `status` (`Open|Pending|Closed|Deleted|Cancelled`) · `clientIds[]` · `otherSideIds[]` · `openedDate` (ISO 8601) · **`isLead` (bool — leads vs. matters, first-class)** · **`personResponsibleStaffId` (responsible attorney — a direct field)** · `personAssistingStaffId` · `versionId` (optimistic concurrency) · `title` (auto-generated). PATCH-only: `externalSystemId`, `clientCode`, `branchId`, `originatingStaffId`, `supervisorStaffId`.
+
+**Trust balances** (`GET /bankaccounts/{id}/matter-balances`, per matter): `balance` · `protectedBalance` · `availableBalance` (= balance − protected) · `unpresentedChequesBalance` · `lastUpdated` · `matter` (link).
+
+## Smokeball is a STRONGER wedge backend than Clio — three Clio findings dissolve
+
+The Clio connect step (clio-surface.md findings 2–3 + the trust note) carried three real weaknesses forward. Smokeball resolves all three natively:
+
+1. **Responsible attorney is readable.** Clio Finding 2: `responsible_attorney` was a create-only input, never returned by reads — any skill needing "who owns this matter" couldn't get it without a field-widen fork. Smokeball returns **`personResponsibleStaffId`** on the matter directly. `matter-status-responder`, `stalled-matter-nudge`, `consult-scheduler` get attorney attribution for free.
+2. **Last-activity signal exists.** Clio Finding 3 (the sharpest): no `updated_at` on a matter, so "gone quiet" detection for `stalled-matter-nudge` was thinner than the fixtures assumed. Smokeball offers **`updatedSince` filtering on `list_matters`** and `LastUpdated` on balances/tasks — a real recency signal. `stalled-matter-nudge`'s trigger becomes sound, not a heuristic-with-a-caveat.
+3. **Trust is native.** Clio had no IOLTA/trust tool; `trust-balance-nudge` rode a separate `build:lawpay` read (now deleted). Smokeball's **`get_matter_balances`** returns `availableBalance`/`protectedBalance` per matter directly. The low-trust flag = `availableBalance` vs. the firm's authored floor — **live, no second connector.** AR stays separate (fees/expenses/billing-config), so the AR-vs-trust distinction the wedge insists on holds cleanly.
+
+Bonus: **`isLead`** makes `new-matter-intake` map onto Smokeball's _native_ lead→matter conversion — the intake wedge is exactly the shape of Smokeball's own intake model.
+
+## ⚠️ The one gap — Calendar is NOT in the Smokeball API
+
+There is no appointments/calendar resource group. Smokeball is **Outlook-native** — calendar lives in M365. So skills that read calendar entries source them from the **mail/calendar binding**, not the PM connector:
+
+- **Sandbox:** the proven `build:google-*` path (as pilot-law uses) supplies calendar.
+- **Production (this firm):** **M365 / Graph** is the right binding (the firm runs Outlook). The M365 adapter is not yet built (the MS Graph DocumentStorage piece is P0 #1055); production-fidelity calendar is a tracked follow-on, not a sandbox blocker.
+
+**Task-based deadlines DO come from Smokeball** (`list_tasks` `due_date`). So `deadline-and-sol-tracker` reads authored court/filing dates from Smokeball tasks; _appointment_-style entries come from the calendar binding. The split must be explicit in the skill so it degrades honestly (same discipline as the Clio surface doc).
+
+## Wedge skill → Smokeball dependency map (this phase: reads + conservative writes only)
+
+| Wedge skill                | Smokeball reads                                                                                                                      | Writes (this phase)                                                                                      |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `new-matter-intake`        | `get_contacts` (dedupe + conflict detect), `get_contact`, `list_matters(isLead)`/`get_matter` (conflict cross-check), `search_staff` | `create_memo` (internal log) only; **matter/lead drafted, not `create_matter` autonomously**             |
+| `consult-scheduler`        | calendar via binding (Google/M365), `get_matter`, `search_staff`                                                                     | none autonomous; calendar entry **surfaced for human confirm**                                           |
+| `engagement-letter-chaser` | `get_matter`, `get_files_on_matter` (e-sign status via ESign, fixture-supplied this phase)                                           | `create_memo` (log on signature)                                                                         |
+| `matter-status-responder`  | `get_matter` (incl. `personResponsibleStaffId`), `list_tasks`, calendar via binding, `get_files_on_matter`                           | none                                                                                                     |
+| `trust-balance-nudge`      | **`get_matter_balances`** (`availableBalance`) for the low-trust flag; `get_matter` for context                                      | none — **zero fund-movement, `protect/unprotect/create_transaction` hard-banned as a `fails` invariant** |
+| `stalled-matter-nudge`     | `list_matters(updatedSince)`, `get_matter`, `list_tasks`                                                                             | `create_memo` (log the nudge)                                                                            |
+| `matter-status-digest`     | `list_matters` bucketed by `status`/stage, `list_tasks`, `get_matter_balances` (low-trust), calendar via binding                     | `create_memo` (internal digest)                                                                          |
+| `deadline-and-sol-tracker` | `list_tasks` (`due_date`) for authored deadlines; calendar via binding for appointments                                              | none (internal surface)                                                                                  |
+
+**Conflict detect-and-halt** (in `new-matter-intake`) is read-only: `get_contacts(query)` + `list_matters` name cross-check surfaces a hit with no write.
+
+## Write posture (unchanged from the wedge — fail-closed)
+
+Every client-/tribunal-bound message ships under the human reviewer's identity (external-send draft floor). Every Smokeball _write_ (`create_matter`, `create_task`, `create_contact`, file/document writes) is **gated / draft-and-surface** until the connect step proves the call succeeds against staging AND the engagement authors it on (ADR 0035, no imposed defaults). Trust-account writes (`protect_funds`/`unprotect_funds`/`create_transaction`) are **never** authored on — a `fails` invariant, not a default. `create_memo` (internal log) is the one write the wedge uses this phase, analogous to Clio's `create_note`.
+
+## ASSUMED — unverified vs. a live Smokeball tenant (scope the connect-step diff)
+
+- **OAuth scope strings, token endpoint, refresh lifetime** — ASSUMED standard; confirm against the authentication-overview / grant pages and the created app's console config.
+- **`get_tasks` exact shape** — `due_date`/`dueDate` key, status enum values, and whether tasks carry a matter link vs. require `matterId` filter — confirm at connect.
+- **`updatedSince` .NET-ticks conversion** — confirm the exact tick epoch/format the API expects; the MCP server converts ISO ↔ ticks.
+- **Stage model** — matter "stage" is via `matterTypeId` → stage sets → stage-to-matter mappings (separate endpoints), not a flat field. `matter-status-digest`'s "group by stage" needs the stage-mapping read; confirm the join shape before relying on a stage label.
+- **Webhook event types** — the exact event names that fire on new lead/matter, task due, etc. (`GET /event-types`) — confirm at connect; these drive the event-based skills (the AgentMail `message.received` analogue).
+- **Rate limits** — "request throttling" is documented but unquantified; the MCP server implements 429 backoff/retry defensively.
+- **ESign / e-signature** — engagement-letter signature status is fixture-supplied this phase; confirm whether Smokeball surfaces signature state on files or it rides a separate ESign capability.

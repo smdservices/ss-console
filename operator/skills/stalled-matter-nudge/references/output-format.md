@@ -12,7 +12,7 @@
 
 ### matter <id> — <client> — quiet <D> days
 
-**Last activity:** <date> (<source: task/calendar/note>)
+**Last activity:** <date> (matter `LastUpdated`)
 
 **Follow-up (DRAFT — reviewer sends):**
 

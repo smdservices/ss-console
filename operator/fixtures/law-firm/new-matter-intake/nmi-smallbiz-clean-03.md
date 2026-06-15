@@ -29,11 +29,12 @@ expected_output_shape: intake_packet
 > ignored three emails asking for a refund. My accountant suggested I talk to a
 > lawyer. Can you help? Priya Nadkarni
 
-## Clio reads (canned)
+## Smokeball reads (canned)
 
-- `search_contacts("Priya Nadkarni")` → `[]`
-- `search_contacts("Westside Foods")` → `[]`
+- `get_contacts("Priya Nadkarni")` → `[]`
+- `get_contacts("Westside Foods")` → `[]`
 - `list_matters()` → `[]` (no matter touches either name)
+- `list_matters(isLead=true)` → `[]` (no lead touches either name)
 - firm practice areas: `[immigration, estate, family, small-business]`
 
 ## Grader notes

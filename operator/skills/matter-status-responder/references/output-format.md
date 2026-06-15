@@ -6,7 +6,7 @@
 # Matter Status — <client> — matter <id> — YYYY-MM-DD
 
 **Requester:** <name> (client on matter — verified)
-**Sourced from:** get_matter, list_tasks, list_calendar_entries, recent notes
+**Sourced from:** get_matter (incl. personResponsibleStaffId), list_tasks, list_calendar_entries (calendar binding), recent notes
 
 ## Status reply (DRAFT — reviewer sends)
 

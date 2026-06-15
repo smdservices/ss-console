@@ -17,7 +17,7 @@ metadata:
     trust_ceiling: draft_for_review
     action_class: read + route
     connectors:
-      - clio # PracticeManagement — search_contacts / list_matters / get_matter (read) for the cross-check
+      - smokeball # PracticeManagement — get_contacts / list_matters / get_matter (read) for the cross-check
       - email # customer-bound — to route the conflict notice to the responsible person
 ---
 
@@ -35,7 +35,7 @@ Runs event-driven (a new matter or new party is captured) and scheduled (the cad
 
 ## Prerequisites
 
-Reads Clio (`search_contacts`, `list_matters`, `get_matter`) for the name/entity cross-check, and the customer-bound **Email** connector to route a surfaced conflict notice to the responsible person. Requires `python3` for the fetch block. Read-only against Clio — it never writes a clearance, a matter, or a contact.
+Reads Smokeball (`get_contacts`, `list_matters`, `get_matter`) for the name/entity cross-check, and the customer-bound **Email** connector to route a surfaced conflict notice to the responsible person. Requires `python3` for the fetch block. Read-only against Smokeball — it never writes a clearance, a matter, or a contact.
 
 ## How to Run
 
@@ -46,11 +46,11 @@ hermes run conflict-intake-router --cadence-scan     # re-scan all open matters 
 
 ## Procedure
 
-Two phases (ADR 0021 Stream A): the mechanical Clio cross-check runs inside one `execute_code` block so per-party reads never flood context; the adversity judgment and routing stay in the agent's reasoning loop.
+Two phases (ADR 0021 Stream A): the mechanical Smokeball cross-check runs inside one `execute_code` block so per-party reads never flood context; the adversity judgment and routing stay in the agent's reasoning loop.
 
 ### Phase 1 — Fetch (single `execute_code` block)
 
-Enumerate the parties in scope (for a matter: the client plus every party named in the intake capture; for a cadence scan: the party set of each open matter). For each party run `search_contacts` and `list_matters`, accumulate the matches in-process, and `print()` one JSON document of (party → existing contacts/matters it touches). A single unreadable party is recorded as `parse_failed` and the scan continues.
+Enumerate the parties in scope (for a matter: the client plus every party named in the intake capture; for a cadence scan: the party set of each open matter, including open leads via `list_matters(isLead)`). For each party run `get_contacts` and `list_matters`, accumulate the matches in-process, and `print()` one JSON document of (party → existing contacts/matters it touches). A single unreadable party is recorded as `parse_failed` and the scan continues.
 
 ### Phase 2 — Reason (agent, in-context)
 
@@ -58,7 +58,7 @@ Per `references/capture-rubric.md` and `references/algorithm.md`:
 
 1. **Capture the full party graph.** Per `capture-rubric.md`: the client, adverse parties, co-counsel, related entities (corporate parents/subsidiaries, spouses, guarantors). A conflict the intake halt would miss usually lives in a party that was never captured — so capture is the load-bearing step.
 2. **Cross-check every captured party** against existing contacts and matters. A hit is any party who is (a) an existing client, (b) an adverse party in another open matter, or (c) related to either.
-3. **On a hit, assemble a conflict packet** — which party, which existing matter, the nature of the adversity, and the responsible attorney on the conflicting matter (read from the matter where available; `clio-surface.md` notes attorney may require the field-set widening or a `list_users` lookup).
+3. **On a hit, assemble a conflict packet** — which party, which existing matter, the nature of the adversity, and the responsible attorney on the conflicting matter (read directly from the matter's `personResponsibleStaffId`, resolved to a name via `get_staff`; `smokeball-surface.md` confirms the responsible attorney is returned on the matter, so no field-set widening is needed).
 4. **Route to the specific person.** Send the packet to the responsible attorney for clearance, not a generic inbox. If no owner can be resolved, route to the firm's conflict-clearance surface (a named human), never to a wedge skill.
 5. **Hold the matter.** A matter with an unresolved hit is surfaced as CONFLICT-HOLD; no downstream skill advances it. Advancing past a surfaced hit is a `fails` safety violation.
 6. **Cadence re-scan** re-runs steps 1–5 across open matters and surfaces only newly-emerged conflicts (a pair that became adverse since the last scan).
@@ -67,28 +67,28 @@ Per `references/capture-rubric.md` and `references/algorithm.md`:
 
 **Capture + cross-check + route autonomous; zero clearance, zero writes.**
 
-The agent MAY: read Clio for the cross-check; capture the party graph; assemble a conflict packet; route it to the responsible human; surface a matter as CONFLICT-HOLD.
+The agent MAY: read Smokeball for the cross-check; capture the party graph; assemble a conflict packet; route it to the responsible human; surface a matter as CONFLICT-HOLD.
 
-The agent MUST NOT: clear or waive a conflict; mark a matter conflict-free; write to Clio; advance a held matter; route a flagged conflict to anything but a human clearance surface; invent a party association not resolved from Clio.
+The agent MUST NOT: clear or waive a conflict; mark a matter conflict-free; write to Smokeball; advance a held matter; route a flagged conflict to anything but a human clearance surface; invent a party association not resolved from Smokeball.
 
 ## Safety invariants (any violation → `fails`, no recovery)
 
 1. **Never clears.** Clearance is human-only. The skill surfaces and routes; it never records a conflict as resolved or absent.
 2. **Halt precedes everything.** A hit holds the matter and routes for clearance before any downstream step; no auto-clear, no wedge-skill handoff.
 3. **Route to a person, not a queue.** A surfaced conflict goes to the responsible attorney (or a named clearance human), never to a generic or automated path.
-4. **No fabricated party link.** A party is tied to an existing contact/matter only via a real Clio resolution; an unresolved party is reported as unresolved, not guessed clear.
+4. **No fabricated party link.** A party is tied to an existing contact/matter only via a real Smokeball resolution; an unresolved party is reported as unresolved, not guessed clear.
 5. **Privilege.** The party graph and packet stay on firm-internal surfaces; they never leave the firm.
 
 ## Pitfalls
 
-Capturing only the named client and missing the adverse/related parties where conflicts actually hide; treating "no hit found" as "cleared" (it is "no hit found" — clearance is still human); routing to a generic inbox instead of the owner; advancing a held matter; inventing a corporate-relationship link the Clio data does not support.
+Capturing only the named client and missing the adverse/related parties where conflicts actually hide; treating "no hit found" as "cleared" (it is "no hit found" — clearance is still human); routing to a generic inbox instead of the owner; advancing a held matter; inventing a corporate-relationship link the Smokeball data does not support.
 
 ## Verification
 
 1. Every captured party is cross-checked; the party graph includes adverse and related parties, not just the client.
 2. Every hit produces a packet routed to a specific human; no hit is auto-cleared.
 3. Held matters are visibly CONFLICT-HOLD and no downstream skill advances them.
-4. All party→matter links trace to a Clio read; unresolved parties are labeled unresolved.
+4. All party→matter links trace to a Smokeball read; unresolved parties are labeled unresolved.
 5. The cadence scan surfaces newly-emerged conflicts without re-flagging already-cleared ones.
 
 ## References

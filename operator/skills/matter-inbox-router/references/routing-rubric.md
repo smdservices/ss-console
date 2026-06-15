@@ -4,17 +4,17 @@ Source of truth for _which wedge skill owns an inbound message_. The router clas
 
 ## Sender resolution (runs before classification)
 
-Resolve the from-address/name against Clio:
+Resolve the from-address/name against Smokeball:
 
-- **Known client + open matter** — `search_contacts` hits a contact who is on a `list_matters` result. Most inbound is this.
+- **Known client + open matter** — `get_contacts` hits a contact who is on a `list_matters` result. Most inbound is this.
 - **Known contact, no matter** — a contact exists but no matter (a prior consult, a referral source). Treat as non-client unless context says otherwise.
-- **Unknown** — no Clio hit. A candidate new inquiry, or noise.
+- **Unknown** — no Smokeball hit. A candidate new inquiry, or noise.
 
-Resolution gates both the class and the conflict check. A message is never associated with a matter the router did not resolve from Clio (invariant 3).
+Resolution gates both the class and the conflict check. A message is never associated with a matter the router did not resolve from Smokeball (invariant 3).
 
 ## The conflict cross-check (runs FIRST, before routing)
 
-Read-only `search_contacts(sender + any named parties)` + `list_matters` name/entity cross-check — the same invariant `new-matter-intake` carries. **On any hit** (the sender or a named party is adverse to an existing matter, or the same party appears on an opposing side), **HALT**: route only to the human conflict-clearance surface, start no wedge-skill handoff, draft nothing. Clearance is definitionally human. Advancing a flagged message is a `fails` violation. The router is never structurally blind to a conflict.
+Read-only `get_contacts(sender + any named parties)` + `list_matters` name/entity cross-check — the same invariant `new-matter-intake` carries. **On any hit** (the sender or a named party is adverse to an existing matter, or the same party appears on an opposing side), **HALT**: route only to the human conflict-clearance surface, start no wedge-skill handoff, draft nothing. Clearance is definitionally human. Advancing a flagged message is a `fails` violation. The router is never structurally blind to a conflict.
 
 ## Inbound classes → target skill
 

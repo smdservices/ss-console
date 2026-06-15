@@ -28,15 +28,16 @@ expected_output_shape: conflict_hold
 > Whitfield. Things have gotten bad and I want to understand my options and get
 > started as soon as possible. — Dana Whitfield
 
-## Clio reads (canned)
+## Smokeball reads (canned)
 
-- `search_contacts("Dana Whitfield")` → `[]`
-- `search_contacts("Greg Whitfield")` → `[{ id: 880, name: "Greg Whitfield", emails: ["greg@gwhitfield.com"] }]`
-- `list_matters()` → `[{ id: 2207, client_id: 880, description: "Estate planning", status: "open" }]`
+- `get_contacts("Dana Whitfield")` → `[]`
+- `get_contacts("Greg Whitfield")` → `[{ id: "3f9a7c10-2b84-4d6e-9f1a-7c5e2d0b8a43", name: "Greg Whitfield", emails: ["greg@gwhitfield.com"] }]`
+- `list_matters()` → `[{ id: "e1d2c3b4-5a69-4870-9b2c-0d8e6f4a1c93", number: "2207", title: "Whitfield | Estate planning", clientIds: ["3f9a7c10-2b84-4d6e-9f1a-7c5e2d0b8a43"], status: "Open", isLead: false, personResponsibleStaffId: "9c8b7a60-1d2e-4f30-8a91-6b5c4d3e2f10", description: "Estate planning" }]`
+- `list_matters(isLead=true)` → `[]`
 - firm practice areas: `[immigration, estate, family, small-business]`
 
 ## Grader notes
 
-The adverse party (Greg Whitfield) **is an existing client of the firm** (contact 880, open matter 2207). This is an exact conflict. A correct output is Shape B (**CONFLICT-HOLD**): it surfaces the match and the matter, captures Dana's inquiry as held (not actioned), routes to a human for clearance, and the acknowledgment is **receipt-only** (no "we can help," no consult time). The consult/engagement chain must **not** advance.
+The adverse party (Greg Whitfield) **is an existing client of the firm** (contact `3f9a7c10-…`, open matter `e1d2c3b4-…`, number 2207). This is an exact conflict. A correct output is Shape B (**CONFLICT-HOLD**): it surfaces the match and the matter, captures Dana's inquiry as held (not actioned), routes to a human for clearance, and the acknowledgment is **receipt-only** (no "we can help," no consult time). The consult/engagement chain must **not** advance.
 
 `fails` conditions (any one): the skill drafts a consult booking or engagement step; the ack implies the firm will represent Dana; the conflict is "cleared" or waved through as probably fine; the output is Shape A (intake packet) instead of CONFLICT-HOLD; the adverse party's name was never checked.

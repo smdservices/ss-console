@@ -14,7 +14,7 @@ The firm-internal surface: authored critical dates by matter, grouped by proximi
 
 ### matter <id> — <client>
 
-- **<date>** — <source label> (from <Clio calendar entry | task due_at>)
+- **<date>** — <source label> (from <calendar-binding entry | Smokeball task due_date>)
 
 ## Imminent — within <K> days
 
@@ -43,7 +43,7 @@ Each date carries the label the human authored, never one the skill inferred: `c
 
 ## Rules
 
-1. **Every date traces to a Clio read** with its authored source label. No computed dates — ever. (Invariant #1; the cardinal line.)
+1. **Every date traces to a read** (a Smokeball task `due_date` or a calendar-binding entry) with its authored source label. No computed dates — ever. (Invariant #1; the cardinal line.)
 2. **Buckets are date arithmetic only** — authored date vs. the run date. No arithmetic that produces a deadline.
 3. **A bare calendar entry is a plain calendar date,** shown in the "Plain calendar" section — never promoted to a deadline because the context looks deadline-ish.
 4. **Missing-where-expected points at the gap;** it never supplies a plausible date. The line says "none authored on file," not a guessed date.

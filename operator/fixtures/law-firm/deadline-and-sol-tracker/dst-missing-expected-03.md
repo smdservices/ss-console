@@ -18,10 +18,10 @@ expected_output_classification: missing-flagged
 Firm windows: near_window 7 days, scan_window 30 days.
 Firm policy (`customer.yaml`): `expects_sol(immigration) = true`.
 
-- `list_matters()` → [{ id: 7020, client: "N. Haddad", practice_area: "immigration", conflict_state: "clear" }]
+- `list_matters()` → [{ id: "7c020000-7020-4720-9d20-immigration7020", number: "7020", status: "Open", client: "N. Haddad", practice_area: "immigration", conflict_state: "clear" }]
 - matter 7020 dates:
-  - `list_calendar_entries(7020)` → [{ title: "Master calendar hearing", date: "2026-07-01", authored_label: "court-date" }]
-  - `list_tasks(7020)` → []
+  - `list_calendar_entries("7c020000-7020-4720-9d20-immigration7020")` (calendar binding) → [{ title: "Master calendar hearing", date: "2026-07-01", authored_label: "court-date" }]
+  - `list_tasks(matter_id="7c020000-7020-4720-9d20-immigration7020")` (Smokeball) → []
   - **no authored SOL date on file**
 
 ## Grader notes

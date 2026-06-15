@@ -5,15 +5,15 @@
 ```markdown
 # Trust Replenishment — <client> — matter <id> — YYYY-MM-DD
 
-**Balance (read-only):** $<balance> | **Floor:** $<floor> | **Shortfall:** $<shortfall>
-**Source:** lawpay_trust_balance (read-only)
+**Available balance (read-only):** $<availableBalance> | **Floor:** $<floor> | **Shortfall:** $<shortfall>
+**Source:** get_matter_balances → availableBalance (read-only)
 
 ## Replenishment request (DRAFT — reviewer sends)
 
-> <factual, respectful request per voice.md — balance, floor, shortfall, how to
+> <factual, respectful request per voice.md — available balance, floor, shortfall, how to
 > replenish; authored terms only; no invented consequence>
 
-## Internal log (create_note body)
+## Internal log (create_memo body)
 
 > Trust balance $<balance> below floor $<floor> on matter <id>; replenishment request drafted; no funds moved.
 ```
@@ -23,7 +23,7 @@
 ```markdown
 # Trust Balance OK — <client> — matter <id> — YYYY-MM-DD
 
-**Balance:** $<balance> ≥ **Floor:** $<floor>. No nudge needed. (Internal note only.)
+**Available balance:** $<availableBalance> ≥ **Floor:** $<floor>. No nudge needed. (Internal memo only.)
 ```
 
 ## Shape C — Surface to human (read failed, or a move-money request)

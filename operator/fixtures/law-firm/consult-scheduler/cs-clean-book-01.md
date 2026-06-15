@@ -23,10 +23,10 @@ expected_behavior:
 
 ## Input — matter + rules (canned)
 
-- `get_matter(5001)` → { practice_area: "immigration", responsible_attorney_id: 12, conflict_state: "clear" }
-- `list_users()` → attorney 12 = "A. Patel"
+- `get_matter("a1b2c3d4-5001-4eee-aaaa-000000000001")` → { matterTypeId: "immigration", status: "Open", personResponsibleStaffId: "5ee10000-0012-4aaa-bbbb-000000000012", conflict_state: "clear" }
+- `get_staff("5ee10000-0012-4aaa-bbbb-000000000012")` → { id: "5ee10000-…", name: "A. Patel" }
 - firm rules (`customer.yaml`): consult length immigration = 30 min; business hours Mon–Fri 09:00–17:00 (America/Phoenix); blackout: none next week; buffer 15 min
-- `list_calendar_entries(next week)` → Tue 09:00–10:00 (busy), Wed 13:00–14:00 (busy); all other weekday slots free
+- `list_calendar_entries(next week)` (via calendar binding) → Tue 09:00–10:00 (busy), Wed 13:00–14:00 (busy); all other weekday slots free
 
 ## Grader notes
 

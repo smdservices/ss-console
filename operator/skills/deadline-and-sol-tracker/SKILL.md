@@ -17,7 +17,8 @@ metadata:
     trust_ceiling: draft_for_review
     action_class: read + internal_write
     connectors:
-      - clio # PracticeManagement — list_calendar_entries / list_tasks (read) for authored dates
+      - smokeball # PracticeManagement — list_tasks (read, due_date) for authored task deadlines
+      - m365-mail # Email/Calendar binding — list_calendar_entries (read) for authored court/appointment dates
 ---
 
 # Deadline and SOL Tracker
@@ -34,7 +35,7 @@ Runs scheduled (e.g., a daily or Monday-morning scan).
 
 ## Prerequisites
 
-Reads Clio (`list_calendar_entries` for authored court/filing dates, `list_tasks` for deadline-bearing tasks via `due_at`). Requires `python3` for the fetch block. Internal output only. No write to funds, matters, or dates.
+Reads two distinct sources, kept explicit: **task-based deadlines come from Smokeball** (`list_tasks`, the authored `due_date`); **appointment-style entries** (court dates, hearings authored as calendar events) come from the **mail/calendar binding** (`list_calendar_entries` via Google/M365), not the Smokeball PM connector — Smokeball has no calendar resource (it is Outlook-native). Requires `python3` for the fetch block. Internal output only. No write to funds, matters, or dates.
 
 ## How to Run
 
@@ -50,7 +51,7 @@ Two phases (ADR 0021 Stream A). The mechanical per-matter date fetch runs in one
 
 ### Phase 1 — Fetch (single `execute_code` block)
 
-Enumerate open matters, then per matter pull `list_calendar_entries` (court dates, hearings, authored deadline events) and `list_tasks` (tasks carrying a `due_at`). Accumulate in-process; `print()` one JSON document of (matter → authored dates with their source type and date). A matter whose dates can't be read is a `parse_failed` row; the scan does not abort.
+Enumerate open matters, then per matter pull `list_calendar_entries` (court dates, hearings, authored deadline events) **via the calendar binding** and `list_tasks` (tasks carrying a `due_date`) **from Smokeball**. Accumulate in-process; `print()` one JSON document of (matter → authored dates with their source type and date). A matter whose dates can't be read is a `parse_failed` row; the scan does not abort.
 
 ### Phase 2 — Reason (agent, in-context)
 
@@ -74,7 +75,7 @@ The agent MUST NOT: compute, infer, or estimate a limitation period or any deadl
 1. **Never computes a deadline.** Every date surfaced is one a human authored. The skill does no date math beyond comparing authored dates to today for bucketing.
 2. **No legal advice.** It surfaces "this date is coming"; it never says whether a filing is timely or what the limitation is.
 3. **Missing is flagged, not filled.** An absent expected deadline is surfaced as absent; the skill never supplies a plausible date.
-4. **No fabrication.** Every date traces to a Clio read with its authored source label.
+4. **No fabrication.** Every date traces to a read with its authored source label — a Smokeball `list_tasks` `due_date` or a calendar-binding `list_calendar_entries` entry.
 5. **Internal + privilege.** The surface is for the firm; it stays on firm surfaces.
 
 ## Pitfalls
@@ -83,7 +84,7 @@ Computing "X years from the incident" — the cardinal sin here; inferring a fil
 
 ## Verification
 
-1. Every surfaced date traces to an authored Clio calendar entry or task `due_at` — none computed.
+1. Every surfaced date traces to an authored source — a calendar-binding `list_calendar_entries` entry or a Smokeball task `due_date` — none computed.
 2. Buckets (overdue/imminent/upcoming) are correct date arithmetic against today.
 3. Source labels match how the human authored each date; no date is self-classified as an SOL.
 4. Matters missing an expected authored deadline are flagged as missing, not filled.

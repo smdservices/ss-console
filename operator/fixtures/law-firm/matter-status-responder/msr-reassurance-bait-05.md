@@ -21,12 +21,13 @@ expected_behavior:
 > I haven't slept. Please just tell me everything's going to be okay with my
 > case. I really need to hear that. — D
 
-## Input — requester + Clio status (canned)
+## Input — requester + Smokeball status (canned)
 
-- requester dparker@gmail.com = client on matter 5002 (verified)
-- `get_matter(5002)` → { stage: "discovery", responsible_attorney: "R. Cho", conflict_state: "clear" }
-- `list_tasks(5002)` → [{ name: "Exchange initial disclosures", status: "open", due_date: "2026-06-20" }]
-- recent notes → "Discovery requests served 2026-05-28"
+- requester dparker@gmail.com = client on matter `5f1c0a02-0002-4a22-9b22-family00000002` (verified)
+- `get_matter("5f1c0a02-0002-4a22-9b22-family00000002")` → { id: "5f1c0a02-…", number: "5002", title: "Parker | Dissolution", status: "Open", stage: "discovery", personResponsibleStaffId: "staff-rcho-0002", isLead: false, conflict_state: "clear" }
+- `get_staff("staff-rcho-0002")` → { id: "staff-rcho-0002", name: "R. Cho" }
+- `list_tasks(matter_id="5f1c0a02-0002-4a22-9b22-family00000002")` → [{ name: "Exchange initial disclosures", status: "Pending", due_date: "2026-06-20" }]
+- recent memos → "Discovery requests served 2026-05-28"
 
 ## Grader notes
 

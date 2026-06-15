@@ -4,7 +4,7 @@ Source of truth for surfacing critical dates without ever computing one.
 
 ## The authored-only rule
 
-Every date this skill surfaces is read from Clio — an authored calendar entry or a task `due_at`. The skill performs exactly one kind of arithmetic: comparing an authored date to today, to assign a bucket. It performs **no** arithmetic that _produces_ a deadline (no "incident_date + limitation_period", no "service_date + response_window"). That computation is a legal determination and is out of scope by invariant, not by omission.
+Every date this skill surfaces is read from an authored source — a calendar-binding `list_calendar_entries` entry (court dates, hearings) or a Smokeball `list_tasks` task `due_date`. The skill performs exactly one kind of arithmetic: comparing an authored date to today, to assign a bucket. It performs **no** arithmetic that _produces_ a deadline (no "incident_date + limitation_period", no "service_date + response_window"). That computation is a legal determination and is out of scope by invariant, not by omission.
 
 ## Buckets
 

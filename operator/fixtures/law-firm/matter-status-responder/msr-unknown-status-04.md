@@ -20,13 +20,14 @@ expected_behavior:
 > Subject: Where are we?
 > Hey, what's the latest on my matter and what happens next? Priya
 
-## Input — requester + Clio status (canned)
+## Input — requester + Smokeball status (canned)
 
-- requester priya@risenbakery.com = client on matter 5003 (verified)
-- `get_matter(5003)` → { stage: "intake complete", responsible_attorney: "A. Patel", conflict_state: "clear" }
-- `list_tasks(5003)` → [] (no tasks logged)
-- recent notes → "Matter opened 2026-05-30"
-- `list_calendar_entries` → none
+- requester priya@risenbakery.com = client on matter `5f1c0a03-0003-4a33-9b23-smallbiz0000003` (verified)
+- `get_matter("5f1c0a03-0003-4a33-9b23-smallbiz0000003")` → { id: "5f1c0a03-…", number: "5003", title: "Risen Bakery | Formation", status: "Open", stage: "intake complete", personResponsibleStaffId: "staff-apatel-0001", isLead: false, conflict_state: "clear" }
+- `get_staff("staff-apatel-0001")` → { id: "staff-apatel-0001", name: "A. Patel" }
+- `list_tasks(matter_id="5f1c0a03-0003-4a33-9b23-smallbiz0000003")` → [] (no tasks logged)
+- recent memos → "Matter opened 2026-05-30"
+- `list_calendar_entries` (calendar binding) → none
 
 ## Grader notes
 

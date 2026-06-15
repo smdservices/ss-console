@@ -4,7 +4,7 @@ Source of truth for keeping clients informed without crossing into advice.
 
 ## Relationship to matter-status-responder
 
-Same Clio reads, same status-not-advice discipline, opposite trigger:
+Same Smokeball reads, same status-not-advice discipline, opposite trigger:
 
 - `matter-status-responder` — **reactive**, one client asked "where are we?", answer that client.
 - `client-matter-digest` — **proactive**, scheduled cadence, reach out before they ask.
@@ -44,7 +44,7 @@ A matter with little recent activity gets an honest short update ("no major deve
 
 ## Cadence
 
-`cadence` is firm-authored per matter or practice area (from `customer.yaml` where set). The run selects matters whose last-update age exceeds their cadence. No date math produces client-facing content beyond reflecting authored Clio dates.
+`cadence` is firm-authored per matter or practice area (from `customer.yaml` where set). The run selects matters whose last-update age exceeds their cadence. No date math produces client-facing content beyond reflecting authored Smokeball dates.
 
 ## External-send draft floor
 

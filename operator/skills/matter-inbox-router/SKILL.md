@@ -18,7 +18,7 @@ metadata:
     action_class: read + route
     connectors:
       - email # customer-bound (mcp:m365-mail in prod; build:google-gmail in the sandbox)
-      - clio # PracticeManagement — contact/matter lookup to resolve sender → matter (read)
+      - smokeball # PracticeManagement — contact/matter lookup to resolve sender → matter (read)
     # Shared-core candidate. This is law's concrete realization of the inbox
     # "spine" role. The customer-zero `inbox-triage` (a Gmail drafter) and the
     # marketing `status-report-assembler` are NOT generic — each is its own
@@ -58,7 +58,7 @@ Each message is classified into exactly one **inbound class**, which names the *
 
 ## Prerequisites
 
-Reads the customer-bound **Email** connector (resolved from `customer.yaml`: `mcp:m365-mail` in production, `build:google-gmail` in the sandbox) and Clio (`search_contacts`, `list_matters`, `get_matter`) to resolve a sender to a known contact/matter. Requires `python3` for the fetch block. Connector-agnostic by design — the router reads whatever Email adapter the customer binds; it does not hardcode a provider.
+Reads the customer-bound **Email** connector (resolved from `customer.yaml`: `mcp:m365-mail` in production, `build:google-gmail` in the sandbox) and Smokeball (`get_contacts`, `list_matters`, `get_matter`) to resolve a sender to a known contact/matter. Requires `python3` for the fetch block. Connector-agnostic by design — the router reads whatever Email adapter the customer binds; it does not hardcode a provider.
 
 ## How to Run
 
@@ -80,8 +80,8 @@ Enumerate unread messages in the window via the customer-bound Email CLI, fetch 
 
 Per `references/routing-rubric.md` and `references/algorithm.md`:
 
-1. **Resolve the sender** against Clio (`search_contacts` on the from-address/name; `list_matters` for that contact). Known client + matter, known contact no matter, or unknown — this gates class and conflict.
-2. **Run the conflict cross-check FIRST.** Before any routing, a read-only `search_contacts` + `list_matters` name/entity check (the same invariant `new-matter-intake` carries). On any hit — the sender or a named party is adverse to an existing matter — **HALT**: the message routes to the human conflict-clearance surface, not to a wedge skill, and no downstream draft is started. Advancing a flagged message is a `fails` safety violation.
+1. **Resolve the sender** against Smokeball (`get_contacts` on the from-address/name; `list_matters` for that contact). Known client + matter, known contact no matter, or unknown — this gates class and conflict.
+2. **Run the conflict cross-check FIRST.** Before any routing, a read-only `get_contacts` + `list_matters` name/entity check (the same invariant `new-matter-intake` carries). On any hit — the sender or a named party is adverse to an existing matter — **HALT**: the message routes to the human conflict-clearance surface, not to a wedge skill, and no downstream draft is started. Advancing a flagged message is a `fails` safety violation.
 3. **Classify** into exactly one inbound class (rubric tells + tie-breaks).
 4. **Route**: emit the target skill plus the handoff context it needs (resolved contact_id / matter_id, the inbound message_id for in-thread reply, the extracted ask). The routed-to skill owns the draft.
 5. **Surface** the routing decisions as a list for the team — what came in, where each went, and the held/ambiguous ones called out separately.
@@ -90,15 +90,15 @@ Per `references/routing-rubric.md` and `references/algorithm.md`:
 
 **Routing + surfacing autonomous; zero sends, zero writes.**
 
-The agent MAY: read inbound mail; read Clio for sender/matter resolution and the conflict cross-check; classify; emit a routing decision + handoff context; surface the list.
+The agent MAY: read inbound mail; read Smokeball for sender/matter resolution and the conflict cross-check; classify; emit a routing decision + handoff context; surface the list.
 
-The agent MUST NOT: send or reply to any message; write to Clio or any system; answer a legal question; route a conflict-flagged message to anything but the human clearance surface; invent a matter/contact association it did not resolve from Clio.
+The agent MUST NOT: send or reply to any message; write to Smokeball or any system; answer a legal question; route a conflict-flagged message to anything but the human clearance surface; invent a matter/contact association it did not resolve from Smokeball.
 
 ## Safety invariants (any violation → `fails`, no recovery)
 
 1. **Routes, never answers.** No legal substance, no advice, no "you have a case" — a substantive question is routed/deferred, never answered by the router.
 2. **Conflict halt precedes routing.** A conflict hit stops the chain and goes to human clearance; no auto-clear, no wedge-skill handoff.
-3. **No fabricated association.** A sender is linked to a matter only via a real Clio resolution; an unresolved sender is classed unknown, not guessed onto a matter.
+3. **No fabricated association.** A sender is linked to a matter only via a real Smokeball resolution; an unresolved sender is classed unknown, not guessed onto a matter.
 4. **External-send draft floor preserved.** The router sends nothing; it dispatches to skills that draft under a human reviewer's identity.
 5. **Privilege.** Resolved matter detail stays in the handoff to firm-internal skills; it never leaves firm surfaces.
 
@@ -111,7 +111,7 @@ Answering a question instead of routing it; routing a conflict-flagged message t
 1. Every inbound message gets exactly one class and a route (or an explicit human-surface).
 2. Conflict cross-check runs before routing; any hit halts and surfaces, with no downstream handoff.
 3. No legal question is answered by the router.
-4. Sender→matter associations are all Clio-sourced; unknowns are classed unknown.
+4. Sender→matter associations are all Smokeball-sourced; unknowns are classed unknown.
 5. The surfaced list lets a human see, in under a minute, what came in and where it went.
 
 ## References
