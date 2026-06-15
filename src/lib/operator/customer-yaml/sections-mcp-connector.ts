@@ -62,6 +62,50 @@ interface AccessValidationContext {
   errors: ValidationError[]
 }
 
+function parseClerkSubjects(
+  entry: Record<string, unknown>,
+  path: string,
+  errors: ValidationError[]
+): Pick<McpConnectorAccess, 'clerk_subject' | 'clerk_subjects'> | null {
+  const clerkSubject = entry['clerk_subject']
+  if (
+    clerkSubject !== undefined &&
+    (typeof clerkSubject !== 'string' || !/^user_[A-Za-z0-9]+$/.test(clerkSubject))
+  ) {
+    errors.push({
+      code: 'TypeMismatch',
+      path: `${path}.clerk_subject`,
+      message: `${path}.clerk_subject must be a Clerk user ID`,
+    })
+    return null
+  }
+
+  const clerkSubjects = entry['clerk_subjects']
+  const validClerkSubjects =
+    Array.isArray(clerkSubjects) &&
+    clerkSubjects.length > 0 &&
+    clerkSubjects.every(
+      (subject): subject is string =>
+        typeof subject === 'string' && /^user_[A-Za-z0-9]+$/.test(subject)
+    ) &&
+    new Set(clerkSubjects).size === clerkSubjects.length
+      ? clerkSubjects
+      : null
+  if (clerkSubjects !== undefined && validClerkSubjects === null) {
+    errors.push({
+      code: 'TypeMismatch',
+      path: `${path}.clerk_subjects`,
+      message: `${path}.clerk_subjects must be a non-empty list of unique Clerk user IDs`,
+    })
+    return null
+  }
+
+  return {
+    ...(typeof clerkSubject === 'string' ? { clerk_subject: clerkSubject } : {}),
+    ...(validClerkSubjects ? { clerk_subjects: validClerkSubjects } : {}),
+  }
+}
+
 function parseAccessEntry(
   entry: unknown,
   index: number,
@@ -75,7 +119,6 @@ function parseAccessEntry(
 
   const email = entry['email']
   const profile = entry['profile']
-  const clerkSubject = entry['clerk_subject']
   if (typeof email !== 'string' || email.trim() === '') {
     context.errors.push({
       code: 'MissingField',
@@ -92,17 +135,8 @@ function parseAccessEntry(
     })
     return null
   }
-  if (
-    clerkSubject !== undefined &&
-    (typeof clerkSubject !== 'string' || !/^user_[A-Za-z0-9]+$/.test(clerkSubject))
-  ) {
-    context.errors.push({
-      code: 'TypeMismatch',
-      path: `${path}.clerk_subject`,
-      message: `${path}.clerk_subject must be a Clerk user ID`,
-    })
-    return null
-  }
+  const subjects = parseClerkSubjects(entry, path, context.errors)
+  if (!subjects) return null
   if (!context.authoredEmails.has(email)) {
     context.errors.push({
       code: 'EnumViolation',
@@ -132,7 +166,7 @@ function parseAccessEntry(
   return {
     email,
     profile,
-    ...(typeof clerkSubject === 'string' ? { clerk_subject: clerkSubject } : {}),
+    ...subjects,
   }
 }
 

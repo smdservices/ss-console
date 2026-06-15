@@ -82,11 +82,14 @@ function validateClaims(
   if (claims.iss !== customer.clerk.issuer) {
     return { ok: false, reason: 'wrong_issuer', detail: 'token issuer does not match resource' }
   }
-  if (!audIncludes(claims.aud, customer.clerk.resourceUri)) {
+  // Clerk DCR JWTs currently omit aud. In that shape, the exact issuer plus the
+  // customer-scoped subject allowlist below form the isolation boundary. A
+  // present audience remains authoritative and must match this resource.
+  if (claims.aud && !audIncludes(claims.aud, customer.clerk.resourceUri)) {
     return {
       ok: false,
       reason: 'wrong_audience',
-      detail: claims.aud ? 'token is bound to another resource' : 'token has no audience claim',
+      detail: 'token is bound to another resource',
       subject: claims.sub,
       tokenAudience: normalizeAudience(claims.aud),
     }

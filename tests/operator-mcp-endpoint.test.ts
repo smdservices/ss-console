@@ -216,12 +216,24 @@ describe('validateMcpToken', () => {
   it.each([
     ['wrong_issuer', claims({ iss: 'https://other.example' })],
     ['wrong_audience', claims({ aud: 'https://smd.services/api/operator/other/mcp' })],
-    ['wrong_audience', claims({ aud: undefined })],
     ['claims_invalid', claims({ sub: undefined })],
     ['identity_not_authored', claims({ sub: 'user_unknown' })],
   ])('rejects %s', async (reason, payload) => {
     const result = await validateMcpToken('token', customerFixture(), claimsVerifier(payload))
     expect(result).toMatchObject({ ok: false, reason })
+  })
+
+  it('accepts Clerk DCR tokens without an audience after issuer and subject checks', async () => {
+    const result = await validateMcpToken(
+      'token',
+      customerFixture(),
+      claimsVerifier(claims({ aud: undefined }))
+    )
+    expect(result).toMatchObject({
+      ok: true,
+      subject: CLERK_USER_ID,
+      tokenAudience: [],
+    })
   })
 
   it('returns the verified audience when the resource audience is wrong', async () => {
@@ -345,6 +357,34 @@ describe('loadMcpCustomer and migration 0072', () => {
       clerkUserId: 'user_externalaccount',
       email: 'pilot@example.com',
     })
+  })
+
+  it('resolves multiple approved Clerk subjects to one local customer user', async () => {
+    await db
+      .prepare('UPDATE customer_configs SET mcp_connector_json = ? WHERE entity_id = ?')
+      .bind(
+        JSON.stringify({
+          enabled: true,
+          data_posture: 'open',
+          access: [
+            {
+              email: 'pilot@example.com',
+              profile: 'crane',
+              clerk_subjects: ['user_primary', 'user_secondary'],
+            },
+          ],
+        }),
+        ENTITY_ID
+      )
+      .run()
+    const customer = await loadMcpCustomer(db, 'smd')
+    expect(customer?.principals.map((principal) => principal.clerkUserId)).toEqual([
+      'user_primary',
+      'user_secondary',
+    ])
+    expect(customer?.principals.every((principal) => principal.localUserId === LOCAL_USER_ID)).toBe(
+      true
+    )
   })
 
   it('returns null for unknown or malformed customer slugs', async () => {

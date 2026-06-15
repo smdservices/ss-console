@@ -81,17 +81,22 @@ mcp_connector:
   access:
     - email: scott@smd.services
       profile: crane
-      clerk_subject: user_3E1RPGrTMxkSqciXMTyybUNSJWu
+      clerk_subjects:
+        - user_3EEs0aMBRgu6PRxBa4g5YhHjggD
+        - user_3E1RPGrTMxkSqciXMTyybUNSJWu
 ```
 
-The email resolves the local customer user. `clerk_subject`, when present,
-authorizes the exact Clerk account the user employs for Claude even when that
-account carries a different email. When omitted, the connector falls back to
-that local user's `users.clerk_user_id`. If neither is present, it fails closed.
+The email resolves the local customer user. `clerk_subjects`, when present,
+authorizes the exact Clerk accounts the user may employ for Claude even when
+those accounts carry different emails. The singular `clerk_subject` remains
+supported for one-account bindings. When both are omitted, the connector falls
+back to that local user's `users.clerk_user_id`. If none is present, it fails
+closed.
 
 When `entities.clerk_org_id` is populated, the token must also carry that exact
-`org_id`. When the entity has no Clerk Organization, issuer + audience + subject
-remain mandatory.
+`org_id`. A non-empty token audience must exactly include the MCP resource URI.
+Clerk dynamically registered clients currently omit `aud`; in that case the
+exact issuer plus the customer-scoped Clerk subject allowlist is mandatory.
 
 ## 4. Deploy and activate
 
