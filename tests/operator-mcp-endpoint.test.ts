@@ -22,11 +22,23 @@ import {
 import { dispatchMcpRequest, parseMcpBody } from '../src/lib/operator/mcp/mcp-handler'
 import type { McpToolContext } from '../src/lib/operator/mcp/tools'
 
+import type { RuntimeReadResult } from '../src/lib/operator/runtime-read'
+
+/** A fail-closed readRuntime stub: every read reports the Machine unreachable. */
+const unreachableRead = (): Promise<RuntimeReadResult> =>
+  Promise.resolve({ ok: false, kind: 'audit_log', reason: 'unreachable' })
+
 const CTX: McpToolContext = {
   customerId: 'smd',
   subject: 'user_123',
   email: 'pilot@example.com',
   profile: 'marcus',
+  readRuntime: unreachableRead,
+}
+
+/** Build a tool context whose readRuntime returns a fixed result. */
+function ctxWithRead(read: () => Promise<RuntimeReadResult>): McpToolContext {
+  return { ...CTX, readRuntime: read }
 }
 
 /** Build a provisioned-customer fixture for the pure resolver tests. */
@@ -273,14 +285,15 @@ describe('JSON-RPC dispatcher', () => {
     expect(body.result.serverInfo.name).toBe('smd-operator-connector')
   })
 
-  it('tools/list returns the operator_status stub', async () => {
+  it('tools/list returns operator_status', async () => {
     const resp = await dispatchMcpRequest({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, CTX)
     const body: { result: { tools: { name: string }[] } } = await resp.json()
     const names = body.result.tools.map((t) => t.name)
     expect(names).toContain('operator_status')
   })
 
-  it('tools/call operator_status echoes the authenticated identity', async () => {
+  it('tools/call operator_status reports unreachable fail-closed (no fabricated status)', async () => {
+    // CTX's readRuntime stub reports the Machine unreachable.
     const resp = await dispatchMcpRequest(
       {
         jsonrpc: '2.0',
@@ -291,11 +304,96 @@ describe('JSON-RPC dispatcher', () => {
       CTX
     )
     const body: { result: { content: { text: string }[] } } = await resp.json()
-    const payload: { stub: boolean; authenticated_as: { email: string } } = JSON.parse(
-      body.result.content[0].text
-    )
-    expect(payload.stub).toBe(true)
+    const payload: {
+      customer_id: string
+      authenticated_as: { email: string }
+      operator: { reachable: boolean; reason?: string }
+    } = JSON.parse(body.result.content[0].text)
+    expect(payload.customer_id).toBe('smd')
     expect(payload.authenticated_as.email).toBe('pilot@example.com')
+    expect(payload.operator.reachable).toBe(false)
+    expect(payload.operator.reason).toBe('unreachable')
+  })
+
+  it('tools/call operator_status summarizes live audit_log activity (newest first)', async () => {
+    const ctx = ctxWithRead(() =>
+      Promise.resolve({
+        ok: true,
+        kind: 'audit_log',
+        data: {
+          entries: [
+            {
+              id: '2',
+              ts: '2026-06-14T10:00:00Z',
+              action: 'email.draft',
+              skill: 'inbox',
+              matterRef: 'M-1',
+            },
+            {
+              id: '1',
+              ts: '2026-06-13T09:00:00Z',
+              action: 'email.triage',
+              skill: 'inbox',
+              matterRef: null,
+            },
+          ],
+          cursor: null,
+        },
+      })
+    )
+    const resp = await dispatchMcpRequest(
+      {
+        jsonrpc: '2.0',
+        id: 3,
+        method: 'tools/call',
+        params: { name: 'operator_status', arguments: {} },
+      },
+      ctx
+    )
+    const body: { result: { content: { text: string }[] } } = await resp.json()
+    const payload: {
+      operator: {
+        reachable: boolean
+        recent_activity_count: number
+        latest_activity_at: string | null
+        recent: { at: string; action: string; skill: string | null; matter: string | null }[]
+      }
+    } = JSON.parse(body.result.content[0].text)
+    expect(payload.operator.reachable).toBe(true)
+    expect(payload.operator.recent_activity_count).toBe(2)
+    expect(payload.operator.latest_activity_at).toBe('2026-06-14T10:00:00Z')
+    expect(payload.operator.recent[0]).toEqual({
+      at: '2026-06-14T10:00:00Z',
+      action: 'email.draft',
+      skill: 'inbox',
+      matter: 'M-1',
+    })
+  })
+
+  it('tools/call operator_status reports zero activity honestly on an empty log', async () => {
+    const ctx = ctxWithRead(() =>
+      Promise.resolve({ ok: true, kind: 'audit_log', data: { entries: [], cursor: null } })
+    )
+    const resp = await dispatchMcpRequest(
+      {
+        jsonrpc: '2.0',
+        id: 3,
+        method: 'tools/call',
+        params: { name: 'operator_status', arguments: {} },
+      },
+      ctx
+    )
+    const body: { result: { content: { text: string }[] } } = await resp.json()
+    const payload: {
+      operator: {
+        reachable: boolean
+        recent_activity_count: number
+        latest_activity_at: string | null
+      }
+    } = JSON.parse(body.result.content[0].text)
+    expect(payload.operator.reachable).toBe(true)
+    expect(payload.operator.recent_activity_count).toBe(0)
+    expect(payload.operator.latest_activity_at).toBeNull()
   })
 
   it('tools/call on an unknown tool is method-not-found', async () => {
