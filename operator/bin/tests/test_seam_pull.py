@@ -120,6 +120,9 @@ class _FakeSeamClient:
             "agent_skills_inventory": [
                 {"_rowid": 1, "skill_name": "follow-up-cadence", "status": "persisted"},
             ],
+            "peer_preferences": [
+                {"_rowid": 1, "peer_id": "chris", "preference": "Wants bullets", "source": "stated"},
+            ],
         }
 
     def read_all(self, kind: str, *, table: Optional[str] = None) -> list[dict]:
@@ -140,6 +143,7 @@ def test_preserver_writes_csv_snapshot_and_manifest(tmp_path):
     assert result["rows_preserved"] == 2
     assert result["memory_rows_preserved"]["persona_observations"] == 1
     assert result["memory_rows_preserved"]["agent_skills_inventory"] == 1
+    assert result["memory_rows_preserved"]["peer_preferences"] == 1
 
     # CSV: full canonical columns, both rows.
     with Path(result["csv_path"]).open(encoding="utf-8") as fp:
@@ -197,4 +201,5 @@ def test_memory_export_tables_match_overlay_allowlist():
         "persona_observations",
         "persona_observations_archive",
         "agent_skills_inventory",
+        "peer_preferences",
     }
