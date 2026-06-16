@@ -169,7 +169,7 @@ describe('connector backend materializer guard (validate-fail-closed)', () => {
         if (!entry.reason?.trim()) broken.push(`${prefix}: inert but no reason`)
         if (!entry.tracking?.trim()) broken.push(`${prefix}: inert but no tracking`)
       } else {
-        broken.push(`${prefix}: unknown status ${(entry).status}`)
+        broken.push(`${prefix}: unknown status ${entry.status}`)
       }
     }
     expect(broken, broken.join('\n')).toEqual([])
@@ -188,7 +188,6 @@ describe('connector backend materializer guard (validate-fail-closed)', () => {
 })
 
 describe('fail-closed: no real customer ships a zero-tool capability', () => {
-  const prefixes = parseAcceptedBackendPrefixes()
   const contract = loadContract()
   const buildAllowlist = materializedBuildAdapters()
   const exempt = new Set([...contract.exemptCustomers, ...contract.demoCustomers])
