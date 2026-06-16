@@ -2,7 +2,7 @@
 
 What survives here after the #1355 data-plane rip is the console-side voice
 TOOLCHAIN: the structural-diff privacy primitive, the partner-authored
-filter, corrections, and the draft transformer — consumed by
+filter, and the draft transformer — consumed by
 ``bin/lib/voice_corpus.py`` (corpus seeding), ``bin/voice-ingest-corpus.py``,
 and the voice gate.
 

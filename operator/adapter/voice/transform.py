@@ -1246,9 +1246,9 @@ def _has_introduced_entity_tokens(before: str, after: str) -> bool:
 
     The shared fabrication FLOOR: new dollar amounts, dates, phone numbers,
     URLs, or email addresses appearing in ``after`` but not in ``before`` are
-    fabrication and must abort the change. Both the structural transform and the
-    preference corrections (``adapter.voice.corrections``) hold to this floor —
-    neither may inject a date/amount/contact the source didn't contain.
+    fabrication and must abort the change. The structural transform holds to
+    this floor — it may not inject a date/amount/contact the source didn't
+    contain.
 
     Note: tokens may be REARRANGED between before and after (a sentence split
     moves a phone number to the next sentence); only NEW tokens are disallowed.
@@ -1270,10 +1270,9 @@ def _has_introduced_disallowed_tokens(before: str, after: str) -> bool:
     new content words beyond the closed structural-connector set.
 
     The structural transform only *reshapes* — it never adds words — so any new
-    word outside ``_ALLOWED_CONNECTORS`` is a fabrication here. Preference
-    corrections use the looser :func:`_has_introduced_entity_tokens` floor
-    instead, because a lexical substitution ("under" for "pursuant to")
-    legitimately introduces a new non-entity word the firm authored.
+    word outside ``_ALLOWED_CONNECTORS`` is a fabrication here. (The looser
+    :func:`_has_introduced_entity_tokens` floor exists for substitutions that
+    legitimately introduce a new non-entity word.)
     """
     if _has_introduced_entity_tokens(before, after):
         return True

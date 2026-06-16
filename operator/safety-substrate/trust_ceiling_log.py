@@ -69,8 +69,8 @@ Design rules
 * **`allow` decisions and the audit-floor question.** The AC says "every
   `enforce()` invocation emits an event." In practice, an `allow` decision
   means the underlying action proceeds normally and produces its OWN
-  downstream audit row (DRAFT_CREATED on draft creation, SENT_DETECTED on
-  send, etc.); that row already records the actor, skill, and ceiling at
+  downstream audit row (DRAFT_CREATED on draft creation, etc.); that row
+  already records the actor, skill, and ceiling at
   action time via the writer's `trust_ceiling` column. To meet the AC
   without duplicating rows, this module records `allow` decisions via the
   same `DRAFT_CREATED` shape with `metadata.decision == "allow"` so the
