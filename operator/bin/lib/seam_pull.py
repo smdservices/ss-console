@@ -71,6 +71,7 @@ MEMORY_EXPORT_TABLES: tuple[str, ...] = (
     "persona_observations",
     "persona_observations_archive",
     "agent_skills_inventory",
+    "peer_preferences",
 )
 
 _PAGE_LIMIT = 200  # overlay MAX_LIMIT
@@ -233,7 +234,21 @@ class SeamAuditLogPreserver:
         try:
             _write_audit_snapshot(conn, audit_rows)
             for table in MEMORY_EXPORT_TABLES:
-                rows = self._client.read_all("memory_export", table=table)
+                try:
+                    rows = self._client.read_all("memory_export", table=table)
+                except urllib.error.HTTPError as exc:
+                    # A 400 means this Machine's overlay predates the table
+                    # (gradual OVERLAY_REF rollout) — it legitimately has no
+                    # such table, so it is zero rows, NOT a partial-pull halt.
+                    # Any other status (500, auth, transport) still fails loud.
+                    if exc.code != 400:
+                        raise
+                    logging.getLogger(__name__).warning(
+                        "preserve: memory table %s not served by this Machine "
+                        "(HTTP 400, overlay predates it); recording 0 rows",
+                        table,
+                    )
+                    rows = []
                 _write_memory_snapshot(conn, table, rows)
                 memory_counts[table] = len(rows)
         finally:

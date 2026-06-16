@@ -83,7 +83,11 @@ describe('Operator customer Machine Dockerfile', () => {
     // Superset of e4d1f23 — merges and carries the relationship lane forward.
     // 8d6f1a95 (#85, ss-console #1408) exempts Clerk public IDs (user_/org_) from the
     // secret-scan high-entropy heuristic — fixes a customer-zero crash-loop. Superset of b3294de.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="8d6f1a95189641366c5ff10b01e65d29b6a895fe"')
+    // a548086 (overlay #87) adds the hermes-smd-peer-memory plugin (ADR 0048 learned lane:
+    // per-peer working-preference memory — pre_llm_call sender stash + inject, record_peer_preference
+    // tool, post_tool_call server-side attribution + taint-gate, peer_preferences on the agent-state
+    // D1 binding + runtime_read seam). Carries overlay #86 (voice_corrections seam rip). Superset of 8d6f1a95.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="a5480862017c4214acce5a3f48d19b7067306ca5"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
