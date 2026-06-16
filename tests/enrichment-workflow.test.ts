@@ -134,7 +134,6 @@ async function runWorkflow(
     payload: params,
     timestamp: new Date(),
     instanceId: 'test-instance',
-    workflowName: 'enrichment-workflow',
   }
   await wf.run(event, step as never)
   return { stats }
