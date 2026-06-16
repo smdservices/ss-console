@@ -6,15 +6,15 @@
     {
       "adapterPath": "operator/adapter/voice/transform.py",
       "overlayPath": "plugins/hermes-smd-voice/transform.py",
-      "syncNote": "2026-06-12 baseline (code-review drift gate); overlaySha256 added 2026-06-16 (SEC-32). Pair was ~97% similar at baseline; overlay copy is the runtime, this copy feeds bin/ voice corpus + export + decommission.",
-      "sha256": "e8334db4d67fdee9a0d5675ceaa6c6386c5578b13d318c8adfeec9d11d8a2f1a",
+      "syncNote": "2026-06-16 comment-only update: removed two docstring references to the deleted adapter.voice.corrections module (draft-diff lane rip, ADR 0048 amend). One-sided — the overlay transform.py does not reference the ss-console corrections module; no paired overlay change. overlaySha256 (SEC-32) unchanged — the overlay runtime file is untouched.",
+      "sha256": "b1408a10515d074650554da56181b456b0c387f6d1057a7f68441040a9059185",
       "overlaySha256": "68bc80e63a67652f9efc0e262b1ca2770af713abcb3e72f7303fc63cb48958c6"
     },
     {
       "adapterPath": "operator/adapter/audit_log.py",
       "overlayPath": "plugins/hermes-smd-audit/emit.py",
-      "syncNote": "2026-06-12 baseline, taken AFTER adding the per-step DECOMMISSION_STEP_* action types; overlaySha256 added 2026-06-16 (SEC-32). Deliberately one-sided on the adapter side: decommission rows are written control-plane only; overlay emit.py does not need them. d1-schema.md section 1 and src/lib/portal/operator/audit.ts updated in the same PR (TS parity is test-enforced). The overlaySha256 now pins the runtime emit.py so a neutered runtime emitter (e.g. a no-op write) can no longer ship green.",
-      "sha256": "941ac693ab4dff002761438a51dd6bcd63399f68cd3eaad71aca0b1d0a759725",
+      "syncNote": "2026-06-16: removed SENT_DETECTED / SENT_DIFF_INDEXED action types (declared-only, never emitted — vocabulary for the killed sent-watch/draft-diff lane, ADR 0048 amend). The paired overlay removal lives in hermes-smd-audit/schemas.py (overlay PR #86), NOT emit.py — so the emit.py overlaySha256 (SEC-32) is unchanged. src/lib/portal/operator/audit.ts updated in the same PR (TS parity is test-enforced).",
+      "sha256": "b797b2ac3fcff021db140eab9634c3e30a2bf99df13fd21cf9ed8f14a1fa7f82",
       "overlaySha256": "1f54717e80cdc474266ee637ed5cae1e689c1cdb35c5855799b754739b6576c6"
     },
     {

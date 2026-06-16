@@ -11,6 +11,23 @@ related-issues: 855
 
 **Status: ACCEPTED. Captain decision, 2026-06-14.**
 
+> **Amended 2026-06-16 (Captain).** The **style / voice-correction (live-edit)**
+> lane described below (the lane-table "Style / correction" row, §2d's framing of
+> it as a relationship lane, §3, and §4.1) is **retracted**. Diffing corrected
+> drafts captures _voice_ (how a message reads), not _personality_ (how a person
+> wants to be worked with) — the wrong surface. The **learned** relationship lane
+> is now a **per-peer working-preference memory** built on Hermes' native memory
+> loop, keyed on the per-sender id Hermes threads each turn and mirrored to D1; it
+> captures _stated and demonstrated_ working preferences (preference + why +
+> how-to-apply, never trait labels), reversible and inspectable. The **authored**
+> lane (`customer.yaml relationship:`, shipped — §1 row 1 / §4.2) stands as the
+> seed. `voice_corrections` (migration 0010) reverts to a dormant voice-glossary
+> table outside the relationship model; its read/apply + live-edit primitives
+> (`corrections.py`, `live_edit.py`) and the `memory_export` seam exposure are
+> removed. The binding policies in §2 (informational-only, no-duplication,
+> runtime-read discipline, taint-aware) carry over. The body below is preserved as
+> the original record; read it through this amendment.
+
 The Operator should build a per-person **working relationship** — learning how each
 person it serves likes to be worked with — because that relationship is the moat
 (ADR 0037: the moat is the harness + the guide + the **memory**) and the switching
@@ -39,17 +56,15 @@ is built on:
    active schema drift with the overlay mirror's writer (see Open Items). It is a
    Captain-review mirror, not a runtime relationship store.
 
-3. **`voice_corrections` (migration 0010) already is the deterministic correction
-   store** — and reaches, in its own header, the identical conclusion this ADR makes:
-   corrections are _deterministic, authored, must-apply_ facts that the transform reads
-   at runtime, which is exactly why they live in a dedicated table and not in
-   `persona_observations`. Its read+apply primitive (`operator/adapter/voice/corrections.py`)
-   exists; its `live_edit` capture _writer_ does not.
+3. **`voice_corrections` (migration 0010) is a voice-glossary table, not a
+   relationship lane.** _(2026-06-16: it was briefly modeled as the relationship
+   "style" lane; that is retracted. The read/apply + live-edit primitives were
+   removed; the table remains dormant — forward-only migration — and out of scope
+   for this model.)_
 
-4. **Sent-capture is unbuilt.** `draft_queue.r2_sent_key` is defined but never
-   populated; the sent-folder watcher (`hermes-smd-voice/pipeline.py`) is a stub. So the
-   _runtime input_ to any live-edit correction writer (the human's sent version) does
-   not exist end to end yet.
+4. **Sent-capture is not pursued.** _(2026-06-16: the live-edit correction writer
+   depended on a sent-folder watcher that was never built; with the style lane
+   retracted, that dependency is dropped, not deferred.)_
 
 5. **Entitlements are code-enforced and authored-only** (ADR 0035 / 0026;
    `trust_ceiling`/`enforce()`). The agent never raises its own ceiling.
@@ -61,11 +76,14 @@ is built on:
 The model has three lanes, unified by **one legible surface**. Two lanes already exist;
 we do not fork parallel stores for them.
 
-| Lane                                 | Store                                                              | Status                              |
-| ------------------------------------ | ------------------------------------------------------------------ | ----------------------------------- |
-| Style / correction (how drafts read) | `voice_corrections` (0010), runtime-applied by the voice transform | exists; live-edit writer is the gap |
-| Behavioral / authored (how to act)   | `customer.yaml` authored preferences, materialized to config       | this ADR adds the block             |
-| Inferred (unstated patterns)         | `persona_observations` / Honcho (0016)                             | deferred until Honcho runs          |
+| Lane                                      | Store                                                         | Status                             |
+| ----------------------------------------- | ------------------------------------------------------------- | ---------------------------------- |
+| Authored (how to work with each person)   | `customer.yaml relationship:`, materialized to SOUL.md/config | shipped (Phase 2); the seed        |
+| Learned (how each person works, observed) | Hermes native memory, keyed per peer, mirrored to D1          | forthcoming (per-peer memory loop) |
+| Inferred (unstated patterns)              | `persona_observations` / Honcho (0016)                        | deferred until Honcho runs         |
+
+> _(2026-06-16 amendment: the original first row was "Style / correction →
+> `voice_corrections`"; retracted — see the banner above.)_
 
 The **legible surface** — "here's what I've learned about working with you" — composes
 these into one human-readable, Captain-reviewable view (admin first; client portal
@@ -84,69 +102,69 @@ correctable. That is delight, trust, and governance in one surface.
   `customer.yaml` and enforced in code; the model may _propose_ a trust change, a human
   _grants_ it. (A good employee learns your coffee order on their own; they do not start
   wiring money because they feel trusted.)
-- **d. No duplication.** `voice_corrections` is THE correction/style store. The
-  relationship model composes it; it does not fork a second one. (Repo rule: shared
-  flows stay shared once canonicalized.)
+- **d. No duplication.** The authored lane and the learned lane write the same
+  KIND of per-person working preference (one composed model, two sources); we do
+  not fork parallel stores. (Repo rule: shared flows stay shared once
+  canonicalized.) _(2026-06-16: `voice_corrections` is a separate voice-glossary
+  concern, not a relationship lane.)_
 - **e. Runtime-read discipline preserved.** `persona_observations` stays
-  non-runtime-read (the Honcho-hallucination defense). Deterministic must-apply stores
-  (`voice_corrections`) are runtime-read. The relationship model never reads
-  `persona_observations` at agent runtime.
+  non-runtime-read (the Honcho-hallucination defense). The relationship model
+  never reads `persona_observations` at agent runtime.
 - **f. Taint-aware learning.** A capture sourced from a session that ingested untrusted
   inbound (`SESSION_TAINT`) is not promoted to a standing correction/preference — an
   injected message must never become a learned rule.
 
-### 3. Live-edit capture is content-free, derived from structural-category change
+### 3. The learned lane is per-peer working-preference memory on the native loop
 
-A live-edit correction is derived **without persisting any body text**: compute
-`extract_structural_diff` (`operator/adapter/voice/diff.py`) over the agent draft and
-the human's sent version, compare the **closed-set** `greeting_style` / `signoff_style`
-categories, and emit a `voice_corrections` row (`source='live_edit'`) only on a category
-change, with `before_pattern`/`after_text` drawn from a **fixed, non-PII template map**
-(category → canonical literal). This preserves the Voice Layer 2 privacy floor (raw
-bodies are never persisted). Lexical and honorific live-edit corrections are **out of
-scope** for this deterministic floor — they would require persisting real phrases, so
-they remain calibration-session-authored.
+_(2026-06-16: this section replaces the retracted "live-edit capture" design.)_
 
-### 4. Phase 1 scope (the foundation we build now)
+The learned lane captures how each person likes to work — cadence (bullets vs
+prose), autonomy (act vs ask), how they word requests and corrections, how they
+refer to others — from **the content of the request on any channel**, not from the
+artifacts the Operator produces. It runs on Hermes' **native memory loop** (the
+built-in capture → distill → store → inject-at-session-start cycle), with one
+addition: keyed on the **per-sender id Hermes threads on each turn**, so one
+person's preferences stay separate from another's, and **mirrored to per-customer
+D1** with provenance (ADR 0016 mirror-don't-gate) so every learned rule is
+Captain-inspectable and reversible. Each unit is a **stated or concretely
+demonstrated** preference, written as preference + why + how-to-apply, **never a
+trait or psychological label**; recency supersedes; no approval gate stands between
+the agent and its memory (safety is the trust discipline + inspectability + §2f
+taint-awareness). The detailed design lives in the per-peer relationship-loop plan
+and its forthcoming ADR.
 
-1. **The pure live-edit extractor primitive** (`operator/adapter/voice/live_edit.py`) —
-   `(draft, sent, reviewer, cohort) → voice_corrections rows`. Pure, deterministic,
-   fully unit-tested. Ships now as the canonical primitive (the repo's established
-   "primitive now, runtime call site later" pattern, per `corrections.py`).
-2. **The legible surface** — add `memory_export` to the console `RUNTIME_READ_KINDS`,
-   expose `voice_corrections` through the seam allow-list, and the admin
-   `.../[customer]/memory` view rendering the style lane (`voice_corrections`) live,
-   with the authored and inferred lanes shown honestly. Read-only.
+### 4. Scope (what shipped, what's next)
+
+1. **The legible surface** — the admin `.../[customer]/memory` view, read-only,
+   composing the lanes honestly. It reads the **authored** lane live via the
+   `config_export?section=relationship` seam; the learned and inferred lanes are
+   shown honestly until they land.
+2. **The authored-preference channel** — a `relationship:` block in
+   `customer.yaml`, materialized by `translate.py` into each persona's SOUL.md +
+   config and served to the surface via `config_export`. Shipped (Phase 2). This is
+   the seed of the per-person relationship.
 3. **This ADR.**
 
-The **authored-preference channel** (a `relationship:` block in `customer.yaml`) is
-**deferred to Phase 2** so it ships WITH its materializer rather than as an inert block
-that materializes nothing — consistent with the anti-silent-drop discipline that
-`operator/contracts/customer-yaml-blocks.yaml` exists to enforce (the cron lesson). The
-surface's "Standing preferences" lane renders honestly until then.
-
-The live-edit **runtime trigger** (invoking the primitive when a draft is approved with
-a captured sent version) depends on the unbuilt sent-capture pipeline (Context 4) and
-**activates when that lands**. That dependency is filed as the blocking follow-on; we do
-not build the sent-capture epic under this ADR.
+The **learned lane** (per-peer working-preference memory on the native loop) is the
+next build, against current Hermes; it is specified in the per-peer
+relationship-loop plan, not under this ADR.
 
 ## Consequences
 
 - **Nothing is throwaway when Honcho lands.** It joins the inferred lane into
-  `persona_observations`; the composition surface already renders multiple lanes; the
-  deterministic lanes (voice/authored) remain the high-confidence backbone.
-- **The spine ships now; automated style-learning activates when sent-capture lands.**
-  The capture _logic_ is tested and ready; only its runtime input is pending.
-- **Privacy floor preserved** — no body text persisted; corrections are
-  category + fixed template.
-- **Roadmap:** Phase 2 — pull / help-on-request reading the composed model + the
-  client-portal surface; Phase 3 — proactive tips with gating + decay; Phase 4 — Honcho
-  inferred lane + the throughput-up-while-help-need-down value metric.
+  `persona_observations`; the composition surface already renders multiple lanes;
+  the authored lane remains the high-confidence backbone alongside the learned lane.
+- **The authored seed ships now; the learned lane is built next** on Hermes' native
+  memory loop, keyed per peer (see the per-peer relationship-loop plan).
+- **Roadmap:** the learned per-peer lane → pull / help-on-request reading the
+  composed model + the client-portal surface → proactive tips with gating + decay →
+  Honcho inferred lane + the throughput-up-while-help-need-down value metric.
 
 ## Open Items / Follow-ons
 
-- **Sent-capture pipeline** (`draft_queue.r2_sent_key` population / sent-folder watcher)
-  — blocks the live-edit runtime trigger. File as the activating follow-on.
+- **Per-peer relationship loop** — build the learned lane on Hermes' native memory
+  loop against current Hermes (per-peer keying + D1 mirror + trust discipline).
+  Tracked in the per-peer relationship-loop plan.
 - **`persona_observations` schema drift** — migration `0007` (`conclusion_id` PK) and
   the overlay mirror's `schemas.py` DDL (`observation_id` PK, `honcho_conclusion_id`)
   define different shapes for the same table, and the mirror's INSERT columns match
