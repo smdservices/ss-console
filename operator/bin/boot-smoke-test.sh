@@ -74,8 +74,21 @@ done
 # on Hermes' flat-file memory core, so there is no Postgres/Redis/Honcho to
 # probe here. These checks return when Phase 2 vendors the real Honcho source.
 
-# ---------- Step 5: customer.yaml present on volume ----------
-ssh_exec "customer-yaml-present" "test -s /opt/data/customer.yaml"
+# ---------- Step 5: customer.yaml present, root-owned, agent-read-only (keystone) ----------
+# The live customer.yaml is the source every trust-ceiling / vertical-floor / scope
+# decision resolves against, read fresh per action. The 2026-06-15 keystone moved
+# it OFF the agent-writable /opt/data volume into the root-owned /var/lib/smd-config
+# so the hermes uid can READ it (the trust gate must) but can NEITHER rewrite it
+# (it owned the file before — proven exploitable: one sed flipped external_send
+# draft_for_review->autonomous) NOR rename it (it owned the parent dir). These are
+# the negative-fire conformance proof of that close (SEC-07/08/09/18/30, EFF-14).
+ssh_exec "customer-yaml-present" "test -s /var/lib/smd-config/customer.yaml"
+ssh_exec "customer-yaml-root-owned" "[ \"\$(stat -c %U /var/lib/smd-config/customer.yaml)\" = root ]"
+ssh_exec "customer-yaml-dir-root-owned" "[ \"\$(stat -c %U /var/lib/smd-config)\" = root ]"
+ssh_exec "customer-yaml-agent-readable" "setpriv --reuid=hermes --regid=hermes --init-groups test -r /var/lib/smd-config/customer.yaml"
+ssh_exec "customer-yaml-not-agent-writable" "setpriv --reuid=hermes --regid=hermes --init-groups sh -c \"! test -w /var/lib/smd-config/customer.yaml\""
+ssh_exec "customer-yaml-dir-not-agent-writable" "setpriv --reuid=hermes --regid=hermes --init-groups sh -c \"! test -w /var/lib/smd-config\""
+ssh_exec "customer-yaml-absent-from-agent-volume" "! test -e /opt/data/customer.yaml"
 
 # ---------- Step 6: Hermes profiles directory exists ----------
 # bootstrap.sh's `hermes-smd bootstrap` step materializes one profile per
