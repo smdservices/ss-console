@@ -189,7 +189,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # config_applier (pull → validate → safety → atomic write of /opt/data/customer.yaml).
 # Verified end-to-end on hermes-smd-staging. Superset of e4d1f23 (#82 relationship
 # authored lane, ADR 0048 Phase 2), which it merges and carries forward.
-ARG OVERLAY_REF="83168fb46937060a2d913d6821c6981c1561d653"
+ARG OVERLAY_REF="8d6f1a95189641366c5ff10b01e65d29b6a895fe"
 
 ARG CUSTOMER_SLUG=customer-zero
 
