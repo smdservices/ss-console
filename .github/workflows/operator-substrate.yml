@@ -22,6 +22,8 @@ on:
       - 'operator/bin/**'
       - 'operator/safety-substrate/**'
       - 'operator/connectors/google/**'
+      - 'operator/contracts/overlay-pairs.json'
+      - 'operator/templates/Dockerfile'
       - '.github/workflows/operator-substrate.yml'
   push:
     branches: [main]
@@ -72,4 +74,22 @@ jobs:
         # the named files import only stdlib + adapter/bin.lib modules.
         # test_decommission.py + test_seam_pull.py joined the list with #1355
         # (the decommission data-plane fix) — they previously ran nowhere in CI.
-        run: python3 -m pytest adapter/tests adapter/evidence/tests adapter/voice/tests safety-substrate/tests bin/tests/test_voice_corpus.py bin/tests/test_deploy_ordering.py bin/tests/test_env_contract_conformance.py bin/tests/test_env_array_generation.py bin/tests/test_customer_yaml_block_conformance.py bin/tests/test_decommission.py bin/tests/test_seam_pull.py connectors/google/tests workspace_broker/tests -q
+        run: python3 -m pytest adapter/tests adapter/evidence/tests adapter/voice/tests safety-substrate/tests bin/tests/test_voice_corpus.py bin/tests/test_deploy_ordering.py bin/tests/test_env_contract_conformance.py bin/tests/test_env_array_generation.py bin/tests/test_customer_yaml_block_conformance.py bin/tests/test_decommission.py bin/tests/test_seam_pull.py bin/tests/test_verify_overlay_pairs.py connectors/google/tests workspace_broker/tests -q
+
+      # SEC-32: overlay-RUNTIME side of the adapter <-> overlay drift gate.
+      #
+      # The vitest gate (tests/operator-overlay-pairs.test.ts) runs in the
+      # hermetic `verify` workflow and can only hash the dormant ss-console-side
+      # `operator/adapter/*` copies. That left a hole: a neutered RUNTIME file
+      # (e.g. a no-op audit emitter in the overlay) shipped green because the
+      # adapter copy was untouched and its hash still matched.
+      #
+      # This step closes it. The overlay is a PUBLIC repo pinned at the
+      # manifest's overlayRef (which the vitest gate asserts equals the
+      # Dockerfile ARG OVERLAY_REF). Here — where network is available — we
+      # fetch it at that ref and assert every runtime twin's sha256 equals the
+      # manifest's overlaySha256. A runtime change with no matching manifest
+      # bump FAILS. Fail-closed: mismatch/missing/malformed -> exit 1; a genuine
+      # fetch failure -> exit 2 (env), and the workflow still fails.
+      - name: Verify overlay runtime hashes (SEC-32 drift gate)
+        run: python3 operator/bin/verify-overlay-pairs.py
