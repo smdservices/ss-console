@@ -29,8 +29,9 @@
  * read-only endpoint on the Machine. Extend as drill-in surfaces are added.
  *
  * `memory_export` serves an allow-listed Machine-local memory table one at a
- * time via the `table` query field (ADR 0016 mirror tables + `voice_corrections`,
- * the relationship model's style lane per ADR 0048). The Machine refuses any
+ * time via the `table` query field (ADR 0016 mirror tables + `peer_preferences`,
+ * the relationship model's learned lane — per-peer working-preference memory the
+ * operator captured on Hermes' native memory loop). The Machine refuses any
  * table outside its allow-list.
  *
  * `config_export` serves an allow-listed authored CONTENT block from the live
@@ -58,7 +59,7 @@ export interface RuntimeReadQuery {
   /** Page size hint for list kinds; the Machine clamps it. */
   limit?: number | null
   /** Allow-listed table name for the `memory_export` kind (e.g.
-   * `voice_corrections`); ignored by other kinds. The Machine refuses any
+   * `peer_preferences`); ignored by other kinds. The Machine refuses any
    * table outside its allow-list. */
   table?: string | null
   /** Allow-listed section name for the `config_export` kind (e.g.
