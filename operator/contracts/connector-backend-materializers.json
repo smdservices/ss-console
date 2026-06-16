@@ -1,0 +1,65 @@
+{
+  "_README": [
+    "Connector backend-prefix materializer contract (audit Wave 0, guard 4).",
+    "",
+    "THE INERT-CONTROL CLASS THIS CLOSES. customer.yaml binds each capability to a connector",
+    "`backend:` whose prefix selects how it is materialized at runtime. The validator",
+    "(src/lib/operator/customer-yaml/sections-connectors.ts::checkBackend) accepts any prefix",
+    "in ACCEPTED_BACKEND_PREFIXES — but a backend only surfaces real tools if SOMETHING",
+    "materializes it:",
+    "  - `mcp:`        → overlay translate.py `_materialize_mcp_servers` writes the profile",
+    "                    mcp_servers, which surfaces the MCP's tools. Always materialized.",
+    "  - `build:<a>`   → a Python CLI adapter at operator/connectors/<family>/ (declaring",
+    "                    ADAPTER = \"<a>\") reached via execute_code, with credentials wired by",
+    "                    the google_auth / bootstrap path. Materialized ONLY for adapters that",
+    "                    actually have an impl in this repo. A `build:` adapter with NO impl",
+    "                    (e.g. build:filevine) has no runtime bridge — it validates clean and",
+    "                    boots with zero tools.",
+    "  - `synthetic:`  → demo/substrate stand-in (no_pm / fixture). No live connector, no real",
+    "                    tools. Inert by design; acceptable only for _template menus and demo",
+    "                    seats.",
+    "",
+    "'validation passing ≠ materialized' — the cron-block failure shape, applied to connectors:",
+    "a capability bound to synthetic:no_pm or build:<no-impl> as its SOLE backend boots with",
+    "ZERO tools while validating clean.",
+    "",
+    "WHAT THIS CONTRACT DECLARES. Per-prefix materializer status. For `build:`, the set of",
+    "materialized adapters is NOT hard-coded here — the test derives it from the connector",
+    "impls under operator/connectors/ (ADAPTER = \"...\" declarations) so it cannot drift from",
+    "reality. This contract records the model + the inert classifications + tracking.",
+    "",
+    "ENFORCEMENT (tests/operator-connector-materializer.test.ts):",
+    "  1. PREFIX COVERAGE — every prefix in ACCEPTED_BACKEND_PREFIXES is classified here. A NEW",
+    "     prefix added to the validator without classification fails CI.",
+    "  2. FAIL-CLOSED ON ZERO-TOOL BINDINGS — no real (non-exempt) customer.yaml may bind a",
+    "     capability whose SOLE resolved backend is non-materializable: synthetic:* , or a",
+    "     build:<adapter> with no impl under operator/connectors/. (_template bracketed menus",
+    "     and declared demo customers are exempt.)",
+    "  3. INERT/CONDITIONAL PREFIXES STAY DOCUMENTED — reason + tracking on each.",
+    "",
+    "CROSS-REPO LIMIT. The mcp materializer (translate.py) lives in the overlay, not in this",
+    "CI. The actual fail-closed REJECTION at materialization time (reject a build:<no-impl> or",
+    "synthetic-only binding rather than booting zero tools) must land in translate.py. This",
+    "contract + test is the ss-console-side anchor: it classifies every prefix and blocks a",
+    "real customer from shipping a zero-tool capability — the part checkable from this repo."
+  ],
+  "prefixes": {
+    "mcp:": {
+      "status": "materialized",
+      "materializer": "overlay translate.py::_materialize_mcp_servers (profile mcp_servers → tools surface at runtime)"
+    },
+    "build:": {
+      "status": "conditional",
+      "materializedWhen": "an adapter impl exists at operator/connectors/<family>/ declaring ADAPTER = \"<name>\" (CLI-via-execute_code, credentials via google_auth/bootstrap). The test derives the allowlist from those impls.",
+      "reason": "build:<adapter> with NO impl in operator/connectors/ has no runtime tool-registration bridge — it boots with zero tools (e.g. build:filevine). Today the only impl'd build: family is operator/connectors/google/ (gmail/calendar/drive).",
+      "tracking": "Adding a build:<adapter> binding to a real customer requires landing its connector impl under operator/connectors/ first; otherwise the overlay translate.py must fail-closed reject it. Long-tail vendors with no first-party MCP get a build: adapter we maintain (ADR 0020)."
+    },
+    "synthetic:": {
+      "status": "inert",
+      "reason": "synthetic: backends (no_pm/fixture) are demo/substrate stand-ins with no real connector; they surface no live tools. Binding synthetic:* as a capability's sole backend in a real customer = zero tools at runtime.",
+      "tracking": "synthetic: is acceptable ONLY for _template menus and explicitly-listed demo customers. A real customer must resolve every enabled capability to mcp: or an impl'd build: adapter. Demo PM backend should be an mcp: server (live Clio dev or a seeded mock MCP) per the capability-adapters runtime-wiring finding."
+    }
+  },
+  "exemptCustomers": ["_template"],
+  "demoCustomers": ["demo-law", "smd-staging"]
+}
