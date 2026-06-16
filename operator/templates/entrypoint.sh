@@ -16,32 +16,56 @@ BROKER_DIR="/var/lib/smd-workspace-broker"
 BROKER_SOCKET="/run/smd-workspace-broker/broker.sock"
 BROKER_CUSTOMER_PATH="${BROKER_DIR}/customer.yaml"
 
-# Fresh-volume seed (load-bearing). The Workspace broker starts as root BELOW,
-# before the privilege drop to the hermes user and BEFORE bootstrap.sh runs its
-# own R2 fetch (bootstrap.sh Step 2). On a brand-new volume
-# /opt/data/customer.yaml does not exist yet, so the broker `cp` further down
-# fails and the boot crash-loops to max-restarts. Seed it here from R2 (the
-# source of truth) with the boot-time creds, so a FRESH provision boots with no
-# manual volume seed. Idempotent: on a persisted volume the file already exists
-# (skip), and bootstrap still re-fetches the latest on every boot. This is a
-# regression from #1304 (broker-home isolation introduced the root-side cp);
-# the staging gate caught it on first use.
-if [ ! -f /opt/data/customer.yaml ]; then
-  log "customer.yaml absent on fresh volume — seeding from R2 before broker start"
-  : "${R2_BUCKET_CONFIG:?R2_BUCKET_CONFIG required to seed customer.yaml}"
-  : "${CUSTOMER_SLUG:?CUSTOMER_SLUG required to seed customer.yaml}"
-  _seed_endpoint="${R2_ENDPOINT_URL:-https://${R2_ACCOUNT_ID:-}.r2.cloudflarestorage.com}"
-  if ! AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID:?}" \
-       AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY:?}" \
-         aws s3 cp \
-           --endpoint-url "${_seed_endpoint}" \
-           --only-show-errors \
-           "s3://${R2_BUCKET_CONFIG}/vaults/${CUSTOMER_SLUG}/customer.yaml" \
-           /opt/data/customer.yaml; then
-    log "FATAL: failed to seed customer.yaml from R2 on fresh boot"
-    exit 1
-  fi
+# Keystone (audit 2026-06-15 — SEC-07/08/09/18/30, EFF-14, proven-live on
+# hermes-smd-staging). The live customer.yaml is the source every trust-ceiling /
+# vertical-floor / scope decision resolves against, read fresh per action. It MUST
+# NOT live on the agent-writable /opt/data volume: the hermes uid owns that tree,
+# so the agent could rewrite its own ceiling (proven: one sed flipped
+# external_send draft_for_review->autonomous) or rename the file (it owns the dir).
+# It lives in a fully root-owned directory, world-readable (0644) but NEVER
+# writable or renameable by the hermes uid. Root — this entrypoint plus the
+# ADR-0044 config applier — is the only writer.
+CONFIG_DIR="/var/lib/smd-config"
+LIVE_CUSTOMER_YAML="${CONFIG_DIR}/customer.yaml"
+
+# Root fetches the authoritative customer.yaml from R2 (source of truth) on EVERY
+# boot into the root-owned ${CONFIG_DIR}. This REPLACES the former hermes-side
+# fetch in bootstrap.sh Step 2, which wrote an agent-writable copy on /opt/data —
+# the keystone hole. The broker `cp` further down and the gateway both read this
+# root-owned copy. R2 is the only source on a fresh volume. A pre-keystone
+# persisted volume may still carry an agent-owned /opt/data/customer.yaml: migrate
+# it once, then remove it so no writable copy survives. Idempotent every boot.
+mkdir -p "${CONFIG_DIR}"
+chown root:root "${CONFIG_DIR}"
+chmod 0755 "${CONFIG_DIR}"
+: "${R2_BUCKET_CONFIG:?R2_BUCKET_CONFIG required to fetch customer.yaml}"
+: "${CUSTOMER_SLUG:?CUSTOMER_SLUG required to fetch customer.yaml}"
+if [ -f /opt/data/customer.yaml ] && [ ! -f "${LIVE_CUSTOMER_YAML}" ]; then
+  mv /opt/data/customer.yaml "${LIVE_CUSTOMER_YAML}"
+  log "migrated legacy /opt/data/customer.yaml -> ${LIVE_CUSTOMER_YAML} (keystone relocation)"
 fi
+_seed_endpoint="${R2_ENDPOINT_URL:-https://${R2_ACCOUNT_ID:-}.r2.cloudflarestorage.com}"
+if AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID:?}" \
+     AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY:?}" \
+       aws s3 cp \
+         --endpoint-url "${_seed_endpoint}" \
+         --only-show-errors \
+         "s3://${R2_BUCKET_CONFIG}/vaults/${CUSTOMER_SLUG}/customer.yaml" \
+         "${LIVE_CUSTOMER_YAML}.r2.tmp"; then
+  mv -f "${LIVE_CUSTOMER_YAML}.r2.tmp" "${LIVE_CUSTOMER_YAML}"
+  log "customer.yaml refreshed from R2 (source of truth) into ${CONFIG_DIR}"
+elif [ -f "${LIVE_CUSTOMER_YAML}" ]; then
+  rm -f "${LIVE_CUSTOMER_YAML}.r2.tmp" 2>/dev/null || true
+  log "WARN: R2 fetch failed; using existing root-owned customer.yaml"
+else
+  log "FATAL: customer.yaml not present and R2 fetch failed (${R2_BUCKET_CONFIG}/vaults/${CUSTOMER_SLUG})"
+  exit 1
+fi
+# Root owns it; the agent reads (0644) but cannot write or rename it (the parent
+# dir is root-owned). This is the structural close of the self-loopback.
+chown root:root "${LIVE_CUSTOMER_YAML}"
+chmod 0644 "${LIVE_CUSTOMER_YAML}"
+rm -f /opt/data/customer.yaml
 
 # OP-P1-4 audit ledger: owned by the broker uid, readable (not writable) by the
 # agent uid via the audit-readers group. The agent's only write path is the
@@ -114,7 +138,7 @@ rm -rf /opt/data/workspace-broker
 rm -f /opt/data/oauth/google.json
 mkdir -p "${BROKER_DIR}" "$(dirname "${BROKER_SOCKET}")"
 rm -f "${BROKER_DIR}/google.json"
-cp /opt/data/customer.yaml "${BROKER_CUSTOMER_PATH}"
+cp "${LIVE_CUSTOMER_YAML}" "${BROKER_CUSTOMER_PATH}"
 chown -R workspace-broker:workspace-broker "${BROKER_DIR}"
 chmod 0700 "${BROKER_DIR}"
 chown workspace-broker:workspace-connectors "$(dirname "${BROKER_SOCKET}")"
@@ -198,21 +222,34 @@ unset GOOGLE_SERVICE_ACCOUNT_JSON GOOGLE_TOKEN_JSON GOOGLE_CLIENT_SECRET_JSON
 unset GOOGLE_IMPERSONATE_SUBJECT GOOGLE_OAUTH_SCOPES GOOGLE_TOKEN_PATH
 
 export HOME=/opt/data
+
+# Keystone wiring: point the ADR-0044 applier (the root writer) and every
+# agent-side reader at the root-owned live config. SMD_APPLIER_VOLUME_PATH is the
+# applier's write/read target; SMD_CUSTOMER_YAML_PATH is what
+# shared.customer_config.from_volume() (trust gate, demo-relay, webhook-router)
+# resolves at runtime. The gateway exec below inherits both (no env -i), so the
+# agent reads the root-owned copy and has no writable path to its own ceiling.
+export SMD_APPLIER_VOLUME_PATH="${LIVE_CUSTOMER_YAML}"
+export SMD_CUSTOMER_YAML_PATH="${LIVE_CUSTOMER_YAML}"
+
 log "Workspace broker started as uid $(id -u workspace-broker); dropping gateway to hermes"
 
 # Root-side config applier (ADR 0044 live reconfiguration). Forked here as a
 # ROOT background child — BEFORE the exec-drop to hermes below — so it survives
 # the exec and keeps uid 0. It polls R2 for an updated customer.yaml, validates +
 # safety-checks it (config_applier + the parity validator), and atomically writes
-# it to /opt/data/customer.yaml so the agent picks up entitlement / scope / skill
-# / webhook / demo changes on its NEXT action — no reboot.
+# it to ${LIVE_CUSTOMER_YAML} (via SMD_APPLIER_VOLUME_PATH) so the agent picks up
+# entitlement / scope / skill / webhook / demo changes on its NEXT action — no reboot.
 #
-# WHY ROOT (ADR 0044 Decision 5, confirmed on-box hermes-smd-staging 2026-06-15):
-# only root can write the hermes-owned /opt/data/customer.yaml. The R2 pull
-# credential lives in THIS root process's env, which the hermes agent cannot read
-# from /proc (different uid) — so the control-plane apply credential never reaches
-# the data plane (ADR 0026 + OP-P2-1). The agent holds no config-write credential
-# and no inbound verb that can trigger an apply.
+# WHY ROOT (ADR 0044 Decision 5, hardened by the 2026-06-15 keystone): the live
+# customer.yaml now lives in the root-owned ${CONFIG_DIR}, so root is the ONLY
+# principal that can write it — the hermes agent reads it (0644) but cannot rewrite
+# its own ceiling or rename the file (previously it could; proven live on
+# hermes-smd-staging 2026-06-15). The R2 pull credential lives in THIS root
+# process's env, which the hermes agent cannot read from /proc (different uid) — so
+# the control-plane apply credential never reaches the data plane (ADR 0026 +
+# OP-P2-1). The agent holds no config-write credential and no inbound verb that can
+# trigger an apply.
 #
 # Forked AFTER the GOOGLE_* unset above so it never carries Google creds. Respawn
 # loop self-heals; a dead applier never blocks the gateway (config changes simply
