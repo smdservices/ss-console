@@ -243,7 +243,9 @@ Mismatch metadata contains only binding names and customer slugs. Slugs are busi
 
 ## Boot-path integration
 
-Bootstrap order (per `bootstrap.sh`):
+> **TARGET STATE — not yet wired.** The bootstrap order below is the intended boot sequence. `verify_storage_bindings` is defined and tested in this repo, but its `bootstrap.sh` integration (reading customer.yaml, collecting the `BindingSnapshot` from Fly env metadata, writing the audit row, `sys.exit(3)`) is not yet implemented — see "Open items deferred" below ("Wiring `verify_storage_bindings` into `bootstrap.sh`"). Do not read this sequence as evidence that the boot-check runs in production.
+
+Bootstrap order (target, per `bootstrap.sh`):
 
 ```
 1. Read customer.yaml → customer_slug
@@ -260,7 +262,9 @@ The exit code `3` is reserved for invariant-boot-check failures per [r2-vectoriz
 
 ## Where invariant #6 enforcement plugs into the dispatch path
 
-Skill output flows:
+> **TARGET STATE — not yet wired.** The flow below is the intended call-site contract, not a live control. `enforce_citations` is a pure function defined and tested in this repo's safety-substrate; nothing calls it from the Hermes skill-output dispatch path today. See "Open items deferred" below ("Wiring `enforce_citations` into the dispatch path") — that surface lives in the Hermes runtime, not in this repo, and is tracked as a separate wiring task. Do not read this diagram as evidence that citation enforcement runs in production.
+
+Skill output flows (target):
 
 ```
 skill.emit_draft()
