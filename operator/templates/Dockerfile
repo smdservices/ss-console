@@ -184,12 +184,13 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # check is unchanged. Fixes demo-law DEMO_RELAY_BLOCKED reason=content_sensitive
 # on a benign disclaimer (2026-06-14 live test). Superset of ed96cebe.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-# b3294de — #81 live-reconfiguration overlay (ADR 0044): WS2 live reads (demo/webhook
-# re-read per action), validator parity + on-box secret scan, and the root-owned
-# config_applier (pull → validate → safety → atomic write of /opt/data/customer.yaml).
-# Verified end-to-end on hermes-smd-staging. Superset of e4d1f23 (#82 relationship
-# authored lane, ADR 0048 Phase 2), which it merges and carries forward.
-ARG OVERLAY_REF="8d6f1a95189641366c5ff10b01e65d29b6a895fe"
+# a548086 — #87 per-peer working-preference memory (ADR 0048 learned lane): the
+# hermes-smd-peer-memory plugin (pre_llm_call sender stash + inject, agent-callable
+# record_peer_preference tool, post_tool_call server-side attribution + taint-gate,
+# peer_preferences on the agent-state D1 binding + runtime_read seam). Superset of
+# 8d6f1a95 (#85 Clerk-id secret-scan exemption) and carries #86 (voice_corrections
+# seam rip).
+ARG OVERLAY_REF="a5480862017c4214acce5a3f48d19b7067306ca5"
 
 ARG CUSTOMER_SLUG=customer-zero
 
