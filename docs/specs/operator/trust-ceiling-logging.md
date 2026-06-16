@@ -54,10 +54,20 @@ the pending action, same invariant as the audit log writer itself.
 
 ### Where `log_decision()` plugs into the dispatch path
 
+> **TARGET STATE — not yet wired.** The integration described here is the
+> intended call-site contract, not a live control. `log_decision()` is
+> defined and tested in this repo's safety-substrate, but no Hermes
+> dispatch-path code calls it today, so `trust_ceiling_decision` audit rows
+> do not yet emit in production. The Hermes dispatch integration is the
+> adapter team's work and is tracked separately — see "Out of scope (filed
+> elsewhere)" below ("Hermes dispatch integration"). The mapping table is
+> the contract that work will implement against; do not read it as evidence
+> the wiring exists.
+
 `enforce()` in `operator/adapter/trust_ceiling.py` returns an
 `EnforcementDecision(allowed, reason, audit_action)`. The dispatch path
-(Hermes side, separate PR) calls `enforce()` once per tool invocation and
-then calls `log_decision()` on the same code path with the result. The
+(Hermes side, separate PR) is to call `enforce()` once per tool invocation
+and then call `log_decision()` on the same code path with the result. The
 mapping from `EnforcementDecision` to the wrapper's `(Decision,
 DecisionReason)` pair is the integration point. The mapping table:
 

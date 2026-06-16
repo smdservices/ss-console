@@ -90,11 +90,11 @@ For `oktopeak/clio-mcp` (already chosen for Clio), the review is light — 26 to
 
 ### Customer.yaml backend resolution at boot
 
-Per ADR 0019 (customer.yaml → per-profile config translation), the bootstrap CLI resolves backend prefixes at startup:
+Per ADR 0019 (customer.yaml → per-profile config translation), the bootstrap CLI resolves backend prefixes at startup. **Only the `mcp:` path is wired today** (`translate._materialize_mcp_servers`, per `operator/contracts/customer-yaml-blocks.yaml`); the `build:`/`synthetic:` paths below are PLANNED, built demand-pull through vertical-one per [ADR 0038](./0038-operator-vertical-delivery-method.md):
 
-- `mcp:<server>` → writes `mcp_servers.<server>` entry in the per-profile Hermes config; the MCP server boots as a child process of Hermes per Hermes' MCP integration.
-- `build:<vendor>` → the `hermes-smd-trust` plugin (or a dedicated per-vendor sub-plugin in the overlay) instantiates the Python adapter at plugin init and registers its tools via `ctx.register_tool()`.
-- `synthetic:<name>` → the synthetic substrate's Hermes-registered tools are wired with per-customer D1+R2 bindings via env vars.
+- `mcp:<server>` → writes `mcp_servers.<server>` entry in the per-profile Hermes config; the MCP server boots as a child process of Hermes per Hermes' MCP integration. **(Implemented.)**
+- `build:<vendor>` → **PLANNED.** The intended path is for the `hermes-smd-trust` plugin (or a dedicated per-vendor sub-plugin in the overlay) to instantiate the Python adapter at plugin init and register its tools via `ctx.register_tool()`. No materializer registers BUILD tools yet; the adapters live in `hermes-smd-overlay` and do not exist yet (ADR 0038 §Context).
+- `synthetic:<name>` → **PLANNED.** The intended path wires the synthetic substrate's Hermes-registered tools with per-customer D1+R2 bindings via env vars. No materializer registers synthetic tools yet — a `synthetic:no_pm` binding surfaces no PM tools at runtime.
 
 ## Alternatives Considered
 
@@ -138,8 +138,8 @@ An earlier revision reserved a `composio:` backend to broker vendor connections 
 
 1. **The `customer.yaml` validator accepts and resolves the three backend prefixes** (`mcp:`, `build:`, `synthetic:`). Unknown prefixes — including the retired `composio:` — fail validation.
 2. **The bootstrap CLI generates correct per-profile config** for each backend type. Smoke tests against `_template` customers with one of each backend produce working Hermes configs.
-3. **MCP server bindings produce working tool registrations** at Hermes startup. The first agent turn after boot can call a tool from each configured MCP server.
-4. **BUILD adapter tool registration via `ctx.register_tool()`** works in `hermes-smd-trust` or per-vendor sub-plugins. Tool calls dispatch to the Python adapter and back.
+3. **MCP server bindings produce working tool registrations** at Hermes startup. The first agent turn after boot can call a tool from each configured MCP server. `mcp:` is the only backend with a runtime materializer today — `connectors{}` is materialized solely by `translate._materialize_mcp_servers` (`operator/contracts/customer-yaml-blocks.yaml`).
+4. **PLANNED — not yet wired.** BUILD adapter tool registration via `ctx.register_tool()` in `hermes-smd-trust` or per-vendor sub-plugins, dispatching tool calls to the Python adapter and back, is the target contract. No `build:` (or `synthetic:`) runtime materializer exists yet: the bootstrap translator wires `mcp_servers` only, and the §"Customer.yaml backend resolution at boot" mapping for `build:`/`synthetic:` above describes intended, not yet-implemented, behavior. Per [ADR 0038](./0038-operator-vertical-delivery-method.md) §Context, "There are no per-vertical skill bodies and no `build:` adapters … [a prospect] cannot yet be served by one"; the `build:` adapters live in `hermes-smd-overlay` (ADR 0038 §Consequences) and are built demand-pull through vertical-one.
 
 ## References
 
