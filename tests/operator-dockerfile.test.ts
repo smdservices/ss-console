@@ -81,7 +81,9 @@ describe('Operator customer Machine Dockerfile', () => {
     // + on-box secret scan, and the root-owned config_applier (pull → validate → safety →
     // atomic write of /opt/data/customer.yaml). Verified end-to-end on hermes-smd-staging.
     // Superset of e4d1f23 — merges and carries the relationship lane forward.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="b3294de00bbd3e78c51fc537343830d820100929"')
+    // 8d6f1a95 (#85, ss-console #1408) exempts Clerk public IDs (user_/org_) from the
+    // secret-scan high-entropy heuristic — fixes a customer-zero crash-loop. Superset of b3294de.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="8d6f1a95189641366c5ff10b01e65d29b6a895fe"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
