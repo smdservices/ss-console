@@ -120,6 +120,29 @@ class SeamClient:
             raise ValueError(f"seam read {kind}: malformed page shape")
         return payload
 
+    def read_config(self) -> dict:
+        """GET /runtime/config — the materialized-state snapshot.
+
+        Unlike the paginated kinds this returns a single dict (no ``entries``
+        envelope), so it has its own reader. Used by the overlay-ref drift
+        check to read each Machine's running ``overlay_ref.value``.
+        """
+        url = f"{self._base}/runtime/config"
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Authorization": f"Bearer {self._key}",
+                "X-Tenant-Slug": self._slug,
+            },
+            method="GET",
+        )
+        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected — scheme is constructor-enforced https://; host from operator env; path is a module constant.
+        with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # noqa: S310 — https enforced at construction
+            payload = json.loads(resp.read().decode("utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("seam read config: malformed snapshot shape")
+        return payload
+
     def read_all(self, kind: str, *, table: Optional[str] = None) -> list[dict]:
         """Drain every page of one kind/table. Raises on any transport or
         shape error — preservation must fail LOUD, never archive a partial
