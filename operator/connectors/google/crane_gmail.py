@@ -12,7 +12,10 @@ with the sibling Google CLIs via _google_auth.py.
 
 Subcommands:
   search <query> [--max N]      print matching message IDs, one per line
-  get <id> [--format json|meta] print one message as JSON (full or metadata)
+  get <id> [--format json|meta] spill the message JSON (full or metadata) to a
+                                temp file; print an envelope {message_id, path,
+                                size_bytes}. The caller reads the JSON from path.
+                                Large HTML bodies overflow tool stdout (#1167).
   send                          send a MIME message as the impersonated user
   create-draft                  create a Gmail draft
   modify <id>                   add/remove labels on a message
@@ -23,7 +26,9 @@ Subcommands:
 import argparse
 import base64
 import json
+import os
 import sys
+import tempfile
 from email.message import EmailMessage
 
 from _google_auth import add_token_arg, service
@@ -78,7 +83,22 @@ def cmd_get(svc, args) -> int:
     if fmt == "metadata":
         kwargs["metadataHeaders"] = ["Subject", "From", "To", "Date"]
     msg = svc.users().messages().get(**kwargs).execute()
-    print(json.dumps(msg, ensure_ascii=False))
+    # Large HTML bodies overflow the tool stdout limit, which silently truncated
+    # ~40% of messages to parse_failed in unattended cron runs (#1167). Spill the
+    # full payload to a temp file and emit only a small envelope pointing to it;
+    # the caller reads the message JSON from disk.
+    payload = json.dumps(msg, ensure_ascii=False)
+    fd, path = tempfile.mkstemp(prefix=f"crane_gmail_{args.id}_", suffix=".json")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(payload)
+    except Exception:
+        os.unlink(path)
+        raise
+    print(json.dumps(
+        {"message_id": args.id, "path": path, "size_bytes": len(payload.encode("utf-8"))},
+        ensure_ascii=False,
+    ))
     return 0
 
 
