@@ -141,16 +141,6 @@
       "overlayProducer": "runtime scope/entitlement change path",
       "reason": "scope changes apply on the Machine via the config sync sidecar."
     },
-    "SENT_DETECTED": {
-      "side": "overlay",
-      "overlayProducer": "runtime sent-folder watcher",
-      "reason": "sent-folder detection is a Machine-local mailbox watch (style-lane capture)."
-    },
-    "SENT_DIFF_INDEXED": {
-      "side": "overlay",
-      "overlayProducer": "runtime sent-folder watcher (diff indexer)",
-      "reason": "sent-diff indexing is a Machine-local voice-corpus operation."
-    },
     "INVARIANT_VIOLATION": {
       "side": "ss-console",
       "producerFile": "operator/safety-substrate/sticky_stop.py",
