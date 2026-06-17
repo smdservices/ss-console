@@ -4,7 +4,7 @@ The ordering that keeps routing fast, conflict-safe, and substance-free.
 
 ## Phase 1 — Fetch (mechanical, one `execute_code` block)
 
-Resolve the Email command from `customer.yaml` (sandbox: `crane_gmail.py`; production: the M365 MCP wrapper) — read the binding, do not hardcode a provider. Enumerate `is:unread {window}`, fetch each body, accumulate in-process, `print()` one JSON document (`window`, `fetched`, `messages[]`). A single unparseable message becomes a `parse_failed` row; the batch continues. Only the final document enters context (ADR 0021 Stream A) — the same shape as `inbox-triage` Phase 1.
+Resolve the Email command from `customer.yaml` (sandbox: `crane_gmail.py`; production: the M365 MCP wrapper) — read the binding, do not hardcode a provider. Enumerate `is:unread {window}`, fetch each body, accumulate in-process, `print()` one JSON document (`window`, `fetched`, `messages[]`). With the `crane_gmail.py` binding, `gmail get` spills each message to a temp file and prints an envelope `{message_id, path, size_bytes}`; load the body from `path` rather than the stdout (large HTML bodies overflow tool stdout — #1167). A single unparseable message becomes a `parse_failed` row; the batch continues. Only the final document enters context (ADR 0021 Stream A) — the same shape as `inbox-triage` Phase 1.
 
 ## Phase 2 — Reason (agent, in-context)
 

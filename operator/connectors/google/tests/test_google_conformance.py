@@ -104,3 +104,46 @@ def test_gmail_subcommand_shape_preserved():
     )
     gmail_ops = {name for action in gmail_parser._subparsers._group_actions for name in action.choices}
     assert {"search", "get"} <= gmail_ops
+
+
+def test_gmail_get_spills_full_payload_to_temp_file(tmp_path, monkeypatch, capsys):
+    """cmd_get must not print the full message to stdout (#1167): large HTML bodies
+    overflow the tool stdout limit and come back parse_failed. It writes the JSON to
+    a temp file and prints only an envelope pointing at it; the body is read from disk."""
+    big_body = "<html>" + ("x" * 200_000) + "</html>"
+    message = {"id": "abc123", "payload": {"body": {"data": big_body}}}
+
+    class _FakeExec:
+        def execute(self):
+            return message
+
+    class _FakeMessages:
+        def get(self, **kwargs):
+            return _FakeExec()
+
+    class _FakeUsers:
+        def messages(self):
+            return _FakeMessages()
+
+    class _FakeService:
+        def users(self):
+            return _FakeUsers()
+
+    monkeypatch.setenv("TMPDIR", str(tmp_path))
+    args = crane_gmail.build_parser().parse_args(
+        ["gmail", "get", "abc123", "--format", "json"]
+    )
+    rc = crane_gmail.cmd_get(_FakeService(), args)
+    assert rc == 0
+
+    envelope = json.loads(capsys.readouterr().out)
+    assert envelope["message_id"] == "abc123"
+    assert set(envelope) == {"message_id", "path", "size_bytes"}
+    # The big body is NOT in stdout — only the envelope is.
+    assert big_body not in json.dumps(envelope)
+    # The full payload is recoverable from the spilled file.
+    spilled = json.loads(Path(envelope["path"]).read_text(encoding="utf-8"))
+    assert spilled == message
+    assert envelope["size_bytes"] == len(
+        json.dumps(message, ensure_ascii=False).encode("utf-8")
+    )
