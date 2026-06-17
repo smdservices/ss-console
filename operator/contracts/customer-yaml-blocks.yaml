@@ -82,6 +82,16 @@ top_level:
   telegram:
     status: implemented
     materializer: translate _materialize_telegram_platform (config.yaml platforms)
+  gmail_push:
+    status: inert
+    materializer: src/lib/operator/customer-yaml/sections-gmail-push.ts (validation only)
+    note: >-
+      Gmail push-notification channel (real-time inbox delivery via Pub/Sub →
+      /webhooks/gmail). Console-side validator is live; overlay /webhooks/gmail
+      endpoint + translate.py materialization are pending (filed as overlay follow-on).
+      Fail-closed: overlay reads the block at webhook dispatch time; without the
+      endpoint, pushes are ignored rather than crashing. Not a silent drop — declared
+      inert until the overlay ships.
   memory:
     status: implemented
     materializer: translate _persona_config (config.yaml memory block)

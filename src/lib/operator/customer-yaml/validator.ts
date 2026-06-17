@@ -60,6 +60,7 @@ import {
   checkVoiceLibrary,
 } from './sections-other'
 import { checkCredentialCustodyDefault } from './sections-connectors'
+import { checkGmailPush } from './sections-gmail-push'
 import { checkTelegram } from './sections-telegram'
 import { checkObservability } from './sections-observability'
 import { checkVoiceCohorts } from './sections-voice'
@@ -271,6 +272,7 @@ function validateSections(
   const googleAuth = checkGoogleAuth(root, errors)
   const scope = checkScope(root, errors)
   checkTelegram(root, errors) // optional telegram block; validate-only (ADR 0033)
+  checkGmailPush(root, errors) // optional gmail_push block; validate-only
   const escalation = checkEscalation(root, errors)
   const memory = checkMemory(root, customerId, verticalResult.vertical, errors)
   const webhookTriggers = checkWebhookTriggers(root, personas, connectors, errors)
