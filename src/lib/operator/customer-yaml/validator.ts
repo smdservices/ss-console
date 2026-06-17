@@ -20,7 +20,13 @@
  */
 
 import { scanParsedValue, scanRawYaml, type ScanOptions } from './secret-detector'
-import { checkHermesRef, checkRequiredString, isPlainObject, secretFindingToError } from './helpers'
+import {
+  checkHermesRef,
+  checkOptionalString,
+  checkRequiredString,
+  isPlainObject,
+  secretFindingToError,
+} from './helpers'
 import {
   type AddonSpec,
   type CustomerYaml,
@@ -255,6 +261,7 @@ function validateSections(
   const practiceAreas = checkPracticeAreas(root, verticalResult.vertical, errors)
   checkRequiredString(root, 'fly_region', errors)
   checkRequiredString(root, 'model', errors)
+  checkOptionalString(root, 'escalation_model', errors) // ADR 0049 — escalate-up model
   checkRequiredString(root, 'hermes_ref', errors)
   checkHermesRef(root, errors)
   const machine = checkMachine(root, errors)
@@ -311,6 +318,7 @@ function assembleCustomerYaml(root: Record<string, unknown>, p: ParsedSections):
     practice_areas: p.practiceAreas,
     fly_region: root['fly_region'] as string,
     model: root['model'] as string,
+    escalation_model: (root['escalation_model'] as string) ?? null,
     hermes_ref: root['hermes_ref'] as string,
     machine: p.machine as MachineSpec,
     users: p.users,

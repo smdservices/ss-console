@@ -444,6 +444,7 @@ function lockedFromCurrent(
   | 'practice_areas'
   | 'fly_region'
   | 'model'
+  | 'escalation_model'
   | 'hermes_ref'
   | 'machine'
   | 'memory'
@@ -469,6 +470,7 @@ function lockedFromCurrent(
     practice_areas: current.practice_areas,
     fly_region: current.fly_region,
     model: current.model,
+    escalation_model: current.escalation_model,
     hermes_ref: current.hermes_ref,
     machine: current.machine,
     memory: current.memory,

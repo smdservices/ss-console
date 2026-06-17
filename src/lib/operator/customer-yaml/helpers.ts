@@ -31,6 +31,27 @@ export function checkRequiredString(
   }
 }
 
+/**
+ * Like checkRequiredString but the field may be absent. Absent/null is fine
+ * (no error); present means it must be a non-empty string. Used for optional
+ * top-level scalars such as `escalation_model` (ADR 0049).
+ */
+export function checkOptionalString(
+  root: Record<string, unknown>,
+  field: string,
+  errors: ValidationError[]
+): void {
+  const v = root[field]
+  if (v === undefined || v === null) return
+  if (typeof v !== 'string') {
+    errors.push({ code: 'TypeMismatch', path: field, message: `${field} must be a string` })
+    return
+  }
+  if (v.length === 0) {
+    errors.push({ code: 'EmptyField', path: field, message: `${field} must not be empty` })
+  }
+}
+
 // Upstream-pin pattern per ADR 0024 (docs/adr/0024-hermes-consumption-and-update-cadence.md).
 // hermes_ref pins an UPSTREAM Hermes release by date-tag AND commit SHA:
 //   v{YYYY}.{M}.{D}@{40-hex-sha}

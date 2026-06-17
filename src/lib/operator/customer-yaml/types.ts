@@ -785,7 +785,18 @@ export interface CustomerYaml {
   addons: AddonSpec[]
   practice_areas: string[]
   fly_region: string
+  /**
+   * The seat's main model — the conversation and every in-line skill run on it
+   * (ADR 0049). `escalation_model` is the optional second tier.
+   */
   model: string
+  /**
+   * Optional escalate-up model (ADR 0049). When set, materialized into Hermes'
+   * native `delegation` block so any skill that calls `delegate_task` runs the
+   * heavy reasoning on this model while the seat's main model stays light.
+   * `null` ⇒ no second tier; delegated work inherits the main model.
+   */
+  escalation_model: string | null
   hermes_ref: string
   machine: MachineSpec
   users: User[]
