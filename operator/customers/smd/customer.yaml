@@ -106,10 +106,15 @@ personas:
         version: pending
         trust_ceiling: draft_for_review
         enabled: true
-      # Polls crane@smd.services inbox for inbound from allow-listed senders.
+      # Handles inbound email to crane@smd.services triggered by Gmail push webhook.
       # trust_ceiling: autonomous — Crane's own identity, not Scott's. Drafts
       # are used until workspace_gmail_send lands in the overlay (Issue #TBD).
       - name: email-reply
+        version: pending
+        trust_ceiling: autonomous
+        enabled: true
+      # Renews the 7-day Gmail push-notification watch subscription weekly.
+      - name: watch-renew
         version: pending
         trust_ceiling: autonomous
         enabled: true
@@ -123,10 +128,9 @@ personas:
       - skill: inbox-triage
         schedule: '0 7-19 * * *' # hourly 0700–1900 (fly_region: lax tz)
         wake_policy: always
-      # Poll crane@smd.services inbox every 15 min during business hours.
-      # Replies from allow-listed senders; drafts until workspace_gmail_send lands.
-      - skill: email-reply
-        schedule: '*/15 7-20 * * *' # every 15 min 0700–2000 (fly_region: lax tz)
+      # Renew Gmail push-notification watch subscription weekly (7-day expiry window).
+      - skill: watch-renew
+        schedule: '0 7 * * 1' # Mondays 0700 (fly_region: lax tz)
         wake_policy: always
 
 # ---- MCP CONNECTOR (Operator ⇄ Claude, Phase 1) ----
@@ -188,6 +192,28 @@ telegram:
     - '7367659986'
   # 1:1 DM assistant: reply to every DM from an allowed user (no @mention needed).
   require_mention: false
+
+# ---- GMAIL PUSH CHANNEL ----
+# Real-time inbox delivery for crane@smd.services via Gmail push notifications +
+# Google Cloud Pub/Sub. Replaces the former 15-minute polling cron.
+#
+# GCP setup (one-time, run as operator):
+#   1. Create topic:   gcloud pubsub topics create crane-gmail-inbound
+#   2. Create push subscription pointed at https://hermes-smd.fly.dev/webhooks/gmail
+#      with OIDC token audience = https://hermes-smd.fly.dev
+#   3. Grant gmail-push SA pubsub.publisher on the topic.
+#   4. Set Fly secret: GMAIL_PUBSUB_TOPIC=projects/{GCP_PROJECT_ID}/topics/crane-gmail-inbound
+#   5. Reprovision to seed /webhooks/gmail overlay endpoint.
+#
+# PUBSUB_TOPIC placeholder {GCP_PROJECT_ID} must be replaced with the real GCP
+# project ID before provisioning. The validator enforces the
+# projects/{project}/topics/{name} format; it will reject the placeholder.
+gmail_push:
+  enabled: true
+  subject: crane@smd.services
+  pubsub_topic: 'projects/smd-services-ops/topics/crane-gmail-inbound'
+  persona: crane
+  skill: email-reply
 
 # ---- SCOPE ----
 scope:
