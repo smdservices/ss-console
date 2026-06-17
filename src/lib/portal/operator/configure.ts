@@ -76,6 +76,7 @@ export function parseScope(raw: unknown): Scope | null {
     email_keyword_blocks: strArray(raw['email_keyword_blocks']),
     domain_blocks: strArray(raw['domain_blocks']),
     matter_blocks: strArray(raw['matter_blocks']),
+    inbound_allow_from: strArray(raw['inbound_allow_from']),
   }
 }
 

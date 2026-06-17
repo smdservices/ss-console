@@ -151,6 +151,7 @@ export interface EditableScope {
   email_keyword_blocks: string[]
   domain_blocks: string[]
   matter_blocks: string[]
+  inbound_allow_from: string[]
 }
 
 export interface EditableCustomerConfig {
@@ -341,6 +342,7 @@ function diffScope(before: EditableScope, after: EditableScope, changed: string[
     'email_keyword_blocks',
     'domain_blocks',
     'matter_blocks',
+    'inbound_allow_from',
   ]
   for (const field of fields) {
     if (JSON.stringify(before[field]) !== JSON.stringify(after[field])) {
@@ -665,6 +667,7 @@ function reconstructFromProjection(row: CustomerConfigRow): unknown {
       email_keyword_blocks: scope.email_keyword_blocks ?? [],
       domain_blocks: scope.domain_blocks ?? [],
       matter_blocks: scope.matter_blocks ?? [],
+      inbound_allow_from: scope.inbound_allow_from ?? [],
     },
     escalation: {
       red_flag_recipients: escalation.red_flag_recipients ?? [],
