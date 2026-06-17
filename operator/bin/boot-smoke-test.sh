@@ -143,4 +143,16 @@ ssh_exec "overlay-pack-root-owned" "[ \"\$(stat -c %U /app/overlay-pack)\" = roo
 ssh_exec "overlay-pack-not-agent-writable" "setpriv --reuid=hermes --regid=hermes --init-groups sh -c \"! test -w /app/overlay-pack\""
 ssh_exec "activation-handler-not-agent-writable" "setpriv --reuid=hermes --regid=hermes --init-groups sh -c \"! test -w /app/overlay-pack/hooks/smd-overlay-activation/handler.py\""
 
+# ---------- Step 13: the account-wide R2 key is stripped from the LIVE agent (OP-P2-1) ----------
+# bootstrap.sh unsets R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY before forking any
+# same-uid child or exec'ing the gateway, so a code-executing agent cannot read
+# the account-wide R2 key (from its own env or a sibling's /proc/<pid>/environ)
+# and rewrite the R2 config object — the loopback that would walk around the
+# keystone's filesystem lock (ADR 0044 Decision 8). test_deploy_ordering.py
+# proves the SOURCE strips it in the right order; this proves it MATERIALIZED on
+# the running Machine. Runs as root (reads agent-uid /proc/environ); the probe
+# excludes root processes (PID 1 + the config applier legitimately keep the key)
+# and never echoes the value.
+ssh_exec "r2-account-key-stripped-from-agent" "/opt/hermes/.venv/bin/python3 /app/r2-account-key-strip-probe.py"
+
 log "All boot smoke checks passed for ${APP_NAME}"

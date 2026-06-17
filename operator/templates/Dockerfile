@@ -410,6 +410,9 @@ COPY operator/templates/ensure-telegram-allowlist.py /app/ensure-telegram-allowl
 # OP-P1-4 affirmative proof: boot-smoke runs this as the agent uid to confirm
 # the ledger is not agent-writable.
 COPY operator/templates/audit-write-fail-probe.py /app/audit-write-fail-probe.py
+# OP-P2-1 affirmative proof: boot-smoke runs this as root to confirm NO agent-uid
+# process (gateway or same-uid child) still carries the account-wide R2 key.
+COPY operator/templates/r2-account-key-strip-probe.py /app/r2-account-key-strip-probe.py
 
 # NOTE: customer.yaml is NOT copied into the image. It lives on the Fly
 # volume at /opt/data/customer.yaml; bootstrap.sh fetches it from R2 on
