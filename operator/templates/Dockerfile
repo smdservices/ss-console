@@ -429,6 +429,24 @@ RUN chmod -R a+rX /opt/hermes /app \
       /app \
       /opt/data
 
+# SEC-31 (audit 2026-06-15): the blanket `chown -R hermes:hermes /app` above
+# swept the GOVERNANCE artifacts to the agent uid — the pinned overlay pack the
+# gateway:startup activation gate force-loads, the boot scripts, and the
+# boot-smoke probes. A code-executing agent must not own its own governance
+# self-check. Re-assert root ownership on them. This is functionally inert:
+# bootstrap only READS these (it COPIES /app/overlay-pack to the hermes-owned
+# volume and the gateway loads from THERE; it execs the *.sh; it runs the *.py as
+# scripts) — none are imported in place, so no __pycache__ write depends on the
+# agent owning them. They stay world-readable/executable (a+rX from the chmod
+# above). NOTE: /app/safety-substrate is intentionally NOT re-owned — its
+# run_invariants.py writes a boot log under that tree, so it must stay
+# hermes-writable (a smaller, separately-tracked residual).
+RUN chown -R root:root \
+      /app/overlay-pack \
+      /app/_env-arrays.generated.sh \
+ && chown root:root /app/*.sh /app/*.py \
+ && chmod -R a+rX /app/overlay-pack
+
 ENV HERMES_WEB_DIST=/opt/hermes/hermes_cli/web_dist
 
 VOLUME [ "/opt/data" ]
