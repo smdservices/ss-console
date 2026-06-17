@@ -197,7 +197,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # thread continuity, source==mcp turns fenced+tainted like inbound email. Lands
 # the previously-unmerged channel spine (echo/fetch/store retired) + Clerk OAuth
 # front door onto main, so reprovisions no longer revert it. Superset of 72fa21d.
-ARG OVERLAY_REF="3dcef4290767cdac914a1184c0fef88069a169e2"
+ARG OVERLAY_REF="8d633a4c943443035e75628f6704d80ff25f7b12"
 
 ARG CUSTOMER_SLUG=customer-zero
 
