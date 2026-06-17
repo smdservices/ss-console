@@ -210,10 +210,14 @@ escalation:
     - team@smd.services
 
 # ---- VOICE LIBRARY ----
-# Deterministic R2 path. The principal supplied NO writing samples in the interview —
-# sample collection is an open onboarding item (onboarding-plan.md Phase 1). Not fabricated.
+# Actual R2 layout: vaults/smd/voice/cohort/{cohort-id}/{ulid}.json
+# (written by voice-ingest-corpus.py; read by samples.retrieve_relevant_samples).
+# The runtime derives the prefix from the customer slug — this block is metadata only.
 voice_library:
-  samples_path: 'r2://vaults/smd/voice/samples/'
+  samples_path: 'r2://vaults/smd/voice/cohort/'
+  cohorts:
+    - id: general
+      label: General
 
 # ---- MEMORY (per-customer isolation invariants; must match customer_id) ----
 # Phase 1 runs on Hermes' flat-file memory core (MEMORY.md/USER.md). Inferred memory
