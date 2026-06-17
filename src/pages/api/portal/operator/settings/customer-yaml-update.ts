@@ -233,6 +233,7 @@ function parseFormToConfig(
       email_keyword_blocks: asStringList(form.get('scope.email_keyword_blocks')),
       domain_blocks: asStringList(form.get('scope.domain_blocks')),
       matter_blocks: asStringList(form.get('scope.matter_blocks')),
+      inbound_allow_from: asStringList(form.get('scope.inbound_allow_from')),
     },
     logging: parseLogging(form, current.logging),
     pause: current.pause,

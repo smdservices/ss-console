@@ -538,6 +538,8 @@ export interface Scope {
   email_keyword_blocks: string[]
   domain_blocks: string[]
   matter_blocks: string[]
+  /** Senders allowed to trigger autonomous reply from crane's own inbox. */
+  inbound_allow_from: string[]
 }
 
 export interface Escalation {

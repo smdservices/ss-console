@@ -49,6 +49,7 @@ describe('parseScope', () => {
       email_keyword_blocks: [],
       domain_blocks: [],
       matter_blocks: [],
+      inbound_allow_from: [],
     })
     expect(parseScope(null)).toBeNull()
     expect(parseScope('nope')).toBeNull()

@@ -106,6 +106,13 @@ personas:
         version: pending
         trust_ceiling: draft_for_review
         enabled: true
+      # Polls crane@smd.services inbox for inbound from allow-listed senders.
+      # trust_ceiling: autonomous — Crane's own identity, not Scott's. Drafts
+      # are used until workspace_gmail_send lands in the overlay (Issue #TBD).
+      - name: email-reply
+        version: pending
+        trust_ceiling: autonomous
+        enabled: true
     # Native Google/Himalaya skills remain disabled because this customer uses
     # broker-mediated first-class tools and the customer-owned DWD credential.
     skills_disabled:
@@ -115,6 +122,11 @@ personas:
     cron:
       - skill: inbox-triage
         schedule: '0 7-19 * * *' # hourly 0700–1900 (fly_region: lax tz)
+        wake_policy: always
+      # Poll crane@smd.services inbox every 15 min during business hours.
+      # Replies from allow-listed senders; drafts until workspace_gmail_send lands.
+      - skill: email-reply
+        schedule: '*/15 7-20 * * *' # every 15 min 0700–2000 (fly_region: lax tz)
         wake_policy: always
 
 # ---- MCP CONNECTOR (Operator ⇄ Claude, Phase 1) ----
@@ -190,6 +202,12 @@ scope:
   trusted_sender_domains:
     - smdurgan.com
     - smd.services
+  # Allow list for email-reply skill: senders who email crane@smd.services and
+  # receive an autonomous reply. Fail-closed: absent or empty list = no replies.
+  # Add client addresses here when an engagement begins.
+  inbound_allow_from:
+    - smdurgan@smdurgan.com
+    - scott@smd.services
   # ---- TRUST CEILINGS (per-action, ADR 0025) ----
   # Crane may send from its own AgentMail identity within the authored ceiling.
   # Sending from the principal Workspace identity remains permanently banned.
