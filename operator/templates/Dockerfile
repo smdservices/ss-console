@@ -193,7 +193,8 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # inbox-read fence; #91 SEC-33 hook-parity guard), which is atop 0e491f9 (#88 ADR
 # 0047 phase 2: materialize wake_policy: pre_run_decides; unblocks pilot-law /
 # pilot-smokeball boot), carrying #87/#86/#85.
-ARG OVERLAY_REF="0f51821d54182888b1d68348187360d9bc4a05ea"
+# Voice Layer 2: wire transform_llm_output hook → transform_draft() (#96).
+ARG OVERLAY_REF="72fa21def0baa9ba873e3b6c9195451f4e6000ed"
 
 ARG CUSTOMER_SLUG=customer-zero
 
