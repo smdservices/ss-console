@@ -207,13 +207,14 @@ export const ACCEPTED_BACKEND_PREFIXES = ['mcp:', 'build:', 'synthetic:'] as con
  * Google credential mode for the optional top-level `google_auth.mode`
  * (ADR 0035; connector dispatch shipped in ss-console #1212, boot wiring #1213).
  *
- * - `user_oauth` — the default when `google_auth` is absent. The Google
- *   connector CLIs read an authorized-user token relayed to
- *   `/opt/data/oauth/google.json`; nothing is materialized into the env.
- * - `dwd` — service-account key with domain-wide delegation. The Operator
- *   impersonates `google_auth.subject` at `google_auth.scopes`; bootstrap
- *   exports `GOOGLE_IMPERSONATE_SUBJECT` + `GOOGLE_OAUTH_SCOPES` so the
- *   connector's service-account branch (`_google_auth.credentials`) activates.
+ * Both modes are served by the ADR 0045 Workspace broker — the agent never holds
+ * the Google credential and there is no connector CLI. Gmail/Calendar/Drive are
+ * the governed `workspace_*` tools, not `connectors[]` entries.
+ * - `user_oauth` — authorized-user token (`GOOGLE_TOKEN_JSON`) materialized into
+ *   the broker-owned credential file; the broker's authorized-user branch loads it.
+ * - `dwd` — service-account key (`GOOGLE_SERVICE_ACCOUNT_JSON`) with domain-wide
+ *   delegation. The broker impersonates `google_auth.subject` (and any authored
+ *   `managed_mailboxes`) at `google_auth.scopes` via its service-account branch.
  */
 export const ACCEPTED_GOOGLE_AUTH_MODES = ['user_oauth', 'dwd'] as const
 export type GoogleAuthMode = (typeof ACCEPTED_GOOGLE_AUTH_MODES)[number]
@@ -456,16 +457,17 @@ export interface Connector {
 }
 
 /**
- * Google credential selection for the customer's Operator (ADR 0035;
- * connector dispatch #1212, boot wiring #1213). Optional top-level block;
- * absent ⇒ user-OAuth (the connectors read a relayed authorized-user token at
- * `/opt/data/oauth/google.json` and nothing is materialized).
+ * Google credential selection for the customer's Operator (ADR 0035 / ADR 0045).
+ * Optional top-level block; absent ⇒ user-OAuth.
  *
  * Modeled here rather than per-connector because ONE Google identity is shared
- * across Gmail (read by the inbox-triage skill via crane_gmail), Calendar, and
- * Drive — and Gmail is not a `connectors[]` entry. When `mode: 'dwd'`, bootstrap
- * exports `GOOGLE_IMPERSONATE_SUBJECT` (= `subject`) and `GOOGLE_OAUTH_SCOPES`
- * (= space-joined `scopes`) so the connectors' service-account branch runs.
+ * across Gmail (read by the inbox-triage skill via the broker `workspace_gmail_*`
+ * tools), Calendar, and Drive — and Google is NOT a `connectors[]` entry. The
+ * ADR 0045 Workspace broker holds the credential and serves the governed
+ * `workspace_*` tools; the agent never holds the credential and there is no
+ * connector CLI. The broker reads `mode` + `subject` + `scopes` (and any
+ * `managed_mailboxes`) from this block to build domain-wide-delegation
+ * credentials per operation.
  */
 /**
  * A second mailbox (beyond `google_auth.subject`) the Operator is authored to

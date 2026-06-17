@@ -15,16 +15,16 @@ customer_name: SMDurgan, LLC
 google_auth:
   mode: dwd
   subject: crane@smd.services
+  scopes:
+    - https://www.googleapis.com/auth/gmail.modify
+    - https://www.googleapis.com/auth/calendar.events
+    - https://www.googleapis.com/auth/drive
+  managed_mailboxes:
+    - address: smdurgan@smdurgan.com
 personas:
   - slug: crane
     status: active
-connectors:
-  Email:
-    adapter: google-gmail
-  Calendar:
-    adapter: google-calendar
-  DocumentStorage:
-    adapter: google-drive
+connectors: {}
 """.lstrip(),
         encoding="utf-8",
     )
@@ -60,9 +60,14 @@ def test_writes_google_workspace_identity_block(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stderr
     text = soul.read_text(encoding="utf-8")
     assert "Your customer-owned Google Workspace email address is crane@smd.services." in text
-    assert "Email is configured through the google-gmail BUILD connector." in text
-    assert "Calendar is configured through the google-calendar BUILD connector." in text
-    assert "Drive, Docs, and Sheets are configured through the google-drive BUILD connector." in text
+    # Google capability is derived from google_auth scopes and served by the broker's
+    # workspace_* tools — NOT a connector CLI. The managed mailbox is surfaced too.
+    assert "Gmail, Calendar, Drive, Docs, and Sheets" in text
+    assert "workspace_* tools" in text
+    assert "smdurgan@smdurgan.com" in text
+    # The deleted-CLI lure must NOT appear in the agent's identity.
+    assert "/app/connectors/google/" not in text
+    assert "BUILD connector" not in text
     assert "Do not infer mail is unconfigured from absent local mail clients" in text
 
 

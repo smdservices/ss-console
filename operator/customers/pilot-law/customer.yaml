@@ -172,15 +172,10 @@ connectors:
     enabled: true
     token_ref: 'infisical:/operator/pilot-law/practice-management/clio-oauth'
 
-  # Mail + calendar on the proven Google BUILD path (see google_auth note).
-  Email:
-    adapter: google-gmail
-    backend: build:google-gmail
-    enabled: true
-  Calendar:
-    adapter: google-calendar
-    backend: build:google-calendar
-    enabled: true
+  # Mail + calendar run through the governed Workspace broker (see google_auth:),
+  # NOT the connector mechanism — the broker holds the DWD service-account
+  # credential and exposes the governed workspace_* tools; the agent never holds the
+  # Google credential and there is no CLI to shell out to.
 
   # DEFERRED this phase (fixture-supplied per the wedge): ESign (engagement
   # signature status arrives via fixture), Payments/LawPay (trust balance is
