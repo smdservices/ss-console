@@ -107,9 +107,12 @@ describe('Operator customer Machine Dockerfile', () => {
     // 8d633a4 (#98) fixes the Machine Clerk binding to authorize clerk_subjects
     // (plural — the authored form), not only the singular key, which had refused
     // every real token identity_not_authored (proven live on hermes-smd 2026-06-17).
-    // Superset of 3dcef42; also carries already-merged #95 (unmapped tool → REFUSED)
-    // and #94 (SOUL.md principal materialization).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="8d633a4c943443035e75628f6704d80ff25f7b12"')
+    // d8c178e (#99) unfences workspace_gmail_search: it returns only {id, threadId}
+    // metadata (no body), so fencing it tainted the result and blocked the agent
+    // from reusing the ids as the message_id for the still-fenced body read —
+    // making a list→get mailbox read impossible. Superset of 8d633a4; also carries
+    // already-merged #95 (unmapped tool → REFUSED) and #94 (SOUL.md principal).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="d8c178e1047069cb2235a578b7bfd87d2b81650e"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
