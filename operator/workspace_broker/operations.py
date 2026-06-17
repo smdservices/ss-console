@@ -75,13 +75,18 @@ class WorkspaceOperations:
         return service(api, version, self._credential_path, self._customer_path, mailbox)
 
     def gmail_search(self, payload: dict[str, Any]) -> Any:
+        # `query` is optional: a bare "list/read the mailbox" request carries no
+        # search term. Gmail's messages.list accepts an empty `q` (returns the
+        # most recent messages across the mailbox), so default to "" rather than
+        # KeyError on a missing key — listing is a first-class use of this tool,
+        # not only term searches.
         return (
             self._service("gmail", "v1", str(payload.get("mailbox") or ""))
             .users()
             .messages()
             .list(
                 userId="me",
-                q=str(payload["query"]),
+                q=str(payload.get("query") or ""),
                 maxResults=int(payload.get("max_results", 25)),
             )
             .execute()

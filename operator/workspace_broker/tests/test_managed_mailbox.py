@@ -115,6 +115,24 @@ def test_gmail_search_default_subject_when_no_mailbox(tmp_path: Path, monkeypatc
     assert captured["subject"] == ""  # broker resolves "" → authored default
 
 
+def test_gmail_search_without_query_lists_all(tmp_path: Path, monkeypatch) -> None:
+    # Regression: a bare "list/read the mailbox" request (e.g. "review the receipts
+    # mailbox") carries no `query`. The broker must default q to "" — Gmail's
+    # messages.list returns recent messages on an empty q — not KeyError on the
+    # missing key. The KeyError previously surfaced to the agent as
+    # `BrokerError: 'query'`, which it then confabulated into a fake result.
+    svc = MagicMock()
+
+    def fake_service(api, version, cred, customer, subject=""):
+        return svc
+
+    monkeypatch.setattr(ops_mod, "service", fake_service)
+    # No "query" key present — must not raise.
+    _ops(tmp_path).gmail_search({"mailbox": MANAGED})
+    list_call = svc.users.return_value.messages.return_value.list
+    assert list_call.call_args.kwargs["q"] == ""
+
+
 def test_create_draft_sets_from_and_threads_mailbox(tmp_path: Path, monkeypatch) -> None:
     captured: dict = {}
     built = MagicMock()
