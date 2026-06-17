@@ -51,8 +51,8 @@
     "build:": {
       "status": "conditional",
       "materializedWhen": "an adapter impl exists at operator/connectors/<family>/ declaring ADAPTER = \"<name>\" (CLI-via-execute_code, credentials via google_auth/bootstrap). The test derives the allowlist from those impls.",
-      "reason": "build:<adapter> with NO impl in operator/connectors/ has no runtime tool-registration bridge — it boots with zero tools (e.g. build:filevine). Today the only impl'd build: family is operator/connectors/google/ (gmail/calendar/drive).",
-      "tracking": "Adding a build:<adapter> binding to a real customer requires landing its connector impl under operator/connectors/ first; otherwise the overlay translate.py must fail-closed reject it. Long-tail vendors with no first-party MCP get a build: adapter we maintain (ADR 0020)."
+      "reason": "build:<adapter> with NO impl in operator/connectors/ has no runtime tool-registration bridge — it boots with zero tools (e.g. build:filevine). NO build: family is impl'd today: the former Google family (operator/connectors/google/, gmail/calendar/drive) was retired to the ADR 0045 Workspace broker — Gmail/Calendar/Drive run through the governed workspace_* tools (the agent never holds the Google credential, there is no CLI to shell out to), not a build: connector. So the derived build: allowlist is currently empty.",
+      "tracking": "Adding a build:<adapter> binding to a real customer requires landing its connector impl under operator/connectors/ first; otherwise the overlay translate.py must fail-closed reject it. Long-tail vendors with no first-party MCP get a build: adapter we maintain (ADR 0020). Google capability is NOT modeled as a connector — it is declared by the customer.yaml google_auth: block and served by the broker."
     },
     "synthetic:": {
       "status": "inert",

@@ -81,8 +81,9 @@ function loadContract(): MaterializerContract {
  * Derive the set of materialized `build:` adapter names from the connector
  * impls: every operator/connectors/<family>/*.py declaring ADAPTER = "<name>"
  * is a build:<name> with a real runtime CLI bridge. Reading the impls (not a
- * hard-coded list) is what keeps the allowlist honest: deleting crane_gmail.py
- * makes build:google-gmail non-materializable here too.
+ * hard-coded list) keeps the allowlist honest — e.g. retiring the Google CLI
+ * family to the broker (this change) made build:google-* non-materializable
+ * here, exactly as it should. Today no build: family is impl'd, so this is empty.
  */
 function materializedBuildAdapters(): Set<string> {
   const out = new Set<string>()
@@ -175,15 +176,30 @@ describe('connector backend materializer guard (validate-fail-closed)', () => {
     expect(broken, broken.join('\n')).toEqual([])
   })
 
-  it('the derived build: adapter allowlist is read from real connector impls', () => {
+  it('the derived build: adapter allowlist reflects real impls (Google family retired)', () => {
     const allow = materializedBuildAdapters()
-    // Sanity: the Google family impls exist today, so the allowlist is non-empty
-    // and includes them. If this regresses, build:google-* would (correctly)
-    // start failing the fail-closed check below — surfacing a real break.
-    expect(allow.size, 'no build: adapter impls found under operator/connectors/').toBeGreaterThan(
-      0
-    )
-    expect([...allow].sort()).toEqual(['google-calendar', 'google-drive', 'google-gmail'])
+    // The Google CLI family (build:google-gmail / -calendar / -drive) was retired to
+    // the ADR 0045 Workspace broker: Gmail/Calendar/Drive now run through the governed
+    // workspace_* tools, not a connector CLI — the agent never holds the Google
+    // credential and there is no CLI to shell out to. So no build:google-* adapter is
+    // materialized any more, and today no build: family is impl'd at all (the allowlist
+    // is legitimately empty). Guard the migration invariant: the retired Google family
+    // must not reappear under operator/connectors/.
+    expect(
+      [...allow].filter((a) => a.startsWith('google-')),
+      'a build:google-* connector CLI reappeared under operator/connectors/ — Google must ' +
+        'stay broker-mediated (workspace_* tools), never a credential-holding agent-side CLI'
+    ).toEqual([])
+  })
+
+  it('the build: predicate still bites correctly regardless of which impls exist', () => {
+    // The Google family's removal emptied the on-disk allowlist, so exercise the
+    // build: branch of isMaterializable directly: an impl'd adapter is materializable,
+    // an unimpl'd one is not. This keeps the predicate covered without a real impl.
+    expect(isMaterializable('build:some-adapter', new Set(['some-adapter']))).toBe(true)
+    expect(isMaterializable('build:some-adapter', new Set())).toBe(false)
+    expect(isMaterializable('mcp:anything', new Set())).toBe(true)
+    expect(isMaterializable('synthetic:no_pm', new Set())).toBe(false)
   })
 })
 
@@ -251,9 +267,14 @@ describe('guard bites — non-materializable bindings are rejected by the predic
     expect(ok('synthetic:no_pm'), 'synthetic-only must be zero-tool').toBe(false)
     expect(ok('build:filevine'), 'build: with no impl must be zero-tool').toBe(false)
     expect(ok('[build:filevine / synthetic:no_pm]'), 'menu of only zero-tool options').toBe(false)
-    // Materializable: mcp, an impl'd build adapter, and any menu containing one.
+    // build:google-* was retired to the broker — it is no longer an impl'd CLI, so it
+    // is (correctly) zero-tool as a connector backend now.
+    expect(
+      ok('build:google-gmail'),
+      'build:google-* retired to the Workspace broker — no connector CLI impl'
+    ).toBe(false)
+    // Materializable: mcp, and any menu containing a materializable option.
     expect(ok('mcp:clio-oktopeak')).toBe(true)
-    expect(ok('build:google-gmail'), 'build:google-gmail has an impl').toBe(true)
     expect(ok('[build:filevine / mcp:clio-oktopeak / synthetic:no_pm]')).toBe(true)
   })
 

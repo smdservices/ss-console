@@ -43,26 +43,31 @@ def _active_personas(data: dict[str, Any]) -> list[dict[str, Any]]:
     return active or [p for p in personas if isinstance(p, dict)]
 
 
-def _connector_adapter(connectors: Any, capability: str) -> str | None:
-    if not isinstance(connectors, dict):
-        return None
-    block = connectors.get(capability)
-    if not isinstance(block, dict):
-        return None
-    adapter = block.get("adapter")
-    return str(adapter).strip() if adapter else None
-
-
 def _managed_block(data: dict[str, Any]) -> str:
     google_auth = data.get("google_auth") or {}
     subject = ""
+    scopes: list[str] = []
+    managed: list[str] = []
     if isinstance(google_auth, dict) and google_auth.get("mode") == "dwd":
         subject = str(google_auth.get("subject") or "").strip()
+        scopes = [str(s).strip() for s in (google_auth.get("scopes") or []) if str(s).strip()]
+        for mailbox in google_auth.get("managed_mailboxes") or []:
+            if isinstance(mailbox, dict) and str(mailbox.get("address") or "").strip():
+                managed.append(str(mailbox["address"]).strip())
 
-    connectors = data.get("connectors") or {}
-    email_adapter = _connector_adapter(connectors, "Email")
-    calendar_adapter = _connector_adapter(connectors, "Calendar")
-    drive_adapter = _connector_adapter(connectors, "DocumentStorage")
+    # Google Workspace capability is authored by google_auth (NOT a connector entry):
+    # Gmail/Calendar/Drive are served by the governed, broker-mediated workspace_*
+    # tools. Derive which capabilities are live from the authored scopes.
+    def _has(token: str) -> bool:
+        return any(token in scope for scope in scopes)
+
+    caps: list[str] = []
+    if _has("gmail"):
+        caps.append("Gmail")
+    if _has("calendar"):
+        caps.append("Calendar")
+    if _has("drive") or _has("documents") or _has("spreadsheets"):
+        caps.append("Drive, Docs, and Sheets")
 
     lines = [
         START,
@@ -72,18 +77,23 @@ def _managed_block(data: dict[str, Any]) -> str:
     if subject:
         lines.append(f"- Your customer-owned Google Workspace email address is {subject}.")
         lines.append("- You can send and receive mail as that Workspace user within your action ceilings.")
-    if email_adapter:
-        lines.append(f"- Email is configured through the {email_adapter} BUILD connector.")
-    if calendar_adapter:
-        lines.append(f"- Calendar is configured through the {calendar_adapter} BUILD connector.")
-    if drive_adapter:
+    if managed:
         lines.append(
-            f"- Drive, Docs, and Sheets are configured through the {drive_adapter} BUILD connector."
+            "- You also manage these mailboxes on the principal's behalf (executive-assistant "
+            f"access): {', '.join(managed)}."
         )
-    if subject or email_adapter or calendar_adapter or drive_adapter:
+    if caps:
+        lines.append(
+            f"- Your Google Workspace capabilities ({', '.join(caps)}) are served by the governed "
+            "workspace_* tools (e.g. workspace_gmail_search, workspace_calendar_list, "
+            "workspace_drive_list), mediated by the Workspace broker."
+        )
+    if subject or caps:
         lines.extend(
             [
-                "- Use the Google connector CLIs under /app/connectors/google/ for live checks.",
+                "- Reach Google ONLY through the workspace_* tools. There is no Google credential on "
+                "your filesystem and no connector CLI to shell out to — never use terminal or "
+                "execute_code to read or send Gmail / Calendar / Drive.",
                 "- Do not infer mail is unconfigured from absent local mail clients, IMAP/SMTP config, or Himalaya.",
                 "- AgentMail addresses are not your primary customer Workspace identity unless customer.yaml binds them as Email.",
             ]
