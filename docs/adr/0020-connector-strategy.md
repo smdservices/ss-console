@@ -69,6 +69,17 @@ The following table is the canonical wiring for new customer.yaml authoring. Exi
 
 ### Google Workspace: BUILD, not MCP (amended 2026-06-02)
 
+> **SUPERSEDED 2026-06-17 by [ADR 0045](0045-mediated-connector-capability-broker.md).** The
+> `build:google-*` connector CLIs described in this section (and the three `build:google-*` table
+> rows above) were retired. Google Workspace (Gmail / Calendar / Drive / Docs / Sheets) now runs
+> through the ADR 0045 **Workspace broker**: the broker process holds the DWD service-account
+> credential and exposes governed `workspace_*` tools, so the agent never holds the Google
+> credential and there is no connector CLI to `execute_code` against. Google is **not** modeled as
+> a `connectors[]` entry — it is declared by `customer.yaml.google_auth:` and served by the broker.
+> The `/opt/data/oauth/google.json` path and `operator/connectors/google/` CLIs referenced below no
+> longer exist. The reasoning below is retained as the historical record of the BUILD decision that
+> the broker replaced.
+
 The three Google rows above were `mcp:google-*` in the original table. They are now `build:` adapters (`operator/connectors/google/crane_{gmail,calendar,drive}.py`), decided during the SMD Services connector session. Three reasons, in order of weight:
 
 1. **Customer-owned Workspace authority.** The hard security boundary is the customer-owned Google Workspace delegation, not the fact that these are wrapper CLIs. For standard Workspace customers, `customer.yaml.google_auth.mode=dwd` points the Machine at a customer service account authorized through domain-wide delegation and impersonating the Operator's Workspace user. The Fly Machine is that user's computer; `execute_code` can call Google at the granted scopes. The BUILD adapters provide audited, ergonomic operations while trust ceilings and content floors govern use.

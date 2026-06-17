@@ -86,19 +86,11 @@ personas:
       - himalaya
 
 # ---- CONNECTORS ----
-connectors:
-  Email:
-    adapter: google-gmail
-    backend: build:google-gmail
-    enabled: true
-  Calendar:
-    adapter: google-calendar
-    backend: build:google-calendar
-    enabled: true
-  DocumentStorage:
-    adapter: google-drive
-    backend: build:google-drive
-    enabled: true
+# Google Workspace (Gmail / Calendar / Drive) rides the governed ADR 0045 Workspace
+# broker — NOT the connector mechanism. The broker holds the DWD service-account
+# credential (see google_auth:) and exposes the governed workspace_* tools; no CLI to
+# shell out to. No other external system is connector-wired here, so the map is empty.
+connectors: {}
 
 # ---- SCOPE ----
 scope:

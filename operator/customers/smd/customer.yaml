@@ -106,15 +106,12 @@ personas:
         version: pending
         trust_ceiling: draft_for_review
         enabled: true
-      # Handles inbound email to crane@smd.services triggered by Gmail push webhook.
+      # Handles inbound email to crane@smd.services. Intended trigger is the Gmail
+      # push webhook (see gmail_push note below) — currently NOT wired, so this
+      # skill does not fire until the watch is rebuilt as a broker operation.
       # trust_ceiling: autonomous — Crane's own identity, not Scott's. Drafts
       # are used until workspace_gmail_send lands in the overlay (Issue #TBD).
       - name: email-reply
-        version: pending
-        trust_ceiling: autonomous
-        enabled: true
-      # Renews the 7-day Gmail push-notification watch subscription weekly.
-      - name: watch-renew
         version: pending
         trust_ceiling: autonomous
         enabled: true
@@ -127,10 +124,6 @@ personas:
     cron:
       - skill: inbox-triage
         schedule: '0 7-19 * * *' # hourly 0700–1900 (fly_region: lax tz)
-        wake_policy: always
-      # Renew Gmail push-notification watch subscription weekly (7-day expiry window).
-      - skill: watch-renew
-        schedule: '0 7 * * 1' # Mondays 0700 (fly_region: lax tz)
         wake_policy: always
 
 # ---- MCP CONNECTOR (Operator ⇄ Claude, Phase 1) ----
@@ -156,20 +149,13 @@ mcp_connector:
         - user_3E1RPGrTMxkSqciXMTyybUNSJWu
 
 # ---- CONNECTORS ----
-# Google Workspace rides first-class tools mediated by the ADR 0045 broker.
-connectors:
-  Email:
-    adapter: google-gmail
-    backend: build:google-gmail
-    enabled: true
-  Calendar:
-    adapter: google-calendar
-    backend: build:google-calendar
-    enabled: true
-  DocumentStorage:
-    adapter: google-drive
-    backend: build:google-drive
-    enabled: true
+# Google Workspace (Gmail / Calendar / Drive) rides first-class tools mediated by
+# the ADR 0045 Workspace broker — NOT the connector mechanism. The broker holds the
+# DWD service-account credential (see google_auth: below) and exposes the governed
+# workspace_* tools; the agent never holds the Google credential and there is no CLI
+# to shell out to. No other external system is wired via the connector mechanism for
+# this seat (Telegram is its own block), so the connector map is empty.
+connectors: {}
 
 # ---- TELEGRAM CHANNEL (ADR 0033) ----
 # Crane is reachable on Telegram via Hermes' native polling adapter (getUpdates).
@@ -193,27 +179,15 @@ telegram:
   # 1:1 DM assistant: reply to every DM from an allowed user (no @mention needed).
   require_mention: false
 
-# ---- GMAIL PUSH CHANNEL ----
-# Real-time inbox delivery for crane@smd.services via Gmail push notifications +
-# Google Cloud Pub/Sub. Replaces the former 15-minute polling cron.
-#
-# GCP setup (one-time, run as operator):
-#   1. Create topic:   gcloud pubsub topics create crane-gmail-inbound
-#   2. Create push subscription pointed at https://hermes-smd.fly.dev/webhooks/gmail
-#      with OIDC token audience = https://hermes-smd.fly.dev
-#   3. Grant gmail-push SA pubsub.publisher on the topic.
-#   4. Set Fly secret: GMAIL_PUBSUB_TOPIC=projects/{GCP_PROJECT_ID}/topics/crane-gmail-inbound
-#   5. Reprovision to seed /webhooks/gmail overlay endpoint.
-#
-# PUBSUB_TOPIC placeholder {GCP_PROJECT_ID} must be replaced with the real GCP
-# project ID before provisioning. The validator enforces the
-# projects/{project}/topics/{name} format; it will reject the placeholder.
-gmail_push:
-  enabled: true
-  subject: crane@smd.services
-  pubsub_topic: 'projects/smd-services-ops/topics/crane-gmail-inbound'
-  persona: crane
-  skill: email-reply
+# ---- GMAIL PUSH CHANNEL (DEFERRED — not wired) ----
+# Inbound Gmail push delivery is intentionally absent. The prior gmail_push block was
+# never materialized at runtime: no boot step established the Gmail watch, and its
+# implementing CLI (crane_gmail_watch.py) authenticated via the legacy
+# /opt/data/oauth/google.json path that the ADR 0045 broker cutover removed. So the
+# email-reply skill was never actually push-triggered. Rebuilding the watch as a
+# governed Workspace-broker operation is a tracked follow-up; restoring this block
+# without that rebuild would re-declare a dead trigger. The validator
+# (sections-gmail-push.ts) still accepts the block shape for the future rebuild.
 
 # ---- SCOPE ----
 scope:

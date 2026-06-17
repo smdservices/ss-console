@@ -74,7 +74,7 @@ Two phases, mirroring the established fetch/reason split (ADR 0021 Stream A): th
 
 ### Phase 1 — Fetch (single `execute_code` block)
 
-Enumerate unread messages in the window via the customer-bound Email CLI, fetch each body, and emit one JSON payload. The Email command is resolved from `customer.yaml` (the sandbox binds `crane_gmail.py`; production binds the M365 MCP) — the skill reads the binding rather than hardcoding it. The shape matches `inbox-triage` Phase 1: accumulate in-process, `print()` one document. A single unparseable message is recorded as `parse_failed` and the batch continues; it never aborts.
+Enumerate unread messages in the window via the customer-bound Email tools, fetch each body, and emit one JSON payload. The Email backend is resolved from `customer.yaml` — a Google-backed customer uses the governed `workspace_gmail_*` broker tools (`workspace_gmail_search` + `workspace_gmail_get`); production law tenants bind the M365 MCP. The skill reads the binding rather than hardcoding it. The shape matches `inbox-triage` Phase 1: accumulate in-process, `print()` one document. A single unparseable message is recorded as `parse_failed` and the batch continues; it never aborts. (Rework pending: Phase 1 must call the registered Email tools directly — the former `crane_gmail.py` CLI it shelled to via `execute_code` was retired with the move to the ADR 0045 Workspace broker.)
 
 ### Phase 2 — Reason (agent, in-context)
 
