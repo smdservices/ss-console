@@ -193,8 +193,11 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # inbox-read fence; #91 SEC-33 hook-parity guard), which is atop 0e491f9 (#88 ADR
 # 0047 phase 2: materialize wake_policy: pre_run_decides; unblocks pilot-law /
 # pilot-smokeball boot), carrying #87/#86/#85.
-# Voice Layer 2: wire transform_llm_output hook → transform_draft() (#96).
-ARG OVERLAY_REF="72fa21def0baa9ba873e3b6c9195451f4e6000ed"
+# MCP conversational channel (#97): one ask_operator verb, principal-namespaced
+# thread continuity, source==mcp turns fenced+tainted like inbound email. Lands
+# the previously-unmerged channel spine (echo/fetch/store retired) + Clerk OAuth
+# front door onto main, so reprovisions no longer revert it. Superset of 72fa21d.
+ARG OVERLAY_REF="3dcef4290767cdac914a1184c0fef88069a169e2"
 
 ARG CUSTOMER_SLUG=customer-zero
 
