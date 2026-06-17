@@ -52,6 +52,14 @@ top_level:
   model:
     status: implemented
     materializer: translate _persona_config (config.yaml model override)
+  escalation_model:
+    status: implemented
+    materializer: translate _persona_config (config.yaml delegation.model — ADR 0049 escalate-up tier)
+    note: >-
+      Optional. When set, emits Hermes' native `delegation: {model: ...}` so any
+      skill that calls delegate_task runs heavy reasoning on this model while the
+      seat's main `model` stays light. Absent => no delegation block; delegated
+      work inherits the main model.
   # ---- materialized into the persona config.yaml / runtime ----
   personas:
     status: implemented

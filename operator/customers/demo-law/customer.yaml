@@ -34,7 +34,15 @@ practice_areas:
 fly_region: lax # Phoenix-adjacent, consistent with pilot-law / customer-zero
 
 # ---- RUNTIME ----
-model: claude-opus-4-8
+# Two-tier model (ADR 0049): the seat's main model is the lighter, capable
+# default that runs the conversation and every in-line skill; `escalation_model`
+# is the heavier tier that any skill calling delegate_task escalates to. Wired
+# into Hermes' native `delegation` block by translate.py. NOTE: a skill only
+# escalates if (a) the seat authors a `code_execution: autonomous` ceiling
+# (delegate_task is a CODE_EXECUTION action) and (b) the skill delegates before
+# reading untrusted content (the taint gate withholds escalation post-read).
+model: claude-sonnet-4-6
+escalation_model: claude-opus-4-8
 hermes_ref: v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 
 machine:
