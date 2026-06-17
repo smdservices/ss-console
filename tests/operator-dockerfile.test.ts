@@ -105,7 +105,11 @@ describe('Operator customer Machine Dockerfile', () => {
     // source==mcp turns fenced+tainted like inbound email — plus the Clerk OAuth
     // front door. Merging it to main is the durable fix for the reprovision-revert.
     // Superset of 72fa21d.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="3dcef4290767cdac914a1184c0fef88069a169e2"')
+    // 8d633a4c (#98) fixes the Clerk Machine auth binding: _mcp_access_entries()
+    // now expands clerk_subjects (plural list — the authored schema) as well as
+    // clerk_subject (singular), matching the console's customer-resolution.ts.
+    // Superset of 3dcef42.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="8d633a4c943443035e75628f6704d80ff25f7b12"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
