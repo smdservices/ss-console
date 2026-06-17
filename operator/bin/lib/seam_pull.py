@@ -71,6 +71,7 @@ MEMORY_EXPORT_TABLES: tuple[str, ...] = (
     "persona_observations",
     "persona_observations_archive",
     "agent_skills_inventory",
+    "peer_preferences",
 )
 
 _PAGE_LIMIT = 200  # overlay MAX_LIMIT
@@ -117,6 +118,29 @@ class SeamClient:
             payload = json.loads(resp.read().decode("utf-8"))
         if not isinstance(payload, dict) or not isinstance(payload.get("entries"), list):
             raise ValueError(f"seam read {kind}: malformed page shape")
+        return payload
+
+    def read_config(self) -> dict:
+        """GET /runtime/config — the materialized-state snapshot.
+
+        Unlike the paginated kinds this returns a single dict (no ``entries``
+        envelope), so it has its own reader. Used by the overlay-ref drift
+        check to read each Machine's running ``overlay_ref.value``.
+        """
+        url = f"{self._base}/runtime/config"
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Authorization": f"Bearer {self._key}",
+                "X-Tenant-Slug": self._slug,
+            },
+            method="GET",
+        )
+        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected — scheme is constructor-enforced https://; host from operator env; path is a module constant.
+        with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # noqa: S310 — https enforced at construction
+            payload = json.loads(resp.read().decode("utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("seam read config: malformed snapshot shape")
         return payload
 
     def read_all(self, kind: str, *, table: Optional[str] = None) -> list[dict]:
@@ -233,7 +257,21 @@ class SeamAuditLogPreserver:
         try:
             _write_audit_snapshot(conn, audit_rows)
             for table in MEMORY_EXPORT_TABLES:
-                rows = self._client.read_all("memory_export", table=table)
+                try:
+                    rows = self._client.read_all("memory_export", table=table)
+                except urllib.error.HTTPError as exc:
+                    # A 400 means this Machine's overlay predates the table
+                    # (gradual OVERLAY_REF rollout) — it legitimately has no
+                    # such table, so it is zero rows, NOT a partial-pull halt.
+                    # Any other status (500, auth, transport) still fails loud.
+                    if exc.code != 400:
+                        raise
+                    logging.getLogger(__name__).warning(
+                        "preserve: memory table %s not served by this Machine "
+                        "(HTTP 400, overlay predates it); recording 0 rows",
+                        table,
+                    )
+                    rows = []
                 _write_memory_snapshot(conn, table, rows)
                 memory_counts[table] = len(rows)
         finally:

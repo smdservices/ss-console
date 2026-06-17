@@ -2,10 +2,10 @@
 import AdminLayout from '../../../../layouts/AdminLayout.astro'
 import { resolveEntityIdBySlug } from '../../../../lib/admin/operator-overview'
 import {
-  loadStyleLane,
   loadStandingPreferences,
-  type StyleLaneResult,
+  loadLearnedPreferences,
   type StandingPreferencesResult,
+  type LearnedPreferencesResult,
 } from '../../../../lib/admin/relationship-observe'
 import {
   isRuntimeReadConfigured,
@@ -19,15 +19,19 @@ import { env } from 'cloudflare:workers'
  * "what I've learned about working with you."
  *
  * The Operator's working relationship is a composition of lanes (ADR 0048):
- *   • Style — taught corrections (`voice_corrections`), read live across the
- *     isolation boundary via the `memory_export` seam (ADR 0043 path A). Real
- *     now; empty until a correction is taught or learned.
- *   • Authored — behavioral preferences from `customer.yaml` (lands with the
- *     `relationship:` block).
- *   • Inferred — Honcho conclusions (deferred, ADR 0016).
+ *   • Authored — per-person working preferences from `customer.yaml` (the
+ *     `relationship:` block), read live across the isolation boundary via the
+ *     `config_export` seam (ADR 0043 path A). The authored seed of the
+ *     relationship.
+ *   • Learned — per-peer working-preference memory on Hermes' native memory
+ *     loop, read live via `memory_export?table=peer_preferences`. Stated or
+ *     demonstrated preferences the operator captured from how each person works
+ *     with it; only active (non-superseded) rows surface.
+ *   • Inferred — Honcho conclusions are rejected doctrine (2026-06-16); no
+ *     inferred lane is rendered.
  *
- * Read-only and fail-closed: the style lane renders `not_enabled` WITHOUT a read
- * when the seam is unconfigured (no audit noise). Relationship state is
+ * Read-only and fail-closed: the authored lane renders `not_enabled` WITHOUT a
+ * read when the seam is unconfigured (no audit noise). Relationship state is
  * informational only — this surface never grants the Operator any capability
  * (ADR 0048 §2c).
  */
@@ -42,32 +46,16 @@ const entityId = await resolveEntityIdBySlug(env.DB, slug)
 const notFound = entityId === null
 
 const configured = isRuntimeReadConfigured(env)
-let style: StyleLaneResult = { status: 'not_enabled' }
 let standing: StandingPreferencesResult = { status: 'not_enabled' }
+let learned: LearnedPreferencesResult = { status: 'not_enabled' }
 if (!notFound) {
   const deps = {
     transport: createMachineRuntimeTransport(env),
     audit: createRuntimeReadAudit(env.DB, { actorUserId: session.userId }),
   }
   const who = { actor: session.email, actorRole: session.role }
-  // Style lane (voice_corrections) and standing-preferences lane (authored
-  // relationship: block) are independent seam reads — fetch concurrently.
-  ;[style, standing] = await Promise.all([
-    loadStyleLane(deps, slug, who, configured),
-    loadStandingPreferences(deps, slug, who, configured),
-  ])
-}
-
-function sourceLabel(source: string): string {
-  if (source === 'live_edit') return 'Learned from an edit'
-  if (source === 'calibration_session') return 'Taught directly'
-  return source
-}
-
-function scopeLabel(reviewer: string | null, cohort: string | null): string {
-  const who = reviewer ?? 'Everyone'
-  const to = cohort ?? 'all recipients'
-  return `${who} → ${to}`
+  standing = await loadStandingPreferences(deps, slug, who, configured)
+  learned = await loadLearnedPreferences(deps, slug, who, configured)
 }
 ---
 
@@ -108,55 +96,7 @@ function scopeLabel(reviewer: string | null, cohort: string | null): string {
             </p>
           </header>
 
-          {/* Lane 1 — Style & corrections (live, voice_corrections via the seam) */}
-          <section class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card space-y-stack">
-            <div>
-              <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)]">
-                Style &amp; corrections
-              </h3>
-              <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
-                Style rules the operator applies to drafts — taught directly, or learned from how a
-                draft was edited before sending.
-              </p>
-            </div>
-
-            {style.status === 'not_enabled' ? (
-              <p class="text-xs text-[color:var(--ss-color-text-muted)]">
-                The live read path is not enabled yet (<code>OPERATOR_RUNTIME_READ_URL</code>, ADR
-                0043). Corrections appear here the moment it is wired — the lane is dark, not empty.
-              </p>
-            ) : style.status === 'unreachable' ? (
-              <p class="text-xs text-[color:var(--ss-color-text-muted)]">
-                This operator's runtime is unreachable right now ({style.reason}). The read fails
-                closed; try again shortly.
-              </p>
-            ) : style.status === 'empty' ? (
-              <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
-                No style corrections learned yet. They accrue as drafts are taught or edited.
-              </p>
-            ) : (
-              <ul class="divide-y divide-[color:var(--ss-color-border)]">
-                {style.corrections.map((c) => (
-                  <li class="py-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <span class="text-xs uppercase tracking-wide text-[color:var(--ss-color-text-muted)] w-20">
-                      {c.correctionKind}
-                    </span>
-                    <span class="text-sm text-[color:var(--ss-color-text-primary)]">
-                      <span class="line-through text-[color:var(--ss-color-text-muted)]">
-                        {c.beforePattern}
-                      </span>{' '}
-                      → <span class="font-medium">{c.afterText}</span>
-                    </span>
-                    <span class="text-xs text-[color:var(--ss-color-text-secondary)]">
-                      {scopeLabel(c.reviewerUserId, c.recipientCohort)} · {sourceLabel(c.source)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          {/* Lane 2 — Authored preferences (customer.yaml relationship block) */}
+          {/* Lane 1 — Authored preferences (customer.yaml relationship block — the seed) */}
           <section class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card space-y-stack">
             <div>
               <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)]">
@@ -227,16 +167,67 @@ function scopeLabel(reviewer: string | null, cohort: string | null): string {
             )}
           </section>
 
-          {/* Lane 3 — Inferred observations (Honcho, deferred) */}
-          <section class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
-            <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)]">
-              Inferred observations
-            </h3>
-            <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
-              Patterns the operator infers from conversation (with their evidence status, and SMD
-              dismiss) appear here when Honcho memory lands — Phase 2, ADR 0016. Until then this
-              lane is deliberately dark rather than fabricated.
-            </p>
+          {/* Lane 2 — Learned preferences (peer_preferences memory — what the operator captured) */}
+          <section class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card space-y-stack">
+            <div>
+              <h3 class="text-base font-semibold text-[color:var(--ss-color-text-primary)]">
+                Learned preferences
+              </h3>
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+                Preferences the operator captured from how each person works with it, whether they
+                stated it or the operator demonstrated it over time. Read live from the running
+                operator. Everything here is reversible and inspectable.
+              </p>
+            </div>
+
+            {learned.status === 'not_enabled' ? (
+              <p class="text-xs text-[color:var(--ss-color-text-muted)]">
+                The live read path is not enabled yet (<code>OPERATOR_RUNTIME_READ_URL</code>, ADR
+                0043). Learned preferences appear here the moment it is wired.
+              </p>
+            ) : learned.status === 'unreachable' ? (
+              <p class="text-xs text-[color:var(--ss-color-text-muted)]">
+                This operator's runtime is unreachable right now ({learned.reason}). The read fails
+                closed; try again shortly.
+              </p>
+            ) : learned.status === 'empty' ? (
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                Nothing learned yet. As each person works with the operator, the preferences it
+                captures appear here.
+              </p>
+            ) : (
+              <ul class="space-y-stack">
+                {learned.people.map((person) => (
+                  <li class="border-t border-[color:var(--ss-color-border)] pt-3 first:border-t-0 first:pt-0">
+                    <p class="text-sm font-medium text-[color:var(--ss-color-text-primary)]">
+                      {person.peerId}
+                    </p>
+                    <ul class="mt-1 space-y-2">
+                      {person.preferences.map((pref) => (
+                        <li>
+                          <p class="text-sm text-[color:var(--ss-color-text-primary)]">
+                            <span class="inline-block rounded bg-[color:var(--ss-color-surface-muted)] px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-[color:var(--ss-color-text-muted)] align-middle mr-2">
+                              {pref.source}
+                            </span>
+                            {pref.preference}
+                          </p>
+                          {pref.why && (
+                            <p class="text-xs text-[color:var(--ss-color-text-secondary)] mt-0.5">
+                              Why: {pref.why}
+                            </p>
+                          )}
+                          {pref.howToApply && (
+                            <p class="text-xs text-[color:var(--ss-color-text-secondary)] mt-0.5">
+                              How to apply: {pref.howToApply}
+                            </p>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         </>
       )

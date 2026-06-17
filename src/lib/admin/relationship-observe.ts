@@ -2,18 +2,25 @@
  * Relationship-surface view-model for the admin Operator console
  * (`/admin/operator/[customer]/memory`) — ADR 0048.
  *
- * The Operator's working relationship with a person is a *composition* of lanes
- * (ADR 0048). This module loads the deterministic **style lane** — the taught
- * style corrections in `voice_corrections` (migration 0010) — across the
- * isolation boundary via the frozen `memory_export` read path (ADR 0043 path A).
+ * Loads two lanes of the working relationship, both live across the isolation
+ * boundary via the frozen runtime-read seam (ADR 0043 path A):
+ *   • the authored **standing-preferences lane** — the per-person working
+ *     preferences from the `customer.yaml` `relationship:` block, read via
+ *     `config_export?section=relationship`. The authored *seed* of the
+ *     per-person working relationship.
+ *   • the **learned-preferences lane** — per-peer working-preference memory the
+ *     operator captured from how each person works with it (stated or
+ *     demonstrated), read via `memory_export?table=peer_preferences` from
+ *     Hermes' native memory loop. Only active rows surface (a superseded row was
+ *     replaced).
+ * The inferred lane (Honcho) is rejected doctrine (2026-06-16) and not read.
  *
  * Same fail-closed discipline as runtime-observe: when the read path is not
  * configured we return `not_enabled` WITHOUT a read (no audit noise on a dark
  * feature); otherwise we read and classify honestly (unreachable / empty /
- * items). The inferred lane (`persona_observations` / Honcho) is deferred
- * (ADR 0016); the authored lane (`customer.yaml`) is the page's concern. This
- * module owns only the style-lane read and a **defensive parse** of the opaque
- * row payload — never a cast (coding-standards: parse external inputs).
+ * items). This module owns the standing-preferences read and a **defensive
+ * parse** of the opaque row payload — never a cast (coding-standards: parse
+ * external inputs).
  */
 
 import {
@@ -23,90 +30,9 @@ import {
   type RuntimeReadActor,
 } from '../operator/runtime-read'
 
-/** One taught style correction (an active `voice_corrections` row). */
-export interface StyleCorrection {
-  /** 'greeting' | 'signoff' | 'honorific' | 'lexical' (migration 0010). */
-  correctionKind: string
-  beforePattern: string
-  afterText: string
-  /** 'live_edit' (learned from an edit) | 'calibration_session' (authored). */
-  source: string
-  /** Scope: null = firm-wide / all cohorts. */
-  reviewerUserId: string | null
-  recipientCohort: string | null
-}
-
-export type StyleLaneResult =
-  | { status: 'not_enabled' }
-  | { status: 'unreachable'; reason: string }
-  | { status: 'empty' }
-  | { status: 'items'; corrections: StyleCorrection[] }
-
 interface RuntimeReadDeps {
   transport: MachineRuntimeTransport
   audit: RuntimeReadAudit
-}
-
-/**
- * Load the style lane (taught corrections) for one customer. Mirrors
- * `loadRuntimeView`: no read (and no audit row) when the path is unconfigured;
- * otherwise reads `memory_export?table=voice_corrections` via the fail-closed
- * seam and classifies the outcome.
- */
-export async function loadStyleLane(
-  deps: RuntimeReadDeps,
-  customerSlug: string,
-  actor: RuntimeReadActor,
-  configured: boolean
-): Promise<StyleLaneResult> {
-  if (!configured) return { status: 'not_enabled' }
-  const result = await readMachineRuntime(
-    deps,
-    customerSlug,
-    { kind: 'memory_export', table: 'voice_corrections' },
-    actor
-  )
-  if (!result.ok) return { status: 'unreachable', reason: result.reason }
-  const corrections = parseStyleCorrections(result.data)
-  return corrections.length === 0 ? { status: 'empty' } : { status: 'items', corrections }
-}
-
-/**
- * Parse the opaque `memory_export` payload (`{ entries: [...] }`) into active
- * style corrections. Defensive by construction: every field is checked, never
- * cast; a row missing a required field, or one that has been superseded, is
- * skipped rather than rendered half-formed.
- */
-export function parseStyleCorrections(data: unknown): StyleCorrection[] {
-  const out: StyleCorrection[] = []
-  for (const entry of extractEntries(data)) {
-    if (!entry || typeof entry !== 'object') continue
-    const row = entry as Record<string, unknown>
-    // Active only: a superseded correction was overridden by a newer/more-specific
-    // one (migration 0010 supersession chain) and must not be shown as current.
-    if (row.superseded_by != null) continue
-    const correctionKind = asNonEmptyString(row.correction_kind)
-    const beforePattern = asString(row.before_pattern)
-    const afterText = asString(row.after_text)
-    const source = asNonEmptyString(row.source)
-    if (
-      correctionKind === null ||
-      beforePattern === null ||
-      afterText === null ||
-      source === null
-    ) {
-      continue
-    }
-    out.push({
-      correctionKind,
-      beforePattern,
-      afterText,
-      source,
-      reviewerUserId: asStringOrNull(row.reviewer_user_id),
-      recipientCohort: asStringOrNull(row.recipient_cohort),
-    })
-  }
-  return out
 }
 
 /** One authored person on the standing-preferences (authored behavioral) lane —
@@ -128,8 +54,8 @@ export type StandingPreferencesResult =
 
 /**
  * Load the standing-preferences lane (authored `relationship:` block) for one
- * customer. Mirrors {@link loadStyleLane}: no read (and no audit row) when the
- * seam is unconfigured; otherwise reads `config_export?section=relationship`
+ * customer. Fail-closed: no read (and no audit row) when the seam is
+ * unconfigured; otherwise reads `config_export?section=relationship`
  * via the fail-closed seam and classifies the outcome. The Machine serves the
  * live `customer.yaml` block normalized to the closed-set fields, so this is the
  * truth the running Operator works from — not a possibly-stale console copy.
@@ -179,6 +105,119 @@ export function parseStandingPreferences(data: unknown): StandingPreferencePerso
   return out
 }
 
+/** One active learned preference on the learned lane — a `peer_preferences`
+ * row the operator captured from how a person works with it, served by
+ * `memory_export?table=peer_preferences` (the relationship model's learned
+ * lane on Hermes' native memory loop). `source` records whether the person
+ * stated the preference or the operator demonstrated/observed it. */
+export interface LearnedPreference {
+  preference: string
+  why: string | null
+  howToApply: string | null
+  source: 'stated' | 'demonstrated'
+  recordedAt: string | null
+}
+
+/** One person on the learned lane — keyed by the stable sender id (`peer_id`),
+ * with their active preferences newest-first. No display name: the learned lane
+ * has only the peer id, not an authored name. */
+export interface LearnedPreferencePerson {
+  peerId: string
+  preferences: LearnedPreference[]
+}
+
+export type LearnedPreferencesResult =
+  | { status: 'not_enabled' }
+  | { status: 'unreachable'; reason: string }
+  | { status: 'empty' }
+  | { status: 'items'; people: LearnedPreferencePerson[] }
+
+/**
+ * Load the learned-preferences lane (per-peer working-preference memory) for one
+ * customer. Same fail-closed discipline as {@link loadStandingPreferences}: no
+ * read (and no audit row) when the seam is unconfigured; otherwise reads
+ * `memory_export?table=peer_preferences` via the fail-closed seam and classifies
+ * the outcome. The Machine serves the live `peer_preferences` table, so this is
+ * what the running Operator has actually learned — not a console copy.
+ */
+export async function loadLearnedPreferences(
+  deps: RuntimeReadDeps,
+  customerSlug: string,
+  actor: RuntimeReadActor,
+  configured: boolean
+): Promise<LearnedPreferencesResult> {
+  if (!configured) return { status: 'not_enabled' }
+  const result = await readMachineRuntime(
+    deps,
+    customerSlug,
+    { kind: 'memory_export', table: 'peer_preferences' },
+    actor
+  )
+  if (!result.ok) return { status: 'unreachable', reason: result.reason }
+  const people = parseLearnedPreferences(result.data)
+  return people.length === 0 ? { status: 'empty' } : { status: 'items', people }
+}
+
+/**
+ * Parse the opaque `memory_export` payload (`{ entries: [...] }`) into people
+ * with their active learned preferences. Defensive by construction:
+ *   • a row missing `peer_id` or `preference` is skipped (never half-rendered);
+ *   • a row whose `superseded_by` is non-null was replaced — it is filtered out
+ *     so only ACTIVE preferences surface;
+ *   • `source` must be one of the two valid values (`stated`/`demonstrated`); a
+ *     row with any other source is skipped rather than mislabeled;
+ *   • `why`/`how_to_apply`/`recorded_at` normalize to `null`.
+ * Rows are grouped by `peer_id` and each person's list is sorted newest-first by
+ * `recorded_at` (a null `recorded_at` sorts last). Total on malformed payloads
+ * (null/garbage → `[]`). The console never trusts the wire shape — parse, never
+ * cast (coding-standards: parse external inputs).
+ */
+export function parseLearnedPreferences(data: unknown): LearnedPreferencePerson[] {
+  const byPeer = new Map<string, LearnedPreference[]>()
+  for (const entry of extractEntries(data)) {
+    if (!entry || typeof entry !== 'object') continue
+    const row = entry as Record<string, unknown>
+    if (asStringOrNull(row.superseded_by) !== null) continue
+    const peerId = asNonEmptyString(row.peer_id)
+    const preference = asNonEmptyString(row.preference)
+    if (peerId === null || preference === null) continue
+    const source = asLearnedSource(row.source)
+    if (source === null) continue
+    const pref: LearnedPreference = {
+      preference,
+      why: asStringOrNull(row.why),
+      howToApply: asStringOrNull(row.how_to_apply),
+      source,
+      recordedAt: asStringOrNull(row.recorded_at),
+    }
+    const list = byPeer.get(peerId)
+    if (list) list.push(pref)
+    else byPeer.set(peerId, [pref])
+  }
+  const out: LearnedPreferencePerson[] = []
+  for (const [peerId, preferences] of byPeer) {
+    preferences.sort(byRecordedAtDescending)
+    out.push({ peerId, preferences })
+  }
+  return out
+}
+
+/** Newest-first by `recordedAt`. A null `recordedAt` (unknown time) sorts last,
+ * so dated preferences always lead. */
+function byRecordedAtDescending(a: LearnedPreference, b: LearnedPreference): number {
+  if (a.recordedAt === null && b.recordedAt === null) return 0
+  if (a.recordedAt === null) return 1
+  if (b.recordedAt === null) return -1
+  if (a.recordedAt < b.recordedAt) return 1
+  if (a.recordedAt > b.recordedAt) return -1
+  return 0
+}
+
+/** Coerce an unknown to one of the two valid `source` values, or null. */
+function asLearnedSource(v: unknown): 'stated' | 'demonstrated' | null {
+  return v === 'stated' || v === 'demonstrated' ? v : null
+}
+
 /** Pull the row list from the seam payload shape (`{ entries: [...] }`). */
 function extractEntries(data: unknown): unknown[] {
   if (data && typeof data === 'object') {
@@ -186,10 +225,6 @@ function extractEntries(data: unknown): unknown[] {
     if (Array.isArray(entries)) return entries
   }
   return []
-}
-
-function asString(v: unknown): string | null {
-  return typeof v === 'string' ? v : null
 }
 
 function asNonEmptyString(v: unknown): string | null {
