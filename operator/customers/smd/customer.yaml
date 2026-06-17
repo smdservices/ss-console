@@ -115,6 +115,12 @@ personas:
         version: pending
         trust_ceiling: autonomous
         enabled: true
+      # Polls /api/admin/fleet/health every 30 min; emails Captain on red status.
+      # Requires OPERATOR_HEALTH_READ_KEY Fly secret + code_execution: autonomous.
+      - name: health-monitor
+        version: pending
+        trust_ceiling: autonomous
+        enabled: true
     # Native Google/Himalaya skills remain disabled because this customer uses
     # broker-mediated first-class tools and the customer-owned DWD credential.
     skills_disabled:
@@ -124,6 +130,10 @@ personas:
     cron:
       - skill: inbox-triage
         schedule: '0 7-19 * * *' # hourly 0700–1900 (fly_region: lax tz)
+        wake_policy: always
+      # Fleet health check every 30 minutes. Emails Captain on red/open-alerts.
+      - skill: health-monitor
+        schedule: '*/30 * * * *'
         wake_policy: always
 
 # ---- MCP CONNECTOR (Operator ⇄ Claude, Phase 1) ----
