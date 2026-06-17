@@ -94,7 +94,11 @@ describe('Operator customer Machine Dockerfile', () => {
     // autonomous on injection-tainted turns), the EFF-07 tool-classification
     // completeness gate (unmapped writes fail-closed), the SEC-05/13 AgentMail
     // inbox-read fence (#90), and the SEC-33 hook-parity guard (#91). Superset of 0e491f9.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="5a1e3e74ff61e36e3750d1004b62dad03b6ed829"')
+    // 0f51821 (#89) emits Hermes' native `delegation` block from customer.yaml
+    // `escalation_model`, renders the roster-conditional SOUL escalation instruction,
+    // and reads the skill weight marker — the ADR 0049 two-tier (light main +
+    // escalate-up) seam. Superset of 5a1e3e7.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="0f51821d54182888b1d68348187360d9bc4a05ea"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
