@@ -190,7 +190,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # pilot-law / pilot-smokeball boot (the deadline-miss-escalator cron). Superset
 # of a548086 (#87 per-peer working-preference memory, ADR 0048 learned lane) and
 # carries #86 (voice_corrections seam rip) + #85 (Clerk-id secret-scan exemption).
-ARG OVERLAY_REF="0e491f95950f9b31eb7aea5dd8d57c0c0bdfe8a3"
+ARG OVERLAY_REF="5a1e3e74ff61e36e3750d1004b62dad03b6ed829"
 
 ARG CUSTOMER_SLUG=customer-zero
 
