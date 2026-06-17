@@ -100,8 +100,12 @@ describe('Operator customer Machine Dockerfile', () => {
     // escalate-up) seam. Superset of 5a1e3e7.
     // 72fa21d (#96) wires the previously-orphaned transform_draft() into the
     // transform_llm_output hook — Voice Layer 2 structural reshape post-LLM.
-    // Superset of 0f51821.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="72fa21def0baa9ba873e3b6c9195451f4e6000ed"')
+    // 3dcef42 (#97) lands the MCP conversational channel: one ask_operator verb
+    // (echo/fetch/store retired), principal-namespaced thread continuity, and
+    // source==mcp turns fenced+tainted like inbound email — plus the Clerk OAuth
+    // front door. Merging it to main is the durable fix for the reprovision-revert.
+    // Superset of 72fa21d.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="3dcef4290767cdac914a1184c0fef88069a169e2"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
