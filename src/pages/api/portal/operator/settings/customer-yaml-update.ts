@@ -51,9 +51,7 @@ import { getPortalClient } from '../../../../../lib/portal/session'
 import { getProductSubscription, listProductRoles } from '../../../../../lib/portal/product-access'
 import { getCustomerConfig } from '../../../../../lib/portal/customer-config'
 import {
-  buildAuditMetadata,
   projectEditableConfig,
-  recordCustomerYamlUpdateAudit,
   resolveEditableConfigFromRow,
   validateEditableChanges,
   type EditableCustomerConfig,
@@ -62,6 +60,10 @@ import {
   type EditableConnector,
   type EditableBusinessHours,
 } from '../../../../../lib/portal/operator/customer-yaml-editor'
+import {
+  buildAuditMetadata,
+  recordCustomerYamlUpdateAudit,
+} from '../../../../../lib/portal/operator/customer-yaml-audit'
 import {
   ACCEPTED_PERSONA_STATUSES,
   ACCEPTED_PRONOUNS,

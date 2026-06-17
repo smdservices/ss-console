@@ -13,6 +13,7 @@ metadata:
     tags: [Law, Documents, Review, Highlight, Surface, NeverDraft]
   smd:
     vertical: law-firm
+    weight: heavy # ADR 0049 — heavy reasoning over large material; escalate to the seat's escalation model (before reading) when one is authored
     skill_type: document retrieval + surfacing
     trust_ceiling: autonomous_internal_surface
     action_class: read + internal_write

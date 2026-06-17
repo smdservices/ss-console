@@ -24,7 +24,6 @@ import { describe, it, expect } from 'vitest'
 import {
   LOCKED_FIELD_PATHS,
   applyEditableChanges,
-  buildAuditMetadata,
   computeChangedFields,
   hashEditableConfig,
   isLockedFieldPath,
@@ -32,6 +31,7 @@ import {
   validateEditableChanges,
   type EditableCustomerConfig,
 } from '../src/lib/portal/operator/customer-yaml-editor'
+import { buildAuditMetadata } from '../src/lib/portal/operator/customer-yaml-audit'
 import { validate, type CustomerYaml } from '../src/lib/operator/customer-yaml'
 
 // -----------------------------------------------------------------------------
