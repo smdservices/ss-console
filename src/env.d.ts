@@ -275,6 +275,13 @@ declare namespace Cloudflare {
      * UI (ADR 0023 Wave 1).
      */
     HEALTHCHECKS_WEBHOOK_SECRET?: string
+    /**
+     * Bearer secret that authenticates the SMD dogfood Operator (customer-zero)
+     * reading the fleet-health endpoint (`GET /api/admin/fleet/health`). Only
+     * customer-zero holds this key — it is NOT the shared machine heartbeat key,
+     * which is a write credential. Generated with `openssl rand -hex 32`.
+     */
+    OPERATOR_HEALTH_READ_KEY?: string
   }
 }
 
