@@ -184,13 +184,13 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # check is unchanged. Fixes demo-law DEMO_RELAY_BLOCKED reason=content_sensitive
 # on a benign disclaimer (2026-06-14 live test). Superset of ed96cebe.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-# a548086 — #87 per-peer working-preference memory (ADR 0048 learned lane): the
-# hermes-smd-peer-memory plugin (pre_llm_call sender stash + inject, agent-callable
-# record_peer_preference tool, post_tool_call server-side attribution + taint-gate,
-# peer_preferences on the agent-state D1 binding + runtime_read seam). Superset of
-# 8d6f1a95 (#85 Clerk-id secret-scan exemption) and carries #86 (voice_corrections
-# seam rip).
-ARG OVERLAY_REF="a5480862017c4214acce5a3f48d19b7067306ca5"
+# 0e491f9 — #88 ADR 0047 phase 2: materialize wake_policy: pre_run_decides. Maps
+# the watcher policy to Hermes' native wakeAgent gate (skill-bearing job +
+# staged pre-run script; suppressed_wake heartbeat on the quiet path). Unblocks
+# pilot-law / pilot-smokeball boot (the deadline-miss-escalator cron). Superset
+# of a548086 (#87 per-peer working-preference memory, ADR 0048 learned lane) and
+# carries #86 (voice_corrections seam rip) + #85 (Clerk-id secret-scan exemption).
+ARG OVERLAY_REF="0e491f95950f9b31eb7aea5dd8d57c0c0bdfe8a3"
 
 ARG CUSTOMER_SLUG=customer-zero
 

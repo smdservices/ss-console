@@ -87,7 +87,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // per-peer working-preference memory — pre_llm_call sender stash + inject, record_peer_preference
     // tool, post_tool_call server-side attribution + taint-gate, peer_preferences on the agent-state
     // D1 binding + runtime_read seam). Carries overlay #86 (voice_corrections seam rip). Superset of 8d6f1a95.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="a5480862017c4214acce5a3f48d19b7067306ca5"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="0e491f95950f9b31eb7aea5dd8d57c0c0bdfe8a3"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
