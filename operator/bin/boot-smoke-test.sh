@@ -132,4 +132,15 @@ ssh_exec "agent-state-owner-is-hermes" "[ \"\$(stat -c %U /opt/data/agent-state.
 # would collide with the outer quote and mangle the command.
 ssh_exec "broker-respawn-supervised" "pid=\$(pgrep -f workspace_broker.server | head -1); [ -n \"\$pid\" ] && ppid=\$(grep -m1 PPid /proc/\$pid/status | tr -dc 0-9) && [ \"\$(stat -c %U /proc/\$ppid)\" = root ]"
 
+# ---------- Step 12: /app governance artifacts are root-owned, not agent-writable (SEC-31) ----------
+# The activation-gate source the gateway:startup hook force-loads
+# (/app/overlay-pack, incl. hooks/smd-overlay-activation/handler.py) must be owned
+# by root so a code-executing agent cannot rewrite its own governance self-check.
+# bootstrap only READS it (copies to the volume; the gateway loads from there), so
+# root ownership is functionally inert. /app is image-backed and resets each boot,
+# but the agent's write path is removed regardless — defense in depth.
+ssh_exec "overlay-pack-root-owned" "[ \"\$(stat -c %U /app/overlay-pack)\" = root ]"
+ssh_exec "overlay-pack-not-agent-writable" "setpriv --reuid=hermes --regid=hermes --init-groups sh -c \"! test -w /app/overlay-pack\""
+ssh_exec "activation-handler-not-agent-writable" "setpriv --reuid=hermes --regid=hermes --init-groups sh -c \"! test -w /app/overlay-pack/hooks/smd-overlay-activation/handler.py\""
+
 log "All boot smoke checks passed for ${APP_NAME}"
