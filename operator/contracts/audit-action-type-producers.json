@@ -1,0 +1,275 @@
+{
+  "_README": [
+    "Producer manifest for the closed audit action_type vocabulary (audit Wave 0, guard 2).",
+    "",
+    "THE INERT-CONTROL CLASS THIS CLOSES. ACCEPTED_ACTION_TYPES in",
+    "operator/adapter/audit_log.py is a closed enum. Its TS mirror (AUDIT_ACTION_TYPES in",
+    "src/lib/portal/operator/audit.ts) is parity-tested, and the dashboard / compliance",
+    "evidence packet CONSUME these values (audit viewer filters, compliance.ts roll-ups,",
+    "evidence/packet.py _count(...) buckets). But nothing asserted that each consumed",
+    "value has a RUNTIME PRODUCER. An action_type can sit in the enum, be mirrored to TS,",
+    "be counted by the compliance packet, and be emitted by NOBODY — a dashboard column or",
+    "compliance metric that is structurally always-zero. That is the inert-control class:",
+    "a consumer with no producer reads as 'feature present, value 0' indistinguishable from",
+    "'genuinely zero events'.",
+    "",
+    "WHAT THIS MANIFEST DECLARES. For every action_type in the enum, where its producer",
+    "lives. THREE sides:",
+    "  'ss-console' = a non-test source file in THIS repo emits it (the test asserts the",
+    "                 named producerFile exists and contains the token in code).",
+    "  'overlay'    = it is emitted by the venturecrane/hermes-smd-overlay runtime that ships",
+    "                 on customer Machines (a separate, pinned repo not checked out in this",
+    "                 CI; we record overlayProducer + reason — the same cross-repo",
+    "                 human-decision shape operator/contracts/overlay-pairs.json uses).",
+    "  'deferred'   = in the closed vocabulary and CONSUMED (viewer filter / compliance),",
+    "                 but NO producer writes the literal row yet — persistence is gated on a",
+    "                 tracked issue. This is the live inert-control instance the guard found;",
+    "                 it carries producerIntent + reason naming the gap and the unblocking",
+    "                 work, so the always-zero metric is documented loudly, not hidden.",
+    "",
+    "ENFORCEMENT (tests/operator-audit-producers.test.ts):",
+    "  1. COVERAGE: manifest keys == ACCEPTED_ACTION_TYPES exactly. A new action_type with",
+    "     no manifest entry fails CI, forcing a conscious producer classification — the gate",
+    "     that would have caught a consumed-but-never-produced type.",
+    "  2. ss-console PRODUCERS ARE REAL: each 'ss-console' entry's producerFile exists and",
+    "     contains the token in code. Deleting the only producer of a still-consumed type",
+    "     fails CI here.",
+    "  3. overlay ENTRIES DOCUMENT THE BOUNDARY: each carries overlayProducer + reason, so",
+    "     the cross-repo producer is named rather than silently assumed.",
+    "",
+    "This is NOT the TS<->Python parity test (that lives in tests/portal-operator-audit.test.ts",
+    "and stays). This is the orthogonal producer-existence proof."
+  ],
+  "producers": {
+    "DRAFT_CREATED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-audit/emit.py (post_tool_call on *_create_draft)",
+      "reason": "drafts are authored by the agent at runtime on the Machine; ss-console only reads them back via the drafts surface."
+    },
+    "DRAFT_APPROVED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-audit (draft-approval path) / runtime send-approved flow",
+      "reason": "approval is recorded on the Machine when the reviewer approves; the ss-console send-approved.ts surface is a consumer/initiator, not the audit producer."
+    },
+    "DRAFT_REJECTED": {
+      "side": "ss-console",
+      "producerFile": "operator/safety-substrate/refusal.py",
+      "note": "the refusal handler writes DRAFT_REJECTED when a draft is refused by the substrate."
+    },
+    "DRAFT_EXPIRED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-audit (draft TTL sweep)",
+      "reason": "draft expiry is a Machine-local TTL sweep; no ss-console code path expires a draft."
+    },
+    "MEMORY_RULE_ADDED": {
+      "side": "ss-console",
+      "producerFile": "src/lib/portal/operator/teach-marcus.ts",
+      "note": "teach-marcus writes MEMORY_RULE_ADDED when a principal submits a teaching rule through the portal."
+    },
+    "MEMORY_RULE_EDITED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-memory-mirror / runtime memory edit path",
+      "reason": "rule edits land in the per-customer memory store on the Machine; ss-console has no edit producer today."
+    },
+    "MEMORY_RULE_DELETED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-memory-mirror / runtime memory delete path",
+      "reason": "rule deletes land in the per-customer memory store on the Machine; ss-console has no delete producer today."
+    },
+    "TRUST_PROMOTED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-trust (ceiling promotion)",
+      "reason": "trust-ceiling promotions are decided and recorded by the runtime trust plugin."
+    },
+    "TRUST_DEMOTED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-trust (ceiling demotion)",
+      "reason": "trust-ceiling demotions are decided and recorded by the runtime trust plugin."
+    },
+    "SKILL_ENABLED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-audit (skill_manage enable)",
+      "reason": "skill enable/disable is a Machine-local skill-catalog mutation."
+    },
+    "SKILL_DISABLED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-audit (skill_manage disable)",
+      "reason": "skill enable/disable is a Machine-local skill-catalog mutation."
+    },
+    "AGENT_STOPPED": {
+      "side": "ss-console",
+      "producerFile": "operator/safety-substrate/sticky_stop.py",
+      "note": "HARD_STOP transition emits AGENT_STOPPED."
+    },
+    "AGENT_RESUMED": {
+      "side": "ss-console",
+      "producerFile": "operator/safety-substrate/sticky_stop.py",
+      "note": "sticky-stop clear emits AGENT_RESUMED."
+    },
+    "CONNECTOR_BOUND": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-audit (connector bind path)",
+      "reason": "connector binding happens during Machine provisioning/runtime; the connections.ts surface is a consumer."
+    },
+    "CONNECTOR_UNBOUND": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-audit (connector unbind path)",
+      "reason": "connector unbinding happens on the Machine."
+    },
+    "CONNECTOR_AUTH_EXPIRED": {
+      "side": "overlay",
+      "overlayProducer": "runtime connector health probe",
+      "reason": "auth-expiry is detected by the Machine's connector health probe."
+    },
+    "CONNECTOR_AUTH_RESTORED": {
+      "side": "overlay",
+      "overlayProducer": "runtime connector token refresh path",
+      "reason": "auth-restore is recorded by the Machine when a token refresh succeeds."
+    },
+    "CONNECTOR_TOKEN_REFRESHED": {
+      "side": "overlay",
+      "overlayProducer": "runtime connector token refresh path",
+      "reason": "token refresh is a Machine-local connector operation."
+    },
+    "CONNECTOR_HEALTH_PROBE_FAILED": {
+      "side": "overlay",
+      "overlayProducer": "runtime connector health probe",
+      "reason": "health-probe failures are detected on the Machine."
+    },
+    "SCOPE_CHANGED": {
+      "side": "overlay",
+      "overlayProducer": "runtime scope/entitlement change path",
+      "reason": "scope changes apply on the Machine via the config sync sidecar."
+    },
+    "INVARIANT_VIOLATION": {
+      "side": "ss-console",
+      "producerFile": "operator/safety-substrate/sticky_stop.py",
+      "note": "WARN/SOFT_STOP transition emits INVARIANT_VIOLATION; invariant_6 also routes here at runtime."
+    },
+    "INVARIANT_BOOT_CHECK_FAILED": {
+      "side": "ss-console",
+      "producerFile": "operator/safety-substrate/invariants/invariant_7.py",
+      "note": "boot-time binding mismatch emits INVARIANT_BOOT_CHECK_FAILED."
+    },
+    "INBOUND_RECEIVED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-webhook-router (pre_gateway_dispatch, ADR 0027)",
+      "reason": "one row per untrusted inbound item is written by the runtime webhook router as it lands."
+    },
+    "RBAC_EVENT": {
+      "side": "deferred",
+      "producerIntent": "src/lib/portal/operator/rbac-audit.ts",
+      "reason": "rbac-audit.ts builds structured audit:rbac_event events for user-management actions, but the audit_log PERSISTENCE path (the writer that stamps action='RBAC_EVENT' onto a row) is gated on #821/#891 and not yet wired. The value is in the closed vocabulary and the viewer can filter on it, so it is currently consumed-but-never-produced — surfaced here deliberately rather than hidden. Flip to side=ss-console with producerFile once #821 lands the persistence path that writes the literal RBAC_EVENT row."
+    },
+    "COMPLIANCE_PACKET_EXPORTED": {
+      "side": "ss-console",
+      "producerFile": "operator/adapter/evidence/packet.py",
+      "note": "every successful compliance-evidence packet build emits COMPLIANCE_PACKET_EXPORTED."
+    },
+    "VOICE_GATE_PASSED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-voice (voice gate)",
+      "reason": "the voice gate runs in the runtime voice plugin on draft emission."
+    },
+    "VOICE_GATE_NEAR_PASS": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-voice (voice gate)",
+      "reason": "the voice gate runs in the runtime voice plugin on draft emission."
+    },
+    "VOICE_GATE_FAILED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-voice (voice gate)",
+      "reason": "the voice gate runs in the runtime voice plugin on draft emission."
+    },
+    "FABRICATION_FILTER_TRIGGERED": {
+      "side": "overlay",
+      "overlayProducer": "runtime fabrication filter (invariant #8)",
+      "reason": "the fabrication filter runs on the Machine at skill-output time."
+    },
+    "IDENTIFIER_UNVERIFIED": {
+      "side": "overlay",
+      "overlayProducer": "runtime identifier filter (A1 report-only gate)",
+      "reason": "the identifier gate runs on the Machine; report-only, non-blocking."
+    },
+    "ESCALATION_FIRED": {
+      "side": "ss-console",
+      "producerFile": "operator/safety-substrate/refusal.py",
+      "note": "the refusal handler fires the Captain escalation cascade."
+    },
+    "ESCALATION_ACKNOWLEDGED": {
+      "side": "overlay",
+      "overlayProducer": "runtime escalation ack path / admin acknowledgement",
+      "reason": "escalation acknowledgement is recorded when the alert is acked; no ss-console producer today."
+    },
+    "DECOMMISSION_INITIATED": {
+      "side": "ss-console",
+      "producerFile": "operator/bin/lib/decommission.py",
+      "note": "decommission pipeline boundary."
+    },
+    "DECOMMISSION_DRAIN_COMPLETE": {
+      "side": "ss-console",
+      "producerFile": "operator/bin/lib/decommission.py",
+      "note": "decommission pipeline boundary."
+    },
+    "DECOMMISSION_STEP_BEGIN": {
+      "side": "ss-console",
+      "producerFile": "operator/bin/lib/decommission.py",
+      "note": "per-step decommission marker."
+    },
+    "DECOMMISSION_STEP_COMPLETE": {
+      "side": "ss-console",
+      "producerFile": "operator/bin/lib/decommission.py",
+      "note": "per-step decommission marker."
+    },
+    "DECOMMISSION_STEP_FAILED": {
+      "side": "ss-console",
+      "producerFile": "operator/bin/lib/decommission.py",
+      "note": "per-step decommission marker."
+    },
+    "DECOMMISSION_FINAL": {
+      "side": "ss-console",
+      "producerFile": "operator/bin/lib/decommission.py",
+      "note": "decommission pipeline boundary."
+    },
+    "HONCHO_CONCLUSION_DISMISSED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-memory-mirror (Captain dismissal path)",
+      "reason": "emitted on Captain dismissal in the admin portal via the memory-mirror plugin; the paired physical Honcho DELETE is Machine-side."
+    },
+    "AGENT_SKILL_CREATED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-audit (post_tool_call on skill_manage create)",
+      "reason": "agent-authored skills are created at runtime; the audit plugin records them on the Machine."
+    },
+    "AGENT_SKILL_REMOVED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-audit (Captain remove-action)",
+      "reason": "agent-skill removal is recorded on the Machine."
+    },
+    "CUSTOMER_YAML_SYNCED": {
+      "side": "overlay",
+      "overlayProducer": "runtime customer-sync sidecar (ADR 0019)",
+      "reason": "the per-Machine config sync sidecar emits this when R2-source customer.yaml changes apply."
+    },
+    "CUSTOMER_YAML_STRUCTURAL_CHANGE_DEFERRED": {
+      "side": "overlay",
+      "overlayProducer": "runtime customer-sync sidecar (ADR 0019)",
+      "reason": "the sidecar logs structural changes as deferred for Captain re-provision."
+    },
+    "SUBAGENT_STOPPED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-audit (subagent_stop hook, ADR 0021 Stream C)",
+      "reason": "one row per child subagent completion, emitted by the runtime audit plugin."
+    },
+    "SUBAGENT_INCOMPLETE": {
+      "side": "overlay",
+      "overlayProducer": "parent skill assembly guard (runtime)",
+      "reason": "emitted by the parent skill on the Machine before refusing to assemble an incomplete draft."
+    },
+    "SUPPRESSED_WAKE": {
+      "side": "ss-console",
+      "producerFile": "operator/adapter/audit_log.py",
+      "note": "SuppressedWakeWriter emits SUPPRESSED_WAKE before pre_run.py prints {wakeAgent:false}; called from skills' pre_run.py."
+    }
+  }
+}
