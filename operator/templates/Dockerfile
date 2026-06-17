@@ -184,13 +184,16 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # check is unchanged. Fixes demo-law DEMO_RELAY_BLOCKED reason=content_sensitive
 # on a benign disclaimer (2026-06-14 live test). Superset of ed96cebe.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
-# 0e491f9 — #88 ADR 0047 phase 2: materialize wake_policy: pre_run_decides. Maps
-# the watcher policy to Hermes' native wakeAgent gate (skill-bearing job +
-# staged pre-run script; suppressed_wake heartbeat on the quiet path). Unblocks
-# pilot-law / pilot-smokeball boot (the deadline-miss-escalator cron). Superset
-# of a548086 (#87 per-peer working-preference memory, ADR 0048 learned lane) and
-# carries #86 (voice_corrections seam rip) + #85 (Clerk-id secret-scan exemption).
-ARG OVERLAY_REF="5a1e3e74ff61e36e3750d1004b62dad03b6ed829"
+# 0f51821 — #89 ADR 0049 model selection: emit Hermes' native `delegation` block
+# from customer.yaml `escalation_model`, render the roster-conditional SOUL
+# escalation instruction, and read the skill weight marker. Enables the two-tier
+# (light main + escalate-up) seam. Superset of 5a1e3e7 (#92, the security-audit
+# remediation wave tip: #93 full Clio MCP classification — closes the live
+# autonomous-write fail-open; #92 EFF-07 completeness gate; #90 SEC-05/13 AgentMail
+# inbox-read fence; #91 SEC-33 hook-parity guard), which is atop 0e491f9 (#88 ADR
+# 0047 phase 2: materialize wake_policy: pre_run_decides; unblocks pilot-law /
+# pilot-smokeball boot), carrying #87/#86/#85.
+ARG OVERLAY_REF="0f51821d54182888b1d68348187360d9bc4a05ea"
 
 ARG CUSTOMER_SLUG=customer-zero
 
