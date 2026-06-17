@@ -87,7 +87,14 @@ describe('Operator customer Machine Dockerfile', () => {
     // per-peer working-preference memory — pre_llm_call sender stash + inject, record_peer_preference
     // tool, post_tool_call server-side attribution + taint-gate, peer_preferences on the agent-state
     // D1 binding + runtime_read seam). Carries overlay #86 (voice_corrections seam rip). Superset of 8d6f1a95.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="0e491f95950f9b31eb7aea5dd8d57c0c0bdfe8a3"')
+    // 0e491f9 (#88) materializes wake_policy: pre_run_decides (ADR 0047 phase 2);
+    // unblocks pilot-law / pilot-smokeball boot. Superset of a548086.
+    // 5a1e3e7 (#92) is the security-audit remediation wave tip: classifies the full
+    // Clio MCP surface (#93 — closes a live fail-open where Clio writes ran
+    // autonomous on injection-tainted turns), the EFF-07 tool-classification
+    // completeness gate (unmapped writes fail-closed), the SEC-05/13 AgentMail
+    // inbox-read fence (#90), and the SEC-33 hook-parity guard (#91). Superset of 0e491f9.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="5a1e3e74ff61e36e3750d1004b62dad03b6ed829"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
