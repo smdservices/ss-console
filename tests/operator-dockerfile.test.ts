@@ -104,8 +104,12 @@ describe('Operator customer Machine Dockerfile', () => {
     // (echo/fetch/store retired), principal-namespaced thread continuity, and
     // source==mcp turns fenced+tainted like inbound email — plus the Clerk OAuth
     // front door. Merging it to main is the durable fix for the reprovision-revert.
-    // Superset of 72fa21d.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="3dcef4290767cdac914a1184c0fef88069a169e2"')
+    // 8d633a4 (#98) fixes the Machine Clerk binding to authorize clerk_subjects
+    // (plural — the authored form), not only the singular key, which had refused
+    // every real token identity_not_authored (proven live on hermes-smd 2026-06-17).
+    // Superset of 3dcef42; also carries already-merged #95 (unmapped tool → REFUSED)
+    // and #94 (SOUL.md principal materialization).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="8d633a4c943443035e75628f6704d80ff25f7b12"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

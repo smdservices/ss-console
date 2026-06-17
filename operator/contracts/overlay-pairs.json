@@ -1,6 +1,6 @@
 {
   "overlayRepo": "https://github.com/venturecrane/hermes-smd-overlay.git",
-  "overlayRef": "3dcef4290767cdac914a1184c0fef88069a169e2",
+  "overlayRef": "8d633a4c943443035e75628f6704d80ff25f7b12",
   "overlayRefNote": "MUST equal the ARG OVERLAY_REF pinned in operator/templates/Dockerfile — that is the overlay commit a customer Machine actually ships. The vitest gate asserts the two agree so the manifest cannot pin a stale overlay. Bump both together when OVERLAY_REF moves, then re-record each overlaySha256 from the runtime file at the new ref.",
   "pairs": [
     {
@@ -13,9 +13,9 @@
     {
       "adapterPath": "operator/adapter/audit_log.py",
       "overlayPath": "plugins/hermes-smd-audit/emit.py",
-      "syncNote": "2026-06-16: removed SENT_DETECTED / SENT_DIFF_INDEXED action types (declared-only, never emitted — vocabulary for the killed sent-watch/draft-diff lane, ADR 0048 amend). The paired overlay removal lives in hermes-smd-audit/schemas.py (overlay PR #86), NOT emit.py — so the emit.py overlaySha256 (SEC-32) is unchanged. src/lib/portal/operator/audit.ts updated in the same PR (TS parity is test-enforced).",
+      "syncNote": "2026-06-17: emit.py overlaySha256 re-recorded for OVERLAY_REF bump 3dcef42→8d633a4. The runtime change is overlay #95 (already merged): unknown tool → fail-closed REFUSED action class instead of READ default (issue #1327) — a docstring + default-class change on the runtime emitter. One-sided runtime change: the fail-closed default-class logic lives runtime-side (hermes-smd-trust/enforce.py + shared/action_classes.py), not in this adapter port, so operator/adapter/audit_log.py is unaffected and its sha256 is unchanged. Prior note: 2026-06-16 removed SENT_DETECTED / SENT_DIFF_INDEXED action types (overlay PR #86, in schemas.py not emit.py).",
       "sha256": "b797b2ac3fcff021db140eab9634c3e30a2bf99df13fd21cf9ed8f14a1fa7f82",
-      "overlaySha256": "1f54717e80cdc474266ee637ed5cae1e689c1cdb35c5855799b754739b6576c6"
+      "overlaySha256": "38efd8ed3f92964b21fd2889a68e470cc87aa8faa7d9e0abd92b942b262ff321"
     },
     {
       "adapterPath": "operator/adapter/namespace_assertion.py",

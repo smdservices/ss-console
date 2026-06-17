@@ -197,7 +197,12 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # thread continuity, source==mcp turns fenced+tainted like inbound email. Lands
 # the previously-unmerged channel spine (echo/fetch/store retired) + Clerk OAuth
 # front door onto main, so reprovisions no longer revert it. Superset of 72fa21d.
-ARG OVERLAY_REF="3dcef4290767cdac914a1184c0fef88069a169e2"
+# MCP Clerk auth fix (#98): _load_mcp_binding now authorizes clerk_subjects
+# (plural) — the authored form SMD's seat uses — not only the singular key, which
+# had built an EMPTY access list and refused every real token identity_not_authored
+# (proven live on hermes-smd 2026-06-17). Superset of 3dcef42; also carries the
+# already-merged #95 (unmapped tool → REFUSED fail-closed) + #94 (SOUL.md principal).
+ARG OVERLAY_REF="8d633a4c943443035e75628f6704d80ff25f7b12"
 
 ARG CUSTOMER_SLUG=customer-zero
 
