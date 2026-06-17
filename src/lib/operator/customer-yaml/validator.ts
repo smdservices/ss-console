@@ -49,6 +49,7 @@ import {
 } from './sections-identity'
 import { checkPersonas } from './sections-personas'
 import { checkConnectors } from './sections-connectors'
+import { checkScope } from './sections-scope'
 import {
   checkBusinessHours,
   checkComplianceEnabled,
@@ -56,7 +57,6 @@ import {
   checkLogging,
   checkMemory,
   checkPause,
-  checkScope,
   checkVoiceLibrary,
 } from './sections-other'
 import { checkCredentialCustodyDefault } from './sections-connectors'
