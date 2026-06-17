@@ -98,7 +98,10 @@ describe('Operator customer Machine Dockerfile', () => {
     // `escalation_model`, renders the roster-conditional SOUL escalation instruction,
     // and reads the skill weight marker — the ADR 0049 two-tier (light main +
     // escalate-up) seam. Superset of 5a1e3e7.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="0f51821d54182888b1d68348187360d9bc4a05ea"')
+    // 72fa21d (#96) wires the previously-orphaned transform_draft() into the
+    // transform_llm_output hook — Voice Layer 2 structural reshape post-LLM.
+    // Superset of 0f51821.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="72fa21def0baa9ba873e3b6c9195451f4e6000ed"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

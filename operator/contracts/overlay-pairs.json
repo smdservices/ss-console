@@ -1,6 +1,6 @@
 {
   "overlayRepo": "https://github.com/venturecrane/hermes-smd-overlay.git",
-  "overlayRef": "0f51821d54182888b1d68348187360d9bc4a05ea",
+  "overlayRef": "72fa21def0baa9ba873e3b6c9195451f4e6000ed",
   "overlayRefNote": "MUST equal the ARG OVERLAY_REF pinned in operator/templates/Dockerfile — that is the overlay commit a customer Machine actually ships. The vitest gate asserts the two agree so the manifest cannot pin a stale overlay. Bump both together when OVERLAY_REF moves, then re-record each overlaySha256 from the runtime file at the new ref.",
   "pairs": [
     {
