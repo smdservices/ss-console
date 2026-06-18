@@ -14,8 +14,16 @@
 #
 # ENFORCEMENT: operator/bin/tests/test_customer_yaml_block_conformance.py asserts
 #   authored-blocks ⊆ registry, every entry is implemented|inert, and every
-#   inert entry carries a reason. Cut D's drift audit is the RUNTIME backstop:
-#   it checks the live Machine actually reflects what `implemented` here claims.
+#   inert entry carries a reason.
+#
+# RUNTIME BACKSTOP. The "Cut D drift audit" once named here as the runtime check
+# (that the live Machine reflects what `implemented` claims) was never built — a
+# comment standing in for a control, the same defect this enforcement guards
+# against. The live-wiring backstop now lives in the runtime-control conformance
+# harness: operator/contracts/runtime-controls.yaml + its CI forcing function
+# (test_runtime_control_conformance.py), with the live negative-fire probe tier
+# folded into ADR 0050 B3's design review. THIS registry proves a customer.yaml
+# block is well-shaped + classified; that harness proves a runtime control fires.
 #
 # status:      implemented | inert
 # materializer: where the runtime effect is produced (file/function), or — for
