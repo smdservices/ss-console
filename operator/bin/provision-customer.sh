@@ -430,6 +430,22 @@ else
   log "WARN: OPERATOR_RUNTIME_READ_SECRET not set in operator env — skipping runtime read key (runtime drill-ins stay empty for this Machine)"
 fi
 
+# WEBHOOK_SECRET_MCP — per-customer bearer for the console→Machine async handoff
+# endpoint (/webhooks/handoff, ADR 0043 Phase 2). Same derivation as the runtime
+# read key: HMAC-SHA256(OPERATOR_MCP_WEBHOOK_SECRET, slug), printf '%s' (no
+# newline), matching src/lib/operator/mcp/webhook-transport.ts → deriveRuntimeReadKey.
+# The console sends the derived bearer; the Machine verifies it. Gate also re-uses
+# it as WEBHOOK_SECRET_HANDOFF so the internal Hermes adapter can re-verify the
+# forwarded hop.
+if [ -n "${OPERATOR_MCP_WEBHOOK_SECRET:-}" ]; then
+  _mcp_key="$(printf '%s' "${SLUG}" | openssl dgst -sha256 -hmac "${OPERATOR_MCP_WEBHOOK_SECRET}" | sed 's/^.*= //')"
+  stage_secret_from_env WEBHOOK_SECRET_MCP     "${_mcp_key}" "per-customer MCP handoff bearer (Phase 2)"
+  stage_secret_from_env WEBHOOK_SECRET_HANDOFF "${_mcp_key}" "Hermes adapter re-verify secret for the handoff route (= WEBHOOK_SECRET_MCP)"
+  unset _mcp_key
+else
+  log "WARN: OPERATOR_MCP_WEBHOOK_SECRET not set in operator env — skipping MCP handoff key (operator_handoff_task returns not_configured)"
+fi
+
 # ---------- Step 6b-clio: connector secrets (law vertical + Google DWD) ----------
 # Staged from operator env (Infisical /ss, injected by reprovision.sh's
 # `infisical run --path=/ss`), same no-paste pattern as observability. Each is

@@ -590,3 +590,131 @@ describe('JSON-RPC dispatcher', () => {
     expect(reads).toBe(0)
   })
 })
+
+describe('operator_handoff_task', () => {
+  it('lists operator_handoff_task in tools/list', async () => {
+    const listed = await dispatchMcpRequest({ jsonrpc: '2.0', id: 1, method: 'tools/list' }, CTX)
+    const body = await listed.json<{ result: { tools: { name: string }[] } }>()
+    expect(body.result.tools.map((t) => t.name)).toContain('operator_handoff_task')
+  })
+
+  it('returns not_configured when sendHandoff is absent', async () => {
+    const response = await dispatchMcpRequest(
+      {
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/call',
+        params: { name: 'operator_handoff_task', arguments: { task: 'do something' } },
+      },
+      CTX
+    )
+    const body = await response.json<{ result: { content: { text: string }[] } }>()
+    const payload = JSON.parse(body.result.content[0].text)
+    expect(payload).toMatchObject({ ok: false, error: 'not_configured' })
+  })
+
+  it('returns task_required when task is missing or empty', async () => {
+    for (const args of [{}, { task: '' }, { task: '   ' }]) {
+      const response = await dispatchMcpRequest(
+        {
+          jsonrpc: '2.0',
+          id: 3,
+          method: 'tools/call',
+          params: { name: 'operator_handoff_task', arguments: args },
+        },
+        { ...CTX, sendHandoff: async () => {} }
+      )
+      const body = await response.json<{ result: { content: { text: string }[] } }>()
+      expect(JSON.parse(body.result.content[0].text)).toMatchObject({
+        ok: false,
+        error: 'task_required',
+      })
+    }
+  })
+
+  it('calls sendHandoff with the handoff_id and returns accepted on success', async () => {
+    const calls: { handoff_id: string; task: string; context?: string }[] = []
+    const response = await dispatchMcpRequest(
+      {
+        jsonrpc: '2.0',
+        id: 4,
+        method: 'tools/call',
+        params: {
+          name: 'operator_handoff_task',
+          arguments: { task: 'review receipts mailbox', context: 'focus on last 30 days' },
+        },
+      },
+      {
+        ...CTX,
+        sendHandoff: async (params) => {
+          calls.push(params)
+        },
+      }
+    )
+    expect(calls).toHaveLength(1)
+    expect(calls[0].task).toBe('review receipts mailbox')
+    expect(calls[0].context).toBe('focus on last 30 days')
+    expect(typeof calls[0].handoff_id).toBe('string')
+    expect(calls[0].handoff_id.length).toBeGreaterThan(0)
+    const body = await response.json<{ result: { content: { text: string }[] } }>()
+    const payload = JSON.parse(body.result.content[0].text)
+    expect(payload).toMatchObject({ ok: true, accepted: true, handoff_id: calls[0].handoff_id })
+  })
+
+  it('returns delivery_failed when sendHandoff throws', async () => {
+    const response = await dispatchMcpRequest(
+      {
+        jsonrpc: '2.0',
+        id: 5,
+        method: 'tools/call',
+        params: { name: 'operator_handoff_task', arguments: { task: 'do something' } },
+      },
+      {
+        ...CTX,
+        sendHandoff: async () => {
+          throw new Error('machine unreachable')
+        },
+      }
+    )
+    const body = await response.json<{ result: { content: { text: string }[] } }>()
+    expect(JSON.parse(body.result.content[0].text)).toMatchObject({
+      ok: false,
+      error: 'delivery_failed',
+    })
+  })
+
+  it('routes sendHandoff through mcp-route with auth-bound fields', async () => {
+    const db: D1Database = await freshDb()
+    await seedCustomer(db)
+    const loaded = await loadMcpCustomer(db, 'smd')
+    if (!loaded) throw new Error('test customer did not load')
+
+    const handoffs: { handoff_id: string; task: string }[] = []
+    const response = await handleMcpPost(
+      new Request(RESOURCE_URI, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer token' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'tools/call',
+          params: { name: 'operator_handoff_task', arguments: { task: 'triage inbox' } },
+        }),
+      }),
+      new URL(RESOURCE_URI),
+      {
+        db,
+        customer: loaded,
+        verifier: claimsVerifier(claims()),
+        readRuntime: unreachableRead,
+        sendHandoff: async (_auth, params) => {
+          handoffs.push(params)
+        },
+      }
+    )
+    expect(response.status).toBe(200)
+    expect(handoffs).toHaveLength(1)
+    expect(handoffs[0].task).toBe('triage inbox')
+    expect(typeof handoffs[0].handoff_id).toBe('string')
+  })
+})
