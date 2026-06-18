@@ -119,7 +119,12 @@ describe('Operator customer Machine Dockerfile', () => {
     // async task handoff (Phase 2, ADR 0043). HMAC bearer auth (WEBHOOK_SECRET_MCP),
     // stamps source=handoff, forwards to Hermes adapter. Enables operator_handoff_task
     // MCP tool (ss-console#1458). Superset of e93a3ff.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="a97013efc4a8b586f4b4f801adef7a93cf5c51ec"')
+    // 1c2171f (#103) fixes cron reconciliation: a persona that drops ALL its cron
+    // now has its orphaned managed job removed at boot (it was firing forever);
+    // two-pass fail-closed across the reconcile set; HERMES_HOME snapshot/restore.
+    // Also a pure ruff-format pass on webhook_gate.py (no logic change). Superset
+    // of a97013e.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="1c2171f69a8086e575bc9de8cea42504546f3478"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
