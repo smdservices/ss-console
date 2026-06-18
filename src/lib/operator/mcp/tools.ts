@@ -1,22 +1,18 @@
 /**
  * MCP tool registry for the Operator ⇄ Claude connector.
  *
- * Phase 1 ships one LIVE read tool, `operator_status`, backed by the runtime-read
- * seam (ADR 0043 path A): the console→Machine `GET /runtime/audit_log` call,
- * summarized into a liveness + recent-activity view. The handler is fail-closed
- * — if the Machine is unreachable or the read path is unconfigured it reports
- * `reachable: false` with a reason, never fabricated activity.
+ * Phase 1: `operator_status` — read-only reachability + recent activity via
+ * the runtime-read seam (ADR 0043 path A).
  *
- * The read capability is injected via {@link McpToolContext.readRuntime}: the
- * route layer builds a capability already scoped to THIS
- * customer + actor (one customer per call, audited), so a tool handler cannot
- * express a cross-customer read. Tools stay free of env/db wiring.
+ * Phase 2: `operator_handoff_task` — post an async work request to the Machine
+ * via the signed webhook gate (`/webhooks/mcp`). The Operator works it and
+ * reports back via its authored channels.
  *
- * Deferred (fast-follow, intentionally not here): `operator_search_memory`
- * (memory_export needs a `table` param threaded through the frozen
- * RuntimeReadQuery, and the mirror tables may be sparse for customer-zero) and
- * `operator_handoff_task` (Phase 2 — two-repo: console emitter + overlay
- * `source=mcp` recognition + deploy). See docs/design/operator/03-mcp-server-exposure.md.
+ * Both capabilities are injected via {@link McpToolContext} so tool handlers
+ * stay free of env/db wiring. `sendHandoff` is optional — when unconfigured the
+ * tool returns a `not_configured` error rather than throwing.
+ *
+ * See docs/design/operator/03-mcp-server-exposure.md.
  */
 
 import type { RuntimeReadQuery, RuntimeReadResult } from '../runtime-read'
@@ -36,9 +32,16 @@ export interface McpToolDescriptor {
 }
 
 /**
- * The authenticated caller context handed to a tool handler. `readRuntime` is a
- * customer+actor-scoped, read-only, audited runtime read (the route layer binds
- * the customer and actor; there is no way to express a cross-customer read).
+ * The authenticated caller context handed to a tool handler.
+ *
+ * `readRuntime` — customer+actor-scoped, read-only, audited runtime read (the
+ * route layer binds the customer and actor; there is no way to express a
+ * cross-customer read).
+ *
+ * `sendHandoff` — optional. When configured (Phase 2), posts an async work
+ * request to the Machine and returns once the Machine acknowledges receipt.
+ * Absent when `OPERATOR_MCP_WEBHOOK_SECRET` is unset; the handoff tool returns
+ * `not_configured` rather than throwing.
  */
 export interface McpToolContext {
   customerId: string
@@ -46,6 +49,7 @@ export interface McpToolContext {
   email: string
   profile: string
   readRuntime: (query: RuntimeReadQuery) => Promise<RuntimeReadResult>
+  sendHandoff?: (params: { handoff_id: string; task: string; context?: string }) => Promise<void>
 }
 
 /** MCP `tools/call` result content block (text only for the spike). */
@@ -152,8 +156,76 @@ const operatorStatus: McpTool = {
   },
 }
 
+/**
+ * Phase 2 tool: `operator_handoff_task`. Posts an async work request to the
+ * Operator. The Operator acknowledges receipt immediately and works the task
+ * through its authored channels (email, Telegram, etc.). The caller receives
+ * a `handoff_id` for correlation.
+ *
+ * Fail-closed: returns `not_configured` when the webhook transport is absent,
+ * `delivery_failed` when the Machine returns an error.
+ */
+const operatorHandoffTask: McpTool = {
+  descriptor: {
+    name: 'operator_handoff_task',
+    description:
+      'Hand a task to the Operator to work asynchronously. The Operator acknowledges ' +
+      'immediately and reports back via its authored channels (email, Telegram, etc.). ' +
+      'Returns a handoff_id for correlation.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        task: {
+          type: 'string',
+          description: 'The task to hand off — be specific about what you want the Operator to do.',
+        },
+        context: {
+          type: 'string',
+          description: 'Optional additional context or constraints for the Operator.',
+        },
+      },
+      required: ['task'],
+    },
+  },
+  handle: async (args, ctx) => {
+    const task = typeof args.task === 'string' ? args.task.trim() : ''
+    if (!task) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ ok: false, error: 'task_required' }) }],
+        isError: true,
+      }
+    }
+    if (!ctx.sendHandoff) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ ok: false, error: 'not_configured' }) }],
+        isError: true,
+      }
+    }
+    const handoff_id = crypto.randomUUID()
+    const context =
+      typeof args.context === 'string' && args.context.trim() ? args.context.trim() : undefined
+    try {
+      await ctx.sendHandoff({ handoff_id, task, context })
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ ok: true, accepted: true, handoff_id }),
+          },
+        ],
+      }
+    } catch {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ ok: false, error: 'delivery_failed' }) }],
+        isError: true,
+      }
+    }
+  },
+}
+
 const REGISTRY: ReadonlyMap<string, McpTool> = new Map([
   [operatorStatus.descriptor.name, operatorStatus],
+  [operatorHandoffTask.descriptor.name, operatorHandoffTask],
 ])
 
 /** All tool descriptors for `tools/list`. */

@@ -9,6 +9,11 @@ import {
   handleMcpOptions,
   handleMcpPost,
 } from '../../../../lib/operator/mcp/mcp-route'
+import type { HandoffEnvelope } from '../../../../lib/operator/mcp/webhook-transport'
+import {
+  createMachineWebhookTransport,
+  isWebhookConfigured,
+} from '../../../../lib/operator/mcp/webhook-transport'
 import { readMachineRuntime } from '../../../../lib/operator/runtime-read'
 import {
   createMachineRuntimeTransport,
@@ -28,6 +33,8 @@ export const POST: APIRoute = async ({ request, url, params }) => {
   if (!customer) return new Response('Not found', { status: 404 })
 
   const transport = createMachineRuntimeTransport(env)
+  const webhookTransport = isWebhookConfigured(env) ? createMachineWebhookTransport(env) : null
+
   return handleMcpPost(request, url, {
     db: env.DB,
     customer,
@@ -38,6 +45,21 @@ export const POST: APIRoute = async ({ request, url, params }) => {
         actorRole: 'mcp_client',
       })
     },
+    sendHandoff: webhookTransport
+      ? (auth, params) => {
+          const envelope: HandoffEnvelope = {
+            handoff_id: params.handoff_id,
+            surface: 'mcp',
+            trust_class: 'known_external',
+            task: params.task,
+            context: params.context,
+            from_email: auth.email,
+            from_profile: auth.profile,
+            submitted_at: new Date().toISOString(),
+          }
+          return webhookTransport.send(customer.customerId, envelope)
+        }
+      : undefined,
   })
 }
 
