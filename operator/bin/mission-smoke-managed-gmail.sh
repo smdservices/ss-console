@@ -26,15 +26,17 @@ log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [mission-smoke/${SLUG}] $*"; }
 fail() { log "FAIL: $*"; exit 1; }
 
 PROMPT="Mission smoke: read unread mail from ${MAILBOX}. Use workspace_gmail_search with mailbox set to ${MAILBOX}. Return only the count and up to three message ids. Do not use terminal, execute_code, or any code tool."
+REMOTE_ENV_COMMAND="$(printf 'PROFILE=%q MAILBOX=%q PROMPT=%q bash -s' "${PROFILE}" "${MAILBOX}" "${PROMPT}")"
+REMOTE_COMMAND="$(printf 'bash -lc %q' "${REMOTE_ENV_COMMAND}")"
 
 log "Starting managed-mailbox Gmail smoke on ${APP_NAME} profile=${PROFILE} mailbox=${MAILBOX}"
 
-fly ssh console -a "${APP_NAME}" --command "sh -s" -- "${PROFILE}" "${MAILBOX}" "${PROMPT}" <<'REMOTE'
+fly ssh console -a "${APP_NAME}" --command "${REMOTE_COMMAND}" <<'REMOTE'
 set -euo pipefail
 
-PROFILE="$1"
-MAILBOX="$2"
-PROMPT="$3"
+: "${PROFILE:?}"
+: "${MAILBOX:?}"
+: "${PROMPT:?}"
 AUDIT_DB="/opt/data/audit/audit.db"
 HERMES="/opt/hermes/.venv/bin/hermes"
 OUT="/tmp/managed-gmail-mission-smoke.out"
