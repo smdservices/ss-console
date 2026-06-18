@@ -126,11 +126,9 @@ personas:
     skills_disabled:
       - google-workspace
       - himalaya
-    # "reading what comes in ... hourly, 0700–1900 Phoenix."
+    # inbox-triage cron disabled — wrong mailbox, dead-drop output, token burn.
+    # Run on-demand only until args + delivery path are verified.
     cron:
-      - skill: inbox-triage
-        schedule: '0 7-19 * * *' # hourly 0700–1900 (fly_region: lax tz)
-        wake_policy: always
       # Fleet health check every 30 minutes. Emails Captain on red/open-alerts.
       - skill: health-monitor
         schedule: '*/30 * * * *'
