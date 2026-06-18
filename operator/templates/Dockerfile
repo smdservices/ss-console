@@ -206,7 +206,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # orientation reads (read_file/search_files/skills/session/memory/vision),
 # internal session writes (todo/record_peer_preference/clarify), keeps
 # high-power native tools CODE_EXECUTION, and removes stale unmapped->READ prose.
-ARG OVERLAY_REF="e93a3ffb89c386f56a7ddb6d69ed86a5b6b62c0a"
+ARG OVERLAY_REF="a97013efc4a8b586f4b4f801adef7a93cf5c51ec"
 
 ARG CUSTOMER_SLUG=customer-zero
 
