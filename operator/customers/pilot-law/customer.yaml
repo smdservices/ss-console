@@ -151,11 +151,13 @@ personas:
     # heartbeat is the dead-man's-switch — a scheduled tick with no audit row
     # alarms the watcher-health view. The deadline-watch is advisory, never the
     # firm's system of record (compliance-floor.md).
-    cron:
-      - skill: deadline-miss-escalator
-        schedule: '0 8 * * *' # daily 08:00 in Hermes' configured timezone
-        pre_run: pre_run.py
-        wake_policy: pre_run_decides
+    # ALL CRON DISABLED 2026-06-18 (Captain directive): no scheduled firing yet.
+    # Re-enable by uncommenting this block and restarting the Machine.
+    # cron:
+    #   - skill: deadline-miss-escalator
+    #     schedule: '0 8 * * *' # daily 08:00 in Hermes' configured timezone
+    #     pre_run: pre_run.py
+    #     wake_policy: pre_run_decides
 
 # ---- CONNECTORS ----
 connectors:

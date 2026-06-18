@@ -128,11 +128,14 @@ personas:
       - himalaya
     # inbox-triage cron disabled — wrong mailbox, dead-drop output, token burn.
     # Run on-demand only until args + delivery path are verified.
-    cron:
-      # Fleet health check every 30 minutes. Emails Captain on red/open-alerts.
-      - skill: health-monitor
-        schedule: '*/30 * * * *'
-        wake_policy: always
+    # ALL CRON DISABLED 2026-06-18 (Captain directive): not in a position to have
+    # any scheduled firing yet. health-monitor stays defined and runs on-demand;
+    # re-enable by uncommenting this block and restarting the Machine.
+    # cron:
+    #   # Fleet health check every 30 minutes. Emails Captain on red/open-alerts.
+    #   - skill: health-monitor
+    #     schedule: '*/30 * * * *'
+    #     wake_policy: always
 
 # ---- MCP CONNECTOR (Operator ⇄ Claude, Phase 1) ----
 # Lets authored users reach this Operator from inside their own Claude
