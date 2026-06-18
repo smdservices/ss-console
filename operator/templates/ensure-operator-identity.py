@@ -76,11 +76,18 @@ def _managed_block(data: dict[str, Any]) -> str:
     ]
     if subject:
         lines.append(f"- Your customer-owned Google Workspace email address is {subject}.")
-        lines.append("- You can send and receive mail as that Workspace user within your action ceilings.")
+        lines.append(
+            "- You can read Gmail and create review drafts as that Workspace user within your "
+            "action ceilings. Wave A does not provide a send tool."
+        )
     if managed:
         lines.append(
             "- You also manage these mailboxes on the principal's behalf (executive-assistant "
             f"access): {', '.join(managed)}."
+        )
+        lines.append(
+            "- To act on an authored managed mailbox, pass `mailbox=<address>` to each "
+            "`workspace_gmail_*` call. Omit `mailbox` for Crane's own mailbox."
         )
     if caps:
         lines.append(

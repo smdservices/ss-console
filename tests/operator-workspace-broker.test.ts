@@ -6,6 +6,10 @@ const dockerfile = readFileSync(resolve('operator/templates/Dockerfile'), 'utf8'
 const entrypoint = readFileSync(resolve('operator/templates/entrypoint.sh'), 'utf8')
 const bootstrap = readFileSync(resolve('operator/templates/bootstrap.sh'), 'utf8')
 const workspaceSkill = readFileSync(resolve('operator/skills/workspace/SKILL.md'), 'utf8')
+const inboxTriageSkill = readFileSync(resolve('operator/skills/inbox-triage/SKILL.md'), 'utf8')
+const emailReplySkill = readFileSync(resolve('operator/skills/email-reply/SKILL.md'), 'utf8')
+const healthMonitorSkill = readFileSync(resolve('operator/skills/health-monitor/SKILL.md'), 'utf8')
+const smdCustomerConfig = readFileSync(resolve('operator/customers/smd/customer.yaml'), 'utf8')
 
 describe('ADR 0045 Workspace capability broker', () => {
   it('runs broker and gateway under distinct non-root principals', () => {
@@ -80,5 +84,21 @@ describe('ADR 0045 Workspace capability broker', () => {
     expect(workspaceSkill).toContain('workspace_docs_create')
     expect(workspaceSkill).not.toContain('/opt/data/oauth/google.json')
     expect(workspaceSkill).not.toContain('/app/connectors/google/')
+  })
+
+  it('keeps Wave A Gmail skills on read and draft tools only', () => {
+    expect(inboxTriageSkill).toContain('workspace_gmail_search')
+    expect(inboxTriageSkill).toContain('workspace_gmail_create_draft')
+    expect(emailReplySkill).toContain('workspace_gmail_create_draft')
+    expect(inboxTriageSkill).not.toContain('workspace_gmail_send')
+    expect(emailReplySkill).not.toContain('workspace_gmail_send')
+    expect(inboxTriageSkill).not.toContain('send_message')
+    expect(smdCustomerConfig).not.toContain('workspace_gmail_send')
+    expect(smdCustomerConfig).not.toContain('receive an autonomous reply')
+  })
+
+  it('does not present send_message as an email channel', () => {
+    expect(healthMonitorSkill).toContain('not classified and verified')
+    expect(healthMonitorSkill).not.toContain('use `send_message`')
   })
 })

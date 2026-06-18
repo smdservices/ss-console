@@ -109,13 +109,13 @@ personas:
       # Handles inbound email to crane@smd.services. Intended trigger is the Gmail
       # push webhook (see gmail_push note below) — currently NOT wired, so this
       # skill does not fire until the watch is rebuilt as a broker operation.
-      # trust_ceiling: autonomous — Crane's own identity, not Scott's. Drafts
-      # are used until workspace_gmail_send lands in the overlay (Issue #TBD).
+      # trust_ceiling: autonomous — Crane's own identity, not Scott's. Wave A
+      # writes Gmail drafts only; no Gmail send tool is authored for this skill.
       - name: email-reply
         version: pending
         trust_ceiling: autonomous
         enabled: true
-      # Polls /api/admin/fleet/health every 30 min; emails Captain on red status.
+      # Polls /api/admin/fleet/health every 30 min; records alert lines on red status.
       # Requires OPERATOR_HEALTH_READ_KEY Fly secret + code_execution: autonomous.
       - name: health-monitor
         version: pending
@@ -210,15 +210,15 @@ scope:
   trusted_sender_domains:
     - smdurgan.com
     - smd.services
-  # Allow list for email-reply skill: senders who email crane@smd.services and
-  # receive an autonomous reply. Fail-closed: absent or empty list = no replies.
+  # Allow list for email-reply skill: senders whose mail to crane@smd.services
+  # may produce a Gmail draft. Fail-closed: absent or empty list = no drafts.
   # Add client addresses here when an engagement begins.
   inbound_allow_from:
     - smdurgan@smdurgan.com
     - scott@smd.services
   # ---- TRUST CEILINGS (per-action, ADR 0025) ----
-  # Crane may send from its own AgentMail identity within the authored ceiling.
-  # Sending from the principal Workspace identity remains permanently banned.
+  # External send remains authored for non-Workspace demo surfaces. Wave A Gmail
+  # skills write drafts only; no principal Workspace send tool is exposed.
   # code_execution: autonomous enables the ADR 0049 escalate-up path (delegate_task
   # is a CODE_EXECUTION action, fail-closed unless authored). Re-opened on the
   # customer-zero dogfood seat for the two-tier cost test; the sticky taint gate
