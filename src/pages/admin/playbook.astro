@@ -1,0 +1,466 @@
+---
+/**
+ * Playbook - the franchise operations manual (E-Myth).
+ *
+ * Captain-only doctrine surface. Describes how the venture and the Operator
+ * product work as a single, transferable system: the thesis, the platform,
+ * the engagement motion, and the Captain/agent/system split that makes the
+ * operation franchisable. Static reference - composes nothing from the DB.
+ *
+ * Source of truth lives in the ADRs (cited inline). When an ADR changes the
+ * doctrine, update this page to match - it is a mirror, not a second canon.
+ */
+import AdminLayout from '../../layouts/AdminLayout.astro'
+
+const session = Astro.locals.session!
+if (session.role !== 'admin') {
+  return Astro.redirect('/auth/sign-in')
+}
+
+const SEC =
+  "font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.16em] text-[color:var(--ss-color-text-primary)]"
+const LAB =
+  "font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
+const LINK =
+  "font-['Archivo_Narrow'] text-[10px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-primary)] hover:underline"
+const BODY = 'text-sm leading-relaxed text-[color:var(--ss-color-text-secondary)]'
+const ADR = (n: string) => `https://github.com/venturecrane/ss-console/blob/main/docs/adr/${n}`
+
+// The Operator Thesis - four dimensions it wins on vs a hire (ADR 0037).
+const thesis = [
+  {
+    k: 'Memory that compounds',
+    v: 'Every engagement, interaction, and preference correction becomes part of the operator’s working knowledge of the firm. A human hire starts over at offboarding. The operator does not.',
+  },
+  {
+    k: 'Configurable autonomy',
+    v: 'What the operator does without prompting is set per action class. The Captain sets the ceiling; the operator stays under it. Unconfigured is fail-closed, not a guessed default.',
+  },
+  {
+    k: 'No context-switching cost',
+    v: 'The operator handles throughput. The Captain handles decisions. The owner handles the business. None of the three competes for the others’ attention.',
+  },
+  {
+    k: 'Enterprise discipline at SMB price',
+    v: 'The harness, guide, and memory layers represent operational discipline most $750k-$5M businesses have never had access to, priced against a salary rather than a software seat.',
+  },
+]
+
+const channels = [
+  { c: 'Inbound email', m: 'crane@smd.services, allow-list gated', s: 'Live' },
+  { c: 'Outbound email', m: 'Gmail push notifications, event-driven', s: 'Live' },
+  { c: 'Voice', m: 'Synthesis backend, transform hook', s: 'Live' },
+  { c: 'Conversational sessions', m: 'MCP channel, Clerk auth, multi-turn', s: 'Live' },
+]
+
+const knowledge = [
+  {
+    lane: 'Authored',
+    src: 'customer.yaml - relationships, context, guardrails',
+    persist: 'Captain-set',
+  },
+  {
+    lane: 'Learned',
+    src: 'Per-client preferences corrected across sessions',
+    persist: 'Grows over time',
+  },
+  {
+    lane: 'Inferred',
+    src: 'Patterns derived from engagement history',
+    persist: 'Deferred (Phase 2)',
+  },
+]
+
+const workflow = [
+  {
+    n: '01',
+    k: 'Assessment',
+    v: 'A voice-capable operator runs the intake interview, captures findings, and drafts the report. The Captain reads and closes - the report is the X-ray; the judgment is human.',
+  },
+  {
+    n: '02',
+    k: 'Scoping',
+    v: 'The Captain defines engagement parameters, timeline, and price. The operator does not scope or price engagements.',
+  },
+  {
+    n: '03',
+    k: 'Delivery',
+    v: 'The operator handles client communication, documents progress, and surfaces blockers. Analysis and deliverable drafting are executed by agents. The Captain reviews before any client-facing send.',
+  },
+  {
+    n: '04',
+    k: 'Handoff',
+    v: 'The operator generates the handoff package. Retainer clients stay in the operator’s working loop for ongoing communication and optimization.',
+  },
+]
+
+const captainDomain = [
+  [
+    'Client acceptance',
+    'The allow-list controls which inbound contacts reach the operator. The Captain sets who gets in.',
+  ],
+  [
+    'Authority delegation',
+    'Per-domain switches govern what the operator may do for each client. All domains off by default; the Captain enables them explicitly.',
+  ],
+  ['Scope and pricing', 'All engagement scope and pricing decisions belong to the Captain.'],
+  [
+    'Escalation resolution',
+    'When the operator hits a decision it cannot make, it routes up with a clear summary and the decision needed.',
+  ],
+  [
+    'Go / Kill',
+    'The Captain authorizes continuation, pause, or termination of active engagements.',
+  ],
+  [
+    'Operator development',
+    'New capabilities, vertical packs, skill additions, and platform direction are Captain decisions.',
+  ],
+]
+
+const agentExecution = [
+  'Inbound client communications - email, voice, chat - handled within configured autonomy ceilings',
+  'Assessment interviews conducted by the operator; Captain owns read and close',
+  'Consulting analysis and deliverable drafting executed by agents; Captain reviews before client-facing send',
+  'Fleet health monitoring runs autonomously on a 30-minute cadence; Captain notified on degradation',
+  'Platform maintenance and deployment handled via PRs',
+  'Learned preferences accumulate automatically; Captain can dismiss any memory (dismissal = physical delete)',
+]
+
+const pricing = [
+  ['Rate ladder', '$175/hr at launch → $200 after first case study → $250 → $300 with volume'],
+  [
+    'Engagement range',
+    'Scoped per project. Smallest (targeted scripts, AI pilots) ~$2,500. Largest uncapped.',
+  ],
+  ['Paid assessment', '$250, applied toward engagement if they proceed. First 3 free.'],
+  [
+    'Operator SKU',
+    'Productized monthly retainer (ADR 0004). Price deferred pending stack cost analysis.',
+  ],
+]
+---
+
+<AdminLayout title="Playbook | SMD Services" maxWidth="max-w-6xl">
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-[color:var(--ss-color-text-primary)]">Playbook</h1>
+    <p class={`mt-1 ${BODY}`}>
+      The franchise operations manual. How the venture and the Operator work as one transferable
+      system - what the Captain decides, what the agents run, and what makes the operation
+      franchisable.
+    </p>
+  </div>
+
+  <!-- The Venture / The Problem -->
+  <div class="mb-7 border border-[color:var(--ss-color-text-primary)]">
+    <div class="border-b border-[color:var(--ss-color-text-primary)] px-[18px] py-3.5">
+      <span class={SEC}>The Venture</span>
+    </div>
+    <div class="space-y-4 px-[18px] py-4">
+      <p class={BODY}>
+        SMD Services builds and deploys AI operators for businesses that need a capable coordinator
+        without the cost and risk of a full-time hire. The venture is run by a single Captain
+        directing a fleet of AI agents. Every client engagement is delivered by an operator
+        configured to run on that firm’s expertise.
+      </p>
+      <div>
+        <span class={`${LAB} mb-1.5 block`}>The Problem</span>
+        <p class={BODY}>
+          Owners of $750k-$5M businesses are too big for one person and too small for a COO. The
+          work that stalls them - client communication, intake, assessment, documentation,
+          follow-through - requires a capable coordinator. A hire at that function runs $60-80k/yr
+          plus benefits, takes months to onboard, and exits with everything they learned. The
+          problem is not strategy. It is throughput.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- The Operator Thesis -->
+  <div class="mb-7 border border-[color:var(--ss-color-text-primary)]">
+    <div
+      class="flex items-baseline justify-between border-b border-[color:var(--ss-color-text-primary)] px-[18px] py-3.5"
+    >
+      <span class={SEC}>The Operator Thesis</span>
+      <a href={ADR('0037-operator-thesis.md')} class={LINK} target="_blank" rel="noopener"
+        >ADR 0037 →</a
+      >
+    </div>
+    <div class="px-[18px] py-4">
+      <p class={`${BODY} mb-4`}>
+        The operator competes with a hire, not software. The comparison is not &ldquo;is this better
+        than Salesforce&rdquo; but &ldquo;is this better than bringing on a full-time coordinator at
+        $65k/yr.&rdquo; It wins on four dimensions:
+      </p>
+      <div class="grid grid-cols-1 gap-px bg-[color:var(--ss-color-border)] md:grid-cols-2">
+        {
+          thesis.map((t) => (
+            <div class="bg-[color:var(--ss-color-background)] px-4 py-3.5">
+              <span class="mb-1 block text-sm font-bold text-[color:var(--ss-color-text-primary)]">
+                {t.k}
+              </span>
+              <p class={BODY}>{t.v}</p>
+            </div>
+          ))
+        }
+      </div>
+      <p
+        class="mt-4 border-l-2 border-[color:var(--ss-color-primary)] pl-3 text-sm italic text-[color:var(--ss-color-text-primary)]"
+      >
+        The spine of every client conversation: it runs on your firm’s expertise and gets better at
+        your firm every week.
+      </p>
+    </div>
+  </div>
+
+  <!-- The Platform -->
+  <div class="mb-7 border border-[color:var(--ss-color-text-primary)]">
+    <div class="border-b border-[color:var(--ss-color-text-primary)] px-[18px] py-3.5">
+      <span class={SEC}>The Platform</span>
+    </div>
+    <div class="px-[18px] py-4">
+      <span class={`${LAB} mb-2 block`}>Delivery channels</span>
+      <div class="mb-5 border border-[color:var(--ss-color-border)]">
+        {
+          channels.map((c, i) => (
+            <div
+              class:list={[
+                'grid grid-cols-[150px_1fr_auto] items-center gap-3 px-3.5 py-2.5 text-sm',
+                i > 0 && 'border-t border-[color:var(--ss-color-border-subtle)]',
+              ]}
+            >
+              <span class="font-medium text-[color:var(--ss-color-text-primary)]">{c.c}</span>
+              <span class="text-[color:var(--ss-color-text-secondary)]">{c.m}</span>
+              <span class="font-['JetBrains_Mono'] text-[11px] uppercase text-[color:var(--ss-color-complete)]">
+                {c.s}
+              </span>
+            </div>
+          ))
+        }
+      </div>
+
+      <span class={`${LAB} mb-2 block`}>Knowledge composition</span>
+      <p class={`${BODY} mb-2`}>
+        The operator’s knowledge of a client composes three lanes into one legible surface. It reads
+        from them; it cannot write the authored lane or raise its own ceiling.
+      </p>
+      <div class="mb-5 border border-[color:var(--ss-color-border)]">
+        {
+          knowledge.map((k, i) => (
+            <div
+              class:list={[
+                'grid grid-cols-[110px_1fr_auto] items-center gap-3 px-3.5 py-2.5 text-sm',
+                i > 0 && 'border-t border-[color:var(--ss-color-border-subtle)]',
+              ]}
+            >
+              <span class="font-medium text-[color:var(--ss-color-text-primary)]">{k.lane}</span>
+              <span class="text-[color:var(--ss-color-text-secondary)]">{k.src}</span>
+              <span class="font-['JetBrains_Mono'] text-[11px] text-[color:var(--ss-color-text-muted)]">
+                {k.persist}
+              </span>
+            </div>
+          ))
+        }
+      </div>
+
+      <span class={`${LAB} mb-2 block`}>Autonomy ceilings</span>
+      <p class={BODY}>
+        What the operator can do is governed by two independent axes - <strong
+          class="text-[color:var(--ss-color-text-primary)]">initiation</strong
+        > (does it act unprompted) and <strong class="text-[color:var(--ss-color-text-primary)]"
+          >exposure</strong
+        > (does the action cross an external boundary). Each action class has a configured ceiling; the
+        operator refuses anything above it and cannot grant itself new capabilities. Draft-for-review
+        is one authored option for external sends, not the default. See
+        <a
+          href={ADR('0025-autonomy-ceilings-configurable-exposure-vs-initiation.md')}
+          class={LINK}
+          target="_blank"
+          rel="noopener">ADR 0025</a
+        >.
+      </p>
+    </div>
+  </div>
+
+  <!-- Engagement Workflow -->
+  <div class="mb-7 border border-[color:var(--ss-color-text-primary)]">
+    <div class="border-b border-[color:var(--ss-color-text-primary)] px-[18px] py-3.5">
+      <span class={SEC}>Engagement Workflow</span>
+    </div>
+    <div class="px-[18px] py-4">
+      {
+        workflow.map((w, i) => (
+          <div
+            class:list={[
+              'grid grid-cols-[40px_120px_1fr] items-start gap-3 py-3',
+              i > 0 && 'border-t border-[color:var(--ss-color-border-subtle)]',
+            ]}
+          >
+            <span class="font-['JetBrains_Mono'] text-sm text-[color:var(--ss-color-text-muted)]">
+              {w.n}
+            </span>
+            <span class="text-sm font-bold text-[color:var(--ss-color-text-primary)]">{w.k}</span>
+            <p class={BODY}>{w.v}</p>
+          </div>
+        ))
+      }
+      <p class={`${BODY} mt-4 border-t border-[color:var(--ss-color-border-subtle)] pt-4`}>
+        The operator handles volume. The Captain reviews and decides. The client gets a consistently
+        responsive, never-distracted firm that improves with every engagement.
+      </p>
+    </div>
+  </div>
+
+  <!-- The Operator Model (the E-Myth core) -->
+  <div class="mb-7 border-[3px] border-[color:var(--ss-color-text-primary)]">
+    <div class="border-b-[3px] border-[color:var(--ss-color-text-primary)] px-[18px] py-3.5">
+      <span class={SEC}>The Operator Model</span>
+    </div>
+
+    <div class="border-b border-[color:var(--ss-color-border)] px-[18px] py-4">
+      <span class={`${LAB} mb-2.5 block`}>Captain’s Domain</span>
+      <p class={`${BODY} mb-3`}>
+        The Captain governs the operator through the control plane (<a
+          href={ADR('0030-control-plane-human-principal-surface.md')}
+          class={LINK}
+          target="_blank"
+          rel="noopener">ADR 0030</a
+        >) - one surface for authority, configuration, and lifecycle.
+      </p>
+      <div class="space-y-2">
+        {
+          captainDomain.map(([k, v]) => (
+            <div class="grid grid-cols-[160px_1fr] items-baseline gap-3 text-sm">
+              <span class="font-medium text-[color:var(--ss-color-text-primary)]">{k}</span>
+              <span class="text-[color:var(--ss-color-text-secondary)]">{v}</span>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+
+    <div class="border-b border-[color:var(--ss-color-border)] px-[18px] py-4">
+      <span class={`${LAB} mb-2.5 block`}>Agent Execution</span>
+      <ul class="space-y-1.5">
+        {
+          agentExecution.map((a) => (
+            <li class="grid grid-cols-[14px_1fr] gap-2 text-sm text-[color:var(--ss-color-text-secondary)]">
+              <span class="text-[color:var(--ss-color-primary)]">·</span>
+              <span>{a}</span>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+
+    <div class="px-[18px] py-4">
+      <span class={`${LAB} mb-2.5 block`}>The System</span>
+      <p class={`${BODY} mb-3`}>
+        The franchise prototype is the operator platform itself - the harness, the guide, and the
+        memory. No single feature is the moat; the stack is (<a
+          href={ADR('0037-operator-thesis.md')}
+          class={LINK}
+          target="_blank"
+          rel="noopener">ADR 0037</a
+        >, Tenet 4).
+      </p>
+      <div class="grid grid-cols-1 gap-px bg-[color:var(--ss-color-border)] md:grid-cols-3">
+        <div class="bg-[color:var(--ss-color-background)] px-4 py-3.5">
+          <span class="mb-1 block text-sm font-bold text-[color:var(--ss-color-text-primary)]"
+            >The Harness</span
+          >
+          <p class={BODY}>
+            The control plane. Governs what the operator can do, who it can contact, and what
+            requires escalation. A new vertical gets a fresh harness with sensible defaults.
+          </p>
+        </div>
+        <div class="bg-[color:var(--ss-color-background)] px-4 py-3.5">
+          <span class="mb-1 block text-sm font-bold text-[color:var(--ss-color-text-primary)]"
+            >The Guide</span
+          >
+          <p class={BODY}>
+            The per-client authored layer (customer.yaml). The institutional knowledge that survives
+            operator restarts, model upgrades, and platform migrations.
+          </p>
+        </div>
+        <div class="bg-[color:var(--ss-color-background)] px-4 py-3.5">
+          <span class="mb-1 block text-sm font-bold text-[color:var(--ss-color-text-primary)]"
+            >The Memory</span
+          >
+          <p class={BODY}>
+            The learned layer. Per-client preferences and correction history that compound each
+            session - what a human hire cannot replicate on exit.
+          </p>
+        </div>
+      </div>
+      <p class={`${BODY} mt-4`}>
+        A new Captain stepping into this system inherits a running operation, not a blank slate. The
+        harness defines the governance boundary, the guide carries the client context, the memory
+        holds the history. The Captain directs from day one.
+      </p>
+    </div>
+  </div>
+
+  <!-- Positioning / Pricing -->
+  <div class="mb-7 grid grid-cols-1 gap-[18px] md:grid-cols-2">
+    <div class="border border-[color:var(--ss-color-text-primary)]">
+      <div class="border-b border-[color:var(--ss-color-text-primary)] px-[18px] py-3.5">
+        <span class={SEC}>Positioning</span>
+      </div>
+      <div class="px-[18px] py-4">
+        <p class={`${BODY} mb-2`}>
+          Always &ldquo;we / our team,&rdquo; never first-person singular. The engagement is
+          delivered by a team running on the Captain’s direction. The operator is the throughput;
+          the Captain is the judgment layer.
+        </p>
+        <p class={BODY}>
+          Collaborative, objectives-first, enterprise discipline at SMB price and speed. AI is a
+          named capability, used when it is the right answer, stated plainly - never a brand veneer.
+        </p>
+      </div>
+    </div>
+    <div class="border border-[color:var(--ss-color-text-primary)]">
+      <div class="border-b border-[color:var(--ss-color-text-primary)] px-[18px] py-3.5">
+        <span class={SEC}>Pricing</span>
+      </div>
+      <div class="px-[18px] py-4">
+        <div class="space-y-2.5">
+          {
+            pricing.map(([k, v]) => (
+              <div>
+                <span class={`${LAB} block`}>{k}</span>
+                <span class="text-sm text-[color:var(--ss-color-text-secondary)]">{v}</span>
+              </div>
+            ))
+          }
+        </div>
+        <p class="mt-3 text-[11px] text-[color:var(--ss-color-text-muted)]">
+          Internal figures. No dollar amounts published externally.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sources -->
+  <div class="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+    <span class={LAB}>Sources</span>
+    <a href={ADR('decision-stack.md')} class={LINK} target="_blank" rel="noopener"
+      >Decision Stack →</a
+    >
+    <a href={ADR('0037-operator-thesis.md')} class={LINK} target="_blank" rel="noopener"
+      >Operator Thesis →</a
+    >
+    <a
+      href={ADR('0004-productized-operator-offering.md')}
+      class={LINK}
+      target="_blank"
+      rel="noopener">Operator SKU →</a
+    >
+    <a
+      href="https://crane-console.vercel.app/ventures/smd-services/"
+      class={LINK}
+      target="_blank"
+      rel="noopener">Venture overview →</a
+    >
+  </div>
+</AdminLayout>
