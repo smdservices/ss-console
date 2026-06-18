@@ -206,7 +206,11 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # orientation reads (read_file/search_files/skills/session/memory/vision),
 # internal session writes (todo/record_peer_preference/clarify), keeps
 # high-power native tools CODE_EXECUTION, and removes stale unmapped->READ prose.
-ARG OVERLAY_REF="a97013efc4a8b586f4b4f801adef7a93cf5c51ec"
+# 1c2171f — cron reconcile fix (#103): a persona that drops ALL its cron now has
+# its orphaned managed job removed at boot (was firing forever); two-pass
+# fail-closed across the reconcile set; HERMES_HOME snapshot/restore. Also
+# bundles a pre-existing ruff-format fix of webhook_gate.py (no logic change).
+ARG OVERLAY_REF="1c2171f69a8086e575bc9de8cea42504546f3478"
 
 ARG CUSTOMER_SLUG=customer-zero
 
