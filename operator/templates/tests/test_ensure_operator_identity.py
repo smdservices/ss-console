@@ -65,6 +65,10 @@ def test_writes_google_workspace_identity_block(tmp_path: Path) -> None:
     assert "Gmail, Calendar, Drive, Docs, and Sheets" in text
     assert "workspace_* tools" in text
     assert "smdurgan@smdurgan.com" in text
+    assert "pass `mailbox=<address>`" in text
+    assert "Omit `mailbox` for Crane's own mailbox" in text
+    assert "Wave A does not provide a send tool" in text
+    assert "send and receive mail as that Workspace user" not in text
     # The deleted-CLI lure must NOT appear in the agent's identity.
     assert "/app/connectors/google/" not in text
     assert "BUILD connector" not in text

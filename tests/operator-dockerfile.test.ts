@@ -112,7 +112,10 @@ describe('Operator customer Machine Dockerfile', () => {
     // from reusing the ids as the message_id for the still-fenced body read —
     // making a list→get mailbox read impossible. Superset of 8d633a4; also carries
     // already-merged #95 (unmapped tool → REFUSED) and #94 (SOUL.md principal).
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="d8c178e1047069cb2235a578b7bfd87d2b81650e"')
+    // e93a3ff classifies native Hermes orientation reads and in-band session
+    // writes so mission-critical reads do not get refused after the unknown-tool
+    // fail-closed change.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="e93a3ffb89c386f56a7ddb6d69ed86a5b6b62c0a"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
