@@ -202,7 +202,11 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # fencing the id list tainted the result so the agent would not reuse the ids as
 # the message_id for the (still-fenced) body read, making a list→get mailbox read
 # impossible. Superset of 8d633a4 (#98 MCP Clerk clerk_subjects plural) + #95 + #94.
-ARG OVERLAY_REF="d8c178e1047069cb2235a578b7bfd87d2b81650e"
+# e93a3ff — native tool-governance PR-1: classifies mission-critical Hermes
+# orientation reads (read_file/search_files/skills/session/memory/vision),
+# internal session writes (todo/record_peer_preference/clarify), keeps
+# high-power native tools CODE_EXECUTION, and removes stale unmapped->READ prose.
+ARG OVERLAY_REF="e93a3ffb89c386f56a7ddb6d69ed86a5b6b62c0a"
 
 ARG CUSTOMER_SLUG=customer-zero
 
