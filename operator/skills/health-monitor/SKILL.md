@@ -1,7 +1,7 @@
 ---
 name: health-monitor
-description: Fleet health check — polls the console health endpoint and emails Captain on degraded status.
-version: 0.1.0
+description: Fleet health check — polls the console health endpoint and records degraded status.
+version: 0.1.1
 author: SMD Services
 license: MIT
 platforms: [linux]
@@ -20,7 +20,7 @@ metadata:
 
 ## When to Use
 
-Runs on a 30-minute cron. Calls the console-side fleet-health endpoint, evaluates each Machine's status, and emails Captain when any Machine is degraded. Applies a 2-hour per-slug suppression window to avoid repeat pages.
+Runs on a 30-minute cron. Calls the console-side fleet-health endpoint, evaluates each Machine's status, and records an alert line when any Machine is degraded. Applies a 2-hour per-slug suppression window to avoid repeat pages.
 
 **Requires** `code_execution: autonomous` (already authored for SMD customer-zero) and the `OPERATOR_HEALTH_READ_KEY` Fly secret.
 
@@ -55,7 +55,7 @@ with urllib.request.urlopen(req, timeout=15) as resp:
 print(json.dumps(data))
 ```
 
-If the request fails (network error, non-200), treat it as a system alert: the console itself is unreachable. Email Captain immediately with the error text. Do NOT apply suppression to endpoint-unreachable failures.
+If the request fails (network error, non-200), treat it as a system alert: the console itself is unreachable. Print an `ALERT_REQUIRED` line with the error text. Do NOT apply suppression to endpoint-unreachable failures.
 
 ## Step 2 — Load suppression state
 
@@ -82,11 +82,10 @@ For each entry in the health response, determine if it is degraded and unsuppres
 
 Build two lists: `to_alert` (degraded + unsuppressed) and `yellow_slugs` (yellow status, for log only).
 
-## Step 4 — Send alert email
+## Step 4 — Record alert
 
-If `to_alert` is non-empty, use `send_message` to send one email:
+If `to_alert` is non-empty, print one `ALERT_REQUIRED` block:
 
-- **To:** `team@smd.services`
 - **Subject:** `[Operator Alert] Fleet degraded — <comma-separated slugs>`
 - **Body:** Plain text. One line per degraded slug:
 
@@ -96,7 +95,9 @@ If `to_alert` is non-empty, use `send_message` to send one email:
 
   Blank line, then: `Checked at: <generated_at from response>`
 
-Do not send an email when `to_alert` is empty.
+Do not call `send_message`. That runtime tool is not classified and verified as
+an email channel in this operator surface. Do not send an email when `to_alert`
+is empty.
 
 The `OPERATOR_HEALTH_READ_KEY` value must never appear in any email body, log line, or memory entry.
 
@@ -116,12 +117,12 @@ with open('/opt/data/health_monitor_suppression.json', 'w') as f:
 
 Output one line:
 
-- Alerts sent: `health-monitor: alerted <n> slug(s): <list> at <ts>`
+- Alerts recorded: `health-monitor: alert_required <n> slug(s): <list> at <ts>`
 - All green: `health-monitor: all green at <ts>`
 - Yellow only: `health-monitor: <n> yellow (no alert) at <ts>`
 
 ## Restrictions
 
 - Only read/write `/opt/data/health_monitor_suppression.json` and the fleet-health endpoint.
-- Maximum one alert email per slug per 2-hour window (enforced by suppression state).
+- Maximum one alert record per slug per 2-hour window (enforced by suppression state).
 - `OPERATOR_HEALTH_READ_KEY` must never appear in any output.
