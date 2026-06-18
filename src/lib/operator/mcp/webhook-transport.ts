@@ -69,7 +69,7 @@ export function createMachineWebhookTransport(env: MachineWebhookEnv): MachineWe
       const baseUrl = machineBaseUrl(env.OPERATOR_RUNTIME_READ_URL!, app)
       const bearer = await deriveRuntimeReadKey(env.OPERATOR_MCP_WEBHOOK_SECRET!, customerSlug)
 
-      const resp = await fetch(`${baseUrl}/webhooks/mcp`, {
+      const resp = await fetch(`${baseUrl}/webhooks/handoff`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
