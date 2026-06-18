@@ -86,7 +86,7 @@ Build two lists: `to_alert` (degraded + unsuppressed) and `yellow_slugs` (yellow
 
 If `to_alert` is non-empty, use `send_message` to send one email:
 
-- **To:** `smdurgan@venturecrane.com`
+- **To:** `team@smd.services`
 - **Subject:** `[Operator Alert] Fleet degraded — <comma-separated slugs>`
 - **Body:** Plain text. One line per degraded slug:
 
