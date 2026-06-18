@@ -1,0 +1,224 @@
+"""Runtime-control conformance — the CI forcing function (wires-nothing subset).
+
+The validator-style precedents in this tree prove a thing is well-SHAPED. This
+proves the set of runtime safety controls is COMPLETE and DOCUMENTED, so a
+control cannot ship silently absent or silently undocumented — the exact gap that
+let `sticky_stop` (a complete, tested circuit breaker) sit with zero callers and
+zero overlay references while every other test stayed green.
+
+This is the deterministic, offline, CI-time tier. It does NOT prove a control
+fires on a live turn — that is the live negative-fire probe (harness Component 3),
+which overlaps ADR 0050 B3 and folds into B3's design review (Captain decision
+2026-06-18). What this tier enforces against operator/contracts/runtime-controls.yaml:
+
+  (a) completeness from the declared cross-repo surface — every safety-critical
+      hook in overlay-hook-surface.json maps to >=1 registry entry (sees
+      overlay-resident controls a single-repo grep cannot);
+  (b) KNOWN_CONTROLS subset of the registry — the day-one acceptance that the
+      harness actually catches the sticky_stop class;
+  (c) well-formedness — enforced => live_probe + wired_via + probe_surface;
+      unprobed/inert => owner + tracking + note;
+  (d) tracking hygiene — references are well-formed and (once the referenced ADR
+      is in-repo) actually resolve, so an inert control cannot point at a
+      vanished work item.
+
+Run::
+
+    cd operator && python3 -m pytest bin/tests/test_runtime_control_conformance.py -v
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+
+import yaml
+
+_OP = Path(__file__).resolve().parents[2]
+_REGISTRY = _OP / "contracts" / "runtime-controls.yaml"
+_HOOK_SURFACE = _OP / "contracts" / "overlay-hook-surface.json"
+_ADR_DIR = _OP.parent / "docs" / "adr"
+
+_VALID_STATUS = {"enforced", "unprobed", "inert"}
+_VALID_CLASS = {"dispatch-guard", "emitter", "circuit-breaker"}
+_VALID_PROBE_SURFACE = {"staging", "prod-boot"}
+_TRACKING_RE = re.compile(r"^(ADR-\d{4}:B\d+|#\d+|https?://\S+)$")
+
+# Day-one acceptance: the harness is worthless if its discovery silently misses
+# the very class that motivated it. These MUST appear in the registry. If this
+# list and the registry ever diverge, that is the bug (a real control dropped, or
+# a stale expectation) — surfaced, never silent.
+_KNOWN_CONTROLS = {
+    "trust_ceiling",
+    "audit_emission",
+    "sticky_stop_cost_cap",
+    "sticky_stop_tool_failure",
+    "sticky_stop_refusal_cascade",
+    "sticky_stop_time_budget",
+}
+
+
+def _registry() -> dict:
+    return yaml.safe_load(_REGISTRY.read_text(encoding="utf-8")) or {}
+
+
+def _controls() -> dict:
+    return _registry().get("controls") or {}
+
+
+def _hook_surface() -> dict:
+    return json.loads(_HOOK_SURFACE.read_text(encoding="utf-8"))
+
+
+def _hook_of(wired_via: str) -> str:
+    """`"<hook> / <plugin>"` -> `<hook>`."""
+    return (wired_via or "").split("/", 1)[0].strip()
+
+
+# --------------------------------------------------------------------------- #
+# structure                                                                    #
+# --------------------------------------------------------------------------- #
+
+
+def test_registry_has_maintainer_and_controls() -> None:
+    reg = _registry()
+    assert reg.get("maintainer"), "registry must name an overall maintainer"
+    assert _controls(), "registry has no controls"
+
+
+def test_keys_match_control_ids() -> None:
+    for key, spec in _controls().items():
+        assert spec.get("control") == key, (
+            f"control map key {key!r} != entry's control id {spec.get('control')!r}"
+        )
+
+
+def test_status_and_class_are_valid() -> None:
+    for key, spec in _controls().items():
+        assert spec.get("status") in _VALID_STATUS, (
+            f"{key}: invalid status {spec.get('status')!r}"
+        )
+        assert spec.get("class") in _VALID_CLASS, (
+            f"{key}: invalid class {spec.get('class')!r}"
+        )
+        assert spec.get("owner"), f"{key}: every control needs a named owner"
+
+
+def test_well_formed_by_status() -> None:
+    for key, spec in _controls().items():
+        status = spec.get("status")
+        if status == "enforced":
+            assert spec.get("live_probe"), f"{key}: enforced => must name a live_probe"
+            assert spec.get("wired_via"), f"{key}: enforced => must name wired_via"
+            assert spec.get("probe_surface") in _VALID_PROBE_SURFACE, (
+                f"{key}: enforced => probe_surface must be one of {_VALID_PROBE_SURFACE}"
+            )
+        else:  # unprobed | inert
+            assert spec.get("tracking"), (
+                f"{key}: {status} => must carry a `tracking` work item (no silent dead control)"
+            )
+            assert spec.get("note"), f"{key}: {status} => must carry a `note` explaining why"
+
+
+# --------------------------------------------------------------------------- #
+# completeness                                                                 #
+# --------------------------------------------------------------------------- #
+
+
+def test_every_safety_critical_hook_is_covered() -> None:
+    """Drive completeness from the DECLARED surface, not a one-repo grep: every
+    safety-critical hook the overlay must register has >=1 registry control that
+    claims to be wired via it. Catches an overlay-resident control nobody listed.
+    """
+    required = _hook_surface().get("requiredHooks") or {}
+    safety_hooks = {h for h, meta in required.items() if meta.get("safetyCritical")}
+    covered = {
+        _hook_of(spec.get("wired_via", ""))
+        for spec in _controls().values()
+        if spec.get("wired_via")
+    }
+    missing = safety_hooks - covered
+    assert not missing, (
+        f"safety-critical hook(s) {sorted(missing)} are declared in "
+        "overlay-hook-surface.json but no runtime-controls.yaml entry is wired via them. "
+        "A governing hook with no registered control is exactly the inert-control gap."
+    )
+
+
+def test_known_controls_are_registered() -> None:
+    declared = set(_controls())
+    missing = _KNOWN_CONTROLS - declared
+    assert not missing, (
+        f"KNOWN_CONTROLS {sorted(missing)} are absent from the registry. The harness's "
+        "discovery is silently incomplete — this is the day-one acceptance that it catches "
+        "the sticky_stop class. Add the entry (or, if genuinely removed, update _KNOWN_CONTROLS)."
+    )
+
+
+def test_wired_via_hooks_exist_in_surface() -> None:
+    required = set(_hook_surface().get("requiredHooks") or {})
+    for key, spec in _controls().items():
+        wired = spec.get("wired_via")
+        if not wired:
+            continue
+        hook = _hook_of(wired)
+        assert hook in required, (
+            f"{key}: wired_via names hook {hook!r} which is not in overlay-hook-surface.json"
+        )
+
+
+# --------------------------------------------------------------------------- #
+# substrate + tracking hygiene                                                 #
+# --------------------------------------------------------------------------- #
+
+
+def test_ss_console_substrate_paths_exist() -> None:
+    """ss-console substrate modules must exist on disk. Overlay-resident modules
+    (prefixed `overlay:`) are not checked out here — the cross-repo limit
+    overlay-pairs.json / overlay-hook-surface.json already document."""
+    for key, spec in _controls().items():
+        module = spec.get("substrate_module") or ""
+        assert module, f"{key}: substrate_module is required"
+        if module.startswith("overlay:"):
+            continue
+        assert (_OP / module).is_file(), (
+            f"{key}: substrate_module {module!r} does not exist under operator/"
+        )
+
+
+def test_tracking_references_are_well_formed() -> None:
+    for key, spec in _controls().items():
+        if spec.get("status") == "enforced":
+            continue
+        tracking = spec.get("tracking", "")
+        assert _TRACKING_RE.match(tracking), (
+            f"{key}: tracking {tracking!r} must be `ADR-NNNN:Bx`, `#<issue>`, or a URL"
+        )
+
+
+def test_adr_tracking_resolves_when_present() -> None:
+    """Offline teeth: when a tracking ref points at an ADR that IS in-repo, that
+    ADR file must actually contain the cited backlog item — an inert control
+    cannot point at a vanished work item. Skips refs whose ADR is not yet merged
+    onto this branch (e.g. ADR 0050 lands via a sibling PR); activates on merge.
+    """
+    unresolved: list[str] = []
+    for key, spec in _controls().items():
+        tracking = spec.get("tracking", "")
+        m = re.match(r"^ADR-(\d{4}):(B\d+)$", tracking)
+        if not m:
+            continue
+        adr_num, item = m.group(1), m.group(2)
+        matches = list(_ADR_DIR.glob(f"{adr_num}-*.md"))
+        if not matches:
+            unresolved.append(f"{key}->{tracking} (ADR {adr_num} not in-repo yet; skipped)")
+            continue
+        text = matches[0].read_text(encoding="utf-8")
+        assert item in text, (
+            f"{key}: tracking {tracking!r} but ADR {adr_num} does not mention {item}. "
+            "An inert control may not point at a backlog item that no longer exists."
+        )
+    if unresolved:
+        # Visible, non-failing: these activate once the referenced ADR merges.
+        print("runtime-control tracking refs pending ADR merge:\n  " + "\n  ".join(unresolved))
