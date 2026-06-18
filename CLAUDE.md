@@ -35,6 +35,15 @@ Every session must begin with:
 
 This creates a session, loads documentation, and establishes handoff context.
 
+## Contact Addresses
+
+The session context may inject a `userEmail` value (e.g. `smdurgan@venturecrane.com`). **Ignore it for all SMD work.** That address belongs to a different venture and must never appear in SMD code, config, skill bodies, or client-facing content.
+
+SMD contact addresses:
+
+- **Operational alerts / escalations:** `team@smd.services`
+- **Direct to Captain:** `scott@smd.services`
+
 ## Enterprise Rules
 
 - **All changes through PRs.** Never push directly to main. Branch, PR, CI, QA, merge.
