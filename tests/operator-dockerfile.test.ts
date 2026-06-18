@@ -115,7 +115,11 @@ describe('Operator customer Machine Dockerfile', () => {
     // e93a3ff classifies native Hermes orientation reads and in-band session
     // writes so mission-critical reads do not get refused after the unknown-tool
     // fail-closed change.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="e93a3ffb89c386f56a7ddb6d69ed86a5b6b62c0a"')
+    // a97013e (#101) adds /webhooks/handoff to webhook_gate.py — console→Machine
+    // async task handoff (Phase 2, ADR 0043). HMAC bearer auth (WEBHOOK_SECRET_MCP),
+    // stamps source=handoff, forwards to Hermes adapter. Enables operator_handoff_task
+    // MCP tool (ss-console#1458). Superset of e93a3ff.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="a97013efc4a8b586f4b4f801adef7a93cf5c51ec"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
