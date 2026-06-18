@@ -1,0 +1,211 @@
+# ============================================================================
+# Runtime-control conformance registry — the single truth ledger of every
+# safety/runtime control the Operator depends on, and whether it actually FIRES
+# on a live turn (not merely whether the code exists).
+#
+# WHY THIS EXISTS. This venture keeps shipping the same defect: a control is
+# built, tested, merged — and never wired into the live dispatch path on the
+# Machine. Tests pass because they exercise the function in isolation; nothing
+# proves it is invoked on a real turn. The motivating specimen:
+# `safety-substrate/sticky_stop.py` is complete and fully tested (cost cap,
+# tool-failure / refusal / time-budget circuit breakers) yet has ZERO callers in
+# ss-console and ZERO references in the overlay where dispatch runs. The circuit
+# breaker named in PRD §7.5 does not exist at runtime. ADR 0050 records the same
+# fact in its honesty banner ("There is no verified live cost circuit-breaker
+# (B3)").
+#
+# WHAT THIS REGISTRY GUARANTEES (the "wires-nothing" subset). It does NOT wire
+# any control. It makes a control's live status EXPLICIT and OWNED, and — via
+# operator/bin/tests/test_runtime_control_conformance.py — makes a control
+# impossible to ship SILENTLY absent or SILENTLY undocumented:
+#   * completeness: every safety-critical hook declared in overlay-hook-surface.json
+#     must map to a registry entry (catches an overlay-resident control nobody
+#     listed);
+#   * KNOWN_CONTROLS ⊆ registry (catches the sticky_stop class on day one);
+#   * well-formedness: `enforced` ⇒ names a live_probe + wired_via; `unprobed`
+#     and `inert` ⇒ carry owner + tracking + note (cannot rot undocumented).
+#
+# WHAT IS DEFERRED. The live negative-fire PROBE suite (boot-time / staging
+# "exceeding the caps actually halts") is Component 3 of the harness design and
+# overlaps ADR 0050 **B3** ("Confirm sticky-stop is live in the dispatch path …
+# verify on staging that exceeding the caps actually halts"). Per Captain
+# decision 2026-06-18 it folds into B3's mandated design review, NOT this change.
+# `live_probe` / `probe_surface` fields are recorded here so the registry is the
+# shared spec that review navigates by; the probe MECHANISM is not built here.
+#
+# RELATIONSHIP TO ADR 0050. ADR 0050 locks the task-execution taxonomy (7
+# archetypes; execution classes N/C/R/D/A/O; the cross-cutting safety guard).
+# This registry is an ORTHOGONAL axis — it inventories governance/safety CONTROLS
+# and their live-wiring status, not skills or their execution strategy. Unwired
+# controls reference the ADR 0050 backlog item that tracks their wiring rather
+# than forking duplicate issues.
+#
+# STATUS VOCABULARY:
+#   enforced  — wired into the live dispatch path AND has a named live_probe that
+#               proves it fires. (Today: only the two checks already proven by the
+#               overlay gateway:startup activation handler.)
+#   unprobed  — wired into dispatch, but no negative-fire probe proves it fires on
+#               a live turn. The #1285 risk surface (a hook can be registered yet
+#               inert on live turns). Requires owner + tracking + note.
+#   inert     — NOT wired into dispatch at all (the sticky_stop class). Requires
+#               owner + tracking + note.
+#
+# FIELDS:
+#   control          — stable id.
+#   class            — dispatch-guard | emitter | circuit-breaker.
+#   substrate_module — implementing code. ss-console paths are relative to
+#                      operator/. Overlay-resident code is prefixed `overlay:`
+#                      (path is in venturecrane/hermes-smd-overlay, not checked
+#                      out here — the same cross-repo limit overlay-pairs.json and
+#                      overlay-hook-surface.json document).
+#   wired_via        — "<hook> / <overlay-plugin>" that invokes the control.
+#                      Must reference a hook in overlay-hook-surface.json.
+#   live_probe       — name of the negative-fire probe that proves it fires.
+#                      Recorded for the B3 review; the probe itself is not built
+#                      here. Empty for unprobed/inert.
+#   probe_surface    — staging | prod-boot. Where the probe is permitted to run.
+#                      prod-boot is EARNED (a probe earns os._exit boot-gate
+#                      privilege only after a staging flakiness bar). Empty for
+#                      unprobed/inert.
+#   status           — enforced | unprobed | inert.
+#   owner            — named human accountable for the control.
+#   tracking         — for unprobed/inert: the work item that will wire/probe it.
+#                      `ADR-0050:Bx` (backlog item) or `#<issue>` or a URL.
+#   note             — for unprobed/inert: WHY it is not proven-live (free text).
+#
+# ENFORCEMENT: operator/bin/tests/test_runtime_control_conformance.py (CI).
+# ============================================================================
+
+maintainer: SMDurgan
+
+controls:
+  # ---- enforced: wired + proven live by the existing activation self-checks ----
+  trust_ceiling:
+    control: trust_ceiling
+    class: dispatch-guard
+    substrate_module: overlay:plugins/hermes-smd-trust/enforce.py
+    wired_via: 'pre_tool_call / hermes-smd-trust'
+    live_probe: trust_blocks_banned_send
+    probe_surface: prod-boot
+    status: enforced
+    owner: SMDurgan
+    note: >-
+      Proven live today by the overlay gateway:startup activation handler, which
+      drives a real pre_tool_call with a permanently-banned send tool and
+      os._exit(1) if it is not blocked. The B3 review formalizes this inline
+      self-check as a named registry-driven probe.
+
+  audit_emission:
+    control: audit_emission
+    class: emitter
+    substrate_module: overlay:plugins/hermes-smd-audit/emit.py
+    wired_via: 'post_tool_call / hermes-smd-audit'
+    live_probe: audit_writes_row
+    probe_surface: prod-boot
+    status: enforced
+    owner: SMDurgan
+    note: >-
+      Proven live today by the activation handler, which drives a real
+      post_llm_call and asserts an audit_log row was written (row-count
+      before/after) with os._exit(1) on failure. Formalized as a named probe in
+      the B3 review.
+
+  # ---- unprobed: wired into dispatch, but no negative-fire probe proves it ----
+  inbound_trust_boundary:
+    control: inbound_trust_boundary
+    class: dispatch-guard
+    substrate_module: overlay:plugins/hermes-smd-webhook-router/__init__.py
+    wired_via: 'pre_gateway_dispatch / hermes-smd-webhook-router'
+    live_probe: ''
+    probe_surface: ''
+    status: unprobed
+    owner: SMDurgan
+    tracking: ADR-0050:B3
+    note: >-
+      Safety-critical hook (routes inbound webhook payloads + applies the inbound
+      trust boundary, ADR 0027/0032). It IS registered, but no negative-fire probe
+      proves the boundary actually withholds on a live turn — the #1285 shape
+      (registered-but-inert-on-live-turns). A negative-fire probe is Component 3
+      of the harness, folded into the B3 design review.
+
+  taint_gate:
+    control: taint_gate
+    class: dispatch-guard
+    substrate_module: overlay:plugins/hermes-smd-trust/enforce.py
+    wired_via: 'pre_tool_call / hermes-smd-trust'
+    live_probe: ''
+    probe_surface: ''
+    status: unprobed
+    owner: SMDurgan
+    tracking: ADR-0050:B0
+    note: >-
+      Sticky SessionTaint gate (an untrusted-fed turn cannot autonomously
+      send/destroy/exec). Wired, but ADR 0050 B0 records a VERIFIED bypass: the
+      gate keys on session_id and a delegate_task child runs under a fresh,
+      never-tainted session. No negative-fire probe proves taint actually blocks
+      on a live turn, and the B0 hole is open. Tracked by ADR 0050 B0 (fix first,
+      blocks B2); probe coverage folds into the B3 review.
+
+  # ---- inert: NOT wired into dispatch at all (the motivating class) ----
+  # All four arms live in safety-substrate/sticky_stop.py: complete, fully
+  # tested, ZERO callers in ss-console, ZERO references in the overlay. One
+  # wiring effort (ADR 0050 B3) wires the StickyStopError-raising dispatch
+  # integration that covers every arm.
+  sticky_stop_cost_cap:
+    control: sticky_stop_cost_cap
+    class: circuit-breaker
+    substrate_module: safety-substrate/sticky_stop.py
+    wired_via: ''
+    live_probe: ''
+    probe_surface: ''
+    status: inert
+    owner: SMDurgan
+    tracking: ADR-0050:B3
+    note: >-
+      record_cost_cents()/assert_allowed() + the $50/day (cost_daily_cents=5000)
+      ladder. No caller anywhere; not referenced in the overlay dispatch path.
+      No verified financial circuit breaker on the live Machine (ADR 0050 honesty
+      banner #3). B3 wires it.
+
+  sticky_stop_tool_failure:
+    control: sticky_stop_tool_failure
+    class: circuit-breaker
+    substrate_module: safety-substrate/sticky_stop.py
+    wired_via: ''
+    live_probe: ''
+    probe_surface: ''
+    status: inert
+    owner: SMDurgan
+    tracking: ADR-0050:B3
+    note: >-
+      record_tool_failure() consecutive-failure ladder (WARN/SOFT_STOP/HARD_STOP).
+      Built + tested; no dispatch caller. Wired by B3 (StickyStopError integration
+      covers all sticky_stop arms).
+
+  sticky_stop_refusal_cascade:
+    control: sticky_stop_refusal_cascade
+    class: circuit-breaker
+    substrate_module: safety-substrate/sticky_stop.py
+    wired_via: ''
+    live_probe: ''
+    probe_surface: ''
+    status: inert
+    owner: SMDurgan
+    tracking: ADR-0050:B3
+    note: >-
+      record_refusal() refusal-cascade ladder. Built + tested; no dispatch caller.
+      Wired by B3.
+
+  sticky_stop_time_budget:
+    control: sticky_stop_time_budget
+    class: circuit-breaker
+    substrate_module: safety-substrate/sticky_stop.py
+    wired_via: ''
+    live_probe: ''
+    probe_surface: ''
+    status: inert
+    owner: SMDurgan
+    tracking: ADR-0050:B3
+    note: >-
+      record_runtime_seconds() 3600s wall-clock single-run cap → SOFT_STOP. Built
+      + tested; no dispatch caller. Wired by B3.
