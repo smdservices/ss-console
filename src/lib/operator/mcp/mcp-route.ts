@@ -27,6 +27,10 @@ export interface McpRouteDependencies {
     auth: Extract<McpAuthResult, { ok: true }>,
     query: RuntimeReadQuery
   ) => Promise<RuntimeReadResult>
+  sendHandoff?: (
+    auth: Extract<McpAuthResult, { ok: true }>,
+    params: { handoff_id: string; task: string; context?: string }
+  ) => Promise<void>
 }
 
 function jsonWithCors(body: unknown, status: number, extra?: Record<string, string>): Response {
@@ -117,6 +121,7 @@ export async function handleMcpPost(
     email: auth.email,
     profile: auth.profile,
     readRuntime: (query) => deps.readRuntime(auth, query),
+    sendHandoff: deps.sendHandoff ? (params) => deps.sendHandoff!(auth, params) : undefined,
   })
   return withCorsHeaders(response)
 }

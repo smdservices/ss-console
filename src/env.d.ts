@@ -260,6 +260,16 @@ declare namespace Cloudflare {
      */
     OPERATOR_RUNTIME_READ_SECRET?: string
     /**
+     * Master secret for the per-customer MCP webhook delivery key. The console
+     * derives `HMAC-SHA256(master, customer_slug)` and sends it as a bearer
+     * token to the Machine's `/webhooks/mcp` gate; each Machine holds only its
+     * own derived key (`WEBHOOK_SECRET_MCP` set at provision). The master lives
+     * ONLY on the console. Required (with OPERATOR_RUNTIME_READ_URL) to enable
+     * `operator_handoff_task` (Phase 2 MCP connector).
+     * See src/lib/operator/mcp/webhook-transport.ts.
+     */
+    OPERATOR_MCP_WEBHOOK_SECRET?: string
+    /**
      * Sentry Internal Integration Client Secret used to verify
      * `Sentry-Hook-Signature` headers on inbound alert-rule webhook
      * deliveries to `/api/webhooks/sentry`. Pulled from the SMD-owned
