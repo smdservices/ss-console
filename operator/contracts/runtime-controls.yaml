@@ -140,11 +140,19 @@ controls:
     tracking: ADR-0050:B0
     note: >-
       Sticky SessionTaint gate (an untrusted-fed turn cannot autonomously
-      send/destroy/exec). Wired, but ADR 0050 B0 records a VERIFIED bypass: the
-      gate keys on session_id and a delegate_task child runs under a fresh,
-      never-tainted session. No negative-fire probe proves taint actually blocks
-      on a live turn, and the B0 hole is open. Tracked by ADR 0050 B0 (fix first,
-      blocks B2); probe coverage folds into the B3 review.
+      send/destroy/exec). ADR 0050 B0's MAIN bypass is now CLOSED + LIVE: the
+      verified hole was untrusted content read via the code-execution channel
+      (execute_code/terminal/process/computer_use), which is not in the fenced-
+      read allowlist, so reading injected content in code left the session
+      untainted and an autonomous send allowed. overlay#105 taints that channel;
+      shipped to customer-zero 2026-06-19 (OVERLAY_REF af20ecd, invariant_8
+      activation PASS). (The original "delegate_task child runs untainted" framing
+      here was WRONG — a tainted parent is already taint-gated from delegating;
+      the real channel was execute_code.) RESIDUAL: delegate_task result-
+      laundering (a child's untrusted read returning in its result) needs separate
+      design — tracked, not closed. STATUS stays `unprobed`: the fix is live in
+      code but no negative-fire probe proves the taint blocks on a real turn —
+      that probe is Component 3, folded into the B3 review.
 
   # ---- inert: NOT wired into dispatch at all (the motivating class) ----
   # All four arms live in safety-substrate/sticky_stop.py: complete, fully
