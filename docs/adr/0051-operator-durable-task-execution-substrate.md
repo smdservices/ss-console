@@ -42,8 +42,8 @@ Today a long task runs in one synchronous turn against a hard 55s reply budget (
 
 ## Consequences
 
-- **MVP is read-mostly:** the broker ledger (folded), the in-gateway worker thread, the `hermes-smd-jobs` plugin (`start_background_job` / `job_status` / `job_cancel`), pre-spend cost, taint-at-construction, the `deliver_to` allowlist, and the delivery state machine. Proof is a long **Class-D** job (multi-document review), not receipts.
-- **Deferred (sequenced, not a 20-phase build):** send-capable jobs (full idempotency enforcement + the dedicated `smd-jobs` uid/isolation), concurrency >1, progress streaming, the console D1 mirror + `jobs` runtime-read kind, TTL/archival.
+- **MVP is read-mostly:** the broker ledger (folded), the in-gateway worker thread, the `hermes-smd-jobs` plugin (`start_background_job` / `job_status` / `job_cancel`), pre-spend cost, taint-at-construction, the `deliver_to` allowlist, the delivery state machine, the R2 result store, and the `jobs` runtime-read observability seam (`GET /runtime/jobs` + `job_status`/`job_cancel` MCP verbs). Proof is a long **Class-D** job (multi-document review), not receipts.
+- **Deferred (sequenced, not a 20-phase build):** send-capable jobs (full idempotency enforcement + the dedicated `smd-jobs` uid/isolation), concurrency >1, progress streaming, the console D1 mirror, TTL/archival.
 - **Hard prerequisites:** a **broker respawn-supervisor** (for the broker-down protocol); **B0 generalized** to taint the worker session (MVP's read-mostly + fail-closed taint lets it proceed alongside).
 - **CI is the durability guard:** a deterministic crash test (`os._exit` after a journaled effect, before completion → no re-execution), a fencing test, a pre-spend + mid-segment cost test, a readiness-barrier test, and an identity test. The real Fly machine-restart is a documented one-time staging acceptance, not a CI claim.
 

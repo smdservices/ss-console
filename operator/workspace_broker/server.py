@@ -210,6 +210,11 @@ class Broker:
         if action == "job_list_claimable":
             now, cutoff = now_and_lease_cutoff(LEASE_TTL_SECONDS)
             return {"ok": True, "jobs": jl.list_claimable(now, cutoff)}
+        if action == "job_list":
+            # Observability read: every job row (terminal + live), newest first.
+            # Powers the console's ``jobs`` runtime-read kind so the worker is
+            # verifiable end-to-end over HTTPS. Read-only — no lease filter.
+            return {"ok": True, "jobs": jl.list_all()}
 
         job_id = str(request.get("job_id") or "")
         if not job_id:

@@ -43,9 +43,9 @@ intake (`start_background_job` → control row w/ identity, ticket <55s) → cla
 
 ## MVP (read-mostly) and deferred
 
-**MVP:** folded broker ledger + verbs · in-gateway worker thread (no new uid) · `hermes-smd-jobs` plugin (`start_background_job`, `job_status`, `job_cancel`) · pre-spend cost via wired `sticky_stop` + `budget_cents` · taint-at-construction · `deliver_to` allowlist · delivery state machine. Proof: a long **Class-D** job (multi-document review), **not receipts**.
+**MVP:** folded broker ledger + verbs · in-gateway worker thread (no new uid) · `hermes-smd-jobs` plugin (`start_background_job`, `job_status`, `job_cancel`) · pre-spend cost via wired `sticky_stop` + `budget_cents` · taint-at-construction (B0) · `deliver_to` allowlist · delivery state machine · R2 result store · `jobs` runtime-read observability (`GET /runtime/jobs`) + `job_status`/`job_cancel` MCP verbs. Proof: a long **Class-D** job (multi-document review), **not receipts**.
 
-**Deferred (sequenced):** send-capable jobs (full idempotency enforcement + the `smd-jobs` uid/isolation) · concurrency >1 · progress streaming · console D1 mirror + `jobs` runtime-read kind · TTL/archival.
+**Deferred (sequenced):** send-capable jobs (full idempotency enforcement + the `smd-jobs` uid/isolation) · concurrency >1 · progress streaming · console D1 mirror · TTL/archival.
 
 ## File map
 

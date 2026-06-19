@@ -215,7 +215,10 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # the fan-out registration (plugin.yaml) + consumes.yaml env declarations that
 # the first staging boot surfaced as missing. Pairs with the console broker
 # job_* verbs COPYied into this image. STAGING (iteration 2).
-ARG OVERLAY_REF="7f493c605ec0999db1bd4fb15a7cca34a4442cec"
+# 7d1561b — B1 wave 2: observability (`jobs` runtime-read + job_status/job_cancel
+# MCP verbs), R2 result store, and B0 worker-session taint (fail-closed). Twins
+# unchanged; only the ref moves.
+ARG OVERLAY_REF="7d1561bf1a70daf50d8cd909a2cb4124bc80ceb6"
 
 ARG CUSTOMER_SLUG=customer-zero
 

@@ -215,6 +215,23 @@ class JobLedgerWriter:
         finally:
             conn.close()
 
+    def list_all(self) -> list[dict]:
+        """Every job row, newest-created first. Powers the observability seam
+        (the console's ``jobs`` runtime-read kind) — unlike ``list_claimable``,
+        it includes terminal and live-leased jobs and applies no lease filter,
+        so an operator surface can show the full job history. Read-only: opens
+        the same per-op connection as every other read."""
+        conn = self._connect()
+        try:
+            # Tiebreak on id (a ULID) so jobs created in the same millisecond
+            # have a stable, deterministic newest-first order on the seam.
+            rows = conn.execute(
+                "SELECT * FROM jobs ORDER BY created_at DESC, id DESC"
+            ).fetchall()
+            return [dict(r) for r in rows]
+        finally:
+            conn.close()
+
     def list_claimable(self, now: str, lease_expiry_cutoff: str) -> list[dict]:
         """Non-terminal jobs that are unleased or whose lease has expired
         (``lease_ts < lease_expiry_cutoff``). Used by the boot-sweep and the

@@ -163,6 +163,36 @@ def test_request_cancel_sets_flag_and_respects_terminal(tmp_path):
     assert w.request_cancel(job_id) is False
 
 
+def test_list_all_returns_every_job_newest_first(tmp_path):
+    """The observability seam (``jobs`` runtime-read kind) needs ALL jobs —
+    terminal and live-leased included — newest-created first, with no lease
+    filter (unlike ``list_claimable``)."""
+    w = _writer(tmp_path)
+    first = _new_job(w)
+    second = _new_job(w)
+    third = _new_job(w)
+
+    # Drive them to distinct states: one terminal, one live-leased, one queued.
+    epoch = w.claim(first, "w", now=T0, lease_expiry_cutoff=CUTOFF_NONE_EXPIRED)
+    w.record(first, epoch, {"status": "done"})
+    w.claim(second, "w", now=T0, lease_expiry_cutoff=CUTOFF_NONE_EXPIRED)  # live lease
+
+    rows = w.list_all()
+    ids = [r["id"] for r in rows]
+    # All three present regardless of status/lease.
+    assert set(ids) == {first, second, third}
+    # Newest-created first (ULIDs are lexicographically time-sortable).
+    assert ids == sorted(ids, reverse=True)
+    # The terminal and live-leased jobs that list_claimable would hide are here.
+    by_id = {r["id"]: r for r in rows}
+    assert by_id[first]["status"] == "done"
+    assert by_id[second]["lease_owner"] == "w"
+
+
+def test_list_all_empty_when_no_jobs(tmp_path):
+    assert _writer(tmp_path).list_all() == []
+
+
 def test_list_claimable_excludes_terminal_and_live_leases(tmp_path):
     w = _writer(tmp_path)
     queued = _new_job(w)

@@ -39,7 +39,13 @@
  * authored behavioral lane, ADR 0048) is the only section today. Unlike a whole
  * config read, it is allow-listed to non-secret sections so the connector
  * secrets in `customer.yaml` can never cross the seam. The Machine refuses any
- * section outside its allow-list. */
+ * section outside its allow-list.
+ *
+ * `jobs` serves the B1 durable-job control plane (ADR 0051) — the broker-owned
+ * job ledger projected to the operator-visible control facts (status, cost,
+ * lease, result, error) so a background job is verifiable end-to-end over the
+ * same authenticated read seam. It takes no extra query field; the Machine
+ * reads its own ledger over the broker socket and returns a single page. */
 export const RUNTIME_READ_KINDS = [
   'audit_log',
   'draft',
@@ -47,6 +53,7 @@ export const RUNTIME_READ_KINDS = [
   'activity',
   'memory_export',
   'config_export',
+  'jobs',
 ] as const
 export type RuntimeReadKind = (typeof RUNTIME_READ_KINDS)[number]
 
