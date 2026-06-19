@@ -69,14 +69,16 @@ def test_claim_record_flow_through_broker(tmp_path):
          "fields": {"spent_cents": 42}},
         GATEWAY_PID,
     )
-    assert rec["ok"] is True
-    # Stale epoch is fenced out at the dispatch boundary too.
+    assert rec["result"] is True
+    # Stale epoch is fenced out at the dispatch boundary too (ok=processed,
+    # result=False).
     stale = b.handle(
         {"action": "job_record", "job_id": job_id, "lease_epoch": epoch - 1,
          "fields": {"spent_cents": 999}},
         GATEWAY_PID,
     )
-    assert stale["ok"] is False
+    assert stale["ok"] is True
+    assert stale["result"] is False
 
 
 def test_idempotency_decision_through_broker(tmp_path):
@@ -93,7 +95,7 @@ def test_idempotency_decision_through_broker(tmp_path):
         {"action": "job_idem_complete", "job_id": job_id, "lease_epoch": epoch, "step_key": "send:x"},
         GATEWAY_PID,
     )
-    assert done["ok"] is True
+    assert done["result"] is True
 
 
 def test_unconfigured_job_ledger_raises(tmp_path):

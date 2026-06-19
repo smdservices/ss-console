@@ -217,7 +217,11 @@ class Broker:
         if action == "job_read":
             return {"ok": True, "job": jl.read(job_id)}
         if action == "job_cancel":
-            return {"ok": jl.request_cancel(job_id)}
+            # ``ok`` == request processed; ``result`` == the verb's boolean
+            # outcome. Keeping them separate lets a legitimately-false outcome
+            # (e.g. a fenced-out record) return False instead of reading as a
+            # transport refusal on the client.
+            return {"ok": True, "result": jl.request_cancel(job_id)}
         if action == "job_claim":
             worker_id = str(request.get("worker_id") or "")
             if not worker_id:
@@ -232,19 +236,19 @@ class Broker:
             raise ValueError(f"{action} requires an integer lease_epoch")
         if action == "job_heartbeat":
             now, _ = now_and_lease_cutoff(LEASE_TTL_SECONDS)
-            return {"ok": jl.heartbeat(job_id, epoch, now)}
+            return {"ok": True, "result": jl.heartbeat(job_id, epoch, now)}
         if action == "job_record":
             fields = request.get("fields")
             if not isinstance(fields, dict):
                 raise ValueError("job_record requires a 'fields' object")
-            return {"ok": jl.record(job_id, epoch, fields)}
+            return {"ok": True, "result": jl.record(job_id, epoch, fields)}
         step_key = str(request.get("step_key") or "")
         if not step_key:
             raise ValueError(f"{action} requires step_key")
         if action == "job_idem_begin":
             return {"ok": True, "decision": jl.idempotency_begin(job_id, step_key, epoch)}
         if action == "job_idem_complete":
-            return {"ok": jl.idempotency_complete(job_id, step_key, epoch)}
+            return {"ok": True, "result": jl.idempotency_complete(job_id, step_key, epoch)}
         raise ValueError(f"unsupported job action: {action}")
 
 
