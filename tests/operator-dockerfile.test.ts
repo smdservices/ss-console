@@ -124,7 +124,12 @@ describe('Operator customer Machine Dockerfile', () => {
     // two-pass fail-closed across the reconcile set; HERMES_HOME snapshot/restore.
     // Also a pure ruff-format pass on webhook_gate.py (no logic change). Superset
     // of a97013e.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="1c2171f69a8086e575bc9de8cea42504546f3478"')
+    // 31ea5ab (#105, ADR 0050 B0) taints the code-execution channel (execute_code/
+    // terminal/process/computer_use) so reading injected content in code no longer
+    // leaves the session untainted with an autonomous send allowed. RELEASE branch
+    // release/b0-taint-code-exec = 1c2171f + B0 only (cherry-pick), excluding the
+    // WIP B1 substrate (e8411ca) on overlay main. No tracked-pair file changed.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="31ea5ab05b97bb5d4ae5375ee6dd20325680ee58"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
