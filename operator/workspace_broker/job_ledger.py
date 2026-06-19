@@ -38,10 +38,31 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+from datetime import UTC, datetime, timedelta
 
 from .audit_ledger import _iso_utc, _ulid  # ULID/timestamp format in lockstep
 
 logger = logging.getLogger(__name__)
+
+# A lease older than this (relative to the broker's clock) is reclaimable. The
+# broker — one process per Machine — is the single clock of record for lease
+# timing, so callers never supply time over the wire (a worker can't lie its
+# lease alive). Set generously above a worst-case segment's wall-clock so a
+# live-but-busy worker is not stolen from; the worker heartbeats well inside it.
+LEASE_TTL_SECONDS = 900
+
+
+def _fmt_iso(dt: datetime) -> str:
+    """Format a datetime exactly like ``audit_ledger._iso_utc`` (ms + Z) so
+    job timestamps sort against each other and against audit rows."""
+    return dt.strftime("%Y-%m-%dT%H:%M:%S.") + f"{dt.microsecond // 1000:03d}Z"
+
+
+def now_and_lease_cutoff(ttl_seconds: int = LEASE_TTL_SECONDS) -> tuple[str, str]:
+    """Return ``(now_iso, expiry_cutoff_iso)`` from the broker's clock. A job
+    whose ``lease_ts < expiry_cutoff_iso`` is reclaimable."""
+    now = datetime.now(UTC)
+    return _fmt_iso(now), _fmt_iso(now - timedelta(seconds=ttl_seconds))
 
 # Terminal statuses never re-claimed by the boot-sweep or a claim attempt.
 TERMINAL_STATUSES: frozenset[str] = frozenset({"delivered", "done", "needs_review", "cancelled"})
