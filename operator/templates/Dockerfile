@@ -210,7 +210,13 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # its orphaned managed job removed at boot (was firing forever); two-pass
 # fail-closed across the reconcile set; HERMES_HOME snapshot/restore. Also
 # bundles a pre-existing ruff-format fix of webhook_gate.py (no logic change).
-ARG OVERLAY_REF="1c2171f69a8086e575bc9de8cea42504546f3478"
+# 31ea5ab — ADR 0050 B0 (overlay#105): the code-execution channel (execute_code/
+# terminal/process/computer_use) now taints the session, closing the confirmed
+# bypass where reading injected content in code left the session untainted and an
+# autonomous send allowed. RELEASE BRANCH (release/b0-taint-code-exec) = 1c2171f +
+# B0 only, cherry-picked to EXCLUDE the WIP B1 substrate (e8411ca) that sits
+# between them on overlay main. No hashed-twin file changed → overlaySha256 stable.
+ARG OVERLAY_REF="31ea5ab05b97bb5d4ae5375ee6dd20325680ee58"
 
 ARG CUSTOMER_SLUG=customer-zero
 
