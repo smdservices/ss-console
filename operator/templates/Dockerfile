@@ -210,12 +210,12 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # its orphaned managed job removed at boot (was firing forever); two-pass
 # fail-closed across the reconcile set; HERMES_HOME snapshot/restore. Also
 # bundles a pre-existing ruff-format fix of webhook_gate.py (no logic change).
-# baa9495 — B1 durable task-execution substrate (overlay half, ADR 0051): job
-# ledger client + hermes-smd-jobs plugin (start_background_job / job_status /
-# job_cancel / job_record_sideeffect) + the in-gateway worker thread
-# (claim / lineage-resume / per-segment cost+cancel / delivery state machine).
-# Pairs with the console broker job_* verbs COPYied into this image. STAGING.
-ARG OVERLAY_REF="baa949583bd5584e98d5398f43d1cd4091136d70"
+# 7f493c6 — B1 durable task-execution substrate (overlay half, ADR 0051): job
+# ledger client + hermes-smd-jobs plugin + the in-gateway worker thread. Adds
+# the fan-out registration (plugin.yaml) + consumes.yaml env declarations that
+# the first staging boot surfaced as missing. Pairs with the console broker
+# job_* verbs COPYied into this image. STAGING (iteration 2).
+ARG OVERLAY_REF="7f493c605ec0999db1bd4fb15a7cca34a4442cec"
 
 ARG CUSTOMER_SLUG=customer-zero
 

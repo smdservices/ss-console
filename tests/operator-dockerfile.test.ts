@@ -128,7 +128,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // ledger client + hermes-smd-jobs plugin + in-gateway worker). Additive on
     // top of 1c2171f; the vendored adapter twins (and their overlaySha256) are
     // unchanged, so only overlayRef is re-pinned in overlay-pairs.json.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="baa949583bd5584e98d5398f43d1cd4091136d70"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="7f493c605ec0999db1bd4fb15a7cca34a4442cec"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
