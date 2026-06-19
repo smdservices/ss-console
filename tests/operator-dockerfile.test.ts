@@ -124,7 +124,11 @@ describe('Operator customer Machine Dockerfile', () => {
     // two-pass fail-closed across the reconcile set; HERMES_HOME snapshot/restore.
     // Also a pure ruff-format pass on webhook_gate.py (no logic change). Superset
     // of a97013e.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="1c2171f69a8086e575bc9de8cea42504546f3478"')
+    // baa9495 (B1 staging): adds the durable task-execution overlay half (job
+    // ledger client + hermes-smd-jobs plugin + in-gateway worker). Additive on
+    // top of 1c2171f; the vendored adapter twins (and their overlaySha256) are
+    // unchanged, so only overlayRef is re-pinned in overlay-pairs.json.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="baa949583bd5584e98d5398f43d1cd4091136d70"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
