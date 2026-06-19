@@ -219,7 +219,13 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # (observability `jobs` runtime-read + job_status/job_cancel MCP verbs, R2 result
 # store, B0 worker-session taint) plus the ruff/format/per-plugin-manifest CI
 # fixes. Twins unchanged; only the ref moves.
-ARG OVERLAY_REF="e8411cae37824515e584f596f0f74701a983d622"
+# af20ecd — ADR 0050 B0 (overlay#105): the code-execution INGESTION channel
+# (execute_code/terminal/process/computer_use) now taints the session, closing
+# the confirmed injection bypass where reading injected content in code left the
+# session untainted and an autonomous send allowed. Distinct from e8411ca's
+# durable-worker session taint. Additive on top of e8411ca (= 1c2171f + B1 + B0);
+# twins unchanged, overlaySha256 stable.
+ARG OVERLAY_REF="af20ecd8c1831be4297c2d89018ca69984b09899"
 
 ARG CUSTOMER_SLUG=customer-zero
 
