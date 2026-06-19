@@ -18,6 +18,7 @@ from typing import Any
 
 from .audit_ledger import LedgerWriter
 from .google_auth import materialize_credential
+from .job_ledger import LEASE_TTL_SECONDS, JobLedgerWriter, now_and_lease_cutoff
 from .operations import WorkspaceOperations
 
 MAX_REQUEST_BYTES = 1_048_576
@@ -90,6 +91,10 @@ class Broker:
     # Class default so instances built via ``__new__`` (tests) and pre-WS5
     # images without SMD_AUDIT_DB_PATH have a defined, audit-disabled ledger.
     ledger: LedgerWriter | None = None
+    # B1 job-control plane. Same default-disabled posture as ``ledger`` so
+    # instances built via ``__new__`` (tests) and pre-B1 images have a defined,
+    # job-disabled ledger.
+    job_ledger: JobLedgerWriter | None = None
 
     def __init__(self) -> None:
         self.socket_path = Path(os.environ["SMD_WORKSPACE_BROKER_SOCKET"])
@@ -107,6 +112,11 @@ class Broker:
         # this broker does not touch it.
         audit_db_path = os.environ.get("SMD_AUDIT_DB_PATH")
         self.ledger = LedgerWriter(audit_db_path) if audit_db_path else None
+        # B1: the job ledger folds into the SAME broker-owned DB file (one
+        # mount, one uid boundary). Mutable control state, distinct table set;
+        # the audit_log append-only guarantee is untouched (no job verb writes
+        # audit_log). Disabled when the audit DB is unconfigured (pre-B1 image).
+        self.job_ledger = JobLedgerWriter(audit_db_path) if audit_db_path else None
 
     def handle(self, request: dict[str, Any], peer_pid: int) -> dict[str, Any]:
         action = request.get("action")
@@ -116,6 +126,7 @@ class Broker:
                 "credential_ready": self.credential_path.is_file(),
                 "customer_ready": self.customer_path.is_file(),
                 "audit_ready": self.ledger is not None,
+                "jobs_ready": self.job_ledger is not None,
                 "supported_ops": self.operations.supported_operations(),
             }
         if peer_pid != self.gateway_pid:
@@ -132,6 +143,14 @@ class Broker:
                 raise ValueError("audit_append requires a 'row' object")
             row_id = self.ledger.append(row)
             return {"ok": True, "id": row_id}
+        # B1 durable-job control plane. PID-gated (above): only the gateway
+        # (which hosts the worker thread) reaches these; execute_code/terminal
+        # children get a different peer PID and are rejected, so the agent
+        # cannot claim leases, raise budgets, or flip job status directly.
+        if isinstance(action, str) and action.startswith("job_"):
+            if self.job_ledger is None:
+                raise ValueError("job ledger not configured on this broker")
+            return self._handle_job(action, request)
         operation = str(request.get("operation") or "")
         payload = request.get("payload")
         if not operation.startswith("workspace_") or not isinstance(payload, dict):
@@ -176,6 +195,66 @@ class Broker:
             journal.chmod(0o600)
             return {"ok": True, "result": result, "receipt": receipt}
         raise ValueError("unsupported broker action")
+
+    def _handle_job(self, action: str, request: dict[str, Any]) -> dict[str, Any]:
+        """Dispatch the B1 job-ledger verbs. Time is stamped server-side
+        (``now_and_lease_cutoff``) — the broker is the single clock of record
+        for lease timing, so callers never pass time over the wire."""
+        jl = self.job_ledger
+        assert jl is not None  # guarded by the caller
+        if action == "job_create":
+            row = request.get("row")
+            if not isinstance(row, dict):
+                raise ValueError("job_create requires a 'row' object")
+            return {"ok": True, "id": jl.create(row)}
+        if action == "job_list_claimable":
+            now, cutoff = now_and_lease_cutoff(LEASE_TTL_SECONDS)
+            return {"ok": True, "jobs": jl.list_claimable(now, cutoff)}
+        if action == "job_list":
+            # Observability read: every job row (terminal + live), newest first.
+            # Powers the console's ``jobs`` runtime-read kind so the worker is
+            # verifiable end-to-end over HTTPS. Read-only — no lease filter.
+            return {"ok": True, "jobs": jl.list_all()}
+
+        job_id = str(request.get("job_id") or "")
+        if not job_id:
+            raise ValueError(f"{action} requires job_id")
+        if action == "job_read":
+            return {"ok": True, "job": jl.read(job_id)}
+        if action == "job_cancel":
+            # ``ok`` == request processed; ``result`` == the verb's boolean
+            # outcome. Keeping them separate lets a legitimately-false outcome
+            # (e.g. a fenced-out record) return False instead of reading as a
+            # transport refusal on the client.
+            return {"ok": True, "result": jl.request_cancel(job_id)}
+        if action == "job_claim":
+            worker_id = str(request.get("worker_id") or "")
+            if not worker_id:
+                raise ValueError("job_claim requires worker_id")
+            now, cutoff = now_and_lease_cutoff(LEASE_TTL_SECONDS)
+            return {"ok": True, "lease_epoch": jl.claim(job_id, worker_id, now, cutoff)}
+
+        # The remaining verbs are epoch-fenced: a stale worker's write is a
+        # no-op (the ledger checks lease_epoch in the WHERE clause).
+        epoch = request.get("lease_epoch")
+        if not isinstance(epoch, int):
+            raise ValueError(f"{action} requires an integer lease_epoch")
+        if action == "job_heartbeat":
+            now, _ = now_and_lease_cutoff(LEASE_TTL_SECONDS)
+            return {"ok": True, "result": jl.heartbeat(job_id, epoch, now)}
+        if action == "job_record":
+            fields = request.get("fields")
+            if not isinstance(fields, dict):
+                raise ValueError("job_record requires a 'fields' object")
+            return {"ok": True, "result": jl.record(job_id, epoch, fields)}
+        step_key = str(request.get("step_key") or "")
+        if not step_key:
+            raise ValueError(f"{action} requires step_key")
+        if action == "job_idem_begin":
+            return {"ok": True, "decision": jl.idempotency_begin(job_id, step_key, epoch)}
+        if action == "job_idem_complete":
+            return {"ok": True, "result": jl.idempotency_complete(job_id, step_key, epoch)}
+        raise ValueError(f"unsupported job action: {action}")
 
 
 class RequestHandler(socketserver.StreamRequestHandler):
