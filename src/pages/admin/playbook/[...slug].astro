@@ -1,0 +1,81 @@
+---
+/**
+ * Venture Handbook — single page renderer.
+ *
+ * Resolves the slug to a `handbook` collection entry at request time (SSR;
+ * no getStaticPaths) and renders its markdown in the Plainspoken aesthetic.
+ * Admin-only: the explicit role guard matches every other admin page and is
+ * defense-in-depth over the middleware admin gate (src/middleware.ts).
+ */
+import AdminLayout from '../../../layouts/AdminLayout.astro'
+import HandbookSidebar from './_HandbookSidebar.astro'
+import { getEntry, render } from 'astro:content'
+
+const session = Astro.locals.session!
+if (session.role !== 'admin') {
+  return Astro.redirect('/auth/sign-in')
+}
+
+const { slug } = Astro.params
+const entry = slug ? await getEntry('handbook', slug) : undefined
+if (!entry) {
+  return Astro.redirect('/admin/playbook')
+}
+
+const { Content } = await render(entry)
+const { title, summary, sources, status } = entry.data
+
+const LAB =
+  "font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
+const LINK =
+  "font-['Archivo_Narrow'] text-[10px] font-bold uppercase tracking-[0.1em] text-[color:var(--ss-color-primary)] hover:underline"
+---
+
+<AdminLayout
+  title={`${title} | Handbook`}
+  maxWidth="max-w-6xl"
+  breadcrumbs={[{ label: 'Playbook', href: '/admin/playbook' }, { label: title }]}
+>
+  <div class="grid grid-cols-1 gap-8 md:grid-cols-[220px_1fr]">
+    <aside class="md:sticky md:top-20 md:self-start">
+      <HandbookSidebar currentSlug={entry.id} />
+    </aside>
+
+    <article class="min-w-0">
+      <header class="mb-6 border-b border-[color:var(--ss-color-border)] pb-5">
+        {
+          status && (
+            <span class="mb-2 inline-block border border-[color:var(--ss-color-attention)] px-2 py-0.5 font-['JetBrains_Mono'] text-[10px] uppercase tracking-wide text-[color:var(--ss-color-attention)]">
+              {status}
+            </span>
+          )
+        }
+        <h1 class="text-3xl font-bold text-[color:var(--ss-color-text-primary)]">{title}</h1>
+        {
+          summary && (
+            <p class="mt-2 text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+              {summary}
+            </p>
+          )
+        }
+      </header>
+
+      <div class="handbook-prose">
+        <Content />
+      </div>
+
+      {
+        sources && sources.length > 0 && (
+          <div class="mt-10 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[color:var(--ss-color-border)] pt-5">
+            <span class={LAB}>Sources</span>
+            {sources.map((s) => (
+              <a href={s.href} class={LINK} target="_blank" rel="noopener">
+                {s.label} →
+              </a>
+            ))}
+          </div>
+        )
+      }
+    </article>
+  </div>
+</AdminLayout>

@@ -1,0 +1,80 @@
+---
+/**
+ * Handbook sidebar — the navigable table of contents for the Venture Handbook.
+ *
+ * Built from the `handbook` content collection: entries grouped by `section`
+ * (in fixed display order) and sorted by `order` within each. Underscore-prefixed
+ * so Astro does not route it; it lives under src/pages/admin/ (excluded from the
+ * forbidden-strings user-facing scan) and is imported by both index.astro and
+ * [...slug].astro. No client JS — on narrow screens it stacks above the article.
+ */
+import { getCollection } from 'astro:content'
+
+interface Props {
+  currentSlug?: string
+}
+
+const { currentSlug } = Astro.props
+
+const SECTIONS: { key: string; label: string }[] = [
+  { key: 'business', label: 'The Business' },
+  { key: 'product', label: 'The Product' },
+  { key: 'system', label: 'The System' },
+  { key: 'operations', label: 'How We Work' },
+  { key: 'reference', label: 'Reference' },
+]
+
+const entries = await getCollection('handbook')
+const grouped = SECTIONS.map((s) => ({
+  ...s,
+  items: entries
+    .filter((e) => e.data.section === s.key)
+    .sort((a, b) => (a.data.order ?? 999) - (b.data.order ?? 999)),
+})).filter((g) => g.items.length > 0)
+
+const SEC =
+  "font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-text-muted)]"
+---
+
+<nav aria-label="Handbook contents" class="text-sm">
+  <a
+    href="/admin/playbook"
+    class:list={[
+      "mb-4 block font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.14em] hover:text-[color:var(--ss-color-primary)]",
+      !currentSlug
+        ? 'text-[color:var(--ss-color-primary)]'
+        : 'text-[color:var(--ss-color-text-primary)]',
+    ]}
+    aria-current={!currentSlug ? 'page' : undefined}>Handbook home</a
+  >
+  <div class="space-y-5">
+    {
+      grouped.map((g) => (
+        <div>
+          <span class={`${SEC} mb-2 block`}>{g.label}</span>
+          <ul class="space-y-0.5">
+            {g.items.map((it) => {
+              const active = currentSlug === it.id
+              return (
+                <li>
+                  <a
+                    href={`/admin/playbook/${it.id}`}
+                    aria-current={active ? 'page' : undefined}
+                    class:list={[
+                      'block border-l-2 py-1 pl-3 leading-snug transition-colors',
+                      active
+                        ? 'border-[color:var(--ss-color-primary)] font-medium text-[color:var(--ss-color-primary)]'
+                        : 'border-transparent text-[color:var(--ss-color-text-secondary)] hover:border-[color:var(--ss-color-border)] hover:text-[color:var(--ss-color-text-primary)]',
+                    ]}
+                  >
+                    {it.data.title}
+                  </a>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      ))
+    }
+  </div>
+</nav>
