@@ -72,6 +72,58 @@ describe('runVoiceGate', () => {
     ).toThrow(/need 10|need 3/)
   })
 
+  it('fails closed when the run is incomplete (not every judge identified every draft)', () => {
+    // Size validation passes (sizes are opted out here), but coverage is
+    // partial: 2 judges × 2 drafts = 4 expected pairs, only 3 submitted.
+    // Without the completeness gate this would score on the 1 submitted
+    // agent judgment and inflate to a false PASS. It must throw instead.
+    expect(() =>
+      runVoiceGate({
+        customer_slug: 'test-firm',
+        cohort: 'client',
+        run_id: 'run-incomplete',
+        drafts: [
+          { id: 'd-c-1', cohort: 'client', authorship: 'customer', body: 'b' },
+          { id: 'd-a-1', cohort: 'client', authorship: 'agent', body: 'b' },
+        ],
+        panel: ['j1', 'j2'],
+        cycle_count: 0,
+        identifications: [
+          { draft_id: 'd-c-1', judge_id: 'j1', choice: 'customer' },
+          { draft_id: 'd-a-1', judge_id: 'j1', choice: 'customer' },
+          { draft_id: 'd-c-1', judge_id: 'j2', choice: 'customer' },
+          // j2 never judged d-a-1 → 3/4 coverage.
+        ],
+        enforceProductionMinimums: false,
+      })
+    ).toThrow(/incomplete run: 3\/4/)
+  })
+
+  it('completeness is enforced even with --allow-undersized (orthogonal to size)', () => {
+    // A duplicate (judge, draft) pair overwrites the first, so unique
+    // coverage drops below drafts × panel even though the array length
+    // looks right. Size is opted out; completeness must still fail closed.
+    expect(() =>
+      runVoiceGate({
+        customer_slug: 'test-firm',
+        cohort: 'client',
+        run_id: 'run-dup',
+        drafts: [
+          { id: 'd-c-1', cohort: 'client', authorship: 'customer', body: 'b' },
+          { id: 'd-a-1', cohort: 'client', authorship: 'agent', body: 'b' },
+        ],
+        panel: ['j1'],
+        cycle_count: 0,
+        identifications: [
+          { draft_id: 'd-c-1', judge_id: 'j1', choice: 'customer' },
+          // Duplicate of the same pair overwrites; d-a-1 never covered.
+          { draft_id: 'd-c-1', judge_id: 'j1', choice: 'agent' },
+        ],
+        enforceProductionMinimums: false,
+      })
+    ).toThrow(/incomplete run: 1\/2/)
+  })
+
   it('rejects malformed input with all errors surfaced', () => {
     expect(() =>
       runVoiceGate({

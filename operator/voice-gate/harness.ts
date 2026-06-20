@@ -50,6 +50,18 @@ export interface RunVoiceGateInput extends CreatePanelSessionInput {
  * One-shot orchestration: build the session, replay all identifications,
  * seal the run, score it. Returns the run + result so the caller can
  * persist both.
+ *
+ * Fails closed on an INCOMPLETE run — every judge must have identified
+ * every draft before scoring. Size validation (`enforceProductionMinimums`)
+ * checks draft/judge *counts*; it does not check *coverage*. Without this
+ * gate a run that clears the size minimums but submits a partial batch of
+ * identifications would still score, and because the indistinguishability
+ * denominator is only the agent judgments actually submitted (see
+ * `scoreForDraftSubset`), a partial batch can inflate to a false PASS on a
+ * fraction of the data. Since this gate decides whether the agent may send
+ * under a firm's name, an incomplete run is a hard error, not a free pass.
+ * Completeness is orthogonal to sample size, so it is enforced
+ * unconditionally — `--allow-undersized` does not relax it.
  */
 export function runVoiceGate(input: RunVoiceGateInput): {
   run: BlindTestRun
@@ -64,6 +76,14 @@ export function runVoiceGate(input: RunVoiceGateInput): {
   const session = new PanelSession(input)
   for (const id of input.identifications) {
     session.recordIdentification(id)
+  }
+  if (!session.isComplete()) {
+    const expected = session.run.drafts.length * session.run.panel.length
+    const got = session.run.identifications.length
+    throw new Error(
+      `voice-gate incomplete run: ${got}/${expected} (judge, draft) identifications recorded; ` +
+        `every judge must identify every draft before scoring (fail-closed)`
+    )
   }
   const run = session.seal()
   const result = scoreRun(run)
