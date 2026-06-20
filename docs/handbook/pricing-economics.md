@@ -1,0 +1,89 @@
+---
+title: Pricing & Economics
+section: business
+order: 4
+summary: The internal rate ladder, engagement range, payment terms, paid assessment, and the Operator pricing posture - all figures internal, nothing published externally
+sources:
+  - label: Decision Stack (Decisions #13, #14, #16)
+    href: https://github.com/venturecrane/ss-console/blob/main/docs/adr/decision-stack.md
+  - label: CLAUDE.md - Pricing
+    href: https://github.com/venturecrane/ss-console/blob/main/CLAUDE.md
+  - label: ADR 0004 - Productized Operator Offering
+    href: https://github.com/venturecrane/ss-console/blob/main/docs/adr/0004-productized-operator-offering.md
+---
+
+## The governing rule
+
+No dollar amounts appear on the website or in marketing materials (CLAUDE.md, Pricing; Decision #16 pricing guardrails). The client sees a project price in their proposal, never on a public page, and never the hourly rate. **Every figure on this page is internal.** This page is admin-only documentation; the numbers here are for planning and quoting, not for publication. The positioning rule behind this lives in `/admin/playbook/positioning-voice`.
+
+## The rate ladder
+
+The internal hourly rate advances as the firm builds proof (Decision #16, internal rate schedule):
+
+| Tier | Rate | Trigger to advance |
+| --- | --- | --- |
+| Launch | $175/hr | Starting rate |
+| First reference | $200/hr | After the first completed engagement with a case study |
+| Established | $250/hr | Consistent pipeline plus 2-3 case studies |
+| Volume | $300/hr | Referral-driven inbound plus demonstrated results |
+
+The rate is internal math. The client pays for outcomes, not hours (Decision #16). The value is an experienced team that can see the problems the owner cannot, decide fast, and implement in days.
+
+## How quoting works
+
+The assessment is the pricing conversation (Decision #16, Decision #18):
+
+1. The assessment call identifies the problems to solve.
+2. The solution design phase estimates hours per problem (tool selection, configuration, documentation, training).
+3. Quote = estimated hours times the current rate.
+4. The quote is presented to the client as a fixed project price - "Operations Cleanup: $X,XXX" - never an hourly breakdown.
+5. Internal tracking compares estimated versus actual hours per engagement to calibrate future quotes.
+
+## Engagement range
+
+Scoped per engagement (CLAUDE.md, Pricing; Decision #16 guardrails):
+
+- **Smallest engagements** start around **$2,500** at the launch rate (targeted automation scripts, AI pilots). Below that, assessment overhead exceeds delivery value.
+- **Largest engagements** have **no fixed ceiling.**
+
+Nothing about this range is published externally.
+
+## Paid assessment
+
+The assessment is a paid entry point that converts into the engagement (Decision #13):
+
+- **First 3 clients:** free. The bottleneck at launch is getting anyone on a call.
+- **After that:** **$250**, applied in full toward the engagement fee if they proceed.
+- The trigger to flip from free to paid is the first delivered engagement - once there is something to point to, the $250 is easy to justify.
+- The free period is internal policy, never a marketing offer.
+- Raising to $500 may be appropriate once brand recognition reduces friction; revisit after pipeline is established.
+
+## Payment terms
+
+Standard terms are a 50/50 split (Decision #14):
+
+- **50% deposit at signing** to book the engagement start date. The deposit protects against cancellation.
+- **50% at completion**, defined as the handoff session. The completion payment aligns with delivered value.
+- The SOW specifies the completion milestone clearly so there is no ambiguity.
+
+**For larger engagements (40+ hours):** consider a three-milestone structure - **40% deposit / 30% at a mid-engagement checkpoint / 30% at completion** - with the mid-point milestone defined in the SOW against specific deliverables.
+
+## The Operator pricing posture
+
+The Operator is a productized flat-rate retainer SKU ([ADR 0004](https://github.com/venturecrane/ss-console/blob/main/docs/adr/0004-productized-operator-offering.md), lock 1). The *shape* of the pricing is locked: a fixed monthly price, not metered, not credit-based, not scoped per engagement. The customer signs up for a productized service, not a scoped engagement.
+
+The **specific monthly price is internal and not finalized or published.** ADR 0004 deferred the number to follow-on stack cost analysis (token spend, infra, support hours per customer, target margin). A working internal baseline exists from that analysis - roughly **$4,000 stand-up plus $3,500/mo**, derived cost-up rather than value-captured - but it is a working baseline, not a locked or published price. Do not treat it as final, and do not publish it.
+
+> TODO(why): The ~$4,000 / ~$3,500/mo baseline is recorded in session memory (`project_operator_pricing_analysis.md`, baseline landed 2026-06-10) rather than in a committed ADR or doc in this repo. The pricing-analysis follow-on filed in ADR 0004 ("Pricing analysis - ... Outputs the SMD monthly price") does not appear to have landed a committed artifact under `docs/`. Confirm where the locked number, when set, will be recorded.
+
+Post-handoff support for scope-based engagements is separate from the Operator: a two-week async stabilization period is included (Decision #27). Beyond that window, the client is quoted a follow-on scope or converted to an Operator subscription if the fit is right (Decision #44 / ADR 0004, lock 4).
+
+## Pipeline economics
+
+The pipeline model assumes a $7,500 average engagement against a $200k annual target, which works out to roughly 27 engagements per year, or 2-3 closes per month (Decision #25). The real constraint is assessment-call capacity (roughly 3-4 per week at steady state), not outreach volume. The full pipeline math lives in the Decision Stack; see `/admin/playbook/decision-stack`.
+
+## Related pages
+
+- `/admin/playbook/positioning-voice` - the no-published-dollar-amounts rule and the tone standard.
+- `/admin/playbook/business-model` - the two front doors and the engagement phases the quote is built against.
+- `/admin/playbook/operator-thesis` - why the Operator is priced against a salary, not a software seat.

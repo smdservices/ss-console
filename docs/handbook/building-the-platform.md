@@ -1,0 +1,136 @@
+---
+title: Building the Platform
+section: operations
+order: 3
+summary: The dev workflow, the verify gate, worktree isolation, and the coding standards every change ships under
+sources:
+  - label: Team Workflow (global) - Story Lifecycle, DoD
+    href: crane_doc('global', 'team-workflow.md')
+  - label: Coding Standards (global)
+    href: crane_doc('global', 'coding-standards.md')
+  - label: CI - verify.yml
+    href: https://github.com/venturecrane/ss-console/blob/main/.github/workflows/verify.yml
+  - label: package.json - npm scripts
+    href: https://github.com/venturecrane/ss-console/blob/main/package.json
+---
+
+## The rule that governs everything
+
+All changes ship through PRs. Never push to main. This is the first Enterprise
+Rule in `CLAUDE.md` and the spine of the team workflow (global
+`team-workflow.md`): branch from main, open a PR, pass CI, verify, merge on a
+Captain directive. A direct push to main bypasses CI, the verify gate, and review
+in one move, so it is prohibited even for a one-line change. This page owns how a
+change moves from a branch to a merge. The two deploy paths that run after a merge
+- the website and the Operator - are owned by `/admin/playbook/deployment-release`.
+The trust controls a change is reviewed against are in `/admin/playbook/security-trust`.
+
+## The dev workflow
+
+1. **Branch from main.** A feature branch per change.
+2. **Implement, commit, push.** Small focused commits.
+3. **Open a PR** that links its issue (`Closes #NNN`) and fills the template:
+   summary, how to test, screenshots for UI.
+4. **CI runs.** The `Verify` workflow runs on every PR regardless of base branch
+   (see below). The PR cannot merge red.
+5. **QA against the preview**, not production, checking each acceptance criterion.
+6. **Merge on a Captain directive**, then the issue closes with `status:done`.
+
+`status:verified` means QA passed and the PR is still open; `status:done` means
+merged and deployed. The Definition of Done (global `team-workflow.md`) requires
+the PR merged, every acceptance criterion verified, no open P0/P1 bug linked, and
+the change deployed to production - not merely merged.
+
+## What `npm run verify` actually runs
+
+`npm run verify` is the full local gate. From `package.json`, it chains, in
+order, and stops on the first failure:
+
+1. `npm run typecheck` - TypeScript validation via `astro check`.
+2. `npm run typecheck:workers` - typecheck each sub-worker under `workers/*`
+   that has its own `package.json`.
+3. `npm run format:check` - Prettier in check mode.
+4. `npm run lint` - ESLint over the repo.
+5. `npm run build` - the production Astro build.
+6. `npm run test` - the Vitest suite (`vitest run`).
+7. `npm run test:workers` - each sub-worker's own Vitest suite.
+
+CI mirrors this. `verify.yml` runs Typecheck, Typecheck Workers, Format check,
+Lint, Build, Test, then Test Workers, then a dry-run wrangler build of each
+sub-worker. Two steps in that file carry scars worth knowing: the workflow runs
+on every pull request with no `branches` filter, because a `branches: [main]`
+filter (removed 2026-06-08) matched the PR's base, so a stacked PR based on a
+feature branch silently skipped the whole suite; and the `Test Workers` step was
+added 2026-06-12 after seven worker suites ran locally under `npm run verify` but
+never in CI.
+
+There is a separate workflow, `operator-substrate.yml`, that runs the Operator's
+Python pytest suites. It triggers only on changes under `operator/**` (and a few
+named contract files), and it does not run as part of `npm run verify`. A
+`customer.yaml` change with a new top-level block can pass `npm run verify` and
+still turn main red on the substrate workflow - so Operator config changes get
+the pytest suite run locally before merge (`cd operator && python3 -m pytest ...`).
+
+## Worktree isolation for parallel sessions
+
+Parallel sessions do not share a working tree. Each runs in its own git worktree -
+an isolated checkout on its own branch - so independent work does not collide.
+The cost to watch: Bash runs in the worktree, but `Write` and `Edit` follow the
+absolute path given. A parent-repo absolute path lands the file in the parent
+while tests run against the untouched worktree, producing a false green. Inside a
+worktree session, write to worktree-prefixed paths.
+
+> TODO(why): The worktree isolation convention is operational practice (it is how
+> this handbook was authored and is recorded in session memory) rather than a
+> documented file in this repo. I verified the mechanism and the false-green
+> failure mode from the worktree this session runs in, but did not find a
+> canonical runbook page to cite for the convention itself.
+
+## The portable coding standards
+
+Every change is written to the enterprise coding standards (global
+`coding-standards.md`). The highest-leverage rules a contributor here will hit:
+
+- **Parse, don't cast.** At every trust boundary - HTTP bodies, webhook
+  payloads, D1/KV JSON columns, external API responses, cursor tokens - parse the
+  input with a schema (Zod), never `JSON.parse(x) as T`. TypeScript types are
+  compile-time only; unvalidated external data propagates wrong values until
+  something crashes far from the source. This is review-enforced and called the
+  most important rule in the document.
+- **No floating Promises.** Every Promise is `await`ed, `return`ed, passed to
+  `ctx.waitUntil()`, or explicitly `void`ed with a comment. In Workers the
+  isolate can terminate before an unawaited Promise resolves, so the write never
+  lands. Lint-enforced at error.
+- **No request-scoped state in module scope (Workers).** Module-level `let`/`const`
+  hold only immutable init-time values (parsed config, compiled regexes, reusable
+  clients). Workers reuse isolates across requests, so per-request data in module
+  scope leaks between requests. All per-request state flows through function
+  parameters. Review-enforced.
+- **The ceilings: 500 / 75 / 15.** Files cap at 500 lines, functions at 75,
+  cyclomatic complexity at 15 (also depth 4, params 5). The driver is agent
+  context arithmetic, not aesthetics: a file plus its surrounding context plus a
+  generation buffer must fit a comfortable working window. Lint-enforced; test
+  files exempt. Split at a cohesion boundary, not mid-function, when approaching
+  the cap.
+
+Other mechanically enforced rules from the same document: no `any` in production
+source (use `unknown` and narrow), throw `Error` instances not literals, `===`
+always, preserve `cause` on caught errors, `assertNever` on switch defaults over
+a union, and named exports only (defaults allowed only in framework positions like
+`*.astro` and the Worker entry).
+
+## The merge gates
+
+Beyond CI, this repo carries domain-specific merge gates that block a PR on
+policy, not just on tests. They enforce the no-fabricated-client-facing-content
+policy in `CLAUDE.md`:
+
+- `scope-deferred-todo.yml` - blocks a TODO-deferred acceptance criterion that
+  lacks the `scope-deferred` label.
+- `unmet-ac-on-close.yml` - reopens an issue closed with unchecked acceptance
+  criteria.
+- `ui-drift-audit.yml` - the source-level UI anti-pattern audit.
+- `security.yml` - the security review workflow (see `/admin/playbook/security-trust`).
+
+These exist because a violation of the content policy is a P0 in this venture, so
+the policy is enforced in CI rather than left to review memory.

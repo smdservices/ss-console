@@ -18,6 +18,11 @@ coverage/
 docs/reviews/
 docs/spikes/
 docs/style/UI-PATTERNS.md
+# Venture Handbook — agent-authored long-form markdown rendered in the
+# admin portal (src/pages/admin/playbook). Carries code/path/SQL fences
+# prettier-plugin tries to parse; formatted by convention, not the gate.
+# Same rationale as docs/reviews and docs/spikes above.
+docs/handbook/
 # Playwright MCP output (screenshots, console dumps, snapshots)
 .playwright-mcp/
 # Pytest cache directories (gitignored locally; never authored)

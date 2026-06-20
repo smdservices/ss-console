@@ -408,6 +408,12 @@ Connectors are wired by `customer.yaml.connectors{}` backend prefix: `mcp:` (ven
 
 The 2026-05-24 realignment burial is complete. Removed: `smd.hooks.*` dual-surface scaffolding, Honcho interceptor, Curator interceptor, GEPA boot-check (ADR 0018 superseded), in-tree YAML validator, the pre-realignment MS Graph adapter, and the `clio/` / `dotloop/` / `shipstation/` connector dirs whose MCP-first decisions superseded them. New BUILD adapters land in `venturecrane/hermes-smd-overlay`, not this tree.
 
+## Venture Handbook
+
+The franchise operations manual lives in `docs/handbook/` and renders in the admin console at `admin.smd.services/admin/playbook`. It is the E-Myth handoff manual: what the venture is, why it exists, how it works, and where everything lives, organized so a zero-context successor could run, build, and grow the venture. Source of truth is the markdown in `docs/handbook/` (rendered by `src/content.config.ts` + `src/pages/admin/playbook/`).
+
+**Maintenance contract:** when a change to the venture changes what a handbook page says, update that page in the same PR. The docs live next to the code so each page is edited in the same breath as the thing it documents. See `docs/handbook/README.md` for the page map and the "if you change X, update Y" table.
+
 ## Key Reference
 
 - **Decision Stack:** `docs/adr/decision-stack.md` (29 locked decisions across 6 layers — buy box, scope, pricing, assessment, distribution, delivery. Source of truth for all collateral and processes.)
