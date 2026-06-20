@@ -42,8 +42,11 @@ operator/bin/run-voice-gate.sh \
   --customer-slug smith-pi-firm \
   --panel-id panel-001 \
   --mode synthetic \
-  --identifications operator/voice-gate/fixtures/example-identifications.json
+  --identifications operator/voice-gate/fixtures/example-identifications.json \
+  --allow-undersized
 ```
+
+The bundled fixture set is deliberately small (3 drafts/cohort), below the production minimum of 10 drafts per authorship (issue #1124). Enforcement defaults ON, so the synthetic smoke command must pass `--allow-undersized` (honored in synthetic mode only) or it exits `4` at validation before scoring. A live customer run never passes this flag.
 
 Exit codes:
 

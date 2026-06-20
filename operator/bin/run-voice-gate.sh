@@ -12,7 +12,14 @@
 #     --customer-slug smith-pi-firm \
 #     --panel-id panel-001 \
 #     --mode synthetic \
-#     --identifications operator/voice-gate/fixtures/example-identifications.json
+#     --identifications operator/voice-gate/fixtures/example-identifications.json \
+#     --allow-undersized
+#
+# The bundled fixture set is deliberately small (3 drafts/cohort), below
+# the production minimum of 10 drafts per authorship (issue #1124). Since
+# enforcement defaults ON, the synthetic smoke command MUST pass
+# --allow-undersized (honored in synthetic mode only) or it exits 4 at
+# validation before scoring.
 #
 # Usage (live mode — NOT YET IMPLEMENTED):
 #
