@@ -1,0 +1,82 @@
+---
+title: Architecture Map
+section: system
+order: 1
+summary: The whole stack end to end as a words-diagram - how a request flows from the browser through one Cloudflare Worker into D1, R2, and KV, and how the separate Operator plane runs one Fly.io Machine per customer
+sources:
+  - label: CLAUDE.md - Tech Stack, Three-Subdomain Architecture, Deployment
+    href: https://github.com/venturecrane/ss-console/blob/main/CLAUDE.md
+  - label: src/middleware.ts
+    href: https://github.com/venturecrane/ss-console/blob/main/src/middleware.ts
+  - label: wrangler.toml
+    href: https://github.com/venturecrane/ss-console/blob/main/wrangler.toml
+  - label: astro.config.mjs
+    href: https://github.com/venturecrane/ss-console/blob/main/astro.config.mjs
+  - label: src/lib/operator/runtime-read.ts
+    href: https://github.com/venturecrane/ss-console/blob/main/src/lib/operator/runtime-read.ts
+---
+
+## Two planes
+
+The system has two distinct planes that share a vocabulary but not a runtime.
+
+1. **The console plane** - one Astro SSR application running as a single Cloudflare Worker named `ss-web`. It serves the marketing site, the admin console, and the client portal, and it owns all structured business data (leads, clients, engagements, invoices, Operator config). This is the code in this repo.
+2. **The Operator plane** - one Fly.io Machine per customer, each running the NousResearch Hermes Agent runtime plus the SMD plugin overlay. This is where a live Operator actually works. Its code lives in a separate repo, `venturecrane/hermes-smd-overlay`, and on the Machine images. See `/admin/playbook/operator-platform`.
+
+The console plane never reaches into a Machine's database directly. The only path between the planes is a narrow, read-only, audited HTTPS seam described at the end of this page. Keep the two planes separate in your head and the rest of the architecture follows.
+
+## The console plane: request flow
+
+Every request to `smd.services`, `admin.smd.services`, or `portal.smd.services` hits the same Worker. There are no separate deployments per subdomain. The flow:
+
+1. **Browser to Cloudflare.** All three custom domains are bound to the one Worker `ss-web` (`wrangler.toml`, `[assets]` and the domain notes). Cloudflare's edge terminates TLS and routes the request to the Worker.
+2. **Worker runs first.** `run_worker_first = true` in the `[assets]` block (`wrangler.toml`) forces every request through the Worker before the static-asset binding can answer. This is load-bearing: without it, a request for `/` could be short-circuited by a prerendered asset and never reach the middleware that does subdomain routing and auth.
+3. **Astro SSR middleware.** `src/middleware.ts` runs as a `sequence()` of `clerkMiddleware` then the SS middleware. It does three things in order:
+   - **Subdomain routing.** It inspects `hostname`. On `admin.smd.services` it prepends `/admin` to the path (unless the path already starts with `/admin`, `/api/admin`, `/auth`, `/api/auth`, or `/api/oauth`); on `portal.smd.services` it prepends `/portal` with the same guard. The admin and portal source files live under `src/pages/admin/*` and `src/pages/portal/*` - the subdomain is a front door, not a separate build (`src/middleware.ts`, `handleSubdomainRewrite`). `smd.services/admin/*` and `/auth/login` 301-redirect to the admin host for backwards compatibility.
+   - **Auth.** Clerk owns identity for both admin and portal. On admin paths, `resolveAdminSessionFromClerk` maps the Clerk user id to the local `users` row and gates on `role='admin'`, synthesizing the legacy session shape into `locals.session` so existing call sites keep working (`src/lib/auth/admin-session-shim.ts`). On portal paths, Clerk is primary with a legacy magic-link session accepted as a fallback during the transition (`src/middleware.ts`, `resolveLegacyPortalSession`).
+   - **Observability.** The handler is wrapped by `withSentryRequestHandler` (`src/lib/observability/sentry.ts`); when `SENTRY_DSN` is unset the wrapper is a no-op.
+4. **Page or API handler.** The rewritten path resolves to an Astro page (`*.astro`) or an API route (`src/pages/api/*`). Env is read directly via `import { env } from 'cloudflare:workers'` - the v13 adapter removed `Astro.locals.runtime` (CLAUDE.md, Deployment).
+5. **Storage.** Handlers read and write the Worker's bound resources:
+   - **D1** (binding `DB`, database `ss-console-db`) - all structured business data. See `/admin/playbook/data-model`.
+   - **R2** - three buckets: `STORAGE` (documents, transcripts, SOWs), `CONSULTANT_PHOTOS` (public consultant images), and `CUSTOMER_CONFIG` (the authoritative live Operator config and voice vaults, `smd-customer-config`).
+   - **KV** - `SESSIONS` (session storage) and `BOOKING_CACHE` (booking rate-limit plus the public-assessment turn/cost ceiling).
+   - **Service binding** - `ENRICHMENT_WORKFLOW_SERVICE` dispatches entity enrichment to a separate Worker (see below).
+
+All bindings are declared in `wrangler.toml`. The canonical outbound origins (`APP_BASE_URL`, `ADMIN_BASE_URL`, `PORTAL_BASE_URL`) are built from env vars, never from the inbound request host (`src/lib/config/app-url.ts`).
+
+## Background Workers (lead-gen and cost)
+
+Some work does not belong in the request path. Seven sibling Workers live under `workers/` and run on their own schedules or service bindings:
+
+- **Lead generation** - `new-business`, `job-monitor`, `review-mining`, `social-listening`. These are the pipelines behind the admin Generators surface; their endpoints are declared as env vars in `wrangler.toml` and invoked Bearer-authed with `LEAD_INGEST_API_KEY`.
+- **Enrichment** - `enrichment-workflow` runs Cloudflare Workflows orchestration for entity enrichment, reached via the `ENRICHMENT_WORKFLOW_SERVICE` service binding. It exists because the legacy in-request `ctx.waitUntil(enrichEntity(...))` path was being killed by the post-response CPU budget on ingest batches (`wrangler.toml`, `[[services]]` note; issue #631).
+- **Cost** - `cost-telemetry` and `cost-anomaly` handle Operator cost ingest and anomaly detection.
+
+## The Operator plane
+
+The Operator plane is described in full at `/admin/playbook/operator-platform`; what matters for the system map is its shape and its one connection to the console.
+
+- **One Machine per customer.** Each customer gets a dedicated Fly.io Machine `hermes-{customer-slug}` running Hermes plus the overlay (per ADR 0007). There is no shared runtime. Cross-customer access is architecturally impossible, not merely denied in code.
+- **Per-Machine storage.** Each Machine carries its own D1, R2, and OAuth token volume, namespaced to that one customer. The customer's OAuth tokens live on the Machine's Fly volume, never in the console plane (per ADR 0010).
+- **Config flows console to Machine via R2.** The console authors `customer.yaml` and writes the live copy to the `CUSTOMER_CONFIG` R2 bucket at `vaults/<slug>/customer.yaml` with a byte-snapshot in `customers/<slug>/history/<digest>.yaml` (`src/lib/operator/apply-config.ts`; `wrangler.toml`, `CUSTOMER_CONFIG` block). The on-Machine root applier pulls the live key from R2 - R2 is the source of truth for live reconfiguration.
+
+## The seam between the planes
+
+The admin console needs to show an Operator's live runtime state (audit log, drafts, activity), but that state lives on the customer's isolated Machine D1, which the console cannot query across the isolation boundary. The bridge is the **runtime read seam** (ADR 0043 path A), implemented in `src/lib/operator/runtime-read.ts`.
+
+It encodes four invariants and never bends them:
+
+1. **Single customer per call** - the function takes one `customerSlug`; there is no list form and no surface joins across customers.
+2. **Read-only** - the transport exposes `read` and nothing else; no mutation path exists.
+3. **Audited at the console** - every read records who looked at what, separate from the operator's own runtime audit log.
+4. **Fail-closed** - a transport error resolves to an empty result with a reason, never a throw that breaks a portal render.
+
+The per-customer read key is derived `HMAC-SHA256(master, slug)` from `OPERATOR_RUNTIME_READ_SECRET`, which lives only on `ss-web` and never on a Machine (`wrangler.toml`, secrets note). The Machine-side read endpoint lives in the overlay repo; this module is the console side of that seam. The console reads Operator runtime; it never writes it. Governance of what the Operator may do is covered at `/admin/playbook/autonomy-governance`.
+
+## The enterprise control layer
+
+Across all of SMD's ventures sits the **crane MCP** server - the enterprise context and control layer that loads session context, documentation, and handoff state, and provides the verify and memory machinery. It is invoked by agents working in this repo (CLAUDE.md, Session Start), not by the running web application. It is part of how the platform is *built and operated*, not part of the request path.
+
+## External services at a glance
+
+The console plane depends on Cloudflare (Workers, D1, R2, KV), Clerk (identity), Anthropic (LLM), and a billing and document stack (Stripe, SignWell, Resend) plus the lead-gen data providers. The Operator plane adds Fly.io (Machines) and Google Workspace (managed-mailbox OAuth). The full inventory, what each is for, and where its credentials live is at `/admin/playbook/integrations-tooling`. The repository layout that implements all of the above is at `/admin/playbook/repository-map`.

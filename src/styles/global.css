@@ -607,3 +607,131 @@
 .ss-closed-card .ss-stack {
   margin-top: 1rem;
 }
+
+/* ---------------------------------------------------------------------
+ * Venture Handbook prose
+ *
+ * Styles rendered markdown (the `handbook` content collection) in the
+ * Plainspoken register: Archivo Narrow uppercase headings, hairline
+ * borders, zero radius, single accent (burnt orange). Scoped to a dozen
+ * element selectors under .handbook-prose; not a full typographic system.
+ * Pages start their body at h2 (the page <h1> is rendered by the route).
+ * ------------------------------------------------------------------- */
+.handbook-prose {
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: var(--ss-color-text-secondary);
+  max-width: 46rem;
+}
+.handbook-prose > :first-child {
+  margin-top: 0;
+}
+.handbook-prose h2 {
+  font-family: var(--ss-font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--ss-color-text-primary);
+  margin-top: 2.25rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--ss-color-border);
+}
+.handbook-prose h3 {
+  font-family: 'Archivo Narrow', var(--ss-font-body);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ss-color-text-primary);
+  margin-top: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+.handbook-prose h4 {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--ss-color-text-primary);
+  margin-top: 1.25rem;
+  margin-bottom: 0.35rem;
+}
+.handbook-prose p {
+  margin-bottom: 1rem;
+}
+.handbook-prose strong {
+  color: var(--ss-color-text-primary);
+  font-weight: 600;
+}
+.handbook-prose a {
+  color: var(--ss-color-primary);
+  text-decoration: none;
+}
+.handbook-prose a:hover {
+  text-decoration: underline;
+}
+.handbook-prose ul,
+.handbook-prose ol {
+  margin: 0 0 1rem 1.25rem;
+}
+.handbook-prose ul {
+  list-style: disc;
+}
+.handbook-prose ol {
+  list-style: decimal;
+}
+.handbook-prose li {
+  margin-bottom: 0.35rem;
+}
+.handbook-prose code {
+  font-family: var(--ss-font-mono);
+  font-size: 0.8125rem;
+  background: var(--ss-color-border-subtle);
+  color: var(--ss-color-text-primary);
+  padding: 0.1rem 0.3rem;
+}
+.handbook-prose pre {
+  font-family: var(--ss-font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  background: var(--ss-color-border-subtle);
+  border: 1px solid var(--ss-color-border);
+  padding: 0.875rem 1rem;
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+.handbook-prose pre code {
+  background: transparent;
+  padding: 0;
+}
+.handbook-prose blockquote {
+  border-left: 2px solid var(--ss-color-primary);
+  padding-left: 0.875rem;
+  margin: 0 0 1rem;
+  color: var(--ss-color-text-primary);
+  font-style: italic;
+}
+.handbook-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  margin-bottom: 1.25rem;
+}
+.handbook-prose th,
+.handbook-prose td {
+  border: 1px solid var(--ss-color-border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+.handbook-prose th {
+  font-family: 'Archivo Narrow', var(--ss-font-body);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ss-color-text-primary);
+  background: var(--ss-color-border-subtle);
+}
+.handbook-prose hr {
+  border: 0;
+  border-top: 1px solid var(--ss-color-border);
+  margin: 2rem 0;
+}
