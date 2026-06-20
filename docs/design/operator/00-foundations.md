@@ -12,7 +12,7 @@ both portals touch — the data substrate, the access model, the multi-operator 
 
 ## 1. Scope and the three documents
 
-We are designing how an **Operator** (the productized AI-employee SKU, [ADR 0004](../../adr/0004-productized-operator-offering.md))
+We are designing how an **Operator** (the productized Operator SKU, [ADR 0004](../../adr/0004-productized-operator-offering.md))
 is **configured, monitored, and managed** from each portal:
 
 - **Admin** (`admin.smd.services`) — SMD's side. Operating a _fleet_ of operators across many clients, and drilling
@@ -284,7 +284,7 @@ Two honest boundaries:
 
 ## 7. Design principles both portals adopt
 
-We adopt these because they are right for a product that operates an AI employee inside a client's business — not
+We adopt these because they are right for a product that runs an operator inside a client's business — not
 because a prior spec mandated them. Where an existing spec happens to state the same thing well, reuse is a bonus; where
 it doesn't, these govern:
 
