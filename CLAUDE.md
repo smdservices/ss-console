@@ -414,6 +414,8 @@ The franchise operations manual lives in `docs/handbook/` and renders in the adm
 
 **Maintenance contract:** when a change to the venture changes what a handbook page says, update that page in the same PR. The docs live next to the code so each page is edited in the same breath as the thing it documents. See `docs/handbook/README.md` for the page map and the "if you change X, update Y" table.
 
+**Enforcement:** `tests/handbook-integrity.test.ts` runs in `npm run verify` and CI - it blocks merge on malformed frontmatter, a dead `/admin/playbook/<slug>` cross-link, a cited same-repo source file that no longer exists, a `(section, order)` collision, or an em dash. The advisory `npm run handbook:drift` reports pages whose cited sources changed after the page (git-mtime), for a periodic review pass. Both are documented in `docs/handbook/README.md`.
+
 ## Key Reference
 
 - **Decision Stack:** `docs/adr/decision-stack.md` (29 locked decisions across 6 layers — buy box, scope, pricing, assessment, distribution, delivery. Source of truth for all collateral and processes.)

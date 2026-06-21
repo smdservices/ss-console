@@ -1,7 +1,7 @@
 ---
 title: Integrations & Tooling
 section: system
-order: 6
+order: 7
 summary: The external-service inventory - every third party the platform depends on and what each one is for, derived from package.json dependencies, wrangler.toml bindings, and CLAUDE.md
 sources:
   - label: package.json (dependencies)
