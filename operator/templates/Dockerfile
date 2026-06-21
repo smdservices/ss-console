@@ -225,7 +225,13 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # session untainted and an autonomous send allowed. Distinct from e8411ca's
 # durable-worker session taint. Additive on top of e8411ca (= 1c2171f + B1 + B0);
 # twins unchanged, overlaySha256 stable.
-ARG OVERLAY_REF="af20ecd8c1831be4297c2d89018ca69984b09899"
+# 713a1e2 — tool-schema parameters-wrap (overlay#106): every overlay-registered
+# tool was advertised to the model with EMPTY parameters (a bare JSON-schema not
+# wrapped under `parameters`, which Hermes model_tools.py reads). The model saw the
+# tool names but could not pass arguments — the Operator could not actually drive
+# its 18 workspace_* tools (mailbox reads, etc.). Additive on top of af20ecd;
+# tracked twins unchanged, overlaySha256 stable.
+ARG OVERLAY_REF="713a1e2dc7d2935a6d9697a7a6fda9bad1465fba"
 
 ARG CUSTOMER_SLUG=customer-zero
 
