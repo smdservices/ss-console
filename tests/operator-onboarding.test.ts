@@ -1,23 +1,26 @@
 /**
- * Onboarding & calibration (client-portal §6) — pure step derivation.
+ * Onboarding (client-portal §6) — pure step derivation.
  *
  * §6 requires the get-started path to be honest: a step with no real signal is
  * "not started," never a fabricated completion. These tests pin that contract
  * against the resolved signals, independent of D1.
+ *
+ * (Calibration was removed per ADR 0050 — it is an off-portal activity, so the
+ * path is two steps: invite, connect.)
  */
 
 import { describe, it, expect } from 'vitest'
 import { deriveOnboardingState } from '../src/lib/portal/operator/onboarding-read'
 
-const ZERO = { memberCount: 0, connectedCount: 0, totalConnectors: 0, cycleStarted: false }
+const ZERO = { memberCount: 0, connectedCount: 0, totalConnectors: 0 }
 
 describe('deriveOnboardingState', () => {
   it('a fresh account is all "not started" — no fabricated completion', () => {
     const { steps, doneCount, total } = deriveOnboardingState(ZERO)
-    expect(total).toBe(3)
+    expect(total).toBe(2)
     expect(doneCount).toBe(0)
     expect(steps.every((s) => s.status === 'not_started')).toBe(true)
-    expect(steps.map((s) => s.key)).toEqual(['invite', 'connect', 'calibrate'])
+    expect(steps.map((s) => s.key)).toEqual(['invite', 'connect'])
   })
 
   it('marks invite done once anyone is on the account', () => {
@@ -39,17 +42,6 @@ describe('deriveOnboardingState', () => {
   it('reports "no systems configured" when there are no connectors at all', () => {
     const { steps } = deriveOnboardingState(ZERO)
     expect(steps.find((s) => s.key === 'connect')!.detail).toMatch(/no systems/i)
-  })
-
-  it('calibrate is done only when a cycle is underway', () => {
-    expect(
-      deriveOnboardingState({ ...ZERO, cycleStarted: true }).steps.find(
-        (s) => s.key === 'calibrate'
-      )!.status
-    ).toBe('done')
-    expect(deriveOnboardingState(ZERO).steps.find((s) => s.key === 'calibrate')!.detail).toMatch(
-      /not started/i
-    )
   })
 
   it('every step links into the operator portal', () => {

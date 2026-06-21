@@ -11,12 +11,14 @@
  *
  * The roster query mirrors the legacy users page (one row per person, roles
  * aggregated) but returns plain data, not markup — the dual-mode surface decides
- * how to render it. PTO reuses `listActivePto`. Defensive throughout: a missing
- * name falls back to the email; never a fabricated member.
+ * how to render it. Defensive throughout: a missing name falls back to the
+ * email; never a fabricated member.
+ *
+ * (Coverage/PTO was removed per ADR 0050 — it was an unwired, matter-keyed
+ * feature; reintroduce cleanly when a real coverage-routing backend exists.)
  */
 
 import type { D1Database } from '@cloudflare/workers-types'
-import { listActivePto, type UserPtoRow } from './pto'
 
 /** Canonical client role display order: principal, then staff, then compliance. */
 const ROLE_ORDER: Record<string, number> = { principal: 0, staff: 1, compliance: 2 }
@@ -31,8 +33,6 @@ export interface TeamMember {
 
 export interface TeamRoster {
   members: TeamMember[]
-  awayCount: number
-  pto: UserPtoRow[]
 }
 
 interface MemberDbRow {
@@ -46,8 +46,8 @@ interface MemberDbRow {
 
 /**
  * Every local user with at least one active (non-revoked) Operator role on this
- * entity, one entry per person with roles aggregated and ordered. Plus the
- * firm-wide active-PTO roster. Read-only; never mutates.
+ * entity, one entry per person with roles aggregated and ordered. Read-only;
+ * never mutates.
  */
 export async function loadTeamRoster(
   db: D1Database,
@@ -74,8 +74,7 @@ export async function loadTeamRoster(
     .all<MemberDbRow>()
 
   const members = aggregateMembers(rows.results ?? [])
-  const pto = await listActivePto(db, entityId)
-  return { members, awayCount: pto.length, pto }
+  return { members }
 }
 
 /**

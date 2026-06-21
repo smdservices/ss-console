@@ -127,19 +127,9 @@ if (access) {
   const canAct = userRoles.some((r) => ACTIVE_DOER_ROLES.includes(r))
   if (canAct) {
     sectionCards.push({
-      href: '/portal/products/operator/drafts',
-      label: 'Drafts',
-      description: 'Review drafts your Operator has prepared before any message goes out.',
-    })
-    sectionCards.push({
-      href: '/portal/products/operator/matters',
-      label: 'Matters',
-      description: 'Active matters your Operator is tracking across communications and documents.',
-    })
-    sectionCards.push({
       href: '/portal/products/operator/calendar',
       label: 'Calendar',
-      description: 'Hearings, depositions, and deadlines your Operator is watching.',
+      description: 'Appointments and deadlines your Operator has scheduled or proposed.',
     })
   }
   sectionCards.push({
@@ -352,7 +342,7 @@ const crTone = crStatus === 'filed' ? 'complete' : 'error'
                       What needs you
                     </div>
                     <a
-                      href="/portal/products/operator/drafts"
+                      href="/portal/products/operator/activity"
                       class="block px-5 md:px-7 py-5 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
                     >
                       <p class="font-['Archivo'] text-xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
@@ -479,58 +469,6 @@ const crTone = crStatus === 'filed' ? 'complete' : 'error'
                           </p>
                           <p class="mt-1 text-sm text-[color:var(--ss-color-text-secondary)]">
                             Invite team members and manage roles.
-                          </p>
-                        </a>
-                      </li>
-                      <li>
-                        <a
-                          href="/portal/products/operator/settings"
-                          class="block px-5 md:px-7 py-4 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
-                        >
-                          <p class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)]">
-                            Settings
-                          </p>
-                          <p class="mt-1 text-sm text-[color:var(--ss-color-text-secondary)]">
-                            Configure your Operator.
-                          </p>
-                        </a>
-                      </li>
-                    </ul>
-                  </section>
-                )}
-
-                {access && (
-                  <section class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]">
-                    <div class="bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] px-5 py-2.5 font-['Archivo_Narrow'] text-label uppercase tracking-[0.18em] font-bold">
-                      You
-                    </div>
-                    <ul
-                      class="divide-y-[2px] divide-[color:var(--ss-color-text-primary)]"
-                      role="list"
-                    >
-                      <li>
-                        <a
-                          href="/portal/products/operator/settings/pto"
-                          class="block px-5 md:px-7 py-4 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
-                        >
-                          <p class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)]">
-                            Time off
-                          </p>
-                          <p class="mt-1 text-sm text-[color:var(--ss-color-text-secondary)]">
-                            Mark yourself away and pick a backup for your matters.
-                          </p>
-                        </a>
-                      </li>
-                      <li>
-                        <a
-                          href="/portal/products/operator/settings/notifications"
-                          class="block px-5 md:px-7 py-4 hover:bg-[color:var(--ss-color-border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-inset"
-                        >
-                          <p class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)]">
-                            Notifications
-                          </p>
-                          <p class="mt-1 text-sm text-[color:var(--ss-color-text-secondary)]">
-                            Pick which alerts you want for which matters.
                           </p>
                         </a>
                       </li>

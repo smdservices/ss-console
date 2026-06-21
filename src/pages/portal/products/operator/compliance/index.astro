@@ -26,10 +26,10 @@ import { env } from 'cloudflare:workers'
  * Per issue #895 + docs/specs/operator/dashboard-roles.md. This is
  * the dedicated separation-of-duties surface for the `compliance` role:
  * audit log entry, evidence packet generation entry, and a read-only
- * view of the firm's audit retention posture. Operator-facing surfaces
- * (drafts queue, matters, calendar) are intentionally absent; the
- * compliance reviewer's job is the firm's history and posture, not
- * day-to-day workflow.
+ * view of the firm's audit retention posture. Operator-facing
+ * workflow surfaces are intentionally absent; the compliance
+ * reviewer's job is the firm's history and posture, not day-to-day
+ * workflow.
  *
  * Access gate:
  *   - Clerk session (middleware)
@@ -41,7 +41,7 @@ import { env } from 'cloudflare:workers'
  *   - When false (the default), this view renders an explicit empty
  *     state explaining the firm hasn't opted in. RBAC on the existing
  *     audit surface is unaffected — compliance-role users can still
- *     view the audit log directly at /portal/products/operator/audit
+ *     view the governance log directly at /portal/products/operator/activity
  *     even when this dedicated view is disabled. The view is the
  *     surface, not the gate; the gate is product_roles.
  *   - When true, the controls render.
@@ -153,7 +153,7 @@ const isPrincipalOnly = roles.includes('principal') && !roles.includes('complian
             </p>
             <p class="mt-6 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]">
               <a
-                href="/portal/products/operator/audit"
+                href="/portal/products/operator/activity"
                 class="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 rounded"
               >
                 Go to audit log
@@ -196,7 +196,7 @@ const isPrincipalOnly = roles.includes('principal') && !roles.includes('complian
                 </p>
                 <p class="mt-4">
                   <a
-                    href="/portal/products/operator/audit"
+                    href="/portal/products/operator/activity"
                     class="inline-flex items-center min-h-11 px-4 py-2 border-[3px] border-[color:var(--ss-color-text-primary)] font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-text-primary)] hover:text-[color:var(--ss-color-background)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
                   >
                     Open audit log
@@ -267,9 +267,9 @@ const isPrincipalOnly = roles.includes('principal') && !roles.includes('complian
               </div>
               <div class="px-5 md:px-7 py-6">
                 <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
-                  A signed, Susan-readable zip documenting how the Operator operated inside this
-                  firm during a chosen window: plain-language summary, structured audit log,
-                  redacted configuration, signed addenda.
+                  A signed, reviewer-readable archive documenting how the Operator operated inside
+                  this organization during a chosen window: plain-language summary, structured audit
+                  log, redacted configuration, signed addenda.
                 </p>
                 <p class="mt-4 font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
                   Generation runs on the per-firm machine. The portal trigger lands separately;
