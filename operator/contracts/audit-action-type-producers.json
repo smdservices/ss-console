@@ -62,9 +62,9 @@
       "reason": "draft expiry is a Machine-local TTL sweep; no ss-console code path expires a draft."
     },
     "MEMORY_RULE_ADDED": {
-      "side": "ss-console",
-      "producerFile": "src/lib/portal/operator/teach-marcus.ts",
-      "note": "teach-marcus writes MEMORY_RULE_ADDED when a principal submits a teaching rule through the portal."
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-memory-mirror / runtime memory add path",
+      "reason": "The portal teach-a-rule producer (teach-marcus) was removed per ADR 0050 (no portal work-actions; the operator learns via its own runtime loop / the conversational channel). Memory rules are now added on the per-customer Machine, like MEMORY_RULE_EDITED."
     },
     "MEMORY_RULE_EDITED": {
       "side": "overlay",

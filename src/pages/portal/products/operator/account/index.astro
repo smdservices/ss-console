@@ -70,8 +70,6 @@ const recipientListClass =
   'm-0 list-none p-0 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]'
 const recipientRowClass =
   "border-b-[2px] border-[color:var(--ss-color-text-primary)] last:border-b-0 px-5 py-3 font-['Archivo'] text-[color:var(--ss-color-text-primary)]"
-const manageLinkClass =
-  "inline-flex items-center gap-2 px-5 py-3 font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold text-sm border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-primary)] hover:border-[color:var(--ss-color-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
 const emptyNoteClass =
   "font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] text-[color:var(--ss-color-text-secondary)]"
 
@@ -224,20 +222,6 @@ const hasEscalation =
             }
           </div>
         </DomainSurface>
-      </section>
-
-      <!-- Notification preferences — self-service per-user, own page -->
-      <section class="mt-10" aria-label="Notifications">
-        <p class={sectionLabelClass}>Notifications</p>
-        <div class={cardClass}>
-          <p class="m-0 mb-4 font-['Archivo'] text-[color:var(--ss-color-text-primary)]">
-            Choose which events you want to hear about, and where.
-          </p>
-          <a href="/portal/products/operator/settings/notifications" class={manageLinkClass}>
-            <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
-            Notification preferences
-          </a>
-        </div>
       </section>
     </main>
   </body>

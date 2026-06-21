@@ -97,9 +97,7 @@ const manageLinkClass =
         crumbLabel="Operator"
         tag="Section"
         h1="Team"
-        meta={`${roster.members.length} ${roster.members.length === 1 ? 'person' : 'people'}${
-          roster.awayCount > 0 ? ` · ${roster.awayCount} away` : ''
-        }`}
+        meta={`${roster.members.length} ${roster.members.length === 1 ? 'person' : 'people'}`}
       />
 
       {
@@ -123,7 +121,7 @@ const manageLinkClass =
           domain="people_access"
           roles={roles}
           returnTo={RETURN_TO}
-          domainLabel="who's on this account, their roles, and coverage"
+          domainLabel="who's on this account and their roles"
         >
           <Fragment slot="read">
             {
@@ -141,34 +139,25 @@ const manageLinkClass =
                 </section>
               ) : (
                 <ul role="list" class={listClass}>
-                  {roster.members.map((m) => {
-                    const away = roster.pto.find((p) => p.userId === m.id)
-                    return (
-                      <li class={rowClass}>
-                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-6">
-                          <div class="min-w-0">
-                            <p class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)] m-0 truncate">
-                              {m.name}
-                            </p>
-                            <p class="mt-0.5 text-caption text-[color:var(--ss-color-text-secondary)] m-0 truncate">
-                              {m.email} · Last login {formatLastLogin(m.lastLoginAt)}
-                            </p>
-                          </div>
-                          <div class="flex flex-wrap gap-2 md:justify-end">
-                            {away && (
-                              <span class="inline-flex items-center px-2.5 py-1 text-caption font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold border-[2px] border-[color:var(--ss-color-warning)] text-[color:var(--ss-color-warning)]">
-                                Away
-                                {away.backupName ? ` · backup ${away.backupName}` : ''}
-                              </span>
-                            )}
-                            {m.roles.map((r) => (
-                              <span class={chipClass}>{ROLE_LABEL[r] ?? r}</span>
-                            ))}
-                          </div>
+                  {roster.members.map((m) => (
+                    <li class={rowClass}>
+                      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-6">
+                        <div class="min-w-0">
+                          <p class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)] m-0 truncate">
+                            {m.name}
+                          </p>
+                          <p class="mt-0.5 text-caption text-[color:var(--ss-color-text-secondary)] m-0 truncate">
+                            {m.email} · Last login {formatLastLogin(m.lastLoginAt)}
+                          </p>
                         </div>
-                      </li>
-                    )
-                  })}
+                        <div class="flex flex-wrap gap-2 md:justify-end">
+                          {m.roles.map((r) => (
+                            <span class={chipClass}>{ROLE_LABEL[r] ?? r}</span>
+                          ))}
+                        </div>
+                      </div>
+                    </li>
+                  ))}
                 </ul>
               )
             }
@@ -178,33 +167,25 @@ const manageLinkClass =
             {
               roster.members.length > 0 && (
                 <ul role="list" class={`${listClass} mb-6`}>
-                  {roster.members.map((m) => {
-                    const away = roster.pto.find((p) => p.userId === m.id)
-                    return (
-                      <li class={rowClass}>
-                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-6">
-                          <div class="min-w-0">
-                            <p class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)] m-0 truncate">
-                              {m.name}
-                            </p>
-                            <p class="mt-0.5 text-caption text-[color:var(--ss-color-text-secondary)] m-0 truncate">
-                              {m.email} · Last login {formatLastLogin(m.lastLoginAt)}
-                            </p>
-                          </div>
-                          <div class="flex flex-wrap gap-2 md:justify-end">
-                            {away && (
-                              <span class="inline-flex items-center px-2.5 py-1 text-caption font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold border-[2px] border-[color:var(--ss-color-warning)] text-[color:var(--ss-color-warning)]">
-                                Away
-                              </span>
-                            )}
-                            {m.roles.map((r) => (
-                              <span class={chipClass}>{ROLE_LABEL[r] ?? r}</span>
-                            ))}
-                          </div>
+                  {roster.members.map((m) => (
+                    <li class={rowClass}>
+                      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-6">
+                        <div class="min-w-0">
+                          <p class="font-['Archivo'] font-bold text-[color:var(--ss-color-text-primary)] m-0 truncate">
+                            {m.name}
+                          </p>
+                          <p class="mt-0.5 text-caption text-[color:var(--ss-color-text-secondary)] m-0 truncate">
+                            {m.email} · Last login {formatLastLogin(m.lastLoginAt)}
+                          </p>
                         </div>
-                      </li>
-                    )
-                  })}
+                        <div class="flex flex-wrap gap-2 md:justify-end">
+                          {m.roles.map((r) => (
+                            <span class={chipClass}>{ROLE_LABEL[r] ?? r}</span>
+                          ))}
+                        </div>
+                      </div>
+                    </li>
+                  ))}
                 </ul>
               )
             }
@@ -212,10 +193,6 @@ const manageLinkClass =
               <a href="/portal/products/operator/settings/users" class={manageLinkClass}>
                 <span class="material-symbols-outlined" aria-hidden="true">group</span>
                 Manage roles &amp; invites
-              </a>
-              <a href="/portal/products/operator/settings/pto" class={manageLinkClass}>
-                <span class="material-symbols-outlined" aria-hidden="true">event_busy</span>
-                Manage coverage
               </a>
             </div>
           </Fragment>
