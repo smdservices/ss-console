@@ -654,8 +654,8 @@ describe('operator customer.yaml invariants', () => {
   })
 })
 
-describe('operator client-portal surfaces stay vertical-agnostic (ADR 0050)', () => {
-  // The Operator is a vertical-agnostic product (ADR 0050): client-portal
+describe('operator client-portal surfaces stay vertical-agnostic (ADR 0052)', () => {
+  // The Operator is a vertical-agnostic product (ADR 0052): client-portal
   // surfaces must not reintroduce law-vertical vocabulary or demo persona
   // names. A regression here means the "Matters"/case-data model or a hardcoded
   // persona crept back onto a shipped surface.
@@ -664,7 +664,7 @@ describe('operator client-portal surfaces stay vertical-agnostic (ADR 0050)', ()
   //   - the customer.yaml editor (customer-yaml-editor/): it authors per-customer
   //     config whose field names (e.g. matter_blocks for a law customer) are
   //     legitimate vertical config, not product structure — the same out-of-scope
-  //     category as capability adapters and practice_areas (ADR 0050 "Out of
+  //     category as capability adapters and practice_areas (ADR 0052 "Out of
   //     scope").
   //   - the admin console (src/pages/admin/**): it observes/authors one specific,
   //     possibly-law customer, so per-customer law values are legitimate there.
@@ -677,11 +677,11 @@ describe('operator client-portal surfaces stay vertical-agnostic (ADR 0050)', ()
   const BANNED: ReadonlyArray<{ re: RegExp; label: string }> = [
     {
       re: /\bmatters?\b/i,
-      label: 'matter(s) — use the generic opaque object reference (ADR 0050 §6)',
+      label: 'matter(s) — use the generic opaque object reference (ADR 0052 §6)',
     },
     { re: /\bdeposition\b/i, label: 'deposition — law-vertical vocabulary' },
     { re: /\bhearing\b/i, label: 'hearing — law-vertical vocabulary' },
-    { re: /\b(?:pre_suit|pre_trial)\b/i, label: 'PI litigation phase enum (ADR 0050)' },
+    { re: /\b(?:pre_suit|pre_trial)\b/i, label: 'PI litigation phase enum (ADR 0052)' },
     { re: /\bMarcus\b/, label: 'Marcus — demo persona name' },
     { re: /\bSusan\b/, label: 'Susan — demo persona name' },
   ]

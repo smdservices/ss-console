@@ -1,7 +1,7 @@
--- Drop the multi-user matter substrate (per ADR 0050)
+-- Drop the multi-user matter substrate (per ADR 0052)
 -- ============================================================================
 --
--- ADR 0050 makes the Operator portal a management console, not a data surface.
+-- ADR 0052 makes the Operator portal a management console, not a data surface.
 -- The three tables added by 0043 backed law-vertical-shaped portal features that
 -- are removed: matter assignment, per-user PTO/coverage routing, and matter-keyed
 -- notification preferences. All three are dropped here.

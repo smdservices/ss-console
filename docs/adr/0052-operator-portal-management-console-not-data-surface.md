@@ -7,7 +7,7 @@ related-adr: 0026-config-surface-is-a-security-boundary.md, 0037-operator-thesis
 related-doc: docs/security/smd-services-security-overview.md
 ---
 
-# ADR 0050 — The Operator Client Portal Is a Management Console, Not a Data Surface
+# ADR 0052 — The Operator Client Portal Is a Management Console, Not a Data Surface
 
 **Status:** Accepted (Captain decision, 2026-06-20).
 
