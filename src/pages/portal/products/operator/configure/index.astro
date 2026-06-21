@@ -279,6 +279,29 @@ const emptyClass = 'text-sm text-[color:var(--ss-color-text-secondary)]'
             </div>
           </section>
         </DomainSurface>
+
+        {
+          roles.includes('principal') && (
+            <section class={cardClass}>
+              <div class={barClass}>Advanced</div>
+              <div class="px-5 md:px-7 py-6 flex flex-col gap-4">
+                <p class={emptyClass}>
+                  Edit the full operator configuration as a structured form: personas, escalation,
+                  business hours, connectors, and scope.
+                </p>
+                <a
+                  href="/portal/products/operator/settings/advanced"
+                  class="inline-flex items-center gap-2 self-start px-5 py-3 font-['Archivo_Narrow'] uppercase tracking-[0.12em] font-bold text-sm border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] hover:bg-[color:var(--ss-color-primary)] hover:border-[color:var(--ss-color-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+                >
+                  <span class="material-symbols-outlined" aria-hidden="true">
+                    tune
+                  </span>
+                  Advanced configuration
+                </a>
+              </div>
+            </section>
+          )
+        }
       </div>
     </main>
   </body>
