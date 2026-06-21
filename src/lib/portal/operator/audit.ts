@@ -37,8 +37,6 @@
  *     compliance reviewer scans for "what happened around X".
  *   - Action class is a multi-select over the closed
  *     `ACCEPTED_ACTION_TYPES` vocabulary mirrored from the writer.
- *   - Per-matter drill-down piggy-backs on the same params: `?matter=<id>`
- *     filters rows whose `target` is that matter ref.
  */
 
 import type { SubscriptionRow } from '../product-access'
@@ -191,9 +189,10 @@ export const AUDIT_SORTS: readonly AuditSort[] = ['ts_desc', 'ts_asc'] as const
  *   action    — Action class. Validated against AUDIT_ACTION_TYPES;
  *               unknown values render verbatim so we never silently
  *               drop a row whose class drifted ahead of this constant.
- *   target    — Free-form target reference (matter id, draft id,
- *               connector slug). `null` when the action has no
- *               specific target (e.g., `INVARIANT_BOOT_CHECK_FAILED`).
+ *   target    — Opaque object reference (a draft id, connector slug, or
+ *               other source-system handle — never interpreted, per ADR
+ *               0050 §6). `null` when the action has no specific target
+ *               (e.g., `INVARIANT_BOOT_CHECK_FAILED`).
  *   decision  — Effective decision (see AuditDecision). `null` when
  *               the writer did not attach one (the schema field is
  *               nullable in some action classes).
@@ -205,9 +204,9 @@ export const AUDIT_SORTS: readonly AuditSort[] = ['ts_desc', 'ts_asc'] as const
  *   skill     — Optional skill slug that originated the action.
  *               Powers the skill multi-select; mirrors
  *               `audit_log.skill_name`.
- *   matterRef — Optional matter reference for cross-skill drill-down.
- *               Mirrors `audit_log.matter_ref` and is the field the
- *               `?matter=<id>` query string filters against.
+ *
+ * Per ADR 0050 §6, an action's object is referenced only by the generic
+ * opaque `target` handle — there is no per-vertical reference field.
  */
 export interface AuditEntry {
   id: string
@@ -219,7 +218,6 @@ export interface AuditEntry {
   decision: AuditDecision | null
   reason: string | null
   skill: string | null
-  matterRef: string | null
 }
 
 /**
@@ -239,9 +237,6 @@ export interface AuditEntry {
  *                 `from`. When both are null and `defaultDateRange` is
  *                 true (the page contract), the resolver lets the page
  *                 supply a "last 7 days" window.
- *   matter      — Per-matter drill-down. Substring/equality match on
- *                 `matterRef` (canonicalized lowercase). null = no
- *                 filter.
  *   q           — Free-text search applied over `reason` + `actor` +
  *                 `target` (case-insensitive substring). null = no
  *                 filter.
@@ -255,7 +250,6 @@ export interface AuditListParams {
   actions: readonly string[]
   from: string | null
   to: string | null
-  matter: string | null
   q: string | null
   sort: AuditSort
   page: number
@@ -328,9 +322,6 @@ export function parseAuditListParams(searchParams: URLSearchParams): AuditListPa
   const from = normalizeIsoTimestamp(searchParams.get('from'))
   const to = normalizeIsoTimestamp(searchParams.get('to'))
 
-  const rawMatter = searchParams.get('matter')?.trim() ?? ''
-  const matter = rawMatter.length > 0 ? rawMatter.toLowerCase() : null
-
   const rawQ = searchParams.get('q')?.trim() ?? ''
   const q = rawQ.length > 0 ? rawQ.toLowerCase() : null
 
@@ -348,7 +339,7 @@ export function parseAuditListParams(searchParams: URLSearchParams): AuditListPa
       ? Math.min(Math.floor(rawPageSize), MAX_AUDIT_PAGE_SIZE)
       : DEFAULT_AUDIT_PAGE_SIZE
 
-  return { skills, actions, from, to, matter, q, sort, page, pageSize }
+  return { skills, actions, from, to, q, sort, page, pageSize }
 }
 
 /**
@@ -417,13 +408,6 @@ export function applyAuditFilters(
         return Number.isFinite(rowMs) && rowMs <= upperMs
       })
     }
-  }
-
-  if (params.matter !== null) {
-    const needle = params.matter
-    result = result.filter(
-      (row) => row.matterRef !== null && row.matterRef.toLowerCase() === needle
-    )
   }
 
   if (params.q !== null) {

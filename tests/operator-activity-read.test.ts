@@ -49,7 +49,6 @@ describe('parseAuditEntries: defensive parse, never cast', () => {
         decision: 'draft_for_review',
         reason: 'client email',
         skill: 'inbox-triage',
-        matterRef: 'M-1',
       },
     ])
     expect(rows).toHaveLength(1)

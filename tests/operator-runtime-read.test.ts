@@ -86,12 +86,12 @@ describe('readMachineRuntime', () => {
     const result = await readMachineRuntime(
       { transport, audit },
       'smith-pi-firm',
-      { kind: 'draft', id: 'd1' },
+      { kind: 'audit_log', id: 'd1' },
       ACTOR
     )
     expect(result).toEqual<RuntimeReadResult>({
       ok: false,
-      kind: 'draft',
+      kind: 'audit_log',
       reason: 'unreachable',
     })
     expect(rows[0].outcome).toBe('unreachable')
@@ -107,7 +107,7 @@ describe('readMachineRuntime', () => {
     const result = await readMachineRuntime(
       { transport, audit },
       'smith-pi-firm',
-      { kind: 'matter', id: 'm1' },
+      { kind: 'activity', id: 'm1' },
       ACTOR
     )
     expect(result.ok).toBe(false)

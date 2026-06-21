@@ -129,7 +129,6 @@ export function parseAuditEntries(data: unknown): AuditEntry[] {
       decision: asDecision(item['decision']),
       reason: optString(item['reason']),
       skill: optString(item['skill']),
-      matterRef: optString(item['matterRef']),
     })
   }
   return out

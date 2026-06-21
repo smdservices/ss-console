@@ -2,9 +2,8 @@
 /**
  * Audit log filter bar.
  *
- * Renders six controls — skill multi-select, action-class multi-select,
- * date-range pair (from / to), per-matter drill-down indicator, and
- * free-text search. Submits as a plain GET form to the surrounding
+ * Renders five controls — skill multi-select, action-class multi-select,
+ * date-range pair (from / to), and free-text search. Submits as a plain GET form to the surrounding
  * page so server-side params drive the list. No client-side
  * JavaScript: the page re-renders with the new query string and the
  * data resolver re-runs against the new params.
@@ -16,12 +15,6 @@
  * `AuditListParams` in src/lib/portal/operator/audit.ts. If you
  * rename one here, rename both — the URL is the contract between the
  * form and the resolver.
- *
- * Per-matter drill-down: when a `matter=<id>` param is set, the form
- * surfaces it as a hidden input plus a visible read-only chip so the
- * reviewer sees the active drill-down and can clear it. We do not
- * render a free-text matter input; the typical entry vector is a link
- * from the matter detail page, not a typed query.
  */
 
 import { AUDIT_ACTION_TYPES, AUDIT_SORTS, type AuditSort } from '../../../lib/portal/operator/audit'
@@ -35,7 +28,6 @@ interface Props {
   actions: readonly string[]
   from: string | null
   to: string | null
-  matter: string | null
   q: string | null
   sort: AuditSort
   /**
@@ -47,7 +39,7 @@ interface Props {
   availableSkills: readonly string[]
 }
 
-const { skills, actions, from, to, matter, q, sort, availableSkills } = Astro.props
+const { skills, actions, from, to, q, sort, availableSkills } = Astro.props
 
 const SORT_LABELS: Record<AuditSort, string> = {
   ts_desc: 'Newest first',
@@ -74,30 +66,6 @@ function toDateValue(value: string | null): string {
   class="border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] p-4 md:p-5 flex flex-col gap-3 md:gap-4"
   aria-label="Filter and sort audit log"
 >
-  {
-    /* Active matter drill-down: visible chip + hidden input so the
-      reviewer sees the active filter and can clear it from the bar. */
-  }
-  {
-    matter !== null && (
-      <div class="flex items-center gap-3 border-b-[2px] border-[color:var(--ss-color-text-primary)] pb-3">
-        <span class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
-          Matter
-        </span>
-        <span class="font-mono text-sm text-[color:var(--ss-color-text-primary)] break-all">
-          {matter}
-        </span>
-        <input type="hidden" name="matter" value={matter} />
-        <a
-          href="?"
-          class="inline-flex items-center min-h-9 px-3 py-1 border-[2px] border-[color:var(--ss-color-text-primary)] font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-primary)] hover:bg-[color:var(--ss-color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 transition-colors"
-        >
-          Clear matter
-        </a>
-      </div>
-    )
-  }
-
   <div
     class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto_auto_auto_auto] gap-3 md:gap-4 md:items-end"
   >

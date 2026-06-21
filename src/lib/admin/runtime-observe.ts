@@ -2,14 +2,14 @@
  * Runtime-observe view-model for the admin Operator console
  * (`/admin/operator/[customer]/runtime`) — design §5.5, ADR 0043 path A.
  *
- * SMD observes what one operator is actually doing — activity/drafts, audit
- * log, matters — read across the isolation boundary via the live per-customer
+ * SMD observes what one operator is actually doing — activity/drafts and the
+ * audit log — read across the isolation boundary via the live per-customer
  * read path (readMachineRuntime). That path is fail-closed: until the Machine
  * read endpoint is wired (OPERATOR_RUNTIME_READ_URL), it returns empty, so this
  * surface renders honest empty / not-enabled states now — the documented design,
  * not a gap (foundations §6/§7).
  *
- * This module owns the view IA (the three sub-views → RuntimeReadKind) and a
+ * This module owns the view IA (the sub-views → RuntimeReadKind) and a
  * thin loader that maps a read result to a display status. The transport, audit
  * sink, and readMachineRuntime are the frozen seam; the page injects them.
  *
@@ -26,7 +26,7 @@ import {
   type RuntimeReadKind,
 } from '../operator/runtime-read'
 
-export type RuntimeViewId = 'activity' | 'audit' | 'matters'
+export type RuntimeViewId = 'activity' | 'audit'
 
 export interface RuntimeViewDef {
   id: RuntimeViewId
@@ -39,7 +39,6 @@ export interface RuntimeViewDef {
 export const RUNTIME_VIEWS: readonly RuntimeViewDef[] = [
   { id: 'activity', label: 'Activity & drafts', kind: 'activity', noun: 'activity' },
   { id: 'audit', label: 'Audit log', kind: 'audit_log', noun: 'audit entries' },
-  { id: 'matters', label: 'Matters', kind: 'matter', noun: 'matters' },
 ]
 
 /** Resolve a `?view=` param to a view def; defaults to activity. Total. */

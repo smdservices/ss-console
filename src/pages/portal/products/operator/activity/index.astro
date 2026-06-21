@@ -84,11 +84,9 @@ const activityPage = await loadActivityPage(
 )
 const availableSkills = distinctAuditSkills(activityPage.rows)
 
-const matterFilter = resolvedParams.matter
-const emptyHeading = matterFilter ? 'No activity for this matter' : 'No activity yet'
-const emptyBody = matterFilter
-  ? 'No actions in the selected window reference this matter. Clear the matter filter to see the full record.'
-  : 'Every action your Operator takes is recorded here: drafts created, sends approved, identity changes, memory access.'
+const emptyHeading = 'No activity yet'
+const emptyBody =
+  'Every action your Operator takes is recorded here: drafts created, sends approved, identity changes, memory access.'
 
 // Compliance & retention block (principal/compliance only). Resolve the
 // retention posture for display; the override projection is not wired yet, so
@@ -147,7 +145,6 @@ const complianceView =
           actions={resolvedParams.actions}
           from={resolvedParams.from}
           to={resolvedParams.to}
-          matter={resolvedParams.matter}
           q={resolvedParams.q}
           sort={resolvedParams.sort}
           availableSkills={availableSkills}
