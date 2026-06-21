@@ -225,7 +225,11 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # session untainted and an autonomous send allowed. Distinct from e8411ca's
 # durable-worker session taint. Additive on top of e8411ca (= 1c2171f + B1 + B0);
 # twins unchanged, overlaySha256 stable.
-ARG OVERLAY_REF="af20ecd8c1831be4297c2d89018ca69984b09899"
+# 5fa5174 (on top of af20ecd): wrap overlay tool schemas under `parameters` so the
+# 19 overlay tools (workspace_* + record_peer_preference) reach the model with their
+# real parameter schemas instead of empty params. Plugin registration only; no behavior
+# change to handlers. See hermes-smd-overlay fix/tool-schema-parameters-wrap.
+ARG OVERLAY_REF="5fa5174c12428eb24faaf8d54a0ed720cc6dfee7"
 
 ARG CUSTOMER_SLUG=customer-zero
 

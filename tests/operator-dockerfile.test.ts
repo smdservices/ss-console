@@ -131,7 +131,10 @@ describe('Operator customer Machine Dockerfile', () => {
     // af20ecd (#105, ADR 0050 B0): taints the code-execution ingestion channel
     // (execute_code/terminal/process/computer_use). Additive on top of e8411ca;
     // twins unchanged.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="af20ecd8c1831be4297c2d89018ca69984b09899"')
+    // 5fa5174 (#106): wraps overlay tool schemas under `parameters` so the 19
+    // overlay tools reach the model with real params (was empty). Plugin
+    // registration only; twins unchanged (overlaySha256 re-verified at 5fa5174).
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="5fa5174c12428eb24faaf8d54a0ed720cc6dfee7"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
