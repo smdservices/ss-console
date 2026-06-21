@@ -3,7 +3,7 @@ title: The Operator Client Portal Is a Management Console, Not a Data Surface
 date: 2026-06-20
 status: accepted
 captain: Scott Durgan
-related-adr: 0026-config-surface-is-a-security-boundary.md, 0037-operator-thesis.md, 0043-operator-runtime-read-path.md, 0016-honcho-disposition.md
+related-adr: 0026-config-surface-is-a-security-boundary.md, 0037-operator-thesis.md, 0043-operator-runtime-read-path.md, 0030-control-plane-human-principal-surface.md, 0016-honcho-disposition.md
 related-doc: docs/security/smd-services-security-overview.md
 ---
 
@@ -91,6 +91,22 @@ ref: { connector, id }
 ### 7. The single carved exception: compliance evidence packets
 
 An oversight reviewer needs a frozen artifact. That flow — and only that flow — materializes content: **transiently, on explicit human request, delivered, and not retained.** It is the §5 "only when a firm user explicitly requests" case, made an exception by name so it cannot be cited to justify any standing store.
+
+### 8. The admin-operator surface answers to the same doctrine
+
+This doctrine governs **every surface on which the Operator is presented** — the client portal _and_ SMD's internal **admin-operator** area (`src/pages/admin/operator/**`, the surface SMD staff use to operate and support a customer's Operator). The same boundary test applies: it may show operator config, the operator's own actions (governance record), and ops/relationship admin; it may **not** store, mirror, or render the client's business/system data.
+
+The admin side has one legitimate difference and one hard limit:
+
+- **Observe-to-operate is legitimate.** SMD must be able to see whether a customer's Operator is healthy, in-bounds, and correctly configured — fleet health, cost, alerts, provisioning, governance posture, the audit/governance record. That operational observability is the admin area's job and is in-bounds.
+- **Observe-to-operate is not store-the-client's-data.** Seeing _that_ the Operator acted, under what authority, with what outcome — metadata — is permitted. Seeing _what the matter was about_ — case facts, documents, business content — is not. The audit record stays metadata-only, references stay opaque handles (§5/§6), and any "what the operator is doing" admin view renders the governance log, never a mirror of the connected system. SMD staff are bound by the same no-data-surface rule as the client; the admin console is not a privileged window into client business data.
+
+The broader admin console (leads, clients, billing, assessments, services, analytics, entities) is a different surface with its own doctrine (ADR 0046) and is out of scope here.
+
+## Amends / relationship to prior ADRs
+
+- **Amends [ADR 0030](0030-control-plane-human-principal-surface.md)** (control plane): the draft-review queue and send/teach are reframed as a **read-only audit lens**, not portal-side work actions — approval happens in the native system or the conversational channel (§4).
+- **Amends [ADR 0043](0043-operator-runtime-read-path.md)** (runtime read path): the "matter timeline" drill-in is reframed as the governance log grouped by opaque ref (§2/§6); the read path serves the governance record, not client-data surfaces.
 
 ## Consequences
 

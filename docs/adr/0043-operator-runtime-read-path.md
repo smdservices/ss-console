@@ -9,7 +9,7 @@ related-adr: docs/adr/0007-per-customer-machine-isolation.md, docs/adr/0009-cros
 
 # ADR 0043 — Operator Runtime Read Path
 
-**Status:** Accepted (Captain decision, 2026-06-08). The shared component both Operator portals depend on; built first.
+**Status:** Accepted (Captain decision, 2026-06-08). The shared component both Operator portals depend on; built first. **Amended by [ADR 0050](0050-operator-portal-management-console-not-data-surface.md) (2026-06-20):** the read path serves the **governance record** (the operator's own actions, as metadata with opaque object references), not client-data surfaces. There is no "matter timeline" / case-content drill-in; the `matter` read-kind and the per-vertical `matterRef` are removed in favor of grouping the governance log by opaque ref (ADR 0050 §2/§6). "matters/workstreams" below should be read in that light.
 
 ## Context
 

@@ -10,7 +10,7 @@ related-note: note_01KSS3TCTKWYVF6EZ04482X389, note_01KSTYSNC9CYPKYFJZ3TJ7F6RM
 
 # ADR 0030 — The Control Plane
 
-**Status:** Accepted (Captain decision, 2026-05-29). Names and unifies a harness stratum that exists in pieces.
+**Status:** Accepted (Captain decision, 2026-05-29). Names and unifies a harness stratum that exists in pieces. **Amended by [ADR 0050](0050-operator-portal-management-console-not-data-surface.md) (2026-06-20):** the control plane is a management console, not a data surface or a workspace. The draft-review queue and any send/approve action do **not** live in the portal — approval happens in the native system or the conversational channel; the portal's supervision role is a **read-only audit/governance lens** (ADR 0050 §4). The audit/ledger views show the operator's own actions as metadata with opaque object references, never the client's business data (ADR 0050 §5/§6).
 
 **Source:** The harness has three strata (thesis note `note_01KSS3TCTKWYVF6EZ04482X389`): **Gates** (the action-path membrane — ADRs 0025/0027/0028), **Ledgers** (durable owned state — audit, memory, config), and the **Control Plane** (the human principal's surface for governing the employee). The first two have ADRs; the control plane has never been named as a thing, so its functions were built piecemeal and graded PARTIAL across the board in the 2026-05-29 audit. This ADR establishes it as a first-class stratum with one governing principle, so its remaining build is coherent rather than a pile of unrelated portal pages.
 
