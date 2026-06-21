@@ -14,7 +14,7 @@
  * how to render it. Defensive throughout: a missing name falls back to the
  * email; never a fabricated member.
  *
- * (Coverage/PTO was removed per ADR 0050 — it was an unwired, matter-keyed
+ * (Coverage/PTO was removed per ADR 0052 — it was an unwired, matter-keyed
  * feature; reintroduce cleanly when a real coverage-routing backend exists.)
  */
 

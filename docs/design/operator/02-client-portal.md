@@ -1,7 +1,7 @@
 # Operator Client Portal — Design
 
-> **⚠️ SUPERSEDED (2026-06-20) by [ADR 0050](../../adr/0050-operator-portal-management-console-not-data-surface.md).**
-> This document predates ADR 0050 and describes the portal as a data/case surface (a "Matters" view, per-engagement content, an in-portal draft-approval workspace). That model is retired. The portal is a **management console, not a data surface**: it does three jobs — Direct (config), Account (the operator's own governance/audit record), Administer (the relationship) — and never stores or mirrors the client's business data, contains no work-approval action, and is vertical-agnostic. **Read ADR 0050 as the source of truth; treat the sections below as historical, except where they describe surfaces ADR 0050 keeps (Activity, Calendar, Connections, Configure, Team, Account, Compliance, Onboarding).**
+> **⚠️ SUPERSEDED (2026-06-20) by [ADR 0052](../../adr/0052-operator-portal-management-console-not-data-surface.md).**
+> This document predates ADR 0052 and describes the portal as a data/case surface (a "Matters" view, per-engagement content, an in-portal draft-approval workspace). That model is retired. The portal is a **management console, not a data surface**: it does three jobs — Direct (config), Account (the operator's own governance/audit record), Administer (the relationship) — and never stores or mirrors the client's business data, contains no work-approval action, and is vertical-agnostic. **Read ADR 0052 as the source of truth; treat the sections below as historical, except where they describe surfaces ADR 0052 keeps (Activity, Calendar, Connections, Configure, Team, Account, Compliance, Onboarding).**
 
 **Status:** Draft for Captain review (2026-06-08). Build-ready design for the **client side** of Operator management.
 Builds on [`00-foundations.md`](00-foundations.md) — read it first. Pairs with [`01-admin-portal.md`](01-admin-portal.md),

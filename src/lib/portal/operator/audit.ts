@@ -205,7 +205,7 @@ export const AUDIT_SORTS: readonly AuditSort[] = ['ts_desc', 'ts_asc'] as const
  *               Powers the skill multi-select; mirrors
  *               `audit_log.skill_name`.
  *
- * Per ADR 0050 §6, an action's object is referenced only by the generic
+ * Per ADR 0052 §6, an action's object is referenced only by the generic
  * opaque `target` handle — there is no per-vertical reference field.
  */
 export interface AuditEntry {

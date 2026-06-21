@@ -5,7 +5,7 @@
  * "not started," never a fabricated completion. These tests pin that contract
  * against the resolved signals, independent of D1.
  *
- * (Calibration was removed per ADR 0050 — it is an off-portal activity, so the
+ * (Calibration was removed per ADR 0052 — it is an off-portal activity, so the
  * path is two steps: invite, connect.)
  */
 

@@ -23,7 +23,7 @@
  * fields below.
  *
  * (The matter-assignment, PTO, and notification-preference subActions
- * were removed per ADR 0050 along with those portal surfaces.)
+ * were removed per ADR 0052 along with those portal surfaces.)
  */
 
 /**
