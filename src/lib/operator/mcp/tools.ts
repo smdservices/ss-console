@@ -78,7 +78,6 @@ interface AuditEntry {
   ts: string
   action: string
   skill: string | null
-  matterRef: string | null
 }
 
 /** Defensively parse the Machine's `{entries,cursor}` audit_log page. */
@@ -95,7 +94,6 @@ function parseAuditEntries(data: unknown): AuditEntry[] {
         ts: o.ts,
         action: o.action,
         skill: typeof o.skill === 'string' ? o.skill : null,
-        matterRef: typeof o.matterRef === 'string' ? o.matterRef : null,
       },
     ]
   })
@@ -148,7 +146,6 @@ const operatorStatus: McpTool = {
           at: e.ts,
           action: e.action,
           skill: e.skill,
-          matter: e.matterRef,
         })),
       },
     }

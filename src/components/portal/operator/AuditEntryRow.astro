@@ -9,9 +9,8 @@
  * The row is rendered as a `<details>` block so reviewers can expand a
  * row to read the full `reason` text without a separate detail page or
  * client-side JavaScript. Truncated text shows in the row caption; the
- * expanded body shows the full reason plus the row id and any matter
- * reference. The summary remains keyboard-actionable via the native
- * `<details>` behavior.
+ * expanded body shows the full reason plus the row id. The summary
+ * remains keyboard-actionable via the native `<details>` behavior.
  *
  * Plainspoken aesthetic matching DraftRow.astro (#869): 2px ink
  * divider between rows, file-style mono numerics for timestamp /
@@ -62,7 +61,7 @@ const reasonTruncated =
     ? entry.reason.slice(0, 117) + '…'
     : (entry.reason ?? '')
 
-const hasExpandableContent = Boolean(entry.reason ?? entry.matterRef)
+const hasExpandableContent = Boolean(entry.reason)
 ---
 
 <details
@@ -209,22 +208,6 @@ const hasExpandableContent = Boolean(entry.reason ?? entry.matterRef)
             </p>
             <p class="mt-1 font-mono text-sm text-[color:var(--ss-color-text-primary)] whitespace-pre-wrap break-words">
               {entry.reason}
-            </p>
-          </div>
-        )}
-
-        {entry.matterRef && (
-          <div>
-            <p class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-bold text-[color:var(--ss-color-text-secondary)]">
-              Matter
-            </p>
-            <p class="mt-1 font-mono text-sm">
-              <a
-                href={`?matter=${encodeURIComponent(entry.matterRef)}`}
-                class="text-[color:var(--ss-color-text-primary)] underline hover:text-[color:var(--ss-color-action)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
-              >
-                {entry.matterRef}
-              </a>
             </p>
           </div>
         )}

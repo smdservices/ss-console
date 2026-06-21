@@ -48,8 +48,6 @@
  * reads its own ledger over the broker socket and returns a single page. */
 export const RUNTIME_READ_KINDS = [
   'audit_log',
-  'draft',
-  'matter',
   'activity',
   'memory_export',
   'config_export',

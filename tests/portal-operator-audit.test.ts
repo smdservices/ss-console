@@ -54,7 +54,6 @@ function makeEntry(overrides: Partial<AuditEntry> = {}): AuditEntry {
     decision: 'draft_for_review',
     reason: 'Routine intake follow-up.',
     skill: 'client-intake',
-    matterRef: 'matter-1',
     ...overrides,
   }
 }
@@ -64,7 +63,6 @@ const baseParams: AuditListParams = {
   actions: [],
   from: null,
   to: null,
-  matter: null,
   q: null,
   sort: 'ts_desc',
   page: 1,
@@ -133,13 +131,11 @@ describe('parseAuditListParams', () => {
     expect(parseAuditListParams(new URLSearchParams('from=')).from).toBeNull()
   })
 
-  it('lowercases matter and q', () => {
-    expect(parseAuditListParams(new URLSearchParams('matter=Matter-9')).matter).toBe('matter-9')
+  it('lowercases q', () => {
     expect(parseAuditListParams(new URLSearchParams('q=Foo')).q).toBe('foo')
   })
 
-  it('treats empty matter and q as no filter', () => {
-    expect(parseAuditListParams(new URLSearchParams('matter=')).matter).toBeNull()
+  it('treats empty q as no filter', () => {
     expect(parseAuditListParams(new URLSearchParams('q=   ')).q).toBeNull()
   })
 
@@ -191,7 +187,6 @@ describe('applyAuditFilters', () => {
       skill: 'intake',
       action: 'DRAFT_CREATED',
       target: 'draft-1',
-      matterRef: 'matter-1',
       reason: 'Routine intake follow up.',
       actor: 'pat',
     }),
@@ -201,7 +196,6 @@ describe('applyAuditFilters', () => {
       skill: 'deadline',
       action: 'DRAFT_APPROVED',
       target: 'draft-2',
-      matterRef: 'matter-2',
       reason: 'Approved by reviewer.',
       actor: 'jordan',
     }),
@@ -211,7 +205,6 @@ describe('applyAuditFilters', () => {
       skill: 'intake',
       action: 'TRUST_PROMOTED',
       target: null,
-      matterRef: 'matter-1',
       reason: null,
       actor: 'agent',
     }),
@@ -244,20 +237,6 @@ describe('applyAuditFilters', () => {
     expect(result.map((r) => r.id).sort()).toEqual(['b', 'c'])
   })
 
-  it('filters by matter ref (exact, case-insensitive)', () => {
-    const result = applyAuditFilters(rows, { ...baseParams, matter: 'matter-1' })
-    expect(result.map((r) => r.id).sort()).toEqual(['a', 'c'])
-  })
-
-  it('matter filter is exact match, not substring', () => {
-    // matter-1 should NOT match matter-10 or any other partial; this
-    // mirrors the resolver semantic so a drill-down from a matter detail
-    // page lands on exactly that matter's rows.
-    const extras: AuditEntry[] = [...rows, makeEntry({ id: 'd', matterRef: 'matter-10' })]
-    const result = applyAuditFilters(extras, { ...baseParams, matter: 'matter-1' })
-    expect(result.map((r) => r.id).sort()).toEqual(['a', 'c'])
-  })
-
   it('q matches against reason (case-insensitive)', () => {
     const result = applyAuditFilters(rows, { ...baseParams, q: 'approved' })
     expect(result.map((r) => r.id)).toEqual(['b'])
@@ -285,7 +264,6 @@ describe('applyAuditFilters', () => {
       skills: ['intake'],
       actions: ['DRAFT_CREATED'],
       from: '2026-05-19T00:00:00Z',
-      matter: 'matter-1',
     })
     expect(result.map((r) => r.id)).toEqual(['a'])
   })
