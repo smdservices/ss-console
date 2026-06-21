@@ -3,7 +3,7 @@
  * One row in the Operator calendar agenda.
  *
  * Used only by CalendarAgenda. Lives in its own file so the row's
- * cell vocabulary (time / title / type / source / matter / conflict)
+ * cell vocabulary (time / title / type / source / related / conflict)
  * can be tested and revised independently of the agenda chrome.
  *
  * Per #872 (and PortalListItem precedent), the row is a link to the
@@ -20,7 +20,7 @@
  * Why not PortalListItem? PortalListItem's variants are status (title +
  * money + meta) and document (icon + title + eyebrow). Neither fits
  * the calendar's six-cell vocabulary (time-range / title / type /
- * source-skill / related-matter / conflict). A new primitive is the
+ * source-skill / related-object / conflict). A new primitive is the
  * honest answer — bending PortalListItem to fit would distort both
  * surfaces. Same justification DraftRow already records.
  *
@@ -137,14 +137,14 @@ const conflictId = conflictCount > 0 ? `conflict-${item.id}` : undefined
       </span>
     </div>
 
-    {/* Related matter */}
+    {/* Related object (opaque, connector-namespaced — never interpreted) */}
     <div
       class="md:border-r-[2px] md:border-[color:var(--ss-color-text-primary)] px-5 py-3 md:py-4 flex flex-col justify-center gap-1 min-w-0"
     >
       <span
         class="font-['Archivo_Narrow'] text-label uppercase tracking-[0.14em] font-semibold text-[color:var(--ss-color-text-secondary)]"
       >
-        Matter
+        Related
       </span>
       {
         item.relatedMatterTitle ? (

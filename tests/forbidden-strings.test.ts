@@ -435,17 +435,6 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // granted role names (principal / staff / compliance) — text
   // items inside a chrome card, not a list-row card surface.
   resolve('src/pages/portal/products/operator/index.astro'),
-  // `products/operator/matters/index.astro` (#871) iterates matters
-  // through the dedicated `<MattersListTable>` + `<MatterRow>`
-  // primitives, not PortalListItem. Matters carry phase + last AI
-  // action as their scan-time fields, not a money figure, and do not
-  // fit either of PortalListItem's two variants (status / document)
-  // without rendering a misleading "$0" cell. Per UI-PATTERNS R7's
-  // "When to split" guidance, matters are the third variant; they live
-  // in their own component pair until a second Operator surface
-  // (calendar, audit list view) shares the row shape, at which point
-  // MatterRow is promoted into PortalListItem as a third variant.
-  resolve('src/pages/portal/products/operator/matters/index.astro'),
   // `products/operator/calendar/index.astro` is the Operator
   // calendar agenda (#872). It renders list rows through the
   // dedicated <CalendarItemRow> primitive (mirrors DraftRow's
@@ -468,18 +457,6 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // PortalListItem primitive is the wrong shape here. There is no
   // status/document repeating-card vocabulary to enforce.
   resolve('src/pages/portal/products/operator/settings/advanced/index.astro'),
-  // `products/operator/notifications/index.astro` (#876) iterates
-  // notifications through the dedicated <NotificationRow> primitive,
-  // not PortalListItem. A notification row's vocabulary (type chip +
-  // unread dot + summary + when + per-row mark-read action) does not
-  // fit either of PortalListItem's two variants (status / document)
-  // without rendering a misleading "$0" cell or omitting the unread
-  // affordance. Same justification as DraftRow / MatterRow /
-  // AuditEntryRow / CalendarItemRow. The .map( hits on this page
-  // include the filter form's type checkboxes and the sort <option>s
-  // alongside the row iteration; row rendering itself goes through
-  // <NotificationRow>.
-  resolve('src/pages/portal/products/operator/notifications/index.astro'),
   // `products/operator/connections/index.astro` (§5.8) iterates connectors
   // through the dedicated <ConnectionRowCard> primitive, not PortalListItem. A
   // connection row's vocabulary (capability + adapter/health + custody badge +
@@ -497,19 +474,6 @@ const LIST_INDEX_ALLOWLIST: string[] = [
   // the skill list and the action-class governance rows; neither carries a
   // money/status/document cell that PortalListItem's variants model.
   resolve('src/pages/portal/products/operator/configure/index.astro'),
-  // `products/operator/operators/index.astro` (§5.2) renders the persona roster
-  // as operator IDENTITY cards (name + status header, title, what-it-handles,
-  // tone) — not the PortalListItem status/document record-row vocabulary. Built
-  // for N, shipped at 1 (roster-of-one shows the single operator without
-  // switcher chrome). The .map( iterates personas into identity sections.
-  resolve('src/pages/portal/products/operator/operators/index.astro'),
-  // `products/operator/work/index.astro` (§5.3) renders work items routed to a
-  // person as plain rows (subject + recipient/skill) inside the dual-mode
-  // read/operable slots — not the PortalListItem status/document record-row
-  // vocabulary (no money/status/document cell). The .map( iterates the
-  // entitlement-produced work items; empty by design until a skill routes to a
-  // human (ADR 0035).
-  resolve('src/pages/portal/products/operator/work/index.astro'),
   // `products/operator/team/index.astro` (§5.7) renders the people-on-this-
   // account roster as identity rows (name + email/last-login, away badge, role
   // chips) inside the dual-mode read/operable slots — not the PortalListItem

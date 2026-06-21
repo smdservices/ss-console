@@ -1,29 +1,29 @@
 /**
- * Onboarding & calibration read path (client-portal §6). The guided "how a
- * client gets a working operator" path, derived from real state — never a
- * fabricated checklist.
+ * Onboarding read path (client-portal §6). The guided "how a client gets a
+ * working operator" path, derived from real state — never a fabricated
+ * checklist.
  *
- * Three steps (§6):
+ * Two steps:
  *   1. Invite & roles   → the Team surface (people_access)
- *   2. Connect systems  → the Connections surface (§5.8)
- *   3. Calibrate        → the Calibration surface (principal-led tuning)
+ *   2. Connect systems  → the Connections surface
+ *
+ * (Calibration was removed per ADR 0050 — it is an off-portal onboarding/
+ * delivery activity, not a shipped client portal surface.)
  *
  * Each step's status is computed from the same readers the destination surfaces
  * use, so the hub never disagrees with the surface it links to. Honesty is the
  * rule: a step with no real signal is "not started," not a fabricated
- * completion — calibration in particular reads as "not started" until a cycle
- * exists (its runtime wiring lands with #821), exactly as §6 requires.
+ * completion.
  */
 
 import type { D1Database } from '@cloudflare/workers-types'
-import { getCustomerConfig, getActivePersona } from '../customer-config'
+import { getCustomerConfig } from '../customer-config'
 import { loadTeamRoster } from './team-read'
 import { buildConnectionRows } from './connections'
-import { getActiveCalibrationCycle } from './calibration'
 
 export type StepStatus = 'done' | 'not_started'
 
-export type OnboardingStepKey = 'invite' | 'connect' | 'calibrate'
+export type OnboardingStepKey = 'invite' | 'connect'
 
 export interface OnboardingStep {
   key: OnboardingStepKey
@@ -41,12 +41,11 @@ export interface OnboardingState {
   total: number
 }
 
-/** The real signals the three steps derive from — keeps derivation pure. */
+/** The real signals the two steps derive from — keeps derivation pure. */
 export interface OnboardingSignals {
   memberCount: number
   connectedCount: number
   totalConnectors: number
-  cycleStarted: boolean
 }
 
 const OPERATOR_ROOT = '/portal/products/operator'
@@ -62,20 +61,17 @@ export async function loadOnboardingState(
     config?.connectors,
     config?.credential_custody_default ?? 'delegated'
   )
-  const persona = await getActivePersona(db, entityId)
-  const cycle = await getActiveCalibrationCycle(db, entityId, persona)
 
   return deriveOnboardingState({
     memberCount: roster.members.length,
     connectedCount: connectors.filter((c) => c.health === 'ok').length,
     totalConnectors: connectors.length,
-    cycleStarted: cycle !== null && cycle.state !== 'not_started',
   })
 }
 
 /** Pure step derivation from the resolved signals. Honest: no signal → not started. */
 export function deriveOnboardingState(signals: OnboardingSignals): OnboardingState {
-  const { memberCount, connectedCount, totalConnectors, cycleStarted } = signals
+  const { memberCount, connectedCount, totalConnectors } = signals
   const steps: OnboardingStep[] = [
     {
       key: 'invite',
@@ -98,15 +94,6 @@ export function deriveOnboardingState(signals: OnboardingSignals): OnboardingSta
         totalConnectors === 0
           ? 'No systems configured yet'
           : `${connectedCount} of ${totalConnectors} connected`,
-    },
-    {
-      key: 'calibrate',
-      title: 'Calibrate',
-      description:
-        "Tune your operator's voice and confirm its behavior before it works externally.",
-      href: `${OPERATOR_ROOT}/calibration`,
-      status: cycleStarted ? 'done' : 'not_started',
-      detail: cycleStarted ? 'Calibration underway' : 'Not started',
     },
   ]
 
