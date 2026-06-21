@@ -34,11 +34,11 @@ Status legend: **BUILT** · **NEAR** (built, demo/wiring left) · **IN-FLIGHT** 
 
 ### Track B — Procurement packet (assembly + business + one engineering round-trip)
 
-| Item                            | Buyer                  | Status                             | Anchor                                                   | Net-new work                                                                                                                                                                                           |
-| ------------------------------- | ---------------------- | ---------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Security one-pager              | Anthony, Diane, Karen  | TEMPLATE                           | `data-processing-addendum.md`, #1100                     | Assemble: provider + no-train term + hosting + SOC 2 status. Pre-empt "SOC 2 status ≠ Type II report" out loud (diligence gate the demo can't satisfy).                                                |
-| Clio integration spec           | Karen                  | SPEC pinned + ambiguity documented | `clio-surface.md`, `wedge.md`, ADR 0020, ADR 0038 step 5 | Sandbox round-trip to resolve v1 write scope → honest reads/writes/scopes/failure-behavior spec                                                                                                        |
-| Pilot pricing + economics frame | Marcus, Karen, Rebecca | NET-NEW (business)                 | ADR 0004 (deferred), #917                                | Scoped pilot price band + onboarding/time-cost. **Frame by buyer:** salary/replacement math for firms with a seat to replace; marginal-stack-cost + the buyer's one die-on metric for no-seat solos/PI |
+| Item                            | Buyer                 | Status                             | Anchor                                                   | Net-new work                                                                                                                                                                                           |
+| ------------------------------- | --------------------- | ---------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Security one-pager              | Anthony, Diane, Karen | TEMPLATE                           | `data-processing-addendum.md`, #1100                     | Assemble: provider + no-train term + hosting + SOC 2 status. Pre-empt "SOC 2 status ≠ Type II report" out loud (diligence gate the demo can't satisfy).                                                |
+| Clio integration spec           | Karen                 | SPEC pinned + ambiguity documented | `clio-surface.md`, `wedge.md`, ADR 0020, ADR 0038 step 5 | Sandbox round-trip to resolve v1 write scope → honest reads/writes/scopes/failure-behavior spec                                                                                                        |
+| Pilot pricing + economics frame | Karen, Rebecca        | NET-NEW (business)                 | ADR 0004 (deferred), #917                                | Scoped pilot price band + onboarding/time-cost. **Frame by buyer:** salary/replacement math for firms with a seat to replace; marginal-stack-cost + the buyer's one die-on metric for no-seat solos/PI |
 
 ### Track C — Guardrails as shown/exported artifacts
 
@@ -69,7 +69,7 @@ Status legend: **BUILT** · **NEAR** (built, demo/wiring left) · **IN-FLIGHT** 
 ## Backlog (deliberately deferred)
 
 - **Full multilingual operation** — inbound understanding + client-chase in Spanish/Hindi/Mandarin in firm voice. Revisit post-first-pilot. (Identifier-integrity gate is _not_ deferred — see Decision 1.)
-- **Speed-to-lead / PI wedge** — sub-minute inbound capture + instant callback + time-to-first-contact dashboard. The PI metric Marcus would buy on, but the PI add-on (`law-firm/pi`) is already out of the current wedge per `wedge.md`. Pairs with the no-seat economics reframe. Revisit if PI becomes a target vertical.
+- **Speed-to-lead / PI wedge** — sub-minute inbound capture + instant callback + time-to-first-contact dashboard. The PI metric a PI firm would buy on, but the PI add-on (`law-firm/pi`) is already out of the current wedge per `wedge.md`. Pairs with the no-seat economics reframe. Revisit if PI becomes a target vertical.
 
 ---
 

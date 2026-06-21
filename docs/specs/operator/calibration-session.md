@@ -1,5 +1,8 @@
 # Calibration session workflow
 
+> **⚠️ PARTIALLY SUPERSEDED (2026-06-20) by [ADR 0050](../../adr/0050-operator-portal-management-console-not-data-surface.md).**
+> The **portal surface** described here is removed — calibration is an off-portal onboarding/delivery activity, not a shipped client portal surface (it was a hardcoded law ritual wired to a dead stub). The calibration _methodology_ (the seams back to voice ingestion, memory rules, and trust-ceiling logging) may still inform delivery, but it is not a portal feature. Where calibration state must surface to the client at all, it belongs under the single Configure surface as a readiness indicator, not a standalone surface.
+
 **Spec for issue [#867](https://github.com/venturecrane/ss-console/issues/867).**
 Defines the calibration cycle structure (four 90-minute sessions over two weeks),
 the portal surface that exposes it, and the integration seams that connect
