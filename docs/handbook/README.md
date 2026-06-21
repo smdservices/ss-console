@@ -27,7 +27,9 @@ Rough "if you change X, update Y":
 | Pricing, rate ladder, payment terms | `pricing-economics.md` |
 | The Operator architecture / ceilings / memory | `operator-platform.md`, `autonomy-governance.md`, `knowledge-memory.md` |
 | A connector or delivery channel | `connectors-channels.md` |
-| An admin or portal surface | `admin-console.md` / `client-portal.md`, and `customer-lifecycle.md` if the motion changed |
+| An admin surface | `admin-console.md`, and `customer-lifecycle.md` if the motion changed |
+| A consulting portal surface | `client-portal.md` |
+| A client-facing Operator surface | `operator-console.md` |
 | The deploy or secrets flow | `deployment-release.md` / `secrets-access.md` |
 | The repo layout or a new top-level dir | `repository-map.md`, `architecture-map.md`, `docs-map.md` |
 
@@ -71,5 +73,22 @@ order and labels are set in `_HandbookSidebar.astro` and `index.astro`.
 
 `README.md` is excluded from the rendered collection (it is this guide, not a page).
 
-> Follow-on (filed, not yet built): a CI drift-check that flags any page whose `sources[]`
-> files have a newer git timestamp than the page, so staleness surfaces automatically.
+## How the handbook is kept current
+
+Three mechanisms, in order of strength:
+
+1. **The maintenance contract (primary).** Update the adjacent page in the same PR that
+   changes the venture. This is the only mechanism that keeps the *meaning* true; the other
+   two only catch what it misses.
+
+2. **The structural gate (hard, blocks merge).** `tests/handbook-integrity.test.ts` runs in
+   `npm run verify` and CI. It fails the build on malformed frontmatter, a dead
+   `/admin/playbook/<slug>` cross-link, a cited same-repo source file that no longer exists
+   (the check that forces a doc update when a source is moved, renamed, or deleted), two pages
+   colliding on one `(section, order)` slot, or an em dash. Deterministic, so it is safe to
+   block on.
+
+3. **The drift radar (advisory).** `npm run handbook:drift` compares each page's last-commit
+   time to its cited sources' last-commit times and reports pages whose sources changed after
+   them. Advisory, not a gate - a source edit does not always change what the page says - so a
+   human reads the report and decides. Run it before a handbook review pass.
