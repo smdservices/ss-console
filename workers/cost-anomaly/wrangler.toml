@@ -31,7 +31,7 @@ database_id = "65171b23-d615-42a7-84e7-a4fac20d063c"
 # 03:00 UTC daily — runs after ss-cost-telemetry's 02:00 ingest so the
 # trailing-day data is fresh.
 [triggers]
-crons = ["0 3 * * *"]
+# crons = ["0 3 * * *"]  # DISABLED 2026-06-20 — Captain directive, all crons off pre-launch; re-enable deliberately
 
 [vars]
 # Default anomaly threshold in basis points. 15000 = 150% per #886.

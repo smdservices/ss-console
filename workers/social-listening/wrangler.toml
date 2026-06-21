@@ -10,4 +10,4 @@ database_name = "ss-console-db"
 database_id = "65171b23-d615-42a7-84e7-a4fac20d063c"
 
 [triggers]
-crons = ["0 14 * * *"]  # 14:00 UTC = 7:00 AM MST (daily, same window as new-business)
+# crons = ["0 14 * * *"]  # 14:00 UTC = 7:00 AM MST (daily, same window as new-business)  # DISABLED 2026-06-20 — Captain directive, all crons off pre-launch; re-enable deliberately

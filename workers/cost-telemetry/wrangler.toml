@@ -31,7 +31,7 @@ database_id = "65171b23-d615-42a7-84e7-a4fac20d063c"
 
 # 02:00 UTC daily — matches the nightly cadence in cost-telemetry-events.md.
 [triggers]
-crons = ["0 2 * * *"]
+# crons = ["0 2 * * *"]  # DISABLED 2026-06-20 — Captain directive, all crons off pre-launch; re-enable deliberately
 
 # Secrets (set via `wrangler secret put` after first deploy):
 #   CF_ACCOUNT_ID       — Cloudflare account id for per-customer D1 HTTP API
