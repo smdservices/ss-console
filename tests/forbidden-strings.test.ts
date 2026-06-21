@@ -653,3 +653,54 @@ describe('operator customer.yaml invariants', () => {
     }
   })
 })
+
+describe('operator client-portal surfaces stay vertical-agnostic (ADR 0050)', () => {
+  // The Operator is a vertical-agnostic product (ADR 0050): client-portal
+  // surfaces must not reintroduce law-vertical vocabulary or demo persona
+  // names. A regression here means the "Matters"/case-data model or a hardcoded
+  // persona crept back onto a shipped surface.
+  //
+  // Scope is the CLIENT portal only. Deliberately excluded:
+  //   - the customer.yaml editor (customer-yaml-editor/): it authors per-customer
+  //     config whose field names (e.g. matter_blocks for a law customer) are
+  //     legitimate vertical config, not product structure — the same out-of-scope
+  //     category as capability adapters and practice_areas (ADR 0050 "Out of
+  //     scope").
+  //   - the admin console (src/pages/admin/**): it observes/authors one specific,
+  //     possibly-law customer, so per-customer law values are legitimate there.
+  const OPERATOR_SURFACE_ROOTS = [
+    resolve('src/pages/portal/products/operator'),
+    resolve('src/components/portal/operator'),
+  ]
+  const EDITOR_EXCLUDE = resolve('src/components/portal/operator/customer-yaml-editor')
+
+  const BANNED: ReadonlyArray<{ re: RegExp; label: string }> = [
+    {
+      re: /\bmatters?\b/i,
+      label: 'matter(s) — use the generic opaque object reference (ADR 0050 §6)',
+    },
+    { re: /\bdeposition\b/i, label: 'deposition — law-vertical vocabulary' },
+    { re: /\bhearing\b/i, label: 'hearing — law-vertical vocabulary' },
+    { re: /\b(?:pre_suit|pre_trial)\b/i, label: 'PI litigation phase enum (ADR 0050)' },
+    { re: /\bMarcus\b/, label: 'Marcus — demo persona name' },
+    { re: /\bSusan\b/, label: 'Susan — demo persona name' },
+  ]
+
+  function operatorSurfaceFiles(): string[] {
+    return OPERATOR_SURFACE_ROOTS.flatMap((root) => collectSourceFiles(root)).filter(
+      (f) => !isWithinDir(f, EDITOR_EXCLUDE)
+    )
+  }
+
+  it('no law-vertical vocabulary or persona names on client-portal operator surfaces', () => {
+    const violations: string[] = []
+    for (const file of operatorSurfaceFiles()) {
+      const rel = file.replace(resolve('.') + '/', '')
+      const content = readFileSync(file, 'utf-8')
+      for (const { re, label } of BANNED) {
+        if (re.test(content)) violations.push(`${rel}: ${label}`)
+      }
+    }
+    expect(violations, violations.join('\n')).toEqual([])
+  })
+})

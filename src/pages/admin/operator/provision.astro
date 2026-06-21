@@ -225,7 +225,7 @@ const cardClass =
               id="practice_areas"
               name="practice_areas"
               value={fv('practice_areas')}
-              placeholder="personal-injury, workers-comp"
+              placeholder="e.g. area-one, area-two"
               required
             />
           </div>
@@ -392,7 +392,7 @@ const cardClass =
               id="skill_name"
               name="skill_name"
               value={fv('skill_name')}
-              placeholder="matter-inbox-router"
+              placeholder="e.g. inbox-router"
               required
             />
           </div>
@@ -438,13 +438,13 @@ const cardClass =
                     class={inputClass}
                     name="connector_adapter"
                     value={c.adapter}
-                    placeholder="adapter (e.g. clio)"
+                    placeholder="adapter (e.g. your-system)"
                   />
                   <input
                     class={inputClass}
                     name="connector_backend"
                     value={c.backend}
-                    placeholder="mcp:clio-oktopeak"
+                    placeholder="mcp:your-mcp-server"
                   />
                 </div>
               )

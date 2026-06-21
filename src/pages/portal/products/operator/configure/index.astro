@@ -37,7 +37,7 @@ import { env } from 'cloudflare:workers'
  * flipped operable.
  *
  * Reads the customer_configs projection (real authored data — unlike the
- * runtime-gated activity/matters surfaces).
+ * runtime-gated Activity surface).
  */
 
 const access = await resolveOperatorAccess(env.DB, Astro.locals, {

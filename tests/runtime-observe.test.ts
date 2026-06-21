@@ -33,10 +33,11 @@ function countingAudit(): { audit: RuntimeReadAudit; getCalls: () => number } {
 describe('parseRuntimeView', () => {
   it('resolves known ids and defaults to activity', () => {
     expect(parseRuntimeView('audit').id).toBe('audit')
-    expect(parseRuntimeView('matters').id).toBe('matters')
     expect(parseRuntimeView('activity').id).toBe('activity')
     expect(parseRuntimeView(null).id).toBe('activity')
     expect(parseRuntimeView('bogus').id).toBe('activity')
+    // The 'matters' view was removed per ADR 0050 — it now falls back to activity.
+    expect(parseRuntimeView('matters').id).toBe('activity')
   })
 
   it('every view maps to a runtime-read kind and a noun', () => {

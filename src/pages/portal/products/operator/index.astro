@@ -43,7 +43,7 @@ import { env } from 'cloudflare:workers'
  * docs/style/empty-state-pattern.md. No fabrication.
  *
  * This page is the routing entry point. Internal product surfaces
- * (Drafts, Matters, Calendar, Audit, Settings) live under
+ * (Activity, Calendar, Connections, Configure, Team, Account) live under
  * /portal/products/operator/* and are reached via the section card
  * grid rendered in the active-state branch below. Each child surface
  * uses the shared resolveOperatorAccess helper to enforce its own
@@ -94,15 +94,15 @@ if (!subscription) {
 }
 
 // Section cards in the active-state main column. Filtered by the
-// caller's roles so operators / principals see the act-on-the-product
-// surfaces (drafts, matters, calendar) and every role sees Audit.
+// caller's roles so staff / principals see the act-on-the-product
+// surfaces (Calendar) and every role sees Activity.
 // Each destination uses resolveOperatorAccess to enforce the gate
 // server-side; this list is the visual filter only.
 //
 // Compliance card surfacing (per #895): when the firm has opted in to
 // the dedicated Compliance view (customer.yaml.compliance_enabled =
-// true), surface the card to compliance and principal roles. Operators
-// never see it — their workflow surfaces are drafts/matters/calendar.
+// true), surface the card to compliance and principal roles. Staff
+// never see it — their surfaces are Activity and Calendar.
 // When the firm has NOT opted in, surface only to compliance-role
 // users so they have a path to confirm the firm's posture; the
 // destination renders an explicit "not enabled for this firm" empty
