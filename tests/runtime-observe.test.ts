@@ -36,7 +36,7 @@ describe('parseRuntimeView', () => {
     expect(parseRuntimeView('activity').id).toBe('activity')
     expect(parseRuntimeView(null).id).toBe('activity')
     expect(parseRuntimeView('bogus').id).toBe('activity')
-    // The 'matters' view was removed per ADR 0050 — it now falls back to activity.
+    // The 'matters' view was removed per ADR 0052 — it now falls back to activity.
     expect(parseRuntimeView('matters').id).toBe('activity')
   })
 

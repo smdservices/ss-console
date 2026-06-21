@@ -64,7 +64,7 @@
     "MEMORY_RULE_ADDED": {
       "side": "overlay",
       "overlayProducer": "plugins/hermes-smd-memory-mirror / runtime memory add path",
-      "reason": "The portal teach-a-rule producer (teach-marcus) was removed per ADR 0050 (no portal work-actions; the operator learns via its own runtime loop / the conversational channel). Memory rules are now added on the per-customer Machine, like MEMORY_RULE_EDITED."
+      "reason": "The portal teach-a-rule producer (teach-marcus) was removed per ADR 0052 (no portal work-actions; the operator learns via its own runtime loop / the conversational channel). Memory rules are now added on the per-customer Machine, like MEMORY_RULE_EDITED."
     },
     "MEMORY_RULE_EDITED": {
       "side": "overlay",

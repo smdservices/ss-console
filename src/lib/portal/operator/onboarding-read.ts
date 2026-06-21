@@ -7,7 +7,7 @@
  *   1. Invite & roles   → the Team surface (people_access)
  *   2. Connect systems  → the Connections surface
  *
- * (Calibration was removed per ADR 0050 — it is an off-portal onboarding/
+ * (Calibration was removed per ADR 0052 — it is an off-portal onboarding/
  * delivery activity, not a shipped client portal surface.)
  *
  * Each step's status is computed from the same readers the destination surfaces
