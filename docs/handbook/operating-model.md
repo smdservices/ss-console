@@ -6,8 +6,8 @@ summary: Who decides and who executes - the Captain, the fleet of agents, and th
 sources:
   - label: Operating Ethos (global instruction module)
     href: crane_doc('global', 'operating-ethos.md')
-  - label: Playbook - The Operator Model
-    href: https://github.com/venturecrane/ss-console/blob/main/src/pages/admin/playbook.astro
+  - label: ADR 0035 - No imposed entitlement defaults (authored ceilings)
+    href: https://github.com/venturecrane/ss-console/blob/main/docs/adr/0035-no-imposed-entitlement-defaults.md
   - label: ADR 0030 - Control plane / human-principal surface
     href: https://github.com/venturecrane/ss-console/blob/main/docs/adr/0030-control-plane-human-principal-surface.md
 ---
@@ -51,8 +51,8 @@ the venture itself.
 ## Agent Execution
 
 Everything that is not a Captain decision is agent execution. Agents run the work
-inside the ceilings the Captain authored (`src/pages/admin/playbook.astro`, the
-Agent Execution block):
+inside the ceilings the Captain authored - the no-imposed-defaults model in ADR
+0035, surfaced at `/admin/playbook/autonomy-governance`:
 
 - Inbound client communications - email, voice, chat - handled within the
   configured autonomy ceilings.
@@ -60,8 +60,8 @@ Agent Execution block):
   result and closing.
 - Consulting analysis and deliverable drafting executed by agents; the Captain
   reviews before any client-facing send.
-- Fleet health monitoring, which runs autonomously on a 30-minute cadence with
-  the Captain notified on degradation.
+- Fleet health monitoring, which runs autonomously with the Captain notified on
+  degradation.
 - Platform maintenance and deployment, handled through PRs (never a direct push
   to main - see `/admin/playbook/building-the-platform`).
 - Learned preferences, which accumulate automatically; the Captain can dismiss
@@ -107,10 +107,11 @@ irreversible, shared, or external actions (a merge, a deploy, a message sent on
 the Captain's behalf) get confirmed. The ethos is about removing ceremony, not
 removing safety.
 
-> TODO(why): The 30-minute fleet-health cadence is asserted in
-> `src/pages/admin/playbook.astro` (Agent Execution). I did not find the
-> scheduler config or worker that enforces exactly 30 minutes; the figure is
-> taken from the playbook copy, not from a verified cron definition.
+> TODO(why): The fleet-health monitor runs on a recurring cadence, but the exact
+> interval is unverified - no scheduler config or worker enforcing a specific
+> period was found in the repo, and the prior "30-minute" figure traced only to
+> the retired playbook page, not to a cron definition. Confirm the real interval
+> against the running scheduler before quoting one.
 
 ## The tools of the fleet
 
