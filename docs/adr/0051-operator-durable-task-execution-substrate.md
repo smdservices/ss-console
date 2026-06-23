@@ -3,12 +3,24 @@ title: Operator Durable Task-Execution Substrate (B1)
 date: 2026-06-18
 status: accepted
 captain: Scott Durgan
-related-adr: 0050-operator-task-execution-framework.md, 0037-operator-thesis.md, 0021-leverage-hermes-native-primitives.md, 0045-mediated-connector-capability-broker.md, 0049-operator-model-selection.md, 0043-operator-runtime-read-path.md, 0007-per-customer-machine-isolation.md, 0016-honcho-disposition.md
+related-adr: 0050-operator-task-execution-framework.md, 0037-operator-thesis.md, 0021-leverage-hermes-native-primitives.md, 0045-mediated-connector-capability-broker.md, 0049-operator-model-selection.md, 0043-operator-runtime-read-path.md, 0007-per-customer-machine-isolation.md, 0016-honcho-disposition.md, 0053-author-built-mcp-connectors-per-customer-installed.md
 ---
 
 # ADR 0051 — Operator Durable Task-Execution Substrate (B1)
 
-**Status:** Accepted (Captain decision, 2026-06-18; plan rev. 2, hardened against three critique rounds + a source-level Phase-0 verification). This ADR is the **decision record**; the full design (decisions, lifecycle, file map, verification) lives in [`docs/design/operator/durable-task-execution-substrate.md`](../design/operator/durable-task-execution-substrate.md).
+**Status:** Accepted (Captain decision, 2026-06-18; plan rev. 2, hardened against three critique rounds + a source-level Phase-0 verification). This ADR is the **decision record**; the full design (decisions, lifecycle, file map, verification) lives in [`docs/design/operator/durable-task-execution-substrate.md`](../design/operator/durable-task-execution-substrate.md). **Amended 2026-06-23** — B1 acceptance is re-pointed to a synthetic `_reference` duration job; see § Amendment.
+
+## Amendment (2026-06-23) — B1 is accepted against a synthetic reference job, not "multi-document review"
+
+Per the [ADR 0050 amendment of 2026-06-23](./0050-operator-task-execution-framework.md), a rail is proven by a synthetic `_reference` exerciser, not by its first real job — the same over-fit correction [ADR 0053](./0053-author-built-mcp-connectors-per-customer-installed.md) made for connectors. This ADR named its proof as a specific application ("Proof is a long **Class-D** job (multi-document review)", Consequences below). That is re-pointed:
+
+- **Acceptance is the synthetic `_reference` duration job** — a job that loops past the 55s synchronous reply budget, writes a checkpoint, is killed mid-run, resumes from the recorded `current_tip_session_id`, repairs a trailing partial tool-call pair, and delivers a retrievable R2 artifact — exercising every net-new surface (tip selection, partial-pair repair, cross-segment usage accumulation, the delivery state machine, lease fencing) with **no client data**. The deterministic crash / fencing / cost / readiness / identity tests already specified in Consequences are this suite's CI half; the one-time live Fly machine-restart remains the staging acceptance.
+- **"Multi-document review" is reclassified as the first _application_** that rides the proven runner — evidence of business value, not the gate that defines the rail. It does not gate B1 "done."
+- **The B1 substrate is a rail in the [ADR 0050](./0050-operator-task-execution-framework.md) sense,** and the synthetic duration job is its entry in the **B-ref** reference-job suite. B1 is not "done" until that reference job is green (CI where faithful + the one live restart), independent of any real Class-D task having run.
+
+This changes **how B1 is accepted**, not what it builds — every tenet, prerequisite, and CI guard below stands as written.
+
+---
 
 **Purpose.** Lock how the Operator runs a job that is too big for one synchronous turn: take it, run it **unattended** to completion, survive compaction / crashes / Machine restarts, and deliver a **retrievable result** — while keeping cost on reasoning (not data volume) and honoring the safety floors. This is build item **B1** from [ADR 0050](./0050-operator-task-execution-framework.md). The receipts failure that motivated the work is **B2** (process-in-code), separate; this substrate is for genuinely long **Class-D / multi-step** work.
 
@@ -42,7 +54,7 @@ Today a long task runs in one synchronous turn against a hard 55s reply budget (
 
 ## Consequences
 
-- **MVP is read-mostly:** the broker ledger (folded), the in-gateway worker thread, the `hermes-smd-jobs` plugin (`start_background_job` / `job_status` / `job_cancel`), pre-spend cost, taint-at-construction, the `deliver_to` allowlist, the delivery state machine, the R2 result store, and the `jobs` runtime-read observability seam (`GET /runtime/jobs` + `job_status`/`job_cancel` MCP verbs). Proof is a long **Class-D** job (multi-document review), not receipts.
+- **MVP is read-mostly:** the broker ledger (folded), the in-gateway worker thread, the `hermes-smd-jobs` plugin (`start_background_job` / `job_status` / `job_cancel`), pre-spend cost, taint-at-construction, the `deliver_to` allowlist, the delivery state machine, the R2 result store, and the `jobs` runtime-read observability seam (`GET /runtime/jobs` + `job_status`/`job_cancel` MCP verbs). Proof is the synthetic `_reference` duration job (§ Amendment 2026-06-23); a long **Class-D** job (multi-document review) is the first _application_ that rides it, not the acceptance gate, and not receipts.
 - **Deferred (sequenced, not a 20-phase build):** send-capable jobs (full idempotency enforcement + the dedicated `smd-jobs` uid/isolation), concurrency >1, progress streaming, the console D1 mirror, TTL/archival.
 - **Hard prerequisites:** a **broker respawn-supervisor** (for the broker-down protocol); **B0 generalized** to taint the worker session (MVP's read-mostly + fail-closed taint lets it proceed alongside).
 - **CI is the durability guard:** a deterministic crash test (`os._exit` after a journaled effect, before completion → no re-execution), a fencing test, a pre-spend + mid-segment cost test, a readiness-barrier test, and an identity test. The real Fly machine-restart is a documented one-time staging acceptance, not a CI claim.
