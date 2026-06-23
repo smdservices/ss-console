@@ -493,6 +493,22 @@ fi
 # delegation impersonating each customer's authored subject).
 stage_secret_from_env GOOGLE_SERVICE_ACCOUNT_JSON "${GOOGLE_SERVICE_ACCOUNT_JSON:-}" "base64 service-account key (domain-wide delegation)"
 
+# ---------- Step 6b-smokeball: Smokeball connector creds (ADR 0053, name remap) --
+# mcp:smokeball reads env-agnostic SMOKEBALL_CLIENT_ID/SECRET/API_KEY and mints its
+# own Bearer (client_credentials). The values live in operator env under the
+# SMOKEBALL_STAGING_* names (SMD's Partner-Program STAGING app, Infisical /ss), so
+# this is a NAME REMAP the manifest-driven loop below can't do (it stages by the
+# runtime name). Seat-gated: the staging app key only lands on a Machine that
+# actually binds Smokeball. The connector + manifest + overlay registry all stay
+# env-agnostic; this per-seat block is the right home for environment-specific
+# credential sourcing. At go-live the real firm's seat sources its own prod app
+# creds here (a separate path), not these staging keys.
+if grep -qE 'backend:[[:space:]]*mcp:smokeball' "${CUSTOMER_DIR}/customer.yaml" 2>/dev/null; then
+  stage_secret_from_env SMOKEBALL_CLIENT_ID     "${SMOKEBALL_STAGING_CLIENT_ID:-}"     "Smokeball OAuth client id (client_credentials; from SMOKEBALL_STAGING_CLIENT_ID)"
+  stage_secret_from_env SMOKEBALL_CLIENT_SECRET "${SMOKEBALL_STAGING_CLIENT_SECRET:-}" "Smokeball OAuth client secret (from SMOKEBALL_STAGING_CLIENT_SECRET)"
+  stage_secret_from_env SMOKEBALL_API_KEY       "${SMOKEBALL_STAGING_API_KEY:-}"       "Smokeball x-api-key per-request app key (from SMOKEBALL_STAGING_API_KEY)"
+fi
+
 # ---------- Step 6b-authored: author-built connector secrets (ADR 0053) ----------
 # Data-driven from each author-built connector's manifest.toml
 # (operator/connectors/<name>/manifest.toml) — the generic replacement for
@@ -518,8 +534,14 @@ import pathlib
 import sys
 import tomllib
 
+# Connectors whose operator-env credential NAMES differ from their runtime names
+# (a remap the flat loop can't do) are staged by a dedicated block above; skip
+# them here so the loop doesn't warn that the runtime name is unset.
+REMAP_HANDLED = {"smokeball"}
 root = pathlib.Path(sys.argv[1])
 for manifest in sorted(root.glob("*/manifest.toml")):
+    if manifest.parent.name in REMAP_HANDLED:
+        continue
     try:
         data = tomllib.loads(manifest.read_text())
     except (OSError, tomllib.TOMLDecodeError):
