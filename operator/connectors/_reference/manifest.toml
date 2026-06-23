@@ -1,0 +1,25 @@
+# Reference connector self-description. Exercises the manifest schema the
+# platform consumes.
+#
+# `tool_classes` is the conformance ORACLE, not a runtime input: the overlay's
+# hand-authored `_RAW_TOOL_ACTION_CLASS_MAP` is the enforced authority, and a
+# PR-2 test asserts these declarations agree with it under the runtime-prefixed
+# names (mcp_reference_echo, mcp_reference_record). `surprise` is deliberately
+# omitted here AND from the overlay map, so runtime registration must REFUSE it.
+[connector]
+name = "reference"
+capability = "Reference"
+auth_model = "static"
+description = "Synthetic platform self-test connector. Not a vendor integration."
+
+[connector.env_static]
+REFERENCE_MODE = "selftest"
+
+[connector.tool_classes]
+echo = "read"
+record = "internal_write"
+# surprise: intentionally absent — proves fail-closed refusal.
+
+[[connector.required_secrets]]
+runtime_env = "REFERENCE_API_KEY"
+purpose = "Dummy key proving the static-auth env path and the data-driven secret-staging step."
