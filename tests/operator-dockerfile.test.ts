@@ -134,7 +134,12 @@ describe('Operator customer Machine Dockerfile', () => {
     // 713a1e2 (#106): wraps overlay tool schemas under `parameters` so the model
     // can drive them — the 18 workspace_* tools shipped with empty params. Additive
     // on top of af20ecd; tracked twins unchanged.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="713a1e2dc7d2935a6d9697a7a6fda9bad1465fba"')
+    // 7f35eba6 (#107, ADR 0053 PR2): the author-built MCP connector platform seam —
+    // additive McpConnectorSpec.auth_model + the `reference` synthetic self-test
+    // registry entry + its mcp_reference_echo/record literal classification (surprise
+    // left unmapped → fail-closed REFUSED). The range 713a1e2..7f35eba6 is exactly
+    // this one commit; all four tracked twins verified unchanged.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="7f35eba63ca14d249690aa6058203765a0b0dfb9"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

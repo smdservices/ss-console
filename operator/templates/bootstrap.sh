@@ -690,6 +690,22 @@ Inspect /app/safety-substrate/logs/$(date -u +%Y%m%d).log for which invariant fa
 fi
 log "Safety substrate invariants PASSED"
 
+# Author-built connector classification agreement (ADR 0053). With the baked
+# connector manifests (/app/connectors) and the installed overlay both present,
+# assert every declared tool_class agrees with the overlay's enforced
+# classify_tool() under the runtime-prefixed name mcp_<server>_<tool>. This is the
+# manifest<=map check run where both artifacts exist (it cannot run in either
+# repo's unit CI alone). A drift — including an OVERLAY_REF that does not classify
+# a baked connector's tools — fails the boot rather than shipping a governance
+# disagreement.
+log "Running connector classification probe (ADR 0053)..."
+if ! /opt/hermes/.venv/bin/python3 /app/connector-classification-probe.py /app/connectors; then
+  die "Connector classification probe FAILED — a baked author-built connector's \
+manifest disagrees with the overlay action-class map (see stderr above). Agent \
+will not start."
+fi
+log "Connector classification probe PASSED"
+
 # Strip the account-wide R2 credential NOW — before launching ANY persistent
 # same-uid background child OR the gateway (OP-P0-2 + OP-P2-1,
 # docs/security/operator-threat-model.md). R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY
