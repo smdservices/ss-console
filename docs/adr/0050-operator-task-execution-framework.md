@@ -3,12 +3,38 @@ title: Operator Task-Execution Framework — Task Taxonomy and Strategy Portfoli
 date: 2026-06-18
 status: accepted
 captain: Scott Durgan
-related-adr: 0037-operator-thesis.md, 0021-leverage-hermes-native-primitives.md, 0049-operator-model-selection.md, 0047-operator-scheduled-jobs-mechanism.md, 0045-mediated-connector-capability-broker.md, 0016-honcho-disposition.md
+related-adr: 0037-operator-thesis.md, 0021-leverage-hermes-native-primitives.md, 0049-operator-model-selection.md, 0047-operator-scheduled-jobs-mechanism.md, 0045-mediated-connector-capability-broker.md, 0016-honcho-disposition.md, 0053-author-built-mcp-connectors-per-customer-installed.md, 0051-operator-durable-task-execution-substrate.md
 ---
 
 # ADR 0050 — Operator Task-Execution Framework
 
-**Status:** Accepted (Captain decision, 2026-06-18). The **task taxonomy and strategy portfolio are locked** as doctrine. The **prioritized build sequence** (§ "What this commits us to") is recorded but **pending a detailed design review** before any implementation begins.
+**Status:** Accepted (Captain decision, 2026-06-18). The **task taxonomy and strategy portfolio are locked** as doctrine. The **prioritized build sequence** (§ "What this commits us to") is recorded but **pending a detailed design review** before any implementation begins. **Amended 2026-06-23** — acceptance discipline: rails are proven by a synthetic reference-job suite, not by their first real job. **Read § Amendment (2026-06-23) before the build list.**
+
+## Amendment (2026-06-23) — Architecture is proven by a synthetic reference-job suite, not by its first real job
+
+A review of how the build items are framed surfaced an over-fit risk identical to the one [ADR 0053](./0053-author-built-mcp-connectors-per-customer-installed.md) corrected for connectors: each item names its proof as a **specific job** — B1 = "multi-document review," B2 = "the receipt task," B3 = "the $50 runaway." A specific job standing in for rail acceptance is the same mistake 0053's pre-implementation design made (defining the connector platform in terms of Smokeball, its first instance). It conflates the **architecture** (the generic execution rails) with the **application** (a job that rides them), and it lets the next real job retro-shape the substrate to fit itself. The connector platform's discipline is adopted here, because the shape is the same.
+
+1. **Generalize the lifecycle, not the vocabulary.** For connectors the general thing is `author → install → activate → govern → verify`; the tool vocabulary stays connector-native (`operator/connectors/README.md`). For task execution the general thing is the **execution rails** — durable runner (B1), bulk primitive (B2 + B0), cost breaker (B3), and the `execution_class` authority (B5); the **job vocabulary** (receipts, multi-doc review, pilot tasks) stays job-native and rides the rails. Adding job #N must be **declarative** — pick a class, ride the rail — never bespoke substrate wiring, exactly as adding connector #N is declarative.
+
+2. **A synthetic `_reference` job suite is the architecture's own acceptance.** The connector platform is declared correct when `operator/connectors/_reference/` is green — a synthetic echo / record / `surprise` connector that proves every rail including fail-closed refusal, with **no vendor involved**. Task execution gains the same: a `_reference` job suite of synthetic jobs, one per rail, exercising the substrate deterministically with **no client data**:
+   - a **duration** job (loops past the synchronous reply budget, checkpoints, is killed, resumes, delivers) — proves the B1 durable rail;
+   - a **runaway** job (deliberately burns tokens) — proves the B3 breaker fires; the `surprise` analog;
+   - a **bulk-N** job (N synthetic items reduced at O(1) main-context cost) — proves the B2 primitive;
+   - a **taint-injection** job (untrusted content attempts autonomous send/exec through a delegated child) — proves the B0 child-taint refusal; the `surprise` analog for the taint rail.
+
+   These belong in CI wherever a non-live substitute is faithful; the one-time live machine-restart acceptance ([ADR 0051](./0051-operator-durable-task-execution-substrate.md)) is the only part that must run on a real Machine. **The framework is complete as architecture when the rails + the B5 authority + the `_reference` suite are green — provable on a bare Machine with zero client data.**
+
+3. **`execution_class` is the literal-map analog; the lint is the authority, the frontmatter is the oracle.** 0053's governance rule is that a connector cannot self-certify trust — the overlay's hand-authored action-class map is the authority and the connector manifest is only a conformance oracle checked against it (`operator/connectors/_sdk/operator_connector_sdk/conformance.py`); an unclassified tool fails closed to `REFUSED`. B5 is the same mechanism for tasks: the merge-gate lint is the authority, a skill's `execution_class` frontmatter is the declaration checked against it, and a skill cannot self-certify cheap-or-safe. This **promotes B5 from a P1 enforcement step to the keystone** — it is what makes job authoring declarative; without it the rails exist but nothing keeps job #N on them, and the $50 loop recurs by omission.
+
+4. **Recurrence-prevention rule.** When completing a build item, ask the connector question — _"what proven rail does this ride?"_ — never _"what does this specific job need?"_ If a real job appears to need job-shaped substrate the `_reference` suite did not already cover, that is the over-fit alarm. Two legal responses: **generalize the gap into the rail and add a `_reference` job that proves it**, or recognize the work as **skill-authoring, not architecture**. There is no third path where receipt-specific or doc-review-specific machinery lands in the substrate.
+
+**Effect on the build list (§ "What this commits us to"):** item **scope is unchanged**; the **acceptance criteria are re-pointed.** B1/B2/B3 are accepted against their synthetic `_reference` jobs (deterministic, CI where faithful); the real jobs (receipts, multi-doc review, the Ashton & Price pilot) are reclassified as **applications that produce evidence and business value, never the definition of a rail.** One build item is added:
+
+- **B-ref** — the synthetic `_reference` job suite (duration / runaway / bulk-N / taint-injection), built alongside the rails as their acceptance harness. It is to the task-execution framework what `operator/connectors/_reference/` is to the connector platform, and it is a **prerequisite for calling any of B1/B2/B3 "done."**
+
+**Unchanged:** the task taxonomy (§1–§4), the strategy portfolio (§5), and the cost-method honesty (§6) all stand as written. This amendment governs **how a build item is accepted** — against a synthetic rail exerciser, not its first real job — and **what B5 is for**: the governance authority that makes authoring declarative.
+
+---
 
 **Purpose.** Lock the classification by which the Operator's work is understood, run, costed, and verified — so the question _"how do we execute this task cheaply, reliably, at employee grade?"_ is answered by reference rather than re-derived per skill. This ADR is the **decision record**; the full archetype tables, the strategy portfolio, the match matrix, the cost model, the reliability model, and the build backlog live in the backing detail at [`docs/operator/task-execution-framework.md`](../operator/task-execution-framework.md). The framework was produced by a 17-agent research synthesis grounded in a source read of Hermes (`NousResearch/hermes-agent`), our overlay, and the vertical packs, then hardened against four adversarial reviews.
 
