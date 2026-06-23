@@ -1,0 +1,21 @@
+[project]
+name = "smokeball-connector"
+version = "0.1.0"
+description = "Author-built MCP connector for the Smokeball practice-management API (the law-firm wedge system of record). ADR 0053."
+requires-python = ">=3.11"
+dependencies = [
+    "operator-connector-sdk",
+    "httpx>=0.27",
+]
+
+# The console-script the overlay registry launches as `command` (absolute path to
+# this connector's venv: /opt/connectors/smokeball/.venv/bin/smokeball-mcp).
+[project.scripts]
+smokeball-mcp = "smokeball_connector.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["smokeball_connector"]

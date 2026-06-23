@@ -6,6 +6,16 @@
 
 > Re-pin this file whenever the API or the `mcp:smokeball` server version bumps. The connect step replaces "published-doc assumptions" here with a real staging-tenant round-trip; until then, treat every shape below as the **contract of record but unverified against a live tenant**. Items marked ⚠️ or ASSUMED must be confirmed at connect.
 
+## CONFIRMED LIVE — 2026-06-23 (mcp:smokeball v0.1.0, staging round-trip)
+
+The `mcp:smokeball` connector was built against the OpenAPI spec and round-tripped against the real US staging tenant (`stagingapi.smokeball.com`) with the `SMOKEBALL_STAGING_*` credentials in Infisical `/ss`:
+
+- **Auth CONFIRMED.** `client_credentials` grant works: `POST {auth_host}/oauth2/token` with `Authorization: Basic base64(client_id:secret)` + `Content-Type: application/x-www-form-urlencoded`, body `grant_type=client_credentials` → `access_token` (`token_type: Bearer`, `expires_in: 21600` = 6h). AWS Cognito.
+- **Request contract CONFIRMED.** Every API call needs **two** headers: `x-api-key` (the `SMOKEBALL_STAGING_API_KEY`) + `Authorization: Bearer`. `GET /matters?Limit=1` returned 200.
+- **Pagination envelope CONFIRMED.** List responses are a HATEOAS envelope `{ value: [...], offset, limit, size, first, previous, next, last, href }` — not a bare array. Skills read `value`.
+- **Path corrections (OpenAPI vs the guesses above).** `/mattertypes` (not `/matter-types`); files at `/matters/{matterId}/documents/files` (+ `/{fileId}`, `/{fileId}/download`) — `get_file`/`get_download_url` need **matterId + fileId**, not a flat file id; webhooks at `/webhooks` + event types at `/webhooks/types`; query params are **PascalCase** (`Status`, `IsLead`, `MatterTypeId`, `ContactId`, `UpdatedSince`, `Sort`, `Limit`, `Offset`); tasks filter by `IsCompleted` (bool), `MatterId`.
+- **Still ASSUMED (verify when the wedge wires writes).** `create_memo` request-body field (the server sends `{text}`; the live memo schema is an inline object the OpenAPI did not expand); the `UpdatedSince` .NET-ticks-vs-ISO format; the stage<->matter-type join (`get_stage_to_matter_mappings` hits `/stages`).
+
 ## Base URLs and auth (US region — confirm region with the firm)
 
 |           | Production                   | Staging / dev                            |
