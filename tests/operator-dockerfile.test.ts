@@ -139,7 +139,11 @@ describe('Operator customer Machine Dockerfile', () => {
     // registry entry + its mcp_reference_echo/record literal classification (surprise
     // left unmapped → fail-closed REFUSED). The range 713a1e2..7f35eba6 is exactly
     // this one commit; all four tracked twins verified unchanged.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="7f35eba63ca14d249690aa6058203765a0b0dfb9"')
+    // a4db1154 (#108, ADR 0053): register mcp:smokeball — the first real author-built
+    // connector — in MCP_CONNECTOR_REGISTRY so translate.py materializes it (its
+    // mcp_smokeball_* classification already existed). The range 7f35eba6..a4db1154 is
+    // exactly this one commit; all four tracked twins verified unchanged.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="a4db1154482b6f545724b64107387dc71779489d"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
