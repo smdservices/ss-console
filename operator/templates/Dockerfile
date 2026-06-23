@@ -231,7 +231,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # tool names but could not pass arguments — the Operator could not actually drive
 # its 18 workspace_* tools (mailbox reads, etc.). Additive on top of af20ecd;
 # tracked twins unchanged, overlaySha256 stable.
-ARG OVERLAY_REF="713a1e2dc7d2935a6d9697a7a6fda9bad1465fba"
+ARG OVERLAY_REF="7f35eba63ca14d249690aa6058203765a0b0dfb9"
 
 ARG CUSTOMER_SLUG=customer-zero
 
@@ -473,6 +473,11 @@ COPY operator/templates/audit-write-fail-probe.py /app/audit-write-fail-probe.py
 # OP-P2-1 affirmative proof: boot-smoke runs this as root to confirm NO agent-uid
 # process (gateway or same-uid child) still carries the account-wide R2 key.
 COPY operator/templates/r2-account-key-strip-probe.py /app/r2-account-key-strip-probe.py
+# ADR 0053: boot-smoke asserts every baked author-built connector's declared
+# tool_classes agree with the overlay's enforced action-class map (the cross-repo
+# manifest<=map check, run where both the baked manifest and the installed overlay
+# are present).
+COPY operator/templates/connector-classification-probe.py /app/connector-classification-probe.py
 
 # NOTE: customer.yaml is NOT copied into the image. It lives on the Fly
 # volume at /opt/data/customer.yaml; bootstrap.sh fetches it from R2 on
