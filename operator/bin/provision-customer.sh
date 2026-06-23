@@ -493,6 +493,52 @@ fi
 # delegation impersonating each customer's authored subject).
 stage_secret_from_env GOOGLE_SERVICE_ACCOUNT_JSON "${GOOGLE_SERVICE_ACCOUNT_JSON:-}" "base64 service-account key (domain-wide delegation)"
 
+# ---------- Step 6b-authored: author-built connector secrets (ADR 0053) ----------
+# Data-driven from each author-built connector's manifest.toml
+# (operator/connectors/<name>/manifest.toml) — the generic replacement for
+# per-connector grep blocks. For static / client_credentials connectors we stage
+# every declared required_secret NAME from the operator env (Infisical /ss),
+# warn+skip when unset, same no-paste pattern as the vendor blocks above. Adding
+# an author-built connector needs NO edit here.
+#
+# authorization_code connectors are deliberately NOT handled here: their
+# token-on-volume custody (the *_TOKENS_ENC_B64 seed + any var remap) stays in
+# the overlay registry + its dedicated custody step, so the manifest never
+# becomes a second, contradictory wiring spec. The manifest carries secret NAMES
+# only; the registry owns how each is wired.
+_CONNECTORS_DIR="${REPO_ROOT}/operator/connectors"
+if [ -d "${_CONNECTORS_DIR}" ]; then
+  while IFS=$'\t' read -r _conn_name _secret_name; do
+    [ -n "${_secret_name}" ] || continue
+    stage_secret_from_env "${_secret_name}" "${!_secret_name:-}" \
+      "author-built connector ${_conn_name} secret (ADR 0053)"
+  done < <(
+    python3 - "${_CONNECTORS_DIR}" <<'PY'
+import pathlib
+import sys
+import tomllib
+
+root = pathlib.Path(sys.argv[1])
+for manifest in sorted(root.glob("*/manifest.toml")):
+    try:
+        data = tomllib.loads(manifest.read_text())
+    except (OSError, tomllib.TOMLDecodeError):
+        continue
+    conn = data.get("connector", data)
+    # static / client_credentials → flat env staging here. authorization_code →
+    # token-on-volume custody (handled outside this loop).
+    if conn.get("auth_model") not in ("static", "client_credentials"):
+        continue
+    for secret in conn.get("required_secrets", []):
+        name = secret.get("runtime_env")
+        if name:
+            print(f"{manifest.parent.name}\t{name}")
+PY
+  )
+  unset _conn_name _secret_name
+fi
+unset _CONNECTORS_DIR
+
 # ---------- Step 6c: healthchecks.io check (ADR 0023 Wave 1) ----------
 # Idempotent create-or-find. Healthchecks.io's POST /api/v3/checks/ creates
 # a new check; if a check with the same `unique` keys (tags+name) already

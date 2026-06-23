@@ -8,7 +8,26 @@ related-adr: 0020-connector-strategy.md, 0015-hermes-fork-vs-upstream.md, 0007-p
 
 # ADR 0053 — Author-Built MCP Connectors Are Per-Customer-Installed Units, Not Baked Into the Overlay
 
-**Status:** Accepted (Captain decision, 2026-06-22).
+**Status:** Accepted (Captain decision, 2026-06-22). **Amended 2026-06-23** — the physical mechanism was corrected during implementation; see **§ Amendment** below before reading the original Decision.
+
+## Amendment (2026-06-23) — baked into the shared image, activated on bind
+
+Implementation corrected the physical model. The original Decisions 2, 3, and 5 proposed standalone, separately-packaged units (own repo/package) installed onto a Machine only when bound. That solved a distribution problem that does not exist and contradicted the proven precedents already in this repo:
+
+- **The skill-catalog precedent.** The entire skill catalog is baked into every image (`COPY operator/skills/`); per-customer **selection is pure config** in `customer.yaml`. Nothing ships per-customer; the binding selects.
+- **The activation rail.** `translate.py::_materialize_mcp_servers` already launches an MCP server **only** when a `customer.yaml` binds it. A baked-but-unbound connector is inert — never launched, no tools, no secrets.
+
+**Corrected mechanism:**
+
+1. **Home = in-repo.** An author-built connector is a Python stdio MCP server at `operator/connectors/<name>/` (the Dockerfile's "Tier-1 custom MCP wrappers" dir), built on the shared `operator/connectors/_sdk/`. **No separate repo, org, release pipeline, or runtime fetch.**
+2. **Baked into the shared image, one isolated venv per connector.** The Dockerfile installs each connector into its own venv (`/opt/connectors/<dir>/.venv`, the proven workspace-broker pattern); the overlay registry launches it by the **absolute venv console-script path**. The image stays the single governed deploy unit (`OVERLAY_REF` + image tag).
+3. **Activated per-customer by binding — not per-customer installed.** A connector is present-but-inert on every Machine; it launches, surfaces tools, and receives secrets only when a `customer.yaml` binds `mcp:<name>` — identical posture to a catalog skill no persona enables. This supersedes the original "install only on bound Machines" and "the fleet never rebuilds to add a connector": adding a connector is an image change like adding a skill, shipped on the next reprovision. The only cost of a dormant connector is disk for inert code, paid once — never a running process.
+4. **Governance authority is the overlay literal map.** Each connector's `mcp_<server>_<tool>` action classes are hand-authored **literal lines** in `shared/action_classes.py`, reviewed in the overlay PR; the connector's `manifest.toml` `tool_classes` is only a conformance **oracle** (checked against the map, never a runtime input). The connector cannot self-certify trust. An unclassified tool fails closed to `REFUSED`.
+5. **Future hardening (not now): per-customer image bake.** If baked connector count / image size ever makes the shared image too heavy, move to per-customer images carrying only bound connectors. Deferred until weight demands it — it would fracture the single-image trust surface.
+
+**Unchanged:** Decision 1 (a tool-surfacing connector we author is an MCP server, not a `build:` CLI) and Decision 4 (runs in-Machine, scoped to per-customer credentials, never a shared hosted service) hold as written. The Context and the named-shape framing stand.
+
+---
 
 **Source:** A walk-through of how a connector reaches a live Operator Machine, prompted by the Smokeball connector build for the Ashton & Price pilot. Smokeball has no first-party MCP and no vetted-community MCP, so it is the **first connector we must author ourselves that surfaces runtime tools.** That exposed a question the existing connector strategy (ADR 0020) does not answer: where does connector code _we write_ physically live, and how does it reach only the Machines that need it — without rebuilding the shared overlay image for every new client connector.
 
@@ -37,6 +56,8 @@ The open question is purely physical: that server's code has to live somewhere o
 We are at N = 1. This is the moment to set the pattern correctly.
 
 ## Decision
+
+> **Read § Amendment (2026-06-23) first.** Decisions 2, 3, and 5 below describe the original pre-implementation mechanism (standalone per-customer-installed units); the Amendment supersedes their physical model with **in-repo + baked-into-the-shared-image + activated-on-bind**. Decisions 1 and 4 stand as written.
 
 ### 1. A tool-surfacing connector we author is an MCP server, not a `build:` CLI
 
