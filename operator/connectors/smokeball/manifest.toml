@@ -1,0 +1,67 @@
+# mcp:smokeball — author-built connector for the Smokeball practice-management
+# API (the law-firm wedge system of record). ADR 0053.
+#
+# auth_model = client_credentials: for our own staging tenant the server mints
+# its own Bearer from client_id/secret (no user-consent round-trip). At go-live
+# the real firm's seat uses authorization_code (user-delegated); the connector
+# supports adding that grant without changing the tool surface.
+#
+# required_secrets are the RUNTIME env-var names the connector reads; the overlay
+# registry remaps them from the vault names (SMOKEBALL_STAGING_* in /ss). Every
+# API call carries x-api-key (SMOKEBALL_API_KEY) + Authorization: Bearer.
+#
+# tool_classes is the conformance ORACLE: every entry must agree with the
+# hand-authored overlay map (shared/action_classes.py) under the runtime name
+# mcp_smokeball_<tool>. The phase-1 surface is the reads + create_memo. The
+# trust-account fund-movement tools are NEVER exposed here and are hard-BANNED at
+# the overlay.
+[connector]
+name = "smokeball"
+capability = "PracticeManagement"
+auth_model = "client_credentials"
+description = "Smokeball practice-management API connector (law wedge system of record)."
+
+[connector.env_static]
+SMOKEBALL_REGION = "us"
+SMOKEBALL_ENVIRONMENT = "staging"
+
+[[connector.required_secrets]]
+runtime_env = "SMOKEBALL_CLIENT_ID"
+purpose = "OAuth client id (client_credentials grant). Remapped from SMOKEBALL_STAGING_CLIENT_ID."
+
+[[connector.required_secrets]]
+runtime_env = "SMOKEBALL_CLIENT_SECRET"
+purpose = "OAuth client secret. Remapped from SMOKEBALL_STAGING_CLIENT_SECRET."
+
+[[connector.required_secrets]]
+runtime_env = "SMOKEBALL_API_KEY"
+purpose = "The x-api-key header value (identifies the app on every request). Remapped from SMOKEBALL_STAGING_API_KEY."
+
+[connector.tool_classes]
+auth_status = "read"
+list_matters = "read"
+get_matter = "read"
+list_matter_types = "read"
+get_stage_sets = "read"
+get_stage_to_matter_mappings = "read"
+get_contacts = "read"
+get_contact = "read"
+get_contact_relations = "read"
+list_tasks = "read"
+get_task = "read"
+search_staff = "read"
+get_staff = "read"
+get_roles_on_matter = "read"
+get_relationships_on_matter = "read"
+get_files_on_matter = "read"
+get_file = "read"
+get_download_url = "read"
+get_memos_on_matter = "read"
+get_bank_accounts = "read"
+get_matter_balances = "read"
+get_matter_billing_config = "read"
+get_fees = "read"
+get_expenses = "read"
+get_webhook_subscriptions = "read"
+get_event_types = "read"
+create_memo = "internal_write"
