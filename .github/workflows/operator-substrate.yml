@@ -95,3 +95,36 @@ jobs:
       # fetch failure -> exit 2 (env), and the workflow still fails.
       - name: Verify overlay runtime hashes (SEC-32 drift gate)
         run: python3 operator/bin/verify-overlay-pairs.py
+
+      # Author-built MCP connector conformance. The bare pytest env above
+      # deliberately installs only pytest+pyyaml; the connector conformance suite
+      # spawns a real stdio MCP server and speaks the protocol, so it needs the
+      # `mcp` SDK and the connector itself installed. We build each connector's
+      # OWN venv here — exactly as operator/templates/Dockerfile does — so CI
+      # tests the real shipped artifact (the venv + `<name>-mcp` console-script),
+      # not a source-tree import. Per-connector venv = the same isolation the
+      # image gets.
+      - name: Set up uv (connector venvs)
+        uses: astral-sh/setup-uv@v5
+
+      - name: Author-built connector conformance
+        working-directory: operator/connectors
+        run: |
+          set -euo pipefail
+          # SDK unit tests once, in their own venv.
+          uv venv /tmp/sdkv
+          uv pip install --python /tmp/sdkv/bin/python ./_sdk pytest
+          /tmp/sdkv/bin/python -m pytest _sdk/tests -q
+          # Each connector: isolated venv with the shared SDK + itself, run its
+          # tests with the console-script on PATH so the live stdio round-trip
+          # exercises the real `<name>-mcp` entry point.
+          for cdir in */; do
+            name="${cdir%/}"
+            [ "$name" = "_sdk" ] && continue
+            [ -f "${cdir}pyproject.toml" ] || continue
+            echo "== conformance: ${name} =="
+            venv="/tmp/connv-${name}"
+            uv venv "$venv"
+            uv pip install --python "$venv/bin/python" ./_sdk "$cdir" pytest
+            PATH="$venv/bin:$PATH" "$venv/bin/python" -m pytest "${cdir}tests" -q
+          done

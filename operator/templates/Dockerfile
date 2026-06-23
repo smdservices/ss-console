@@ -418,6 +418,32 @@ COPY operator/skills/ /app/skills/
 # Tier-1 custom MCP wrappers (one subdir per connector)
 COPY operator/connectors/ /app/connectors/
 
+# ---------- Author-built MCP connectors: one isolated venv per connector ----------
+# Each connector under /app/connectors/ (except the `_sdk` library it shares) is
+# a Python stdio MCP server. Install each into its OWN venv via the proven
+# workspace-broker pattern above, so connectors never share a dependency closure
+# with each other or with the Hermes venv. The overlay registry launches each by
+# the ABSOLUTE path to its venv console-script
+# (/opt/connectors/<name>/.venv/bin/<name>-mcp) — no PATH manipulation, no
+# ~/.local/bin. A connector is INERT until a customer.yaml binds it; baking it
+# here costs only disk, never a running process (identical posture to a skill in
+# the catalog that no persona enables). The `*-mcp` assertion fails the build
+# loudly rather than letting a missing console-script surface as a runtime
+# MCP-spawn failure on a live Machine.
+RUN set -eu; \
+    for cdir in /app/connectors/*/; do \
+      name=$(basename "$cdir"); \
+      [ "$name" = "_sdk" ] && continue; \
+      [ -f "${cdir}pyproject.toml" ] || continue; \
+      venv="/opt/connectors/${name}/.venv"; \
+      echo "== installing author-built connector: ${name} =="; \
+      mkdir -p "/opt/connectors/${name}"; \
+      uv venv "$venv"; \
+      uv pip install --python "$venv/bin/python" --no-cache /app/connectors/_sdk "$cdir"; \
+      ls "$venv"/bin/*-mcp >/dev/null 2>&1 || { echo "FATAL: connector ${name} produced no *-mcp console-script"; exit 1; }; \
+    done; \
+    chmod -R a+rX /opt/connectors
+
 # Safety-substrate tests — bootstrap.sh runs these on container start
 COPY operator/safety-substrate/ /app/safety-substrate/
 
