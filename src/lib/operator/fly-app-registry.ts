@@ -16,6 +16,10 @@
 
 const CUSTOMER_FLY_APPS: Readonly<Record<string, string>> = Object.freeze({
   smd: 'hermes-smd',
+  // Smokeball Operator seats (ADR 0053). pilot-smokeball = our own staging
+  // rehearsal rig; ashton-price = the production pilot firm.
+  'pilot-smokeball': 'hermes-pilot-smokeball',
+  'ashton-price': 'hermes-ashton-price',
 })
 
 /**

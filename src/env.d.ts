@@ -111,6 +111,19 @@ declare namespace Cloudflare {
     GOOGLE_CLIENT_ID?: string
     /** Google Cloud OAuth 2.0 client secret. */
     GOOGLE_CLIENT_SECRET?: string
+    // Smokeball OAuth app credentials, by environment — used only by the
+    // authorization_code connect callback to exchange a firm's code for a
+    // refresh token (ADR 0053). The connector on the Machine refreshes itself
+    // and never needs these on the Worker. Staging = SMD's own Partner-Program
+    // app; production = a real firm's private app (set when the firm shares it).
+    /** Smokeball STAGING app OAuth client id (firm-delegated code exchange). */
+    SMOKEBALL_STAGING_CLIENT_ID?: string
+    /** Smokeball STAGING app OAuth client secret. */
+    SMOKEBALL_STAGING_CLIENT_SECRET?: string
+    /** Smokeball PRODUCTION app OAuth client id. */
+    SMOKEBALL_PROD_CLIENT_ID?: string
+    /** Smokeball PRODUCTION app OAuth client secret. */
+    SMOKEBALL_PROD_CLIENT_SECRET?: string
     /**
      * 32-byte base64-encoded random key used to AES-GCM encrypt Google
      * refresh tokens at rest in the `integrations` table. Generate with

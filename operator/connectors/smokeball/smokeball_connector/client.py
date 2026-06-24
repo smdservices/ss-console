@@ -2,15 +2,29 @@
 
 Auth contract (confirmed against docs.smokeball.com, 2026-06-23, not assumed):
 
-- client_credentials grant → AWS Cognito token endpoint ``{auth_host}/oauth2/token``,
-  POST with ``Authorization: Basic base64(client_id:client_secret)`` and
-  ``Content-Type: application/x-www-form-urlencoded``, body
-  ``grant_type=client_credentials`` (+ ``client_id``). Response carries
-  ``access_token`` / ``expires_in`` / ``token_type: Bearer``.
+Two grants, selected by ``auth_mode`` (both mint a Bearer at the same Cognito
+endpoint ``{auth_host}/oauth2/token`` with ``Authorization: Basic
+base64(client_id:client_secret)`` and ``Content-Type:
+application/x-www-form-urlencoded``):
+
+- ``client_credentials`` (default) — body ``grant_type=client_credentials`` (+
+  ``client_id``). Server-to-server; no user consent. The path proven live against
+  our own staging tenant.
+- ``authorization_code`` — the firm-delegated grant. The user-consent round-trip
+  (authorize → code → first token) happens OUTSIDE this client (the connect flow);
+  this client receives the resulting ``refresh_token`` and mints access tokens with
+  body ``grant_type=refresh_token`` (+ ``client_id`` + ``refresh_token``). If the
+  refresh response rotates the refresh token, we hold the new one in memory.
+
+Both responses carry ``access_token`` / ``expires_in`` / ``token_type: Bearer``.
+
 - EVERY API request carries TWO headers: ``x-api-key`` (the Smokeball-issued
   client key, identifies the app) and ``Authorization: Bearer <token>``.
 - Region+environment select the host pair; the two MUST match (never cross
   US/AU/UK or prod/staging hosts).
+- ``account_id`` (optional) — when set, every API path is prefixed ``/{account_id}``
+  (the documented multi-account server-to-server shape; a single-firm seat usually
+  leaves it unset).
 
 This client is a FAITHFUL passthrough: read tools pass params straight through
 and return the raw JSON. It deliberately does NOT bake the still-unverified
@@ -42,6 +56,7 @@ _HOSTS: dict[tuple[str, str], tuple[str, str]] = {
 
 _TOKEN_SKEW_SECONDS = 60
 _MAX_ATTEMPTS = 4
+_AUTH_MODES = ("client_credentials", "authorization_code")
 
 
 def _clean(params: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -66,6 +81,9 @@ class SmokeballClient:
         client_id: str,
         client_secret: str,
         api_key: str,
+        auth_mode: str = "client_credentials",
+        refresh_token: str | None = None,
+        account_id: str | None = None,
         timeout: float = 30.0,
     ) -> None:
         key = (region.lower(), environment.lower())
@@ -74,17 +92,38 @@ class SmokeballClient:
                 f"unknown region/environment {region!r}/{environment!r}; "
                 f"valid: {sorted(_HOSTS)}"
             )
+        if auth_mode not in _AUTH_MODES:
+            raise ValueError(f"unknown auth_mode {auth_mode!r}; valid: {_AUTH_MODES}")
+        if auth_mode == "authorization_code" and not refresh_token:
+            raise ValueError("auth_mode='authorization_code' requires a refresh_token")
         self.region = region.lower()
         self.environment = environment.lower()
         self.auth_host, self.api_host = _HOSTS[key]
+        self.auth_mode = auth_mode
         self._client_id = client_id
         self._client_secret = client_secret
         self._api_key = api_key
+        self._refresh_token = refresh_token
+        # Normalize the optional account prefix to a bare segment ("abc", not
+        # "/abc/") so request() can build "{api_host}/{account_id}{path}" cleanly.
+        self._account_id = account_id.strip("/") if account_id else None
         self._token: str | None = None
         self._token_deadline = 0.0
         self._http = httpx.Client(timeout=timeout)
 
     # ---- auth -------------------------------------------------------------
+    def _token_request_body(self) -> dict[str, str]:
+        """The grant-specific form body. client_credentials mints from the app's
+        own creds; authorization_code mints from the firm-delegated refresh token."""
+        if self.auth_mode == "authorization_code":
+            # _refresh_token is guaranteed non-None for this mode (ctor enforces it).
+            return {
+                "grant_type": "refresh_token",
+                "client_id": self._client_id,
+                "refresh_token": self._refresh_token or "",
+            }
+        return {"grant_type": "client_credentials", "client_id": self._client_id}
+
     def _mint_token(self) -> int:
         basic = base64.b64encode(f"{self._client_id}:{self._client_secret}".encode()).decode()
         try:
@@ -94,19 +133,26 @@ class SmokeballClient:
                     "Authorization": f"Basic {basic}",
                     "Content-Type": "application/x-www-form-urlencoded",
                 },
-                data={"grant_type": "client_credentials", "client_id": self._client_id},
+                data=self._token_request_body(),
             )
         except httpx.HTTPError as exc:
             raise SmokeballAuthError(f"token request to {self.auth_host} failed: {exc}") from exc
         if resp.status_code != 200:
             # Never include the response body verbatim — it can echo the grant.
             raise SmokeballAuthError(
-                f"token mint rejected with HTTP {resp.status_code} at {self.auth_host}/oauth2/token"
+                f"token mint ({self.auth_mode}) rejected with HTTP {resp.status_code} "
+                f"at {self.auth_host}/oauth2/token"
             )
         body = resp.json()
         token = body.get("access_token")
         if not token:
             raise SmokeballAuthError("token response had no access_token")
+        # Smokeball may rotate the refresh token on a refresh_token grant; if it
+        # returns a new one, hold it in memory so subsequent refreshes use the
+        # current token (the seeded Fly secret stays the cold-start fallback).
+        rotated = body.get("refresh_token")
+        if self.auth_mode == "authorization_code" and rotated:
+            self._refresh_token = rotated
         expires_in = int(body.get("expires_in", 3600))
         self._token = token
         self._token_deadline = time.monotonic() + max(expires_in - _TOKEN_SKEW_SECONDS, 0)
@@ -129,7 +175,8 @@ class SmokeballClient:
     ) -> Any:
         """Issue an authenticated request. Returns parsed JSON (or None for an
         empty body). Retries 429 with backoff and refreshes once on a 401."""
-        url = f"{self.api_host}{path}"
+        prefix = f"/{self._account_id}" if self._account_id else ""
+        url = f"{self.api_host}{prefix}{path}"
         refreshed = False
         last: httpx.Response | None = None
         for attempt in range(_MAX_ATTEMPTS):
@@ -159,10 +206,12 @@ class SmokeballClient:
 
     # ---- health -----------------------------------------------------------
     def auth_status(self) -> dict[str, Any]:
-        """Mint a token and report connectivity — never the token value."""
+        """Mint a token and report connectivity — never the token/refresh value."""
         expires_in = self._mint_token()
         return {
             "authenticated": True,
+            "auth_mode": self.auth_mode,
+            "account_scoped": self._account_id is not None,
             "region": self.region,
             "environment": self.environment,
             "api_host": self.api_host,

@@ -223,3 +223,55 @@ export function createNoOpTokenStore(): OAuthTokenStore {
 export function getDefaultTokenStore(): OAuthTokenStore {
   return env.FLY_API_TOKEN ? createFlySecretTokenStore() : createNoOpTokenStore()
 }
+
+export type RelaySmokeballResult =
+  | { ok: true }
+  | { ok: false; reason: 'unavailable' | 'unknown_customer' | 'network' }
+
+/**
+ * Relay a firm-delegated Smokeball REFRESH token to the customer's Machine.
+ *
+ * Unlike the Google relay (which writes a google-auth JSON blob to a volume
+ * file), the Smokeball connector reads a PLAIN `SMOKEBALL_REFRESH_TOKEN` env var
+ * and mints/refreshes its own access tokens. So this sets one Fly app secret and
+ * restarts the Machines — no JSON shaping, no volume file. `SMOKEBALL_AUTH_MODE`
+ * is already `authorization_code` from provision time (authored in customer.yaml),
+ * so the connector switches to the refresh grant on restart.
+ *
+ * The refresh token is base64'd for transport (Fly secret) and NEVER logged.
+ */
+export async function relaySmokeballRefreshToken(args: {
+  customer_id: string
+  refresh_token: string
+}): Promise<RelaySmokeballResult> {
+  if (!env.FLY_API_TOKEN) {
+    console.error('[oauth/store] smokeball relay unavailable: FLY_API_TOKEN not configured')
+    return { ok: false, reason: 'unavailable' }
+  }
+  if (!args.refresh_token) {
+    // A connect with no refresh token can't self-refresh — reject loudly rather
+    // than clobber a working token with a dead one.
+    console.error('[oauth/store] smokeball relay: empty refresh_token; refusing')
+    return { ok: false, reason: 'unavailable' }
+  }
+  const app = resolveCustomerFlyApp(args.customer_id)
+  if (!app) {
+    console.error(
+      `[oauth/store] smokeball relay: unknown customer_id=${args.customer_id}; refusing to target any app`
+    )
+    return { ok: false, reason: 'unknown_customer' }
+  }
+  const setResult = await setFlySecret(
+    app,
+    'SMOKEBALL_REFRESH_TOKEN',
+    base64Utf8(args.refresh_token)
+  )
+  if (!setResult.ok) {
+    return { ok: false, reason: setResult.reason === 'network' ? 'network' : 'unavailable' }
+  }
+  const restartResult = await restartFlyMachines(app)
+  if (!restartResult.ok) {
+    return { ok: false, reason: restartResult.reason === 'network' ? 'network' : 'unavailable' }
+  }
+  return { ok: true }
+}
