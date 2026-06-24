@@ -33,12 +33,18 @@ _client: SmokeballClient | None = None
 def _get_client() -> SmokeballClient:
     global _client
     if _client is None:
+        # auth_mode/refresh_token/account_id are per-seat runtime selections, read
+        # via .get so an absent value never crashes the default client_credentials
+        # path (the manifest declares only the three required secrets).
         _client = SmokeballClient(
             region=os.environ.get("SMOKEBALL_REGION", "us"),
             environment=os.environ.get("SMOKEBALL_ENVIRONMENT", "staging"),
             client_id=os.environ["SMOKEBALL_CLIENT_ID"],
             client_secret=os.environ["SMOKEBALL_CLIENT_SECRET"],
             api_key=os.environ["SMOKEBALL_API_KEY"],
+            auth_mode=os.environ.get("SMOKEBALL_AUTH_MODE", "client_credentials"),
+            refresh_token=os.environ.get("SMOKEBALL_REFRESH_TOKEN") or None,
+            account_id=os.environ.get("SMOKEBALL_ACCOUNT_ID") or None,
         )
     return _client
 
