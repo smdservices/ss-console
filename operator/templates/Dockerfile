@@ -231,7 +231,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # tool names but could not pass arguments — the Operator could not actually drive
 # its 18 workspace_* tools (mailbox reads, etc.). Additive on top of af20ecd;
 # tracked twins unchanged, overlaySha256 stable.
-ARG OVERLAY_REF="a4db1154482b6f545724b64107387dc71779489d"
+ARG OVERLAY_REF="3a75703b7c7f8c2923200b734fda60da91df7d19"
 
 ARG CUSTOMER_SLUG=customer-zero
 

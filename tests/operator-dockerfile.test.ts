@@ -143,7 +143,12 @@ describe('Operator customer Machine Dockerfile', () => {
     // connector — in MCP_CONNECTOR_REGISTRY so translate.py materializes it (its
     // mcp_smokeball_* classification already existed). The range 7f35eba6..a4db1154 is
     // exactly this one commit; all four tracked twins verified unchanged.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="a4db1154482b6f545724b64107387dc71779489d"')
+    // 3a75703 (#109, ADR 0053): smokeball per-seat env — env_secrets_optional on
+    // McpConnectorSpec + the smokeball spec (required SMOKEBALL_ENVIRONMENT, optional
+    // auth_mode/refresh_token/account_id) + translate.py optional-env staging loop, for
+    // the firm-delegated authorization_code path. The range a4db1154..3a75703 is exactly
+    // this one commit; all four tracked twins verified unchanged.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="3a75703b7c7f8c2923200b734fda60da91df7d19"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
