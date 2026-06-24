@@ -1,0 +1,26 @@
+# Build-context hygiene for the operator Machine image.
+#
+# operator/templates/Dockerfile only COPYs from operator/* and runs its own
+# `npm install` inside the build, so NONE of the dirs below belong in the build
+# context. Their absence here was uploading the entire ~650M worktree (almost
+# all node_modules) to the Depot remote builder, which stalled `load build
+# context` on a cold first build (pilot-smokeball, 2026-06-23). Everything the
+# image needs lives under operator/ and is left intact.
+node_modules
+.git
+dist
+.astro
+.vercel
+.wrangler
+coverage
+playwright-report
+test-results
+.claude
+.vscode
+.idea
+*.log
+.DS_Store
+.env
+.env.*
+.dev.vars
+operator/.rendered
