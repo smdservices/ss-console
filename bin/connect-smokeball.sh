@@ -22,7 +22,9 @@
 #
 # Required env (Infisical /ss):
 #   OAUTH_STATE_SIGNING_KEY   32 bytes, base64 — the same key the callback verifies with
-#   PORTAL_BASE_URL           e.g. https://portal.smd.services (origin of the callback)
+#   APP_BASE_URL              the APEX origin, e.g. https://smd.services (the callback
+#                             must be on the apex — the portal/admin subdomains rewrite
+#                             /api/operator/* into a 404; see REDIRECT_URI note below)
 #   SMOKEBALL_STAGING_CLIENT_ID  (staging seats)  OR
 #   SMOKEBALL_PROD_CLIENT_ID     (production seats)
 #
@@ -86,7 +88,7 @@ fi
 
 MISSING=()
 [ -n "${OAUTH_STATE_SIGNING_KEY:-}" ] || MISSING+=("OAUTH_STATE_SIGNING_KEY")
-[ -n "${PORTAL_BASE_URL:-}" ]         || MISSING+=("PORTAL_BASE_URL")
+[ -n "${APP_BASE_URL:-}" ]            || MISSING+=("APP_BASE_URL")
 [ -n "${CLIENT_ID}" ]                 || MISSING+=("${CLIENT_ID_SRC}")
 if [ "${#MISSING[@]}" -gt 0 ]; then
   echo "FATAL: missing required env: ${MISSING[*]}" >&2
@@ -94,7 +96,13 @@ if [ "${#MISSING[@]}" -gt 0 ]; then
   exit 2
 fi
 
-REDIRECT_URI="${PORTAL_BASE_URL%/}/api/operator/smokeball/connect-callback"
+# The callback lives on the APEX (smd.services), NOT the portal/admin subdomains:
+# src/middleware.ts rewrites any non-/portal (or non-/admin) path on those
+# subdomains by prepending /portal (/admin), which would 404 /api/operator/*. The
+# apex serves /api/* directly. The callback itself is host-agnostic (it derives
+# redirect_uri from its own request URL), so the only requirement is that this
+# URL and the one registered on the Smokeball app agree — both the apex.
+REDIRECT_URI="${APP_BASE_URL%/}/api/operator/smokeball/connect-callback"
 PROVIDER="smokeball:${SB_REGION}:${SB_ENV}"
 REVIEWER_ID="${SMOKEBALL_CONNECT_REVIEWER_ID:-connect-script}"
 
