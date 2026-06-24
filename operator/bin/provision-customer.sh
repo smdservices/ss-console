@@ -524,19 +524,23 @@ fi
 # only; the registry owns how each is wired.
 _CONNECTORS_DIR="${REPO_ROOT}/operator/connectors"
 if [ -d "${_CONNECTORS_DIR}" ]; then
-  while IFS=$'\t' read -r _conn_name _secret_name; do
-    [ -n "${_secret_name}" ] || continue
-    stage_secret_from_env "${_secret_name}" "${!_secret_name:-}" \
-      "author-built connector ${_conn_name} secret (ADR 0053)"
-  done < <(
+  # Capture via $(...) command substitution + a <<< here-string — NOT a
+  # `done < <(python3 ... <<'PY')` process substitution. A heredoc INSIDE a <(...)
+  # process substitution trips a "bad substitution: no closing ')' in <(" parse
+  # error on some bash builds (it aborted a live reprovision 2026-06-23); a
+  # heredoc inside $() command substitution is fine (see the CLIO_ENABLED probe).
+  _authored_secrets="$(
     python3 - "${_CONNECTORS_DIR}" <<'PY'
 import pathlib
 import sys
 import tomllib
 
 # Connectors whose operator-env credential NAMES differ from their runtime names
-# (a remap the flat loop can't do) are staged by a dedicated block above; skip
-# them here so the loop doesn't warn that the runtime name is unset.
+# (a remap the flat loop cannot do) are staged by a dedicated block above; skip
+# them here so the loop does not warn that the runtime name is unset.
+# NOTE: keep this heredoc body free of apostrophes. macOS bash 3.2 mis-parses a
+# stray apostrophe inside a heredoc-in-command-substitution and consumes to EOF
+# (that aborted a reprovision on 2026-06-23).
 REMAP_HANDLED = {"smokeball"}
 root = pathlib.Path(sys.argv[1])
 for manifest in sorted(root.glob("*/manifest.toml")):
@@ -556,8 +560,13 @@ for manifest in sorted(root.glob("*/manifest.toml")):
         if name:
             print(f"{manifest.parent.name}\t{name}")
 PY
-  )
-  unset _conn_name _secret_name
+  )"
+  while IFS=$'\t' read -r _conn_name _secret_name; do
+    [ -n "${_secret_name}" ] || continue
+    stage_secret_from_env "${_secret_name}" "${!_secret_name:-}" \
+      "author-built connector ${_conn_name} secret (ADR 0053)"
+  done <<< "${_authored_secrets}"
+  unset _conn_name _secret_name _authored_secrets
 fi
 unset _CONNECTORS_DIR
 
