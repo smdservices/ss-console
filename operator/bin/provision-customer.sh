@@ -494,19 +494,76 @@ fi
 stage_secret_from_env GOOGLE_SERVICE_ACCOUNT_JSON "${GOOGLE_SERVICE_ACCOUNT_JSON:-}" "base64 service-account key (domain-wide delegation)"
 
 # ---------- Step 6b-smokeball: Smokeball connector creds (ADR 0053, name remap) --
-# mcp:smokeball reads env-agnostic SMOKEBALL_CLIENT_ID/SECRET/API_KEY and mints its
-# own Bearer (client_credentials). The values live in operator env under the
-# SMOKEBALL_STAGING_* names (SMD's Partner-Program STAGING app, Infisical /ss), so
-# this is a NAME REMAP the manifest-driven loop below can't do (it stages by the
-# runtime name). Seat-gated: the staging app key only lands on a Machine that
-# actually binds Smokeball. The connector + manifest + overlay registry all stay
-# env-agnostic; this per-seat block is the right home for environment-specific
-# credential sourcing. At go-live the real firm's seat sources its own prod app
-# creds here (a separate path), not these staging keys.
+# mcp:smokeball reads env-agnostic SMOKEBALL_CLIENT_ID/SECRET/API_KEY. The operator
+# env holds them under environment-specific names — SMOKEBALL_STAGING_* (SMD's own
+# Partner-Program STAGING app) and SMOKEBALL_PROD_* (a real firm's PRODUCTION app,
+# obtained at go-live) — so this is a NAME REMAP the manifest-driven loop below
+# can't do. The seat declares which environment it is via the smokeball connector
+# block in customer.yaml:
+#
+#   connectors:
+#     PracticeManagement:
+#       backend: mcp:smokeball
+#       environment: staging | production   # default staging; selects host pair + cred set
+#       auth_mode: client_credentials | authorization_code   # default client_credentials
+#       account_id: <id>                     # optional; multi-account URL prefix
+#
+# SMOKEBALL_ENVIRONMENT is a REQUIRED runtime secret (the overlay fail-closes the
+# connector if it is unset) so a prod seat can never silently default to staging.
+# The authorization_code refresh token is NOT staged here — it is obtained at the
+# connect step (operator/bin/connect-smokeball.sh) and set as SMOKEBALL_REFRESH_TOKEN
+# directly. A prod seat whose SMOKEBALL_PROD_* creds are not yet in the operator env
+# simply warns+skips → the connector is unwired this boot (boot-before-token), and
+# wires once the creds land.
 if grep -qE 'backend:[[:space:]]*mcp:smokeball' "${CUSTOMER_DIR}/customer.yaml" 2>/dev/null; then
-  stage_secret_from_env SMOKEBALL_CLIENT_ID     "${SMOKEBALL_STAGING_CLIENT_ID:-}"     "Smokeball OAuth client id (client_credentials; from SMOKEBALL_STAGING_CLIENT_ID)"
-  stage_secret_from_env SMOKEBALL_CLIENT_SECRET "${SMOKEBALL_STAGING_CLIENT_SECRET:-}" "Smokeball OAuth client secret (from SMOKEBALL_STAGING_CLIENT_SECRET)"
-  stage_secret_from_env SMOKEBALL_API_KEY       "${SMOKEBALL_STAGING_API_KEY:-}"       "Smokeball x-api-key per-request app key (from SMOKEBALL_STAGING_API_KEY)"
+  SB_PARSE_PY="
+import yaml
+with open('${CUSTOMER_YAML}') as f:
+    c = yaml.safe_load(f) or {}
+sb = {}
+for conn in (c.get('connectors') or {}).values():
+    if isinstance(conn, dict) and str(conn.get('backend', '')) == 'mcp:smokeball':
+        sb = conn
+        break
+print(str(sb.get('environment', 'staging')).strip().lower())
+print(str(sb.get('auth_mode', 'client_credentials')).strip().lower())
+print(str(sb.get('account_id') or '').strip())
+"
+  SB_FIELDS=()
+  while IFS= read -r _line; do SB_FIELDS+=("${_line}"); done \
+    < <(uv run --quiet --with pyyaml python3 -c "${SB_PARSE_PY}")
+  SB_ENV="${SB_FIELDS[0]:-staging}"
+  SB_AUTH_MODE="${SB_FIELDS[1]:-client_credentials}"
+  SB_ACCOUNT_ID="${SB_FIELDS[2]:-}"
+
+  if [ "${SB_ENV}" = "production" ]; then
+    _sb_cid="${SMOKEBALL_PROD_CLIENT_ID:-}"
+    _sb_sec="${SMOKEBALL_PROD_CLIENT_SECRET:-}"
+    _sb_key="${SMOKEBALL_PROD_API_KEY:-}"
+    _sb_src="SMOKEBALL_PROD"
+  else
+    SB_ENV="staging"  # normalize anything non-production to staging (fail-safe)
+    _sb_cid="${SMOKEBALL_STAGING_CLIENT_ID:-}"
+    _sb_sec="${SMOKEBALL_STAGING_CLIENT_SECRET:-}"
+    _sb_key="${SMOKEBALL_STAGING_API_KEY:-}"
+    _sb_src="SMOKEBALL_STAGING"
+  fi
+
+  log "Smokeball seat: environment=${SB_ENV} auth_mode=${SB_AUTH_MODE} (creds from ${_sb_src}_*)"
+  stage_secret_from_env SMOKEBALL_CLIENT_ID     "${_sb_cid}" "Smokeball OAuth client id (from ${_sb_src}_CLIENT_ID)"
+  stage_secret_from_env SMOKEBALL_CLIENT_SECRET "${_sb_sec}" "Smokeball OAuth client secret (from ${_sb_src}_CLIENT_SECRET)"
+  stage_secret_from_env SMOKEBALL_API_KEY       "${_sb_key}" "Smokeball x-api-key per-request app key (from ${_sb_src}_API_KEY)"
+  # Required per-seat — value is always present (default staging), never silently prod-as-staging.
+  stage_secret_from_env SMOKEBALL_ENVIRONMENT   "${SB_ENV}"  "Smokeball host environment (staging|production)"
+  # Optional per-seat. client_credentials is the connector default, so stage AUTH_MODE
+  # only when the firm-delegated grant is authored; account_id only when present.
+  if [ "${SB_AUTH_MODE}" = "authorization_code" ]; then
+    stage_secret_from_env SMOKEBALL_AUTH_MODE "authorization_code" "Smokeball grant: firm-delegated (refresh token set at the connect step)"
+  fi
+  if [ -n "${SB_ACCOUNT_ID}" ]; then
+    stage_secret_from_env SMOKEBALL_ACCOUNT_ID "${SB_ACCOUNT_ID}" "Smokeball multi-account URL prefix"
+  fi
+  unset SB_PARSE_PY SB_FIELDS SB_ENV SB_AUTH_MODE SB_ACCOUNT_ID _sb_cid _sb_sec _sb_key _sb_src
 fi
 
 # ---------- Step 6b-authored: author-built connector secrets (ADR 0053) ----------
