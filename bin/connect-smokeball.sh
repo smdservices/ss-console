@@ -21,10 +21,10 @@
 #   infisical run --env=prod --path=/ss -- bin/connect-smokeball.sh ashton-price
 #
 # Required env (Infisical /ss):
-#   OAUTH_STATE_SIGNING_KEY   32 bytes, base64 — the same key the callback verifies with
-#   APP_BASE_URL              the APEX origin, e.g. https://smd.services (the callback
-#                             must be on the apex — the portal/admin subdomains rewrite
-#                             /api/operator/* into a 404; see REDIRECT_URI note below)
+#   OPERATOR_OAUTH_STATE_MASTER  master key; we derive the per-customer state key
+#                                HMAC(master, slug) — the same value provisioning
+#                                staged on the Machine as SMOKEBALL_OAUTH_STATE_KEY
+#                                (ADR 0054). The Machine verifies our state with it.
 #   SMOKEBALL_STAGING_CLIENT_ID  (staging seats)  OR
 #   SMOKEBALL_PROD_CLIENT_ID     (production seats)
 #
@@ -87,28 +87,32 @@ else
 fi
 
 MISSING=()
-[ -n "${OAUTH_STATE_SIGNING_KEY:-}" ] || MISSING+=("OAUTH_STATE_SIGNING_KEY")
-[ -n "${APP_BASE_URL:-}" ]            || MISSING+=("APP_BASE_URL")
-[ -n "${CLIENT_ID}" ]                 || MISSING+=("${CLIENT_ID_SRC}")
+[ -n "${OPERATOR_OAUTH_STATE_MASTER:-}" ] || MISSING+=("OPERATOR_OAUTH_STATE_MASTER")
+[ -n "${CLIENT_ID}" ]                     || MISSING+=("${CLIENT_ID_SRC}")
 if [ "${#MISSING[@]}" -gt 0 ]; then
   echo "FATAL: missing required env: ${MISSING[*]}" >&2
   echo "       Run under: infisical run --env=prod --path=/ss -- bin/connect-smokeball.sh ${CUSTOMER_SLUG}" >&2
   exit 2
 fi
 
-# The callback lives on the APEX (smd.services), NOT the portal/admin subdomains:
-# src/middleware.ts rewrites any non-/portal (or non-/admin) path on those
-# subdomains by prepending /portal (/admin), which would 404 /api/operator/*. The
-# apex serves /api/* directly. The callback itself is host-agnostic (it derives
-# redirect_uri from its own request URL), so the only requirement is that this
-# URL and the one registered on the Smokeball app agree — both the apex.
-REDIRECT_URI="${APP_BASE_URL%/}/api/operator/smokeball/connect-callback"
+# Derive the per-customer OAuth state key (ADR 0054): HMAC(master, slug) — the
+# SAME derivation provision-customer.sh stages on the Machine as
+# SMOKEBALL_OAUTH_STATE_KEY. The Machine verifies the state we sign here with its
+# own copy of this key, so a state we mint for one customer only verifies on that
+# customer's Machine.
+STATE_KEY="$(printf '%s' "${CUSTOMER_SLUG}" | openssl dgst -sha256 -hmac "${OPERATOR_OAUTH_STATE_MASTER}" | awk '{print $NF}')"
+
+# The callback lives on the customer's OWN Machine (ADR 0054) — not a shared
+# Worker — so the firm's Smokeball OAuth never touches shared SMD infrastructure.
+# The firm's app registers exactly this redirect URI.
+REDIRECT_URI="https://hermes-${CUSTOMER_SLUG}.fly.dev/oauth/smokeball/callback"
 PROVIDER="smokeball:${SB_REGION}:${SB_ENV}"
 REVIEWER_ID="${SMOKEBALL_CONNECT_REVIEWER_ID:-connect-script}"
 
-# Single node invocation: signs state (same HMAC scheme as src/lib/oauth/state.ts),
-# builds the authorize URL, prints only the URL. Scopes mirror
-# SMOKEBALL_OPERATOR_SCOPES in src/lib/oauth/providers/smokeball.ts (keep in sync).
+# Single node invocation: signs state, builds the authorize URL, prints only the
+# URL. The HMAC key is the derived per-customer key used as RAW UTF-8 bytes —
+# matching the Machine verifier (shared/oauth_callback.py key.encode()). Scopes
+# mirror SMOKEBALL_OPERATOR_SCOPES (keep in sync).
 URL="$(
   CUSTOMER_SLUG="$CUSTOMER_SLUG" \
   PROVIDER="$PROVIDER" \
@@ -116,7 +120,7 @@ URL="$(
   CLIENT_ID="$CLIENT_ID" \
   REDIRECT_URI="$REDIRECT_URI" \
   AUTH_HOST="$AUTH_HOST" \
-  SIGNING_KEY="$OAUTH_STATE_SIGNING_KEY" \
+  STATE_KEY="$STATE_KEY" \
   node --input-type=module -e '
     import { createHmac } from "node:crypto";
 
@@ -126,7 +130,7 @@ URL="$(
     const client_id = process.env.CLIENT_ID;
     const redirect_uri = process.env.REDIRECT_URI;
     const auth_host = process.env.AUTH_HOST;
-    const signingKeyB64 = process.env.SIGNING_KEY;
+    const stateKey = process.env.STATE_KEY;
 
     function b64UrlEncode(buf) {
       return Buffer.from(buf).toString("base64")
@@ -137,8 +141,8 @@ URL="$(
     const nonce = crypto.randomUUID();
     const payload = JSON.stringify({ v: 1, customer_id, provider, reviewer_id, nonce, exp });
     const payloadB64 = b64UrlEncode(payload);
-    const keyBytes = Buffer.from(signingKeyB64, "base64");
-    const sigB64 = b64UrlEncode(createHmac("sha256", keyBytes).update(payloadB64).digest());
+    // Key used as raw UTF-8 bytes (Buffer.from(string)) to match the Python verifier.
+    const sigB64 = b64UrlEncode(createHmac("sha256", Buffer.from(stateKey)).update(payloadB64).digest());
     const state = `${payloadB64}.${sigB64}`;
 
     const scopes = [

@@ -559,6 +559,17 @@ print(str(sb.get('account_id') or '').strip())
   # only when the firm-delegated grant is authored; account_id only when present.
   if [ "${SB_AUTH_MODE}" = "authorization_code" ]; then
     stage_secret_from_env SMOKEBALL_AUTH_MODE "authorization_code" "Smokeball grant: firm-delegated (refresh token set at the connect step)"
+    # Per-customer OAuth state-signing key (ADR 0054): HMAC(master, slug), the same
+    # derivation as the runtime-read key (ADR 0043). The Machine verifies the connect
+    # state with this; the connect initiator derives the SAME key to sign. The master
+    # lives ONLY in the operator env (/ss) — each Machine gets only its own derived key.
+    if [ -n "${OPERATOR_OAUTH_STATE_MASTER:-}" ]; then
+      _sb_state_key="$(printf '%s' "${SLUG}" | openssl dgst -sha256 -hmac "${OPERATOR_OAUTH_STATE_MASTER}" | awk '{print $NF}')"
+      stage_secret_from_env SMOKEBALL_OAUTH_STATE_KEY "${_sb_state_key}" "per-customer Smokeball OAuth state key (ADR 0054; HMAC(master,slug))"
+      unset _sb_state_key
+    else
+      log "WARN: OPERATOR_OAUTH_STATE_MASTER unset — SMOKEBALL_OAUTH_STATE_KEY not derived; the connect callback will reject all state until it is staged"
+    fi
   fi
   if [ -n "${SB_ACCOUNT_ID}" ]; then
     stage_secret_from_env SMOKEBALL_ACCOUNT_ID "${SB_ACCOUNT_ID}" "Smokeball multi-account URL prefix"

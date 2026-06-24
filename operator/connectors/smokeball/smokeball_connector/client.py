@@ -36,6 +36,7 @@ ASSUMED list), and encoding a guess here would be the wrong kind of certainty.
 from __future__ import annotations
 
 import base64
+import os
 import time
 from typing import Any
 
@@ -83,6 +84,7 @@ class SmokeballClient:
         api_key: str,
         auth_mode: str = "client_credentials",
         refresh_token: str | None = None,
+        refresh_token_file: str | None = None,
         account_id: str | None = None,
         timeout: float = 30.0,
     ) -> None:
@@ -104,6 +106,11 @@ class SmokeballClient:
         self._client_secret = client_secret
         self._api_key = api_key
         self._refresh_token = refresh_token
+        # The firm-delegated refresh token's durable home (ADR 0054): the
+        # Machine-hosted OAuth callback writes it here, and we rewrite it in place
+        # when Smokeball rotates it on a refresh — so a rotated token survives a
+        # restart (the Clio token-file pattern).
+        self._refresh_token_file = refresh_token_file
         # Normalize the optional account prefix to a bare segment ("abc", not
         # "/abc/") so request() can build "{api_host}/{account_id}{path}" cleanly.
         self._account_id = account_id.strip("/") if account_id else None
@@ -148,15 +155,33 @@ class SmokeballClient:
         if not token:
             raise SmokeballAuthError("token response had no access_token")
         # Smokeball may rotate the refresh token on a refresh_token grant; if it
-        # returns a new one, hold it in memory so subsequent refreshes use the
-        # current token (the seeded Fly secret stays the cold-start fallback).
+        # returns a new one, hold it in memory AND rewrite the durable token file
+        # so the rotated token survives a restart (ADR 0054, Clio pattern).
         rotated = body.get("refresh_token")
-        if self.auth_mode == "authorization_code" and rotated:
+        if self.auth_mode == "authorization_code" and rotated and rotated != self._refresh_token:
             self._refresh_token = rotated
+            self._persist_refresh_token(rotated)
         expires_in = int(body.get("expires_in", 3600))
         self._token = token
         self._token_deadline = time.monotonic() + max(expires_in - _TOKEN_SKEW_SECONDS, 0)
         return expires_in
+
+    def _persist_refresh_token(self, token: str) -> None:
+        """Atomically rewrite the durable refresh-token file (0600). Best-effort —
+        a write failure must not break minting (the in-memory token still works for
+        this process); it only means the next restart falls back to the prior file."""
+        if not self._refresh_token_file:
+            return
+        try:
+            tmp = f"{self._refresh_token_file}.tmp"
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            try:
+                os.write(fd, token.encode())
+            finally:
+                os.close(fd)
+            os.replace(tmp, self._refresh_token_file)
+        except OSError:
+            pass
 
     def _bearer(self) -> str:
         if self._token is None or time.monotonic() >= self._token_deadline:

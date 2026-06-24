@@ -138,9 +138,13 @@ connectors:
     adapter: smokeball
     backend: mcp:smokeball
     enabled: true
-    environment: staging # our own STAGING tenant (default; explicit for clarity)
-    # auth_mode defaults to client_credentials (live-verified). The auth-code
-    # rehearsal (ADR 0053) flips this to authorization_code temporarily.
+    environment: staging # our own STAGING tenant
+    # auth_mode: authorization_code — pilot-smokeball is the firm-delegated rehearsal
+    # rig (ADR 0053). The refresh token is obtained at the connect step
+    # (bin/connect-smokeball.sh) and set as SMOKEBALL_REFRESH_TOKEN; until then the
+    # connector is unwired at boot (boot-before-token). Bound to the staging
+    # "SMD Operator (Auth Code)" app via SMOKEBALL_STAGING_* creds.
+    auth_mode: authorization_code
     token_ref: 'infisical:/operator/pilot-smokeball/practice-management/smokeball-oauth'
     webhook_url: 'https://hermes-pilot-smokeball.fly.dev/webhooks/smokeball'
 
