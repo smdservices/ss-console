@@ -269,6 +269,21 @@ else
   log "Root config applier NOT launched (R2 config creds absent, or config_applier not in this overlay)"
 fi
 
+# MCP channel cross-process result/thread store (shared/mcp_result_store.py +
+# shared/mcp_thread_store.py). The webhook gate (:8643) and the agent's result-sink
+# plugin (inside the Hermes gateway) BOTH read/write here to hand a synchronous
+# /mcp answer back to the caller; the default path is /run/smd-mcp. /run is a
+# root-owned tmpfs, so the unprivileged hermes processes cannot mkdir it themselves
+# (Permission denied → the answer never lands and the gate's 55s poll always times
+# out; first surfaced on the Machine-hosted /mcp path, hermes-pilot-smokeball
+# 2026-06-24). Create it hermes-owned now, while still root — both processes run as
+# hermes (the exec-drop below), so a single hermes-owned 0700 dir serves both.
+# tmpfs is correct: results are short-lived and scoped to one in-flight request.
+MCP_STORE_DIR="/run/smd-mcp"
+mkdir -p "${MCP_STORE_DIR}"
+chown hermes:hermes "${MCP_STORE_DIR}"
+chmod 0700 "${MCP_STORE_DIR}"
+
 exec setpriv \
   --reuid=hermes \
   --regid=hermes \
