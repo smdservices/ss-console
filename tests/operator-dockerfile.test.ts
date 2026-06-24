@@ -148,7 +148,12 @@ describe('Operator customer Machine Dockerfile', () => {
     // auth_mode/refresh_token/account_id) + translate.py optional-env staging loop, for
     // the firm-delegated authorization_code path. The range a4db1154..3a75703 is exactly
     // this one commit; all four tracked twins verified unchanged.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="3a75703b7c7f8c2923200b734fda60da91df7d19"')
+    // 96835fe (#110, ADR 0054): the Machine-hosted Smokeball OAuth callback —
+    // shared/oauth_callback.py + a GET /oauth/smokeball/callback route on the gateway,
+    // so the firm-delegated consent lands on the customer's own Machine, not a shared
+    // Worker. The range 3a75703..96835fe is exactly this one commit; all four tracked
+    // twins verified unchanged.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="96835fe356b8e9697fd6ab22e54630cbdfa20fdb"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

@@ -160,3 +160,47 @@ def test_mint_failure_does_not_echo_grant() -> None:
         client.auth_status()
     assert "rt-123" not in str(exc.value)
     assert "authorization_code" in str(exc.value)
+
+
+# ---- ADR 0054: durable refresh-token file (read + rotation persist) --------
+def test_authorization_code_persists_rotated_token_to_file(tmp_path) -> None:
+    token_file = tmp_path / "refresh_token"
+    captured: list[httpx.Request] = []
+    client = _mock_client(
+        _token_handler(captured, rotate="rt-ROTATED"),
+        auth_mode="authorization_code",
+        refresh_token="rt-OLD",
+        refresh_token_file=str(token_file),
+    )
+    client.auth_status()  # mints → Smokeball rotates → file rewritten
+    assert client._refresh_token == "rt-ROTATED"
+    assert token_file.read_text() == "rt-ROTATED"
+    assert (token_file.stat().st_mode & 0o777) == 0o600
+
+
+def test_no_rotation_does_not_touch_file(tmp_path) -> None:
+    token_file = tmp_path / "refresh_token"
+    captured: list[httpx.Request] = []
+    # rotate=None → the token response carries no new refresh_token.
+    client = _mock_client(
+        _token_handler(captured),
+        auth_mode="authorization_code",
+        refresh_token="rt-OLD",
+        refresh_token_file=str(token_file),
+    )
+    client.auth_status()
+    assert not token_file.exists()  # nothing rotated → nothing written
+
+
+def test_server_reads_token_from_file_then_env(tmp_path, monkeypatch) -> None:
+    from smokeball_connector import server
+
+    token_file = tmp_path / "refresh_token"
+    monkeypatch.delenv("SMOKEBALL_REFRESH_TOKEN", raising=False)
+    assert server._read_refresh_token(str(token_file)) is None  # neither present
+
+    monkeypatch.setenv("SMOKEBALL_REFRESH_TOKEN", "from-env")
+    assert server._read_refresh_token(str(token_file)) == "from-env"  # env fallback
+
+    token_file.write_text("from-file\n")
+    assert server._read_refresh_token(str(token_file)) == "from-file"  # file wins
