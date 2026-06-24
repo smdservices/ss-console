@@ -129,6 +129,24 @@ personas:
       - google-workspace
       - himalaya
 
+# ---- MCP CONNECTOR (Operator ⇄ Claude) ----
+# Rehearsal channel: lets us drive a real agent turn on this staging rig to prove
+# the firm-delegated Smokeball read end-to-end (Allow → token file → connector →
+# list_matters). translate.py emits the core /webhooks/mcp route ONLY when this
+# block is enabled AND WEBHOOK_SECRET_MCP is set (fail-closed). Clerk is NOT
+# configured on the staging Machine, so /mcp auth falls to the transitional stub
+# bearer (SMD_MCP_STUB_TOKEN); the access[] entry below is the production shape
+# (Clerk-gated) and is inert until Clerk env is materialized.
+mcp_connector:
+  enabled: true
+  data_posture: open
+  access:
+    - email: scott@smd.services
+      profile: quinn
+      clerk_subjects:
+        - user_3EEs0aMBRgu6PRxBa4g5YhHjggD
+        - user_3E1RPGrTMxkSqciXMTyybUNSJWu
+
 # ---- CONNECTORS ----
 connectors:
   # System of record — the net-new mcp:smokeball server (Track A), bound to SMD's
