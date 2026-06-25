@@ -157,7 +157,7 @@ describe('Operator customer Machine Dockerfile', () => {
     // autonomous reply to a production capability (plugin hermes-smd-reply) gated on
     // the organization roster (scope.inbound_allow_from), not a fenced switch. Security
     // logic byte-for-byte unchanged. Superset of 96835fe.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="1d6d5b2c5e13cc532c01642bc716435b9ec6d174"')
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="33b58ad92befd400d7aab36925544cc77e286caa"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
