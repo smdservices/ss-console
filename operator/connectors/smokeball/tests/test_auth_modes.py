@@ -193,6 +193,21 @@ def test_auth_status_granted_scopes_empty_for_opaque_token() -> None:
     assert client.auth_status()["granted_scopes"] == []
 
 
+def test_mint_logs_granted_scopes_once(capsys) -> None:
+    jwt = _make_jwt({"scope": "documents/read documents/write matters/read"})
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"access_token": jwt, "expires_in": 3600, "token_type": "Bearer"})
+
+    client = _mock_client(handler, auth_mode="authorization_code", refresh_token="rt-1")
+    client._mint_token()
+    client._mint_token()  # second mint must NOT re-log
+    err = capsys.readouterr().err
+    assert err.count("[smokeball] authenticated") == 1
+    assert "documents/write" in err
+    assert jwt not in err  # the token itself is never logged
+
+
 # ---- ADR 0054: durable refresh-token file (read + rotation persist) --------
 def test_authorization_code_persists_rotated_token_to_file(tmp_path) -> None:
     token_file = tmp_path / "refresh_token"
