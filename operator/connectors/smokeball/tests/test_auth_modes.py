@@ -162,6 +162,37 @@ def test_mint_failure_does_not_echo_grant() -> None:
     assert "authorization_code" in str(exc.value)
 
 
+# ---- granted-scope introspection (JWT scope claim) ------------------------
+def _make_jwt(payload: dict) -> str:
+    """A minimal unsigned-shape JWT (header.payload.sig) for scope-decode tests."""
+    import base64
+    import json
+
+    def seg(d: bytes) -> str:
+        return base64.urlsafe_b64encode(d).rstrip(b"=").decode()
+
+    return f"{seg(b'{}')}.{seg(json.dumps(payload).encode())}.sig"
+
+
+def test_auth_status_decodes_granted_scopes() -> None:
+    jwt = _make_jwt({"scope": "documents/read documents/write matters/read"})
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"access_token": jwt, "expires_in": 3600, "token_type": "Bearer"})
+
+    client = _mock_client(handler, auth_mode="authorization_code", refresh_token="rt-1")
+    status = client.auth_status()
+    assert status["granted_scopes"] == ["documents/read", "documents/write", "matters/read"]
+    assert jwt not in repr(status)  # the token itself never leaks
+
+
+def test_auth_status_granted_scopes_empty_for_opaque_token() -> None:
+    captured: list[httpx.Request] = []
+    # _token_handler mints access_token="zzz-access-secret" (not a JWT → no scopes).
+    client = _mock_client(_token_handler(captured))
+    assert client.auth_status()["granted_scopes"] == []
+
+
 # ---- ADR 0054: durable refresh-token file (read + rotation persist) --------
 def test_authorization_code_persists_rotated_token_to_file(tmp_path) -> None:
     token_file = tmp_path / "refresh_token"
