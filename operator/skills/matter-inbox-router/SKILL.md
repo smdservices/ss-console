@@ -1,7 +1,7 @@
 ---
 name: matter-inbox-router
-description: Classifies inbound firm mail and routes each message to the wedge skill that handles it — dispatches, never answers, never decides legal substance.
-version: 0.1.0
+description: The firm's coordinator on inbound mail — responds to colleagues by default (the reply channel sends it), routes recognized matter inbound to the wedge skill that handles it, and never decides legal substance.
+version: 0.2.0
 author: SMD Services
 license: MIT
 platforms: [linux, macos]
@@ -13,9 +13,9 @@ metadata:
     tags: [Law, Inbox, Routing, Dispatch, DraftForReview]
   smd:
     vertical: law-firm
-    skill_type: decision/surfacing (routing)
+    skill_type: respond + route (inbox coordinator)
     trust_ceiling: draft_for_review
-    action_class: read + route
+    action_class: read + reply + route
     connectors:
       - email # customer-bound (mcp:m365-mail in prod; build:google-gmail in the sandbox)
       - smokeball # PracticeManagement — contact/matter lookup to resolve sender → matter (read)
@@ -29,13 +29,15 @@ metadata:
 
 # Matter Inbox Router
 
-Reads the firm's inbound mail, classifies each message into a law inbound class, and routes it to the wedge skill that completes that job. It is a **dispatcher, not a drafter** — it never answers the client itself; it hands the message (with the matter/contact context it resolved) to `new-matter-intake`, `consult-scheduler`, `engagement-letter-chaser`, `matter-status-responder`, or `trust-balance-nudge`, or surfaces it for a human when no skill owns it. The reply, when one is warranted, is drafted by the routed-to skill under the draft-for-review posture.
+The Operator is an employee of the firm (ADR 0055). When someone on its roster emails its inbox, it reads and **replies** — like any coordinator would; the reply channel sends that reply to the colleague (recipient-locked, roster-governed). That responding-to-your-people behavior is the **universal default**, not this skill's to grant or withhold.
 
-This is the connective tissue of the wedge's named job — _move a new inquiry to an active, current matter_ (`operator/verticals/law-firm/wedge.md`). Without a reliable router, every inbound message is a human triage decision; with it, the loop starts itself.
+What this skill adds is the **law layer on top of that default**: it classifies inbound mail and, for recognized **matter inbound**, routes the message — with the matter/contact context it resolved — to the wedge skill that completes that job (`new-matter-intake`, `consult-scheduler`, `engagement-letter-chaser`, `matter-status-responder`, `trust-balance-nudge`). It also enforces the firm's guardrails: it **halts on a conflict**, it **never answers a legal-substance question** (that is the attorney's, not the coordinator's), and it keeps matter detail privileged. For ordinary operational mail from a colleague — a question, a heads-up, a "can you handle X" — it simply **responds**, the way an employee answers a coworker.
+
+This is the connective tissue of the wedge's named job — _move a new inquiry to an active, current matter_ (`operator/verticals/law-firm/wedge.md`) — without ever leaving a colleague's message unanswered.
 
 ## When to Use
 
-Inbound mail arrives at the firm continuously: new-client inquiries, clients asking "where are we," signed engagement letters, scheduling back-and-forth, payment questions. A coordinator reads each one and decides _who/what handles this_. This skill does that decision — fast, conflict-aware, and without ever crossing into legal substance — so the right wedge skill picks the message up.
+Inbound mail arrives at the firm continuously: new-client inquiries, clients asking "where are we," signed engagement letters, scheduling back-and-forth, payment questions — and plenty of ordinary operational mail from the firm's own people. A coordinator reads each one and either **answers it** or decides _who/what handles this_. This skill does that — fast, conflict-aware, and without ever crossing into legal substance — replying to colleagues directly and handing matter inbound to the right wedge skill.
 
 It runs scheduled (poll the inbox on the firm's cadence) and event-driven (an inbound webhook delivers one message).
 
@@ -43,18 +45,18 @@ It runs scheduled (poll the inbox on the firm's cadence) and event-driven (an in
 
 Each message is classified into exactly one **inbound class**, which names the **target skill**. The full rubric — the owner-statement tells that map to each class, the multi-intent tie-breaks, and the conflict/UPL guards — is `references/routing-rubric.md`. Summary:
 
-| Inbound class                         | Routes to                                      | One-line tell                                                         |
-| ------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------- |
-| New-client inquiry                    | `new-matter-intake`                            | a non-client asking the firm to take something on                     |
-| Scheduling / consult                  | `consult-scheduler`                            | a request to book, move, or confirm a meeting time                    |
-| Engagement letter / signature         | `engagement-letter-chaser`                     | anything about the engagement letter going out, signed, or its terms  |
-| Status request ("where are we")       | `matter-status-responder`                      | an existing client asking the state of their matter                   |
-| Payment / trust / retainer            | `trust-balance-nudge`                          | a question about a balance, invoice, or replenishing the retainer     |
-| Document received                     | surface + (deferred `document-receipt-logger`) | an inbound document to be filed; no wedge step depends on it          |
-| Conflict signal                       | **HALT + surface for human**                   | opposing party, adverse mention, or a hit on the conflict cross-check |
-| Ambiguous / multi-intent / non-client | surface for human                              | no single skill owns it, or it needs a person                         |
+| Inbound class                       | Routes to                                      | One-line tell                                                         |
+| ----------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------- |
+| New-client inquiry                  | `new-matter-intake`                            | a non-client asking the firm to take something on                     |
+| Scheduling / consult                | `consult-scheduler`                            | a request to book, move, or confirm a meeting time                    |
+| Engagement letter / signature       | `engagement-letter-chaser`                     | anything about the engagement letter going out, signed, or its terms  |
+| Status request ("where are we")     | `matter-status-responder`                      | an existing client asking the state of their matter                   |
+| Payment / trust / retainer          | `trust-balance-nudge`                          | a question about a balance, invoice, or replenishing the retainer     |
+| Document received                   | surface + (deferred `document-receipt-logger`) | an inbound document to be filed; no wedge step depends on it          |
+| Conflict signal                     | **HALT + surface for human**                   | opposing party, adverse mention, or a hit on the conflict cross-check |
+| General / operational (a colleague) | **respond directly** (employee default)        | a question, heads-up, or coordination ask with no matter action owed  |
 
-**Routing is not answering.** A message that asks a legal question ("do I have a case?", "what does this clause mean?") is routed to the skill whose job is to _acknowledge-and-defer_ it (or surfaced for the attorney) — the router never answers the legal question itself.
+**Routing only redirects matter inbound; it never silences the Operator.** Anything that isn't a recognized matter class is not "surfaced and left unanswered" — it gets the **employee default: a direct reply to the colleague** (the reply channel sends it if they're on the roster, drafts it if not). The two carve-outs where the Operator does NOT answer on its own are real and narrow: a **conflict signal** (halt + surface) and a **legal-substance question** ("do I have a case?", "what does this clause mean?") — those are deferred to the attorney, never answered by the coordinator. Everything else, a colleague gets an answer.
 
 ## Prerequisites
 
@@ -83,36 +85,41 @@ Per `references/routing-rubric.md` and `references/algorithm.md`:
 1. **Resolve the sender** against Smokeball (`get_contacts` on the from-address/name; `list_matters` for that contact). Known client + matter, known contact no matter, or unknown — this gates class and conflict.
 2. **Run the conflict cross-check FIRST.** Before any routing, a read-only `get_contacts` + `list_matters` name/entity check (the same invariant `new-matter-intake` carries). On any hit — the sender or a named party is adverse to an existing matter — **HALT**: the message routes to the human conflict-clearance surface, not to a wedge skill, and no downstream draft is started. Advancing a flagged message is a `fails` safety violation.
 3. **Classify** into exactly one inbound class (rubric tells + tie-breaks).
-4. **Route**: emit the target skill plus the handoff context it needs (resolved contact_id / matter_id, the inbound message_id for in-thread reply, the extracted ask). The routed-to skill owns the draft.
-5. **Surface** the routing decisions as a list for the team — what came in, where each went, and the held/ambiguous ones called out separately.
+4. **Act on the class:**
+   - **Matter inbound** (new inquiry, scheduling, engagement letter, status, payment) → **route**: emit the target skill plus the handoff context it needs (resolved contact_id / matter_id, the inbound message_id for in-thread reply, the extracted ask). The routed-to skill owns the client-facing draft.
+   - **General / operational mail from a colleague** → **respond directly**: reply in-thread (`reply_to_message` keyed on the message_id) the way a coordinator answers a coworker. The reply channel sends it to a roster member, drafts it otherwise — you do not gate that; you just write the reply.
+   - **Conflict signal** → **HALT + surface** to human clearance (never respond, never route).
+   - **Legal-substance question** → do **not** answer; acknowledge and defer to the attorney.
+5. **Surface** the run as a list for the team — what came in, what you answered, where each matter item routed, and any held/deferred ones called out separately.
 
 ## Trust Ceiling
 
-**Routing + surfacing autonomous; zero sends, zero writes.**
+**Responds to colleagues + routes matter inbound, autonomously; no writes to systems of record.**
 
-The agent MAY: read inbound mail; read Smokeball for sender/matter resolution and the conflict cross-check; classify; emit a routing decision + handoff context; surface the list.
+The agent MAY: read inbound mail; read Smokeball for sender/matter resolution and the conflict cross-check; classify; **reply directly to a colleague's general/operational message** (the reply channel governs the actual send — autonomous to a roster member, draft otherwise); emit a routing decision + handoff context for matter inbound; surface the list.
 
-The agent MUST NOT: send or reply to any message; write to Smokeball or any system; answer a legal question; route a conflict-flagged message to anything but the human clearance surface; invent a matter/contact association it did not resolve from Smokeball.
+The agent MUST NOT: answer a legal-substance question (defer it); respond to or route a conflict-flagged message (halt + surface); write to Smokeball or any system of record; invent a matter/contact association it did not resolve from Smokeball.
 
 ## Safety invariants (any violation → `fails`, no recovery)
 
-1. **Routes, never answers.** No legal substance, no advice, no "you have a case" — a substantive question is routed/deferred, never answered by the router.
-2. **Conflict halt precedes routing.** A conflict hit stops the chain and goes to human clearance; no auto-clear, no wedge-skill handoff.
+1. **Never answers legal substance.** No advice, no "you have a case," no clause interpretation — a substantive legal question is deferred to the attorney, never answered. (Answering a colleague's _operational_ mail is the expected default, not a violation.)
+2. **Conflict halt precedes everything.** A conflict hit stops the chain and goes to human clearance — no auto-clear, no reply, no wedge-skill handoff.
 3. **No fabricated association.** A sender is linked to a matter only via a real Smokeball resolution; an unresolved sender is classed unknown, not guessed onto a matter.
-4. **External-send draft floor preserved.** The router sends nothing; it dispatches to skills that draft under a human reviewer's identity.
-5. **Privilege.** Resolved matter detail stays in the handoff to firm-internal skills; it never leaves firm surfaces.
+4. **Client/tribunal content stays draft-floor.** The Operator replies autonomously to roster colleagues (internal/operational); client- and tribunal-bound matter content is drafted by the wedge skills under a human reviewer's identity — never sent autonomously by this skill.
+5. **Privilege.** Resolved matter detail stays in the handoff to firm-internal skills and in-thread replies to firm colleagues; it never leaves firm surfaces.
 
 ## Pitfalls
 
-Answering a question instead of routing it; routing a conflict-flagged message to a wedge skill; guessing a matter for an unknown sender; collapsing a multi-intent message to one class without the rubric's tie-break (a "sign the letter and also when's my hearing" message has a primary route and a noted secondary).
+Answering a **legal-substance** question instead of deferring it (answering a colleague's _operational_ message is correct, not a pitfall); going silent on a colleague's general mail instead of replying; routing a conflict-flagged message to a wedge skill (or replying to it) instead of halting; guessing a matter for an unknown sender; collapsing a multi-intent message to one class without the rubric's tie-break (a "sign the letter and also when's my hearing" message has a primary route and a noted secondary).
 
 ## Verification
 
-1. Every inbound message gets exactly one class and a route (or an explicit human-surface).
-2. Conflict cross-check runs before routing; any hit halts and surfaces, with no downstream handoff.
-3. No legal question is answered by the router.
-4. Sender→matter associations are all Smokeball-sourced; unknowns are classed unknown.
-5. The surfaced list lets a human see, in under a minute, what came in and where it went.
+1. Every inbound message is acted on — a direct reply, a route to a wedge skill, or an explicit halt/defer — never silently dropped.
+2. A general/operational message from a colleague gets a direct reply (sent to roster members, drafted otherwise).
+3. Conflict cross-check runs first; any hit halts and surfaces, with no reply and no downstream handoff.
+4. No legal-substance question is answered; it is deferred to the attorney.
+5. Sender→matter associations are all Smokeball-sourced; unknowns are classed unknown.
+6. The surfaced list lets a human see, in under a minute, what came in, what was answered, and where each matter item went.
 
 ## References
 
