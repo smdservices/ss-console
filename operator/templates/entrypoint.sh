@@ -226,7 +226,7 @@ export HOME=/opt/data
 # Keystone wiring: point the ADR-0044 applier (the root writer) and every
 # agent-side reader at the root-owned live config. SMD_APPLIER_VOLUME_PATH is the
 # applier's write/read target; SMD_CUSTOMER_YAML_PATH is what
-# shared.customer_config.from_volume() (trust gate, demo-relay, webhook-router)
+# shared.customer_config.from_volume() (trust gate, reply channel, webhook-router)
 # resolves at runtime. The gateway exec below inherits both (no env -i), so the
 # agent reads the root-owned copy and has no writable path to its own ceiling.
 export SMD_APPLIER_VOLUME_PATH="${LIVE_CUSTOMER_YAML}"

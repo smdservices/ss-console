@@ -68,9 +68,9 @@ def test_desired_ref_missing_raises(tmp_path):
 
 
 def test_discover_slugs_excludes_template(tmp_path):
-    for name in ("smd", "demo-law", "_template", ".hidden"):
+    for name in ("smd", "acme", "_template", ".hidden"):
         (tmp_path / name).mkdir()
-    assert drift.discover_slugs(tmp_path) == ["demo-law", "smd"]
+    assert drift.discover_slugs(tmp_path) == ["acme", "smd"]
 
 
 # --- refs_match -------------------------------------------------------------
@@ -130,7 +130,7 @@ def _write_dockerfile(tmp_path):
 def test_main_exit_zero_when_all_current(tmp_path, monkeypatch):
     df, _ = _write_dockerfile(tmp_path)
     monkeypatch.setattr(drift.seam_pull, "seam_client_from_env", lambda s: _FakeClient(DESIRED))
-    rc = drift.main(["smd", "demo-law", "--dockerfile", str(df)])
+    rc = drift.main(["smd", "acme", "--dockerfile", str(df)])
     assert rc == 0
 
 

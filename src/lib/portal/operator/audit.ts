@@ -109,6 +109,11 @@ export const AUDIT_ACTION_TYPES = [
   'SUBAGENT_STOPPED',
   'SUBAGENT_INCOMPLETE',
   'SUPPRESSED_WAKE',
+  // Reply channel (ADR 0055) — overlay hermes-smd-reply emits these when the
+  // Operator answers a rostered colleague (recipient-locked, roster-authorized).
+  'REPLY_SENT',
+  'REPLY_HELD',
+  'REPLY_FAILED',
   // Decommission lifecycle. Per-step BEGIN/COMPLETE/FAILED rows added
   // 2026-06-12 (code review) so the compliance trail distinguishes the
   // nine teardown steps; mirrors ACCEPTED_ACTION_TYPES in

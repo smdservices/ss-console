@@ -28,7 +28,7 @@ def _broker(tmp_path) -> Broker:
 
 def _create_row() -> dict:
     return {
-        "customer_slug": "demo-law",
+        "customer_slug": "acme",
         "persona_id": "intake-coordinator",
         "brief": "Long multi-document review.",
         "budget_cents": 500,

@@ -193,6 +193,20 @@ ACCEPTED_ACTION_TYPES = frozenset(
         #     "delta_under_threshold", "no_period_boundary", "config_missing"
         #   - next_scheduled_at: ISO 8601 UTC of the next tick
         "SUPPRESSED_WAKE",
+        # Reply channel (ADR 0055) — emitted by the overlay's hermes-smd-reply
+        # plugin when the Operator (an employee) answers a colleague who emailed
+        # its inbox. The reply is recipient-locked to the verified inbound sender
+        # and authorized by the organization roster (scope.inbound_allow_from).
+        #   REPLY_SENT   — the governed draft was sent back to the rostered sender
+        #     (metadata: recipient, in_reply_to, inbox_id, sent_message_id,
+        #     body_digest — never the body).
+        #   REPLY_HELD   — the reply was held to draft, not sent (metadata: reason
+        #     — sender_not_on_roster / recipient_mismatch / content_sensitive /
+        #     rate_limited / no_inbox_id / empty_body — recipient, message_id).
+        #   REPLY_FAILED — the send was attempted but errored (metadata: reason).
+        "REPLY_SENT",
+        "REPLY_HELD",
+        "REPLY_FAILED",
     }
 )
 

@@ -81,6 +81,12 @@ top_level:
   scope:
     status: implemented
     materializer: translate _persona_config (config.yaml scope)
+    note: >-
+      scope.inbound_allow_from (the organization roster, ADR 0055) is ALSO read
+      live on the volume by overlay hermes-smd-reply on every draft — it
+      authorizes the recipient-locked autonomous reply to a rostered inbound
+      sender. Live-writable (config_applier), so authoring the roster takes
+      effect with no restart.
   escalation:
     status: implemented
     materializer: translate _persona_config (config.yaml escalation)
@@ -115,14 +121,6 @@ top_level:
       ADR 0021 Stream E. The router reads customer.yaml.webhook_triggers directly
       from the synced volume (not translated into config.yaml); validated
       console-side by src/lib/operator/customer-yaml/sections-webhook-triggers.ts.
-      demo-law is the first live customer to author it.
-  demo:
-    status: implemented
-    materializer: overlay hermes-smd-demo-relay (reads demo.reply_relay via shared.customer_config; gates the recipient-locked demo reply)
-    note: >-
-      Demo-only switches. Fail-closed (absent => off); validated console-side by
-      src/lib/operator/customer-yaml/sections-demo.ts. Runtime effect lives in the
-      overlay relay, not a Machine config translation.
   # ---- console-side (not a Machine materialization) ----
   users:
     status: implemented

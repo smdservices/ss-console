@@ -270,6 +270,21 @@
       "side": "ss-console",
       "producerFile": "operator/adapter/audit_log.py",
       "note": "SuppressedWakeWriter emits SUPPRESSED_WAKE before pre_run.py prints {wakeAgent:false}; called from skills' pre_run.py."
+    },
+    "REPLY_SENT": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-reply (post_tool_call, ADR 0055)",
+      "reason": "emitted on the customer Machine when the reply channel sends the Operator's governed draft back to a rostered, recipient-locked inbound sender."
+    },
+    "REPLY_HELD": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-reply (post_tool_call, ADR 0055)",
+      "reason": "emitted on the customer Machine when an autonomous reply is held to draft (off-roster sender, recipient mismatch, content floor, rate-limit, no inbox, empty body)."
+    },
+    "REPLY_FAILED": {
+      "side": "overlay",
+      "overlayProducer": "plugins/hermes-smd-reply (post_tool_call, ADR 0055)",
+      "reason": "emitted on the customer Machine when the AgentMail reply send is attempted but errors (HTTP / unreachable / timeout)."
     }
   }
 }
