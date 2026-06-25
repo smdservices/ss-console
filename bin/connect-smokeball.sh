@@ -148,6 +148,11 @@ URL="$(
     const scopes = [
       "matters/read", "contacts/read", "mattertypes/read", "stages/read",
       "tasks/read", "staff/read", "roles/read", "documents/read",
+      // documents/write authorizes the connector add_file (save-back) and
+      // delete_file (Smokeball "write" = mutate, covers create + delete). Without
+      // it the firm-delegated token is read-only on documents and every upload
+      // 403s: the gap that blocked the document round-trip on pilot-smokeball.
+      "documents/write",
       "memos/read", "memos/write", "bankaccounts/read", "bankaccountbalances/read",
       "billingconfiguration/read", "fees/read", "expenses/read",
       "webhooks/read", "webhooks/write",
