@@ -218,8 +218,18 @@ scope:
   # External send (to anyone OUTSIDE the roster / a chosen recipient) is drafted,
   # never autonomous. Recipient-locked replies to rostered senders are governed by
   # the roster above, not by this ceiling (ADR 0055 §3).
+  #
+  # This is SMD's own STAGING TEST seat (not a client). The Operator manages its
+  # own sample matters for testing, so it gets full document-write autonomy here:
+  #   - internal_write (add_file save-back, create_memo, drafts) -> autonomous
+  #   - destructive   (delete_file)                              -> autonomous
+  # destructive stays taint-gated regardless of this ceiling, so an untrusted-fed
+  # turn can NEVER trigger a delete. A real client seat authors its own posture
+  # (a firm would typically leave destructive refused/draft).
   action_ceilings:
     external_send: draft_for_review
+    internal_write: autonomous
+    destructive: autonomous
 
 # ---- ESCALATION ----
 escalation:

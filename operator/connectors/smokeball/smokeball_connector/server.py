@@ -1,10 +1,13 @@
 """The mcp:smokeball tool surface — Smokeball-native names over the real REST API.
 
-Phase-1 scope (per operator/verticals/law-firm/smokeball-surface.md): the read
-surface + ``create_memo`` (the one internal-log write the wedge uses). Gated
-writes (create_matter/patch_matter/create_task/...) are a phase-2 cut; the
-trust-account fund-movement tools (create_transaction/protect_funds/
-unprotect_funds) are NEVER implemented here and are hard-BANNED at the overlay.
+Scope (per operator/verticals/law-firm/smokeball-surface.md): the read surface,
+``create_memo`` (the internal-log write the wedge uses), and the document
+round-trip writes ``add_file`` (INTERNAL_WRITE) + ``delete_file`` (DESTRUCTIVE) —
+the upload half lets the agent save its work product back to a matter (read ->
+work -> save). Other gated writes (create_matter/patch_matter/create_task/...)
+remain a later cut; the trust-account fund-movement tools (create_transaction/
+protect_funds/unprotect_funds) are NEVER implemented here and are hard-BANNED at
+the overlay.
 
 Paths and query params are taken from the live OpenAPI spec
 (docs.smokeball.com/openapi.json, 2026-06-23), which corrected several guesses in
@@ -18,6 +21,7 @@ The client is built LAZILY on first tool call, so the tool surface introspects
 
 from __future__ import annotations
 
+import base64
 import os
 from typing import Any
 
@@ -240,6 +244,41 @@ def get_file(matter_id: str, file_id: str) -> Any:
 def get_download_url(matter_id: str, file_id: str) -> Any:
     """Get a download URL/stream reference for a file."""
     return _get_client().get(f"/matters/{matter_id}/documents/files/{file_id}/download")
+
+
+@server.tool()
+def add_file(
+    matter_id: str,
+    file_name: str,
+    content_base64: str,
+    folder_id: str | None = None,
+) -> Any:
+    """Upload a document to a matter. ``content_base64`` is the file's raw bytes
+    base64-encoded (any file type); ``folder_id`` is optional (root if omitted).
+    Runs Smokeball's two-stage upload (metadata POST -> presigned S3 PUT);
+    materialization is asynchronous, so the file may take a moment to appear in
+    ``get_files_on_matter``. Returns the new ``fileId``.
+
+    Classified INTERNAL_WRITE at the overlay: this is the agent saving its own
+    work product into the firm's record — the save-back half of the read ->
+    work -> save document round-trip — never an external send."""
+    try:
+        data = base64.b64decode(content_base64, validate=True)
+    except (ValueError, TypeError) as exc:
+        raise ValueError(f"content_base64 is not valid base64: {exc}") from exc
+    return _get_client().add_file(matter_id, file_name, data, folder_id=folder_id)
+
+
+@server.tool()
+def delete_file(matter_id: str, file_id: str) -> Any:
+    """Delete a file from a matter (needs matter_id + file_id — files live under
+    their matter). Irreversible loss of a document.
+
+    Classified DESTRUCTIVE at the overlay: it is taint-gated (an untrusted-fed
+    turn can never trigger it autonomously) and requires an authored
+    ``destructive`` ceiling on the seat — fail-closed otherwise. Returns the
+    async tracking link."""
+    return _get_client().delete_file(matter_id, file_id)
 
 
 # ---- Memos ----------------------------------------------------------------

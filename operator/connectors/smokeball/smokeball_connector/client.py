@@ -73,6 +73,11 @@ class SmokeballAuthError(RuntimeError):
     clear refusal rather than a raw 4xx."""
 
 
+class SmokeballWriteError(RuntimeError):
+    """A document write (upload/delete) failed — the metadata POST returned no
+    upload URL, or the presigned PUT was rejected. Surfaced as a clear refusal."""
+
+
 class SmokeballClient:
     def __init__(
         self,
@@ -228,6 +233,61 @@ class SmokeballClient:
 
     def get(self, path: str, **params: Any) -> Any:
         return self.request("GET", path, params=params)
+
+    # ---- document writes --------------------------------------------------
+    def add_file(
+        self,
+        matter_id: str,
+        file_name: str,
+        data: bytes,
+        *,
+        folder_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Upload a file to a matter via Smokeball's documented two-stage flow:
+
+        1. ``POST /matters/{id}/documents/files`` with the metadata returns a
+           presigned ``uploadUrl`` + ``fileId`` (HTTP 202).
+        2. ``PUT`` the raw bytes to that URL with an **empty** ``Content-Type``
+           (an S3 presigned-PUT requirement Smokeball calls out explicitly — a
+           non-empty value breaks the signature → 403).
+
+        Materialization is asynchronous: the file becomes readable once the
+        firm's document worker ingests it, so callers that need to confirm should
+        poll ``get_file``. Returns the ``fileId`` (and echoes the request)."""
+        body: dict[str, Any] = {"fileName": file_name}
+        if folder_id is not None:
+            body["folderId"] = folder_id
+        info = self.request("POST", f"/matters/{matter_id}/documents/files", json=body)
+        if not isinstance(info, dict) or not info.get("uploadUrl"):
+            raise SmokeballWriteError(
+                "add_file: metadata POST did not return an uploadUrl "
+                f"(matter {matter_id!r}, file {file_name!r})"
+            )
+        self._put_presigned(info["uploadUrl"], data)
+        return {
+            "fileId": info.get("fileId"),
+            "matterId": matter_id,
+            "fileName": file_name,
+            "uploaded": True,
+        }
+
+    def _put_presigned(self, url: str, data: bytes) -> None:
+        """PUT raw bytes to a presigned S3 upload URL. The URL is pre-authenticated
+        by its signature, so we send NO ``x-api-key``/``Authorization`` and an
+        EMPTY ``Content-Type`` (the header is not part of the signed request)."""
+        try:
+            resp = self._http.put(url, content=data, headers={"Content-Type": ""})
+        except httpx.HTTPError as exc:
+            raise SmokeballWriteError(f"presigned upload PUT failed: {exc}") from exc
+        if resp.status_code >= 400:
+            raise SmokeballWriteError(
+                f"presigned upload PUT rejected with HTTP {resp.status_code}"
+            )
+
+    def delete_file(self, matter_id: str, file_id: str) -> Any:
+        """Delete a file from a matter (``DELETE /matters/{id}/documents/files/{fileId}``,
+        async — returns the tracking Link). DESTRUCTIVE at the overlay."""
+        return self.request("DELETE", f"/matters/{matter_id}/documents/files/{file_id}")
 
     # ---- health -----------------------------------------------------------
     def auth_status(self) -> dict[str, Any]:
