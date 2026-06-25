@@ -36,6 +36,7 @@ ASSUMED list), and encoding a guess here would be the wrong kind of certainty.
 from __future__ import annotations
 
 import base64
+import json
 import os
 import time
 from typing import Any
@@ -76,6 +77,33 @@ class SmokeballAuthError(RuntimeError):
 class SmokeballWriteError(RuntimeError):
     """A document write (upload/delete) failed — the metadata POST returned no
     upload URL, or the presigned PUT was rejected. Surfaced as a clear refusal."""
+
+
+_MAX_ERROR_BODY = 600
+
+
+def _truncate_body(text: str | None) -> str:
+    """Trim an API error body to a log-safe length (no credentials are ever in a
+    Smokeball error body, but request headers are never included regardless)."""
+    if not text:
+        return ""
+    text = text.strip()
+    return text if len(text) <= _MAX_ERROR_BODY else text[:_MAX_ERROR_BODY] + "...(truncated)"
+
+
+class SmokeballApiError(RuntimeError):
+    """An API request returned a 4xx/5xx after retries. Carries the HTTP status and
+    the literal (truncated) response body so the agent, and our logs, see WHY a
+    call failed (e.g. an insufficient-scope vs matter-permission 403) instead of a
+    bare status code. The previous bare ``raise_for_status()`` discarded the body,
+    which is exactly what made write failures undiagnosable."""
+
+    def __init__(self, method: str, path: str, status: int, body: str) -> None:
+        self.method = method
+        self.path = path
+        self.status = status
+        self.body = body
+        super().__init__(f"Smokeball {method} {path} -> HTTP {status}: {body or '(empty body)'}")
 
 
 class SmokeballClient:
@@ -121,6 +149,7 @@ class SmokeballClient:
         self._account_id = account_id.strip("/") if account_id else None
         self._token: str | None = None
         self._token_deadline = 0.0
+        self._scopes_logged = False
         self._http = httpx.Client(timeout=timeout)
 
     # ---- auth -------------------------------------------------------------
@@ -169,6 +198,25 @@ class SmokeballClient:
         expires_in = int(body.get("expires_in", 3600))
         self._token = token
         self._token_deadline = time.monotonic() + max(expires_in - _TOKEN_SKEW_SECONDS, 0)
+        # Operability: log the granted scopes once per process on first successful
+        # auth. The connector mints on the first tool call of any agent turn (e.g.
+        # the inbox router's get_contacts/list_matters), so this surfaces the live
+        # token's actual grant without an agent ever calling auth_status — the only
+        # reliable readout, since no env flag reaches the broker-curated connector
+        # env and no enabled skill writes. Scopes are not secret; the token never is.
+        if not self._scopes_logged:
+            self._scopes_logged = True
+            try:
+                import sys
+
+                print(
+                    f"[smokeball] authenticated mode={self.auth_mode} "
+                    f"granted_scopes={self._decode_token_scopes()}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+            except Exception:  # noqa: BLE001 - logging must never break auth
+                pass
         return expires_in
 
     def _persist_refresh_token(self, token: str) -> None:
@@ -223,13 +271,14 @@ class SmokeballClient:
                 self._token = None  # force a fresh mint, then retry once
                 refreshed = True
                 continue
-            last.raise_for_status()
+            if last.status_code >= 400:
+                raise SmokeballApiError(method, path, last.status_code, _truncate_body(last.text))
             if last.status_code == 204 or not last.content:
                 return None
             return last.json()
         assert last is not None
-        last.raise_for_status()
-        return None
+        # Attempts exhausted (e.g. a persistent 429) — surface the last status+body.
+        raise SmokeballApiError(method, path, last.status_code, _truncate_body(last.text))
 
     def get(self, path: str, **params: Any) -> Any:
         return self.request("GET", path, params=params)
@@ -290,12 +339,34 @@ class SmokeballClient:
         return self.request("DELETE", f"/matters/{matter_id}/documents/files/{file_id}")
 
     # ---- health -----------------------------------------------------------
+    def _decode_token_scopes(self) -> list[str]:
+        """Decode the current access token's granted scopes from its JWT ``scope``
+        (Cognito) claim. Returns [] for an opaque/non-JWT token. Decodes only the
+        payload segment and never returns the token itself — the granted scope list
+        is the decisive signal for whether a 403 is a scope vs a permission denial."""
+        tok = self._token
+        if not tok or tok.count(".") != 2:
+            return []
+        payload_b64 = tok.split(".")[1]
+        payload_b64 += "=" * (-len(payload_b64) % 4)  # restore base64url padding
+        try:
+            payload = json.loads(base64.urlsafe_b64decode(payload_b64))
+        except (ValueError, TypeError):
+            return []
+        raw = payload.get("scope", payload.get("scp", ""))
+        if isinstance(raw, list):
+            return sorted(str(s) for s in raw)
+        return sorted(str(raw).split())
+
     def auth_status(self) -> dict[str, Any]:
-        """Mint a token and report connectivity — never the token/refresh value."""
+        """Mint a token and report connectivity — never the token/refresh value.
+        ``granted_scopes`` is the decoded JWT scope claim (the live grant), so an
+        operator can see exactly what the firm-delegated token is authorized for."""
         expires_in = self._mint_token()
         return {
             "authenticated": True,
             "auth_mode": self.auth_mode,
+            "granted_scopes": self._decode_token_scopes(),
             "account_scoped": self._account_id is not None,
             "region": self.region,
             "environment": self.environment,

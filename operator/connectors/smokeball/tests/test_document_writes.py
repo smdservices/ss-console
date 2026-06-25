@@ -13,7 +13,7 @@ import base64
 import httpx
 import pytest
 
-from smokeball_connector.client import SmokeballClient, SmokeballWriteError
+from smokeball_connector.client import SmokeballApiError, SmokeballClient, SmokeballWriteError
 
 _UPLOAD_URL = "https://s3.example.com/apiuploads/abc-123?X-Amz-Signature=deadbeef"
 
@@ -104,6 +104,27 @@ def test_server_add_file_rejects_bad_base64(monkeypatch) -> None:
     # never reaches the network: bad base64 is refused before the client is built
     with pytest.raises(ValueError, match="base64"):
         server.add_file("m-1", "x.txt", "not!!base64!!")
+
+
+def test_add_file_surfaces_literal_api_error_body() -> None:
+    """The whole point of SmokeballApiError: a 403 on the metadata POST must carry
+    the literal Smokeball body (so we can tell insufficient-scope from a matter
+    permission denial), and the presigned PUT must never be attempted."""
+    captured: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        if request.url.path.endswith("/oauth2/token"):
+            return httpx.Response(200, json={"access_token": "tok", "expires_in": 3600, "token_type": "Bearer"})
+        return httpx.Response(403, json={"message": "Insufficient scope: documents/write required"})
+
+    client = _mock_client(handler)
+    with pytest.raises(SmokeballApiError) as exc:
+        client.add_file("m-1", "x.txt", b"hi")
+    assert exc.value.status == 403
+    assert exc.value.method == "POST"
+    assert "documents/write" in exc.value.body
+    assert not any(r.method == "PUT" for r in captured)
 
 
 def test_server_add_file_decodes_base64_and_delegates(monkeypatch) -> None:
