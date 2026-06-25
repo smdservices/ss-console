@@ -38,6 +38,8 @@ EXPECTED_TOOLS = {
     "get_files_on_matter",
     "get_file",
     "get_download_url",
+    "add_file",
+    "delete_file",
     "get_memos_on_matter",
     "get_bank_accounts",
     "get_matter_balances",
@@ -79,16 +81,22 @@ def test_conformance_every_tool_classified() -> None:
     runtime_map = conformance.run_all(server, _manifest())
     # Trust-account fund-movement tools are never exposed here.
     assert not any("transaction" in k or "protect" in k for k in runtime_map)
-    # The one write is an internal write under its runtime name; reads are reads.
+    # Writes carry their classes under the runtime name; reads are reads.
     assert runtime_map[runtime_tool_name("smokeball", "create_memo")] == "internal_write"
+    assert runtime_map[runtime_tool_name("smokeball", "add_file")] == "internal_write"
+    assert runtime_map[runtime_tool_name("smokeball", "delete_file")] == "destructive"
     assert runtime_map[runtime_tool_name("smokeball", "get_matter_balances")] == "read"
     assert runtime_map[runtime_tool_name("smokeball", "list_matters")] == "read"
 
 
-def test_only_create_memo_is_a_write() -> None:
+def test_write_surface_is_memo_and_document_round_trip() -> None:
     m = _manifest()
-    writes = {t for t, c in m.tool_classes.items() if c != "read"}
-    assert writes == {"create_memo"}
+    writes = {t: c for t, c in m.tool_classes.items() if c != "read"}
+    assert writes == {
+        "create_memo": "internal_write",
+        "add_file": "internal_write",
+        "delete_file": "destructive",
+    }
 
 
 @pytest.mark.skipif(_SCRIPT is None, reason="smokeball-mcp console-script not on PATH")
