@@ -12,9 +12,10 @@
 #
 # tool_classes is the conformance ORACLE: every entry must agree with the
 # hand-authored overlay map (shared/action_classes.py) under the runtime name
-# mcp_smokeball_<tool>. The phase-1 surface is the reads + create_memo. The
-# trust-account fund-movement tools are NEVER exposed here and are hard-BANNED at
-# the overlay.
+# mcp_smokeball_<tool>. The surface is the reads + create_memo (internal_write) +
+# the document round-trip writes add_file (internal_write) and delete_file
+# (destructive, taint-gated). The trust-account fund-movement tools are NEVER
+# exposed here and are hard-BANNED at the overlay.
 [connector]
 name = "smokeball"
 capability = "PracticeManagement"
@@ -56,6 +57,8 @@ get_relationships_on_matter = "read"
 get_files_on_matter = "read"
 get_file = "read"
 get_download_url = "read"
+add_file = "internal_write"
+delete_file = "destructive"
 get_memos_on_matter = "read"
 get_bank_accounts = "read"
 get_matter_balances = "read"
