@@ -132,6 +132,14 @@ scope:
   email_folders_blind: []
   email_keyword_blocks: []
   domain_blocks: []
+  # The organization roster (ADR 0055) — who the Operator may RESPOND to (not just
+  # draft) when they email its inbox. Onboarding default = the SMD operator + the
+  # organization's own email domain, so the org can talk to its Operator from day
+  # one (replies are recipient-locked to the verified sender). Anyone outside the
+  # roster is drafted. Empty roster = fail-closed (drafts only).
+  inbound_allow_from:
+    - scott@smd.services
+    - '@[ORG EMAIL DOMAIN]'
 
 # ---- ESCALATION ----
 escalation:

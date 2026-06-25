@@ -56,10 +56,9 @@
     },
     "synthetic:": {
       "status": "inert",
-      "reason": "synthetic: backends (no_pm/fixture) are demo/substrate stand-ins with no real connector; they surface no live tools. Binding synthetic:* as a capability's sole backend in a real customer = zero tools at runtime.",
-      "tracking": "synthetic: is acceptable ONLY for _template menus and explicitly-listed demo customers. A real customer must resolve every enabled capability to mcp: or an impl'd build: adapter. Demo PM backend should be an mcp: server (live Clio dev or a seeded mock MCP) per the capability-adapters runtime-wiring finding."
+      "reason": "synthetic: backends (no_pm/fixture) are substrate stand-ins with no real connector; they surface no live tools. Binding synthetic:* as a capability's sole backend in a real customer = zero tools at runtime.",
+      "tracking": "synthetic: is acceptable ONLY for _template menus and explicitly-listed staging seats. A real customer must resolve every enabled capability to mcp: or an impl'd build: adapter — a PM backend should be an mcp: server (live Clio dev or a seeded mock MCP) per the capability-adapters runtime-wiring finding."
     }
   },
-  "exemptCustomers": ["_template"],
-  "demoCustomers": ["demo-law", "smd-staging"]
+  "exemptCustomers": ["_template", "smd-staging"]
 }

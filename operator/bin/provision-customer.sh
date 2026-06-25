@@ -475,7 +475,7 @@ stage_secret_from_env CLIO_TOKENS_ENC_B64    "${CLIO_TOKENS_ENC_B64:-}"    "base
 # (uppercased; non-alnum -> _), and fall back to the global WEBHOOK_SECRET_AGENTMAIL
 # only for legacy single-webhook setups. Without the per-customer source a reprovision
 # overwrites a customer's own webhook secret with the global one and inbound email
-# silently stops verifying — the demo-law failure (2026-06-12), generalized to every
+# silently stops verifying — the 2026-06-12 inbound failure, generalized to every
 # multi-customer AgentMail seat.
 if grep -qE 'adapter:[[:space:]]*agentmail|backend:[[:space:]]*mcp:agentmail' \
     "${CUSTOMER_DIR}/customer.yaml" 2>/dev/null; then

@@ -77,7 +77,6 @@ export {
   type Pause,
   type MachineSpec,
   type CostEstimate,
-  type Demo,
   type Relationship,
   type RelationshipPerson,
   type Vertical,

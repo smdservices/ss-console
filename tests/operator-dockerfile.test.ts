@@ -56,7 +56,7 @@ describe('Operator customer Machine Dockerfile', () => {
   })
 
   it('pins the broker-capable overlay revision', () => {
-    // c6ef10d is overlay v0.4.25 (v0.4.24 + #74): THE demo-law fix — AgentMail
+    // c6ef10d is overlay v0.4.25 (v0.4.24 + #74): THE inbound fix — AgentMail
     // delivers over Svix, which carries the event under `type` not the
     // `event_type` the gate assumed, so the webhook route never matched and the
     // recipient-lock origin was never recorded → relay never sent. Gate now
@@ -64,13 +64,13 @@ describe('Operator customer Machine Dockerfile', () => {
     // envelope. v0.4.24 (11bcdc5, #73) added address-keyed origin recovery.
     // v0.4.23 (90dd7f7, #72) classifies AgentMail MCP runtime tool names (P0 —
     // mcp_agentmail_* sends had defaulted to READ). v0.4.22 (8706af4) added #71
-    // gate source-stamp + #57 demo reply relay (fail-closed). Atop v0.4.21
+    // gate source-stamp + #57 reply relay (then fail-closed). Atop v0.4.21
     // (e0bc503, #69 calendar-read fences) and the #60–#68 security wave. v0.4.17
     // must never be re-pinned (fixed-epoch probe crash-loops the gate).
     // c410c52 (#78) carves standard not-legal-advice / attorney-client
     // disclaimer boilerplate out of the content-floor LEGAL category (clause-
     // local; genuinely sensitive content elsewhere still forces draft) — fixes
-    // demo-law DEMO_RELAY_BLOCKED on a benign disclaimer. Atop ed96cebe.
+    // REPLY_HELD on a benign disclaimer. Atop ed96cebe.
     // 37a27aa (#79) exposes voice_corrections via memory_export (ADR 0048) — the
     // legible relationship surface reads the operator's taught style rules through
     // the runtime-read seam. Superset of c410c52.
@@ -153,7 +153,11 @@ describe('Operator customer Machine Dockerfile', () => {
     // so the firm-delegated consent lands on the customer's own Machine, not a shared
     // Worker. The range 3a75703..96835fe is exactly this one commit; all four tracked
     // twins verified unchanged.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="96835fe356b8e9697fd6ab22e54630cbdfa20fdb"')
+    // 1d6d5b2 (#111, ADR 0055): the reply channel — promotes the recipient-locked
+    // autonomous reply to a production capability (plugin hermes-smd-reply) gated on
+    // the organization roster (scope.inbound_allow_from), not a fenced switch. Security
+    // logic byte-for-byte unchanged. Superset of 96835fe.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="1d6d5b2c5e13cc532c01642bc716435b9ec6d174"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

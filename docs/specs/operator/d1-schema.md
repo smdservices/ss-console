@@ -63,6 +63,12 @@ CREATE INDEX idx_audit_actor ON audit_log(actor, ts);
 -- SUPPRESSED_WAKE (ADR 0021 Stream B — `pre_run.py` decides not to wake
 --   the agent; emit BEFORE printing `wakeAgent: false`; audit-write
 --   failure forces fallback to wake — see SuppressedWakeWriter).
+-- REPLY_SENT, REPLY_HELD, REPLY_FAILED (ADR 0055 — the Operator reply
+--   channel; overlay hermes-smd-reply emits one row when it answers a
+--   rostered colleague (SENT), holds the reply to draft (HELD: off-roster
+--   sender, recipient mismatch, content floor, rate-limit, no inbox, empty
+--   body), or the AgentMail send errors (FAILED). Metadata carries recipient
+--   + message ids + reason + body_digest; never the body).
 
 -- 2. Memory rules (hard rules; customer-defined)
 CREATE TABLE memory_rules (
