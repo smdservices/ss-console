@@ -28,7 +28,7 @@ def _writer(tmp_path) -> JobLedgerWriter:
 def _new_job(w: JobLedgerWriter, budget_cents: int = 500) -> str:
     return w.create(
         {
-            "customer_slug": "demo-law",
+            "customer_slug": "acme",
             "persona_id": "intake-coordinator",
             "model": "claude-sonnet-4-6",
             "brief": "Review the three production documents and surface gaps.",
@@ -45,7 +45,7 @@ def test_create_and_read_roundtrip(tmp_path):
     row = w.read(job_id)
     assert row is not None
     assert row["status"] == "queued"
-    assert row["customer_slug"] == "demo-law"
+    assert row["customer_slug"] == "acme"
     assert row["budget_cents"] == 500
     assert row["spent_cents"] == 0
     assert row["lease_epoch"] == 0

@@ -36,7 +36,7 @@ CUTOFF_ALL_EXPIRED = "2026-06-18T09:00:00.000Z"
 def _new_job(w: JobLedgerWriter, budget_cents: int = 500) -> str:
     return w.create(
         {
-            "customer_slug": "demo-law",
+            "customer_slug": "acme",
             "persona_id": "intake-coordinator",
             "model": "claude-sonnet-4-6",
             "brief": "Review the three production documents and surface gaps.",

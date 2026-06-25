@@ -664,28 +664,6 @@ export interface MachineSpec {
 }
 
 /**
- * Demo-only switches (`demo:` block). Behavior that exists solely to drive a
- * tangible prospect demo and must never be authored for a real customer holding
- * real client data. All fields default OFF when the block (or the field) is
- * absent — fail-closed.
- */
-export interface Demo {
-  /**
-   * Demo reply relay (overlay plugin `hermes-smd-demo-relay`). When `true`, the
-   * demo Operator's GOVERNED draft (produced under the law external-send-draft
-   * floor + taint-gate + content/fabrication floors) is sent back to the
-   * VERIFIED inbound sender by a trusted, demo-scoped, recipient-locked relay —
-   * WITHOUT weakening any agent floor (the agent still only drafts). See
-   * docs/security/demo-reply-relay-design.md.
-   *
-   * Fail-closed: absent/`false` ⇒ the relay never acts. MUST NOT be enabled for
-   * any customer holding real client data without a further security review —
-   * the safety argument rests on synthetic-data containment + recipient-lock.
-   */
-  reply_relay: boolean
-}
-
-/**
  * One person the Operator works with, as authored in the `relationship:` block
  * (ADR 0048). This is the **authored behavioral lane** of the relationship
  * model — standing, human-reviewed preferences for HOW to work with a specific
@@ -869,12 +847,6 @@ export interface CustomerYaml {
    * is `resolveCredentialCustody` in src/lib/operator/credential-custody.ts.
    */
   credential_custody_default: CredentialCustody
-  /**
-   * Demo-only switches (ADR 0004 demo path). Always non-null on a validated
-   * CustomerYaml: an absent `demo:` block resolves to `{ reply_relay: false }`
-   * via `checkDemo`. Fail-closed — see {@link Demo}.
-   */
-  demo: Demo
   /**
    * Operator ⇄ Claude MCP connector (Phase 1). Always non-null on a validated
    * CustomerYaml: an absent `mcp_connector:` block resolves to

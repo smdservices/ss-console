@@ -62,7 +62,6 @@ interface PrefixEntry {
 interface MaterializerContract {
   prefixes: Record<string, PrefixEntry>
   exemptCustomers: string[]
-  demoCustomers: string[]
 }
 
 /** Parse ACCEPTED_BACKEND_PREFIXES = ['mcp:', 'build:', 'synthetic:'] from types.ts. */
@@ -206,7 +205,7 @@ describe('connector backend materializer guard (validate-fail-closed)', () => {
 describe('fail-closed: no real customer ships a zero-tool capability', () => {
   const contract = loadContract()
   const buildAllowlist = materializedBuildAdapters()
-  const exempt = new Set([...contract.exemptCustomers, ...contract.demoCustomers])
+  const exempt = new Set(contract.exemptCustomers)
 
   const customersDir = resolve('operator/customers')
   const customerFiles = existsSync(customersDir)
@@ -247,8 +246,8 @@ describe('fail-closed: no real customer ships a zero-tool capability', () => {
       'A real customer capability whose only backend is non-materializable (synthetic:*, or a ' +
         'build:<adapter> with no impl under operator/connectors/) validates clean but surfaces no ' +
         "runtime tools. Bind it to an mcp: backend or an impl'd build: adapter, or add the " +
-        'customer to demoCustomers if it is an intentional demo seat (and wire the overlay ' +
-        'translate.py fail-closed rejection per the contract tracking note).\n' +
+        'customer to exemptCustomers if it is an intentional staging/template seat (and wire the ' +
+        'overlay translate.py fail-closed rejection per the contract tracking note).\n' +
         violations.join('\n')
     ).toEqual([])
   })

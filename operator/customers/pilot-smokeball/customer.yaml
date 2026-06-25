@@ -25,7 +25,7 @@ fly_region: lax # Pacific — the pilot firm is California-based
 # ---- RUNTIME ----
 model: claude-opus-4-8
 # Pin to the CURRENT overlay/hermes ref at provision time (matches OVERLAY_REF).
-# Placeholder mirrors demo-law; bump before reprovision.sh.
+# Placeholder; bump before reprovision.sh.
 hermes_ref: v2026.5.16@a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 
 machine:
@@ -202,7 +202,17 @@ scope:
   email_folders_blind: []
   email_keyword_blocks: []
   domain_blocks: []
-  # Fail-closed: external send is drafted, never autonomous (law floor, ADR 0005).
+  # The organization roster (ADR 0055) — who the Operator may RESPOND to (not just
+  # draft) when they email its inbox. The reply is recipient-locked to the verified
+  # sender; this list authorizes the autonomous reply. Seeded to the SMD operator so
+  # the Captain's mail to pilot-smokeball@agentmail.to comes back as a real reply
+  # (the live test of the employee model). Empty roster = fail-closed (drafts only).
+  inbound_allow_from:
+    - scott@smd.services
+    - smdurgan@smdurgan.com
+  # External send (to anyone OUTSIDE the roster / a chosen recipient) is drafted,
+  # never autonomous. Recipient-locked replies to rostered senders are governed by
+  # the roster above, not by this ceiling (ADR 0055 §3).
   action_ceilings:
     external_send: draft_for_review
 

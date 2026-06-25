@@ -156,20 +156,20 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # v0.4.21 (e0bc503) — #69 fences workspace_calendar_list/get (external invites
 # carry third-party content; Captain call 2026-06-12). Superset of v0.4.20.
 # v0.4.22 (8706af4) — #71 gate source-stamp (router can route AgentMail
-# webhook_triggers) + #57 demo reply relay (fail-closed off unless demo.reply_relay
-# authored; enables the law demo's email-in/email-back loop). Both additive;
+# webhook_triggers) + #57 reply relay (then fail-closed off unless
+# authored; the email-in/email-back loop). Both additive;
 # safe for all customers (relay no-ops without the flag). Superset of v0.4.21.
 # v0.4.23 (90dd7f7) — #72 classify AgentMail MCP runtime tool names
 # (mcp_agentmail_*): the prior map keyed the colon spelling that never occurs at
 # runtime, so sends defaulted to READ and slipped the trust ceiling + taint-gate
-# (demo-law live test sent a reply autonomously on a tainted turn). P0 security;
+# (an inbound live test sent a reply autonomously on a tainted turn). P0 security;
 # closes the bypass for ALL customers. Superset of v0.4.22.
-# v0.4.24 (11bcdc5) — #73 recover the demo-relay recipient-lock origin when the
+# v0.4.24 (11bcdc5) — #73 recover the reply-channel recipient-lock origin when the
 # dispatch session_id differs from the agent-loop session_id (the router records
 # under an empty dispatch session_id, which record() dropped → relay found no
 # origin → governed draft created but never sent). Address-keyed recovery index,
-# injection-safe. Fixes the demo-law email-back loop. Superset of v0.4.23.
-# v0.4.25 (c6ef10d) — #74 THE demo-law fix: AgentMail delivers over Svix, which
+# injection-safe. Fixes the email-back loop. Superset of v0.4.23.
+# v0.4.25 (c6ef10d) — #74 THE inbound fix: AgentMail delivers over Svix, which
 # carries the event under `type` not the `event_type` the gate assumed, so the
 # webhook route never matched → router silently early-returned before recording
 # the recipient-lock origin → relay never sent (agent ran intake autonomously,
@@ -181,7 +181,7 @@ ARG HERMES_UPSTREAM_SHA=a91a57fa5a13d516c38b07a141a9ce8a3daabeb0
 # positive, not a real signal — the carve-out is clause-local, so genuinely
 # sensitive content elsewhere in the same message (money/contract/scope/real
 # legal commitment) still forces draft, and the empty-body fail-toward-draft
-# check is unchanged. Fixes demo-law DEMO_RELAY_BLOCKED reason=content_sensitive
+# check is unchanged. Fixes REPLY_HELD reason=content_sensitive
 # on a benign disclaimer (2026-06-14 live test). Superset of ed96cebe.
 ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # 0f51821 — #89 ADR 0049 model selection: emit Hermes' native `delegation` block
@@ -231,7 +231,16 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # tool names but could not pass arguments — the Operator could not actually drive
 # its 18 workspace_* tools (mailbox reads, etc.). Additive on top of af20ecd;
 # tracked twins unchanged, overlaySha256 stable.
-ARG OVERLAY_REF="96835fe356b8e9697fd6ab22e54630cbdfa20fdb"
+# 96835fe — Machine-hosted Smokeball OAuth callback (overlay#110, ADR 0054): the
+# connector OAuth consent lands on the customer's own Machine gateway, not the
+# shared Worker. Superset of 713a1e2.
+# 1d6d5b2 — reply channel (overlay#111, ADR 0055): the Operator is an employee.
+# Promotes the recipient-locked autonomous reply from a fenced switch to a
+# production capability — plugin hermes-smd-reply, authorized by the organization
+# roster (scope.inbound_allow_from, live-read per draft), audit REPLY_SENT /
+# REPLY_HELD / REPLY_FAILED. Security logic (recipient-lock, content/fabrication
+# re-check, rate-limit) byte-for-byte unchanged. Superset of 96835fe.
+ARG OVERLAY_REF="1d6d5b2c5e13cc532c01642bc716435b9ec6d174"
 
 ARG CUSTOMER_SLUG=customer-zero
 

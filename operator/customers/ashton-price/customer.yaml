@@ -222,7 +222,19 @@ scope:
   email_folders_blind: []
   email_keyword_blocks: []
   domain_blocks: []
-  # Fail-closed: external send is drafted, never autonomous (law floor, ADR 0005).
+  # The organization roster (ADR 0055) — who the Operator may RESPOND to (not just
+  # draft) when they email its inbox. The whole firm (@ashtonandprice.com) plus the
+  # SMD operator; replies are recipient-locked to the verified sender. So Chris,
+  # Christa, and firm staff get real answers from the Operator out of the box, while
+  # anyone OUTSIDE the firm is drafted (reaching outside needs explicit
+  # authorization, ADR 0055 §3). Empty roster = fail-closed (drafts only).
+  inbound_allow_from:
+    - '@ashtonandprice.com'
+    - scott@smd.services
+  # External send (to anyone OUTSIDE the roster / a chosen recipient) is drafted,
+  # never autonomous — client- and tribunal-bound mail ships under a human reviewer.
+  # Recipient-locked replies to rostered senders are governed by the roster above,
+  # not by this ceiling (ADR 0055 §3).
   action_ceilings:
     external_send: draft_for_review
 
