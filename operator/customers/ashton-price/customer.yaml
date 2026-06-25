@@ -70,9 +70,12 @@ users:
 
 # ---- PERSONAS ----
 # One coordinator persona — the law spine + the two committed deliverables
-# (matter-memo-on-update, matter-document-review). Every external-bound message
-# stays draft_for_review (the law external-send floor, ADR 0005, non-raisable).
-# Name/voice are a PROPOSED default; the firm authors the final identity.
+# (matter-memo-on-update, matter-document-review). Entitlements are the FIRM's to
+# specify (see ENTITLEMENTS.md); the ceilings here are PROPOSED defaults we
+# recommend at onboarding, NOT floors (ADR 0005's "external-send floor" is retired;
+# ADR 0035 = no imposed defaults). The only non-configurable controls are the
+# integrity ones (irreversibility adapter ban + taint-gate), never these ceilings.
+# Name/voice are likewise a PROPOSED default; the firm authors the final identity.
 personas:
   - slug: quinn
     status: active
@@ -236,10 +239,11 @@ scope:
   inbound_allow_from:
     - '@ashtonandprice.com'
     - scott@smd.services
-  # External send (to anyone OUTSIDE the roster / a chosen recipient) is drafted,
-  # never autonomous — client- and tribunal-bound mail ships under a human reviewer.
-  # Recipient-locked replies to rostered senders are governed by the roster above,
-  # not by this ceiling (ADR 0055 §3).
+  # External send to non-roster recipients: RECOMMENDED default is draft_for_review
+  # (a human approver on client/tribunal-bound mail) — a PROPOSED posture the firm
+  # confirms or changes at onboarding (ENTITLEMENTS.md), not a fixed floor (ADR 0035).
+  # Recipient-locked replies to rostered senders are AUTONOMOUS, governed by the
+  # roster above, not by this ceiling (ADR 0055 §3).
   action_ceilings:
     external_send: draft_for_review
 

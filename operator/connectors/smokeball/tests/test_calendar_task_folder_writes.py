@@ -1,0 +1,144 @@
+"""Unit coverage for the deadline-engine / document-organization write cut:
+calendar events, tasks, and folders. No live Smokeball calls — a recording fake
+client is injected so we lock the exact path + JSON body each tool sends, and that
+optional (None) args are dropped rather than sent as null."""
+
+from __future__ import annotations
+
+import pytest
+
+from smokeball_connector import server
+
+
+class _Recorder:
+    """Captures the path/method/body the tool layer sends to the REST client."""
+
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    def request(self, method: str, path: str, *, json=None):
+        self.calls.append({"method": method, "path": path, "json": json})
+        return {"ok": True}
+
+    def get(self, path: str, **params):
+        # Mirror the real client: drop None-valued params.
+        cleaned = {k: v for k, v in params.items() if v is not None}
+        self.calls.append({"method": "GET", "path": path, "params": cleaned})
+        return {"ok": True}
+
+
+@pytest.fixture()
+def rec(monkeypatch) -> _Recorder:
+    r = _Recorder()
+    monkeypatch.setattr(server, "_get_client", lambda: r)
+    return r
+
+
+# ---- tasks ----------------------------------------------------------------
+def test_create_task_minimal_drops_none(rec: _Recorder) -> None:
+    server.create_task(staff_id="s-1", subject="File responsive pleading")
+    assert rec.calls == [
+        {
+            "method": "POST",
+            "path": "/tasks",
+            "json": {"staffId": "s-1", "subject": "File responsive pleading"},
+        }
+    ]
+
+
+def test_create_task_maps_due_date_to_due_date_only(rec: _Recorder) -> None:
+    server.create_task(
+        staff_id="s-1",
+        subject="Serve discovery responses",
+        matter_id="m-9",
+        due_date="2026-07-15",
+        assignee_ids=["s-2", "s-3"],
+    )
+    assert rec.calls[0]["json"] == {
+        "staffId": "s-1",
+        "subject": "Serve discovery responses",
+        "matterId": "m-9",
+        "dueDateOnly": "2026-07-15",
+        "assigneeIds": ["s-2", "s-3"],
+    }
+
+
+def test_update_task_partial(rec: _Recorder) -> None:
+    server.update_task(task_id="t-7", is_completed=True)
+    assert rec.calls[0] == {
+        "method": "PUT",
+        "path": "/tasks/t-7",
+        "json": {"isCompleted": True},
+    }
+
+
+# ---- events ---------------------------------------------------------------
+def test_create_event_forces_normal_type(rec: _Recorder) -> None:
+    server.create_event(
+        subject="Discovery responses due",
+        start_time="2026-07-15T09:00:00",
+        end_time="2026-07-15T09:30:00",
+        matter_id="m-9",
+    )
+    assert rec.calls[0] == {
+        "method": "POST",
+        "path": "/events",
+        "json": {
+            "subject": "Discovery responses due",
+            "startTime": "2026-07-15T09:00:00",
+            "endTime": "2026-07-15T09:30:00",
+            "matterId": "m-9",
+            "type": "Normal",
+        },
+    }
+
+
+def test_update_event_partial(rec: _Recorder) -> None:
+    server.update_event(event_id="e-2", start_time="2026-08-01T09:00:00")
+    assert rec.calls[0] == {
+        "method": "PUT",
+        "path": "/events/e-2",
+        "json": {"startTime": "2026-08-01T09:00:00"},
+    }
+
+
+def test_create_event_reminder(rec: _Recorder) -> None:
+    server.create_event_reminder(event_id="e-2", offset=2, offset_type_id=3, user_ids=["s-1"])
+    assert rec.calls[0] == {
+        "method": "POST",
+        "path": "/events/e-2/reminders",
+        "json": {"offset": 2, "offsetTypeId": 3, "userIds": ["s-1"]},
+    }
+
+
+def test_list_events_maps_window_params(rec: _Recorder) -> None:
+    server.list_events(matter_id="m-9", from_="2026-07-01", to="2026-07-31")
+    assert rec.calls[0] == {
+        "method": "GET",
+        "path": "/events",
+        "params": {"MatterId": "m-9", "From": "2026-07-01", "To": "2026-07-31", "Limit": 500, "Offset": 0},
+    }
+
+
+# ---- folders --------------------------------------------------------------
+def test_create_folder_minimal(rec: _Recorder) -> None:
+    server.create_folder(matter_id="m-9", name="Discovery - Set One")
+    assert rec.calls[0] == {
+        "method": "POST",
+        "path": "/matters/m-9/documents/folders",
+        "json": {"name": "Discovery - Set One"},
+    }
+
+
+def test_create_folder_nested(rec: _Recorder) -> None:
+    server.create_folder(matter_id="m-9", name="Set One", parent_folder_id="f-root")
+    assert rec.calls[0]["json"] == {"name": "Set One", "parentFolderId": "f-root"}
+
+
+def test_list_folders(rec: _Recorder) -> None:
+    server.list_folders(matter_id="m-9")
+    assert rec.calls[0] == {
+        "method": "GET",
+        "path": "/matters/m-9/documents/folders",
+        "params": {"Limit": 500, "Offset": 0},
+    }
