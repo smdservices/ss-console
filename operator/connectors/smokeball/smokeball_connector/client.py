@@ -149,6 +149,7 @@ class SmokeballClient:
         self._account_id = account_id.strip("/") if account_id else None
         self._token: str | None = None
         self._token_deadline = 0.0
+        self._scopes_logged = False
         self._http = httpx.Client(timeout=timeout)
 
     # ---- auth -------------------------------------------------------------
@@ -197,6 +198,25 @@ class SmokeballClient:
         expires_in = int(body.get("expires_in", 3600))
         self._token = token
         self._token_deadline = time.monotonic() + max(expires_in - _TOKEN_SKEW_SECONDS, 0)
+        # Operability: log the granted scopes once per process on first successful
+        # auth. The connector mints on the first tool call of any agent turn (e.g.
+        # the inbox router's get_contacts/list_matters), so this surfaces the live
+        # token's actual grant without an agent ever calling auth_status — the only
+        # reliable readout, since no env flag reaches the broker-curated connector
+        # env and no enabled skill writes. Scopes are not secret; the token never is.
+        if not self._scopes_logged:
+            self._scopes_logged = True
+            try:
+                import sys
+
+                print(
+                    f"[smokeball] authenticated mode={self.auth_mode} "
+                    f"granted_scopes={self._decode_token_scopes()}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+            except Exception:  # noqa: BLE001 - logging must never break auth
+                pass
         return expires_in
 
     def _persist_refresh_token(self, token: str) -> None:
