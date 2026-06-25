@@ -9,23 +9,32 @@ schema_version: 1
 # Validate:  npx tsx scripts/validate-customer-yaml.ts \
 #              operator/customers/ashton-price/customer.yaml
 #
-# OPEN ITEMS before provisioning (Captain to confirm — no fabricated values):
-#   - fly_region: set to `phx` as a placeholder; CONFIRM A&P's geography.
-#   - users: only the SMD principal (Scott) is authored. Add A&P's people
-#     (the partner + office manager) with their REAL names/emails once confirmed.
+# SEAT INPUTS RESOLVED 2026-06-24 (Captain-confirmed from A&P directly):
+#   - fly_region: sjc — A&P main office is Fair Oaks (Sacramento), CA; San Jose
+#     is the nearest Fly US-West region (closer than the pilot's lax).
+#   - users: Chris Price (principal/litigator) + Christa Barrera (office manager,
+#     the firm's financial/operational spine) authored below with real emails.
+#     Scott (SMD) stays as the pilot-period operator (removed/converted at handoff).
+#   - mail/calendar platform: M365 / Office 365 (confirmed). Calendar + mail ride
+#     Microsoft Graph, NOT Smokeball (no Smokeball calendar API). The M365 backend
+#     is not yet runtime-wired (Track E) — added at a later provision, not here.
+#
+# STILL EXTERNAL before provisioning:
 #   - hermes_ref: pin to the OVERLAY_REF carrying the smokeball auth-code change
 #     (ss-console + overlay PRs) at provision time.
 #   - SMOKEBALL_PROD_* creds + the refresh token land at the connect step; until
 #     then the smokeball connector is unwired (boot-before-token), Machine healthy.
+#   - Smokeball 72hr app review (submitted 2026-06-24) must clear to unlock the
+#     Production callback tab where hermes-ashton-price's callback is registered.
 
 # ---- IDENTITY ----
 customer_id: ashton-price
-customer_name: 'Ashton & Price'
+customer_name: 'Ashton & Price LLP'
 vertical: law-firm
 addons: []
 practice_areas:
   - personal-injury-plaintiff
-fly_region: phx # CONFIRM A&P geography (placeholder: SMD's Phoenix home market)
+fly_region: sjc # Fair Oaks (Sacramento), CA — San Jose is the nearest Fly region
 
 # ---- RUNTIME ----
 model: claude-opus-4-8
@@ -38,9 +47,18 @@ machine:
   memory_mb: 1024
 
 # ---- HUMANS WITH PORTAL ACCESS ----
-# Only the SMD principal is authored. A&P's partner + office manager are added
-# with their real names/emails once confirmed (do not invent — CLAUDE.md).
+# A&P's two principals-of-use plus the SMD operator for the pilot period.
+# Chris = the firm principal/decision-maker; Christa = office manager (the
+# financial/operational spine — trust/IOLTA, AP/AR, file org). Scott is the SMD
+# operator running the pilot hands-on; his entry is removed or converted to a
+# support role at handoff.
 users:
+  - email: chris@ashtonandprice.com
+    role: principal
+    full_name: Chris Price
+  - email: christa@ashtonandprice.com
+    role: staff
+    full_name: Christa Barrera
   - email: scott@smd.services
     role: principal
     full_name: Scott Durgan
@@ -133,6 +151,26 @@ personas:
       - google-workspace
       - himalaya
 
+# ---- MCP CONNECTOR (Operator ⇄ Claude) ----
+# Enabled so translate.py emits the core /webhooks/mcp route (fail-closed: needs
+# enabled:true AND WEBHOOK_SECRET_MCP set). That route carries the SMD operator's
+# go-live verification turn (the post-connect smoke read: auth_status →
+# list_matters against A&P's real Smokeball) via the transitional stub bearer
+# (SMD_MCP_STUB_TOKEN), and the Clerk-gated bridge below once Clerk env is set.
+# Access here is the SMD operator ONLY (Scott's Clerk subjects). The FIRM's Claude
+# bridge — Chris's second ask — is a deliberate later step: it is scoped to Chris
+# first, the per-user confidentiality walls are an unsolved-hard problem, and his
+# Clerk subject is unknown until he signs into the portal. Not granted at go-live.
+mcp_connector:
+  enabled: true
+  data_posture: open
+  access:
+    - email: scott@smd.services
+      profile: quinn
+      clerk_subjects:
+        - user_3EEs0aMBRgu6PRxBa4g5YhHjggD
+        - user_3E1RPGrTMxkSqciXMTyybUNSJWu
+
 # ---- CONNECTORS ----
 connectors:
   # System of record — A&P's PRODUCTION Smokeball, firm-delegated grant.
@@ -156,9 +194,12 @@ connectors:
     enabled: true
     webhook_url: 'https://hermes-ashton-price.fly.dev/webhooks/agentmail'
 
-  # NOTE: Calendar + DocumentStorage are added at provision once A&P's mail
-  # platform is confirmed. Smokeball has no calendar API, so calendar rides the
-  # mail binding. Documents ride the Smokeball Documents API (get_files_on_matter).
+  # NOTE: A&P's mail/calendar platform is M365 / Office 365 (confirmed). Mail +
+  # calendar ride Microsoft Graph (Smokeball has no calendar API). The M365
+  # backend is not yet runtime-wired (Track E), so the Calendar connector is added
+  # at a later provision — authoring it here would be dropped by translate.py.
+  # Documents ride the Smokeball Documents API (get_files_on_matter), not a
+  # separate store.
 
 # ---- WEBHOOK TRIGGERS ----
 webhook_triggers:
