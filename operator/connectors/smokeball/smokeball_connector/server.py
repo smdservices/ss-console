@@ -1,13 +1,17 @@
 """The mcp:smokeball tool surface — Smokeball-native names over the real REST API.
 
 Scope (per operator/verticals/law-firm/smokeball-surface.md): the read surface,
-``create_memo`` (the internal-log write the wedge uses), and the document
-round-trip writes ``add_file`` (INTERNAL_WRITE) + ``delete_file`` (DESTRUCTIVE) —
-the upload half lets the agent save its work product back to a matter (read ->
-work -> save). Other gated writes (create_matter/patch_matter/create_task/...)
-remain a later cut; the trust-account fund-movement tools (create_transaction/
-protect_funds/unprotect_funds) are NEVER implemented here and are hard-BANNED at
-the overlay.
+``create_memo`` (the internal-log write the wedge uses), the document round-trip
+writes ``add_file`` (INTERNAL_WRITE) + ``delete_file`` (DESTRUCTIVE), and the
+deadline-engine / document-organization write cut — calendar events
+(``create_event`` / ``update_event`` / ``create_event_reminder``), tasks
+(``create_task`` / ``update_task``), and folders (``create_folder``) — all
+INTERNAL_WRITE: the Operator writing computed deadlines, tracked items, and
+staging folders into the firm's own record (never an external send). The
+trust-account fund-movement tools (create_transaction/protect_funds/
+unprotect_funds) are NEVER implemented here and are hard-BANNED at the overlay.
+Every write tool's class is declared in manifest.toml and MUST agree with the
+overlay's hand-authored action map.
 
 Paths and query params are taken from the live OpenAPI spec
 (docs.smokeball.com/openapi.json, 2026-06-23), which corrected several guesses in
@@ -71,6 +75,12 @@ def _get_client() -> SmokeballClient:
             account_id=os.environ.get("SMOKEBALL_ACCOUNT_ID") or None,
         )
     return _client
+
+
+def _body(**fields: Any) -> dict[str, Any]:
+    """Build a JSON write body, dropping unset (None) fields so an optional tool
+    arg is simply absent rather than sent as ``null``."""
+    return {k: v for k, v in fields.items() if v is not None}
 
 
 # ---- Auth -----------------------------------------------------------------
@@ -196,6 +206,174 @@ def get_task(task_id: str) -> Any:
     return _get_client().get(f"/tasks/{task_id}")
 
 
+@server.tool()
+def create_task(
+    staff_id: str,
+    subject: str,
+    matter_id: str | None = None,
+    note: str | None = None,
+    due_date: str | None = None,
+    assignee_ids: list[str] | None = None,
+) -> Any:
+    """Create a task — the tracked-deadline / chase-item write. ``staff_id`` is the
+    owning staff member (Smokeball requires it); ``due_date`` is a date-only string
+    (YYYY-MM-DD) mapped to the API's ``dueDateOnly`` (the non-deprecated field).
+    Classified INTERNAL_WRITE: the Operator writing a tracked item into the firm's
+    own record, never an external send."""
+    return _get_client().request(
+        "POST",
+        "/tasks",
+        json=_body(
+            staffId=staff_id,
+            subject=subject,
+            matterId=matter_id,
+            note=note,
+            dueDateOnly=due_date,
+            assigneeIds=assignee_ids,
+        ),
+    )
+
+
+@server.tool()
+def update_task(
+    task_id: str,
+    subject: str | None = None,
+    note: str | None = None,
+    due_date: str | None = None,
+    is_completed: bool | None = None,
+    assignee_ids: list[str] | None = None,
+) -> Any:
+    """Update a task — reschedule a deadline, mark it complete, or reassign it. Only
+    the supplied fields change; ``due_date`` maps to ``dueDateOnly``. Classified
+    INTERNAL_WRITE."""
+    return _get_client().request(
+        "PUT",
+        f"/tasks/{task_id}",
+        json=_body(
+            subject=subject,
+            note=note,
+            dueDateOnly=due_date,
+            isCompleted=is_completed,
+            assigneeIds=assignee_ids,
+        ),
+    )
+
+
+# ---- Calendar / events ----------------------------------------------------
+@server.tool()
+def list_events(
+    matter_id: str | None = None,
+    from_: str | None = None,
+    to: str | None = None,
+    updated_since: str | None = None,
+    exclude_deleted: bool | None = None,
+    limit: int = 500,
+    offset: int = 0,
+) -> Any:
+    """List calendar events. ``from_`` / ``to`` bound the window (ISO 8601);
+    ``matter_id`` filters to one matter. Used to read back / dedupe the deadlines
+    the Operator calendars before writing a new one."""
+    return _get_client().get(
+        "/events",
+        MatterId=matter_id,
+        From=from_,
+        To=to,
+        UpdatedSince=updated_since,
+        ExcludeDeletedEvents=exclude_deleted,
+        Limit=limit,
+        Offset=offset,
+    )
+
+
+@server.tool()
+def create_event(
+    subject: str,
+    start_time: str,
+    end_time: str,
+    matter_id: str | None = None,
+    description: str | None = None,
+    location: str | None = None,
+    all_day: bool | None = None,
+    attendees: list[str] | None = None,
+    time_zone: str | None = None,
+) -> Any:
+    """Create a calendar event — the Operator writing a computed deadline into the
+    Smokeball calendar (the single-source-of-truth consolidation). ``start_time`` /
+    ``end_time`` are ISO 8601; ``attendees`` are staff ids. Always created as a
+    non-recurring (``Normal``) event — recurring events are read-only on the API.
+    Classified INTERNAL_WRITE."""
+    return _get_client().request(
+        "POST",
+        "/events",
+        json=_body(
+            subject=subject,
+            startTime=start_time,
+            endTime=end_time,
+            matterId=matter_id,
+            description=description,
+            location=location,
+            allDay=all_day,
+            attendees=attendees,
+            timeZone=time_zone,
+            type="Normal",
+        ),
+    )
+
+
+@server.tool()
+def update_event(
+    event_id: str,
+    subject: str | None = None,
+    start_time: str | None = None,
+    end_time: str | None = None,
+    description: str | None = None,
+    location: str | None = None,
+    all_day: bool | None = None,
+    attendees: list[str] | None = None,
+    time_zone: str | None = None,
+) -> Any:
+    """Update a calendar event — e.g. recompute a deadline when a trial date moves.
+    Only the supplied fields change. Non-recurring events only. INTERNAL_WRITE."""
+    return _get_client().request(
+        "PUT",
+        f"/events/{event_id}",
+        json=_body(
+            subject=subject,
+            startTime=start_time,
+            endTime=end_time,
+            description=description,
+            location=location,
+            allDay=all_day,
+            attendees=attendees,
+            timeZone=time_zone,
+        ),
+    )
+
+
+@server.tool()
+def create_event_reminder(
+    event_id: str,
+    offset: int,
+    offset_type_id: int,
+    is_all_day_reminder: bool | None = None,
+    user_ids: list[str] | None = None,
+) -> Any:
+    """Add a reminder to an event — the reminder cascade on a deadline. ``offset``
+    + ``offset_type_id`` set how far ahead it fires (the unit encoding is confirmed
+    at the connect step against a live tenant). ``user_ids`` are the staff to remind.
+    Classified INTERNAL_WRITE."""
+    return _get_client().request(
+        "POST",
+        f"/events/{event_id}/reminders",
+        json=_body(
+            offset=offset,
+            offsetTypeId=offset_type_id,
+            isAllDayReminder=is_all_day_reminder,
+            userIds=user_ids,
+        ),
+    )
+
+
 # ---- Staff ----------------------------------------------------------------
 @server.tool()
 def search_staff(search: str | None = None, limit: int = 500, offset: int = 0) -> Any:
@@ -244,6 +422,29 @@ def get_file(matter_id: str, file_id: str) -> Any:
 def get_download_url(matter_id: str, file_id: str) -> Any:
     """Get a download URL/stream reference for a file."""
     return _get_client().get(f"/matters/{matter_id}/documents/files/{file_id}/download")
+
+
+@server.tool()
+def list_folders(matter_id: str, limit: int = 500, offset: int = 0) -> Any:
+    """List the document folders on a matter."""
+    return _get_client().get(
+        f"/matters/{matter_id}/documents/folders", Limit=limit, Offset=offset
+    )
+
+
+@server.tool()
+def create_folder(
+    matter_id: str, name: str, parent_folder_id: str | None = None
+) -> Any:
+    """Create a document folder on a matter — e.g. a ``Discovery/[set]`` folder the
+    Operator stages served requests + supporting docs into for BriefPoint/CoCounsel
+    to draw from. ``parent_folder_id`` nests it (matter root if omitted). Classified
+    INTERNAL_WRITE."""
+    return _get_client().request(
+        "POST",
+        f"/matters/{matter_id}/documents/folders",
+        json=_body(name=name, parentFolderId=parent_folder_id),
+    )
 
 
 @server.tool()
