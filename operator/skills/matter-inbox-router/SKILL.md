@@ -87,7 +87,7 @@ Per `references/routing-rubric.md` and `references/algorithm.md`:
 3. **Classify** into exactly one inbound class (rubric tells + tie-breaks).
 4. **Act on the class:**
    - **Matter inbound** (new inquiry, scheduling, engagement letter, status, payment) → **route**: emit the target skill plus the handoff context it needs (resolved contact_id / matter_id, the inbound message_id for in-thread reply, the extracted ask). The routed-to skill owns the client-facing draft.
-   - **General / operational mail from a colleague** → **respond directly**: reply in-thread (`reply_to_message` keyed on the message_id) the way a coordinator answers a coworker. The reply channel sends it to a roster member, drafts it otherwise — you do not gate that; you just write the reply.
+   - **General / operational mail from a colleague** → **respond directly**: compose your reply by creating a draft (`create_draft`) addressed ONLY to the sender, the way a coordinator answers a coworker. Do not use a direct-send tool. The reply channel delivers your draft to a roster member, holds it for review otherwise — you do not gate that; you just write the reply.
    - **Conflict signal** → **HALT + surface** to human clearance (never respond, never route).
    - **Legal-substance question** → do **not** answer; acknowledge and defer to the attorney.
 5. **Surface** the run as a list for the team — what came in, what you answered, where each matter item routed, and any held/deferred ones called out separately.

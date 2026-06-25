@@ -240,7 +240,12 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # roster (scope.inbound_allow_from, live-read per draft), audit REPLY_SENT /
 # REPLY_HELD / REPLY_FAILED. Security logic (recipient-lock, content/fabrication
 # re-check, rate-limit) byte-for-byte unchanged. Superset of 96835fe.
-ARG OVERLAY_REF="1d6d5b2c5e13cc532c01642bc716435b9ec6d174"
+# 33b58ad — inbound prompt drives create_draft (overlay#112, ADR 0055): the
+# inbound email prompt now tells the agent to compose its reply as a create_draft
+# addressed to the sender (the tool the reply channel acts on), not the trust-
+# refused reply_to_message. Makes reply delivery deterministic + model-independent.
+# Superset of 1d6d5b2.
+ARG OVERLAY_REF="33b58ad92befd400d7aab36925544cc77e286caa"
 
 ARG CUSTOMER_SLUG=customer-zero
 
