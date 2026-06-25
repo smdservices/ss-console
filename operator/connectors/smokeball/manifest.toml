@@ -25,6 +25,12 @@ description = "Smokeball practice-management API connector (law wedge system of 
 [connector.env_static]
 SMOKEBALL_REGION = "us"
 SMOKEBALL_ENVIRONMENT = "staging"
+# TEMPORARY DIAGNOSTIC (remove after the pilot-smokeball write-403 root-cause run):
+# arms server._boot_diagnose() so the connector logs its granted token scopes at
+# boot (scope-only; no write — SMOKEBALL_DIAGNOSE_WRITE is intentionally NOT set).
+# env_static is the only in-repo channel that reaches the broker-curated connector
+# env. Revert this line once the granted-scope readout is captured.
+SMOKEBALL_BOOT_DIAGNOSE = "1"
 
 [[connector.required_secrets]]
 runtime_env = "SMOKEBALL_CLIENT_ID"
