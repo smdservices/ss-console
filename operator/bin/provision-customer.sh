@@ -461,30 +461,34 @@ stage_secret_from_env CLIO_CLIENT_SECRET     "${CLIO_CLIENT_SECRET:-}"     "Clio
 stage_secret_from_env CLIO_ENCRYPTION_KEY    "${CLIO_ENCRYPTION_KEY:-}"    "AES key for the Clio token file (subprocess reads it as ENCRYPTION_KEY)"
 stage_secret_from_env CLIO_TOKENS_ENC_B64    "${CLIO_TOKENS_ENC_B64:-}"    "base64 of the seed ~/.clio-mcp/tokens.enc"
 
-# AgentMail (mcp:agentmail): AGENTMAIL_API_KEY is the REST send credential the
-# demo reply relay (hermes-smd-demo-relay) uses; WEBHOOK_SECRET_AGENTMAIL is the
-# Svix signing secret the webhook gate verifies (WEBHOOK_SECRET_<ROUTE>, route
-# == adapter slug). Both are SMD-account-wide (one AgentMail account), so —
-# unlike the unconditional connector secrets above — stage them ONLY for a
-# customer whose customer.yaml actually binds the agentmail adapter. The
-# account key must not land on a Machine that does not use AgentMail
-# (cross-tenant reach to the shared account's other inboxes; see
-# docs/security/operator-threat-model.md). Re-added 2026-06-12 (the persona
-# email identity is now wired: relay + gate), reversing the 2026-05-29 removal.
+# AgentMail (mcp:agentmail). AGENTMAIL_API_KEY is the account-wide REST credential
+# (send + inbox/webhook management). It can reach the shared account's OTHER inboxes
+# (cross-tenant; see docs/security/operator-threat-model.md), so — unlike the
+# unconditional connector secrets above — it is staged ONLY for a customer whose
+# customer.yaml actually binds the agentmail adapter.
+#
+# WEBHOOK_SECRET_AGENTMAIL is the Svix signing secret the webhook gate verifies. It
+# is PER-CUSTOMER, NOT account-wide: each customer's inbox is wired to its own
+# webhook (created out of band via the AgentMail dashboard/API), and that webhook
+# carries its own secret that only verifies THAT customer's inbound. So prefer the
+# per-customer value staged in /ss as WEBHOOK_SECRET_AGENTMAIL__<CUSTOMER_ID>
+# (uppercased; non-alnum -> _), and fall back to the global WEBHOOK_SECRET_AGENTMAIL
+# only for legacy single-webhook setups. Without the per-customer source a reprovision
+# overwrites a customer's own webhook secret with the global one and inbound email
+# silently stops verifying — the demo-law failure (2026-06-12), generalized to every
+# multi-customer AgentMail seat.
 if grep -qE 'adapter:[[:space:]]*agentmail|backend:[[:space:]]*mcp:agentmail' \
     "${CUSTOMER_DIR}/customer.yaml" 2>/dev/null; then
-  stage_secret_from_env AGENTMAIL_API_KEY        "${AGENTMAIL_API_KEY:-}"        "AgentMail REST credential (demo reply relay send)"
-  stage_secret_from_env WEBHOOK_SECRET_AGENTMAIL "${WEBHOOK_SECRET_AGENTMAIL:-}" "AgentMail Svix webhook signing secret (gate verify)"
-  # SMD_WEBHOOK_SIGNING_SECRET is the secret the Hermes-side router
-  # (hermes-smd-webhook-router) verifies the forwarded X-Webhook-Signature with.
-  # The webhook gate re-signs its forward hop with the ROUTE secret
-  # (webhook_gate.py: "same secret"), so for an agentmail-routed customer the
-  # router's signing secret IS the agentmail route secret. Stage them equal, or
-  # the gate's forward verifies-fail and inbound email never routes to a skill
-  # (the manual `fly secrets set` we had to do on demo-law 2026-06-12, now
-  # durable). FOLLOW-UP: a multi-route machine needs a dedicated internal
-  # gate→router secret distinct from any one vendor secret — filed separately.
-  stage_secret_from_env SMD_WEBHOOK_SIGNING_SECRET "${WEBHOOK_SECRET_AGENTMAIL:-}" "router forward-verify secret (== agentmail route secret; see note)"
+  stage_secret_from_env AGENTMAIL_API_KEY "${AGENTMAIL_API_KEY:-}" "AgentMail REST credential (account-wide; send + inbox/webhook mgmt)"
+  _AGENTMAIL_WH_KEY="WEBHOOK_SECRET_AGENTMAIL__$(printf '%s' "${CUSTOMER_ID}" | tr '[:lower:]-' '[:upper:]_' | tr -cd 'A-Z0-9_')"
+  _AGENTMAIL_WH_SECRET="${!_AGENTMAIL_WH_KEY:-${WEBHOOK_SECRET_AGENTMAIL:-}}"
+  stage_secret_from_env WEBHOOK_SECRET_AGENTMAIL "${_AGENTMAIL_WH_SECRET}" "AgentMail Svix webhook signing secret (per-customer ${_AGENTMAIL_WH_KEY}, else global)"
+  # SMD_WEBHOOK_SIGNING_SECRET is what the Hermes-side router verifies the gate's
+  # forwarded X-Webhook-Signature with. The gate re-signs its forward hop with the
+  # ROUTE secret (webhook_gate.py: "same secret"), so the router's signing secret IS
+  # the agentmail route secret — stage them equal, or inbound never routes to a skill.
+  stage_secret_from_env SMD_WEBHOOK_SIGNING_SECRET "${_AGENTMAIL_WH_SECRET}" "router forward-verify secret (== agentmail route secret)"
+  unset _AGENTMAIL_WH_KEY _AGENTMAIL_WH_SECRET
 fi
 
 # Google service-account key (DWD). REQUIRED for any customer.yaml with
