@@ -157,7 +157,16 @@ describe('Operator customer Machine Dockerfile', () => {
     // autonomous reply to a production capability (plugin hermes-smd-reply) gated on
     // the organization roster (scope.inbound_allow_from), not a fenced switch. Security
     // logic byte-for-byte unchanged. Superset of 96835fe.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="33b58ad92befd400d7aab36925544cc77e286caa"')
+    // 33b58ad (#112, ADR 0055): inbound prompt drives create_draft (reply channel)
+    // instead of the trust-refused reply_to_message. Superset of 1d6d5b2.
+    // 97c59f3 (#114, ADR 0056): the entitlement hard-rebuild — persona exposure +
+    // skill initiation replace the scalar trust_ceiling / scope+skill+mailbox
+    // action_ceilings; enforce.py reads per-persona exposure from the trusted
+    // customer.yaml (never tool args), fail-closed unauthored. Range 33b58ad..97c59f3
+    // also includes #113 (smokeball calendar/task/folder classification); all four
+    // tracked twins verified unchanged. Lockstep with ss-console #1523 (shared parity
+    // hash). Superset of 33b58ad.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="97c59f3f8457401ab4c8103465db5ec272a5f040"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
