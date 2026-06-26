@@ -15,4 +15,4 @@ binding = "ENRICHMENT_WORKFLOW_SERVICE"
 service = "ss-enrichment-workflow"
 
 [triggers]
-crons = ["0 15 * * 1"]  # 15:00 UTC Monday = 8:00 AM MST weekly
+# crons = ["0 15 * * 1"]  # 15:00 UTC Monday = 8:00 AM MST weekly  # DISABLED 2026-06-20 — Captain directive, all crons off pre-launch; re-enable deliberately

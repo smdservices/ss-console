@@ -19,4 +19,4 @@ binding = "ENRICHMENT_WORKFLOW_SERVICE"
 service = "ss-enrichment-workflow"
 
 [triggers]
-crons = ["0 14 * * *"]  # 14:00 UTC = 7:00 AM MST (1 hour after job monitor)
+# crons = ["0 14 * * *"]  # 14:00 UTC = 7:00 AM MST (1 hour after job monitor)  # DISABLED 2026-06-20 — Captain directive, all crons off pre-launch; re-enable deliberately
