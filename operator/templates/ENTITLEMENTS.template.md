@@ -2,7 +2,7 @@
 
 > Copy this to `operator/customers/<slug>/ENTITLEMENTS.md` at onboarding, fill the
 > **client-specifies** column with the customer, then materialize the result into
-> `customer.yaml` (`scope.action_ceilings`, `inbound_allow_from`, connector grants).
+> `customer.yaml` (`personas[].entitlements.exposure`, `inbound_allow_from`, connector grants).
 > The A&P instance (`operator/customers/ashton-price/ENTITLEMENTS.md`) is the worked
 > example.
 

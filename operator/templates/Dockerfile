@@ -245,7 +245,7 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # addressed to the sender (the tool the reply channel acts on), not the trust-
 # refused reply_to_message. Makes reply delivery deterministic + model-independent.
 # Superset of 1d6d5b2.
-ARG OVERLAY_REF="33b58ad92befd400d7aab36925544cc77e286caa"
+ARG OVERLAY_REF="97c59f3f8457401ab4c8103465db5ec272a5f040"
 
 ARG CUSTOMER_SLUG=customer-zero
 

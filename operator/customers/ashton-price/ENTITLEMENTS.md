@@ -9,7 +9,7 @@ no-imposed-defaults; ADR 0025 configurable per action class. ADR 0005's old
 any other entitlement.)
 
 This worksheet is the source the firm signs off on; it materializes into
-`customer.yaml` (`scope.action_ceilings`, `inbound_allow_from`, connector grants).
+`customer.yaml` (`personas[].entitlements.exposure`, `inbound_allow_from`, connector grants).
 
 ## How entitlement works
 
