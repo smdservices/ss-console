@@ -23,7 +23,7 @@ import {
   checkFloor,
   getVerticalFloor,
   verticalFloorActionClasses,
-  applyCeilingChange,
+  applyExposureChange,
   applySkillToggle,
   listConfigChangeAudit,
   isCeiling,
@@ -126,14 +126,14 @@ describe('vertical floors', () => {
   })
 })
 
-describe('applyCeilingChange (D1)', () => {
+describe('applyExposureChange (D1)', () => {
   let db: D1Database
   beforeEach(async () => {
     db = await freshDb()
   })
 
   it('rejects and audits a law-firm external_send raise to autonomous', async () => {
-    const result = await applyCeilingChange(db, {
+    const result = await applyExposureChange(db, {
       customer_slug: 'smith-pi-firm',
       entity_id: 'entity-1',
       actor: ACTOR,
@@ -150,7 +150,7 @@ describe('applyCeilingChange (D1)', () => {
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({
       source: 'portal_intent',
-      change_type: 'action_ceiling',
+      change_type: 'entitlement_exposure',
       action_class: 'external_send',
       old_value: 'draft_for_review',
       new_value: 'autonomous',
@@ -162,7 +162,7 @@ describe('applyCeilingChange (D1)', () => {
   })
 
   it('accepts and audits a lower (autonomous -> draft) with no floor', async () => {
-    const result = await applyCeilingChange(db, {
+    const result = await applyExposureChange(db, {
       customer_slug: 'shop',
       entity_id: 'entity-2',
       actor: ACTOR,
@@ -179,21 +179,24 @@ describe('applyCeilingChange (D1)', () => {
     expect(rows[0]).toMatchObject({ outcome: 'accepted', direction: 'lower' })
   })
 
-  it('accepts a non-action-class (skill scalar) change with no floor', async () => {
-    const result = await applyCeilingChange(db, {
+  it('accepts an internal_write exposure change with no floor', async () => {
+    const result = await applyExposureChange(db, {
       customer_slug: 'smith-pi-firm',
       entity_id: 'entity-3',
       actor: ACTOR,
       persona_slug: 'marcus',
       skill_name: 'inbox-triage',
-      action_class: null,
+      action_class: 'internal_write',
       vertical: 'law-firm',
       old_value: 'draft_for_review',
       new_value: 'autonomous',
     })
     expect(result.outcome).toBe('accepted')
     const rows = await listConfigChangeAudit(db, 'entity-3')
-    expect(rows[0]).toMatchObject({ change_type: 'trust_ceiling', action_class: null })
+    expect(rows[0]).toMatchObject({
+      change_type: 'entitlement_exposure',
+      action_class: 'internal_write',
+    })
   })
 })
 
@@ -203,7 +206,7 @@ describe('applySkillToggle (D1)', () => {
     db = await freshDb()
   })
 
-  it('records disable as refused (a lower) and enable as draft_for_review', async () => {
+  it('records skill enablement changes', async () => {
     await applySkillToggle(db, {
       customer_slug: 'smith-pi-firm',
       entity_id: 'entity-4',
@@ -211,13 +214,13 @@ describe('applySkillToggle (D1)', () => {
       persona_slug: 'marcus',
       skill_name: 'ar-chaser',
       next_enabled: false,
-      old_value: 'draft_for_review',
     })
     const rows = await listConfigChangeAudit(db, 'entity-4')
     expect(rows[0]).toMatchObject({
-      change_type: 'skill_toggle',
-      new_value: 'refused',
-      direction: 'lower',
+      change_type: 'skill_enabled',
+      old_value: 'true',
+      new_value: 'false',
+      direction: 'lateral',
       outcome: 'accepted',
     })
   })

@@ -85,67 +85,113 @@ personas:
       - plainspoken
       - warm-but-professional
       - concise
+    entitlements:
+      exposure:
+        internal_write: draft_for_review
+        external_send: draft_for_review
     skills:
       # spine
       - name: matter-inbox-router
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: true
         enabled: true
       - name: matter-status-digest
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       # intake / conflict
       - name: new-matter-intake
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: conflict-intake-router
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: consult-scheduler
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       # keeping matters moving
       - name: engagement-letter-chaser
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: trust-balance-nudge
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: matter-status-responder
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: document-receipt-logger
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: stalled-matter-nudge
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       # committed deliverables
       - name: matter-memo-on-update # Chris's named ask — webhook-driven internal supervision memo
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: true
         enabled: true
       - name: matter-document-review # surface/highlight only, never drafts work product
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       # deadlines
       - name: deadline-and-sol-tracker
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: deadline-miss-escalator
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: true
+          webhook: false
         enabled: true
     # The escalator runs on Hermes-native cron; pre_run.py decides whether a
     # deadline needs the ladder, else writes SUPPRESSED_WAKE.
@@ -239,13 +285,12 @@ scope:
   inbound_allow_from:
     - '@ashtonandprice.com'
     - scott@smd.services
-  # External send to non-roster recipients: RECOMMENDED default is draft_for_review
-  # (a human approver on client/tribunal-bound mail) — a PROPOSED posture the firm
-  # confirms or changes at onboarding (ENTITLEMENTS.md), not a fixed floor (ADR 0035).
-  # Recipient-locked replies to rostered senders are AUTONOMOUS, governed by the
-  # roster above, not by this ceiling (ADR 0055 §3).
-  action_ceilings:
-    external_send: draft_for_review
+  # External send to non-roster recipients is drafted, never autonomous — client-
+  # and tribunal-bound mail ships under a human reviewer. The draft_for_review
+  # posture is authored on the persona's entitlements.exposure (ADR 0056), the
+  # RECOMMENDED default the firm confirms or changes at onboarding (ENTITLEMENTS.md),
+  # not a fixed floor (ADR 0035). Recipient-locked replies to rostered senders are
+  # governed by the roster above, not by this ceiling (ADR 0055 §3).
 
 # ---- ESCALATION ----
 escalation:

@@ -33,16 +33,17 @@
  * stay put.
  */
 
-import type { PersonaConfig, PersonaSkill } from '../customer-config'
+import type { PersonaConfig } from '../customer-config'
+import type { ActionClass, AuthoredExposureActionClass } from '../../operator/customer-yaml/types'
 
 // ---------------------------------------------------------------------------
 // Trust ceiling
 // ---------------------------------------------------------------------------
 
 /**
- * Closed vocabulary for the trust-ceiling decision attached to a
- * persona's skill. Mirrors the schema in
- * `docs/specs/operator/customer-yaml-schema.md` §personas[].skills[].
+ * Closed vocabulary for the exposure decision attached to a persona action
+ * class. The old exported names are retained for component compatibility while
+ * the UI is renamed.
  *
  *   autonomous       — the Operator may execute and send without
  *                      a human reviewer in the loop
@@ -94,6 +95,7 @@ export interface TrustCeilingRow {
   skillName: string
   currentLevel: TrustCeilingLevel | null
   rawLevel: string
+  actionClass: ActionClass
 }
 
 /**
@@ -103,15 +105,22 @@ export interface TrustCeilingRow {
  */
 export function trustCeilingRowsFromPersona(persona: PersonaConfig | null): TrustCeilingRow[] {
   if (!persona) return []
-  return persona.skills.map((s) => trustCeilingRowFromSkill(s))
-}
-
-function trustCeilingRowFromSkill(skill: PersonaSkill): TrustCeilingRow {
-  return {
-    skillName: skill.name,
-    currentLevel: isTrustCeilingLevel(skill.trust_ceiling) ? skill.trust_ceiling : null,
-    rawLevel: skill.trust_ceiling,
-  }
+  const classes: AuthoredExposureActionClass[] = [
+    'internal_write',
+    'external_send',
+    'commitment',
+    'destructive',
+    'code_execution',
+  ]
+  return classes.map((actionClass) => {
+    const level = persona.entitlements.exposure[actionClass]
+    return {
+      skillName: actionClass,
+      currentLevel: isTrustCeilingLevel(level) ? level : null,
+      rawLevel: typeof level === 'string' ? level : '',
+      actionClass,
+    }
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -175,10 +184,7 @@ export function formatVoiceSampleStatus(status: VoiceSampleStatus): string {
 /**
  * One skill toggle row. Sourced from the customer's persona skill
  * list — a skill is "enabled" for this customer iff it appears in
- * persona.skills with a trust ceiling other than `refused`. (A
- * refused skill is still configured but never runs; the toggle
- * lets the principal flip it back to `draft_for_review` without
- * editing customer.yaml directly.)
+ * persona.skills. Initiation modes are displayed separately from exposure.
  *
  *   skillName       — slug from `operator/skills/<name>/SKILL.md`
  *   enabled         — true when the persona configures the skill
@@ -194,14 +200,11 @@ export interface SkillToggleRow {
 
 export function skillToggleRowsFromPersona(persona: PersonaConfig | null): SkillToggleRow[] {
   if (!persona) return []
-  return persona.skills.map((s) => {
-    const ceiling = isTrustCeilingLevel(s.trust_ceiling) ? s.trust_ceiling : null
-    return {
-      skillName: s.name,
-      enabled: ceiling !== null && ceiling !== 'refused',
-      trustCeiling: ceiling,
-    }
-  })
+  return persona.skills.map((s) => ({
+    skillName: s.name,
+    enabled: true,
+    trustCeiling: null,
+  }))
 }
 
 // ---------------------------------------------------------------------------

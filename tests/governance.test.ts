@@ -20,14 +20,11 @@ import {
 import path from 'node:path'
 import { POST } from '../src/pages/api/admin/operator/[customer]/governance'
 import { env as testEnv } from 'cloudflare:workers'
-import {
-  readGovernanceConfig,
-  resolveCell,
-  resolveSkillCells,
-  type GovernanceSkill,
-} from '../src/lib/admin/governance'
+import { readGovernanceConfig, resolveCell, resolveSkillCells } from '../src/lib/admin/governance'
 import { listConfigChangeAudit } from '../src/lib/portal/operator/config-governance'
 import { getCustomerConfig } from '../src/lib/portal/customer-config'
+import type { AuthoredExposureActionClass } from '../src/lib/operator/customer-yaml/types'
+import type { Ceiling } from '../src/lib/portal/operator/config-governance'
 
 installWorkerdPolyfills()
 
@@ -36,36 +33,28 @@ const ORG_ID = 'org-1'
 const ENTITY_ID = 'ent-gov'
 const SLUG = 'acme-law'
 
-function skill(overrides: Partial<GovernanceSkill> = {}): GovernanceSkill {
-  return {
-    name: 'inbox-triage',
-    enabled: true,
-    trust_ceiling: 'draft_for_review',
-    action_ceilings: {},
-    ...overrides,
-  }
+function exposure(
+  overrides: Partial<Record<AuthoredExposureActionClass, Ceiling>> = {}
+): Partial<Record<AuthoredExposureActionClass, Ceiling>> {
+  return overrides
 }
 
 describe('resolveCell — the ADR-0035 keystone', () => {
-  it('internal_write is governed by the skill scalar (always authored)', () => {
-    const cell = resolveCell(skill({ trust_ceiling: 'autonomous' }), 'internal_write', null)
+  it('internal_write is governed by persona exposure when authored', () => {
+    const cell = resolveCell(exposure({ internal_write: 'autonomous' }), 'internal_write', null)
     expect(cell.status).toBe('authored')
     expect(cell.effective).toBe('autonomous')
   })
 
-  it('external_send with no action_ceilings entry is unconfigured → fail-closed (NEVER draft)', () => {
-    const cell = resolveCell(skill(), 'external_send', null)
+  it('external_send with no exposure entry is unconfigured → fail-closed (NEVER draft)', () => {
+    const cell = resolveCell(exposure(), 'external_send', null)
     expect(cell.status).toBe('fail_closed')
     expect(cell.authored).toBeNull()
     expect(cell.effective).toBeNull() // no invented value
   })
 
   it('an authored action ceiling resolves to that value', () => {
-    const cell = resolveCell(
-      skill({ action_ceilings: { external_send: 'draft_for_review' } }),
-      'external_send',
-      null
-    )
+    const cell = resolveCell(exposure({ external_send: 'draft_for_review' }), 'external_send', null)
     expect(cell.status).toBe('authored')
     expect(cell.effective).toBe('draft_for_review')
   })
@@ -73,17 +62,13 @@ describe('resolveCell — the ADR-0035 keystone', () => {
   it('the vertical floor wins when more restrictive than the authored value', () => {
     // law-firm floors external_send at draft_for_review; an authored 'autonomous'
     // resolves DOWN to the floor.
-    const cell = resolveCell(
-      skill({ action_ceilings: { external_send: 'autonomous' } }),
-      'external_send',
-      'law-firm'
-    )
+    const cell = resolveCell(exposure({ external_send: 'autonomous' }), 'external_send', 'law-firm')
     expect(cell.floor).toBe('draft_for_review')
     expect(cell.effective).toBe('draft_for_review')
   })
 
   it('resolveSkillCells covers all six action classes', () => {
-    const cells = resolveSkillCells(skill(), null)
+    const cells = resolveSkillCells(exposure({ internal_write: 'draft_for_review' }), null)
     expect(cells.map((c) => c.actionClass)).toEqual([
       'read',
       'internal_write',
@@ -92,9 +77,10 @@ describe('resolveCell — the ADR-0035 keystone', () => {
       'destructive',
       'code_execution',
     ])
-    // Only internal_write is authored (via scalar); the rest (incl. the new
-    // code_execution class) are fail-closed.
+    // Read is always allowed by enforcement; only the authored class is also
+    // configured. The rest are fail-closed.
     expect(cells.filter((c) => c.status === 'authored').map((c) => c.actionClass)).toEqual([
+      'read',
       'internal_write',
     ])
   })
@@ -145,7 +131,14 @@ async function seedConfig(vertical: string | null): Promise<void> {
       slug: 'marcus',
       status: 'active',
       name: 'Marcus',
-      skills: [{ name: 'inbox-triage', enabled: true, trust_ceiling: 'draft_for_review' }],
+      entitlements: { exposure: { external_send: 'draft_for_review' } },
+      skills: [
+        {
+          name: 'inbox-triage',
+          enabled: true,
+          initiation: { manual: true, scheduled: false, webhook: false },
+        },
+      ],
     },
   ]
   await testEnv.DB.prepare(
@@ -183,7 +176,7 @@ describe('readGovernanceConfig', () => {
     })
   })
 
-  it('parses personas + skills including action_ceilings', async () => {
+  it('parses persona exposure + skill initiation', async () => {
     await testEnv.DB.prepare(
       `INSERT INTO customer_configs
          (entity_id, org_id, customer_slug, schema_version, personas_json, vertical, git_sha, synced_at)
@@ -198,12 +191,12 @@ describe('readGovernanceConfig', () => {
             slug: 'marcus',
             status: 'active',
             name: 'Marcus',
+            entitlements: { exposure: { external_send: 'draft_for_review' } },
             skills: [
               {
                 name: 'inbox-triage',
                 enabled: true,
-                trust_ceiling: 'draft_for_review',
-                action_ceilings: { external_send: 'draft_for_review' },
+                initiation: { manual: true, scheduled: false, webhook: true },
               },
             ],
           },
@@ -214,7 +207,12 @@ describe('readGovernanceConfig', () => {
     expect(res.ok).toBe(true)
     if (!res.ok) return
     expect(res.vertical).toBe('law-firm')
-    expect(res.personas[0].skills[0].action_ceilings).toEqual({ external_send: 'draft_for_review' })
+    expect(res.personas[0].exposure).toEqual({ external_send: 'draft_for_review' })
+    expect(res.personas[0].skills[0].initiation).toEqual({
+      manual: true,
+      scheduled: false,
+      webhook: true,
+    })
   })
 
   it('returns malformed on bad JSON', async () => {
@@ -265,7 +263,7 @@ describe('POST /api/admin/operator/[customer]/governance', () => {
       buildCtx({
         session: null,
         slug: SLUG,
-        form: { skill_name: 'inbox-triage', level: 'refused' },
+        form: { skill_name: 'inbox-triage', action_class: 'external_send', level: 'refused' },
       })
     )
     expect(res.status).toBe(401)
@@ -292,7 +290,7 @@ describe('POST /api/admin/operator/[customer]/governance', () => {
     expect(audit[0].outcome).toBe('rejected_floor')
   })
 
-  it('accepts an in-floor ceiling change, records it, and does NOT mutate the replica', async () => {
+  it('accepts an in-floor exposure change, records it, and does NOT mutate the replica', async () => {
     await seedConfig('law-firm')
     const res = await POST(
       buildCtx({
@@ -309,11 +307,12 @@ describe('POST /api/admin/operator/[customer]/governance', () => {
     expect(locationOf(res)).toContain('status=saved')
     const audit = await listConfigChangeAudit(testEnv.DB, ENTITY_ID)
     expect(audit[0].outcome).toBe('accepted')
+    expect(audit[0].change_type).toBe('entitlement_exposure')
     expect(audit[0].new_value).toBe('draft_for_review')
 
-    // Live replica untouched — the skill still has no action_ceilings entry.
+    // Live replica untouched — the authored exposure stays at its projected value.
     const config = await getCustomerConfig(testEnv.DB, ENTITY_ID)
-    expect(config?.personas[0].skills[0].trust_ceiling).toBe('draft_for_review')
+    expect(config?.personas[0].entitlements.exposure.external_send).toBe('draft_for_review')
   })
 
   it('404s when the skill does not exist', async () => {
@@ -322,7 +321,12 @@ describe('POST /api/admin/operator/[customer]/governance', () => {
       buildCtx({
         session: adminSession(),
         slug: SLUG,
-        form: { persona_slug: 'marcus', skill_name: 'ghost-skill', level: 'refused' },
+        form: {
+          persona_slug: 'marcus',
+          skill_name: 'ghost-skill',
+          action_class: 'external_send',
+          level: 'refused',
+        },
       })
     )
     expect(locationOf(res)).toContain('status=not_found')

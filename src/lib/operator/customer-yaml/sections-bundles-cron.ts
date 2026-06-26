@@ -238,12 +238,20 @@ function checkCronSkill(
     })
     return null
   }
-  const enabledNames = new Set(skills.filter((s) => s.enabled).map((s) => s.name))
-  if (!enabledNames.has(raw)) {
+  const skill = skills.find((s) => s.enabled && s.name === raw)
+  if (skill === undefined) {
     errors.push({
       code: 'UnknownCronSkill',
       path: `${path}.skill`,
       message: `cron references skill "${raw}" but no enabled skill with that name exists on this persona`,
+    })
+    return null
+  }
+  if (!skill.initiation.scheduled) {
+    errors.push({
+      code: 'MissingField',
+      path: `${path}.skill`,
+      message: `cron references skill "${raw}" but that skill does not grant initiation.scheduled`,
     })
     return null
   }

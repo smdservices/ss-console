@@ -67,7 +67,6 @@ import {
 import {
   ACCEPTED_PERSONA_STATUSES,
   ACCEPTED_PRONOUNS,
-  ACCEPTED_TRUST_CEILINGS,
   ACCEPTED_LOG_LEVELS,
   ACCEPTED_LOG_SHIPS,
   validate,
@@ -118,12 +117,6 @@ function parsePersonaStatus(v: string): EditablePersona['status'] {
     : 'active'
 }
 
-function parseTrustCeiling(v: string): EditablePersonaSkill['trust_ceiling'] {
-  return (ACCEPTED_TRUST_CEILINGS as readonly string[]).includes(v)
-    ? (v as EditablePersonaSkill['trust_ceiling'])
-    : 'draft_for_review'
-}
-
 function parsePersona(form: FormData, idx: number, current: EditablePersona): EditablePersona {
   const prefix = `personas[${idx}]`
   const agentmail = asString(form.get(`${prefix}.send_as.agentmail_identity`))
@@ -150,7 +143,11 @@ function parseSkill(
   const name = asString(form.get(`${skillPrefix}.name`)) || cur.name
   return {
     name,
-    trust_ceiling: parseTrustCeiling(asString(form.get(`${skillPrefix}.trust_ceiling`))),
+    initiation: {
+      manual: form.get(`${skillPrefix}.initiation.manual`) !== null,
+      scheduled: form.get(`${skillPrefix}.initiation.scheduled`) !== null,
+      webhook: form.get(`${skillPrefix}.initiation.webhook`) !== null,
+    },
     enabled: form.get(`${skillPrefix}.enabled`) !== null,
   }
 }

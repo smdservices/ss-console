@@ -16,7 +16,7 @@
  * a subtly-wrong row turns a safe "being configured" empty state into a 500 on
  * the live client portal. Two defenses live here:
  *   1. `personas_json` is narrowed to the exact read-side `PersonaConfig` shape
- *      (skills reduced to `{name, trust_ceiling}`).
+ *      (persona exposure plus skill initiation preserved).
  *   2. Every nullable field is normalized to `null` (never left `undefined`),
  *      so `JSON.stringify` cannot silently DROP a key the reader expects.
  */
@@ -37,10 +37,9 @@ export interface ProjectionContext {
 
 /**
  * Narrow a full schema `Persona` to the read-side `PersonaConfig`. Drops the
- * fields the portal projection does not surface (version, action_ceilings,
- * enabled, cost_estimate, scope, bundles, cron, avatar, pronouns, overrides)
- * and reduces each skill to `{name, trust_ceiling}`. Nullable scalars are
- * coerced to `null` so the serialized JSON always carries the key.
+ * fields the portal projection does not surface (version, enabled,
+ * cost_estimate, scope, bundles, cron, avatar, pronouns, overrides). Nullable
+ * scalars are coerced to `null` so the serialized JSON always carries the key.
  */
 function toPersonaConfig(p: Persona): PersonaConfig {
   return {
@@ -51,7 +50,8 @@ function toPersonaConfig(p: Persona): PersonaConfig {
     signature_html: p.signature_html ?? null,
     tone: p.tone ?? [],
     send_as: p.send_as ?? null,
-    skills: (p.skills ?? []).map((s) => ({ name: s.name, trust_ceiling: s.trust_ceiling })),
+    entitlements: p.entitlements,
+    skills: (p.skills ?? []).map((s) => ({ name: s.name, initiation: s.initiation })),
     channel_bindings: (p.channel_bindings ?? []).map((c) => ({
       integration: c.integration,
       channels: c.channels ?? [],

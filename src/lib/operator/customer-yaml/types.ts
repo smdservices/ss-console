@@ -143,8 +143,8 @@ export const VERTICAL_AUDIT_LOG_DAYS_DEFAULTS: Readonly<Record<Vertical, number>
  */
 export const AUDIT_LOG_DAYS_MAX = 36500
 
-export const ACCEPTED_TRUST_CEILINGS = ['autonomous', 'draft_for_review', 'refused'] as const
-export type TrustCeiling = (typeof ACCEPTED_TRUST_CEILINGS)[number]
+export const ACCEPTED_EXPOSURE_CEILINGS = ['autonomous', 'draft_for_review', 'refused'] as const
+export type ExposureCeiling = (typeof ACCEPTED_EXPOSURE_CEILINGS)[number]
 
 /**
  * Action classes a tool call is categorized into, mirroring the Python
@@ -166,6 +166,22 @@ export const ACCEPTED_ACTION_CLASSES = [
   'code_execution',
 ] as const
 export type ActionClass = (typeof ACCEPTED_ACTION_CLASSES)[number]
+export type AuthoredExposureActionClass = Exclude<ActionClass, 'read'>
+
+export interface PersonaEntitlements {
+  /**
+   * Sparse persona-level exposure map. Missing action classes fail closed at
+   * runtime and render as unconfigured in the UI. `read` is deliberately not
+   * customer-authored; the enforcement layer always allows read.
+   */
+  exposure: Partial<Record<AuthoredExposureActionClass, ExposureCeiling>>
+}
+
+export interface SkillInitiation {
+  manual: boolean
+  scheduled: boolean
+  webhook: boolean
+}
 
 export const ACCEPTED_USER_ROLES = ['principal', 'staff', 'compliance'] as const
 export type UserRole = (typeof ACCEPTED_USER_ROLES)[number]
@@ -298,27 +314,7 @@ export interface CostEstimate {
 export interface PersonaSkill {
   name: string
   version: string
-  /**
-   * Skill-level scalar ceiling. Governs `internal_write` and acts as the
-   * cap the per-action overrides resolve under. Retained from the
-   * pre-ADR-0025 schema for back-compat: a skill with only `trust_ceiling`
-   * set keeps its previous meaning. Note (ADR 0035): the scalar does NOT
-   * grant `external_send` — an `external_send` with no `action_ceilings`
-   * entry is unauthored and fail-closed (refused, no draft). There is no
-   * `draft_for_review` default; it is a value authored in
-   * `action_ceilings`, not a fallback.
-   */
-  trust_ceiling: TrustCeiling
-  /**
-   * Per-action-class ceiling overrides (ADR 0025). Optional and sparse —
-   * only the classes a customer wants to set explicitly appear. The runtime
-   * `enforce()` resolves the effective ceiling for an action as the most
-   * restrictive of {vertical floor, this override if present, the safe
-   * class default}. Setting `external_send: autonomous` here is what grants
-   * autonomous external send; it can never raise above a vertical-pack floor.
-   * `null`/absent means "no overrides — use safe class defaults."
-   */
-  action_ceilings: Partial<Record<ActionClass, TrustCeiling>> | null
+  initiation: SkillInitiation
   enabled: boolean
   cost_estimate: CostEstimate | null
   scope: string[]
@@ -388,6 +384,7 @@ export interface Persona {
   tone: string[]
   pronouns: Pronouns | null
   send_as: PersonaSendAs | null
+  entitlements: PersonaEntitlements
   skills: PersonaSkill[]
   // Free-form per-persona override blobs (object or absent). Typed as an object
   // map rather than `unknown` so the validator can gate them to plain-object /
@@ -492,8 +489,6 @@ export interface ManagedMailbox {
   address: string
   /** Gmail "Send mail as" identities permitted in the `From` header for this mailbox. */
   send_as: string[]
-  /** Optional per-mailbox action-class ceiling overrides; null when unauthored. */
-  action_ceilings: Partial<Record<ActionClass, TrustCeiling>> | null
 }
 
 export interface GoogleAuth {
@@ -901,6 +896,7 @@ export type ValidationErrorCode =
   | 'UnknownAddon'
   | 'InvalidActionClass'
   | 'InvalidActionCeiling'
+  | 'LegacyEntitlementField'
   | 'UnknownAuthorityDomain'
   | 'DuplicateRelationshipPersonId'
 

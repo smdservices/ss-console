@@ -108,7 +108,7 @@ function matchesWildcard(pattern: string, candidate: string): boolean {
 
 export interface EditablePersonaSkill {
   name: string
-  trust_ceiling: 'autonomous' | 'draft_for_review' | 'refused'
+  initiation: { manual: boolean; scheduled: boolean; webhook: boolean }
   enabled: boolean
 }
 
@@ -253,7 +253,7 @@ function projectPersona(p: Persona): EditablePersona {
     send_as: p.send_as,
     skills: p.skills.map((s: PersonaSkill) => ({
       name: s.name,
-      trust_ceiling: s.trust_ceiling,
+      initiation: s.initiation,
       enabled: s.enabled,
     })),
     channel_bindings: p.channel_bindings,
@@ -535,12 +535,12 @@ function mergeConnectors(
 
 function mergePersona(current: Persona, update: EditablePersona): Persona {
   // Skill list: keep current entries the input did not touch (preserves
-  // cost_estimate, scope, version); override trust_ceiling + enabled
-  // from input. Editor cannot add or remove skills.
+  // cost_estimate, scope, version); override initiation + enabled from input.
+  // Editor cannot add or remove skills.
   const updateByName = new Map(update.skills.map((s) => [s.name, s]))
   const mergedSkills: PersonaSkill[] = current.skills.map((cur) => {
     const u = updateByName.get(cur.name)
-    return u ? { ...cur, trust_ceiling: u.trust_ceiling, enabled: u.enabled } : cur
+    return u ? { ...cur, initiation: u.initiation, enabled: u.enabled } : cur
   })
   return {
     slug: current.slug,
@@ -550,6 +550,7 @@ function mergePersona(current: Persona, update: EditablePersona): Persona {
     tone: update.tone,
     pronouns: update.pronouns,
     send_as: update.send_as,
+    entitlements: current.entitlements,
     channel_bindings: update.channel_bindings,
     skills: mergedSkills,
     signature_html: current.signature_html,

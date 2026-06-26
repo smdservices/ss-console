@@ -82,6 +82,7 @@ Read these before assuming the sequence is dense:
 | 0049 | Operator model selection | Native two-tier seam: light-main / escalate-up. The canonical answer to how the Operator chooses which LLM does a piece of work; no custom router. Accepted 2026-06-16. | [link](https://github.com/venturecrane/ss-console/blob/main/docs/adr/0049-operator-model-selection.md) |
 | 0050 | *(no file)* | Number absent from `docs/adr/`; referenced by 0051 as "Operator task-execution framework" (build item B1's source). See the gap note above. | - |
 | 0051 | Operator durable task-execution substrate (B1) | How the Operator runs a job too big for one synchronous turn: take it, run unattended to completion, survive crashes/restarts, deliver a retrievable result. Accepted 2026-06-18. | [link](https://github.com/venturecrane/ss-console/blob/main/docs/adr/0051-operator-durable-task-execution-substrate.md) |
+| 0056 | Persona exposure + skill initiation entitlements | Replaces scalar `trust_ceiling`, skill `action_ceilings`, scope entitlement fields, and mailbox entitlement overrides with sparse persona exposure plus explicit skill initiation. | [link](https://github.com/venturecrane/ss-console/blob/main/docs/adr/0056-persona-exposure-skill-initiation-entitlements.md) |
 
 ## Related
 
