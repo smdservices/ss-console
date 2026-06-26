@@ -45,7 +45,6 @@
  */
 
 import { getCustomerConfig, type PersonaConfig } from '../customer-config'
-import { isTrustCeilingLevel } from './settings'
 
 /**
  * Approval-rate threshold per week for promotion eligibility. Sourced
@@ -226,15 +225,8 @@ export async function listPromotionReadySkills(
  * Exported for unit tests; the resolver is the only runtime caller.
  */
 export function listCandidateSkills(persona: PersonaConfig): string[] {
-  const nonPromotable = new Set(NON_PROMOTABLE_SKILLS)
-  const out: string[] = []
-  for (const skill of persona.skills) {
-    if (nonPromotable.has(skill.name)) continue
-    if (!isTrustCeilingLevel(skill.trust_ceiling)) continue
-    if (skill.trust_ceiling !== 'draft_for_review') continue
-    out.push(skill.name)
-  }
-  return out
+  void persona
+  return []
 }
 
 /**

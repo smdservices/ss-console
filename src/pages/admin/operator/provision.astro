@@ -397,11 +397,11 @@ const cardClass =
             />
           </div>
           <div>
-            <label class={labelClass} for="skill_trust_ceiling">Skill trust ceiling</label>
-            <select class={inputClass} id="skill_trust_ceiling" name="skill_trust_ceiling" required>
+            <label class={labelClass} for="exposure_level">Initial exposure</label>
+            <select class={inputClass} id="exposure_level" name="exposure_level" required>
               {
                 trustCeilingOptions().map((c) => (
-                  <option value={c} selected={fv('skill_trust_ceiling', 'draft_for_review') === c}>
+                  <option value={c} selected={fv('exposure_level', 'draft_for_review') === c}>
                     {c}
                   </option>
                 ))

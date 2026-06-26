@@ -26,7 +26,12 @@ import {
   parseCredentialCustody,
   type CredentialCustody,
 } from '../operator/credential-custody'
-import { ACCEPTED_DATA_POSTURES, type McpConnector } from '../operator/customer-yaml/types'
+import {
+  ACCEPTED_DATA_POSTURES,
+  type McpConnector,
+  type PersonaEntitlements,
+  type SkillInitiation,
+} from '../operator/customer-yaml/types'
 
 export type PersonaStatus = 'active' | 'archived'
 
@@ -36,7 +41,7 @@ export interface PersonaSendAs {
 
 export interface PersonaSkill {
   name: string
-  trust_ceiling: string
+  initiation: SkillInitiation
 }
 
 export interface PersonaChannelBinding {
@@ -52,6 +57,7 @@ export interface PersonaConfig {
   signature_html: string | null
   tone: string[]
   send_as: PersonaSendAs | null
+  entitlements: PersonaEntitlements
   skills: PersonaSkill[]
   channel_bindings: PersonaChannelBinding[]
 }

@@ -72,14 +72,24 @@ personas:
       - direct
       - executive-summary
       - concise
+    entitlements:
+      exposure:
+        internal_write: draft_for_review
+        external_send: draft_for_review
     skills:
       - name: inbox-triage
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: workspace
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
     skills_disabled:
       - google-workspace
@@ -102,10 +112,6 @@ scope:
   trusted_sender_domains:
     - smd-staging.invalid
   # Inert: drafts only, and there is no inbound to act on anyway.
-  action_ceilings:
-    external_send: draft_for_review
-
-# ---- ESCALATION ----
 escalation:
   red_flag_recipients:
     - staging@smd-staging.invalid

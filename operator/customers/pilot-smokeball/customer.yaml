@@ -60,67 +60,114 @@ personas:
       - plainspoken
       - warm-but-professional
       - concise
+    entitlements:
+      exposure:
+        internal_write: autonomous
+        external_send: draft_for_review
+        destructive: autonomous
     skills:
       # spine
       - name: matter-inbox-router
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: true
         enabled: true
       - name: matter-status-digest
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       # intake / conflict
       - name: new-matter-intake
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: conflict-intake-router
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: consult-scheduler
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       # keeping matters moving
       - name: engagement-letter-chaser
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: trust-balance-nudge
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: matter-status-responder
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: document-receipt-logger
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: stalled-matter-nudge
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       # committed deliverables
       - name: matter-memo-on-update # Chris's named ask — webhook-driven internal supervision memo
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: true
         enabled: true
       - name: matter-document-review # surface/highlight only, never drafts work product
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       # deadlines
       - name: deadline-and-sol-tracker
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: deadline-miss-escalator
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: true
+          webhook: false
         enabled: true
     # The escalator runs on Hermes-native cron (ADR 0021 Stream B): pre_run.py
     # decides whether a deadline needs the ladder, else writes SUPPRESSED_WAKE.
@@ -226,12 +273,6 @@ scope:
   # destructive stays taint-gated regardless of this ceiling, so an untrusted-fed
   # turn can NEVER trigger a delete. A real client seat authors its own posture
   # (a firm would typically leave destructive refused/draft).
-  action_ceilings:
-    external_send: draft_for_review
-    internal_write: autonomous
-    destructive: autonomous
-
-# ---- ESCALATION ----
 escalation:
   red_flag_recipients:
     - scott@smd.services

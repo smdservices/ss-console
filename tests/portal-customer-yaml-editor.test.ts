@@ -59,11 +59,17 @@ function validFixture(): Record<string, unknown> {
         signature_html: '<p>Marcus | AI Associate</p>',
         tone: ['warm-but-professional', 'concise'],
         send_as: { agentmail_identity: 'marcus@smith-pi-firm.agents.smd.services' },
+        entitlements: {
+          exposure: {
+            internal_write: 'autonomous',
+            external_send: 'draft_for_review',
+          },
+        },
         skills: [
           {
             name: 'inbox-triage-and-draft',
-            trust_ceiling: 'draft_for_review',
             enabled: true,
+            initiation: { manual: true, scheduled: false, webhook: false },
             cost_estimate: {
               tokens_in_per_run: 2000,
               tokens_out_per_run: 800,

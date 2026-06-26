@@ -183,6 +183,10 @@ persona:
   tone:
     status: implemented
     materializer: translate _persona_config (config persona.tone) + SOUL.md
+  entitlements:
+    status: implemented
+    materializer: translate _persona_config (config entitlements.exposure) + hermes-smd-overlay hermes-smd-trust/enforce.py (runtime exposure enforcement; ADR 0056)
+    note: persona-level exposure (per-action-class ceiling map) replacing the retired scalar trust_ceiling / scope+skill action_ceilings. Skill-level initiation (manual/scheduled/webhook) is authored inside skills[] and gates cron/webhook/manual start.
   skills:
     status: implemented
     materializer: translate _persona_config (config skills) + _install_persona_skills (bodies)

@@ -61,7 +61,18 @@ function validParsed(): Record<string, unknown> {
         title: 'AI Associate',
         tone: ['concise'],
         send_as: { agentmail_identity: 'marcus@smith-pi-firm.agents.smd.services' },
-        skills: [{ name: 'conflict-check', trust_ceiling: 'autonomous' }],
+        entitlements: {
+          exposure: {
+            internal_write: 'autonomous',
+            external_send: 'draft_for_review',
+          },
+        },
+        skills: [
+          {
+            name: 'conflict-check',
+            initiation: { manual: true, scheduled: false, webhook: false },
+          },
+        ],
         channel_bindings: [{ integration: 'ms-graph', channels: ['primary-inbox'] }],
       },
     ],

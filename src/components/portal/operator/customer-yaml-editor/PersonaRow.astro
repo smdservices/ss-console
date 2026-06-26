@@ -8,10 +8,7 @@
  * file boundary is the only difference.
  */
 
-import type {
-  EditablePersona,
-  EditablePersonaSkill,
-} from '../../../../lib/portal/operator/customer-yaml-editor'
+import type { EditablePersona } from '../../../../lib/portal/operator/customer-yaml-editor'
 import type { ValidationError } from '../../../../lib/operator/customer-yaml'
 
 interface Props {
@@ -30,12 +27,6 @@ const TONE_OPTIONS = [
   'analytical',
   'patient',
   'direct',
-]
-
-const TRUST_CEILINGS: EditablePersonaSkill['trust_ceiling'][] = [
-  'autonomous',
-  'draft_for_review',
-  'refused',
 ]
 
 const rowErrors = errors.filter((e) => e.path === prefix || e.path.startsWith(`${prefix}.`))
@@ -194,16 +185,36 @@ const rowErrors = errors.filter((e) => e.path === prefix || e.path.startsWith(`$
                 enabled
               </label>
               <input type="hidden" name={`${prefix}.skills[${skillIdx}].name`} value={skill.name} />
-              <select
-                name={`${prefix}.skills[${skillIdx}].trust_ceiling`}
-                class="px-3 py-1.5 border-[2px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)] text-[color:var(--ss-color-text-primary)] text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
-              >
-                {TRUST_CEILINGS.map((tc) => (
-                  <option value={tc} selected={skill.trust_ceiling === tc}>
-                    {tc}
-                  </option>
-                ))}
-              </select>
+              <label class="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name={`${prefix}.skills[${skillIdx}].initiation.manual`}
+                  value="true"
+                  checked={skill.initiation.manual}
+                  class="border-[2px] border-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+                />
+                manual
+              </label>
+              <label class="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name={`${prefix}.skills[${skillIdx}].initiation.scheduled`}
+                  value="true"
+                  checked={skill.initiation.scheduled}
+                  class="border-[2px] border-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+                />
+                scheduled
+              </label>
+              <label class="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name={`${prefix}.skills[${skillIdx}].initiation.webhook`}
+                  value="true"
+                  checked={skill.initiation.webhook}
+                  class="border-[2px] border-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
+                />
+                webhook
+              </label>
             </div>
           ))}
         </div>

@@ -97,29 +97,46 @@ personas:
       - executive-summary
       - concise
     # Inbox triage plus on-demand broker-mediated Workspace reads and writes.
+    entitlements:
+      exposure:
+        internal_write: draft_for_review
+        external_send: autonomous
+        code_execution: autonomous
     skills:
       - name: inbox-triage
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       - name: workspace
         version: pending
-        trust_ceiling: draft_for_review
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       # Handles inbound email to crane@smd.services. Intended trigger is the Gmail
       # push webhook (see gmail_push note below) — currently NOT wired, so this
       # skill does not fire until the watch is rebuilt as a broker operation.
-      # trust_ceiling: autonomous — Crane's own identity, not Scott's. Wave A
+      # initiation/exposure note — Crane's own identity, not Scott's. Wave A
       # writes Gmail drafts only; no Gmail send tool is authored for this skill.
       - name: email-reply
         version: pending
-        trust_ceiling: autonomous
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
       # Polls /api/admin/fleet/health every 30 min; records alert lines on red status.
       # Requires OPERATOR_HEALTH_READ_KEY Fly secret + code_execution: autonomous.
       - name: health-monitor
         version: pending
-        trust_ceiling: autonomous
+        initiation:
+          manual: true
+          scheduled: false
+          webhook: false
         enabled: true
     # Native Google/Himalaya skills remain disabled because this customer uses
     # broker-mediated first-class tools and the customer-owned DWD credential.
@@ -226,12 +243,6 @@ scope:
   # is a CODE_EXECUTION action, fail-closed unless authored). Re-opened on the
   # customer-zero dogfood seat for the two-tier cost test; the sticky taint gate
   # still withholds subagent-spawning on any turn that has read untrusted content.
-  action_ceilings:
-    external_send: autonomous
-    code_execution: autonomous
-
-# ---- ESCALATION ----
-# "just flag it to me" → red flags + run failures go to the boss/escalation address.
 escalation:
   red_flag_recipients:
     - team@smd.services
