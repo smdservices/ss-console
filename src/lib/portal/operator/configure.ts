@@ -7,8 +7,8 @@
  * surface shows the non-raisable vertical FLOORS (the hard stops the client
  * can never cross) per action class — the accurate, always-available half of
  * the model. The per-action configured ceilings surface when the projection
- * carries `action_ceilings` AND the configuration/trust switch is flipped
- * operable; until then the runtime treats an unconfigured action class as
+ * carries persona exposure and the configuration/trust switch is flipped
+ * operable. Until then the runtime treats an unconfigured action class as
  * fail-closed (refused) — never "drafts for review" (ADR 0035 landmine).
  */
 

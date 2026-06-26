@@ -103,7 +103,13 @@ function makePersona(overrides: Partial<PersonaConfig> = {}): PersonaConfig {
     signature_html: '<p>Marcus<br/>AI Associate</p>',
     tone: ['warm-but-professional'],
     send_as: { agentmail_identity: 'marcus@smith-pi-firm.agents.smd.services' },
-    skills: [{ name: 'inbox-triage-and-draft', trust_ceiling: 'draft_for_review' }],
+    entitlements: { exposure: { external_send: 'draft_for_review' } },
+    skills: [
+      {
+        name: 'inbox-triage-and-draft',
+        initiation: { manual: true, scheduled: false, webhook: false },
+      },
+    ],
     channel_bindings: [{ integration: 'ms-graph', channels: ['primary-inbox'] }],
     ...overrides,
   }

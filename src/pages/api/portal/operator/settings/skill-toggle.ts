@@ -1,11 +1,7 @@
 import type { APIRoute } from 'astro'
 import { resolveOperatorAccess } from '../../../../../lib/portal/operator-access'
-import { getCustomerConfig, getActivePersona } from '../../../../../lib/portal/customer-config'
-import {
-  applySkillToggle,
-  isCeiling,
-  type Ceiling,
-} from '../../../../../lib/portal/operator/config-governance'
+import { getCustomerConfig } from '../../../../../lib/portal/customer-config'
+import { applySkillToggle } from '../../../../../lib/portal/operator/config-governance'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -18,9 +14,7 @@ import { env } from 'cloudflare:workers'
  *   personaSlug   — slug of the persona owning the skill (optional)
  *   nextEnabled   — 'true' or 'false' (the target state)
  *
- * Auth: principal only. Disabling maps to `refused` (a lower / more
- * restrictive change, always allowed); enabling maps to `draft_for_review`
- * (the safe default). Records the governance action to the immutable
+ * Auth: principal only. Records the governance action to the immutable
  * `config_change_audit` ledger; does not mutate the live config replica
  * (ADR 0012 §2 — value applies on the next git sync). Status banner:
  *   ?status=saved      — recorded
@@ -39,14 +33,6 @@ function jsonError(status: number, message: string): Response {
     status,
     headers: { 'Content-Type': 'application/json' },
   })
-}
-
-function currentSkillCeiling(
-  persona: { skills: { name: string; trust_ceiling: string }[] } | null,
-  skillName: string
-): Ceiling {
-  const skill = persona?.skills.find((s) => s.name === skillName)
-  return skill && isCeiling(skill.trust_ceiling) ? skill.trust_ceiling : 'draft_for_review'
 }
 
 export const POST: APIRoute = async ({ locals, request }) => {
@@ -68,8 +54,6 @@ export const POST: APIRoute = async ({ locals, request }) => {
   }
 
   const config = await getCustomerConfig(env.DB, access.client.id)
-  const persona = await getActivePersona(env.DB, access.client.id)
-  const oldValue = currentSkillCeiling(persona, skillName)
 
   await applySkillToggle(env.DB, {
     customer_slug: config?.customer_slug ?? access.client.id,
@@ -78,7 +62,6 @@ export const POST: APIRoute = async ({ locals, request }) => {
     persona_slug: typeof personaSlug === 'string' && personaSlug !== '' ? personaSlug : null,
     skill_name: skillName,
     next_enabled: nextEnabled === 'true',
-    old_value: oldValue,
   })
 
   return redirectWithStatus('saved')

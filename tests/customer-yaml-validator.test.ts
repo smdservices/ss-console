@@ -65,10 +65,16 @@ function validFixture(): Record<string, unknown> {
         signature_html: '<p>Marcus | AI Associate at Smith PI</p>',
         tone: ['warm-but-professional', 'concise'],
         send_as: { agentmail_identity: 'marcus@smith-pi-firm.agents.smd.services' },
+        entitlements: {
+          exposure: {
+            internal_write: 'autonomous',
+            external_send: 'draft_for_review',
+          },
+        },
         skills: [
           {
             name: 'inbox-triage-and-draft',
-            trust_ceiling: 'draft_for_review',
+            initiation: { manual: true, scheduled: false, webhook: false },
             enabled: true,
             cost_estimate: {
               tokens_in_per_run: 2000,
@@ -77,7 +83,10 @@ function validFixture(): Record<string, unknown> {
               runs_per_day_typical: 30,
             },
           },
-          { name: 'conflict-check', trust_ceiling: 'autonomous' },
+          {
+            name: 'conflict-check',
+            initiation: { manual: true, scheduled: false, webhook: false },
+          },
         ],
         channel_bindings: [{ integration: 'ms-graph', channels: ['primary-inbox'] }],
       },
@@ -361,16 +370,16 @@ describe('validate — EnumViolation', () => {
     expect(r.errors.some((e) => e.code === 'EnumViolation' && e.path.includes('users'))).toBe(true)
   })
 
-  it('rejects unknown trust_ceiling', () => {
+  it('rejects legacy skill trust_ceiling', () => {
     const f = validFixture()
-    ;(
-      f['personas'] as Array<{ skills: Array<{ trust_ceiling: string }> }>
-    )[0].skills[0].trust_ceiling = 'YOLO'
+    ;(f['personas'] as Array<{ skills: Array<Record<string, unknown>> }>)[0].skills[0][
+      'trust_ceiling'
+    ] = 'YOLO'
     const r = validate(f)
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(
-      r.errors.some((e) => e.code === 'EnumViolation' && e.path.includes('trust_ceiling'))
+      r.errors.some((e) => e.code === 'LegacyEntitlementField' && e.path.includes('trust_ceiling'))
     ).toBe(true)
   })
 
@@ -490,7 +499,13 @@ describe('validate — personas[]', () => {
       status: 'archived',
       name: 'Casey',
       tone: ['warm'],
-      skills: [{ name: 'inbox-triage-and-draft', trust_ceiling: 'draft_for_review' }],
+      entitlements: { exposure: { external_send: 'draft_for_review' } },
+      skills: [
+        {
+          name: 'inbox-triage-and-draft',
+          initiation: { manual: true, scheduled: false, webhook: false },
+        },
+      ],
     })
     const r = validate(f)
     if (!r.ok) {
@@ -1597,6 +1612,8 @@ describe('validate — mcp_connector', () => {
 function withBundlesAndCron(): Record<string, unknown> {
   const f = validFixture()
   const persona = (f['personas'] as unknown[])[0] as Record<string, unknown>
+  ;(persona['skills'] as Array<{ initiation: { scheduled: boolean } }>)[0].initiation.scheduled =
+    true
   persona['bundles'] = [
     {
       slug: 'pi-intake',
@@ -1768,6 +1785,8 @@ describe('validate — ADR 0021 cron', () => {
 
 function withWebhooks(): Record<string, unknown> {
   const f = withBundlesAndCron()
+  const persona = (f['personas'] as unknown[])[0] as Record<string, unknown>
+  ;(persona['skills'] as Array<{ initiation: { webhook: boolean } }>)[0].initiation.webhook = true
   const connectors = f['connectors'] as Record<string, Record<string, unknown>>
   connectors['PracticeManagement']['webhook_url'] =
     'https://hermes-smith-pi-firm.fly.dev/webhooks/practice_management'
@@ -2242,7 +2261,6 @@ describe('validate — google_auth', () => {
         {
           address: 'owner@firm.com',
           send_as: ['owner@firm.com', 'team@firm.com'],
-          action_ceilings: { external_send: 'draft_for_review' },
         },
       ],
     }
@@ -2253,7 +2271,6 @@ describe('validate — google_auth', () => {
       {
         address: 'owner@firm.com',
         send_as: ['owner@firm.com', 'team@firm.com'],
-        action_ceilings: { external_send: 'draft_for_review' },
       },
     ])
   })
@@ -2313,7 +2330,7 @@ describe('validate — google_auth', () => {
     expect(r.errors.some((e) => e.path === 'google_auth.managed_mailboxes[0].send_as')).toBe(true)
   })
 
-  it('fails closed: a managed mailbox with an invalid action_ceilings value', () => {
+  it('fails closed: a managed mailbox with legacy action_ceilings', () => {
     const f = validFixture()
     f['google_auth'] = {
       mode: 'dwd',
@@ -2333,8 +2350,8 @@ describe('validate — google_auth', () => {
     expect(
       r.errors.some(
         (e) =>
-          e.path === 'google_auth.managed_mailboxes[0].action_ceilings.external_send' &&
-          e.code === 'InvalidActionCeiling'
+          e.path === 'google_auth.managed_mailboxes[0].action_ceilings' &&
+          e.code === 'LegacyEntitlementField'
       )
     ).toBe(true)
   })

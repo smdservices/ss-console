@@ -65,12 +65,12 @@ function collectAdapterSlugs(connectors: Partial<Record<CapabilityName, Connecto
   return out
 }
 
-function indexPersonas(personas: Persona[]): Map<string, Set<string>> {
-  const out = new Map<string, Set<string>>()
+function indexPersonas(personas: Persona[]): Map<string, Map<string, boolean>> {
+  const out = new Map<string, Map<string, boolean>>()
   for (const p of personas) {
-    const skillNames = new Set<string>()
+    const skillNames = new Map<string, boolean>()
     for (const s of p.skills) {
-      if (s.enabled) skillNames.add(s.name)
+      if (s.enabled) skillNames.set(s.name, s.initiation.webhook)
     }
     out.set(p.slug, skillNames)
   }
@@ -81,7 +81,7 @@ function checkOneTrigger(
   raw: unknown,
   path: string,
   adapterSlugs: Set<string>,
-  personaIndex: Map<string, Set<string>>,
+  personaIndex: Map<string, Map<string, boolean>>,
   errors: ValidationError[]
 ): WebhookTrigger | null {
   if (!isPlainObject(raw)) {
@@ -113,11 +113,22 @@ function checkOneTrigger(
     })
     return null
   }
-  if (!skillSet.has(skill)) {
+  const webhookAllowed = skillSet.get(skill)
+  if (webhookAllowed === undefined) {
     errors.push({
       code: 'UnknownWebhookSkill',
       path: `${path}.skill`,
       message: `webhook_triggers.skill "${skill}" is not an enabled skill on persona "${persona}"`,
+    })
+    return null
+  }
+  if (!webhookAllowed) {
+    errors.push({
+      code: 'UnknownWebhookSkill',
+      path: `${path}.skill`,
+      message:
+        `webhook_triggers.skill "${skill}" is enabled on persona "${persona}" ` +
+        'but does not grant initiation.webhook',
     })
     return null
   }

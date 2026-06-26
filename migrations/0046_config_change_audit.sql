@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS config_change_audit (
   actor_role      TEXT NOT NULL,
   -- What changed.
   change_type     TEXT NOT NULL
-                    CHECK (change_type IN ('trust_ceiling', 'action_ceiling', 'skill_toggle')),
+                    CHECK (change_type IN ('entitlement_exposure', 'entitlement_initiation', 'skill_enabled')),
   persona_slug    TEXT,
   skill_name      TEXT,
   action_class    TEXT,           -- e.g. 'external_send', when change_type='action_ceiling'

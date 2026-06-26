@@ -82,14 +82,14 @@ describe('validate-customer-yaml: author-time skill-body guardrail (#1206)', () 
     // schema-valid; add one extra enabled skill whose body does not exist.
     const cfg = parseYaml(readFileSync(SMD_CUSTOMER_YAML, 'utf8')) as {
       personas: {
-        skills: { name: string; version: string; trust_ceiling: string; enabled: boolean }[]
+        skills: { name: string; version: string; enabled: boolean; initiation: unknown }[]
       }[]
     }
     cfg.personas[0].skills.push({
       name: 'nonexistent-skill-xyz',
       version: 'pending',
-      trust_ceiling: 'draft_for_review',
       enabled: true,
+      initiation: { manual: true, scheduled: false, webhook: false },
     })
     const dir = makeTmpDir()
     const bad = join(dir, 'customer.yaml')
@@ -106,14 +106,14 @@ describe('validate-customer-yaml: author-time skill-body guardrail (#1206)', () 
     // shared repo catalog — the second lookup location must satisfy the gate.
     const cfg = parseYaml(readFileSync(SMD_CUSTOMER_YAML, 'utf8')) as {
       personas: {
-        skills: { name: string; version: string; trust_ceiling: string; enabled: boolean }[]
+        skills: { name: string; version: string; enabled: boolean; initiation: unknown }[]
       }[]
     }
     cfg.personas[0].skills.push({
       name: 'customer-local-skill',
       version: 'pending',
-      trust_ceiling: 'draft_for_review',
       enabled: true,
+      initiation: { manual: true, scheduled: false, webhook: false },
     })
     const dir = makeTmpDir()
     mkdirSync(join(dir, 'skills', 'customer-local-skill'), { recursive: true })
