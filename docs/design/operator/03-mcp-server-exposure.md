@@ -1,9 +1,17 @@
 # 03 — Operator ⇄ Claude MCP Connector (Operator-as-MCP-Server)
 
-**Status:** Implemented foundation (rev 5, 2026-06-15), activation-gated on Clerk issuing an RFC 8707 resource-bound token. Phase-1 hosting is console-mediated. Clerk authenticates and issues tokens; Operator owns principal, profile, tool, and action authorization.
-**Author:** design pass, no implementation
-**Companion docs:** [00-foundations.md](00-foundations.md), [01-admin-portal.md](01-admin-portal.md), [02-client-portal.md](02-client-portal.md)
-**Primary ADRs:** [0007](../../adr/0007-per-customer-machine-isolation.md) · [0010](../../adr/0010-per-customer-oauth-token-storage.md) · [0011](../../adr/0011-multi-persona-per-customer.md) · [0015](../../adr/0015-hermes-fork-vs-upstream.md) · [0020](../../adr/0020-connector-strategy.md) · [0035](../../adr/0035-no-imposed-entitlement-defaults.md) · [0043](../../adr/0043-operator-runtime-read-path.md) · [0045](../../adr/0045-mediated-connector-capability-broker.md) · [0005](../../adr/0005-external-send-identity.md) · [0037](../../adr/0037-operator-thesis.md)
+**Status:** Implemented (rev 6, 2026-06-27). The access model is locked by **[ADR 0057](../../adr/0057-operator-claude-connector-access-model.md)** and the connector surface shipped across slices 2a–2d (grant table + live kill switch, admin grant lifecycle + immutable audit, issuance-policy axis, screening-attestation gate). Phase-1 hosting is console-mediated. Clerk authenticates; the Operator's grant table authorizes.
+**Author:** design pass (rev 1–5) + implementation (ADR 0057, slices 2a–2d)
+**Companion docs:** [00-foundations.md](00-foundations.md), [01-admin-portal.md](01-admin-portal.md), [02-client-portal.md](02-client-portal.md), [mcp-clerk-setup.md](mcp-clerk-setup.md)
+**Primary ADRs:** **[0057](../../adr/0057-operator-claude-connector-access-model.md) (the access model — authoritative)** · [0007](../../adr/0007-per-customer-machine-isolation.md) · [0010](../../adr/0010-per-customer-oauth-token-storage.md) · [0011](../../adr/0011-multi-persona-per-customer.md) · [0015](../../adr/0015-hermes-fork-vs-upstream.md) · [0020](../../adr/0020-connector-strategy.md) · [0035](../../adr/0035-no-imposed-entitlement-defaults.md) · [0043](../../adr/0043-operator-runtime-read-path.md) · [0045](../../adr/0045-mediated-connector-capability-broker.md) · [0005](../../adr/0005-external-send-identity.md) · [0037](../../adr/0037-operator-thesis.md)
+
+> **Reconciliation with ADR 0057 (read this first).** This doc's §4 (access model) and §5 (authentication) were the rev-1 design pass. Where they differ from ADR 0057, **ADR 0057 governs.** What it locked and shipped:
+>
+> - **Login = Clerk per-user OAuth, mailbox-possession sign-in to the firm address** (email OTP code preferred over magic link, so the verification stays in Claude's OAuth browser; see [mcp-clerk-setup.md](mcp-clerk-setup.md)). Email possession is the identity, so offboarding rides the firm mailbox.
+> - **Authorization = SMD's `mcp_issued_grants` grant table, read live per request** — the authoritative allowance and the **instant kill switch** (revoke cuts on the next call). Bounded: `ttl_days` ∈ [1, 90], never infinite. Admin issue/revoke + an append-only `operator_mcp_grant_audit` ledger (slice 2b).
+> - **Issuance policy is firm-authored** (`mcp_connector.policy`): `allowlist` (default, fail-closed — the pilot path) or `open` (verified firm-domain JIT). The hardened open-by-domain auto-issue is **slice 2e** (sticky revoke, verified-primary-email pinning, exact-host domain match, per-customer grant cap, shorter TTL); **not in the pilot path.**
+> - **Screening attestation (ADR 0057 §4) is a fail-closed precondition** to any enabled inbound channel (this connector AND `scope.inbound_allow_from`): authoring gate in the validator + a runtime **freshness** gate (90-day window) that takes an enabled connector dark when the attestation is missing or stale (slice 2d).
+> - **The "activation-gated on an RFC 8707 `aud`" status below is superseded.** Clerk's MCP/DCR tokens omit a resource-bound `aud` (verified in #1398), so isolation rests on exact `iss` + the customer-scoped subject/grant check; a present `aud` is still enforced. The connector is **not** blocked on Clerk shipping resource indicators.
 
 ---
 

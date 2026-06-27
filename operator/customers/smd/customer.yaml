@@ -161,6 +161,15 @@ personas:
 # Fail-closed: enabled:false (or an absent block) means no one connects; each
 # access[] entry binds a users[] email to an active persona slug.
 # See docs/design/operator/03-mcp-server-exposure.md.
+# Firm no-active-screens attestation (ADR 0057 §4). A fail-closed precondition to
+# any enabled inbound channel (mcp_connector + scope.inbound_allow_from). SMD is
+# customer-zero — SMD Services attests for its own dogfood seat. Re-attest within
+# SCREENING_ATTESTATION_MAX_AGE_DAYS (90) or the channels go dark.
+screening_attestation:
+  attested: true
+  attested_by: SMD Services (Scott Durgan, Principal)
+  attested_at: 2026-06-27T00:00:00.000Z
+
 mcp_connector:
   enabled: true
   # 'open' = the authored user reaches the Operator with no extra data fence

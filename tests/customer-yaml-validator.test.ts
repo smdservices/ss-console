@@ -20,6 +20,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   validate,
+  isAttestationFresh,
   type CustomerYaml,
   type ValidationError,
   type ValidationErrorCode,
@@ -43,6 +44,15 @@ function validFixture(): Record<string, unknown> {
     schema_version: 1,
     customer_id: 'smith-pi-firm',
     customer_name: 'Smith PI Firm',
+    // A configured firm has attested no active screens (ADR 0057 §4); without
+    // this, the cross-block gate blocks any test that enables an inbound channel.
+    // The screening_attestation default + the gate itself are tested explicitly
+    // in the `validate — screening_attestation` describe.
+    screening_attestation: {
+      attested: true,
+      attested_by: 'Managing Partner',
+      attested_at: '2026-06-20T00:00:00.000Z',
+    },
     vertical: 'law-firm',
     practice_areas: ['personal-injury', 'workers-comp'],
     fly_region: 'lax',
@@ -1720,6 +1730,105 @@ describe('validate — mcp_connector', () => {
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(r.errors.some((e) => e.path === 'mcp_connector' && e.code === 'TypeMismatch')).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// screening_attestation block — firm no-active-screens gate (ADR 0057 §4)
+// ---------------------------------------------------------------------------
+describe('validate — screening_attestation', () => {
+  it('defaults to not-attested when omitted (no channel enabled ⇒ still valid)', () => {
+    const f = validFixture()
+    delete f['screening_attestation']
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.screening_attestation).toEqual({
+      attested: false,
+      attested_by: null,
+      attested_at: null,
+    })
+  })
+
+  it('blocks enabling the MCP connector without an attestation', () => {
+    const f = validFixture()
+    delete f['screening_attestation']
+    f['mcp_connector'] = {
+      enabled: true,
+      access: [{ email: 'partner@firm.com', profile: 'marcus' }],
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'screening_attestation.attested' && e.code === 'MissingField')
+    ).toBe(true)
+  })
+
+  it('blocks a non-empty inbound_allow_from (email channel) without an attestation', () => {
+    const f = validFixture()
+    delete f['screening_attestation']
+    const scope = f['scope'] as Record<string, unknown>
+    scope['inbound_allow_from'] = ['boss@firm.com']
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'screening_attestation.attested' && e.code === 'MissingField')
+    ).toBe(true)
+  })
+
+  it('requires attested_by and attested_at when attested is true', () => {
+    const f = validFixture()
+    f['screening_attestation'] = { attested: true }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) => e.path === 'screening_attestation.attested_by' && e.code === 'MissingField'
+      )
+    ).toBe(true)
+    expect(
+      r.errors.some(
+        (e) => e.path === 'screening_attestation.attested_at' && e.code === 'MissingField'
+      )
+    ).toBe(true)
+  })
+
+  it('rejects a malformed attested_at timestamp', () => {
+    const f = validFixture()
+    f['screening_attestation'] = {
+      attested: true,
+      attested_by: 'Partner',
+      attested_at: 'last tuesday',
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) => e.path === 'screening_attestation.attested_at' && e.code === 'TypeMismatch'
+      )
+    ).toBe(true)
+  })
+})
+
+describe('isAttestationFresh', () => {
+  const now = '2026-06-27T00:00:00.000Z'
+  const fresh = (attested_at: string | null, attested = true) =>
+    isAttestationFresh({ attested, attested_by: 'P', attested_at }, now, 90)
+
+  it('is true within the window', () => {
+    expect(fresh('2026-06-01T00:00:00.000Z')).toBe(true)
+    expect(fresh('2026-04-01T00:00:00.000Z')).toBe(true) // 87 days
+  })
+
+  it('is false once stale, missing, unattested, undated, or future-dated', () => {
+    expect(fresh('2026-03-01T00:00:00.000Z')).toBe(false) // 118 days
+    expect(fresh(null)).toBe(false)
+    expect(fresh('2026-06-01T00:00:00.000Z', false)).toBe(false) // not attested
+    expect(fresh('garbage')).toBe(false)
+    expect(fresh('2026-12-01T00:00:00.000Z')).toBe(false) // future
   })
 })
 

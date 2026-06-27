@@ -8,6 +8,7 @@ const verifiedClaimsSchema = z.object({
   aud: z.union([z.string().min(1), z.array(z.string().min(1)).min(1)]).optional(),
   org_id: z.string().min(1).optional(),
   email: z.email().optional(),
+  email_verified: z.boolean().optional(),
 })
 
 export type McpAuthFailureReason =
@@ -20,6 +21,9 @@ export type McpAuthFailureReason =
   | 'connector_disabled'
   | 'identity_not_authored'
   | 'organization_mismatch'
+  // Open-by-domain JIT refusals (slice 2e), surfaced by the route, not token validation.
+  | 'jit_revoked'
+  | 'jit_cap_exceeded'
 
 export type McpAuthResult =
   | {
@@ -37,6 +41,15 @@ export type McpAuthResult =
       detail: string
       subject?: string
       tokenAudience?: string[]
+      /**
+       * The verified primary email + its verified flag from the token, surfaced
+       * ONLY on `identity_not_authored` so the route can decide an open-policy JIT
+       * grant (slice 2e). The PRIMARY email is the trust anchor — under shared
+       * Clerk a user can attach a secondary verified address, but the token always
+       * carries their primary, so an outsider cannot JIT into a firm by adding one.
+       */
+      email?: string
+      emailVerified?: boolean
     }
 
 export type McpTokenVerifier = (token: string, customer: ResolvedMcpCustomer) => Promise<unknown>
@@ -147,6 +160,8 @@ export async function validateMcpToken(
       detail: 'Clerk subject is not authorized for this Operator',
       subject: claims.sub,
       tokenAudience: normalizeAudience(claims.aud),
+      email: claims.email,
+      emailVerified: claims.email_verified === true,
     }
   }
 

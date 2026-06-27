@@ -56,6 +56,24 @@ When EMA supports Microsoft Entra / M365 (Okta-only at writing), identity and of
 - **Implementation surface shrinks to what is ours**: a grant table + live authorization (this ADR's first build), Clerk configuration + a revoke route, a JIT issuance gate, and a `customer.yaml` policy field. No hand-rolled OAuth server, no ticket-threading seam.
 - The already-shipped email channel (roster `scope.inbound_allow_from`, [ADR 0055](0055-operator-is-an-employee.md)) is unchanged; the screening attestation gate applies to it too.
 
+### Implementation status (slices 2a–2e shipped 2026-06-27)
+
+- **2a** — `mcp_issued_grants` table + live-read merge into principal resolution (the kill switch's read side).
+- **2b** — admin grant lifecycle (`adminIssueGrant` clears a revocation; `revokeGrant`; `listGrants`) + immutable `operator_mcp_grant_audit` ledger (the mutable grant row is state; the ledger is the record of who changed access, for whom, when). TTL bounded `[1, 90]`, never infinite. Admin route + connectors-page panel.
+- **2c** — `mcp_connector.policy` axis (`allowlist` default / `open`), `allowed_domains`, `default_profile`, `ttl_days`, kept distinct from `data_posture`. Validator requires domains + an active `default_profile` for `open`. Pilot ships on `allowlist`.
+- **2d** — screening attestation: authoring gate (validator, both channels, CI-blocking) + a runtime **freshness** gate (`isAttestationFresh`, 90-day window) that takes an enabled connector dark when the attestation is missing or stale. Projected to `customer_configs`; surfaced in the admin panel.
+- **2e** — hardened open-by-domain JIT (firm opt-in; not the pilot path). On `policy: open`, a genuine token whose subject is not yet granted is auto-granted **only** when: the verified **primary** email's flag is true, its exact host is in `allowed_domains` (single-`@`, lowercased, no implicit subdomain), no `revoked_at` row exists for the subject (**sticky revoke** — only an admin re-issue lifts a revocation), and the per-customer active-grant **cap** (`MCP_OPEN_GRANT_CAP`) is not reached. Open grants carry a shorter TTL (`min(ttl_days, MCP_OPEN_GRANT_TTL_DAYS=7)`). Minting + refusals (`jit_revoked` / `jit_cap_exceeded`) are audited.
+
+**Enforcement points (where each property lives):**
+
+- **Sticky revoke** — the explicit-revoke kill is instant (live-read filters `revoked_at`). The open-policy JIT path (slice 2e) MUST refuse to re-issue a `revoked_at` grant, so a revoked user cannot auto-mint their way back; only an admin re-issue lifts a revocation.
+- **JIT at the route egress** — open-by-domain minting and the verified-primary-email + exact-host-domain checks live in the route (`handleMcpPost`), where the DB handle and the verified email are available; `validateMcpToken` stays pure.
+- **Attestation at validation + runtime** — the structural "enabled ⇒ attested" gate is pure/CI-blocking; the time-based freshness gate runs with a clock at the endpoint (and is surfaced in admin).
+
+**Offboarding-backstop reframe (open).** The passive-lapse story holds only if Clerk's refresh-token absolute expiry ≤ the grant TTL; this must be verified empirically. Until verified, the grant `expires_at` + explicit admin revoke is the authoritative backstop, and mailbox-kill passive lapse is secondary. The email in-flow factor uses **OTP code** (not magic link) to keep verification in Claude's OAuth browser — an implementation refinement of "email-link," same mailbox-possession identity.
+
+**Open-by-domain structural-guard finding (2e research).** Under the shared fleet Clerk instance with DCR, **no token claim structurally binds a token to one customer**: Clerk omits a resource-bound `aud` for the MCP/DCR path (#1398), and custom session claims are instance-global (JWT templates), not per-OAuth-app/entry, so they cannot encode the customer the user signed in for. A structural per-customer claim would require per-customer Clerk instances (the heavy onboarding we rejected). Therefore open-by-domain cross-tenant isolation rests on the **compensating controls** — verified primary email + exact firm-domain match + sticky revoke + the per-customer cap + short TTL + the grant table as the authoritative per-request gate — not a structural token barrier. The no-`aud` cross-customer test (a token valid for X presented to Y → 401 because X's subject is absent from Y's grant set) is the guard that proves this holds, and it is exercised for both `allowlist` and `open` policies.
+
 ## What this does not decide
 
 - **The EMA/IdP cutover** — adopted when EMA supports Entra/M365; not built now.

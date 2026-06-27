@@ -1,8 +1,12 @@
 import type { D1Database } from '@cloudflare/workers-types'
 import type { RuntimeReadResult, RuntimeReadQuery } from '../runtime-read'
+import { SCREENING_ATTESTATION_MAX_AGE_DAYS } from '../customer-yaml/types'
+import { isAttestationFresh } from '../customer-yaml/sections-screening-attestation'
 import { buildMcpMetadataPath, type ResolvedMcpCustomer } from './customer-resolution'
 import { dispatchMcpRequest, getMcpToolName, parseMcpBody } from './mcp-handler'
 import { recordMcpAudit } from './mcp-audit'
+import { jitIssueGrant, MCP_OPEN_GRANT_TTL_DAYS } from './grant-store'
+import { domainAllowed } from './jit-grant'
 import { buildWwwAuthenticate } from './oauth-metadata'
 import {
   extractBearerToken,
@@ -78,13 +82,114 @@ function unauthorized(
   })
 }
 
+/**
+ * Open-by-domain JIT decision (slice 2e). Given the `identity_not_authored`
+ * failure, returns: an `ok` auth when a grant was minted, a `jit_*` failure when
+ * minting was refused (sticky-revoke or cap — audited as a deny by the caller), or
+ * `null` when JIT does not apply (so the original `identity_not_authored` stands).
+ * All hardening lives here: open policy only, verified PRIMARY email, exact
+ * firm-domain match, sticky revoke + cap (in jitIssueGrant), shorter open TTL.
+ */
+async function attemptOpenPolicyJit(
+  deps: McpRouteDependencies,
+  failure: Extract<McpAuthResult, { ok: false }>
+): Promise<McpAuthResult | null> {
+  const c = deps.customer.connector
+  const { email, subject } = failure
+  if (
+    c.policy !== 'open' ||
+    c.default_profile === null ||
+    !subject ||
+    !email ||
+    failure.emailVerified !== true ||
+    !domainAllowed(email, c.allowed_domains)
+  ) {
+    return null
+  }
+  const result = await jitIssueGrant(
+    deps.db,
+    {
+      customerSlug: deps.customer.customerId,
+      clerkUserId: subject,
+      email,
+      profile: c.default_profile,
+      ttlDays: Math.min(c.ttl_days, MCP_OPEN_GRANT_TTL_DAYS),
+    },
+    {
+      entityId: deps.customer.entityId,
+      actor: 'system:jit',
+      reason: 'open-policy firm-domain match',
+    }
+  )
+  if (!result.issued) {
+    return {
+      ok: false,
+      reason: result.reason === 'revoked' ? 'jit_revoked' : 'jit_cap_exceeded',
+      detail:
+        result.reason === 'revoked'
+          ? 'a revoked grant exists for this subject; admin re-issue required'
+          : 'open-policy grant cap reached for this customer',
+      subject,
+      tokenAudience: failure.tokenAudience,
+    }
+  }
+  return {
+    ok: true,
+    customer: deps.customer,
+    subject,
+    tokenAudience: failure.tokenAudience ?? [],
+    localUserId: subject,
+    email,
+    profile: c.default_profile,
+  }
+}
+
 export async function handleMcpPost(
   request: Request,
   url: URL,
   deps: McpRouteDependencies
 ): Promise<Response> {
+  // Runtime screening-attestation gate (ADR 0057 §4): an enabled connector goes
+  // dark the moment the firm's no-active-screens attestation is missing or stale,
+  // until re-attested. This is the fail-closed runtime enforcement of a
+  // continuously-changing fact — over and above the authoring-time validator gate.
+  if (
+    deps.customer.connector.enabled &&
+    !isAttestationFresh(
+      deps.customer.screeningAttestation,
+      new Date().toISOString(),
+      SCREENING_ATTESTATION_MAX_AGE_DAYS
+    )
+  ) {
+    await recordMcpAudit(deps.db, {
+      entityId: deps.customer.entityId,
+      customerSlug: deps.customer.customerId,
+      eventType: 'auth',
+      decision: 'deny',
+      reason: 'attestation_stale',
+      clerkSubject: null,
+      tokenAudience: null,
+      localUserId: null,
+      profile: null,
+      tool: null,
+    })
+    return unauthorized(
+      url,
+      deps.customer.customerId,
+      deps.customer.clerkOrgId !== null,
+      'screening attestation missing or stale'
+    )
+  }
+
   const token = extractBearerToken(request.headers.get('authorization'))
-  const auth = await validateMcpToken(token, deps.customer, deps.verifier)
+  let auth = await validateMcpToken(token, deps.customer, deps.verifier)
+  // Open-by-domain JIT (slice 2e): a genuine, verified firm-domain user who is not
+  // yet granted is auto-granted on first connect under `policy: open`. Only this
+  // exact failure is eligible; everything else stays denied.
+  if (!auth.ok && auth.reason === 'identity_not_authored') {
+    const jitted = await attemptOpenPolicyJit(deps, auth)
+    if (jitted) auth = jitted
+  }
   await recordAuth(deps, auth, auth.ok ? 'allow' : 'deny')
   if (!auth.ok) {
     return unauthorized(
