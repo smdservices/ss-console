@@ -9,6 +9,11 @@ import {
 } from '../../../../lib/admin/connectors-view'
 import { getCustomerConfig } from '../../../../lib/portal/customer-config'
 import { isSecretTransportConfigured } from '../../../../lib/operator/credential-secret-transport'
+import {
+  listGrants,
+  GRANT_TTL_DEFAULT_DAYS,
+  GRANT_TTL_MAX_DAYS,
+} from '../../../../lib/operator/mcp/grant-store'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -40,6 +45,27 @@ const connectors = config
   ? parseConnectorViews(config.connectors, config.credential_custody_default)
   : []
 const relayEnabled = isSecretTransportConfigured(env)
+
+// ADR 0057 — Claude connector access grants (the live kill switch).
+const grants = entityId ? await listGrants(env.DB, slug) : []
+const nowIso = new Date().toISOString()
+function grantState(g: { revoked_at: string | null; expires_at: string }): string {
+  if (g.revoked_at) return 'revoked'
+  return g.expires_at > nowIso ? 'active' : 'expired'
+}
+
+const GRANT_STATUS_MESSAGES: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
+  grant_issued: { tone: 'ok', text: 'Grant issued. It applies on the next request.' },
+  grant_revoked: { tone: 'ok', text: 'Grant revoked. Access is cut on the next request.' },
+  grant_not_found: { tone: 'warn', text: 'No active grant to revoke for that subject.' },
+  invalid_action: { tone: 'warn', text: 'Unrecognized grant action.' },
+  invalid_subject: { tone: 'warn', text: 'A Clerk subject is required.' },
+  invalid_email: { tone: 'warn', text: 'A valid grantee email is required.' },
+  invalid_profile: { tone: 'warn', text: 'A persona profile is required.' },
+}
+const statusParam = Astro.url.searchParams.get('status')
+const grantBanner = statusParam ? (GRANT_STATUS_MESSAGES[statusParam] ?? null) : null
+const grantsAction = `/api/admin/operator/${encodeURIComponent(slug)}/mcp-grants`
 ---
 
 <AdminLayout
@@ -69,6 +95,18 @@ const relayEnabled = isSecretTransportConfigured(env)
         </div>
       ) : (
         <>
+          {grantBanner && (
+            <div
+              class={`rounded-[var(--ss-radius-card)] border p-3 text-sm ${
+                grantBanner.tone === 'ok'
+                  ? 'border-[color:var(--ss-color-border)] bg-[color:var(--ss-color-surface-muted)] text-[color:var(--ss-color-text-primary)]'
+                  : 'border-[color:var(--ss-color-border)] bg-white text-[color:var(--ss-color-text-secondary)]'
+              }`}
+            >
+              {grantBanner.text}
+            </div>
+          )}
+
           <header>
             <h2 class="text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
               Connectors &amp; credentials — {slug}
@@ -139,6 +177,128 @@ const relayEnabled = isSecretTransportConfigured(env)
             OAuth re-consent execution ride the secret relay (ADR 0036); they light up here once it
             is configured.
           </p>
+
+          <section class="bg-white rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)] p-card">
+            <header class="mb-3">
+              <h3 class="text-lg font-semibold text-[color:var(--ss-color-text-primary)]">
+                Claude connector access (ADR 0057)
+              </h3>
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)] mt-1">
+                Who may reach this Operator through their own Claude. The grant is the authoritative
+                authorization and is checked live on every request, so revoking cuts access on the
+                next call. Bounded by design: every grant expires (default {GRANT_TTL_DEFAULT_DAYS}{' '}
+                days, max {GRANT_TTL_MAX_DAYS}).
+              </p>
+            </header>
+
+            {grants.length === 0 ? (
+              <p class="text-sm text-[color:var(--ss-color-text-secondary)]">
+                No grants issued. Issue one below to authorize a firm user's Claude.
+              </p>
+            ) : (
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="text-left text-[color:var(--ss-color-text-secondary)]">
+                    <th class="py-1 pr-3 font-medium">Subject</th>
+                    <th class="py-1 pr-3 font-medium">Email</th>
+                    <th class="py-1 pr-3 font-medium">Profile</th>
+                    <th class="py-1 pr-3 font-medium">Expires</th>
+                    <th class="py-1 pr-3 font-medium">State</th>
+                    <th class="py-1 font-medium" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {grants.map((g) => {
+                    const state = grantState(g)
+                    return (
+                      <tr class="border-t border-[color:var(--ss-color-border)] align-middle">
+                        <td class="py-1.5 pr-3 font-mono text-xs text-[color:var(--ss-color-text-primary)]">
+                          {g.clerk_user_id}
+                        </td>
+                        <td class="py-1.5 pr-3 text-[color:var(--ss-color-text-primary)]">
+                          {g.email}
+                        </td>
+                        <td class="py-1.5 pr-3 text-[color:var(--ss-color-text-primary)]">
+                          {g.profile}
+                        </td>
+                        <td class="py-1.5 pr-3 text-[color:var(--ss-color-text-secondary)]">
+                          {g.expires_at.slice(0, 10)}
+                        </td>
+                        <td class="py-1.5 pr-3 text-[color:var(--ss-color-text-secondary)]">
+                          {state}
+                        </td>
+                        <td class="py-1.5 text-right">
+                          {state === 'active' && (
+                            <form method="POST" action={grantsAction}>
+                              <input type="hidden" name="action" value="revoke" />
+                              <input type="hidden" name="clerk_user_id" value={g.clerk_user_id} />
+                              <button
+                                type="submit"
+                                class="text-xs text-[color:var(--ss-color-action)] hover:underline"
+                              >
+                                Revoke
+                              </button>
+                            </form>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+
+            <form method="POST" action={grantsAction} class="mt-4 grid gap-2 sm:grid-cols-2">
+              <input type="hidden" name="action" value="issue" />
+              <label class="text-xs text-[color:var(--ss-color-text-secondary)]">
+                Clerk subject
+                <input
+                  name="clerk_user_id"
+                  required
+                  placeholder="user_..."
+                  class="mt-0.5 w-full rounded border border-[color:var(--ss-color-border)] px-2 py-1 text-sm font-mono"
+                />
+              </label>
+              <label class="text-xs text-[color:var(--ss-color-text-secondary)]">
+                Grantee email
+                <input
+                  name="email"
+                  type="email"
+                  required
+                  placeholder="person@firm.com"
+                  class="mt-0.5 w-full rounded border border-[color:var(--ss-color-border)] px-2 py-1 text-sm"
+                />
+              </label>
+              <label class="text-xs text-[color:var(--ss-color-text-secondary)]">
+                Profile
+                <input
+                  name="profile"
+                  required
+                  placeholder="persona slug"
+                  class="mt-0.5 w-full rounded border border-[color:var(--ss-color-border)] px-2 py-1 text-sm"
+                />
+              </label>
+              <label class="text-xs text-[color:var(--ss-color-text-secondary)]">
+                TTL (days, max {GRANT_TTL_MAX_DAYS})
+                <input
+                  name="ttl_days"
+                  type="number"
+                  min="1"
+                  max={GRANT_TTL_MAX_DAYS}
+                  placeholder={String(GRANT_TTL_DEFAULT_DAYS)}
+                  class="mt-0.5 w-full rounded border border-[color:var(--ss-color-border)] px-2 py-1 text-sm"
+                />
+              </label>
+              <div class="sm:col-span-2">
+                <button
+                  type="submit"
+                  class="rounded bg-[color:var(--ss-color-action)] px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
+                >
+                  Issue grant
+                </button>
+              </div>
+            </form>
+          </section>
         </>
       )
     }
