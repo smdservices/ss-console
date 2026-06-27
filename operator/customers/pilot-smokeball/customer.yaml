@@ -181,6 +181,17 @@ personas:
       - google-workspace
       - himalaya
 
+# ---- SCREENING ATTESTATION (ADR 0057 §4) ----
+# Fail-closed precondition for ANY live inbound channel (the mcp_connector below
+# and scope.inbound_allow_from). Affirms that no active ethical screens / conflicts
+# at the firm would keep the Operator from acting on its inbound channels.
+# pilot-smokeball is SMD's own staging rig (no external client), so there is no
+# client conflict to screen.
+screening_attestation:
+  attested: true
+  attested_by: 'Scott Durgan'
+  attested_at: '2026-06-27T22:06:39Z'
+
 # ---- MCP CONNECTOR (Operator ⇄ Claude) ----
 # Rehearsal channel: lets us drive a real agent turn on this staging rig to prove
 # the firm-delegated Smokeball read end-to-end (Allow → token file → connector →
