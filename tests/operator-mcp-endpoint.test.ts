@@ -675,6 +675,113 @@ describe('MCP route authorization and audit', () => {
       },
     ])
   })
+
+  // --- Open-by-domain JIT (slice 2e) ---
+  const STATUS_BODY =
+    '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"operator_status"}}'
+  const okRead = (): Promise<RuntimeReadResult> =>
+    Promise.resolve({ ok: true, kind: 'audit_log', data: { entries: [], cursor: null } })
+  const openCustomer = (): ResolvedMcpCustomer => ({
+    ...customer,
+    connector: {
+      ...customer.connector,
+      policy: 'open',
+      allowed_domains: ['firm.com'],
+      default_profile: 'crane',
+      ttl_days: 7,
+    },
+    principals: [], // the caller is a not-yet-authored newcomer
+  })
+  const postAs = (cust: ResolvedMcpCustomer, claimsOver: Record<string, unknown>) =>
+    handleMcpPost(
+      new Request(RESOURCE_URI, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer t' },
+        body: STATUS_BODY,
+      }),
+      new URL(RESOURCE_URI),
+      { db, customer: cust, verifier: claimsVerifier(claims(claimsOver)), readRuntime: okRead }
+    )
+  const grantFor = (clerkUserId: string) =>
+    db
+      .prepare('SELECT clerk_user_id, profile FROM mcp_issued_grants WHERE clerk_user_id = ?')
+      .bind(clerkUserId)
+      .first()
+
+  it('open policy: JIT-grants a verified firm-domain newcomer and serves the call', async () => {
+    const res = await postAs(openCustomer(), {
+      sub: 'user_new',
+      email: 'new@firm.com',
+      email_verified: true,
+    })
+    expect(res.status).toBe(200)
+    expect(await grantFor('user_new')).toMatchObject({
+      clerk_user_id: 'user_new',
+      profile: 'crane',
+    })
+  })
+
+  it('open policy: denies a non-matching domain and mints nothing', async () => {
+    const res = await postAs(openCustomer(), {
+      sub: 'user_evil',
+      email: 'evil@notfirm.com',
+      email_verified: true,
+    })
+    expect(res.status).toBe(401)
+    expect(await grantFor('user_evil')).toBeNull()
+  })
+
+  it('open policy: denies an unverified primary email', async () => {
+    const res = await postAs(openCustomer(), {
+      sub: 'user_unv',
+      email: 'unv@firm.com',
+      email_verified: false,
+    })
+    expect(res.status).toBe(401)
+    expect(await grantFor('user_unv')).toBeNull()
+  })
+
+  it('allowlist policy: never JITs, even on a matching domain', async () => {
+    const allowlist: ResolvedMcpCustomer = {
+      ...customer,
+      connector: { ...customer.connector, policy: 'allowlist' },
+      principals: [],
+    }
+    const res = await postAs(allowlist, {
+      sub: 'user_al',
+      email: 'al@firm.com',
+      email_verified: true,
+    })
+    expect(res.status).toBe(401)
+    expect(await grantFor('user_al')).toBeNull()
+  })
+
+  it('open policy: STICKY REVOKE — a revoked subject is denied, not re-minted', async () => {
+    await db
+      .prepare(
+        'INSERT INTO mcp_issued_grants (customer_slug, clerk_user_id, email, profile, expires_at, revoked_at) ' +
+          'VALUES (?, ?, ?, ?, ?, ?)'
+      )
+      .bind(
+        'smd',
+        'user_rev',
+        'user_rev@firm.com',
+        'crane',
+        '2999-01-01T00:00:00.000Z',
+        '2026-06-01T00:00:00.000Z'
+      )
+      .run()
+    const res = await postAs(openCustomer(), {
+      sub: 'user_rev',
+      email: 'user_rev@firm.com',
+      email_verified: true,
+    })
+    expect(res.status).toBe(401)
+    const audit = await db
+      .prepare("SELECT reason FROM operator_mcp_audit WHERE decision = 'deny' ORDER BY id DESC")
+      .first<{ reason: string }>()
+    expect(audit?.reason).toBe('jit_revoked')
+  })
 })
 
 const unreachableRead = (): Promise<RuntimeReadResult> =>

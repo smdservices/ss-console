@@ -24,6 +24,21 @@ const NOW_SQL = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
 export const GRANT_TTL_DEFAULT_DAYS = 30
 export const GRANT_TTL_MAX_DAYS = 90
 
+/**
+ * Open-by-domain JIT (slice 2e) carries a SHORTER ceiling than admin-issued
+ * grants: no human approves each auto-mint, so the standing-access window is
+ * tighter. The route grants min(connector.ttl_days, this).
+ */
+export const MCP_OPEN_GRANT_TTL_DAYS = 7
+
+/**
+ * Per-customer active-grant ceiling for open-by-domain auto-issue. A compromised
+ * firm mailbox shouldn't fan out unbounded grants; at the cap, JIT refuses (the
+ * breach is audited) until grants lapse or an admin intervenes. Admin issuance is
+ * not capped (a human is in the loop).
+ */
+export const MCP_OPEN_GRANT_CAP = 50
+
 /** Clamp an authored/submitted TTL into [1, GRANT_TTL_MAX_DAYS]; junk → default. */
 export function clampTtlDays(raw: number): number {
   if (!Number.isFinite(raw) || raw < 1) return GRANT_TTL_DEFAULT_DAYS
@@ -151,6 +166,79 @@ export async function listGrants(db: D1Database, customerSlug: string): Promise<
     .bind(customerSlug)
     .all<GrantListRow>()
   return res.results ?? []
+}
+
+/** Count live (un-revoked, un-expired) grants for the open-policy cap. */
+export async function countActiveGrants(db: D1Database, customerSlug: string): Promise<number> {
+  const row = await db
+    .prepare(
+      'SELECT COUNT(*) AS n FROM mcp_issued_grants ' +
+        `WHERE customer_slug = ? AND revoked_at IS NULL AND expires_at > ${NOW_SQL}`
+    )
+    .bind(customerSlug)
+    .first<{ n: number }>()
+  return row?.n ?? 0
+}
+
+export type JitResult =
+  | { issued: true; expiresAt: string }
+  | { issued: false; reason: 'revoked' | 'cap_exceeded' }
+
+/**
+ * Open-by-domain JIT mint (slice 2e). STICKY REVOKE: refuses if a revoked grant
+ * already exists for the subject — a revoked user cannot auto-mint their way back
+ * (only adminIssueGrant lifts a revocation). Refuses at the per-customer cap.
+ * Unlike adminIssueGrant, it never clears revoked_at (the refuse-on-revoked check
+ * guarantees any row it upserts is already un-revoked).
+ */
+export async function jitIssueGrant(
+  db: D1Database,
+  input: IssueGrantInput,
+  ctx: GrantAuditContext
+): Promise<JitResult> {
+  const existing = await db
+    .prepare(
+      'SELECT revoked_at FROM mcp_issued_grants WHERE customer_slug = ? AND clerk_user_id = ?'
+    )
+    .bind(input.customerSlug, input.clerkUserId)
+    .first<{ revoked_at: string | null }>()
+  if (existing && existing.revoked_at !== null) return { issued: false, reason: 'revoked' }
+  if ((await countActiveGrants(db, input.customerSlug)) >= MCP_OPEN_GRANT_CAP) {
+    return { issued: false, reason: 'cap_exceeded' }
+  }
+
+  const ttlDays = clampTtlDays(input.ttlDays)
+  await db
+    .prepare(
+      'INSERT INTO mcp_issued_grants ' +
+        '(customer_slug, clerk_user_id, email, profile, expires_at, issued_at, revoked_at) ' +
+        `VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?), ${NOW_SQL}, NULL) ` +
+        'ON CONFLICT(customer_slug, clerk_user_id) DO UPDATE SET ' +
+        'email = excluded.email, profile = excluded.profile, ' +
+        'expires_at = excluded.expires_at, issued_at = excluded.issued_at'
+    )
+    .bind(input.customerSlug, input.clerkUserId, input.email, input.profile, `+${ttlDays} days`)
+    .run()
+  const row = await db
+    .prepare(
+      'SELECT expires_at FROM mcp_issued_grants WHERE customer_slug = ? AND clerk_user_id = ?'
+    )
+    .bind(input.customerSlug, input.clerkUserId)
+    .first<{ expires_at: string }>()
+  const expiresAt = row?.expires_at ?? ''
+  await recordGrantAudit(db, {
+    entityId: ctx.entityId,
+    customerSlug: input.customerSlug,
+    action: 'issue',
+    clerkUserId: input.clerkUserId,
+    email: input.email,
+    profile: input.profile,
+    ttlDays,
+    expiresAt,
+    actor: ctx.actor,
+    reason: ctx.reason,
+  })
+  return { issued: true, expiresAt }
 }
 
 interface GrantAuditRow {
