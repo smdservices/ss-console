@@ -127,14 +127,17 @@ top_level:
     materializer: ss-console portal (console-side access control); not staged to the Machine
   mcp_connector:
     status: implemented
-    materializer: ss-console MCP endpoint (console-hosted Operator<->Claude connector; reads enabled/data_posture/access to authorize MCP tool calls) + WEBHOOK_SECRET_MCP staged by provision-customer.sh for the handoff route
+    materializer: ss-console MCP endpoint (console-hosted Operator<->Claude connector; reads enabled/data_posture/policy/allowed_domains/default_profile/ttl_days/access to authorize MCP tool calls) + WEBHOOK_SECRET_MCP staged by provision-customer.sh for the handoff route
     note: >-
       Operator <-> Claude MCP connector (Phase 1, console-mediated). Consumed
       console-side, not translated into Machine config.yaml — validated by
       src/lib/operator/customer-yaml/sections-mcp-connector.ts. The only Machine
       touch is the per-customer WEBHOOK_SECRET_MCP (handoff route) + the
-      webhook-router recognizing source="mcp". Fail-closed: absent/enabled:false
-      => no user reaches the Operator through Claude. See
+      webhook-router recognizing source="mcp". Issuance policy (ADR 0057 §3):
+      policy=allowlist (default, fail-closed) | open (verified firm-domain JIT,
+      requires allowed_domains + default_profile; auto-issue is slice 2e).
+      ttl_days bounds every grant (1..90, never infinite). Fail-closed:
+      absent/enabled:false => no user reaches the Operator through Claude. See
       docs/design/operator/03-mcp-server-exposure.md.
   relationship:
     status: implemented
