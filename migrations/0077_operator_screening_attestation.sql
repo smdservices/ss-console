@@ -1,0 +1,24 @@
+-- Operator ⇄ Claude connector — screening-attestation projection (ADR 0057 §4)
+-- ============================================================================
+-- Projects customer.yaml.screening_attestation into the customer_configs read
+-- replica so the runtime can enforce it. The attestation is a firm-level
+-- no-active-screens fact and a fail-closed precondition to any live inbound
+-- channel (the MCP connector AND scope.inbound_allow_from).
+--
+-- WHY A COLUMN. The structural "enabled ⇒ attested" gate is enforced purely at
+-- customer.yaml validation (CI-blocking). But "no active screens" is a
+-- continuously-changing fact, so the attestation also has a FRESHNESS gate
+-- (SCREENING_ATTESTATION_MAX_AGE_DAYS) that must run with a clock at request
+-- time — and customer.yaml is not readable at Worker runtime. Projecting the
+-- block here lets loadMcpCustomer surface it and the MCP endpoint take an enabled
+-- connector dark once the attestation goes stale, until it is re-attested.
+--
+-- Shape: JSON { attested, attested_by, attested_at } (parseScreeningAttestation,
+-- src/lib/portal/customer-config.ts), mirroring mcp_connector_json. Null column
+-- (a row predating this migration, or a customer.yaml with no block) ⇒ the
+-- fail-closed default { attested: false } — connector dark.
+--
+-- Refers to: docs/adr/0057-operator-claude-connector-access-model.md
+-- ============================================================================
+
+ALTER TABLE customer_configs ADD COLUMN screening_attestation_json TEXT;

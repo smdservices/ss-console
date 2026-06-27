@@ -456,6 +456,7 @@ function lockedFromCurrent(
   | 'authority'
   | 'credential_custody_default'
   | 'mcp_connector'
+  | 'screening_attestation'
   | 'relationship'
 > {
   return {
@@ -493,6 +494,10 @@ function lockedFromCurrent(
     // mcp_connector (Operator <-> Claude) is provisioning/admin-set, not
     // client-editable in this portal flow yet. Preserve verbatim.
     mcp_connector: current.mcp_connector,
+    // screening_attestation (ADR 0057 §4) is a firm legal attestation captured
+    // out-of-band, never a portal self-serve toggle (a client cannot attest their
+    // own gate away). Preserve verbatim across portal edits.
+    screening_attestation: current.screening_attestation,
     // relationship (ADR 0048 authored behavioral lane) is SMD/provisioning-set —
     // per-person working preferences are not a client self-serve config. Preserve
     // verbatim across portal edits.

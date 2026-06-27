@@ -14,6 +14,11 @@ import {
   GRANT_TTL_DEFAULT_DAYS,
   GRANT_TTL_MAX_DAYS,
 } from '../../../../lib/operator/mcp/grant-store'
+import {
+  isAttestationFresh,
+  SCREENING_ATTESTATION_MAX_AGE_DAYS,
+  SCREENING_ATTESTATION_WARN_AGE_DAYS,
+} from '../../../../lib/operator/customer-yaml'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -66,6 +71,47 @@ const GRANT_STATUS_MESSAGES: Record<string, { tone: 'ok' | 'warn'; text: string 
 const statusParam = Astro.url.searchParams.get('status')
 const grantBanner = statusParam ? (GRANT_STATUS_MESSAGES[statusParam] ?? null) : null
 const grantsAction = `/api/admin/operator/${encodeURIComponent(slug)}/mcp-grants`
+
+// ADR 0057 §4 — screening attestation gates the whole connector (and the email
+// channel). Surfaced here, fresh/stale computed against the same clock the
+// runtime endpoint uses.
+const attestation = config?.screening_attestation ?? null
+const attestationAgeDays =
+  attestation?.attested_at && !Number.isNaN(Date.parse(attestation.attested_at))
+    ? Math.floor((Date.parse(nowIso) - Date.parse(attestation.attested_at)) / 86_400_000)
+    : null
+const attestationFresh = attestation
+  ? isAttestationFresh(attestation, nowIso, SCREENING_ATTESTATION_MAX_AGE_DAYS)
+  : false
+const attestationStatus: { tone: 'ok' | 'warn' | 'bad'; label: string; detail: string } =
+  !attestation || !attestation.attested
+    ? {
+        tone: 'bad',
+        label: 'Not attested',
+        detail:
+          'Enabled inbound channels are dark until the firm attests it has no active screens (ADR 0057 §4). Author the real attestation in customer.yaml.',
+      }
+    : !attestationFresh
+      ? {
+          tone: 'bad',
+          label: 'Stale — channels dark',
+          detail: `Attested ${attestationAgeDays}d ago by ${attestation.attested_by}; past the ${SCREENING_ATTESTATION_MAX_AGE_DAYS}-day window. Re-attest to restore.`,
+        }
+      : (attestationAgeDays ?? 0) >= SCREENING_ATTESTATION_WARN_AGE_DAYS
+        ? {
+            tone: 'warn',
+            label: 'Expiring soon',
+            detail: `Attested ${attestationAgeDays}d ago by ${attestation.attested_by}; re-attest before day ${SCREENING_ATTESTATION_MAX_AGE_DAYS}.`,
+          }
+        : {
+            tone: 'ok',
+            label: 'Attested',
+            detail: `By ${attestation.attested_by} on ${attestation.attested_at?.slice(0, 10)}.`,
+          }
+const attestationToneClass =
+  attestationStatus.tone === 'ok'
+    ? 'text-[color:var(--ss-color-text-secondary)]'
+    : 'text-[color:var(--ss-color-text-primary)] font-medium'
 ---
 
 <AdminLayout
@@ -188,6 +234,12 @@ const grantsAction = `/api/admin/operator/${encodeURIComponent(slug)}/mcp-grants
                 authorization and is checked live on every request, so revoking cuts access on the
                 next call. Bounded by design: every grant expires (default {GRANT_TTL_DEFAULT_DAYS}{' '}
                 days, max {GRANT_TTL_MAX_DAYS}).
+              </p>
+              <p class={`text-sm mt-2 ${attestationToneClass}`}>
+                Screening attestation: {attestationStatus.label}.{' '}
+                <span class="text-[color:var(--ss-color-text-secondary)] font-normal">
+                  {attestationStatus.detail}
+                </span>
               </p>
             </header>
 
