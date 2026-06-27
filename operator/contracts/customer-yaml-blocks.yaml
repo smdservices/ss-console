@@ -139,6 +139,18 @@ top_level:
       ttl_days bounds every grant (1..90, never infinite). Fail-closed:
       absent/enabled:false => no user reaches the Operator through Claude. See
       docs/design/operator/03-mcp-server-exposure.md.
+  screening_attestation:
+    status: implemented
+    materializer: src/lib/operator/customer-yaml/sections-screening-attestation.ts (structural gate) + customer_configs.screening_attestation_json projection (parseScreeningAttestation) + ss-console MCP endpoint runtime freshness gate (isAttestationFresh)
+    note: >-
+      Firm no-active-screens attestation (ADR 0057 §4). Fail-closed precondition
+      to any enabled inbound channel: the validator blocks authoring an enabled
+      mcp_connector or a non-empty scope.inbound_allow_from without attested:true
+      (CI-blocking, both channels). Projected to customer_configs so the MCP
+      endpoint takes an enabled connector dark once the attestation is missing or
+      older than SCREENING_ATTESTATION_MAX_AGE_DAYS (90) — a continuously-true
+      fact, not point-in-time. Real legal data; never placeholder-authored for a
+      live firm. See docs/adr/0057-operator-claude-connector-access-model.md.
   relationship:
     status: implemented
     materializer: translate _persona_config (config.yaml relationship) + _soul_body ("Working relationships" section) + overlay runtime_read config_export

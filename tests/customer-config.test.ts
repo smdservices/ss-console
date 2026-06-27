@@ -27,6 +27,7 @@ import {
   getLatestSyncMeta,
   listCustomerConfigHistory,
   parseMcpConnector,
+  parseScreeningAttestation,
   recordCustomerConfigSync,
   shouldRecordSync,
   type PersonaConfig,
@@ -385,6 +386,34 @@ describe('parseMcpConnector (fail-closed, defensive)', () => {
     expect(c.ttl_days).toBe(30)
     expect(c.allowed_domains).toEqual([])
     expect(c.default_profile).toBeNull()
+  })
+})
+
+describe('parseScreeningAttestation (fail-closed, defensive)', () => {
+  const NOT_ATTESTED = { attested: false, attested_by: null, attested_at: null }
+
+  it('null / malformed / non-object ⇒ not attested', () => {
+    expect(parseScreeningAttestation(null)).toEqual(NOT_ATTESTED)
+    expect(parseScreeningAttestation('{not json')).toEqual(NOT_ATTESTED)
+    expect(parseScreeningAttestation('"a string"')).toEqual(NOT_ATTESTED)
+  })
+
+  it('honors a well-formed attestation; attested requires literal true', () => {
+    expect(
+      parseScreeningAttestation(
+        JSON.stringify({
+          attested: true,
+          attested_by: 'Managing Partner',
+          attested_at: '2026-06-20T00:00:00.000Z',
+        })
+      )
+    ).toEqual({
+      attested: true,
+      attested_by: 'Managing Partner',
+      attested_at: '2026-06-20T00:00:00.000Z',
+    })
+    // "yes" is not literal true ⇒ not attested
+    expect(parseScreeningAttestation(JSON.stringify({ attested: 'yes' })).attested).toBe(false)
   })
 })
 
