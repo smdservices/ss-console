@@ -387,6 +387,89 @@ describe('loadMcpCustomer and migration 0072', () => {
     )
   })
 
+  // ADR 0057 — dynamic access grants (mcp_issued_grants) merged into principals.
+  const insertGrant = (
+    db: D1Database,
+    grant: {
+      clerk_user_id: string
+      email: string
+      profile: string
+      expires_at: string
+      revoked_at?: string | null
+    }
+  ) =>
+    db
+      .prepare(
+        'INSERT INTO mcp_issued_grants ' +
+          '(customer_slug, clerk_user_id, email, profile, expires_at, revoked_at) ' +
+          'VALUES (?, ?, ?, ?, ?, ?)'
+      )
+      .bind(
+        'smd',
+        grant.clerk_user_id,
+        grant.email,
+        grant.profile,
+        grant.expires_at,
+        grant.revoked_at ?? null
+      )
+      .run()
+
+  it('authorizes a live grant for a subject not in the authored access list', async () => {
+    await insertGrant(db, {
+      clerk_user_id: 'user_grantonly',
+      email: 'grantee@example.com',
+      profile: 'quinn',
+      expires_at: '2999-01-01T00:00:00.000Z',
+    })
+    const customer = await loadMcpCustomer(db, 'smd')
+    expect(customer?.principals).toContainEqual({
+      localUserId: 'user_grantonly',
+      clerkUserId: 'user_grantonly',
+      email: 'grantee@example.com',
+      profile: 'quinn',
+    })
+  })
+
+  it('does not authorize an expired grant', async () => {
+    await insertGrant(db, {
+      clerk_user_id: 'user_expired',
+      email: 'expired@example.com',
+      profile: 'quinn',
+      expires_at: '2000-01-01T00:00:00.000Z',
+    })
+    const customer = await loadMcpCustomer(db, 'smd')
+    expect(customer?.principals.map((p) => p.clerkUserId)).not.toContain('user_expired')
+  })
+
+  it('does not authorize a revoked grant', async () => {
+    await insertGrant(db, {
+      clerk_user_id: 'user_revoked',
+      email: 'revoked@example.com',
+      profile: 'quinn',
+      expires_at: '2999-01-01T00:00:00.000Z',
+      revoked_at: '2026-01-01T00:00:00.000Z',
+    })
+    const customer = await loadMcpCustomer(db, 'smd')
+    expect(customer?.principals.map((p) => p.clerkUserId)).not.toContain('user_revoked')
+  })
+
+  it('lets an authored principal win over a grant for the same Clerk subject', async () => {
+    await insertGrant(db, {
+      clerk_user_id: CLERK_USER_ID, // already authored as pilot@example.com / crane
+      email: 'someone-else@example.com',
+      profile: 'quinn',
+      expires_at: '2999-01-01T00:00:00.000Z',
+    })
+    const customer = await loadMcpCustomer(db, 'smd')
+    const matches = customer?.principals.filter((p) => p.clerkUserId === CLERK_USER_ID)
+    expect(matches).toHaveLength(1)
+    expect(matches?.[0]).toMatchObject({
+      localUserId: LOCAL_USER_ID,
+      email: 'pilot@example.com',
+      profile: 'crane',
+    })
+  })
+
   it('returns null for unknown or malformed customer slugs', async () => {
     expect(await loadMcpCustomer(db, 'unknown')).toBeNull()
     expect(await loadMcpCustomer(db, '../smd')).toBeNull()
