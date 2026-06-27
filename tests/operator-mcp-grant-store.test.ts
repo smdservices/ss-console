@@ -11,9 +11,12 @@ import { loadMcpCustomer } from '../src/lib/operator/mcp/customer-resolution'
 import {
   adminIssueGrant,
   clampTtlDays,
+  countActiveGrants,
   GRANT_TTL_DEFAULT_DAYS,
   GRANT_TTL_MAX_DAYS,
+  jitIssueGrant,
   listGrants,
+  MCP_OPEN_GRANT_CAP,
   revokeGrant,
 } from '../src/lib/operator/mcp/grant-store'
 
@@ -237,5 +240,86 @@ describe('grant-store write side (ADR 0057)', () => {
     const grants = await listGrants(db, SLUG)
     expect(grants).toHaveLength(1)
     expect(grants[0]?.revoked_at).not.toBeNull()
+  })
+})
+
+describe('jitIssueGrant — open-by-domain (slice 2e)', () => {
+  let db: D1Database
+  const jitCtx = { entityId: ENTITY_ID, actor: 'system:jit', reason: 'open-policy' }
+  beforeEach(async () => {
+    db = await freshDb()
+    await seed(db)
+  })
+
+  const jit = (clerkUserId: string, ttlDays = 7) =>
+    jitIssueGrant(
+      db,
+      {
+        customerSlug: SLUG,
+        clerkUserId,
+        email: `${clerkUserId}@firm.com`,
+        profile: 'quinn',
+        ttlDays,
+      },
+      jitCtx
+    )
+
+  it('mints a grant and authorizes the subject', async () => {
+    const res = await jit('user_jit')
+    expect(res).toMatchObject({ issued: true })
+    const customer = await loadMcpCustomer(db, SLUG)
+    expect(customer?.principals.find((p) => p.clerkUserId === 'user_jit')).toBeDefined()
+    const audit = await auditRows(db)
+    expect(audit).toHaveLength(1)
+    expect(audit[0]).toMatchObject({ action: 'issue', actor: 'system:jit' })
+  })
+
+  it('STICKY REVOKE: refuses to re-mint a revoked subject (no audit, no resurrection)', async () => {
+    await adminIssueGrant(
+      db,
+      {
+        customerSlug: SLUG,
+        clerkUserId: 'user_x',
+        email: 'user_x@firm.com',
+        profile: 'quinn',
+        ttlDays: 7,
+      },
+      issueCtx
+    )
+    await revokeGrant(db, { customerSlug: SLUG, clerkUserId: 'user_x' }, issueCtx)
+    const res = await jit('user_x')
+    expect(res).toEqual({ issued: false, reason: 'revoked' })
+    const customer = await loadMcpCustomer(db, SLUG)
+    expect(customer?.principals.find((p) => p.clerkUserId === 'user_x')).toBeUndefined()
+  })
+
+  it('re-mints over an expired (not revoked) grant', async () => {
+    await db
+      .prepare(
+        'INSERT INTO mcp_issued_grants (customer_slug, clerk_user_id, email, profile, expires_at, revoked_at) ' +
+          'VALUES (?, ?, ?, ?, ?, ?)'
+      )
+      .bind(SLUG, 'user_exp', 'user_exp@firm.com', 'quinn', '2000-01-01T00:00:00.000Z', null)
+      .run()
+    const res = await jit('user_exp')
+    expect(res).toMatchObject({ issued: true })
+    const customer = await loadMcpCustomer(db, SLUG)
+    expect(customer?.principals.find((p) => p.clerkUserId === 'user_exp')).toBeDefined()
+  })
+
+  it('refuses at the per-customer cap', async () => {
+    const far = '2999-01-01T00:00:00.000Z'
+    const stmts = Array.from({ length: MCP_OPEN_GRANT_CAP }, (_, i) =>
+      db
+        .prepare(
+          'INSERT INTO mcp_issued_grants (customer_slug, clerk_user_id, email, profile, expires_at, revoked_at) ' +
+            'VALUES (?, ?, ?, ?, ?, ?)'
+        )
+        .bind(SLUG, `cap_${i}`, `cap_${i}@firm.com`, 'quinn', far, null)
+    )
+    await db.batch(stmts)
+    expect(await countActiveGrants(db, SLUG)).toBe(MCP_OPEN_GRANT_CAP)
+    const res = await jit('user_overflow')
+    expect(res).toEqual({ issued: false, reason: 'cap_exceeded' })
   })
 })
