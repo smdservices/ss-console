@@ -242,6 +242,20 @@ const FORBIDDEN_PATTERNS: Array<{ label: string; pattern: RegExp | string }> = [
     pattern:
       /\d+\+?\s*(?:hours?|hrs?)\s*(?:per|\/)\s*(?:week|wk|month|mo|day)\s+(?:freed|saved|reclaimed|back)/i,
   },
+  // --- Retired Operator marketing spine (ADR 0037, 2026-06-27) ---
+  // "the role you keep meaning to fill" opened on a role the owner had failed
+  // to fill, which is an accusation; "fill the seat" carried the same framing.
+  // Both retired in favor of the off-the-shelf / built-for-you / third-option
+  // spine. Scanned over src only (docs/ may quote the retired line to explain
+  // the rip). See feedback_no_accusatory_role_framing.
+  {
+    label: 'Retired accusatory spine: "keep(s) meaning to fill"',
+    pattern: /keeps?\s+meaning\s+to\s+fill/i,
+  },
+  {
+    label: 'Retired spine framing: "fill the seat"',
+    pattern: /\bfill the seat\b/i,
+  },
 ]
 
 const sourceFiles = collectSourceFiles(SRC_ROOT)

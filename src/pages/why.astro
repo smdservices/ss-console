@@ -1,12 +1,13 @@
 ---
 export const prerender = false
 
-// The POV / manifesto surface. The category argument in full: the villain, why
-// software never solved it, the old-way/new-way shift, the budget-line move,
+// The POV / manifesto surface. The category argument in full: work is people and
+// tools (both off the shelf), it comes back to people who leave, no single tool
+// closes the gap between them, the old-way/new-way shift, employed-not-installed,
 // substrate durability, and the guide. The home is the condensed version of this;
 // /operator is the mechanism; this is the conviction.
 //
-// DRAFT COPY — directional for the Captain's voice pass. Structure is final.
+// DRAFT COPY - directional for the Captain's voice pass. Structure is final.
 import Base from '../layouts/Base.astro'
 import Nav from '../components/Nav.astro'
 import Footer from '../components/Footer.astro'
@@ -15,18 +16,22 @@ import { CATEGORY_NAME, CATEGORY_ARTICLE } from '../lib/category'
 
 const comparison = [
   {
-    label: 'What you buy',
-    old: 'Software for tasks, plus a person to run it',
-    now: 'A worker for a role',
+    label: 'How it fits',
+    old: 'Off the shelf, bent to fit',
+    now: 'Built for how you run',
   },
-  { label: 'The budget line', old: 'Software seats and a salary', now: 'The seat, filled' },
+  { label: 'The budget line', old: 'Software seats, plus a salary', now: 'A worker, run for you' },
   { label: 'Ramp', old: 'Months to useful', now: 'Up to speed in a fraction of the time' },
   {
     label: 'When they leave',
     old: 'The knowledge walks out the door',
     now: 'The memory stays with the business',
   },
-  { label: 'The glue between tools', old: 'Your people, by hand', now: 'The worker, by design' },
+  {
+    label: 'The work between tools',
+    old: 'Falls to your people, by hand',
+    now: 'Done by the worker, by design',
+  },
   { label: 'Who keeps it running', old: 'You, as a second job', now: 'We do, as the service' },
   {
     label: 'What you are locked into',
@@ -38,7 +43,7 @@ const comparison = [
 
 <Base
   title={`Why ${CATEGORY_ARTICLE} ${CATEGORY_NAME} | SMD Services`}
-  description="Businesses have hired people to do the connective work since the dawn of business, and the problems with that are universal. There is a new way to fill the seat. This is the argument for it."
+  description="Businesses have always run on the people they hire and the tools they buy, and both come off the shelf. There is now a third option: a worker built for your business. This is the argument for it."
 >
   <Nav />
   <main id="main" role="main">
@@ -52,25 +57,25 @@ const comparison = [
         <h1
           class="mb-10 font-['Archivo'] text-5xl md:text-7xl font-black uppercase leading-[1.02] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
         >
-          You Have Been Buying Tools. The Work Needed A Worker.
+          Two Ways To Get Work Done. Now There's A Third.
         </h1>
         <div class="space-y-8 text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
-            Every business runs on connective work. The follow-up that has to happen, the handoff
-            between two systems, the inquiry that needs a reply, the thing that falls through the
-            crack when no one is watching. It is the work that holds a business together, and it has
-            always been done by a person.
+            Work gets done two ways: the people you hire and the tools you buy. Between them sits
+            the connective work. The follow-up that has to happen, the handoff between two systems,
+            the inquiry that needs a reply, the thing that falls through the crack when no one is
+            watching. It holds a business together, and it has always come down to a person.
           </p>
           <p>
-            There is now another way to do it. We call it {CATEGORY_ARTICLE}
-            {CATEGORY_NAME}: a worker you hire for a role, built around your business and run for
-            you, instead of one more tool you have to run yourself.
+            There is now a third way. We call it {CATEGORY_ARTICLE}
+            {CATEGORY_NAME}: not a person you hire or a tool you buy, but a worker built for your
+            business and run for you.
           </p>
         </div>
       </div>
     </section>
 
-    <!-- § 02 The seat that won't stay filled -->
+    <!-- § 02 What the seat costs: it always comes back to people, who leave -->
     <section class="bg-white px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -96,13 +101,14 @@ const comparison = [
           </p>
           <p>
             None of this is a failure of the people or the owner. It is the shape of the job. The
-            job is real, the work is necessary, and the way we have always filled it is the problem.
+            job is real, the work is necessary, and doing it with people and tools that were never
+            built for your business is the problem.
           </p>
         </div>
       </div>
     </section>
 
-    <!-- § 03 Why software never solved it -->
+    <!-- § 03 The work lives between the tools (connective tissue, tools honored) -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -112,13 +118,14 @@ const comparison = [
         <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          Why Software Never Solved It.
+          The Work Lives Between The Tools.
         </h2>
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
             Every tool you run does a piece of the work. The practice system, the books, the
-            scheduler, the inbox. Each one is good at its own job. None of them does the work that
-            lives between them, because that work was never inside any single tool to begin with.
+            scheduler, the inbox. Each one is good at its own job, and only as good as the person
+            using it. None of them does the work that lives between them, because that work was
+            never inside any single tool to begin with.
           </p>
           <p>
             So the connective work falls to a person, and you buy more tools, and the person has
@@ -207,12 +214,12 @@ const comparison = [
           <p>
             A tool is something you buy and then run. A worker is something you hire and put to
             work. The Operator is the second kind. You are not adding a line to your software bill.
-            You are filling a seat.
+            You are taking on the work a person would do.
           </p>
           <p>
             So the honest comparison is not against other software. It is against what it costs to
-            put a person in that seat, fully loaded, and keep them there. We price it against the
-            role it fills, and we walk through that with you before anything is built.
+            put a person on this work, fully loaded, and keep them there. We price it against that,
+            and we walk through it with you before anything is built.
           </p>
         </div>
       </div>

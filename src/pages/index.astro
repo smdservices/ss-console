@@ -3,10 +3,11 @@
 // and rewrite them to /portal. The prerendered static file would bypass the Worker entirely.
 export const prerender = false
 
-// Operator-forward home. Leads with the Operator as a named category: the cost
-// of filling the role with a person (the villain), the new way named, the
-// Operator made concrete, the leash, a secondary consulting path, the founder,
-// one CTA. Scope-based consulting moved to /consulting (a clear secondary door),
+// Operator-forward home. Leads on the spine: work is the people you hire and the
+// tools you buy, both off the shelf; it always comes back to people, who leave;
+// the Operator is the third option, built for your business. Then the Operator
+// made concrete, the leash, a secondary consulting path, the founder, one CTA.
+// Scope-based consulting moved to /consulting (a clear secondary door),
 // not removed. No proof beat here: a pre-launch firm has no honest external
 // proof, so the home converts on argument; proof lives in the live demo and in
 // real customer references, never a homepage claim or an audit-ledger display.
@@ -39,8 +40,8 @@ const categorySchema = {
 ---
 
 <Base
-  title="SMD Services | Hire the Operator, Not Another Tool"
-  description="The work a coordinator does, the follow-ups, handoffs, and intake that hold a business together, without the cost of hiring, training, and keeping someone in the seat. The Operator is a worker we build and run for you."
+  title="SMD Services | The Operator, Built For Your Business"
+  description="You hire people and you buy tools. Both come off the shelf. The Operator is a third option: a worker built for how your business runs, and run for you as a flat monthly service."
 >
   <Nav />
   <main id="main" role="main">
@@ -48,7 +49,7 @@ const categorySchema = {
 
     <OperatorHero />
 
-    <!-- § 02 The old way (the villain: what filling the seat with a person costs) -->
+    <!-- § 02 The problem: people and tools come off the shelf; it always comes back to people -->
     <section id="how" class="bg-white px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -58,28 +59,30 @@ const categorySchema = {
         <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          What Filling It Really Costs.
+          It Always Comes Back To People.
         </h2>
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
-            Work like this usually gets solved by hiring someone to own it. A coordinator, a
-            dispatcher, an intake lead. The role you keep meaning to fill.
+            Work gets done two ways: the people you hire and the tools you buy. But you built your
+            business your way, and both of them come off the shelf. So you spend your time bending
+            them to fit.
           </p>
           <p>
-            That hire takes months to get up to speed, and you pay full salary for partial value the
-            whole time. The day they leave, everything they learned about how you run walks out with
-            them, and you start the search over.
+            And the best tool is only as good as the hand that wields it, so it always comes back to
+            people. A new hire takes months to get up to speed. You pay full salary for partial
+            value the whole time. And the day they leave, what they learned leaves with them, and
+            you start over.
           </p>
           <p>
-            The salary is only part of it. The hiring, the training, the turnover, the hours spent
-            managing it, the cost is fixed and rising whether the work is full or slow. None of this
-            is a failure of effort. It is what the seat costs.
+            None of this is a failure of effort. It is the cost of running your business on things
+            that were never built for it. The salary, the ramp, the turnover, the hours spent
+            managing it, fixed and rising whether the work is full or slow.
           </p>
         </div>
       </div>
     </section>
 
-    <!-- § 03 The new way, named (coin the category + move the budget line) -->
+    <!-- § 03 The third option: a worker built for your business; coin the category -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -89,19 +92,18 @@ const categorySchema = {
         <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          There Is A New Way To Fill The Seat.
+          Now There's A Third Option.
         </h2>
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
-            You have been buying software for tasks and asking your people to be the glue between it
-            all. There is now a different thing to hire: a worker for the role, not a tool for a
-            task.
+            Not a person you hire or a tool you buy. A worker, built for your business the way you
+            built your business. It is shaped around how you run, it connects to the tools you
+            already use, and it learns only your business, never a model shared with everyone else.
           </p>
           <p>
-            It is built around how you actually operate. It is up to speed in a fraction of the time
-            a hire takes, it does not quit, and the understanding it builds stays with the business.
-            The technology underneath keeps improving, and the worker rides on top of it, so you are
-            hiring the role, not a tool you have to keep replacing.
+            It is built to wield those tools and work the way you work. As your business changes, it
+            keeps learning. And what it learns does not live in one person's head, so it never walks
+            out the door. The understanding it builds of how you run is yours.
           </p>
           <p
             class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.01em] leading-tight text-[color:var(--ss-color-text-primary)]"

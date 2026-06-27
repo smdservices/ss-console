@@ -67,6 +67,7 @@ _Consequence:_ competitive analysis evaluates "where is the coordinator role mos
 - **"Draft-for-review is the default."** Reframed by Tenet 3: unconfigured is the fail-closed _safety state_, not a default posture or product identity. [ADR 0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) §4's "default" language is read in that light — it describes a code mechanism, not what the product _is_.
 - **"Draft-for-review send is the durable moat."** Corrected by Tenet 4: no single feature is the moat. [ADR 0025](./0025-autonomy-ceilings-configurable-exposure-vs-initiation.md) already began this shift ("the defensible claim shifts from 'we never let the AI send' to 'trust is configurable, code-enforced, audited, and floored by your vertical's compliance constraints'"); this ADR completes it as positioning doctrine and extends it: the moat is the harness **plus the guide plus the memory**, never a capability in isolation. The stale phrasing in `CLAUDE.md` (Operator Architecture §2, "draft routing ... are the durable moat") is corrected in the same change.
 - **Competitive framing.** Prior analyses scored a vertical _down_ when an incumbent suite (Clio, Karbon, the AMS, the PSA) shipped an in-app AI feature, treating it as "absorbing our layer." Tenet 1 inverts this: those suites are silos the Operator connects across, and their fragmentation is the reason connective tissue is valuable.
+- **The accusatory spine and the anti-tool wedge.** Retired 2026-06-27. "Name the coordinator-shaped hole / 'the role you keep meaning to fill'" opened on a role the owner had failed to fill, which is an accusation; and the "worker vs. tool" marketing wedge trashed tools the Operator should honor as leverage that needs a skilled hand. The spine now opens from strength: work has always been people plus tools, both off the shelf, so it comes back to people who leave; the Operator is the third option, built for the business. Phrasing and positioning only; the six tenets stand.
 
 ## Consequences
 
@@ -74,7 +75,7 @@ _Consequence:_ competitive analysis evaluates "where is the coordinator role mos
 
 - One canonical frame replaces tribal knowledge that drifted every session.
 - Competitive analysis, WTP estimation, and vertical selection all gain a correct, shared lens (compete-with-a-hire; reachability × WTP; incumbents-as-connection-targets).
-- The marketing spine falls out of Tenet 1: name the **coordinator-shaped hole** — "the role you keep meaning to fill" — not "our software drafts your emails."
+- The marketing spine falls out of Tenet 1: work has always been done two ways, the people you hire and the tools you buy, and both come off the shelf while the business is one of a kind, so it always comes back to people, who leave. Name the **third option**, a worker built for the business, not "our software drafts your emails." (The earlier "coordinator-shaped hole / 'the role you keep meaning to fill'" phrasing is retired as accusatory; see the rip.)
 
 **Negative / accepted.**
 
