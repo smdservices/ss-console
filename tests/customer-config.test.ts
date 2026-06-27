@@ -311,30 +311,28 @@ describe('mcp_connector projection column (migration 0071)', () => {
 })
 
 describe('parseMcpConnector (fail-closed, defensive)', () => {
-  it('null / undefined ⇒ disabled, empty access', () => {
-    expect(parseMcpConnector(null)).toEqual({ enabled: false, data_posture: 'open', access: [] })
-    expect(parseMcpConnector(undefined)).toEqual({
-      enabled: false,
-      data_posture: 'open',
-      access: [],
-    })
+  const FAIL_CLOSED = {
+    enabled: false,
+    data_posture: 'open',
+    policy: 'allowlist',
+    allowed_domains: [],
+    default_profile: null,
+    ttl_days: 30,
+    access: [],
+  }
+
+  it('null / undefined ⇒ disabled, allowlist, empty access', () => {
+    expect(parseMcpConnector(null)).toEqual(FAIL_CLOSED)
+    expect(parseMcpConnector(undefined)).toEqual(FAIL_CLOSED)
   })
 
   it('malformed JSON ⇒ fail-closed (never throws)', () => {
-    expect(parseMcpConnector('{not json')).toEqual({
-      enabled: false,
-      data_posture: 'open',
-      access: [],
-    })
+    expect(parseMcpConnector('{not json')).toEqual(FAIL_CLOSED)
   })
 
   it('a non-object value ⇒ fail-closed', () => {
-    expect(parseMcpConnector('"a string"')).toEqual({
-      enabled: false,
-      data_posture: 'open',
-      access: [],
-    })
-    expect(parseMcpConnector('42')).toEqual({ enabled: false, data_posture: 'open', access: [] })
+    expect(parseMcpConnector('"a string"')).toEqual(FAIL_CLOSED)
+    expect(parseMcpConnector('42')).toEqual(FAIL_CLOSED)
   })
 
   it('an unknown data_posture falls back to open; enabled requires literal true', () => {
@@ -360,6 +358,33 @@ describe('parseMcpConnector (fail-closed, defensive)', () => {
       })
     )
     expect(c.access).toEqual([{ email: 'good@firm.com', profile: 'crane' }])
+  })
+
+  it('surfaces a well-formed open policy (lowercased domains, profile, ttl)', () => {
+    const c = parseMcpConnector(
+      JSON.stringify({
+        enabled: true,
+        policy: 'open',
+        allowed_domains: ['Firm.com', 'bad domain', 'partners.firm.com'],
+        default_profile: 'marcus',
+        ttl_days: 14,
+        access: [],
+      })
+    )
+    expect(c.policy).toBe('open')
+    expect(c.allowed_domains).toEqual(['firm.com', 'partners.firm.com'])
+    expect(c.default_profile).toBe('marcus')
+    expect(c.ttl_days).toBe(14)
+  })
+
+  it('falls back policy/ttl defensively on garbage values', () => {
+    const c = parseMcpConnector(
+      JSON.stringify({ enabled: true, policy: 'everyone', ttl_days: 9999, access: [] })
+    )
+    expect(c.policy).toBe('allowlist')
+    expect(c.ttl_days).toBe(30)
+    expect(c.allowed_domains).toEqual([])
+    expect(c.default_profile).toBeNull()
   })
 })
 

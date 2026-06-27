@@ -1424,10 +1424,132 @@ describe('validate — compliance_enabled (#895)', () => {
 // -----------------------------------------------------------------------------
 
 describe('validate — mcp_connector', () => {
-  it('defaults to disabled/open/empty when the block is omitted', () => {
+  it('defaults to disabled/allowlist/empty when the block is omitted', () => {
     const r = validate(validFixture())
     if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
-    expect(r.value.mcp_connector).toEqual({ enabled: false, data_posture: 'open', access: [] })
+    expect(r.value.mcp_connector).toEqual({
+      enabled: false,
+      data_posture: 'open',
+      policy: 'allowlist',
+      allowed_domains: [],
+      default_profile: null,
+      ttl_days: 30,
+      access: [],
+    })
+  })
+
+  it('defaults policy to allowlist (fail-closed) when enabled without a policy', () => {
+    const f = validFixture()
+    f['mcp_connector'] = {
+      enabled: true,
+      access: [{ email: 'partner@firm.com', profile: 'marcus' }],
+    }
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.mcp_connector.policy).toBe('allowlist')
+  })
+
+  it('accepts an open policy with allowed_domains and an active default_profile', () => {
+    const f = validFixture()
+    f['mcp_connector'] = {
+      enabled: true,
+      policy: 'open',
+      allowed_domains: ['Firm.com', 'partners.firm.com'],
+      default_profile: 'marcus',
+      ttl_days: 7,
+      access: [],
+    }
+    const r = validate(f)
+    if (!r.ok) throw new Error(`expected ok; got: ${JSON.stringify(r.errors)}`)
+    expect(r.value.mcp_connector.policy).toBe('open')
+    expect(r.value.mcp_connector.allowed_domains).toEqual(['firm.com', 'partners.firm.com'])
+    expect(r.value.mcp_connector.default_profile).toBe('marcus')
+    expect(r.value.mcp_connector.ttl_days).toBe(7)
+  })
+
+  it('rejects an open policy with no allowed_domains', () => {
+    const f = validFixture()
+    f['mcp_connector'] = { enabled: true, policy: 'open', default_profile: 'marcus', access: [] }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'mcp_connector.allowed_domains' && e.code === 'MissingField')
+    ).toBe(true)
+  })
+
+  it('rejects an open policy with no default_profile', () => {
+    const f = validFixture()
+    f['mcp_connector'] = {
+      enabled: true,
+      policy: 'open',
+      allowed_domains: ['firm.com'],
+      access: [],
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'mcp_connector.default_profile' && e.code === 'MissingField')
+    ).toBe(true)
+  })
+
+  it('rejects a default_profile that is not an active persona', () => {
+    const f = validFixture()
+    f['mcp_connector'] = {
+      enabled: true,
+      policy: 'open',
+      allowed_domains: ['firm.com'],
+      default_profile: 'ghost',
+      access: [],
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'mcp_connector.default_profile' && e.code === 'EnumViolation')
+    ).toBe(true)
+  })
+
+  it('rejects an unknown policy value', () => {
+    const f = validFixture()
+    f['mcp_connector'] = { enabled: true, policy: 'everyone', access: [] }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'mcp_connector.policy' && e.code === 'EnumViolation')
+    ).toBe(true)
+  })
+
+  it('rejects a malformed allowed_domains entry', () => {
+    const f = validFixture()
+    f['mcp_connector'] = {
+      enabled: true,
+      policy: 'open',
+      allowed_domains: ['not a domain'],
+      default_profile: 'marcus',
+      access: [],
+    }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some(
+        (e) => e.path === 'mcp_connector.allowed_domains[0]' && e.code === 'TypeMismatch'
+      )
+    ).toBe(true)
+  })
+
+  it('rejects a ttl_days above the 90-day ceiling (never infinite)', () => {
+    const f = validFixture()
+    f['mcp_connector'] = { enabled: true, ttl_days: 365, access: [] }
+    const r = validate(f)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(
+      r.errors.some((e) => e.path === 'mcp_connector.ttl_days' && e.code === 'TypeMismatch')
+    ).toBe(true)
   })
 
   it('accepts an enabled connector binding an authored user to an active persona', () => {
