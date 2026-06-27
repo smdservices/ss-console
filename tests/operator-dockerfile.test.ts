@@ -166,7 +166,15 @@ describe('Operator customer Machine Dockerfile', () => {
     // also includes #113 (smokeball calendar/task/folder classification); all four
     // tracked twins verified unchanged. Lockstep with ss-console #1523 (shared parity
     // hash). Superset of 33b58ad.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="97c59f3f8457401ab4c8103465db5ec272a5f040"')
+    // 22498d6 (#115): the Smokeball webhook gate verifier — webhook_gate.py gains
+    // verify_smokeball_signature (raw-key hex HMAC over {Timestamp}|{RequestId}|
+    // {ClientId}, body unsigned) + a fail-closed per-vendor dispatch registry +
+    // an authoritative source stamp (fixes the Smokeball source="API" routing
+    // collision) + a RequestId replay cache + a boot self-check; tests +
+    // consumes.yaml. Range 97c59f3..22498d6 is exactly this one commit; all four
+    // tracked twins verified unchanged. Pairs with ss-console #1529 (provisioning).
+    // Superset of 97c59f3.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="22498d6edcf12bdb5b2d8113c0e8fea95010ccb4"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
