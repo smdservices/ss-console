@@ -62,7 +62,10 @@ def _get_client() -> SmokeballClient:
         # authorization_code path the refresh token is read from the volume file
         # the OAuth callback writes (built lazily, so the connector self-heals once
         # the file appears — no restart needed).
-        token_file = os.environ.get("SMOKEBALL_REFRESH_TOKEN_FILE") or _DEFAULT_REFRESH_TOKEN_FILE
+        token_file = (
+            os.environ.get("SMOKEBALL_REFRESH_TOKEN_FILE")
+            or _DEFAULT_REFRESH_TOKEN_FILE
+        )
         _client = SmokeballClient(
             region=os.environ.get("SMOKEBALL_REGION", "us"),
             environment=os.environ.get("SMOKEBALL_ENVIRONMENT", "staging"),
@@ -495,7 +498,9 @@ def create_memo(matter_id: str, text: str) -> Any:
     the one autonomous internal write the wedge uses). The exact body field is
     ASSUMED ``text`` and confirmed at the connect step against the live memo
     schema; classified INTERNAL_WRITE at the overlay (never external send)."""
-    return _get_client().request("POST", f"/matters/{matter_id}/memos", json={"text": text})
+    return _get_client().request(
+        "POST", f"/matters/{matter_id}/memos", json={"text": text}
+    )
 
 
 # ---- Trust / bank accounts (READS ONLY — fund movement is hard-banned) -----
@@ -561,6 +566,39 @@ def get_event_types() -> Any:
     return _get_client().get("/webhooks/types")
 
 
+@server.tool()
+def create_webhook_subscription(
+    name: str,
+    event_types: list[str],
+    notification_url: str,
+    key: str | None = None,
+) -> Any:
+    """Register a webhook subscription so Smokeball PUSHES events to the Operator's
+    Machine gateway — the ``matter.updated`` / ``task.created`` / ``files.updated``
+    signals that drive the event skills. This is the alternative to polling
+    ``list_matters?UpdatedSince=`` on a cron (structurally late for a deadline
+    clock); the subscription is what makes matter-monitoring event-driven.
+
+    POST /webhooks body (confirmed against the live webhooks doc): ``name``
+    (subscription label), ``eventTypes`` (array, e.g. ``["matter.updated"]`` — see
+    ``get_event_types``), ``eventNotificationUrl`` (the gateway callback the events
+    POST to), and ``key`` — the shared secret Smokeball uses to HMAC-SHA256-sign
+    each delivery (over ``{Timestamp}|{RequestId}|{ClientId}`` in the ``Signature``
+    header; the webhook gate verifies it). ``key`` defaults to the gate's own
+    ``WEBHOOK_SECRET_SMOKEBALL`` so the subscription's signing key matches what the
+    gate verifies with — the caller normally omits it. Classified INTERNAL_WRITE (a
+    provisioning-time config write; never an external send)."""
+    body: dict[str, Any] = {
+        "name": name,
+        "eventTypes": event_types,
+        "eventNotificationUrl": notification_url,
+    }
+    resolved_key = key or os.environ.get("WEBHOOK_SECRET_SMOKEBALL")
+    if resolved_key:
+        body["key"] = resolved_key
+    return _get_client().request("POST", "/webhooks", json=body)
+
+
 # ---- boot diagnostic (OFF by default) -------------------------------------
 def _diagnose_find_matter(client: SmokeballClient) -> str | None:
     """Resolve a matter id for the write probe: an explicit
@@ -615,9 +653,13 @@ def _boot_diagnose() -> None:
     try:
         matter_id = _diagnose_find_matter(client)
         if not matter_id:
-            _log("write probe SKIPPED: no target matter (set SMOKEBALL_DIAGNOSE_MATTER_ID)")
+            _log(
+                "write probe SKIPPED: no target matter (set SMOKEBALL_DIAGNOSE_MATTER_ID)"
+            )
             return
-        res = client.add_file(matter_id, "operator_boot_diagnose.txt", b"operator boot diagnose")
+        res = client.add_file(
+            matter_id, "operator_boot_diagnose.txt", b"operator boot diagnose"
+        )
         _log(f"write OK matter={matter_id} fileId={res.get('fileId')}")
     except SmokeballApiError as exc:
         _log(f"write FAILED HTTP {exc.status} {exc.method} {exc.path} body={exc.body}")
