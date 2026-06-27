@@ -578,6 +578,28 @@ print(str(sb.get('account_id') or '').strip())
   if [ -n "${SB_ACCOUNT_ID}" ]; then
     stage_secret_from_env SMOKEBALL_ACCOUNT_ID "${SB_ACCOUNT_ID}" "Smokeball multi-account URL prefix"
   fi
+  # Smokeball webhook ingress (overlay webhook-gate). Staged only when the seat
+  # declares a smokeball webhook_url — otherwise these are unused. Two secrets:
+  #   WEBHOOK_SECRET_SMOKEBALL — the HMAC key the gate verifies with. It MUST equal
+  #     the `key` set on the Smokeball subscription. Smokeball uses it as RAW UTF-8
+  #     bytes, so it is staged byte-identical (printf '%s', no whsec_/base64/newline
+  #     transform — unlike the Svix secret). Per-customer
+  #     WEBHOOK_SECRET_SMOKEBALL__<CUSTOMER_ID>, else the global.
+  #   WEBHOOK_SMOKEBALL_CLIENT_ID — OUR Smokeball API ClientId, fed into the signed
+  #     string {Timestamp}|{RequestId}|{ClientId} (Smokeball never sends it). It is
+  #     the same client id the connector authenticates with (SMOKEBALL_CLIENT_ID ==
+  #     ${_sb_cid}); a per-customer override exists only for the rare case the signing
+  #     ClientId differs in byte form from the OAuth client id (confirm vs a real
+  #     delivery). Without these the smokeball route fail-closes (gate 401).
+  if grep -qE 'webhook_url:.*/webhooks/smokeball' "${CUSTOMER_DIR}/customer.yaml" 2>/dev/null; then
+    _SB_WH_KEY="WEBHOOK_SECRET_SMOKEBALL__$(printf '%s' "${CUSTOMER_ID}" | tr '[:lower:]-' '[:upper:]_' | tr -cd 'A-Z0-9_')"
+    _SB_WH_SECRET="${!_SB_WH_KEY:-${WEBHOOK_SECRET_SMOKEBALL:-}}"
+    stage_secret_from_env WEBHOOK_SECRET_SMOKEBALL "${_SB_WH_SECRET}" "Smokeball webhook HMAC key == subscription key, raw bytes (per-customer ${_SB_WH_KEY}, else global)"
+    _SB_WH_CID_KEY="WEBHOOK_SMOKEBALL_CLIENT_ID__$(printf '%s' "${CUSTOMER_ID}" | tr '[:lower:]-' '[:upper:]_' | tr -cd 'A-Z0-9_')"
+    _SB_WH_CID="${!_SB_WH_CID_KEY:-${_sb_cid}}"
+    stage_secret_from_env WEBHOOK_SMOKEBALL_CLIENT_ID "${_SB_WH_CID}" "Smokeball API ClientId fed into the webhook HMAC (per-customer ${_SB_WH_CID_KEY}, else = SMOKEBALL_CLIENT_ID)"
+    unset _SB_WH_KEY _SB_WH_SECRET _SB_WH_CID_KEY _SB_WH_CID
+  fi
   unset SB_PARSE_PY SB_FIELDS SB_ENV SB_AUTH_MODE SB_ACCOUNT_ID _sb_cid _sb_sec _sb_key _sb_src
 fi
 
