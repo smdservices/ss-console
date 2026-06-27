@@ -1,8 +1,16 @@
 # Clerk setup for the Operator MCP connector
 
-**Status:** activation-gated. The console is deployed as a strict OAuth Resource
-Server, but a customer remains dark until Clerk issues an access token bound to
-that customer's canonical MCP resource.
+**Status:** access model locked by [ADR 0057](../../adr/0057-operator-claude-connector-access-model.md); console shipped (slices 2a–2d). The console is a strict OAuth Resource Server. Per-customer activation needs (1) a Clerk binding row, (2) an authored `mcp_connector` policy, (3) a fresh screening attestation, and (4) the live token-triple verify.
+
+## Authoritative model (ADR 0057)
+
+**Clerk proves who knocks; the Operator's grant table decides whether to open.** Clerk authenticates a firm user by **mailbox possession** and issues the token; SMD's `mcp_issued_grants` table is the live authorization and instant kill switch. Two decisions from ADR 0057 + the build:
+
+- **One dedicated operator-fleet Clerk instance for external firms**, not one per firm. Isolation rests on the grant table (the authoritative per-request gate), so a single instance authenticating any firm-domain mailbox is sufficient; the per-customer Clerk app was belt-and-suspenders from before the grant table existed. Customer-zero (`smd`) may stay on `clerk.smd.services`; external firms share the fleet instance. (If a regulated client demands structural token isolation, a dedicated per-client instance remains the escape hatch — mirrors the on-Machine-sidecar posture in 03 §2.3.)
+- **Email OTP code, not magic link, for the in-flow factor.** A magic link clicked from a mail client often opens a _different_ browser than Claude Desktop's OAuth tab, breaking the PKCE/state binding; a 6-digit code typed back into the same tab never leaves the originating browser. Same mailbox-possession identity ADR 0057 intends — an implementation refinement of its "email-link" wording.
+- **Set the Clerk session lifetime to the grant `ttl_days`** so re-auth is forced at the same cadence the grant expires.
+
+> **Open verification (offboarding backstop).** The passive-lapse offboarding story ("kill the mailbox → re-auth fails → access lapses within TTL") holds only if Clerk's **refresh-token absolute expiry ≤ the grant TTL**. This must be confirmed empirically (`crane_verify`) before relying on passive lapse. If Clerk rotates refresh tokens indefinitely, the grant `expires_at` + explicit admin revoke is the real backstop, and passive mailbox-kill is secondary.
 
 ## Responsibility split
 
@@ -70,14 +78,26 @@ Migration 0072 requires one canonical resource URI per customer:
 
 `resource_uri` is mandatory. `client_id` does not replace audience validation.
 
-## 3. Provision the stable principal
+## 3. Author the connector + attestation, then issue grants
 
-The authored connector remains readable:
+The authored connector (slices 2c/2d add `policy` / `allowed_domains` /
+`default_profile` / `ttl_days`, distinct from `data_posture`):
 
 ```yaml
+# REQUIRED before any enabled inbound channel — real legal data, never placeholder.
+screening_attestation:
+  attested: true
+  attested_by: SMD Services (Scott Durgan, Principal)
+  attested_at: 2026-06-27T00:00:00.000Z
+
 mcp_connector:
   enabled: true
-  data_posture: open
+  data_posture: open # where entitled data may land (personal vs firm Claude)
+  policy: allowlist # who may connect: allowlist (default, pilot) | open
+  # open-policy only (slice 2e auto-issue):
+  # allowed_domains: [firm.com]
+  # default_profile: crane
+  ttl_days: 30 # per-client grant TTL, bounded [1, 90], never infinite
   access:
     - email: scott@smd.services
       profile: crane
@@ -92,6 +112,15 @@ those accounts carry different emails. The singular `clerk_subject` remains
 supported for one-account bindings. When both are omitted, the connector falls
 back to that local user's `users.clerk_user_id`. If none is present, it fails
 closed.
+
+**Grants are the live authorization (ADR 0057).** Authored `access[]` entries
+seat static principals; the dynamic layer + kill switch is `mcp_issued_grants`,
+issued/revoked from the admin connectors page
+(`POST /api/admin/operator/<slug>/mcp-grants`, slice 2b) and recorded immutably in
+`operator_mcp_grant_audit`. Revoking cuts access on the next request. Under
+`policy: open`, a verified firm-domain identity is JIT-granted on first connect
+(slice 2e). The connector also stays dark unless `screening_attestation` is
+present and fresh (within 90 days).
 
 When `entities.clerk_org_id` is populated, the token must also carry that exact
 `org_id`. A non-empty token audience must exactly include the MCP resource URI.

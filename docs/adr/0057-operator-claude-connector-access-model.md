@@ -56,6 +56,21 @@ When EMA supports Microsoft Entra / M365 (Okta-only at writing), identity and of
 - **Implementation surface shrinks to what is ours**: a grant table + live authorization (this ADR's first build), Clerk configuration + a revoke route, a JIT issuance gate, and a `customer.yaml` policy field. No hand-rolled OAuth server, no ticket-threading seam.
 - The already-shipped email channel (roster `scope.inbound_allow_from`, [ADR 0055](0055-operator-is-an-employee.md)) is unchanged; the screening attestation gate applies to it too.
 
+### Implementation status (slices 2a–2d shipped 2026-06-27)
+
+- **2a** — `mcp_issued_grants` table + live-read merge into principal resolution (the kill switch's read side).
+- **2b** — admin grant lifecycle (`adminIssueGrant` clears a revocation; `revokeGrant`; `listGrants`) + immutable `operator_mcp_grant_audit` ledger (the mutable grant row is state; the ledger is the record of who changed access, for whom, when). TTL bounded `[1, 90]`, never infinite. Admin route + connectors-page panel.
+- **2c** — `mcp_connector.policy` axis (`allowlist` default / `open`), `allowed_domains`, `default_profile`, `ttl_days`, kept distinct from `data_posture`. Validator requires domains + an active `default_profile` for `open`. Pilot ships on `allowlist`.
+- **2d** — screening attestation: authoring gate (validator, both channels, CI-blocking) + a runtime **freshness** gate (`isAttestationFresh`, 90-day window) that takes an enabled connector dark when the attestation is missing or stale. Projected to `customer_configs`; surfaced in the admin panel.
+
+**Enforcement points (where each property lives):**
+
+- **Sticky revoke** — the explicit-revoke kill is instant (live-read filters `revoked_at`). The open-policy JIT path (slice 2e) MUST refuse to re-issue a `revoked_at` grant, so a revoked user cannot auto-mint their way back; only an admin re-issue lifts a revocation.
+- **JIT at the route egress** — open-by-domain minting and the verified-primary-email + exact-host-domain checks live in the route (`handleMcpPost`), where the DB handle and the verified email are available; `validateMcpToken` stays pure.
+- **Attestation at validation + runtime** — the structural "enabled ⇒ attested" gate is pure/CI-blocking; the time-based freshness gate runs with a clock at the endpoint (and is surfaced in admin).
+
+**Offboarding-backstop reframe (open).** The passive-lapse story holds only if Clerk's refresh-token absolute expiry ≤ the grant TTL; this must be verified empirically. Until verified, the grant `expires_at` + explicit admin revoke is the authoritative backstop, and mailbox-kill passive lapse is secondary. The email in-flow factor uses **OTP code** (not magic link) to keep verification in Claude's OAuth browser — an implementation refinement of "email-link," same mailbox-possession identity.
+
 ## What this does not decide
 
 - **The EMA/IdP cutover** — adopted when EMA supports Entra/M365; not built now.
