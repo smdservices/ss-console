@@ -33,6 +33,7 @@ import {
   MCP_GRANT_TTL_MAX_DAYS,
   type McpConnector,
   type PersonaEntitlements,
+  type ScreeningAttestation,
   type SkillInitiation,
 } from '../operator/customer-yaml/types'
 
@@ -119,6 +120,14 @@ export interface CustomerConfigRow {
    * `access[]` mapping; the Clerk binding lives separately in mcp_clerk_bindings.
    */
   mcp_connector: McpConnector
+  /**
+   * Resolved `screening_attestation` block (ADR 0057 §4) — projected from
+   * `customer.yaml.screening_attestation`. Always present: a null column
+   * resolves to the fail-closed default (`{ attested: false }`) via
+   * {@link parseScreeningAttestation}. The MCP endpoint reads this to take an
+   * enabled connector dark once the attestation is missing or stale.
+   */
+  screening_attestation: ScreeningAttestation
   git_sha: string
   synced_at: string
 }
@@ -139,6 +148,7 @@ export interface CustomerConfigDbRow {
   authority_json: string | null
   credential_custody_default: string | null
   mcp_connector_json: string | null
+  screening_attestation_json: string | null
   git_sha: string
   synced_at: string
 }
@@ -278,6 +288,51 @@ export function parseMcpConnector(json: string | null | undefined): McpConnector
   }
 }
 
+/** Fail-closed `screening_attestation`: not attested ⇒ enabled channels go dark. */
+const SCREENING_ATTESTATION_FAIL_CLOSED: ScreeningAttestation = {
+  attested: false,
+  attested_by: null,
+  attested_at: null,
+}
+
+const screeningAttestationProjectionSchema = z.object({
+  attested: z.unknown().optional(),
+  attested_by: z.unknown().optional(),
+  attested_at: z.unknown().optional(),
+})
+
+/**
+ * Parse the projected `screening_attestation_json` column into a runtime
+ * `ScreeningAttestation`. DEFENSIVE / FAIL-CLOSED, like {@link parseMcpConnector}:
+ * a null column, malformed JSON, or a shape-wrong value all resolve to "not
+ * attested" — which the MCP endpoint reads as "take the connector dark". Only a
+ * well-formed `{ attested: true, ... }` with a string timestamp is honored.
+ */
+export function parseScreeningAttestation(json: string | null | undefined): ScreeningAttestation {
+  if (json === null || json === undefined) return { ...SCREENING_ATTESTATION_FAIL_CLOSED }
+  let raw: unknown
+  try {
+    raw = JSON.parse(json)
+  } catch {
+    return { ...SCREENING_ATTESTATION_FAIL_CLOSED }
+  }
+  const parsed = screeningAttestationProjectionSchema.safeParse(raw)
+  if (!parsed.success) return { ...SCREENING_ATTESTATION_FAIL_CLOSED }
+  const attestedBy =
+    typeof parsed.data.attested_by === 'string' && parsed.data.attested_by.trim() !== ''
+      ? parsed.data.attested_by
+      : null
+  const attestedAt =
+    typeof parsed.data.attested_at === 'string' && parsed.data.attested_at.trim() !== ''
+      ? parsed.data.attested_at
+      : null
+  return {
+    attested: parsed.data.attested === true,
+    attested_by: attestedBy,
+    attested_at: attestedAt,
+  }
+}
+
 export function projectRow(row: CustomerConfigDbRow): CustomerConfigRow {
   return {
     entity_id: row.entity_id,
@@ -299,6 +354,7 @@ export function projectRow(row: CustomerConfigDbRow): CustomerConfigRow {
     credential_custody_default:
       parseCredentialCustody(row.credential_custody_default) ?? DEFAULT_CREDENTIAL_CUSTODY,
     mcp_connector: parseMcpConnector(row.mcp_connector_json),
+    screening_attestation: parseScreeningAttestation(row.screening_attestation_json),
     git_sha: row.git_sha,
     synced_at: row.synced_at,
   }

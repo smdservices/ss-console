@@ -777,6 +777,38 @@ export interface McpConnector {
   access: McpConnectorAccess[]
 }
 
+/**
+ * Maximum age of a no-active-screens attestation before it goes stale (ADR 0057
+ * §4). "No active screens / ethical walls" is a continuously-changing fact in a
+ * firm, so the attestation is not point-in-time: a stale one fails closed (the
+ * enabled channels go dark) until re-attested. Warned in the admin surface
+ * before the hard cutoff.
+ */
+export const SCREENING_ATTESTATION_MAX_AGE_DAYS = 90
+export const SCREENING_ATTESTATION_WARN_AGE_DAYS = 60
+
+/**
+ * Firm-level no-active-screens attestation (ADR 0057 §4). A required, fail-closed
+ * precondition to authoring ANY live inbound channel (the Operator ⇄ Claude MCP
+ * connector AND the inbound email channel `scope.inbound_allow_from`): an LLM
+ * cannot be relied on to refuse data it has been handed, so until authored
+ * ethical screening exists, the connector ships only to firms that attest in
+ * writing they have no active screens or ethical walls.
+ *
+ * Absent block ⇒ `{ attested: false, attested_by: null, attested_at: null }`.
+ * The structural gate (validator) blocks enabling a channel without `attested:
+ * true`; the freshness gate ({@link SCREENING_ATTESTATION_MAX_AGE_DAYS}, enforced
+ * at the runtime endpoint and surfaced in admin) forces re-attestation on a
+ * cadence.
+ */
+export interface ScreeningAttestation {
+  attested: boolean
+  /** Who at the firm attested (name/role). Required when `attested` is true. */
+  attested_by: string | null
+  /** ISO-8601 UTC timestamp of the attestation. Required when `attested` is true. */
+  attested_at: string | null
+}
+
 export interface CustomerYaml {
   schema_version: SchemaVersion
   customer_id: string
@@ -887,6 +919,14 @@ export interface CustomerYaml {
    * `checkMcpConnector`. Fail-closed — see {@link McpConnector}.
    */
   mcp_connector: McpConnector
+  /**
+   * Firm-level no-active-screens attestation (ADR 0057 §4). Always non-null on a
+   * validated CustomerYaml: an absent block resolves to
+   * `{ attested: false, attested_by: null, attested_at: null }` via
+   * `checkScreeningAttestation`. A fail-closed precondition to enabling any
+   * inbound channel — see {@link ScreeningAttestation}.
+   */
+  screening_attestation: ScreeningAttestation
   /**
    * Authored behavioral lane of the relationship model (ADR 0048). Always
    * non-null on a validated CustomerYaml: an absent `relationship:` block
