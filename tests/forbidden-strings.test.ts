@@ -274,6 +274,13 @@ const USER_FACING_COPY_GUARDS: Array<{ label: string; pattern: RegExp }> = [
     label: 'no "coming soon" placeholder copy in shipped user-facing surfaces',
     pattern: /\bcoming soon\b/i,
   },
+  // "off the shelf" disparages the very people and software an Operator works
+  // alongside (a non-starter for a staffing alternative). Retired 2026-06-27 in
+  // favor of the gap / space-between spine. See feedback_respect_people_and_software.
+  {
+    label: 'no "off the shelf" framing in shipped user-facing surfaces',
+    pattern: /\boff the shelf\b/i,
+  },
 ]
 
 describe('forbidden-strings: Pattern A/B violations must not appear in shipped source', () => {
