@@ -1,12 +1,13 @@
 ---
 export const prerender = false
 
-// The POV / manifesto surface. The category argument in full: the villain, why
-// software never solved it, the old-way/new-way shift, the budget-line move,
+// The POV / manifesto surface. The category argument in full: capable people and
+// capable systems both leave a gap between them where work falls through, no
+// single tool can reach it, the old-way/new-way shift, employed-not-installed,
 // substrate durability, and the guide. The home is the condensed version of this;
 // /operator is the mechanism; this is the conviction.
 //
-// DRAFT COPY — directional for the Captain's voice pass. Structure is final.
+// DRAFT COPY - directional for the Captain's voice pass. Structure is final.
 import Base from '../layouts/Base.astro'
 import Nav from '../components/Nav.astro'
 import Footer from '../components/Footer.astro'
@@ -15,18 +16,25 @@ import { CATEGORY_NAME, CATEGORY_ARTICLE } from '../lib/category'
 
 const comparison = [
   {
-    label: 'What you buy',
-    old: 'Software for tasks, plus a person to run it',
-    now: 'A worker for a role',
+    label: 'The work between systems',
+    old: 'Bridged by hand, all day',
+    now: 'Filled by the Operator, by design',
   },
-  { label: 'The budget line', old: 'Software seats and a salary', now: 'The seat, filled' },
-  { label: 'Ramp', old: 'Months to useful', now: 'Up to speed in a fraction of the time' },
   {
-    label: 'When they leave',
-    old: 'The knowledge walks out the door',
-    now: 'The memory stays with the business',
+    label: 'Getting up to speed',
+    old: 'Months to teach a hire or set up a tool',
+    now: 'Expert in your systems in about a minute',
   },
-  { label: 'The glue between tools', old: 'Your people, by hand', now: 'The worker, by design' },
+  {
+    label: 'When someone moves on',
+    old: 'What they learned goes with them',
+    now: 'What it learns, it keeps',
+  },
+  {
+    label: 'Who holds it together',
+    old: 'Your people, between everything else',
+    now: 'The Operator, as its whole job',
+  },
   { label: 'Who keeps it running', old: 'You, as a second job', now: 'We do, as the service' },
   {
     label: 'What you are locked into',
@@ -38,7 +46,7 @@ const comparison = [
 
 <Base
   title={`Why ${CATEGORY_ARTICLE} ${CATEGORY_NAME} | SMD Services`}
-  description="Businesses have hired people to do the connective work since the dawn of business, and the problems with that are universal. There is a new way to fill the seat. This is the argument for it."
+  description="Businesses run on capable people and capable systems, and between them there is always a gap where work slips through. The Operator is a new kind of worker that fills the space in between. This is the argument for it."
 >
   <Nav />
   <main id="main" role="main">
@@ -52,25 +60,26 @@ const comparison = [
         <h1
           class="mb-10 font-['Archivo'] text-5xl md:text-7xl font-black uppercase leading-[1.02] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
         >
-          You Have Been Buying Tools. The Work Needed A Worker.
+          The Work Lives In The Space Between.
         </h1>
         <div class="space-y-8 text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
-            Every business runs on connective work. The follow-up that has to happen, the handoff
-            between two systems, the inquiry that needs a reply, the thing that falls through the
-            crack when no one is watching. It is the work that holds a business together, and it has
-            always been done by a person.
+            You hire good people, and you buy good software. Both are capable of remarkable things.
+            But between them, there is always a gap. The handoff from one system to the next, the
+            step that is everyone's job and no one's, the inquiry that needs a reply, the thing that
+            slips through when everyone is heads-down on their own piece. It is the work that holds
+            a business together, and it has always come down to a person bridging the gaps by hand.
           </p>
           <p>
-            There is now another way to do it. We call it {CATEGORY_ARTICLE}
-            {CATEGORY_NAME}: a worker you hire for a role, built around your business and run for
-            you, instead of one more tool you have to run yourself.
+            There is now something built to fill that space. We call it {CATEGORY_ARTICLE}
+            {CATEGORY_NAME}: not a person you hire or a tool you buy, but a new kind of worker that
+            flows into the gaps and holds the work together.
           </p>
         </div>
       </div>
     </section>
 
-    <!-- § 02 The seat that won't stay filled -->
+    <!-- § 02 What the gap costs: bridged by hand, plus the ramp to teach any hire or tool -->
     <section class="bg-white px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -80,29 +89,29 @@ const comparison = [
         <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          What The Seat Really Costs.
+          What The Gap Costs You.
         </h2>
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
-            Businesses have hired people to do this work since the dawn of business, and the trouble
-            with it is universal. The seat empties and you start over. A new hire takes months to
-            become useful, and you pay full salary for partial value the whole time.
+            Today, the work in those gaps gets done by people, by hand. Your most capable person
+            spends part of every day on the handoffs and the follow-ups and the things that fall
+            between the systems, instead of the work you most want them on.
           </p>
           <p>
-            What they learn about how you run lives in their head, and the day they leave, it leaves
-            with them. The cost is fixed and rising whether the work is full or slow. And the people
-            you most want on the real work spend their day stitching together tools that should talk
-            to each other and do not.
+            And every capable person and every capable system has to learn your business first. You
+            spend months bringing a new hire or a new tool up to speed, and you carry that cost
+            whether the work is full or slow.
           </p>
           <p>
-            None of this is a failure of the people or the owner. It is the shape of the job. The
-            job is real, the work is necessary, and the way we have always filled it is the problem.
+            None of this is a failure of the people or the systems. They are good. It is the shape
+            of the work: the gaps are structural, they sit between even the best people and the best
+            tools, and until now there was nothing built to fill them.
           </p>
         </div>
       </div>
     </section>
 
-    <!-- § 03 Why software never solved it -->
+    <!-- § 03 No single tool can reach the gap (connective tissue; systems are connection targets) -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <span
@@ -112,13 +121,14 @@ const comparison = [
         <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          Why Software Never Solved It.
+          No Single Tool Can Reach It.
         </h2>
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
             Every tool you run does a piece of the work. The practice system, the books, the
-            scheduler, the inbox. Each one is good at its own job. None of them does the work that
-            lives between them, because that work was never inside any single tool to begin with.
+            scheduler, the inbox. Each one is good at its own job, and only as good as the person
+            using it. None of them does the work that lives between them, because that work was
+            never inside any single tool to begin with.
           </p>
           <p>
             So the connective work falls to a person, and you buy more tools, and the person has
@@ -207,12 +217,12 @@ const comparison = [
           <p>
             A tool is something you buy and then run. A worker is something you hire and put to
             work. The Operator is the second kind. You are not adding a line to your software bill.
-            You are filling a seat.
+            You are taking on the work a person would do.
           </p>
           <p>
             So the honest comparison is not against other software. It is against what it costs to
-            put a person in that seat, fully loaded, and keep them there. We price it against the
-            role it fills, and we walk through that with you before anything is built.
+            put a person on this work, fully loaded, and keep them there. We price it against that,
+            and we walk through it with you before anything is built.
           </p>
         </div>
       </div>

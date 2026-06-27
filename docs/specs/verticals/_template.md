@@ -12,7 +12,7 @@ Copy to `docs/specs/verticals/<slug>.md` and fill in. Worked reference: `law-fir
 
 ## The role we digitize
 
-The [coordinator / intake lead / dispatcher / account manager] — the person who [describe the connective seat]. Often a seat the business keeps meaning to fill and can't keep staffed.
+The [coordinator / intake lead / dispatcher / account manager], the person who [describe the connective seat]. Often a hard seat to keep staffed, where the connective work outgrows whoever is closest to it.
 
 ## The residual connective layer
 
