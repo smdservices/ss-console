@@ -205,6 +205,22 @@ export type UserRole = (typeof ACCEPTED_USER_ROLES)[number]
 export const ACCEPTED_DATA_POSTURES = ['open', 'firm_only'] as const
 export type DataPosture = (typeof ACCEPTED_DATA_POSTURES)[number]
 
+/**
+ * Issuance policy for the Operator ⇄ Claude MCP connector (ADR 0057 §3) — who may
+ * connect, distinct from `data_posture` (where entitled data may land).
+ *   - `allowlist` (default, fail-closed): grants exist only for authored/seeded
+ *     principals. The pilot path.
+ *   - `open`: a verified firm-domain identity is JIT-granted on first connect.
+ *     The hardened auto-issue path is slice 2e; this enum + its validation seat
+ *     the axis now.
+ */
+export const ACCEPTED_MCP_POLICIES = ['allowlist', 'open'] as const
+export type McpIssuancePolicy = (typeof ACCEPTED_MCP_POLICIES)[number]
+
+/** Bounded-grant TTL invariant (ADR 0057): never null, never infinite. */
+export const MCP_GRANT_TTL_DEFAULT_DAYS = 30
+export const MCP_GRANT_TTL_MAX_DAYS = 90
+
 export const ACCEPTED_PERSONA_STATUSES = ['active', 'archived'] as const
 export type PersonaStatus = (typeof ACCEPTED_PERSONA_STATUSES)[number]
 
@@ -736,6 +752,28 @@ export interface McpConnectorAccess {
 export interface McpConnector {
   enabled: boolean
   data_posture: DataPosture
+  /**
+   * Issuance policy (ADR 0057 §3). `allowlist` (default) = only authored/seeded
+   * principals connect. `open` = JIT-grant a verified firm-domain identity on
+   * first connect (the auto-issue mechanism is slice 2e). When `open`,
+   * `allowed_domains` must be non-empty and `default_profile` must name an active
+   * persona.
+   */
+  policy: McpIssuancePolicy
+  /**
+   * Firm email domains eligible for an `open`-policy JIT grant (lowercased host,
+   * e.g. `ashtonprice.com`). Empty under `allowlist`. Per-customer domain rules
+   * live here, not in Clerk's instance-global allowlist.
+   */
+  allowed_domains: string[]
+  /** Persona an `open`-policy JIT grant runs as. Null under `allowlist`. */
+  default_profile: string | null
+  /**
+   * Per-client default grant TTL in days. Bounded `[1, {@link MCP_GRANT_TTL_MAX_DAYS}]`;
+   * defaults to {@link MCP_GRANT_TTL_DEFAULT_DAYS}. Drives `expires_at` (never
+   * null) and should match the Clerk session lifetime.
+   */
+  ttl_days: number
   access: McpConnectorAccess[]
 }
 

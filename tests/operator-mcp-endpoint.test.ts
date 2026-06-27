@@ -53,6 +53,10 @@ function customerFixture(over: Partial<ResolvedMcpCustomer> = {}): ResolvedMcpCu
     connector: {
       enabled: true,
       data_posture: 'open',
+      policy: 'allowlist',
+      allowed_domains: [],
+      default_profile: null,
+      ttl_days: 30,
       access: [{ email: 'pilot@example.com', profile: 'crane' }],
     },
     clerk: {
@@ -290,7 +294,15 @@ describe('validateMcpToken', () => {
       await validateMcpToken(
         'token',
         customerFixture({
-          connector: { enabled: false, data_posture: 'open', access: [] },
+          connector: {
+            enabled: false,
+            data_posture: 'open',
+            policy: 'allowlist',
+            allowed_domains: [],
+            default_profile: null,
+            ttl_days: 30,
+            access: [],
+          },
         }),
         claimsVerifier(claims())
       )
