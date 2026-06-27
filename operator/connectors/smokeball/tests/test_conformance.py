@@ -56,6 +56,7 @@ EXPECTED_TOOLS = {
     "get_expenses",
     "get_webhook_subscriptions",
     "get_event_types",
+    "create_webhook_subscription",
     "create_memo",
 }
 
@@ -90,12 +91,24 @@ def test_conformance_every_tool_classified() -> None:
     # Trust-account fund-movement tools are never exposed here.
     assert not any("transaction" in k or "protect" in k for k in runtime_map)
     # Writes carry their classes under the runtime name; reads are reads.
-    assert runtime_map[runtime_tool_name("smokeball", "create_memo")] == "internal_write"
+    assert (
+        runtime_map[runtime_tool_name("smokeball", "create_memo")] == "internal_write"
+    )
+    assert (
+        runtime_map[runtime_tool_name("smokeball", "create_webhook_subscription")]
+        == "internal_write"
+    )
     assert runtime_map[runtime_tool_name("smokeball", "add_file")] == "internal_write"
     assert runtime_map[runtime_tool_name("smokeball", "delete_file")] == "destructive"
-    assert runtime_map[runtime_tool_name("smokeball", "create_event")] == "internal_write"
-    assert runtime_map[runtime_tool_name("smokeball", "create_task")] == "internal_write"
-    assert runtime_map[runtime_tool_name("smokeball", "create_folder")] == "internal_write"
+    assert (
+        runtime_map[runtime_tool_name("smokeball", "create_event")] == "internal_write"
+    )
+    assert (
+        runtime_map[runtime_tool_name("smokeball", "create_task")] == "internal_write"
+    )
+    assert (
+        runtime_map[runtime_tool_name("smokeball", "create_folder")] == "internal_write"
+    )
     assert runtime_map[runtime_tool_name("smokeball", "list_events")] == "read"
     assert runtime_map[runtime_tool_name("smokeball", "get_matter_balances")] == "read"
     assert runtime_map[runtime_tool_name("smokeball", "list_matters")] == "read"
@@ -110,6 +123,7 @@ def test_write_surface_is_memo_document_and_deadline_engine() -> None:
     writes = {t: c for t, c in m.tool_classes.items() if c != "read"}
     assert writes == {
         "create_memo": "internal_write",
+        "create_webhook_subscription": "internal_write",
         "add_file": "internal_write",
         "delete_file": "destructive",
         "create_event": "internal_write",
@@ -124,7 +138,10 @@ def test_write_surface_is_memo_document_and_deadline_engine() -> None:
 @pytest.mark.skipif(_SCRIPT is None, reason="smokeball-mcp console-script not on PATH")
 def test_stdio_serves_over_console_script() -> None:
     async def _roundtrip() -> None:
-        async with stdio_client(StdioServerParameters(command=_SCRIPT)) as (read, write):
+        async with stdio_client(StdioServerParameters(command=_SCRIPT)) as (
+            read,
+            write,
+        ):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 listed = await session.list_tools()
