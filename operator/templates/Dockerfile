@@ -481,6 +481,9 @@ COPY operator/templates/ensure-curator-disabled.py /app/ensure-curator-disabled.
 COPY operator/templates/ensure-disabled-skills.py /app/ensure-disabled-skills.py
 COPY operator/templates/ensure-operator-identity.py /app/ensure-operator-identity.py
 COPY operator/templates/ensure-telegram-allowlist.py /app/ensure-telegram-allowlist.py
+# Egress webhook-subscription reconciler orchestrator (hermes venv; dispatches to
+# each connector's own venv). Invoked non-fatally by bootstrap.sh after the R2 strip.
+COPY operator/bin/webhook_reconcile.py /app/webhook_reconcile.py
 # OP-P1-4 affirmative proof: boot-smoke runs this as the agent uid to confirm
 # the ledger is not agent-writable.
 COPY operator/templates/audit-write-fail-probe.py /app/audit-write-fail-probe.py
