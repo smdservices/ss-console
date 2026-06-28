@@ -537,6 +537,23 @@ PY
 )" || die "failed to read active persona from customer.yaml"
 [ -n "${ACTIVE_PROFILE}" ] || die "no active persona with a slug in customer.yaml"
 log "Active persona profile: ${ACTIVE_PROFILE}"
+
+# Publish the active persona on the env channel the overlay governance plugins
+# resolve it from. The ADR 0056 trust gate (hermes-smd-trust/enforce.py), the
+# audit emitter, and peer-memory all read the active persona from
+# HERMES_ACTIVE_PROFILE (SMD_ACTIVE_PERSONA is only a fallback) to look up that
+# persona's authored `entitlements.exposure` in customer.yaml. Hermes core's
+# `-p <slug>` flag rewrites HERMES_HOME but NEVER sets HERMES_ACTIVE_PROFILE
+# (hermes_cli/main.py:_apply_profile_override sets HERMES_HOME only), so without
+# this export the plugins resolve the active persona to "" -> exposure {} ->
+# EVERY governed action class (internal_write/external_send/destructive) fail-
+# closes on every channel, leaving the agent unable to perform any authored work
+# (caught on the first real Smokeball matter.updated: the agent's writes were all
+# refused "no authored exposure"). The overlay unit tests pass because they
+# monkeypatch this env; production boot is the only place it must be set, and
+# bootstrap — the boundary that selects the profile — is where it belongs.
+export HERMES_ACTIVE_PROFILE="${ACTIVE_PROFILE}"
+
 PROFILE_HERMES_HOME="${HERMES_HOME}/profiles/${ACTIVE_PROFILE}"
 
 # `exec` so the gateway inherits the foreground slot under tini cleanly.
