@@ -28,3 +28,54 @@ export const shapeZoneTitles = {
 // The pricing line shown in every pack's closing section.
 export const ctaPricingLine =
   'Pricing is a flat monthly subscription, scoped to the seat we build together, and we walk through it before any setup begins.'
+
+// Per-vertical display name + seat phrase, used to build the answer-engine FAQ
+// (packFaqs below) uniformly across all 12 packs. The seat phrase is written to
+// read mid-sentence (lowercase), and the vertical reads as a plural noun phrase.
+// These mirror the labels on /industries so the two never drift.
+export interface PackMeta {
+  vertical: string
+  seat: string
+}
+
+export const PACK_META: Record<string, PackMeta> = {
+  'law-firm': { vertical: 'law firms', seat: 'intake and matter coordination' },
+  insurance: { vertical: 'insurance agencies', seat: 'the service and renewal desk' },
+  accounting: { vertical: 'accounting firms', seat: 'the document chase through busy season' },
+  ria: { vertical: 'advisory firms', seat: 'client service and operations' },
+  mortgage: { vertical: 'mortgage brokers', seat: 'the pipeline through clear-to-close' },
+  veterinary: { vertical: 'veterinary clinics', seat: 'the front desk' },
+  dental: { vertical: 'dental practices', seat: 'the front office' },
+  'med-spa': { vertical: 'med spas', seat: 'booking, membership, and rebooking' },
+  title: { vertical: 'title and escrow companies', seat: 'the closing desk' },
+  'property-management': {
+    vertical: 'property managers',
+    seat: 'resident and owner coordination',
+  },
+  'marketing-agency': { vertical: 'marketing agencies', seat: 'account coordination' },
+  'home-services': { vertical: 'home services businesses', seat: 'answering and booking the call' },
+}
+
+// The answer-engine FAQ for a pack. Three decision questions a buyer (or an AI
+// answer-engine) asks, answered in answer-shaped form. Built from PACK_META so all
+// 12 packs stay uniform and accurate. Emitted as FAQPage JSON-LD + on-page copy by
+// PackClosing. Stays in firm "we"/"you" voice with no em dashes.
+export function packFaqs(slug: string): { q: string; a: string }[] {
+  const meta = PACK_META[slug]
+  if (!meta) return []
+  const { vertical, seat } = meta
+  return [
+    {
+      q: `Does the Operator work with the tools ${vertical} already use?`,
+      a: 'Yes. It works inside the accounts and systems you already run, connecting to your tools rather than replacing them. The more systems you run, the more the Operator holds together.',
+    },
+    {
+      q: `Is the Operator built for ${vertical}?`,
+      a: `It starts from the ${vertical} pack, a head start already shaped around ${seat}. We configure it with you, and you customize it to how your business actually runs, so you are not starting from a blank page.`,
+    },
+    {
+      q: 'What stays with your team?',
+      a: "You set the line. The Operator handles the coordination and routes anything that needs a person's judgment to a person. It works in your own walled-off environment, every action is logged where you can see it, and the configuration and the off switch stay with you.",
+    },
+  ]
+}

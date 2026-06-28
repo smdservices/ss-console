@@ -3,14 +3,12 @@
 // and rewrite them to /portal. The prerendered static file would bypass the Worker entirely.
 export const prerender = false
 
-// Operator-forward home. Leads on the spine: capable people and capable systems
-// both leave a gap between them where work falls through; the Operator is a new
-// kind of worker that fills the space in between. Then the Operator made concrete,
-// the leash, a secondary consulting path, the founder, one CTA.
-// Scope-based consulting moved to /consulting (a clear secondary door),
-// not removed. No proof beat here: a pre-launch firm has no honest external
-// proof, so the home converts on argument; proof lives in the live demo and in
-// real customer references, never a homepage claim or an audit-ledger display.
+// Operator-forward home: the SPINE. It hooks the leak (hero), names the gap as
+// the why and the managed worker as the fill (one belief beat, the leash), routes
+// the buyer to their vertical pack, offers the consulting second door, the founder,
+// and one door. It is NOT the manifesto: the full category argument is gone, the
+// mechanism lives on /operator, the comparison Q&A lives on /why, vertical
+// recognition lives on the packs. Each idea is argued in exactly one place.
 //
 // DRAFT COPY in the inline sections is directional, for the Captain's voice pass.
 // Structure, IA, and CTA wiring are final.
@@ -21,7 +19,7 @@ import ConsultingPath from '../components/ConsultingPath.astro'
 import About from '../components/About.astro'
 import Footer from '../components/Footer.astro'
 import CtaButton from '../components/CtaButton.astro'
-import { CATEGORY_NAME, CATEGORY_ARTICLE } from '../lib/category'
+import { CATEGORY_NAME } from '../lib/category'
 
 const categorySchema = {
   '@context': 'https://schema.org',
@@ -41,7 +39,7 @@ const categorySchema = {
 
 <Base
   title="SMD Services | The Operator, For The Work In Between"
-  description="You hire good people and you buy good software. Between them there is always a gap where work slips through. The Operator is a new kind of worker that fills the space in between, run for you as a flat monthly service."
+  description="The work that falls between your people and your software still gets done by hand. The Operator is a new kind of worker that fills that gap, built around how you run and managed by us."
 >
   <Nav />
   <main id="main" role="main">
@@ -49,68 +47,29 @@ const categorySchema = {
 
     <OperatorHero />
 
-    <!-- § 02 The problem: the gap between capable people and capable systems, bridged by hand -->
+    <!-- What it is: the category + the fill, brief. Not the mechanism (that is /operator). -->
     <section id="how" class="bg-white px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <p
           class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
         >
-          The Problem
+          A New Kind Of Worker
         </p>
         <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          Where The Work Falls Through.
+          It Fills The Gap. You Stop Bridging It By Hand.
         </h2>
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
-            You hire good people, and you buy good software. Both are capable of remarkable things.
-            But between them, there is always a gap.
+            Your people are good and your software is good. The work that falls between them, the
+            handoff from one system to the next, the follow-up that slips, the step that is
+            everyone's job and no one's, still comes down to a person holding it together by hand.
           </p>
           <p>
-            No matter how skilled your people or how optimized your systems, work lives in the space
-            in between. The handoff from one system to the next. The step that is everyone's job and
-            no one's. The thing that slips through while everyone is heads-down on their own piece.
-          </p>
-          <p>
-            Right now, your team bridges those gaps by hand, all day, one at a time. They have to. A
-            system only does its slice, and a person can only be in one place. The space in between
-            is where the work piles up.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- § 03 The third option: a new kind of worker that fills the space between; coin the category -->
-    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <p
-          class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
-        >
-          The New Way
-        </p>
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          Now There's A Third Option.
-        </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            The Operator is something new. Not a person you hire, not a tool you buy, but a new kind
-            of worker that flows into those spaces and fills them.
-          </p>
-          <p>
-            It works like someone on your team, with the same channels and capabilities, and it can
-            become an expert in any system you run in about a minute. But what it really does is
-            live in the gaps, hold the work together, and make sure nothing falls through. It is
-            always there, getting sharper at your business the longer it runs. What it learns, it
-            keeps. It won't walk out the door.
-          </p>
-          <p
-            class="font-['Archivo'] text-2xl md:text-3xl font-black uppercase tracking-[-0.01em] leading-tight text-[color:var(--ss-color-text-primary)]"
-          >
-            We call it {CATEGORY_ARTICLE}
-            {CATEGORY_NAME}.
+            The Operator is built for exactly that. It works across the tools you already run, takes
+            on the recurring connective work, and keeps the pieces moving so nothing falls through.
+            Not a person you hire, not a tool you buy. A worker that fills the gap.
           </p>
           <p>
             <a
@@ -118,7 +77,7 @@ const categorySchema = {
               data-ev="home-why-link"
               class="inline-flex items-center gap-2 font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)] hover:text-[color:var(--ss-color-primary-hover)]"
             >
-              <span>Read the full argument for it</span>
+              <span>See how it compares to a hire, a tool, or a chatbot</span>
               <span aria-hidden="true">→</span>
             </a>
           </p>
@@ -126,40 +85,8 @@ const categorySchema = {
       </div>
     </section>
 
-    <!-- § 04 The Operator (our build of the category, made concrete) -->
-    <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <p
-          class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
-        >
-          How It Works
-        </p>
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          Meet The Operator.
-        </h2>
-        <div
-          class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)] mb-12"
-        >
-          <p>
-            The Operator is ours. Picture a remote worker sitting at a desk in your business, with
-            access to the systems and processes you already run. You hand it work the way you hand
-            work to anyone on your team, and it comes back with the result.
-          </p>
-          <p>
-            Say you give it intake. It reads a new inquiry, pulls the details that matter, drafts
-            the first reply in your voice, books the call, and logs it where your team can see. The
-            work moves the way it always did. The person doing it changed.
-          </p>
-        </div>
-        <CtaButton variant="secondary" href="/operator" data-ev="home-operator-learn"
-          >See how the Operator works</CtaButton
-        >
-      </div>
-    </section>
-
-    <!-- § 05 The leash (control + trust; the team behind the worker is the product) -->
+    <!-- The reason to believe: the leash. Managed, you set the limits, we run it. Brief; the
+         operational detail lives on /operator. -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <p
@@ -170,32 +97,56 @@ const categorySchema = {
         <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          You Set The Limits. We Keep It Running.
+          Managed, Not Handed Over.
         </h2>
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
-            You decide what the Operator can do on its own and what waits for a person to approve.
-            That decision is in writing, it is part of the service agreement, and you can change it
-            whenever you want.
+            You decide what the Operator can do on its own and what waits for a person to approve,
+            and you can change that line whenever you want. It works inside the limits you set,
+            nothing more.
           </p>
           <p>
-            It starts by watching. When you sign off on a kind of work, it takes that over. Until
-            then, its drafts go to a reviewer on your team, who sends them. The Operator cannot give
-            itself more authority. Only you can. Every action it takes is recorded where you can see
-            it: what it did, when, and why.
+            And running it is our job, not yours. We build it for your business, wire it into your
+            tools, and stay accountable for how it works. A service, not software you have to
+            manage. As the field keeps moving, keeping your Operator current is on us.
           </p>
           <p>
-            And keeping it running is our job, not yours. We are the team behind the worker. We
-            build it for your business, we wire it into your tools, and we stay accountable for how
-            it runs. This is a service, not a download. You are giving feedback to an Operator, not
-            taking on a second job managing one.
-          </p>
-          <p>
-            And the ground keeps moving. This field changes constantly, and it will for a long time.
-            Keeping your Operator current as it does is our job, not yours. We are your guide
-            through it, here to see you to where you are going.
+            <a
+              href="/operator"
+              data-ev="home-operator-learn"
+              class="inline-flex items-center gap-2 font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)] hover:text-[color:var(--ss-color-primary-hover)]"
+            >
+              <span>See how it works</span>
+              <span aria-hidden="true">→</span>
+            </a>
           </p>
         </div>
+      </div>
+    </section>
+
+    <!-- The router: send the buyer to their vertical, where the leak gets concrete. -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <p
+          class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
+        >
+          Built Around How You Run
+        </p>
+        <h2
+          class="mb-8 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Start With Your Industry.
+        </h2>
+        <p
+          class="mb-10 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          The work that falls through takes a recognizable shape in every trade. We have mapped the
+          seat the Operator fills for law firms, insurance agencies, accounting firms, med spas,
+          home services, and more. Find yours.
+        </p>
+        <CtaButton variant="secondary" href="/industries" data-ev="home-industries-router"
+          >Find your industry</CtaButton
+        >
       </div>
     </section>
 
@@ -203,7 +154,7 @@ const categorySchema = {
 
     <About />
 
-    <!-- § 06 Start the conversation (single primary CTA) -->
+    <!-- Start the conversation (single primary CTA; outcome-neutral, Operator-forward). -->
     <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
       <div class="mx-auto max-w-5xl text-center">
         <p
@@ -216,15 +167,10 @@ const categorySchema = {
         >
           Start The Conversation.
         </h2>
-        <p class="mx-auto mb-6 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
-          It starts with a conversation. We learn how your operation runs, find the work that is
-          eating your team's time, and figure out where a dedicated Operator fits. If the fit is not
-          right, we say so.
-        </p>
         <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
-          Pricing is a flat monthly subscription, scoped to the role we build together, and we walk
-          through it before any setup begins. No hourly billing, no usage meter, no surprise line
-          items.
+          It starts with a conversation. We learn how your operation runs, find the work that is
+          eating your team's time, and figure out the right solution for your business. If the
+          Operator is not the right fit, we say so.
         </p>
         <CtaButton variant="outline-white" href="/book?interest=operator" data-ev="home-final-cta"
           >Start the conversation</CtaButton

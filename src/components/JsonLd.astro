@@ -23,6 +23,21 @@ const schema = {
     geoRadius: '80467',
   },
   serviceType: 'Managed Operator',
+  makesOffer: {
+    '@type': 'Offer',
+    itemOffered: {
+      '@type': 'Service',
+      name: 'Managed Operator',
+      serviceType: 'Managed Operator',
+      description:
+        'A dedicated AI worker built for your business and run for you as a managed service. It takes on the recurring connective work that falls between your people and your software.',
+      provider: {
+        '@type': 'Organization',
+        name: 'SMD Services',
+        url: 'https://smd.services',
+      },
+    },
+  },
 }
 ---
 

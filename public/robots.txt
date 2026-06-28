@@ -1,4 +1,22 @@
 User-agent: *
 Allow: /
 
+# Answer engines and AI crawlers are explicitly welcome. We want to be the cited
+# answer when someone asks who builds and runs a worker for the gap between their
+# people and their software.
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
 Sitemap: https://smd.services/sitemap-index.xml

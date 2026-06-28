@@ -1,17 +1,57 @@
 ---
-// § 08 closing band. The chip, heading, pricing line, and CTA are shared frame
-// (identical-by-design across all 12 packs, like the strings in
-// src/lib/operator-packs/shared.ts); the per-vertical pitch paragraph flows
-// through the named slot.
+// § 08 closing band, preceded by the per-vertical answer-engine FAQ. The chip,
+// heading, pricing line, and CTA are shared frame (identical-by-design across all
+// 12 packs, like the strings in src/lib/operator-packs/shared.ts); the per-vertical
+// pitch paragraph flows through the named slot. The FAQ is built from PACK_META so
+// every pack gets a uniform, accurate FAQPage (AEO) with no per-pack authoring.
 import CtaButton from '../CtaButton.astro'
-import { ctaPricingLine } from '../../lib/operator-packs/shared'
+import { ctaPricingLine, packFaqs } from '../../lib/operator-packs/shared'
 
 interface Props {
   slug: string
 }
 
 const { slug } = Astro.props
+
+const faqs = packFaqs(slug)
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqs.map((f) => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
+}
 ---
+
+{
+  faqs.length > 0 && (
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <script is:inline type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+        <p class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]">
+          Common Questions
+        </p>
+        <h2 class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+          Questions Worth Asking.
+        </h2>
+        <div class="max-w-3xl space-y-10">
+          {faqs.map((f) => (
+            <div>
+              <h3 class="mb-3 font-['Archivo'] text-xl font-bold text-[color:var(--ss-color-text-primary)]">
+                {f.q}
+              </h3>
+              <p class="text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                {f.a}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
 
 <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
   <div class="mx-auto max-w-5xl text-center">
