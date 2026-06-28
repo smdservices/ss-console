@@ -31,52 +31,22 @@ from typing import Any
 
 from operator_connector_sdk.server import ConnectorServer
 
-from .client import SmokeballApiError, SmokeballClient
+from .client import SmokeballApiError, SmokeballClient, build_client_from_env
 
 server = ConnectorServer("smokeball")
-
-_DEFAULT_REFRESH_TOKEN_FILE = "/opt/data/.smokeball-mcp/refresh_token"
 
 _client: SmokeballClient | None = None
 
 
-def _read_refresh_token(token_file: str) -> str | None:
-    """The firm-delegated refresh token's durable home (ADR 0054): the
-    Machine-hosted OAuth callback writes this file. Prefer the file (it survives
-    rotation); fall back to the SMOKEBALL_REFRESH_TOKEN env (cold-start seed)."""
-    try:
-        val = open(token_file, encoding="utf-8").read().strip()
-        if val:
-            return val
-    except OSError:
-        pass
-    return os.environ.get("SMOKEBALL_REFRESH_TOKEN") or None
-
-
 def _get_client() -> SmokeballClient:
+    """Lazily build + cache the client from env. Construction lives in
+    ``client.build_client_from_env`` — the single source of truth shared with the
+    egress webhook reconciler, so the tenant-selecting env mapping can't drift.
+    Lazy so an authorization_code seat self-heals once the OAuth callback writes
+    the token file — no restart needed."""
     global _client
     if _client is None:
-        # auth_mode/refresh_token/account_id are per-seat runtime selections, read
-        # via .get so an absent value never crashes the default client_credentials
-        # path (the manifest declares only the three required secrets). For the
-        # authorization_code path the refresh token is read from the volume file
-        # the OAuth callback writes (built lazily, so the connector self-heals once
-        # the file appears — no restart needed).
-        token_file = (
-            os.environ.get("SMOKEBALL_REFRESH_TOKEN_FILE")
-            or _DEFAULT_REFRESH_TOKEN_FILE
-        )
-        _client = SmokeballClient(
-            region=os.environ.get("SMOKEBALL_REGION", "us"),
-            environment=os.environ.get("SMOKEBALL_ENVIRONMENT", "staging"),
-            client_id=os.environ["SMOKEBALL_CLIENT_ID"],
-            client_secret=os.environ["SMOKEBALL_CLIENT_SECRET"],
-            api_key=os.environ["SMOKEBALL_API_KEY"],
-            auth_mode=os.environ.get("SMOKEBALL_AUTH_MODE", "client_credentials"),
-            refresh_token=_read_refresh_token(token_file),
-            refresh_token_file=token_file,
-            account_id=os.environ.get("SMOKEBALL_ACCOUNT_ID") or None,
-        )
+        _client = build_client_from_env()
     return _client
 
 
