@@ -217,6 +217,8 @@ async function resolveMeeting(
 
 const INTEREST_LABELS: Record<string, string> = {
   operator: 'Operator',
+  ai: 'AI & Automation',
+  consulting: 'Solutions Consulting',
 }
 
 function buildIntakeLines(input: IntakeInput): string[] {

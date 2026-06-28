@@ -52,6 +52,8 @@ const INTEREST_LABELS: Record<string, string> = {
   'marketing-agency': 'Operator for Marketing Agencies',
   'property-management': 'Operator for Property Managers',
   'home-services': 'Operator for Home Services',
+  ai: 'AI & Automation',
+  consulting: 'Solutions Consulting',
 }
 
 interface ValidatedSendBody {
