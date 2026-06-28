@@ -3,10 +3,9 @@ import SmdLogo from './SmdLogo.astro'
 
 const navLinks = [
   { href: '/operator', label: 'Operator' },
-  { href: '/operator#industries', label: 'Industries' },
+  { href: '/industries', label: 'Industries' },
   { href: '/why', label: 'Why' },
   { href: '/consulting', label: 'Consulting' },
-  { href: '/contact', label: 'Contact' },
 ]
 ---
 
@@ -33,8 +32,8 @@ const navLinks = [
       }
       <a
         class="inline-flex items-center whitespace-nowrap min-h-11 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] active:bg-[color:var(--ss-color-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 px-3 md:px-5 py-2 font-['Archivo'] font-bold uppercase tracking-[0.08em] text-white text-xs md:text-sm transition-colors"
-        href="/book"
-        data-ev="nav-book">Get in touch</a
+        href="/book?interest=operator"
+        data-ev="nav-book">Start the conversation</a
       >
       <button
         type="button"
@@ -100,11 +99,11 @@ const navLinks = [
     <!-- Bottom CTA -->
     <div class="flex-none border-t-[3px] border-white p-5">
       <a
-        href="/book"
+        href="/book?interest=operator"
         data-nav-link
         data-ev="nav-mobile-book"
         class="flex w-full items-center justify-center whitespace-nowrap border-[3px] border-white bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] px-5 py-4 font-['Archivo'] text-base font-bold uppercase tracking-[0.08em] text-white transition-colors"
-        >Get in touch</a
+        >Start the conversation</a
       >
     </div>
   </div>
