@@ -1,65 +1,118 @@
 ---
-// Operator-forward home hero (§01). Leads on the spine: capable people and
-// capable systems both leave a gap between them where work falls through; the
-// Operator is a new kind of worker that fills the space in between, run for you.
-// Does not presume to know the reader's business. One primary CTA + a low-weight
-// in-page scroll cue to the argument.
-//
-// DRAFT COPY - headline and side note are directional for the Captain's voice
-// pass. The structure and CTA wiring are final.
+// Operator-forward home hero (§01). The gap is carried by COMPOSITION, not a
+// diagram: the hero is built across a structural seam of negative space. The
+// headline (the "people" side) sits left; the argument + the one door sit right;
+// between them runs a single burnt-orange seam — the Operator — with one mark
+// held on it. Type-led, universal (no vertical named), one accent, restrained
+// motion that draws the seam in. Plainspoken: cream/ink/orange, zero radius.
 import CtaButton from './CtaButton.astro'
 ---
 
-<section class="bg-[color:var(--ss-color-background)] px-6">
-  <div class="mx-auto max-w-5xl">
-    <span
-      class="inline-block bg-[color:var(--ss-color-text-primary)] text-[color:var(--ss-color-background)] font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] px-2 py-1 mt-16 md:mt-20"
-      >§ 01</span
-    >
-    <div class="grid grid-cols-1 md:grid-cols-12">
-      <div
-        class="md:col-span-8 pt-8 pb-16 md:pt-10 md:pb-24 md:pr-10 border-b-[3px] md:border-b-0 border-[color:var(--ss-color-text-primary)]"
+<section class="ss-hero relative overflow-hidden bg-[color:var(--ss-color-background)] px-6">
+  <div
+    class="mx-auto grid min-h-[78vh] max-w-6xl grid-cols-1 items-center gap-y-12 py-20 md:grid-cols-12 md:gap-y-0 md:py-28"
+  >
+    <!-- LEFT — the headline -->
+    <div class="md:col-span-7 md:pr-12">
+      <p
+        class="mb-6 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
       >
-        <h1
-          class="font-['Archivo'] font-black uppercase text-[clamp(2.5rem,8vw,6rem)] leading-[0.9] tracking-[-0.04em] text-[color:var(--ss-color-text-primary)]"
-        >
-          <span class="block">Fills The</span>
-          <span class="block">Space In</span>
-          <span class="block text-[color:var(--ss-color-primary)]">Between.</span>
-        </h1>
-        <div class="mt-10 md:mt-12 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
-          <CtaButton
-            href="/book?interest=operator"
-            data-ev="home-operator-hero-cta"
-            class="w-full sm:w-auto"
-          >
-            Get in touch
-          </CtaButton>
-          <a
-            href="#how"
-            data-ev="home-hero-scroll"
-            class="inline-flex items-center gap-2 font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
-          >
-            <span>See how it works</span>
-            <span aria-hidden="true">↓</span>
-          </a>
-        </div>
-      </div>
-      <div
-        class="md:col-span-4 flex flex-col items-start py-10 md:pt-10 md:pb-14 md:pl-10 md:border-l-[3px] md:border-[color:var(--ss-color-text-primary)]"
+        The Managed Operator
+      </p>
+      <h1
+        class="ss-hero-h font-['Archivo'] font-black uppercase leading-[0.9] tracking-[-0.04em] text-[color:var(--ss-color-text-primary)]"
       >
-        <p
-          class="font-['Archivo'] text-sm md:text-base leading-relaxed text-balance text-[color:var(--ss-color-text-secondary)]"
+        <span class="block">Fills The</span>
+        <span class="block">Space In</span>
+        <span class="block text-[color:var(--ss-color-primary)]">Between.</span>
+      </h1>
+    </div>
+
+    <!-- RIGHT — the argument + the one door, across the seam -->
+    <div class="md:col-span-5 md:pl-12">
+      <p
+        class="max-w-md font-['Archivo'] text-lg leading-relaxed text-balance text-[color:var(--ss-color-text-secondary)]"
+      >
+        Between even the best people and the best systems, there's a gap where work slips through.
+        The Operator is a new kind of worker that fills it, and we run it for you.
+      </p>
+      <div class="mt-9 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-7">
+        <CtaButton href="/book?interest=operator" data-ev="home-operator-hero-cta">
+          Start the conversation
+        </CtaButton>
+        <a
+          href="/why"
+          data-ev="home-hero-why"
+          class="inline-flex items-center gap-2 font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)] underline-offset-4 hover:text-[color:var(--ss-color-text-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2"
         >
-          Between even the best people and the best systems, there's a gap where work slips through.
-          The Operator is a new kind of worker that fills it, and we run it for you.
-        </p>
-        <div
-          class="hidden md:block mt-8 w-12 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
-          aria-hidden="true"
-        >
-        </div>
+          <span>Read the argument</span>
+          <span aria-hidden="true">→</span>
+        </a>
       </div>
     </div>
   </div>
+
+  <!-- THE SEAM — the gap, filled. Desktop composition accent only. -->
+  <div class="ss-seam pointer-events-none absolute inset-y-0 hidden md:block" aria-hidden="true">
+    <span class="ss-seam-line"></span>
+    <span class="ss-seam-mark"></span>
+  </div>
 </section>
+
+<style>
+  .ss-seam {
+    left: 50%;
+    width: min(72rem, 100% - 3rem);
+    transform: translateX(-50%);
+  }
+  .ss-seam-line {
+    position: absolute;
+    left: 58.333%;
+    top: 22%;
+    bottom: 22%;
+    width: 2px;
+    background: var(--ss-color-primary);
+    transform-origin: top center;
+    animation: ss-seam-draw 700ms cubic-bezier(0, 0, 0.2, 1) both;
+    animation-delay: 120ms;
+  }
+  .ss-seam-mark {
+    position: absolute;
+    left: 58.333%;
+    top: 50%;
+    width: 13px;
+    height: 13px;
+    background: var(--ss-color-text-primary);
+    transform: translate(-6px, -50%) scale(0);
+    animation: ss-seam-catch 360ms cubic-bezier(0, 0, 0.2, 1) both;
+    animation-delay: 760ms;
+  }
+  @keyframes ss-seam-draw {
+    from {
+      transform: scaleY(0);
+    }
+    to {
+      transform: scaleY(1);
+    }
+  }
+  @keyframes ss-seam-catch {
+    from {
+      transform: translate(-6px, -50%) scale(0);
+    }
+    to {
+      transform: translate(-6px, -50%) scale(1);
+    }
+  }
+  .ss-hero-h {
+    font-size: clamp(2.75rem, 8vw, 6rem);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ss-seam-line,
+    .ss-seam-mark {
+      animation: none;
+    }
+    .ss-seam-mark {
+      transform: translate(-6px, -50%) scale(1);
+    }
+  }
+</style>

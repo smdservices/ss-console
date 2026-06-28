@@ -1,0 +1,123 @@
+---
+export const prerender = false
+
+// The Industries index — a real door for the warm vertical arrival (the early
+// pipeline lands here directly via a pasted link). The Operator is a configurable
+// substrate, NOT a law tool: this page leads with universality, then offers the
+// verticals where we have already mapped the seat. Each tile is a pack.
+import Base from '../layouts/Base.astro'
+import Nav from '../components/Nav.astro'
+import Footer from '../components/Footer.astro'
+import CtaButton from '../components/CtaButton.astro'
+
+const industries = [
+  { name: 'Law firms', seat: 'Intake and matter coordination', slug: 'law-firm' },
+  { name: 'Insurance agencies', seat: 'The service and renewal desk', slug: 'insurance' },
+  { name: 'Accounting firms', seat: 'The document chase through busy season', slug: 'accounting' },
+  { name: 'Advisory firms', seat: 'Client service and operations', slug: 'ria' },
+  { name: 'Mortgage brokers', seat: 'The pipeline through clear-to-close', slug: 'mortgage' },
+  { name: 'Veterinary clinics', seat: 'The front desk', slug: 'veterinary' },
+  { name: 'Dental practices', seat: 'The front office', slug: 'dental' },
+  { name: 'Med spas', seat: 'Booking, membership, and rebooking', slug: 'med-spa' },
+  { name: 'Title and escrow', seat: 'The closing desk', slug: 'title' },
+  {
+    name: 'Property management',
+    seat: 'Resident and owner coordination',
+    slug: 'property-management',
+  },
+  { name: 'Marketing agencies', seat: 'Account coordination', slug: 'marketing-agency' },
+  { name: 'Home services', seat: 'Answering and booking the call', slug: 'home-services' },
+]
+---
+
+<Base
+  title="Industries | SMD Services"
+  description="The Operator is built around how your business runs, not around an industry. For these, we have already mapped the seat it fills, the work it takes on, and the line it will not cross."
+>
+  <Nav />
+  <main id="main" role="main">
+    <!-- Hero -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 pt-24 pb-16">
+      <div class="mx-auto max-w-5xl">
+        <p
+          class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
+        >
+          Industries
+        </p>
+        <h1
+          class="mb-8 font-['Archivo'] text-5xl md:text-7xl font-black uppercase leading-[0.95] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Built Around How You Run.
+        </h1>
+        <p
+          class="max-w-2xl font-['Archivo'] text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          The Operator is not built for an industry. It is built for your business. But the work
+          that falls between your people and your systems takes a recognizable shape in each trade.
+          For these, we have already mapped the seat the Operator fills, the work it takes on, and
+          the line it will not cross. Find yours.
+        </p>
+      </div>
+    </section>
+
+    <!-- The verticals -->
+    <section class="bg-white px-6 pb-24">
+      <div class="mx-auto max-w-5xl">
+        <div
+          class="grid grid-cols-1 md:grid-cols-3 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
+        >
+          {
+            industries.map((industry, i) => (
+              <a
+                href={`/packs/${industry.slug}`}
+                data-ev={`industries-${industry.slug}`}
+                class:list={[
+                  'group flex flex-col gap-2 p-8 min-h-[11rem] border-b-[3px] border-[color:var(--ss-color-text-primary)] transition-colors hover:bg-[color:var(--ss-color-background)]',
+                  i % 3 !== 2 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
+                ]}
+              >
+                <p class="font-['Archivo'] text-lg font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)] group-hover:text-[color:var(--ss-color-primary)]">
+                  {industry.name}
+                </p>
+                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                  {industry.seat}
+                </p>
+                <span
+                  class="mt-auto font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)] group-hover:text-[color:var(--ss-color-primary)]"
+                  aria-hidden="true"
+                >
+                  See the pack →
+                </span>
+              </a>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- Don't see yours -->
+    <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
+      <div class="mx-auto max-w-5xl text-center">
+        <p
+          class="mb-6 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-muted)]"
+        >
+          Don't See Yours
+        </p>
+        <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
+        >
+          The List Isn't The Limit.
+        </h2>
+        <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
+          These are the seats we have already mapped, not the only ones the Operator can fill. If
+          your business runs on systems and people, there is a gap between them, and that is the
+          work the Operator takes on. Tell us how you run, and we will find it.
+        </p>
+        <CtaButton variant="outline-white" href="/book?interest=operator" data-ev="industries-cta"
+          >Start the conversation</CtaButton
+        >
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Base>
