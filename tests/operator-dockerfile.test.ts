@@ -181,7 +181,12 @@ describe('Operator customer Machine Dockerfile', () => {
     // exactly this one commit; all four tracked twins verified unchanged. Pairs with
     // the ss-console egress reconciler (engine + orchestrator + boot backstop).
     // Superset of 22498d6.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="e1044f193ef4e89e39c3a99a809ec376c5669eb8"')
+    // 2b694947 (#117): the gate stamps the verified per-delivery id (RequestId) as
+    // top-level event_id so the header-less webhook router has a replay key — fixes
+    // the first real Smokeball matter.updated verifying (202) but the router
+    // refusing "missing event id". Range e1044f19..2b694947 is exactly this one
+    // commit; all four tracked twins verified unchanged. Superset of e1044f19.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="2b6949477176bb32f2bc822a79403e39a33746c3"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
