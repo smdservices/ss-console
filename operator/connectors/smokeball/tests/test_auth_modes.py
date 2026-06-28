@@ -153,9 +153,13 @@ def test_auth_status_reports_mode_not_token() -> None:
 
 def test_mint_failure_does_not_echo_grant() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(401, json={"error": "invalid_grant", "secret_echo": "rt-123"})
+        return httpx.Response(
+            401, json={"error": "invalid_grant", "secret_echo": "rt-123"}
+        )
 
-    client = _mock_client(handler, auth_mode="authorization_code", refresh_token="rt-123")
+    client = _mock_client(
+        handler, auth_mode="authorization_code", refresh_token="rt-123"
+    )
     with pytest.raises(SmokeballAuthError) as exc:
         client.auth_status()
     assert "rt-123" not in str(exc.value)
@@ -178,11 +182,17 @@ def test_auth_status_decodes_granted_scopes() -> None:
     jwt = _make_jwt({"scope": "documents/read documents/write matters/read"})
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"access_token": jwt, "expires_in": 3600, "token_type": "Bearer"})
+        return httpx.Response(
+            200, json={"access_token": jwt, "expires_in": 3600, "token_type": "Bearer"}
+        )
 
     client = _mock_client(handler, auth_mode="authorization_code", refresh_token="rt-1")
     status = client.auth_status()
-    assert status["granted_scopes"] == ["documents/read", "documents/write", "matters/read"]
+    assert status["granted_scopes"] == [
+        "documents/read",
+        "documents/write",
+        "matters/read",
+    ]
     assert jwt not in repr(status)  # the token itself never leaks
 
 
@@ -197,7 +207,9 @@ def test_mint_logs_granted_scopes_once(capsys) -> None:
     jwt = _make_jwt({"scope": "documents/read documents/write matters/read"})
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"access_token": jwt, "expires_in": 3600, "token_type": "Bearer"})
+        return httpx.Response(
+            200, json={"access_token": jwt, "expires_in": 3600, "token_type": "Bearer"}
+        )
 
     client = _mock_client(handler, auth_mode="authorization_code", refresh_token="rt-1")
     client._mint_token()
@@ -238,15 +250,40 @@ def test_no_rotation_does_not_touch_file(tmp_path) -> None:
     assert not token_file.exists()  # nothing rotated → nothing written
 
 
-def test_server_reads_token_from_file_then_env(tmp_path, monkeypatch) -> None:
-    from smokeball_connector import server
+def test_read_refresh_token_file_then_env(tmp_path, monkeypatch) -> None:
+    # Construction moved to client.build_client_from_env (single source of truth
+    # shared with the egress reconciler); the token reader lives there now.
+    from smokeball_connector import client
 
     token_file = tmp_path / "refresh_token"
     monkeypatch.delenv("SMOKEBALL_REFRESH_TOKEN", raising=False)
-    assert server._read_refresh_token(str(token_file)) is None  # neither present
+    assert client.read_refresh_token(str(token_file)) is None  # neither present
 
     monkeypatch.setenv("SMOKEBALL_REFRESH_TOKEN", "from-env")
-    assert server._read_refresh_token(str(token_file)) == "from-env"  # env fallback
+    assert client.read_refresh_token(str(token_file)) == "from-env"  # env fallback
 
     token_file.write_text("from-file\n")
-    assert server._read_refresh_token(str(token_file)) == "from-file"  # file wins
+    assert client.read_refresh_token(str(token_file)) == "from-file"  # file wins
+
+
+def test_build_client_from_env_constructs_and_fail_modes(tmp_path, monkeypatch) -> None:
+    """The single-source env factory shared by the server and the egress reconciler."""
+    from smokeball_connector import client
+
+    for k in ("SMOKEBALL_CLIENT_ID", "SMOKEBALL_CLIENT_SECRET", "SMOKEBALL_API_KEY"):
+        monkeypatch.setenv(k, "x")
+    monkeypatch.setenv("SMOKEBALL_ENVIRONMENT", "staging")
+    monkeypatch.setenv("SMOKEBALL_REGION", "us")
+    monkeypatch.delenv("SMOKEBALL_REFRESH_TOKEN", raising=False)
+    monkeypatch.setenv("SMOKEBALL_REFRESH_TOKEN_FILE", str(tmp_path / "absent"))
+
+    # client_credentials (default) needs no refresh token → constructs fine.
+    monkeypatch.delenv("SMOKEBALL_AUTH_MODE", raising=False)
+    c = client.build_client_from_env()
+    assert c.auth_mode == "client_credentials" and c.environment == "staging"
+
+    # authorization_code with no token available → fail-closed ValueError (the
+    # reconciler catches this as "not connected yet; skip, retry").
+    monkeypatch.setenv("SMOKEBALL_AUTH_MODE", "authorization_code")
+    with pytest.raises(ValueError):
+        client.build_client_from_env()

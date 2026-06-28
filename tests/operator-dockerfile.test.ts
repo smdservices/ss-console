@@ -174,7 +174,14 @@ describe('Operator customer Machine Dockerfile', () => {
     // consumes.yaml. Range 97c59f3..22498d6 is exactly this one commit; all four
     // tracked twins verified unchanged. Pairs with ss-console #1529 (provisioning).
     // Superset of 97c59f3.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="22498d6edcf12bdb5b2d8113c0e8fea95010ccb4"')
+    // e1044f19 (#116): the Smokeball connect-triggered webhook reconcile —
+    // shared/oauth_callback.py fires the egress reconciler (/app/webhook_reconcile.py
+    // --trigger connect) after the OAuth token lands, so a newly-connected firm's
+    // webhook subscriptions are ensured without a reboot. Range 22498d6..e1044f19 is
+    // exactly this one commit; all four tracked twins verified unchanged. Pairs with
+    // the ss-console egress reconciler (engine + orchestrator + boot backstop).
+    // Superset of 22498d6.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="e1044f193ef4e89e39c3a99a809ec376c5669eb8"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {

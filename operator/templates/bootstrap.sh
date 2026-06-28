@@ -728,6 +728,18 @@ log "Connector classification probe PASSED"
 # leak: no hermes-owned process ever holds the account-wide key.
 unset R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY
 
+# Egress webhook subscriptions (the PUSH half): ensure each push connector's
+# vendor tenant has the subscriptions customer.yaml declares — the mirror of the
+# inbound gate routes. Boot is the change-hash-gated BACKSTOP: a steady intent is
+# a pure local no-op with zero vendor calls; the PRIMARY trigger is the OAuth
+# connect callback (a fresh firm activates without waiting for a reboot). NON-FATAL
+# and bounded (each per-vendor reconcile subprocess has its own timeout), so a
+# reconcile hiccup never blocks the gateway from coming up. Runs after the R2 strip
+# (it needs only customer.yaml + the vendor secrets, never the account-wide key).
+log "Reconciling egress webhook subscriptions (boot backstop)..."
+/opt/hermes/.venv/bin/python3 /app/webhook_reconcile.py "${CUSTOMER_YAML}" --trigger boot \
+  || log "WARN: egress webhook reconcile non-fatal failure (retries at connect / next boot)"
+
 # Inbound webhook front-door gate (overlay `hermes-smd-webhook-gate`). It binds
 # the public port (8643), verifies the vendor signature (AgentMail), and forwards
 # to the gateway's machine-local :8644 with the Generic header. FAIL-CLOSED: only

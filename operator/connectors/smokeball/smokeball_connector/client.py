@@ -46,14 +46,26 @@ import httpx
 # region -> environment -> (auth_host, api_host). Confirmed from the base-URLs doc.
 _HOSTS: dict[tuple[str, str], tuple[str, str]] = {
     ("us", "production"): ("https://auth.smokeball.com", "https://api.smokeball.com"),
-    ("us", "staging"): ("https://datastaging-auth.smokeball.com", "https://stagingapi.smokeball.com"),
-    ("au", "production"): ("https://auth.smokeball.com.au", "https://api.smokeball.com.au"),
+    ("us", "staging"): (
+        "https://datastaging-auth.smokeball.com",
+        "https://stagingapi.smokeball.com",
+    ),
+    ("au", "production"): (
+        "https://auth.smokeball.com.au",
+        "https://api.smokeball.com.au",
+    ),
     ("au", "staging"): (
         "https://datastaging-auth.smokeball.com.au",
         "https://stagingapi.smokeball.com.au",
     ),
-    ("uk", "production"): ("https://auth.smokeball.co.uk", "https://api.smokeball.co.uk"),
-    ("uk", "staging"): ("https://datastaging-auth.smokeball.co.uk", "https://stagingapi.smokeball.co.uk"),
+    ("uk", "production"): (
+        "https://auth.smokeball.co.uk",
+        "https://api.smokeball.co.uk",
+    ),
+    ("uk", "staging"): (
+        "https://datastaging-auth.smokeball.co.uk",
+        "https://stagingapi.smokeball.co.uk",
+    ),
 }
 
 _TOKEN_SKEW_SECONDS = 60
@@ -88,7 +100,11 @@ def _truncate_body(text: str | None) -> str:
     if not text:
         return ""
     text = text.strip()
-    return text if len(text) <= _MAX_ERROR_BODY else text[:_MAX_ERROR_BODY] + "...(truncated)"
+    return (
+        text
+        if len(text) <= _MAX_ERROR_BODY
+        else text[:_MAX_ERROR_BODY] + "...(truncated)"
+    )
 
 
 class SmokeballApiError(RuntimeError):
@@ -103,7 +119,9 @@ class SmokeballApiError(RuntimeError):
         self.path = path
         self.status = status
         self.body = body
-        super().__init__(f"Smokeball {method} {path} -> HTTP {status}: {body or '(empty body)'}")
+        super().__init__(
+            f"Smokeball {method} {path} -> HTTP {status}: {body or '(empty body)'}"
+        )
 
 
 class SmokeballClient:
@@ -166,7 +184,9 @@ class SmokeballClient:
         return {"grant_type": "client_credentials", "client_id": self._client_id}
 
     def _mint_token(self) -> int:
-        basic = base64.b64encode(f"{self._client_id}:{self._client_secret}".encode()).decode()
+        basic = base64.b64encode(
+            f"{self._client_id}:{self._client_secret}".encode()
+        ).decode()
         try:
             resp = self._http.post(
                 f"{self.auth_host}/oauth2/token",
@@ -177,7 +197,9 @@ class SmokeballClient:
                 data=self._token_request_body(),
             )
         except httpx.HTTPError as exc:
-            raise SmokeballAuthError(f"token request to {self.auth_host} failed: {exc}") from exc
+            raise SmokeballAuthError(
+                f"token request to {self.auth_host} failed: {exc}"
+            ) from exc
         if resp.status_code != 200:
             # Never include the response body verbatim — it can echo the grant.
             raise SmokeballAuthError(
@@ -192,12 +214,18 @@ class SmokeballClient:
         # returns a new one, hold it in memory AND rewrite the durable token file
         # so the rotated token survives a restart (ADR 0054, Clio pattern).
         rotated = body.get("refresh_token")
-        if self.auth_mode == "authorization_code" and rotated and rotated != self._refresh_token:
+        if (
+            self.auth_mode == "authorization_code"
+            and rotated
+            and rotated != self._refresh_token
+        ):
             self._refresh_token = rotated
             self._persist_refresh_token(rotated)
         expires_in = int(body.get("expires_in", 3600))
         self._token = token
-        self._token_deadline = time.monotonic() + max(expires_in - _TOKEN_SKEW_SECONDS, 0)
+        self._token_deadline = time.monotonic() + max(
+            expires_in - _TOKEN_SKEW_SECONDS, 0
+        )
         # Operability: log the granted scopes once per process on first successful
         # auth. The connector mints on the first tool call of any agent turn (e.g.
         # the inbox router's get_contacts/list_matters), so this surfaces the live
@@ -263,7 +291,9 @@ class SmokeballClient:
                 "Authorization": f"Bearer {self._bearer()}",
                 "Accept": "application/json",
             }
-            last = self._http.request(method, url, params=_clean(params), json=json, headers=headers)
+            last = self._http.request(
+                method, url, params=_clean(params), json=json, headers=headers
+            )
             if last.status_code == 429:
                 time.sleep(min(2**attempt, 8))
                 continue
@@ -272,13 +302,17 @@ class SmokeballClient:
                 refreshed = True
                 continue
             if last.status_code >= 400:
-                raise SmokeballApiError(method, path, last.status_code, _truncate_body(last.text))
+                raise SmokeballApiError(
+                    method, path, last.status_code, _truncate_body(last.text)
+                )
             if last.status_code == 204 or not last.content:
                 return None
             return last.json()
         assert last is not None
         # Attempts exhausted (e.g. a persistent 429) — surface the last status+body.
-        raise SmokeballApiError(method, path, last.status_code, _truncate_body(last.text))
+        raise SmokeballApiError(
+            method, path, last.status_code, _truncate_body(last.text)
+        )
 
     def get(self, path: str, **params: Any) -> Any:
         return self.request("GET", path, params=params)
@@ -338,6 +372,13 @@ class SmokeballClient:
         async — returns the tracking Link). DESTRUCTIVE at the overlay."""
         return self.request("DELETE", f"/matters/{matter_id}/documents/files/{file_id}")
 
+    # ---- webhook subscription management ----------------------------------
+    def delete_webhook_subscription(self, subscription_id: str) -> Any:
+        """Unsubscribe — ``DELETE /webhooks/{id}`` (Smokeball webhook CRUD). Used by
+        the egress reconciler to remove a stale/duplicate op-managed subscription;
+        a plain client method (not an MCP tool), so it carries no manifest class."""
+        return self.request("DELETE", f"/webhooks/{subscription_id}")
+
     # ---- health -----------------------------------------------------------
     def _decode_token_scopes(self) -> list[str]:
         """Decode the current access token's granted scopes from its JWT ``scope``
@@ -373,3 +414,48 @@ class SmokeballClient:
             "api_host": self.api_host,
             "token_expires_in": expires_in,
         }
+
+
+# ---- env-driven construction (single source of truth) ---------------------
+# The firm-delegated refresh token's durable home (ADR 0054): the Machine-hosted
+# OAuth callback writes it here, and the client rewrites it in place on rotation.
+_DEFAULT_REFRESH_TOKEN_FILE = "/opt/data/.smokeball-mcp/refresh_token"
+
+
+def read_refresh_token(token_file: str) -> str | None:
+    """Prefer the volume file (survives rotation); fall back to the
+    ``SMOKEBALL_REFRESH_TOKEN`` env (cold-start seed); else None (client_credentials
+    needs no token; authorization_code raises in the ctor when None)."""
+    try:
+        val = open(token_file, encoding="utf-8").read().strip()
+        if val:
+            return val
+    except OSError:
+        pass
+    return os.environ.get("SMOKEBALL_REFRESH_TOKEN") or None
+
+
+def build_client_from_env() -> SmokeballClient:
+    """Construct a SmokeballClient from the connector's runtime env.
+
+    The SINGLE source of truth for the tenant-selecting construction
+    (region / environment / auth_mode / account / token file), reused by BOTH
+    the MCP server's cached ``_get_client`` and the boot/connect webhook
+    reconciler — so the security-sensitive mapping can never drift between the
+    two (it was previously a comment-enforced "mirror"). Always passes
+    ``refresh_token_file`` so a rotation during use is persisted to the canonical
+    path the gateway reads, never desyncing the Machine's token."""
+    token_file = (
+        os.environ.get("SMOKEBALL_REFRESH_TOKEN_FILE") or _DEFAULT_REFRESH_TOKEN_FILE
+    )
+    return SmokeballClient(
+        region=os.environ.get("SMOKEBALL_REGION", "us"),
+        environment=os.environ.get("SMOKEBALL_ENVIRONMENT", "staging"),
+        client_id=os.environ["SMOKEBALL_CLIENT_ID"],
+        client_secret=os.environ["SMOKEBALL_CLIENT_SECRET"],
+        api_key=os.environ["SMOKEBALL_API_KEY"],
+        auth_mode=os.environ.get("SMOKEBALL_AUTH_MODE", "client_credentials"),
+        refresh_token=read_refresh_token(token_file),
+        refresh_token_file=token_file,
+        account_id=os.environ.get("SMOKEBALL_ACCOUNT_ID") or None,
+    )
