@@ -2,61 +2,53 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync } from 'fs'
 import { resolve, join } from 'path'
 
-// The Operator landing and every vertical pack use an editorial "§ NN" section
-// rhythm rendered as mono badge spans. Inserting or removing a section means
-// hand-renumbering every badge below it, which is the most likely mechanical
-// defect on these pages (a duplicate or skipped § reads as a quality miss on the
-// surface meant to project operational discipline). This guard asserts the
-// rendered badges run sequentially from 01 with no gaps or duplicates. It does
-// NOT enforce a fixed count — sections can be added or removed freely, they just
-// have to stay numbered in order.
+// The Operator marketing surfaces use a consistent mono EYEBROW label per section
+// (JetBrains Mono, uppercase, tracking-[0.18em]). The earlier numbered "§ NN"
+// badge-chip system was retired in the 2026-06 marketing reveal in favor of these
+// eyebrows, unifying the home, /why, /operator, /industries, /ai, and the 12 packs.
+//
+// This guard replaces the old "sequential § badges" check with its inverse:
+//   1. no marketing surface may regress to the retired "§ NN" badge-chip span, and
+//   2. each surface must still render at least one section eyebrow.
 
-const operatorPage = resolve('src/pages/operator.astro')
-const packsDir = resolve('src/pages/packs')
-const packComponentsDir = resolve('src/components/packs')
+const root = resolve('.')
 
-// The pack pages render their badges through the shared chrome in
-// src/components/packs: PackHero and PackClosing carry fixed badges (§ 01 and
-// § 08), and the sections between use <PackEyebrow>§ NN</PackEyebrow>. Resolve
-// a component-emitted badge by reading the component source, so a page whose
-// section set drifts out of step with the fixed hero/closing numbering still
-// fails this guard.
-function componentBadge(name: string): number {
-  const src = readFileSync(join(packComponentsDir, name), 'utf-8')
-  const match = src.match(/>§\s*(\d+)<\/span/)
-  if (!match) throw new Error(`${name}: no § badge span found`)
-  return Number(match[1])
-}
-
-function badgeNumbers(file: string): number[] {
-  const src = readFileSync(file, 'utf-8')
-  // Matches, in document order: rendered span content (`>§ 03</span`), the
-  // PackEyebrow slot form, and PackHero/PackClosing component usages.
-  const tokens = src.matchAll(
-    />§\s*(\d+)<\/span|<PackEyebrow>\s*§\s*(\d+)\s*<\/PackEyebrow>|<(PackHero|PackClosing)[\s>]/g
-  )
-  return [...tokens].map((m) => {
-    if (m[1] !== undefined) return Number(m[1])
-    if (m[2] !== undefined) return Number(m[2])
-    return componentBadge(`${m[3]}.astro`)
-  })
-}
-
-function pages(): string[] {
-  const packs = readdirSync(packsDir)
+const pageFiles = [
+  'src/pages/index.astro',
+  'src/pages/operator.astro',
+  'src/pages/why.astro',
+  'src/pages/industries.astro',
+  'src/pages/ai.astro',
+  ...readdirSync(resolve('src/pages/packs'))
     .filter((n) => n.endsWith('.astro'))
-    .map((n) => join(packsDir, n))
-  return [operatorPage, ...packs]
-}
+    .map((n) => join('src/pages/packs', n)),
+]
 
-describe('Operator marketing § section badges', () => {
-  for (const page of pages()) {
-    const rel = page.slice(page.indexOf('src/'))
-    it(`${rel} has sequential § badges from 01`, () => {
-      const nums = badgeNumbers(page)
-      expect(nums.length).toBeGreaterThan(0)
-      const expected = Array.from({ length: nums.length }, (_, i) => i + 1)
-      expect(nums).toEqual(expected)
+const eyebrowComponents = [
+  'src/components/packs/PackEyebrow.astro',
+  'src/components/packs/PackHero.astro',
+  'src/components/packs/PackClosing.astro',
+]
+
+// The retired chip rendered as `>§ 03</span`. HTML comments (`<!-- § 02 -->`) and
+// the mobile-nav item numbering (`§ 0{i + 1}`) are not this pattern and are fine.
+const OLD_BADGE = />§\s*\d+<\/span/
+const EYEBROW = /tracking-\[0\.18em\]/
+const PACK_EYEBROW = /<PackEyebrow>/
+
+describe('marketing section eyebrows (retired § NN badge chips)', () => {
+  for (const rel of [...pageFiles, ...eyebrowComponents]) {
+    it(`${rel} contains no retired "§ NN" badge chip`, () => {
+      const src = readFileSync(join(root, rel), 'utf-8')
+      expect(OLD_BADGE.test(src), `${rel} still renders a "§ NN" badge span`).toBe(false)
+    })
+  }
+
+  for (const rel of pageFiles) {
+    it(`${rel} renders at least one section eyebrow`, () => {
+      const src = readFileSync(join(root, rel), 'utf-8')
+      const hasEyebrow = EYEBROW.test(src) || PACK_EYEBROW.test(src)
+      expect(hasEyebrow, `${rel} renders no section eyebrow`).toBe(true)
     })
   }
 })

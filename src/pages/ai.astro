@@ -6,11 +6,10 @@ import Nav from '../components/Nav.astro'
 import FinalCta from '../components/FinalCta.astro'
 import Footer from '../components/Footer.astro'
 import CtaButton from '../components/CtaButton.astro'
-import { CATEGORY_NAME, CATEGORY_ARTICLE } from '../lib/category'
 
-// FAQPage JSON-LD schema. Question H2s match the ones rendered below so
-// retrieval engines (Perplexity, ChatGPT Search, Google AI Overviews) can
-// extract answer-shaped chunks. Per #639 / Move 4d.
+// FAQPage JSON-LD. Question names match the rendered H2s so retrieval engines
+// (Perplexity, ChatGPT Search, Google AI Overviews) can extract answer-shaped
+// chunks. Keep the H2 text in sync with these names.
 const faqSchema = {
   '@context': 'https://schema.org',
   '@type': 'FAQPage',
@@ -45,45 +44,57 @@ const faqSchema = {
 
 <Base
   title="AI & Automation | SMD Services"
-  description="AI strategy, tool selection, custom automation, and team training for growing businesses. Sometimes the answer is AI. Sometimes it's something simpler. Let's figure out which."
+  description="AI strategy, tool selection, custom automation, and team training for growing businesses. Sometimes the answer is AI. Sometimes it's something simpler. We help you tell which."
 >
   <Nav />
   <main id="main" role="main">
     <script is:inline type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
 
-    <section class="relative overflow-hidden px-6 pb-32 pt-24">
-      <div class="mx-auto max-w-4xl text-center">
+    <!-- Hero -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 pt-24 pb-16">
+      <div class="mx-auto max-w-5xl">
         <a
           href="/consulting"
           data-ev="ai-eyebrow-capabilities"
-          class="inline-flex items-center gap-2 mb-8 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)] hover:text-[color:var(--ss-color-primary-hover)]"
+          class="inline-flex items-center gap-2 mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)] hover:text-[color:var(--ss-color-text-primary)]"
         >
           <span aria-hidden="true">←</span>
-          <span>One of six consulting capabilities</span>
+          <span>A capability, under consulting</span>
         </a>
         <h1
-          class="mb-8 text-5xl font-extrabold leading-[1.1] tracking-tight text-[color:var(--ss-color-text-primary)] md:text-7xl"
+          class="mb-8 max-w-4xl font-['Archivo'] text-5xl md:text-7xl font-black uppercase leading-[0.95] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
         >
-          AI and Automation for Growing Businesses.
+          AI, When It's The Right Answer.
         </h1>
         <p
-          class="mx-auto mb-12 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+          class="max-w-2xl font-['Archivo'] text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
         >
-          Some of what you're hearing about AI is useful. A lot of it is noise. We help you sort it
-          out.
+          We are an AI-native firm, and AI is not the answer to everything. Some of what you are
+          hearing about it is genuinely useful. A lot of it is noise. We help you tell them apart,
+          and we build the part that is real.
         </p>
-        <CtaButton href="/book" data-ev="ai-primary-cta">Get in touch</CtaButton>
+        <div class="mt-9">
+          <CtaButton href="/book?interest=ai" data-ev="ai-primary-cta"
+            >Start the conversation</CtaButton
+          >
+        </div>
       </div>
     </section>
 
+    <!-- When it pays off -->
     <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-4xl">
-        <h2
-          class="mb-12 text-center text-3xl font-bold text-[color:var(--ss-color-text-primary)] sm:text-4xl"
+      <div class="mx-auto max-w-5xl">
+        <p
+          class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
         >
-          When Does an AI Engagement Actually Pay Off?
+          When It Pays Off
+        </p>
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          When Does An AI Engagement Actually Pay Off?
         </h2>
-        <div class="space-y-10 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
             <span class="font-semibold text-[color:var(--ss-color-text-primary)]"
               >A conversation first.</span
@@ -114,12 +125,22 @@ const faqSchema = {
       </div>
     </section>
 
+    <!-- Is it the right answer -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
-      <div class="mx-auto max-w-3xl text-center">
-        <h2 class="mb-8 text-3xl font-bold text-[color:var(--ss-color-text-primary)] sm:text-4xl">
-          Is AI the Right Answer for a Small Business?
+      <div class="mx-auto max-w-5xl">
+        <p
+          class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
+        >
+          Honest First
+        </p>
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Is AI The Right Answer For A Small Business?
         </h2>
-        <div class="space-y-6 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+        <div
+          class="max-w-3xl space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
           <p>
             Sometimes yes. Other times the answer is a simple script, a better process, or just
             getting two of your tools to talk to each other. And sometimes the answer is not yet.
@@ -134,68 +155,29 @@ const faqSchema = {
       </div>
     </section>
 
-    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
-      <div class="mx-auto max-w-4xl">
-        <h2 class="mb-4 text-3xl font-bold text-[color:var(--ss-color-text-primary)] sm:text-4xl">
-          One Way to Work With Us: A Dedicated Operator
-        </h2>
-        <p
-          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
-        >
-          Not every engagement is a project with an end. Some businesses want a worker that learns
-          their operations and stays, and that we run for them. We call that {CATEGORY_ARTICLE}
-          {CATEGORY_NAME}.
-        </p>
-        <div class="space-y-10 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            <span class="font-semibold text-[color:var(--ss-color-text-primary)]"
-              >A worker, built for you.</span
-            > This is a dedicated Operator on your team. It runs on isolated infrastructure built around
-            your business, integrates with the tools you already use, and handles real work the way a
-            thoughtful new hire would.
-          </p>
-          <p>
-            <span class="font-semibold text-[color:var(--ss-color-text-primary)]"
-              >It learns before it acts.</span
-            > Early on, it drafts and you review. As you sign off on specific work, it earns autonomy
-            on that work. Nothing gets pushed live without your say-so until the trust is built piece
-            by piece.
-          </p>
-          <p>
-            <span class="font-semibold text-[color:var(--ss-color-text-primary)]"
-              >You're always in the loop.</span
-            > Every action is logged. Every decision is reviewable. The worker learns your voice and your
-            work patterns from the choices you make, and you can see exactly what it did and why at any
-            time.
-          </p>
-          <p>
-            <span class="font-semibold text-[color:var(--ss-color-text-primary)]">Yours alone.</span
-            >
-            This is shaped to your business, not a category. The worker is dedicated to you, learns how
-            your team actually operates, and the trained memory it builds belongs to you.
-          </p>
-        </div>
-        <div class="mt-12">
-          <CtaButton href="/operator" data-ev="operator-detail-cta">See how it works</CtaButton>
-        </div>
-      </div>
-    </section>
-
+    <!-- The lines we hold (kept; H2 matches FAQ schema for SEO) -->
     <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-4xl">
+      <div class="mx-auto max-w-5xl">
+        <p
+          class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
+        >
+          The Lines We Hold
+        </p>
         <h2
-          class="mb-4 text-center text-3xl font-bold text-[color:var(--ss-color-text-primary)] sm:text-4xl"
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
           What We Won't Do With AI
         </h2>
         <p
-          class="mx-auto mb-12 max-w-2xl text-center text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+          class="mb-12 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
         >
           A few lines we hold because they matter more than a sale.
         </p>
         <div class="space-y-10 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <div>
-            <h3 class="mb-3 text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+            <h3
+              class="mb-3 font-['Archivo'] text-xl font-bold text-[color:var(--ss-color-text-primary)]"
+            >
               We won't automate judgment.
             </h3>
             <p>
@@ -205,7 +187,9 @@ const faqSchema = {
             </p>
           </div>
           <div>
-            <h3 class="mb-3 text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+            <h3
+              class="mb-3 font-['Archivo'] text-xl font-bold text-[color:var(--ss-color-text-primary)]"
+            >
               We won't replace people.
             </h3>
             <p>
@@ -216,7 +200,9 @@ const faqSchema = {
             </p>
           </div>
           <div>
-            <h3 class="mb-3 text-xl font-semibold text-[color:var(--ss-color-text-primary)]">
+            <h3
+              class="mb-3 font-['Archivo'] text-xl font-bold text-[color:var(--ss-color-text-primary)]"
+            >
               We won't hand over a dashboard and call it strategy.
             </h3>
             <p>
@@ -226,6 +212,31 @@ const faqSchema = {
             </p>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- The Operator: a pointer, not a second pitch (single-funnel) -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <p
+          class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
+        >
+          Another Way
+        </p>
+        <h2
+          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Some Work Doesn't End.
+        </h2>
+        <p
+          class="mb-9 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          Not every engagement is a project with a finish line. Some businesses want a worker that
+          learns their operation and stays, run for them. That's the Operator, our flagship.
+        </p>
+        <CtaButton variant="secondary" href="/operator" data-ev="ai-operator-pointer"
+          >See how the Operator works</CtaButton
+        >
       </div>
     </section>
 
