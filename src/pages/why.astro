@@ -1,312 +1,121 @@
 ---
 export const prerender = false
 
-// The POV / manifesto surface. The category argument in full: capable people and
-// capable systems both leave a gap between them where work falls through, no
-// single tool can reach it, the old-way/new-way shift, employed-not-installed,
-// substrate durability, and the guide. The home is the condensed version of this;
-// /operator is the mechanism; this is the conviction.
+// /why is the COMPARISON / answer-engine surface (demoted from the old manifesto).
+// It does not re-argue that the gap exists (that is the home's job). It answers the
+// decision questions a researcher or an AI answer-engine asks when comparing the
+// Operator to the alternatives: a chatbot, building your own, a hire, doing nothing.
+// Each H2 is a question; the same questions/answers are emitted as FAQPage JSON-LD
+// (one artifact). Answer-shaped: a direct answer first, then the expansion.
 //
 // DRAFT COPY - directional for the Captain's voice pass. Structure is final.
 import Base from '../layouts/Base.astro'
 import Nav from '../components/Nav.astro'
 import Footer from '../components/Footer.astro'
 import CtaButton from '../components/CtaButton.astro'
-import { CATEGORY_NAME, CATEGORY_ARTICLE } from '../lib/category'
 
-const comparison = [
+const faqs = [
   {
-    label: 'The work between systems',
-    old: 'Bridged by hand, all day',
-    now: 'Filled by the Operator, by design',
+    q: 'Is the Operator just a chatbot?',
+    a: 'No. A chatbot waits for someone to type a question and answers it. The Operator does the work. It reads the inquiry, pulls what matters from your systems, drafts the reply in your voice, books the next step, and logs it where your team can see. A chatbot is a conversation; the Operator is a worker that carries tasks to done across the tools you already run.',
   },
   {
-    label: 'Getting up to speed',
-    old: 'Months to teach a hire or set up a tool',
-    now: 'Expert in your systems in about a minute',
+    q: 'Should we build our own AI agent or have one built and run for us?',
+    a: 'You can build your own, and some teams do. The cost is rarely the build. It is keeping it working: wiring it into your tools, watching it, fixing what drifts, and keeping up as the technology changes every month. The Operator is built for your business and run for you. You give feedback to a worker instead of taking on a second job operating one.',
   },
   {
-    label: 'When someone moves on',
-    old: 'What they learned goes with them',
-    now: 'What it learns, it keeps',
+    q: 'How is an Operator different from hiring someone?',
+    a: 'The honest comparison is against a hire, not against software, because the Operator takes on work you would otherwise hire a person to do. A new hire is capable and still spends months learning your business and your tools while you pay for the ramp. The Operator learns the systems you run quickly, works across them, and what it learns stays with your business instead of leaving when a person does.',
   },
   {
-    label: 'Who holds it together',
-    old: 'Your people, between everything else',
-    now: 'The Operator, as its whole job',
+    q: 'Will it replace our people?',
+    a: 'No. It takes the connective busywork off your team, the follow-ups and handoffs that eat the day, so your people spend their time on the work only they can do. The goal is to give them their hours back, not to remove them. You decide what the Operator handles and what stays with a person.',
   },
-  { label: 'Who keeps it running', old: 'You, as a second job', now: 'We do, as the service' },
   {
-    label: 'What you are locked into',
-    old: 'A salary, and a tool you replace',
-    now: 'The role; the technology moves under it',
+    q: 'Is it safe to let it work on its own?',
+    a: 'You set what it can do on its own and what waits for a person to approve. That decision is in writing and you can change it anytime, and the Operator never widens its own authority. Every action it takes is recorded where you can see what it did, when, and why. We build it, run it, and stay accountable for how it works.',
   },
 ]
+
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqs.map((f) => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
+}
 ---
 
 <Base
-  title={`Why ${CATEGORY_ARTICLE} ${CATEGORY_NAME} | SMD Services`}
-  description="Businesses run on capable people and capable systems, and between them there is always a gap where work slips through. The Operator is a new kind of worker that fills the space in between. This is the argument for it."
+  title="How The Operator Compares | SMD Services"
+  description="Straight answers to the questions worth asking: how a managed Operator compares to a chatbot, building your own, and hiring a person, and how you keep it safe."
 >
   <Nav />
   <main id="main" role="main">
-    <!-- § 01 The thesis -->
-    <section class="bg-[color:var(--ss-color-background)] px-6 pt-24 pb-24">
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+
+    <!-- Hero: frames the page as the decision questions, not a manifesto -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 pt-24 pb-16">
       <div class="mx-auto max-w-5xl">
         <p
           class="mb-6 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
         >
-          The Argument
+          Straight Answers
         </p>
         <h1
-          class="mb-10 font-['Archivo'] text-5xl md:text-7xl font-black uppercase leading-[1.02] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
+          class="mb-8 font-['Archivo'] text-5xl md:text-7xl font-black uppercase leading-[0.95] tracking-[-0.03em] text-[color:var(--ss-color-text-primary)]"
         >
-          The Work Lives In The Space Between.
+          The Questions Worth Asking.
         </h1>
-        <div class="space-y-8 text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            You hire good people, and you buy good software. Both are capable of remarkable things.
-            But between them, there is always a gap. The handoff from one system to the next, the
-            step that is everyone's job and no one's, the inquiry that needs a reply, the thing that
-            slips through when everyone is heads-down on their own piece. It is the work that holds
-            a business together, and it has always come down to a person bridging the gaps by hand.
-          </p>
-          <p>
-            There is now something built to fill that space. We call it {CATEGORY_ARTICLE}
-            {CATEGORY_NAME}: not a person you hire or a tool you buy, but a new kind of worker that
-            flows into the gaps and holds the work together.
-          </p>
-        </div>
+        <p
+          class="max-w-2xl font-['Archivo'] text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          You have options for the work that falls between your people and your software. Here is
+          how a managed Operator compares to each of them, in plain terms.
+        </p>
       </div>
     </section>
 
-    <!-- § 02 What the gap costs: bridged by hand, plus the ramp to teach any hire or tool -->
-    <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <p
-          class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
+    <!-- The Q&A: each H2 matches a FAQPage question above -->
+    {
+      faqs.map((f, i) => (
+        <section
+          class:list={[
+            'px-6 py-20',
+            i % 2 === 0 ? 'bg-white' : 'bg-[color:var(--ss-color-background)]',
+          ]}
         >
-          The Cost
-        </p>
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          What The Gap Costs You.
-        </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            Today, the work in those gaps gets done by people, by hand. Your most capable person
-            spends part of every day on the handoffs and the follow-ups and the things that fall
-            between the systems, instead of the work you most want them on.
-          </p>
-          <p>
-            And every capable person and every capable system has to learn your business first. You
-            spend months bringing a new hire or a new tool up to speed, and you carry that cost
-            whether the work is full or slow.
-          </p>
-          <p>
-            None of this is a failure of the people or the systems. They are good. It is the shape
-            of the work: the gaps are structural, they sit between even the best people and the best
-            tools, and until now there was nothing built to fill them.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- § 03 No single tool can reach the gap (connective tissue; systems are connection targets) -->
-    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <p
-          class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
-        >
-          Why Software
-        </p>
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          No Single Tool Can Reach It.
-        </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            Every tool you run does a piece of the work. The practice system, the books, the
-            scheduler, the inbox. Each one is good at its own job, and only as good as the person
-            using it. None of them does the work that lives between them, because that work was
-            never inside any single tool to begin with.
-          </p>
-          <p>
-            So the connective work falls to a person, and you buy more tools, and the person has
-            more seams to hold together. The more systems you run, the bigger that job gets. That is
-            why another app has never fixed it. The fix is not a better tool. It is the thing that
-            works across all of them.
-          </p>
-          <p>
-            Which means the systems you already run are not competition. They are what the Operator
-            connects. The more of them you have, the more an Operator is worth.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- § 04 Old way vs new way -->
-    <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <p
-          class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
-        >
-          Old vs New
-        </p>
-        <h2
-          class="mb-12 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          The Old Way, And The New One.
-        </h2>
-
-        <div class="border-t-[3px] border-[color:var(--ss-color-text-primary)]">
-          <div
-            class="hidden md:grid grid-cols-12 gap-0 border-b-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-background)]"
-          >
-            <div
-              class="col-span-4 p-4 font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
-            >
-            </div>
-            <div
-              class="col-span-4 p-4 font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-secondary)]"
-            >
-              The Old Way
-            </div>
-            <div
-              class="col-span-4 p-4 font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]"
-            >
-              The New Way
-            </div>
+          <div class="mx-auto max-w-5xl">
+            <p class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]">
+              {`Q ${String(i + 1).padStart(2, '0')}`}
+            </p>
+            <h2 class="mb-8 max-w-3xl font-['Archivo'] text-3xl md:text-4xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]">
+              {f.q}
+            </h2>
+            <p class="max-w-3xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+              {f.a}
+            </p>
           </div>
-          {
-            comparison.map((row) => (
-              <div class="grid grid-cols-1 md:grid-cols-12 gap-0 border-b-[3px] border-[color:var(--ss-color-text-primary)]">
-                <div class="md:col-span-4 p-4 font-['Archivo'] text-base font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
-                  {row.label}
-                </div>
-                <div class="md:col-span-4 p-4 font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)] md:border-l-[3px] md:border-[color:var(--ss-color-text-primary)]">
-                  <span class="md:hidden font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-text-muted)] block mb-1">
-                    Old way
-                  </span>
-                  {row.old}
-                </div>
-                <div class="md:col-span-4 p-4 font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-primary)] md:border-l-[3px] md:border-[color:var(--ss-color-text-primary)]">
-                  <span class="md:hidden font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)] block mb-1">
-                    New way
-                  </span>
-                  {row.now}
-                </div>
-              </div>
-            ))
-          }
-        </div>
-      </div>
-    </section>
+        </section>
+      ))
+    }
 
-    <!-- § 05 Employed, not installed -->
-    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <p
-          class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
-        >
-          Employed, Not Installed
-        </p>
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          Employed, Not Installed.
-        </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            A tool is something you buy and then run. A worker is something you hire and put to
-            work. The Operator is the second kind. You are not adding a line to your software bill.
-            You are taking on the work a person would do.
-          </p>
-          <p>
-            So the honest comparison is not against other software. It is against what it costs to
-            put a person on this work, fully loaded, and keep them there. We price it against that,
-            and we walk through it with you before anything is built.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- § 06 The substrate moves; the role stays -->
-    <section class="bg-white px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <p
-          class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
-        >
-          Durability
-        </p>
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          The Technology Moves. The Role Stays.
-        </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            This field changes every month. The biggest fear in buying anything built on it is
-            simple: what if you bet on the wrong thing and it is behind by next year.
-          </p>
-          <p>
-            You are not betting on our stack. You hired the role. When something better comes along
-            underneath, moving you to it is our job, not yours, and what the Operator has learned
-            about your business comes with it. The worker stays. The memory stays. The technology it
-            runs on is ours to keep current.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- § 07 The guide is the point -->
-    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
-      <div class="mx-auto max-w-5xl">
-        <p
-          class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
-        >
-          The Guide
-        </p>
-        <h2
-          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
-        >
-          A Team, Not A Download.
-        </h2>
-        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
-          <p>
-            The Operator does not show up out of a box. A person on our team sits with you, learns
-            how your business actually runs, and builds the worker around it. That person stays with
-            the engagement, watches how it performs, and keeps it sharp.
-          </p>
-          <p>
-            That is the part that does not come from anywhere else. Anyone can stand up a generic
-            agent. The worker that is built well for your business, run by a team that stays
-            accountable for it, and a memory that gets deeper the longer it runs, is the thing worth
-            hiring.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- § 08 Start the conversation -->
+    <!-- Forwardable close + the door -->
     <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
       <div class="mx-auto max-w-5xl text-center">
         <p
           class="mb-6 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-muted)]"
         >
-          Start Here
+          The Short Version
         </p>
         <h2
-          class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
+          class="mx-auto mb-10 max-w-3xl font-['Archivo'] text-3xl md:text-4xl font-black uppercase leading-tight tracking-[-0.02em] text-white"
         >
-          Start The Conversation.
+          A Chatbot Answers. A Tool Waits. A Hire Leaves. The Operator Does The Work, And We Keep It
+          Running.
         </h2>
-        <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
-          We learn how your operation runs, find the work that is eating your team's time, and
-          figure out where a dedicated Operator fits. If the fit is not right, we say so.
-        </p>
         <CtaButton variant="outline-white" href="/book?interest=operator" data-ev="why-final-cta"
           >Start the conversation</CtaButton
         >

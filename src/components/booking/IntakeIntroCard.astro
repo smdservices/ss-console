@@ -37,6 +37,8 @@ const { values = {} } = Astro.props
 
 const INTEREST_LABELS: Record<string, string> = {
   operator: 'Operator',
+  ai: 'AI & Automation',
+  consulting: 'Solutions Consulting',
 }
 const interestLabel = values.interest ? INTEREST_LABELS[values.interest] : null
 
@@ -56,7 +58,9 @@ const interestLabel = values.interest ? INTEREST_LABELS[values.interest] : null
       )
     }
     <h1 class="ss-headline">Tell us about the business.</h1>
-    <p class="ss-lede">A few details, then pick a time that works.</p>
+    <p class="ss-lede">
+      A few details, then pick a time. We will find the right solution for your business.
+    </p>
   </header>
 
   <form id="intro-form" class="ss-form" novalidate>

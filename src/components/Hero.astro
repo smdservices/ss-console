@@ -1,5 +1,12 @@
 ---
 import CtaButton from './CtaButton.astro'
+
+// Optional interest attribution for the page that uses this hero (/consulting).
+interface Props {
+  interest?: string
+}
+const { interest } = Astro.props
+const bookHref = interest ? `/book?interest=${interest}` : '/book'
 ---
 
 <section class="bg-[color:var(--ss-color-background)] px-6">
@@ -19,7 +26,7 @@ import CtaButton from './CtaButton.astro'
           <span class="block text-[color:var(--ss-color-primary)]">Run&nbsp;It.</span>
         </h1>
         <div class="mt-10 md:mt-12 flex flex-col sm:flex-row items-stretch sm:inline-flex">
-          <CtaButton href="/book" data-ev="home-primary-cta" class="w-full sm:w-auto">
+          <CtaButton href={bookHref} data-ev="home-primary-cta" class="w-full sm:w-auto">
             Start the conversation
           </CtaButton>
         </div>

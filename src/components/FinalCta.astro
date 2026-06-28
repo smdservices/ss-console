@@ -1,5 +1,14 @@
 ---
 import CtaButton from './CtaButton.astro'
+
+// Optional interest attribution: pages that use FinalCta (/consulting, /ai) pass
+// their SKU so the booking lands with the right entry recorded. Defaults to bare
+// /book when not set.
+interface Props {
+  interest?: string
+}
+const { interest } = Astro.props
+const bookHref = interest ? `/book?interest=${interest}` : '/book'
 ---
 
 <section id="book" class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
@@ -14,7 +23,7 @@ import CtaButton from './CtaButton.astro'
       picture of how to get there, whether we work together or not.
     </p>
     <div class="mt-10">
-      <CtaButton variant="outline-white" href="/book" data-ev="final-cta-book">
+      <CtaButton variant="outline-white" href={bookHref} data-ev="final-cta-book">
         Start the conversation
       </CtaButton>
     </div>

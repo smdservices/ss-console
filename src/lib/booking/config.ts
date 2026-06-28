@@ -104,4 +104,6 @@ export const ALLOWED_INTERESTS: ReadonlySet<string> = new Set<string>([
   'marketing-agency',
   'property-management',
   'home-services',
+  'ai',
+  'consulting',
 ])
