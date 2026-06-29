@@ -245,7 +245,16 @@ ARG OVERLAY_REPO="https://github.com/venturecrane/hermes-smd-overlay.git"
 # addressed to the sender (the tool the reply channel acts on), not the trust-
 # refused reply_to_message. Makes reply delivery deterministic + model-independent.
 # Superset of 1d6d5b2.
-ARG OVERLAY_REF="2b6949477176bb32f2bc822a79403e39a33746c3"
+# 9b20a1a — skill-driving prompt for vendor webhook routes (overlay#118): every
+# materialized webhook route shared one prompt (_INBOUND_EMAIL_PROMPT), so a
+# verified Smokeball matter.updated reached the agent as an email-draft instruction
+# (it tried agentmail create_draft instead of running matter-memo-on-update).
+# translate now gives non-email skill-routed channels a skill-driving prompt
+# (names the routed skill + skill_view fallback + payload as untrusted DATA); the
+# AgentMail email-reply channel keeps the email prompt; MCP route untouched. Not a
+# tracked pair (bootstrap/translate.py); all 4 tracked twins unchanged across
+# 2b694947→9b20a1ac, overlaySha256 stable. Superset of 33b58ad.
+ARG OVERLAY_REF="9b20a1ac1d185aeb76e1defd670128cefc3f5001"
 
 ARG CUSTOMER_SLUG=customer-zero
 
