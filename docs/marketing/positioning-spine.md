@@ -1,5 +1,17 @@
 # Marketing Positioning Spine — Source of Truth
 
+> ## SUPERSEDING CAPTAIN DECISION — 2026-06-29 (firm-with-flagship structure)
+>
+> The earlier spine below framed the site as an **Operator product site** (Operator-only home, symptom-led hero, a standalone `/why`, an orphaned `/consulting`). That was wrong, and three independent strategists designing from first principles converged on the correction. The site is now **firm-with-flagship**:
+>
+> - **The frame is the firm.** SMD is a software and AI solutions firm for small businesses. The **Operator is the flagship within it**, not the whole company. The **assessment is the one front door**; it leads to a recommendation, a project, or an Operator. "We specialize in AI and will tell you when it isn't the answer."
+> - **The site is 5 page types, not ~13:** Home (firm's face, flagship-forward, 8 beats — firm wraps flagship), `/operator` (the flagship deep page, now absorbing the comparison FAQ), `/industries` + 12 packs (recognition / the proof substitute), `/book` (the assessment front door), `/about` (Scott = the proof). Legal in the footer.
+> - **Killed (folded + 301-redirected):** `/why` → `/operator#compare`; `/consulting` → `/`; `/ai` → `/` (retired toe-dip from the abandoned AI-cautious posture); `/contact` → `/book` (booking + a footer email is the contact).
+> - **Win on clarity, substance, credibility — never graphics** (the gap visual motif is killed; rejected twice). Credibility with no proof = recognition-by-trade (packs) + architecture transparency (your accounts / your authority / your memory) + solution-first honesty + Scott's pedigree + owner-does-the-math ROI.
+> - **Guards are now stable invariants** (firm descriptor in the hero, Operator named as flagship above the fold, single assessment CTA, retired routes gone + 301'd), not brittle section-order, in `tests/landing-page.test.ts`.
+>
+> Full rationale and the per-page jobs: the approved plan (`.claude/plans/marketing-rebuild.md` / session plan) and the M2 diagnosis. The single primary verb is **"Start with an assessment."** The text below is retained for history; where it conflicts with this block, this block wins.
+
 _Status: **LIVING / LOCKED.** This is the single authority for marketing-site positioning, the per-surface narrative, and the copy spine. If a marketing PR disagrees with this file, this file wins. A locked item in §2 and §4 is not re-litigated inside a build PR; it is changed only by a recorded Captain decision appended to §6._
 
 _Authored 2026-06-29. Promotes the M2 diagnosis (`SMD-marketing-M2-diagnosis.md`, with the Captain decisions LOCKED 2026-06-27) into the repo so the next builder is checked against it instead of re-deriving positioning from the code. Supersedes `.design/marketing-ux-brief.md` for everything about message, narrative, and conversion. That brief predates the Operator pivot and is retained only as a stale historical artifact (see §7)._

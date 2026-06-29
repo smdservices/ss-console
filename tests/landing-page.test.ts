@@ -35,9 +35,8 @@ function readMarketingFiles(): string[] {
   return [
     resolve('src/pages/index.astro'),
     resolve('src/pages/operator.astro'),
-    resolve('src/pages/consulting.astro'),
-    resolve('src/pages/why.astro'),
-    resolve('src/pages/ai.astro'),
+    resolve('src/pages/about.astro'),
+    resolve('src/pages/book.astro'),
     resolve('src/pages/packs/law-firm.astro'),
     resolve('src/pages/packs/insurance.astro'),
     resolve('src/pages/packs/veterinary.astro'),
@@ -123,7 +122,7 @@ describe('voice standard', () => {
   // regex and constrain page copy to pass it, rather than loosen the guardrail
   // for pages. First-person "I" stays confined to the test-excluded About.astro
   // component; it is never inlined into these page files.
-  const marketingPages = ['src/pages/index.astro', 'src/pages/why.astro']
+  const marketingPages = ['src/pages/index.astro', 'src/pages/operator.astro']
 
   // Shared scan: flag standalone first-person "I " in the author's voice, after
   // stripping quoted spans (owner quotes such as "I can't take a day off" are
@@ -148,85 +147,90 @@ describe('voice standard', () => {
   })
 })
 
-describe('operator-forward home integrity', () => {
-  // Encodes the new IA: the apex home leads with the Operator and keeps the
-  // secondary consulting path and the manifesto reachable. Replaces the implicit
-  // "home is consulting" contract that demoting the consulting components removed.
-  const home = readFileSync(resolve('src/pages/index.astro'), 'utf-8')
+describe('marketing structure: firm-with-flagship (locked)', () => {
+  // Encodes the structure locked in docs/marketing/positioning-spine.md as STABLE
+  // INVARIANTS, not brittle section order. The site went in circles because an agent
+  // kept choosing the frame and the next pass reversed it. These assert the
+  // Captain-ratified frame: SMD is a software & AI solutions firm (the frame), the
+  // Operator is the flagship (cradled, not the whole site), and the assessment is the
+  // ONE front door. Prettier wraps prose, so phrase checks normalize whitespace.
+  const flat = (s: string) => s.replace(/\s+/g, ' ').toLowerCase()
+  const operatorHero = flat(readComponent('OperatorHero.astro'))
+  const homeRaw = readFileSync(resolve('src/pages/index.astro'), 'utf-8')
+  const home = flat(homeRaw)
+  const operator = flat(readFileSync(resolve('src/pages/operator.astro'), 'utf-8'))
+  const nav = readComponent('Nav.astro')
 
-  it('home composes the Operator-forward lead hero', () => {
-    expect(home).toContain('OperatorHero')
+  it('home composes the lead hero', () => {
+    expect(homeRaw).toContain('OperatorHero')
   })
 
-  it('home routes the primary CTA to the Operator intake', () => {
+  it('the hero orients to the firm (software & AI solutions for small business)', () => {
+    // Beat 1: a stranger learns who SMD is, not just the Operator. Fixes the
+    // "land in the middle of what" miss.
+    expect(operatorHero).toContain('software and ai solutions firm for small businesses')
+  })
+
+  it('the hero names the Operator as the flagship and links to it (above the fold)', () => {
+    // Flagship-forward inside the firm frame: cradled, not buried, not the whole site.
+    expect(operatorHero).toContain('flagship')
+    expect(operatorHero).toContain('operator')
+    expect(operatorHero).toContain('/operator')
+  })
+
+  it('the home carries the solution-first stance (not every problem needs an Operator)', () => {
+    // Beat 5: the firm reasserts. The honest differentiator vs. the AI-agency swarm.
+    expect(home).toContain('not every problem needs an operator')
+  })
+
+  it('the assessment is the one front door (primary CTA routes to /book)', () => {
     expect(home).toContain('/book?interest=operator')
   })
 
-  it('home keeps the secondary consulting path reachable', () => {
-    expect(home).toContain('ConsultingPath')
+  it('/operator absorbs the comparison as the answer-engine surface', () => {
+    // The retired /why folded here; the FAQPage schema must survive.
+    expect(operator).toContain('faqpage')
   })
 
-  it('home links to the category manifesto', () => {
-    expect(home).toContain('/why')
-  })
-})
-
-describe('locked positioning spine', () => {
-  // Encodes the locks in docs/marketing/positioning-spine.md so a future rebuild
-  // cannot silently reverse a Captain-locked decision and still pass `npm run verify`.
-  // The marketing site went in circles (#1534/#1538/#1541/#1543) because the locks
-  // were prose, not guardrails. These are the load-bearing ones.
-  // Prettier wraps prose across lines, so phrase assertions normalize runs of
-  // whitespace to a single space (and lowercase) before matching.
-  const flat = (s: string) => s.replace(/\s+/g, ' ').toLowerCase()
-  const operatorHero = flat(readComponent('OperatorHero.astro'))
-  const home = flat(readFileSync(resolve('src/pages/index.astro'), 'utf-8'))
-  const whyRaw = readFileSync(resolve('src/pages/why.astro'), 'utf-8')
-  const why = flat(whyRaw)
-  const operator = flat(readFileSync(resolve('src/pages/operator.astro'), 'utf-8'))
-
-  it('home hero is symptom-led: it names a concrete leak', () => {
-    // The §2 nesting step 1 — hook the symptom in the buyer's words, not a bare
-    // abstraction. Do not revert the hero to a context-free gap statement.
-    expect(operatorHero).toContain("everyone's job and no one's")
-  })
-
-  it('home hero resolves the symptom to the gap', () => {
-    // §2 nesting step 2 — the named leak resolves to the gap. Do not strip this so
-    // the hero becomes a generic pain list with no category.
-    expect(operatorHero).toContain('the gap between your people and your software')
-  })
-
-  it('home surfaces the forwardable "fills the gap" definition', () => {
-    expect(home).toContain('fills the gap')
-  })
-
-  it('/operator bridges from the gap rather than opening on a disconnected metaphor', () => {
-    // /operator must tie back to the home's framing before going to mechanism.
-    expect(operator).toContain('the gap between your people and your software')
-  })
-
-  it('/why keeps the comparison FAQ', () => {
-    expect(whyRaw).toContain('FAQPage')
-  })
-
-  it('/why also carries the conviction beat (it is not a pure FAQ)', () => {
-    // /why must still earn belief — the gap, stated respectfully. Locked synthesis:
-    // keep #1541's FAQ AND restore one conviction beat.
-    expect(why).toContain('no single tool was ever built to do the work between')
-  })
-
-  it('single primary verb across the spine surfaces', () => {
-    for (const [label, content] of [
-      ['OperatorHero.astro', operatorHero],
-      ['index.astro', home],
-      ['operator.astro', operator],
-      ['why.astro', why],
-    ] as const) {
-      expect(content, `"Start the conversation" missing from ${label}`).toContain(
+  it('a single primary verb across the surviving spine', () => {
+    for (const page of [
+      'src/pages/index.astro',
+      'src/pages/operator.astro',
+      'src/pages/about.astro',
+      'src/pages/book.astro',
+    ]) {
+      const c = flat(readFileSync(resolve(page), 'utf-8'))
+      expect(c, `"start with an assessment" missing from ${page}`).toContain(
+        'start with an assessment'
+      )
+      expect(c, `retired verb "start the conversation" present in ${page}`).not.toContain(
         'start the conversation'
       )
     }
+  })
+
+  it('the retired marketing pages are gone (not live routes)', () => {
+    for (const p of [
+      'src/pages/why.astro',
+      'src/pages/consulting.astro',
+      'src/pages/ai.astro',
+      'src/pages/contact.astro',
+    ]) {
+      expect(existsSync(resolve(p)), `${p} should be removed (folded + redirected)`).toBe(false)
+    }
+  })
+
+  it('nav does not link the retired pages', () => {
+    expect(nav).not.toContain("href: '/why'")
+    expect(nav).not.toContain("href: '/consulting'")
+  })
+
+  it('the retired routes 301 in middleware (bookmarks keep working)', () => {
+    const mw = readFileSync(resolve('src/middleware.ts'), 'utf-8')
+    for (const route of ["'/why'", "'/consulting'", "'/ai'", "'/contact'"]) {
+      expect(mw, `middleware should reference retired route ${route}`).toContain(route)
+    }
+    expect(mw).toContain('/operator#compare')
   })
 })
 

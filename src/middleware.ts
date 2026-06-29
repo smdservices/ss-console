@@ -182,6 +182,30 @@ function redirectLegacyOperatorPaths(
   return null
 }
 
+// Retired marketing routes → 301 to the surviving surface that absorbed them.
+// Marketing consolidated 2026-06-29 (firm-with-flagship structure, 5 page types):
+// the comparison argument moved onto /operator; firm breadth onto the home + the
+// assessment; contact is the booking + a footer email; the /ai toe-dip page is
+// retired now that the firm is all-in on AI. Also folds the older lead-magnet
+// retirements (/scan, /scorecard, /outside-view, the cold /get-started). The SOURCES
+// here are the retired paths — do not rename them (that would self-redirect).
+function redirectRetiredMarketingPaths(context: APIContext, pathname: string): Response | null {
+  const exactToHome = new Set(['/scan', '/consulting', '/ai'])
+  if (exactToHome.has(pathname)) return context.redirect('/', 301)
+
+  const prefixToHome = ['/scorecard', '/outside-view', '/consulting/', '/ai/']
+  if (prefixToHome.some((p) => pathname === p.replace(/\/$/, '') || pathname.startsWith(p)))
+    return context.redirect('/', 301)
+
+  if (pathname === '/why' || pathname.startsWith('/why/'))
+    return context.redirect('/operator#compare', 301)
+  if (pathname === '/contact' || pathname.startsWith('/contact/'))
+    return context.redirect('/book?interest=operator', 301)
+  if (pathname === '/get-started' && !context.url.searchParams.has('booked'))
+    return context.redirect('/', 301)
+  return null
+}
+
 function handleLegacyRedirects(
   context: APIContext,
   hostname: string,
@@ -193,14 +217,7 @@ function handleLegacyRedirects(
   if (authRedirect) return authRedirect
   if (pathname === '/book/thanks' || pathname.startsWith('/book/thanks/'))
     return context.redirect('/get-started?booked=1', 301)
-  if (pathname === '/scan') return context.redirect('/', 301)
-  if (pathname === '/scorecard' || pathname.startsWith('/scorecard/'))
-    return context.redirect('/', 301)
-  if (pathname === '/get-started' && !context.url.searchParams.has('booked'))
-    return context.redirect('/', 301)
-  if (pathname === '/outside-view' || pathname.startsWith('/outside-view/'))
-    return context.redirect('/', 301)
-  return null
+  return redirectRetiredMarketingPaths(context, pathname)
 }
 
 function jsonResponse(body: object, status: number): Response {
