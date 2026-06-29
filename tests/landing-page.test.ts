@@ -171,6 +171,65 @@ describe('operator-forward home integrity', () => {
   })
 })
 
+describe('locked positioning spine', () => {
+  // Encodes the locks in docs/marketing/positioning-spine.md so a future rebuild
+  // cannot silently reverse a Captain-locked decision and still pass `npm run verify`.
+  // The marketing site went in circles (#1534/#1538/#1541/#1543) because the locks
+  // were prose, not guardrails. These are the load-bearing ones.
+  // Prettier wraps prose across lines, so phrase assertions normalize runs of
+  // whitespace to a single space (and lowercase) before matching.
+  const flat = (s: string) => s.replace(/\s+/g, ' ').toLowerCase()
+  const operatorHero = flat(readComponent('OperatorHero.astro'))
+  const home = flat(readFileSync(resolve('src/pages/index.astro'), 'utf-8'))
+  const whyRaw = readFileSync(resolve('src/pages/why.astro'), 'utf-8')
+  const why = flat(whyRaw)
+  const operator = flat(readFileSync(resolve('src/pages/operator.astro'), 'utf-8'))
+
+  it('home hero is symptom-led: it names a concrete leak', () => {
+    // The §2 nesting step 1 — hook the symptom in the buyer's words, not a bare
+    // abstraction. Do not revert the hero to a context-free gap statement.
+    expect(operatorHero).toContain("everyone's job and no one's")
+  })
+
+  it('home hero resolves the symptom to the gap', () => {
+    // §2 nesting step 2 — the named leak resolves to the gap. Do not strip this so
+    // the hero becomes a generic pain list with no category.
+    expect(operatorHero).toContain('the gap between your people and your software')
+  })
+
+  it('home surfaces the forwardable "fills the gap" definition', () => {
+    expect(home).toContain('fills the gap')
+  })
+
+  it('/operator bridges from the gap rather than opening on a disconnected metaphor', () => {
+    // /operator must tie back to the home's framing before going to mechanism.
+    expect(operator).toContain('the gap between your people and your software')
+  })
+
+  it('/why keeps the comparison FAQ', () => {
+    expect(whyRaw).toContain('FAQPage')
+  })
+
+  it('/why also carries the conviction beat (it is not a pure FAQ)', () => {
+    // /why must still earn belief — the gap, stated respectfully. Locked synthesis:
+    // keep #1541's FAQ AND restore one conviction beat.
+    expect(why).toContain('no single tool was ever built to do the work between')
+  })
+
+  it('single primary verb across the spine surfaces', () => {
+    for (const [label, content] of [
+      ['OperatorHero.astro', operatorHero],
+      ['index.astro', home],
+      ['operator.astro', operator],
+      ['why.astro', why],
+    ] as const) {
+      expect(content, `"Start the conversation" missing from ${label}`).toContain(
+        'start the conversation'
+      )
+    }
+  })
+})
+
 describe('JSON-LD schema', () => {
   it('JsonLd.astro contains LocalBusiness type', () => {
     const content = readComponent('JsonLd.astro')
