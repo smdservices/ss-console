@@ -186,7 +186,14 @@ describe('Operator customer Machine Dockerfile', () => {
     // the first real Smokeball matter.updated verifying (202) but the router
     // refusing "missing event id". Range e1044f19..2b694947 is exactly this one
     // commit; all four tracked twins verified unchanged. Superset of e1044f19.
-    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="2b6949477176bb32f2bc822a79403e39a33746c3"')
+    // 9b20a1ac (#118): translate gives non-email skill-routed webhook channels a
+    // skill-driving prompt instead of the shared _INBOUND_EMAIL_PROMPT — a verified
+    // Smokeball matter.updated reached the agent as an email-draft instruction (it
+    // tried agentmail create_draft instead of running matter-memo-on-update). The
+    // AgentMail email-reply channel keeps the email prompt; MCP route untouched.
+    // Range 2b694947..9b20a1ac touched only translate.py + test_mcp_channel.py; all
+    // four tracked twins verified unchanged. Superset of 2b694947.
+    expect(DOCKERFILE).toContain('ARG OVERLAY_REF="9b20a1ac1d185aeb76e1defd670128cefc3f5001"')
   })
 
   it('does NOT swallow a failed plugin install (no fail-open `|| echo ... continuing`)', () => {
