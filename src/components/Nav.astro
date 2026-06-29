@@ -4,19 +4,15 @@ import SmdLogo from './SmdLogo.astro'
 const navLinks = [
   { href: '/operator', label: 'Operator' },
   { href: '/industries', label: 'Industries' },
-  { href: '/why', label: 'Why' },
-  { href: '/consulting', label: 'Consulting' },
+  { href: '/about', label: 'About' },
 ]
 
 // The persistent CTA inherits the page's context so a vertical arrival keeps its
 // attribution instead of being clobbered with `operator`. Pack pages carry their
-// slug; /ai and /consulting carry their own; everything else defaults to operator.
+// slug; everything else defaults to operator. The single front door is the assessment.
 const path = Astro.url.pathname
 const packMatch = path.match(/^\/packs\/([^/]+)\/?$/)
-let bookInterest = 'operator'
-if (packMatch) bookInterest = packMatch[1]
-else if (path.startsWith('/ai')) bookInterest = 'ai'
-else if (path.startsWith('/consulting')) bookInterest = 'consulting'
+const bookInterest = packMatch ? packMatch[1] : 'operator'
 const bookHref = `/book?interest=${bookInterest}`
 ---
 
@@ -44,7 +40,7 @@ const bookHref = `/book?interest=${bookInterest}`
       <a
         class="inline-flex items-center whitespace-nowrap min-h-11 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] active:bg-[color:var(--ss-color-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 px-3 md:px-5 py-2 font-['Archivo'] font-bold uppercase tracking-[0.08em] text-white text-xs md:text-sm transition-colors"
         href={bookHref}
-        data-ev="nav-book">Start the conversation</a
+        data-ev="nav-book">Start with an assessment</a
       >
       <button
         type="button"
@@ -114,7 +110,7 @@ const bookHref = `/book?interest=${bookInterest}`
         data-nav-link
         data-ev="nav-mobile-book"
         class="flex w-full items-center justify-center whitespace-nowrap border-[3px] border-white bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] px-5 py-4 font-['Archivo'] text-base font-bold uppercase tracking-[0.08em] text-white transition-colors"
-        >Start the conversation</a
+        >Start with an assessment</a
       >
     </div>
   </div>
