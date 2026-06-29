@@ -1,12 +1,13 @@
 ---
 export const prerender = false
 
-// /why is the COMPARISON / answer-engine surface (demoted from the old manifesto).
-// It does not re-argue that the gap exists (that is the home's job). It answers the
-// decision questions a researcher or an AI answer-engine asks when comparing the
-// Operator to the alternatives: a chatbot, building your own, a hire, doing nothing.
-// Each H2 is a question; the same questions/answers are emitted as FAQPage JSON-LD
-// (one artifact). Answer-shaped: a direct answer first, then the expansion.
+// /why earns belief AND doubles as the answer-engine surface. Per the locked spine
+// (docs/marketing/positioning-spine.md §2/§3) it carries one conviction beat (the gap,
+// stated respectfully, plus the guide) so a skeptic or a referral source doing diligence
+// leaves convinced, then answers the decision questions a researcher or an AI answer-engine
+// asks when comparing the Operator to the alternatives: a chatbot, building your own, a
+// hire, doing nothing. Each H2 is a question; the same questions/answers are emitted as
+// FAQPage JSON-LD (one artifact). It does not describe the mechanism (that is /operator).
 import Base from '../layouts/Base.astro'
 import Nav from '../components/Nav.astro'
 import Footer from '../components/Footer.astro'
@@ -73,6 +74,36 @@ const faqSchema = {
           You have options for the work that falls between your people and your software. Here is
           how a managed Operator compares to each of them, in plain terms.
         </p>
+      </div>
+    </section>
+
+    <!-- Conviction beat: /why earns belief, it is not only a comparison FAQ. States
+         the gap (respectfully) and the guide. Locked in docs/marketing/positioning-spine.md §2. -->
+    <section class="bg-white px-6 py-20">
+      <div class="mx-auto max-w-5xl">
+        <p
+          class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
+        >
+          Why It's Different
+        </p>
+        <h2
+          class="mb-8 max-w-3xl font-['Archivo'] text-3xl md:text-4xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          The Work Lives In The Space Between.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            Your people are capable and your software is capable. No single tool was ever built to
+            do the work between your tools, the handoffs and the follow-through that touch four
+            systems and belong to none of them. That work has always come down to a person holding
+            it together by hand.
+          </p>
+          <p>
+            The Operator is the first worker built for exactly that space, and it does not work
+            alone. We build it around how you run, we run it for you, and we keep it current as the
+            field changes. A guide for new ground, not software we hand you and walk away from.
+          </p>
+        </div>
       </div>
     </section>
 
