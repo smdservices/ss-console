@@ -1,45 +1,45 @@
-# Matter Memo on Update — Per-Event Algorithm
+# Matter Memo on Update - Per-Event Algorithm (v0.2.0)
 
-Source of truth for what "good change-logging" looks like. SKILL.md's `## Procedure` is the dispatch shape; this file is the detail. The order is fixed — guard, then diff, then (only if there is a real change) resolve and write. Phases 1 and 2 stop the skill on most events, and that is correct: the firm wants a memo per _substantive_ change, not per event delivery.
+Source of truth for what "good change-logging" looks like. SKILL.md's `## Procedure` is the dispatch shape; this file is the detail. The order is fixed - dedupe, then resolve, then write. This version records **who / when / how** (one memo per matter change). It depends on no snapshot store and no code execution; everything is the three connector calls plus your own reasoning.
 
-## The snapshot-store contract
+## Connector-call budget (load-bearing - do not exceed)
 
-The skill keeps, in the Operator's per-matter state (per-customer memory, keyed by `matterId`), the **last matter snapshot it has seen** — the same set of tracked fields it diffs (`references/output-format.md` lists them). This store is the skill's only memory between events; it is what makes "what changed" computable when the webhook gives only a current snapshot. Invariants:
+The MCP client opens a circuit breaker after **3 consecutive tool errors** and then blocks ALL further calls to the connector - including your `create_memo` write - for ~60 seconds. So the call budget is deliberately tiny and **no read is ever retried**:
 
-- Keyed by `matterId`. One entry per matter.
-- Updated **only after a successful `create_memo`** (or after a silent baseline on first touch). If the memo write fails, the prior snapshot is left intact so the change is retried on the next event, never silently lost.
-- Holds field values only — never the raw event, never untrusted free text used as an instruction.
+- `get_memos_on_matter` - once (idempotency).
+- `get_staff` - once (actor); a single tolerated failure is fine, a retry is not.
+- `create_memo` - once (the write).
 
-## Phase 1 — Loop-guard and idempotency (FIRST, always)
+A successful call resets the breaker's error count, so the realistic worst case (one `get_memos` error + one `get_staff` error, then the write) is 2 consecutive errors - under the threshold. Probing extra reads (`get_matter`, `auth_status`, `search_staff`) or retrying a 404 is what trips it and loses the memo. Convert `.NET ticks` in your head; never call `execute_code`.
 
-1. **Idempotency.** Change key = `(matterId, timestamp)`. If a memo has already been logged for this key, **STOP**. Webhook deliveries can repeat; a repeat is not a new change.
-2. **Subscription discipline.** This skill is routed only from `{source: smokeball, event_type: matter.updated}`. It must **never** be wired to `memo.*` events. If a `memo.*` event ever reaches this skill, that is a routing misconfiguration — STOP and surface it; do not process it.
-3. **Self-write guard.** The skill's own `create_memo` writes an internal memo, which is a separate Smokeball entity and should not fire `matter.updated`. The structural guarantee that it cannot loop is the **empty-diff stop in Phase 2**: a memo addition does not change any tracked matter field, so it produces no diff and writes no memo. Phase 1 does not need to special-case the service account; Phase 2's empty-diff stop is the defense.
+## Phase 1 - Idempotency (FIRST, always)
 
-## Phase 2 — Compute the change (the diff IS the loop-break)
+1. **Change key.** `op-mmou:<matterId>:<timestamp>` - the raw `.NET ticks` value verbatim.
+2. **Read existing memos once** with `get_memos_on_matter(matterId)`. If any memo body already contains that exact change-key tag, the change is already logged → **STOP, write nothing.** Webhook deliveries can repeat; a repeat is not a new change.
+3. **On a `get_memos` error, do not retry.** Proceed to Phase 2. A missing dedupe read at worst yields one extra memo on a redelivery - bounded, and the skill can never loop: it is routed only from `{source: smokeball, event_type: matter.updated}`, and its own `create_memo` emits a `memo.*` event, never `matter.updated`. (If a `memo.*` event ever reaches this skill, that is a routing misconfiguration - STOP and surface it.)
 
-1. **Convert the timestamp.** The event `timestamp` is **.NET ticks** (100-ns intervals since 0001-01-01). Convert to Unix seconds with `(ticks - 621355968000000000) / 10_000_000`, then to the firm's local time for the memo. A timestamp parsed as ISO-8601 is wrong by ~1900 years — a `fails`-adjacent bug, caught in fixtures.
-2. **Load the prior snapshot** for `matterId` from the store.
-   - **First touch (no prior snapshot):** this is the first event the skill has seen for this matter. Persist the event snapshot as the baseline and **STOP without writing a memo.** There is no prior state to diff against, and the firm does not want a "now tracking" memo cluttering the matter. The next update diffs cleanly against this baseline.
-3. **Diff** the event snapshot against the prior snapshot across the tracked fields (`references/output-format.md`): a field is "changed" when its value differs. Produce the ordered list of `field: old → new`.
-   - **Empty diff → STOP, no memo.** No tracked field changed (e.g. only a memo or an untracked sub-entity changed). This is correct — nothing changed in the matter record worth a supervision note — and it is the **loop-break**: the skill's own memo write can never produce a non-empty matter-field diff, so it can never trigger a second memo.
-4. **Carry the diff** to Phase 3. Do not persist the new snapshot yet — persistence happens only after the memo write succeeds (the store contract).
+## Phase 2 - Resolve actor and source (degrade honestly, never fabricate)
 
-## Phase 3 — Resolve actor and source (degrade honestly, never fabricate)
+1. **Convert the timestamp.** The event `timestamp` is **.NET ticks** (100-ns intervals since 0001-01-01). `unix_seconds = (ticks - 621355968000000000) / 10_000_000`; render the calendar date `YYYY-MM-DD`. A timestamp parsed as ISO-8601 is wrong by ~1900 years. Give the date only unless you are confident of the local clock time - never invent one.
+2. **Actor.**
+   - `userId` present → `get_staff(userId)` **once** → the staff member's name.
+   - `get_staff` errors (404/400/anything), or `userId` absent → record **"an unidentified user."** Never attribute to a person, never infer "probably the responsible attorney," never retry, never fall back to `search_staff`. Absence/404 is a documented, normal case.
+3. **Source.** `source: Smokeball` → "in-app"; `source: API` → "via an integration." This distinguishes a person clicking in Smokeball from another system (or the Operator) writing through the API.
 
-1. **Actor.**
-   - `userId` present → `get_staff(userId)` → the staff member's name. If `get_staff` errors, fall back to recording the raw `userId` reference, not a guessed name.
-   - `userId` absent → record **"an unidentified user."** Never attribute the change to a person, never infer "probably the responsible attorney." Absence is a documented, normal case (Smokeball notes `userId` "may not always be present").
-2. **Source.** `source: Smokeball` → "in-app"; `source: API` → "via an integration." This distinguishes a person clicking in Smokeball from another system (or the Operator) writing through the API — useful supervision signal.
+## Phase 3 - Write the memo
 
-## Phase 4 — Write the memo
+1. **`create_memo(matterId, body)`** with the factual body from `references/output-format.md`: the who/when/how line, then the `op-mmou:<matterId>:<timestamp>` tag on its own last line. Terse, clerical, plain ASCII, **no em-dash**, no interpretation.
+2. That is the only write. Do not advance any state, do not write a file, do not touch the matter.
 
-1. **`create_memo(matterId, body)`** with the factual body from `references/output-format.md`: who, the changed fields old → new, the local timestamp, the source. Terse, clerical, no interpretation.
-2. **Persist** the event snapshot as the new prior for `matterId` (store contract). On a write failure, leave the prior intact and surface the failure — do not advance the snapshot, or the change is lost.
+## Deferred: field-level diff (a planned enhancement, NOT active in v0.2.0)
+
+The richer memo - "what changed, field-level old → new" (`Status: Open → Pending`, etc.) - needs the skill to remember the matter's **prior** field values, because the webhook delivers only a current snapshot. That requires a per-matter **snapshot store** the skill can read and write on the persona's volume, plus a content-governance carve-out so a snapshot or memo that legitimately mirrors customer data (which may contain an em-dash) is not refused by the outbound fabrication gate. Neither is wired yet, so this version does not attempt a field diff - it records the fact of the touch (who/when/how), accurately and once, and never invents a diff it cannot source. When the store and the carve-out land, the diff phase slots in between "resolve actor" and "write," and the memo gains the changed-field lines.
+
+The original snapshot-store contract (kept here for that future work): keyed by `matterId`, one entry per matter; updated only after a successful `create_memo`; holds field values only, never the raw event or untrusted free text; first-touch baselines silently; an empty diff writes no memo and is the loop-break.
 
 ## What this algorithm is NOT
 
-- **Not an analyst.** It records that a field changed; it never says why, never judges whether the change was right, never comments on what it means for the matter (UPL line — it is a clerk, not a lawyer).
+- **Not an analyst.** It records that a matter was touched; it never says why, never judges whether the change was right, never comments on what it means (UPL line - it is a clerk, not a lawyer).
 - **Not a sender.** It writes one internal memo. No email, no external message, ever.
 - **Not a matter mutator.** It never patches the matter, creates tasks, or touches funds.
-- **Not chatty.** First-touch, empty-diff, and duplicate events write nothing. Silence on a non-change is correct behavior, not a miss.
+- **Not chatty.** A duplicate delivery writes nothing. Silence on an already-logged change is correct behavior, not a miss.
