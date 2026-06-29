@@ -12,8 +12,7 @@
       "Grep",
       "Task",
       "NotebookEdit",
-      "mcp__crane__*",
-      "mcp__apple-notes__*"
+      "mcp__crane__*"
     ]
   }
 }
