@@ -135,18 +135,6 @@ connectors:
 #     skill: discovery-response
 #     persona: '[PERSONA SLUG]'
 
-# ---- SCREENING ATTESTATION (ADR 0057 §4) ----
-# REQUIRED before enabling ANY inbound channel (mcp_connector below OR a non-empty
-# scope.inbound_allow_from). The firm must attest in writing that it has no active
-# ethical screens / walls — an LLM cannot be relied on to refuse data it is handed.
-# This is REAL legal data: author it from the firm's actual written attestation,
-# never a placeholder. A stale attestation (older than 90 days) takes the channels
-# dark until re-attested. Leave attested:false (the default) until you hold it.
-screening_attestation:
-  attested: false
-  attested_by: null # e.g. 'Jane Smith, Managing Partner'
-  attested_at: null # ISO-8601 UTC, e.g. 2026-06-27T00:00:00.000Z
-
 # ---- SCOPE ----
 scope:
   email_folders_visible:
