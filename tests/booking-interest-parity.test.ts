@@ -18,7 +18,6 @@ import {
   ALLOWED_INTERESTS,
   interestLabel,
   bookHref,
-  DEFAULT_BOOK_INTEREST,
 } from '../src/lib/booking/config'
 
 describe('interest label ↔ allow-list parity', () => {
@@ -61,14 +60,15 @@ describe('interestLabel() behavior', () => {
 })
 
 describe('bookHref() route contract', () => {
-  it('builds /book?interest=<slug>', () => {
+  it('builds /book?interest=<slug> when a solution-specific interest is given', () => {
     expect(bookHref('operator')).toBe('/book?interest=operator')
     expect(bookHref('med-spa')).toBe('/book?interest=med-spa')
   })
 
-  it('defaults to the flagship interest when none is given', () => {
-    expect(DEFAULT_BOOK_INTEREST).toBe('operator')
-    expect(bookHref()).toBe('/book?interest=operator')
+  it('returns a neutral /book (no interest) for the firm-level front door', () => {
+    // Firm-level surfaces start the assessment without presuming a solution.
+    expect(bookHref()).toBe('/book')
+    expect(bookHref(undefined)).toBe('/book')
   })
 })
 

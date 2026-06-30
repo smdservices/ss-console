@@ -1,6 +1,6 @@
 ---
 import SmdLogo from './SmdLogo.astro'
-import { bookHref, DEFAULT_BOOK_INTEREST } from '../lib/booking/config'
+import { bookHref } from '../lib/booking/config'
 
 const navLinks = [
   { href: '/operator', label: 'Operator' },
@@ -8,12 +8,18 @@ const navLinks = [
   { href: '/about', label: 'About' },
 ]
 
-// The persistent CTA inherits the page's context so a vertical arrival keeps its
-// attribution instead of being clobbered with `operator`. Pack pages carry their
-// slug; everything else defaults to operator. The single front door is the assessment.
+// The persistent CTA carries an interest only from a surface that is genuinely
+// about that solution, so the assessment chip never presumes one: a pack page
+// keeps its vertical slug, the /operator page keeps `operator`, and every
+// firm-level page starts the assessment neutral. The single front door is the
+// assessment regardless.
 const path = Astro.url.pathname
 const packMatch = path.match(/^\/packs\/([^/]+)\/?$/)
-const bookUrl = bookHref(packMatch ? packMatch[1] : DEFAULT_BOOK_INTEREST)
+const bookUrl = packMatch
+  ? bookHref(packMatch[1])
+  : path === '/operator'
+    ? bookHref('operator')
+    : bookHref()
 ---
 
 <header
