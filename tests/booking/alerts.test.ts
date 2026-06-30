@@ -17,11 +17,12 @@ describe('booking alerts: exports', () => {
     expect(source()).toContain('export async function recordBookingError')
   })
 
-  it('exports BookingAlertKind type with all three error kinds', () => {
+  it('exports BookingAlertKind type with all error kinds', () => {
     const code = source()
     expect(code).toContain("'google_sync_error'")
     expect(code).toContain("'integration_invalid_grant'")
     expect(code).toContain("'freebusy_error'")
+    expect(code).toContain("'guest_email_delivery_failed'")
   })
 
   it('exports BookingAlertDetails interface', () => {
@@ -108,12 +109,13 @@ describe('booking alerts: email', () => {
 })
 
 describe('booking alerts: alert descriptions', () => {
-  it('has descriptions for all three alert kinds', () => {
+  it('has descriptions for all alert kinds', () => {
     const code = source()
     // Verify each kind has a title, meaning, and action entry
     expect(code).toContain('google_sync_error: {')
     expect(code).toContain('integration_invalid_grant: {')
     expect(code).toContain('freebusy_error: {')
+    expect(code).toContain('guest_email_delivery_failed: {')
   })
 
   it('google_sync_error mentions calendar out of sync', () => {
@@ -126,5 +128,9 @@ describe('booking alerts: alert descriptions', () => {
 
   it('freebusy_error mentions double-bookings risk', () => {
     expect(source()).toContain('double-bookings')
+  })
+
+  it('guest_email_delivery_failed tells the team to contact the guest directly', () => {
+    expect(source()).toContain('Contact the guest directly')
   })
 })

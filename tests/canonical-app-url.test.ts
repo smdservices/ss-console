@@ -349,7 +349,9 @@ describe('canonical app-url: outbound admin URLs use buildAdminUrl', () => {
   })
 
   it('booking admin notification email uses buildAdminUrl', () => {
-    const source = readFileSync(resolve('src/pages/api/booking/reserve.ts'), 'utf-8')
+    // The booking admin notification is composed in confirmation-emails.ts,
+    // which reserve.ts delegates to.
+    const source = readFileSync(resolve('src/pages/api/booking/confirmation-emails.ts'), 'utf-8')
     expect(source).toContain('buildAdminUrl')
     expect(source).not.toMatch(/\$\{appBaseUrl\}\/admin\//)
   })

@@ -8,7 +8,6 @@ import {
   hashManageToken,
   computeManageTokenExpiry,
 } from '../../../lib/booking/tokens'
-import { buildIcs, icsToBase64 } from '../../../lib/booking/ics'
 import { processIntakeSubmission, type PreSeededIntake } from '../../../lib/booking/intake-core'
 import { rollbackFailedBooking } from '../../../lib/booking/rollback'
 import { createScheduleStatement, updateScheduleGoogleSync } from '../../../lib/booking/schedule'
@@ -19,12 +18,8 @@ import {
 } from '../../../lib/booking/meeting-schedule'
 import { getIntegration, getGoogleAccessToken } from '../../../lib/db/integrations'
 import { transitionStage } from '../../../lib/db/entities'
-import { sendEmail } from '../../../lib/email/resend'
-import {
-  bookingConfirmationEmailHtml,
-  bookingAdminNotificationEmailHtml,
-} from '../../../lib/email/templates'
-import { requireAppBaseUrl, buildAdminUrl } from '../../../lib/config/app-url'
+import { sendConfirmationEmails } from './confirmation-emails'
+import { requireAppBaseUrl } from '../../../lib/config/app-url'
 import { env } from 'cloudflare:workers'
 import {
   createGoogleCalendarEvent,
@@ -37,7 +32,6 @@ import {
 } from './reserve-helpers'
 
 const FALLBACK_EMAIL = 'team@smd.services'
-const NOTIFY_EMAIL = 'team@smd.services'
 
 /**
  * POST /api/booking/reserve
@@ -408,86 +402,6 @@ async function syncGoogleCalendarAndPromote(args: GoogleSyncArgs): Promise<strin
         message: `Please email ${FALLBACK_EMAIL} to schedule your call.`,
       },
     })
-  }
-}
-
-interface SendConfirmationArgs {
-  input: ValidatedInput
-  dbResult: DbCommitResult
-  googleMeetUrl: string
-  manageUrl: string
-}
-
-async function sendConfirmationEmails(args: SendConfirmationArgs): Promise<void> {
-  const { input, dbResult, googleMeetUrl, manageUrl } = args
-  const { name, email, businessName, slotStartUtc, guestTimezone } = input
-  const { scheduleId, intakeLines, entityId } = dbResult
-
-  const displayTz = guestTimezone || BOOKING_CONFIG.consultant.timezone
-  const slotLabel = formatSlotLabelLong(slotStartUtc, displayTz)
-  const consultantTzLabel = formatSlotLabelLong(slotStartUtc, BOOKING_CONFIG.consultant.timezone)
-
-  let icsAttachment: { filename: string; content: string; content_type: string } | null = null
-  try {
-    const icsResult = buildIcs({
-      scheduleId,
-      sequence: 0,
-      method: 'REQUEST',
-      startUtc: slotStartUtc,
-      durationMinutes: BOOKING_CONFIG.slot_minutes,
-      title: `${BOOKING_CONFIG.meeting_label} — SMD Services`,
-      description: `Assessment call with SMD Services for ${businessName}.\n\nManage your booking: ${manageUrl}`,
-      location: googleMeetUrl,
-      organizerName: BOOKING_CONFIG.consultant.name,
-      organizerEmail: BOOKING_CONFIG.consultant.email,
-      guestName: name,
-      guestEmail: email,
-    })
-    icsAttachment = {
-      filename: 'invite.ics',
-      content: icsToBase64(icsResult.ics),
-      content_type: icsResult.contentType,
-    }
-  } catch (icsErr) {
-    console.error('[api/booking/reserve] ICS generation failed:', icsErr)
-  }
-
-  try {
-    const confirmationHtml = bookingConfirmationEmailHtml({
-      guestName: name,
-      businessName,
-      slotLabel,
-      meetUrl: googleMeetUrl,
-      manageUrl,
-      meetingLabel: BOOKING_CONFIG.meeting_label,
-    })
-    await sendEmail(env.RESEND_API_KEY, {
-      to: email,
-      subject: `Confirmed: ${BOOKING_CONFIG.meeting_label} with SMD Services`,
-      html: confirmationHtml,
-      ...(icsAttachment ? { attachments: [icsAttachment] } : {}),
-    })
-  } catch (emailErr) {
-    console.error('[api/booking/reserve] Confirmation email failed:', emailErr)
-  }
-
-  try {
-    const adminHtml = bookingAdminNotificationEmailHtml({
-      guestName: name,
-      guestEmail: email,
-      businessName,
-      slotLabel: consultantTzLabel,
-      intakeLines,
-      entityAdminUrl: buildAdminUrl(env, `/admin/entities/${entityId}`),
-    })
-    await sendEmail(env.RESEND_API_KEY, {
-      to: NOTIFY_EMAIL,
-      reply_to: email,
-      subject: `New booking: ${businessName} — ${consultantTzLabel}`,
-      html: adminHtml,
-    })
-  } catch (emailErr) {
-    console.error('[api/booking/reserve] Admin notification email failed:', emailErr)
   }
 }
 

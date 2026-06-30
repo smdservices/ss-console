@@ -18,6 +18,7 @@ import { buildIcs, icsToBase64 } from '../../../../../lib/booking/ics'
 import { BOOKING_CONFIG } from '../../../../../lib/booking/config'
 import { sendBookingCancellation } from '../../../../../lib/email/booking-emails'
 import { sendEmail } from '../../../../../lib/email/resend'
+import { recordBookingError } from '../../../../../lib/booking/alerts'
 import { formatInTimeZone } from 'date-fns-tz'
 import { env } from 'cloudflare:workers'
 
@@ -116,8 +117,20 @@ async function sendCancellationEmails(
 ): Promise<void> {
   const icsAttachment = buildIcsAttachment(schedule)
 
+  async function alertGuestEmailFailure(message: string): Promise<void> {
+    try {
+      await recordBookingError(env.DB, env.RESEND_API_KEY, 'guest_email_delivery_failed', {
+        assessmentId: schedule.assessment_id,
+        scheduleId: schedule.id,
+        message,
+      })
+    } catch (alertErr) {
+      console.error('[api/booking/manage/cancel] Failed to record guest email alert:', alertErr)
+    }
+  }
+
   try {
-    await sendBookingCancellation(env.RESEND_API_KEY, {
+    const guestResult = await sendBookingCancellation(env.RESEND_API_KEY, {
       guestName: schedule.guest_name,
       guestEmail: schedule.guest_email,
       businessName: '',
@@ -125,17 +138,31 @@ async function sendCancellationEmails(
       rebookUrl: 'https://smd.services/book',
       icsAttachment,
     })
+    if (!guestResult.success) {
+      console.error('[api/booking/manage/cancel] Cancellation email NOT sent:', guestResult.error)
+      await alertGuestEmailFailure(
+        `Cancellation email to ${schedule.guest_email} was rejected: ${guestResult.error ?? 'unknown error'}`
+      )
+    }
   } catch (emailErr) {
     console.error('[api/booking/manage/cancel] Cancellation email failed:', emailErr)
+    await alertGuestEmailFailure(
+      `Cancellation email to ${schedule.guest_email} threw: ${
+        emailErr instanceof Error ? emailErr.message : String(emailErr)
+      }`
+    )
   }
 
   try {
-    await sendEmail(env.RESEND_API_KEY, {
+    const adminResult = await sendEmail(env.RESEND_API_KEY, {
       to: NOTIFY_EMAIL,
       reply_to: schedule.guest_email,
       subject: `Cancelled: ${schedule.guest_name} — ${slotLabel}`,
       html: `<p><strong>${escapeHtml(schedule.guest_name)}</strong> cancelled their assessment call scheduled for <strong>${escapeHtml(slotLabel)}</strong>.</p>${reason ? `<p>Reason: ${escapeHtml(reason)}</p>` : ''}`,
     })
+    if (!adminResult.success) {
+      console.error('[api/booking/manage/cancel] Admin notification NOT sent:', adminResult.error)
+    }
   } catch (emailErr) {
     console.error('[api/booking/manage/cancel] Admin notification failed:', emailErr)
   }
