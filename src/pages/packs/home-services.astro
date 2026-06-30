@@ -1,24 +1,23 @@
 ---
 export const prerender = false
 
-import PackCardGrid from '../../components/packs/PackCardGrid.astro'
 import PackClosing from '../../components/packs/PackClosing.astro'
 import PackEyebrow from '../../components/packs/PackEyebrow.astro'
 import PackHeading from '../../components/packs/PackHeading.astro'
 import PackHero from '../../components/packs/PackHero.astro'
 import PackIntro from '../../components/packs/PackIntro.astro'
 import PackLayout from '../../components/packs/PackLayout.astro'
+import PackLifecycle from '../../components/packs/PackLifecycle.astro'
 import PackProse from '../../components/packs/PackProse.astro'
 import PackSection from '../../components/packs/PackSection.astro'
 import PackSectionCta from '../../components/packs/PackSectionCta.astro'
-import { shapeZoneTitles } from '../../lib/operator-packs/shared'
 
 const productSchema = {
   '@context': 'https://schema.org',
   '@type': 'Product',
-  name: 'Operator for Home Services',
+  name: 'Operator for Home-Services Contractors',
   description:
-    'The Operator is a worker you hire, not software you buy. The home-services pack is its head start: a starting point shaped around front-office call handling and job coordination, which we configure with you and you customize to your shop. The diagnosis and the price stay with your techs; a safety emergency goes straight to a person.',
+    'The Operator is a worker you hire, not software you buy. It works inside your field-service platform and carries the connective office work in writing: service requests, scheduling and arrival windows, on-the-way updates, estimate and invoice follow-up, memberships, and seasonal recall. Your team keeps the phones. It never diagnoses the problem, never quotes or commits a price, never speaks to code, permits, or warranty, and routes a life-safety signal (gas, carbon monoxide, fire) to evacuate-and-call-911 while routing urgent service to a person.',
   brand: { '@type': 'Brand', name: 'SMD Services' },
   offers: {
     '@type': 'Offer',
@@ -27,190 +26,266 @@ const productSchema = {
   },
 }
 
-// Section 03: the starting templates in the pack, grouped in plain language. Sourced
-// from operator/verticals/home-services/vertical.yaml (the intake-and-scheduling,
-// money-and-retention, proactive, and safety skill families). These are templates we
-// configure, not a finished, running product.
-const packTemplates = [
+// Section 04: the lifecycle walk. The connective work around one job, request to paid, each step in
+// the standard's three-line shape (Operator does / your part / if it stalls). Built from the
+// research-grade internal spec brief (docs/specs/verticals/home-services.md) and corrected by the
+// adversarial gate (a veteran contractor office manager): the emergency content is split into two
+// tiers, life-safety (gas, carbon monoxide, fire, active electrical) gets the correct evacuate /
+// don't-touch-a-switch / call-911-and-the-gas-utility protocol and never implies the office handles
+// it, while urgent service (no heat in a freeze, no cooling in extreme heat, water running) is
+// escalated to a person and the on-call dispatcher; 911 leads for life-safety; a code/permit/warranty
+// silence line is added; collections never drafts a lien notice or demand letter; the "running late"
+// path never originates a new arrival time; a referral ask is gated behind marketing consent (a
+// review is not). Generic system categories, no brand names. The section framing carries the
+// truthfulness, per the kit-grammar guard.
+const lifecycleSteps = [
   {
-    title: 'Intake and scheduling',
-    body: 'A service request captured and routed wherever it lands, the appointment booked, the arrival window confirmed, the board status relayed back to the customer.',
+    title: 'A service request comes in',
+    operator:
+      'Captures the request into the field-service platform, checks it against your existing customers, and drafts an acknowledgment with an offer to schedule.',
+    your: 'Nothing, unless it routes something to you.',
+    stalls:
+      'Follows up on the scheduling. It handles the logistics and never diagnoses the problem or quotes a price. Anything that could be an emergency is escalated to a person, and the customer is pointed to the right help: for a gas smell, a carbon-monoxide alarm, fire, or active electrical arcing, to leave and call 911 and the gas utility from outside, never the office; for urgent service like no heat in a freeze or water running, to call the shop or the after-hours line. The Operator never assesses or answers it.',
   },
   {
-    title: 'Money and retention',
-    body: 'The estimate chased toward a yes, the invoice followed up, the membership plan terms relayed, the maintenance due date surfaced, the part you are waiting on tracked.',
+    title: 'Scheduling and the arrival window',
+    operator:
+      "Offers the available windows by the job type your shop defines, taken from the customer's own words, books it on the board, and confirms, then sends the reminder with the arrival window and captures the confirm or the reschedule.",
+    your: 'Nothing.',
+    stalls:
+      'Re-sends the reminder you pre-approved, and routes an ambiguous request to a person rather than guessing the job type. Scheduling and window logistics only; it never sets the diagnosis or the price.',
   },
   {
-    title: 'Proactive touches',
-    body: 'The review request sent after the job, the lapsed customer reached for a win-back, your field-service software kept in sync.',
+    title: 'On the way',
+    operator:
+      'Tells the customer the tech is en route off the status on your board, and if the board shows a delay, that the visit is running behind and your dispatcher will confirm a new window.',
+    your: 'Your dispatcher runs the board.',
+    stalls:
+      'Re-sends the update. It relays the window and status your dispatcher set; it never sets a new arrival time, and it never says what the tech will find or what it will cost.',
   },
   {
-    title: 'The safety gate',
-    body: 'A call that sounds like a gas leak, a fire, water coming in, no heat in a hard freeze, or a live electrical hazard, recognized and routed straight to a person, never queued behind a routine booking.',
-  },
-]
-
-// Section 05: the three customization zones. Titles are shared (shapeZoneTitles); the
-// body under each is home-services-specific.
-const zones = [
-  {
-    title: shapeZoneTitles.prebuilt,
-    body: 'The starting templates above, shaped around a front-office call-and-coordination desk and ready to configure. You are not building from a blank page.',
+    title: 'The estimate',
+    operator:
+      'Follows up on an estimate your shop sent that has not been approved, and offers to schedule the work.',
+    your: 'Your company sets and owns the price.',
+    stalls:
+      "Sends the next follow-up on your cadence. Approval and scheduling logistics only; it never quotes, adjusts, or commits a price, the estimate is your company's number.",
   },
   {
-    title: shapeZoneTitles.connected,
-    body: 'Wired into your own accounts: your field-service software, your email and calendar, your documents. It works inside the tools you already run.',
+    title: 'The invoice',
+    operator:
+      'Follows the unpaid invoice with a statement reminder that points to your payment process.',
+    your: 'Nothing, unless it routes a billing question to you.',
+    stalls:
+      'Sends the next reminder on schedule. Billing logistics only, no pressure; it sends a friendly statement reminder, never a lien notice, a demand letter, or any legal collections language, and the payment runs through your process, never the Operator.',
   },
   {
-    title: shapeZoneTitles.yours,
-    body: 'Your voice, your services and pricing rules, your booking rules, and where the line sits. You decide what runs on its own and what waits for a person. You are the expert in your shop; you shape it from there.',
-  },
-]
-
-const roleLenses = [
-  {
-    title: 'Answer and book',
-    body: 'The call that comes in while everyone is on a job. The Operator answers, captures the details, and books the appointment instead of letting it roll to voicemail, so the lead does not dial a competitor. A safety emergency goes straight to your on-call person.',
+    title: 'Memberships and seasonal recall',
+    operator:
+      'Coordinates the maintenance-membership reminders and renewals on your authored terms, and surfaces the customers your cadence marks due for seasonal service.',
+    your: 'Your company sets the plan terms and the recall cadence.',
+    stalls:
+      'Sends the next reminder on your cadence. Membership and recall logistics; it relays your authored plan and renewal terms and makes no claim about what a system needs.',
   },
   {
-    title: 'After hours and peak season',
-    body: 'The call at night, the surge in peak season you cannot staff for. The Operator covers the phone the whole time, so a missed call stops meaning a missed job, and your CSRs are not drowning when volume spikes.',
+    title: 'The part comes in',
+    operator:
+      'When a special-order part is marked received, notifies the customer and schedules the return visit.',
+    your: 'Nothing, unless it routes a question to you.',
+    stalls: 'Re-notifies. Logistics only.',
   },
   {
-    title: 'Confirmations and follow-up',
-    body: 'The appointment that needs confirming, the estimate waiting on a yes, the callback that needs chasing. The Operator runs the follow-up and keeps the field-service system current as it goes. The price and the diagnosis stay with your techs.',
+    title: 'The review and the win-back',
+    operator:
+      'After a completed job, drafts the review ask on the same basis for every customer, and surfaces the customers not served in your window to reconnect.',
+    your: 'Nothing, unless it routes a question to you.',
+    stalls:
+      'Re-sends on your cadence. It asks every customer alike for a review, not only the happy ones, and writes no review for anyone. A referral ask and the reconnect are marketing, so they go only to customers whose records show the marketing consent the law requires.',
+  },
+  {
+    title: 'What needs you',
+    operator:
+      'Sends one short summary of the desk that recaps what was already escalated in real time, plus estimates open, invoices unpaid, recall due, parts in, and new requests waiting.',
+    your: 'React to the few items.',
+    stalls: 'Re-surfaces anything missed.',
   },
 ]
 ---
 
 <PackLayout
-  title="Operator for Home Services | SMD Services"
-  description="The home-services pack is the Operator's head start: a starting point shaped around front-office call handling and job coordination, which we configure with you and you customize to your shop. The diagnosis and the price stay with your techs. You set the line."
+  title="Operator for Home-Services Contractors | SMD Services"
+  description="A worker you hire, not software you buy. The Operator carries the connective office work in writing: scheduling, arrival windows, on-the-way updates, estimate and invoice follow-up, memberships, and recall. It never diagnoses, never quotes a price, and routes a life-safety signal to 911. It starts with an assessment."
   schema={productSchema}
 >
-  <!-- § 01 Hero -->
+  <!-- 01 Hero -->
   <PackHero slug="home-services">
-    <Fragment slot="heading">Every Call, Answered.</Fragment>
+    <Fragment slot="heading">Every Job, Followed Through.</Fragment>
     <Fragment slot="lede">
-      The Operator is a worker you hire, not software you buy. This is its home-services head start:
-      a starting point already shaped around answering the call, booking the job, and chasing the
-      follow-up, so you are not building from a blank page. You make it yours from there.
+      The Operator is a worker you hire, not software you buy. It works inside your field-service
+      platform and carries the connective office work in writing, by text and email: the service
+      request, the scheduling, the arrival window, the on-the-way update, the unapproved estimate,
+      the unpaid invoice, the membership, the seasonal recall, so the office keeps up with the
+      field. Your team keeps the phones and the live calls. It never diagnoses the problem, it never
+      quotes a price, and it routes anything that might be an emergency straight to a person.
     </Fragment>
   </PackHero>
 
-  <!-- § 02 The seat the market won't fill -->
+  <!-- 02 The problem -->
   <PackSection bg="white">
     <PackEyebrow>The Problem</PackEyebrow>
-    <PackHeading variant="prose">The Seat The Market Won't Fill.</PackHeading>
+    <PackHeading variant="prose">The Job Gets Done. The Follow-Up Doesn't.</PackHeading>
     <PackProse>
       <p>
-        This is one of the worst hiring markets the trades have seen. A good CSR or dispatcher is
-        hard to find and harder to keep, the techs are aging out faster than they are replaced, and
-        when the phone rings while everyone is on a job, the call rolls to voicemail and the
-        customer dials a competitor. Peak season only makes it worse: you cannot staff for the
-        surge, so calls get missed exactly when the most calls are coming in.
+        The hard part of a home-services shop is not the work in the field. Your techs are good at
+        that. It is the office around them: keeping the customer posted on when someone is coming,
+        following the estimate that has not been approved, chasing the invoice that has not been
+        paid, sending the seasonal recall, coordinating the membership, getting the return visit
+        booked when the part comes in. That work is relentless, and the seat that carries it, the
+        CSR and the dispatcher, is one shops fight to keep filled.
       </p>
       <p>
-        An Operator fills that seat now. It answers every call at full speed, all the time, and what
-        it learns about how your shop runs, your services, your pricing rules, your voice, stays
-        with the shop instead of leaving with the person who had it.
+        When the office is buried, that is where the money leaks: an estimate nobody followed up is
+        a job that never books, an unpaid invoice is revenue already earned and not collected, a
+        recall nobody sends is a customer who calls someone else next season. And some of what lands
+        in the inbox cannot wait at all, a gas smell, a carbon-monoxide alarm, a flood, no heat in a
+        freeze. A missed step here is a job lost, money left uncollected, or a customer left in the
+        cold.
       </p>
     </PackProse>
   </PackSection>
 
-  <!-- § 03 What the pack starts you with -->
+  <!-- 03 What the Operator does -->
   <PackSection bg="background">
-    <PackEyebrow>What You Get</PackEyebrow>
-    <PackHeading variant="grid">What The Pack Starts You With.</PackHeading>
-    <PackIntro>
-      You do not start from a blank page. The home-services pack comes shaped around the work a
-      front-office call-and-coordination desk runs, as starting templates we configure with you:
-    </PackIntro>
-    <PackCardGrid items={packTemplates} cols={2} card="templates" />
-    <PackIntro after>
-      These plug into your field-service software and your email and calendar. The templates are the
-      head start. How they run is yours to shape.
-    </PackIntro>
-  </PackSection>
-
-  <!-- § 04 From the start -->
-  <PackSection bg="white">
-    <PackEyebrow>Day One</PackEyebrow>
-    <PackHeading variant="prose">From The Start.</PackHeading>
+    <PackEyebrow>What It Does</PackEyebrow>
+    <PackHeading variant="prose">An Always-On Member Of The Team.</PackHeading>
     <PackProse>
       <p>
-        Before it starts, we sit down with you and the people who run the front office, and we shape
-        the templates around how your shop actually operates, so it begins ready, not green.
+        The Operator is an always-on team member that works inside your field-service platform and
+        carries the connective office work in writing so your people do not have to hold it in their
+        heads: it intakes the requests and gets them scheduled, confirms with the arrival window,
+        tells the customer the tech is on the way, follows the estimates and the invoices, and runs
+        the memberships and the recall.
       </p>
       <p>
-        From there the work moves the way it always did. The phone rings, after hours or in the
-        middle of peak season, and it answers, captures the job, and books the appointment instead
-        of letting it roll to voicemail. It confirms appointments, follows up on the estimate,
-        chases the callback. Anything that sounds like a safety emergency goes straight to your
-        on-call person right away. It is all logged in your field-service software as it happens,
-        and it keeps getting sharper from your team's corrections.
+        When it needs a person to do their part, it comes to them with everything already prepared,
+        so their part is usually a single reply or a one-click confirm. New customer-facing messages
+        are drafted for your team to review and send; templated reminders you have pre-approved can
+        re-send on your cadence; anything that might be an emergency goes to a person right away,
+        and that never changes.
+      </p>
+      <p>
+        It does not replace your field-service platform; that stays the system of record. The tech
+        diagnoses the problem and your company sets the price; those never move to the Operator. It
+        works the written office work around the field, not the phone, and does the connective work
+        between and around your people, keeping the record current as it goes.
       </p>
     </PackProse>
   </PackSection>
 
-  <!-- § 05 Yours to shape -->
-  <PackSection bg="background">
-    <PackEyebrow>Your Way</PackEyebrow>
-    <PackHeading variant="grid">Yours To Shape.</PackHeading>
+  <!-- 04 The lifecycle, step by step -->
+  <PackSection bg="white">
+    <PackEyebrow>The Lifecycle</PackEyebrow>
+    <PackHeading variant="grid">One Job, Request To Paid.</PackHeading>
     <PackIntro>
-      We are not the experts in how your shop runs. You are. So the pack is a starting point in
-      three parts, and the third is the biggest.
+      Here is the connective work around one job, from the first request through the visit, the
+      money behind it, and the recall that brings the customer back. This is the shape of the work,
+      not a fixed script; we build it around how your shop actually runs the office.
     </PackIntro>
-    <PackCardGrid items={zones} cols={3} card="zones" />
+    <PackLifecycle steps={lifecycleSteps} />
   </PackSection>
 
-  <!-- § 06 The line -->
-  <PackSection bg="white">
-    <PackEyebrow>The Boundary</PackEyebrow>
-    <PackHeading variant="prose">The Line.</PackHeading>
-    <PackProse spaced>
+  <!-- 05 How it connects -->
+  <PackSection bg="background">
+    <PackEyebrow>How It Connects</PackEyebrow>
+    <PackHeading variant="prose">Through The Systems You Already Run.</PackHeading>
+    <PackProse>
       <p>
-        The Operator runs the front office. What the job needs and what it costs, the diagnosis and
-        the price, those stay with your techs and your owner, who see the work. The Operator books
-        the call and captures the details; it does not quote the job or decide what is wrong.
+        The Operator works inside the field-service platform that is your system of record, your
+        email, and your calendar. It reads the job, the dispatch board, the estimate, and the
+        invoice, updates the records, files what arrives, and routes what needs a person, so the
+        record stays current without anyone keying it in twice.
       </p>
       <p>
-        Some lines are not settings anyone can move. A call that sounds like a safety emergency, a
-        gas leak, a fire, water coming in, no heat in a hard freeze, or a live electrical hazard,
-        goes straight to a person right then, and anything that sounds like a threat to life goes to
-        911, never queued behind a routine booking. It never commits a diagnosis or a price; that
-        stays with your techs. It follows up on invoices, but it never processes a payment. Anything
-        that leaves the shop goes to a reviewer on your team until you decide otherwise. Every
-        action it takes is logged where you can see it.
-      </p>
-      <p>
-        Beyond those floors, you govern where the line sits, and you can move it as you learn what
-        the Operator is good at. Your customer files stay private, including from us. The Operator
-        works in your shop's own walled-off environment, on your own accounts. We can see that it is
-        running and the record of what it did, but the contents of your jobs and messages stay
-        yours, and so do the configuration, the logs, and the off switch.
+        It works in writing, by text and email. It separates service messages, confirmations,
+        arrival windows, and on-the-way updates, from promotional ones like a win-back or a referral
+        ask, and sends promotional messages only to customers whose records show the marketing
+        consent the law requires; it honors a stop or opt-out immediately and sends only within the
+        hours the rules allow. You own consent. It points customers to your own payment process
+        rather than taking a payment itself. It is the connective tissue between the systems you
+        already run, not another system to learn.
       </p>
     </PackProse>
     <PackSectionCta slug="home-services" />
   </PackSection>
 
-  <!-- § 07 Where it fits -->
-  <PackSection bg="background">
-    <PackEyebrow>The Role</PackEyebrow>
-    <PackHeading variant="grid">Where It Fits.</PackHeading>
-    <PackIntro>
-      A few shapes the seat can take. We build it around how your shop runs, so these are starting
-      points, not a menu.
-    </PackIntro>
-    <PackCardGrid items={roleLenses} cols={3} card="lenses" />
+  <!-- 06 Quiet by design -->
+  <PackSection bg="white">
+    <PackEyebrow>Quiet By Design</PackEyebrow>
+    <PackHeading variant="prose">It Takes Load Off. It Does Not Add It.</PackHeading>
+    <PackProse>
+      <p>
+        The Operator is built to reduce the noise, not add to it. Routine items are gathered into a
+        single short summary rather than a stream of notifications, and it reaches out directly only
+        when something genuinely needs a person. The goal is that your office feels work coming off
+        its plate, not one more thing pinging them. The exception it never batches is a possible
+        emergency: it goes to a person the moment it is spotted, never into that summary, and the
+        customer is pointed to the right help, 911 and the gas utility for a gas, carbon-monoxide,
+        or fire signal, the shop or the after-hours line for urgent service.
+      </p>
+    </PackProse>
   </PackSection>
 
-  <!-- § 08 Start with an assessment -->
+  <!-- 07 The line, and what we prove first -->
+  <PackSection bg="background">
+    <PackEyebrow>The Line</PackEyebrow>
+    <PackHeading variant="prose"
+      >It Coordinates. It Never Diagnoses, And It Never Quotes A Price.</PackHeading
+    >
+    <PackProse spaced>
+      <p>
+        The Operator does the connective work and brings the judgment to the people who hold it. The
+        tech diagnoses the problem in front of them; your company sets and owns the price. Those
+        never move to the Operator. It runs the office, not the trade.
+      </p>
+      <p>
+        And some lines are not settings anyone can move. The Operator never says what is wrong,
+        never says what the fix is, and never quotes, adjusts, or commits a price, an estimate is
+        your company's authored number, and an invoice is followed with a friendly reminder but
+        never paid through the Operator and never chased with a lien notice or a demand letter. It
+        never speaks to whether work is up to code, whether a permit was pulled, or what a warranty
+        covers; those go to a person, every time.
+      </p>
+      <p>
+        And it is built to get a real emergency in front of a person fast, and the customer to the
+        right help even faster. It never rates how serious anything is. For a life-safety signal, a
+        gas smell, a carbon-monoxide alarm, fire or smoke, active electrical arcing, it tells the
+        customer to leave the building now, not to touch a switch or a phone inside, and from a safe
+        distance to call 911 and the gas utility's emergency line, because an active gas leak is
+        made safe by the utility, not by a contractor, and it never implies the office handles it.
+        For urgent service, no heat in a freeze, no cooling in extreme heat, water running, it
+        escalates to a person and the on-call dispatcher and tells the customer to call the shop or
+        the after-hours line. Because detection is never enough, every channel it works carries a
+        standing notice with that same guidance, so it is in front of the customer whether or not
+        the Operator spots it, and the Operator never holds a possible-emergency message waiting for
+        someone to wake up. Every action it takes is logged where you can see it.
+      </p>
+      <p>
+        We are also honest about what we prove before we rely on it. The parts that depend on
+        reading a message and matching your shop's rules, like routing a possible emergency or
+        following an estimate, we validate on your real jobs first. The emergency redirect and
+        escalation always keep a person in the loop; that never changes. Where accuracy is not yet
+        proven, the Operator surfaces what it found and asks, rather than acting on its own. The
+        configuration, the logs, and the off switch stay with you.
+      </p>
+    </PackProse>
+  </PackSection>
+
+  <!-- 08 Close -->
   <PackClosing slug="home-services">
     <Fragment slot="pitch">
-      It starts with a conversation. We learn how your shop runs, find the call-handling and
-      coordination work that is eating your team's time, and start from the pack, customizing it to
-      your shop. If it is not a fit, we will tell you.
+      We learn how your shop actually runs the office, find where the time goes and where the money
+      leaks, and shape the Operator to fit: what it watches, how much it does on its own, where a
+      person stays in the loop. If it is not the right fit, we will tell you.
     </Fragment>
   </PackClosing>
 </PackLayout>
