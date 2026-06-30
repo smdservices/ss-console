@@ -3,110 +3,164 @@
 // and rewrite them to /portal. The prerendered static file would bypass the Worker entirely.
 export const prerender = false
 
-// Operator-forward home: the SPINE. It hooks the leak (hero), names the gap as
-// the why and the managed worker as the fill (one belief beat, the leash), routes
-// the buyer to their vertical pack, offers the consulting second door, the founder,
-// and one door. It is NOT the manifesto: the full category argument is gone, the
-// mechanism lives on /operator, the comparison Q&A lives on /why, vertical
-// recognition lives on the packs. Each idea is argued in exactly one place.
-// Copy, structure, IA, and CTA wiring are final.
+// Home: the firm's face, flagship-forward. Eight beats — firm wraps flagship:
+// hero (orient) -> the gap -> the reframe (category claim) -> the Operator (the
+// cradled flagship, condensed) -> solution-first (the firm reasserts) -> find your
+// trade (proof by specificity) -> who runs it (Scott, condensed) -> the assessment.
+// The deep Operator pitch is on /operator; the firm's operating model is on /book.
+// Structure locked in docs/marketing/positioning-spine.md. One door: the assessment.
 import Base from '../layouts/Base.astro'
 import Nav from '../components/Nav.astro'
 import OperatorHero from '../components/OperatorHero.astro'
-import ConsultingPath from '../components/ConsultingPath.astro'
-import About from '../components/About.astro'
 import Footer from '../components/Footer.astro'
 import CtaButton from '../components/CtaButton.astro'
-import { CATEGORY_NAME } from '../lib/category'
 
-const categorySchema = {
+const firmSchema = {
   '@context': 'https://schema.org',
-  '@type': 'Product',
-  name: 'Operator',
-  category: CATEGORY_NAME,
+  '@type': 'ProfessionalService',
+  name: 'SMD Services',
   description:
-    'A dedicated Operator, built for your business and given a real role. It takes on the recurring connective work a business would otherwise hire a person to do, on its own isolated infrastructure, with the operating memory it builds belonging to you. Run for you as a flat monthly service.',
+    'A software and AI solutions firm for small businesses. Every engagement starts with an assessment that finds the right solution, from a recommendation to a focused project to the Operator, our flagship managed worker that does the recurring work between your people and your software.',
+  areaServed: 'United States',
   brand: { '@type': 'Brand', name: 'SMD Services' },
-  offers: {
+  makesOffer: {
     '@type': 'Offer',
-    availability: 'https://schema.org/InStock',
-    seller: { '@type': 'Organization', name: 'SMD Services' },
+    itemOffered: {
+      '@type': 'Product',
+      name: 'Operator',
+      description:
+        'A managed worker, built for your business and run by us. It does the recurring connective work between your people and your software, on your own systems, under authority you set, with a memory that belongs to you.',
+    },
   },
 }
 ---
 
 <Base
-  title="SMD Services | The Operator, For The Work In Between"
-  description="The work that falls between your people and your software still gets done by hand. The Operator is a new kind of worker that fills that gap, built around how you run and managed by us."
+  title="SMD Services | Software & AI Solutions For Small Business"
+  description="A software and AI solutions firm for small businesses. We figure out what is slowing you down and build the right solution. Our flagship, the Operator, is a managed worker that does the recurring work between your people and your software. It starts with an assessment."
 >
   <Nav />
   <main id="main" role="main">
-    <script is:inline type="application/ld+json" set:html={JSON.stringify(categorySchema)} />
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(firmSchema)} />
 
     <OperatorHero />
 
-    <!-- What it is: the category + the fill, brief. Not the mechanism (that is /operator). -->
-    <section id="how" class="bg-white px-6 py-24">
+    <!-- Beat 2: the gap. The problem in the owner's words, before any pitch. -->
+    <section class="bg-white px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <p
           class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
         >
-          A New Kind Of Worker
+          The Gap
         </p>
         <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          It Fills The Gap. You Stop Bridging It By Hand.
+          The Work That Falls Between.
         </h2>
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
-            Your people are good and your software is good. The work that falls between them, the
-            handoff from one system to the next, the follow-up that slips, the step that is
-            everyone's job and no one's, still comes down to a person holding it together by hand.
+            Your people are good at their jobs. Your software is good at its job. Between them sits
+            a layer of work nobody owns: the handoff from one system to the next, the follow-up that
+            slips, the step that is everyone's job and no one's.
           </p>
           <p>
-            The Operator is built for exactly that. It works across the tools you already run, takes
-            on the recurring connective work, and keeps the pieces moving so nothing falls through.
-            Not a person you hire, not a tool you buy. A worker that fills the gap.
-          </p>
-          <p>
-            <a
-              href="/why"
-              data-ev="home-why-link"
-              class="inline-flex items-center gap-2 font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)] hover:text-[color:var(--ss-color-primary-hover)]"
-            >
-              <span>See how it compares to a hire, a tool, or a chatbot</span>
-              <span aria-hidden="true">→</span>
-            </a>
+            It gets done late, done twice, or not at all, and it usually comes down to a person
+            holding it together by hand. That layer is where time and money quietly leak.
           </p>
         </div>
       </div>
     </section>
 
-    <!-- The reason to believe: the leash. Managed, you set the limits, we run it. Brief; the
-         operational detail lives on /operator. -->
+    <!-- Beat 3: the reframe. The category claim, stated once. Replaces a comparison page. -->
     <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <p
           class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
         >
-          Managed For You
+          What Makes Us Different
         </p>
         <h2
           class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          Managed, Not Handed Over.
+          We Hand You The Work, Done.
         </h2>
         <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
           <p>
-            You decide what the Operator can do on its own and what waits for a person to approve,
-            and you can change that line whenever you want. It works inside the limits you set,
-            nothing more.
+            Everyone selling AI to small business hands you one more tool to run. You do not have
+            time to run more tools. You need the work done.
           </p>
+          <p>
+            That is the difference. A managed worker on your own systems, with a memory that belongs
+            to you, run by us, and honest enough to tell you when you do not need it.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Beat 4: the Operator. The cradled flagship, condensed. The pillars + managed. -->
+    <section class="bg-white px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <p
+          class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
+        >
+          The Flagship
+        </p>
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Meet The Operator.
+        </h2>
+        <p
+          class="mb-12 max-w-3xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
+          A new kind of worker, built for your business and given a real role. It works across the
+          tools you already run and takes on the recurring connective work, so nothing falls
+          through. Not a person you hire, not a tool you buy.
+        </p>
+
+        <div
+          class="grid grid-cols-1 md:grid-cols-3 gap-0 border-t-[3px] border-[color:var(--ss-color-text-primary)]"
+        >
+          {
+            [
+              {
+                t: 'Your accounts',
+                b: 'It runs on your own systems and its own isolated infrastructure. Your data stays yours.',
+              },
+              {
+                t: 'Your authority',
+                b: 'You decide what it does on its own and what waits for a person. You can change that line anytime, and it never widens its own authority.',
+              },
+              {
+                t: 'Your memory',
+                b: 'What it learns about how you run belongs to the business, and it does not walk out the door.',
+              },
+            ].map((p, i) => (
+              <div
+                class:list={[
+                  'flex flex-col gap-3 p-8 min-h-[13rem] border-b-[3px] border-[color:var(--ss-color-text-primary)]',
+                  i % 3 !== 2 && 'md:border-r-[3px] md:border-[color:var(--ss-color-text-primary)]',
+                ]}
+              >
+                <p class="font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)]">
+                  {p.t}
+                </p>
+                <p class="font-['Archivo'] text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                  {p.b}
+                </p>
+              </div>
+            ))
+          }
+        </div>
+
+        <div
+          class="mt-12 space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
+        >
           <p>
             And running it is our job, not yours. We build it for your business, wire it into your
             tools, and stay accountable for how it works. A service, not software you have to
-            manage. As the field keeps moving, keeping your Operator current is on us.
+            manage.
           </p>
           <p>
             <a
@@ -114,7 +168,7 @@ const categorySchema = {
               data-ev="home-operator-learn"
               class="inline-flex items-center gap-2 font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)] hover:text-[color:var(--ss-color-primary-hover)]"
             >
-              <span>See how it works</span>
+              <span>See how the Operator works</span>
               <span aria-hidden="true">→</span>
             </a>
           </p>
@@ -122,25 +176,52 @@ const categorySchema = {
       </div>
     </section>
 
-    <!-- The router: send the buyer to their vertical, where the leak gets concrete. -->
+    <!-- Beat 5: solution-first. The firm reasserts. The AI-tension line. -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <p
+          class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
+        >
+          Solution First
+        </p>
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          Not Every Problem Needs An Operator.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            We specialize in AI, and part of our job is telling you when it is not the answer.
+            Sometimes the right fix is a cleaner process, the right tool chosen well, or a single
+            integration that makes two systems finally talk.
+          </p>
+          <p>
+            The assessment is how we find out. We recommend what actually fits, whether that is a
+            recommendation you can run yourself, a focused project, or a full Operator.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Beat 6: find your trade. Proof by specificity, routed to the packs index. -->
     <section class="bg-white px-6 py-24">
       <div class="mx-auto max-w-5xl">
         <p
           class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
         >
-          Built Around How You Run
+          Built Around Your Work
         </p>
         <h2
           class="mb-8 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
         >
-          Start With Your Industry.
+          Find Your Trade.
         </h2>
         <p
           class="mb-10 max-w-2xl text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]"
         >
-          The work that falls through takes a recognizable shape in every trade. We have mapped the
-          seat the Operator fills for law firms, insurance agencies, accounting firms, med spas,
-          home services, and more. Find yours.
+          The work that falls through takes a recognizable shape in every business. We have mapped
+          the seat the Operator fills for law firms, insurance agencies, accounting and advisory
+          firms, med spas, home services, and more. Find yours.
         </p>
         <CtaButton variant="secondary" href="/industries" data-ev="home-industries-router"
           >Find your industry</CtaButton
@@ -148,11 +229,44 @@ const categorySchema = {
       </div>
     </section>
 
-    <ConsultingPath />
+    <!-- Beat 7: who runs it. Scott, condensed, firm "we" voice (full bio on /about). -->
+    <section class="bg-[color:var(--ss-color-background)] px-6 py-24">
+      <div class="mx-auto max-w-5xl">
+        <p
+          class="mb-5 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
+        >
+          Who Runs It
+        </p>
+        <h2
+          class="mb-10 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-[color:var(--ss-color-text-primary)]"
+        >
+          A Guide, Not A Vendor.
+        </h2>
+        <div class="space-y-8 text-lg leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+          <p>
+            Behind SMD is Scott Durgan, who spent two decades building enterprise software for
+            Fortune 500 and Fortune 100 companies. The same operational discipline, now for
+            businesses that never had access to it.
+          </p>
+          <p>
+            We do not sell you something and leave. The Operator is a managed service, and the field
+            keeps changing, so we stay with you and keep it current. A guide for new ground.
+          </p>
+          <p>
+            <a
+              href="/about"
+              data-ev="home-about-link"
+              class="inline-flex items-center gap-2 font-['Archivo_Narrow'] text-sm font-semibold uppercase tracking-[0.12em] text-[color:var(--ss-color-primary)] hover:text-[color:var(--ss-color-primary-hover)]"
+            >
+              <span>More about us</span>
+              <span aria-hidden="true">→</span>
+            </a>
+          </p>
+        </div>
+      </div>
+    </section>
 
-    <About />
-
-    <!-- Start the conversation (single primary CTA; outcome-neutral, Operator-forward). -->
+    <!-- Beat 8: the assessment. The one close. -->
     <section class="bg-[color:var(--ss-color-surface-inverse)] px-6 py-24">
       <div class="mx-auto max-w-5xl text-center">
         <p
@@ -163,15 +277,15 @@ const categorySchema = {
         <h2
           class="mb-6 font-['Archivo'] text-4xl md:text-5xl font-black uppercase tracking-[-0.02em] text-white"
         >
-          Start The Conversation.
+          It Starts With An Assessment.
         </h2>
         <p class="mx-auto mb-10 max-w-2xl text-lg text-[color:var(--ss-color-text-muted)]">
-          It starts with a conversation. We learn how your operation runs, find the work that is
-          eating your team's time, and figure out the right solution for your business. If the
-          Operator is not the right fit, we say so.
+          We learn how your business actually runs, find what is costing you the most time, and
+          recommend the right solution. If an Operator is not the fit, we say so. You walk away with
+          a clear recommendation either way.
         </p>
         <CtaButton variant="outline-white" href="/book?interest=operator" data-ev="home-final-cta"
-          >Start the conversation</CtaButton
+          >Start with an assessment</CtaButton
         >
       </div>
     </section>
