@@ -85,8 +85,8 @@ describe('content integrity', () => {
 describe('voice standard', () => {
   // About.astro is intentionally excluded: SMD is positioned as a practitioner
   // firm (lawyer / doctor / craftsman model) where the founder *is* the firm.
-  // §07 Who We Are uses Scott's first-person voice; the rest of the page stays
-  // in firm-level "we" voice. See CLAUDE.md "Voice standard" practitioner-firm
+  // The About founder bio uses Scott's first-person voice; the rest of the page
+  // stays in firm-level "we" voice. See CLAUDE.md "Voice standard" practitioner-firm
   // exception.
   const marketingComponents = ['OperatorHero.astro']
 
