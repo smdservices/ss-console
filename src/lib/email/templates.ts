@@ -385,7 +385,7 @@ export function bookingRescheduledEmailHtml(input: BookingRescheduledEmailInput)
 
       <p style="font-size:15px;color:#334155;margin:0 0 16px;">Hi ${guestName},</p>
       <p style="font-size:15px;color:#334155;margin:0 0 16px;">
-        Your assessment call for <strong>${businessName}</strong> has moved.
+        Your assessment call${businessName ? ` for <strong>${businessName}</strong>` : ''} has moved.
       </p>
 
       <div style="background:#f1f5f9;border-radius:6px;padding:16px;margin:0 0 16px;">
@@ -448,7 +448,7 @@ export function bookingCancelledEmailHtml(input: BookingCancelledEmailInput): st
 
       <p style="font-size:15px;color:#334155;margin:0 0 16px;">Hi ${guestName},</p>
       <p style="font-size:15px;color:#334155;margin:0 0 16px;">
-        Your assessment call for <strong>${businessName}</strong>
+        Your assessment call${businessName ? ` for <strong>${businessName}</strong>` : ''}
         scheduled for <strong>${slotLabel}</strong> has been cancelled.
       </p>
 
