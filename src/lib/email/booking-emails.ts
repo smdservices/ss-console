@@ -9,7 +9,7 @@
 
 import { BRAND_NAME } from '../config/brand'
 import { sendEmail } from './resend'
-import type { SendResult, EmailAttachment } from './resend'
+import type { SendResult, EmailAttachment, EmailTag } from './resend'
 import {
   bookingConfirmationEmailHtml,
   bookingRescheduledEmailHtml,
@@ -25,6 +25,19 @@ import type {
 
 const NOTIFY_EMAIL = 'team@smd.services'
 
+/**
+ * Tag a guest booking email so the Resend webhook can recognize it on a
+ * delivery-failure event (suppressed/bounced/failed) and alert the team.
+ * `meeting_id` lets the webhook resolve the originating entity. Resend tag
+ * values are constrained to letters/numbers/underscores/dashes — the
+ * category slugs and UUID meeting ids used here satisfy that.
+ */
+function bookingEmailTags(category: string, meetingId?: string): EmailTag[] {
+  const tags: EmailTag[] = [{ name: 'category', value: category }]
+  if (meetingId) tags.push({ name: 'meeting_id', value: meetingId })
+  return tags
+}
+
 // ---------------------------------------------------------------------------
 // Confirmation (sent to guest after successful reserve)
 // ---------------------------------------------------------------------------
@@ -33,6 +46,8 @@ export interface SendBookingConfirmationInput extends BookingConfirmationEmailIn
   guestEmail: string
   /** ICS attachment, or null if ICS generation failed. */
   icsAttachment: EmailAttachment | null
+  /** Originating meeting/assessment id, tagged so the webhook can resolve the entity. */
+  meetingId?: string
 }
 
 export async function sendBookingConfirmation(
@@ -50,6 +65,7 @@ export async function sendBookingConfirmation(
     subject: `Confirmed: ${input.meetingLabel} with ${BRAND_NAME}`,
     html,
     ...(attachments.length > 0 ? { attachments } : {}),
+    tags: bookingEmailTags('booking_confirmation', input.meetingId),
   })
 }
 
@@ -61,6 +77,8 @@ export interface SendBookingRescheduleInput extends BookingRescheduledEmailInput
   guestEmail: string
   /** ICS attachment with bumped SEQUENCE, or null if ICS generation failed. */
   icsAttachment: EmailAttachment | null
+  /** Originating meeting/assessment id, tagged so the webhook can resolve the entity. */
+  meetingId?: string
 }
 
 export async function sendBookingReschedule(
@@ -78,6 +96,7 @@ export async function sendBookingReschedule(
     subject: `Rescheduled: ${input.meetingLabel} with ${BRAND_NAME}`,
     html,
     ...(attachments.length > 0 ? { attachments } : {}),
+    tags: bookingEmailTags('booking_reschedule', input.meetingId),
   })
 }
 
@@ -89,6 +108,8 @@ export interface SendBookingCancellationInput extends BookingCancelledEmailInput
   guestEmail: string
   /** ICS CANCEL attachment, or null if ICS generation failed. */
   icsAttachment: EmailAttachment | null
+  /** Originating meeting/assessment id, tagged so the webhook can resolve the entity. */
+  meetingId?: string
 }
 
 export async function sendBookingCancellation(
@@ -106,6 +127,7 @@ export async function sendBookingCancellation(
     subject: `Cancelled: Assessment call with ${BRAND_NAME}`,
     html,
     ...(attachments.length > 0 ? { attachments } : {}),
+    tags: bookingEmailTags('booking_cancellation', input.meetingId),
   })
 }
 

@@ -210,6 +210,7 @@ async function sendRescheduleEmails(
       manageUrl,
       meetingLabel: BOOKING_CONFIG.meeting_label,
       icsAttachment,
+      meetingId: schedule.assessment_id,
     })
     if (!guestResult.success) {
       console.error('[api/booking/manage/reschedule] Reschedule email NOT sent:', guestResult.error)
