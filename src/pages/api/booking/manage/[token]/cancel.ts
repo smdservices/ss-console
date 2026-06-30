@@ -137,6 +137,7 @@ async function sendCancellationEmails(
       slotLabel,
       rebookUrl: 'https://smd.services/book',
       icsAttachment,
+      meetingId: schedule.assessment_id,
     })
     if (!guestResult.success) {
       console.error('[api/booking/manage/cancel] Cancellation email NOT sent:', guestResult.error)

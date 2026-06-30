@@ -26,6 +26,14 @@ export interface ResendWebhookPayload {
     to?: string[]
     from?: string
     subject?: string
+    /** Tags echoed from the send, flattened to an object by Resend. */
+    tags?: Record<string, string>
+    /** Present on email.bounced. */
+    bounce?: { message?: string; type?: string; subType?: string }
+    /** Present on email.suppressed. */
+    suppressed?: { message?: string; type?: string }
+    /** Present on email.failed. */
+    failed?: { reason?: string }
     [key: string]: unknown
   }
   [key: string]: unknown
