@@ -1,24 +1,23 @@
 ---
 export const prerender = false
 
-import PackCardGrid from '../../components/packs/PackCardGrid.astro'
 import PackClosing from '../../components/packs/PackClosing.astro'
 import PackEyebrow from '../../components/packs/PackEyebrow.astro'
 import PackHeading from '../../components/packs/PackHeading.astro'
 import PackHero from '../../components/packs/PackHero.astro'
 import PackIntro from '../../components/packs/PackIntro.astro'
 import PackLayout from '../../components/packs/PackLayout.astro'
+import PackLifecycle from '../../components/packs/PackLifecycle.astro'
 import PackProse from '../../components/packs/PackProse.astro'
 import PackSection from '../../components/packs/PackSection.astro'
 import PackSectionCta from '../../components/packs/PackSectionCta.astro'
-import { shapeZoneTitles } from '../../lib/operator-packs/shared'
 
 const productSchema = {
   '@context': 'https://schema.org',
   '@type': 'Product',
   name: 'Operator for Dental Practices',
   description:
-    'The Operator is a worker you hire, not software you buy. The dental pack is its head start: a starting point shaped around the front office, which we configure with you and you customize to your practice. The clinical decisions stay with your dentists; a possible emergency routes to a person.',
+    'The Operator is a worker you hire, not software you buy. It works inside your practice-management system and carries the written follow-up work around your front desk, in text and email: new-patient intake, booking and reminders, recare, benefits for your team, treatment-plan follow-up, unpaid claims, and patient balances. Your team owns the phones and the chair. It gives no clinical advice, never quotes a coverage number to a patient, routes a possible emergency to a person and tells the patient to call, and works as your HIPAA business associate under a signed BAA.',
   brand: { '@type': 'Brand', name: 'SMD Services' },
   offers: {
     '@type': 'Offer',
@@ -27,191 +26,259 @@ const productSchema = {
   },
 }
 
-// Section 03: the starting templates in the pack, grouped in plain language. Sourced
-// from operator/verticals/dental/vertical.yaml (the scheduling, recall, benefits, and
-// records skill families). These are templates we configure, not a finished, running
-// product.
-const packTemplates = [
+// Section 04: the lifecycle walk. The connective work around one patient, inquiry to recall, each
+// step in the standard's three-line shape (Operator does / your part / if it stalls). Built from
+// the research-grade internal spec brief (docs/specs/verticals/dental.md) and corrected by the
+// adversarial gate (a veteran dental office manager): a flagged emergency now redirects the PATIENT
+// out of the async channel (call the office / 911 / ER), not just an internal route; benefits go to
+// the team only and are never a number quoted to the patient (eligibility is not payment);
+// treatment-plan follow-up is gated to a documented acceptance within a freshness window with a cap;
+// recall is generalized off GP-only "hygiene" to recare/maintenance (perio, ortho, post-op); the
+// emergency keyword list is over-inclusive routing, not a triage definition. HIPAA BAA and TCPA
+// consent are named in section 07 / section 05, not glossed. Phone is out of scope by design (the
+// written follow-up, not the front desk). Generic system categories, no brand names. The section
+// framing carries the truthfulness, per the kit-grammar guard.
+const lifecycleSteps = [
   {
-    title: 'New patient and scheduling',
-    body: 'A new-patient inquiry captured and a possible emergency routed to a person, the schedule confirmed and reminded, the short-call list worked, the no-show rebooked.',
+    title: 'A new patient reaches out',
+    operator:
+      'Captures the inquiry into the practice-management system, checks it against your existing patients, and drafts an acknowledgment with the intake forms and an offer to book.',
+    your: 'Nothing, unless it routes something to you.',
+    stalls:
+      'Follows up on the forms. It handles the logistics and gives no clinical advice. Anything that could read as urgent, swelling, trauma, bleeding, severe pain, and the like, is routed to a person and the patient is told to call the office, or to call 911 or go to the ER for severe swelling, trouble breathing or swallowing, or uncontrolled bleeding; it is never judged or answered by the Operator.',
   },
   {
-    title: 'The recall engine',
-    body: 'The recall and recare list surfaced from the interval the practice marks due, and the lapsed patient reactivated, so a gap on the calendar does not become lost production.',
+    title: 'Booking and the reminder',
+    operator:
+      'Offers the available times by the appointment type your practice defines, books, and confirms, then sends the reminder ahead of the visit and captures the confirm or the reschedule. When a slot opens, it works your short-call list to fill it.',
+    your: 'Nothing.',
+    stalls:
+      'Re-sends the reminder you pre-approved. Scheduling and fill logistics only; it schedules by your appointment types and never assigns clinical urgency.',
   },
   {
-    title: 'Benefits, treatment, and money',
-    body: 'The payer-returned benefits relayed, the unscheduled treatment plan followed up on, the claim status chased, the patient balance reminded.',
+    title: 'The recall list',
+    operator:
+      "Surfaces the patients your practice's own recare or maintenance interval marks due, hygiene, periodontal maintenance, or the specialty cadence you run, and drafts the reminder to come in.",
+    your: 'Your practice sets the interval.',
+    stalls:
+      'Keeps the overdue list current and re-sends on your cadence. It surfaces what your interval marks due; it never sets the interval and never decides what care a patient needs.',
   },
   {
-    title: 'Records and proactive',
-    body: 'The forms and records collected, a possible emergency routed straight to the team, inbound routed to the right desk, the internal digest assembled.',
-  },
-]
-
-// Section 05: the three customization zones. Titles are shared (shapeZoneTitles); the
-// body under each is dental-specific.
-const zones = [
-  {
-    title: shapeZoneTitles.prebuilt,
-    body: 'The starting templates above, shaped around a front-office and treatment-coordinator desk and ready to configure. You are not building from a blank page.',
+    title: 'Benefits before the visit',
+    operator:
+      "Gathers the patient's benefits as the payer or clearinghouse reports them, ahead of the visit, and assembles a summary for your team to interpret, never a number quoted to the patient.",
+    your: 'Your treatment coordinator turns the benefits into an estimate and talks cost with the patient, with the standard caution that eligibility is not a guarantee of payment.',
+    stalls:
+      'Chases the payer for the eligibility. It pulls and summarizes for your team only; it never quotes a coverage number to a patient, never guarantees coverage, and never states an out-of-pocket as a promise, because eligibility is not payment.',
   },
   {
-    title: shapeZoneTitles.connected,
-    body: 'Wired into your own accounts: your practice-management system, your email and calendar, your documents. It works inside the tools you already run.',
+    title: 'The treatment plan that never got scheduled',
+    operator:
+      'Follows up on a plan with a documented acceptance that did not get scheduled, within the freshness window you set, and offers to book it.',
+    your: 'The dentist owns the diagnosis and the plan.',
+    stalls:
+      'Follows up again on your cadence, up to the cap you set and with an easy opt-out, then flags the plan for your team rather than chasing a stale one. It offers to schedule what the patient accepted; it never recommends or upsells a procedure, and it never frames the clinical need.',
   },
   {
-    title: shapeZoneTitles.yours,
-    body: 'Your voice, your recall protocol and verification steps, the way you run a schedule, and where the line sits. You decide what runs on its own and what waits for a person. You are the expert in your practice; you shape it from there.',
-  },
-]
-
-const roleLenses = [
-  {
-    title: 'The schedule and recall',
-    body: 'The recall and recare list that takes hours to work, the confirmations the day depends on. The Operator works the list in your voice, confirms the schedule, and reactivates the patient who fell off, so a gap in the calendar does not become lost production.',
+    title: 'The unpaid claim',
+    operator:
+      'Follows the submitted claim the payer has not paid, chases its status, and flags what is aging.',
+    your: 'Your office manager handles a denial or an appeal.',
+    stalls:
+      'Chases the payer again. It relays and chases status; it never selects or alters a code and never appeals a denial.',
   },
   {
-    title: 'Insurance verification, handled',
-    body: 'Verifying benefits and checking eligibility before the patient sits down, and following up on claim status. The Operator runs the logistics so the front desk is not on hold for an hour. It handles the paperwork; the clinical calls stay with your clinicians.',
+    title: 'The patient balance',
+    operator:
+      'Follows the open patient balance with a statement reminder that points to your payment process.',
+    your: 'Nothing, unless it routes a billing question to you.',
+    stalls:
+      'Sends the next reminder on the schedule you approved. Balance logistics only, no pressure and no clinical framing; the payment runs through your processor, never the Operator.',
   },
   {
-    title: 'No-shows and openings',
-    body: 'The no-show, the late cancellation, the opening it leaves in the schedule. The Operator rebooks and fills from your list, and routes anything that sounds like a dental emergency to a person immediately.',
+    title: 'Forms, records, and the patient who fell off',
+    operator:
+      'Collects the intake forms, requests records or radiographs from a prior office, and surfaces the patients with no recent visit to reconnect.',
+    your: 'Nothing, unless it routes a question to you.',
+    stalls:
+      'Chases the open item. It gathers the documents and reconnects the lapsed patient; it makes no clinical use of the records and no clinical claim about what is due.',
+  },
+  {
+    title: 'What needs you',
+    operator:
+      'Sends one short summary of the desk, emergencies escalated, plans unscheduled, claims aging, balances open, recare overdue, new patients waiting.',
+    your: 'React to the few items.',
+    stalls: 'Re-surfaces anything missed.',
   },
 ]
 ---
 
 <PackLayout
   title="Operator for Dental Practices | SMD Services"
-  description="The dental pack is the Operator's head start: a starting point shaped around the front office, which we configure with you and you customize to your practice. The clinical decisions stay with your dentists. You set the line."
+  description="A worker you hire, not software you buy. The Operator carries the written follow-up work around your front desk, in text and email: recare, treatment-plan follow-up, unpaid claims, and patient balances. It gives no clinical advice and never promises what insurance will pay. It starts with an assessment."
   schema={productSchema}
 >
-  <!-- § 01 Hero -->
+  <!-- 01 Hero -->
   <PackHero slug="dental">
-    <Fragment slot="heading">The Front Office, Fully Staffed.</Fragment>
+    <Fragment slot="heading">The Follow-Up, Finally Done.</Fragment>
     <Fragment slot="lede">
-      The Operator is a worker you hire, not software you buy. This is its dental head start: a
-      starting point already shaped around the front office, so you are not building from a blank
-      page. You make it yours from there.
+      The Operator is a worker you hire, not software you buy. It works inside your
+      practice-management system and carries the written follow-up work around your front desk, in
+      text and email: the new-patient inquiry, the booking and the reminder, the recare list, the
+      benefits check before the visit, the treatment plan that never got scheduled, the unpaid
+      claim, the patient balance. Your team still owns the phones and the chair. It gives no
+      clinical advice, and it never promises what insurance will pay.
     </Fragment>
   </PackHero>
 
-  <!-- § 02 The seat the market won't fill -->
+  <!-- 02 The problem -->
   <PackSection bg="white">
     <PackEyebrow>The Problem</PackEyebrow>
-    <PackHeading variant="prose">The Seat The Market Won't Fill.</PackHeading>
+    <PackHeading variant="prose">The Money Is In The Follow-Up.</PackHeading>
     <PackProse>
       <p>
-        The front office is one of the hardest seats to keep filled, and the clinical chairs behind
-        it are no easier. Practices report it is very or extremely challenging to staff, the person
-        you train answers the phones and absorbs the pressure all day, and replacing them costs you
-        in lost production while you hire. The work does not wait: recall still has to go out, the
-        schedule still has to be confirmed, and an empty chair is production you do not get back.
+        The hard part of a dental practice is not the dentistry. It is the front desk behind it, the
+        seat that is hardest in the whole practice to keep filled, and the one holding the schedule,
+        the recall list, and the money. When that seat is short-staffed, the follow-up is the first
+        thing to slip, and the follow-up is where the practice's revenue lives.
       </p>
       <p>
-        An Operator fills that seat now. It runs the front office at full speed, all the time, and
-        what it learns about how your practice runs, your schedule, your recall protocol, your
-        voice, stays with the practice instead of leaving with the person who had it.
+        A treatment plan the patient accepted but never scheduled is production sitting on the
+        shelf. A claim the payer has not paid is money already earned and not collected. A patient
+        balance nobody follows is a write-off waiting to happen. A recall list nobody works is
+        patients quietly leaving. None of it is dramatic, and all of it adds up. A missed follow-up
+        here is not a small thing. It is the practice leaving its own money on the table.
       </p>
     </PackProse>
   </PackSection>
 
-  <!-- § 03 What the pack starts you with -->
+  <!-- 03 What the Operator does -->
   <PackSection bg="background">
-    <PackEyebrow>What You Get</PackEyebrow>
-    <PackHeading variant="grid">What The Pack Starts You With.</PackHeading>
-    <PackIntro>
-      You do not start from a blank page. The dental pack comes shaped around the work a
-      front-office coordinator runs, as starting templates we configure with you:
-    </PackIntro>
-    <PackCardGrid items={packTemplates} cols={2} card="templates" />
-    <PackIntro after>
-      These plug into your practice-management system and your email and calendar. The templates are
-      the head start. How they run is yours to shape.
-    </PackIntro>
-  </PackSection>
-
-  <!-- § 04 From the start -->
-  <PackSection bg="white">
-    <PackEyebrow>Day One</PackEyebrow>
-    <PackHeading variant="prose">From The Start.</PackHeading>
+    <PackEyebrow>What It Does</PackEyebrow>
+    <PackHeading variant="prose">An Always-On Member Of The Team.</PackHeading>
     <PackProse>
       <p>
-        Before it starts, we sit down with you and the people who run the front office, and we shape
-        the templates around how your practice actually operates, so it begins ready, not green.
+        The Operator is an always-on team member that works inside your practice-management system
+        and carries the written follow-up work around your front desk so your people do not have to
+        hold it in their heads: it books and confirms the visits, works the recare list, summarizes
+        benefits before the appointment for your team, and chases the unscheduled plans, the unpaid
+        claims, and the open balances.
       </p>
       <p>
-        From there the work moves the way it always did. It confirms the schedule and rebooks the
-        no-show, works the recall and recare list so patients do not get lost, handles the
-        insurance-verification and claim-status logistics, and fills the openings a cancellation
-        leaves. A message that might be an emergency it hands to a person right away. It is all
-        logged in your practice-management system as it happens, and it keeps getting sharper from
-        your team's corrections.
+        When it needs a person to do their part, it comes to them with everything already prepared,
+        so their part is usually a single reply or a one-click confirm. New patient-facing messages
+        are drafted for your team to review and send; templated reminders you have pre-approved can
+        re-send on your cadence; an emergency routing and any benefits message always stay with a
+        person, and that never changes. A message that might be an emergency goes to a person right
+        away.
+      </p>
+      <p>
+        It does not replace your practice-management system; that stays the system of record. The
+        dentist owns the diagnosis and the plan, and your team owns the clinical calls, the chair,
+        and the phones. It works in writing, not the phone, and does the connective and
+        money-follow-up work between and around your people, keeping the record current as it goes.
       </p>
     </PackProse>
   </PackSection>
 
-  <!-- § 05 Yours to shape -->
-  <PackSection bg="background">
-    <PackEyebrow>Your Way</PackEyebrow>
-    <PackHeading variant="grid">Yours To Shape.</PackHeading>
+  <!-- 04 The lifecycle, step by step -->
+  <PackSection bg="white">
+    <PackEyebrow>The Lifecycle</PackEyebrow>
+    <PackHeading variant="grid">One Patient, Inquiry To Recall.</PackHeading>
     <PackIntro>
-      We are not the experts in how your practice runs. You are. So the pack is a starting point in
-      three parts, and the third is the biggest.
+      Here is the connective work around one patient, from the first inquiry through the visit, the
+      money behind it, and the recall that brings them back. This is the shape of the work, not a
+      fixed script; we build it around how your practice actually runs the front desk.
     </PackIntro>
-    <PackCardGrid items={zones} cols={3} card="zones" />
+    <PackLifecycle steps={lifecycleSteps} />
   </PackSection>
 
-  <!-- § 06 The line -->
-  <PackSection bg="white">
-    <PackEyebrow>The Boundary</PackEyebrow>
-    <PackHeading variant="prose">The Line.</PackHeading>
-    <PackProse spaced>
+  <!-- 05 How it connects -->
+  <PackSection bg="background">
+    <PackEyebrow>How It Connects</PackEyebrow>
+    <PackHeading variant="prose">Through The Systems You Already Run.</PackHeading>
+    <PackProse>
       <p>
-        The Operator runs the front office. The diagnosis, the treatment plan, what a patient needs
-        in the chair, those stay with your dentists and hygienists. Not because the software could
-        not write a clear message, but because dentistry on a patient takes a licensed clinician who
-        has examined them, and a trained but unlicensed front-office person could not make those
-        calls either.
+        The Operator works inside the practice-management system that is your system of record, your
+        email, and your calendar. It reads the schedule, the recall list, the ledger, and the claim,
+        updates the records, files what arrives, and routes what needs a person, so the record stays
+        current without anyone keying it in twice.
       </p>
       <p>
-        Some lines are not settings anyone can move. The Operator does connective work only; it
-        never offers a diagnosis, a treatment recommendation, or a judgment about urgency. A message
-        that might be a dental emergency goes straight to a person at your practice, right then,
-        never handled later. Benefits are relayed as the payer returns them, never a guarantee of
-        coverage or out-of-pocket. Patient health information stays inside your practice surfaces.
-        Every action it takes is logged where you can see it.
-      </p>
-      <p>
-        Beyond those floors, you govern where the line sits, and you can move it as you learn what
-        the Operator is good at. Your patient files stay private, including from us. The Operator
-        works in your practice's own walled-off environment, on your own accounts. We can see that
-        it is running and the record of what it did, but the contents of your patient records and
-        messages stay yours, and so do the configuration, the logs, and the off switch.
+        It works in writing, by text and email, only where your records show the patient consented,
+        and it honors a stop or opt-out immediately and across every channel. You own consent, and
+        reminder consent and billing consent are kept separate. It points patients to your own
+        payment process rather than taking a payment itself. It is the connective tissue between the
+        systems you already run, not another system to learn.
       </p>
     </PackProse>
     <PackSectionCta slug="dental" />
   </PackSection>
 
-  <!-- § 07 Where it fits -->
-  <PackSection bg="background">
-    <PackEyebrow>The Role</PackEyebrow>
-    <PackHeading variant="grid">Where It Fits.</PackHeading>
-    <PackIntro>
-      A few shapes the seat can take. We build it around how your practice runs, so these are
-      starting points, not a menu.
-    </PackIntro>
-    <PackCardGrid items={roleLenses} cols={3} card="lenses" />
+  <!-- 06 Quiet by design -->
+  <PackSection bg="white">
+    <PackEyebrow>Quiet By Design</PackEyebrow>
+    <PackHeading variant="prose">It Takes Load Off. It Does Not Add It.</PackHeading>
+    <PackProse>
+      <p>
+        The Operator is built to reduce the noise, not add to it. Routine items are gathered into a
+        single short summary rather than a stream of notifications, and it reaches out directly only
+        when something genuinely needs a person. The goal is that your front desk feels work coming
+        off its plate, not one more thing pinging them. The exception it never batches is a possible
+        emergency: it goes to a person right away, and the patient is told to call.
+      </p>
+    </PackProse>
   </PackSection>
 
-  <!-- § 08 Start with an assessment -->
+  <!-- 07 The line, and what we prove first -->
+  <PackSection bg="background">
+    <PackEyebrow>The Line</PackEyebrow>
+    <PackHeading variant="prose"
+      >It Coordinates. It Never Gives Clinical Advice, And It Never Promises What Insurance Will
+      Pay.</PackHeading
+    >
+    <PackProse spaced>
+      <p>
+        The Operator does the connective work and brings the judgment to the people who hold it. The
+        dentist owns the diagnosis, the plan, and the clinical call; your team owns the chairside,
+        the patient, and the phones. Those never move to the Operator. It runs the written
+        follow-up, not the dentistry.
+      </p>
+      <p>
+        And some lines are not settings anyone can move. The Operator never gives a diagnosis, never
+        recommends or frames a treatment, never judges how urgent something is, and never upsells;
+        when it follows up on a plan, it offers to schedule what the patient already accepted,
+        nothing more. Benefits go to your team only, never a coverage number quoted to a patient,
+        and it never guarantees coverage or states an out-of-pocket as a promise, because
+        eligibility is not payment. Anything that could read as a dental emergency is routed to a
+        person and the patient is told to call the office, or to call 911 or go to the ER for a
+        severe one; it is never judged or answered by the Operator.
+      </p>
+      <p>
+        And patient data carries the law with it. Before we touch a single record, we sign a
+        Business Associate Agreement. As your business associate we maintain HIPAA safeguards on the
+        protected health information we process; that information is used only for the work you
+        authorize, is never sold, and is never used for any other purpose. The Operator messages
+        only on the channels your patients consented to, and it never takes a payment itself. Every
+        action it takes is logged where you can see it.
+      </p>
+      <p>
+        We are also honest about what we prove before we rely on it. The parts that depend on
+        reading a message and matching your practice's rules, like routing a possible emergency or
+        summarizing a payer's benefits, we validate on your real patients first. Emergency routing
+        and any benefits message always stay with a person; that never changes. Where accuracy is
+        not yet proven, the Operator surfaces what it found and asks, rather than acting on its own.
+        The configuration, the logs, and the off switch stay with you.
+      </p>
+    </PackProse>
+  </PackSection>
+
+  <!-- 08 Close -->
   <PackClosing slug="dental">
     <Fragment slot="pitch">
-      It starts with a conversation. We learn how your practice runs, find the front-office work
-      that is eating your team's day, and start from the pack, customizing it to your practice. If
-      it is not a fit, we will tell you.
+      We learn how your practice actually runs the front desk, find where the time goes and where
+      the money leaks, and shape the Operator to fit: what it watches, how much it does on its own,
+      where a person stays in the loop. If it is not the right fit, we will tell you.
     </Fragment>
   </PackClosing>
 </PackLayout>
