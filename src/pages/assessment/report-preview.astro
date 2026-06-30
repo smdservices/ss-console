@@ -11,6 +11,7 @@ import { env } from 'cloudflare:workers'
 import '../../styles/global.css'
 import AssessmentReport from '../../components/portal/AssessmentReport.astro'
 import type { Domain } from '../../components/portal/AssessmentReport.astro'
+import { bookHref as buildBookHref } from '../../lib/booking/config'
 
 const flagValue = (env as { ENABLE_ASSESSMENT_PREVIEW?: string }).ENABLE_ASSESSMENT_PREVIEW
 const enabled = flagValue === '1' || flagValue === 'true'
@@ -128,7 +129,7 @@ const whereThisPoints =
       intro={intro}
       domains={domains}
       whereThisPoints={whereThisPoints}
-      bookHref="/book"
+      bookHref={buildBookHref()}
     />
   </body>
 </html>

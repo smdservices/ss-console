@@ -1,3 +1,7 @@
+---
+import { bookHref } from '../lib/booking/config'
+---
+
 <footer
   class="border-t-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-surface-inverse)] text-white"
 >
@@ -38,7 +42,7 @@
       <a href="/operator" class="hover:text-white" data-ev="footer-operator">Operator</a>
       <a href="/industries" class="hover:text-white" data-ev="footer-industries">Industries</a>
       <a href="/about" class="hover:text-white" data-ev="footer-about">About</a>
-      <a href="/book?interest=operator" class="hover:text-white" data-ev="footer-assessment"
+      <a href={bookHref('operator')} class="hover:text-white" data-ev="footer-assessment"
         >Start with an assessment</a
       >
       <a href="/contact" class="hover:text-white" data-ev="footer-contact">Contact</a>

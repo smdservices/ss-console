@@ -18,6 +18,7 @@ export const prerender = false
 import Base from '../layouts/Base.astro'
 import Nav from '../components/Nav.astro'
 import Footer from '../components/Footer.astro'
+import { bookHref } from '../lib/booking/config'
 ---
 
 <Base
@@ -31,7 +32,7 @@ import Footer from '../components/Footer.astro'
         <header class="mb-stack">
           <h1 class="ss-headline">Contact</h1>
           <p class="ss-subhead">
-            Looking to start an engagement? <a href="/book?interest=operator" class="ss-quiet-link"
+            Looking to start an engagement? <a href={bookHref('operator')} class="ss-quiet-link"
               >Start with an assessment</a
             >, our front door. For anything else, a partnership, a question, press, or another way
             to work together, send a note below.

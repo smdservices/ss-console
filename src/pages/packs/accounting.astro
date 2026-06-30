@@ -1,24 +1,23 @@
 ---
 export const prerender = false
 
-import PackCardGrid from '../../components/packs/PackCardGrid.astro'
 import PackClosing from '../../components/packs/PackClosing.astro'
 import PackEyebrow from '../../components/packs/PackEyebrow.astro'
 import PackHeading from '../../components/packs/PackHeading.astro'
 import PackHero from '../../components/packs/PackHero.astro'
 import PackIntro from '../../components/packs/PackIntro.astro'
 import PackLayout from '../../components/packs/PackLayout.astro'
+import PackLifecycle from '../../components/packs/PackLifecycle.astro'
 import PackProse from '../../components/packs/PackProse.astro'
 import PackSection from '../../components/packs/PackSection.astro'
 import PackSectionCta from '../../components/packs/PackSectionCta.astro'
-import { shapeZoneTitles } from '../../lib/operator-packs/shared'
 
 const productSchema = {
   '@context': 'https://schema.org',
   '@type': 'Product',
   name: 'Operator for Accounting Firms',
   description:
-    'The Operator is a worker you hire, not software you buy. The accounting pack is its head start: a starting point shaped around the client chase and deadline cadence, which we configure with you and you customize to your firm. The return is signed by your CPAs; you set the line.',
+    "The Operator is a worker you hire, not software you buy. It works inside your practice-management platform and alongside the way your firm already runs an engagement, carrying a client from onboarding to filed: the engagement letter, the organizer and document list, the prepared-by-client chase, the deadline, and the e-file authorization. Every client-facing message is drafted for a person to review; the Operator never gives tax advice, never determines a filing requirement, and handles taxpayer information under the firm's IRC §7216 posture.",
   brand: { '@type': 'Brand', name: 'SMD Services' },
   offers: {
     '@type': 'Offer',
@@ -27,191 +26,252 @@ const productSchema = {
   },
 }
 
-// Section 03: the starting templates in the pack, grouped in plain language. Sourced
-// from operator/verticals/accounting/vertical.yaml (the onboarding, documents-and-
-// deadlines, status-and-renewal, and digest skill families). These are templates we
-// configure, not a finished, running product.
-const packTemplates = [
+// Section 04: the lifecycle walk. One engagement from onboarding to filed, each step in the
+// standard's three-line shape (Operator does / your part / if it stalls). Built from the
+// research-grade internal spec brief (docs/specs/verticals/accounting.md) and corrected by the
+// adversarial gate (a veteran CPA managing partner): the 8879 step now delivers the completed
+// return for the client's review before the authorization is signed and transmits only after the
+// signed authorization is in hand (Pub 1345); predecessor records are requested by the client, not
+// solicited by the Operator; the deadline line distinguishes tracking firm-entered/standard dates
+// from determining a filing requirement (which is professional judgment, not "computing a date");
+// roles are de-titled (sole practitioners and EAs, not just "partner"/"preparer"); the organizer
+// and document list are one tracked list gated on a signed engagement letter, not three overlapping
+// asks. Generic system categories, no brand names. The section framing (illustrative + the
+// fail-closed honesty in section 07) carries the truthfulness, per the kit-grammar guard.
+const lifecycleSteps = [
   {
-    title: 'Onboarding',
-    body: "A new client welcomed with the firm's authored engagement terms, the engagement letter chased toward signature, the prior-year records requested.",
+    title: 'A new engagement begins',
+    operator:
+      "Captures the client into the practice-management platform, drafts the welcome and the engagement letter from the firm's authored templates, sends it for signature, and nudges until it is signed.",
+    your: "Your firm sets the scope and the terms; the firm's authored engagement letter is what goes out.",
+    stalls:
+      "Keeps nudging the unsigned letter. It relays the firm's authored terms; it never advises on scope, price, or a tax position, and it never interprets the letter.",
   },
   {
-    title: 'Documents and deadlines',
-    body: 'The organizer distributed, the PBC request list chased, the appointment booked, the firm-authored dates surfaced, the e-file authorization chased toward signature.',
+    title: 'The organizer goes out',
+    operator:
+      'Once the engagement letter is signed, sends the organizer or questionnaire together with the document request list, or, for a recurring or business engagement, the prepared-by-client checklist. Where the engagement needs prior records, it drafts the records request for the client to authorize and send to their predecessor firm.',
+    your: 'Nothing, unless it routes a question to you.',
+    stalls:
+      'Follows up on the missing organizer. It distributes and collects; it never fills in or advises on an answer.',
   },
   {
-    title: 'Status, billing, and renewal',
-    body: 'The routine status question answered, the extension status tracked, the invoice followed up on, the authored renewal terms relayed.',
+    title: 'The documents you are waiting on',
+    operator:
+      "Works the firm's document request list, chases each open item, files what arrives, and updates the list, surfacing what is aging against the deadline.",
+    your: 'Your team decides whether a document is what the engagement needs.',
+    stalls:
+      "Keeps chasing each open item and flags the ones holding up the work. It chases the documents on the firm's list; it never decides whether a document is sufficient or complete.",
   },
   {
-    title: 'The internal digest',
-    body: 'Inbound mail routed to the right template, the internal client and deadline digest assembled, your practice-management system kept in sync.',
-  },
-]
-
-// Section 05: the three customization zones. Titles are shared (shapeZoneTitles); the
-// body under each is accounting-specific.
-const zones = [
-  {
-    title: shapeZoneTitles.prebuilt,
-    body: 'The starting templates above, shaped around a client-chase desk and ready to configure. You are not building from a blank page.',
+    title: 'The working session',
+    operator:
+      "Offers times against your team's availability, books the session, and confirms it with the client.",
+    your: 'Take the meeting.',
+    stalls: 'Reminds. Scheduling logistics only.',
   },
   {
-    title: shapeZoneTitles.connected,
-    body: 'Wired into your own accounts: your practice-management system, your email and calendar, your documents. It works inside the tools you already run.',
+    title: 'The filing deadline',
+    operator:
+      'Tracks the deadlines your firm has entered on the engagement, surfaces them as they approach, and reminds the client of what is still outstanding.',
+    your: 'Nothing, unless a deadline needs a decision.',
+    stalls:
+      'Re-surfaces, more urgently as the date nears. It tracks the dates your firm authored and surfaces standard due dates; it never determines whether or when a return must be filed, which form, or whether an exception applies, because that is professional judgment.',
   },
   {
-    title: shapeZoneTitles.yours,
-    body: 'Your voice, your clients and your cadence, and where the line sits. You decide what runs on its own and what waits for a person. You are the expert in your firm; you shape it from there.',
-  },
-]
-
-const roleLenses = [
-  {
-    title: 'The document chase',
-    body: 'The PBC list that has to go out, the client who has gone quiet, the item still missing days before the deadline. The Operator sends the list, chases what is outstanding as many times as it takes, in your voice, and updates the file as documents land. It collects; it never gives tax advice.',
+    title: 'The e-file authorization',
+    operator:
+      'Once your firm has finalized the return and it is ready for the client to review, delivers the return for review together with the e-file authorization, then tracks and nudges the unsigned authorization. Your firm transmits only after the signed authorization is in hand.',
+    your: 'Your firm finalizes the return and reviews it with the client.',
+    stalls:
+      'Keeps nudging the unsigned authorization. It chases the signature; it never advises on the return or its contents.',
   },
   {
-    title: 'Into review',
-    body: 'When the file is ready, the Operator routes the return to a preparer and a reviewer and answers the routine status question in the meantime. The tax position and the signature stay with your CPAs.',
+    title: 'Status and extensions',
+    operator:
+      'Drafts the reply to the routine "where\'s my return" from the engagement record, and tracks which clients are on extension, surfacing them so none is forgotten.',
+    your: 'Your firm decides who goes on extension.',
+    stalls:
+      'Re-checks the status. It reports status only; no tax opinion, no prediction, and it makes no judgment about whether to extend.',
   },
   {
-    title: 'Deadline and extension cadence',
-    body: 'The deadlines that do not move and the extensions that have to be tracked. The Operator runs the cadence, surfaces what is approaching, and keeps the practice-management system current, so nothing slips through the cracks in the rush.',
+    title: 'The invoice',
+    operator:
+      "Once the work is billed, follows the unpaid invoice on your firm's cadence, drafting the statement reminder.",
+    your: 'Nothing, unless it routes a billing question to you.',
+    stalls: 'Drafts the next reminder on schedule. Billing logistics only, no pressure.',
+  },
+  {
+    title: "Next year's engagement",
+    operator:
+      'When the recurring engagement comes due, drafts the re-engagement with the new engagement letter, so the client rolls into next period without a cold start.',
+    your: 'Confirm the scope and terms for the new period.',
+    stalls:
+      "Re-flags the re-engagement. It relays the firm's authored renewal terms; it never re-scopes or re-prices on its own.",
   },
 ]
 ---
 
 <PackLayout
   title="Operator for Accounting Firms | SMD Services"
-  description="The accounting pack is the Operator's head start: a starting point shaped around the client chase and deadline cadence, which we configure with you and you customize to your firm. The return is signed by your CPAs. You set the line."
+  description="A worker you hire, not software you buy. The Operator works inside your practice-management platform and alongside your firm, carrying an engagement from onboarding to filed so nothing stalls on a missing document or a deadline. It never gives tax advice. It starts with an assessment."
   schema={productSchema}
 >
-  <!-- § 01 Hero -->
+  <!-- 01 Hero -->
   <PackHero slug="accounting">
-    <Fragment slot="heading">Busy Season, Fully Staffed.</Fragment>
+    <Fragment slot="heading">The Engagement, Carried To Filing.</Fragment>
     <Fragment slot="lede">
-      The Operator is a worker you hire, not software you buy. This is its accounting head start: a
-      starting point already shaped around the client chase and deadline cadence, so you are not
-      building from a blank page. You make it yours from there.
+      The Operator is a worker you hire, not software you buy. It works inside your
+      practice-management platform and alongside the way your firm already runs an engagement,
+      carrying a client from onboarding to filed: the engagement letter, the organizer, the
+      documents you are waiting on, the deadline, the e-file authorization, so your people do not
+      have to hold every open engagement in their heads. Every client-facing message goes to a
+      person to review. It never gives tax advice, and it never decides what has to be filed or
+      when.
     </Fragment>
   </PackHero>
 
-  <!-- § 02 The seat the market won't fill -->
+  <!-- 02 The problem -->
   <PackSection bg="white">
     <PackEyebrow>The Problem</PackEyebrow>
-    <PackHeading variant="prose">The Seat The Market Won't Fill.</PackHeading>
+    <PackHeading variant="prose">The Chasing Never Ends.</PackHeading>
     <PackProse>
       <p>
-        Skilled preparers are harder to find every year. The profession is retiring faster than it
-        is replacing, the pipeline into it has thinned, and the staff you train through one busy
-        season is the staff a bigger firm recruits before the next. The work does not wait: the
-        return cannot start until the documents come in, and the documents do not come in on their
-        own.
+        The hard part of an engagement is not the return. It is everything around the return: the
+        engagement letter that has to get signed, the organizer that has to come back, the documents
+        the client owes you that arrive late, in pieces, or not at all, the deadline that does not
+        move, the authorization that has to be signed before you can file.
       </p>
       <p>
-        An Operator fills that seat now. It runs the chase at full speed, all the time, and what it
-        learns about how your firm runs, your clients, your workpapers, your cadence, stays with the
-        firm instead of leaving with the person who had it.
+        The return is the part your people are trained for. The chasing around it is the part that
+        eats their week. And in a profession that cannot hire, the coordinator seat that should
+        carry it often goes unfilled, so the chasing lands on the preparers, the scarcest people in
+        the building. An engagement that stalls waiting on a document is a preparer not preparing. A
+        missed deadline is the one thing a firm cannot take back. The work is not the bottleneck.
+        The chasing is.
       </p>
     </PackProse>
   </PackSection>
 
-  <!-- § 03 What the pack starts you with -->
+  <!-- 03 What the Operator does -->
   <PackSection bg="background">
-    <PackEyebrow>What You Get</PackEyebrow>
-    <PackHeading variant="grid">What The Pack Starts You With.</PackHeading>
-    <PackIntro>
-      You do not start from a blank page. The accounting pack comes shaped around the work a
-      client-chase desk runs, as starting templates we configure with you:
-    </PackIntro>
-    <PackCardGrid items={packTemplates} cols={2} card="templates" />
-    <PackIntro after>
-      These plug into your practice-management system and your email and calendar. The templates are
-      the head start. How they run is yours to shape.
-    </PackIntro>
-  </PackSection>
-
-  <!-- § 04 From the start -->
-  <PackSection bg="white">
-    <PackEyebrow>Day One</PackEyebrow>
-    <PackHeading variant="prose">From The Start.</PackHeading>
+    <PackEyebrow>What It Does</PackEyebrow>
+    <PackHeading variant="prose">An Always-On Member Of The Team.</PackHeading>
     <PackProse>
       <p>
-        Before it starts, we sit down with you and the people who run the client chase, and we shape
-        the templates around how your firm actually operates, so it begins ready, not green.
+        The Operator is an always-on team member that works inside your practice-management platform
+        and alongside the way your firm already runs an engagement. Its job is to carry the
+        connective work so your people do not have to hold it in their heads: it watches every
+        engagement, knows every deadline the firm has set, chases the documents you are waiting on,
+        and keeps every client moving.
       </p>
       <p>
-        From there the work moves the way it always did. The engagement opens, the PBC list goes
-        out, the missing items get chased, the client who has gone quiet gets a follow-up, as many
-        times as it takes, in your voice. The return gets routed to a reviewer when the file is
-        ready, the routine status question gets answered, and the deadline and extension cadence
-        stays on schedule. It is all logged in your practice-management system as it happens, and it
-        keeps getting sharper from your team's corrections.
+        When it needs a person to do their part, it comes to them with everything already prepared,
+        so their part is usually a single reply or a one-click confirm. If a step does not get done,
+        it follows up rather than letting it slip. Every client-facing message goes to a person on
+        your team to review and send.
+      </p>
+      <p>
+        It does not replace your practice-management platform; that stays the system of record. The
+        people your firm designates own the client, the advice, and the professional work, whether
+        that is a partner, a manager, an enrolled agent, or you on your own. The Operator does the
+        connective work between and around them, and keeps the engagement current as it goes.
       </p>
     </PackProse>
   </PackSection>
 
-  <!-- § 05 Yours to shape -->
-  <PackSection bg="background">
-    <PackEyebrow>Your Way</PackEyebrow>
-    <PackHeading variant="grid">Yours To Shape.</PackHeading>
+  <!-- 04 The lifecycle, step by step -->
+  <PackSection bg="white">
+    <PackEyebrow>The Lifecycle</PackEyebrow>
+    <PackHeading variant="grid">One Engagement, Onboard To Filed.</PackHeading>
     <PackIntro>
-      We are not the experts in how your firm runs. You are. So the pack is a starting point in
-      three parts, and the third is the biggest.
+      Here is one tax engagement's life, from a new client to a filed return and the renewal that
+      brings them back next year. This is the shape of the work, not a fixed script; a recurring
+      bookkeeping or advisory engagement runs a different cycle, a monthly close and deliverables
+      instead of a filing, and the Operator carries that shape the same way. We build it around how
+      your firm actually runs an engagement.
     </PackIntro>
-    <PackCardGrid items={zones} cols={3} card="zones" />
+    <PackLifecycle steps={lifecycleSteps} />
   </PackSection>
 
-  <!-- § 06 The line -->
-  <PackSection bg="white">
-    <PackEyebrow>The Boundary</PackEyebrow>
-    <PackHeading variant="prose">The Line.</PackHeading>
-    <PackProse spaced>
+  <!-- 05 How it connects -->
+  <PackSection bg="background">
+    <PackEyebrow>How It Connects</PackEyebrow>
+    <PackHeading variant="prose">Through The Systems You Already Run.</PackHeading>
+    <PackProse>
       <p>
-        The Operator runs the chase and brings the return to a person ready for review. The judgment
-        that carries a license, the tax position, the audit opinion, signing the return, those stay
-        with your CPAs. Not because the software could not complete a form, but because the license
-        is the point: the return is signed by a person who stands behind it, and an unlicensed staff
-        preparer could not sign it either.
+        The Operator works inside the practice-management platform your firm already runs, the
+        portal your clients already use, the e-sign you already send through, and the ledger you
+        already keep. It reads the engagement, updates the records, files what arrives, and routes
+        what needs a person, so the engagement stays current without anyone keying it in twice.
       </p>
       <p>
-        Some lines are not settings anyone can move. It does the connective work and never offers a
-        tax position or a financial interpretation. It tracks the firm-authored dates and never
-        computes a filing requirement or a due date itself. Taxpayer information is not disclosed or
-        used beyond the engagement, and client financial records stay inside your firm's systems.
-        Anything that leaves the firm goes to a reviewer on your team until you decide otherwise.
-        Every action it takes is logged where you can see it.
-      </p>
-      <p>
-        Beyond those floors, you govern where the line sits, and you can move it as you learn what
-        the Operator is good at. Your client files stay private, including from us. The Operator
-        works in your firm's own walled-off environment, on your own accounts. We can see that it is
-        running and the record of what it did, but the contents of your engagements and messages
-        stay yours, and so do the configuration, the logs, and the off switch.
+        It works on your own accounts, inside the systems you already pay for. It is the connective
+        tissue between them, not another system to learn.
       </p>
     </PackProse>
     <PackSectionCta slug="accounting" />
   </PackSection>
 
-  <!-- § 07 Where it fits -->
-  <PackSection bg="background">
-    <PackEyebrow>The Role</PackEyebrow>
-    <PackHeading variant="grid">Where It Fits.</PackHeading>
-    <PackIntro>
-      A few shapes the seat can take. We build it around how your firm runs, so these are starting
-      points, not a menu.
-    </PackIntro>
-    <PackCardGrid items={roleLenses} cols={3} card="lenses" />
+  <!-- 06 Quiet by design -->
+  <PackSection bg="white">
+    <PackEyebrow>Quiet By Design</PackEyebrow>
+    <PackHeading variant="prose">It Takes Load Off. It Does Not Add It.</PackHeading>
+    <PackProse>
+      <p>
+        The Operator is built to reduce the noise, not add to it. Routine items are gathered into a
+        single short summary rather than a stream of notifications, and it reaches out directly only
+        when something genuinely needs a person. The goal is that your preparers and your
+        administrator feel work coming off their plate, not one more thing pinging them.
+      </p>
+    </PackProse>
   </PackSection>
 
-  <!-- § 08 Start with an assessment -->
+  <!-- 07 The line, and what we prove first -->
+  <PackSection bg="background">
+    <PackEyebrow>The Line</PackEyebrow>
+    <PackHeading variant="prose"
+      >It Coordinates The Engagement. It Never Gives Tax Advice, And It Never Decides What Gets
+      Filed.</PackHeading
+    >
+    <PackProse spaced>
+      <p>
+        The Operator does the connective work and brings the judgment to the people credentialed to
+        hold it. Your credentialed people own the advice, the client, and the return. Those never
+        move to the Operator. It runs the coordinator's seat, not the professional work.
+      </p>
+      <p>
+        And some lines are not settings anyone can move. The Operator never takes a tax position,
+        never reads a treatment or a deduction off a document, and never determines whether or when
+        a return must be filed, which form, or whether an exception applies, because that is
+        professional judgment, not coordination. It tracks the dates your firm entered and surfaces
+        standard due dates as they approach, and stops there.
+      </p>
+      <p>
+        Taxpayer information carries real legal weight. Under IRC §7216, how a preparer's return
+        information may be used and disclosed is governed by statute, and bringing in any outside
+        service is part of that picture. Each firm's data is processed in an isolated environment
+        dedicated to your firm, never pooled with another firm's and never used to train a model,
+        and we work through your §7216 posture with you at setup, including any client consent your
+        configuration requires. Every action it takes is logged where you can see it.
+      </p>
+      <p>
+        We are also honest about what we prove before we rely on it. The parts that depend on
+        reading documents and matching your firm's rules, like an item checked off the request list
+        or a deadline reminder pulled from the engagement, we validate on your real engagements
+        first. Where accuracy is not yet proven, the Operator surfaces what it found and asks,
+        rather than acting on its own. The configuration, the logs, and the off switch stay with
+        you.
+      </p>
+    </PackProse>
+  </PackSection>
+
+  <!-- 08 Close -->
   <PackClosing slug="accounting">
     <Fragment slot="pitch">
-      It starts with a conversation. We learn how your firm runs, find the client chase and the
-      coordination that is eating your team's time, and start from the pack, customizing it to your
-      firm. If it is not a fit, we will tell you.
+      We learn how your firm actually runs an engagement, find where the time goes and where things
+      stall, and shape the Operator to fit: what it watches, how much it does on its own, where a
+      person stays in the loop. If it is not the right fit, we will tell you.
     </Fragment>
   </PackClosing>
 </PackLayout>
