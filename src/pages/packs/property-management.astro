@@ -1,24 +1,23 @@
 ---
 export const prerender = false
 
-import PackCardGrid from '../../components/packs/PackCardGrid.astro'
 import PackClosing from '../../components/packs/PackClosing.astro'
 import PackEyebrow from '../../components/packs/PackEyebrow.astro'
 import PackHeading from '../../components/packs/PackHeading.astro'
 import PackHero from '../../components/packs/PackHero.astro'
 import PackIntro from '../../components/packs/PackIntro.astro'
 import PackLayout from '../../components/packs/PackLayout.astro'
+import PackLifecycle from '../../components/packs/PackLifecycle.astro'
 import PackProse from '../../components/packs/PackProse.astro'
 import PackSection from '../../components/packs/PackSection.astro'
 import PackSectionCta from '../../components/packs/PackSectionCta.astro'
-import { shapeZoneTitles } from '../../lib/operator-packs/shared'
 
 const productSchema = {
   '@context': 'https://schema.org',
   '@type': 'Product',
-  name: 'Operator for Property Managers',
+  name: 'Operator for Property Management Companies',
   description:
-    'The Operator is a worker you hire, not software you buy. The property-management pack is its head start: a starting point shaped around resident and owner coordination, which we configure with you and you customize to your company. The legal and money calls stay with your people; a real emergency routes to a person.',
+    'The Operator is a worker you hire, not software you buy. It works inside your property-management platform and alongside the way your team runs the resident and owner lifecycle: leasing inquiries, tours, applications, maintenance, rent reminders, renewals, moves, and owner reports. It gives every prospect the same path and never evaluates one, never makes a screening decision, routes life-safety and protected-class matters to a person immediately, and is connected to no payment system, so it never takes or processes rent or a deposit.',
   brand: { '@type': 'Brand', name: 'SMD Services' },
   offers: {
     '@type': 'Offer',
@@ -27,191 +26,264 @@ const productSchema = {
   },
 }
 
-// Section 03: the starting templates in the pack, grouped in plain language. Sourced
-// from operator/verticals/property-management/vertical.yaml (the leasing, maintenance,
-// residency, and owner skill families). These are templates we configure, not a
-// finished, running product.
-const packTemplates = [
+// Section 04: the lifecycle walk. One tenancy, inquiry to move-out, each step in the standard's
+// three-line shape (Operator does / your part / if it stalls). Built from the research-grade
+// internal spec brief (docs/specs/verticals/property-management.md) and corrected by the
+// adversarial gate (a veteran PM principal with Fair Housing / FCRA / FDCPA scars): life-safety
+// signals (gas, fire, CO) are split from maintenance emergencies and never "handled" by the
+// Operator (911 / gas utility per the firm's script); the Operator SHARES requirements and never
+// evaluates a prospect (disparate-impact awareness, not just consistent treatment); screening
+// communicates no outcome of any kind, including a conditional term (FCRA adverse action is not
+// only a denial); delinquency notices go only on the firm's fixed authored schedule, never the
+// Operator's own follow-up loop (FDCPA over-contact); reasonable-accommodation requests are
+// time-sensitive at any stage (delay is constructive denial); the emergency list includes no
+// cooling in extreme heat; move-out communicates no deposit outcome or statutory timeline. Generic
+// system categories, no brand names. The section framing carries the truthfulness, per the
+// kit-grammar guard.
+const lifecycleSteps = [
   {
-    title: 'Leasing',
-    body: 'A leasing inquiry captured under the same criteria for everyone, the tour scheduled, the application status routed to screening for the decision.',
+    title: 'A leasing inquiry comes in',
+    operator:
+      "Captures the inquiry from the listing site or email, replies with the company's published requirements, the same for every prospect, and offers a tour.",
+    your: 'Nothing routine; you handle anything it escalates.',
+    stalls:
+      'Follows up on the same terms. It shares your requirements but never evaluates a prospect against them, never infers or asks about a protected class, and never steers; any protected-class-sensitive question, and any reasonable-accommodation request, goes to a person right away.',
   },
   {
-    title: 'Maintenance',
-    body: 'A work order intake, a routine fix dispatched to a vendor, and a habitability emergency routed straight to a person, never handled later.',
+    title: 'The tour',
+    operator: 'Offers the available tour times, self-show or staffed, books one, and confirms it.',
+    your: 'Nothing.',
+    stalls: 'Reminds. Scheduling logistics only; the same options for everyone.',
   },
   {
-    title: 'Residency and owners',
-    body: 'The rent reminder under your authored delinquency process, the lease-renewal outreach with authored terms, the move logistics, the owner report delivery, the resident status reply.',
+    title: 'The application',
+    operator:
+      'Acknowledges the application, checks it for completeness, and routes it into your screening process.',
+    your: 'Your team makes the screening decision and sends any outcome.',
+    stalls:
+      'Chases a missing item. It checks only whether the application is complete; it never evaluates it, and it communicates no screening-derived outcome of any kind, not a denial, not an approval, not a conditional term like a higher deposit or a co-signer, and no adverse-action notice. Those are authored and sent by your team.',
   },
   {
-    title: 'Proactive',
-    body: 'A vendor coordinated for the work, inbound routed to the right desk, the internal digest assembled.',
-  },
-]
-
-// Section 05: the three customization zones. Titles are shared (shapeZoneTitles); the
-// body under each is property-management-specific.
-const zones = [
-  {
-    title: shapeZoneTitles.prebuilt,
-    body: 'The starting templates above, shaped around a leasing and tenant-coordination desk and ready to configure. You are not building from a blank page.',
+    title: 'A maintenance request',
+    operator:
+      'Intakes the request, opens the work order, tells the resident a person is handling it, and routes it. A life-safety signal, a gas smell, smoke or fire, carbon monoxide, gets an immediate person and the resident is told to leave and call 911 or the gas utility on your authored script; the Operator never handles these. A maintenance emergency, no heat, no cooling in extreme heat, an active leak or flood, no water, or sewage, gets an immediate person and your emergency maintenance line.',
+    your: 'Your team and the vendor do the work.',
+    stalls:
+      'Re-routes and re-escalates. It opens and routes the work order; it never diagnoses the problem, never promises a repair time, and on anything that might be an emergency or a disability-related request it errs toward a person.',
   },
   {
-    title: shapeZoneTitles.connected,
-    body: 'Wired into your own accounts: your property-management system, your email and calendar, your documents. It works inside the tools you already run.',
+    title: 'The dispatch',
+    operator:
+      'Coordinates the vendor or tech against the work order and confirms the appointment with the resident on your authored notice-to-enter rules.',
+    your: 'The vendor does the work.',
+    stalls: 'Chases the vendor for a time. Coordination logistics only.',
   },
   {
-    title: shapeZoneTitles.yours,
-    body: 'Your voice, your properties and owners, the way you run a renewal, and where the line sits. You decide what runs on its own and what waits for a person. You are the expert in your company; you shape it from there.',
-  },
-]
-
-const roleLenses = [
-  {
-    title: 'Work orders and maintenance',
-    body: 'The work order that comes in, the vendor that has to be coordinated, the routine fix that has to get scheduled. The Operator intakes the request and runs the coordination, and a true emergency, no heat, a gas leak, a flood, goes straight to a person immediately.',
+    title: 'Rent and delinquency',
+    operator:
+      "Sends the rent reminder and the company's authored delinquency notices on your fixed schedule, each one reviewed and sent by your team.",
+    your: 'Your team reviews and sends each notice and decides any legal action.',
+    stalls:
+      'Sends the next authored notice on your schedule, never on its own follow-up loop. The notice content is yours; it does not author legal language, give legal or eviction advice, take or process a payment, or contact a resident outside your authored schedule.',
   },
   {
-    title: 'Renewals and the cadence',
-    body: 'The lease coming up for renewal, the delinquency that needs a routine reminder, the turn that has to be coordinated. The Operator runs the cadence so the calendar does not depend on someone remembering. The legal calls stay with your people.',
+    title: 'Renewal and the move',
+    operator:
+      "Surfaces the lease approaching expiration and drafts the renewal outreach on the company's authored terms, and when a move-in or move-out is set, coordinates the inspection, the checklist, and the key handoff.",
+    your: 'Your team sets the renewal terms and makes the security-deposit determination.',
+    stalls:
+      "Re-flags. It relays your authored terms and documents move-out condition for your team; it never negotiates a lease, communicates no deposit outcome, no deductions, and no statutory timeline, and never treats a deposit as last month's rent.",
   },
   {
-    title: 'Owners and residents',
-    body: 'The owner asking where their statement is, the resident with a routine question. The Operator answers in your voice and keeps everyone current, so the after-hours back-and-forth does not land on your personal phone.',
+    title: 'Owners and vendors',
+    operator:
+      "Delivers the company's authored owner reports on cadence, and coordinates the vendors and chases their open items, scheduling and certificates of insurance.",
+    your: 'Nothing, unless it routes a question to you.',
+    stalls:
+      'Chases the open item. It delivers your authored reports and coordinates the logistics; it adds no analysis and commits to no scope or price.',
+  },
+  {
+    title: 'What needs you',
+    operator:
+      'Sends one short summary of the desk, sensitive questions escalated, emergencies routed, applications in screening, delinquencies on the process, renewals approaching, vendor items open.',
+    your: 'React to the few items.',
+    stalls: 'Re-surfaces anything missed.',
   },
 ]
 ---
 
 <PackLayout
-  title="Operator for Property Managers | SMD Services"
-  description="The property-management pack is the Operator's head start: a starting point shaped around resident and owner coordination, which we configure with you and you customize to your company. The legal and money calls stay with your people. You set the line."
+  title="Operator for Property Management Companies | SMD Services"
+  description="A worker you hire, not software you buy. The Operator works inside your property-management platform and alongside your team, carrying the resident and owner lifecycle so no one waits on the coordinator. It gives every prospect the same path, never decides who gets in, and never touches the rent. It starts with an assessment."
   schema={productSchema}
 >
-  <!-- § 01 Hero -->
+  <!-- 01 Hero -->
   <PackHero slug="property-management">
-    <Fragment slot="heading">The Coordination Desk, Fully Staffed.</Fragment>
+    <Fragment slot="heading">The Lifecycle, Carried From Inquiry To Move-Out.</Fragment>
     <Fragment slot="lede">
-      The Operator is a worker you hire, not software you buy. This is its property-management head
-      start: a starting point already shaped around resident and owner coordination, so you are not
-      building from a blank page. You make it yours from there.
+      The Operator is a worker you hire, not software you buy. It works inside your
+      property-management platform and alongside the way your team already runs the resident and
+      owner lifecycle, carrying the connective work that never stops: the leasing inquiry, the tour,
+      the application, the maintenance request, the rent reminder, the renewal, the move, the owner
+      report, so your coordinators are not the bottleneck everyone is waiting on. Sensitive messages
+      always go to a person on your team to review and send. It gives every prospect the same path,
+      it never decides who gets in, and it never touches the rent.
     </Fragment>
   </PackHero>
 
-  <!-- § 02 The seat the market won't fill -->
+  <!-- 02 The problem -->
   <PackSection bg="white">
     <PackEyebrow>The Problem</PackEyebrow>
-    <PackHeading variant="prose">The Seat The Market Won't Fill.</PackHeading>
+    <PackHeading variant="prose">Everyone Is Waiting On The Coordinator.</PackHeading>
     <PackProse>
       <p>
-        Property management turns over fast, and the job has a way of landing one person on an
-        island, doing it all. Take on a few hundred more doors and the desk floods, the after-hours
-        calls pile onto someone's personal phone, and the manager you trained burns out and leaves.
-        The work does not wait: the work orders still come in, the renewals still come due, and a
-        resident with no heat cannot wait until morning.
+        The hard part of property management is not any one task. It is that everyone is waiting on
+        the same seat at the same time: the prospect waiting on a reply to a listing, the resident
+        waiting on a repair, the owner waiting on a report, the vendor waiting on a dispatch, all of
+        it across systems that do not fully talk, in a seat that turns over and is hard to keep
+        staffed.
       </p>
       <p>
-        An Operator fills that seat now. It runs the coordination at full speed, all the time, and
-        what it learns about how your company runs, your properties, your owners, your voice, stays
-        with the company instead of leaving with the person who had it.
+        And two of those mistakes are not just a delay. A prospect treated differently than another
+        is a Fair Housing problem, whether anyone meant it or not. A no-heat call, a flood, or a
+        no-cooling call in a heat wave that sits in a queue overnight is a habitability problem, and
+        a real one. The coordination is relentless, the volume is high, and the floor under it is
+        the law. A missed step here is a unit that sits empty, a resident left in the cold, or a
+        line crossed.
       </p>
     </PackProse>
   </PackSection>
 
-  <!-- § 03 What the pack starts you with -->
+  <!-- 03 What the Operator does -->
   <PackSection bg="background">
-    <PackEyebrow>What You Get</PackEyebrow>
-    <PackHeading variant="grid">What The Pack Starts You With.</PackHeading>
-    <PackIntro>
-      You do not start from a blank page. The property-management pack comes shaped around the work
-      a leasing and tenant coordinator runs, as starting templates we configure with you:
-    </PackIntro>
-    <PackCardGrid items={packTemplates} cols={2} card="templates" />
-    <PackIntro after>
-      These plug into your property-management system and your email and calendar. The templates are
-      the head start. How they run is yours to shape.
-    </PackIntro>
-  </PackSection>
-
-  <!-- § 04 From the start -->
-  <PackSection bg="white">
-    <PackEyebrow>Day One</PackEyebrow>
-    <PackHeading variant="prose">From The Start.</PackHeading>
+    <PackEyebrow>What It Does</PackEyebrow>
+    <PackHeading variant="prose">An Always-On Member Of The Team.</PackHeading>
     <PackProse>
       <p>
-        Before it starts, we sit down with you and the people who run the coordination, and we shape
-        the templates around how your company actually operates, so it begins ready, not green.
+        The Operator is an always-on team member that works inside your property-management platform
+        and alongside the way your team already runs the lifecycle. Its job is to carry the
+        connective work so your people are not the bottleneck: it gives every inquiry the same
+        requirements, opens and routes the work orders, sends rent reminders on your schedule,
+        coordinates the renewals and the moves, and keeps prospects, residents, owners, and vendors
+        current.
       </p>
       <p>
-        From there the work moves the way it always did. It intakes the work order and coordinates
-        the routine maintenance, runs the lease-renewal cadence, answers the routine resident and
-        owner question in your voice, and keeps the management system current. It handles the
-        after-hours back-and-forth, and routes anything that sounds like an emergency to a person
-        right away. It is all logged in your property-management system as it happens, and it keeps
-        getting sharper from your team's corrections.
+        When it needs a person to do their part, it comes to them with everything already prepared,
+        so their part is usually a single reply or a one-click confirm. Sensitive messages, anything
+        touching a protected class, a screening outcome, a delinquency, or an emergency, are always
+        drafted for your team to review and send, or escalated to a person right away. Routine
+        logistics, like a tour confirmation, can run on their own once you have proven the routing,
+        and you choose which.
+      </p>
+      <p>
+        It does not replace your property-management platform; that stays the system of record. Your
+        team makes the calls that are yours to make: who qualifies, what the lease says, when to act
+        on a delinquency. The Operator does the connective work between and around them, and keeps
+        the record current as it goes.
       </p>
     </PackProse>
   </PackSection>
 
-  <!-- § 05 Yours to shape -->
-  <PackSection bg="background">
-    <PackEyebrow>Your Way</PackEyebrow>
-    <PackHeading variant="grid">Yours To Shape.</PackHeading>
+  <!-- 04 The lifecycle, step by step -->
+  <PackSection bg="white">
+    <PackEyebrow>The Lifecycle</PackEyebrow>
+    <PackHeading variant="grid">One Resident, Inquiry To Move-Out.</PackHeading>
     <PackIntro>
-      We are not the experts in how your company runs. You are. So the pack is a starting point in
-      three parts, and the third is the biggest.
+      Here is the connective work of one tenancy, from the first leasing inquiry through the
+      move-out, with the owner and the vendors kept current alongside it. This is the shape of the
+      work, not a fixed script; we build it around how your company actually runs the portfolio.
     </PackIntro>
-    <PackCardGrid items={zones} cols={3} card="zones" />
+    <PackLifecycle steps={lifecycleSteps} />
   </PackSection>
 
-  <!-- § 06 The line -->
-  <PackSection bg="white">
-    <PackEyebrow>The Boundary</PackEyebrow>
-    <PackHeading variant="prose">The Line.</PackHeading>
-    <PackProse spaced>
+  <!-- 05 How it connects -->
+  <PackSection bg="background">
+    <PackEyebrow>How It Connects</PackEyebrow>
+    <PackHeading variant="prose">Through The Systems You Already Run.</PackHeading>
+    <PackProse>
       <p>
-        The Operator runs the coordination. The legal decisions, an eviction, a fair-housing
-        question, whether a unit is habitable, and the money, those stay with your people. Not
-        because the software could not send a notice, but because those calls carry real liability
-        and belong to a person who is accountable for them.
+        The Operator works inside the property-management platform that is your system of record,
+        your email and calendar, your document storage, and your team's emergency channel. It reads
+        the unit, the lease, and the work order, updates the records, files what arrives, and routes
+        what needs a person, so the record stays current without anyone keying it in twice.
       </p>
       <p>
-        Some lines are not settings anyone can move. Every prospect and resident message applies the
-        same criteria for everyone, with no protected-class inference and no steering. The Operator
-        coordinates and routes the application to screening; it never makes or communicates the
-        screening decision. A call that sounds like a habitability emergency, no heat in winter, a
-        gas smell, a flood, goes straight to a person, right then, never queued behind the routine.
-        It follows your authored delinquency process, gives no eviction advice, and never processes
-        rent or deposits. Every action it takes is logged where you can see it.
-      </p>
-      <p>
-        Beyond those floors, you govern where the line sits, and you can move it as you learn what
-        the Operator is good at. Your records stay private, including from us. The Operator works in
-        your company's own walled-off environment, on your own accounts. We can see that it is
-        running and the record of what it did, but the contents of your properties and messages stay
-        yours, and so do the configuration, the logs, and the off switch.
+        It is not connected to any payment system, by design. It reminds on rent and coordinates the
+        work; it never takes, holds, or processes a rent payment or a deposit. It is the connective
+        tissue between the systems you already run, not another system to learn, and never a hand on
+        the money.
       </p>
     </PackProse>
     <PackSectionCta slug="property-management" />
   </PackSection>
 
-  <!-- § 07 Where it fits -->
-  <PackSection bg="background">
-    <PackEyebrow>The Role</PackEyebrow>
-    <PackHeading variant="grid">Where It Fits.</PackHeading>
-    <PackIntro>
-      A few shapes the seat can take. We build it around how your company runs, so these are
-      starting points, not a menu.
-    </PackIntro>
-    <PackCardGrid items={roleLenses} cols={3} card="lenses" />
+  <!-- 06 Quiet by design -->
+  <PackSection bg="white">
+    <PackEyebrow>Quiet By Design</PackEyebrow>
+    <PackHeading variant="prose">It Takes Load Off. It Does Not Add It.</PackHeading>
+    <PackProse>
+      <p>
+        The Operator is built to reduce the noise, not add to it. Routine items are gathered into a
+        single short summary rather than a stream of notifications, and it reaches out directly only
+        when something genuinely needs a person. The goal is that your coordinators feel work coming
+        off their plate, not one more thing pinging them. The exception it never batches is an
+        emergency: a life-safety signal or a habitability emergency always goes to a person right
+        away.
+      </p>
+    </PackProse>
   </PackSection>
 
-  <!-- § 08 Start with an assessment -->
+  <!-- 07 The line, and what we prove first -->
+  <PackSection bg="background">
+    <PackEyebrow>The Line</PackEyebrow>
+    <PackHeading variant="prose"
+      >It Coordinates. It Gives Everyone The Same Path, And It Never Decides Who Gets In.</PackHeading
+    >
+    <PackProse spaced>
+      <p>
+        The Operator does the connective work and brings the judgment to the people who hold it.
+        Your team decides who qualifies, what the lease says, and when to act on a delinquency.
+        Those never move to the Operator. It runs the coordinator's seat, not the decisions.
+      </p>
+      <p>
+        And some lines are not settings anyone can move. The Operator gives every prospect the same
+        published requirements and the same path, and it never evaluates a prospect against them and
+        never decides who qualifies. It never infers, asks about, or acts on a protected class, and
+        it does not answer the questions that steer, whether an area is safe, whether it is
+        family-friendly, how the schools are; it routes them to a person. A reasonable-accommodation
+        or modification request is treated as time-sensitive and goes to a person immediately, at
+        any stage it arrives, including inside a maintenance request; the Operator never asks for
+        medical detail and never denies or negotiates it. Applying your criteria consistently is
+        necessary but it is not the whole of Fair Housing, the criteria are yours and their fairness
+        stays with you, so a person owns every call that touches a protected class.
+      </p>
+      <p>
+        It coordinates an application but communicates no screening-derived outcome, not a denial,
+        not an approval, not a conditional term, and no adverse-action notice. A life-safety signal
+        or a habitability emergency goes to a person immediately and is never handled async or
+        diagnosed by the Operator. It gives no legal or eviction advice, sends delinquency notices
+        only on your authored schedule and never on its own loop, and it is not connected to any
+        payment system, so it never takes or processes rent or a deposit. Consistent handling, an
+        audit trail of every action, and a person on every sensitive call are the architecture, not
+        an afterthought.
+      </p>
+      <p>
+        We are also honest about what we prove before we rely on it. The parts that depend on
+        reading a message and matching your rules, like routing a request that might be an emergency
+        or a sensitive question, we validate on your real inquiries first, and a person stays in the
+        loop until the routing is proven. Where accuracy is not yet proven, the Operator surfaces
+        what it found and asks, rather than acting on its own. The configuration, the logs, and the
+        off switch stay with you.
+      </p>
+    </PackProse>
+  </PackSection>
+
+  <!-- 08 Close -->
   <PackClosing slug="property-management">
     <Fragment slot="pitch">
-      It starts with a conversation. We learn how your company runs, find the coordination work that
-      is eating your team's time, and start from the pack, customizing it to your company. If it is
-      not a fit, we will tell you.
+      We learn how your company actually runs the portfolio, find where the time goes and where
+      things stall, and shape the Operator to fit: what it watches, how much it does on its own,
+      where a person stays in the loop. If it is not the right fit, we will tell you.
     </Fragment>
   </PackClosing>
 </PackLayout>
