@@ -16,9 +16,8 @@ const root = resolve('.')
 const pageFiles = [
   'src/pages/index.astro',
   'src/pages/operator.astro',
-  'src/pages/why.astro',
+  'src/pages/about.astro',
   'src/pages/industries.astro',
-  'src/pages/ai.astro',
   ...readdirSync(resolve('src/pages/packs'))
     .filter((n) => n.endsWith('.astro'))
     .map((n) => join('src/pages/packs', n)),
