@@ -1,0 +1,186 @@
+---
+export const prerender = false
+
+// /contact — the quiet general-inquiry channel.
+//
+// Restored 2026-06-30 (Captain decision, recorded in
+// docs/marketing/positioning-spine.md change-control log). The assessment at
+// /book is and remains the single primary front door; this page is NOT a peer
+// door to it. It exists so partners, vendors, press, and anyone who wants to
+// work together in some other way has a way to reach the firm WITHOUT us
+// publishing an email address on the site. Linked from the footer only, never
+// the nav or a hero CTA, so it stays a lower-weight channel by construction.
+//
+// The backend (src/pages/api/contact.ts: Resend notification to
+// team@smd.services, honeypot, rate-limit, XSS hardening) never left when the
+// page was deleted in #1548; this page wires the form back to it. Guarded by
+// tests/landing-page.test.ts so a future rebuild cannot silently reap it again.
+import Base from '../layouts/Base.astro'
+import Nav from '../components/Nav.astro'
+import Footer from '../components/Footer.astro'
+---
+
+<Base
+  title="Contact | SMD Services"
+  description="Reach SMD Services about a partnership, a question, or another way to work together. To start an engagement, begin with an assessment."
+>
+  <Nav />
+  <main id="main" role="main" class="ss-book-main">
+    <section class="ss-book-section">
+      <div class="ss-book-frame">
+        <header class="mb-stack">
+          <h1 class="ss-headline">Contact</h1>
+          <p class="ss-subhead">
+            Looking to start an engagement? <a href="/book?interest=operator" class="ss-quiet-link"
+              >Start with an assessment</a
+            >, our front door. For anything else, a partnership, a question, press, or another way
+            to work together, send a note below.
+          </p>
+        </header>
+
+        <div id="form-status" class="ss-form-status" aria-live="polite"></div>
+
+        <form id="contact-form" class="ss-form" novalidate>
+          <div class="ss-field">
+            <label for="name" class="ss-field-label">Name</label>
+            <input
+              id="name"
+              name="name"
+              type="text"
+              required
+              maxlength="200"
+              autocomplete="name"
+              class="ss-input"
+            />
+          </div>
+
+          <div class="ss-field">
+            <label for="email" class="ss-field-label">Email</label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              maxlength="254"
+              autocomplete="email"
+              class="ss-input"
+            />
+          </div>
+
+          <div class="ss-field">
+            <label for="message" class="ss-field-label">Message</label>
+            <div class="ss-textarea-wrap">
+              <textarea
+                id="message"
+                name="message"
+                rows="6"
+                required
+                maxlength="5000"
+                class="ss-textarea"></textarea>
+            </div>
+          </div>
+
+          <!-- Honeypot. Hidden from real users; bots fill it and are silently rejected. -->
+          <div class="ss-honeypot" aria-hidden="true">
+            <label for="website">Website</label>
+            <input type="text" id="website" name="website" tabindex="-1" autocomplete="off" />
+          </div>
+
+          <div class="ss-form-actions">
+            <button
+              type="submit"
+              id="contact-submit-btn"
+              data-ev="contact-submit"
+              class="ss-primary">Send message</button
+            >
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+  <Footer />
+
+  <script is:inline>
+    const form = document.getElementById('contact-form')
+    if (form) {
+      form.addEventListener('submit', async function (e) {
+        e.preventDefault()
+        const status = document.getElementById('form-status')
+        const button = document.getElementById('contact-submit-btn')
+
+        button.disabled = true
+        button.textContent = 'Sending...'
+        status.replaceChildren()
+
+        const data = {
+          name: form.elements.namedItem('name').value,
+          email: form.elements.namedItem('email').value,
+          message: form.elements.namedItem('message').value,
+          website: form.elements.namedItem('website').value,
+        }
+
+        // Build the banner with safe DOM construction. `content` is a plain
+        // string set via textContent, never parsed as HTML. Response field
+        // values (validation messages, body.error) are server-controlled but
+        // flow into this sink as untrusted text, so they go through textContent.
+        function setBanner(variant, content) {
+          const banner = document.createElement('div')
+          banner.className = 'ss-banner ss-banner-' + variant
+          banner.textContent = content
+          status.replaceChildren(banner)
+        }
+
+        try {
+          const res = await fetch('/api/contact', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+          })
+
+          if (res.ok) {
+            setBanner('success', 'Message sent.')
+            form.reset()
+            form.style.display = 'none'
+            return
+          }
+          const body = await res.json()
+          if (res.status === 400 && body.fields) {
+            const msgs = Object.values(body.fields).join('. ')
+            setBanner('error', msgs)
+          } else if (res.status === 429) {
+            setBanner('error', 'Too many messages from this network. Please try again later.')
+          } else {
+            throw new Error(body.error || 'Request failed')
+          }
+        } catch {
+          // Intentionally no published email in the failure path. The whole
+          // point of this channel is to not publish an address; the recourse
+          // is to retry. Resend + the rate limiter make hard failures rare.
+          setBanner('error', 'Something went wrong. Please try again in a moment.')
+        } finally {
+          button.disabled = false
+          button.textContent = 'Send message'
+        }
+      })
+    }
+  </script>
+
+  <style>
+    .ss-form-status:empty {
+      display: none;
+    }
+    .ss-form-status {
+      margin-bottom: 1.5rem;
+    }
+    .ss-subhead {
+      margin-top: 0.75rem;
+      max-width: 42ch;
+      color: var(--ss-color-text-secondary);
+      line-height: 1.6;
+    }
+    .ss-honeypot {
+      position: absolute;
+      left: -9999px;
+    }
+  </style>
+</Base>
