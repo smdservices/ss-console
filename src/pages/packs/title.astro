@@ -1,24 +1,23 @@
 ---
 export const prerender = false
 
-import PackCardGrid from '../../components/packs/PackCardGrid.astro'
 import PackClosing from '../../components/packs/PackClosing.astro'
 import PackEyebrow from '../../components/packs/PackEyebrow.astro'
 import PackHeading from '../../components/packs/PackHeading.astro'
 import PackHero from '../../components/packs/PackHero.astro'
 import PackIntro from '../../components/packs/PackIntro.astro'
 import PackLayout from '../../components/packs/PackLayout.astro'
+import PackLifecycle from '../../components/packs/PackLifecycle.astro'
 import PackProse from '../../components/packs/PackProse.astro'
 import PackSection from '../../components/packs/PackSection.astro'
 import PackSectionCta from '../../components/packs/PackSectionCta.astro'
-import { shapeZoneTitles } from '../../lib/operator-packs/shared'
 
 const productSchema = {
   '@context': 'https://schema.org',
   '@type': 'Product',
-  name: 'Operator for Title & Escrow',
+  name: 'Operator for Title and Escrow Companies',
   description:
-    'The Operator is a worker you hire, not software you buy. The title pack is its head start: a starting point shaped around running the file from open to recorded, which we configure with you and you customize to your company. It never touches funds or wire instructions; the legal calls stay with your people.',
+    'The Operator is a worker you hire, not software you buy. It works inside your title production system and alongside the way your team runs a file, carrying a closing from the open order to recorded: the documents, the payoffs, the parties, and the dates. Every party-facing message goes to a person to review; the Operator never opines on title, never moves or disburses escrow funds, and never touches wire instructions.',
   brand: { '@type': 'Brand', name: 'SMD Services' },
   offers: {
     '@type': 'Offer',
@@ -27,192 +26,231 @@ const productSchema = {
   },
 }
 
-// Section 03: the starting templates in the pack, grouped in plain language. Sourced
-// from operator/verticals/title/vertical.yaml (the opening-and-documents, party-loop,
-// closing-and-after, and wire-safety skill families). These are templates we configure,
-// not a finished, running product.
-const packTemplates = [
+// Section 04: the lifecycle walk. One file from the open order to recorded, each step
+// in the standard's three-line shape (Operator does / your part / if it stalls). Built
+// from research (title-company closing guides, ALTA wire-fraud sources, the internal
+// spec brief) and corrected by the adversarial gate: earnest-money checkpoint added,
+// payoff double-count removed, clear-to-close split from the settlement-figures beat,
+// state funding practice generalized (wet vs dry), regional terminology made inclusive.
+// Generic system categories, no brand names. The section framing (illustrative + the
+// fail-closed honesty in section 07) carries the truthfulness, per the kit-grammar guard.
+const lifecycleSteps = [
   {
-    title: 'Opening and documents',
-    body: "The order captured from the contract, the acknowledgment to the opening party drafted, the file's open items chased: payoffs, HOA estoppel, survey, tax certificates, lender instructions.",
+    title: 'The order opens',
+    operator:
+      'Captures the order from the contract into the title production system, sets up the file, and drafts the acknowledgment to the opening party. It never opines on title, marketability, or the contract.',
+    your: 'Nothing, unless it asks you to confirm.',
+    stalls: 'Re-flags if the order sits.',
   },
   {
-    title: 'The party loop',
-    body: 'Every party kept current at each milestone, the issued commitment delivered with a cover note, the clear-to-close handoff coordinated with the lender, the realtors and the lender looped in.',
+    title: 'Earnest money',
+    operator:
+      "Confirms the earnest money was received, logs it to the file against the contract's deadline, and flags it if it has not landed.",
+    your: 'Nothing, unless it flags a missing deposit.',
+    stalls:
+      'Chases the agent for the deposit. It logs what the file records; it never holds or moves the funds.',
   },
   {
-    title: 'Closing and after',
-    body: 'The signing scheduled and confirmed with your authored bring-list, the earnest-money receipt logged as the file records it, recording and final-policy issuance tracked and the parties notified.',
+    title: 'Title search and commitment',
+    operator:
+      'Orders the title search, and once the company issues the commitment or preliminary report, delivers it to the parties with a cover note.',
+    your: 'The examiner issues the commitment.',
+    stalls:
+      'Chases the search if it is late. It delivers the authored document; it never interprets the exceptions or requirements.',
   },
   {
-    title: 'The wire-safety gate',
-    body: 'Any message that touches wire or banking details recognized and routed to your verified process, with the party told that wire details are confirmed only through your secure channel.',
-  },
-]
-
-// Section 05: the three customization zones. Titles are shared (shapeZoneTitles); the
-// body under each is title-specific.
-const zones = [
-  {
-    title: shapeZoneTitles.prebuilt,
-    body: 'The starting templates above, shaped around a closing-coordination desk and ready to configure. You are not building from a blank page.',
+    title: 'Curative work',
+    operator:
+      "Works the file's open-item list, the liens, HOA estoppel or resale certificate, survey, and tax certificates, requests each, and updates the list as items land.",
+    your: 'The title team clears the requirements.',
+    stalls:
+      'Keeps chasing and surfaces the items aging against the closing date. It chases the items on the list; it never judges whether one clears title.',
   },
   {
-    title: shapeZoneTitles.connected,
-    body: 'Wired into your own accounts: your title-production system, your email and calendar, your documents. It works inside the tools you already run.',
+    title: 'Payoffs',
+    operator:
+      'Requests the mortgage and lien payoffs from the lenders and logs the figures into the file.',
+    your: 'Review the payoffs.',
+    stalls: 'Chases the payoff lender. It requests and logs; it never negotiates a payoff.',
   },
   {
-    title: shapeZoneTitles.yours,
-    body: 'Your voice, your parties and workflow and milestones, and where the line sits. You decide what runs on its own and what waits for a person. You are the expert in your company; you shape it from there.',
-  },
-]
-
-const roleLenses = [
-  {
-    title: 'Opening and documents',
-    body: 'It opens the order from the contract, drafts the acknowledgment to the opening party, and chases the documents the file needs: payoffs, HOA estoppel, survey, tax certificates, lender instructions. It delivers the issued commitment with a cover note. It never opines on title, marketability, or the contract.',
+    title: 'Clear to close and the figures',
+    operator:
+      "Tracks the lender's clear-to-close, and coordinates the settlement-statement and Closing Disclosure reconciliation between the lender and the escrow officer, since the borrower must receive the Closing Disclosure at least three business days before signing.",
+    your: 'The escrow officer balances and owns the figures.',
+    stalls: 'Flags it. It coordinates the handoff; it never produces or alters the figures.',
   },
   {
-    title: 'The party loop',
-    body: 'Buyer, seller, both agents, the lender. The Operator keeps every party current at each milestone, coordinates the clear-to-close and the figures handoff with the lender, and chases the third-party items the file is waiting on. It reports status from the file, with no legal or closing-figure opinion.',
+    title: 'Scheduling and the signing',
+    operator:
+      'Schedules the signing time, place, and notary, and confirms it with what each party should bring.',
+    your: 'Confirm the signing.',
+    stalls:
+      'Reminds. The confirmation carries the authored bring-list only, and never wire or banking instructions.',
   },
   {
-    title: 'Closing and after',
-    body: 'It schedules and confirms the signing with your authored bring-list, then tracks recording and final-policy issuance after close and notifies the parties. It never includes wire or banking instructions, and it never confirms disbursement. The funds stay with your escrow officer.',
+    title: 'Recording and after',
+    operator:
+      'After the signing, tracks recording with the county and the final-policy issuance, and notifies the parties.',
+    your: "The escrow officer or settlement agent disburses per your state's funding practice.",
+    stalls:
+      'Flags a delay in recording. It tracks and notifies; it never confirms disbursement and never moves funds.',
+  },
+  {
+    title: 'What needs you',
+    operator:
+      'Sends one short summary of the desk, curative items aging, payoffs outstanding, signings scheduled, recordings pending.',
+    your: 'React to the few items.',
+    stalls: 'Re-surfaces anything missed.',
   },
 ]
 ---
 
 <PackLayout
-  title="Operator for Title & Escrow | SMD Services"
-  description="The title pack is the Operator's head start: a starting point shaped around running the file from open to recorded, which we configure with you and you customize to your company. It never touches funds or wire instructions. You set the line."
+  title="Operator for Title and Escrow Companies | SMD Services"
+  description="A worker you hire, not software you buy. The Operator works inside your title production system and alongside your team, carrying a closing from the open order to recorded so nothing slips. It never opines on title and never touches the money. It starts with an assessment."
   schema={productSchema}
 >
-  <!-- § 01 Hero -->
+  <!-- 01 Hero -->
   <PackHero slug="title">
-    <Fragment slot="heading">The Closing Desk, Fully Staffed.</Fragment>
+    <Fragment slot="heading">The File, Carried From Open To Recorded.</Fragment>
     <Fragment slot="lede">
-      The Operator is a worker you hire, not software you buy. This is its title head start: a
-      starting point already shaped around opening the order, chasing the documents, and keeping
-      every party current to close, so you are not building from a blank page. You make it yours
-      from there.
+      The Operator is a worker you hire, not software you buy. It works inside your title production
+      system and alongside the way your team already runs a file, carrying a closing from the open
+      order to recorded: the documents, the payoffs, the parties, the dates, so your coordinators do
+      not have to hold every file in their heads. Every party-facing message goes to a person to
+      review. It never opines on title, and it never touches the money.
     </Fragment>
   </PackHero>
 
-  <!-- § 02 The seat the market won't fill -->
+  <!-- 02 The problem -->
   <PackSection bg="white">
     <PackEyebrow>The Problem</PackEyebrow>
-    <PackHeading variant="prose">The Seat The Market Won't Fill.</PackHeading>
+    <PackHeading variant="prose">Many Parties, One Closing Date.</PackHeading>
     <PackProse>
       <p>
-        The closing desk is high-volume and deadline-driven, and experienced processors and closers
-        are hard to find and harder to keep. When volume swings, the desk floods, and the work does
-        not wait for the next hire to come up to speed.
+        The hard part of a closing is not opening the order. It is moving a file from open to
+        recorded while keeping a dozen parties current, none of whom share your system: the buyer,
+        the seller, two agents, the lender, the payoff lenders, the HOA, the surveyor, the tax
+        office, the notary.
       </p>
       <p>
-        An Operator fills that seat now. It runs the file at full speed, all the time, and what it
-        learns about how your company closes, your parties, your workflow, your voice, stays with
-        the company instead of leaving with the person who had it.
+        Each file carries a closing date that does not move, a list of requirements that has to
+        clear, and money that has to be exactly right. The coordination lives in your coordinators'
+        heads, where things slip. A payoff that comes in late, a requirement that does not clear, a
+        party left a step behind, and the closing moves or the recording stalls. A missed step here
+        is not an inconvenience. It is the closing, at risk.
       </p>
     </PackProse>
   </PackSection>
 
-  <!-- § 03 What the pack starts you with -->
+  <!-- 03 What the Operator does -->
   <PackSection bg="background">
-    <PackEyebrow>What You Get</PackEyebrow>
-    <PackHeading variant="grid">What The Pack Starts You With.</PackHeading>
-    <PackIntro>
-      You do not start from a blank page. The title pack comes shaped around the work a
-      closing-coordination desk runs, as starting templates we configure with you:
-    </PackIntro>
-    <PackCardGrid items={packTemplates} cols={2} card="templates" />
-    <PackIntro after>
-      These plug into your title-production system and your email and calendar. The templates are
-      the head start. How they run is yours to shape.
-    </PackIntro>
-  </PackSection>
-
-  <!-- § 04 From the start -->
-  <PackSection bg="white">
-    <PackEyebrow>Day One</PackEyebrow>
-    <PackHeading variant="prose">From The Start.</PackHeading>
+    <PackEyebrow>What It Does</PackEyebrow>
+    <PackHeading variant="prose">An Always-On Member Of The Team.</PackHeading>
     <PackProse>
       <p>
-        Before it starts, we sit down with you and the people who run the file, and we shape the
-        templates around how your company actually operates, so it begins ready, not green.
+        The Operator is an always-on team member that works inside your title production system and
+        alongside the way your team already runs a file. Its job is to carry the process so your
+        people do not have to hold it in their heads: it watches every file, knows every closing
+        date, chases the open items, and keeps every party current.
       </p>
       <p>
-        From there the work moves the way it always did. An order comes in from an agent or a
-        lender. It opens the file, chases the documents the file needs, payoffs, HOA estoppel,
-        survey, tax certificates, lender instructions, and keeps every party current at each
-        milestone. It coordinates the clear-to-close with the lender, schedules and confirms the
-        signing, and tracks recording and the final policy after close. It is all logged in your
-        title-production system as it happens, and it keeps getting sharper from your team's
-        corrections.
+        When it needs a person to do their part, it comes to them with everything already prepared,
+        so their part is usually a single reply or a one-click confirm. If a step does not get done,
+        it follows up rather than letting it slip. Every party-facing message goes to a person on
+        your team to review and send.
+      </p>
+      <p>
+        It does not replace your title production system; that stays the system of record. The title
+        examiner clears title, and the escrow officer, or settlement agent, owns the figures and the
+        funds. The Operator does the connective work between and around them, and keeps the file
+        current as it goes.
       </p>
     </PackProse>
   </PackSection>
 
-  <!-- § 05 Yours to shape -->
-  <PackSection bg="background">
-    <PackEyebrow>Your Way</PackEyebrow>
-    <PackHeading variant="grid">Yours To Shape.</PackHeading>
+  <!-- 04 The lifecycle, step by step -->
+  <PackSection bg="white">
+    <PackEyebrow>The Lifecycle</PackEyebrow>
+    <PackHeading variant="grid">One File, Open To Recorded.</PackHeading>
     <PackIntro>
-      We are not the experts in how your company runs. You are. So the pack is a starting point in
-      three parts, and the third is the biggest.
+      Here is one file's life, from the open order to recorded, carried start to finish. This is the
+      shape of the work, not a fixed script; we build it around how your company actually runs.
     </PackIntro>
-    <PackCardGrid items={zones} cols={3} card="zones" />
+    <PackLifecycle steps={lifecycleSteps} />
   </PackSection>
 
-  <!-- § 06 The line -->
-  <PackSection bg="white">
-    <PackEyebrow>The Boundary</PackEyebrow>
-    <PackHeading variant="prose">The Line.</PackHeading>
-    <PackProse spaced>
+  <!-- 05 How it connects -->
+  <PackSection bg="background">
+    <PackEyebrow>How It Connects</PackEyebrow>
+    <PackHeading variant="prose">Through The Systems You Already Run.</PackHeading>
+    <PackProse>
       <p>
-        The Operator moves the file and keeps every party current. The money and the legal calls
-        stay with your escrow officer: disbursing funds, the title opinion, the closing figures. Not
-        because the software could not send an email, but because those acts sit under your controls
-        and a licensed, accountable person owns them.
+        The Operator works inside the title production system and the document portal your company
+        already runs. It reads the file, updates the records, files what arrives, and routes what
+        needs a person, so the file stays current without anyone keying it in twice. Nothing has to
+        be emailed around or re-uploaded by hand.
       </p>
       <p>
-        Some lines are not settings anyone can move. The Operator never transmits, confirms, or
-        changes a wire instruction, ever; any message that touches wire or banking details goes
-        straight to your verified process, and the party is told that wire details are confirmed
-        only through your secure channel. It never moves, directs, or confirms disbursement of
-        escrow funds. It gives no opinion on title or the contract. Nonpublic personal information
-        stays inside your company's surfaces, per GLBA and ALTA Best Practices. Anything that leaves
-        the company goes to a reviewer on your team until you decide otherwise. Every action it
-        takes is logged where you can see it.
-      </p>
-      <p>
-        Beyond those floors, you govern where the line sits, and you can move it as you learn what
-        the Operator is good at. Your files stay private, including from us. The Operator works in
-        your company's own walled-off environment, on your own accounts. We can see that it is
-        running and the record of what it did, but the contents of your files and messages stay
-        yours, and so do the configuration, the logs, and the off switch.
+        It works on your own accounts, inside the systems you already pay for. It is the connective
+        tissue between them, not another system to learn.
       </p>
     </PackProse>
     <PackSectionCta slug="title" />
   </PackSection>
 
-  <!-- § 07 Where it fits -->
-  <PackSection bg="background">
-    <PackEyebrow>The Role</PackEyebrow>
-    <PackHeading variant="grid">Where It Fits.</PackHeading>
-    <PackIntro>
-      A few shapes the seat can take. We build it around how your company closes, so these are
-      starting points, not a menu.
-    </PackIntro>
-    <PackCardGrid items={roleLenses} cols={3} card="lenses" />
+  <!-- 06 Quiet by design -->
+  <PackSection bg="white">
+    <PackEyebrow>Quiet By Design</PackEyebrow>
+    <PackHeading variant="prose">It Takes Load Off. It Does Not Add It.</PackHeading>
+    <PackProse>
+      <p>
+        The Operator is built to reduce the noise, not add to it. Routine items are gathered into a
+        single short summary rather than a stream of notifications, and it reaches out directly only
+        when something genuinely needs a person. The goal is that your coordinators feel work coming
+        off their plate, not one more thing pinging them.
+      </p>
+    </PackProse>
   </PackSection>
 
-  <!-- § 08 Start with an assessment -->
+  <!-- 07 The line, and what we prove first -->
+  <PackSection bg="background">
+    <PackEyebrow>The Line</PackEyebrow>
+    <PackHeading variant="prose"
+      >It Coordinates. It Never Opines On Title, And It Never Touches The Money.</PackHeading
+    >
+    <PackProse spaced>
+      <p>
+        The Operator does the connective work and brings the judgment to the people who own it. The
+        title examiner clears title and owns the opinion on it; the escrow officer, or settlement
+        agent, owns the figures and the funds. Those never move to the Operator.
+      </p>
+      <p>
+        And some lines are not settings anyone can move. Any message that touches wire instructions,
+        bank details, or where to send funds is routed to your verified process and never answered
+        by the Operator. It never transmits, confirms, or changes wire instructions, and it never
+        moves or disburses escrow funds. Seller impersonation and wire fraud are the dominant
+        threats in this business, and the safe default is to never touch the money. Every action it
+        takes is logged where you can see it.
+      </p>
+      <p>
+        We are also honest about what we prove before we rely on it. The parts that depend on
+        reading documents and matching your company's rules, like an open item read off a commitment
+        or a payoff figure logged from a lender, we validate on your real files first. Where
+        accuracy is not yet proven, the Operator surfaces what it found and asks, rather than acting
+        on its own. Nonpublic information stays inside your company's own walled-off environment,
+        and the configuration, the logs, and the off switch stay with you.
+      </p>
+    </PackProse>
+  </PackSection>
+
+  <!-- 08 Close -->
   <PackClosing slug="title">
     <Fragment slot="pitch">
-      It starts with a conversation. We learn how your company closes, find the coordination work
-      that is eating your desk's time, and start from the pack, customizing it to your company. If
-      it is not a fit, we will tell you.
+      We learn how your company actually runs a file, find where the time goes and where things
+      slip, and shape the Operator to fit: what it watches, how much it does on its own, where a
+      person stays in the loop. If it is not the right fit, we will tell you.
     </Fragment>
   </PackClosing>
 </PackLayout>
