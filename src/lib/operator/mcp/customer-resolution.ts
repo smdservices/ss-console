@@ -1,7 +1,7 @@
 import type { D1Database } from '@cloudflare/workers-types'
 import { z } from 'zod'
-import type { McpConnector, ScreeningAttestation } from '../customer-yaml/types'
-import { parseMcpConnector, parseScreeningAttestation } from '../../portal/customer-config'
+import type { McpConnector } from '../customer-yaml/types'
+import { parseMcpConnector } from '../../portal/customer-config'
 
 const CUSTOMER_SLUG = /^[a-z0-9][a-z0-9-]{0,31}$/
 const MCP_RESOURCE_PREFIX = '/api/operator'
@@ -18,7 +18,6 @@ const bindingRowSchema = z.object({
   clerk_app_id: z.string().min(1).nullable(),
   clerk_org_id: z.string().min(1).nullable(),
   mcp_connector_json: z.string().nullable(),
-  screening_attestation_json: z.string().nullable(),
 })
 
 const userRowSchema = z.object({
@@ -52,13 +51,6 @@ export interface ResolvedMcpCustomer {
   customerId: string
   clerkOrgId: string | null
   connector: McpConnector
-  /**
-   * Firm no-active-screens attestation (ADR 0057 §4), projected from
-   * customer.yaml. The endpoint takes an enabled connector dark when this is
-   * missing or stale (isAttestationFresh) — a fail-closed runtime gate over the
-   * authoring-time validator gate.
-   */
-  screeningAttestation: ScreeningAttestation
   clerk: ClerkCustomerBinding
   principals: AuthorizedMcpPrincipal[]
 }
@@ -139,7 +131,7 @@ export async function loadMcpCustomer(
   const rawBinding = await db
     .prepare(
       'SELECT b.entity_id, b.customer_slug, b.issuer, b.resource_uri, b.client_id, ' +
-        'b.clerk_app_id, e.clerk_org_id, c.mcp_connector_json, c.screening_attestation_json ' +
+        'b.clerk_app_id, e.clerk_org_id, c.mcp_connector_json ' +
         'FROM mcp_clerk_bindings b ' +
         'LEFT JOIN customer_configs c ON c.entity_id = b.entity_id ' +
         'LEFT JOIN entities e ON e.id = b.entity_id ' +
@@ -156,7 +148,6 @@ export async function loadMcpCustomer(
     .all<unknown>()
   const users = z.array(userRowSchema).parse(rawUsers.results ?? [])
   const connector = parseMcpConnector(binding.mcp_connector_json)
-  const screeningAttestation = parseScreeningAttestation(binding.screening_attestation_json)
 
   // Live access grants (ADR 0057): the dynamic authorization + kill-switch layer.
   // Only un-revoked, un-expired rows authorize. ISO-8601 UTC compares
@@ -177,7 +168,6 @@ export async function loadMcpCustomer(
     customerId: binding.customer_slug,
     clerkOrgId: binding.clerk_org_id,
     connector,
-    screeningAttestation,
     clerk: {
       issuer: binding.issuer,
       resourceUri: binding.resource_uri,
