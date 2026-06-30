@@ -37,8 +37,11 @@ const bookHref = `/book?interest=${bookInterest}`
           </a>
         ))
       }
+      <!-- Persistent CTA is desktop-only. On mobile it would crowd the bar and
+           push the Menu button off-screen; the CTA still lives in the mobile
+           menu's bottom bar and in every page hero. -->
       <a
-        class="inline-flex items-center whitespace-nowrap min-h-11 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] active:bg-[color:var(--ss-color-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 px-3 md:px-5 py-2 font-['Archivo'] font-bold uppercase tracking-[0.08em] text-white text-xs md:text-sm transition-colors"
+        class="hidden md:inline-flex items-center whitespace-nowrap min-h-11 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] active:bg-[color:var(--ss-color-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 px-3 md:px-5 py-2 font-['Archivo'] font-bold uppercase tracking-[0.08em] text-white text-xs md:text-sm transition-colors"
         href={bookHref}
         data-ev="nav-book">Start with an assessment</a
       >
@@ -70,9 +73,14 @@ const bookHref = `/book?interest=${bookInterest}`
          Brand on the left, Close on the right. -->
     <div class="flex h-14 flex-none items-center justify-between px-4 border-b-[3px] border-white">
       <SmdLogo inverse data-nav-link />
+      <!-- autofocus directs the dialog's initial focus here on open. Without it,
+           showModal() focuses the first focusable descendant (the logo link),
+           leaving a stray focus ring around the brand that reads as a different
+           logo. Close is the correct, conventional initial focus target. -->
       <button
         type="button"
         aria-label="Close menu"
+        autofocus
         data-nav-close
         class="inline-flex items-center justify-center min-w-11 min-h-11 px-3 border-[3px] border-white bg-transparent font-['Archivo_Narrow'] text-xs font-bold uppercase tracking-[0.14em] text-white cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--ss-color-surface-inverse)]"
       >
