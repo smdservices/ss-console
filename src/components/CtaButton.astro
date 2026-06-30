@@ -6,9 +6,11 @@ interface Props {
   /** Explicit destination. Wins over `interest`. */
   href?: string
   /**
-   * Assessment intent slug. When `href` is omitted, the button links to
-   * /book?interest=<interest> (defaulting to the flagship product). Lets a
-   * CTA carry attribution without hand-writing the /book URL.
+   * Assessment intent slug. When `href` is omitted and `interest` is set,
+   * the button links to /book?interest=<interest> and the prospect sees an
+   * "Inquiring about …" chip. Pass it only from a solution-specific surface
+   * (the /operator page, a vertical pack). With neither `href` nor `interest`
+   * the button links to a neutral /book — the objectives-first front door.
    */
   interest?: string
   class?: string
@@ -23,7 +25,7 @@ const {
   'data-ev': dataEv,
 } = Astro.props
 
-// Precedence: explicit href > interest-built /book href > default /book href.
+// Precedence: explicit href > interest-built /book href > neutral /book.
 const resolvedHref = href ?? bookHref(interest)
 
 const base =

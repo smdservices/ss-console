@@ -157,11 +157,16 @@ describe('marketing structure: firm-with-flagship (locked)', () => {
     expect(home).toContain('not every problem needs an operator')
   })
 
-  it('the assessment is the one front door (primary CTA routes to /book)', () => {
-    // The home final CTA declares its intent via the shared CtaButton `interest`
-    // prop, which resolves to /book?interest=operator through bookHref() (the
-    // route contract itself is asserted centrally in booking-interest-parity).
-    expect(home).toContain('interest="operator"')
+  it('the homepage assessment entry is the neutral front door (presumes no solution)', () => {
+    // Firm-level surfaces start the assessment with no `interest`, so the chip
+    // never presumes an Operator before the objectives-first conversation. The
+    // CTA's presence + verb are guarded by the single-verb spine test below;
+    // here we lock that the homepage carries no product attribution. The
+    // /operator page and the vertical packs keep their interest on purpose
+    // (route contract asserted centrally in booking-interest-parity).
+    expect(home).toContain('data-ev="home-final-cta"')
+    expect(home, 'home CTA must not presume a solution').not.toContain('interest=')
+    expect(operatorHero, 'home hero CTA must not presume a solution').not.toContain('interest=')
   })
 
   it('/operator absorbs the comparison as the answer-engine surface', () => {
@@ -243,12 +248,10 @@ describe('marketing structure: firm-with-flagship (locked)', () => {
     // Honors the "do not publish the email" intent: no mailto on the page.
     expect(contact, 'contact page must not publish a mailto address').not.toContain('mailto:')
     // Routes engagement-seekers to the real front door via the shared helper
-    // (bookHref builds /book?interest=operator — asserted centrally in
+    // (bookHref() builds the neutral /book — asserted centrally in
     // booking-interest-parity). Guards the actual CTA, not an incidental
     // "/book" mention in a comment.
-    expect(contact, 'contact page must point to the assessment front door').toContain(
-      "bookHref('operator')"
-    )
+    expect(contact, 'contact page must point to the assessment front door').toContain('bookHref()')
   })
 
   it('the footer links to /contact and does not publish a raw email address', () => {
