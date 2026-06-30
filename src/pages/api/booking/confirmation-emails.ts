@@ -33,6 +33,7 @@ export interface ConfirmationEmailInput {
 export interface ConfirmationEmailDbResult {
   scheduleId: string
   entityId: string
+  meetingId: string
   intakeLines: string[]
 }
 
@@ -91,7 +92,7 @@ async function alertGuestEmailFailure(
 export async function sendConfirmationEmails(args: SendConfirmationArgs): Promise<void> {
   const { input, dbResult, googleMeetUrl, manageUrl } = args
   const { name, email, businessName, slotStartUtc, guestTimezone } = input
-  const { scheduleId, intakeLines, entityId } = dbResult
+  const { scheduleId, intakeLines, entityId, meetingId } = dbResult
 
   const displayTz = guestTimezone || BOOKING_CONFIG.consultant.timezone
   const slotLabel = formatSlotLabelLong(slotStartUtc, displayTz)
@@ -108,6 +109,7 @@ export async function sendConfirmationEmails(args: SendConfirmationArgs): Promis
       meetingLabel: BOOKING_CONFIG.meeting_label,
       guestEmail: email,
       icsAttachment,
+      meetingId,
     })
     if (!guestResult.success) {
       console.error('[api/booking/reserve] Confirmation email NOT sent:', guestResult.error)

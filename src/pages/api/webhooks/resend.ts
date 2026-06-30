@@ -1,6 +1,7 @@
 import type { APIContext, APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 import { handleResendEvent, type ResendWebhookPayload } from '../../../lib/webhooks/resend-handler'
+import { handleBookingEmailDeliveryFailure } from '../../../lib/webhooks/booking-email-failure'
 
 /**
  * POST /api/webhooks/resend
@@ -112,12 +113,20 @@ async function handlePost({ request }: APIContext): Promise<Response> {
       payload,
       fallbackOrgId: DEFAULT_ORG_ID,
     })
+    // Independently, alert the team if this event is a delivery failure for a
+    // transactional booking email (suppressed/bounced/failed). Best-effort.
+    const bookingFailure = await handleBookingEmailDeliveryFailure(
+      env.DB,
+      env.RESEND_API_KEY,
+      payload
+    )
     return new Response(
       JSON.stringify({
         ok: true,
         recorded: result.recorded,
         ...(result.reason ? { reason: result.reason } : {}),
         ...(result.eventType ? { event_type: result.eventType } : {}),
+        ...(bookingFailure.handled ? { booking_alert: true } : {}),
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     )

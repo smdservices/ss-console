@@ -38,12 +38,25 @@ export interface EmailAttachment {
   content_type?: string
 }
 
+/**
+ * Resend email tag. Tag name + value must match Resend's charset
+ * (ASCII letters, numbers, underscores, dashes) — values like a
+ * `category` slug or a UUID `meeting_id` satisfy this. Tags are echoed
+ * back on webhook events, which is how the webhook handler recognizes
+ * transactional booking emails.
+ */
+export interface EmailTag {
+  name: string
+  value: string
+}
+
 export interface EmailPayload {
   to: string
   subject: string
   html: string
   reply_to?: string
   attachments?: EmailAttachment[]
+  tags?: EmailTag[]
 }
 
 export interface SendResult {
@@ -87,6 +100,10 @@ export async function sendEmail(
       content: a.content,
       ...(a.content_type ? { content_type: a.content_type } : {}),
     }))
+  }
+
+  if (payload.tags?.length) {
+    apiPayload.tags = payload.tags.map((t) => ({ name: t.name, value: t.value }))
   }
 
   const response = await fetch(RESEND_API_URL, {
