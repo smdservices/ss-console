@@ -158,7 +158,10 @@ describe('marketing structure: firm-with-flagship (locked)', () => {
   })
 
   it('the assessment is the one front door (primary CTA routes to /book)', () => {
-    expect(home).toContain('/book?interest=operator')
+    // The home final CTA declares its intent via the shared CtaButton `interest`
+    // prop, which resolves to /book?interest=operator through bookHref() (the
+    // route contract itself is asserted centrally in booking-interest-parity).
+    expect(home).toContain('interest="operator"')
   })
 
   it('/operator absorbs the comparison as the answer-engine surface', () => {
@@ -239,8 +242,13 @@ describe('marketing structure: firm-with-flagship (locked)', () => {
     ).toBe(true)
     // Honors the "do not publish the email" intent: no mailto on the page.
     expect(contact, 'contact page must not publish a mailto address').not.toContain('mailto:')
-    // Routes engagement-seekers to the real front door.
-    expect(contact, 'contact page must point to the assessment front door').toContain('/book')
+    // Routes engagement-seekers to the real front door via the shared helper
+    // (bookHref builds /book?interest=operator — asserted centrally in
+    // booking-interest-parity). Guards the actual CTA, not an incidental
+    // "/book" mention in a comment.
+    expect(contact, 'contact page must point to the assessment front door').toContain(
+      "bookHref('operator')"
+    )
   })
 
   it('the footer links to /contact and does not publish a raw email address', () => {

@@ -82,28 +82,60 @@ export const BOOKING_CONFIG: BookingConfig = {
 
 /**
  * Productized SKU codes that may be carried through /book?interest=<sku>
- * from a marketing CTA. Strict allow-list, enforced in two places —
- * /book (page prefill) and /api/intake/send (API boundary) — which
- * previously each carried their own copy that had to be hand-synced
- * (2026-06-12 code review dedup). Unknown values are silently dropped
- * to null rather than rejected, so a stale URL or cached link cannot
- * break a legitimate submission. Extending this list requires an
- * explicit code change.
+ * from a marketing CTA, paired with the human label shown to the prospect.
+ *
+ * This is the single source of truth for BOTH the allow-list AND the label.
+ * It backs four surfaces that previously each carried their own copy and
+ * drifted apart (2026-06-30 review: the visitor chip and CRM-context maps
+ * had only 3 of the 15 entries, so the 12 vertical packs rendered no
+ * "Inquiring about" chip): the /book validation (page prefill), the
+ * /api/intake/send API boundary, the IntakeIntroCard intent chip, and the
+ * intake-core CRM context line. Extending the product line is one edit here.
+ *
+ * Unknown values are silently dropped to null at the /book and
+ * /api/intake/send boundaries rather than rejected, so a stale URL or
+ * cached link cannot break a legitimate submission.
  */
-export const ALLOWED_INTERESTS: ReadonlySet<string> = new Set<string>([
-  'operator',
-  'law-firm',
-  'insurance',
-  'veterinary',
-  'title',
-  'accounting',
-  'ria',
-  'mortgage',
-  'dental',
-  'med-spa',
-  'marketing-agency',
-  'property-management',
-  'home-services',
-  'ai',
-  'consulting',
-])
+export const INTEREST_LABELS: Record<string, string> = {
+  operator: 'Operator',
+  'law-firm': 'Operator for Law Firms',
+  insurance: 'Operator for Insurance Agencies',
+  veterinary: 'Operator for Veterinary Clinics',
+  title: 'Operator for Title & Escrow',
+  accounting: 'Operator for Accounting Firms',
+  ria: 'Operator for Advisory Firms',
+  mortgage: 'Operator for Mortgage Brokers',
+  dental: 'Operator for Dental Practices',
+  'med-spa': 'Operator for Med Spas',
+  'marketing-agency': 'Operator for Marketing Agencies',
+  'property-management': 'Operator for Property Managers',
+  'home-services': 'Operator for Home Services',
+  ai: 'AI & Automation',
+  consulting: 'Solutions Consulting',
+}
+
+/** Strict allow-list, derived from the label map so the two can never drift. */
+export const ALLOWED_INTERESTS: ReadonlySet<string> = new Set(Object.keys(INTEREST_LABELS))
+
+/**
+ * Slug → human label, with a safe raw-slug fallback for an unrecognized
+ * value. Shared by the intent chip, the CRM context line, and the admin
+ * email so all three render identically. This only renders — the allow-list
+ * is enforced at the /book and /api/intake/send boundaries.
+ */
+export function interestLabel(slug?: string | null): string | null {
+  if (!slug) return null
+  return INTEREST_LABELS[slug] ?? slug
+}
+
+/** Contextless marketing surfaces default to the flagship product. */
+export const DEFAULT_BOOK_INTEREST = 'operator'
+
+/**
+ * Builds a /book href that always carries an interest, so no CTA silently
+ * drops attribution. Does NOT validate — the allow-list is enforced at
+ * /book and /api/intake/send.
+ */
+export function bookHref(interest: string = DEFAULT_BOOK_INTEREST): string {
+  return `/book?interest=${interest}`
+}
