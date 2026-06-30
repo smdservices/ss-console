@@ -50,17 +50,7 @@ function readMarketingFiles(): string[] {
     resolve('src/pages/packs/property-management.astro'),
     resolve('src/pages/packs/home-services.astro'),
     join(componentsDir, 'OperatorHero.astro'),
-    join(componentsDir, 'ConsultingPath.astro'),
-    join(componentsDir, 'Hero.astro'),
-    join(componentsDir, 'ProblemCards.astro'),
-    join(componentsDir, 'RoiMath.astro'),
-    join(componentsDir, 'HowWeEngage.astro'),
-    join(componentsDir, 'HowWePrice.astro'),
-    join(componentsDir, 'WhatYouGet.astro'),
-    join(componentsDir, 'OperatorIntro.astro'),
-    join(componentsDir, 'CaseStudies.astro'),
     join(componentsDir, 'About.astro'),
-    join(componentsDir, 'FinalCta.astro'),
     join(componentsDir, 'Footer.astro'),
     join(componentsDir, 'JsonLd.astro'),
   ]
@@ -69,15 +59,9 @@ function readMarketingFiles(): string[] {
 describe('component existence', () => {
   const expectedComponents = [
     'CtaButton.astro',
-    'Hero.astro',
-    'ProblemCards.astro',
-    'RoiMath.astro',
-    'HowWeEngage.astro',
-    'HowWePrice.astro',
-    'WhatYouGet.astro',
-    'CaseStudies.astro',
+    'OperatorHero.astro',
     'About.astro',
-    'FinalCta.astro',
+    'Nav.astro',
     'Footer.astro',
     'JsonLd.astro',
   ]
@@ -104,17 +88,7 @@ describe('voice standard', () => {
   // §07 Who We Are uses Scott's first-person voice; the rest of the page stays
   // in firm-level "we" voice. See CLAUDE.md "Voice standard" practitioner-firm
   // exception.
-  const marketingComponents = [
-    'OperatorHero.astro',
-    'ConsultingPath.astro',
-    'Hero.astro',
-    'ProblemCards.astro',
-    'RoiMath.astro',
-    'HowWeEngage.astro',
-    'HowWePrice.astro',
-    'WhatYouGet.astro',
-    'FinalCta.astro',
-  ]
+  const marketingComponents = ['OperatorHero.astro']
 
   // Operator-forward home and the /why manifesto carry the lead argument as
   // long-form page prose, not components. They must hold the same firm-level
