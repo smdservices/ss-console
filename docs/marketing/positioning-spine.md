@@ -6,7 +6,7 @@
 >
 > - **The frame is the firm.** SMD is a software and AI solutions firm for small businesses. The **Operator is the flagship within it**, not the whole company. The **assessment is the one front door**; it leads to a recommendation, a project, or an Operator. "We specialize in AI and will tell you when it isn't the answer."
 > - **The site is 5 page types, not ~13:** Home (firm's face, flagship-forward, 8 beats — firm wraps flagship), `/operator` (the flagship deep page, now absorbing the comparison FAQ), `/industries` + 12 packs (recognition / the proof substitute), `/book` (the assessment front door), `/about` (Scott = the proof). Legal in the footer.
-> - **Killed (folded + 301-redirected):** `/why` → `/operator#compare`; `/consulting` → `/`; `/ai` → `/` (retired toe-dip from the abandoned AI-cautious posture); `/contact` → `/book` (booking + a footer email is the contact).
+> - **Killed (folded + 301-redirected):** `/why` → `/operator#compare`; `/consulting` → `/`; `/ai` → `/` (retired toe-dip from the abandoned AI-cautious posture); ~~`/contact` → `/book` (booking + a footer email is the contact)~~ **[REVERSED 2026-06-30 — see Change control. `/contact` is restored as the quiet general-inquiry channel; the footer email is removed.]**
 > - **Win on clarity, substance, credibility — never graphics** (the gap visual motif is killed; rejected twice). Credibility with no proof = recognition-by-trade (packs) + architecture transparency (your accounts / your authority / your memory) + solution-first honesty + Scott's pedigree + owner-does-the-math ROI.
 > - **Guards are now stable invariants** (firm descriptor in the hero, Operator named as flagship above the fold, single assessment CTA, retired routes gone + 301'd), not brittle section-order, in `tests/landing-page.test.ts`.
 >
@@ -126,3 +126,11 @@ These are tracked here so they are not lost and not silently executed inside an 
 ## Change control
 
 A lock in §2, §3, or §4 changes only by a Captain decision recorded as a dated entry appended here, followed by updating the guard tests in the same PR. A build PR that needs to deviate stops and gets the decision first. That is the whole point of this file: the argument is sound, so the site should stop moving except by intent.
+
+### Decision log
+
+**2026-06-30 — `/contact` restored as the quiet general-inquiry channel.** Amends §3's "no second contact form as a peer door" lock and reverses the 2026-06-29 superseding-block call that killed `/contact` in favor of "booking + a footer email."
+
+- **Why.** The contact form exists so anyone who wants to reach the firm for a reason that is _not_ booking an assessment — a partnership, a vendor question, press, or another way to work together — has a channel, **without us publishing an email address on the site**. The 2026-06-29 consolidation replaced the form with a published `mailto:team@smd.services` in the footer, which is the exact thing the form was meant to avoid. That was the defect, surfaced because the form kept getting reaped on every rebuild while the intent behind it was never recorded here.
+- **What stays locked.** The assessment at `/book` is and remains the **single primary front door.** `/contact` is **not** a peer door: it is footer-linked only, never in the nav and never a hero CTA, and the page itself routes engagement-seekers to the assessment. This satisfies the spirit of the §3 "no second contact form as a peer door" lock — the prohibition is on a _co-equal_ door, not on a quiet lower-weight channel.
+- **What changed in the same PR (per change-control).** Page `src/pages/contact.astro` restored (wired to the surviving `src/pages/api/contact.ts` Resend endpoint, which never left). Footer `mailto` replaced with a `Contact` link. Middleware `/contact` 301 removed. Guard tests in `tests/landing-page.test.ts` **inverted** — they now assert the page exists, posts to `/api/contact`, publishes no `mailto`, and is not redirected away. So a future rebuild reading this spine keeps the form instead of reaping it.
