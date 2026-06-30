@@ -52,6 +52,7 @@ import SlotPicker from '../../../components/booking/SlotPicker.astro'
             <p class="ss-eyebrow">Confirmed</p>
             <h1 id="details-slot" class="ss-headline-sm"></h1>
             <p id="details-meeting-label" class="ss-lede mt-row"></p>
+            <p id="details-notice" class="ss-notice mt-row" hidden></p>
           </header>
 
           <dl class="ss-detail-list">
@@ -227,6 +228,15 @@ import SlotPicker from '../../../components/booking/SlotPicker.astro'
 
     // ---------- Reschedule ----------
 
+    function resetRescheduleForm() {
+      currentSlot = null
+      document.getElementById('reschedule-selected').hidden = true
+      const confirmBtn = document.getElementById('reschedule-confirm-btn')
+      confirmBtn.disabled = true
+      confirmBtn.textContent = 'Confirm new time'
+      document.getElementById('reschedule-error').hidden = true
+    }
+
     document.getElementById('details-reschedule-btn').addEventListener('click', function () {
       if (!bookingData) return
       document.getElementById('reschedule-current').textContent = bookingData.slot_label
@@ -242,12 +252,7 @@ import SlotPicker from '../../../components/booking/SlotPicker.astro'
     })
 
     document.getElementById('reschedule-back-btn').addEventListener('click', function () {
-      currentSlot = null
-      document.getElementById('reschedule-selected').hidden = true
-      const confirmBtn = document.getElementById('reschedule-confirm-btn')
-      confirmBtn.disabled = true
-      confirmBtn.textContent = 'Confirm new time'
-      document.getElementById('reschedule-error').hidden = true
+      resetRescheduleForm()
       setState('details')
     })
 
@@ -304,12 +309,20 @@ import SlotPicker from '../../../components/booking/SlotPicker.astro'
         })
         const data = await res.json()
         if (data.ok) {
-          showResult(
-            'Rescheduled',
-            'Your call has been moved.',
-            'It is now on ' + data.slot_label + '. We sent a calendar update.',
-            { hideCta: true }
-          )
+          // Return to the details view showing the new time, with Reschedule
+          // and Cancel still available — the manage token stays valid across a
+          // reschedule, so this is not a terminal state. A re-reschedule must
+          // refetch availability (the slot just taken is now busy), so clear
+          // the fetched flag.
+          bookingData.slot_label = data.slot_label
+          document.getElementById('details-slot').textContent = data.slot_label
+          const notice = document.getElementById('details-notice')
+          notice.textContent =
+            'Rescheduled. Your call is now on ' + data.slot_label + '. We sent a calendar update.'
+          notice.hidden = false
+          resetRescheduleForm()
+          slotsFetched = false
+          setState('details')
           return
         }
         setError(
@@ -399,6 +412,15 @@ import SlotPicker from '../../../components/booking/SlotPicker.astro'
       margin: 0;
       font-size: 1rem;
       color: var(--ss-color-text-primary);
+    }
+    .ss-notice {
+      margin: 0.75rem 0 0;
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      background: var(--ss-color-surface-muted);
+      border-left: 3px solid var(--ss-color-success);
+      color: var(--ss-color-text-secondary);
+      font-size: 0.95rem;
     }
   </style>
 </Base>
