@@ -212,14 +212,46 @@ describe('marketing structure: firm-with-flagship (locked)', () => {
   })
 
   it('the retired marketing pages are gone (not live routes)', () => {
-    for (const p of [
-      'src/pages/why.astro',
-      'src/pages/consulting.astro',
-      'src/pages/ai.astro',
-      'src/pages/contact.astro',
-    ]) {
+    for (const p of ['src/pages/why.astro', 'src/pages/consulting.astro', 'src/pages/ai.astro']) {
       expect(existsSync(resolve(p)), `${p} should be removed (folded + redirected)`).toBe(false)
     }
+  })
+
+  // /contact is NOT retired. Captain decision 2026-06-30 restored it as the
+  // quiet general-inquiry channel (a real form, not a published email address),
+  // recorded in docs/marketing/positioning-spine.md. The assessment at /book
+  // stays the single primary front door; /contact is a lower-weight channel
+  // (footer-linked, never nav or a hero CTA). This guard inverts the prior
+  // "retired" assertions so a future rebuild that reads the spine cannot
+  // silently reap the form again.
+  it('the contact form is restored and wired to its backend (quiet channel, not a peer door)', () => {
+    const page = resolve('src/pages/contact.astro')
+    expect(existsSync(page), 'src/pages/contact.astro should exist (restored 2026-06-30)').toBe(
+      true
+    )
+    const contact = readFileSync(page, 'utf-8')
+    // Posts to the surviving Resend-backed endpoint.
+    expect(contact, 'contact page must POST to /api/contact').toContain('/api/contact')
+    // The backend endpoint itself must be present.
+    expect(
+      existsSync(resolve('src/pages/api/contact.ts')),
+      'the /api/contact endpoint must exist'
+    ).toBe(true)
+    // Honors the "do not publish the email" intent: no mailto on the page.
+    expect(contact, 'contact page must not publish a mailto address').not.toContain('mailto:')
+    // Routes engagement-seekers to the real front door.
+    expect(contact, 'contact page must point to the assessment front door').toContain('/book')
+  })
+
+  it('the footer links to /contact and does not publish a raw email address', () => {
+    const footer = readComponent('Footer.astro')
+    expect(footer, 'footer must link to /contact').toContain('href="/contact"')
+    expect(footer, 'footer must not publish a mailto address').not.toContain('mailto:')
+  })
+
+  it('the contact route is NOT 301-redirected away in middleware', () => {
+    const mw = readFileSync(resolve('src/middleware.ts'), 'utf-8')
+    expect(mw, 'middleware must not redirect /contact').not.toContain("pathname === '/contact'")
   })
 
   it('nav does not link the retired pages', () => {
@@ -229,7 +261,7 @@ describe('marketing structure: firm-with-flagship (locked)', () => {
 
   it('the retired routes 301 in middleware (bookmarks keep working)', () => {
     const mw = readFileSync(resolve('src/middleware.ts'), 'utf-8')
-    for (const route of ["'/why'", "'/consulting'", "'/ai'", "'/contact'"]) {
+    for (const route of ["'/why'", "'/consulting'", "'/ai'"]) {
       expect(mw, `middleware should reference retired route ${route}`).toContain(route)
     }
     expect(mw).toContain('/operator#compare')
