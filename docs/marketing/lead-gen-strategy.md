@@ -3,7 +3,7 @@
 **Status:** Living. v1 draft 2026-06-30.
 **Owner:** Captain.
 **Source research:** `docs/research/lead-gen/` (6-panel expert research + internal grounding, 2026-06-30).
-**Companion decision:** a thin ADR (next free number 0058) can record this once confirmed.
+**Companion decision:** [ADR 0058](../adr/0058-lead-generation-portfolio-and-sequencing.md).
 
 ---
 
