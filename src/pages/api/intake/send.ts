@@ -3,7 +3,7 @@ import { env } from 'cloudflare:workers'
 import { ORG_ID } from '../../../lib/constants'
 import { rateLimitByIp } from '../../../lib/booking/rate-limit'
 import { processIntakeSubmission } from '../../../lib/booking/intake-core'
-import { ALLOWED_INTERESTS } from '../../../lib/booking/config'
+import { ALLOWED_INTERESTS, interestLabel } from '../../../lib/booking/config'
 import { trimString, isValidEmail, escapeHtml, jsonResponse } from '../../../lib/api/helpers'
 import { dispatchEnrichmentWorkflow } from '../../../lib/enrichment/dispatch'
 import { sendEmail } from '../../../lib/email/resend'
@@ -36,25 +36,9 @@ const MAX_MESSAGE_CHARS = 5000
  */
 const MIN_FORM_FILL_MS = 2000
 
-// ALLOWED_INTERESTS (the /book?interest=<sku> allow-list) is shared with
-// the /book page via lib/booking/config — one list, two enforcement points.
-const INTEREST_LABELS: Record<string, string> = {
-  operator: 'Operator',
-  'law-firm': 'Operator for Law Firms',
-  insurance: 'Operator for Insurance Agencies',
-  veterinary: 'Operator for Veterinary Clinics',
-  title: 'Operator for Title & Escrow',
-  accounting: 'Operator for Accounting Firms',
-  ria: 'Operator for Advisory Firms',
-  mortgage: 'Operator for Mortgage Brokers',
-  dental: 'Operator for Dental Practices',
-  'med-spa': 'Operator for Med Spas',
-  'marketing-agency': 'Operator for Marketing Agencies',
-  'property-management': 'Operator for Property Managers',
-  'home-services': 'Operator for Home Services',
-  ai: 'AI & Automation',
-  consulting: 'Solutions Consulting',
-}
+// The interest allow-list and its slug→label map both live in
+// lib/booking/config — one source of truth, enforced at /book (page
+// prefill) and here (API boundary), and rendered via interestLabel().
 
 interface ValidatedSendBody {
   name: string
@@ -210,8 +194,8 @@ async function sendAdminNotification(
   const escapedPhone = params.phone ? escapeHtml(params.phone) : null
   const escapedWebsite = params.website ? escapeHtml(params.website) : null
   const escapedMessage = params.message ? escapeHtml(params.message) : null
-  const interestLabel = params.interest ? INTEREST_LABELS[params.interest] : null
-  const escapedInterest = interestLabel ? escapeHtml(interestLabel) : null
+  const intentLabel = interestLabel(params.interest)
+  const escapedInterest = intentLabel ? escapeHtml(intentLabel) : null
 
   const html = [
     `<p><strong>${escapedName}</strong> &lt;${escapedEmail}&gt; from <strong>${escapedBusiness}</strong> sent a message via the Send path on /book.</p>`,

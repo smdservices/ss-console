@@ -1,17 +1,30 @@
 ---
+import { bookHref } from '../lib/booking/config'
+
 interface Props {
   variant?: 'primary' | 'secondary' | 'outline-white'
+  /** Explicit destination. Wins over `interest`. */
   href?: string
+  /**
+   * Assessment intent slug. When `href` is omitted, the button links to
+   * /book?interest=<interest> (defaulting to the flagship product). Lets a
+   * CTA carry attribution without hand-writing the /book URL.
+   */
+  interest?: string
   class?: string
   'data-ev'?: string
 }
 
 const {
   variant = 'primary',
-  href = '/book',
+  href,
+  interest,
   class: className = '',
   'data-ev': dataEv,
 } = Astro.props
+
+// Precedence: explicit href > interest-built /book href > default /book href.
+const resolvedHref = href ?? bookHref(interest)
 
 const base =
   "inline-flex items-center justify-center font-bold uppercase tracking-[0.08em] font-['Archivo'] transition-colors"
@@ -25,6 +38,6 @@ const variants = {
 }
 ---
 
-<a href={href} class:list={[base, variants[variant], className]} data-ev={dataEv}>
+<a href={resolvedHref} class:list={[base, variants[variant], className]} data-ev={dataEv}>
   <slot />
 </a>

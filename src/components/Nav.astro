@@ -1,5 +1,6 @@
 ---
 import SmdLogo from './SmdLogo.astro'
+import { bookHref, DEFAULT_BOOK_INTEREST } from '../lib/booking/config'
 
 const navLinks = [
   { href: '/operator', label: 'Operator' },
@@ -12,8 +13,7 @@ const navLinks = [
 // slug; everything else defaults to operator. The single front door is the assessment.
 const path = Astro.url.pathname
 const packMatch = path.match(/^\/packs\/([^/]+)\/?$/)
-const bookInterest = packMatch ? packMatch[1] : 'operator'
-const bookHref = `/book?interest=${bookInterest}`
+const bookUrl = bookHref(packMatch ? packMatch[1] : DEFAULT_BOOK_INTEREST)
 ---
 
 <header
@@ -42,7 +42,7 @@ const bookHref = `/book?interest=${bookInterest}`
            menu's bottom bar and in every page hero. -->
       <a
         class="hidden md:inline-flex items-center whitespace-nowrap min-h-11 border-[3px] border-[color:var(--ss-color-text-primary)] bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] active:bg-[color:var(--ss-color-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ss-color-action)] focus-visible:ring-offset-2 px-3 md:px-5 py-2 font-['Archivo'] font-bold uppercase tracking-[0.08em] text-white text-xs md:text-sm transition-colors"
-        href={bookHref}
+        href={bookUrl}
         data-ev="nav-book">Start with an assessment</a
       >
       <button
@@ -114,7 +114,7 @@ const bookHref = `/book?interest=${bookInterest}`
     <!-- Bottom CTA -->
     <div class="flex-none border-t-[3px] border-white p-5">
       <a
-        href={bookHref}
+        href={bookUrl}
         data-nav-link
         data-ev="nav-mobile-book"
         class="flex w-full items-center justify-center whitespace-nowrap border-[3px] border-white bg-[color:var(--ss-color-primary)] hover:bg-[color:var(--ss-color-primary-hover)] px-5 py-4 font-['Archivo'] text-base font-bold uppercase tracking-[0.08em] text-white transition-colors"

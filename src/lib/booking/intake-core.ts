@@ -11,6 +11,7 @@ import { createContact } from '../db/contacts'
 import { updateAssessment, getAssessment } from '../db/assessments'
 import { createMeetingWithLegacyAssessment, ensureMeetingForAssessment } from '../db/meetings'
 import { appendContext } from '../db/context'
+import { interestLabel } from './config'
 
 export interface IntakeInput {
   name: string
@@ -215,17 +216,10 @@ async function resolveMeeting(
   return none
 }
 
-const INTEREST_LABELS: Record<string, string> = {
-  operator: 'Operator',
-  ai: 'AI & Automation',
-  consulting: 'Solutions Consulting',
-}
-
 function buildIntakeLines(input: IntakeInput): string[] {
   const lines: string[] = []
   if (input.interest) {
-    const label = INTEREST_LABELS[input.interest] ?? input.interest
-    lines.push(`Inquiring about: ${label}`)
+    lines.push(`Inquiring about: ${interestLabel(input.interest)}`)
   }
   if (input.vertical) lines.push(`Vertical: ${input.vertical}`)
   if (input.employeeCount) lines.push(`Employees: ${input.employeeCount}`)
