@@ -128,14 +128,15 @@ export function interestLabel(slug?: string | null): string | null {
   return INTEREST_LABELS[slug] ?? slug
 }
 
-/** Contextless marketing surfaces default to the flagship product. */
-export const DEFAULT_BOOK_INTEREST = 'operator'
-
 /**
- * Builds a /book href that always carries an interest, so no CTA silently
- * drops attribution. Does NOT validate — the allow-list is enforced at
- * /book and /api/intake/send.
+ * Builds a /book href. Pass an `interest` only from a surface that is
+ * genuinely about that solution (the /operator page or a vertical pack) so
+ * the prospect sees an "Inquiring about …" chip. Firm-level surfaces
+ * (homepage, about, contact, footer, the nav on generic pages) call this
+ * with no argument: the assessment is the objectives-first front door and
+ * must not presume a solution before the conversation. Does NOT validate —
+ * the allow-list is enforced at /book and /api/intake/send.
  */
-export function bookHref(interest: string = DEFAULT_BOOK_INTEREST): string {
-  return `/book?interest=${interest}`
+export function bookHref(interest?: string): string {
+  return interest ? `/book?interest=${interest}` : '/book'
 }
