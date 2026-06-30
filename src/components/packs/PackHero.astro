@@ -13,7 +13,7 @@ const { slug } = Astro.props
 ---
 
 <section class="relative overflow-hidden bg-[color:var(--ss-color-background)] px-6 pt-24 pb-32">
-  <div class="mx-auto max-w-5xl text-center">
+  <div class="mx-auto max-w-5xl">
     <p
       class="mb-6 font-['JetBrains_Mono'] text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--ss-color-text-secondary)]"
     >
@@ -24,9 +24,7 @@ const { slug } = Astro.props
     >
       <slot name="heading" />
     </h1>
-    <p
-      class="mx-auto mb-8 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]"
-    >
+    <p class="mb-8 max-w-2xl text-xl leading-relaxed text-[color:var(--ss-color-text-secondary)]">
       <slot name="lede" />
     </p>
     <CtaButton href={`/book?interest=${slug}`} data-ev={`${slug}-hero-cta`}
