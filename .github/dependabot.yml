@@ -1,0 +1,20 @@
+# Keeps the GitHub Actions pinned to commit SHAs current. Workflows pin every
+# `uses:` to a full-length commit SHA (supply-chain hardening; enforced by the
+# Semgrep github-actions-mutable-action-tag rule in security.yml). Dependabot
+# bumps the SHA and the trailing version comment when a new release ships, so
+# the pins stay both immutable and maintained. Dependabot PRs flow through
+# .github/workflows/dependabot-auto-merge.yml.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns:
+          - '*'
+    commit-message:
+      prefix: chore(actions)
