@@ -1,7 +1,5 @@
 import type { D1Database } from '@cloudflare/workers-types'
 import type { RuntimeReadResult, RuntimeReadQuery } from '../runtime-read'
-import { SCREENING_ATTESTATION_MAX_AGE_DAYS } from '../customer-yaml/types'
-import { isAttestationFresh } from '../customer-yaml/sections-screening-attestation'
 import { buildMcpMetadataPath, type ResolvedMcpCustomer } from './customer-resolution'
 import { dispatchMcpRequest, getMcpToolName, parseMcpBody } from './mcp-handler'
 import { recordMcpAudit } from './mcp-audit'
@@ -149,38 +147,6 @@ export async function handleMcpPost(
   url: URL,
   deps: McpRouteDependencies
 ): Promise<Response> {
-  // Runtime screening-attestation gate (ADR 0057 §4): an enabled connector goes
-  // dark the moment the firm's no-active-screens attestation is missing or stale,
-  // until re-attested. This is the fail-closed runtime enforcement of a
-  // continuously-changing fact — over and above the authoring-time validator gate.
-  if (
-    deps.customer.connector.enabled &&
-    !isAttestationFresh(
-      deps.customer.screeningAttestation,
-      new Date().toISOString(),
-      SCREENING_ATTESTATION_MAX_AGE_DAYS
-    )
-  ) {
-    await recordMcpAudit(deps.db, {
-      entityId: deps.customer.entityId,
-      customerSlug: deps.customer.customerId,
-      eventType: 'auth',
-      decision: 'deny',
-      reason: 'attestation_stale',
-      clerkSubject: null,
-      tokenAudience: null,
-      localUserId: null,
-      profile: null,
-      tool: null,
-    })
-    return unauthorized(
-      url,
-      deps.customer.customerId,
-      deps.customer.clerkOrgId !== null,
-      'screening attestation missing or stale'
-    )
-  }
-
   const token = extractBearerToken(request.headers.get('authorization'))
   let auth = await validateMcpToken(token, deps.customer, deps.verifier)
   // Open-by-domain JIT (slice 2e): a genuine, verified firm-domain user who is not

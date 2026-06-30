@@ -96,12 +96,6 @@ export function projectCustomerYamlToConfigRow(
     // defaults it to disabled); guard for null anyway, which the read side
     // resolves to the same fail-closed default via parseMcpConnector.
     mcp_connector_json: yaml.mcp_connector ? JSON.stringify(yaml.mcp_connector) : null,
-    // screening_attestation is always present on a validated CustomerYaml; guard
-    // for null, which the read side resolves to the fail-closed not-attested
-    // default via parseScreeningAttestation.
-    screening_attestation_json: yaml.screening_attestation
-      ? JSON.stringify(yaml.screening_attestation)
-      : null,
     git_sha: ctx.gitSha,
     synced_at: ctx.syncedAt,
   }
@@ -136,7 +130,6 @@ const CONFIG_COLUMNS = [
   'authority_json',
   'credential_custody_default',
   'mcp_connector_json',
-  'screening_attestation_json',
   'git_sha',
   'synced_at',
 ] as const
@@ -167,7 +160,6 @@ export function buildProjectionSql(row: CustomerConfigDbRow, actor: string): str
     e(row.authority_json),
     e(row.credential_custody_default),
     e(row.mcp_connector_json),
-    e(row.screening_attestation_json),
     e(row.git_sha),
     e(row.synced_at),
   ]

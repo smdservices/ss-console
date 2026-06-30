@@ -67,7 +67,6 @@ import { checkWebhookTriggers } from './sections-webhook-triggers'
 import { checkExtendsReserved, checkVerticalPinned } from './sections-vertical'
 import { checkAddons } from './sections-addons'
 import { checkMcpConnector } from './sections-mcp-connector'
-import { checkScreeningAttestation } from './sections-screening-attestation'
 import { checkGoogleAuth } from './sections-google-auth'
 import { checkAuthority } from './sections-authority'
 import { checkRelationship } from './sections-relationship'
@@ -109,7 +108,6 @@ export type {
   McpConnector,
   McpConnectorAccess,
   McpIssuancePolicy,
-  ScreeningAttestation,
   Relationship,
   RelationshipPerson,
   DataPosture,
@@ -129,8 +127,6 @@ export {
   ACCEPTED_EXPOSURE_CEILINGS,
   ACCEPTED_USER_ROLES,
   ACCEPTED_DATA_POSTURES,
-  SCREENING_ATTESTATION_MAX_AGE_DAYS,
-  SCREENING_ATTESTATION_WARN_AGE_DAYS,
   ACCEPTED_PERSONA_STATUSES,
   ACCEPTED_PRONOUNS,
   ACCEPTED_LOG_LEVELS,
@@ -151,7 +147,6 @@ export {
   type SyncSource,
 } from './types'
 export { resolveCohortVocabulary } from './sections-voice'
-export { checkScreeningAttestation, isAttestationFresh } from './sections-screening-attestation'
 export {
   ACCEPTED_AUTHORITY_DEFAULTS,
   ACCEPTED_AUTHORITY_HOLDERS,
@@ -251,7 +246,6 @@ interface ParsedSections {
   authority: AuthorityPosture
   credentialCustodyDefault: CredentialCustody
   mcpConnector: ReturnType<typeof checkMcpConnector>
-  screeningAttestation: ReturnType<typeof checkScreeningAttestation>
   relationship: ReturnType<typeof checkRelationship>
 }
 
@@ -283,22 +277,6 @@ function validateSections(
   const memory = checkMemory(root, customerId, verticalResult.vertical, errors)
   const webhookTriggers = checkWebhookTriggers(root, personas, connectors, errors)
   const mcpConnector = checkMcpConnector(root, users, personas, errors)
-  const screeningAttestation = checkScreeningAttestation(root, errors)
-  // Cross-block gate (ADR 0057 §4): an LLM cannot be relied on to refuse data it
-  // is handed, so no live inbound channel may be authored without a firm
-  // no-active-screens attestation. Applies to BOTH the MCP connector and the
-  // inbound email channel (scope.inbound_allow_from).
-  if (
-    !screeningAttestation.attested &&
-    (mcpConnector.enabled || scope.inbound_allow_from.length > 0)
-  ) {
-    errors.push({
-      code: 'MissingField',
-      path: 'screening_attestation.attested',
-      message:
-        'screening_attestation.attested must be true to enable an inbound channel (mcp_connector.enabled or a non-empty scope.inbound_allow_from) — ADR 0057 §4',
-    })
-  }
   return {
     schemaVersion,
     customerId,
@@ -325,7 +303,6 @@ function validateSections(
     authority: checkAuthority(root, errors),
     credentialCustodyDefault: checkCredentialCustodyDefault(root, errors),
     mcpConnector,
-    screeningAttestation,
     relationship: checkRelationship(root, errors),
   }
 }
@@ -364,7 +341,6 @@ function assembleCustomerYaml(root: Record<string, unknown>, p: ParsedSections):
     authority: p.authority,
     credential_custody_default: p.credentialCustodyDefault,
     mcp_connector: p.mcpConnector,
-    screening_attestation: p.screeningAttestation,
     relationship: p.relationship,
   }
 }

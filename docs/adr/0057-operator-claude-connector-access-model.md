@@ -41,9 +41,13 @@ Login proves _who_; a grant decides _whether, and until when_. Authorization is 
 
 Per [ADR 0035](0035-no-imposed-entitlement-defaults.md), the firm authors its posture in `customer.yaml`: **allowlist** (default — grants exist only for authored/seeded principals) or **open** (a verified firm-domain identity is JIT-granted on first authenticated connect). The Operator owns issuance policy; Clerk owns token crypto. The Operator-issued one-click sign-in ticket is an **optional, deferred convenience** on top of this login, not a dependency.
 
-### 4. Ethical screening is a required, fail-closed capability — not "judgment"
+### 4. No screening gate — risk is the client's to accept (amended 2026-06-29)
 
-An LLM cannot be relied on to refuse data it has been handed. Until authored screening exists, the connector — on **any** channel, email included — ships only to firms that **attest in writing they have no active screens or ethical walls**. This is a hard precondition to authoring a live customer's access.
+**This section originally made a written no-active-screens attestation a hard, fail-closed precondition to any inbound channel. That is reversed; the gate was ripped out.**
+
+This is a frontier-technology product, used at the client's own risk by nature — not a NASA-grade compliance system. A firm adopting the connector is already choosing to expose its data to Claude; we do not get to tell them "sign this attestation or you cannot connect." We can, and probably should, help a client _understand_ the risks — but we do not gate their access on signed paperwork, and we do not build enforcement of legal/compliance posture into the product.
+
+The connector still **fails closed on authorization** — no grant, no access; the grant table (§2) is the real gate. Documentation, disclosure, and service-agreement work belongs to when there is a product to sell, and is a business decision for the Captain, not an agent-built feature.
 
 ### 5. End-state — Enterprise-Managed Authorization / the firm's own IdP
 
@@ -54,21 +58,20 @@ When EMA supports Microsoft Entra / M365 (Okta-only at writing), identity and of
 - **The kill switch is real and instant on revoke** because the grant table is the gate, checked per request — this is the central correctness property and must not regress to "the Clerk session/token is the gate."
 - **SMD is, in the interim, a processor of firm employee-identity data** (Clerk user records created on email-link login): a DPA and employee-record-deletion duty on revocation / contract-end, retired by the EMA end-state.
 - **Implementation surface shrinks to what is ours**: a grant table + live authorization (this ADR's first build), Clerk configuration + a revoke route, a JIT issuance gate, and a `customer.yaml` policy field. No hand-rolled OAuth server, no ticket-threading seam.
-- The already-shipped email channel (roster `scope.inbound_allow_from`, [ADR 0055](0055-operator-is-an-employee.md)) is unchanged; the screening attestation gate applies to it too.
+- The already-shipped email channel (roster `scope.inbound_allow_from`, [ADR 0055](0055-operator-is-an-employee.md)) is unchanged.
 
 ### Implementation status (slices 2a–2e shipped 2026-06-27)
 
 - **2a** — `mcp_issued_grants` table + live-read merge into principal resolution (the kill switch's read side).
 - **2b** — admin grant lifecycle (`adminIssueGrant` clears a revocation; `revokeGrant`; `listGrants`) + immutable `operator_mcp_grant_audit` ledger (the mutable grant row is state; the ledger is the record of who changed access, for whom, when). TTL bounded `[1, 90]`, never infinite. Admin route + connectors-page panel.
 - **2c** — `mcp_connector.policy` axis (`allowlist` default / `open`), `allowed_domains`, `default_profile`, `ttl_days`, kept distinct from `data_posture`. Validator requires domains + an active `default_profile` for `open`. Pilot ships on `allowlist`.
-- **2d** — screening attestation: authoring gate (validator, both channels, CI-blocking) + a runtime **freshness** gate (`isAttestationFresh`, 90-day window) that takes an enabled connector dark when the attestation is missing or stale. Projected to `customer_configs`; surfaced in the admin panel.
+- **2d — RIPPED OUT (2026-06-29).** Originally a screening-attestation gate (validator authoring gate + runtime freshness + projection + admin surface). Removed in full per the amended §4 — a use-at-your-own-risk product does not block client access on signed paperwork. Migration 0078 drops the projected column.
 - **2e** — hardened open-by-domain JIT (firm opt-in; not the pilot path). On `policy: open`, a genuine token whose subject is not yet granted is auto-granted **only** when: the verified **primary** email's flag is true, its exact host is in `allowed_domains` (single-`@`, lowercased, no implicit subdomain), no `revoked_at` row exists for the subject (**sticky revoke** — only an admin re-issue lifts a revocation), and the per-customer active-grant **cap** (`MCP_OPEN_GRANT_CAP`) is not reached. Open grants carry a shorter TTL (`min(ttl_days, MCP_OPEN_GRANT_TTL_DAYS=7)`). Minting + refusals (`jit_revoked` / `jit_cap_exceeded`) are audited.
 
 **Enforcement points (where each property lives):**
 
 - **Sticky revoke** — the explicit-revoke kill is instant (live-read filters `revoked_at`). The open-policy JIT path (slice 2e) MUST refuse to re-issue a `revoked_at` grant, so a revoked user cannot auto-mint their way back; only an admin re-issue lifts a revocation.
 - **JIT at the route egress** — open-by-domain minting and the verified-primary-email + exact-host-domain checks live in the route (`handleMcpPost`), where the DB handle and the verified email are available; `validateMcpToken` stays pure.
-- **Attestation at validation + runtime** — the structural "enabled ⇒ attested" gate is pure/CI-blocking; the time-based freshness gate runs with a clock at the endpoint (and is surfaced in admin).
 
 **Offboarding-backstop reframe (open).** The passive-lapse story holds only if Clerk's refresh-token absolute expiry ≤ the grant TTL; this must be verified empirically. Until verified, the grant `expires_at` + explicit admin revoke is the authoritative backstop, and mailbox-kill passive lapse is secondary. The email in-flow factor uses **OTP code** (not magic link) to keep verification in Claude's OAuth browser — an implementation refinement of "email-link," same mailbox-possession identity.
 
@@ -77,6 +80,6 @@ When EMA supports Microsoft Entra / M365 (Okta-only at writing), identity and of
 ## What this does not decide
 
 - **The EMA/IdP cutover** — adopted when EMA supports Entra/M365; not built now.
-- **The ethical-screening build** — a required capability and a separate effort; gated behind the written attestation until it exists.
+- **Ethical screening** — a real obligation, but the **firm's**, not ours to enforce in the product (see the amended §4). If we ever surface risk to a client, it is non-blocking disclosure, decided when there is a product to sell.
 - **The optional Operator-issued sign-in ticket** — built only if email-link login proves to carry meaningful friction.
 - **SMD-staff-overseer access** (one SMD person driving multiple Operators) — a separate future decision, modeled deliberately, never by loosening the per-customer principal lookup.

@@ -1,6 +1,6 @@
 # Clerk setup for the Operator MCP connector
 
-**Status:** access model locked by [ADR 0057](../../adr/0057-operator-claude-connector-access-model.md); console shipped (slices 2a–2d). The console is a strict OAuth Resource Server. Per-customer activation needs (1) a Clerk binding row, (2) an authored `mcp_connector` policy, (3) a fresh screening attestation, and (4) the live token-triple verify.
+**Status:** access model locked by [ADR 0057](../../adr/0057-operator-claude-connector-access-model.md); console shipped (slices 2a–2c + 2e). The console is a strict OAuth Resource Server. Per-customer activation needs (1) a Clerk binding row, (2) an authored `mcp_connector` policy, and (3) the live token-triple verify. (The slice-2d screening-attestation gate was removed — see amended ADR 0057 §4.)
 
 ## Authoritative model (ADR 0057)
 
@@ -78,18 +78,12 @@ Migration 0072 requires one canonical resource URI per customer:
 
 `resource_uri` is mandatory. `client_id` does not replace audience validation.
 
-## 3. Author the connector + attestation, then issue grants
+## 3. Author the connector, then issue grants
 
-The authored connector (slices 2c/2d add `policy` / `allowed_domains` /
+The authored connector (slice 2c adds `policy` / `allowed_domains` /
 `default_profile` / `ttl_days`, distinct from `data_posture`):
 
 ```yaml
-# REQUIRED before any enabled inbound channel — real legal data, never placeholder.
-screening_attestation:
-  attested: true
-  attested_by: SMD Services (Scott Durgan, Principal)
-  attested_at: 2026-06-27T00:00:00.000Z
-
 mcp_connector:
   enabled: true
   data_posture: open # where entitled data may land (personal vs firm Claude)
@@ -119,8 +113,7 @@ issued/revoked from the admin connectors page
 (`POST /api/admin/operator/<slug>/mcp-grants`, slice 2b) and recorded immutably in
 `operator_mcp_grant_audit`. Revoking cuts access on the next request. Under
 `policy: open`, a verified firm-domain identity is JIT-granted on first connect
-(slice 2e). The connector also stays dark unless `screening_attestation` is
-present and fresh (within 90 days).
+(slice 2e).
 
 When `entities.clerk_org_id` is populated, the token must also carry that exact
 `org_id`. A non-empty token audience must exactly include the MCP resource URI.
