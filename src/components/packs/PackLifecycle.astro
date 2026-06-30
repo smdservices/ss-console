@@ -1,0 +1,70 @@
+---
+// The lifecycle walk: the center of a pack page and the differentiator over the
+// retired intake-desk framing. One real stretch of the vertical's core process,
+// carried start to finish, each step in three lines: what the Operator does, the
+// person's part, and what happens if a step stalls. This shape is the standard
+// (docs/marketing/pack-standard.md, rule 4), sourced from the A&P discovery-
+// lifecycle template-of-record.
+//
+// Truthfulness: the steps describe the work in the established selling voice, but
+// the section that hosts this component MUST frame it as illustrative ("the shape
+// of the work, not a fixed script") and pair it with the fail-closed test-and-tune
+// honesty ("surfaces what it found and asks"). The kit-grammar guard enforces both.
+interface Step {
+  title: string
+  operator: string
+  your: string
+  stalls?: string
+}
+
+interface Props {
+  steps: Step[]
+}
+
+const { steps } = Astro.props
+
+const rows = (step: Step): { label: string; tone: 'primary' | 'secondary'; text: string }[] => {
+  const out: { label: string; tone: 'primary' | 'secondary'; text: string }[] = [
+    { label: 'Operator', tone: 'primary', text: step.operator },
+    { label: 'Your part', tone: 'secondary', text: step.your },
+  ]
+  if (step.stalls) out.push({ label: 'If it stalls', tone: 'secondary', text: step.stalls })
+  return out
+}
+---
+
+<ol class="border-t-[3px] border-[color:var(--ss-color-text-primary)]">
+  {
+    steps.map((step, i) => (
+      <li class="grid grid-cols-[2.5rem_1fr] gap-x-5 gap-y-4 border-b-[3px] border-[color:var(--ss-color-text-primary)] py-8 md:grid-cols-[4rem_1fr] md:gap-x-8">
+        <span class="font-['Archivo'] text-2xl md:text-4xl font-black tabular-nums leading-none text-[color:var(--ss-color-primary)]">
+          {String(i + 1).padStart(2, '0')}
+        </span>
+        <div class="space-y-5">
+          <h3 class="font-['Archivo'] text-xl md:text-2xl font-black uppercase tracking-[-0.01em] text-[color:var(--ss-color-text-primary)]">
+            {step.title}
+          </h3>
+          <dl class="space-y-3">
+            {rows(step).map((r) => (
+              <div class="grid grid-cols-1 gap-1 sm:grid-cols-[7.5rem_1fr] sm:gap-4">
+                <dt
+                  class:list={[
+                    "font-['Archivo_Narrow'] text-xs font-semibold uppercase tracking-[0.12em]",
+                    r.tone === 'primary'
+                      ? 'text-[color:var(--ss-color-primary)]'
+                      : 'text-[color:var(--ss-color-text-secondary)]',
+                  ]}
+                >
+                  {r.label}
+                </dt>
+                <dd class="text-base leading-relaxed text-[color:var(--ss-color-text-secondary)]">
+                  {r.text}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </li>
+    ))
+  }
+</ol>

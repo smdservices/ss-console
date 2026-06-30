@@ -183,6 +183,34 @@ describe('marketing structure: firm-with-flagship (locked)', () => {
     }
   })
 
+  it('the packs carry the same single verb (CTA in shared components, no retired verb anywhere)', () => {
+    // The pack CTA text lives in the shared pack components, so presence is asserted
+    // there once; the retired verb must appear on neither the components nor any pack page.
+    const packCtaComponents = [
+      'src/components/packs/PackHero.astro',
+      'src/components/packs/PackClosing.astro',
+      'src/components/packs/PackSectionCta.astro',
+    ]
+    for (const comp of packCtaComponents) {
+      const c = flat(readFileSync(resolve(comp), 'utf-8'))
+      expect(c, `"start with an assessment" missing from ${comp}`).toContain(
+        'start with an assessment'
+      )
+      expect(c, `retired verb "start the conversation" present in ${comp}`).not.toContain(
+        'start the conversation'
+      )
+    }
+    const packPages = readdirSync(resolve('src/pages/packs'))
+      .filter((n) => n.endsWith('.astro'))
+      .map((n) => `src/pages/packs/${n}`)
+    for (const page of packPages) {
+      const c = flat(readFileSync(resolve(page), 'utf-8'))
+      expect(c, `retired verb "start the conversation" present in ${page}`).not.toContain(
+        'start the conversation'
+      )
+    }
+  })
+
   it('the retired marketing pages are gone (not live routes)', () => {
     for (const p of [
       'src/pages/why.astro',
