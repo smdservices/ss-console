@@ -17,6 +17,7 @@
  * for stateless servers).
  */
 
+import { jsonResponse } from '../../api/helpers'
 import { z } from 'zod'
 import { getTool, listToolDescriptors, type McpToolContext, type McpToolResult } from './tools'
 
@@ -49,18 +50,11 @@ const JSON_RPC = {
 } as const
 
 function rpcResult(id: JsonRpcRequest['id'], result: unknown): Response {
-  return jsonResponse({ jsonrpc: '2.0', id: id ?? null, result }, 200)
+  return jsonResponse(200, { jsonrpc: '2.0', id: id ?? null, result })
 }
 
 function rpcError(id: JsonRpcRequest['id'], code: number, message: string): Response {
-  return jsonResponse({ jsonrpc: '2.0', id: id ?? null, error: { code, message } }, 200)
-}
-
-function jsonResponse(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
+  return jsonResponse(200, { jsonrpc: '2.0', id: id ?? null, error: { code, message } })
 }
 
 /**

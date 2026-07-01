@@ -1,3 +1,4 @@
+import { jsonResponse } from '../../../lib/api/helpers'
 import type { APIRoute } from 'astro'
 import { ORG_ID } from '../../../lib/constants'
 import { BOOKING_CONFIG } from '../../../lib/booking/config'
@@ -156,11 +157,4 @@ function buildGoogleBusyFetcher(
       clearTimeout(timeout)
     }
   }
-}
-
-function jsonResponse(status: number, data: unknown): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
 }

@@ -1,3 +1,4 @@
+import { jsonResponse } from '../../../../../lib/api/helpers'
 import type { APIContext, APIRoute } from 'astro'
 import { getEntity, transitionStage } from '../../../../../lib/db/entities'
 import { createMeetingWithLegacyAssessment } from '../../../../../lib/db/meetings'
@@ -118,13 +119,6 @@ function buildMailtoUrl(params: { to: string | null; subject: string; body: stri
     body: params.body,
   })
   return `mailto:${encodeURIComponent(address)}?${query.toString()}`
-}
-
-function jsonResponse(status: number, data: unknown): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
 }
 
 async function parseRequestBody(request: Request): Promise<Record<string, unknown> | Response> {

@@ -1,3 +1,4 @@
+import { jsonResponse } from '../../../../../lib/api/helpers'
 import type { APIRoute } from 'astro'
 import { appendContext, listContext, type ContextType } from '../../../../../lib/db/context'
 import { getEntity } from '../../../../../lib/db/entities'
@@ -71,11 +72,4 @@ export const POST: APIRoute = async ({ params, request, locals, redirect }) => {
     console.error('[api/admin/entities/context] POST Error:', err)
     return redirect(`/admin/entities/${entityId}?error=server`, 302)
   }
-}
-
-function jsonResponse(status: number, data: unknown): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
 }
