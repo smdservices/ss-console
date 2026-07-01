@@ -146,6 +146,15 @@ describe('POST /api/webhooks/resend', () => {
     expect(res.status).toBe(400)
   })
 
+  it('400s on a signed payload with a malformed event type', async () => {
+    const body = JSON.stringify({ type: 123, data: { email_id: 'm1' } })
+    const res = await callRoute(makeRequest({ body }))
+    expect(res.status).toBe(400)
+
+    const json = await res.json<{ error: string }>()
+    expect(json.error).toBe('Malformed event payload')
+  })
+
   it('records an event and re-attributes to the entity via the sent row', async () => {
     // Pre-seed the synthetic 'sent' row that the send wrapper would write.
     await recordEvent(db, {

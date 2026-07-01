@@ -172,4 +172,19 @@ describe('POST /api/webhooks/signwell — HMAC verification', () => {
     const res = await POST(buildContext(payload))
     expect(res.status).toBe(500)
   })
+
+  it('rejects a signed document_completed payload with a malformed document object', async () => {
+    const payload = await buildPayload({ type: 'document_completed' })
+    ;(payload.data as { object: Record<string, unknown> }).object = {
+      name: 'Missing ID',
+      status: 'completed',
+      completed_at: null,
+    }
+
+    const res = await POST(buildContext(payload))
+
+    expect(res.status).toBe(400)
+    const json = await parseJson<{ error: string }>(res)
+    expect(json.error).toBe('Malformed event payload')
+  })
 })

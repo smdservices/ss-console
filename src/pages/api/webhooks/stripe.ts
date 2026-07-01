@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro'
+import { z } from 'zod'
 import type { StripeWebhookEvent } from '../../../lib/stripe/types'
 import { handleInvoicePaid, handleInvoicePaymentFailed } from '../../../lib/webhooks/stripe-handler'
 import { env } from 'cloudflare:workers'
@@ -15,6 +16,58 @@ import { env } from 'cloudflare:workers'
  * Only processes `invoice.paid` and `invoice.payment_failed` events.
  * All other events are acknowledged with 200 but not acted upon.
  */
+const StripeWebhookEnvelopeSchema = z.looseObject({
+  type: z.string(),
+})
+
+const StripeInvoiceSchema = z.looseObject({
+  id: z.string().min(1),
+  object: z.literal('invoice'),
+  status: z.enum(['draft', 'open', 'paid', 'uncollectible', 'void']),
+  amount_due: z.number(),
+  amount_paid: z.number(),
+  currency: z.string(),
+  customer: z.string(),
+  customer_email: z.string().nullable(),
+  description: z.string().nullable(),
+  hosted_invoice_url: z.string().nullable(),
+  invoice_pdf: z.string().nullable(),
+  collection_method: z.string(),
+  status_transitions: z.object({
+    paid_at: z.number().nullable(),
+    finalized_at: z.number().nullable(),
+    voided_at: z.number().nullable(),
+  }),
+  metadata: z.record(z.string(), z.string()),
+  created: z.number(),
+  due_date: z.number().nullable(),
+})
+
+const StripeInvoiceWebhookEventSchema = z.looseObject({
+  id: z.string(),
+  object: z.literal('event'),
+  type: z.string(),
+  data: z.object({
+    object: StripeInvoiceSchema,
+  }),
+  created: z.number(),
+})
+
+type ParseStripeWebhookEventResult = { parsed: unknown } | { response: Response }
+
+function parseStripeWebhookEvent(rawBody: string): ParseStripeWebhookEventResult {
+  try {
+    return { parsed: JSON.parse(rawBody) as unknown }
+  } catch {
+    return {
+      response: new Response(JSON.stringify({ error: 'Invalid JSON' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    }
+  }
+}
+
 export const POST: APIRoute = async ({ request }) => {
   const webhookSecret = env.STRIPE_WEBHOOK_SECRET
   if (!webhookSecret) {
@@ -39,27 +92,46 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   // --- Parse payload ---
-  let event: StripeWebhookEvent
-  try {
-    event = JSON.parse(rawBody) as StripeWebhookEvent
-  } catch {
+  const parsedResult = parseStripeWebhookEvent(rawBody)
+  if ('response' in parsedResult) return parsedResult.response
+  const parsed = parsedResult.parsed
+
+  const envelopeResult = StripeWebhookEnvelopeSchema.safeParse(parsed)
+  if (!envelopeResult.success) {
     return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     })
   }
+  const eventType = envelopeResult.data.type
 
   // --- Dispatch by event type ---
-  if (event.type === 'invoice.paid') {
+  if (eventType === 'invoice.paid') {
+    const eventResult = StripeInvoiceWebhookEventSchema.safeParse(parsed)
+    if (!eventResult.success) {
+      return new Response(JSON.stringify({ error: 'Malformed event payload' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+    const event: StripeWebhookEvent = eventResult.data
     return handleInvoicePaid(env.DB, env.RESEND_API_KEY, event)
   }
 
-  if (event.type === 'invoice.payment_failed') {
+  if (eventType === 'invoice.payment_failed') {
+    const eventResult = StripeInvoiceWebhookEventSchema.safeParse(parsed)
+    if (!eventResult.success) {
+      return new Response(JSON.stringify({ error: 'Malformed event payload' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+    const event: StripeWebhookEvent = eventResult.data
     return handleInvoicePaymentFailed(env.DB, event)
   }
 
   // Acknowledge all other events without processing
-  return new Response(JSON.stringify({ ok: true, event: event.type }), {
+  return new Response(JSON.stringify({ ok: true, event: eventType }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   })

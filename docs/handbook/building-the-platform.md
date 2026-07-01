@@ -61,7 +61,7 @@ sub-worker. Two steps in that file carry scars worth knowing: the workflow runs
 on every pull request with no `branches` filter, because a `branches: [main]`
 filter (removed 2026-06-08) matched the PR's base, so a stacked PR based on a
 feature branch silently skipped the whole suite; and the `Test Workers` step was
-added 2026-06-12 after seven worker suites ran locally under `npm run verify` but
+added 2026-06-12 after worker suites ran locally under `npm run verify` but
 never in CI.
 
 There is a separate workflow, `operator-substrate.yml`, that runs the Operator's

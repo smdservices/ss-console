@@ -5,6 +5,7 @@
 
 import { ModuleError } from './instrument'
 import { ANTHROPIC_API_URL, ANTHROPIC_VERSION, QUALITY_MODEL } from '../llm/models'
+import { z } from 'zod'
 
 const MODEL = QUALITY_MODEL
 const MAX_TOKENS = 2048
@@ -92,6 +93,52 @@ export interface DeepWebsiteAnalysis {
   pages_analyzed: string[]
 }
 
+const DeepWebsiteAnalysisPayloadSchema = z.object({
+  owner_profile: z.object({
+    name: z.string().nullable(),
+    title: z.string().nullable(),
+    background: z.string().nullable(),
+  }),
+  team: z.object({
+    size_estimate: z.number().nullable(),
+    named_employees: z.array(z.object({ name: z.string(), role: z.string() })),
+    departments_visible: z.array(z.string()),
+  }),
+  business_profile: z.object({
+    founding_year: z.number().nullable(),
+    services: z.array(z.string()),
+    service_areas: z.array(z.string()),
+    certifications: z.array(z.string()),
+    awards: z.array(z.string()),
+    partnerships: z.array(z.string()),
+  }),
+  customer_signals: z.object({
+    testimonials_count: z.number(),
+    case_studies_visible: z.boolean(),
+    portfolio_visible: z.boolean(),
+    pricing_visible: z.boolean(),
+  }),
+  digital_maturity: z.object({
+    score: z.number().int().min(1).max(10),
+    reasoning: z.string(),
+    online_booking: z.boolean(),
+    chat_widget: z.boolean(),
+    blog_active: z.boolean(),
+    ssl: z.boolean(),
+    mobile_friendly: z.boolean(),
+  }),
+  contact_info: z.object({
+    email: z.string().nullable(),
+    phone: z.string().nullable(),
+    address: z.string().nullable(),
+    social_media: z.object({
+      facebook: z.string().nullable(),
+      instagram: z.string().nullable(),
+      linkedin: z.string().nullable(),
+    }),
+  }),
+})
+
 export async function deepWebsiteAnalysis(
   websiteUrl: string,
   anthropicKey: string
@@ -172,8 +219,9 @@ export async function deepWebsiteAnalysis(
   if (!text) return null
   if (text.startsWith('```')) text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
 
-  const parsed = JSON.parse(text)
-  return { ...parsed, pages_analyzed: pages.map((p) => p.url) }
+  const parsed: unknown = JSON.parse(text)
+  const analysis = DeepWebsiteAnalysisPayloadSchema.parse(parsed)
+  return { ...analysis, pages_analyzed: pages.map((p) => p.url) }
 }
 
 async function safeFetch(url: string): Promise<string | null> {
