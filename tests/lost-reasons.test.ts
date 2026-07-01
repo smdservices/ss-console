@@ -52,11 +52,7 @@ describe('lost-reasons: canonical enum (shared with #477)', () => {
     // Guard: the CLAUDE.md constraint says do NOT invent a second list.
     // If #477 extends this file, that's fine — but no other source file
     // should declare the enum.
-    const repoFiles = [
-      'src/lib/db/entities-bulk.ts',
-      'src/pages/api/admin/entities/bulk.ts',
-      'src/pages/admin/entities/index.astro',
-    ]
+    const repoFiles = ['src/pages/admin/entities/index.astro']
     for (const f of repoFiles) {
       const src = readFileSync(resolve(f), 'utf-8')
       // These files must reference the canonical module, not re-declare.

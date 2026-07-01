@@ -9,8 +9,6 @@
 import type { EntityRowView } from '../../lib/admin/entity-row-view'
 import { statusBadgeClass } from '../../lib/ui/status-badge'
 import { pipelineBadgeClass } from '../../lib/ui/pipeline-badge'
-import { PIPELINE_LABELS } from '../../lead-gen/schemas/lead-scoring-schema'
-import type { PipelineId } from '../../lead-gen/schemas/lead-scoring-schema'
 
 interface Props {
   row: EntityRowView
@@ -71,9 +69,7 @@ function meetingSubstateBadgeClass(s: string): string {
         }
         {
           e.source_pipeline && (
-            <span class={pipelineBadgeClass(e.source_pipeline)}>
-              {PIPELINE_LABELS[e.source_pipeline as PipelineId] ?? e.source_pipeline}
-            </span>
+            <span class={pipelineBadgeClass(e.source_pipeline)}>{e.source_pipeline}</span>
           )
         }
         {

@@ -10,15 +10,10 @@
  * Dedup enforced via UNIQUE(org_id, slug).
  */
 
-import { computeSlug, jaroWinklerSimilarity, normalizeBusinessName } from '../entities/slug.js'
+import { computeSlug } from '../entities/slug.js'
 import { recomputeDeterministicCache } from '../entities/recompute.js'
 import { appendContext } from './context.js'
 import { isLostReasonCode, type LostReasonCode } from './lost-reasons.js'
-import { appendCandidateMergeLog } from './candidate-merge-log.js'
-export {
-  getSignalMetadataForEntities,
-  type EntitySignalMetadata,
-} from './entity-signal-metadata.js'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -288,74 +283,6 @@ async function reloadEntity(db: D1Database, orgId: string, entityId: string): Pr
   return entity
 }
 
-interface FuzzyMatchCandidate {
-  entity: Entity
-  score: number
-}
-
-/**
- * Find the highest-scoring Jaro-Winkler match for `name` across the org's
- * existing entities. Scope is org-wide as of 2026-05-18 (#751 bug 3) —
- * previously scoped `WHERE area = ?`, which silently disabled fuzzy
- * matching for area-less ingests (the common case post-bug-1, since
- * `entities.area` was being silently dropped at INSERT).
- */
-async function findBestFuzzyMatch(
-  db: D1Database,
-  orgId: string,
-  name: string,
-  threshold: number
-): Promise<FuzzyMatchCandidate | null> {
-  const candidates = await db
-    .prepare(`SELECT * FROM entities WHERE org_id = ?`)
-    .bind(orgId)
-    .all<Entity>()
-
-  const target = normalizeBusinessName(name)
-  let bestMatch: FuzzyMatchCandidate | null = null
-  for (const candidate of candidates.results ?? []) {
-    const score = jaroWinklerSimilarity(target, normalizeBusinessName(candidate.name))
-    if (score >= threshold && (!bestMatch || score > bestMatch.score)) {
-      bestMatch = { entity: candidate, score }
-    }
-  }
-
-  return bestMatch
-}
-
-// Jaro-Winkler threshold for LOGGING near-miss entity duplicates to the
-// candidate-merge audit trail (`appendCandidateMergeLog`). This gates only
-// what gets logged for later human review — it does not gate any actual
-// merge. It was formerly an admin-tunable under the `new_business` pipeline
-// settings; when that pipeline was retired (2026-07 realignment) the value
-// was inlined at its long-standing documented default. Fixed value is
-// appropriate for an audit-log threshold.
-const DEDUP_FUZZY_LOG_THRESHOLD = 0.92
-
-async function maybeLogFuzzyDuplicate(
-  db: D1Database,
-  orgId: string,
-  data: CreateEntityData,
-  slug: string
-): Promise<void> {
-  const threshold = DEDUP_FUZZY_LOG_THRESHOLD
-  const bestMatch = await findBestFuzzyMatch(db, orgId, data.name, threshold)
-  if (!bestMatch) return
-
-  await appendCandidateMergeLog(db, orgId, {
-    existingEntityId: bestMatch.entity.id,
-    candidateName: data.name,
-    candidateSlug: slug,
-    candidateArea: data.area ?? null,
-    matchedName: bestMatch.entity.name,
-    matchedArea: bestMatch.entity.area,
-    sourcePipeline: data.source_pipeline ?? null,
-    reason: 'slug_fuzzy_match',
-    score: Number(bestMatch.score.toFixed(4)),
-    metadata: { threshold },
-  })
-}
-
 interface InsertEntityArgs {
   id: string
   slug: string
@@ -410,8 +337,6 @@ export async function findOrCreateEntity(
     const entity = await reloadEntity(db, orgId, existing.id)
     return { status: 'found', entity }
   }
-
-  await maybeLogFuzzyDuplicate(db, orgId, data, slug)
 
   const id = crypto.randomUUID()
   const now = new Date().toISOString()

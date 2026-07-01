@@ -14,17 +14,6 @@ declare module '*.md?raw' {
 }
 
 /**
- * Service binding shape for the `ss-enrichment-workflow` Worker (#631).
- * ss-web's lead-gen workers and admin endpoints dispatch entity enrichment
- * by POSTing to the internal `/dispatch` endpoint on this binding. The
- * target Worker holds the `[[workflows]]` binding for the
- * `EnrichmentWorkflow` class.
- */
-interface EnrichmentWorkflowServiceBinding {
-  fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>
-}
-
-/**
  * Cloudflare Worker bindings and env vars.
  *
  * Accessed via `import { env } from 'cloudflare:workers'` (adapter v13+).
@@ -101,11 +90,6 @@ declare namespace Cloudflare {
     SIGNWELL_WEBHOOK_SECRET?: string
     STRIPE_API_KEY?: string
     STRIPE_WEBHOOK_SECRET?: string
-    LEAD_INGEST_API_KEY?: string
-    GOOGLE_PLACES_API_KEY?: string
-    OUTSCRAPER_API_KEY?: string
-    SERPAPI_API_KEY?: string
-    PROXYCURL_API_KEY?: string
     // Booking system (Calendly replacement) — added with migration 0011
     /** Google Cloud OAuth 2.0 client ID for Calendar integration. */
     GOOGLE_CLIENT_ID?: string
@@ -130,14 +114,6 @@ declare namespace Cloudflare {
      */
     CONSULTANT_PHOTOS_PUBLIC_BASE?: string
     /**
-     * Lead-gen worker origins. Used by the admin "Run now" button to
-     * invoke each worker's fetch handler on demand (bearer-authed via
-     * LEAD_INGEST_API_KEY). Unset in dev — the admin UI degrades to a
-     * disabled Run-now button when the URL or key is missing.
-     */
-    JOB_MONITOR_WORKER_URL?: string
-    REVIEW_MINING_WORKER_URL?: string
-    /**
      * Feature flag for the public /patterns aggregate page. Off by default.
      * Set to "1" or "true" in wrangler.toml once the unlock condition
      * documented in src/pages/patterns.astro is met (>=20 real assessments
@@ -152,16 +128,6 @@ declare namespace Cloudflare {
      * src/lib/observability/sentry.ts.
      */
     SENTRY_DSN?: string
-    /**
-     * Service binding to the `ss-enrichment-workflow` Worker (#631). Hosts
-     * the EnrichmentWorkflow class for entity enrichment. Dispatched from
-     * lead-gen workers and admin endpoints by POSTing to the binding's
-     * internal `/dispatch` endpoint with `{ entityId, orgId, mode, triggered_by }`.
-     * Optional in dev / vitest where the binding doesn't exist; the
-     * dispatcher logs a warning and skips when absent in non-prod, throws
-     * in prod (a missing binding in prod is a deploy ordering bug).
-     */
-    ENRICHMENT_WORKFLOW_SERVICE?: EnrichmentWorkflowServiceBinding
     /**
      * Clerk secret key (sk_test_* for dev, sk_live_* for prod). Used by
      * @clerk/astro middleware to authenticate Clerk sessions on

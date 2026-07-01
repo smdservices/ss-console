@@ -383,9 +383,8 @@ describe('follow-ups: admin dashboard integration', () => {
     expect(settings).toContain('/admin/follow-ups')
   })
 
-  it('admin dashboard shows upcoming and overdue follow-ups', () => {
+  it('admin dashboard shows overdue follow-ups', () => {
     const code = source()
-    expect(code).toContain('upcomingFollowUps')
     expect(code).toContain('overdueFollowUps')
   })
 })

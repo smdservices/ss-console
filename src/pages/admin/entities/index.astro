@@ -2,15 +2,9 @@
 import AdminLayout from '../../../layouts/AdminLayout.astro'
 import LogReplyDialog from '../../../components/admin/LogReplyDialog.astro'
 import EntityListRow from '../../../components/admin/EntityListRow.astro'
-import EntityBulkActions from '../../../components/admin/EntityBulkActions.astro'
 import { buildEntityRowView } from '../../../lib/admin/entity-row-view'
-import {
-  listEntities,
-  countEntitiesPerStage,
-  getSignalMetadataForEntities,
-  ENTITY_STAGES,
-} from '../../../lib/db/entities'
-import type { Entity, EntityStage, EntitySignalMetadata } from '../../../lib/db/entities'
+import { listEntities, countEntitiesPerStage, ENTITY_STAGES } from '../../../lib/db/entities'
+import type { Entity, EntityStage } from '../../../lib/db/entities'
 import { getLatestLostReasonsByEntity } from '../../../lib/db/entities-extra'
 import { getActiveQuotesForEntities, getQuotesForEntities } from '../../../lib/db/quotes'
 import type { Quote } from '../../../lib/db/quotes'
@@ -43,19 +37,6 @@ const entities = await listEntities(env.DB, session.orgId, {
   stage: filterStage,
   ...(filterPipeline ? { source_pipeline: filterPipeline } : {}),
 })
-
-// For the Signal tab we hydrate per-row evidence from the latest pipeline
-// signal context entry + last-activity timestamp. Other stages don't render
-// this data today (Prospect redesign ships in #463), so we only pay the
-// query cost when it's needed.
-const signalMetadata: Map<string, EntitySignalMetadata> =
-  filterStage === 'signal' && entities.length > 0
-    ? await getSignalMetadataForEntities(
-        env.DB,
-        session.orgId,
-        entities.map((e) => e.id)
-      )
-    : new Map()
 
 const stageCounts = await countEntitiesPerStage(env.DB, session.orgId)
 
@@ -163,13 +144,6 @@ const dismissed = Astro.url.searchParams.get('dismissed')
 const dismissedName = Astro.url.searchParams.get('name')
 const error = Astro.url.searchParams.get('error')
 
-// Tabs where multi-select + bulk actions are enabled. Later stages
-// (proposing/engaged/delivered/ongoing/lost) carry contractual weight or
-// are terminal — bulk action there would be destructive in the wrong
-// direction, so we deliberately omit them per issue #463.
-const BULK_ENABLED_STAGES: EntityStage[] = ['signal', 'prospect', 'meetings']
-const bulkEnabled = BULK_ENABLED_STAGES.includes(filterStage)
-
 const LEAD_PIPELINES = [
   { value: 'review_mining', label: 'Review Mining' },
   { value: 'job_monitor', label: 'Job Monitor' },
@@ -223,7 +197,6 @@ const entityRowViews = displayEntities.map((entity) =>
   buildEntityRowView({
     entity,
     filterStage,
-    signalMetadata,
     outreachDraftByEntityId,
     contactEmailByEntityId,
     meetingsByEntityId,
@@ -335,31 +308,10 @@ const entityRowViews = displayEntities.map((entity) =>
       <div
         id="entity-list"
         class="bg-surface rounded-[var(--ss-radius-card)] border border-[color:var(--ss-color-border)]"
-        data-bulk-enabled={bulkEnabled ? 'true' : 'false'}
       >
-        {bulkEnabled && (
-          <div class="px-6 py-3 border-b border-[color:var(--ss-color-border-subtle)] flex items-center gap-3 bg-[color:var(--ss-color-background)]">
-            <label class="inline-flex items-center gap-2 text-xs text-[color:var(--ss-color-text-secondary)] cursor-pointer select-none">
-              <input
-                type="checkbox"
-                id="bulk-select-all"
-                class="w-4 h-4 rounded border-[color:var(--ss-color-border)] cursor-pointer"
-                aria-label="Select all on page"
-              />
-              Select all on page
-            </label>
-            <span
-              id="bulk-count-inline"
-              class="text-xs text-[color:var(--ss-color-text-muted)]"
-              aria-live="polite"
-            >
-              {displayEntities.length} {displayEntities.length === 1 ? 'entity' : 'entities'}
-            </span>
-          </div>
-        )}
         <div class="divide-y divide-[color:var(--ss-color-border-subtle)]">
           {entityRowViews.map((row) => (
-            <EntityListRow row={row} bulkEnabled={bulkEnabled} />
+            <EntityListRow row={row} bulkEnabled={false} />
           ))}
         </div>
       </div>
@@ -374,6 +326,4 @@ const entityRowViews = displayEntities.map((entity) =>
       .filter((e: Entity) => e.stage === 'prospect' && outreachDraftByEntityId.has(e.id))
       .map((e: Entity) => <LogReplyDialog entityId={e.id} entityName={e.name} />)
   }
-
-  {bulkEnabled && entities.length > 0 && <EntityBulkActions />}
 </AdminLayout>

@@ -3,7 +3,7 @@
  * Home — the admin launchpad (ADR 0046).
  *
  * Action-first: "Needs you today" leads, then the two revenue shapes,
- * then three motion cards (Acquisition / Delivery / Fleet) that each
+ * then the motion cards (Delivery / Fleet) that each
  * summarize a surface and jump to it. A launchpad, not a workspace —
  * every tile composes from the surfaces beneath and deep-links; you
  * orient here and leave. Composes from the same helpers the Services and
@@ -13,7 +13,6 @@ import AdminLayout from '../../layouts/AdminLayout.astro'
 import { listFollowUps } from '../../lib/db/follow-ups'
 import { listEngagements } from '../../lib/db/engagements'
 import { listEntities } from '../../lib/db/entities'
-import type { EntityStage } from '../../lib/db/entities'
 import { listInvoices } from '../../lib/db/invoices'
 import { listQuotes } from '../../lib/db/quotes'
 import type { Quote } from '../../lib/db/quotes'
@@ -35,7 +34,6 @@ const now = new Date()
 
 const [
   overdueFollowUps,
-  upcomingFollowUps,
   invoices,
   engagements,
   quotes,
@@ -45,7 +43,6 @@ const [
   operatorServices,
 ] = await Promise.all([
   listFollowUps(env.DB, session.orgId, { overdue: true }),
-  listFollowUps(env.DB, session.orgId, { upcoming: true }),
   listInvoices(env.DB, session.orgId),
   listEngagements(env.DB, session.orgId),
   listQuotes(env.DB, session.orgId),
@@ -97,12 +94,6 @@ const actions = buildActionQueue({
   clientName: (id) => nameById.get(id) ?? '—',
 })
 
-// Acquisition (pre-acceptance pipeline) counts from entities.
-const LEAD_STAGES: EntityStage[] = ['signal', 'prospect', 'meetings', 'proposing']
-const leadsActive = entities.filter((e) => LEAD_STAGES.includes(e.stage)).length
-const triageCount = entities.filter((e) => e.stage === 'signal').length
-const proposingCount = entities.filter((e) => e.stage === 'proposing').length
-
 const fleetAlerting = operators.filter((o) => (o.openAlerts ?? 0) > 0).length
 const fleetHealthy = roster.length - fleetAlerting
 
@@ -132,17 +123,6 @@ interface MotionCard {
   rows: { k: string; n: string | number; tone?: 'alert' | 'good' }[]
 }
 const motion: MotionCard[] = [
-  {
-    label: 'Acquisition',
-    href: '/admin/entities',
-    jump: 'Leads →',
-    rows: [
-      { k: 'Active leads', n: leadsActive },
-      { k: 'In triage', n: triageCount },
-      { k: 'Proposing', n: proposingCount },
-      { k: 'Upcoming follow-ups', n: upcomingFollowUps.length },
-    ],
-  },
   {
     label: 'Delivery',
     href: '/admin/services',
