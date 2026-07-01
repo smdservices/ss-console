@@ -62,7 +62,6 @@ export type EntityTier = 'hot' | 'warm' | 'cool' | 'cold'
 export type EntityVertical = 'home_services' | 'professional_services' | 'contractor_trades' | 'retail_salon' | 'restaurant_food' | 'other'
 
 type StageLabel = { value: EntityStage; label: string }
-type TierLabel = { value: EntityTier; label: string }
 type VerticalLabel = { value: EntityVertical; label: string }
 // prettier-ignore
 export const ENTITY_STAGES: StageLabel[] = [
@@ -70,11 +69,6 @@ export const ENTITY_STAGES: StageLabel[] = [
   { value: 'meetings', label: 'Meetings' }, { value: 'proposing', label: 'Proposing' },
   { value: 'engaged', label: 'Engaged' }, { value: 'delivered', label: 'Delivered' },
   { value: 'ongoing', label: 'Ongoing' }, { value: 'lost', label: 'Lost' },
-]
-// prettier-ignore
-export const ENTITY_TIERS: TierLabel[] = [
-  { value: 'hot', label: 'Hot' }, { value: 'warm', label: 'Warm' },
-  { value: 'cool', label: 'Cool' }, { value: 'cold', label: 'Cold' },
 ]
 // prettier-ignore
 export const ENTITY_VERTICALS: VerticalLabel[] = [
