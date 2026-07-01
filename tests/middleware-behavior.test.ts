@@ -293,6 +293,23 @@ describe('middleware runtime: behavior', () => {
       expect(await res.json()).toEqual({ error: 'Unauthorized' })
     })
 
+    it('exempts /api/admin/fleet/health from the Clerk gate (machine-bearer route)', async () => {
+      // The route self-gates on a health-read key, so the middleware must let a
+      // cookie-less (no Clerk userId) request through to the handler rather than
+      // 401 it. Contrast with /api/admin/entities above which 401s.
+      const { res, next } = await invoke({
+        url: 'https://admin.smd.services/api/admin/fleet/health',
+      })
+      expect(res.status).not.toBe(401)
+      expect(next).toHaveBeenCalledOnce()
+      expect(res.headers.get(NEXT_MARKER)).toBe('1')
+    })
+
+    it('does NOT exempt a sibling /api/admin/fleet/* path (exact match only)', async () => {
+      const { res } = await invoke({ url: 'https://admin.smd.services/api/admin/fleet/other' })
+      expect(res.status).toBe(401)
+    })
+
     it('redirects a Clerk-authenticated NON-admin to /portal on an admin page', async () => {
       await seedNonAdminUser(db)
       const { res } = await invoke({

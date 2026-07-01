@@ -265,6 +265,14 @@ function enforcePortalAuth(context: APIContext, isPortalApiRoute: boolean): Resp
 }
 
 function enforceAuth(context: APIContext, pathname: string): Response | null {
+  // Machine-bearer carve-out: /api/admin/fleet/health authenticates with a
+  // dedicated health-read key (verifyHealthReadKey, fail-closed), not a Clerk
+  // admin session. It lives under /api/admin for URL grouping, but the blanket
+  // admin gate below would 401 the (cookie-less) Machine caller before the
+  // handler's own key check runs. Exempt the EXACT path only — the GET handler
+  // is read-only and self-gates. See src/pages/api/admin/fleet/health.ts.
+  if (pathname === '/api/admin/fleet/health') return null
+
   const isAdminRoute = pathname.startsWith('/admin')
   const isAdminApiRoute = pathname.startsWith('/api/admin')
   const isPortalRoute = pathname.startsWith('/portal')
