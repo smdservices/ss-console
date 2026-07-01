@@ -3,6 +3,7 @@ import cloudflare from '@astrojs/cloudflare'
 import tailwindcss from '@tailwindcss/vite'
 import sitemap from '@astrojs/sitemap'
 import clerk from '@clerk/astro'
+import { isPublicMarketingUrl } from './src/lib/seo/sitemap-filter.mjs'
 
 // SS uses its own session layer backed by the SESSIONS KV namespace (see
 // src/lib/auth/session.ts); we don't use Astro's built-in session API. Pin
@@ -28,7 +29,7 @@ export default defineConfig({
     imageService: 'passthrough',
   }),
   session: { driver: sessionDrivers.lruCache() },
-  integrations: [clerk(), sitemap()],
+  integrations: [clerk(), sitemap({ filter: isPublicMarketingUrl })],
   vite: {
     plugins: [tailwindcss()],
   },
