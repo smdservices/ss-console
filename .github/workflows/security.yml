@@ -49,6 +49,14 @@ jobs:
       - name: Audit (fail on high or critical)
         run: npm audit --audit-level=high
 
+      # NOTE: per-worker audit (workers/* have separate lockfiles, a CI blind
+      # spot per the 2026-06-30 review) is intentionally NOT wired here yet —
+      # it surfaces pre-existing high/critical dev-dependency advisories in the
+      # worker subprojects (e.g. cost-anomaly's esbuild), so a blocking gate
+      # would fail on day one. Sequenced as a follow-up: fix the worker deps
+      # first, then add the gate + per-worker dependabot entries. Tracked in
+      # issue #1588.
+
   gitleaks:
     name: Secret Detection
     runs-on: ubuntu-latest
