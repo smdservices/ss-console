@@ -1,22 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { resolveBusinessName } from '../workers/new-business/src/soda'
 import { inferPostingActorRole } from '../workers/job-monitor/src/qualify'
 
 describe('lead-gen wrong-actor filters', () => {
-  it('preserves Scottsdale licenses as direct business actors', () => {
-    expect(resolveBusinessName('scottsdale_licenses', { Company: 'Sonoran Dental LLC' })).toEqual({
-      name: 'Sonoran Dental LLC',
-      role: 'business',
-    })
-  })
-
-  it('marks Phoenix permit contractor names as contractor actors', () => {
-    expect(resolveBusinessName('phoenix', { PROFESS_NAME: 'Acme Signs LLC' })).toEqual({
-      name: 'Acme Signs LLC',
-      role: 'contractor',
-    })
-  })
-
   it('treats staffing agencies and syndicators as non-direct job actors', () => {
     expect(
       inferPostingActorRole({

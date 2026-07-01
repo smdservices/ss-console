@@ -178,15 +178,6 @@ describe('getPipelineSettings', () => {
     expect(settings.pain_threshold).toBe(7)
   })
 
-  it('returns defaults for new_business pain_threshold', async () => {
-    const state: MockD1State = { settings: new Map(), audits: [], upserts: [] }
-    const db = makeMockD1(state)
-    const settings = await getPipelineSettings(db, ORG, 'new_business')
-    expect(settings.pain_threshold).toBe(1)
-    expect(settings.weekly_places_budget_usd).toBe(10.5)
-    expect(settings.dedup_fuzzy_threshold).toBe(0.92)
-  })
-
   it('ignores unknown keys silently', async () => {
     const state: MockD1State = {
       settings: new Map([['review_mining:unknown_key', '99']]),
@@ -372,28 +363,11 @@ describe('updatePipelineSettings write path', () => {
     expect(state.upserts).toHaveLength(3)
     expect(state.audits).toHaveLength(3)
   })
-
-  it('accepts the new new_business tuning keys', async () => {
-    const db = makeMockD1(state)
-    const res = await updatePipelineSettings(
-      db,
-      ORG,
-      'new_business',
-      [
-        { key: 'weekly_places_budget_usd', value: 15.5 },
-        { key: 'dedup_fuzzy_threshold', value: 0.94 },
-      ],
-      ACTOR
-    )
-    expect(res.ok).toBe(true)
-    expect(res.changed).toBe(2)
-    expect(state.upserts).toHaveLength(2)
-  })
 })
 
 describe('SETTING_SPECS coverage', () => {
-  it('has pain_threshold defined for all three pipelines named in issue #595', () => {
-    const required: PipelineId[] = ['review_mining', 'job_monitor', 'new_business']
+  it('has pain_threshold defined for the surviving lead-gen pipelines', () => {
+    const required: PipelineId[] = ['review_mining', 'job_monitor']
     for (const p of required) {
       expect(SETTING_SPECS[p].pain_threshold).toBeDefined()
     }

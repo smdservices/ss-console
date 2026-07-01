@@ -60,19 +60,6 @@ export interface ReviewScoring {
 }
 
 // ---------------------------------------------------------------------------
-// Batch scoring output — multiple businesses in one call
-// ---------------------------------------------------------------------------
-
-/** Result of a batch scoring call (5-10 businesses per prompt). */
-export interface BatchReviewScoring {
-  /** Array of scored businesses. */
-  businesses: ReviewScoring[]
-
-  /** Total reviews analyzed across all businesses. */
-  total_reviews_analyzed: number
-}
-
-// ---------------------------------------------------------------------------
 // Input data for the prompt
 // ---------------------------------------------------------------------------
 

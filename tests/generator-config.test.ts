@@ -1,71 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import {
-  validateJobMonitor,
-  validateNewBusiness,
-  validateReviewMining,
-  validateSocialListening,
-} from '../src/lib/generators/validate'
+import { validateJobMonitor, validateReviewMining } from '../src/lib/generators/validate'
 import { DEFAULTS } from '../src/lib/generators/types'
 
 describe('generator config validators', () => {
-  describe('validateNewBusiness', () => {
-    it('returns defaults when input is empty', () => {
-      const { value, errors } = validateNewBusiness({})
-      expect(errors).toEqual([])
-      expect(value.target_verticals.length).toBeGreaterThan(0)
-      expect(value.soda_sources.length).toBe(5)
-      expect(value.geos).toEqual(DEFAULTS.new_business.geos)
-    })
-
-    it('accepts a valid full config', () => {
-      const input = {
-        target_verticals: ['home_services', 'healthcare'],
-        geos: ['Arizona'],
-        soda_sources: [
-          { city: 'phoenix', enabled: true },
-          { city: 'mesa', enabled: false },
-        ],
-      }
-      const { value, errors } = validateNewBusiness(input)
-      expect(errors).toEqual([])
-      expect(value.target_verticals).toEqual(['home_services', 'healthcare'])
-      expect(value.soda_sources).toEqual([
-        { city: 'phoenix', enabled: true },
-        { city: 'mesa', enabled: false },
-      ])
-    })
-
-    it('accepts free-text verticals, rejects non-string entries', () => {
-      const { value, errors } = validateNewBusiness({
-        target_verticals: ['home services', 'custom vertical', 42, '   '],
-      })
-      expect(errors).toContain('target_verticals contains invalid entry: 42')
-      expect(errors).toContain('target_verticals contains invalid entry: "   "')
-      expect(value.target_verticals).toEqual(['home services', 'custom vertical'])
-    })
-
-    it('rejects invalid soda cities', () => {
-      const { value, errors } = validateNewBusiness({
-        soda_sources: [
-          { city: 'phoenix', enabled: true },
-          { city: 'albuquerque', enabled: true },
-        ],
-      })
-      expect(errors).toContain('soda_sources: invalid city "albuquerque"')
-      expect(value.soda_sources).toEqual([{ city: 'phoenix', enabled: true }])
-    })
-
-    it('fills missing fields with defaults and never errors on absent keys', () => {
-      // Simulates the schema-evolution case: stored config written before
-      // a new field existed. Validator must NOT error on the missing key.
-      const partial = { target_verticals: ['home_services'] }
-      const { value, errors } = validateNewBusiness(partial)
-      expect(errors).toEqual([])
-      expect(value.soda_sources.length).toBe(5)
-      expect(value.geos).toEqual(DEFAULTS.new_business.geos)
-    })
-  })
-
   describe('validateJobMonitor', () => {
     it('errors when search_queries is empty', () => {
       const { value, errors } = validateJobMonitor({ search_queries: [] })
@@ -80,6 +17,12 @@ describe('generator config validators', () => {
       })
       expect(errors.some((e) => e.startsWith('search_queries contains invalid'))).toBe(true)
       expect(value.search_queries).toEqual(['office manager', 'dispatcher'])
+    })
+
+    it('returns defaults on completely empty input', () => {
+      const { value, errors } = validateJobMonitor({})
+      expect(errors).toEqual([])
+      expect(value.search_queries).toEqual(DEFAULTS.job_monitor.search_queries)
     })
   })
 
@@ -104,23 +47,14 @@ describe('generator config validators', () => {
       })
       expect(errors).toEqual([])
     })
-  })
 
-  describe('validateSocialListening', () => {
-    it('returns defaults on completely empty input', () => {
-      const { value, errors } = validateSocialListening({})
+    it('fills missing fields with defaults and never errors on absent keys', () => {
+      // Schema-evolution case: stored config written before a field existed.
+      // Validator must NOT error on the missing key.
+      const { value, errors } = validateReviewMining({})
       expect(errors).toEqual([])
-      expect(value.search_queries.length).toBe(DEFAULTS.social_listening.search_queries.length)
-    })
-  })
-
-  describe('corrupt JSON handling (integration shape)', () => {
-    // Simulates what getGeneratorConfig does: JSON.parse failure → empty
-    // object passed to validator. Validator still returns usable defaults.
-    it('empty object produces usable config', () => {
-      const { value, errors } = validateNewBusiness({})
-      expect(errors).toEqual([])
-      expect(value.soda_sources.length).toBe(5)
+      expect(value.discovery_queries).toEqual(DEFAULTS.review_mining.discovery_queries)
+      expect(value.geo_center).toEqual(DEFAULTS.review_mining.geo_center)
     })
   })
 })

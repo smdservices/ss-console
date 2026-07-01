@@ -3,10 +3,6 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const generatorTypes = readFileSync(resolve('src/lib/generators/types.ts'), 'utf8')
-const newBusinessPrompt = readFileSync(
-  resolve('src/lead-gen/prompts/new-business-prompt.ts'),
-  'utf8'
-)
 const jobPrompt = readFileSync(resolve('src/lead-gen/prompts/job-qualification-prompt.ts'), 'utf8')
 const reviewPrompt = readFileSync(resolve('src/lead-gen/prompts/review-scoring-prompt.ts'), 'utf8')
 
@@ -17,13 +13,12 @@ describe('lead-gen revenue gate removal', () => {
   })
 
   it('removes $750k-$5M framing from qualification prompts', () => {
-    for (const prompt of [newBusinessPrompt, jobPrompt, reviewPrompt]) {
+    for (const prompt of [jobPrompt, reviewPrompt]) {
       expect(prompt).not.toMatch(/\$750k|\$5M|750k|5M revenue/)
     }
   })
 
   it('keeps enterprise as a structural disqualification', () => {
-    expect(newBusinessPrompt).toContain('Enterprise / multi-state corporate buyer')
     expect(jobPrompt).toContain('Enterprise / 500+ employees / multi-state corporate buyer')
     expect(reviewPrompt).toContain('Enterprise / multi-state corporate buyers are not prospects')
   })
