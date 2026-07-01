@@ -54,7 +54,7 @@ jobs:
       - name: Test
         run: npm test
 
-      # 2026-06-12 code review: this step was missing — 7 worker test suites
+      # 2026-06-12 code review: this step was missing for worker test suites
       # ran locally via `npm run verify` but never in CI. Runs before the
       # per-worker `npm ci` steps below; the vitest binary resolves from the
       # root node_modules through npm's ancestor .bin PATH walk (the same

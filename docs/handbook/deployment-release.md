@@ -48,9 +48,9 @@ The deploy steps run in this order, and the order matters:
    Migrations apply before the code that depends on them and must be
    backward-compatible with the currently deployed app.
 4. **Deploy to Cloudflare Workers** (`wrangler deploy`) - the main `ss-web` Worker.
-5. **Deploy the sub-workers** - job-monitor, new-business, review-mining,
-   social-listening, cost-anomaly, cost-telemetry, enrichment-workflow - each
-   from its own directory. (Between the root deploy and the sub-worker deploys the
+5. **Deploy the sub-workers** - job-monitor, review-mining, cost-anomaly,
+   cost-telemetry, enrichment-workflow - each from its own directory.
+   (Between the root deploy and the sub-worker deploys the
    pipeline removes `.wrangler/`, because the root deploy writes a deploy-config
    file that makes the sub-workers' `wrangler deploy` ambiguous.)
 

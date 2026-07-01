@@ -184,4 +184,21 @@ describe('POST /api/webhooks/stripe — signature verification', () => {
     const res = await POST(buildContext({ body, signatureHeader: buildStripeHeader(ts, sig) }))
     expect(res.status).toBe(500)
   })
+
+  it('rejects a signed invoice event with a malformed invoice object', async () => {
+    const body = JSON.stringify({
+      id: 'evt_bad_invoice',
+      object: 'event',
+      type: 'invoice.paid',
+      data: { object: { object: 'invoice' } },
+      created: nowSeconds(),
+    })
+    const ts = nowSeconds()
+    const sig = await computeStripeV1(ts, body, SECRET)
+    const res = await POST(buildContext({ body, signatureHeader: buildStripeHeader(ts, sig) }))
+
+    expect(res.status).toBe(400)
+    const json = await parseJson<{ error: string }>(res)
+    expect(json.error).toBe('Malformed event payload')
+  })
 })
