@@ -1,3 +1,4 @@
+import { jsonResponse } from '../../../../../../../lib/api/helpers'
 import type { APIRoute } from 'astro'
 import { getMeeting, updateMeeting } from '../../../../../../../lib/db/meetings'
 import { env } from 'cloudflare:workers'
@@ -47,11 +48,4 @@ export const PUT: APIRoute = async ({ request, locals, params }) => {
     console.error('[api/admin/entities/[id]/meetings/[meetingId]/live-notes] Error:', err)
     return jsonResponse(500, { error: 'Internal server error' })
   }
-}
-
-function jsonResponse(status: number, data: unknown): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
 }
