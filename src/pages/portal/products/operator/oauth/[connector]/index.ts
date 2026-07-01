@@ -61,10 +61,21 @@ export const GET: APIRoute = async ({ locals, params, redirect }) => {
     return failed(portalBase, 'provider_not_configured')
   }
 
+  // Bind the state to the reviewer's CLERK id — the callback verifies against
+  // `locals.auth().userId` (Clerk), so reviewer_id must be the Clerk id, not the
+  // local users.id. Using the local id here made every real consent attempt fail
+  // `reviewer_mismatch` (2026-06-30 code review, PR 2a). A Clerk-authenticated
+  // portal user always has clerk_user_id; guard the null case rather than issue a
+  // state that can never match.
+  const reviewerClerkId = access.user.clerk_user_id
+  if (!reviewerClerkId) {
+    return failed(portalBase, 'no_clerk_identity')
+  }
+
   const state = await issueOAuthState({
     customer_id: config.customer_slug,
     provider: 'google-workspace',
-    reviewer_id: access.user.id,
+    reviewer_id: reviewerClerkId,
   })
 
   const authorizeUrl = buildGoogleAuthorizeUrl({

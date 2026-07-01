@@ -135,10 +135,8 @@ declare namespace Cloudflare {
      * LEAD_INGEST_API_KEY). Unset in dev — the admin UI degrades to a
      * disabled Run-now button when the URL or key is missing.
      */
-    NEW_BUSINESS_WORKER_URL?: string
     JOB_MONITOR_WORKER_URL?: string
     REVIEW_MINING_WORKER_URL?: string
-    SOCIAL_LISTENING_WORKER_URL?: string
     /**
      * Feature flag for the public /patterns aggregate page. Off by default.
      * Set to "1" or "true" in wrangler.toml once the unlock condition

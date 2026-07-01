@@ -6,24 +6,17 @@
  * chaos, never called back) from service quality complaints (rude staff,
  * bad haircut). Only operational signals matter for lead qualification.
  *
- * Supports both single-business and batch (5-10 businesses) scoring
- * to optimize operations budget.
- *
  * Used in: CF Worker → Anthropic API → this prompt
  * Input: Business data + recent reviews from Outscraper
- * Output: ReviewScoring or BatchReviewScoring JSON (see review-signal.ts)
+ * Output: ReviewScoring JSON (see review-signal.ts)
  *
  * @see Decision #20 — Voice Standard ("we" voice)
  */
 
-import type {
-  BusinessReviewInput,
-  ReviewScoring,
-  BatchReviewScoring,
-} from '../schemas/review-signal.js'
+import type { BusinessReviewInput, ReviewScoring } from '../schemas/review-signal.js'
 import { PROBLEM_IDS } from '../schemas/lead-scoring-schema.js'
 
-export type { ReviewScoring, BatchReviewScoring, BusinessReviewInput }
+export type { ReviewScoring, BusinessReviewInput }
 
 /**
  * System prompt for review-based operational pain scoring.
@@ -129,44 +122,6 @@ Produce a single JSON object matching the ReviewScoring schema.`
 }
 
 /**
- * Builds the user prompt for batch scoring multiple businesses.
- * More efficient — scores 5-10 businesses per Claude API call,
- * saving Make.com operations (1 Anthropic module call vs. 5-10).
- *
- * @param businesses - Array of businesses with their reviews
- * @returns The user prompt for Claude
- */
-export function buildBatchReviewScoringUserPrompt(businesses: BusinessReviewInput[]): string {
-  const businessBlocks = businesses.map((b, i) => {
-    const reviewLines = b.reviews
-      .map(
-        (r) => `  - ★${'★'.repeat(r.rating - 1)}${'☆'.repeat(5 - r.rating)} (${r.date}) "${r.text}"`
-      )
-      .join('\n')
-
-    return `### Business ${i + 1}: ${b.business_name}
-Place ID: ${b.place_id}
-Category: ${b.category}
-Area: ${b.area}
-Overall Rating: ${b.overall_rating}/5
-Total Reviews: ${b.total_review_count}
-
-Recent Reviews (${b.reviews.length}):
-${reviewLines}`
-  })
-
-  return `Analyze the following ${businesses.length} businesses for operational pain signals. Score each independently.
-
-${businessBlocks.join('\n\n---\n\n')}
-
-Produce a JSON object with this structure:
-{
-  "businesses": [<ReviewScoring for each business, in order>],
-  "total_reviews_analyzed": <total across all businesses>
-}`
-}
-
-/**
  * Builds the complete prompt for manual testing in Claude's chat interface.
  *
  * @param business - Business data with reviews
@@ -262,42 +217,6 @@ export function validateReviewScoring(data: unknown): {
   validateTopProblems(d.top_problems, errors)
   validateChainStatus(d.chain_status, errors)
   validateSignals(d.signals, errors)
-
-  return { valid: errors.length === 0, errors }
-}
-
-/**
- * Validates a batch scoring result.
- *
- * @param data - The parsed JSON to validate
- * @returns An object with `valid` boolean and `errors` array of issues found
- */
-export function validateBatchReviewScoring(data: unknown): {
-  valid: boolean
-  errors: string[]
-} {
-  const errors: string[] = []
-
-  if (typeof data !== 'object' || data === null) {
-    return { valid: false, errors: ['Root must be a non-null object'] }
-  }
-
-  const d = data as Record<string, unknown>
-
-  if (!Array.isArray(d.businesses)) {
-    errors.push('businesses must be an array')
-  } else {
-    for (let i = 0; i < d.businesses.length; i++) {
-      const result = validateReviewScoring(d.businesses[i])
-      if (!result.valid) {
-        errors.push(...result.errors.map((e) => `businesses[${i}]: ${e}`))
-      }
-    }
-  }
-
-  if (typeof d.total_reviews_analyzed !== 'number') {
-    errors.push('total_reviews_analyzed must be a number')
-  }
 
   return { valid: errors.length === 0, errors }
 }

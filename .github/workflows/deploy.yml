@@ -85,17 +85,6 @@ jobs:
           workingDirectory: workers/job-monitor
           command: deploy
 
-      - name: Install New Business Worker deps
-        run: cd workers/new-business && npm ci
-
-      - name: Deploy New Business Worker
-        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: workers/new-business
-          command: deploy
-
       - name: Install Review Mining Worker deps
         run: cd workers/review-mining && npm ci
 
@@ -105,17 +94,6 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: workers/review-mining
-          command: deploy
-
-      - name: Install Social Listening Worker deps
-        run: cd workers/social-listening && npm ci
-
-      - name: Deploy Social Listening Worker
-        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: workers/social-listening
           command: deploy
 
       # 2026-06-12 code review: the three workers below were absent from the
