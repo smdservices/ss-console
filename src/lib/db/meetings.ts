@@ -43,14 +43,6 @@ export interface Meeting {
 
 export type MeetingStatus = 'scheduled' | 'completed' | 'disqualified' | 'converted' | 'cancelled'
 
-export const MEETING_STATUSES: { value: MeetingStatus; label: string }[] = [
-  { value: 'scheduled', label: 'Scheduled' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'cancelled', label: 'Cancelled' },
-  { value: 'disqualified', label: 'Disqualified' },
-  { value: 'converted', label: 'Converted' },
-]
-
 /**
  * Valid status transitions enforced at the application layer. Mirrors the
  * legacy assessment state machine; the CHECK constraint on meetings.status
