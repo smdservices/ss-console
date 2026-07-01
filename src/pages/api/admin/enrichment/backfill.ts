@@ -1,3 +1,4 @@
+import { jsonResponse } from '../../../../lib/api/helpers'
 import type { APIContext, APIRoute } from 'astro'
 import { dispatchEnrichmentWorkflow } from '../../../../lib/enrichment/dispatch'
 import { env } from 'cloudflare:workers'
@@ -119,10 +120,3 @@ async function handlePost({ request, locals }: APIContext): Promise<Response> {
 }
 
 export const POST: APIRoute = (ctx) => handlePost(ctx)
-
-function jsonResponse(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}

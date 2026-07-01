@@ -36,6 +36,7 @@
  * naturally. We don't try to be clever here.
  */
 
+import { jsonResponse } from '../../../lib/api/helpers'
 import type { APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 
@@ -50,24 +51,24 @@ export const POST: APIRoute = async ({ request }) => {
   const expected = env.HEALTHCHECKS_WEBHOOK_SECRET
   if (!expected) {
     console.error('[webhook/healthchecks] HEALTHCHECKS_WEBHOOK_SECRET not configured')
-    return jsonResponse({ error: 'server_misconfigured' }, 500)
+    return jsonResponse(500, { error: 'server_misconfigured' })
   }
 
   if (!bearerMatches(request, expected)) {
-    return jsonResponse({ error: 'unauthorized' }, 401)
+    return jsonResponse(401, { error: 'unauthorized' })
   }
 
   let payload: HealthchecksWebhookPayload
   try {
     payload = await request.json<HealthchecksWebhookPayload>()
   } catch {
-    return jsonResponse({ error: 'invalid_json' }, 400)
+    return jsonResponse(400, { error: 'invalid_json' })
   }
 
   const tenant = payload.tenant?.trim()
   const status = payload.status
   if (!tenant || (status !== 'up' && status !== 'down')) {
-    return jsonResponse({ error: 'missing_tenant_or_status' }, 400)
+    return jsonResponse(400, { error: 'missing_tenant_or_status' })
   }
 
   const entityRow = await env.DB.prepare(
@@ -76,7 +77,7 @@ export const POST: APIRoute = async ({ request }) => {
     .bind(tenant)
     .first<{ entity_id: string }>()
   if (!entityRow) {
-    return jsonResponse({ error: 'unknown_tenant' }, 404)
+    return jsonResponse(404, { error: 'unknown_tenant' })
   }
 
   const summary =
@@ -109,7 +110,7 @@ export const POST: APIRoute = async ({ request }) => {
       .run()
   }
 
-  return jsonResponse({ ok: true, source: 'healthchecks', tenant, status }, 200)
+  return jsonResponse(200, { ok: true, source: 'healthchecks', tenant, status })
 }
 
 function bearerMatches(request: Request, expected: string): boolean {
@@ -122,11 +123,4 @@ function bearerMatches(request: Request, expected: string): boolean {
     mismatch |= provided.charCodeAt(i) ^ expected.charCodeAt(i)
   }
   return mismatch === 0
-}
-
-function jsonResponse(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
 }
