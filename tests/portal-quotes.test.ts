@@ -259,14 +259,18 @@ describe('portal quotes: quote detail page', () => {
   const source = () =>
     readFileSync(resolve('src/pages/portal/quotes/[id].astro'), 'utf-8') +
     '\n' +
-    readFileSync(resolve('src/components/portal/QuoteProposalSections.astro'), 'utf-8')
+    readFileSync(resolve('src/components/portal/QuoteProposalSections.astro'), 'utf-8') +
+    '\n' +
+    readFileSync(resolve('src/lib/portal/quote-detail.ts'), 'utf-8')
 
   it('quote detail page exists', () => {
     expect(existsSync(resolve('src/pages/portal/quotes/[id].astro'))).toBe(true)
   })
 
   it('loads quote via getQuoteForEntity', () => {
-    expect(source()).toContain('getQuoteForEntity')
+    const code = source()
+    expect(code).toContain('loadPortalQuoteDetail')
+    expect(code).toContain('getQuoteForEntity')
   })
 
   it('resolves client via getPortalClient', () => {
