@@ -16,7 +16,7 @@ import { getSowRevisionSignedKey, uploadSignedSowRevisionPdf } from '../storage/
 import { getSignedPdf } from '../signwell/client'
 import type { SignWellWebhookPayload } from '../signwell/types'
 import { sendEmail } from '../email/resend'
-import { portalWelcomeEmailHtml } from '../email/templates'
+import { portalWelcomeEmailHtml, signatureConfirmationEmailHtml } from '../email/templates'
 import { createStripeInvoice, sendStripeInvoice } from '../stripe/client'
 
 // ---------------------------------------------------------------------------
@@ -33,20 +33,8 @@ function unknownDocumentResponse(documentId: string): Response {
   return okResponse()
 }
 
-function signatureConfirmationEmailHtml(businessName: string): string {
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Inter',Arial,sans-serif;">
-<div style="max-width:480px;margin:40px auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;overflow:hidden;">
-<div style="padding:32px 24px;text-align:center;">
-<h1 style="font-size:20px;font-weight:700;color:#0f172a;margin:0 0 8px;">SMD Services</h1>
-<p style="font-size:14px;color:#64748b;margin:0 0 24px;">Client Portal</p>
-<p style="font-size:15px;color:#334155;margin:0 0 8px;">Hi ${businessName},</p>
-<p style="font-size:15px;color:#334155;margin:0 0 24px;">Your Statement of Work has been signed successfully. We're excited to get started working together.</p>
-</div></div></body></html>`
-}
-
 // prettier-ignore
-async function handleSignedEmailJob(db: D1Database, orgId: string, resendApiKey: string | undefined, job: OutboxJob): Promise<void> {
+export async function handleSignedEmailJob(db: D1Database, orgId: string, resendApiKey: string | undefined, job: OutboxJob): Promise<void> {
   const payload = JSON.parse(job.payload_json) as { entity_id: string }
   const contact = await db
     .prepare(
@@ -62,15 +50,22 @@ async function handleSignedEmailJob(db: D1Database, orgId: string, resendApiKey:
     .bind(payload.entity_id, orgId)
     .first<{ name: string }>()
 
-  await sendEmail(resendApiKey, {
+  const result = await sendEmail(resendApiKey, {
     to: contact.email,
     subject: 'SOW Signed - Next Steps',
     html: signatureConfirmationEmailHtml(entity?.name ?? 'there'),
   })
+  // Never swallow a Resend rejection: a discarded {success:false} here means a
+  // client signs and never learns next steps, with zero visibility. Throw so the
+  // outbox marks the job failed (last_error recorded) and re-attempts — instead
+  // of marking it completed as if the email sent.
+  if (!result.success) {
+    throw new Error(`SOW-signed email send failed: ${result.error ?? 'unknown'}`)
+  }
 }
 
 // prettier-ignore
-async function handlePortalInvitationJob(_db: D1Database, _orgId: string, resendApiKey: string | undefined, appBaseUrl: string | undefined, job: OutboxJob): Promise<void> {
+export async function handlePortalInvitationJob(_db: D1Database, _orgId: string, resendApiKey: string | undefined, appBaseUrl: string | undefined, job: OutboxJob): Promise<void> {
   const payload = JSON.parse(job.payload_json) as {
     user_email: string
     user_name: string
@@ -86,14 +81,20 @@ async function handlePortalInvitationJob(_db: D1Database, _orgId: string, resend
     : 'https://portal.smd.services'
   const loginUrlWithEmail = `${portalLoginUrl}?email=${encodeURIComponent(payload.user_email)}`
 
-  await sendEmail(resendApiKey, {
+  const result = await sendEmail(resendApiKey, {
     to: payload.user_email,
     subject: 'Your SMD Services portal is ready',
     html: portalWelcomeEmailHtml(payload.user_name, loginUrlWithEmail),
   })
+  // Never swallow a Resend rejection: a discarded {success:false} here means a
+  // client never gets portal access, with zero visibility. Throw so the outbox
+  // marks the job failed (last_error recorded) and re-attempts.
+  if (!result.success) {
+    throw new Error(`Portal-invitation email send failed: ${result.error ?? 'unknown'}`)
+  }
 }
 
-async function handleDepositInvoiceJob(
+export async function handleDepositInvoiceJob(
   db: D1Database,
   orgId: string,
   stripeApiKey: string | undefined,
@@ -101,6 +102,7 @@ async function handleDepositInvoiceJob(
 ): Promise<void> {
   const payload = JSON.parse(job.payload_json) as {
     entity_id: string
+    quote_id: string
     engagement_id: string
     invoice_id: string
     amount: number
@@ -117,10 +119,24 @@ async function handleDepositInvoiceJob(
 
   if (!contact?.email) return
 
+  // Invoice description must come from AUTHORED content, never a synthesized
+  // scope phrase. The prior hardcoded deposit scope label was a Pattern-B
+  // fabrication (CLAUDE.md P0; see docs/reviews/code-review-2026-06-30.md).
+  // Source the quote's authored engagement_overview (quote_id is already carried
+  // on the outbox payload); fall back to a neutral, non-scope label when it has
+  // not been authored yet.
+  const quoteRow = await db
+    .prepare('SELECT engagement_overview FROM quotes WHERE id = ? AND org_id = ?')
+    .bind(payload.quote_id, orgId)
+    .first<{ engagement_overview: string | null }>()
+  const authoredOverview = quoteRow?.engagement_overview?.trim()
+  const invoiceDescription =
+    authoredOverview && authoredOverview.length > 0 ? authoredOverview : 'Deposit invoice'
+
   const amountCents = Math.round((payload.amount ?? 0) * 100)
   const stripeResult = await createStripeInvoice(stripeApiKey, {
     customer_email: contact.email,
-    description: 'Deposit - Operations Cleanup Engagement',
+    description: invoiceDescription,
     line_items: [
       {
         amount: amountCents,

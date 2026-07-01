@@ -9,7 +9,7 @@ binding = "DB"
 database_name = "ss-console-db"
 database_id = "65171b23-d615-42a7-84e7-a4fac20d063c"
 
-# Service binding to ss-enrichment-workflow (#631). See workers/new-business/wrangler.toml.
+# Service binding to ss-enrichment-workflow (#631).
 [[services]]
 binding = "ENRICHMENT_WORKFLOW_SERVICE"
 service = "ss-enrichment-workflow"

@@ -19,9 +19,9 @@ import { env } from 'cloudflare:workers'
  * workers. Closes issue #595.
  *
  * Form layout:
- *   - One section per pipeline that has tunables (review_mining, job_monitor,
- *     new_business). Pipelines with no tunables (social_listening) are
- *     omitted entirely so the page does not show empty placeholders.
+ *   - One section per pipeline that has tunables (review_mining, job_monitor).
+ *     Pipelines with no tunables are omitted entirely so the page does not
+ *     show empty placeholders.
  *   - Numeric inputs with `min`/`max` bound to each setting's spec range.
  *   - "Reset to default" link per row writes the spec default back.
  *
@@ -39,7 +39,7 @@ import { env } from 'cloudflare:workers'
 const session = Astro.locals.session!
 
 // Pipelines that actually have admin-tunable settings. Drives both the
-// form layout and the audit-log loop. Omits social_listening (no tunables).
+// form layout and the audit-log loop.
 const TUNABLE_PIPELINES: PipelineId[] = PIPELINE_IDS.filter(
   (p) => Object.keys(SETTING_SPECS[p]).length > 0
 )

@@ -1,7 +1,7 @@
 /**
  * Lead Scoring Schema — Shared Types for Lead Generation Pipelines
  *
- * Defines the shared vocabulary used across all 5 lead generation pipelines.
+ * Defines the shared vocabulary used across the lead generation pipelines.
  * Re-exports canonical problem and vertical types from the assessment schema
  * to maintain a single source of truth.
  *
@@ -24,28 +24,20 @@ export {
 // Lead source pipeline identifiers
 // ---------------------------------------------------------------------------
 
-export const PIPELINE_IDS = [
-  'review_mining',
-  'job_monitor',
-  'new_business',
-  'social_listening',
-] as const
+export const PIPELINE_IDS = ['review_mining', 'job_monitor'] as const
 
 export type PipelineId = (typeof PIPELINE_IDS)[number]
 
 export const PIPELINE_LABELS: Record<PipelineId, string> = {
   review_mining: 'Review Mining',
   job_monitor: 'Job Posting Monitor',
-  new_business: 'New Business Detection',
-  social_listening: 'Social Listening',
 }
 
-// `partner_nurture` was previously listed here but never reached parity with
-// the DB layer (`lead_signals.source_pipeline` CHECK has only the four
-// pipelines above). Build is captured under #714, gated on first paid
-// engagement. The dormant prompt + schema files that were parked for that
-// rebuild were deleted in the 2026-06-12 code-review cleanup (no runtime
-// consumer; carried retired revenue-band anchoring); #714 rebuilds fresh.
+// The `new_business` and `social_listening` pipelines were retired in the
+// 2026-07 lead-gen realignment (pre-operational buyer mismatch; unwired
+// scraper aimed at a channel the strategy wants run by a human). Historical
+// `entities.source_pipeline` rows carrying those values still render via the
+// `?? entity.source_pipeline` fallback wherever PIPELINE_LABELS is read.
 
 // ---------------------------------------------------------------------------
 // Shared scoring types

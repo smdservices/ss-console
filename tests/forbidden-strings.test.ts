@@ -118,6 +118,20 @@ const FORBIDDEN_PATTERNS: Array<{ label: string; pattern: RegExp | string }> = [
     pattern: /(?:we['’]ll|will)\s+reach out/i,
   },
   {
+    // 2026-06-30 code review (C2): src/lib/sow/service-finalize.ts hardcoded
+    // `description: 'Deposit - Operations Cleanup Engagement'` on EVERY client's
+    // Stripe invoice — a synthesized scope label rendered to a client (same
+    // Pattern-B family as the audited `overview: 'Operations cleanup engagement
+    // as discussed during assessment.'`). Invoice/SOW/PDF descriptions must come
+    // from authored quote content, never a template scope phrase.
+    // Case-SENSITIVE on purpose: the lowercase "operations cleanup engagements"
+    // in LLM system prompts (assessment-to-quote.ts, dossier.ts) describes the
+    // business to the model and is not client-rendered content — matching the
+    // title-case rendered label avoids those false positives.
+    label: 'Pattern B: hardcoded "Operations Cleanup Engagement" scope label (invoices/SOW/PDF)',
+    pattern: 'Operations Cleanup Engagement',
+  },
+  {
     label: 'Pattern A: hardcoded "will / we\'ll be in touch" outbound-contact promise (structural)',
     // 2026-05-04 /book intake architecture review caught this same class
     // creeping back in as a Send-acknowledgement copy ("Got it. We'll be
