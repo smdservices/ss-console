@@ -1,3 +1,4 @@
+import { jsonResponse } from '../../../../../lib/api/helpers'
 import type { APIRoute } from 'astro'
 import { getAssessment, updateAssessment } from '../../../../../lib/db/assessments'
 import { env } from 'cloudflare:workers'
@@ -43,11 +44,4 @@ export const PUT: APIRoute = async ({ request, locals, params }) => {
     console.error('[api/admin/assessments/[id]/live-notes] Error:', err)
     return jsonResponse(500, { error: 'Internal server error' })
   }
-}
-
-function jsonResponse(status: number, data: unknown): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
 }

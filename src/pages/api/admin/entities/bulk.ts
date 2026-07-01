@@ -1,3 +1,4 @@
+import { jsonResponse } from '../../../../lib/api/helpers'
 import type { APIContext, APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 import {
@@ -33,18 +34,18 @@ import { isLostReasonCode } from '../../../../lib/db/lost-reasons'
 async function handlePost({ request, locals }: APIContext): Promise<Response> {
   const session = locals.session
   if (!session || session.role !== 'admin') {
-    return jsonResponse({ error: 'Unauthorized' }, 401)
+    return jsonResponse(401, { error: 'Unauthorized' })
   }
 
   let body: unknown
   try {
     body = await request.json()
   } catch {
-    return jsonResponse({ error: 'Invalid JSON body' }, 400)
+    return jsonResponse(400, { error: 'Invalid JSON body' })
   }
 
   if (!body || typeof body !== 'object') {
-    return jsonResponse({ error: 'Invalid body' }, 400)
+    return jsonResponse(400, { error: 'Invalid body' })
   }
 
   const { ids, action, reason, reasonDetail } = body as {
@@ -55,15 +56,15 @@ async function handlePost({ request, locals }: APIContext): Promise<Response> {
   }
 
   if (!Array.isArray(ids) || ids.length === 0) {
-    return jsonResponse({ error: 'ids must be a non-empty array' }, 400)
+    return jsonResponse(400, { error: 'ids must be a non-empty array' })
   }
   if (!ids.every((id) => typeof id === 'string' && id.length > 0)) {
-    return jsonResponse({ error: 'ids must be strings' }, 400)
+    return jsonResponse(400, { error: 'ids must be strings' })
   }
   // Cap batch size to keep the request bounded. Picked to match a full
   // screen of signals without requiring pagination scroll gymnastics.
   if (ids.length > 200) {
-    return jsonResponse({ error: 'batch size capped at 200 ids' }, 400)
+    return jsonResponse(400, { error: 'batch size capped at 200 ids' })
   }
 
   const stringIds = ids as string[]
@@ -77,11 +78,11 @@ async function handlePost({ request, locals }: APIContext): Promise<Response> {
       return handleExport(session.orgId, stringIds)
     }
 
-    return jsonResponse({ error: `Unknown action: ${String(action)}` }, 400)
+    return jsonResponse(400, { error: `Unknown action: ${String(action)}` })
   } catch (err) {
     console.error('[api/admin/entities/bulk] Error:', err)
     const message = err instanceof Error ? err.message : 'server error'
-    return jsonResponse({ error: message }, 500)
+    return jsonResponse(500, { error: message })
   }
 }
 
@@ -92,13 +93,10 @@ async function handleDismiss(
   reasonDetail: unknown
 ): Promise<Response> {
   if (!isLostReasonCode(reason)) {
-    return jsonResponse(
-      {
-        error:
-          'reason must be one of the canonical lost-reason values (see src/lib/db/lost-reasons.ts)',
-      },
-      400
-    )
+    return jsonResponse(400, {
+      error:
+        'reason must be one of the canonical lost-reason values (see src/lib/db/lost-reasons.ts)',
+    })
   }
   const detail =
     typeof reasonDetail === 'string' && reasonDetail.trim() ? reasonDetail.trim() : null
@@ -107,7 +105,7 @@ async function handleDismiss(
     reason,
     detail,
   })
-  return jsonResponse(result, result.failed.length === 0 ? 200 : 207)
+  return jsonResponse(result.failed.length === 0 ? 200 : 207, result)
 }
 
 async function handleExport(orgId: string, ids: string[]): Promise<Response> {
@@ -124,13 +122,6 @@ async function handleExport(orgId: string, ids: string[]): Promise<Response> {
 }
 
 export const POST: APIRoute = (ctx) => handlePost(ctx)
-
-function jsonResponse(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
 
 function csvEscape(value: string | null | undefined): string {
   if (value == null) return ''
