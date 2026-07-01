@@ -147,27 +147,76 @@ jobs:
       image: returntocorp/semgrep:1.157.0
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # Diff-aware scanning (--baseline-commit) resolves a merge-base, so
+          # it needs full history. The default shallow clone can't reach it.
+          fetch-depth: 0
+      - name: Determine baseline commit
+        id: baseline
+        # Diff-aware gating: only findings NEW since the baseline block a
+        # merge. On PRs the baseline is the merge-base with the target
+        # branch; on pushes it is the commit the branch pointed at before the
+        # push. Scheduled and manual runs get NO baseline and remain a full
+        # audit (unchanged) — the daily cron still surfaces pre-existing debt.
+        # Motivation: the p/* rule packs are fetched live from the registry,
+        # so a pack update can reclassify long-standing code as blocking and
+        # freeze all merges on unrelated PRs. Baselining scopes the merge gate
+        # to what each change actually introduces.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          # The container runs git as root over a workspace owned by the
+          # runner UID; without this, git refuses with "dubious ownership".
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          baseline=""
+          case "$EVENT_NAME" in
+            pull_request)
+              baseline=$(git merge-base HEAD "$PR_BASE_SHA" 2>/dev/null || true)
+              ;;
+            push)
+              case "$PUSH_BEFORE" in
+                '' | 0000000000000000000000000000000000000000) ;;
+                *) baseline=$(git merge-base HEAD "$PUSH_BEFORE" 2>/dev/null || true) ;;
+              esac
+              ;;
+          esac
+          echo "commit=$baseline" >> "$GITHUB_OUTPUT"
+          if [ -n "$baseline" ]; then
+            echo "Diff-aware baseline: $baseline (only findings new since this commit block)."
+          else
+            echo "No baseline — full audit (schedule/dispatch or first push)."
+          fi
       - name: Run Semgrep
         # POSIX-compatible shell script — the returntocorp/semgrep container
         # uses Alpine ash, not bash, so ${PIPESTATUS[n]} is unavailable.
         # We redirect to a file, capture $? directly, then cat for both the
         # CI log and (on failure) $GITHUB_STEP_SUMMARY.
+        env:
+          BASELINE_COMMIT: ${{ steps.baseline.outputs.commit }}
         run: |
           echo "## Static Analysis (Semgrep)" >> "$GITHUB_STEP_SUMMARY"
           # `--error` fails on findings. `--strict` was tried but exits 3 on
           # the ~0.4% of files in this repo that Semgrep can't fully parse
           # (yaml/ts variants) — unrelated to security findings. Pack-load
           # failures still surface loudly in the log without --strict.
+          run_semgrep() {
+            semgrep scan "$@" \
+              --metrics=off \
+              --config=p/typescript \
+              --config=p/javascript \
+              --config=p/security-audit \
+              --config=p/owasp-top-ten \
+              --exclude=node_modules --exclude=dist --exclude='**/*.test.ts' \
+              > semgrep-output.txt 2>&1
+          }
           set +e
-          semgrep scan \
-            --error \
-            --metrics=off \
-            --config=p/typescript \
-            --config=p/javascript \
-            --config=p/security-audit \
-            --config=p/owasp-top-ten \
-            --exclude=node_modules --exclude=dist --exclude='**/*.test.ts' \
-            > semgrep-output.txt 2>&1
+          if [ -n "$BASELINE_COMMIT" ]; then
+            run_semgrep --error --baseline-commit "$BASELINE_COMMIT"
+          else
+            run_semgrep --error
+          fi
           rc=$?
           set -e
           cat semgrep-output.txt
