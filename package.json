@@ -31,7 +31,7 @@
     "@formepdf/react": "^0.8.2",
     "@sentry/cloudflare": "^10.51.0",
     "@venturecrane/tokens": "0.0.2-alpha.0",
-    "astro": "^6.3.5",
+    "astro": "^7.0.2",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "ics": "^3.11.0",
