@@ -53,13 +53,6 @@ export type ServiceType = 'consulting' | 'operator'
 export type ServiceCadence = 'one_time' | 'recurring'
 export type ServiceStatus = 'proposed' | 'active' | 'completed' | 'churned'
 
-export const SERVICE_STATUSES: { value: ServiceStatus; label: string }[] = [
-  { value: 'proposed', label: 'Proposed' },
-  { value: 'active', label: 'Active' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'churned', label: 'Churned' },
-]
-
 /**
  * Commercial-lifecycle transitions — deliberately coarser than the delivery
  * lifecycle on the child (engagement/subscription). `engagements.status` and
