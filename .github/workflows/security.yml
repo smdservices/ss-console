@@ -49,6 +49,21 @@ jobs:
       - name: Audit (fail on high or critical)
         run: npm audit --audit-level=high
 
+      # The workers/* subprojects have their own lockfiles. The root audit
+      # above does not cover them, so a vuln introduced only in a worker's deps
+      # would not fail CI (2026-06-30 code review). Audit each worker too.
+      - name: Audit workers (fail on high or critical)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for dir in workers/*/; do
+            if [ -f "$dir/package.json" ]; then
+              echo "::group::npm audit $dir"
+              (cd "$dir" && npm ci && npm audit --audit-level=high)
+              echo "::endgroup::"
+            fi
+          done
+
   gitleaks:
     name: Secret Detection
     runs-on: ubuntu-latest
