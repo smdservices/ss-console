@@ -1,24 +1,23 @@
 ---
 export const prerender = false
 
-import PackCardGrid from '../../components/packs/PackCardGrid.astro'
 import PackClosing from '../../components/packs/PackClosing.astro'
 import PackEyebrow from '../../components/packs/PackEyebrow.astro'
 import PackHeading from '../../components/packs/PackHeading.astro'
 import PackHero from '../../components/packs/PackHero.astro'
 import PackIntro from '../../components/packs/PackIntro.astro'
 import PackLayout from '../../components/packs/PackLayout.astro'
+import PackLifecycle from '../../components/packs/PackLifecycle.astro'
 import PackProse from '../../components/packs/PackProse.astro'
 import PackSection from '../../components/packs/PackSection.astro'
 import PackSectionCta from '../../components/packs/PackSectionCta.astro'
-import { shapeZoneTitles } from '../../lib/operator-packs/shared'
 
 const productSchema = {
   '@context': 'https://schema.org',
   '@type': 'Product',
   name: 'Operator for Marketing Agencies',
   description:
-    'The Operator is a worker you hire, not software you buy. The marketing-agency pack is its head start: a starting point shaped around account coordination, which we configure with you and you customize to your agency. The creative direction and the client relationship stay with your people; you set the line.',
+    "The Operator is a worker you hire, not software you buy. It works inside your project-management platform and carries the connective account-coordination work in writing: onboarding, status, the asset-and-approval chase, deliverable sign-off, deadlines, invoices, reports, and renewals. It delivers your reports exactly as written and never invents, adjusts, or reframes a number; it works each client's account in its own walled-off context so nothing crosses; and it never commits scope, a date, or a price on its own.",
   brand: { '@type': 'Brand', name: 'SMD Services' },
   offers: {
     '@type': 'Offer',
@@ -27,191 +26,259 @@ const productSchema = {
   },
 }
 
-// Section 03: the starting templates in the pack, grouped in plain language. Sourced
-// from operator/verticals/marketing-agency/vertical.yaml (the onboarding-and-status,
-// asset-and-approval, timeline-and-money, and reporting skill families). These are
-// templates we configure, not a finished, running product.
-const packTemplates = [
+// Section 04: the lifecycle walk. The connective work around one client, kickoff to renewal, each
+// step in the standard's three-line shape (Operator does / your part / if it stalls). Built from the
+// research-grade internal spec brief (docs/specs/verticals/marketing-agency.md) and corrected by the
+// adversarial gate (a veteran agency ops / account director): the review promise is a consistent
+// two-tier model (representations reviewed and sent by a person; routine nudges on approved
+// templates); "answers where's-my-project" no longer composes narrative (it carries the platform's
+// status fields); status is what the team confirms, not a laundered false platform status; the
+// no-fabrication line is widened to no summary / cover-spin / reframe (the failure is a true number
+// recontextualized, not an invented one); confidentiality is per-client walled-off context, not just
+// "wrong inbox"; date changes are flagged to the account director, never auto-announced; invoice
+// dunning is team-approved per client with a per-account pause; notes->tasks are confirmed before
+// tracking; onboarding credentials go through the secure process, never the Operator. Generic system
+// categories, no brand names. The section framing carries the truthfulness, per the kit-grammar guard.
+const lifecycleSteps = [
   {
-    title: 'Onboarding and status',
-    body: 'The authored onboarding relayed to a new client, the project status kept current, the recurring status update the client expects.',
+    title: 'A new client comes aboard',
+    operator:
+      'Captures the client into the project-management platform and drafts the kickoff with the access-and-inputs request list from your authored onboarding.',
+    your: 'Your account director owns the scope and the terms.',
+    stalls:
+      'Chases the access and the inputs and tracks what lands; credentials go through your normal secure process, never the Operator. It relays your authored onboarding; it never commits scope, a deliverable, or a date.',
+  },
+  {
+    title: 'Status, kept current',
+    operator:
+      "Surfaces the project status from the platform for your team to send, or, under a template you approved, answers a routine where-does-it-stand with the platform's status fields, not a story it wrote.",
+    your: 'You confirm any status that makes a representation before it goes.',
+    stalls:
+      'Re-checks the platform. It carries the status fields the platform shows; it composes no narrative about a project, invents no progress or result, and never vouches for a status it cannot see behind, a stale or optimistic field is yours to correct before it reaches a client.',
   },
   {
     title: 'The asset and approval chase',
-    body: 'The approval a deliverable is stuck behind, the asset the client owes, the feedback round that has gone quiet, the authored deliverable routed to the right reviewer.',
+    operator:
+      'Works the list of client assets, inputs, and feedback the work is waiting on, chases each open item, and updates the list as items land, surfacing what is aging against the deadline.',
+    your: 'Your team picks the work back up once it is unblocked.',
+    stalls:
+      'Keeps chasing each open item and flags the ones holding up the project. It chases what you are waiting on; it never produces the missing input or feedback itself.',
   },
   {
-    title: 'Timelines and money',
-    body: 'The meeting booked, the milestone date surfaced, the authored timeline change relayed, the invoice followed up on.',
+    title: 'Deliverable review and sign-off',
+    operator:
+      'Routes a ready deliverable to the client for review, carrying the deliverable your team authored, and chases the sign-off.',
+    your: 'Your team authors the deliverable; the client approves it.',
+    stalls:
+      "Chases the sign-off. It routes the authored deliverable as written; it never alters it and never approves it on the client's behalf.",
   },
   {
-    title: 'Reporting and renewals',
-    body: 'The authored metrics delivered as a report, the authored renewal terms relayed, the internal account digest assembled.',
-  },
-]
-
-// Section 05: the three customization zones. Titles are shared (shapeZoneTitles); the
-// body under each is agency-specific.
-const zones = [
-  {
-    title: shapeZoneTitles.prebuilt,
-    body: 'The starting templates above, shaped around an account desk and ready to configure. You are not building from a blank page.',
+    title: 'The check-in and the notes',
+    operator:
+      "Offers times and books the client check-in, and drafts tracked tasks from your team's authored meeting notes for your team to confirm.",
+    your: 'Your team authors the notes and confirms the tasks before they are tracked.',
+    stalls:
+      'Reminds. It drafts only from your authored notes and assigns no owner, date, or commitment the notes do not state; nothing it drafts reaches a client until your team has owned it.',
   },
   {
-    title: shapeZoneTitles.connected,
-    body: 'Wired into your own accounts: your project and client tools, your email and calendar, your documents. It works inside the tools you already run.',
+    title: 'Deadlines and timeline changes',
+    operator:
+      'Surfaces the upcoming deadlines and reminds the team and the client of their open items, and when a date moves in the platform, flags the change to your account director.',
+    your: 'Your account director decides whether and how the client hears a date change; your team owns the timeline.',
+    stalls:
+      "Re-surfaces as a date nears. It surfaces the platform's dates; it makes no delivery commitment and never announces a date change to the client on its own.",
   },
   {
-    title: shapeZoneTitles.yours,
-    body: 'Your voice, your clients and your process, and where the line sits. You decide what runs on its own and what waits for a person. You are the expert in your agency; you shape it from there.',
-  },
-]
-
-const roleLenses = [
-  {
-    title: 'Chasing approvals and assets',
-    body: 'The approval the deliverable is stuck behind, the asset the client owes, the feedback round that has gone quiet. The Operator chases each one in your voice and keeps the work moving, so a deliverable does not sit waiting on a reply nobody had time to send.',
+    title: 'The invoice',
+    operator:
+      'Follows the unpaid invoice with a statement reminder, on the schedule and in the wording your team approved for that client, that points to your payment process.',
+    your: 'Flag any account you want it to pause on.',
+    stalls:
+      'Sends the next reminder on the approved schedule and pauses for you on any account you flag. Billing logistics only, no pressure; the payment runs through your process, never the Operator.',
   },
   {
-    title: 'Status and the account',
-    body: 'The status update every client expects and someone has to write. The Operator keeps the project current and sends the update, so your account managers spend their hours on the account, not on the back-and-forth about it.',
+    title: 'The report and the renewal',
+    operator:
+      'Delivers the finished report your team authored, as written, on cadence, and when the retainer approaches renewal, drafts the renewal outreach on your authored terms.',
+    your: 'Your team authors the report and the analysis and sets the renewal terms.',
+    stalls:
+      'Re-sends. It transmits the report your team wrote and writes no summary, no cover narrative, and no subject-line spin around the numbers; it never invents, estimates, adjusts, or reframes a number or a result. It relays your authored renewal terms and never re-scopes or re-prices on its own.',
   },
   {
-    title: 'Capacity without churn',
-    body: "The needy client that eats an account manager's week, the firefighting that pushes a good one out. The Operator takes the routine so the manager can carry more without burning out. The relationship and the creative call stay with your people.",
+    title: 'What needs you',
+    operator:
+      'Sends one short summary of the desk, assets aging, sign-offs outstanding, deadlines approaching, invoices unpaid, reports due, renewals coming, new clients onboarding.',
+    your: 'React to the few items.',
+    stalls: 'Re-surfaces anything missed.',
   },
 ]
 ---
 
 <PackLayout
   title="Operator for Marketing Agencies | SMD Services"
-  description="The marketing-agency pack is the Operator's head start: a starting point shaped around account coordination, which we configure with you and you customize to your agency. The creative direction and the client relationship stay with your people. You set the line."
+  description="A worker you hire, not software you buy. The Operator carries the connective account-coordination work in writing: onboarding, status, the asset chase, sign-off, deadlines, invoices, and reports. It delivers your reports as written and never reframes a number, and it keeps every client walled off from every other. It starts with an assessment."
   schema={productSchema}
 >
-  <!-- § 01 Hero -->
+  <!-- 01 Hero -->
   <PackHero slug="marketing-agency">
-    <Fragment slot="heading">The Account Desk, Fully Staffed.</Fragment>
+    <Fragment slot="heading">Every Client Current, Every Project Moving.</Fragment>
     <Fragment slot="lede">
-      The Operator is a worker you hire, not software you buy. This is its agency head start: a
-      starting point already shaped around account coordination, so you are not building from a
-      blank page. You make it yours from there.
+      The Operator is a worker you hire, not software you buy. It works inside your
+      project-management platform and carries the connective account work in writing: onboarding the
+      new client, sending deliverable and milestone status, chasing the assets and approvals that
+      hold work up, routing deliverables for sign-off, reminding on deadlines, following the
+      invoice, and delivering your reports, so your account team is freed for the strategy and the
+      relationship. Anything that carries a number, a date, or a commitment goes to a person to
+      review and send. It carries only what your team authored, and it never invents, adjusts, or
+      reframes a result.
     </Fragment>
   </PackHero>
 
-  <!-- § 02 The seat the market won't fill -->
+  <!-- 02 The problem -->
   <PackSection bg="white">
     <PackEyebrow>The Problem</PackEyebrow>
-    <PackHeading variant="prose">The Seat The Market Won't Fill.</PackHeading>
+    <PackHeading variant="prose">The Work Is Ready. The Client Isn't.</PackHeading>
     <PackProse>
       <p>
-        Account managers run on a thin margin before they break. Push one past a handful of needy
-        clients and the work slips or the manager does, and replacing a burned-out account manager
-        costs you the relationships they held. The work does not wait: the approvals still have to
-        be chased, the status still has to go out, the account still has to move while you are
-        hiring.
+        The hard part of running an agency is not the work. Your creatives and strategists are good
+        at that. It is everything around the work: the deliverable that is ready but stuck waiting
+        on the client's feedback, the asset you cannot start without, the sign-off that has not
+        come, the status update the client expects, the deadline nobody flagged, the report due, the
+        invoice unpaid.
       </p>
       <p>
-        An Operator fills that seat now. It keeps the accounts moving at full speed, all the time,
-        and what it learns about how your shop runs, your clients, your process, your voice, stays
-        with the agency instead of leaving with the person who had it.
+        Most of it lands on the account coordinator and the project manager, the seat that keeps
+        clients and projects moving, and the seat that churns hardest in an industry that already
+        churns. When that seat is buried, the work stalls in the gaps: a project waiting on an input
+        nobody chased, a client who goes quiet because nobody sent the update, a renewal that slips
+        because nobody coordinated it. A missed step here is a project stalled, a client cooling, or
+        revenue left on the table.
       </p>
     </PackProse>
   </PackSection>
 
-  <!-- § 03 What the pack starts you with -->
+  <!-- 03 What the Operator does -->
   <PackSection bg="background">
-    <PackEyebrow>What You Get</PackEyebrow>
-    <PackHeading variant="grid">What The Pack Starts You With.</PackHeading>
-    <PackIntro>
-      You do not start from a blank page. The marketing-agency pack comes shaped around the work an
-      account desk runs, as starting templates we configure with you:
-    </PackIntro>
-    <PackCardGrid items={packTemplates} cols={2} card="templates" />
-    <PackIntro after>
-      These plug into your project and client tools and your email and calendar. The templates are
-      the head start. How they run is yours to shape.
-    </PackIntro>
-  </PackSection>
-
-  <!-- § 04 From the start -->
-  <PackSection bg="white">
-    <PackEyebrow>Day One</PackEyebrow>
-    <PackHeading variant="prose">From The Start.</PackHeading>
+    <PackEyebrow>What It Does</PackEyebrow>
+    <PackHeading variant="prose">An Always-On Member Of The Team.</PackHeading>
     <PackProse>
       <p>
-        Before it starts, we sit down with you and the people who run the accounts, and we shape the
-        templates around how your agency actually operates, so it begins ready, not green.
+        The Operator is an always-on team member that works inside your project-management platform
+        and carries the connective account work so your people do not have to hold it in their
+        heads: it onboards the client and gathers the inputs, surfaces the status, chases the assets
+        and the approvals that hold work up, routes the deliverables for sign-off, reminds on
+        deadlines, follows the invoices, delivers your reports, and coordinates the renewal.
       </p>
       <p>
-        From there the work moves the way it always did. A deliverable gets chased toward the
-        approval it is stuck behind, the asset a client owes gets a nudge, the status update clients
-        expect goes out in your voice. The routine question gets answered, the milestone date gets
-        surfaced, the invoice that is due gets a follow-up. It is all logged in your project and
-        client tools as it happens, and it keeps getting sharper from your team's corrections.
+        When it needs a person to do their part, it comes to them with everything already prepared,
+        so their part is usually a single reply or a one-click confirm. Every client-facing message
+        that makes a representation, a status, a report, a renewal, anything carrying a number, a
+        date, or a commitment, is reviewed and sent by a person. Routine logistics nudges, an asset
+        still open, an invoice coming due, follow a template you approved, and you choose which it
+        sends on its own.
+      </p>
+      <p>
+        It does not replace your project-management platform; that stays the system of record. Your
+        account director owns the relationship and the scope, and your team owns the work and the
+        words. The Operator does the connective work between and around them, and keeps the record
+        current as it goes.
       </p>
     </PackProse>
   </PackSection>
 
-  <!-- § 05 Yours to shape -->
-  <PackSection bg="background">
-    <PackEyebrow>Your Way</PackEyebrow>
-    <PackHeading variant="grid">Yours To Shape.</PackHeading>
+  <!-- 04 The lifecycle, step by step -->
+  <PackSection bg="white">
+    <PackEyebrow>The Lifecycle</PackEyebrow>
+    <PackHeading variant="grid">One Client, Kickoff To Renewal.</PackHeading>
     <PackIntro>
-      We are not the experts in how your agency runs. You are. So the pack is a starting point in
-      three parts, and the third is the biggest.
+      Here is the connective work around one client, from the kickoff through the projects, the
+      reports, and the renewal that keeps them on. This is the shape of the work, not a fixed
+      script; we build it around how your agency actually runs the account.
     </PackIntro>
-    <PackCardGrid items={zones} cols={3} card="zones" />
+    <PackLifecycle steps={lifecycleSteps} />
   </PackSection>
 
-  <!-- § 06 The line -->
-  <PackSection bg="white">
-    <PackEyebrow>The Boundary</PackEyebrow>
-    <PackHeading variant="prose">The Line.</PackHeading>
-    <PackProse spaced>
+  <!-- 05 How it connects -->
+  <PackSection bg="background">
+    <PackEyebrow>How It Connects</PackEyebrow>
+    <PackHeading variant="prose">Through The Systems You Already Run.</PackHeading>
+    <PackProse>
       <p>
-        The Operator keeps the account moving. The creative direction, the strategy, the client
-        relationship, anything that speaks for the account, those stay with your people. It chases
-        an approval; it does not give one. It drafts the update; it does not decide what the agency
-        commits to. There is no license here, but there is a sign-off, and the sign-off is the
-        point: the call about what the agency promises and what it puts its name on belongs to your
-        people.
+        The Operator works inside the project-management platform that is your system of record,
+        your email and calendar, your asset storage, and the books for invoice status. It reads the
+        project, the task, the deliverable, and the invoice, updates the records, files what
+        arrives, and routes what needs a person, so the record stays current without anyone keying
+        it in twice.
       </p>
       <p>
-        Some lines are not settings anyone can move. It delivers only authored deliverables,
-        metrics, and status, and never invents a number, a result, or a claim. No client's
-        information or assets cross into another client's work. It relays the scope, terms, and
-        dates you have authored, and never commits the agency on its own. Anything that leaves the
-        agency goes to a reviewer on your team until you decide otherwise. Every action it takes is
-        logged where you can see it.
-      </p>
-      <p>
-        Beyond those floors, you govern where the line sits, and you can move it as you learn what
-        the Operator is good at. Your client files stay private, including from us. The Operator
-        works in your agency's own walled-off environment, on your own accounts. We can see that it
-        is running and the record of what it did, but the contents of your accounts and messages
-        stay yours, and so do the configuration, the logs, and the off switch.
+        It works on your own accounts, inside the systems you already pay for, and it points clients
+        to your own payment process rather than taking a payment itself. It is the connective tissue
+        between the systems you already run, not another system to learn.
       </p>
     </PackProse>
     <PackSectionCta slug="marketing-agency" />
   </PackSection>
 
-  <!-- § 07 Where it fits -->
-  <PackSection bg="background">
-    <PackEyebrow>The Role</PackEyebrow>
-    <PackHeading variant="grid">Where It Fits.</PackHeading>
-    <PackIntro>
-      A few shapes the seat can take. We build it around how your agency runs, so these are starting
-      points, not a menu.
-    </PackIntro>
-    <PackCardGrid items={roleLenses} cols={3} card="lenses" />
+  <!-- 06 Quiet by design -->
+  <PackSection bg="white">
+    <PackEyebrow>Quiet By Design</PackEyebrow>
+    <PackHeading variant="prose">It Takes Load Off. It Does Not Add It.</PackHeading>
+    <PackProse>
+      <p>
+        The Operator is built to reduce the noise, not add to it. Routine items are gathered into a
+        single short summary rather than a stream of notifications, and it reaches out directly only
+        when something genuinely needs a person. The goal is that your account team feels work
+        coming off its plate, not one more thing pinging them.
+      </p>
+    </PackProse>
   </PackSection>
 
-  <!-- § 08 Start with an assessment -->
+  <!-- 07 The line, and what we prove first -->
+  <PackSection bg="background">
+    <PackEyebrow>The Line</PackEyebrow>
+    <PackHeading variant="prose"
+      >It Coordinates. It Delivers What You Authored, And It Never Spins The Numbers.</PackHeading
+    >
+    <PackProse spaced>
+      <p>
+        The Operator does the connective work and brings the judgment to the people who hold it.
+        Your account director owns the relationship and the scope; your team owns the work and the
+        words. Those never move to the Operator. It runs the account desk, not the strategy.
+      </p>
+      <p>
+        And some lines are not settings anyone can move. The Operator carries only what your team
+        authored, the deliverables, the reports, the analysis, and it delivers them as written. It
+        writes no summary, no cover narrative, and no subject-line spin around the numbers, and it
+        never invents, estimates, adjusts, or reframes a number, a result, or a claim. A status
+        update carries the platform's fields, not a story about a project, and it never vouches for
+        a status it cannot see behind, a stale or optimistic field is yours to correct before it
+        reaches a client. If a number needs framing, your team frames it.
+      </p>
+      <p>
+        It works each client's account in its own walled-off context, separate data, separate
+        memory, and it never sees, references, or draws on one client's assets, results, or even
+        their existence while working another's, including clients who compete; nothing crosses, in
+        the inbox or in the wording. And it never commits scope, a deliverable, a date, or a price
+        on its own; those are yours to set, and it relays them. Every action it takes is logged
+        where you can see it.
+      </p>
+      <p>
+        We are also honest about what we prove before we rely on it. The parts that depend on
+        reading the platform and matching your agency's rules, like a status pulled from a project
+        or an item chased off the open list, we validate on your real accounts first. Anything that
+        makes a client-facing representation stays with a person until you say otherwise. Where
+        accuracy is not yet proven, the Operator surfaces what it found and asks, rather than acting
+        on its own. The configuration, the logs, and the off switch stay with you.
+      </p>
+    </PackProse>
+  </PackSection>
+
+  <!-- 08 Close -->
   <PackClosing slug="marketing-agency">
     <Fragment slot="pitch">
-      It starts with a conversation. We learn how your agency runs, find the account-coordination
-      work that is eating your team's time, and start from the pack, customizing it to your agency.
-      If it is not a fit, we will tell you.
+      We learn how your agency actually runs the account, find where the time goes and where
+      projects stall, and shape the Operator to fit: what it watches, how much it does on its own,
+      where a person stays in the loop. If it is not the right fit, we will tell you.
     </Fragment>
   </PackClosing>
 </PackLayout>
