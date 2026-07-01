@@ -3,6 +3,13 @@ import '../../styles/global.css'
 import { BRAND_NAME } from '../../lib/config/brand'
 import { getPortalClient } from '../../lib/portal/session'
 import { getProductSubscription } from '../../lib/portal/product-access'
+import {
+  loadPortalHomeDashboard,
+  type PortalHomeEngagement,
+  type PortalHomeInvoice,
+  type PortalHomeMilestone,
+  type PortalHomeQuote,
+} from '../../lib/portal/home'
 import PortalHeader from '../../components/portal/PortalHeader.astro'
 import PortalTabs from '../../components/portal/PortalTabs.astro'
 import SkipToMain from '../../components/SkipToMain.astro'
@@ -35,105 +42,22 @@ const operatorActive = operatorSubscription !== null
 
 const { client } = portalData
 
-interface EngagementRow {
-  id: string
-  status: string
-  scope_summary: string | null
-  start_date: string | null
-  estimated_end: string | null
-  consultant_name: string | null
-  consultant_phone: string | null
-  next_touchpoint_at: string | null
-  next_touchpoint_label: string | null
-}
-
-interface InvoiceRow {
-  id: string
-  amount: number
-  status: string
-  due_date: string | null
-  sent_at: string | null
-  paid_at: string | null
-}
-
-interface QuoteRow {
-  id: string
-  status: string
-  sent_at: string | null
-  accepted_at: string | null
-}
-
-interface MilestoneRow {
-  id: string
-  name: string
-  completed_at: string | null
-}
-
-let activeEngagement: EngagementRow | null = null
-let pendingInvoice: InvoiceRow | null = null
-let invoices: InvoiceRow[] = []
-let quotes: QuoteRow[] = []
-let completedMilestones: MilestoneRow[] = []
+let activeEngagement: PortalHomeEngagement | null = null
+let pendingInvoice: PortalHomeInvoice | null = null
+let invoices: PortalHomeInvoice[] = []
+let quotes: PortalHomeQuote[] = []
+let completedMilestones: PortalHomeMilestone[] = []
 // When a DB read fails we render a single error state rather than a partial
 // dashboard. The header's contact icons are the persistent contact affordance.
 let dashboardError = false
 
 try {
-  activeEngagement = await env.DB.prepare(
-    `SELECT id, status, scope_summary, start_date, estimated_end,
-            consultant_name, consultant_phone,
-            next_touchpoint_at, next_touchpoint_label
-       FROM engagements
-      WHERE entity_id = ? AND org_id = ? AND status IN ('scheduled', 'active', 'handoff', 'safety_net')
-      ORDER BY created_at DESC
-      LIMIT 1`
-  )
-    .bind(client.id, portalData.user.org_id)
-    .first<EngagementRow>()
-
-  if (activeEngagement) {
-    const invoiceResult = await env.DB.prepare(
-      `SELECT id, amount, status, due_date, sent_at, paid_at
-         FROM invoices
-        WHERE engagement_id = ? AND org_id = ? AND status != 'void'
-        ORDER BY created_at DESC`
-    )
-      .bind(activeEngagement.id, portalData.user.org_id)
-      .all<InvoiceRow>()
-    invoices = invoiceResult.results ?? []
-
-    // Next pending invoice: earliest-due among sent/overdue (null due_date last).
-    const pending = invoices.filter((i) => i.status === 'sent' || i.status === 'overdue')
-    pending.sort((a, b) => {
-      if (a.due_date && b.due_date) return a.due_date < b.due_date ? -1 : 1
-      if (a.due_date) return -1
-      if (b.due_date) return 1
-      return 0
-    })
-    pendingInvoice = pending[0] ?? null
-
-    const milestoneResult = await env.DB.prepare(
-      `SELECT id, name, completed_at
-         FROM milestones
-        WHERE engagement_id = ? AND org_id = ? AND status = 'completed' AND completed_at IS NOT NULL
-        ORDER BY completed_at DESC
-        LIMIT 5`
-    )
-      .bind(activeEngagement.id, portalData.user.org_id)
-      .all<MilestoneRow>()
-    completedMilestones = milestoneResult.results ?? []
-  }
-
-  const quoteResult = await env.DB.prepare(
-    `SELECT id, status, sent_at, accepted_at
-       FROM quotes
-      WHERE entity_id = ? AND org_id = ?
-      ORDER BY updated_at DESC
-      LIMIT 5`
-  )
-    .bind(client.id, portalData.user.org_id)
-    .all<QuoteRow>()
-  quotes = quoteResult.results ?? []
+  const dashboard = await loadPortalHomeDashboard(env.DB, portalData.user.org_id, client.id)
+  activeEngagement = dashboard.activeEngagement
+  pendingInvoice = dashboard.pendingInvoice
+  invoices = dashboard.invoices
+  quotes = dashboard.quotes
+  completedMilestones = dashboard.completedMilestones
 } catch (err) {
   console.error('portal/index: data fetch failure', err)
   dashboardError = true
