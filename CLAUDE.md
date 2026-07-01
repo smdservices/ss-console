@@ -280,9 +280,11 @@ One Astro app, one Cloudflare Worker, three custom domains. Routing is handled b
 | `admin.smd.services`  | Admin console (rewritten to `/admin/*`)  | `admin`   |
 | `portal.smd.services` | Client portal (rewritten to `/portal/*`) | `client`  |
 
-**How the rewrite works.** The middleware inspects `hostname`. On `admin.smd.services`, paths get `/admin` prepended unless they already start with `/admin`, `/api/admin`, `/auth`, or `/api/auth`. Same pattern for `portal.smd.services`. The admin source files still live under `src/pages/admin/*` — the subdomain is a front door.
+**How the rewrite works.** The middleware inspects `hostname`. On `admin.smd.services`, paths get `/admin` prepended unless they already start with `/admin`, `/api/admin`, `/auth`, `/api/auth`, or `/api/oauth`. Same pattern for `portal.smd.services`. The admin source files still live under `src/pages/admin/*` — the subdomain is a front door.
 
-**Cookie boundaries.** Session cookies are per-host (no `Domain` attribute). Admin cookies only live on `admin.smd.services`. Client cookies only live on `portal.smd.services`. An admin cookie that lands on the apex (from pre-migration logins) is proactively cleared on next visit.
+**Auth model (unified 2026-05-25 — Clerk is primary).** Clerk owns identity for **both** admin and portal. `clerkMiddleware` is composed before the SS middleware (`sequence(clerkMiddleware(), ssMiddleware)`) and populates `locals.auth()` for downstream handlers. On admin paths, `resolveAdminSessionFromClerk` maps the Clerk `user_id` to the local `users` row (gated on `role='admin'`) and synthesizes the legacy `SessionData` shape into `locals.session` so existing call sites keep working. On portal paths, Clerk is the primary path; the bridge from Clerk identity to the local user/entity runs per-route (e.g. `getPortalClient`). See `src/middleware.ts` (header comment) and `src/lib/auth/admin-session-shim.ts`.
+
+**Legacy magic-link fallback.** The per-host session cookie is now a _fallback_, kept only so in-flight client invitation links (set by `/auth/verify` via `createSession`) keep working during the Clerk transition. Cookies are per-host (no `Domain` attribute): admin cookies only live on `admin.smd.services`, client cookies only on `portal.smd.services`. An admin cookie that lands on the apex (from pre-migration logins) is proactively cleared on next visit. New client onboarding will migrate to Clerk invitations; the legacy path stays active until all in-flight invitations expire.
 
 **Backwards compat.** `smd.services/admin/*` and `smd.services/auth/login` 301 to the admin subdomain — old bookmarks still work.
 

@@ -18,3 +18,24 @@ updates:
           - '*'
     commit-message:
       prefix: chore(actions)
+
+  # npm dependency currency. Previously there was NO npm ecosystem entry, so
+  # `security.yml`'s `npm audit` caught known CVEs but nothing surfaced routine
+  # version drift (2026-06-30 code review). Grouped + weekly, flowing through
+  # .github/workflows/dependabot-auto-merge.yml. Majors (e.g. astro 7,
+  # typescript 6) are separated so they get manual review given the SSR/Workers
+  # surface; patch/minor group together for low-friction upkeep.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: chore(deps)
