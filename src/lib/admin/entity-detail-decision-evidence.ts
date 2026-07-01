@@ -161,10 +161,6 @@ function buildWebsiteMissingReason(
     reasons.push('Outscraper no_match')
   }
 
-  if (entity.source_pipeline === 'new_business') {
-    reasons.push('license filing did not include URL')
-  }
-
   if (reasons.length === 0) return 'not resolved.'
   return `not resolved (${reasons.join('; ')})`
 }
@@ -201,12 +197,9 @@ export function composeMissingForOutreach(
     missing.push({
       key: 'public-web-signal',
       label: 'Public-web signal',
-      reason:
-        entity.source_pipeline === 'new_business'
-          ? 'too new for reviews or job posts. License-only enrichment.'
-          : reviewReason
-            ? `no public review or job-post signal yet (${reviewReason}).`
-            : 'no public review or job-post signal yet.',
+      reason: reviewReason
+        ? `no public review or job-post signal yet (${reviewReason}).`
+        : 'no public review or job-post signal yet.',
     })
   }
 

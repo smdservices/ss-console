@@ -2,13 +2,14 @@
 /**
  * Configuration form for a generator pipeline.
  * Extracted from src/pages/admin/generators/[type].astro.
+ *
+ * Only the fields a worker actually reads are editable here. The former
+ * `target_verticals` / `geos` textareas were a dead admin mirage (no worker
+ * ever read those config keys) and were removed in the 2026-07 realignment.
  */
 import {
-  VERTICALS,
   type JobMonitorConfig,
-  type NewBusinessConfig,
   type ReviewMiningConfig,
-  type SocialListeningConfig,
   type PipelineId,
 } from '../../lib/generators/types'
 import type { GeneratorConfigRow } from '../../lib/db/generators'
@@ -19,10 +20,8 @@ interface Props {
 }
 
 const { configRow, type } = Astro.props
-const nb = configRow.config as NewBusinessConfig
 const jm = configRow.config as JobMonitorConfig
 const rm = configRow.config as ReviewMiningConfig
-const sl = configRow.config as SocialListeningConfig
 ---
 
 <form
@@ -43,71 +42,6 @@ const sl = configRow.config as SocialListeningConfig
       Enabled — when unchecked, worker returns early and writes no signals
     </label>
   </div>
-
-  <div>
-    <label
-      for="target_verticals"
-      class="text-sm font-medium text-[color:var(--ss-color-text-primary)] block mb-1"
-    >
-      Target verticals <span class="text-xs text-[color:var(--ss-color-text-secondary)]"
-        >(one per line)</span
-      >
-    </label>
-    <textarea
-      id="target_verticals"
-      name="target_verticals"
-      rows="6"
-      class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm font-mono"
-      >{(configRow.config as NewBusinessConfig).target_verticals.join('\n')}</textarea
-    >
-    <p class="text-xs text-[color:var(--ss-color-text-secondary)] mt-1">
-      Free-text. Suggestions: {VERTICALS.map((v) => v.replace(/_/g, ' ')).join(', ')}.
-    </p>
-  </div>
-
-  <div>
-    <label
-      for="geos"
-      class="text-sm font-medium text-[color:var(--ss-color-text-primary)] block mb-1"
-    >
-      Geographies <span class="text-xs text-[color:var(--ss-color-text-secondary)]"
-        >(one per line)</span
-      >
-    </label>
-    <textarea
-      id="geos"
-      name="geos"
-      rows="2"
-      class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm font-mono"
-      >{(configRow.config as NewBusinessConfig).geos.join('\n')}</textarea
-    >
-  </div>
-
-  {
-    type === 'new_business' && (
-      <div>
-        <label class="text-sm font-medium text-[color:var(--ss-color-text-primary)] block mb-2">
-          Data sources
-        </label>
-        <div class="space-y-1">
-          {nb.soda_sources.map((s) => (
-            <label class="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                name={`soda_${s.city}`}
-                checked={s.enabled}
-                class="w-4 h-4 rounded border-[color:var(--ss-color-border)]"
-              />
-              <span class="font-mono text-xs">{s.city.replace(/_/g, ' ')}</span>
-            </label>
-          ))}
-        </div>
-        <p class="text-xs text-[color:var(--ss-color-text-secondary)] mt-1">
-          Per-city toggles. Unchecking skips that feed entirely on the next run.
-        </p>
-      </div>
-    )
-  }
 
   {
     type === 'job_monitor' && (
@@ -215,28 +149,6 @@ const sl = configRow.config as SocialListeningConfig
           </button>
         </div>
       </>
-    )
-  }
-
-  {
-    type === 'social_listening' && (
-      <div>
-        <label
-          for="search_queries"
-          class="text-sm font-medium text-[color:var(--ss-color-text-primary)] block mb-1"
-        >
-          Search queries{' '}
-          <span class="text-xs text-[color:var(--ss-color-text-secondary)]">(one per line)</span>
-        </label>
-        <textarea
-          id="search_queries"
-          name="search_queries"
-          rows="5"
-          class="w-full border border-[color:var(--ss-color-border)] rounded px-3 py-2 text-sm font-mono"
-        >
-          {sl.search_queries.join('\n')}
-        </textarea>
-      </div>
     )
   }
 
