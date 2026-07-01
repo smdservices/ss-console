@@ -72,6 +72,8 @@ We cannot tell which channels produce **good** prospects without measuring the p
 
 ## 6. Ready-inventory activation runbook (the fastest first signal)
 
+> **Cold-email posture is set by [ADR 0059](../adr/0059-cold-email-posture-mode-b.md): Mode B.** Cold outreach is low-volume (~10-15/week), hand-personalized, signal-led, sent from an established mailbox (`scott@smd.services` by default) — **no warmup, no secondary domains, no sending tool.** Step 5's "invest in warming and a tool to scale" is the Mode-A path and is **shelved** until a converting message is proven; the two external sending domains stay parked and unwired. This runbook's Mode-A steps await a full rewrite (follow-on).
+
 The cheapest real learning we can buy, using inventory and infrastructure we already own:
 
 1. **Split** the ~100 drafts on geography: Phoenix-metro to consulting or a pack; out-of-metro to a pack.
