@@ -3,6 +3,11 @@ import AdminLayout from '../../../layouts/AdminLayout.astro'
 import GeneratorPipelineCard from '../../../components/admin/GeneratorPipelineCard.astro'
 import { listGeneratorConfigs } from '../../../lib/db/generators'
 import type { PipelineId } from '../../../lib/generators/types'
+import {
+  loadAveragePainScore,
+  loadPipelineMetrics,
+  type PipelineMetrics,
+} from '../../../lib/admin/generator-readers'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -38,99 +43,19 @@ const PIPELINES: PipelineDef[] = [
 const configRows = await listGeneratorConfigs(env.DB, session.orgId)
 const configByPipeline = Object.fromEntries(configRows.map((r) => [r.pipeline, r]))
 
-interface PipelineMetrics {
-  total_signals: number
-  last_7d: number
-  has_pain: number
-  has_vertical: number
-  has_area: number
-  has_employee_count: number
-  has_tier: number
-  latest_signal_at: string | null
-  top_vertical: string | null
-  top_vertical_count: number
-}
-
-async function fetchSignalCounts(orgId: string, pipeline: string) {
-  return env.DB.prepare(
-    `SELECT
-       COUNT(*) as total_signals,
-       SUM(CASE WHEN created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) as last_7d,
-       SUM(CASE WHEN pain_score IS NOT NULL THEN 1 ELSE 0 END) as has_pain,
-       SUM(CASE WHEN vertical IS NOT NULL AND vertical != 'unknown' THEN 1 ELSE 0 END) as has_vertical,
-       SUM(CASE WHEN area IS NOT NULL THEN 1 ELSE 0 END) as has_area,
-       SUM(CASE WHEN employee_count IS NOT NULL THEN 1 ELSE 0 END) as has_employee_count,
-       SUM(CASE WHEN tier IS NOT NULL THEN 1 ELSE 0 END) as has_tier,
-       MAX(created_at) as latest_signal_at
-     FROM entities
-     WHERE stage = 'signal' AND org_id = ? AND source_pipeline = ?`
-  )
-    .bind(orgId, pipeline)
-    .first<PipelineMetrics>()
-}
-
-async function fetchTopVertical(orgId: string, pipeline: string) {
-  return env.DB.prepare(
-    `SELECT vertical, COUNT(*) as count
-     FROM entities
-     WHERE stage = 'signal' AND org_id = ? AND source_pipeline = ?
-       AND vertical IS NOT NULL AND vertical != 'unknown'
-     GROUP BY vertical
-     ORDER BY count DESC
-     LIMIT 1`
-  )
-    .bind(orgId, pipeline)
-    .first<{ vertical: string; count: number }>()
-}
-
-const ZERO_COUNTS: PipelineMetrics = {
-  total_signals: 0,
-  last_7d: 0,
-  has_pain: 0,
-  has_vertical: 0,
-  has_area: 0,
-  has_employee_count: 0,
-  has_tier: 0,
-  latest_signal_at: null,
-  top_vertical: null,
-  top_vertical_count: 0,
-}
-
-function mergeMetrics(
-  row: PipelineMetrics | null,
-  verticalRow: { vertical: string; count: number } | null
-): PipelineMetrics {
-  const counts = row ? { ...row } : { ...ZERO_COUNTS }
-  counts.top_vertical = verticalRow ? verticalRow.vertical : null
-  counts.top_vertical_count = verticalRow ? verticalRow.count : 0
-  return counts
-}
-
 async function getPipelineMetrics(pipeline: string): Promise<PipelineMetrics> {
-  const [row, verticalRow] = await Promise.all([
-    fetchSignalCounts(session.orgId, pipeline),
-    fetchTopVertical(session.orgId, pipeline),
-  ])
-  return mergeMetrics(row, verticalRow)
+  return loadPipelineMetrics(env.DB, session.orgId, pipeline as PipelineId)
 }
 
 const metrics = await Promise.all(
   PIPELINES.map(async (p) => ({ pipeline: p, metrics: await getPipelineMetrics(p.id) }))
 )
 
-async function avgPainScore(pipeline: string): Promise<number | null> {
-  const row = await env.DB.prepare(
-    `SELECT AVG(pain_score) as avg
-     FROM entities
-     WHERE stage = 'signal' AND org_id = ? AND source_pipeline = ? AND pain_score IS NOT NULL`
-  )
-    .bind(session.orgId, pipeline)
-    .first<{ avg: number | null }>()
-  return row?.avg ?? null
-}
-
 const painAvgs = await Promise.all(
-  PIPELINES.map(async (p) => ({ pipeline: p.id, avg: await avgPainScore(p.id) }))
+  PIPELINES.map(async (p) => ({
+    pipeline: p.id,
+    avg: await loadAveragePainScore(env.DB, session.orgId, p.id),
+  }))
 )
 const painByPipeline = Object.fromEntries(painAvgs.map((a) => [a.pipeline, a.avg]))
 

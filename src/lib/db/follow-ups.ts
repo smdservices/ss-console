@@ -65,6 +65,11 @@ export interface FollowUpFilters {
   overdue?: boolean
 }
 
+export interface FollowUpEntityName {
+  id: string
+  name: string
+}
+
 export interface CreateFollowUpData {
   entity_id: string
   engagement_id?: string | null
@@ -112,6 +117,24 @@ export async function listFollowUps(
     .bind(...params)
     .all<FollowUp>()
   return result.results
+}
+
+export async function listFollowUpEntityNames(
+  db: D1Database,
+  orgId: string,
+  entityIds: readonly string[]
+): Promise<Record<string, string>> {
+  const validIds = [...new Set(entityIds.filter(Boolean))].slice(0, 500)
+  if (validIds.length === 0) return {}
+
+  const placeholders = validIds.map(() => '?').join(', ')
+  const sql = 'SELECT id, name FROM entities WHERE id IN (' + placeholders + ') AND org_id = ?'
+  const rows = await db
+    .prepare(sql)
+    .bind(...validIds, orgId)
+    .all<FollowUpEntityName>()
+
+  return Object.fromEntries((rows.results ?? []).map((row) => [row.id, row.name]))
 }
 
 /**
