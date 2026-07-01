@@ -195,6 +195,23 @@ export function portalInvitationEmailHtml(clientName: string, magicLinkUrl: stri
  * The client clicks "Send sign-in link" to get a fresh token on demand.
  * No expiry concern — the email stays valid indefinitely.
  */
+/**
+ * Sent to the client after their SOW is signed (SOW-signed outbox job).
+ * Relocated from src/lib/sow/service-finalize.ts (2026-06-30) to keep that file
+ * under the line ceiling and to co-locate email HTML with its siblings here.
+ */
+export function signatureConfirmationEmailHtml(businessName: string): string {
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Inter',Arial,sans-serif;">
+<div style="max-width:480px;margin:40px auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;overflow:hidden;">
+<div style="padding:32px 24px;text-align:center;">
+<h1 style="font-size:20px;font-weight:700;color:#0f172a;margin:0 0 8px;">SMD Services</h1>
+<p style="font-size:14px;color:#64748b;margin:0 0 24px;">Client Portal</p>
+<p style="font-size:15px;color:#334155;margin:0 0 8px;">Hi ${businessName},</p>
+<p style="font-size:15px;color:#334155;margin:0 0 24px;">Your Statement of Work has been signed successfully. We're excited to get started working together.</p>
+</div></div></body></html>`
+}
+
 export function portalWelcomeEmailHtml(clientName: string, loginUrl: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
