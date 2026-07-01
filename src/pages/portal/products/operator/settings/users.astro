@@ -5,6 +5,7 @@ import { getPortalClient } from '../../../../../lib/portal/session'
 import { getProductSubscription, listProductRoles } from '../../../../../lib/portal/product-access'
 import { listClerkOrgParticipants } from '../../../../../lib/portal/clerk-org-members'
 import { isPeopleAccessOperable } from '../../../../../lib/portal/operator/people-access-gate'
+import { loadTeamRoster, formatLastLogin } from '../../../../../lib/portal/operator/team-read'
 import PortalHeader from '../../../../../components/portal/PortalHeader.astro'
 import PortalTabs from '../../../../../components/portal/PortalTabs.astro'
 import PortalPageHead from '../../../../../components/portal/PortalPageHead.astro'
@@ -91,77 +92,9 @@ if (!(await isPeopleAccessOperable(env.DB, client.id))) {
   return Astro.redirect('/portal/products/operator/team')
 }
 
-// Aggregate roles per user. A single user can hold multiple roles
-// (e.g., principal AND compliance); we group rows here so the UI
-// renders one row per person with a comma-joined role list.
-interface MemberRow {
-  id: string
-  email: string
-  name: string
-  last_login_at: string | null
-  earliest_granted_at: string
-  roles: string[]
-}
-
-const memberRowsRaw = await env.DB.prepare(
-  `SELECT u.id           AS id,
-          u.email        AS email,
-          u.name         AS name,
-          u.last_login_at AS last_login_at,
-          pr.role         AS role,
-          pr.granted_at   AS granted_at
-     FROM product_roles pr
-     JOIN users u ON u.id = pr.user_id
-    WHERE pr.entity_id = ?
-      AND pr.org_id = ?
-      AND pr.product_slug = ?
-      AND pr.revoked_at IS NULL
-    ORDER BY u.name, pr.granted_at ASC`
-)
-  .bind(client.id, orgId, PRODUCT_SLUG)
-  .all<{
-    id: string
-    email: string
-    name: string
-    last_login_at: string | null
-    role: string
-    granted_at: string
-  }>()
-
-const memberMap = new Map<string, MemberRow>()
-for (const row of memberRowsRaw.results ?? []) {
-  const existing = memberMap.get(row.id)
-  if (existing) {
-    existing.roles.push(row.role)
-    if (row.granted_at < existing.earliest_granted_at) {
-      existing.earliest_granted_at = row.granted_at
-    }
-  } else {
-    memberMap.set(row.id, {
-      id: row.id,
-      email: row.email,
-      name: row.name,
-      last_login_at: row.last_login_at,
-      earliest_granted_at: row.granted_at,
-      roles: [row.role],
-    })
-  }
-}
-const members = Array.from(memberMap.values())
-
-const ROLE_ORDER: Record<string, number> = { principal: 0, staff: 1, compliance: 2 }
-for (const m of members) {
-  m.roles.sort((a, b) => (ROLE_ORDER[a] ?? 99) - (ROLE_ORDER[b] ?? 99))
-}
+const { members } = await loadTeamRoster(env.DB, client.id, orgId)
 
 const ALL_ROLES = ['principal', 'staff', 'compliance'] as const
-
-function formatLastLogin(iso: string | null): string {
-  if (!iso) return 'Never'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return 'Never'
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
 
 function formatInviteDate(iso: string | null): string {
   if (!iso) return ''
@@ -327,7 +260,7 @@ const banner = status ? (STATUS_BANNERS[status] ?? null) : null
                           {m.email}
                         </span>
                         <span class="text-xs text-[color:var(--ss-color-text-muted)]">
-                          Last login: {formatLastLogin(m.last_login_at)}
+                          Last login: {formatLastLogin(m.lastLoginAt)}
                         </span>
                       </div>
 
