@@ -1,4 +1,6 @@
 import type { APIRoute } from 'astro'
+import { listEngagements } from '../../../../../lib/db/engagements'
+import { getPortalClient } from '../../../../../lib/portal/session'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -13,9 +15,10 @@ import { env } from 'cloudflare:workers'
  * photos directly.
  *
  * Security:
- * - Protected by portal middleware (role='client' required)
- * - Keys are tenant-scoped (`{orgId}/engagements/{engagementId}/...`) and
- *   must match the caller's orgId — path traversal rejected
+ * - Resolves portal identity through the Clerk bridge
+ * - Keys are tenant-scoped (`{orgId}/engagements/{engagementId}/...`)
+ * - The engagement id in the key must belong to the resolved client
+ * - Path traversal is rejected
  */
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -25,52 +28,58 @@ const CONTENT_TYPES: Record<string, string> = {
   png: 'image/png',
 }
 
-export const GET: APIRoute = async ({ locals, params }) => {
-  const session = locals.session
-  if (!session || session.role !== 'client') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+function jsonError(status: number, error: string): Response {
+  return new Response(JSON.stringify({ error }), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
 
+function getContentType(key: string, objectContentType?: string): string {
+  if (objectContentType) return objectContentType
+  const ext = key.substring(key.lastIndexOf('.') + 1).toLowerCase()
+  return CONTENT_TYPES[ext] ?? 'application/octet-stream'
+}
+
+function isInvalidKey(key: string): boolean {
+  return key.includes('..') || key.includes('//')
+}
+
+export const GET: APIRoute = async ({ locals, params }) => {
   const key = params.key
   if (!key) {
-    return new Response(JSON.stringify({ error: 'Key required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return jsonError(400, 'Key required')
   }
 
-  if (!key.startsWith(`${session.orgId}/engagements/`)) {
-    return new Response(JSON.stringify({ error: 'Forbidden' }), {
-      status: 403,
-      headers: { 'Content-Type': 'application/json' },
-    })
+  const portalData = await getPortalClient(env.DB, locals)
+  if (!portalData) {
+    return jsonError(401, 'Unauthorized')
+  }
+  if (!portalData.client) {
+    return jsonError(403, 'Forbidden')
   }
 
-  if (key.includes('..') || key.includes('//')) {
-    return new Response(JSON.stringify({ error: 'Forbidden' }), {
-      status: 403,
-      headers: { 'Content-Type': 'application/json' },
-    })
+  const engagementPrefix = `${portalData.user.org_id}/engagements/`
+  if (!key.startsWith(engagementPrefix) || isInvalidKey(key)) {
+    return jsonError(403, 'Forbidden')
+  }
+
+  const engagements = await listEngagements(env.DB, portalData.user.org_id, portalData.client.id)
+  const isClientEngagementPhoto = engagements.some((engagement) =>
+    key.startsWith(`${engagementPrefix}${engagement.id}/`)
+  )
+  if (!isClientEngagementPhoto) {
+    return jsonError(403, 'Forbidden')
   }
 
   const object = await env.CONSULTANT_PHOTOS.get(key)
   if (!object) {
-    return new Response(JSON.stringify({ error: 'Not found' }), {
-      status: 404,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return jsonError(404, 'Not found')
   }
-
-  const ext = key.substring(key.lastIndexOf('.') + 1).toLowerCase()
-  const contentType =
-    object.httpMetadata?.contentType ?? CONTENT_TYPES[ext] ?? 'application/octet-stream'
 
   return new Response(object.body, {
     headers: {
-      'Content-Type': contentType,
+      'Content-Type': getContentType(key, object.httpMetadata?.contentType),
       'Cache-Control': 'private, max-age=3600',
     },
   })

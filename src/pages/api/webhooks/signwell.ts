@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro'
+import { z } from 'zod'
 import type { SignWellWebhookPayload } from '../../../lib/signwell/types'
 import { handleDocumentCompleted } from '../../../lib/webhooks/signwell-handler'
 import { env } from 'cloudflare:workers'
@@ -28,23 +29,56 @@ import { env } from 'cloudflare:workers'
 /** Maximum age (in seconds) for a webhook timestamp to be considered fresh. */
 const MAX_WEBHOOK_AGE_SECONDS = 300
 
-/**
- * Issue #833: the pre-verify path extracts only the three verification
- * fields; everything past HMAC verification was trusted via the
- * TypeScript-only `as SignWellWebhookPayload` cast. Runtime-narrow the one
- * structure the completion handler actually keys on (data.object.id) before
- * dispatch — an HMAC-valid payload with a mangled document object gets a
- * 400, not a handler exception.
- */
-function hasProcessableDocument(payload: SignWellWebhookPayload): boolean {
-  const documentObject = payload.data?.object
-  return (
-    documentObject !== null &&
-    typeof documentObject === 'object' &&
-    typeof documentObject.id === 'string' &&
-    documentObject.id.length > 0
-  )
-}
+const SignWellEventTypeSchema = z.enum([
+  'document_completed',
+  'document_expired',
+  'document_cancelled',
+  'document_created',
+  'document_sent',
+  'document_viewed',
+  'document_signed',
+  'document_declined',
+  'document_bounced',
+  'document_error',
+  'document_in_progress',
+  'document_recipients_updated',
+])
+
+const SignWellWebhookPayloadSchema = z.object({
+  event: z.object({
+    type: SignWellEventTypeSchema,
+    time: z.number(),
+    hash: z.string().min(1),
+    related_signer: z.object({ email: z.string(), name: z.string() }).optional(),
+  }),
+  data: z.object({
+    object: z.object({
+      id: z.string().min(1),
+      name: z.string(),
+      status: z.string(),
+      signers: z
+        .array(
+          z.object({
+            id: z.string(),
+            name: z.string(),
+            email: z.string(),
+            signed_at: z.string().nullable(),
+          })
+        )
+        .optional(),
+      completed_at: z.string().nullable(),
+    }),
+    account_id: z.string(),
+  }),
+})
+
+const SignWellVerificationFieldsSchema = z.object({
+  event: z.object({
+    type: SignWellEventTypeSchema,
+    time: z.number(),
+    hash: z.string().min(1),
+  }),
+})
 
 /** JSON error response shorthand used by every reject branch below. */
 function jsonError(status: number, error: string): Response {
@@ -62,22 +96,22 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   // --- Parse body (required — SignWell puts the hash inside the JSON) ---
-  let payload: SignWellWebhookPayload
+  let rawPayload: unknown
   try {
     const rawBody = await request.text()
-    payload = JSON.parse(rawBody) as SignWellWebhookPayload
+    rawPayload = JSON.parse(rawBody) as unknown
   } catch {
     return jsonError(400, 'Invalid JSON')
   }
 
   // --- Extract verification fields only (no logging/dispatch yet) ---
-  const eventType = payload.event?.type
-  const eventTime = payload.event?.time
-  const eventHash = payload.event?.hash
-
-  if (!eventType || eventTime == null || !eventHash) {
+  const verificationFields = SignWellVerificationFieldsSchema.safeParse(rawPayload)
+  if (!verificationFields.success) {
     return jsonError(400, 'Missing event fields')
   }
+  const eventType = verificationFields.data.event.type
+  const eventTime = verificationFields.data.event.time
+  const eventHash = verificationFields.data.event.hash
 
   // --- HMAC-SHA256 verification ---
   const isValid = await verifyEventHash(eventType, eventTime, eventHash, webhookSecret)
@@ -93,13 +127,14 @@ export const POST: APIRoute = async ({ request }) => {
     return jsonError(401, 'Stale webhook')
   }
 
+  const payloadResult = SignWellWebhookPayloadSchema.safeParse(rawPayload)
+  if (!payloadResult.success) {
+    return jsonError(400, 'Malformed event payload')
+  }
+  const payload: SignWellWebhookPayload = payloadResult.data
+
   // --- Dispatch by event type ---
   if (payload.event.type === 'document_completed') {
-    if (!hasProcessableDocument(payload)) {
-      console.error('[webhook/signwell] document_completed payload missing data.object.id')
-      return jsonError(400, 'Malformed document payload')
-    }
-
     const apiKey = env.SIGNWELL_API_KEY
     if (!apiKey) {
       console.error('[webhook/signwell] SIGNWELL_API_KEY not configured')

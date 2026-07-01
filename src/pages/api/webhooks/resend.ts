@@ -1,4 +1,5 @@
 import type { APIContext, APIRoute } from 'astro'
+import { z } from 'zod'
 import { env } from 'cloudflare:workers'
 import { handleResendEvent, type ResendWebhookPayload } from '../../../lib/webhooks/resend-handler'
 import { handleBookingEmailDeliveryFailure } from '../../../lib/webhooks/booking-email-failure'
@@ -40,6 +41,33 @@ const MAX_WEBHOOK_AGE_SECONDS = 300
 
 /** Default org id for events that can't be re-attributed via the sent row. */
 const DEFAULT_ORG_ID = '01JQFK0000SMDSERVICES000'
+
+const ResendWebhookPayloadSchema = z
+  .object({
+    type: z.string().min(1),
+    data: z
+      .object({
+        email_id: z.string().optional(),
+        to: z.array(z.string()).optional(),
+        from: z.string().optional(),
+        subject: z.string().optional(),
+        tags: z.record(z.string(), z.string()).optional(),
+        bounce: z
+          .object({
+            message: z.string().optional(),
+            type: z.string().optional(),
+            subType: z.string().optional(),
+          })
+          .optional(),
+        suppressed: z
+          .object({ message: z.string().optional(), type: z.string().optional() })
+          .optional(),
+        failed: z.object({ reason: z.string().optional() }).optional(),
+      })
+      .catchall(z.unknown())
+      .optional(),
+  })
+  .catchall(z.unknown())
 
 function jsonErr(status: number, message: string): Response {
   return new Response(JSON.stringify({ error: message }), {
@@ -98,14 +126,16 @@ async function handlePost({ request }: APIContext): Promise<Response> {
   const headerResult = await verifySvixHeaders(request, rawBody, webhookSecret)
   if (headerResult instanceof Response) return headerResult
 
-  let payload: ResendWebhookPayload
+  let rawPayload: unknown
   try {
-    payload = JSON.parse(rawBody) as ResendWebhookPayload
+    rawPayload = JSON.parse(rawBody) as unknown
   } catch {
     return jsonErr(400, 'Invalid JSON')
   }
 
-  if (!payload.type) return jsonErr(400, 'Missing event type')
+  const payloadResult = ResendWebhookPayloadSchema.safeParse(rawPayload)
+  if (!payloadResult.success) return jsonErr(400, 'Malformed event payload')
+  const payload: ResendWebhookPayload = payloadResult.data
 
   try {
     const result = await handleResendEvent(env.DB, {

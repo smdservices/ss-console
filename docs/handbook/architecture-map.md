@@ -46,9 +46,9 @@ All bindings are declared in `wrangler.toml`. The canonical outbound origins (`A
 
 ## Background Workers (lead-gen and cost)
 
-Some work does not belong in the request path. Seven sibling Workers live under `workers/` and run on their own schedules or service bindings:
+Some work does not belong in the request path. Five tracked sibling Workers live under `workers/` and run on their own schedules or service bindings:
 
-- **Lead generation** - `new-business`, `job-monitor`, `review-mining`, `social-listening`. These are the pipelines behind the admin Generators surface; their endpoints are declared as env vars in `wrangler.toml` and invoked Bearer-authed with `LEAD_INGEST_API_KEY`.
+- **Lead generation** - `job-monitor` and `review-mining`. These are the tracked pipelines behind the admin Generators surface; their endpoints are declared as env vars in `wrangler.toml` and invoked Bearer-authed with `LEAD_INGEST_API_KEY`.
 - **Enrichment** - `enrichment-workflow` runs Cloudflare Workflows orchestration for entity enrichment, reached via the `ENRICHMENT_WORKFLOW_SERVICE` service binding. It exists because the legacy in-request `ctx.waitUntil(enrichEntity(...))` path was being killed by the post-response CPU budget on ingest batches (`wrangler.toml`, `[[services]]` note; issue #631).
 - **Cost** - `cost-telemetry` and `cost-anomaly` handle Operator cost ingest and anomaly detection.
 
