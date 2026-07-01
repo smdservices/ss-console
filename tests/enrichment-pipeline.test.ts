@@ -159,7 +159,7 @@ describe('enrichment workflow (issue #631)', () => {
   })
 
   describe('lead-gen workers dispatch the Workflow at ingest', () => {
-    const workers = ['new-business', 'job-monitor', 'review-mining']
+    const workers = ['job-monitor', 'review-mining']
 
     for (const worker of workers) {
       it(`${worker} worker imports dispatchEnrichmentWorkflow`, () => {

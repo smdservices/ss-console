@@ -83,7 +83,15 @@ _Prepared 2026-06-30 for the research panel. Authoritative on what exists, what 
 
 SMD already operates a four-pipeline outbound signal engine, an enrichment layer, an admin CRM, and a decoupled outreach drafter. This is not a greenfield problem — the machinery exists and runs daily.
 
-**Four signal pipelines** (each a Cloudflare Worker with a cron trigger, posting to `POST /api/ingest/signals.ts`, which dedups by `UNIQUE(org_id, slug)` so one business = one entity with many signal rows):
+> **Update (2026-07 realignment):** two of the four pipelines below —
+> `new_business` and `social_listening` — were retired wholesale (pre-operational
+> buyer mismatch; an unwired scraper aimed at a channel the strategy wants run by
+> a human). The two survivors are `job-monitor` and `review-mining`. Also
+> correcting the original claim: workers write D1 **directly** via
+> `findOrCreateEntity` + `appendContext` (dedup by `UNIQUE(org_id, slug)`); the
+> `POST /api/ingest/signals` endpoint was never wired and has zero callers.
+
+**Four signal pipelines** (each a Cloudflare Worker with a cron trigger, writing entities directly to D1, deduped by `UNIQUE(org_id, slug)` so one business = one entity with many signal rows):
 
 - **Job postings — `workers/job-monitor`** (Pipeline 2). Pulls Arizona job postings via **SerpAPI** (`serpapi.ts`), strips staffing-agency/syndicator noise, runs Claude qualification (`qualify.ts`), and writes direct-employer operating-business signals. Carries `actor_role` and a derived pain score. This is the highest-volume real-pain source (104 entities).
 - **New-business — `workers/new-business`** (Pipeline 3). Pulls city permit/license records via **SODA** (`soda.ts`) plus ACC/ROC corporate-filing data. Post-ADR-0003, permits are _enrichment, not triggers_: only Scottsdale licenses (true `actor_role: 'business'`) create entities; contractor/unknown records route through three-tier address recovery (`recovery.ts`, `address-index.ts`) or are dropped. Still the largest source by count (238) because of pre-pivot history.

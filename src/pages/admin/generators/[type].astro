@@ -30,19 +30,14 @@ if (!PIPELINE_IDS.includes(type)) {
 }
 
 const PIPELINE_DESCRIPTIONS: Record<PipelineId, string> = {
-  new_business:
-    'Daily pull from Phoenix-metro permit + license feeds. Claude-Haiku qualifies each record.',
   job_monitor: 'SerpAPI Google Jobs search for operational roles. Claude-Sonnet qualifies.',
   review_mining:
     'Google Places discovery → Outscraper review fetch. Claude scores operational pain.',
-  social_listening: 'Reddit search on pain-keyword phrases. Context-only — no entity creation.',
 }
 
 const WORKER_URLS: Record<PipelineId, string | undefined> = {
-  new_business: env.NEW_BUSINESS_WORKER_URL,
   job_monitor: env.JOB_MONITOR_WORKER_URL,
   review_mining: env.REVIEW_MINING_WORKER_URL,
-  social_listening: env.SOCIAL_LISTENING_WORKER_URL,
 }
 
 // ---------------------------------------------------------------------------
@@ -105,31 +100,13 @@ if (Astro.request.method === 'POST') {
 }
 
 function buildConfigFromForm(pipeline: PipelineId, form: FormData): unknown {
-  const target_verticals = String(form.get('target_verticals') ?? '')
-    .split('\n')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0)
-  const geos = String(form.get('geos') ?? '')
-    .split('\n')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0)
-
   switch (pipeline) {
-    case 'new_business': {
-      const sodaCities = ['phoenix', 'scottsdale_licenses', 'scottsdale_permits', 'mesa', 'tempe']
-      const soda_sources = sodaCities.map((city) => ({
-        city,
-        enabled: form.get(`soda_${city}`) === 'on',
-      }))
-      return { target_verticals, geos, soda_sources }
-    }
-    case 'job_monitor':
-    case 'social_listening': {
+    case 'job_monitor': {
       const search_queries = String(form.get('search_queries') ?? '')
         .split('\n')
         .map((s) => s.trim())
         .filter((s) => s.length > 0)
-      return { target_verticals, geos, search_queries }
+      return { search_queries }
     }
     case 'review_mining': {
       const discovery_queries = String(form.get('discovery_queries') ?? '')
@@ -137,8 +114,6 @@ function buildConfigFromForm(pipeline: PipelineId, form: FormData): unknown {
         .map((s) => s.trim())
         .filter((s) => s.length > 0)
       return {
-        target_verticals,
-        geos,
         discovery_queries,
         geo_center: {
           lat: Number(form.get('geo_lat')),
