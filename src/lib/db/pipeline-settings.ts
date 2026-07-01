@@ -1,7 +1,6 @@
 /**
- * Pipeline-settings DAL — admin-tunable thresholds and caps for the four
- * lead-gen workers (review_mining, job_monitor, new_business,
- * social_listening). Closes issue #595.
+ * Pipeline-settings DAL — admin-tunable thresholds and caps for the lead-gen
+ * workers (review_mining, job_monitor). Closes issue #595.
  *
  * Design intent
  * -------------
@@ -26,14 +25,9 @@
  * filled in. Workers and the admin UI both consume this same shape.
  */
 
-export type PipelineId = 'review_mining' | 'job_monitor' | 'new_business' | 'social_listening'
+export type PipelineId = 'review_mining' | 'job_monitor'
 
-export const PIPELINE_IDS: readonly PipelineId[] = [
-  'review_mining',
-  'job_monitor',
-  'new_business',
-  'social_listening',
-] as const
+export const PIPELINE_IDS: readonly PipelineId[] = ['review_mining', 'job_monitor'] as const
 
 // ---------------------------------------------------------------------------
 // Setting registry — the source of truth for tunables, defaults, ranges.
@@ -95,33 +89,6 @@ export const SETTING_SPECS: Record<PipelineId, Record<string, SettingSpec>> = {
       help: 'Minimum derived pain score (1-10) for a job posting to qualify and be written to D1. Score is derived from Claude confidence + problem count. Lower = more leads, lower signal quality.',
     },
   },
-  new_business: {
-    pain_threshold: {
-      type: 'int',
-      default: 1,
-      min: 0,
-      max: 10,
-      label: 'Pain threshold',
-      help: 'Minimum derived score for a permit to qualify (0-10). Score is derived from Claude outreach_timing: immediate=10, wait_30_days=7, wait_60_days=5, not_recommended=0. Default 1 preserves prior behavior (skip only not_recommended).',
-    },
-    weekly_places_budget_usd: {
-      type: 'float',
-      default: 10.5,
-      min: 0.0,
-      max: 250.0,
-      label: 'Weekly Places budget (USD)',
-      help: 'Budget guard for reverse-address Google Places lookups during permit recovery. Fresh API calls stop when projected weekly spend would exceed this cap.',
-    },
-    dedup_fuzzy_threshold: {
-      type: 'float',
-      default: 0.92,
-      min: 0.8,
-      max: 0.99,
-      label: 'Dedup fuzzy threshold',
-      help: 'Jaro-Winkler threshold for logging near-miss entity duplicates in the candidate merge audit trail.',
-    },
-  },
-  social_listening: {},
 }
 
 // ---------------------------------------------------------------------------
@@ -138,22 +105,11 @@ export interface JobMonitorSettings {
   pain_threshold: number
 }
 
-export interface NewBusinessSettings {
-  pain_threshold: number
-  weekly_places_budget_usd: number
-  dedup_fuzzy_threshold: number
-}
-
-// Reserved — no tunables yet for social_listening.
-export type SocialListeningSettings = Record<string, never>
-
 export type PipelineSettings<P extends PipelineId> = P extends 'review_mining'
   ? ReviewMiningSettings
   : P extends 'job_monitor'
     ? JobMonitorSettings
-    : P extends 'new_business'
-      ? NewBusinessSettings
-      : SocialListeningSettings
+    : never
 
 // ---------------------------------------------------------------------------
 // D1 access

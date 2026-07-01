@@ -126,7 +126,7 @@ export async function listGeneratorConfigs(
   }
 
   const out: GeneratorConfigRow[] = []
-  for (const p of ['new_business', 'job_monitor', 'review_mining', 'social_listening'] as const) {
+  for (const p of ['job_monitor', 'review_mining'] as const) {
     out.push(byPipeline.get(p) ?? defaultRow(p))
   }
   return out

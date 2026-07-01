@@ -26,20 +26,12 @@ interface PipelineDef {
 
 const PIPELINES: PipelineDef[] = [
   {
-    id: 'new_business',
-    description: 'Phoenix-metro permit + license feeds (Phoenix, Scottsdale, Mesa, Tempe).',
-  },
-  {
     id: 'job_monitor',
     description: 'SerpAPI Google Jobs search for operational roles (ops manager, dispatcher).',
   },
   {
     id: 'review_mining',
     description: 'Google Places discovery + Outscraper review fetch, scored for operational pain.',
-  },
-  {
-    id: 'social_listening',
-    description: 'Reddit search across pain-keyword phrases. Currently not deployed.',
   },
 ]
 
