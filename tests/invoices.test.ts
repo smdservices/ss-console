@@ -139,7 +139,10 @@ describe('invoices: portal view', () => {
 })
 
 describe('invoices: portal detail view', () => {
-  const source = () => readFileSync(resolve('src/pages/portal/invoices/[id].astro'), 'utf-8')
+  const source = () =>
+    readFileSync(resolve('src/pages/portal/invoices/[id].astro'), 'utf-8') +
+    '\n' +
+    readFileSync(resolve('src/lib/portal/invoice-detail.ts'), 'utf-8')
 
   it('portal invoice detail page exists', () => {
     expect(existsSync(resolve('src/pages/portal/invoices/[id].astro'))).toBe(true)
@@ -170,6 +173,13 @@ describe('invoices: portal detail view', () => {
     expect(code).not.toContain('Engagement work')
     expect(code).not.toContain('displayLineItems')
     expect(code).not.toMatch(/scope_summary\s*\?\?/)
+  })
+
+  it('loads invoice detail through the portal reader', () => {
+    const code = source()
+    expect(code).toContain('loadPortalInvoiceDetail')
+    expect(code).toContain('getInvoiceForEntity')
+    expect(code).toContain('listLineItemsForInvoice')
   })
 })
 
