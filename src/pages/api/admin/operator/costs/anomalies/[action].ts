@@ -14,6 +14,7 @@
  * explicit role check here for defense in depth).
  */
 
+import { jsonResponse } from '../../../../../../lib/api/helpers'
 import type { APIContext, APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 import { acknowledgeAlert, snoozeAlert } from '../../../../../../lib/admin/cost-anomaly'
@@ -25,13 +26,6 @@ interface AlertIdentity {
   entity_id: string
   alert_date: string
   driver: string
-}
-
-function jsonResponse(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
 }
 
 function parseIdentity(body: unknown): AlertIdentity | { error: string } {
@@ -57,24 +51,24 @@ function parseIdentity(body: unknown): AlertIdentity | { error: string } {
 async function handlePost(ctx: APIContext): Promise<Response> {
   const session = ctx.locals.session
   if (!session || session.role !== 'admin') {
-    return jsonResponse({ error: 'Unauthorized' }, 401)
+    return jsonResponse(401, { error: 'Unauthorized' })
   }
 
   const action = ctx.params.action
   if (action !== 'snooze' && action !== 'acknowledge') {
-    return jsonResponse({ error: `unknown action: ${action}` }, 404)
+    return jsonResponse(404, { error: `unknown action: ${action}` })
   }
 
   let body: unknown
   try {
     body = await ctx.request.json()
   } catch {
-    return jsonResponse({ error: 'invalid JSON body' }, 400)
+    return jsonResponse(400, { error: 'invalid JSON body' })
   }
 
   const parsed = parseIdentity(body)
   if ('error' in parsed) {
-    return jsonResponse({ error: parsed.error }, 400)
+    return jsonResponse(400, { error: parsed.error })
   }
 
   if (action === 'snooze') {
@@ -85,17 +79,16 @@ async function handlePost(ctx: APIContext): Promise<Response> {
     } else if (typeof snoozed_until === 'string' && ISO_RE.test(snoozed_until)) {
       snoozedIso = snoozed_until
     } else {
-      return jsonResponse(
-        { error: 'snoozed_until must be ISO 8601 UTC (e.g. 2026-05-30T00:00:00Z) or null' },
-        400
-      )
+      return jsonResponse(400, {
+        error: 'snoozed_until must be ISO 8601 UTC (e.g. 2026-05-30T00:00:00Z) or null',
+      })
     }
     await snoozeAlert(env.DB, parsed, snoozedIso)
-    return jsonResponse({ ok: true, action: 'snooze', snoozed_until: snoozedIso }, 200)
+    return jsonResponse(200, { ok: true, action: 'snooze', snoozed_until: snoozedIso })
   }
 
   await acknowledgeAlert(env.DB, parsed, session.userId)
-  return jsonResponse({ ok: true, action: 'acknowledge' }, 200)
+  return jsonResponse(200, { ok: true, action: 'acknowledge' })
 }
 
 export const POST: APIRoute = (ctx) => handlePost(ctx)

@@ -1,3 +1,4 @@
+import { jsonResponse } from '../../../../../lib/api/helpers'
 import type { APIContext, APIRoute } from 'astro'
 import { ORG_ID } from '../../../../../lib/constants'
 import { hashManageToken } from '../../../../../lib/booking/tokens'
@@ -43,13 +44,6 @@ function escapeHtml(str: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-}
-
-function jsonResponse(status: number, data: unknown): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
 }
 
 type Schedule = NonNullable<Awaited<ReturnType<typeof getScheduleByManageToken>>>

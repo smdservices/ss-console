@@ -32,6 +32,7 @@
  * authoritative red signal.
  */
 
+import { jsonResponse } from '../../../lib/api/helpers'
 import type { APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 import { verifyMachineRequest } from '../../../lib/auth/machine-key'
@@ -50,18 +51,18 @@ interface HeartbeatBody {
 export const POST: APIRoute = async ({ request }) => {
   const auth = await verifyMachineRequest(request, env.MACHINE_HEARTBEAT_KEY, env.DB)
   if (!auth.ok) {
-    return jsonResponse({ error: 'unauthorized' }, 401)
+    return jsonResponse(401, { error: 'unauthorized' })
   }
 
   let body: HeartbeatBody
   try {
     body = await request.json<HeartbeatBody>()
   } catch {
-    return jsonResponse({ error: 'invalid_json' }, 400)
+    return jsonResponse(400, { error: 'invalid_json' })
   }
 
   if (typeof body.heartbeat_ts !== 'string' || body.heartbeat_ts.length === 0) {
-    return jsonResponse({ error: 'missing_heartbeat_ts' }, 400)
+    return jsonResponse(400, { error: 'missing_heartbeat_ts' })
   }
 
   const heartbeatStatus = deriveStatus(
@@ -96,7 +97,7 @@ export const POST: APIRoute = async ({ request }) => {
     )
     .run()
 
-  return jsonResponse({ ok: true, heartbeat_status: heartbeatStatus }, 200)
+  return jsonResponse(200, { ok: true, heartbeat_status: heartbeatStatus })
 }
 
 function deriveStatus(
@@ -110,11 +111,4 @@ function deriveStatus(
   if (ageSec < 2 * periodSec) return 'green'
   if (ageSec < graceMin * 60) return 'yellow'
   return 'red'
-}
-
-function jsonResponse(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
 }
