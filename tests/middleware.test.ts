@@ -162,23 +162,23 @@ describe('middleware: 404 route must be SSR (regression lock-in)', () => {
 })
 
 describe('middleware: session resolution gating', () => {
-  const source = () => readFileSync(resolve('src/middleware.ts'), 'utf-8')
+  // The admin-shim / legacy-portal gating invariants used to be asserted here by
+  // matching the middleware SOURCE TEXT. That coupled the test to a specific
+  // literal condition — and a source-regex "guard" like that locks in whatever
+  // condition is written, so it would have blocked (not caught) the fleet-health
+  // carve-out fix. These invariants are now covered BEHAVIORALLY in
+  // tests/middleware-behavior.test.ts, which drives the real `onRequest`:
+  //   - admin shim only populates locals.session on admin paths
+  //   - legacy portal session only resolves on portal paths
+  //   - /api/admin/fleet/health is exempt from the Clerk gate (exact path)
+  // Runtime assertions verify the consequence, not the phrasing of the source.
 
-  it('admin session shim runs only on admin paths', () => {
-    // Marketing pages are prerendered; the admin shim must not fire on
-    // them (no DB hit for non-admin routes; no leakage of admin context).
-    const code = source()
-    expect(code).toMatch(
-      /resolveAdminSession[\s\S]*?startsWith\('\/admin'\)[\s\S]*?startsWith\('\/api\/admin'\)/
-    )
-  })
-
-  it('legacy portal session resolution runs only on portal paths', () => {
-    // The magic-link fallback must not fire on admin or marketing paths.
-    const code = source()
-    expect(code).toMatch(
-      /resolveLegacyPortalSession[\s\S]*?startsWith\('\/portal'\)[\s\S]*?startsWith\('\/api\/portal'\)/
-    )
+  it('still has both session resolvers wired into the pipeline', () => {
+    // A minimal structural smoke check: the resolvers exist and are referenced.
+    // Behavior (which paths they fire on) is asserted at runtime elsewhere.
+    const code = readFileSync(resolve('src/middleware.ts'), 'utf-8')
+    expect(code).toContain('resolveAdminSession')
+    expect(code).toContain('resolveLegacyPortalSession')
   })
 })
 
