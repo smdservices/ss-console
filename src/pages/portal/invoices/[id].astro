@@ -3,7 +3,7 @@ import '../../../styles/global.css'
 import { BRAND_NAME } from '../../../lib/config/brand'
 import { getPortalClient } from '../../../lib/portal/session'
 import { getProductSubscription } from '../../../lib/portal/product-access'
-import { getInvoiceForEntity, listLineItemsForInvoice } from '../../../lib/db/invoices'
+import { loadPortalInvoiceDetail } from '../../../lib/portal/invoice-detail'
 import PortalHeader from '../../../components/portal/PortalHeader.astro'
 import PortalTabs from '../../../components/portal/PortalTabs.astro'
 import PortalPageHead from '../../../components/portal/PortalPageHead.astro'
@@ -48,10 +48,17 @@ const operatorActive = operatorSubscription !== null
 
 const { client } = portalData
 
-const invoice = await getInvoiceForEntity(env.DB, portalData.user.org_id, client.id, invoiceId)
-if (!invoice) {
+const invoiceDetail = await loadPortalInvoiceDetail(
+  env.DB,
+  portalData.user.org_id,
+  client.id,
+  invoiceId
+)
+if (!invoiceDetail) {
   return Astro.redirect('/portal')
 }
+
+const { invoice, lineItems, engagement } = invoiceDetail
 
 // Line items drive the "What's included" section. We never fabricate
 // invoice content — no generic placeholder rows, no borrow from
@@ -60,24 +67,6 @@ if (!invoice) {
 // renders no breakdown; the Total line still renders. Admin send-gate
 // should prevent this state reaching a client, but the page degrades
 // cleanly if it does.
-const lineItems = await listLineItemsForInvoice(env.DB, invoice.id)
-
-// Load engagement for scope fallback + consultant attribution.
-interface EngagementRow {
-  id: string
-  scope_summary: string | null
-  consultant_name: string | null
-  consultant_phone: string | null
-}
-
-const engagement = invoice.engagement_id
-  ? await env.DB.prepare(
-      `SELECT id, scope_summary, consultant_name, consultant_phone
-       FROM engagements WHERE id = ? AND org_id = ?`
-    )
-      .bind(invoice.engagement_id, portalData.user.org_id)
-      .first<EngagementRow>()
-  : null
 
 // Money — invoices.amount is dollars (REAL); convert to cents for display.
 const amountCents = Math.round(invoice.amount * 100)

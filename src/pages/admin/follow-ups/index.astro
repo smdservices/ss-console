@@ -1,7 +1,7 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro'
 import FollowUpList from '../../../components/admin/FollowUpList.astro'
-import { listFollowUps, FOLLOW_UP_TYPES } from '../../../lib/db/follow-ups'
+import { listFollowUps, listFollowUpEntityNames, FOLLOW_UP_TYPES } from '../../../lib/db/follow-ups'
 import type { FollowUpType } from '../../../lib/db/follow-ups'
 import { env } from 'cloudflare:workers'
 
@@ -33,28 +33,9 @@ const [upcoming, overdue, completed] = await Promise.all([
   }),
 ])
 
-// Look up client names for follow-ups
 const allFollowUps = [...upcoming, ...overdue, ...completed]
 const clientIds = [...new Set(allFollowUps.map((f) => f.entity_id))]
-
-interface EntityRow {
-  id: string
-  name: string
-}
-
-const clientMap: Record<string, string> = {}
-const validIds = clientIds.filter(Boolean).slice(0, 500)
-if (validIds.length > 0) {
-  const placeholders = validIds.map(() => '?').join(', ')
-  const rows = await env.DB.prepare(
-    `SELECT id, name FROM entities WHERE id IN (${placeholders}) AND org_id = ?`
-  )
-    .bind(...validIds, session.orgId)
-    .all<EntityRow>()
-  for (const row of rows.results) {
-    clientMap[row.id] = row.name
-  }
-}
+const clientMap = await listFollowUpEntityNames(env.DB, session.orgId, clientIds)
 
 const success = Astro.url.searchParams.get('saved')
 const activeItems =
