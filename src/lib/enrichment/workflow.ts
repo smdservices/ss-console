@@ -78,6 +78,7 @@ import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from 'cloud
 
 import { getEntity, updateEntity, type Entity } from '../db/entities'
 import { listContext } from '../db/context'
+import { promoteContactFromEnrichment } from './promote-contacts'
 import {
   createEnrichResult,
   tryPlaces,
@@ -294,6 +295,23 @@ export class EnrichmentWorkflow extends WorkflowEntrypoint<
     await d('tier3-linkedin', 1, tryLinkedIn)
     await d('tier3-intelligence-brief', 3, tryIntelligenceBrief)
     await d('outreach', 2, tryOutreach)
+    // Promote the best scraped email from enrichment context into the
+    // structured `contacts` table the send path reads. Best-effort: a
+    // promotion failure must not fail enrichment, so it never throws out.
+    await step.do<{ promoted: boolean; reason: string }>(
+      'promote-contacts',
+      { retries: RETRY_INFRA, timeout: TIMEOUT_INFRA },
+      async () => {
+        const entity = await ctx.loadEntity()
+        if (!entity) return { promoted: false, reason: 'no_entity' }
+        try {
+          const r = await promoteContactFromEnrichment(ctx.env.DB, ctx.orgId, entity)
+          return { promoted: r.promoted, reason: r.reason }
+        } catch {
+          return { promoted: false, reason: 'error' }
+        }
+      }
+    )
     await step.do<{ ok: boolean }>(
       'finalize',
       { retries: RETRY_INFRA, timeout: TIMEOUT_INFRA },
