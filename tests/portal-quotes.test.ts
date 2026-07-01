@@ -95,6 +95,7 @@ describe('portal quotes: session helper', () => {
 
 describe('portal quotes: dashboard', () => {
   const source = () => readFileSync(resolve('src/pages/portal/index.astro'), 'utf-8')
+  const homeSource = () => readFileSync(resolve('src/lib/portal/home.ts'), 'utf-8')
 
   it('portal dashboard exists', () => {
     expect(existsSync(resolve('src/pages/portal/index.astro'))).toBe(true)
@@ -113,9 +114,9 @@ describe('portal quotes: dashboard', () => {
 
   it('loads quotes scoped to the signed-in entity', () => {
     const code = source()
-    // New design inlines the query (needs richer columns than listQuotesForEntity exposes).
-    expect(code).toContain('FROM quotes')
-    expect(code).toContain('entity_id = ?')
+    const homeCode = homeSource()
+    expect(code).toContain('loadPortalHomeDashboard(env.DB, portalData.user.org_id, client.id)')
+    expect(homeCode).toContain('listQuotes(db, orgId, entityId)')
   })
 
   it('resolves client via getPortalClient', () => {
