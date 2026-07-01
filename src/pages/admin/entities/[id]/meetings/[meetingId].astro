@@ -5,6 +5,7 @@ import { getMeeting } from '../../../../../lib/db/meetings'
 import { getEntity, ENTITY_STAGES } from '../../../../../lib/db/entities'
 import type { EntityStage } from '../../../../../lib/db/entities'
 import { listContext } from '../../../../../lib/db/context'
+import { loadAdminMeetingSchedule } from '../../../../../lib/admin/meeting-detail'
 import { env } from 'cloudflare:workers'
 
 /**
@@ -35,33 +36,7 @@ if (meeting.entity_id !== entityId) {
 const entity = await getEntity(env.DB, session.orgId, meeting.entity_id)
 if (!entity) return Astro.redirect('/admin/entities?error=entity_not_found')
 
-// Load the booking schedule sidecar. Prefer the new meeting_schedule table;
-// fall back to assessment_schedule during the monitoring window for rows
-// created before the meetings backfill.
-interface ScheduleRow {
-  slot_start_utc: string
-  slot_end_utc: string
-  timezone: string
-  guest_timezone: string | null
-  guest_name: string
-  guest_email: string
-  google_meet_url: string | null
-  google_event_link: string | null
-}
-
-let schedule = await env.DB.prepare(
-  'SELECT * FROM meeting_schedule WHERE meeting_id = ? AND org_id = ?'
-)
-  .bind(meetingId, session.orgId)
-  .first<ScheduleRow>()
-
-if (!schedule) {
-  schedule = await env.DB.prepare(
-    'SELECT * FROM assessment_schedule WHERE assessment_id = ? AND org_id = ?'
-  )
-    .bind(meetingId, session.orgId)
-    .first<ScheduleRow>()
-}
+const schedule = await loadAdminMeetingSchedule(env.DB, session.orgId, meetingId)
 
 // Load entity context timeline
 const contextEntries = await listContext(env.DB, entity.id)
