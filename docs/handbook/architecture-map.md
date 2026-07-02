@@ -40,17 +40,16 @@ Every request to `smd.services`, `admin.smd.services`, or `portal.smd.services` 
    - **D1** (binding `DB`, database `ss-console-db`) - all structured business data. See `/admin/playbook/data-model`.
    - **R2** - three buckets: `STORAGE` (documents, transcripts, SOWs), `CONSULTANT_PHOTOS` (public consultant images), and `CUSTOMER_CONFIG` (the authoritative live Operator config and voice vaults, `smd-customer-config`).
    - **KV** - `SESSIONS` (session storage) and `BOOKING_CACHE` (booking rate-limit plus the public-assessment turn/cost ceiling).
-   - **Service binding** - `ENRICHMENT_WORKFLOW_SERVICE` dispatches entity enrichment to a separate Worker (see below).
 
 All bindings are declared in `wrangler.toml`. The canonical outbound origins (`APP_BASE_URL`, `ADMIN_BASE_URL`, `PORTAL_BASE_URL`) are built from env vars, never from the inbound request host (`src/lib/config/app-url.ts`).
 
-## Background Workers (lead-gen and cost)
+## Background Workers (Operator cost)
 
-Some work does not belong in the request path. Five tracked sibling Workers live under `workers/` and run on their own schedules or service bindings:
+Some work does not belong in the request path. Two sibling Workers live under `workers/`:
 
-- **Lead generation** - `job-monitor` and `review-mining`. These are the tracked pipelines behind the admin Generators surface; their endpoints are declared as env vars in `wrangler.toml` and invoked Bearer-authed with `LEAD_INGEST_API_KEY`.
-- **Enrichment** - `enrichment-workflow` runs Cloudflare Workflows orchestration for entity enrichment, reached via the `ENRICHMENT_WORKFLOW_SERVICE` service binding. It exists because the legacy in-request `ctx.waitUntil(enrichEntity(...))` path was being killed by the post-response CPU budget on ingest batches (`wrangler.toml`, `[[services]]` note; issue #631).
 - **Cost** - `cost-telemetry` and `cost-anomaly` handle Operator cost ingest and anomaly detection.
+
+The automated lead-gen pipelines (`job-monitor`, `review-mining`, `enrichment-workflow`, `new-business`, `scan-workflow`, `social-listening`) that used to live here, along with the `ENRICHMENT_WORKFLOW_SERVICE` service binding and the `LEAD_INGEST_API_KEY` ingest path, were retired root-and-branch on 2026-07-01 (PRs #1610/#1616). The cost workers are all that remain.
 
 ## The Operator plane
 
@@ -79,4 +78,4 @@ Across all of SMD's ventures sits the **crane MCP** server - the enterprise cont
 
 ## External services at a glance
 
-The console plane depends on Cloudflare (Workers, D1, R2, KV), Clerk (identity), Anthropic (LLM), and a billing and document stack (Stripe, SignWell, Resend) plus the lead-gen data providers. The Operator plane adds Fly.io (Machines) and Google Workspace (managed-mailbox OAuth). The full inventory, what each is for, and where its credentials live is at `/admin/playbook/integrations-tooling`. The repository layout that implements all of the above is at `/admin/playbook/repository-map`.
+The console plane depends on Cloudflare (Workers, D1, R2, KV), Clerk (identity), Anthropic (LLM), and a billing and document stack (Stripe, SignWell, Resend). The Operator plane adds Fly.io (Machines) and Google Workspace (managed-mailbox OAuth). The full inventory, what each is for, and where its credentials live is at `/admin/playbook/integrations-tooling`. The repository layout that implements all of the above is at `/admin/playbook/repository-map`.

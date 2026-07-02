@@ -48,11 +48,12 @@ The deploy steps run in this order, and the order matters:
    Migrations apply before the code that depends on them and must be
    backward-compatible with the currently deployed app.
 4. **Deploy to Cloudflare Workers** (`wrangler deploy`) - the main `ss-web` Worker.
-5. **Deploy the sub-workers** - job-monitor, review-mining, cost-anomaly,
-   cost-telemetry, enrichment-workflow - each from its own directory.
-   (Between the root deploy and the sub-worker deploys the
+5. **Deploy the sub-workers** - cost-anomaly and cost-telemetry - each from its
+   own directory. (Between the root deploy and the sub-worker deploys the
    pipeline removes `.wrangler/`, because the root deploy writes a deploy-config
-   file that makes the sub-workers' `wrangler deploy` ambiguous.)
+   file that makes the sub-workers' `wrangler deploy` ambiguous.) These two
+   Operator-cost workers are all that remain under `workers/`; the lead-gen
+   pipelines were retired 2026-07-01 (PRs #1610/#1616).
 
 **Secrets.** On Workers, secrets persist across `wrangler deploy` runs - unlike
 the Pages era, there is no post-deploy sync step and no risk of a deploy wiping
@@ -60,7 +61,7 @@ dashboard-set secrets. Rotate them out of band from Infisical:
 
 ```bash
 infisical export --env=prod --path=/ss --format=dotenv \
-  | grep -vE '^(APP_|ADMIN_|PORTAL_|MEETING_|NEW_BUSINESS_|JOB_MONITOR_|REVIEW_MINING_|PUBLIC_)' \
+  | grep -vE '^(APP_|ADMIN_|PORTAL_|MEETING_|PUBLIC_)' \
   | npx wrangler secret bulk
 ```
 

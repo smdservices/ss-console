@@ -53,7 +53,6 @@ The policy is not enforced by vigilance alone; it is wired into CI and into test
 | Mechanism | What it does |
 |---|---|
 | `tests/forbidden-strings.test.ts` | Regression guard: the historical Pattern A/B phrases, the user-facing style-marker checks (em dash, "coming soon"), and portal registry guardrails must not appear in shipped source. |
-| `tests/enrichment-prompt-contracts.test.ts` | Source-level checks that the dossier, review-analysis, and deep-website enrichment prompts stay extractive. |
 | `tests/intake-questionnaire.test.ts` | Shared-surface regression coverage for the canonical intake questionnaire. |
 | `.github/workflows/scope-deferred-todo.yml` | Merge gate: blocks a PR that defers an acceptance criterion via a TODO without the `scope-deferred` label. |
 | `.github/workflows/unmet-ac-on-close.yml` | Issue-close gate: reopens an issue closed with unchecked acceptance criteria. |
