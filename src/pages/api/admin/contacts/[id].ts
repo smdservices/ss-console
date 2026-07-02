@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro'
 import { getContact, updateContact, deleteContact } from '../../../../lib/db/contacts'
 import { env } from 'cloudflare:workers'
 import { requireAdminSession } from '../../../../lib/auth/admin-session'
+import { errorResponse } from '../../../../lib/api/helpers'
 
 /**
  * POST /api/admin/contacts/:id
@@ -22,10 +23,7 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
 
   const contactId = params.id
   if (!contactId) {
-    return new Response(JSON.stringify({ error: 'Contact ID required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'Contact ID required')
   }
 
   try {

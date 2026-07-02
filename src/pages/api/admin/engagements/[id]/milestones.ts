@@ -11,6 +11,7 @@ import {
 import type { MilestoneStatus } from '../../../../../lib/db/milestones'
 import { env } from 'cloudflare:workers'
 import { requireAdminSession } from '../../../../../lib/auth/admin-session'
+import { errorResponse } from '../../../../../lib/api/helpers'
 
 /**
  * POST /api/admin/engagements/:id/milestones
@@ -177,10 +178,7 @@ async function handlePost({ request, locals, redirect, params }: APIContext): Pr
 
   const engagementId = params.id
   if (!engagementId) {
-    return new Response(JSON.stringify({ error: 'Engagement ID required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'Engagement ID required')
   }
 
   try {

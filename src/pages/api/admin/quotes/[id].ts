@@ -14,6 +14,7 @@ import type { SOWTemplateProps } from '../../../../lib/pdf/sow-template'
 import { createSOWRevisionForQuote } from '../../../../lib/sow/service'
 import { env } from 'cloudflare:workers'
 import { requireAdminSession } from '../../../../lib/auth/admin-session'
+import { errorResponse } from '../../../../lib/api/helpers'
 
 /**
  * POST /api/admin/quotes/:id
@@ -273,10 +274,7 @@ async function handlePost({ request, locals, redirect, params }: APIContext): Pr
 
   const quoteId = params.id
   if (!quoteId) {
-    return new Response(JSON.stringify({ error: 'Quote ID required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'Quote ID required')
   }
 
   try {

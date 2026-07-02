@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { env } from 'cloudflare:workers'
 import { handleResendEvent, type ResendWebhookPayload } from '../../../lib/webhooks/resend-handler'
 import { handleBookingEmailDeliveryFailure } from '../../../lib/webhooks/booking-email-failure'
+import { errorResponse, jsonResponse } from '../../../lib/api/helpers'
 
 /**
  * POST /api/webhooks/resend
@@ -70,10 +71,7 @@ const ResendWebhookPayloadSchema = z
   .catchall(z.unknown())
 
 function jsonErr(status: number, message: string): Response {
-  return new Response(JSON.stringify({ error: message }), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
+  return errorResponse(status, message)
 }
 
 async function verifySvixHeaders(
@@ -150,16 +148,13 @@ async function handlePost({ request }: APIContext): Promise<Response> {
       env.RESEND_API_KEY,
       payload
     )
-    return new Response(
-      JSON.stringify({
-        ok: true,
-        recorded: result.recorded,
-        ...(result.reason ? { reason: result.reason } : {}),
-        ...(result.eventType ? { event_type: result.eventType } : {}),
-        ...(bookingFailure.handled ? { booking_alert: true } : {}),
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    )
+    return jsonResponse(200, {
+      ok: true,
+      recorded: result.recorded,
+      ...(result.reason ? { reason: result.reason } : {}),
+      ...(result.eventType ? { event_type: result.eventType } : {}),
+      ...(bookingFailure.handled ? { booking_alert: true } : {}),
+    })
   } catch (err) {
     console.error('[webhook/resend] handler failed:', err)
     // 500 → Svix retries with backoff.

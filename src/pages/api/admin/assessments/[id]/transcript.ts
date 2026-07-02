@@ -3,6 +3,7 @@ import { getAssessment } from '../../../../../lib/db/assessments'
 import { getTranscript } from '../../../../../lib/storage/r2'
 import { env } from 'cloudflare:workers'
 import { requireAdminSession } from '../../../../../lib/auth/admin-session'
+import { errorResponse } from '../../../../../lib/api/helpers'
 
 /**
  * GET /api/admin/assessments/:id/transcript
@@ -18,26 +19,17 @@ export const GET: APIRoute = async ({ locals, params }) => {
 
   const assessmentId = params.id
   if (!assessmentId) {
-    return new Response(JSON.stringify({ error: 'Assessment ID required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'Assessment ID required')
   }
 
   const assessment = await getAssessment(env.DB, session.orgId, assessmentId)
   if (!assessment || !assessment.transcript_path) {
-    return new Response(JSON.stringify({ error: 'Transcript not found' }), {
-      status: 404,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(404, 'Transcript not found')
   }
 
   const object = await getTranscript(env.STORAGE, assessment.transcript_path)
   if (!object) {
-    return new Response(JSON.stringify({ error: 'Transcript file not found in storage' }), {
-      status: 404,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(404, 'Transcript file not found in storage')
   }
 
   const originalName = object.customMetadata?.originalName ?? 'transcript.txt'

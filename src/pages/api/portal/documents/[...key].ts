@@ -3,6 +3,7 @@ import { streamDocument } from '../../../../lib/storage/r2'
 import { listEngagements } from '../../../../lib/db/engagements'
 import { getPortalClient } from '../../../../lib/portal/session'
 import { env } from 'cloudflare:workers'
+import { errorResponse } from '../../../../lib/api/helpers'
 
 /**
  * GET /api/portal/documents/:key
@@ -42,25 +43,16 @@ function getContentType(key: string): string {
 export const GET: APIRoute = async ({ locals, params }) => {
   const key = params.key
   if (!key) {
-    return new Response(JSON.stringify({ error: 'Document key required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'Document key required')
   }
 
   // Resolve client entity via Clerk identity bridge
   const portalData = await getPortalClient(env.DB, locals)
   if (!portalData) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(401, 'Unauthorized')
   }
   if (!portalData.client) {
-    return new Response(JSON.stringify({ error: 'Forbidden' }), {
-      status: 403,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(403, 'Forbidden')
   }
 
   // Path traversal protection: key must be scoped to this org.
@@ -70,18 +62,12 @@ export const GET: APIRoute = async ({ locals, params }) => {
   const orgPrefix = `${portalData.user.org_id}/`
   const orgsScopedPrefix = `orgs/${portalData.user.org_id}/`
   if (!key.startsWith(orgPrefix) && !key.startsWith(orgsScopedPrefix)) {
-    return new Response(JSON.stringify({ error: 'Forbidden' }), {
-      status: 403,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(403, 'Forbidden')
   }
 
   // Reject path traversal attempts
   if (key.includes('..') || key.includes('//')) {
-    return new Response(JSON.stringify({ error: 'Forbidden' }), {
-      status: 403,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(403, 'Forbidden')
   }
 
   // Verify the key belongs to this client's engagement
@@ -100,19 +86,13 @@ export const GET: APIRoute = async ({ locals, params }) => {
   )
 
   if (!isEngagementDoc && !isQuoteDoc) {
-    return new Response(JSON.stringify({ error: 'Forbidden' }), {
-      status: 403,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(403, 'Forbidden')
   }
 
   // Stream the document from R2
   const object = await streamDocument(env.STORAGE, key)
   if (!object) {
-    return new Response(JSON.stringify({ error: 'Not found' }), {
-      status: 404,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(404, 'Not found')
   }
 
   const contentType = getContentType(key)
