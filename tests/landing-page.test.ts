@@ -260,9 +260,15 @@ describe('marketing structure: firm-with-flagship (locked)', () => {
     expect(footer, 'footer must not publish a mailto address').not.toContain('mailto:')
   })
 
-  it('the contact route is NOT 301-redirected away in middleware', () => {
+  it('the contact route is NOT 301-redirected away', () => {
+    // Redirect logic lives in the legacy-redirect table now; assert /contact is
+    // absent from both it and the middleware so the guard is not vacuous.
     const mw = readFileSync(resolve('src/middleware.ts'), 'utf-8')
-    expect(mw, 'middleware must not redirect /contact').not.toContain("pathname === '/contact'")
+    const redirects = readFileSync(resolve('src/lib/routing/legacy-redirects.ts'), 'utf-8')
+    expect(mw, 'middleware must not redirect /contact').not.toContain("'/contact'")
+    expect(redirects, 'legacy-redirect table must not redirect /contact').not.toContain(
+      "'/contact'"
+    )
   })
 
   it('nav does not link the retired pages', () => {
@@ -270,12 +276,16 @@ describe('marketing structure: firm-with-flagship (locked)', () => {
     expect(nav).not.toContain("href: '/consulting'")
   })
 
-  it('the retired routes 301 in middleware (bookmarks keep working)', () => {
-    const mw = readFileSync(resolve('src/middleware.ts'), 'utf-8')
+  it('the retired routes 301 via the legacy-redirect table (bookmarks keep working)', () => {
+    // The redirect rules were extracted from middleware.ts into a declarative
+    // table (code review 2026-07-02 §1.3). Retired routes now live there.
+    const redirects = readFileSync(resolve('src/lib/routing/legacy-redirects.ts'), 'utf-8')
     for (const route of ["'/why'", "'/consulting'", "'/ai'"]) {
-      expect(mw, `middleware should reference retired route ${route}`).toContain(route)
+      expect(redirects, `legacy-redirect table should reference retired route ${route}`).toContain(
+        route
+      )
     }
-    expect(mw).toContain('/operator#compare')
+    expect(redirects).toContain('/operator#compare')
   })
 })
 
