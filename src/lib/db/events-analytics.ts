@@ -28,7 +28,6 @@ export interface DailyUniqueRow {
 
 export interface FunnelCounts {
   landing: number
-  scorecard_start: number
   book_start: number
   book_complete: number
 }
@@ -110,7 +109,6 @@ export async function getDailyUniques(db: D1Database, days = 30): Promise<DailyU
  * sessions that reached each step. Steps are ordered:
  *
  *   landing         — any page_view
- *   scorecard_start — click on scorecard-start-* CTA
  *   book_start      — page_view of /book
  *   book_complete   — click on book-submit CTA (the actual booking POST
  *                     happens server-side but the client CTA is the
@@ -118,22 +116,12 @@ export async function getDailyUniques(db: D1Database, days = 30): Promise<DailyU
  */
 export async function getFunnelCounts(db: D1Database, days = 7): Promise<FunnelCounts> {
   const since = Date.now() - days * MS_PER_DAY
-  const [landing, scorecardStart, bookStart, bookComplete] = await Promise.all([
+  const [landing, bookStart, bookComplete] = await Promise.all([
     db
       .prepare(
         `SELECT COUNT(DISTINCT session_id) as n
          FROM events
          WHERE event_name = 'page_view' AND ts >= ?`
-      )
-      .bind(since)
-      .first<{ n: number }>(),
-    db
-      .prepare(
-        `SELECT COUNT(DISTINCT session_id) as n
-         FROM events
-         WHERE event_name = 'cta_click'
-           AND ts >= ?
-           AND json_extract(metadata, '$.cta') LIKE 'scorecard-start-%'`
       )
       .bind(since)
       .first<{ n: number }>(),
@@ -159,7 +147,6 @@ export async function getFunnelCounts(db: D1Database, days = 7): Promise<FunnelC
 
   return {
     landing: landing?.n ?? 0,
-    scorecard_start: scorecardStart?.n ?? 0,
     book_start: bookStart?.n ?? 0,
     book_complete: bookComplete?.n ?? 0,
   }

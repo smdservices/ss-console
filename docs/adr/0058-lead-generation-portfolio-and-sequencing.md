@@ -1,15 +1,16 @@
 ---
 title: Lead-Generation Portfolio and Sequencing
 date: 2026-06-30
-status: accepted
+status: superseded
+superseded-by: 0060-retire-automated-lead-gen-machine.md
 captain: Scott Durgan
 related-adr: 0001-taxonomy-two-layer-model.md, 0002-outside-view-unified-diagnostic.md, 0003-lead-gen-pivot-actor-identity.md, 0004-productized-operator-offering.md, 0039-operator-led-assessment-funnel.md
-related-doc: docs/marketing/lead-gen-strategy.md
+related-doc: docs/archive/lead-gen-strategy-2026-07-01.md
 ---
 
 # ADR 0058 — Lead-Generation Portfolio and Sequencing
 
-**Status:** Accepted (Captain decision, 2026-06-30).
+**Status:** Superseded 2026-07-01 by [ADR 0060](0060-retire-automated-lead-gen-machine.md) — the automated lead-gen machine and its ready-inventory, which this ADR treated as live assets, were retired. Kept for history.
 
 ## Context
 

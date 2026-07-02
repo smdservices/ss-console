@@ -74,33 +74,8 @@ jobs:
       - name: Clean root wrangler state
         run: rm -rf .wrangler
 
-      - name: Install Job Monitor Worker deps
-        run: cd workers/job-monitor && npm ci
-
-      - name: Deploy Job Monitor Worker
-        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: workers/job-monitor
-          command: deploy
-
-      - name: Install Review Mining Worker deps
-        run: cd workers/review-mining && npm ci
-
-      - name: Deploy Review Mining Worker
-        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: workers/review-mining
-          command: deploy
-
-      # 2026-06-12 code review: the three workers below were absent from the
-      # deploy pipeline — code changes shipped to neither CI verification nor
-      # production without a manual deploy. enrichment-workflow is service-
-      # bound from the main Worker (live intake path); the cost workers feed
-      # the admin cost views.
+      # The two cost workers feed the admin Operator cost views. They deploy
+      # here so code changes ship to CI verification + production together.
       - name: Install Cost Anomaly Worker deps
         run: cd workers/cost-anomaly && npm ci
 
@@ -121,15 +96,4 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: workers/cost-telemetry
-          command: deploy
-
-      - name: Install Enrichment Workflow Worker deps
-        run: cd workers/enrichment-workflow && npm ci
-
-      - name: Deploy Enrichment Workflow Worker
-        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: workers/enrichment-workflow
           command: deploy

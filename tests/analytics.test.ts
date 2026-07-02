@@ -289,22 +289,10 @@ describe('analytics: dashboard page', () => {
 describe('analytics: admin dashboard integration', () => {
   const source = () => readFileSync(resolve('src/pages/admin/index.astro'), 'utf-8')
 
-  it('admin home surfaces the acquisition pipeline', () => {
-    // Home (the launchpad) composes its own acquisition view from entity
-    // stages rather than the analytics conversion report (ADR 0046).
-    const code = source()
-    expect(code).toContain('Acquisition')
-    expect(code).toContain('/admin/entities')
-  })
-
   it('admin layout shows Analytics nav link', () => {
     const layout = readFileSync(resolve('src/layouts/AdminLayout.astro'), 'utf-8')
     expect(layout).toContain('Analytics')
     expect(layout).toContain('/admin/analytics')
-  })
-
-  it('admin home shows the acquisition lead metric', () => {
-    expect(source()).toContain('leadsActive')
   })
 
   it('admin home shows the delivery (in-motion) metric', () => {

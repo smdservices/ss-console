@@ -5,7 +5,6 @@ import { rateLimitByIp } from '../../../lib/booking/rate-limit'
 import { processIntakeSubmission } from '../../../lib/booking/intake-core'
 import { ALLOWED_INTERESTS, interestLabel } from '../../../lib/booking/config'
 import { trimString, isValidEmail, escapeHtml, jsonResponse } from '../../../lib/api/helpers'
-import { dispatchEnrichmentWorkflow } from '../../../lib/enrichment/dispatch'
 import { sendEmail } from '../../../lib/email/resend'
 import { buildAdminUrl } from '../../../lib/config/app-url'
 
@@ -17,9 +16,7 @@ const MAX_MESSAGE_CHARS = 5000
  * POST /api/intake/send
  *
  * Creates the entity from a /book intake submission, persists the
- * prospect's message as context, fires the enrichment workflow so the
- * consultant has a brief ready by the time the call lands, and sends
- * the admin notification email.
+ * prospect's message as context, and sends the admin notification email.
  *
  * Response: { ok: true, entity_id }. The chat surface that used to
  * generate an AI follow-up reply and issue a conversation cookie was
@@ -93,7 +90,7 @@ function validateSendBody(body: Record<string, unknown>): ValidatedSendBody | Re
   }
 }
 
-async function handlePost({ request, clientAddress, locals }: APIContext): Promise<Response> {
+async function handlePost({ request, clientAddress }: APIContext): Promise<Response> {
   let body: Record<string, unknown>
   try {
     body = await request.json()
@@ -138,23 +135,6 @@ async function handlePost({ request, clientAddress, locals }: APIContext): Promi
   } catch (err) {
     console.error('[api/intake/send] processIntakeSubmission failed:', err)
     return jsonResponse(500, { error: 'Internal server error' })
-  }
-
-  // Fire the enrichment workflow backstage. The consultant gets a brief
-  // ready by the time the prospect picks a slot. Fire-and-forget; the
-  // booking flow does not wait. New entities only; existing entities may
-  // already have an enrichment run pending or complete, and
-  // dispatchEnrichmentWorkflow's idempotency pre-check handles that.
-  if (intakeResult.entityCreated) {
-    const dispatchPromise = dispatchEnrichmentWorkflow(env, {
-      entityId: intakeResult.entityId,
-      orgId: ORG_ID,
-      mode: 'full',
-      triggered_by: 'website_intake',
-    }).catch((err: unknown) => {
-      console.error('[api/intake/send] enrichment dispatch failed', { error: err })
-    })
-    if (locals.cfContext?.waitUntil) locals.cfContext.waitUntil(dispatchPromise)
   }
 
   try {

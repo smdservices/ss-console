@@ -70,20 +70,11 @@ jobs:
       - name: Clean root wrangler state
         run: rm -rf .wrangler
 
-      - name: Build Job Monitor Worker
-        run: cd workers/job-monitor && npm ci && npx wrangler deploy --dry-run --outdir=dist
-
-      - name: Build Review Mining Worker
-        run: cd workers/review-mining && npm ci && npx wrangler deploy --dry-run --outdir=dist
-
-      # 2026-06-12 code review: the three workers below had wrangler configs
-      # and live consumers but were absent from CI build verification — a
-      # wrangler-config break would not surface until a manual deploy.
+      # The two cost workers have their own wrangler configs + live consumers
+      # (admin Operator cost views); dry-run build them so a config break
+      # surfaces in CI rather than at deploy.
       - name: Build Cost Anomaly Worker
         run: cd workers/cost-anomaly && npm ci && npx wrangler deploy --dry-run --outdir=dist
 
       - name: Build Cost Telemetry Worker
         run: cd workers/cost-telemetry && npm ci && npx wrangler deploy --dry-run --outdir=dist
-
-      - name: Build Enrichment Workflow Worker
-        run: cd workers/enrichment-workflow && npm ci && npx wrangler deploy --dry-run --outdir=dist
