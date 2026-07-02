@@ -7,6 +7,7 @@ import {
 import type { EngagementStatus } from '../../../../lib/db/engagements'
 import { getSignalById } from '../../../../lib/db/signal-attribution'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../lib/auth/admin-session'
 
 /**
  * POST /api/admin/engagements/:id
@@ -60,13 +61,9 @@ async function resolveSignalEdit(
 }
 
 async function handlePost({ request, locals, redirect, params }: APIContext): Promise<Response> {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const engagementId = params.id
   if (!engagementId) {

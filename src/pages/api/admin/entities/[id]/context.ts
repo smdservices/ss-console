@@ -3,6 +3,7 @@ import type { APIRoute } from 'astro'
 import { appendContext, listContext, type ContextType } from '../../../../../lib/db/context'
 import { getEntity } from '../../../../../lib/db/entities'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../../lib/auth/admin-session'
 
 /**
  * GET /api/admin/entities/[id]/context
@@ -13,10 +14,9 @@ import { env } from 'cloudflare:workers'
  */
 
 export const GET: APIRoute = async ({ params, locals }) => {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return jsonResponse(401, { error: 'Unauthorized' })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const entityId = params.id
   if (!entityId) {
@@ -38,13 +38,9 @@ export const GET: APIRoute = async ({ params, locals }) => {
 }
 
 export const POST: APIRoute = async ({ params, request, locals, redirect }) => {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const entityId = params.id
   if (!entityId) {

@@ -25,14 +25,13 @@ import {
   listCostCustomers,
   rowsToCsv,
 } from '../../../../../lib/admin/cost-query'
+import { requireAdminSession } from '../../../../../lib/auth/admin-session'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 async function handleGet({ request, locals }: APIContext): Promise<Response> {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return jsonResponse(401, { error: 'Unauthorized' })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
 
   const url = new URL(request.url)
   const customerSlug = url.searchParams.get('customer_slug')

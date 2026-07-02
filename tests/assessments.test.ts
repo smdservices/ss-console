@@ -193,8 +193,8 @@ describe('assessments: API routes', () => {
   it('endpoints verify admin session', () => {
     const createCode = readFileSync(resolve('src/pages/api/admin/assessments/index.ts'), 'utf-8')
     const updateCode = readFileSync(resolve('src/pages/api/admin/assessments/[id].ts'), 'utf-8')
-    expect(createCode).toContain("session.role !== 'admin'")
-    expect(updateCode).toContain("session.role !== 'admin'")
+    expect(createCode).toContain('requireAdminSession')
+    expect(updateCode).toContain('requireAdminSession')
   })
 
   it('transcript endpoint verifies admin session', () => {
@@ -202,7 +202,7 @@ describe('assessments: API routes', () => {
       resolve('src/pages/api/admin/assessments/[id]/transcript.ts'),
       'utf-8'
     )
-    expect(code).toContain("session.role !== 'admin'")
+    expect(code).toContain('requireAdminSession')
   })
 
   it('transcript endpoint returns file as download', () => {

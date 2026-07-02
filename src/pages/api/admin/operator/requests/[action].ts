@@ -22,6 +22,7 @@ import type { APIContext, APIRoute } from 'astro'
 import { env } from 'cloudflare:workers'
 import { updateChangeRequestStatus } from '../../../../../lib/portal/operator/change-request'
 import { actionToStatus } from '../../../../../lib/admin/change-request-inbox'
+import { requireAdminSession } from '../../../../../lib/auth/admin-session'
 
 const MAX_NOTE_LENGTH = 4000
 
@@ -46,10 +47,9 @@ function parseBody(body: unknown): ParsedBody | { error: string } {
 }
 
 async function handlePost(ctx: APIContext): Promise<Response> {
-  const session = ctx.locals.session
-  if (!session || session.role !== 'admin') {
-    return jsonResponse(401, { error: 'Unauthorized' })
-  }
+  const auth = requireAdminSession(ctx.locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const status = actionToStatus(ctx.params.action ?? '')
   if (status === null) {

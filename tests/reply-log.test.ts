@@ -73,7 +73,7 @@ describe('reply-log endpoint: context entry shape', () => {
 describe('reply-log endpoint: auth and validation', () => {
   it('rejects non-admin sessions', () => {
     const code = endpoint()
-    expect(code).toContain("session.role !== 'admin'")
+    expect(code).toContain('requireAdminSession')
   })
 
   it('validates sentiment against allowed list', () => {

@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro'
 import { dispatchEnrichmentWorkflow } from '../../../../../../lib/enrichment/dispatch'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../../../lib/auth/admin-session'
 
 /**
  * POST /api/admin/entities/[id]/enrichment/run-full
@@ -26,13 +27,9 @@ import { env } from 'cloudflare:workers'
  * accept that re-clicking on an already-succeeded entity short-circuits.
  */
 export const POST: APIRoute = ({ params, locals, redirect }) => {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const entityId = params.id
   if (!entityId) return redirect('/admin/entities?error=missing', 302)
