@@ -14,19 +14,12 @@
  * there is no slug to resolve.
  */
 
+import { constantTimeEqual } from './constant-time'
+
 export function verifyHealthReadKey(request: Request, expectedKey: string | undefined): boolean {
   if (!expectedKey) return false
   const auth = request.headers.get('Authorization') ?? ''
   if (!auth.startsWith('Bearer ')) return false
   const provided = auth.slice('Bearer '.length)
   return constantTimeEqual(provided, expectedKey)
-}
-
-function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false
-  let mismatch = 0
-  for (let i = 0; i < a.length; i++) {
-    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i)
-  }
-  return mismatch === 0
 }

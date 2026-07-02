@@ -1,4 +1,6 @@
 ---
+import { serializeJsonLd } from '../lib/seo/json-ld'
+
 const schema = {
   '@context': 'https://schema.org',
   '@type': 'LocalBusiness',
@@ -41,4 +43,4 @@ const schema = {
 }
 ---
 
-<script is:inline type="application/ld+json" set:html={JSON.stringify(schema)} />
+<script is:inline type="application/ld+json" set:html={serializeJsonLd(schema)} />

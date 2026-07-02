@@ -6,6 +6,7 @@ import Nav from '../components/Nav.astro'
 import Footer from '../components/Footer.astro'
 import CtaButton from '../components/CtaButton.astro'
 import { CATEGORY_NAME, CATEGORY_ARTICLE } from '../lib/category'
+import { serializeJsonLd } from '../lib/seo/json-ld'
 
 const productSchema = {
   '@context': 'https://schema.org',
@@ -98,8 +99,8 @@ const industries = [
 >
   <Nav />
   <main id="main" role="main">
-    <script is:inline type="application/ld+json" set:html={JSON.stringify(productSchema)} />
-    <script is:inline type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+    <script is:inline type="application/ld+json" set:html={serializeJsonLd(productSchema)} />
+    <script is:inline type="application/ld+json" set:html={serializeJsonLd(faqSchema)} />
 
     <!-- § 01 Hero -->
     <section
