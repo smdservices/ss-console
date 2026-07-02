@@ -2,7 +2,7 @@
 title: Customer Lifecycle
 section: operations
 order: 7
-summary: The end-to-end walk of a business through the system - lead to enrichment to assessment to quote to signing to delivery to billing to handoff - and which admin surface and data object owns each step
+summary: The end-to-end walk of a business through the system - lead to outreach to assessment to quote to signing to delivery to billing to handoff - and which admin surface and data object owns each step
 sources:
   - label: Entity stages & transitions (src/lib/db/entities.ts)
     href: https://github.com/venturecrane/ss-console/blob/main/src/lib/db/entities.ts
@@ -26,21 +26,16 @@ This page walks the row from first contact to handoff. For the business meaning 
 
 ## 1. Lead capture - stage `signal`
 
-A lead enters as a `signal`. Lead-generation pipelines feed this stage automatically; the entity list filters by `source_pipeline` across `review_mining`, `job_monitor`, `new_business`, and `social_listening` (`src/pages/admin/entities/index.astro`). Each signal carries the evidence that produced it (a latest pipeline signal context entry plus a last-activity timestamp), surfaced inline on the Signal tab so the operator can judge it without clicking through.
+A lead enters as a `signal`. The automated lead-generation pipelines that used to feed this stage were retired 2026-07-01 (PRs #1610/#1616); current lead generation is hand-personalized outreach (ADR 0059). The entity list still filters by `source_pipeline` across `review_mining`, `job_monitor`, `new_business`, and `social_listening` (`src/pages/admin/entities/index.astro`) for signals already in the system. Each signal carries the evidence that produced it (a latest signal context entry plus a last-activity timestamp), surfaced inline on the Signal tab so the operator can judge it without clicking through.
 
-- **Surface:** `/admin/entities?stage=signal` (the Leads "Signal" tab). Pipelines are managed from `/admin/generators`.
+- **Surface:** `/admin/entities?stage=signal` (the Leads "Signal" tab).
 - **Data objects:** `entities` row (stage `signal`), `context` entries (the signal evidence).
 
 A signal that is not worth pursuing is dismissed. One that is gets promoted to `prospect`.
 
-## 2. Enrichment
+## 2. Enrichment (retired)
 
-Before or during outreach, a prospect is enriched - public-data gathering that builds a dossier (`src/lib/enrichment/`): website analysis, reviews, tech stack, news, Google Places, and related sources synthesized into a profile. Enrichment is extractive and evidence-bound; it gathers what is publicly observable, not inferred private conditions about the owner (an enforced policy - see CLAUDE.md fabrication guardrails).
-
-- **Surface:** the entity detail page at `/admin/entities/[id]`.
-- **Data objects:** `entities` row plus enrichment `context` entries and the dossier.
-
-> TODO(why): Enrichment runs as a workflow under src/lib/enrichment/ (dispatch.ts, workflow.ts, synthesis.ts), but I did not trace the exact trigger - whether enrichment fires automatically on promotion to prospect, on demand from the detail page, or as a scheduled pipeline step. Looked in src/lib/enrichment/dispatch.ts and the entity list/detail pages; did not read the dispatch trigger wiring.
+The automated public-data enrichment step (dossier building via `src/lib/enrichment/`: website analysis, reviews, tech stack, news, Google Places) was part of the scrape-score-enrich lead-gen machine, retired 2026-07-01 (PRs #1610/#1616). `src/lib/enrichment/`, the `/admin/entities/[id]/enrichment/` and `dossier` endpoints, and the Re-enrich action are gone. The lead detail page still renders any enrichment data left on legacy entity rows, but no new enrichment runs. A prospect now moves from signal straight into outreach.
 
 ## 3. Prospect and outreach - stage `prospect`
 

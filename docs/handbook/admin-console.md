@@ -34,7 +34,7 @@ The information architecture is flow-ordered (acquire, serve, deliver, get paid,
 | **Operator** | `/admin/operator` | The Operator fleet cockpit - roster and per-customer drill-ins. |
 | **Analytics** | `/admin/analytics` | Business-intelligence views, rendered server-side. |
 | **Playbook** | `/admin/playbook` | This handbook. |
-| **Settings** | `/admin/settings` | The configuration hub: lead generators, follow-ups, pipeline tuning, Google connect. |
+| **Settings** | `/admin/settings` | The configuration hub: follow-ups and Google connect. |
 
 `assessments` and `engagements` also live under `src/pages/admin/` and are reached from within the flow (a lead's meeting, a client's engagement) rather than from a dedicated top-nav tab.
 
@@ -67,19 +67,18 @@ Bulk select and bulk actions are offered only on the `signal`, `prospect`, and `
 
 ### Lead detail (`/admin/entities/[id]`)
 
-The decision surface for one business. It shows an identity strip (name, stage, tier, pain score out of ten, vertical, area), an enrichment summary (pain observations, address, when it was generated, and which enrichment module produced it), a contacts panel, and a deduplicated timeline of context entries (signals, notes, outreach, observations) with an inline add-note form. A right-hand decision rail carries the stage-appropriate actions and surfaces missing-data warnings (no pain score, no contacts) and stale-outreach-draft warnings.
+The decision surface for one business. It shows an identity strip (name, stage, tier, pain score out of ten, vertical, area), an enrichment summary rendered from any enrichment data left on legacy entity rows (pain observations, address, when it was generated), a contacts panel, and a deduplicated timeline of context entries (signals, notes, outreach, observations) with an inline add-note form. A right-hand decision rail carries the stage-appropriate actions and surfaces missing-data warnings (no pain score, no contacts) and stale-outreach-draft warnings.
 
 The actions on the rail each hit an endpoint under `src/pages/api/admin/entities/[id]/`:
 
-- **Promote** (`promote`) - moves signal to prospect, dispatches enrichment, and schedules the follow-up cadence.
-- **Re-enrich** (`dossier`) - runs the reviews-and-news enrichment mode in the background.
+- **Promote** (`promote`) - moves signal to prospect and schedules the follow-up cadence.
 - **Send booking link** (`send-booking-link`) - creates a meeting, transitions prospect to meetings, and sends the booking email.
 - **Draft quote** (`quotes`) - creates an empty draft quote shell (preconditions: not already engaged, no open quote, a prior meeting exists).
 - **Add note** (`context`) - appends a note to the timeline.
 - **Stage change** (`stage`) - transitions stage against a valid-transition table, optionally recording a lost reason and detail.
 - **Merge** (`merge`) - folds a duplicate entity into this one.
 
-Enrichment itself is a background pipeline; the per-module retry and full-run endpoints live under `entities/[id]/enrichment/`. The enrichment model and what it may infer are bounded by the extractive prompt-contract policy in `/admin/playbook/security-trust`.
+The automated enrichment pipeline that used to populate the enrichment summary (the `entities/[id]/enrichment/` and `dossier` endpoints, the Re-enrich action) was retired with the lead-gen machine on 2026-07-01 (PRs #1610/#1616); only enrichment data already stored on legacy rows still renders.
 
 ### Meeting detail (`/admin/entities/[id]/meetings/[meetingId]`)
 
@@ -150,10 +149,10 @@ All per-customer runtime detail comes through the read seam in `src/lib/operator
 
 `/admin/settings` is the configuration hub. It links to:
 
-- **Lead generators** (`/admin/generators`) - the four ingestion pipelines (New Business, Job Monitor, Review Mining, Social Listening), each with a card showing signal volume, fill rates for the key fields, last-run status, and an enabled flag. The detail page (`generators/[type]`) carries the per-pipeline configuration form (target verticals, geos, search or discovery queries, geo center and radius for review mining) and a run-now button that invokes the ingestion worker. The pipelines qualify and score signals with models matched to the source; social listening is context-only and creates no entity.
 - **Follow-ups** (`/admin/follow-ups`) - the cadence working list, tabbed Upcoming / Overdue / Completed with a type filter.
-- **Pipeline settings** (`/admin/settings/pipelines`) - the tunable per-pipeline parameters, each validated against bounds twice (in the form and in the data layer), with an immutable audit trail of every change (old value, new value, actor, time). Changes take effect on the next cron run without a deploy.
 - **Google connect** (`/admin/settings/google-connect`) - the Google Calendar OAuth connection used for booking, showing the connected account or a connect button.
+
+The **Lead generators** surface (`/admin/generators`) and the **Pipeline settings** page (`/admin/settings/pipelines`) were removed with the automated lead-gen retirement on 2026-07-01 (PRs #1610/#1616). Lead generation is now hand-personalized outreach (ADR 0059), not a configurable ingestion pipeline.
 
 ## Patterns that hold across the console
 
