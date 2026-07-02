@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { StripeWebhookEvent } from '../../../lib/stripe/types'
 import { handleInvoicePaid, handleInvoicePaymentFailed } from '../../../lib/webhooks/stripe-handler'
 import { env } from 'cloudflare:workers'
+import { errorResponse, jsonResponse } from '../../../lib/api/helpers'
 
 /**
  * POST /api/webhooks/stripe
@@ -60,10 +61,7 @@ function parseStripeWebhookEvent(rawBody: string): ParseStripeWebhookEventResult
     return { parsed: JSON.parse(rawBody) as unknown }
   } catch {
     return {
-      response: new Response(JSON.stringify({ error: 'Invalid JSON' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      }),
+      response: errorResponse(400, 'Invalid JSON'),
     }
   }
 }
@@ -72,10 +70,7 @@ export const POST: APIRoute = async ({ request }) => {
   const webhookSecret = env.STRIPE_WEBHOOK_SECRET
   if (!webhookSecret) {
     console.error('[webhook/stripe] STRIPE_WEBHOOK_SECRET not configured')
-    return new Response(JSON.stringify({ error: 'Server misconfigured' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(500, 'Server misconfigured')
   }
 
   // --- Signature verification ---
@@ -85,10 +80,7 @@ export const POST: APIRoute = async ({ request }) => {
   const isValid = await verifyStripeSignature(rawBody, signatureHeader, webhookSecret)
   if (!isValid) {
     console.error('[webhook/stripe] Invalid webhook signature')
-    return new Response(JSON.stringify({ error: 'Invalid signature' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(401, 'Invalid signature')
   }
 
   // --- Parse payload ---
@@ -98,10 +90,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   const envelopeResult = StripeWebhookEnvelopeSchema.safeParse(parsed)
   if (!envelopeResult.success) {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'Invalid JSON')
   }
   const eventType = envelopeResult.data.type
 
@@ -109,10 +98,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (eventType === 'invoice.paid') {
     const eventResult = StripeInvoiceWebhookEventSchema.safeParse(parsed)
     if (!eventResult.success) {
-      return new Response(JSON.stringify({ error: 'Malformed event payload' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return errorResponse(400, 'Malformed event payload')
     }
     const event: StripeWebhookEvent = eventResult.data
     return handleInvoicePaid(env.DB, env.RESEND_API_KEY, event)
@@ -121,20 +107,14 @@ export const POST: APIRoute = async ({ request }) => {
   if (eventType === 'invoice.payment_failed') {
     const eventResult = StripeInvoiceWebhookEventSchema.safeParse(parsed)
     if (!eventResult.success) {
-      return new Response(JSON.stringify({ error: 'Malformed event payload' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return errorResponse(400, 'Malformed event payload')
     }
     const event: StripeWebhookEvent = eventResult.data
     return handleInvoicePaymentFailed(env.DB, event)
   }
 
   // Acknowledge all other events without processing
-  return new Response(JSON.stringify({ ok: true, event: eventType }), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-  })
+  return jsonResponse(200, { ok: true, event: eventType })
 }
 
 /**

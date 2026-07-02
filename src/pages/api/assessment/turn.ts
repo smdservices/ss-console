@@ -34,6 +34,7 @@ import {
   issueAssessmentSession,
   verifyAssessmentSession,
 } from '../../../lib/assessment/session'
+import { jsonResponse } from '../../../lib/api/helpers'
 
 const RATE_LIMIT_PER_HOUR = 200
 const MAX_TURNS = 60
@@ -47,10 +48,7 @@ export interface ParsedTurnRequest {
 }
 
 function json(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  })
+  return jsonResponse(status, body)
 }
 
 /** Narrow one array element into a `Turn`, or null if it is not a valid turn. */

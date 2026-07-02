@@ -390,7 +390,8 @@ describe('portal quotes: SOW download API route', () => {
     // 403 with "Client not found".
     const code = readFileSync(resolve('src/pages/api/portal/quotes/[id]/sow.ts'), 'utf-8')
     expect(code).toContain('getPortalClient(env.DB, locals)')
-    expect(code).toContain('status: 401')
+    // Unauthorized now returns via the shared errorResponse(status, message) helper.
+    expect(code).toContain('errorResponse(401')
   })
 
   it('scopes quote to entity via getQuoteForEntity', () => {

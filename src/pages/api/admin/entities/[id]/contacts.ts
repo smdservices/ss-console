@@ -3,6 +3,7 @@ import { getEntity } from '../../../../../lib/db/entities'
 import { createContact } from '../../../../../lib/db/contacts'
 import { env } from 'cloudflare:workers'
 import { requireAdminSession } from '../../../../../lib/auth/admin-session'
+import { errorResponse } from '../../../../../lib/api/helpers'
 
 /**
  * POST /api/admin/entities/:id/contacts
@@ -26,10 +27,7 @@ export const POST: APIRoute = async ({ request, locals, redirect, params }) => {
 
   const entityId = params.id
   if (!entityId) {
-    return new Response(JSON.stringify({ error: 'Entity ID required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return errorResponse(400, 'Entity ID required')
   }
 
   try {

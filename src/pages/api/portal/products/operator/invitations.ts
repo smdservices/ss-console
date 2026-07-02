@@ -10,6 +10,7 @@ import {
 } from '../../../../../lib/portal/operator/rbac-audit'
 import { isPeopleAccessOperable } from '../../../../../lib/portal/operator/people-access-gate'
 import { env } from 'cloudflare:workers'
+import { errorResponse } from '../../../../../lib/api/helpers'
 
 /**
  * POST /api/portal/products/operator/invitations
@@ -56,10 +57,7 @@ function redirectWithStatus(status: string): Response {
 }
 
 function jsonError(status: number, message: string): Response {
-  return new Response(JSON.stringify({ error: message }), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
+  return errorResponse(status, message)
 }
 
 interface AuthorizedContext {

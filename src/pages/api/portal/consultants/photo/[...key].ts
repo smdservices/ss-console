@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro'
 import { listEngagements } from '../../../../../lib/db/engagements'
 import { getPortalClient } from '../../../../../lib/portal/session'
 import { env } from 'cloudflare:workers'
+import { jsonResponse } from '../../../../../lib/api/helpers'
 
 /**
  * GET /api/portal/consultants/photo/:key
@@ -29,10 +30,7 @@ const CONTENT_TYPES: Record<string, string> = {
 }
 
 function jsonError(status: number, error: string): Response {
-  return new Response(JSON.stringify({ error }), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
+  return jsonResponse(status, { error })
 }
 
 function getContentType(key: string, objectContentType?: string): string {
