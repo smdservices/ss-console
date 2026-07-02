@@ -4,6 +4,7 @@ import { requirePortalBaseUrl } from '../../../lib/config/app-url'
 import { sendEmail } from '../../../lib/email/resend'
 import { buildMagicLinkUrl, portalInvitationEmailHtml } from '../../../lib/email/templates'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../lib/auth/admin-session'
 
 interface UserRow {
   id: string
@@ -67,10 +68,9 @@ async function maybeUpdateEmail(
 async function handlePost({ request, locals }: APIContext): Promise<Response> {
   // Verify admin session (middleware already checks /admin/* routes,
   // but this is under /api/admin/* so we verify explicitly)
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return jsonError(401, 'Unauthorized')
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   try {
     const body: { userId?: unknown; email?: unknown } = await request.json()

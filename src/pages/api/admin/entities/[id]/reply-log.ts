@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro'
 import { appendContext } from '../../../../../lib/db/context'
 import { getEntity } from '../../../../../lib/db/entities'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../../lib/auth/admin-session'
 
 /**
  * POST /api/admin/entities/[id]/reply-log
@@ -26,13 +27,9 @@ export const REPLY_NEXT_ACTIONS = [
 export type ReplyNextAction = (typeof REPLY_NEXT_ACTIONS)[number]
 
 export const POST: APIRoute = async ({ params, request, locals, redirect }) => {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const entityId = params.id
   if (!entityId) {

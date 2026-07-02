@@ -10,6 +10,7 @@ import {
 import type { Disposition } from '../../../../../lib/db/parking-lot'
 import { appendContext } from '../../../../../lib/db/context'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../../lib/auth/admin-session'
 
 /**
  * POST /api/admin/engagements/:id/parking-lot
@@ -177,13 +178,9 @@ async function handleCreate(
 }
 
 async function handlePost({ request, locals, redirect, params }: APIContext): Promise<Response> {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const engagementId = params.id
   if (!engagementId) {

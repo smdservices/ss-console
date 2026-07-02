@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro'
 import { getAssessment } from '../../../../../lib/db/assessments'
 import { getTranscript } from '../../../../../lib/storage/r2'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../../lib/auth/admin-session'
 
 /**
  * GET /api/admin/assessments/:id/transcript
@@ -11,13 +12,9 @@ import { env } from 'cloudflare:workers'
  * Protected by auth middleware (requires admin role).
  */
 export const GET: APIRoute = async ({ locals, params }) => {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const assessmentId = params.id
   if (!assessmentId) {

@@ -8,6 +8,7 @@ import type { AssessmentStatus } from '../../../../lib/db/assessments'
 import { uploadTranscript, getTranscript } from '../../../../lib/storage/r2'
 import { extractAssessment } from '../../../../lib/claude/extract'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../lib/auth/admin-session'
 
 type Redirect = APIContext['redirect']
 
@@ -120,13 +121,9 @@ async function handleGeneralUpdate({
  * Protected by auth middleware (requires admin role).
  */
 async function handlePost({ request, locals, redirect, params }: APIContext): Promise<Response> {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const assessmentId = params.id
   if (!assessmentId) {

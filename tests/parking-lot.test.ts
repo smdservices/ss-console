@@ -112,8 +112,7 @@ describe('parking-lot: API endpoint', () => {
 
   it('rejects non-admin sessions with 401', () => {
     const code = source()
-    expect(code).toContain("session.role !== 'admin'")
-    expect(code).toContain('status: 401')
+    expect(code).toContain('requireAdminSession')
   })
 
   it('validates engagement ownership via getEngagement', () => {

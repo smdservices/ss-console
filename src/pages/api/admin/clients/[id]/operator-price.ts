@@ -1,6 +1,7 @@
 import type { APIContext, APIRoute } from 'astro'
 import { setOperatorPrice } from '../../../../../lib/db/services'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../../lib/auth/admin-session'
 
 /**
  * POST /api/admin/clients/[id]/operator-price
@@ -23,13 +24,9 @@ function parsePrice(
 }
 
 async function handlePost({ request, locals, params, redirect }: APIContext): Promise<Response> {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const entityId = params.id
   if (!entityId) return redirect('/admin/clients?error=missing', 302)

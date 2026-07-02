@@ -200,7 +200,7 @@ describe('invoices: admin API routes', () => {
     })
 
     it('verifies admin session', () => {
-      expect(source()).toContain("session.role !== 'admin'")
+      expect(source()).toContain('requireAdminSession')
     })
 
     it('validates invoice type', () => {
@@ -224,7 +224,7 @@ describe('invoices: admin API routes', () => {
     })
 
     it('verifies admin session', () => {
-      expect(source()).toContain("session.role !== 'admin'")
+      expect(source()).toContain('requireAdminSession')
     })
 
     it('handles send action — creates in Stripe and sends', () => {

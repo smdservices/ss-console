@@ -2,6 +2,7 @@ import { jsonResponse } from '../../../../../../../lib/api/helpers'
 import type { APIRoute } from 'astro'
 import { getMeeting, updateMeeting } from '../../../../../../../lib/db/meetings'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../../../../lib/auth/admin-session'
 
 /**
  * PUT /api/admin/entities/:id/meetings/:meetingId/live-notes
@@ -12,10 +13,9 @@ import { env } from 'cloudflare:workers'
  * Protected by auth middleware (requires admin role).
  */
 export const PUT: APIRoute = async ({ request, locals, params }) => {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return jsonResponse(401, { error: 'Unauthorized' })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const entityId = params.id
   const meetingId = params.meetingId

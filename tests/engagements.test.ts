@@ -235,8 +235,8 @@ describe('engagements: API routes', () => {
       resolve('src/pages/api/admin/engagements/[id]/milestones.ts'),
       'utf-8'
     )
-    expect(createCode).toContain("session.role !== 'admin'")
-    expect(updateCode).toContain("session.role !== 'admin'")
-    expect(milestonesCode).toContain("session.role !== 'admin'")
+    expect(createCode).toContain('requireAdminSession')
+    expect(updateCode).toContain('requireAdminSession')
+    expect(milestonesCode).toContain('requireAdminSession')
   })
 })
