@@ -8,6 +8,7 @@ Code review records and platform audit reports for the SMD Services codebase.
 
 ## Files
 
+- [code-review-2026-07-02.md](./code-review-2026-07-02.md) - Full codebase code review (2026-07-02)
 - [code-review-2026-07-01.md](./code-review-2026-07-01.md) - Full codebase code review (2026-07-01)
 - [code-review-2026-06-30.md](./code-review-2026-06-30.md) - Full codebase code review (2026-06-30)
 - [code-review-2026-06-12.md](./code-review-2026-06-12.md) - Full codebase code review (2026-06-12)
