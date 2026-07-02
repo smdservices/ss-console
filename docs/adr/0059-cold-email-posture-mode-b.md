@@ -1,15 +1,16 @@
 ---
 title: Cold-Email Posture — Mode B (Low-Volume Personal) over Mode A (Scaled Campaign)
 date: 2026-07-01
-status: accepted
+status: superseded
+superseded-by: 0060-retire-automated-lead-gen-machine.md
 captain: Scott Durgan
 related-adr: 0058-lead-generation-portfolio-and-sequencing.md, 0039-operator-led-assessment-funnel.md, 0003-lead-gen-pivot-actor-identity.md
-related-doc: docs/marketing/lead-gen-strategy.md
+related-doc: docs/archive/lead-gen-strategy-2026-07-01.md
 ---
 
 # ADR 0059 — Cold-Email Posture: Mode B (Low-Volume Personal) over Mode A (Scaled Campaign)
 
-**Status:** Accepted (Captain decision, 2026-07-01).
+**Status:** Superseded 2026-07-01 by [ADR 0060](0060-retire-automated-lead-gen-machine.md) — the machine that fed this outreach posture was retired the same day; the Mode-A/Mode-B distinction is preserved here for history. Kept for history.
 
 ## Context
 

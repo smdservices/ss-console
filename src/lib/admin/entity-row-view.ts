@@ -5,7 +5,7 @@
  * All per-row computation happens here (in the page frontmatter loop) rather
  * than inside the JSX map arrow, keeping the arrow under the 75-line ceiling.
  */
-import type { Entity, EntitySignalMetadata } from '../db/entities'
+import type { Entity } from '../db/entities'
 import { ENTITY_STAGES } from '../db/entities'
 import type { Quote } from '../db/quotes'
 import type { Meeting } from '../db/meetings'
@@ -23,7 +23,6 @@ import {
   type MeetingSubstate,
 } from '../entities/meeting-substate'
 import { relativeTime } from './relative-time'
-import { PROBLEM_LABELS, LEGACY_PROBLEM_LABELS } from '../../portal/assessments/extraction-schema'
 
 export interface EntityRowView {
   entity: Entity
@@ -85,35 +84,6 @@ function resolveWebsite(raw: string | null): { href: string; label: string } | n
   return { href: url.toString(), label }
 }
 
-function resolveProblemLabel(id: string): string | null {
-  if (id in PROBLEM_LABELS) return PROBLEM_LABELS[id as keyof typeof PROBLEM_LABELS]
-  if (id in LEGACY_PROBLEM_LABELS)
-    return LEGACY_PROBLEM_LABELS[id as keyof typeof LEGACY_PROBLEM_LABELS]
-  return null
-}
-
-function formatSignalDate(raw: string | null): string | null {
-  if (!raw) return null
-  const parsed = new Date(raw)
-  if (Number.isNaN(parsed.getTime())) return raw
-  return parsed.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
-}
-
-function composeSignalEvidence(meta: EntitySignalMetadata | undefined): string | null {
-  if (!meta) return null
-  const parts = [
-    meta.signal_source_label,
-    meta.signal_subject,
-    meta.signal_location,
-    formatSignalDate(meta.signal_date),
-  ].filter((part): part is string => !!part)
-  return parts.length > 0 ? parts.join(' · ') : null
-}
-
 function buildOutreachMailto(
   entityName: string,
   contactEmail: string | null | undefined,
@@ -130,7 +100,6 @@ function buildOutreachMailto(
 export interface BuildArgs {
   entity: Entity
   filterStage: string
-  signalMetadata: Map<string, EntitySignalMetadata>
   outreachDraftByEntityId: Map<string, ContextEntry>
   contactEmailByEntityId: Map<string, Contact>
   meetingsByEntityId: Map<string, Meeting[]>
@@ -233,7 +202,6 @@ function resolveEngagedFields(
 interface RowInput {
   args: BuildArgs
   entity: Entity
-  meta: EntitySignalMetadata | undefined
   isSignal: boolean
   isProspect: boolean
   isMeetings: boolean
@@ -244,11 +212,9 @@ interface RowInput {
 
 export function buildEntityRowView(args: BuildArgs): EntityRowView {
   const e = args.entity
-  const meta = args.signalMetadata.get(e.id)
   return assembleRow({
     args,
     entity: e,
-    meta,
     isSignal: e.stage === 'signal',
     isProspect: e.stage === 'prospect',
     isMeetings: e.stage === 'meetings',
@@ -299,7 +265,6 @@ function assembleRow(input: RowInput): EntityRowView {
   const {
     args,
     entity: e,
-    meta,
     isSignal,
     isProspect,
     isMeetings,
@@ -309,17 +274,19 @@ function assembleRow(input: RowInput): EntityRowView {
   } = input
   const flags = { isSignal, isProspect, isMeetings, isEngaged, isLost, isDelivered }
 
-  const problems = (meta ? (meta.top_problems ?? []) : [])
-    .map((id) => ({ id, label: resolveProblemLabel(id) }))
-    .filter((p): p is { id: string; label: string } => p.label !== null)
+  // Machine-derived row fields (signal evidence, enrichment summary, problem
+  // chips, last-activity) retired with the lead-gen pipeline. The manual
+  // worklist row carries none of them; the fields stay on the view model as
+  // inert null/empty so the row component contract is unchanged.
+  const problems: Array<{ id: string; label: string }> = []
 
   const { prospectFields, meetingsFields, engagedFields, lostFields, proposingFields } =
     resolveStageFields(args, e, flags)
 
   const stageEntry = ENTITY_STAGES.find((s) => s.value === e.stage)
-  const signalEvidence = composeSignalEvidence(meta)
-  const enrichmentSummary = meta ? (meta.enrichment_summary ?? null) : null
-  const lastActivity = meta ? (meta.last_activity_at ?? null) : null
+  const signalEvidence: string | null = null
+  const enrichmentSummary: string | null = null
+  const lastActivity: string | null = null
 
   return {
     entity: e,

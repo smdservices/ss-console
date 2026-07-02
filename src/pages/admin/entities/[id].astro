@@ -2,22 +2,13 @@
 import AdminLayout from '../../../layouts/AdminLayout.astro'
 import AdminFlashNotice from '../../../components/admin/AdminFlashNotice.astro'
 import EntityContactsPanel from '../../../components/admin/EntityContactsPanel.astro'
-import EntityDecisionRail from '../../../components/admin/EntityDecisionRail.astro'
-import EntityDiagnosticsDrawer from '../../../components/admin/EntityDiagnosticsDrawer.astro'
-import EntityEnrichmentSummary from '../../../components/admin/EntityEnrichmentSummary.astro'
 import EntityIdentityStrip from '../../../components/admin/EntityIdentityStrip.astro'
-import EntityMissingPanel from '../../../components/admin/EntityMissingPanel.astro'
-import EntityPainObservations from '../../../components/admin/EntityPainObservations.astro'
 import EntitySendBookingDialog from '../../../components/admin/EntitySendBookingDialog.astro'
 import EntityTimelineEntry from '../../../components/admin/EntityTimelineEntry.astro'
 import LogReplyDialog from '../../../components/admin/LogReplyDialog.astro'
 import { statusBadgeClass } from '../../../lib/ui/status-badge'
 import { ENTITY_STAGES, type EntityStage } from '../../../lib/db/entities'
-import {
-  formatDate,
-  loadEntityDetailPage,
-  parseMetadata,
-} from '../../../lib/admin/entity-detail-page'
+import { formatDate, loadEntityDetailPage } from '../../../lib/admin/entity-detail-page'
 import { env } from 'cloudflare:workers'
 
 const session = Astro.locals.session!
@@ -32,78 +23,31 @@ if (!pageData) return Astro.redirect('/admin/entities?error=not_found')
 
 const {
   entity,
-  signalMetadata,
-  contextEntries,
   contacts,
   meetings,
   engagements,
   quotes,
   invoices,
-  enrichmentRuns,
-  mostRecentDraftableMeeting,
   deduplicatedTimeline,
   promoted,
   noteAdded,
   replyLogged,
   stageUpdated,
-  dossierGenerated,
   contactAdded,
   contactUpdated,
   contactDeleted,
   error,
-  showReEnrichButton,
-  showNewQuoteButton,
-  supersedeCandidates,
-  transitions,
-  decisionEvidence,
-  mergeCandidates,
-  dossierBrief,
-  outreachEntry,
-  outreachContact,
-  outreachMailto,
-  hasOutreach,
-  lastEnrichmentAt,
-  reviewMeta,
 } = pageData
 
 const merged = Astro.url.searchParams.get('merged')
 const draftDiscarded = Astro.url.searchParams.get('draft_discarded')
 
-const signalSourceLabel =
-  signalMetadata?.signal_source_label ?? entity.source_pipeline ?? 'unknown_source'
-const signalAddress =
-  signalMetadata?.signal_address ?? signalMetadata?.signal_location ?? entity.area ?? null
-const signalDate = signalMetadata?.signal_date ?? entity.created_at
+const signalSourceLabel = entity.source_pipeline ?? 'unknown_source'
 const stageAnchorDate = entity.stage_changed_at ?? entity.created_at
 const stageAgeMs = Date.now() - new Date(stageAnchorDate).getTime()
 const daysInStage = Math.max(0, Math.floor(stageAgeMs / (24 * 60 * 60 * 1000)))
 const stageLabel =
   ENTITY_STAGES.find((stage) => stage.value === entity.stage)?.label ?? entity.stage
-
-const reviewSynthesisEntry = [...contextEntries]
-  .reverse()
-  .find((entry) => entry.source === 'review_synthesis')
-const deepWebsiteEntry = [...contextEntries]
-  .reverse()
-  .find((entry) => entry.source === 'deep_website')
-const summaryGeneratedAt =
-  reviewSynthesisEntry?.created_at ??
-  deepWebsiteEntry?.created_at ??
-  dossierBrief?.created_at ??
-  null
-const summarySource =
-  reviewSynthesisEntry?.source ?? deepWebsiteEntry?.source ?? dossierBrief?.source ?? null
-
-const latestJobSignalEntry =
-  [...contextEntries]
-    .reverse()
-    .find((entry) => entry.type === 'signal' && entry.source === 'job_monitor') ?? undefined
-const jobSignalMeta = parseMetadata(latestJobSignalEntry?.metadata ?? null) as {
-  top_problems?: string[]
-  evidence?: string
-} | null
-
-const mobileDraftWarning = decisionEvidence.staleDraftWarning.isStale
 
 function emptyCountLabel(count: number, singular: string, plural: string): string {
   return `${count} ${count === 1 ? singular : plural}`
@@ -131,15 +75,6 @@ function renderCollapsedSectionTitle(stage: EntityStage, count: number): string 
   {stageUpdated && <AdminFlashNotice message={`${entity.name} moved to ${stageLabel}.`} />}
   {merged && <AdminFlashNotice message="Entity merge completed." />}
   {draftDiscarded && <AdminFlashNotice message="Stale outreach draft discarded." />}
-  {
-    dossierGenerated === 'queued' && (
-      <AdminFlashNotice
-        kind="warning"
-        message={`Re-enrichment queued for ${entity.name}. Refresh in about 30 seconds for updated signals.`}
-      />
-    )
-  }
-  {dossierGenerated === '1' && <AdminFlashNotice message={`Re-enriched ${entity.name}.`} />}
   {contactAdded && <AdminFlashNotice message="Contact added." />}
   {contactUpdated && <AdminFlashNotice message="Contact updated." />}
   {contactDeleted && <AdminFlashNotice message="Contact deleted." />}
@@ -156,66 +91,17 @@ function renderCollapsedSectionTitle(stage: EntityStage, count: number): string 
   {entity.stage === 'prospect' && <EntitySendBookingDialog entityId={entity.id} />}
 
   <div data-test="decision-evidence">
-    <div class="lg:grid lg:grid-cols-[1fr_22rem] lg:gap-8">
+    <div>
       <section class="min-w-0">
         <EntityIdentityStrip
           entity={entity}
-          actorRole={decisionEvidence.actorRole}
-          actorRoleConfidence={decisionEvidence.actorRoleConfidence}
-          signalEvidence={decisionEvidence.signalEvidence}
+          actorRole="unknown"
+          actorRoleConfidence="low"
+          signalEvidence={null}
           signalSourceLabel={signalSourceLabel}
           daysInStage={daysInStage}
-          structuralFlags={decisionEvidence.structuralFlags}
+          structuralFlags={[]}
         />
-
-        {
-          mobileDraftWarning && (
-            <section class="border-b border-[color:var(--ss-color-border)] py-8 lg:hidden">
-              <div class="border border-[color:var(--ss-color-warning)] border-l-[3px] px-4 py-4 text-sm leading-6 text-[color:var(--ss-color-text-secondary)]">
-                <strong class="mb-1 block font-['Archivo_Narrow'] text-[12px] font-bold uppercase tracking-[0.12em] text-[color:var(--ss-color-warning)]">
-                  Draft is stale
-                </strong>
-                <span>
-                  {decisionEvidence.staleDraftWarning.reason} Will be regenerated when you Promote
-                  and validated against Pattern A.
-                </span>
-                <div class="mt-3 flex gap-3">
-                  <a
-                    href="#entity-diagnostics-draft"
-                    class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)] underline underline-offset-4"
-                  >
-                    View draft
-                  </a>
-                  <form
-                    method="POST"
-                    action={`/api/admin/entities/${entity.id}/outreach-draft/discard`}
-                  >
-                    <button
-                      type="submit"
-                      class="font-['Archivo_Narrow'] text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--ss-color-primary)] underline underline-offset-4"
-                    >
-                      Discard now
-                    </button>
-                  </form>
-                </div>
-              </div>
-            </section>
-          )
-        }
-
-        <EntityMissingPanel items={decisionEvidence.missingForOutreach} />
-
-        <EntityEnrichmentSummary
-          summary={decisionEvidence.enrichmentSummary}
-          summarySource={summarySource}
-          signalSource={signalSourceLabel}
-          signalDate={signalDate}
-          address={signalAddress}
-          vertical={entity.vertical}
-          generatedAt={summaryGeneratedAt}
-        />
-
-        <EntityPainObservations reviewMeta={reviewMeta} jobSignalMeta={jobSignalMeta} />
 
         <EntityContactsPanel entityId={entity.id} contacts={contacts} />
 
@@ -291,31 +177,7 @@ function renderCollapsedSectionTitle(stage: EntityStage, count: number): string 
             )
           }
         </section>
-
-        <EntityDiagnosticsDrawer
-          entityId={entity.id}
-          intelligenceBriefEntry={dossierBrief}
-          outreachEntry={outreachEntry}
-          enrichmentRuns={enrichmentRuns}
-        />
       </section>
-
-      <EntityDecisionRail
-        entityId={entity.id}
-        entityStage={entity.stage}
-        mergeCandidates={mergeCandidates}
-        staleDraft={decisionEvidence.staleDraftWarning}
-        outreachEntry={outreachEntry}
-        transitions={transitions}
-        mostRecentDraftableMeeting={mostRecentDraftableMeeting}
-        outreachMailto={outreachMailto}
-        outreachContactEmail={outreachContact?.email ?? null}
-        showReEnrichButton={showReEnrichButton}
-        lastEnrichmentAt={lastEnrichmentAt}
-        hasOutreach={hasOutreach}
-        showNewQuoteButton={showNewQuoteButton}
-        supersedeCandidates={supersedeCandidates}
-      />
     </div>
 
     <div class="mt-8 space-y-4">

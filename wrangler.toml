@@ -44,11 +44,6 @@ ADMIN_BASE_URL = "https://admin.smd.services"
 PORTAL_BASE_URL = "https://portal.smd.services"
 MEETING_URL = "https://zoom.us/j/4284801619"
 
-# Generator worker endpoints — invoked by /admin/generators "Run now" button.
-# Bearer-authed via LEAD_INGEST_API_KEY (secret). Set via `wrangler secret put`.
-JOB_MONITOR_WORKER_URL = "https://ss-job-monitor.automation-ab6.workers.dev"
-REVIEW_MINING_WORKER_URL = "https://ss-review-mining.automation-ab6.workers.dev"
-
 # Feature flag for the public /patterns aggregate page. Off by default.
 # Flip to "1" or "true" only after the unlock condition documented in
 # src/pages/patterns.astro is met (>=20 real assessments with cross-vertical
@@ -87,27 +82,6 @@ bucket_name = "smd-consultant-photos"
 [[r2_buckets]]
 binding = "CUSTOMER_CONFIG"
 bucket_name = "smd-customer-config"
-
-# ---------- Service binding to enrichment-workflow Worker ----------
-# Cloudflare Workflows orchestration for entity enrichment lives on its
-# own Worker (`ss-enrichment-workflow`, see `workers/enrichment-workflow/`).
-# #631 was opened after the 2026-04-30 measurement found 86% of created
-# entities had no enrichment activity — the legacy
-# `ctx.waitUntil(enrichEntity(...))` path was being killed by Workers'
-# post-response CPU budget on lead-gen ingest batches.
-#
-# This binding lets the 7 trigger sites (lead-gen workers + admin
-# endpoints) dispatch enrichment via:
-#
-#   env.ENRICHMENT_WORKFLOW_SERVICE.fetch('https://internal/dispatch', {
-#     method: 'POST',
-#     body: JSON.stringify({ entityId, orgId, mode, triggered_by }),
-#   })
-#
-# The target Worker creates a Workflow instance and returns the instance id.
-[[services]]
-binding = "ENRICHMENT_WORKFLOW_SERVICE"
-service = "ss-enrichment-workflow"
 
 # ---------- Workers KV (sessions) ----------
 [[kv_namespaces]]
@@ -179,16 +153,11 @@ name = "ss-web-staging"
 # no sync script needed.
 #
 # RESEND_API_KEY          — Resend transactional email
-# ANTHROPIC_API_KEY       — Claude API (outreach gen, website analysis, dossier)
-# GOOGLE_PLACES_API_KEY   — Google Places Text Search (enrichment)
-# OUTSCRAPER_API_KEY      — Outscraper business profile + email enrichment
-# SERPAPI_API_KEY         — SerpAPI Google Search (news/press enrichment)
-# LEAD_INGEST_API_KEY     — Bearer token for pipeline Worker ingestion
+# ANTHROPIC_API_KEY       — Claude API (assessment funnel, website analysis)
 # SIGNWELL_API_KEY        — SignWell e-signature
 # SIGNWELL_WEBHOOK_SECRET — SignWell webhook verification
 # STRIPE_API_KEY          — Stripe invoicing
 # STRIPE_WEBHOOK_SECRET   — Stripe webhook verification
-# PROXYCURL_API_KEY       — LinkedIn company data (optional, Tier 4 dossier)
 # SENTRY_DSN               — Workers-side Sentry error monitoring (optional —
 #                            integration is a no-op when unset; see
 #                            src/lib/observability/sentry.ts)

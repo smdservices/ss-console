@@ -15,7 +15,6 @@ interface TopCta {
 }
 interface FunnelCounts {
   landing: number
-  scorecard_start: number
   book_start: number
   book_complete: number
 }
@@ -55,7 +54,6 @@ interface FunnelStep {
 
 const funnelSteps: FunnelStep[] = [
   { key: 'landing', label: 'Landed on site' },
-  { key: 'scorecard_start', label: 'Started scorecard' },
   { key: 'book_start', label: 'Reached /book' },
   { key: 'book_complete', label: 'Submitted booking' },
 ]

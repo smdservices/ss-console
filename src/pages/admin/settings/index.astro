@@ -2,28 +2,17 @@
 /**
  * Settings — utility & configuration hub (ADR 0046).
  *
- * Home for the surfaces demoted from the top-level nav: lead-generator
- * config and the follow-up cadence layer (sub-functions of the funnel,
- * not product lines), plus connectors. Nothing is removed — these stay
- * one click away.
+ * Home for the surfaces demoted from the top-level nav: the follow-up
+ * cadence layer (a sub-function of the funnel, not a product line) plus
+ * connectors. These stay one click away.
  */
 import AdminLayout from '../../../layouts/AdminLayout.astro'
 
 const links: { label: string; href: string; desc: string }[] = [
   {
-    label: 'Lead generators',
-    href: '/admin/generators',
-    desc: 'Signal pipelines that feed Leads — enable/disable, last-run status.',
-  },
-  {
     label: 'Follow-ups',
     href: '/admin/follow-ups',
     desc: 'Follow-up cadences across leads and clients.',
-  },
-  {
-    label: 'Pipelines',
-    href: '/admin/settings/pipelines',
-    desc: 'Pipeline configuration.',
   },
   {
     label: 'Google connect',
