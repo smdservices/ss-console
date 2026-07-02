@@ -2,15 +2,12 @@ import type { APIRoute } from 'astro'
 import { getEngagement } from '../../../../../../lib/db/engagements'
 import { streamDocument } from '../../../../../../lib/storage/r2'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../../../lib/auth/admin-session'
 
 export const GET: APIRoute = async ({ locals, params }) => {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
   const engagementId = params.id
   const keyPath = params.key
   if (!engagementId || !keyPath) {

@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro'
 import { createAssessment } from '../../../../lib/db/assessments'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../lib/auth/admin-session'
 
 /**
  * POST /api/admin/assessments
@@ -14,13 +15,9 @@ import { env } from 'cloudflare:workers'
  *   - scheduled_at
  */
 export const POST: APIRoute = async ({ request, locals, redirect }) => {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   try {
     const formData = await request.formData()

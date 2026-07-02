@@ -340,7 +340,7 @@ describe('follow-ups: API route', () => {
   })
 
   it('verifies admin session', () => {
-    expect(source()).toContain("session.role !== 'admin'")
+    expect(source()).toContain('requireAdminSession')
   })
 
   it('scopes follow-up lookup to org', () => {

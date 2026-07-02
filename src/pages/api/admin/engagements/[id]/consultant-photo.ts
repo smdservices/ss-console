@@ -1,6 +1,7 @@
 import type { APIContext, APIRoute } from 'astro'
 import { getEngagement, updateEngagement } from '../../../../../lib/db/engagements'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../../lib/auth/admin-session'
 
 /**
  * Consultant photo upload endpoint.
@@ -51,13 +52,9 @@ function validatePhotoFile(file: FormDataEntryValue | null): Response | File {
 }
 
 async function handlePost({ request, locals, params }: APIContext): Promise<Response> {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const engagementId = params.id
   if (!engagementId) {
@@ -104,13 +101,9 @@ async function handlePost({ request, locals, params }: APIContext): Promise<Resp
 export const POST: APIRoute = (ctx) => handlePost(ctx)
 
 async function handleDelete({ locals, params }: APIContext): Promise<Response> {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const engagementId = params.id
   if (!engagementId) {

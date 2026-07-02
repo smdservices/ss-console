@@ -2,6 +2,7 @@ import { jsonResponse } from '../../../../lib/api/helpers'
 import type { APIContext, APIRoute } from 'astro'
 import { dispatchEnrichmentWorkflow } from '../../../../lib/enrichment/dispatch'
 import { env } from 'cloudflare:workers'
+import { requireAdminSession } from '../../../../lib/auth/admin-session'
 
 /**
  * POST /api/admin/enrichment/backfill (#631)
@@ -83,10 +84,9 @@ async function dispatchSlice(
 }
 
 async function handlePost({ request, locals }: APIContext): Promise<Response> {
-  const session = locals.session
-  if (!session || session.role !== 'admin') {
-    return jsonResponse(401, { error: 'Unauthorized' })
-  }
+  const auth = requireAdminSession(locals)
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   let body: BackfillBody
   try {
